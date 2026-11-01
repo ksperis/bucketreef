@@ -13,6 +13,7 @@ import { collectPaginatedItems } from "../../utils/pagination";
 import type { TextMatchMode } from "../../utils/textMatch";
 import type { S3ConnectionBulkStatusAction } from "./AdminS3ConnectionsList";
 import { useAdminI18n } from "./adminI18n";
+import useAdminPaginatedListController from "./useAdminPaginatedListController";
 
 type RunWithStepUp = <T>(operation: () => Promise<T>) => Promise<T>;
 
@@ -34,10 +35,6 @@ export default function useAdminS3ConnectionsListController({
   runWithStepUp,
 }: Args) {
   const { text: adminText } = useAdminI18n();
-  const [items, setItems] = useState<S3ConnectionAdminItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [total, setTotal] = useState(0);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [statusBusyId, setStatusBusyId] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -62,31 +59,32 @@ export default function useAdminS3ConnectionsListController({
     setAllFilteredSelectableIdsKey(null);
   }, []);
 
-  const refreshItems = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const quick = filter.trim();
-      const response = await listAdminS3Connections({
-        page,
-        page_size: pageSize,
-        search: quick || undefined,
-        search_exact: quickFilterMode === "exact",
-      });
-      if (!ensurePageInRange(response.total)) return;
-      setItems(response.items);
-      setTotal(response.total);
-      invalidateSelectionCache();
-    } catch (err) {
-      setError(extractApiError(err, adminText("Unexpected error")));
-    } finally {
-      setLoading(false);
-    }
-  }, [adminText, ensurePageInRange, filter, invalidateSelectionCache, page, pageSize, quickFilterMode]);
-
-  useEffect(() => {
-    void refreshItems();
-  }, [refreshItems]);
+  const loadPage = useCallback(() => {
+    const quick = filter.trim();
+    return listAdminS3Connections({
+      page,
+      page_size: pageSize,
+      search: quick || undefined,
+      search_exact: quickFilterMode === "exact",
+    });
+  }, [filter, page, pageSize, quickFilterMode]);
+  const formatLoadError = useCallback(
+    (err: unknown) => extractApiError(err, adminText("Unexpected error")),
+    [adminText],
+  );
+  const {
+    items,
+    loading,
+    error,
+    total,
+    setError,
+    refresh: refreshItems,
+  } = useAdminPaginatedListController({
+    loadPage,
+    ensurePageInRange,
+    formatError: formatLoadError,
+    onLoaded: invalidateSelectionCache,
+  });
 
   useEffect(() => {
     invalidateSelectionCache();
@@ -127,7 +125,7 @@ export default function useAdminS3ConnectionsListController({
         setSelectAllFilteredBusy(false);
       }
     },
-    [adminText, loadAllSelectableFilteredIds],
+    [adminText, loadAllSelectableFilteredIds, setError],
   );
 
   const toggleRowSelection = useCallback((connectionId: number) => {
@@ -183,7 +181,7 @@ export default function useAdminS3ConnectionsListController({
     } finally {
       setStatusBusyId(null);
     }
-  }, [adminText, refreshItems, runWithStepUp]);
+  }, [adminText, refreshItems, runWithStepUp, setError]);
 
   const submitBulkStatusChange = useCallback(async (action: S3ConnectionBulkStatusAction) => {
     if (selectedIds.length === 0 || bulkStatusAction !== null) return;
@@ -231,7 +229,7 @@ export default function useAdminS3ConnectionsListController({
     } finally {
       setBulkStatusAction(null);
     }
-  }, [bulkStatusAction, items, refreshItems, runWithStepUp, selectedIds]);
+  }, [bulkStatusAction, items, refreshItems, runWithStepUp, selectedIds, setError]);
 
   const submitBulkDelete = useCallback(async () => {
     if (bulkDeleteBusy) return;
@@ -260,7 +258,7 @@ export default function useAdminS3ConnectionsListController({
         (failedIds.length > 0 ? ` ${failedIds.length} failed.` : ""),
     );
     setBulkDeleteBusy(false);
-  }, [bulkDeleteBusy, refreshItems, selectedIds]);
+  }, [bulkDeleteBusy, refreshItems, selectedIds, setError]);
 
   return {
     items,
