@@ -64,13 +64,9 @@ import {
 } from "./filtering/advancedFilterModel";
 import { useCephAdminListingFilters } from "./filtering/useCephAdminListingFilters";
 import { useCephAdminEntityListing } from "./listing/useCephAdminEntityListing";
-import {
-  loadCephAdminVisibleColumns,
-  persistCephAdminVisibleColumns,
-  resolveCephAdminQuickFilterState,
-} from "./listing/cephAdminListingViewState";
+import { resolveCephAdminQuickFilterState } from "./listing/cephAdminListingViewState";
+import { useCephAdminListingTableState } from "./listing/useCephAdminListingTableState";
 import { formatBytes, formatNumber } from "../../utils/format";
-import { nextSortState } from "../../utils/sortValues";
 import { useCephAdminI18n } from "./cephAdminI18n";
 import { useCephAdminAccountConfigurationNavigation } from "./useCephAdminEntityConfigurationNavigation";
 
@@ -280,12 +276,25 @@ export default function CephAdminAccountsPage() {
   const navigate = useNavigate();
   const { selectedEndpointId, selectedEndpoint, selectedEndpointAccess } = useCephAdminEndpoint();
   const canViewMetrics = Boolean(selectedEndpointAccess?.can_metrics) && (selectedEndpoint?.capabilities?.metrics !== false);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
-  const [sort, setSort] = useState<{ field: SortField; direction: "asc" | "desc" }>(DEFAULT_SORT);
-  const [visibleColumns, setVisibleColumns] = useState<ColumnId[]>(() =>
-    loadCephAdminVisibleColumns(COLUMNS_STORAGE_KEY, ACCOUNT_COLUMN_IDS, defaultVisibleColumns),
-  );
+  const {
+    page,
+    setPage,
+    pageSize,
+    sort,
+    visibleColumns,
+    toggleColumn,
+    resetColumns,
+    toggleSort,
+    changePageSize,
+    resetSort,
+    resetPageSize,
+    columnsCustomized,
+  } = useCephAdminListingTableState<ColumnId, SortField>({
+    storageKey: COLUMNS_STORAGE_KEY,
+    allowedColumns: ACCOUNT_COLUMN_IDS,
+    defaultVisibleColumns,
+    defaultSort: DEFAULT_SORT,
+  });
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState<CephAdminRgwAccount | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
@@ -311,14 +320,10 @@ export default function CephAdminAccountsPage() {
   });
 
   useEffect(() => {
-    persistCephAdminVisibleColumns(COLUMNS_STORAGE_KEY, visibleColumns);
-  }, [visibleColumns]);
-
-  useEffect(() => {
-    setPageSize(25);
-    setSort(DEFAULT_SORT);
+    resetPageSize();
+    resetSort();
     setShowCreateModal(false);
-  }, [selectedEndpointId]);
+  }, [resetPageSize, resetSort, selectedEndpointId]);
 
   const includeParams = useMemo(() => {
     const include = new Set<string>();
@@ -368,19 +373,6 @@ export default function CephAdminAccountsPage() {
     items,
     selectedEndpointId,
   });
-
-  const toggleColumn = (id: ColumnId) => {
-    setVisibleColumns((prev) => (prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]));
-  };
-
-  const resetColumns = () => {
-    setVisibleColumns(defaultVisibleColumns);
-  };
-
-  const toggleSort = (field: SortField) => {
-    setSort((current) => nextSortState(current, field));
-    setPage(1);
-  };
 
   const accountNameAppliedValue = (advancedApplied?.accountName ?? "").trim();
   const emailAppliedValue = (advancedApplied?.email ?? "").trim();
@@ -553,12 +545,6 @@ export default function CephAdminAccountsPage() {
     }
     return surfaceText("No additional filter cost.");
   }, [advancedDraftGlobalCostLevel, advancedDraftNumericCount, advancedDraftTextCount, surfaceText]);
-
-  const columnsCustomized = useMemo(() => {
-    if (visibleColumns.length !== defaultVisibleColumns.length) return true;
-    const current = new Set(visibleColumns);
-    return defaultVisibleColumns.some((column) => !current.has(column));
-  }, [visibleColumns]);
 
   const detailPlaceholder = loadingDetails ? surfaceText("Loading...") : "-";
 
@@ -959,10 +945,7 @@ export default function CephAdminAccountsPage() {
               pageSize,
               total,
               onPageChange: setPage,
-              onPageSizeChange: (size) => {
-                setPageSize(size);
-                setPage(1);
-              },
+              onPageSizeChange: changePageSize,
               disabled: loading || !selectedEndpointId,
             }}
           />
