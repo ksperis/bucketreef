@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import {
   fetchAdminStorage,
@@ -19,6 +19,16 @@ import {
 } from "../../api/usageHistory";
 import { extractApiError } from "../../utils/apiError";
 import { adminMetricsSourceText } from "./adminMetricsMessage";
+import useAdminResourceController from "./useAdminResourceController";
+
+function metricsErrorFormatter(key: Parameters<typeof adminMetricsSourceText>[0]) {
+  const fallback = adminMetricsSourceText(key);
+  return (error: unknown) => extractApiError(error, fallback);
+}
+
+const formatStorageError = metricsErrorFormatter("loadStorageError");
+const formatTrafficError = metricsErrorFormatter("loadTrafficError");
+const formatUsageHistoryError = metricsErrorFormatter("loadHistoryError");
 
 export function useAdminMetricsResources({
   usageHistoryEnabled,
@@ -29,19 +39,10 @@ export function useAdminMetricsResources({
   trafficWindow: TrafficWindow;
   usageHistoryWindow: UsageHistoryTrendWindow;
 }) {
-  const [storage, setStorage] = useState<AdminStorageStats | null>(null);
-  const [storageError, setStorageError] = useState<string | null>(null);
-  const [storageLoading, setStorageLoading] = useState(true);
   const [endpoints, setEndpoints] = useState<StorageEndpoint[]>([]);
   const [selectedEndpointId, setSelectedEndpointId] = useState<number | null>(null);
   const [endpointLoading, setEndpointLoading] = useState(true);
   const [endpointError, setEndpointError] = useState<string | null>(null);
-  const [traffic, setTraffic] = useState<AdminTrafficStats | null>(null);
-  const [trafficError, setTrafficError] = useState<string | null>(null);
-  const [trafficLoading, setTrafficLoading] = useState(false);
-  const [usageHistoryTrends, setUsageHistoryTrends] = useState<UsageHistoryTrendResponse | null>(null);
-  const [usageHistoryLoading, setUsageHistoryLoading] = useState(false);
-  const [usageHistoryError, setUsageHistoryError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -75,101 +76,67 @@ export function useAdminMetricsResources({
     };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function loadStorage() {
-      if (endpointLoading) return;
-      if (selectedEndpointId == null) {
-        setStorage(null);
-        setStorageLoading(false);
-        return;
-      }
-      setStorage(null);
-      setStorageLoading(true);
-      setStorageError(null);
-      try {
-        const data = await fetchAdminStorage(selectedEndpointId);
-        if (!cancelled) setStorage(data);
-      } catch (err) {
-        if (cancelled) return;
-        setStorageError(extractApiError(err, adminMetricsSourceText("loadStorageError")));
-        setStorage(null);
-      } finally {
-        if (!cancelled) setStorageLoading(false);
-      }
-    }
-    void loadStorage();
-    return () => {
-      cancelled = true;
-    };
-  }, [endpointLoading, selectedEndpointId]);
+  const resourceEnabled = !endpointLoading && selectedEndpointId != null;
+  const loadStorage = useCallback(() => {
+    if (selectedEndpointId == null) throw new Error("Storage endpoint is not selected");
+    return fetchAdminStorage(selectedEndpointId);
+  }, [selectedEndpointId]);
+  const {
+    resource: storage,
+    error: storageError,
+    loading: storageLoading,
+  } = useAdminResourceController<AdminStorageStats | null>({
+    enabled: resourceEnabled,
+    formatError: formatStorageError,
+    initialLoading: true,
+    initialResource: null,
+    loadResource: loadStorage,
+    resetResourceOnError: true,
+    resetResourceOnLoad: true,
+    resetResourceWhenDisabled: true,
+  });
 
-  useEffect(() => {
-    let cancelled = false;
-    async function loadTraffic() {
-      if (endpointLoading) return;
-      if (selectedEndpointId == null) {
-        setTraffic(null);
-        setTrafficLoading(false);
-        return;
-      }
-      setTraffic(null);
-      setTrafficLoading(true);
-      setTrafficError(null);
-      try {
-        const data = await fetchAdminTraffic(trafficWindow, selectedEndpointId);
-        if (!cancelled) setTraffic(data);
-      } catch (err) {
-        if (cancelled) return;
-        setTrafficError(extractApiError(err, adminMetricsSourceText("loadTrafficError")));
-        setTraffic(null);
-      } finally {
-        if (!cancelled) setTrafficLoading(false);
-      }
-    }
-    void loadTraffic();
-    return () => {
-      cancelled = true;
-    };
-  }, [endpointLoading, selectedEndpointId, trafficWindow]);
+  const loadTraffic = useCallback(() => {
+    if (selectedEndpointId == null) throw new Error("Storage endpoint is not selected");
+    return fetchAdminTraffic(trafficWindow, selectedEndpointId);
+  }, [selectedEndpointId, trafficWindow]);
+  const {
+    resource: traffic,
+    error: trafficError,
+    loading: trafficLoading,
+  } = useAdminResourceController<AdminTrafficStats | null>({
+    enabled: resourceEnabled,
+    formatError: formatTrafficError,
+    initialLoading: false,
+    initialResource: null,
+    loadResource: loadTraffic,
+    resetResourceOnError: true,
+    resetResourceOnLoad: true,
+    resetResourceWhenDisabled: true,
+  });
 
-  useEffect(() => {
-    let cancelled = false;
-    async function loadUsageHistoryTrends() {
-      if (!usageHistoryEnabled || endpointLoading) {
-        setUsageHistoryTrends(null);
-        setUsageHistoryLoading(false);
-        setUsageHistoryError(null);
-        return;
-      }
-      if (selectedEndpointId == null) {
-        setUsageHistoryTrends(null);
-        setUsageHistoryLoading(false);
-        return;
-      }
-      setUsageHistoryTrends(null);
-      setUsageHistoryLoading(true);
-      setUsageHistoryError(null);
-      try {
-        const data = await fetchAdminUsageHistoryTrends({
-          window: usageHistoryWindow,
-          endpointId: selectedEndpointId,
-          subjectType: "all",
-        });
-        if (!cancelled) setUsageHistoryTrends(data);
-      } catch (err) {
-        if (cancelled) return;
-        setUsageHistoryTrends(null);
-        setUsageHistoryError(extractApiError(err, adminMetricsSourceText("loadHistoryError")));
-      } finally {
-        if (!cancelled) setUsageHistoryLoading(false);
-      }
-    }
-    void loadUsageHistoryTrends();
-    return () => {
-      cancelled = true;
-    };
-  }, [endpointLoading, selectedEndpointId, usageHistoryEnabled, usageHistoryWindow]);
+  const loadUsageHistoryTrends = useCallback(() => {
+    if (selectedEndpointId == null) throw new Error("Storage endpoint is not selected");
+    return fetchAdminUsageHistoryTrends({
+      window: usageHistoryWindow,
+      endpointId: selectedEndpointId,
+      subjectType: "all",
+    });
+  }, [selectedEndpointId, usageHistoryWindow]);
+  const {
+    resource: usageHistoryTrends,
+    error: usageHistoryError,
+    loading: usageHistoryLoading,
+  } = useAdminResourceController<UsageHistoryTrendResponse | null>({
+    enabled: resourceEnabled && usageHistoryEnabled,
+    formatError: formatUsageHistoryError,
+    initialLoading: false,
+    initialResource: null,
+    loadResource: loadUsageHistoryTrends,
+    resetResourceOnError: true,
+    resetResourceOnLoad: true,
+    resetResourceWhenDisabled: true,
+  });
 
   return {
     storage,

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -215,6 +215,37 @@ describe("AdminMetricsPage", () => {
     fireEvent.change(screen.getByLabelText("Ceph endpoint"), { target: { value: "8" } });
     await waitFor(() => expect(fetchAdminStorageMock).toHaveBeenLastCalledWith(8));
     expect(screen.queryByText("Coverage")).not.toBeInTheDocument();
+  });
+
+  it("ignores storage data from an endpoint that is no longer selected", async () => {
+    let resolveFirstStorage: ((value: ReturnType<typeof makeStorageStats>) => void) | undefined;
+    listStorageEndpointsMock.mockResolvedValue([
+      makeCephEndpoint(),
+      { ...makeCephEndpoint(), id: 8, name: "Ceph backup", is_default: false },
+    ]);
+    fetchAdminStorageMock.mockImplementation((endpointId: number) => {
+      if (endpointId === 7) {
+        return new Promise<ReturnType<typeof makeStorageStats>>((resolve) => {
+          resolveFirstStorage = resolve;
+        });
+      }
+      return Promise.resolve({
+        ...makeStorageStats(),
+        storage_totals: { used_bytes: 4096, object_count: 8, bucket_count: 2 },
+      });
+    });
+
+    render(<MemoryRouter><AdminMetricsPage /></MemoryRouter>);
+    await waitFor(() => expect(fetchAdminStorageMock).toHaveBeenCalledWith(7));
+
+    fireEvent.change(screen.getByLabelText("Ceph endpoint"), { target: { value: "8" } });
+    const storageCard = (await screen.findByText("Storage snapshot")).closest("section");
+    expect(storageCard).not.toBeNull();
+    expect(await within(storageCard!).findByText("4.0 KB")).toBeInTheDocument();
+
+    await act(async () => resolveFirstStorage?.(makeStorageStats()));
+
+    expect(within(storageCard!).getByText("4.0 KB")).toBeInTheDocument();
   });
 
   it("keeps usage composition as the last metrics tab", async () => {
