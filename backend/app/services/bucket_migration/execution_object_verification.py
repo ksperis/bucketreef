@@ -11,14 +11,10 @@ from typing import Any, Callable, Optional
 
 from botocore.exceptions import BotoCoreError, ClientError
 
-from ._shared import (
-    _DIFF_CONTROL_CHECK_INTERVAL_OBJECTS,
-    _RUN_ACTIONS_CHUNK_SIZE_MULTIPLIER,
-    _chunked,
-)
 from .execution_object_models import VersionTimelineDiffKey
 from .execution_runtime import ResolvedContext
 from .execution_signals import MigrationControlRequested, WorkerLeaseLostError, check_control_state
+from .execution_tuning import DIFF_CONTROL_CHECK_INTERVAL_OBJECTS, RUN_ACTIONS_CHUNK_SIZE_MULTIPLIER, chunked
 
 logger = logging.getLogger(__name__)
 
@@ -159,7 +155,7 @@ class BucketMigrationObjectVerificationMixin:
                 target_client=resolved_target_client,
             )
 
-        for chunk in _chunked(keys, worker_count):
+        for chunk in chunked(keys, worker_count):
             with ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix="bucket-migration-strong-verify") as executor:
                 if not self._run_strong_verification_batch(
                     executor,
@@ -310,7 +306,7 @@ class BucketMigrationObjectVerificationMixin:
                 control_check=control_check,
             )
         worker_count = max(1, int(parallelism_max))
-        batch_size = max(worker_count, worker_count * _RUN_ACTIONS_CHUNK_SIZE_MULTIPLIER)
+        batch_size = max(worker_count, worker_count * RUN_ACTIONS_CHUNK_SIZE_MULTIPLIER)
         size_only_count = 0
         results = _StrongVerificationResults()
         size_only_batch: list[str] = []
@@ -348,7 +344,7 @@ class BucketMigrationObjectVerificationMixin:
             target_client=target_client,
         ):
             scan_count_since_control += 1
-            if scan_count_since_control >= _DIFF_CONTROL_CHECK_INTERVAL_OBJECTS:
+            if scan_count_since_control >= DIFF_CONTROL_CHECK_INTERVAL_OBJECTS:
                 state = check_control_state(
                     control_check,
                     lost_lease_message="Worker lease lost while collecting strong-verification candidates",

@@ -13,15 +13,15 @@ from app.services.s3_execution_context import S3ExecutionTarget
 from app.utils.s3_endpoint import normalize_s3_endpoint
 from app.utils.time import utcnow
 
-from ._shared import (
-    _DIFF_CONTROL_CHECK_INTERVAL_OBJECTS,
-    _RUN_ACTIONS_CHUNK_SIZE_MULTIPLIER,
-    _SYNC_PROGRESS_FLUSH_INTERVAL_SECONDS,
-    _SYNC_PROGRESS_FLUSH_OBJECTS_THRESHOLD,
-)
 from .execution_object_models import BucketDiffEntry, SyncDiff, VersionReplayWatermarkBuilder
 from .execution_runtime import ResolvedContext
 from .execution_signals import WorkerLeaseLostError
+from .execution_tuning import (
+    DIFF_CONTROL_CHECK_INTERVAL_OBJECTS,
+    RUN_ACTIONS_CHUNK_SIZE_MULTIPLIER,
+    SYNC_PROGRESS_FLUSH_INTERVAL_SECONDS,
+    SYNC_PROGRESS_FLUSH_OBJECTS_THRESHOLD,
+)
 
 
 class _SyncProgressTracker:
@@ -57,8 +57,8 @@ class _SyncProgressTracker:
         if total_pending <= 0:
             return
         now = time.monotonic()
-        if not force and total_pending < _SYNC_PROGRESS_FLUSH_OBJECTS_THRESHOLD:
-            if (now - self.last_flush) < _SYNC_PROGRESS_FLUSH_INTERVAL_SECONDS:
+        if not force and total_pending < SYNC_PROGRESS_FLUSH_OBJECTS_THRESHOLD:
+            if (now - self.last_flush) < SYNC_PROGRESS_FLUSH_INTERVAL_SECONDS:
                 return
 
         self.item.objects_copied = int(self.item.objects_copied or 0) + self.pending_copied
@@ -168,7 +168,7 @@ class BucketMigrationObjectSyncMixin:
         for _key, timeline in self._iter_bucket_version_timelines(source_ctx, source_bucket, client=source_client):
             for entry in timeline:
                 scan_count_since_control += 1
-                if scan_count_since_control >= _DIFF_CONTROL_CHECK_INTERVAL_OBJECTS:
+                if scan_count_since_control >= DIFF_CONTROL_CHECK_INTERVAL_OBJECTS:
                     state = control_check()
                     if state == "lost_lease":
                         if on_progress is not None:
@@ -485,7 +485,7 @@ class _CurrentObjectSyncRunner:
         worker_count = max(1, int(parallelism_max))
         self.action_batch_size = max(
             worker_count,
-            worker_count * _RUN_ACTIONS_CHUNK_SIZE_MULTIPLIER,
+            worker_count * RUN_ACTIONS_CHUNK_SIZE_MULTIPLIER,
         )
         self.copy_grant_stack: ExitStack | None = None
         self.copy_grant_enabled = False
@@ -529,7 +529,7 @@ class _CurrentObjectSyncRunner:
 
     def _process_entry(self, entry: BucketDiffEntry) -> bool:
         self.scan_count_since_control += 1
-        if self.scan_count_since_control >= _DIFF_CONTROL_CHECK_INTERVAL_OBJECTS:
+        if self.scan_count_since_control >= DIFF_CONTROL_CHECK_INTERVAL_OBJECTS:
             if not self._may_continue():
                 return False
             self.scan_count_since_control = 0
