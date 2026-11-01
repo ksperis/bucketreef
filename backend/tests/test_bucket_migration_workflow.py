@@ -410,6 +410,29 @@ def test_stale_worker_cannot_publish_ready(prepared):
     assert service.get_migration(migration.id).checked_revision is None
 
 
+def test_precheck_progress_checkpoint_persists_completed_item_count(prepared):
+    service, migration, _ = prepared
+    progress_counts: list[int] = []
+
+    def run_planner(_migration, *, checked_at, on_progress):
+        report = {
+            "checked_at": checked_at.isoformat(),
+            "items": [{"bucket": "source-bucket"}],
+            "errors": 0,
+        }
+        on_progress(report)
+        progress_counts.append(migration.preparation_completed_items)
+        return report
+
+    service._precheck_planner.run = Mock(side_effect=run_planner)
+
+    checked = service.run_precheck(migration.id, active_checks=True)
+
+    assert progress_counts == [1]
+    assert checked.preparation_completed_items == 1
+    assert checked.precheck_status == "passed"
+
+
 def test_created_destination_provenance_allows_retry_only_for_own_bucket(prepared):
     service, migration, _ = prepared
     service.run_precheck(migration.id, active_checks=True)
