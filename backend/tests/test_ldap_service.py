@@ -5,6 +5,7 @@ import struct
 from types import SimpleNamespace
 
 import pytest
+from ldap3.core.exceptions import LDAPKeyError
 from pydantic import ValidationError
 from sqlalchemy import func, select
 
@@ -122,6 +123,27 @@ def test_search_filter_escapes_username():
     provider = _provider(user_filter="(uid={username})")
 
     assert service._build_search_filter(provider, "a*b(c)\\") == r"(uid=a\2ab\28c\29\5c)"
+
+
+def test_entry_value_returns_none_for_missing_ldap_attribute():
+    class Entry:
+        entry_attributes_as_dict = None
+
+        def __getitem__(self, _attribute):
+            raise LDAPKeyError("missing attribute")
+
+    assert LDAPAuthService._entry_value(Entry(), "mail") is None
+
+
+def test_entry_value_propagates_unexpected_lookup_failures():
+    class Entry:
+        entry_attributes_as_dict = None
+
+        def __getitem__(self, _attribute):
+            raise RuntimeError("unexpected lookup failure")
+
+    with pytest.raises(RuntimeError, match="unexpected lookup failure"):
+        LDAPAuthService._entry_value(Entry(), "mail")
 
 
 def test_import_search_filter_escapes_query_and_derives_from_user_filter():
