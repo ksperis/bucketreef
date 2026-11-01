@@ -13,6 +13,7 @@ from app.utils.rgw_identifiers import (
     validate_rgw_account_name,
 )
 from app.utils.rgw_payloads import (
+    extract_rgw_account_email,
     extract_rgw_account_id,
     extract_rgw_account_ids,
     extract_rgw_account_name,
@@ -80,6 +81,17 @@ def test_extract_rgw_account_name_normalizes_supported_aliases():
     assert extract_rgw_account_name(
         {"name": "Wrapper", "account": {"name": " Nested "}}
     ) == "Nested"
+
+
+def test_extract_rgw_account_email_normalizes_aliases_and_prefers_nested_payload():
+    assert extract_rgw_account_email({"email": " admin@example.test "}) == "admin@example.test"
+    assert extract_rgw_account_email({"mail": "legacy@example.test"}) == "legacy@example.test"
+    assert extract_rgw_account_email(
+        {
+            "email": "wrapper@example.test",
+            "account": {"mail": " nested@example.test "},
+        }
+    ) == "nested@example.test"
 
 
 def test_extract_rgw_account_tenant_optional_preserves_presence_and_nested_payload():
