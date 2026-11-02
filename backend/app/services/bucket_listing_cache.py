@@ -12,7 +12,11 @@ from typing import Callable
 from app.models.bucket import Bucket
 from app.services.s3_execution_client import s3_execution_cache_key
 from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
-from app.utils.cache import TtlCacheEntry, get_or_build_single_flight_cache
+from app.utils.cache import (
+    TtlCacheEntry,
+    get_or_build_single_flight_cache,
+    invalidate_single_flight_cache,
+)
 
 BUCKET_LISTING_CACHE_TTL_SECONDS = 1800.0
 BUCKET_LISTING_CACHE_MAX_ENTRIES = 512
@@ -79,14 +83,13 @@ def get_cached_bucket_listing_for_context(
 
 
 def invalidate_bucket_listing_cache(scope_key: str | None = None) -> None:
-    with _BUCKET_LISTING_CACHE_LOCK:
-        for entries in (_BUCKET_LISTING_CACHE, _BUCKET_LISTING_INFLIGHT):
-            if scope_key is None:
-                entries.clear()
-            else:
-                invalid_keys = [key for key in entries if key.scope_key == scope_key]
-                for key in invalid_keys:
-                    entries.pop(key, None)
+    predicate = None if scope_key is None else lambda key: key.scope_key == scope_key
+    invalidate_single_flight_cache(
+        _BUCKET_LISTING_CACHE,
+        _BUCKET_LISTING_INFLIGHT,
+        _BUCKET_LISTING_CACHE_LOCK,
+        predicate=predicate,
+    )
 
 
 def invalidate_bucket_listing_cache_for_context(context: S3ExecutionTarget) -> None:
