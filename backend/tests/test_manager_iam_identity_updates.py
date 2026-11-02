@@ -737,14 +737,35 @@ def test_role_tag_delete_rejects_provider_false_success(monkeypatch):
     assert audit.calls == []
 
 
-@pytest.mark.parametrize("model", [IAMUserUpdate, IAMGroupUpdate, IAMRoleUpdate])
-def test_iam_path_validation_is_shared(model):
+@pytest.mark.parametrize("model", [IAMUserUpdate, IAMGroupUpdate])
+def test_iam_identity_update_path_validation_is_shared(model):
     assert model(path="/").path == "/"
     assert model(path="/service/").path == "/service/"
     with pytest.raises(ValidationError):
         model(path="service")
     with pytest.raises(ValidationError):
         model(path="/" + "x" * 511 + "/")
+
+
+def test_iam_role_update_rejects_unsupported_path_field():
+    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        IAMRoleUpdate.model_validate({"path": "/service/"})
+
+
+@pytest.mark.parametrize(
+    ("model", "field"),
+    [
+        (IAMUserUpdate, "name"),
+        (IAMUserUpdate, "path"),
+        (IAMGroupUpdate, "name"),
+        (IAMGroupUpdate, "path"),
+        (IAMRoleUpdate, "assume_role_policy_document"),
+        (IAMRoleUpdate, "max_session_duration"),
+    ],
+)
+def test_iam_updates_reject_explicit_null_for_concrete_fields(model, field):
+    with pytest.raises(ValidationError, match=rf"{field} cannot be null"):
+        model.model_validate({field: None})
 
 
 @pytest.mark.parametrize("duration", [3599, 43201])

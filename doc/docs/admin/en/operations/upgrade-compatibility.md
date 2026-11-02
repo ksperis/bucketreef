@@ -813,6 +813,19 @@ overrides keep their existing clear/inherit semantics.
 Deploy the backend and bundled frontend together. No database migration is
 required.
 
+## 2026-11 canonical Manager IAM PATCH contracts
+
+Manager IAM user and group PATCH payloads now reject explicit `null` for
+identity names and IAM paths. IAM role PATCH payloads reject explicit `null`
+for trust-policy and max-session-duration updates.
+
+The unused IAM role `path` PATCH field has been removed because RGW IAM does
+not support changing a role path and the BucketReef frontend never submitted
+that field. Omit fields to preserve their current value.
+
+Deploy the backend and bundled frontend together. No database migration is
+required.
+
 ## 2026-11 canonical Storage Endpoint PATCH nullability
 
 Storage Endpoint PATCH payloads now reject explicit `null` for concrete
