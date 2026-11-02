@@ -17,6 +17,7 @@ export default function IamCursorPaginationControls({
   onPrevious,
   onNext,
   onPageSizeChange,
+  showPageSize = true,
 }: {
   page: number;
   pageSize: number;
@@ -25,7 +26,8 @@ export default function IamCursorPaginationControls({
   disabled?: boolean;
   onPrevious: () => void;
   onNext: () => void;
-  onPageSizeChange: (pageSize: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
+  showPageSize?: boolean;
 }) {
   const { text } = usePaginationControlsI18n();
   const pageSizeId = useId();
@@ -40,19 +42,21 @@ export default function IamCursorPaginationControls({
         </ListActionButton>
         <span className="ui-caption">{text("pageNumber", { page })}</span>
       </div>
-      <div className="flex items-center gap-2">
-        <label htmlFor={pageSizeId} className={uiLabelClass}>{text("pageSize")}</label>
-        <UiSelect
-          id={pageSizeId}
-          size="compact"
-          className="ui-list-control"
-          value={pageSize}
-          onChange={(event) => onPageSizeChange(Number(event.target.value))}
-          disabled={disabled}
-        >
-          {[10, 25, 50, 100].map((size) => <option key={size} value={size}>{size}</option>)}
-        </UiSelect>
-      </div>
+      {showPageSize ? (
+        <div className="flex items-center gap-2">
+          <label htmlFor={pageSizeId} className={uiLabelClass}>{text("pageSize")}</label>
+          <UiSelect
+            id={pageSizeId}
+            size="compact"
+            className="ui-list-control"
+            value={pageSize}
+            onChange={(event) => onPageSizeChange?.(Number(event.target.value))}
+            disabled={disabled}
+          >
+            {[10, 25, 50, 100].map((size) => <option key={size} value={size}>{size}</option>)}
+          </UiSelect>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import type { S3ExecutionContextSelector } from "../../api/accountParams";
@@ -10,16 +10,16 @@ import { ListActionButton } from "../../components/list/ListControls";
 import ListPageSection from "../../components/list/ListPageSection";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import PageBanner from "../../components/PageBanner";
-import UiButton from "../../components/ui/UiButton";
-import UiSelect from "../../components/ui/UiSelect";
-import UiInput from "../../components/ui/UiInput";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 import { extractApiError } from "../../utils/apiError";
 import { decodeRouteValue } from "../../utils/routeValues";
+import ManagerIamAssociationPicker, {
+  type ManagerIamAssociationFailure,
+  type ManagerIamAssociationPickerItem,
+} from "./ManagerIamAssociationPicker";
 import { useManagerI18n } from "./managerI18n";
 import { useExecutionContext } from "./ExecutionContextProvider";
 import { useManagerIamCursorCollection } from "./useManagerIamCursorCollection";
-import IamCursorPaginationControls from "./IamCursorPaginationControls";
 
 export default function ManagerUserGroupsPage() {
   const { text } = useManagerI18n();
@@ -29,14 +29,16 @@ export default function ManagerUserGroupsPage() {
   const isS3User = selectedContextKind === "s3_user";
   const decodedUser = decodeRouteValue(userName);
   const [groups, setGroups] = useState<IAMGroup[]>([]);
-  const [newGroup, setNewGroup] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [selectedGroups, setSelectedGroups] = useState<IAMGroup[]>([]);
+  const [associationFailures, setAssociationFailures] = useState<ManagerIamAssociationFailure[]>([]);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const membershipConfirmation = useConfirmActionDialog();
   const groupOptions = useManagerIamCursorCollection(listIamGroupsPage);
-  const { load: loadGroupOptions, setItems: setGroupOptions } = groupOptions;
+  const { setItems: setGroupOptions } = groupOptions;
 
   const load = useCallback(async (contextId: S3ExecutionContextSelector, targetUser: string) => {
     setLoading(true);
@@ -44,15 +46,17 @@ export default function ManagerUserGroupsPage() {
     try {
       const user = await getIamUser(contextId, targetUser);
       setGroups((user.groups ?? []).map((name) => ({ name })));
-      loadGroupOptions(contextId);
     } catch (err) {
       setError(extractApiError(err, text("Unable to load IAM groups.")));
     } finally {
       setLoading(false);
     }
-  }, [loadGroupOptions, text]);
+  }, [text]);
 
   useEffect(() => {
+    setPickerOpen(false);
+    setSelectedGroups([]);
+    setAssociationFailures([]);
     if (!userName || needsContextSelection || isS3User) {
       setGroups([]);
       setGroupOptions([]);
@@ -67,26 +71,59 @@ export default function ManagerUserGroupsPage() {
     [groupOptions.items, groups],
   );
 
-  useEffect(() => {
-    if (newGroup && !availableGroups.some((group) => group.name === newGroup)) setNewGroup("");
-  }, [availableGroups, newGroup]);
+  const openPicker = () => {
+    setSelectedGroups([]);
+    setAssociationFailures([]);
+    setActionMessage(null);
+    setPickerOpen(true);
+    groupOptions.load(contextIdForApi);
+  };
 
-  const handleAdd = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!userName || !newGroup || busy) return;
+  const closePicker = () => {
+    if (busy === "add") return;
+    setPickerOpen(false);
+    setSelectedGroups([]);
+    setAssociationFailures([]);
+  };
+
+  const toggleGroup = (item: ManagerIamAssociationPickerItem, checked: boolean) => {
+    if (checked) {
+      const group = availableGroups.find((candidate) => candidate.name === item.id);
+      if (group) setSelectedGroups((current) => [...current.filter((candidate) => candidate.name !== group.name), group]);
+      return;
+    }
+    setSelectedGroups((current) => current.filter((group) => group.name !== item.id));
+  };
+
+  const handleAdd = async () => {
+    if (!userName || selectedGroups.length === 0 || busy) return;
     setBusy("add");
     setError(null);
     setActionMessage(null);
-    try {
-      await addIamGroupUser(contextIdForApi, newGroup, userName);
-      setNewGroup("");
-      await load(contextIdForApi, userName);
-      setActionMessage(text("User added to group"));
-    } catch (err) {
-      setError(extractApiError(err, text("Unable to update IAM group membership.")));
-    } finally {
-      setBusy(null);
+    setAssociationFailures([]);
+    const results = await Promise.all(selectedGroups.map(async (group) => {
+      try {
+        await addIamGroupUser(contextIdForApi, group.name, userName);
+        return { group, error: null };
+      } catch (err) {
+        return { group, error: extractApiError(err, text("Unable to update IAM group membership.")) };
+      }
+    }));
+    const failures = results.filter((result) => result.error !== null);
+    await load(contextIdForApi, userName);
+    setBusy(null);
+    if (failures.length === 0) {
+      setPickerOpen(false);
+      setSelectedGroups([]);
+      setActionMessage(text("Group memberships updated"));
+      return;
     }
+    setSelectedGroups(failures.map((result) => result.group));
+    setAssociationFailures(failures.map((result) => ({
+      id: result.group.name,
+      label: result.group.name,
+      message: result.error ?? text("Unable to update IAM group membership."),
+    })));
   };
 
   const removeGroup = async (groupName: string) => {
@@ -147,46 +184,16 @@ export default function ManagerUserGroupsPage() {
     <div className="space-y-4">
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
       {error && <PageBanner tone="error">{text(error)}</PageBanner>}
-      {availableGroups.length === 0 && !groupOptions.loading && !groupOptions.search.trim() && !groupOptions.canPrevious && !groupOptions.canNext && (
-        <PageBanner tone="warning">{text("No IAM groups available to add. Create one before managing this user.")}</PageBanner>
-      )}
-      <form onSubmit={handleAdd} className="space-y-3 ui-surface-card p-4">
-        <UiInput
-          label={text("Search IAM groups")}
-          value={groupOptions.search}
-          onChange={(event) => { setNewGroup(""); groupOptions.setSearch(event.target.value); }}
-          placeholder={text("Search groups by name")}
-        />
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-          <UiSelect
-            label={text("IAM group")}
-            fieldClassName="flex-1"
-            className="w-full"
-            value={newGroup}
-            onChange={(event) => setNewGroup(event.target.value)}
-          >
-            <option value="">{text("Select an existing group")}</option>
-            {availableGroups.map((group) => <option key={group.name} value={group.name}>{group.name}</option>)}
-          </UiSelect>
-          <UiButton type="submit" disabled={busy !== null || !newGroup} loading={busy === "add"}>
-            {text("Add")}
-          </UiButton>
-        </div>
-        <IamCursorPaginationControls
-          page={groupOptions.page}
-          pageSize={groupOptions.pageSize}
-          canPrevious={groupOptions.canPrevious}
-          canNext={groupOptions.canNext}
-          disabled={groupOptions.loading}
-          onPrevious={() => { setNewGroup(""); groupOptions.previousPage(); }}
-          onNext={() => { setNewGroup(""); groupOptions.nextPage(); }}
-          onPageSizeChange={(size) => { setNewGroup(""); groupOptions.setPageSize(size); }}
-        />
-        <p className="ui-caption text-slate-500 dark:text-slate-400">
-          {text("Add the user to an existing IAM group to inherit that group's permissions.")}
-        </p>
-      </form>
-      <ListPageSection variant="section" title={text("Groups")} description={text("Groups this user belongs to.")}>
+      <ListPageSection
+        variant="section"
+        title={text("Group memberships")}
+        description={<>{text("Groups this user belongs to.")} {text("Associated: {count}", { count: groups.length })}</>}
+        headingActions={(
+          <ListActionButton type="button" onClick={openPicker} disabled={pickerOpen || busy !== null}>
+            {text("Add to groups")}
+          </ListActionButton>
+        )}
+      >
         <DataTableShell
           columns={columns}
           rows={groups}
@@ -197,6 +204,34 @@ export default function ManagerUserGroupsPage() {
           emptyMessage={text("This user is not a member of any group.")}
           responsiveCards
         />
+        {pickerOpen ? (
+          <ManagerIamAssociationPicker
+            title={text("Add to groups")}
+            searchLabel={text("Search IAM groups")}
+            searchPlaceholder={text("Search groups by name")}
+            emptyMessage={groupOptions.search.trim()
+              ? text("No matching groups.")
+              : text("No IAM groups available to add. Create one before managing this user.")}
+            items={availableGroups.map((group) => ({ id: group.name, label: group.name, secondary: group.arn }))}
+            selectedIds={selectedGroups.map((group) => group.name)}
+            search={groupOptions.search}
+            loading={groupOptions.loading}
+            error={groupOptions.error}
+            failures={associationFailures}
+            page={groupOptions.page}
+            pageSize={groupOptions.pageSize}
+            canPrevious={groupOptions.canPrevious}
+            canNext={groupOptions.canNext}
+            submitting={busy === "add"}
+            submitLabel={text("Add")}
+            onSearchChange={groupOptions.setSearch}
+            onToggle={toggleGroup}
+            onPreviousPage={groupOptions.previousPage}
+            onNextPage={groupOptions.nextPage}
+            onCancel={closePicker}
+            onSubmit={() => void handleAdd()}
+          />
+        ) : null}
       </ListPageSection>
       {membershipConfirmation.confirmationDialog}
     </div>

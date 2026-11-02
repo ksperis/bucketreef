@@ -4,7 +4,7 @@
  */
 import ListPageSection from "../../components/list/ListPageSection";
 import { ListActionButton } from "../../components/list/ListControls";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { S3ExecutionContextSelector } from "../../api/accountParams";
 import { IAMUser, listIamUsersPage } from "../../api/managerIamUsers";
@@ -18,12 +18,12 @@ import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import { extractApiError } from "../../utils/apiError";
 import { decodeRouteValue } from "../../utils/routeValues";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
-import UiButton from "../../components/ui/UiButton";
-import UiSelect from "../../components/ui/UiSelect";
-import UiInput from "../../components/ui/UiInput";
+import ManagerIamAssociationPicker, {
+  type ManagerIamAssociationFailure,
+  type ManagerIamAssociationPickerItem,
+} from "./ManagerIamAssociationPicker";
 import { useManagerI18n } from "./managerI18n";
 import { useManagerIamCursorCollection } from "./useManagerIamCursorCollection";
-import IamCursorPaginationControls from "./IamCursorPaginationControls";
 
 export default function ManagerGroupUsersPage({ embedded = false }: { embedded?: boolean }) {
   const { text } = useManagerI18n();
@@ -35,12 +35,14 @@ export default function ManagerGroupUsersPage({ embedded = false }: { embedded?:
   const [users, setUsers] = useState<IAMUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [newUser, setNewUser] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [selectedUsers, setSelectedUsers] = useState<IAMUser[]>([]);
+  const [associationFailures, setAssociationFailures] = useState<ManagerIamAssociationFailure[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const memberConfirmation = useConfirmActionDialog();
   const userOptions = useManagerIamCursorCollection(listIamUsersPage);
-  const { load: loadUserOptions, setItems: setUserOptions } = userOptions;
+  const { setItems: setUserOptions } = userOptions;
 
   const decodedGroup = decodeRouteValue(groupName);
 
@@ -50,15 +52,17 @@ export default function ManagerGroupUsersPage({ embedded = false }: { embedded?:
     try {
       const members = await listIamGroupUsers(contextId, targetGroup);
       setUsers(members);
-      loadUserOptions(contextId);
     } catch (err) {
       setError(extractApiError(err, "Unexpected error"));
     } finally {
       setLoading(false);
     }
-  }, [loadUserOptions]);
+  }, []);
 
   useEffect(() => {
+    setPickerOpen(false);
+    setSelectedUsers([]);
+    setAssociationFailures([]);
     if (isS3User || needsContextSelection) {
       setUsers([]);
       setUserOptions([]);
@@ -74,30 +78,60 @@ export default function ManagerGroupUsersPage({ embedded = false }: { embedded?:
     () => userOptions.items.filter((u) => !users.some((member) => member.name === u.name)),
     [userOptions.items, users]
   );
-  const noAvailableUsers = availableUsers.length === 0;
 
-  useEffect(() => {
-    if (newUser && !availableUsers.some((u) => u.name === newUser)) {
-      setNewUser("");
+  const openPicker = () => {
+    setSelectedUsers([]);
+    setAssociationFailures([]);
+    setActionMessage(null);
+    setPickerOpen(true);
+    userOptions.load(contextIdForApi);
+  };
+
+  const closePicker = () => {
+    if (busy === "add") return;
+    setPickerOpen(false);
+    setSelectedUsers([]);
+    setAssociationFailures([]);
+  };
+
+  const toggleUser = (item: ManagerIamAssociationPickerItem, checked: boolean) => {
+    if (checked) {
+      const user = availableUsers.find((candidate) => candidate.name === item.id);
+      if (user) setSelectedUsers((current) => [...current.filter((candidate) => candidate.name !== user.name), user]);
+      return;
     }
-  }, [availableUsers, newUser]);
+    setSelectedUsers((current) => current.filter((user) => user.name !== item.id));
+  };
 
-  const handleAdd = async (e: FormEvent) => {
-    e.preventDefault();
-    if (needsContextSelection || !groupName || !newUser.trim()) return;
+  const handleAdd = async () => {
+    if (needsContextSelection || !groupName || selectedUsers.length === 0 || busy) return;
     setBusy("add");
     setError(null);
     setActionMessage(null);
-    try {
-      await addIamGroupUser(contextIdForApi, groupName, newUser.trim());
-      setNewUser("");
-      await load(contextIdForApi, groupName);
-      setActionMessage(text("User added to group"));
-    } catch (err) {
-      setError(extractApiError(err, "Unexpected error"));
-    } finally {
-      setBusy(null);
+    setAssociationFailures([]);
+    const results = await Promise.all(selectedUsers.map(async (user) => {
+      try {
+        await addIamGroupUser(contextIdForApi, groupName, user.name);
+        return { user, error: null };
+      } catch (err) {
+        return { user, error: extractApiError(err, text("Unable to update IAM group membership.")) };
+      }
+    }));
+    const failures = results.filter((result) => result.error !== null);
+    await load(contextIdForApi, groupName);
+    setBusy(null);
+    if (failures.length === 0) {
+      setPickerOpen(false);
+      setSelectedUsers([]);
+      setActionMessage(text("Members added"));
+      return;
     }
+    setSelectedUsers(failures.map((result) => result.user));
+    setAssociationFailures(failures.map((result) => ({
+      id: result.user.name,
+      label: result.user.name,
+      message: result.error ?? text("Unable to update IAM group membership."),
+    })));
   };
 
   const removeUser = async (userName: string) => {
@@ -205,59 +239,16 @@ export default function ManagerGroupUsersPage({ embedded = false }: { embedded?:
       )}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
       {error && <PageBanner tone="error">{text(error)}</PageBanner>}
-      {noAvailableUsers && !userOptions.loading && !userOptions.search.trim() && !userOptions.canPrevious && !userOptions.canNext && (
-        <PageBanner tone="warning">{text("No IAM users available to add. Create one before managing this group.")}</PageBanner>
-      )}
-
-      <form
-        onSubmit={handleAdd}
-        className="space-y-3 ui-surface-card p-4"
+      <ListPageSection
+        variant="section"
+        title={text("Members")}
+        description={<>{text("Members of this group.")} {text("Associated: {count}", { count: users.length })}</>}
+        headingActions={(
+          <ListActionButton type="button" onClick={openPicker} disabled={pickerOpen || busy !== null}>
+            {text("Add members")}
+          </ListActionButton>
+        )}
       >
-        <UiInput
-          label={text("Search IAM users")}
-          value={userOptions.search}
-          onChange={(event) => { setNewUser(""); userOptions.setSearch(event.target.value); }}
-          placeholder={text("Search users by name")}
-        />
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-          <UiSelect
-            label={text("IAM user")}
-            fieldClassName="flex-1"
-            className="w-full"
-            value={newUser}
-            onChange={(e) => setNewUser(e.target.value)}
-          >
-            <option value="">{text("Select an existing user")}</option>
-            {availableUsers.map((u) => (
-              <option key={u.name} value={u.name}>
-                {u.name}
-              </option>
-            ))}
-          </UiSelect>
-          <UiButton
-            type="submit"
-            disabled={busy !== null || !newUser}
-            loading={busy === "add"}
-          >
-            {text("Add")}
-          </UiButton>
-        </div>
-        <IamCursorPaginationControls
-          page={userOptions.page}
-          pageSize={userOptions.pageSize}
-          canPrevious={userOptions.canPrevious}
-          canNext={userOptions.canNext}
-          disabled={userOptions.loading}
-          onPrevious={() => { setNewUser(""); userOptions.previousPage(); }}
-          onNext={() => { setNewUser(""); userOptions.nextPage(); }}
-          onPageSizeChange={(size) => { setNewUser(""); userOptions.setPageSize(size); }}
-        />
-        <p className="ui-caption text-slate-500 dark:text-slate-400">
-          {text("Users come from IAM. Add them here to attach them to the group.")}
-        </p>
-      </form>
-
-      <ListPageSection variant="section" title={text("Users")} description={text("Members of this group.")}>
         <DataTableShell
           columns={userColumns}
           rows={users}
@@ -269,6 +260,34 @@ export default function ManagerGroupUsersPage({ embedded = false }: { embedded?:
           tableClassName="ui-data-table"
           responsiveCards
         />
+        {pickerOpen ? (
+          <ManagerIamAssociationPicker
+            title={text("Add members")}
+            searchLabel={text("Search IAM users")}
+            searchPlaceholder={text("Search users by name")}
+            emptyMessage={userOptions.search.trim()
+              ? text("No matching users.")
+              : text("No IAM users available to add. Create one before managing this group.")}
+            items={availableUsers.map((user) => ({ id: user.name, label: user.name, secondary: user.arn }))}
+            selectedIds={selectedUsers.map((user) => user.name)}
+            search={userOptions.search}
+            loading={userOptions.loading}
+            error={userOptions.error}
+            failures={associationFailures}
+            page={userOptions.page}
+            pageSize={userOptions.pageSize}
+            canPrevious={userOptions.canPrevious}
+            canNext={userOptions.canNext}
+            submitting={busy === "add"}
+            submitLabel={text("Add")}
+            onSearchChange={userOptions.setSearch}
+            onToggle={toggleUser}
+            onPreviousPage={userOptions.previousPage}
+            onNextPage={userOptions.nextPage}
+            onCancel={closePicker}
+            onSubmit={() => void handleAdd()}
+          />
+        ) : null}
       </ListPageSection>
       {memberConfirmation.confirmationDialog}
     </>;

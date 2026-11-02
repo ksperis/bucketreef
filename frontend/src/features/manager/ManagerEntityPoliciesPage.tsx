@@ -4,7 +4,7 @@
  */
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import { ListActionButton } from "../../components/list/ListControls";
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import { IamPolicy, listIamPoliciesPage } from "../../api/managerIamPolicies";
@@ -16,13 +16,13 @@ import { extractApiError } from "../../utils/apiError";
 import { decodeRouteValue } from "../../utils/routeValues";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 import InlinePolicyEditor from "./InlinePolicyEditor";
-import UiSelect from "../../components/ui/UiSelect";
-import UiInput from "../../components/ui/UiInput";
-import { SettingsButton } from "../../components/settings/SettingsControls";
+import ManagerIamAssociationPicker, {
+  type ManagerIamAssociationFailure,
+  type ManagerIamAssociationPickerItem,
+} from "./ManagerIamAssociationPicker";
 import { useExecutionContext } from "./ExecutionContextProvider";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import { useManagerI18n } from "./managerI18n";
-import IamCursorPaginationControls from "./IamCursorPaginationControls";
 import { useManagerIamCursorCollection } from "./useManagerIamCursorCollection";
 
 type ManagerPolicyEntityType = "user" | "group" | "role";
@@ -108,14 +108,16 @@ export default function ManagerEntityPoliciesPage({
   const isS3User = selectedContextKind === "s3_user";
 
   const [attached, setAttached] = useState<IamPolicy[]>([]);
-  const [selectedArn, setSelectedArn] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [selectedPolicies, setSelectedPolicies] = useState<IamPolicy[]>([]);
+  const [associationFailures, setAssociationFailures] = useState<ManagerIamAssociationFailure[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const policyConfirmation = useConfirmActionDialog();
   const availablePolicies = useManagerIamCursorCollection(listIamPoliciesPage);
-  const { load: loadAvailablePolicies, setItems: setAvailablePolicies } = availablePolicies;
+  const { setItems: setAvailablePolicies } = availablePolicies;
 
   const decodedEntity = decodeRouteValue(rawEntityName);
 
@@ -125,16 +127,17 @@ export default function ManagerEntityPoliciesPage({
     try {
       const attachedPolicies = await listPoliciesForEntity(contextId, entityName);
       setAttached(attachedPolicies);
-      loadAvailablePolicies(contextId);
-      setSelectedArn("");
     } catch (err) {
       setError(extractApiError(err, text("Unexpected error")));
     } finally {
       setLoading(false);
     }
-  }, [listPoliciesForEntity, loadAvailablePolicies, text]);
+  }, [listPoliciesForEntity, text]);
 
   useEffect(() => {
+    setPickerOpen(false);
+    setSelectedPolicies([]);
+    setAssociationFailures([]);
     if (isS3User) {
       setAttached([]);
       setAvailablePolicies([]);
@@ -157,23 +160,64 @@ export default function ManagerEntityPoliciesPage({
     load(contextIdForApi, rawEntityName);
   };
 
-  const handleAttach = async (event: FormEvent) => {
-    event.preventDefault();
-    if (needsContextSelection || !rawEntityName || !selectedArn || busy !== null || loading) return;
-    const policy = availablePolicies.items.find((candidate) => candidate.arn === selectedArn);
-    if (!policy) return;
+  const availablePolicyItems = useMemo(
+    () => availablePolicies.items.filter((policy) => !attached.some((candidate) => candidate.arn === policy.arn)),
+    [attached, availablePolicies.items],
+  );
+
+  const openPicker = () => {
+    setSelectedPolicies([]);
+    setAssociationFailures([]);
+    setActionMessage(null);
+    setPickerOpen(true);
+    availablePolicies.load(contextIdForApi);
+  };
+
+  const closePicker = () => {
+    if (busy === "attach") return;
+    setPickerOpen(false);
+    setSelectedPolicies([]);
+    setAssociationFailures([]);
+  };
+
+  const togglePolicy = (item: ManagerIamAssociationPickerItem, checked: boolean) => {
+    if (checked) {
+      const policy = availablePolicyItems.find((candidate) => candidate.arn === item.id);
+      if (policy) setSelectedPolicies((current) => [...current.filter((candidate) => candidate.arn !== policy.arn), policy]);
+      return;
+    }
+    setSelectedPolicies((current) => current.filter((policy) => policy.arn !== item.id));
+  };
+
+  const handleAttach = async () => {
+    if (needsContextSelection || !rawEntityName || selectedPolicies.length === 0 || busy !== null || loading) return;
     setBusy("attach");
     setError(null);
     setActionMessage(null);
-    try {
-      await attachPolicyToEntity(contextIdForApi, rawEntityName, policy);
-      await load(contextIdForApi, rawEntityName);
-      setActionMessage(text("Policy attached"));
-    } catch (err) {
-      setError(extractApiError(err, text("Unexpected error")));
-    } finally {
-      setBusy(null);
+    setAssociationFailures([]);
+    const results = await Promise.all(selectedPolicies.map(async (policy) => {
+      try {
+        await attachPolicyToEntity(contextIdForApi, rawEntityName, policy);
+        return { policy, error: null };
+      } catch (err) {
+        return { policy, error: extractApiError(err, text("Unexpected error")) };
+      }
+    }));
+    const failures = results.filter((result) => result.error !== null);
+    await load(contextIdForApi, rawEntityName);
+    setBusy(null);
+    if (failures.length === 0) {
+      setPickerOpen(false);
+      setSelectedPolicies([]);
+      setActionMessage(text("Policies attached"));
+      return;
     }
+    setSelectedPolicies(failures.map((result) => result.policy));
+    setAssociationFailures(failures.map((result) => ({
+      id: result.policy.arn,
+      label: result.policy.name,
+      message: result.error ?? text("Unexpected error"),
+    })));
   };
 
   const detachPolicy = async (policyArn: string) => {
@@ -250,9 +294,6 @@ export default function ManagerEntityPoliciesPage({
     return <div className="ui-body text-slate-600">{text("Select a context before managing {entities}.", { entities: pluralLabel })}</div>;
   }
 
-  const options = availablePolicies.items
-    .filter((policy) => !attached.some((candidate) => candidate.arn === policy.arn))
-    .map((policy) => ({ value: policy.arn, label: policy.name }));
   const tableStatus = resolveListTableStatus({ loading, error, rowCount: attached.length });
   const attachedPolicyColumns: Array<DataTableColumn<IamPolicy>> = [
     {
@@ -321,49 +362,17 @@ export default function ManagerEntityPoliciesPage({
           key={`${config.singularLabel}-inline-${contextIdForApi ?? "none"}-${rawEntityName ?? ""}`}
         />
 
-        <SettingsSection presentation="compact" title={text("Attached policies")} description={text("Attach/detach managed policies for this {entity}.", { entity: singularLabel })}>
+        <SettingsSection
+          presentation="compact"
+          title={text("Managed policies")}
+          description={`${text("Attach/detach managed policies for this {entity}.", { entity: singularLabel })} ${text("Associated: {count}", { count: attached.length })}`}
+        >
           <div className="settings-stack">
-            <form aria-label={text("Attach managed policy")} onSubmit={handleAttach} className="settings-fields">
-              <UiInput
-                label={text("Search policies")}
-                value={availablePolicies.search}
-                onChange={(event) => {
-                  setSelectedArn("");
-                  availablePolicies.setSearch(event.target.value);
-                }}
-                placeholder={text("Search policies by name or ARN")}
-              />
-              <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-end">
-                <div className="min-w-0 flex-1">
-                  <UiSelect label={text("Managed policy")} value={selectedArn} onChange={(event) => setSelectedArn(event.target.value)}
-                    disabled={busy !== null || loading || availablePolicies.loading}>
-                    <option value="">{text("Select a policy to attach")}</option>
-                    {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                  </UiSelect>
-                </div>
-                <SettingsButton type="submit" disabled={busy !== null || loading || !selectedArn}>
-                  {text(busy === "attach" ? "Attaching..." : "Attach")}
-                </SettingsButton>
-              </div>
-              {!availablePolicies.loading && options.length === 0 && (
-                <p className="settings-description">
-                  {availablePolicies.search.trim()
-                    ? text("No matching policies.")
-                    : text("No IAM policies available to attach to this {entity}.", { entity: singularLabel })}
-                </p>
-              )}
-              <IamCursorPaginationControls
-                page={availablePolicies.page}
-                pageSize={availablePolicies.pageSize}
-                canPrevious={availablePolicies.canPrevious}
-                canNext={availablePolicies.canNext}
-                disabled={availablePolicies.loading}
-                onPrevious={() => { setSelectedArn(""); availablePolicies.previousPage(); }}
-                onNext={() => { setSelectedArn(""); availablePolicies.nextPage(); }}
-                onPageSizeChange={(size) => { setSelectedArn(""); availablePolicies.setPageSize(size); }}
-              />
-              <p className="settings-description">{text("Policies must be created first in the Policies tab.")}</p>
-            </form>
+            <div className="flex justify-end">
+              <ListActionButton type="button" onClick={openPicker} disabled={pickerOpen || busy !== null || loading}>
+                {text("Attach policies")}
+              </ListActionButton>
+            </div>
             <DataTableShell
               columns={attachedPolicyColumns}
               rows={attached}
@@ -375,6 +384,35 @@ export default function ManagerEntityPoliciesPage({
               tableClassName="ui-data-table"
               responsiveCards
             />
+            {pickerOpen ? (
+              <ManagerIamAssociationPicker
+                title={text("Attach policies")}
+                searchLabel={text("Search policies")}
+                searchPlaceholder={text("Search policies by name or ARN")}
+                emptyMessage={availablePolicies.search.trim()
+                  ? text("No matching policies.")
+                  : text("No IAM policies available to attach to this {entity}.", { entity: singularLabel })}
+                items={availablePolicyItems.map((policy) => ({ id: policy.arn, label: policy.name, secondary: policy.arn }))}
+                selectedIds={selectedPolicies.map((policy) => policy.arn)}
+                search={availablePolicies.search}
+                loading={availablePolicies.loading}
+                error={availablePolicies.error}
+                failures={associationFailures}
+                page={availablePolicies.page}
+                pageSize={availablePolicies.pageSize}
+                canPrevious={availablePolicies.canPrevious}
+                canNext={availablePolicies.canNext}
+                submitting={busy === "attach"}
+                submitLabel={text("Attach")}
+                onSearchChange={availablePolicies.setSearch}
+                onToggle={togglePolicy}
+                onPreviousPage={availablePolicies.previousPage}
+                onNextPage={availablePolicies.nextPage}
+                onCancel={closePicker}
+                onSubmit={() => void handleAttach()}
+              />
+            ) : null}
+            <p className="settings-description">{text("Policies must be created first in the Policies tab.")}</p>
           </div>
         </SettingsSection>
       </div>
