@@ -396,6 +396,88 @@ def get_s3_execution_context(
     )
 
 
+def _resolve_openstack_execution_context(
+    request: Request,
+    context_ref: str,
+    actor: ManagerActor,
+    db: Session,
+    *,
+    metadata_only: bool,
+    workspace: Optional[str],
+    requested_execution_endpoint_id: Optional[int],
+) -> S3ExecutionContext:
+    if requested_execution_endpoint_id is not None:
+        raise HTTPException(403, "Execution endpoint override is not available for OpenStack contexts")
+
+    from app.services.auth_session_guards import current_auth_session
+    from app.services.openstack_service import OpenStackService
+
+    if not isinstance(actor, User) or not request or request.headers.get("authorization"):
+        raise HTTPException(403, "OpenStack contexts require an interactive UI session")
+    surface = resolve_workspace_surface(request)
+    restricted_namespace = any(
+        path_matches_prefix(str(request.url.path), f"{settings.api_prefix}/{prefix}")
+        for prefix in ("storage-ops", "ceph-admin", "portal", "admin")
+    )
+    if (
+        restricted_namespace
+        or workspace == "portal"
+        or surface not in {"browser", "manager", "manager-browser"}
+        or is_portal_browser_request(request, surface)
+    ):
+        raise HTTPException(403, "OpenStack context is not available in this workspace")
+    auth = current_auth_session(request, db)
+    return OpenStackService(db).resolve(
+        actor,
+        auth.id,
+        context_ref,
+        metadata_only=metadata_only,
+    )
+
+
+def _execution_surface_context(
+    request: Request,
+    workspace: Optional[str],
+) -> tuple[str, bool, bool]:
+    surface = (
+        "manager-browser" if workspace == "manager" else "browser"
+    ) if workspace is not None else resolve_workspace_surface(request)
+    portal_browser = (
+        workspace == "portal"
+        if workspace is not None
+        else is_portal_browser_request(request, surface)
+    )
+    is_storage_ops_surface = bool(
+        request
+        and path_matches_prefix(
+            str(request.url.path),
+            f"{settings.api_prefix}/storage-ops",
+        )
+    )
+    return surface, portal_browser, is_storage_ops_surface
+
+
+def _resolve_actor_requested_endpoint(
+    request: Request,
+    actor: ManagerActor,
+    db: Session,
+    requested_execution_endpoint_id: Optional[int],
+) -> Optional[str]:
+    requested_endpoint = (
+        normalize_s3_endpoint(request.headers.get("X-S3-Endpoint"))
+        if request
+        else None
+    )
+    if not isinstance(actor, ManagerSessionPrincipal):
+        return None
+    if requested_execution_endpoint_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Execution endpoint override is not available for S3 sessions",
+        )
+    return resolve_requested_session_endpoint(db, actor, requested_endpoint)
+
+
 def resolve_s3_execution_context(
     request: Request,
     context_ref: Optional[str],
@@ -414,38 +496,25 @@ def resolve_s3_execution_context(
         else request_query_params.get("execution_endpoint_id") if request_query_params is not None else None
     )
     if isinstance(context_ref, str) and context_ref.startswith("os-"):
-        if requested_execution_endpoint_id is not None:
-            raise HTTPException(403, "Execution endpoint override is not available for OpenStack contexts")
-        from app.services.openstack_service import OpenStackService
-        from app.services.auth_session_guards import current_auth_session
-        if not isinstance(actor, User) or not request or request.headers.get("authorization"):
-            raise HTTPException(403, "OpenStack contexts require an interactive UI session")
-        surface = resolve_workspace_surface(request)
-        restricted_namespace = any(path_matches_prefix(str(request.url.path), f"{settings.api_prefix}/{prefix}")
-                                   for prefix in ("storage-ops", "ceph-admin", "portal", "admin"))
-        if restricted_namespace or workspace == "portal" or surface not in {"browser", "manager", "manager-browser"} or is_portal_browser_request(request, surface):
-            raise HTTPException(403, "OpenStack context is not available in this workspace")
-        auth = current_auth_session(request, db)
-        return OpenStackService(db).resolve(actor, auth.id, context_ref, metadata_only=metadata_only)
+        return _resolve_openstack_execution_context(
+            request,
+            context_ref,
+            actor,
+            db,
+            metadata_only=metadata_only,
+            workspace=workspace,
+            requested_execution_endpoint_id=requested_execution_endpoint_id,
+        )
     account_id, s3_user_id, connection_id, ceph_admin_endpoint_id = _parse_execution_context_selector(context_ref)
-    surface = (
-        "manager-browser" if workspace == "manager" else "browser"
-    ) if workspace is not None else resolve_workspace_surface(request)
-    portal_browser = workspace == "portal" if workspace is not None else is_portal_browser_request(request, surface)
-    requested_endpoint = normalize_s3_endpoint(request.headers.get("X-S3-Endpoint")) if request else None
-    if isinstance(actor, ManagerSessionPrincipal):
-        if requested_execution_endpoint_id is not None:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Execution endpoint override is not available for S3 sessions",
-            )
-        requested_endpoint = resolve_requested_session_endpoint(db, actor, requested_endpoint)
-    else:
-        # UI users are bound to the endpoint configured on the selected account.
-        requested_endpoint = None
-    is_storage_ops_surface = bool(
-        request
-        and path_matches_prefix(str(request.url.path), f"{settings.api_prefix}/storage-ops")
+    surface, portal_browser, is_storage_ops_surface = _execution_surface_context(
+        request,
+        workspace,
+    )
+    requested_endpoint = _resolve_actor_requested_endpoint(
+        request,
+        actor,
+        db,
+        requested_execution_endpoint_id,
     )
     if isinstance(actor, User):
         execution_context = _resolve_user_execution_context(
