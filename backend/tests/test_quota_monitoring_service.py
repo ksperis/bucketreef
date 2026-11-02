@@ -287,6 +287,42 @@ def test_usage_history_prefers_supervision_client_and_keeps_quota_optional(db_se
     assert hourly.usage_ratio_pct is None
 
 
+def test_usage_history_skips_subject_when_supervision_client_is_unavailable(
+    db_session,
+    monkeypatch,
+):
+    endpoint = _seed_endpoint(db_session)
+    account = _seed_account(db_session, endpoint)
+
+    monkeypatch.setattr(
+        quota_monitoring_service,
+        "load_app_settings_for_db_readonly",
+        lambda _db: _settings(quota_alerts_enabled=False, usage_history_enabled=True),
+    )
+    monkeypatch.setattr(
+        quota_monitoring_service.DataRetentionService,
+        "purge_all",
+        lambda self: {},
+    )
+    monkeypatch.setattr(
+        QuotaMonitoringService,
+        "_resolve_usage_client",
+        lambda self, endpoint, cache: None,
+    )
+
+    result = QuotaMonitoringService(db_session).run_monitor()
+
+    assert result["subjects_processed"] == 0
+    assert result["errors"] == [
+        {
+            "subject_type": "account",
+            "subject_id": account.id,
+            "error": "Usage client unavailable for endpoint 'quota-endpoint'.",
+        }
+    ]
+    assert db_session.scalar(sa.select(sa.func.count()).select_from(QuotaUsageHourly)) == 0
+
+
 def test_collect_usage_passes_explicit_tenant_to_supervision_client():
     fake_admin = _FakeAdminClient(
         usage_bytes=75,
