@@ -573,7 +573,14 @@ def test_update_links_normalizes_non_ui_roles_to_ui_user(db_session, monkeypatch
 
     updated = service.update_user(
         created.id,
-        S3UserUpdate(user_links=[S3UserUserLinkInput(user_id=actor.id)]),
+        S3UserUpdate(
+            user_links=[
+                S3UserUserLinkInput(
+                    user_id=actor.id,
+                    allow_manager_browser_data_access=False,
+                )
+            ]
+        ),
     )
 
     db_session.refresh(actor)
@@ -621,7 +628,12 @@ def test_update_links_validates_users_before_removing_existing_links(
         service.update_user(
             created.id,
             S3UserUpdate(
-                user_links=[S3UserUserLinkInput(user_id=999_999)],
+                user_links=[
+                    S3UserUserLinkInput(
+                        user_id=999_999,
+                        allow_manager_browser_data_access=False,
+                    )
+                ],
             ),
         )
 
@@ -671,8 +683,18 @@ def test_update_links_validates_groups_before_mutating_user_links(
         service.update_user(
             created.id,
             S3UserUpdate(
-                user_links=[S3UserUserLinkInput(user_id=replacement_actor.id)],
-                group_links=[S3UserGroupLinkInput(group_id=999_999)],
+                user_links=[
+                    S3UserUserLinkInput(
+                        user_id=replacement_actor.id,
+                        allow_manager_browser_data_access=False,
+                    )
+                ],
+                group_links=[
+                    S3UserGroupLinkInput(
+                        group_id=999_999,
+                        allow_manager_browser_data_access=False,
+                    )
+                ],
             ),
         )
 

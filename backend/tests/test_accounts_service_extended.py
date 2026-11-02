@@ -300,6 +300,7 @@ def test_update_account_user_links_missing_user(db_session, monkeypatch):
                         user_id=99999,
                         manager_role=None,
                         portal_role=PortalAccountRole.PORTAL_USER.value,
+                        allow_manager_browser_data_access=False,
                     )
                 ],
             ),
@@ -360,11 +361,13 @@ def test_update_account_adds_and_removes_links_with_quota_request(db_session, mo
                     user_id=keep_user.id,
                     manager_role=ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value,
                     portal_role=None,
+                    allow_manager_browser_data_access=False,
                 ),
                 AccountUserLinkInput(
                     user_id=add_user.id,
                     manager_role=None,
                     portal_role=PortalAccountRole.PORTAL_USER.value,
+                    allow_manager_browser_data_access=False,
                 ),
             ],
         ),

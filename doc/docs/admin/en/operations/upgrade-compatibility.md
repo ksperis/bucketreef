@@ -539,6 +539,16 @@ no longer invents Manager/Browser access when either field is omitted.
 Deploy the bundled frontend and backend together. No database migration is
 required.
 
+## 2026-11 principal Browser access is explicit
+
+Account and RGW User association payloads now require a non-null
+`allow_manager_browser_data_access` boolean for every principal link. The
+bundled frontend already sends that choice for user, group, account, and RGW
+User association edits, so the backend no longer treats omission as `false`.
+
+Deploy the bundled frontend and backend together. No database migration is
+required.
+
 ## 2026-10 RGW User partial updates use PATCH
 
 Admin RGW User updates now use `PATCH /admin/s3-users/{user_id}`. The update

@@ -1,12 +1,17 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
+import pytest
+from pydantic import ValidationError
+
 from app.models.s3_user import (
     S3User,
     S3UserGroupLink,
+    S3UserGroupLinkInput,
     S3UserSummary,
     S3UserUpdate,
     S3UserUserLink,
+    S3UserUserLinkInput,
 )
 
 
@@ -77,8 +82,8 @@ def test_s3_user_responses_require_complete_canonical_payloads() -> None:
 
 def test_s3_user_update_uses_minimal_association_inputs() -> None:
     payload = S3UserUpdate(
-        user_links=[{"user_id": 12}],
-        group_links=[{"group_id": 34}],
+        user_links=[{"user_id": 12, "allow_manager_browser_data_access": False}],
+        group_links=[{"group_id": 34, "allow_manager_browser_data_access": False}],
     )
     assert payload.user_links is not None
     assert payload.user_links[0].user_id == 12
@@ -86,3 +91,20 @@ def test_s3_user_update_uses_minimal_association_inputs() -> None:
     assert payload.group_links is not None
     assert payload.group_links[0].group_id == 34
     assert payload.group_links[0].allow_manager_browser_data_access is False
+
+
+@pytest.mark.parametrize(
+    ("model_type", "payload"),
+    [
+        (S3UserUserLinkInput, {"user_id": 12}),
+        (S3UserGroupLinkInput, {"group_id": 34}),
+    ],
+)
+def test_s3_user_association_inputs_require_explicit_browser_access(
+    model_type,
+    payload,
+) -> None:
+    with pytest.raises(ValidationError):
+        model_type.model_validate(payload)
+    with pytest.raises(ValidationError):
+        model_type.model_validate({**payload, "allow_manager_browser_data_access": None})

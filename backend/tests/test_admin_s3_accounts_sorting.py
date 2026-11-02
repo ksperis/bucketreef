@@ -292,6 +292,7 @@ def test_admin_accounts_update_replaces_direct_group_links(client, db_session):
                     "group_id": new_group.id,
                     "manager_role": None,
                     "portal_role": PortalAccountRole.PORTAL_MANAGER.value,
+                    "allow_manager_browser_data_access": False,
                 }
             ]
         },

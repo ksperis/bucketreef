@@ -430,9 +430,15 @@ def test_ui_group_effective_access_is_inherited_without_overwriting_direct_user_
                     "account_id": account.id,
                     "manager_role": ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value,
                     "portal_role": None,
+                        "allow_manager_browser_data_access": False,
                 }
             ],
-            "s3_user_links": [{"s3_user_id": s3_user.id}],
+                "s3_user_links": [
+                    {
+                        "s3_user_id": s3_user.id,
+                        "allow_manager_browser_data_access": False,
+                    }
+                ],
             "s3_connection_ids": [connection.id],
         },
     )

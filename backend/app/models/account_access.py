@@ -15,7 +15,7 @@ from app.utils.account_roles import ManagerAccountRoleValue, PortalAccountRoleVa
 class AccountAccessGrant(ApiModel):
     manager_role: Optional[ManagerAccountRoleValue]
     portal_role: Optional[PortalAccountRoleValue]
-    allow_manager_browser_data_access: bool = False
+    allow_manager_browser_data_access: bool
 
     @model_validator(mode="after")
     def _validate_account_roles(self) -> "AccountAccessGrant":
