@@ -114,8 +114,8 @@ export default function ManagerSettingsPage() {
             {(values, setValues, errors) => (
               <>
                 {migrationFields.map((field) => (
-                  <label key={field.path}>
-                    <span>{text(field.label)}</span>
+                  <div key={field.path} className="grid gap-1">
+                    <span className="settings-label">{text(field.label)}</span>
                     <SettingsField
                       label={text(field.label)}
                       type="number"
@@ -131,7 +131,7 @@ export default function ManagerSettingsPage() {
                         }))
                       }
                     />
-                  </label>
+                  </div>
                 ))}
               </>
             )}
