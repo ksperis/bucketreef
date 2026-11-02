@@ -6,21 +6,25 @@ import {
   type OnboardingDraft,
   type OnboardingJourney,
 } from "../../api/onboarding";
+import { useSettingsDraft } from "../../components/settings/useSettingsDraft";
 import { createRuntimeId } from "../../utils/runtimeId";
 import { createOnboardingDraft } from "./onboardingFormModel";
 
 export default function useOnboardingJourneyDraft() {
   const journeyId = useRef(createRuntimeId());
   const [journey, setJourney] = useState<OnboardingJourney | null>(null);
-  const [draft, setDraft] = useState<OnboardingDraft>(createOnboardingDraft);
-  const [baseline, setBaseline] = useState(() => JSON.stringify(createOnboardingDraft()));
+  const {
+    draft,
+    setDraft,
+    accept: acceptDraft,
+    dirty: dirtyDraft,
+  } = useSettingsDraft<OnboardingDraft>(createOnboardingDraft);
 
   const storeJourney = useCallback((value: OnboardingJourney) => {
     journeyId.current = value.id;
     setJourney(value);
-    setDraft(value.draft);
-    setBaseline(JSON.stringify(value.draft));
-  }, []);
+    acceptDraft(value.draft);
+  }, [acceptDraft]);
 
   const persistJourney = useCallback(async (value = draft) => {
     const saved = await saveOnboardingJourney(journeyId.current, value, journey?.revision);
@@ -41,7 +45,7 @@ export default function useOnboardingJourneyDraft() {
   return {
     journey,
     draft,
-    dirtyDraft: JSON.stringify(draft) !== baseline,
+    dirtyDraft,
     storeJourney,
     persistJourney,
     changeDraft,
