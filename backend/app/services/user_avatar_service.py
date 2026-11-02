@@ -62,9 +62,7 @@ class UserAvatarService:
         self.db = db
 
     def descriptor(self, user: User) -> UserAvatar:
-        preference = str(user.avatar_preference or "auto")
-        if preference not in {"auto", "uploaded", "gravatar", "initials"}:
-            preference = "auto"
+        preference = str(user.avatar_preference)
         initials = _avatar_initials(user)
         uploaded_available = bool(user.avatar_image and user.avatar_content_type in ALLOWED_AVATAR_CONTENT_TYPES)
         provider_url = _remote_picture_url(user.picture_url)

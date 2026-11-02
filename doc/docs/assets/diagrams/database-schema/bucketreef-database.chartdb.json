@@ -3443,6 +3443,11 @@
       ],
       "checkConstraints": [
         {
+          "id": "check:users:ck_users_avatar_preference",
+          "expression": "avatar_preference IN ('auto', 'uploaded', 'gravatar', 'initials')",
+          "createdAt": 0
+        },
+        {
           "id": "check:users:ck_users_role",
           "expression": "role IN ('ui_superadmin', 'ui_admin', 'ui_user', 'ui_none')",
           "createdAt": 0

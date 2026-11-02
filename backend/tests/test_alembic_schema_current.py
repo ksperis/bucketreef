@@ -18,7 +18,7 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0224_external_identity_provider_invariants"
+_EXPECTED_ALEMBIC_HEAD = "0225_canonical_user_avatar_preference"
 
 
 def test_openstack_all_users_group_migration_preserves_global_grant(tmp_path, monkeypatch):
