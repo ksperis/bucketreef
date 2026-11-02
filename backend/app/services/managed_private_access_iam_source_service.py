@@ -8,7 +8,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import S3Account, S3Connection, User
-from app.services.effective_access_service import EffectiveAccessService, ResolvedUserAccess
+from app.services.effective_access_contracts import ResolvedUserAccess
+from app.services.effective_access_service import EffectiveAccessService
 from app.services.managed_private_access_errors import (
     ManagedPrivateAccessError,
     ManagedPrivateAccessForbidden,

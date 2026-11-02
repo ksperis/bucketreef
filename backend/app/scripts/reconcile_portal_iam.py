@@ -15,7 +15,8 @@ from sqlalchemy.orm import Session
 from app.core.database import SessionLocal
 from app.core.logging_security import configure_secure_logging
 from app.db import AccountIAMUser, S3Account, User
-from app.services.effective_access_service import EffectiveAccessService, ResolvedUserAccess
+from app.services.effective_access_contracts import ResolvedUserAccess
+from app.services.effective_access_service import EffectiveAccessService
 from app.services.portal_service import PortalService
 
 logger = logging.getLogger(__name__)

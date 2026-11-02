@@ -7,7 +7,7 @@ from __future__ import annotations
 from app.models.feature_policy import FeaturePolicy, ManagerFeaturePolicies, resolve_feature_policy
 from app.services import app_settings_service
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
@@ -20,17 +20,11 @@ from app.db import (
     User,
     is_admin_ui_role,
 )
-from app.models.user import (
-    EffectiveUserAccess,
-    LinkedUiGroup,
-    ManagerToolAccess,
-)
+from app.models.user import EffectiveUserAccess, LinkedUiGroup, ManagerToolAccess
 from app.models.access_context import BucketMigrationAccessScope, EffectiveAccountLink
 from app.services.association_names import load_s3_user_names, load_shared_s3_connection_names
-from app.services.effective_access_loader import (
-    EffectiveAccessLoader,
-    EffectiveAccessSource,
-)
+from app.services.effective_access_contracts import EffectiveAccessSource, ResolvedUserAccess
+from app.services.effective_access_loader import EffectiveAccessLoader
 from app.services.manager_tool_access import MANAGER_TOOL_COLUMNS, MANAGER_TOOL_ROLES
 from app.services.mappers.effective_access import effective_user_access_from_resolved
 from app.utils.storage_endpoint_features import resolve_feature_flags
@@ -46,41 +40,6 @@ class _ResolvedFeatureAccess:
     allow_multisite_endpoint_switching: bool
     manager_tool_access: ManagerToolAccess
     browser_advanced_features_enabled: bool
-
-
-@dataclass
-class ResolvedUserAccess:
-    group_ids: list[int]
-    group_details: list[LinkedUiGroup]
-    account_links: list[EffectiveAccountLink]
-    s3_user_ids: list[int]
-    manager_browser_s3_user_ids: list[int]
-    s3_connection_ids: list[int]
-    can_access_ceph_admin: bool
-    can_access_storage_ops: bool
-    can_create_manual_private_connections: bool
-    can_provision_managed_private_connections: bool
-    allow_multisite_endpoint_switching: bool
-    has_owned_private_connections: bool
-    manager_tool_access: ManagerToolAccess
-    browser_advanced_features_enabled: bool
-    feature_sources: dict[str, tuple[EffectiveAccessSource, ...]] = field(default_factory=dict)
-    s3_user_sources: dict[int, tuple[EffectiveAccessSource, ...]] = field(default_factory=dict)
-    s3_user_browser_sources: dict[int, tuple[EffectiveAccessSource, ...]] = field(default_factory=dict)
-    s3_connection_sources: dict[int, tuple[EffectiveAccessSource, ...]] = field(default_factory=dict)
-
-    @property
-    def account_ids(self) -> list[int]:
-        return [link.account_id for link in self.account_links]
-
-    def account_link_for(self, account_id: int) -> EffectiveAccountLink | None:
-        return next((link for link in self.account_links if link.account_id == account_id), None)
-
-    def has_s3_user(self, s3_user_id: int) -> bool:
-        return s3_user_id in set(self.s3_user_ids)
-
-    def can_browse_s3_user(self, s3_user_id: int) -> bool:
-        return s3_user_id in set(self.manager_browser_s3_user_ids)
 
 
 class EffectiveAccessService:

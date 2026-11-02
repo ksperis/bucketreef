@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -25,20 +24,12 @@ from app.db import (
 )
 from app.db.ui_group import ALL_USERS_SYSTEM_KEY
 from app.models.access_context import EffectiveAccountGroupRole, EffectiveAccountLink
+from app.services.effective_access_contracts import EffectiveAccessSource
 from app.utils.account_roles import (
     ManagerAccountRoleValue,
     PortalAccountRoleValue,
     max_portal_account_role,
 )
-
-
-@dataclass(frozen=True)
-class EffectiveAccessSource:
-    """Origin of an effective UI grant used for read-only access auditing."""
-
-    kind: Literal["direct", "group", "platform"]
-    group_id: int | None = None
-    group_name: str | None = None
 
 
 @dataclass

@@ -3,7 +3,7 @@
 
 from app.models.access_context import EffectiveAccountGroupRole, EffectiveAccountLink
 from app.models.user import ManagerToolAccess
-from app.services.effective_access_service import EffectiveAccessSource, ResolvedUserAccess
+from app.services.effective_access_contracts import EffectiveAccessSource, ResolvedUserAccess
 from app.services.mappers.effective_access import effective_user_access_from_resolved
 
 

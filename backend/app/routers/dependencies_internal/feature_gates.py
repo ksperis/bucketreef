@@ -17,7 +17,8 @@ from app.models.session import ManagerSessionPrincipal
 from app.routers.manager.access import require_manager_capabilities
 from app.services import app_settings_service
 from app.services.connection_identity_service import ConnectionIdentityService
-from app.services.effective_access_service import EffectiveAccessService, ResolvedUserAccess
+from app.services.effective_access_contracts import ResolvedUserAccess
+from app.services.effective_access_service import EffectiveAccessService
 from app.services.feature_policy_service import (
     bucket_usage_stats_state,
     manager_rgw_usage_metrics_state,
