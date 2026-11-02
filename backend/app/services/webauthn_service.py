@@ -30,6 +30,7 @@ from webauthn.helpers.structs import (
 from app.core.config import Settings, get_settings
 from app.core.security import hash_refresh_token
 from app.db import AuthChallenge, AuthSession, RecoveryCode, User, WebAuthnCredential
+from app.services.identity_security_requirements import passkey_required_for_role
 from app.utils.time import utcnow
 
 
@@ -258,8 +259,6 @@ class WebAuthnService:
             .limit(1)
         )
         if remaining is None:
-            from app.services.identity_security_policy import passkey_required_for_role
-
             if passkey_required_for_role(self.db, user.role):
                 raise LastRequiredPasskeyError("This account must keep at least one passkey")
         row.revoked_at = utcnow()

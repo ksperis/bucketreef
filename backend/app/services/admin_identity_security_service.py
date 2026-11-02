@@ -24,9 +24,9 @@ from app.models.identity_security import (
 )
 from app.services.auth_session_service import AuthSessionService
 from app.services.external_identity_user_service import ExternalIdentityUserService
-from app.services.identity_security_policy import (
+from app.services.identity_security_policy import ensure_actor_can_manage_user
+from app.services.identity_security_requirements import (
     STANDARD_UI_ROLES,
-    ensure_actor_can_manage_user,
     passkey_required_for_role,
 )
 from app.services.users_service import UsersService

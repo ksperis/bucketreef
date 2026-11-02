@@ -24,14 +24,16 @@ from app.models.ui_group import UiGroupCreate, UiGroupUpdate
 from app.models.user import ManagerToolAccess, UserUpdate
 from app.services.app_settings_service import load_app_settings_for_db
 from app.services.auth_session_guards import current_auth_session, require_recent_mfa, require_recent_primary_auth
+from app.services.identity_security_requirements import (
+    STANDARD_UI_ROLES,
+    passkey_required_for_role,
+)
 from app.services.manager_tool_access import read_manager_tool_access
 from app.services.webauthn_service import WebAuthnService
 from app.utils.normalize import normalize_optional_string
 from app.utils.s3_connection_endpoint import resolve_connection_details
 
 
-STANDARD_UI_ROLES = {UserRole.UI_USER.value, UserRole.UI_NONE.value}
-PRIVILEGED_UI_ROLES = {UserRole.UI_ADMIN.value, UserRole.UI_SUPERADMIN.value}
 _DIRECT_ACCESS_FIELDS = (
     "can_access_ceph_admin",
     "can_access_storage_ops",
@@ -122,15 +124,6 @@ def _admin_user_memberships_changed(user: User, payload: UserUpdate) -> bool:
         payload.group_ids,
         (link.group_id for link in user.ui_group_links),
     )
-
-
-def passkey_required_for_role(db: Session, role: str) -> bool:
-    general = load_app_settings_for_db(db).general
-    if role in PRIVILEGED_UI_ROLES:
-        return bool(general.require_passkey_for_admins)
-    if role in STANDARD_UI_ROLES:
-        return bool(general.require_passkey_for_users)
-    return False
 
 
 def require_admin_interactive_session(

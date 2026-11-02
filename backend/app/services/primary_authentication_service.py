@@ -8,7 +8,7 @@ from typing import Literal, Optional
 from app.db import User
 from app.models.auth import AuthenticationResponse
 from app.services.auth_session_service import AuthSessionService, SessionCredentials
-from app.services.identity_security_policy import passkey_required_for_role
+from app.services.identity_security_requirements import passkey_required_for_role
 from app.services.users_service import UsersService
 from app.services.webauthn_service import WebAuthnService
 

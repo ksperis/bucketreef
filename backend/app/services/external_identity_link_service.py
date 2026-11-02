@@ -18,7 +18,7 @@ from app.models.external_identity_link import ExternalIdentityLinkProofMethod, E
 from app.services.audit_service import AuditService
 from app.services.auth_session_service import AuthSessionService, SessionCredentials
 from app.services.external_identity_link_request_service import ExternalIdentityLinkRequestService
-from app.services.identity_security_policy import passkey_required_for_role
+from app.services.identity_security_requirements import passkey_required_for_role
 from app.services.ldap_service import LDAPAuthService
 from app.services.user_notifications_service import UserNotificationsService
 from app.services.users_service import get_users_service
