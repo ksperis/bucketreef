@@ -18,7 +18,7 @@ import {
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
 import { useBucketFeatureEditorSession } from "./useBucketFeatureEditorSession";
-import { useBucketEditorRowIds } from "./useBucketEditorRowIds";
+import { useEditorRowIds } from "../../../hooks/useEditorRowIds";
 import {
   createVisualLifecycleRule,
   parseLifecycleRulesJson,
@@ -65,7 +65,7 @@ export function useBucketLifecycleController({
     removeRowId: removeDraftRuleId,
     resetRowIds: resetDraftRuleIds,
     rowIds: draftRuleIds,
-  } = useBucketEditorRowIds("lifecycle-rule");
+  } = useEditorRowIds("lifecycle-rule");
   const [lastRemovedRule, setLastRemovedRule] = useState<{
     index: number;
     rule: LifecycleRuleRecord;

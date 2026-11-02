@@ -9,6 +9,7 @@ import {
   SettingsInput,
 } from "../../../components/settings/SettingsControls";
 import { SettingsMultiValueAutocomplete } from "../../../components/settings/SettingsAutocomplete";
+import { useEditorRowIds } from "../../../hooks/useEditorRowIds";
 import UiCheckboxField from "../../../components/ui/UiCheckboxField";
 import UiBadge from "../../../components/ui/UiBadge";
 import BucketFeatureEditorDialog from "./BucketFeatureEditorDialog";
@@ -84,6 +85,10 @@ function StringListEditor({
   onChange: (values: string[]) => void;
 }) {
   const { text } = useManagerI18n();
+  const { appendRowId, removeRowId, rowIds } = useEditorRowIds(
+    "cors-list-item",
+    values.length,
+  );
   return (
     <BucketFeatureEditorGroup>
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -94,7 +99,10 @@ function StringListEditor({
         <SettingsButton
           type="button"
           variant="secondary"
-          onClick={() => onChange([...values, ""])}
+          onClick={() => {
+            appendRowId();
+            onChange([...values, ""]);
+          }}
           disabled={disabled}
         >
           {addLabel}
@@ -105,7 +113,7 @@ function StringListEditor({
       ) : (
         <div className="space-y-2">
           {values.map((value, index) => (
-            <div key={index} className="flex min-w-0 items-end gap-2">
+            <div key={rowIds[index]} className="flex min-w-0 items-end gap-2">
               <div className="min-w-0 flex-1">
                 <SettingsInput
                   label={`${itemLabel} ${index + 1}`}
@@ -123,7 +131,10 @@ function StringListEditor({
                 type="button"
                 variant="secondary"
                 aria-label={`Remove ${itemLabel.toLowerCase()} ${index + 1}`}
-                onClick={() => onChange(values.filter((_, entryIndex) => entryIndex !== index))}
+                onClick={() => {
+                  removeRowId(index);
+                  onChange(values.filter((_, entryIndex) => entryIndex !== index));
+                }}
                 disabled={disabled}
               >
                 {text("Remove")}

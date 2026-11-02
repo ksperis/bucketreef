@@ -17,7 +17,7 @@ import {
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
 import { useBucketFeatureEditorSession } from "./useBucketFeatureEditorSession";
-import { useBucketEditorRowIds } from "./useBucketEditorRowIds";
+import { useEditorRowIds } from "../../../hooks/useEditorRowIds";
 import {
   createVisualEncryptionRule,
   parseEncryptionRulesJson,
@@ -68,7 +68,7 @@ export function useBucketEncryptionController({
     removeRowId: removeDraftRuleId,
     resetRowIds: resetDraftRuleIds,
     rowIds: draftRuleIds,
-  } = useBucketEditorRowIds("encryption-rule");
+  } = useEditorRowIds("encryption-rule");
   const {
     closeEditor,
     draft: draftRules,

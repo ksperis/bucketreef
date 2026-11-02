@@ -144,6 +144,25 @@ describe("bucket feature autocomplete integrations", () => {
     expect(notificationId).toHaveFocus();
   });
 
+  it("keeps a surviving CORS origin input mounted when an earlier origin is removed", async () => {
+    const user = userEvent.setup();
+    render(<CorsHarness />);
+
+    await user.click(screen.getByRole("button", { name: "Add rule" }));
+    const dialog = screen.getByRole("dialog", { name: "Edit CORS rules" });
+    const firstOrigin = within(dialog).getByLabelText("Origin 1");
+    await user.type(firstOrigin, "https://first.example");
+    await user.click(within(dialog).getByRole("button", { name: "Add origin" }));
+
+    const secondOrigin = within(dialog).getByLabelText("Origin 2");
+    await user.type(secondOrigin, "https://second.example");
+    await user.click(within(dialog).getByRole("button", { name: "Remove origin 1" }));
+
+    const remainingOrigin = within(dialog).getByLabelText("Origin 1");
+    expect(remainingOrigin).toBe(secondOrigin);
+    expect(remainingOrigin).toHaveValue("https://second.example");
+  });
+
   it("suggests website object keys and constrains redirect protocol to http/https", async () => {
     const user = userEvent.setup();
     render(<WebsiteHarness />);

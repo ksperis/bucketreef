@@ -3,6 +3,7 @@ import type { IAMTag } from "../../api/managerIamRoles";
 import { SettingsButton } from "../../components/settings/SettingsControls";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import UiInput from "../../components/ui/UiInput";
+import { useEditorRowIds } from "../../hooks/useEditorRowIds";
 import { useManagerI18n } from "./managerI18n";
 
 function roleTagKeyError(value: string): string | undefined {
@@ -22,6 +23,7 @@ export function roleTagError(tag: IAMTag): string | undefined {
 
 export default function ManagerRoleTagsEditor({ tags, onChange }: { tags: IAMTag[]; onChange: (tags: IAMTag[]) => void }) {
   const { text } = useManagerI18n();
+  const { appendRowId, removeRowId, rowIds } = useEditorRowIds("role-tag", tags.length);
   const update = (index: number, field: "key" | "value", value: string) => {
     onChange(tags.map((tag, position) => position === index ? { ...tag, [field]: value } : tag));
   };
@@ -31,13 +33,13 @@ export default function ManagerRoleTagsEditor({ tags, onChange }: { tags: IAMTag
       {tags.map((tag, index) => {
         const keyError = roleTagKeyError(tag.key);
         const valueError = roleTagValueError(tag.value);
-        return <div key={`role-tag-${index}`} className="settings-fields md:grid-cols-[1fr_1fr_auto]">
+        return <div key={rowIds[index]} className="settings-fields md:grid-cols-[1fr_1fr_auto]">
           <UiInput label={text("Tag key")} value={tag.key} onChange={(event) => update(index, "key", event.target.value)} error={keyError ? text(keyError) : undefined} />
           <UiInput label={text("Tag value")} value={tag.value} onChange={(event) => update(index, "value", event.target.value)} error={valueError ? text(valueError) : undefined} />
-          <div className="flex items-end"><SettingsButton variant="secondary" onClick={() => onChange(tags.filter((_, position) => position !== index))}>{text("Remove")}</SettingsButton></div>
+          <div className="flex items-end"><SettingsButton variant="secondary" onClick={() => { removeRowId(index); onChange(tags.filter((_, position) => position !== index)); }}>{text("Remove")}</SettingsButton></div>
         </div>;
       })}
-      <div><SettingsButton variant="secondary" onClick={() => onChange([...tags, { key: "", value: "" }])} disabled={tags.length >= 50}>{text("Add tag")}</SettingsButton></div>
+      <div><SettingsButton variant="secondary" onClick={() => { appendRowId(); onChange([...tags, { key: "", value: "" }]); }} disabled={tags.length >= 50}>{text("Add tag")}</SettingsButton></div>
     </div>
   </SettingsSection>;
 }

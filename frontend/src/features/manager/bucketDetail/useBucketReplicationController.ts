@@ -22,7 +22,7 @@ import {
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
 import { useBucketFeatureEditorSession } from "./useBucketFeatureEditorSession";
-import { useBucketEditorRowIds } from "./useBucketEditorRowIds";
+import { useEditorRowIds } from "../../../hooks/useEditorRowIds";
 import {
   cloneReplicationConfiguration,
   createReplicationVisualRule,
@@ -88,7 +88,7 @@ export function useBucketReplicationController({
     removeRowId: removeDraftRuleId,
     resetRowIds: resetDraftRuleIds,
     rowIds: draftRuleIds,
-  } = useBucketEditorRowIds("replication-rule");
+  } = useEditorRowIds("replication-rule");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [featureUnsupported, setFeatureUnsupported] = useState(false);
   const [loading, setLoading] = useState(false);
