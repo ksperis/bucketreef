@@ -322,6 +322,26 @@ def test_admin_connections_api_requires_explicit_managed_endpoint_detachment(
     assert detach_response.json()["region"] == "detached-region"
 
 
+def test_admin_connections_api_rejects_ambiguous_endpoint_payload(contract_client):
+    client, _, _ = contract_client
+
+    response = client.post(
+        "/api/admin/s3-connections",
+        json={
+            "name": "contract-ambiguous-endpoint",
+            "storage_endpoint_id": 1,
+            "endpoint_url": "https://ambiguous.example.test",
+            "access_key_id": "AKIAADMINAMBIGUOUSCONTRACT",
+            "secret_access_key": "SECRETADMINAMBIGUOUSCONTRACT",
+        },
+    )
+
+    assert response.status_code == 422
+    assert "custom endpoint fields cannot be combined with storage_endpoint_id" in str(
+        response.json()["detail"]
+    )
+
+
 @pytest.mark.parametrize(
     ("field", "value"),
     [

@@ -16,7 +16,10 @@ from app.models.tagging import (
     RequiredTagDefinitionList,
     TagDefinitionSummary,
 )
-from app.models.s3_connection import S3ConnectionCredentialsUpdate
+from app.models.s3_connection import (
+    CanonicalS3ConnectionEndpointPayload,
+    S3ConnectionCredentialsUpdate,
+)
 from app.models.ui_group import UiGroupAvatar
 from app.models.user import UserAssociationDetail, UserAvatar
 
@@ -65,10 +68,11 @@ class S3ConnectionSummary(ApiModel):
     execution_status: Literal["ready", "remediation_required"]
 
 
-class S3ConnectionAdminCreate(ApiModel):
+class S3ConnectionAdminCreate(CanonicalS3ConnectionEndpointPayload):
+    endpoint_conflict_scope = "S3 connection"
+
     name: str
     provider_hint: Optional[str] = None
-    storage_endpoint_id: Optional[int] = None
     rgw_user_uid: Optional[str] = None
     rgw_tenant: Optional[str] = None
     rgw_account_id: Optional[str] = None
@@ -81,13 +85,14 @@ class S3ConnectionAdminCreate(ApiModel):
     tags: RequiredTagDefinitionList = Field(default_factory=list)
 
 
-class S3ConnectionAdminUpdate(ApiModel):
+class S3ConnectionAdminUpdate(CanonicalS3ConnectionEndpointPayload):
+    endpoint_conflict_scope = "S3 connection"
+
     name: Optional[str] = None
     group_ids: Optional[list[int]] = None
     user_ids: Optional[list[int]] = None
     remediation_action: Optional[Literal["activate_manager"]] = None
     provider_hint: Optional[str] = None
-    storage_endpoint_id: Optional[int] = None
     is_active: Optional[bool] = None
     rgw_user_uid: Optional[str] = None
     rgw_tenant: Optional[str] = None

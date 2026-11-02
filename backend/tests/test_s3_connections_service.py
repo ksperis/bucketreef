@@ -483,6 +483,17 @@ def test_connection_models_reject_non_string_tags():
             access_key_id="AKIA-AMBIGUOUS-VALIDATION",
             secret_access_key="SECRET-AMBIGUOUS-VALIDATION",
         ),
+        lambda: S3ConnectionAdminCreate(
+            name="ambiguous-admin-create-endpoint",
+            storage_endpoint_id=1,
+            endpoint_url="https://ambiguous-admin-create.example.test",
+            access_key_id="AKIA-AMBIGUOUS-ADMIN-CREATE",
+            secret_access_key="SECRET-AMBIGUOUS-ADMIN-CREATE",
+        ),
+        lambda: S3ConnectionAdminUpdate(
+            storage_endpoint_id=1,
+            region="ambiguous-admin-region",
+        ),
     ],
 )
 def test_connection_models_reject_managed_and_custom_endpoint_fields(factory):

@@ -26,7 +26,7 @@ S3_CONNECTION_ENDPOINT_FIELDS = S3_CONNECTION_CUSTOM_ENDPOINT_FIELDS | {
 }
 
 
-class _CanonicalEndpointPayload(ApiModel):
+class CanonicalS3ConnectionEndpointPayload(ApiModel):
     endpoint_conflict_scope: ClassVar[str]
     storage_endpoint_id: Optional[int] = None
 
@@ -72,7 +72,7 @@ class S3Connection(ApiModel):
     last_used_at: Optional[datetime]
 
 
-class S3ConnectionCreate(_CanonicalEndpointPayload):
+class S3ConnectionCreate(CanonicalS3ConnectionEndpointPayload):
     endpoint_conflict_scope = "S3 connection"
 
     name: str
@@ -91,7 +91,7 @@ class S3ConnectionCreate(_CanonicalEndpointPayload):
     tags: RequiredTagDefinitionList = Field(default_factory=list)
 
 
-class S3ConnectionUpdate(_CanonicalEndpointPayload):
+class S3ConnectionUpdate(CanonicalS3ConnectionEndpointPayload):
     endpoint_conflict_scope = "S3 connection"
 
     name: Optional[str] = None
@@ -141,7 +141,7 @@ class S3ConnectionCredentialsUpdate(ApiModel):
     secret_access_key: str
 
 
-class S3ConnectionCredentialsValidationRequest(_CanonicalEndpointPayload):
+class S3ConnectionCredentialsValidationRequest(CanonicalS3ConnectionEndpointPayload):
     endpoint_conflict_scope = "S3 credential validation"
 
     endpoint_url: Optional[str] = None
