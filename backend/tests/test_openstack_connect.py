@@ -21,6 +21,7 @@ from app.services import app_settings_service
 from app.services.execution_context_catalog_service import ExecutionContextCatalogService
 from app.services.effective_access_service import EffectiveAccessService
 from app.services.keystone_client import KeystoneClient, KeystoneIdentity, OpenStackError
+from app.services.openstack_access_policy import can_connect_openstack_cloud
 from app.services.openstack_service import OpenStackService
 from app.services.user_associations_service import UserAssociationsService
 from app.services.s3_execution_client import s3_execution_cache_key
@@ -554,9 +555,9 @@ def test_openstack_all_users_group_grants_implicit_access(db_session):
     db_session.commit()
 
     service = EffectiveAccessService(db_session)
-    assert service.can_connect_openstack_cloud(eligible, cloud) is True
-    assert service.can_connect_openstack_cloud(inactive, cloud) is False
-    assert service.can_connect_openstack_cloud(ui_none, cloud) is False
+    assert can_connect_openstack_cloud(db_session, eligible, cloud) is True
+    assert can_connect_openstack_cloud(db_session, inactive, cloud) is False
+    assert can_connect_openstack_cloud(db_session, ui_none, cloud) is False
     assert db_session.scalar(
         select(UserUiGroup.id).where(
             UserUiGroup.user_id == eligible.id,
