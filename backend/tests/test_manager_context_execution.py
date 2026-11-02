@@ -125,11 +125,30 @@ def test_manager_private_access_state_tracks_current_user_and_context(
 )
 def test_incomplete_source_metadata_does_not_become_account_metrics(db_session, monkeypatch, actor, kind, message):
     settings = AppSettings()
-    monkeypatch.setattr(context_router, "load_app_settings_for_db_readonly", lambda _db: settings)
     monkeypatch.setattr(context_router, "has_supervision_credentials", lambda _account: True)
     account = _context(kind, manager_capabilities=AccountCapabilities(can_manage_buckets=True))
 
-    assert context_router._manager_stats_state(account, actor, db_session) == (False, message, None)
+    assert context_router._manager_stats_state(account, actor, db_session, settings) == (False, message, None)
+
+
+def test_manager_context_loads_app_settings_once(db_session, monkeypatch, actor):
+    settings = AppSettings()
+    loads = []
+
+    def load_once(db):
+        loads.append(db)
+        return settings
+
+    monkeypatch.setattr(context_router, "load_app_settings_for_db_readonly", load_once)
+
+    context_router.get_manager_context(
+        context=_context("account"),
+        actor=actor,
+        db=db_session,
+        include_limits=False,
+    )
+
+    assert loads == [db_session]
 
 
 @pytest.mark.parametrize("kind", ["ceph_admin", "portal_account"])
