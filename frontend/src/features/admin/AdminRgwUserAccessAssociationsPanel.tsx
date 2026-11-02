@@ -12,8 +12,9 @@ import {
   AdminAssociationPickerPanel,
   AdminAssociationSectionHeader,
   adminAssociationTableContainerClass,
+  resetAdminAssociationPicker,
+  type AdminAssociationPickerState,
 } from "./AdminAssociationPicker";
-import type { AdminSimpleAssociationOption } from "./AdminSimpleIdAssociationsPanel";
 
 type AdminRgwUserAccessLink = {
   allow_manager_browser_data_access: boolean;
@@ -21,30 +22,13 @@ type AdminRgwUserAccessLink = {
 
 export type AdminRgwUserAccessAssociationsState<
   TLink extends AdminRgwUserAccessLink,
-> = {
+> = AdminAssociationPickerState & {
   selected: TLink[];
   setSelected: Dispatch<SetStateAction<TLink[]>>;
   getId: (link: TLink) => number;
   createLink: (id: number) => TLink;
   withAccess: (link: TLink, allowed: boolean) => TLink;
   labelById: Map<number, string>;
-  available: AdminSimpleAssociationOption[];
-  visible: AdminSimpleAssociationOption[];
-  search: string;
-  setSearch: (value: string) => void;
-  loading: boolean;
-  showPanel: boolean;
-  setShowPanel: Dispatch<SetStateAction<boolean>>;
-  selections: number[];
-  setSelections: Dispatch<SetStateAction<number[]>>;
-  toggleSelection: (id: number) => void;
-  pagination?: {
-    page: number;
-    pageSize: number;
-    total: number;
-    onPageChange: (page: number) => void;
-    onPageSizeChange: (pageSize: number) => void;
-  };
 };
 
 type AdminRgwUserAccessAssociationsPanelProps<
@@ -88,11 +72,6 @@ export default function AdminRgwUserAccessAssociationsPanel<
   normalizeSelection = (links) => links,
   section,
 }: AdminRgwUserAccessAssociationsPanelProps<TLink>) {
-  const resetPicker = () => {
-    state.setShowPanel(false);
-    state.setSelections([]);
-    state.setSearch("");
-  };
   const columns: DataTableColumn<TLink>[] = [
     {
       id: "principal",
@@ -182,7 +161,7 @@ export default function AdminRgwUserAccessAssociationsPanel<
           emptyLabel={pickerEmptyMessage}
           pagination={state.pagination}
           addDisabled={state.selections.length === 0}
-          onCancel={resetPicker}
+          onCancel={() => resetAdminAssociationPicker(state)}
           onAdd={() => {
             if (state.selections.length === 0) return;
             state.setSelected((current) =>
@@ -191,7 +170,7 @@ export default function AdminRgwUserAccessAssociationsPanel<
                 ...state.selections.map(state.createLink),
               ]),
             );
-            resetPicker();
+            resetAdminAssociationPicker(state);
           }}
         >
           <AdminAssociationCheckboxOptions

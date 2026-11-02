@@ -16,41 +16,25 @@ import {
   AdminAssociationAccessPickerTable,
   AdminAssociationPickerPanel,
   adminAssociationTableContainerClass,
+  resetAdminAssociationPicker,
+  type AdminAssociationPickerState,
 } from "./AdminAssociationPicker";
 import {
   AccountAccessRoleValidationMessage,
   ManagerAccountRoleSelect,
   PortalAccountRoleSelect,
 } from "./AccountAccessRoleSelectors";
-import type { AdminSimpleAssociationOption } from "./AdminSimpleIdAssociationsPanel";
 
 export type AdminAccountSelection = AccountAccessGrant & {
   id: number;
 };
 
-export type AdminAccountAssociationsState = {
+export type AdminAccountAssociationsState = AdminAssociationPickerState & {
   selected: AdminAccountSelection[];
   setSelected: Dispatch<SetStateAction<AdminAccountSelection[]>>;
   optionsById: Map<number, { name: string }>;
-  available: AdminSimpleAssociationOption[];
-  visible: AdminSimpleAssociationOption[];
-  search: string;
-  setSearch: (value: string) => void;
-  loading: boolean;
-  showPanel: boolean;
-  setShowPanel: Dispatch<SetStateAction<boolean>>;
-  selections: number[];
-  setSelections: Dispatch<SetStateAction<number[]>>;
   accountAccessChoice: Record<number, AccountAccessGrant>;
   setAccountAccessChoice: Dispatch<SetStateAction<Record<number, AccountAccessGrant>>>;
-  toggleSelection: (id: number) => void;
-  pagination?: {
-    page: number;
-    pageSize: number;
-    total: number;
-    onPageChange: (page: number) => void;
-    onPageSizeChange: (pageSize: number) => void;
-  };
 };
 
 type AdminAccountAssociationsLabels = {
@@ -214,12 +198,6 @@ export default function AdminAccountAssociationsPanel({
     },
   ];
 
-  const resetPicker = () => {
-    accounts.setShowPanel(false);
-    accounts.setSelections([]);
-    accounts.setSearch("");
-  };
-
   return (
     <div className="space-y-3">
       <DataTableShell
@@ -248,7 +226,7 @@ export default function AdminAccountAssociationsPanel({
           emptyLabel={labels.pickerEmptyMessage}
           pagination={accounts.pagination}
           addDisabled={accounts.selections.length === 0 || hasInvalidPendingSelection}
-          onCancel={resetPicker}
+          onCancel={() => resetAdminAssociationPicker(accounts)}
           onAdd={() => {
             if (accounts.selections.length === 0) return;
             const next = accounts.selections.map((accountId) => ({
@@ -257,7 +235,7 @@ export default function AdminAccountAssociationsPanel({
               allow_manager_browser_data_access: false,
             }));
             accounts.setSelected((current) => normalizeSelection([...current, ...next]));
-            resetPicker();
+            resetAdminAssociationPicker(accounts);
           }}
         >
           <AdminAssociationAccessPickerTable
