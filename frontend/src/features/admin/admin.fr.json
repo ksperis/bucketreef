@@ -1447,6 +1447,7 @@
   "Unable to load older logs.": "Impossible decharger les anciens journaux.",
   "Unable to load onboarding status.": "Impossible de charger l'état d'intégration.",
   "Unable to load platform sessions.": "Impossible de charger les sessions de plateforme.",
+  "Unable to load provider.": "Impossible de charger le fournisseur.",
   "Unable to load raw healthchecks.": "Impossible de charger les contrôles de santé bruts.",
   "Unable to load selectable resources.": "Impossible de charger les ressources sélectionnables.",
   "Unable to load settings.": "Impossible de charger les paramètres.",

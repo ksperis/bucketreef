@@ -1426,6 +1426,7 @@
   "Unable to load older logs.": "Ältere Protokolle konnten nicht geladen werden.",
   "Unable to load onboarding status.": "Der Onboarding-Status konnte nicht geladen werden.",
   "Unable to load platform sessions.": "Die Plattformsitzungen konnten nicht geladen werden.",
+  "Unable to load provider.": "Der Anbieter konnte nicht geladen werden.",
   "Unable to load raw healthchecks.": "Die Rohdaten der Healthchecks konnten nicht geladen werden.",
   "Unable to load selectable resources.": "Die auswählbaren Ressourcen konnten nicht geladen werden.",
   "Unable to load settings.": "Die Einstellungen konnten nicht geladen werden.",
