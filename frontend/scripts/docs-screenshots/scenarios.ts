@@ -1766,7 +1766,7 @@ export const scenarios: DocScreenshotScenario[] = [
     storage: { ...baseStorage(), selectedWorkspace: "manager" },
     actions: [
       { type: "click", selector: "button:has-text('Usage composition')" },
-      { type: "wait", selector: "text=Account usage composition" },
+      { type: "wait", selector: "h2:has-text('Usage composition')" },
       { type: "wait", selector: "text=Data types" },
       { type: "wait", selector: "text=3 / 3 buckets covered" },
     ],

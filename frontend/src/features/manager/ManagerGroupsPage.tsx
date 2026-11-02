@@ -287,7 +287,7 @@ export default function ManagerGroupsPage() {
         }
       />
 
-      {!showCreateForm && error && <PageBanner tone="error">{text(error)}</PageBanner>}
+      {!showCreateForm && error && filteredTableStatus !== "error" && <PageBanner tone="error">{text(error)}</PageBanner>}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
 
       {needsContextSelection ? (
@@ -322,7 +322,7 @@ export default function ManagerGroupsPage() {
             rowKey={(group) => group.name}
             status={filteredTableStatus}
             loadingMessage={text("Loading groups...")}
-            errorMessage={text("Unable to load groups.")}
+            errorMessage={error ? text(error) : text("Unable to load groups.")}
             emptyMessage={text("No groups.")}
             responsiveCards
             tableLayout="fixed"

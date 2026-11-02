@@ -486,7 +486,7 @@ export default function ManagerUsersPage() {
           : []}
       />
 
-      {!showCreateForm && error && <PageBanner tone="error">{text(error)}</PageBanner>}
+      {!showCreateForm && error && tableStatus !== "error" && <PageBanner tone="error">{text(error)}</PageBanner>}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
 
       {createdKey && createdForUser && (
@@ -546,7 +546,7 @@ export default function ManagerUsersPage() {
             rowKey={(user) => user.name}
             status={tableStatus}
             loadingMessage={text("Loading users...")}
-            errorMessage={text("Unable to load users.")}
+            errorMessage={error ? text(error) : text("Unable to load users.")}
             emptyMessage={text("No users.")}
             responsiveCards
             sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }}

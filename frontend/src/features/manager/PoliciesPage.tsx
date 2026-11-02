@@ -171,7 +171,7 @@ export default function PoliciesPage() {
       />
 
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
-      {!showCreateForm && error && <PageBanner tone="error">{text(error)}</PageBanner>}
+      {!showCreateForm && error && filteredTableStatus !== "error" && <PageBanner tone="error">{text(error)}</PageBanner>}
       {createManagedPolicyUnsupported && (
         <PageBanner tone="info">
           {text("This Ceph endpoint does not support creating managed IAM policies. Attach an existing managed policy or use inline policies on users, groups, and roles.")}
@@ -210,7 +210,7 @@ export default function PoliciesPage() {
             rowKey={(policy) => policy.arn}
             status={filteredTableStatus}
             loadingMessage={text("Loading policies...")}
-            errorMessage={text("Unable to load policies.")}
+            errorMessage={error ? text(error) : text("Unable to load policies.")}
             emptyMessage={text("No policies.")}
             responsiveCards
             tableLayout="fixed"

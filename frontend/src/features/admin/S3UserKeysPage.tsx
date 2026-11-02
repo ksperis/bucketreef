@@ -288,7 +288,7 @@ export default function S3UserKeysPage() {
           {adminText("The interface key is reserved for the console. Delete other keys as needed, and rotate the interface key instead of deleting it.")}</PageBanner>
       )}
 
-      {error && <PageBanner tone="error">{error}</PageBanner>}
+      {error && tableStatus !== "error" && <PageBanner tone="error">{error}</PageBanner>}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
 
       {createdKey && createdKey.secret_access_key && (
@@ -317,7 +317,7 @@ export default function S3UserKeysPage() {
           }
           status={tableStatus}
           loadingMessage={adminText("Loading keys...")}
-          errorMessage={adminText("Unable to load keys.")}
+          errorMessage={error ?? adminText("Unable to load keys.")}
           emptyMessage={adminText("No keys for this user.")}
           tableLayout="fixed"
         />

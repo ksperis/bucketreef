@@ -346,7 +346,7 @@ export default function ManagerUserKeysPage({ embedded = false }: { embedded?: b
           </ListActionButton>
         </div>
       )}
-      {error && <PageBanner tone="error">{text(error)}</PageBanner>}
+      {error && tableStatus !== "error" && <PageBanner tone="error">{text(error)}</PageBanner>}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
 
       {createdKey && createdKey.secret_access_key && (
@@ -375,7 +375,7 @@ export default function ManagerUserKeysPage({ embedded = false }: { embedded?: b
           }
           status={tableStatus}
           loadingMessage={text("Loading keys...")}
-          errorMessage={text("Unable to load keys.")}
+          errorMessage={error ? text(error) : text("Unable to load keys.")}
           emptyMessage={text("No keys for this user.")}
         />
       </ListPageSection>
