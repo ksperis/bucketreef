@@ -24,7 +24,7 @@ from app.routers.dependencies import get_current_bucket_migration_scope
 from app.routers.sse_worker import SSE_RESPONSE_HEADERS, format_sse_event
 from app.services.bucket_migration.runtime import (
     build_bucket_migration_service,
-    migration_stream_signature,
+    load_migration_stream_snapshot,
 )
 from app.services.mappers.bucket_migration import (
     bucket_migration_to_detail as _migration_to_detail,
@@ -60,24 +60,22 @@ async def _migration_stream_events(
 
         try:
             with SessionLocal() as db:
-                service = build_bucket_migration_service(db, scope)
-                migration = service.get_migration(migration_id)
-                signature = migration_stream_signature(db, migration_id, migration=migration)
-                if signature != last_signature:
-                    items = service.list_migration_items(migration.id)
-                    recent_events = service.list_recent_migration_events(migration.id, limit=events_limit)
-                    detail = _migration_to_detail(
-                        migration,
-                        items=items,
-                        recent_events=recent_events,
-                    )
+                snapshot = load_migration_stream_snapshot(
+                    db,
+                    scope,
+                    migration_id,
+                    events_limit=events_limit,
+                    previous_signature=last_signature,
+                )
+                if snapshot.detail is not None:
+                    detail = snapshot.detail
                     stream_event_id += 1
                     yield format_sse_event(
                         "snapshot",
                         detail.model_dump(mode="json"),
                         event_id=stream_event_id,
                     )
-                    last_signature = signature
+                    last_signature = snapshot.signature
                     last_keepalive_at = monotonic()
 
                     if _is_final_migration_status(detail.status) and detail.maintenance_status not in {"queued", "running"}:
