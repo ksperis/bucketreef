@@ -50,6 +50,20 @@ class ManagedPrivateAccessAuditService:
             },
         )
 
+    def record_cleanup_pending(
+        self,
+        user: User,
+        provisioning: ManagedPrivateAccess,
+        error: str,
+    ) -> None:
+        self.record(
+            user,
+            provisioning,
+            "managed_private_access.cleanup_pending",
+            status="failure",
+            message=error,
+        )
+
     def _execution_context(
         self,
         provisioning: ManagedPrivateAccess,

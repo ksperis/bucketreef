@@ -133,7 +133,8 @@ class ManagedPrivateAccessCompensationService:
                 status="failure",
                 message=cleanup_error,
             )
-            self._set_cleanup_pending(provisioning, cleanup_error, user=user)
+            self.state.mark_cleanup_pending(provisioning, cleanup_error)
+            self.audit.record_cleanup_pending(user, provisioning, cleanup_error)
             return
 
         self.state.mark_failed(provisioning, failure)
@@ -143,20 +144,4 @@ class ManagedPrivateAccessCompensationService:
             "managed_private_access.compensation.success",
             status="failure",
             message=failure,
-        )
-
-    def _set_cleanup_pending(
-        self,
-        provisioning: ManagedPrivateAccess,
-        error: str,
-        *,
-        user: User,
-    ) -> None:
-        self.state.mark_cleanup_pending(provisioning, error)
-        self.audit.record(
-            user,
-            provisioning,
-            "managed_private_access.cleanup_pending",
-            status="failure",
-            message=error,
         )
