@@ -151,14 +151,17 @@ class UiGroupsService:
         return affected_user_ids, affected_account_ids
 
     def _apply_group_update(self, group: UiGroup, payload: UiGroupUpdate) -> None:
-        if payload.name is not None:
+        fields = payload.model_fields_set
+        if "name" in fields:
             if group.system_key and payload.name.strip() != group.name:
                 raise ValueError("System groups cannot be renamed")
             group.name = self._available_name(payload.name, exclude_id=group.id)
-        if payload.description is not None:
+        if "description" in fields:
             group.description = normalize_optional_string(payload.description)
-        if payload.avatar_source is not None:
-            UiGroupAvatarService(self.db).set_choice(group, payload.avatar_source, payload.avatar_icon)
+        if "avatar_source" in fields or "avatar_icon" in fields:
+            avatar_source = payload.avatar_source if "avatar_source" in fields else group.avatar_source
+            avatar_icon = payload.avatar_icon if "avatar_icon" in fields else group.avatar_icon
+            UiGroupAvatarService(self.db).set_choice(group, avatar_source, avatar_icon)
         for field in _BOOLEAN_GROUP_FIELDS:
             value = getattr(payload, field)
             if value is not None:

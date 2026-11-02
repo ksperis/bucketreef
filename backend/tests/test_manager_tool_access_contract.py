@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 
 import pytest
+from pydantic import ValidationError
 
 from tests.feature_policy_fixtures import enable_manager_features
 from app.db import UiGroup, User
@@ -89,11 +90,11 @@ def test_manager_tool_grants_round_trip_create_update_and_output(db_session, ent
         assert to_out(subject).manager_tool_access == expected
 
     assert_grants(initial)
-    # Omitting the nested value, or supplying null, leaves persisted grants intact.
+    # Omission preserves persisted grants; explicit null is rejected.
     update(subject.id, payload_type())
     assert_grants(initial)
-    update(subject.id, payload_type(manager_tool_access=None))
-    assert_grants(initial)
+    with pytest.raises(ValidationError, match="manager_tool_access cannot be null"):
+        payload_type(manager_tool_access=None)
 
     replacement = _access(set(_TOOLS) - set(enabled))
     update(subject.id, payload_type(manager_tool_access=replacement))
@@ -177,7 +178,6 @@ def test_each_tool_change_requires_step_up_but_identical_payload_does_not(db_ses
     changed = _access(() if current else (tool,))
 
     assert admin_user_update_requires_step_up(user, UserUpdate()) is False
-    assert admin_user_update_requires_step_up(user, UserUpdate(manager_tool_access=None)) is False
     assert admin_user_update_requires_step_up(user, UserUpdate(manager_tool_access=same)) is False
     assert admin_user_update_requires_step_up(user, UserUpdate(manager_tool_access=changed)) is True
 

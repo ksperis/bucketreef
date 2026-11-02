@@ -74,6 +74,8 @@ class UiGroupAvatarService:
             if icon not in GROUP_AVATAR_ICONS:
                 raise ValueError("Select a valid group pictogram.")
             group.avatar_icon = icon
+        else:
+            group.avatar_icon = None
         group.avatar_source = source
         group.avatar_updated_at = utcnow()
 

@@ -425,6 +425,34 @@ def test_ui_group_avatar_supports_presets_upload_and_initials_fallback(client: T
     assert client.get(f"/api/admin/groups/{group_id}/avatar").status_code == 404
 
 
+def test_ui_group_patch_clears_nullable_description_and_stale_avatar_icon(client: TestClient, db_session):
+    created = client.post(
+        "/api/admin/groups",
+        json=_group_create_payload(
+            name="Nullable group fields",
+            description="Temporary description",
+            avatar_source="preset",
+            avatar_icon="academic",
+        ),
+    )
+    assert created.status_code == 201, created.text
+    group_id = created.json()["id"]
+
+    updated = client.patch(
+        f"/api/admin/groups/{group_id}",
+        json={"description": None, "avatar_source": "initials", "avatar_icon": None},
+    )
+
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["description"] is None
+    assert updated.json()["avatar"]["source"] == "initials"
+    assert updated.json()["avatar"]["icon"] is None
+    group = db_session.get(UiGroup, group_id)
+    assert group is not None
+    assert group.description is None
+    assert group.avatar_icon is None
+
+
 def test_ui_group_avatar_rejects_unsupported_content(client: TestClient):
     created = client.post(
         "/api/admin/groups",

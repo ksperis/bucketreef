@@ -235,7 +235,7 @@ def test_user_create_requires_explicit_access_and_defaults_associations():
     assert payload.s3_user_links == []
     assert payload.s3_connection_ids == []
     assert payload.group_ids == []
-    assert payload.openstack_cloud_ids is None
+    assert payload.openstack_cloud_ids == []
 
 
 def test_update_user_and_link_validations(db_session):

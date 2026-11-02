@@ -146,7 +146,7 @@ export type CreateUserPayload = {
   s3_user_links?: S3UserMembership[];
   s3_connection_ids?: number[];
   group_ids?: number[];
-  openstack_cloud_ids?: number[] | null;
+  openstack_cloud_ids?: number[];
 };
 
 export type LdapImportMatchedUser = {
@@ -200,14 +200,14 @@ export type UpdateUserPayload = {
   can_create_manual_private_connections?: boolean;
   can_provision_managed_private_connections?: boolean;
   allow_multisite_endpoint_switching?: boolean;
-  manager_tool_access?: ManagerToolAccess | null;
+  manager_tool_access?: ManagerToolAccess;
   browser_advanced_features_enabled?: boolean;
   is_active?: boolean;
-  account_links?: AccountMembership[] | null;
-  s3_user_links?: S3UserMembership[] | null;
-  s3_connection_ids?: number[] | null;
-  group_ids?: number[] | null;
-  openstack_cloud_ids?: number[] | null;
+  account_links?: AccountMembership[];
+  s3_user_links?: S3UserMembership[];
+  s3_connection_ids?: number[];
+  group_ids?: number[];
+  openstack_cloud_ids?: number[];
 };
 
 type UpdateCurrentUserPayload = {

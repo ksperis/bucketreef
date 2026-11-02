@@ -1,11 +1,11 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Literal, Optional, Self
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
-from app.models.base import ApiModel
+from app.models.base import ApiModel, reject_explicit_null_fields
 from app.models.pagination import PaginatedResponse
 from app.models.user import (
     AccountMembership,
@@ -71,6 +71,29 @@ class UiGroupUpdate(ApiModel):
     s3_user_links: Optional[list[S3UserMembership]] = None
     s3_connection_ids: Optional[list[int]] = None
     openstack_cloud_ids: Optional[list[int]] = None
+
+    @model_validator(mode="after")
+    def reject_non_nullable_nulls(self) -> Self:
+        reject_explicit_null_fields(
+            self,
+            (
+                "name",
+                "avatar_source",
+                "can_access_ceph_admin",
+                "can_access_storage_ops",
+                "can_create_manual_private_connections",
+                "can_provision_managed_private_connections",
+                "allow_multisite_endpoint_switching",
+                "manager_tool_access",
+                "browser_advanced_features_enabled",
+                "user_ids",
+                "account_links",
+                "s3_user_links",
+                "s3_connection_ids",
+                "openstack_cloud_ids",
+            ),
+        )
+        return self
 
 
 class UiGroupSummary(ApiModel):
