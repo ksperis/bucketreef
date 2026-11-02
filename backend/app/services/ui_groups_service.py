@@ -151,6 +151,10 @@ class UiGroupsService:
         return affected_user_ids, affected_account_ids
 
     def _apply_group_update(self, group: UiGroup, payload: UiGroupUpdate) -> None:
+        self._apply_group_field_update(group, payload)
+        self._sync_group_associations(group, payload)
+
+    def _apply_group_field_update(self, group: UiGroup, payload: UiGroupUpdate) -> None:
         fields = payload.model_fields_set
         if "name" in fields:
             if group.system_key and payload.name.strip() != group.name:
@@ -169,6 +173,8 @@ class UiGroupsService:
         if payload.manager_tool_access is not None:
             for column, value in manager_tool_column_values(payload.manager_tool_access).items():
                 setattr(group, column, value)
+
+    def _sync_group_associations(self, group: UiGroup, payload: UiGroupUpdate) -> None:
         if payload.user_ids is not None:
             if group.system_key:
                 raise ValueError("System groups use implicit membership")
