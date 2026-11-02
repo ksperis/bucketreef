@@ -155,7 +155,6 @@ export function readModels(c: DemoRequest): Response | undefined {
     { id: 101, label: "research", color_key: "sky", scope: "administrative" },
     { id: 102, label: "commercial", color_key: "emerald", scope: "administrative" },
   ]);
-  if (path === "/admin/s3-users/minimal") return json(listDemoS3Users(state).map(({ id, name }) => ({ id, name })));
   if (path === "/admin/s3-users") return json(page(listDemoS3Users(state), c.url));
   const security = path.match(/^\/admin\/users\/(\d+)\/security$/);
   if (security) return json({ user_id: Number(security[1]), ...required(state.users.find(u => u.id === Number(security[1]))), has_local_password: true, passkey_required: false, passkeys: [], external_identities: [], sessions: [] });

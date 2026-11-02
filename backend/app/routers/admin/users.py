@@ -13,7 +13,6 @@ from app.models.user import (
     PaginatedUsersResponse,
     UserCreate,
     UserOut,
-    UserSummary,
     UserUpdate,
 )
 from app.models.admin_ldap_import import LDAPImportRequest, LDAPImportSearchResponse
@@ -145,17 +144,6 @@ def list_users(
     )
     has_next = page * page_size < total
     return PaginatedUsersResponse(items=items, total=total, page=page, page_size=page_size, has_next=has_next)
-
-
-@router.get("/minimal", response_model=list[UserSummary])
-def list_users_minimal(
-    request: Request,
-    users_service: UsersService = Depends(get_users_service_dependency),
-    current_user: DbUser = Depends(get_current_ui_admin),
-    db: Session = Depends(get_db),
-) -> list[UserSummary]:
-    require_admin_interactive_session(request, db, current_user)
-    return users_service.list_users_minimal()
 
 
 @router.get("/options", response_model=PaginatedUserSummariesResponse)

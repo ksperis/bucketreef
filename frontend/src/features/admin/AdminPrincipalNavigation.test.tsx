@@ -47,7 +47,6 @@ const fixtures = vi.hoisted(() => ({
 }));
 vi.mock("../../api/users", () => ({
   listUsers: async () => ({ items: [fixtures.user], total: 1, page: 1, page_size: 25, has_next: false }),
-  listMinimalUsers: async () => [fixtures.user],
   listUserOptions: async () => ({ items: [fixtures.user], total: 1, page: 1, page_size: 25, has_next: false }),
   updateUser: fixtures.updateUser,
   uploadUserAvatar: fixtures.uploadAvatar,

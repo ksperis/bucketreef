@@ -19,10 +19,10 @@ const beginRecentWebAuthnVerificationMock = vi.fn();
 const finishRecentWebAuthnVerificationMock = vi.fn();
 const authenticatePasskeyMock = vi.fn();
 
-const listMinimalS3AccountsMock = vi.fn();
-const listMinimalS3UsersMock = vi.fn();
-const listMinimalS3ConnectionsMock = vi.fn();
-const listMinimalGroupsMock = vi.fn();
+const listS3AccountsMock = vi.fn();
+const listS3UsersMock = vi.fn();
+const listS3ConnectionsMock = vi.fn();
+const listGroupOptionsMock = vi.fn();
 const listAdminOpenStackCloudOptionsMock = vi.fn();
 const fetchLdapProvidersMock = vi.fn();
 
@@ -119,19 +119,19 @@ vi.mock("../../auth/webauthn", () => ({
 }));
 
 vi.mock("../../api/accounts", () => ({
-  listS3Accounts: (params?: unknown) => listMinimalS3AccountsMock(params),
+  listS3Accounts: (params?: unknown) => listS3AccountsMock(params),
 }));
 
 vi.mock("../../api/s3Users", () => ({
-  listS3Users: (params?: unknown) => listMinimalS3UsersMock(params),
+  listS3Users: (params?: unknown) => listS3UsersMock(params),
 }));
 
 vi.mock("../../api/s3ConnectionsAdmin", () => ({
-  listAdminS3Connections: (params?: unknown) => listMinimalS3ConnectionsMock(params),
+  listAdminS3Connections: (params?: unknown) => listS3ConnectionsMock(params),
 }));
 
 vi.mock("../../api/groups", () => ({
-  listGroupOptions: (params?: unknown) => listMinimalGroupsMock(params),
+  listGroupOptions: (params?: unknown) => listGroupOptionsMock(params),
 }));
 
 vi.mock("../../api/openstack", () => ({
@@ -174,7 +174,7 @@ describe("UsersPage modal tabs", () => {
       has_next: false,
     });
 
-    listMinimalS3AccountsMock.mockResolvedValue({
+    listS3AccountsMock.mockResolvedValue({
       items: [{
         id: 1,
         name: "acc-1",
@@ -188,7 +188,7 @@ describe("UsersPage modal tabs", () => {
       has_next: false,
     });
 
-    listMinimalS3UsersMock.mockResolvedValue({
+    listS3UsersMock.mockResolvedValue({
       items: [canonicalS3UserSummary(11, "s3-user-1")],
       total: 1,
       page: 1,
@@ -196,7 +196,7 @@ describe("UsersPage modal tabs", () => {
       has_next: false,
     });
 
-    listMinimalS3ConnectionsMock.mockResolvedValue({
+    listS3ConnectionsMock.mockResolvedValue({
       items: [canonicalS3ConnectionSummary(21, "conn-1")],
       total: 1,
       page: 1,
@@ -204,7 +204,7 @@ describe("UsersPage modal tabs", () => {
       has_next: false,
     });
 
-    listMinimalGroupsMock.mockResolvedValue({
+    listGroupOptionsMock.mockResolvedValue({
       items: [
         {
           id: 31,
@@ -871,55 +871,55 @@ describe("UsersPage modal tabs", () => {
     expect(updateUserMock).not.toHaveBeenCalled();
   }, 10_000);
 
-  it("does not retry minimal account loading in a loop after an initial failure", async () => {
+  it("does not retry account option loading in a loop after an initial failure", async () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    listMinimalS3AccountsMock.mockRejectedValue(new Error("backend down"));
+    listS3AccountsMock.mockRejectedValue(new Error("backend down"));
 
     renderPage();
 
     await waitFor(() => {
-      expect(listMinimalS3AccountsMock).toHaveBeenCalledTimes(1);
+      expect(listS3AccountsMock).toHaveBeenCalledTimes(1);
     });
 
     await new Promise((resolve) => window.setTimeout(resolve, 50));
 
-    expect(listMinimalS3AccountsMock).toHaveBeenCalledTimes(1);
+    expect(listS3AccountsMock).toHaveBeenCalledTimes(1);
 
     consoleErrorSpy.mockRestore();
   });
 
-  it("retries minimal account loading only on explicit modal and tab transitions after a failure", async () => {
+  it("retries account option loading only on explicit modal and tab transitions after a failure", async () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    listMinimalS3AccountsMock.mockRejectedValue(new Error("backend down"));
+    listS3AccountsMock.mockRejectedValue(new Error("backend down"));
 
     renderPage();
 
     await waitFor(() => {
-      expect(listMinimalS3AccountsMock).toHaveBeenCalledTimes(1);
+      expect(listS3AccountsMock).toHaveBeenCalledTimes(1);
     });
 
     await openCreateUser();
 
     await waitFor(() => {
-      expect(listMinimalS3AccountsMock).toHaveBeenCalledTimes(2);
+      expect(listS3AccountsMock).toHaveBeenCalledTimes(2);
     });
 
     fireEvent.click(screen.getByRole("tab", { name: "Associations" }));
     fireEvent.click(screen.getByRole("tab", { name: "S3 Users" }));
 
     await waitFor(() => {
-      expect(listMinimalS3UsersMock).toHaveBeenCalledTimes(1);
+      expect(listS3UsersMock).toHaveBeenCalledTimes(1);
     });
 
     fireEvent.click(screen.getByRole("tab", { name: "Accounts" }));
 
     await waitFor(() => {
-      expect(listMinimalS3AccountsMock).toHaveBeenCalledTimes(3);
+      expect(listS3AccountsMock).toHaveBeenCalledTimes(3);
     });
 
     await new Promise((resolve) => window.setTimeout(resolve, 50));
 
-    expect(listMinimalS3AccountsMock).toHaveBeenCalledTimes(3);
+    expect(listS3AccountsMock).toHaveBeenCalledTimes(3);
 
     consoleErrorSpy.mockRestore();
   });

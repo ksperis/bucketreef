@@ -6,7 +6,7 @@ import { ListActionButton } from "../../components/list/ListControls";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { listS3Accounts, type S3AccountSummary } from "../../api/accounts";
-import { listMinimalUsers } from "../../api/users";
+import { listUserOptions } from "../../api/users";
 import type { PaginatedResponse } from "../../api/types";
 import {
   addAdminPortalRequestMessage,
@@ -33,6 +33,7 @@ import UiSelect from "../../components/ui/UiSelect";
 import UiTextarea from "../../components/ui/UiTextarea";
 import useLazyListLoader from "../../hooks/useLazyListLoader";
 import usePaginatedOptions, { type PaginatedOptionsQuery } from "../../hooks/usePaginatedOptions";
+import { collectPaginatedItems } from "../../utils/pagination";
 import {
   cx,
   uiDividerClass,
@@ -62,6 +63,10 @@ const loadAccountOptions = async (
   query: PaginatedOptionsQuery,
 ): Promise<PaginatedResponse<S3AccountSummary>> => listS3Accounts(query);
 
+const loadRequesterOptions = () => collectPaginatedItems((page) =>
+  listUserOptions({ page, page_size: 100 }),
+);
+
 export default function AdminPortalRequestsPage() {
   const { text: adminText } = useAdminI18n();
   const adminBreadcrumbs = useAdminPageBreadcrumbs();
@@ -69,7 +74,7 @@ export default function AdminPortalRequestsPage() {
   const {
     items: requesters,
     refresh: refreshRequesters,
-  } = useLazyListLoader(listMinimalUsers);
+  } = useLazyListLoader(loadRequesterOptions);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [accountFilter, setAccountFilter] = useState("all");

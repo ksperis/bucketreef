@@ -827,7 +827,7 @@ def test_bearer_token_is_denied_on_direct_identity_routes(auth_client, db_sessio
     clear_ui_client(auth_client)
     authorization = {"Authorization": f"Bearer {api_token}"}
 
-    direct = auth_client.get("/api/admin/users/minimal", headers=authorization)
+    direct = auth_client.get("/api/admin/users/options", headers=authorization)
     assert direct.status_code == 401
     assert direct.json()["detail"] == "UI session required"
 

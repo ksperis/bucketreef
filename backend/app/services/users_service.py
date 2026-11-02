@@ -101,9 +101,6 @@ class UsersService:
     def list_users(self) -> list[User]:
         return self.query.list_users()
 
-    def list_users_minimal(self) -> list[UserSummary]:
-        return self.query.list_users_minimal()
-
     def paginate_user_summaries(
         self,
         *,

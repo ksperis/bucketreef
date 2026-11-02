@@ -21,7 +21,6 @@ from app.models.s3_connection_admin import (
     PaginatedS3ConnectionsResponse,
     S3ConnectionAdminItem,
     S3ConnectionGroupDetail,
-    S3ConnectionSummary,
 )
 from app.models.user import UserAssociationDetail
 from app.services.s3_connections_service import S3ConnectionsService
@@ -263,29 +262,6 @@ class AdminS3ConnectionsReadService:
             page_size=page_size,
             has_next=page * page_size < total,
         )
-
-    def list_minimal(self) -> list[S3ConnectionSummary]:
-        rows = self.db.execute(
-            select(
-                S3Connection.id,
-                S3Connection.name,
-                S3Connection.created_by_user_id,
-                S3Connection.is_active,
-                S3Connection.remediation_required,
-            )
-            .where(*S3ConnectionsService.admin_shared_predicates())
-            .order_by(*name_order_by(S3Connection))
-        ).all()
-        return [
-            S3ConnectionSummary(
-                id=row[0],
-                name=row[1],
-                created_by_user_id=row[2],
-                is_active=bool(row[3]),
-                execution_status="remediation_required" if row[4] else "ready",
-            )
-            for row in rows
-        ]
 
     def item(
         self,

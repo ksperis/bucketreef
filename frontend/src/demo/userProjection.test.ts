@@ -51,7 +51,7 @@ describe("demo user projection", () => {
     ]);
   });
 
-  it("serves canonical user DTOs while keeping the minimal endpoint summarized", async () => {
+  it("serves canonical user DTOs while keeping the options endpoint summarized", async () => {
     const state = createSeed();
     const listResponse = governance(request(state, "/admin/users"));
     expect(listResponse).toBeDefined();
@@ -65,15 +65,15 @@ describe("demo user projection", () => {
     expect(detailResponse).toBeDefined();
     expect(await detailResponse!.json()).toHaveProperty("effective_access");
 
-    const minimalResponse = governance(request(state, "/admin/users/minimal"));
-    expect(minimalResponse).toBeDefined();
-    const minimal = await minimalResponse!.json();
-    expect(minimal[0]).toEqual(expect.objectContaining({
+    const optionsResponse = governance(request(state, "/admin/users/options"));
+    expect(optionsResponse).toBeDefined();
+    const options = await optionsResponse!.json();
+    expect(options.items[0]).toEqual(expect.objectContaining({
       id: state.users[0].id,
       email: state.users[0].email,
       role: state.users[0].role,
     }));
-    expect(minimal[0]).not.toHaveProperty("effective_access");
-    expect(minimal[0]).not.toHaveProperty("account_links");
+    expect(options.items[0]).not.toHaveProperty("effective_access");
+    expect(options.items[0]).not.toHaveProperty("account_links");
   });
 });

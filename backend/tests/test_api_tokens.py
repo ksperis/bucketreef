@@ -80,7 +80,7 @@ def test_api_token_lifecycle_and_auth_usage(auth_client, db_session):
     assert token_inventory_response.status_code == 403
     assert token_inventory_response.json()["detail"] == "API tokens are not allowed for this route"
     auth_response = auth_client.get(
-        "/api/admin/users/minimal",
+        "/api/admin/users/options",
         headers={"Authorization": f"Bearer {api_token}"},
     )
     assert auth_response.status_code == 401
@@ -136,7 +136,7 @@ def test_api_token_auth_rejects_same_jti_with_different_token_hash(auth_client, 
 
     clear_ui_client(auth_client)
     response = auth_client.get(
-        "/api/admin/users/minimal",
+        "/api/admin/users/options",
         headers={"Authorization": f"Bearer {forged_same_jti}"},
     )
     assert response.status_code == 401
@@ -261,7 +261,7 @@ def test_api_token_scope_is_enforced_and_unmapped_routes_are_denied_by_default(a
 
     allowed = auth_client.get("/api/users/me", headers={"Authorization": f"Bearer {token}"})
     assert allowed.status_code == 200
-    insufficient = auth_client.get("/api/admin/users/minimal", headers={"Authorization": f"Bearer {token}"})
+    insufficient = auth_client.get("/api/admin/users/options", headers={"Authorization": f"Bearer {token}"})
     assert insufficient.status_code == 403
     assert insufficient.json()["detail"] == "API token scope is insufficient"
     unmapped = auth_client.get("/api/auth/session", headers={"Authorization": f"Bearer {token}"})

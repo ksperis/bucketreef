@@ -684,7 +684,7 @@ def test_admin_user_projection_and_search_hide_private_connection_links(db_sessi
     assert total == 0
 
 
-def test_assign_user_to_account_paths_and_list_users_minimal(db_session):
+def test_assign_user_to_account_paths_and_paginated_user_summaries(db_session):
     service = UsersService(db_session)
     account = _seed_account(db_session, "acc-b", "RGW-ACC-B")
     user = _seed_user(db_session, "assign@example.com", role=UserRole.UI_NONE.value)
@@ -721,5 +721,6 @@ def test_assign_user_to_account_paths_and_list_users_minimal(db_session):
     assert link.manager_role is None
     assert link.portal_role == PortalAccountRole.PORTAL_USER.value
 
-    minimal = service.list_users_minimal()
-    assert any(entry.email == "assign@example.com" for entry in minimal)
+    summaries, total = service.paginate_user_summaries(page=1, page_size=100)
+    assert total >= 1
+    assert any(entry.email == "assign@example.com" for entry in summaries)

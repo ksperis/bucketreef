@@ -318,7 +318,10 @@ def test_ui_group_listings_share_stable_case_insensitive_order(client: TestClien
     )
     db_session.commit()
 
-    minimal = client.get("/api/admin/groups/minimal")
+    options = client.get(
+        "/api/admin/groups/options",
+        params={"page_size": 10},
+    )
     paginated = client.get(
         "/api/admin/groups",
         params={"sort_by": "name", "sort_dir": "asc", "page_size": 10},
@@ -332,8 +335,8 @@ def test_ui_group_listings_share_stable_case_insensitive_order(client: TestClien
         params={"sort_by": "created_at", "sort_dir": "desc", "page_size": 10},
     )
 
-    assert minimal.status_code == paginated.status_code == paginated_desc.status_code == created_desc.status_code == 200
-    assert [item["name"] for item in minimal.json()] == ["alpha", "Beta", "Zulu"]
+    assert options.status_code == paginated.status_code == paginated_desc.status_code == created_desc.status_code == 200
+    assert [item["name"] for item in options.json()["items"]] == ["alpha", "Beta", "Zulu"]
     assert [item["name"] for item in paginated.json()["items"]] == ["alpha", "Beta", "Zulu"]
     assert [item["name"] for item in paginated_desc.json()["items"]] == ["Zulu", "Beta", "alpha"]
     assert [item["id"] for item in created_desc.json()["items"]] == sorted(
@@ -357,9 +360,9 @@ def test_ui_group_avatar_supports_presets_upload_and_initials_fallback(client: T
         "updated_at": created.json()["avatar"]["updated_at"],
     }
 
-    minimal = client.get("/api/admin/groups/minimal")
-    assert minimal.status_code == 200, minimal.text
-    assert next(item for item in minimal.json() if item["id"] == group_id)["avatar"]["icon"] == "academic"
+    options = client.get("/api/admin/groups/options", params={"page_size": 100})
+    assert options.status_code == 200, options.text
+    assert next(item for item in options.json()["items"] if item["id"] == group_id)["avatar"]["icon"] == "academic"
 
     uploaded = client.put(
         f"/api/admin/groups/{group_id}/avatar",

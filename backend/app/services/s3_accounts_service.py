@@ -10,7 +10,6 @@ from app.models.s3_account import (
     S3Account as S3AccountSchema,
     S3AccountCreate,
     S3AccountImport,
-    S3AccountSummary,
     S3AccountUpdate,
 )
 from app.services.mappers.s3_account import s3_account_from_db
@@ -141,9 +140,6 @@ class S3AccountsService:
             include_rgw_details=include_rgw_details,
             search_exact=search_exact,
         )
-
-    def list_accounts_minimal(self) -> list[S3AccountSummary]:
-        return self.query.list_accounts_minimal()
 
     def get_account_detail(self, account_id: int, include_usage: bool = False) -> S3AccountSchema:
         return self.query.get_account_detail(account_id, include_usage=include_usage)

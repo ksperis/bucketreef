@@ -125,14 +125,14 @@ def test_admin_accounts_page_enriches_only_selected_rows(client, db_session, mon
     assert len(enriched_account_ids) == 1
 
 
-def test_admin_accounts_minimal_is_sorted_case_insensitive(client, db_session):
+def test_admin_accounts_list_is_sorted_case_insensitive(client, db_session):
     _seed_account(db_session, name="Zulu", rgw_account_id="RGW-MIN-A")
     _seed_account(db_session, name="alpha", rgw_account_id="RGW-MIN-B")
     _seed_account(db_session, name="Beta", rgw_account_id="RGW-MIN-C")
 
-    response = client.get("/api/admin/accounts/minimal")
+    response = client.get("/api/admin/accounts", params={"page_size": 200})
     assert response.status_code == 200, response.text
-    payload = response.json()
+    payload = response.json()["items"]
 
     assert [item["name"] for item in payload] == ["alpha", "Beta", "Zulu"]
     assert all("is_s3_user" not in item for item in payload)

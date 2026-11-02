@@ -25,7 +25,6 @@ from app.models.s3_user import (
     S3UserCreate,
     S3UserGeneratedKey,
     S3UserImport,
-    S3UserSummary,
     S3UserUpdate,
 )
 from app.services.rgw_admin import RGWAdminClient
@@ -98,9 +97,6 @@ class S3UsersService:
 
     def list_users(self, include_quota: bool = False) -> list[S3UserSchema]:
         return self.query.list_users(include_quota=include_quota)
-
-    def list_users_minimal(self) -> list[S3UserSummary]:
-        return self.query.list_users_minimal()
 
     def paginate_users(
         self,

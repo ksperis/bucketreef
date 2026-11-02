@@ -224,9 +224,6 @@ class UiGroupsService:
     def get_group(self, group_id: int) -> Optional[UiGroup]:
         return self.queries.get_group(group_id)
 
-    def list_groups_minimal(self) -> list[UiGroupSummary]:
-        return self.queries.list_groups_minimal()
-
     def paginate_group_summaries(
         self,
         *,

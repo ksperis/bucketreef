@@ -13,10 +13,10 @@ const updateGroupMock = vi.fn();
 const deleteGroupMock = vi.fn();
 const uploadGroupAvatarMock = vi.fn();
 const deleteGroupAvatarMock = vi.fn();
-const listMinimalUsersMock = vi.fn();
-const listMinimalS3AccountsMock = vi.fn();
-const listMinimalS3UsersMock = vi.fn();
-const listMinimalS3ConnectionsMock = vi.fn();
+const listUserOptionsMock = vi.fn();
+const listS3AccountsMock = vi.fn();
+const listS3UsersMock = vi.fn();
+const listS3ConnectionsMock = vi.fn();
 const listAdminOpenStackCloudsMock = vi.fn();
 
 function canonicalS3UserSummary(id: number, name: string): S3UserSummary {
@@ -163,19 +163,19 @@ vi.mock("../../api/groups", () => ({
 }));
 
 vi.mock("../../api/users", () => ({
-  listUserOptions: (params?: unknown) => listMinimalUsersMock(params),
+  listUserOptions: (params?: unknown) => listUserOptionsMock(params),
 }));
 
 vi.mock("../../api/accounts", () => ({
-  listS3Accounts: (params?: unknown) => listMinimalS3AccountsMock(params),
+  listS3Accounts: (params?: unknown) => listS3AccountsMock(params),
 }));
 
 vi.mock("../../api/s3Users", () => ({
-  listS3Users: (params?: unknown) => listMinimalS3UsersMock(params),
+  listS3Users: (params?: unknown) => listS3UsersMock(params),
 }));
 
 vi.mock("../../api/s3ConnectionsAdmin", () => ({
-  listAdminS3Connections: (params?: unknown) => listMinimalS3ConnectionsMock(params),
+  listAdminS3Connections: (params?: unknown) => listS3ConnectionsMock(params),
 }));
 
 vi.mock("../../api/openstack", () => ({
@@ -200,7 +200,7 @@ describe("GroupsPage", () => {
       page_size: 25,
       has_next: false,
     });
-    listMinimalUsersMock.mockResolvedValue({
+    listUserOptionsMock.mockResolvedValue({
       items: [
         { id: 2, email: "alice@example.com" },
         { id: 3, email: "bob@example.com" },
@@ -210,21 +210,21 @@ describe("GroupsPage", () => {
       page_size: 10,
       has_next: false,
     });
-    listMinimalS3AccountsMock.mockResolvedValue({
+    listS3AccountsMock.mockResolvedValue({
       items: [{ id: 1, name: "acc-1", rgw_account_id: "RGW-ACC-1", user_links: [], group_links: [] }],
       total: 1,
       page: 1,
       page_size: 10,
       has_next: false,
     });
-    listMinimalS3UsersMock.mockResolvedValue({
+    listS3UsersMock.mockResolvedValue({
       items: [canonicalS3UserSummary(11, "s3-user-1")],
       total: 1,
       page: 1,
       page_size: 10,
       has_next: false,
     });
-    listMinimalS3ConnectionsMock.mockResolvedValue({
+    listS3ConnectionsMock.mockResolvedValue({
       items: [canonicalS3ConnectionSummary(21, "shared-conn")],
       total: 1,
       page: 1,
@@ -397,9 +397,9 @@ describe("GroupsPage", () => {
     expect(screen.queryByText("Account #99")).not.toBeInTheDocument();
     expect(screen.queryByText("S3 User #88")).not.toBeInTheDocument();
     expect(screen.queryByText("Connection #77")).not.toBeInTheDocument();
-    expect(listMinimalS3AccountsMock).toHaveBeenCalledWith({ page: 1, page_size: 10 });
-    expect(listMinimalS3UsersMock).toHaveBeenCalledWith({ page: 1, page_size: 10 });
-    expect(listMinimalS3ConnectionsMock).toHaveBeenCalledWith({ page: 1, page_size: 10 });
+    expect(listS3AccountsMock).toHaveBeenCalledWith({ page: 1, page_size: 10 });
+    expect(listS3UsersMock).toHaveBeenCalledWith({ page: 1, page_size: 10 });
+    expect(listS3ConnectionsMock).toHaveBeenCalledWith({ page: 1, page_size: 10 });
   });
 
   it("limits visible member avatars and reports hidden members", async () => {

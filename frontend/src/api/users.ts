@@ -235,11 +235,6 @@ export async function listUsers(params?: ListUsersParams): Promise<PaginatedUser
   return data;
 }
 
-export async function listMinimalUsers(): Promise<UserSummary[]> {
-  const { data } = await client.get<UserSummary[]>("/admin/users/minimal");
-  return data;
-}
-
 export async function listUserOptions(params: {
   page?: number;
   page_size?: number;

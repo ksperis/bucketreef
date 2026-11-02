@@ -96,14 +96,14 @@ def test_admin_s3_connections_non_name_sort_still_applies(client, db_session):
     assert ids.index(same_time_2.id) < ids.index(same_time_1.id)
 
 
-def test_admin_s3_connections_minimal_is_sorted_case_insensitive(client, db_session):
+def test_admin_s3_connections_list_is_sorted_case_insensitive(client, db_session):
     _seed_connection(db_session, name="Zulu")
     _seed_connection(db_session, name="alpha")
     _seed_connection(db_session, name="Beta")
 
-    response = client.get("/api/admin/s3-connections/minimal")
+    response = client.get("/api/admin/s3-connections", params={"page_size": 200})
     assert response.status_code == 200, response.text
-    payload = response.json()
+    payload = response.json()["items"]
 
     assert [item["name"] for item in payload] == ["alpha", "Beta", "Zulu"]
 
