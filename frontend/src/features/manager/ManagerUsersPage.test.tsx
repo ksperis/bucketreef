@@ -298,6 +298,11 @@ describe("ManagerUsersPage", () => {
   });
 
   it("shows the managed private access action only when the backend enables it", async () => {
+    listIamGroupsPageMock.mockResolvedValue({ items: [{ name: "readers" }], next_marker: null });
+    listIamPoliciesPageMock.mockResolvedValue({
+      items: [{ name: "ReadOnly", arn: "arn:policy:readonly" }],
+      next_marker: null,
+    });
     useExecutionContextMock.mockReturnValue({
       contexts: [{ id: "acc-1", kind: "account", display_name: "Tenant account", endpoint_name: "Default" }],
       selectedContextId: "acc-1",
@@ -320,10 +325,13 @@ describe("ManagerUsersPage", () => {
     await waitFor(() => expect(listIamUsersPageMock).toHaveBeenCalledWith("acc-1", { marker: null, page_size: 25, include_details: true }));
     fireEvent.click(screen.getByRole("button", { name: "Create my private access" }));
 
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
-    expect(screen.getByLabelText("Connection name")).toHaveValue("Tenant account private access");
-    expect(screen.queryByLabelText(/IAM user/i)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(/secret/i)).not.toBeInTheDocument();
+    const dialog = screen.getByRole("dialog", { name: "Create my private access" });
+    expect(dialog).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Connection name")).toHaveValue("Tenant account private access");
+    expect(within(dialog).queryByLabelText(/IAM user/i)).not.toBeInTheDocument();
+    expect(within(dialog).queryByLabelText(/secret/i)).not.toBeInTheDocument();
+    expect(await within(dialog).findByText("readers")).toBeInTheDocument();
+    expect(await within(dialog).findByText("ReadOnly")).toBeInTheDocument();
   });
 
   it("marks managed IAM identities and routes deletion through their private connection", async () => {

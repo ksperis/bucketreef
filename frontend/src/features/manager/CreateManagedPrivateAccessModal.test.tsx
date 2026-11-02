@@ -230,6 +230,9 @@ describe("CreateManagedPrivateAccessModal", () => {
       />
     );
 
+    const dialog = screen.getByRole("dialog", { name: "Create my private access" });
+    expect(await within(dialog).findByText("readers")).toBeInTheDocument();
+    expect(await within(dialog).findByText("ReadOnly")).toBeInTheDocument();
     expect(await axe(container)).toHaveNoViolations();
   });
   it("protects an unadded inline draft on every dismissal path and can discard it", async () => {
