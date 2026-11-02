@@ -13,14 +13,16 @@ from app.models.s3_account import (
     AccountUserLinkInput,
     S3AccountUpdate,
 )
-from app.services.association_sync import sync_metadata_association_links
+from app.services.association_sync import (
+    sync_metadata_association_links,
+    update_account_access_link,
+)
 from app.services.association_validation import (
     ensure_association_ids_exist,
     load_association_users,
 )
 from app.services.ui_group_avatar_service import UiGroupAvatarService
 from app.services.user_avatar_service import UserAvatarService
-from app.utils.time import utcnow
 
 
 class S3AccountAssociationsService:
@@ -160,14 +162,6 @@ class S3AccountAssociationsService:
                 user.role = UserRole.UI_USER.value
                 self.db.add(user)
 
-        def update_link(row: UserS3Account, link: AccountUserLinkInput) -> None:
-            row.manager_role = link.manager_role
-            row.portal_role = link.portal_role
-            row.allow_manager_browser_data_access = bool(
-                link.allow_manager_browser_data_access
-            )
-            row.updated_at = utcnow()
-
         sync_metadata_association_links(
             self.db,
             link_model=UserS3Account,
@@ -179,7 +173,7 @@ class S3AccountAssociationsService:
                 user_id=user_id,
                 account_id=account.id,
             ),
-            update_link=update_link,
+            update_link=update_account_access_link,
             on_create=promote_user_for_new_link,
         )
 
@@ -197,14 +191,6 @@ class S3AccountAssociationsService:
             entity_label="UI groups",
         )
 
-        def update_link(row: UiGroupS3Account, link: AccountGroupLinkInput) -> None:
-            row.manager_role = link.manager_role
-            row.portal_role = link.portal_role
-            row.allow_manager_browser_data_access = bool(
-                link.allow_manager_browser_data_access
-            )
-            row.updated_at = utcnow()
-
         sync_metadata_association_links(
             self.db,
             link_model=UiGroupS3Account,
@@ -216,5 +202,5 @@ class S3AccountAssociationsService:
                 group_id=group_id,
                 account_id=account.id,
             ),
-            update_link=update_link,
+            update_link=update_account_access_link,
         )
