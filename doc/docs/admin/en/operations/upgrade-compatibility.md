@@ -840,6 +840,11 @@ Portal Storage Space create and import requests now require the access choices
 that the bundled UI already materializes. Creation requires an explicit naming
 mode plus `visibility`, `share_scope`, nullable `account_member_role`, and
 `initial_shares`; import requires the same access fields except the naming mode.
+Sharing combinations are validated as canonical state instead of being silently
+normalized. A `PATCH` that explicitly sets `share_scope` to `account` must also
+send `account_member_role` as `Viewer` or `Editor`; the backend no longer
+supplies an implicit `Editor` role. PATCH requests that do not change sharing
+continue to omit those fields normally.
 
 Deploy the backend and bundled frontend together. No database migration is
 required.
