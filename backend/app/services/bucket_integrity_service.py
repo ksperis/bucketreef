@@ -370,7 +370,6 @@ class BucketIntegrityCheckService(LongRunningS3ClientMixin):
         cancel_check: CancelCheck | None = None,
     ) -> BucketIntegrityCheckResult:
         started_at = datetime.now(timezone.utc)
-        bucket_results: list[BucketIntegrityBucketResult] = []
         totals = _IntegrityTotals()
         max_bytes = options.max_bytes_per_object
         emit = progress_callback or _ignore_progress
@@ -385,37 +384,15 @@ class BucketIntegrityCheckService(LongRunningS3ClientMixin):
                 message="Preparing bucket integrity check...",
             )
         )
-
-        for index, target in enumerate(targets):
-            if cancel_check:
-                cancel_check()
-            bucket_result = self._run_bucket(
-                target,
-                options,
-                max_bytes=max_bytes,
-                total_buckets=len(targets),
-                completed_buckets=index,
-                progress_callback=emit,
-                cancel_check=cancel_check,
-            )
-            bucket_results.append(bucket_result)
-            totals.add_bucket_result(bucket_result)
-            emit(
-                self._build_progress(
-                    stage="completed",
-                    target=target,
-                    total_buckets=len(targets),
-                    completed_buckets=index + 1,
-                    counts=totals,
-                    message=f"Completed {target.bucket_name}.",
-                )
-            )
-
-        status = "passed"
-        if bucket_results and all(item.status == "failed" for item in bucket_results):
-            status = "failed"
-        elif totals.failed_count > 0 or any(item.status != "passed" for item in bucket_results):
-            status = "completed_with_errors"
+        bucket_results = self._run_targets(
+            targets,
+            options,
+            totals=totals,
+            max_bytes=max_bytes,
+            progress_callback=emit,
+            cancel_check=cancel_check,
+        )
+        status = self._resolve_run_status(bucket_results, totals)
 
         finished_at = datetime.now(timezone.utc)
         return BucketIntegrityCheckResult(
@@ -430,6 +407,55 @@ class BucketIntegrityCheckService(LongRunningS3ClientMixin):
             finished_at=finished_at,
             buckets=bucket_results,
         )
+
+    def _run_targets(
+        self,
+        targets: list[BucketIntegrityResolvedTarget],
+        options: BucketIntegrityOptions,
+        *,
+        totals: _IntegrityTotals,
+        max_bytes: int | None,
+        progress_callback: ProgressCallback,
+        cancel_check: CancelCheck | None,
+    ) -> list[BucketIntegrityBucketResult]:
+        bucket_results: list[BucketIntegrityBucketResult] = []
+        total_buckets = len(targets)
+        for index, target in enumerate(targets):
+            if cancel_check:
+                cancel_check()
+            bucket_result = self._run_bucket(
+                target,
+                options,
+                max_bytes=max_bytes,
+                total_buckets=total_buckets,
+                completed_buckets=index,
+                progress_callback=progress_callback,
+                cancel_check=cancel_check,
+            )
+            bucket_results.append(bucket_result)
+            totals.add_bucket_result(bucket_result)
+            progress_callback(
+                self._build_progress(
+                    stage="completed",
+                    target=target,
+                    total_buckets=total_buckets,
+                    completed_buckets=index + 1,
+                    counts=totals,
+                    message=f"Completed {target.bucket_name}.",
+                )
+            )
+        return bucket_results
+
+    @staticmethod
+    def _resolve_run_status(
+        bucket_results: list[BucketIntegrityBucketResult],
+        totals: _IntegrityTotals,
+    ) -> BucketIntegrityStatus:
+        if bucket_results and all(item.status == "failed" for item in bucket_results):
+            return "failed"
+        if totals.failed_count > 0 or any(item.status != "passed" for item in bucket_results):
+            return "completed_with_errors"
+        return "passed"
 
     def _run_bucket(
         self,
