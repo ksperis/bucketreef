@@ -35,7 +35,7 @@ describe("InlinePolicyEditor", () => {
 
     expect(await screen.findByText("Existing inline policies")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /readonly-inline/i })).toBeInTheDocument();
-    expect(screen.getByText("Select an existing inline policy to review or edit")).toBeInTheDocument();
+    expect(screen.queryByText("Select an existing inline policy to review or edit")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Inline policy name")).not.toBeInTheDocument();
   });
 

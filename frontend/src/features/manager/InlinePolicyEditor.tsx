@@ -305,14 +305,7 @@ export default function InlinePolicyEditor({
             ))}
           </div>
         </div>
-        {showPromptState ? hasPolicies && (
-          <div className="settings-body">
-            <p>{text("Select an existing inline policy to review or edit")}</p>
-            <p className="settings-description mt-1">
-              {text("Existing inline policies stay visible above so you can avoid creating a second policy by mistake.")}
-            </p>
-          </div>
-        ) : (
+        {!showPromptState && (
           <form aria-label={text("Edit inline policy")} noValidate onSubmit={handleSave}>
             <fieldset disabled={controlsDisabled} className="settings-fields">
               <div>
