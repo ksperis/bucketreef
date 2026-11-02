@@ -20,6 +20,7 @@ from app.models.execution_context import (
 from app.models.openstack import OpenStackAuthenticate, OpenStackCloudWrite, OpenStackPrivateConnectionCreate
 from app.models.s3_connection import S3Connection, S3ConnectionCreate
 from app.services.keystone_client import KeystoneClient, KeystoneIdentity, OpenStackError
+from app.services.openstack_access_policy import can_connect_openstack_cloud
 from app.services.s3_connections_service import S3ConnectionsService
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.storage_endpoints_service import StorageEndpointsService
@@ -27,6 +28,15 @@ from app.services.tags_service import TagsService
 from app.utils.s3_endpoint import validate_openstack_catalog_s3_endpoint
 from app.utils.storage_endpoint_features import features_to_capabilities, normalize_features
 from app.utils.time import utcnow
+
+
+def _resolve_guard_context(
+    db: Session,
+    user: User,
+    auth_id: str,
+    context_ref: str,
+) -> S3ExecutionContext:
+    return OpenStackService(db).resolve(user, auth_id, context_ref, attach_guard=False)
 
 
 class OpenStackService:
@@ -44,16 +54,13 @@ class OpenStackService:
     def allowed_clouds(self, user: User) -> list[OpenStackCloud]:
         if not self.enabled():
             return []
-        from app.services.effective_access_service import EffectiveAccessService
-        access = EffectiveAccessService(self.db)
         return [cloud for cloud in self.db.scalars(select(OpenStackCloud).order_by(OpenStackCloud.name)).all()
-                if access.can_connect_openstack_cloud(user, cloud)]
+                if can_connect_openstack_cloud(self.db, user, cloud)]
 
     def cloud(self, user: User, cloud_id: int) -> OpenStackCloud:
         self.require_enabled()
-        from app.services.effective_access_service import EffectiveAccessService
         cloud = self.db.get(OpenStackCloud, cloud_id, populate_existing=True)
-        if cloud is None or not EffectiveAccessService(self.db).can_connect_openstack_cloud(user, cloud):
+        if cloud is None or not can_connect_openstack_cloud(self.db, user, cloud):
             raise OpenStackError("cloud_not_found", "OpenStack cloud is not available", 404)
         return cloud
 
@@ -568,7 +575,14 @@ class OpenStackService:
         if attach_guard and not metadata_only:
             from app.services.openstack_execution_guard import make_openstack_validator
             from app.services.s3_execution_client import s3_execution_cache_key
-            result.access_validator = make_openstack_validator(self.db.get_bind(), user.id, auth_id, context_ref, s3_execution_cache_key(result))
+            result.access_validator = make_openstack_validator(
+                self.db.get_bind(),
+                user.id,
+                auth_id,
+                context_ref,
+                s3_execution_cache_key(result),
+                resolve_context=_resolve_guard_context,
+            )
         if metadata_only:
             result.access_key = result.secret_key = None
         return result

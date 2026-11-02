@@ -8,7 +8,7 @@ from app.models.feature_policy import FeaturePolicy, ManagerFeaturePolicies, res
 from app.services import app_settings_service
 
 from dataclasses import dataclass, field
-from sqlalchemy import and_, or_, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from app.db import (
@@ -18,10 +18,8 @@ from app.db import (
     StorageProvider,
     UiGroup,
     User,
-    UserUiGroup,
     is_admin_ui_role,
 )
-from app.db.ui_group import ALL_USERS_SYSTEM_KEY
 from app.models.user import (
     EffectiveUserAccess,
     LinkedUiGroup,
@@ -87,33 +85,6 @@ class ResolvedUserAccess:
 
 class EffectiveAccessService:
     """Single source for role aggregation and executable UI-user contexts."""
-
-    def can_connect_openstack_cloud(self, user: User, cloud) -> bool:
-        """Cloud admission is independent of manual S3-connection creation."""
-        from app.db.openstack import cloud_users, cloud_groups
-        if not user.is_active or user.role not in {"ui_user", "ui_admin", "ui_superadmin"} or not cloud.enabled:
-            return False
-        if self.db.scalar(select(cloud_users.c.user_id).where(cloud_users.c.cloud_id == cloud.id, cloud_users.c.user_id == user.id)) is not None:
-            return True
-        return self.db.scalar(
-            select(cloud_groups.c.group_id)
-            .join(UiGroup, UiGroup.id == cloud_groups.c.group_id)
-            .outerjoin(
-                UserUiGroup,
-                and_(
-                    UserUiGroup.group_id == cloud_groups.c.group_id,
-                    UserUiGroup.user_id == user.id,
-                ),
-            )
-            .where(
-                cloud_groups.c.cloud_id == cloud.id,
-                or_(
-                    UiGroup.system_key == ALL_USERS_SYSTEM_KEY,
-                    UserUiGroup.user_id == user.id,
-                ),
-            )
-            .limit(1)
-        ) is not None
 
     def __init__(self, db: Session) -> None:
         self.db = db
