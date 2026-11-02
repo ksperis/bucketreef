@@ -31,7 +31,9 @@ import { useBrowserI18n } from "./browserI18n";
 import { useOpenStackProjectSelector } from "../shared/useOpenStackProjectSelector";
 import OpenStackRegionControl, { OpenStackRegionIcon } from "../shared/OpenStackRegionControl";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
-import ExecutionDestinationControl from "../shared/ExecutionDestinationControl";
+import ExecutionDestinationControl, {
+  buildExecutionDestinationControlModel,
+} from "../shared/ExecutionDestinationControl";
 
 export type BrowserSidebarBodyRenderer = (args: SidebarBodyRenderArgs) => ReactNode;
 
@@ -216,40 +218,32 @@ function BrowserShell() {
     && selectedExecutionEndpointId != null
   ) {
     const executionDestinations = selected.execution_destinations ?? [];
-    const activeExecutionDestination = executionDestinations.find(
-      (destination) => destination.endpoint_id === selectedExecutionEndpointId,
-    ) ?? executionDestinations.find(
-      (destination) => destination.endpoint_id === selected.endpoint_id,
-    ) ?? executionDestinations[0];
-    const destinationOptions = executionDestinations.map((destination) => ({
-      value: String(destination.endpoint_id),
-      label: destination.name,
-      description: [
-        destination.zone_id ? `${shellText("rgwZone")}: ${destination.zone_id}` : null,
-        destination.region,
-        destination.endpoint_url,
-      ].filter(Boolean).join(" · "),
-      searchText: [destination.name, destination.zone_id, destination.region, destination.endpoint_url]
-        .filter(Boolean)
-        .join(" "),
-    }));
-    topbarControlDescriptors.push({
-      id: "destination",
-      icon: <OpenStackRegionIcon className="h-4 w-4" />,
-      selectedLabel: activeExecutionDestination.name,
-      priority: 20,
-      estimatedIconWidth: 36,
-      estimatedLabelWidth: 208,
-      renderControl: (mode) => (
-        <ExecutionDestinationControl
-          mode={mode}
-          currentLabel={activeExecutionDestination.name}
-          currentTargetId={String(activeExecutionDestination.endpoint_id)}
-          options={destinationOptions}
-          onChange={(value) => setExecutionEndpointId(Number(value))}
-        />
-      ),
-    });
+    const { active: activeExecutionDestination, options: destinationOptions } =
+      buildExecutionDestinationControlModel(
+        executionDestinations,
+        selectedExecutionEndpointId,
+        selected.endpoint_id,
+        shellText("rgwZone"),
+      );
+    if (activeExecutionDestination) {
+      topbarControlDescriptors.push({
+        id: "destination",
+        icon: <OpenStackRegionIcon className="h-4 w-4" />,
+        selectedLabel: activeExecutionDestination.name,
+        priority: 20,
+        estimatedIconWidth: 36,
+        estimatedLabelWidth: 208,
+        renderControl: (mode) => (
+          <ExecutionDestinationControl
+            mode={mode}
+            currentLabel={activeExecutionDestination.name}
+            currentTargetId={String(activeExecutionDestination.endpoint_id)}
+            options={destinationOptions}
+            onChange={(value) => setExecutionEndpointId(Number(value))}
+          />
+        ),
+      });
+    }
   }
 
   return (

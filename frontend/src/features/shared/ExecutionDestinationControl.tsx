@@ -3,7 +3,39 @@ import type { TopbarControlRenderMode } from "../../components/topbarControlsLay
 import TopbarDropdownSelect, { type TopbarDropdownOption } from "../../components/TopbarDropdownSelect";
 import { TOPBAR_CONTEXT_SELECTOR_ICON_WIDTH_CLASS } from "../../components/topbarControlWidths";
 import { useShellI18n } from "../../components/shellMessages";
+import type { ExecutionDestination } from "../../api/executionContexts";
 import { OpenStackRegionIcon } from "./OpenStackRegionControl";
+
+type ExecutionDestinationOptionSource = Pick<
+  ExecutionDestination,
+  "endpoint_id" | "name" | "endpoint_url" | "region" | "zone_id"
+>;
+
+export function buildExecutionDestinationControlModel(
+  destinations: readonly ExecutionDestinationOptionSource[],
+  selectedEndpointId: number | null,
+  fallbackEndpointId: number | null,
+  rgwZoneLabel: string,
+) {
+  const active = destinations.find(
+    (destination) => destination.endpoint_id === selectedEndpointId,
+  ) ?? destinations.find(
+    (destination) => destination.endpoint_id === fallbackEndpointId,
+  ) ?? destinations[0] ?? null;
+  const options: TopbarDropdownOption[] = destinations.map((destination) => ({
+    value: String(destination.endpoint_id),
+    label: destination.name,
+    description: [
+      destination.zone_id ? `${rgwZoneLabel}: ${destination.zone_id}` : null,
+      destination.region,
+      destination.endpoint_url,
+    ].filter(Boolean).join(" · "),
+    searchText: [destination.name, destination.zone_id, destination.region, destination.endpoint_url]
+      .filter(Boolean)
+      .join(" "),
+  }));
+  return { active, options };
+}
 
 type ExecutionDestinationControlProps = {
   mode: TopbarControlRenderMode;
