@@ -24,11 +24,8 @@ from app.models.access_audit import (
     PaginatedAccessAuditResponse,
 )
 from app.models.access_context import EffectiveAccountLink
-from app.services.effective_access_service import (
-    EffectiveAccessService,
-    EffectiveAccessSource,
-    ResolvedUserAccess,
-)
+from app.services.effective_access_contracts import EffectiveAccessSource, ResolvedUserAccess
+from app.services.effective_access_service import EffectiveAccessService
 
 
 RIGHT_LABELS: dict[AccessAuditRightCode, str] = {

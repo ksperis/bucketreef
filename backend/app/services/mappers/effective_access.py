@@ -3,8 +3,6 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from app.models.user import (
     EffectiveAccountGroupSource,
     EffectiveAccountMembership,
@@ -15,10 +13,8 @@ from app.models.user import (
     ManagerToolAccess,
 )
 from app.services.manager_tool_access import MANAGER_TOOL_COLUMNS
-
-if TYPE_CHECKING:
-    from app.models.access_context import EffectiveAccountGroupRole, EffectiveAccountLink
-    from app.services.effective_access_service import ResolvedUserAccess
+from app.models.access_context import EffectiveAccountGroupRole, EffectiveAccountLink
+from app.services.effective_access_contracts import ResolvedUserAccess
 
 
 def _has_group_feature_source(resolved: ResolvedUserAccess, right_code: str) -> bool:

@@ -35,7 +35,8 @@ from app.services.connection_identity_service import ConnectionIdentityService
 from app.services.s3_accounts_service import get_s3_accounts_service
 from app.services.s3_connections_service import S3ConnectionsService
 from app.services.s3_users_service import get_s3_users_service
-from app.services.effective_access_service import EffectiveAccessService, ResolvedUserAccess
+from app.services.effective_access_contracts import ResolvedUserAccess
+from app.services.effective_access_service import EffectiveAccessService
 from app.services.managed_private_access_policy_service import (
     ManagedPrivateAccessPolicyService,
 )
