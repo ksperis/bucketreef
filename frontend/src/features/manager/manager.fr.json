@@ -1295,6 +1295,7 @@
   "{count} result": "{count} résultat",
   "{count} results": "{count} résultats",
   "{count} shown on this page": "Affichés sur cette page : {count}",
+  "Source buckets": "Buckets sources",
   "{context} · Select source buckets to compare across manager contexts.": "{context} · Sélectionnez les buckets sources à comparer entre les contextes Manager.",
   "{context} · Select buckets to purge.": "{context} · Sélectionnez les buckets à purger.",
   "{context} · Select buckets to check.": "{context} · Sélectionnez les buckets à vérifier.",
