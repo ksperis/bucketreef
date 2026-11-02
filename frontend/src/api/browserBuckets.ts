@@ -60,13 +60,13 @@ export async function fetchBrowserUsageSummary(
 export async function createBrowserBucket(
   contextId: S3ExecutionContextSelector,
   name: string,
-  options?: { versioning?: boolean } & BrowserRequestOptions,
+  options: { versioning: boolean } & BrowserRequestOptions,
 ): Promise<void> {
   await client.post(
     "/browser/buckets",
     {
       name,
-      versioning: options?.versioning ?? false,
+      versioning: options.versioning,
     },
     {
       params: withS3ContextParam(undefined, contextId),
