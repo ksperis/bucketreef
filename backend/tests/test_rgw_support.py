@@ -3,7 +3,8 @@
 from app.utils.storage_endpoint_features import parse_features_config
 import pytest
 
-from app.db import StorageEndpoint, StorageProvider
+from app.db import StorageEndpoint
+from app.core.domain_enums import StorageProvider
 from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client
 from app.services.rgw_supervision import get_supervision_rgw_client
 from tests.service_identity_helpers import service_identity

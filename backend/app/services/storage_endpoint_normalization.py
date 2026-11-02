@@ -6,7 +6,8 @@ from typing import Literal, Optional
 
 from pydantic import SecretStr, ValidationError, field_validator, model_validator
 
-from app.db import StorageEndpoint, StorageProvider
+from app.db import StorageEndpoint
+from app.core.domain_enums import StorageProvider
 from app.models.storage_endpoint import (
     StorageEndpointCoordinates,
     StorageEndpointCreate,

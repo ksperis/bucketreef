@@ -10,7 +10,6 @@ from types import SimpleNamespace
 import pytest
 
 from app.db import (
-    ManagerAccountRole, PortalAccountRole,
     S3Account,
     S3Connection,
     S3User,
@@ -18,12 +17,12 @@ from app.db import (
     UiGroup,
     UiGroupS3Account,
     User,
-    UserRole,
     UserS3Account,
     UserS3Connection,
     UserS3User,
     UserUiGroup,
 )
+from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, UserRole
 from app.routers import execution_contexts
 from app.models.app_settings import AppSettings, GeneralSettings
 from app.models.execution_context import ExecutionContext, WorkspaceAccess, WorkspaceAvailability

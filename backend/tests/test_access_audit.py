@@ -6,7 +6,6 @@ import json
 import pytest
 
 from app.db import (
-    ManagerAccountRole,
     S3Connection,
     S3User,
     UiGroup,
@@ -14,12 +13,12 @@ from app.db import (
     UiGroupS3Connection,
     UiGroupS3User,
     User,
-    UserRole,
     UserS3Account,
     UserS3Connection,
     UserS3User,
     UserUiGroup,
 )
+from app.core.domain_enums import ManagerAccountRole, UserRole
 from app.models.access_audit import (
     AccessAuditGrantSource,
     AccessAuditPrincipal,

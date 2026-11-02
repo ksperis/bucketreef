@@ -9,7 +9,8 @@ import pytest
 from fastapi import HTTPException, Response
 from starlette.requests import Request
 
-from app.db import User, UserRole
+from app.db import User
+from app.core.domain_enums import UserRole
 from app.models.session import SessionCapabilities
 from app.services.access_context_contracts import ManagerSessionPrincipal
 from app.routers import dependencies

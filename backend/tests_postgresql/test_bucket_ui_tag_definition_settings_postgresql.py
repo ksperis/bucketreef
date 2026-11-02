@@ -12,7 +12,8 @@ from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from alembic.script import ScriptDirectory
 
-from app.db import TagDefinition, User, UserRole
+from app.core.domain_enums import UserRole
+from app.db import TagDefinition, User
 from app.services import database_initialization
 
 

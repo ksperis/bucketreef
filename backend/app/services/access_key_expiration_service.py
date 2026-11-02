@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.sensitive_data import sanitize_persisted_error
 from app.db import ManagerAccessKeyMetadata, S3Account, S3User
-from app.db.enums import StorageProvider
+from app.core.domain_enums import StorageProvider
 from app.models.access_key_metadata import AccessKeyExpirationRunResult
 from app.models.iam import AccessKey
 from app.services.audit_service import AuditService

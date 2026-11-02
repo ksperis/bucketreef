@@ -9,7 +9,8 @@ from threading import Lock
 from time import monotonic
 from typing import Callable, Literal
 
-from app.db import StorageEndpoint, StorageProvider
+from app.db import StorageEndpoint
+from app.core.domain_enums import StorageProvider
 from app.services.s3_execution_context import S3ExecutionTarget
 from app.models.bucket_listing import BucketListingSummary
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError

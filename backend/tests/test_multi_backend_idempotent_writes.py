@@ -11,11 +11,11 @@ from app.db import (
     CostUsageDaily,
     EndpointHealthLatest,
     EndpointHealthRollup,
-    HealthCheckStatus,
     QuotaUsageDaily,
     QuotaUsageHourly,
     UserNotification,
 )
+from app.core.domain_enums import HealthCheckStatus
 from app.services.cost_collection_service import CostCollector
 from app.services.healthcheck_common import (
     DEFAULT_ROLLUP_RESOLUTION_SECONDS,

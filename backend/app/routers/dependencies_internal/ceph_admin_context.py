@@ -6,7 +6,8 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import StorageEndpointNotFoundError
-from app.db import StorageEndpoint, User, is_admin_ui_role
+from app.db import StorageEndpoint, User
+from app.core.domain_enums import is_admin_ui_role
 from app.services.access_context_contracts import AccountCapabilities
 from app.services import app_settings_service, effective_access_service
 from app.services.ceph_admin_endpoint_service import (

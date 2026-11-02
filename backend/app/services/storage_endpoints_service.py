@@ -8,14 +8,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.domain_errors import StorageEndpointNotFoundError
-from app.db import (
-    S3Account,
-    S3Connection,
-    S3User,
-    StorageEndpoint,
-    StorageProvider,
-    User,
-)
+from app.db import S3Account, S3Connection, S3User, StorageEndpoint, User
+from app.core.domain_enums import StorageProvider
 from app.models.storage_endpoint import (
     StorageEndpointFeatureDetectionRequest,
     StorageEndpointFeatureDetectionResult,

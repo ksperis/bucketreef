@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 from sqlalchemy import func, select
 
 from app.db import (
-    PortalAccountRole,
     PortalExternalAccessCredential,
     PortalStorageSpaceGrant,
     PortalStorageSpaceMetadata,
@@ -18,6 +17,7 @@ from app.db import (
     UserS3Account,
     UserUiGroup,
 )
+from app.core.domain_enums import PortalAccountRole
 from app.models.portal_storage_spaces import (
     PortalStorageSpaceCollaboratorPreview,
     PortalStorageSpaceGrantRole,

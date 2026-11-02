@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Optional
 
 from app.models.base import ApiModel
-from app.db import HealthCheckStatus
+from app.core.domain_enums import HealthCheckStatus
 
 
 class EndpointHealthSummary(ApiModel):

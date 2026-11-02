@@ -5,7 +5,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from urllib.parse import quote
 
-from app.db import PortalAccountRole, PortalStorageSpaceMetadata, User
+from app.db import PortalStorageSpaceMetadata, User
+from app.core.domain_enums import PortalAccountRole
 from app.models.portal_storage_spaces import (
     PortalStorageSpaceIcon,
     PortalStorageSpaceIconPreset,

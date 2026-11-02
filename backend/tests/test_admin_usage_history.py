@@ -7,7 +7,8 @@ from datetime import UTC, date, datetime
 import sqlalchemy as sa
 from fastapi.testclient import TestClient
 
-from app.db import AuditLog, QuotaUsageDaily, QuotaUsageHourly, S3Account, S3User, StorageEndpoint, StorageProvider
+from app.db import AuditLog, QuotaUsageDaily, QuotaUsageHourly, S3Account, S3User, StorageEndpoint
+from app.core.domain_enums import StorageProvider
 from app.models.app_settings import AppSettings
 from app.routers.admin import usage_history as usage_history_router
 from app.services import usage_history_service

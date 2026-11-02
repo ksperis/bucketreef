@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from typing import Optional
 
-from app.db import StorageProvider
+from app.core.domain_enums import StorageProvider
 
 
 def normalize_optional_string(value: object) -> str | None:

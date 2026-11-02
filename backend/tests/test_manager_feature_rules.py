@@ -4,7 +4,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.db import UiGroup, User, UserRole, UserUiGroup
+from app.db import UiGroup, User, UserUiGroup
+from app.core.domain_enums import UserRole
 from app.main import app
 from app.models.bucket import BucketLifecycleConfig, BucketNotificationConfiguration, BucketTag
 from app.routers import dependencies

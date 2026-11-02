@@ -10,7 +10,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.database import get_db
-from app.db import PortalAccountRole, S3Account, StorageProvider, User, UserS3Account
+from app.db import S3Account, User, UserS3Account
+from app.core.domain_enums import PortalAccountRole, StorageProvider
 from app.services.access_context_contracts import AccountAccess, EffectiveAccountLink, AccountCapabilities
 
 from app.services import app_settings_service

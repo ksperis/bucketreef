@@ -2,7 +2,8 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from app.db import User, UserRole
+from app.db import User
+from app.core.domain_enums import UserRole
 from app.main import app
 from app.routers import dependencies
 from app.services.quota_alert_email_service import QuotaAlertEmailService

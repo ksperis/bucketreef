@@ -10,14 +10,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import AvatarNotFoundError
-from app.db import (
-    PortalAccountRole,
-    UiGroupS3Account,
-    User,
-    UserS3Account,
-    UserUiGroup,
-    is_admin_ui_role,
-)
+from app.db import UiGroupS3Account, User, UserS3Account, UserUiGroup
+from app.core.domain_enums import PortalAccountRole, is_admin_ui_role
 from app.models.user import UserAvatar, UserAvatarPreference
 from app.services.avatar_image_service import (
     ALLOWED_AVATAR_CONTENT_TYPES,

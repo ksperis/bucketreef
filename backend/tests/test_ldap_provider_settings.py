@@ -13,7 +13,8 @@ import sqlalchemy as sa
 from sqlalchemy import create_engine, select, text
 
 from app.core.config import LDAPProviderSettings, Settings
-from app.db import AuditLog, ExternalIdentity, LdapProvider, User, UserRole
+from app.db import AuditLog, ExternalIdentity, LdapProvider, User
+from app.core.domain_enums import UserRole
 from app.main import app
 from app.models.ldap import LDAPProviderAdminPayload
 from app.routers import dependencies

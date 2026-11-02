@@ -14,9 +14,9 @@ from app.db import (
     S3Connection,
     S3User,
     User,
-    UserRole,
     UserS3Connection,
 )
+from app.core.domain_enums import UserRole
 from app.services.users_service import UsersService
 from app.db.tag_definition import TagDefinition
 from tests.s3_connection_factory import custom_endpoint_fields

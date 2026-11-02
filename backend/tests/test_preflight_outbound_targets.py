@@ -1,7 +1,8 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from app.core.config import Settings
-from app.db import S3Connection, User, UserRole, WebhookEndpoint
+from app.db import S3Connection, User, WebhookEndpoint
+from app.core.domain_enums import UserRole
 from app.scripts.preflight_outbound_targets import run_preflight
 from app.services.deployment_outbound_preflight import find_uncovered_outbound_targets
 from tests.s3_connection_factory import custom_endpoint_fields

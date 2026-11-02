@@ -10,7 +10,16 @@ from sqlalchemy import func, select
 from webauthn.helpers import bytes_to_base64url
 
 from app.core.security import get_password_hash
-from app.db import AppSetting, AuditLog, AuthChallenge, AuthSession, RecoveryCode, User, UserRole, WebAuthnCredential
+from app.db import (
+    AppSetting,
+    AuditLog,
+    AuthChallenge,
+    AuthSession,
+    RecoveryCode,
+    User,
+    WebAuthnCredential,
+)
+from app.core.domain_enums import UserRole
 from app.models.app_settings import AppSettings
 from app.scripts import reset_last_superadmin_mfa as reset_last_superadmin_mfa_script
 from app.scripts.create_first_admin import FirstAdminError, create_first_admin

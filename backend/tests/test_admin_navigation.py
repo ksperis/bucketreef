@@ -2,12 +2,8 @@
 # Licensed under the Apache License, Version 2.0
 from datetime import timedelta
 
-from app.db import (
-    ExternalIdentityLinkRequest,
-    PortalAdminRequest,
-    User,
-    UserRole,
-)
+from app.db import ExternalIdentityLinkRequest, PortalAdminRequest, User
+from app.core.domain_enums import UserRole
 from app.main import app
 from app.routers import dependencies
 from app.utils.time import utcnow

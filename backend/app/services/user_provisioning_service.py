@@ -6,7 +6,8 @@ import logging
 from sqlalchemy.orm import Session
 
 from app.core.security import get_password_hash
-from app.db import User, UserRole, is_admin_ui_role
+from app.db import User
+from app.core.domain_enums import UserRole, is_admin_ui_role
 from app.models.user import ManagerToolAccess, UserCreate, validate_password_policy
 from app.services.manager_tool_access import MANAGER_TOOL_ROLES, manager_tool_column_values
 from app.services.user_associations_service import UserAssociationsService

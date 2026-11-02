@@ -11,7 +11,8 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.core.security import get_password_hash
-from app.db import ExternalIdentity, ExternalIdentityLinkAttempt, User, UserNotification, UserRole
+from app.db import ExternalIdentity, ExternalIdentityLinkAttempt, User, UserNotification
+from app.core.domain_enums import UserRole
 from app.models.external_identity_link import ExternalIdentityProfileOidcStartRequest
 from app.services.api_token_service import ApiTokenService
 from app.services.auth_session_service import AuthSessionService

@@ -12,7 +12,8 @@ from sqlalchemy import select
 
 from app.core.security import decrypt_secret, encrypt_secret
 from app.core.config import get_settings
-from app.db import S3Session, UserRole
+from app.db import S3Session
+from app.core.domain_enums import UserRole
 from app.models.session import SessionCapabilities
 from app.services.access_context_contracts import ManagerSessionPrincipal
 

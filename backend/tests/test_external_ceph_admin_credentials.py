@@ -9,7 +9,8 @@ import sqlalchemy as sa
 from fastapi import HTTPException
 from sqlalchemy import text
 
-from app.db import AuditLog, KeyRotationIntent, StorageEndpoint, User, UserRole
+from app.db import AuditLog, KeyRotationIntent, StorageEndpoint, User
+from app.core.domain_enums import UserRole
 from app.models.app_settings import AppSettings
 from app.models.storage_endpoint import StorageEndpointCreate, StorageEndpointFeatureDetectionRequest, StorageEndpointUpdate
 from app.models.key_rotation import KeyRotationRequest

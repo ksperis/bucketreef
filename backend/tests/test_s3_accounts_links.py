@@ -1,17 +1,8 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from app.utils.storage_endpoint_features import parse_features_config
-from app.db import (
-    ManagerAccountRole,
-    S3Account,
-    StorageEndpoint,
-    StorageProvider,
-    UiGroup,
-    UiGroupS3Account,
-    User,
-    UserRole,
-    UserS3Account,
-)
+from app.db import S3Account, StorageEndpoint, UiGroup, UiGroupS3Account, User, UserS3Account
+from app.core.domain_enums import ManagerAccountRole, StorageProvider, UserRole
 from app.services.s3_accounts_service import S3AccountsService
 
 

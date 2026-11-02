@@ -8,7 +8,8 @@ import pytest
 from sqlalchemy import select
 
 from tests.feature_policy_fixtures import enable_manager_features
-from app.db import ManagerAccountRole, PortalAccountRole, S3Account, StorageEndpoint, StorageProvider, User, UserRole, UserS3Account
+from app.db import S3Account, StorageEndpoint, User, UserS3Account
+from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, StorageProvider, UserRole
 from app.models.iam import IAMGroup, IAMRole, IAMUser
 from app.models.s3_account import AccountUserLinkInput, S3AccountUpdate
 from app.services.managed_resource_naming import (

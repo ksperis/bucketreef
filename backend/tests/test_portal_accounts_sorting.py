@@ -3,7 +3,8 @@
 from __future__ import annotations
 from app.utils.storage_endpoint_features import parse_features_config
 
-from app.db import PortalAccountRole, S3Account, StorageEndpoint, StorageProvider, User, UserRole, UserS3Account
+from app.db import S3Account, StorageEndpoint, User, UserS3Account
+from app.core.domain_enums import PortalAccountRole, StorageProvider, UserRole
 from app.main import app
 from app.routers import dependencies
 from app.services.s3_account_metrics_service import S3AccountMetricsService

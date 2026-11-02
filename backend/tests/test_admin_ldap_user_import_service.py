@@ -9,7 +9,8 @@ import pytest
 from sqlalchemy import select
 
 from app.core.security import create_ldap_import_selection_token
-from app.db import ApiToken, AuthSession, ExternalIdentity, UiGroup, User, UserRole, UserUiGroup
+from app.db import ApiToken, AuthSession, ExternalIdentity, UiGroup, User, UserUiGroup
+from app.core.domain_enums import UserRole
 from app.models.admin_ldap_import import LDAPImportRequest
 from app.services.admin_ldap_user_import_service import AdminLdapUserImportService
 from app.services.ldap_service import LDAPIdentity

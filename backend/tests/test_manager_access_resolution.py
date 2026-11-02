@@ -10,8 +10,6 @@ from fastapi import HTTPException
 from app.db import (
     BucketMigration,
     BucketMigrationEvent,
-    ManagerAccountRole,
-    PortalAccountRole,
     S3Connection,
     S3User,
     UiGroup,
@@ -19,12 +17,12 @@ from app.db import (
     UiGroupS3Connection,
     UiGroupS3User,
     User,
-    UserRole,
     UserS3Account,
     UserS3Connection,
     UserS3User,
     UserUiGroup,
 )
+from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, UserRole
 from app.models.app_settings import AppSettings
 from app.main import app
 from app.routers import dependencies

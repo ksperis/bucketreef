@@ -11,16 +11,8 @@ from uuid import UUID
 from sqlalchemy import select
 
 from app.core.config import get_settings
-from app.db import (
-    OnboardingJourney,
-    OnboardingPreference,
-    S3Account,
-    StorageEndpoint,
-    StorageProvider,
-    User,
-    is_admin_ui_role,
-    is_superadmin_ui_role,
-)
+from app.db import OnboardingJourney, OnboardingPreference, S3Account, StorageEndpoint, User
+from app.core.domain_enums import StorageProvider, is_admin_ui_role, is_superadmin_ui_role
 from app.models.onboarding import (
     OnboardingDraft,
     OnboardingJourneyOut,

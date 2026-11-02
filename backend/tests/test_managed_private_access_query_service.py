@@ -5,7 +5,8 @@ from __future__ import annotations
 
 import pytest
 
-from app.db import ManagedPrivateAccess, User, UserRole
+from app.db import ManagedPrivateAccess, User
+from app.core.domain_enums import UserRole
 from app.services.managed_private_access_query_service import (
     ManagedPrivateAccessQueryService,
 )

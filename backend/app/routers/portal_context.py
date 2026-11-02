@@ -9,7 +9,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.db import PortalAccountRole, User
+from app.db import User
+from app.core.domain_enums import PortalAccountRole
 from app.services.access_context_contracts import AccountAccess
 from app.models.app_settings import PortalSettingsOverride
 from app.models.portal_context import PortalAccount, PortalState

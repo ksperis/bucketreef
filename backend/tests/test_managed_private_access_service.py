@@ -11,22 +11,20 @@ import sqlalchemy as sa
 
 from app.db import (
     AccountIAMUser,
-    ManagerAccountRole,
     AuditLog,
     ManagedPrivateAccess,
     S3Account,
     S3Connection,
     S3User,
     StorageEndpoint,
-    StorageProvider,
     UiGroup,
     User,
-    UserRole,
     UserS3Account,
     UserS3Connection,
     UserS3User,
     UserUiGroup,
 )
+from app.core.domain_enums import ManagerAccountRole, StorageProvider, UserRole
 from app.models.iam import AccessKey, IAMGroup, IAMUser
 from app.models.app_settings import AppSettings
 from app.models.managed_private_access import (

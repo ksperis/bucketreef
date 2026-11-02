@@ -9,18 +9,16 @@ from fastapi.testclient import TestClient
 
 from app.core.domain_errors import S3ConnectionConflictError
 from app.db import (
-    ManagerAccountRole, PortalAccountRole,
     AuditLog,
     ManagedPrivateAccess,
     S3Account,
     S3Connection,
     StorageEndpoint,
-    StorageProvider,
     User,
-    UserRole,
     UserS3Account,
     UserS3Connection,
 )
+from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, StorageProvider, UserRole
 from app.main import app
 from app.routers import dependencies
 from app.services.s3_connections_service import (

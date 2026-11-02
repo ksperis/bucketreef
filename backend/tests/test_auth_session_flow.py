@@ -7,7 +7,8 @@ from botocore.exceptions import ClientError
 from sqlalchemy import select
 
 from app.core.security import get_password_hash
-from app.db import AuditLog, S3Account, UserS3Account, User, UserRole
+from app.db import AuditLog, S3Account, UserS3Account, User
+from app.core.domain_enums import UserRole
 from app.main import app
 from app.routers import dependencies
 from app.routers import auth as auth_router

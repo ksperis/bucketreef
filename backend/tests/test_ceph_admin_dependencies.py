@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from app.db import StorageProvider
+from app.core.domain_enums import StorageProvider
 from app.routers.ceph_admin import dependencies as deps
 from app.services import ceph_admin_service_identity as identity_service
 from app.services.rgw_admin import RGWAdminError

@@ -7,7 +7,8 @@ from contextlib import contextmanager
 
 from sqlalchemy import select
 
-from app.db import AppSetting, AuditLog, User, UserRole
+from app.db import AppSetting, AuditLog, User
+from app.core.domain_enums import UserRole
 from app.main import app
 from app.models.app_settings import AppSettings
 from app.routers import dependencies

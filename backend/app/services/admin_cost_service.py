@@ -11,7 +11,8 @@ from app.core.domain_errors import (
     ResourceConflictError,
     StorageEndpointNotFoundError,
 )
-from app.db import StorageEndpoint, StorageProvider, User
+from app.db import StorageEndpoint, User
+from app.core.domain_enums import StorageProvider
 from app.models.cost import (
     AdminCostSubjectDetail,
     CostAnalyticsResponse,

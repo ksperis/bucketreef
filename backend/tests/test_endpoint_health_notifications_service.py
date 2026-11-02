@@ -7,16 +7,8 @@ from datetime import timedelta
 import pytest
 import sqlalchemy as sa
 
-from app.db import (
-    EndpointHealthCheck,
-    HealthCheckStatus,
-    StorageEndpoint,
-    StorageProvider,
-    User,
-    UserNotification,
-    UserRole,
-    WebhookDelivery,
-)
+from app.db import EndpointHealthCheck, StorageEndpoint, User, UserNotification, WebhookDelivery
+from app.core.domain_enums import HealthCheckStatus, StorageProvider, UserRole
 from app.models.webhook import WebhookEndpointPayload
 from app.services.endpoint_health_notifications_service import (
     EndpointHealthNotificationsService,

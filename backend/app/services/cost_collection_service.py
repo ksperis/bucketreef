@@ -12,14 +12,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.db import (
-    CostStorageDaily,
-    CostUsageDaily,
-    S3Account,
-    S3User,
-    StorageEndpoint,
-    StorageProvider,
-)
+from app.db import CostStorageDaily, CostUsageDaily, S3Account, S3User, StorageEndpoint
+from app.core.domain_enums import StorageProvider
 from app.models.cost import (
     CostCollectionError,
     CostCollectionResult,

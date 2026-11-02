@@ -3,7 +3,8 @@
 from app.utils.storage_endpoint_features import parse_features_config
 import pytest
 
-from app.db import StorageEndpoint, StorageProvider
+from app.db import StorageEndpoint
+from app.core.domain_enums import StorageProvider
 from app.services.rgw_admin import RGWAdminError
 from app.services.storage_endpoint_admin_permissions import (
     resolve_storage_endpoint_admin_ops_permissions,

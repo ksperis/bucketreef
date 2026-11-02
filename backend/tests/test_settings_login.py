@@ -2,7 +2,8 @@
 # Licensed under the Apache License, Version 2.0
 from types import SimpleNamespace
 
-from app.db import StorageEndpoint, StorageProvider
+from app.db import StorageEndpoint
+from app.core.domain_enums import StorageProvider
 
 
 def test_login_settings_endpoints_are_sorted_by_name_case_insensitive(client, db_session, monkeypatch):

@@ -2,7 +2,8 @@
 # Licensed under the Apache License, Version 2.0
 import sqlalchemy as sa
 
-from app.db import ManagerAccountRole, PortalAccountRole, User, UserRole, UserS3Account
+from app.db import User, UserS3Account
+from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, UserRole
 from app.scripts import reconcile_portal_iam as script
 from tests.s3_account_factory import make_s3_account
 

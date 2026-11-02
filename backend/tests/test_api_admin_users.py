@@ -5,7 +5,8 @@ import json
 import pytest
 from sqlalchemy import func, select
 from app.main import app
-from app.db import AuditLog, UiGroup, User, UserRole
+from app.db import AuditLog, UiGroup, User
+from app.core.domain_enums import UserRole
 from app.routers import dependencies
 from fastapi.testclient import TestClient
 from tests.s3_account_factory import make_s3_account

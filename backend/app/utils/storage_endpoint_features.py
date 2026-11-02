@@ -7,7 +7,8 @@ from typing import Any, Optional
 
 import yaml
 
-from app.db import StorageEndpoint, StorageProvider
+from app.db import StorageEndpoint
+from app.core.domain_enums import StorageProvider
 from app.utils.normalize import normalize_storage_provider
 
 

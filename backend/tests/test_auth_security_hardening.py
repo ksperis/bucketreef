@@ -23,7 +23,18 @@ from app.core.security import (
     get_password_hash,
     verify_password,
 )
-from app.db import AppSetting, AuthChallenge, AuthSession, ExternalIdentity, RefreshToken, S3Session, User, UserNotification, UserRole, WebAuthnCredential
+from app.db import (
+    AppSetting,
+    AuthChallenge,
+    AuthSession,
+    ExternalIdentity,
+    RefreshToken,
+    S3Session,
+    User,
+    UserNotification,
+    WebAuthnCredential,
+)
+from app.core.domain_enums import UserRole
 from app.db import AuditLog
 from app.main import app
 from app.models.app_settings import AppSettings

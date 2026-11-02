@@ -11,12 +11,12 @@ from app.db import (
     UiGroup,
     UiGroupS3Account,
     User,
-    UserRole,
     UserS3Account,
     UserS3Connection,
     UserS3User,
     UserUiGroup,
 )
+from app.core.domain_enums import UserRole
 from app.db.openstack import OpenStackCloud, cloud_groups, cloud_users
 from app.models.user import AccountMembership, S3UserMembership, UserAssociationsPayload
 from app.services.association_sync import (

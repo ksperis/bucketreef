@@ -8,7 +8,8 @@ from dataclasses import replace
 
 import pytest
 
-from app.db import S3Account, User, UserRole
+from app.db import S3Account, User
+from app.core.domain_enums import UserRole
 from app.main import app
 from app.models.bucket import Bucket
 from app.models.execution_context import ExecutionContextCapabilities

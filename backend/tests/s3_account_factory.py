@@ -7,7 +7,8 @@ from typing import Any
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
-from app.db import S3Account, StorageEndpoint, StorageProvider
+from app.db import S3Account, StorageEndpoint
+from app.core.domain_enums import StorageProvider
 
 
 def make_s3_account(db: Session, **values: Any) -> S3Account:

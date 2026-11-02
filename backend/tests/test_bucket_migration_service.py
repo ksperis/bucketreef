@@ -17,7 +17,6 @@ from sqlalchemy.orm import sessionmaker
 
 from app.core.domain_errors import S3AccountNotFoundError, S3ConnectionNotFoundError, S3UserNotFoundError
 from app.db import (
-    ManagerAccountRole,
     Base,
     BucketMigration,
     BucketMigrationEvent,
@@ -26,11 +25,11 @@ from app.db import (
     S3User,
     StorageEndpoint,
     User,
-    UserRole,
     UserS3Account,
     UserS3User,
     WebhookDelivery,
 )
+from app.core.domain_enums import ManagerAccountRole, UserRole
 from app.models.bucket_migration import (
     BucketMigrationBucketMapping,
     BucketMigrationCreateRequest,

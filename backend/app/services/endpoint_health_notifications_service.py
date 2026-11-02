@@ -9,13 +9,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.sensitive_data import sanitize_persisted_error
-from app.db import (
-    EndpointHealthCheck,
-    HealthCheckStatus,
-    StorageEndpoint,
-    User,
-    UserRole,
-)
+from app.db import EndpointHealthCheck, StorageEndpoint, User
+from app.core.domain_enums import HealthCheckStatus, UserRole
 from app.services.healthcheck_common import HealthCheckResult
 from app.services.user_notifications_service import UserNotificationsService
 from app.services.webhook_catalog import ENDPOINT_HEALTH_EVENT_TYPE

@@ -8,7 +8,8 @@ import pytest
 import sqlalchemy as sa
 from fastapi.testclient import TestClient
 
-from app.db import AppSetting, AuditLog, User, UserRole, WebhookDelivery
+from app.db import AppSetting, AuditLog, User, WebhookDelivery
+from app.core.domain_enums import UserRole
 from app.main import app
 from app.models.app_settings import AppSettings
 from app.routers import dependencies

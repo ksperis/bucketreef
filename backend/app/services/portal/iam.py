@@ -9,12 +9,8 @@ from typing import TYPE_CHECKING, Optional, Tuple
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from app.db import (
-    AccountIAMUser,
-    PortalAccountRole,
-    S3Account,
-    User,
-)
+from app.db import AccountIAMUser, S3Account, User
+from app.core.domain_enums import PortalAccountRole
 from app.models.iam import AccessKey as ModelAccessKey, IAMUser
 from app.models.portal_access_keys import PortalAccessKey
 from app.services.managed_resource_naming import portal_iam_username

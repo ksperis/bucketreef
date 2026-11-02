@@ -8,7 +8,8 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 from starlette.requests import Request
 
-from app.db import User, UserRole
+from app.db import User
+from app.core.domain_enums import UserRole
 from app.models.app_settings import AppSettings
 from app.models.bucket_compare import (
     BucketConfigDiff,

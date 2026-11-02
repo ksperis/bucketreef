@@ -9,16 +9,8 @@ from fastapi import HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db import (
-    AuthSession,
-    S3Connection,
-    UiGroup,
-    UiGroupS3Connection,
-    User,
-    UserRole,
-    is_admin_ui_role,
-    is_superadmin_ui_role,
-)
+from app.db import AuthSession, S3Connection, UiGroup, UiGroupS3Connection, User
+from app.core.domain_enums import UserRole, is_admin_ui_role, is_superadmin_ui_role
 from app.models.s3_connection_admin import S3ConnectionAdminUpdate
 from app.models.ui_group import UiGroupCreate, UiGroupUpdate
 from app.models.user import ManagerToolAccess, UserUpdate

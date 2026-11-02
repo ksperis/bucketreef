@@ -8,7 +8,8 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from tests.feature_policy_fixtures import enable_manager_features
-from app.db import S3Connection, StorageEndpoint, UiGroup, User, UserRole, UserUiGroup
+from app.db import S3Connection, StorageEndpoint, UiGroup, User, UserUiGroup
+from app.core.domain_enums import UserRole
 from app.main import app
 from app.routers import dependencies
 from app.routers.connections import _ensure_manual_private_connection_creation_allowed

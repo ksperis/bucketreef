@@ -7,7 +7,8 @@ import sys
 
 import sqlalchemy as sa
 
-from app.db import EndpointHealthCheck, EndpointHealthLatest, HealthCheckStatus, StorageEndpoint
+from app.db import EndpointHealthCheck, EndpointHealthLatest, StorageEndpoint
+from app.core.domain_enums import HealthCheckStatus
 from app.core.logging_security import SensitiveDataFormatter
 from app.core.sensitive_data import sanitize_persisted_error
 from app.services.bucket_migration.persistence_safety import truncate_optional_db_text

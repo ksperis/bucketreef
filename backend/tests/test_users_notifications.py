@@ -8,21 +8,18 @@ import pytest
 from sqlalchemy import select
 
 from app.db import (
-    ManagerAccountRole,
-    PortalAccountRole,
     S3Account,
     S3User,
     StorageEndpoint,
-    StorageProvider,
     UiGroup,
     UiGroupS3Account,
     User,
     UserNotification,
-    UserRole,
     UserS3Account,
     UserS3User,
     UserUiGroup,
 )
+from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, StorageProvider, UserRole
 from app.main import app
 from app.routers import dependencies
 

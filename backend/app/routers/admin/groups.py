@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.domain_errors import UiGroupNotFoundError
-from app.db import User, is_superadmin_ui_role
+from app.db import User
+from app.core.domain_enums import is_superadmin_ui_role
 from app.models.ui_group import (
     PaginatedUiGroupSummariesResponse,
     PaginatedUiGroupsResponse,

@@ -6,7 +6,8 @@ from __future__ import annotations
 
 from typing import Optional
 
-from app.db import EndpointServiceIdentity, StorageEndpoint, StorageProvider
+from app.db import EndpointServiceIdentity, StorageEndpoint
+from app.core.domain_enums import StorageProvider
 from app.services.storage_endpoint_normalization import NormalizedEndpointState
 from app.utils.storage_endpoint_features import resolve_rgw_admin_api_endpoint
 

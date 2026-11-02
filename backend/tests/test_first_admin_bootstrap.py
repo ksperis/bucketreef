@@ -13,7 +13,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import Settings, get_settings
-from app.db import AppSetting, AuditLog, Base, FirstAdminBootstrap, User, UserRole
+from app.db import AppSetting, AuditLog, Base, FirstAdminBootstrap, User
+from app.core.domain_enums import UserRole
 from app.models.app_settings import AppSettings
 from app.routers import auth_common
 from app.scripts import create_first_admin as create_first_admin_script

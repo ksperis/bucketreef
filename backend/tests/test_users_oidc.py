@@ -7,14 +7,8 @@ from datetime import timedelta
 import pytest
 from sqlalchemy import func, select
 
-from app.db import (
-    AuditLog,
-    ExternalIdentity,
-    ExternalIdentityLinkRequest,
-    User,
-    UserNotification,
-    UserRole,
-)
+from app.db import AuditLog, ExternalIdentity, ExternalIdentityLinkRequest, User, UserNotification
+from app.core.domain_enums import UserRole
 from app.services.external_identity_user_service import ExternalIdentityLinkRequiredError
 from app.services.users_service import UsersService
 from app.utils.time import utcnow

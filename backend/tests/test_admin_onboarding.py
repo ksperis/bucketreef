@@ -4,7 +4,8 @@ import pytest
 from fastapi import HTTPException
 from botocore.exceptions import ClientError
 
-from app.db import AppSetting, User, UserRole
+from app.db import AppSetting, User
+from app.core.domain_enums import UserRole
 from app.main import app
 from app.models.app_settings import AppSettings
 from app.routers.dependencies import get_current_ui_admin, get_current_ui_superadmin

@@ -12,12 +12,12 @@ from sqlalchemy.orm import joinedload
 
 from app.core.config import get_settings
 from app.db import (
-    PortalAccountRole,
     PortalPublicLink as DBPortalPublicLink,
     PortalStorageSpaceMetadata,
     S3Account,
     User,
 )
+from app.core.domain_enums import PortalAccountRole
 from app.models.portal_storage_spaces import PortalStorageSpaceSummary
 from app.models.portal_sharing import PortalPublicLink
 from app.services.portal.exceptions import (

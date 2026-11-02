@@ -5,10 +5,8 @@ from typing import Optional
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.db import (
-    User,
-    UserRole,
-)
+from app.db import User
+from app.core.domain_enums import UserRole
 from app.models.user import (
     UserCreate,
     UserOut,

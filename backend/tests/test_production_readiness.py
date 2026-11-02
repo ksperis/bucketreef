@@ -9,7 +9,8 @@ from pathlib import Path
 import pytest
 
 from app.core.config import Settings
-from app.db import LdapProvider, OidcProvider, StorageEndpoint, User, UserRole, WebAuthnCredential
+from app.db import LdapProvider, OidcProvider, StorageEndpoint, User, WebAuthnCredential
+from app.core.domain_enums import UserRole
 from app.models.app_settings import AppSettings
 from app.scripts.check_production_readiness import run
 from app.services.deployment_checks import deployment_exit_code, run_deployment_checks

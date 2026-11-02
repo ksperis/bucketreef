@@ -3,14 +3,8 @@
 from sqlalchemy import select
 
 from app.services.users_service import UsersService
-from app.db import (
-    ManagerAccountRole,
-    PortalAccountRole,
-    S3Account,
-    User,
-    UserS3Account,
-    UserRole,
-)
+from app.db import S3Account, User, UserS3Account
+from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, UserRole
 from tests.s3_account_factory import make_s3_account
 
 

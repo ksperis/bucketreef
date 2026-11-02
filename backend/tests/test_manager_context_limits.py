@@ -6,7 +6,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.db import User, UserRole
+from app.db import User
+from app.core.domain_enums import UserRole
 from app.models.execution_context import ManagerContext
 from app.routers.manager import context as context_router
 from app.services.s3_execution_context import S3ExecutionContext

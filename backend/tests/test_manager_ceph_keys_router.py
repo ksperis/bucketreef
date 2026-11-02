@@ -8,7 +8,8 @@ import pytest
 from fastapi import HTTPException
 
 from app.core.domain_errors import S3AccessKeyNotFoundError
-from app.db import User, UserRole
+from app.db import User
+from app.core.domain_enums import UserRole
 from app.main import app
 from app.models.s3_user import S3UserAccessKey, S3UserGeneratedKey
 from app.routers.manager import ceph_keys as manager_ceph_keys_router

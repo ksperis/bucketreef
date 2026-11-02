@@ -5,7 +5,7 @@
 
 from typing import Optional
 
-from app.db import PortalAccountRole
+from app.core.domain_enums import PortalAccountRole
 from app.models.base import ApiModel
 
 

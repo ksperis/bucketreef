@@ -4,7 +4,8 @@ import ipaddress
 
 import pytest
 
-from app.db import S3Account, StorageEndpoint, StorageProvider
+from app.db import S3Account, StorageEndpoint
+from app.core.domain_enums import StorageProvider
 from app.services.s3_execution_context import S3ExecutionContext
 from app.utils import s3_endpoint
 from app.utils.s3_endpoint import (

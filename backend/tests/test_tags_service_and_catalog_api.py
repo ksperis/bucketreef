@@ -4,7 +4,16 @@ from __future__ import annotations
 
 import sqlalchemy as sa
 
-from app.db import ManagerAccountRole, S3Account, S3Connection, S3User, StorageEndpoint, StorageProvider, TagDefinition, User, UserRole, UserS3Account
+from app.db import (
+    S3Account,
+    S3Connection,
+    S3User,
+    StorageEndpoint,
+    TagDefinition,
+    User,
+    UserS3Account,
+)
+from app.core.domain_enums import ManagerAccountRole, StorageProvider, UserRole
 from app.main import app
 from app.routers import dependencies
 from app.services.tags_service import TagsService

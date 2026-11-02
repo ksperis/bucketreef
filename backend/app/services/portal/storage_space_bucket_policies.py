@@ -9,12 +9,12 @@ from sqlalchemy import select
 
 from app.db import (
     AccountIAMUser,
-    PortalAccountRole,
     PortalExternalAccessCredential,
     PortalStorageSpaceGrant,
     PortalStorageSpaceMetadata,
     S3Account,
 )
+from app.core.domain_enums import PortalAccountRole
 from app.services import s3_bucket_access
 from app.utils.s3_endpoint import resolve_s3_endpoint
 

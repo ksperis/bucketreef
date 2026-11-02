@@ -10,7 +10,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import (
-    ManagerAccountRole,
     S3Connection,
     UiGroup,
     UiGroupS3Account,
@@ -22,6 +21,7 @@ from app.db import (
     UserS3User,
     UserUiGroup,
 )
+from app.core.domain_enums import ManagerAccountRole
 from app.db.ui_group import ALL_USERS_SYSTEM_KEY
 from app.services.access_context_contracts import EffectiveAccountGroupRole, EffectiveAccountLink
 from app.services.effective_access_contracts import EffectiveAccessSource

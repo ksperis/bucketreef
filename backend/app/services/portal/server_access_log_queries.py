@@ -10,13 +10,8 @@ from typing import TYPE_CHECKING, Any, Optional
 from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy import select
 
-from app.db import (
-    AccountIAMUser,
-    PortalAccountRole,
-    PortalExternalAccessCredential,
-    S3Account,
-    User,
-)
+from app.db import AccountIAMUser, PortalExternalAccessCredential, S3Account, User
+from app.core.domain_enums import PortalAccountRole
 from app.models.portal_access_logs import (
     PortalServerAccessLogEntry,
     PortalServerAccessLogFilterQuery,

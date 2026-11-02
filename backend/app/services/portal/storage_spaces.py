@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING, Any, Optional
 from sqlalchemy import delete, func, select
 
 from app.db import (
-    PortalAccountRole,
     PortalExternalAccessCredential,
     PortalPublicLink as DBPortalPublicLink,
     PortalStorageSpaceGrant,
@@ -17,6 +16,7 @@ from app.db import (
     S3Account,
     User,
 )
+from app.core.domain_enums import PortalAccountRole
 from app.models.portal_storage_spaces import (
     PortalStorageSpaceInitialShare,
     PortalStorageSpaceNamingMode,

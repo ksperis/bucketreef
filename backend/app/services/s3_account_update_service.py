@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from app.db import S3Account, StorageProvider
+from app.db import S3Account
+from app.core.domain_enums import StorageProvider
 from app.models.s3_account import S3Account as S3AccountSchema, S3AccountUpdate
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.feature_policy_service import (

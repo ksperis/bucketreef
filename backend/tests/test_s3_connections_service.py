@@ -15,14 +15,13 @@ from app.db import (
     BucketUsageStatsSnapshot,
     S3Connection,
     StorageEndpoint,
-    StorageProvider,
     TagDefinition,
     UiGroup,
     UiGroupS3Connection,
     User,
-    UserRole,
     UserS3Connection,
 )
+from app.core.domain_enums import StorageProvider, UserRole
 from app.models.s3_connection import (
     S3ConnectionCreate,
     S3ConnectionCredentialsUpdate,

@@ -11,15 +11,8 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
-from app.db import (
-    ManagerAccountRole,
-    S3Account,
-    S3Connection,
-    StorageProvider,
-    UiGroup,
-    User,
-    is_admin_ui_role,
-)
+from app.db import S3Account, S3Connection, UiGroup, User
+from app.core.domain_enums import ManagerAccountRole, StorageProvider, is_admin_ui_role
 from app.models.user import EffectiveUserAccess, LinkedUiGroup, ManagerToolAccess
 from app.services.access_context_contracts import BucketMigrationAccessScope, EffectiveAccountLink
 from app.services.association_names import load_s3_user_names, load_shared_s3_connection_names

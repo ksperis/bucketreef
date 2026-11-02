@@ -16,7 +16,8 @@ from typing import Literal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db import S3Account, S3User, StorageEndpoint, StorageProvider, User
+from app.db import S3Account, S3User, StorageEndpoint, User
+from app.core.domain_enums import StorageProvider
 from app.models.storage_endpoint import StorageEndpointAdminOpsPermissions
 from app.services import app_settings_service
 from app.services.effective_access_contracts import ResolvedUserAccess

@@ -5,7 +5,8 @@ from __future__ import annotations
 import pytest
 import sqlalchemy as sa
 
-from app.db import ManagerAccountRole, PortalAccountRole, S3Account, UiGroup, UiGroupS3Account, User, UserRole, UserS3Account
+from app.db import S3Account, UiGroup, UiGroupS3Account, User, UserS3Account
+from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, UserRole
 from app.main import app
 from app.routers.admin import s3_accounts as s3_accounts_router
 from app.services.s3_account_metrics_service import S3AccountMetricsService

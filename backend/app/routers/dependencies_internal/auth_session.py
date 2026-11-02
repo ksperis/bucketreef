@@ -11,7 +11,8 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.security import constant_time_equal, decode_typed_token
-from app.db import User, UserRole, is_admin_ui_role, is_superadmin_ui_role
+from app.db import User
+from app.core.domain_enums import UserRole, is_admin_ui_role, is_superadmin_ui_role
 from app.services.access_context_contracts import ManagerActor, ManagerSessionPrincipal
 
 from app.services import effective_access_service

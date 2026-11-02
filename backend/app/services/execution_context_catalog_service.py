@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings as get_runtime_settings
 from app.core.runtime_surfaces import runtime_surface_enabled
-from app.db import S3Account, S3User, User, is_admin_ui_role
+from app.db import S3Account, S3User, User
+from app.core.domain_enums import is_admin_ui_role
 from app.models.execution_context import (
     ExecutionContext,
     WorkspaceAccess,

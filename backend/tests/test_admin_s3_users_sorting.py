@@ -6,7 +6,8 @@ from datetime import UTC, datetime
 
 import sqlalchemy as sa
 
-from app.db import S3User, StorageEndpoint, StorageProvider, UiGroup, UiGroupS3User, User, UserRole, UserS3User
+from app.db import S3User, StorageEndpoint, UiGroup, UiGroupS3User, User, UserS3User
+from app.core.domain_enums import StorageProvider, UserRole
 from app.main import app
 from app.routers.admin import s3_users as s3_users_router
 from app.services.tags_service import TagsService

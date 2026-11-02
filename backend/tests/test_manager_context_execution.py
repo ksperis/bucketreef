@@ -2,7 +2,8 @@
 # Licensed under the Apache License, Version 2.0
 import pytest
 
-from app.db import User, UserRole
+from app.db import User
+from app.core.domain_enums import UserRole
 from app.services.access_context_contracts import AccountCapabilities, ManagerSessionPrincipal
 from app.models.app_settings import AppSettings
 from app.models.session import SessionCapabilities

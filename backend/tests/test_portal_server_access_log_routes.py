@@ -5,7 +5,8 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from app.db import PortalAccountRole, S3Account, User, UserRole
+from app.db import S3Account, User
+from app.core.domain_enums import PortalAccountRole, UserRole
 from app.main import app
 from app.models.portal_access_logs import PortalServerAccessLogPage
 from app.routers import dependencies

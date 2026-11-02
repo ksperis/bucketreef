@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.db import StorageProvider
+from app.core.domain_enums import StorageProvider
 from app.routers.ceph_admin import endpoints as endpoints_router
 from app.services import ceph_admin_endpoint_service
 

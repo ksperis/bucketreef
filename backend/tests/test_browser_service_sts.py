@@ -7,7 +7,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from app.db import S3Account, StorageEndpoint, StorageProvider
+from app.db import S3Account, StorageEndpoint
+from app.core.domain_enums import StorageProvider
 from app.services import browser_service, sts_service
 from app.services.browser import context as browser_context
 from app.services.browser import sts as browser_sts
