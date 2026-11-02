@@ -17,6 +17,8 @@ from app.db import (
     UserS3Account,
 )
 from app.models.s3_account import (
+    AccountGroupLink,
+    AccountUserLink,
     PaginatedS3AccountsResponse,
     S3Account as S3AccountSchema,
     S3AccountSummary,
@@ -86,60 +88,70 @@ class S3AccountQueryService:
         account_ids = [account.id for account in db_accounts]
         user_links_by_account = self.associations.load_user_links(account_ids)
         group_links_by_account = self.associations.load_group_links(account_ids)
-
-        results: list[S3AccountSchema] = []
-        for account in db_accounts:
-            endpoint = self.rgw_context.resolve_storage_endpoint(account.storage_endpoint_id)
-            endpoint_capabilities = self.rgw_context.endpoint_capabilities(endpoint)
-            used_bytes = None
-            used_objects = None
-            bucket_count = None
-            rgw_user_count = None
-            rgw_user_uids = None
-            rgw_topic_count = None
-            rgw_topics = None
-            quota_max_size_gb = None
-            quota_max_objects = None
-            if include_usage_stats:
-                used_bytes, used_objects, bucket_count = self.metrics.get_usage(account)
-            admin = None
-            if include_quota or include_rgw_details:
-                admin = self.rgw_context.admin_for_account(account, allow_missing=True)
-            if include_quota and admin:
-                quota_max_size_gb, quota_max_objects = self.metrics.get_quota(account, admin)
-            if include_rgw_details and admin:
-                rgw_user_count, rgw_user_uids = self.rgw_users.resolve(
-                    account.rgw_account_id,
-                    None,
-                    admin,
-                    endpoint_capabilities=endpoint_capabilities,
-                    root_uid=account.rgw_user_uid,
-                )
-                rgw_topic_count, rgw_topics = self.account_topics.resolve(
-                    account.rgw_account_id,
-                    admin,
-                    account.storage_endpoint_id,
-                )
-            results.append(
-                s3_account_from_db(
-                    account,
-                    quota_max_size_gb=quota_max_size_gb,
-                    quota_max_objects=quota_max_objects,
-                    used_bytes=used_bytes,
-                    used_objects=used_objects,
-                    rgw_user_count=rgw_user_count,
-                    rgw_user_uids=rgw_user_uids,
-                    rgw_topic_count=rgw_topic_count,
-                    rgw_topics=rgw_topics,
-                    bucket_count=bucket_count,
-                    user_links=user_links_by_account.get(account.id, []),
-                    group_links=group_links_by_account.get(account.id, []),
-                    storage_endpoint=endpoint,
-                    storage_endpoint_capabilities=endpoint_capabilities,
-                    tags=self.tags.get_account_tags(account),
-                )
+        return [
+            self._serialize_account(
+                account,
+                include_usage_stats=include_usage_stats,
+                include_quota=include_quota,
+                include_rgw_details=include_rgw_details,
+                user_links=user_links_by_account.get(account.id, []),
+                group_links=group_links_by_account.get(account.id, []),
             )
-        return results
+            for account in db_accounts
+        ]
+
+    def _serialize_account(
+        self,
+        account: S3Account,
+        *,
+        include_usage_stats: bool,
+        include_quota: bool,
+        include_rgw_details: bool,
+        user_links: list[AccountUserLink],
+        group_links: list[AccountGroupLink],
+    ) -> S3AccountSchema:
+        endpoint = self.rgw_context.resolve_storage_endpoint(account.storage_endpoint_id)
+        endpoint_capabilities = self.rgw_context.endpoint_capabilities(endpoint)
+        used_bytes = used_objects = bucket_count = None
+        rgw_user_count = rgw_user_uids = rgw_topic_count = rgw_topics = None
+        quota_max_size_gb = quota_max_objects = None
+        if include_usage_stats:
+            used_bytes, used_objects, bucket_count = self.metrics.get_usage(account)
+        admin = None
+        if include_quota or include_rgw_details:
+            admin = self.rgw_context.admin_for_account(account, allow_missing=True)
+        if include_quota and admin:
+            quota_max_size_gb, quota_max_objects = self.metrics.get_quota(account, admin)
+        if include_rgw_details and admin:
+            rgw_user_count, rgw_user_uids = self.rgw_users.resolve(
+                account.rgw_account_id,
+                None,
+                admin,
+                endpoint_capabilities=endpoint_capabilities,
+                root_uid=account.rgw_user_uid,
+            )
+            rgw_topic_count, rgw_topics = self.account_topics.resolve(
+                account.rgw_account_id,
+                admin,
+                account.storage_endpoint_id,
+            )
+        return s3_account_from_db(
+            account,
+            quota_max_size_gb=quota_max_size_gb,
+            quota_max_objects=quota_max_objects,
+            used_bytes=used_bytes,
+            used_objects=used_objects,
+            rgw_user_count=rgw_user_count,
+            rgw_user_uids=rgw_user_uids,
+            rgw_topic_count=rgw_topic_count,
+            rgw_topics=rgw_topics,
+            bucket_count=bucket_count,
+            user_links=user_links,
+            group_links=group_links,
+            storage_endpoint=endpoint,
+            storage_endpoint_capabilities=endpoint_capabilities,
+            tags=self.tags.get_account_tags(account),
+        )
 
     @staticmethod
     def _apply_account_search(query, search_value: str, *, exact: bool):
