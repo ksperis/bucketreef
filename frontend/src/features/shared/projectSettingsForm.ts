@@ -161,7 +161,7 @@ export class ProjectSettingsConflict extends Error {
   }
 }
 
-export function mergeDelegation(before: boolean, desired: boolean, latest: boolean): boolean {
+function mergeDelegation(before: boolean, desired: boolean, latest: boolean): boolean {
   // Binary changes that already match the latest value are idempotent.
   return before === desired ? latest : desired;
 }
