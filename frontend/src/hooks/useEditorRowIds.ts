@@ -9,19 +9,24 @@ function createRowIds(prefix: string, count: number): string[] {
   return Array.from({ length: count }, () => createUiDraftId(prefix));
 }
 
+function reconcileRowIds(prefix: string, rowIds: string[], rowCount: number): string[] {
+  if (rowIds.length === rowCount) return rowIds;
+  if (rowIds.length > rowCount) return rowIds.slice(0, rowCount);
+  return [...rowIds, ...createRowIds(prefix, rowCount - rowIds.length)];
+}
+
 export function useEditorRowIds(prefix: string, rowCount?: number) {
   const [rowIds, setRowIds] = useState<string[]>(() =>
     createRowIds(prefix, rowCount ?? 0),
   );
+  const renderedRowIds = rowCount === undefined
+    ? rowIds
+    : reconcileRowIds(prefix, rowIds, rowCount);
 
   useEffect(() => {
-    if (rowCount === undefined) return;
-    setRowIds((current) => {
-      if (current.length === rowCount) return current;
-      if (current.length > rowCount) return current.slice(0, rowCount);
-      return [...current, ...createRowIds(prefix, rowCount - current.length)];
-    });
-  }, [prefix, rowCount]);
+    if (renderedRowIds === rowIds) return;
+    setRowIds(renderedRowIds);
+  }, [renderedRowIds, rowIds]);
 
   const resetRowIds = useCallback((count: number) => {
     setRowIds(createRowIds(prefix, count));
@@ -48,6 +53,6 @@ export function useEditorRowIds(prefix: string, rowCount?: number) {
     insertRowId,
     removeRowId,
     resetRowIds,
-    rowIds,
+    rowIds: renderedRowIds,
   };
 }
