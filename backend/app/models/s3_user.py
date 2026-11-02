@@ -37,12 +37,12 @@ class S3UserGroupLink(_S3UserAssociationLink):
 
 class S3UserUserLinkInput(ApiModel):
     user_id: int
-    allow_manager_browser_data_access: bool = False
+    allow_manager_browser_data_access: bool
 
 
 class S3UserGroupLinkInput(ApiModel):
     group_id: int
-    allow_manager_browser_data_access: bool = False
+    allow_manager_browser_data_access: bool
 
 
 class S3User(ApiModel):

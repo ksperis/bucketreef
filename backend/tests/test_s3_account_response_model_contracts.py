@@ -1,9 +1,14 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
+import pytest
+from pydantic import ValidationError
+
 from app.models.s3_account import (
     AccountGroupLink,
+    AccountGroupLinkInput,
     AccountUserLink,
+    AccountUserLinkInput,
     S3Account,
     S3AccountSummary,
     S3AccountUpdate,
@@ -93,6 +98,7 @@ def test_s3_account_update_uses_minimal_association_inputs() -> None:
                 "user_id": 12,
                 "manager_role": "account_administrator",
                 "portal_role": None,
+                "allow_manager_browser_data_access": False,
             }
         ],
         group_links=[
@@ -100,6 +106,7 @@ def test_s3_account_update_uses_minimal_association_inputs() -> None:
                 "group_id": 34,
                 "manager_role": None,
                 "portal_role": "portal_user",
+                "allow_manager_browser_data_access": False,
             }
         ],
     )
@@ -109,3 +116,26 @@ def test_s3_account_update_uses_minimal_association_inputs() -> None:
     assert payload.group_links is not None
     assert payload.group_links[0].group_id == 34
     assert payload.group_links[0].allow_manager_browser_data_access is False
+
+
+@pytest.mark.parametrize(
+    ("model_type", "payload"),
+    [
+        (
+            AccountUserLinkInput,
+            {"user_id": 12, "manager_role": "account_administrator", "portal_role": None},
+        ),
+        (
+            AccountGroupLinkInput,
+            {"group_id": 34, "manager_role": None, "portal_role": "portal_user"},
+        ),
+    ],
+)
+def test_s3_account_association_inputs_require_explicit_browser_access(
+    model_type,
+    payload,
+) -> None:
+    with pytest.raises(ValidationError):
+        model_type.model_validate(payload)
+    with pytest.raises(ValidationError):
+        model_type.model_validate({**payload, "allow_manager_browser_data_access": None})

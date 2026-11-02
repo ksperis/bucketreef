@@ -47,7 +47,7 @@ class AccountMembership(AccountAccessGrant):
 
 class S3UserMembership(ApiModel):
     s3_user_id: int
-    allow_manager_browser_data_access: bool = False
+    allow_manager_browser_data_access: bool
 
 
 class UserAssociationsPayload(ApiModel):

@@ -219,7 +219,14 @@ def test_update_user_and_link_validations(db_session):
     with pytest.raises(ValueError, match="S3 users not found"):
         service.update_user(
             user.id,
-            UserUpdate(s3_user_links=[S3UserMembership(s3_user_id=99999)]),
+            UserUpdate(
+                s3_user_links=[
+                    S3UserMembership(
+                        s3_user_id=99999,
+                        allow_manager_browser_data_access=False,
+                    )
+                ]
+            ),
         )
 
     with pytest.raises(ValueError, match="Only shared S3 connections can be linked"):
@@ -243,7 +250,12 @@ def test_update_user_and_link_validations(db_session):
                 "bucket_migration": True,
                 "feature_rules": True,
             },
-            s3_user_links=[S3UserMembership(s3_user_id=s3_user.id)],
+            s3_user_links=[
+                S3UserMembership(
+                    s3_user_id=s3_user.id,
+                    allow_manager_browser_data_access=False,
+                )
+            ],
             s3_connection_ids=[shared_conn.id],
         ),
     )
@@ -397,7 +409,12 @@ def test_update_user_validates_s3_users_before_replacing_links(db_session):
     service.update_user(
         user.id,
         UserUpdate(
-            s3_user_links=[S3UserMembership(s3_user_id=s3_user.id)],
+            s3_user_links=[
+                S3UserMembership(
+                    s3_user_id=s3_user.id,
+                    allow_manager_browser_data_access=False,
+                )
+            ],
         ),
     )
 
@@ -405,7 +422,12 @@ def test_update_user_validates_s3_users_before_replacing_links(db_session):
         service.update_user(
             user.id,
             UserUpdate(
-                s3_user_links=[S3UserMembership(s3_user_id=99999)],
+                s3_user_links=[
+                    S3UserMembership(
+                        s3_user_id=99999,
+                        allow_manager_browser_data_access=False,
+                    )
+                ],
             ),
         )
 
@@ -453,11 +475,13 @@ def test_update_user_replaces_direct_account_links_without_root_protection(db_se
                     "account_id": added_account.id,
                     "manager_role": ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value,
                     "portal_role": None,
+                    "allow_manager_browser_data_access": False,
                 },
                 {
                     "account_id": root_account.id,
                     "manager_role": None,
                     "portal_role": PortalAccountRole.PORTAL_USER.value,
+                    "allow_manager_browser_data_access": False,
                 },
             ]
         ),
@@ -487,6 +511,7 @@ def test_update_user_replaces_direct_account_links_without_root_protection(db_se
                         "account_id": 99999,
                         "manager_role": None,
                         "portal_role": PortalAccountRole.PORTAL_USER.value,
+                        "allow_manager_browser_data_access": False,
                     }
                 ]
             ),
@@ -625,7 +650,12 @@ def test_paginate_users_and_detached_user_use_canonical_preload(db_session, monk
     service.update_user(
         user.id,
         UserUpdate(
-            s3_user_links=[S3UserMembership(s3_user_id=s3_user.id)],
+            s3_user_links=[
+                S3UserMembership(
+                    s3_user_id=s3_user.id,
+                    allow_manager_browser_data_access=False,
+                )
+            ],
             s3_connection_ids=[shared_conn.id],
         ),
     )

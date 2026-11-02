@@ -178,6 +178,7 @@ class UserAssociationsService:
             account_id=account.id,
             manager_role=manager_role,
             portal_role=portal_role,
+            allow_manager_browser_data_access=False,
         )
         if not link:
             link = UserS3Account(
