@@ -234,6 +234,7 @@ def test_create_connection_rolls_back_service_owned_transaction_on_failure(
                 storage_endpoint_id=endpoint.id,
                 access_key_id="AKIA-ROLLBACK-PRIVATE",
                 secret_access_key="SECRET-ROLLBACK-PRIVATE",
+                access_manager=False,
                 access_browser=True,
             ),
         )
@@ -454,6 +455,8 @@ def test_connection_models_reject_non_string_tags():
             endpoint_url="https://invalid-tags.example.test",
             access_key_id="AKIA-INVALID-TAGS",
             secret_access_key="SECRET-INVALID-TAGS",
+            access_manager=False,
+            access_browser=True,
             tags=["ok", 123],
         )
 
@@ -467,6 +470,8 @@ def test_connection_models_reject_non_string_tags():
             endpoint_url="https://ambiguous-create.example.test",
             access_key_id="AKIA-AMBIGUOUS-CREATE",
             secret_access_key="SECRET-AMBIGUOUS-CREATE",
+            access_manager=False,
+            access_browser=True,
         ),
         lambda: S3ConnectionUpdate(
             storage_endpoint_id=1,
@@ -483,6 +488,27 @@ def test_connection_models_reject_non_string_tags():
 def test_connection_models_reject_managed_and_custom_endpoint_fields(factory):
     with pytest.raises(ValidationError, match="custom endpoint fields"):
         factory()
+
+
+@pytest.mark.parametrize("field", ["access_manager", "access_browser"])
+def test_private_connection_create_requires_explicit_workspace_access(field):
+    payload = {
+        "name": "explicit-workspace-access",
+        "endpoint_url": "https://explicit-workspace.example.test",
+        "access_key_id": "AKIA-EXPLICIT-WORKSPACE",
+        "secret_access_key": "SECRET-EXPLICIT-WORKSPACE",
+        "access_manager": False,
+        "access_browser": True,
+    }
+
+    missing = dict(payload)
+    missing.pop(field)
+    with pytest.raises(ValidationError):
+        S3ConnectionCreate.model_validate(missing)
+
+    null_value = {**payload, field: None}
+    with pytest.raises(ValidationError):
+        S3ConnectionCreate.model_validate(null_value)
 
 
 def test_update_connection_updates_private_connection(db_session, monkeypatch):

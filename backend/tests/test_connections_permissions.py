@@ -158,6 +158,8 @@ def test_revocation_keeps_owned_connection_lifecycle_but_rejects_sensitive_forge
                     "endpoint_url": "https://forged.example.test",
                     "access_key_id": "FORGED-AK",
                     "secret_access_key": "FORGED-SK",
+                    "access_manager": False,
+                    "access_browser": True,
                 },
             ),
             client.post(
@@ -313,6 +315,8 @@ def test_manual_connection_creation_supports_direct_free_url_and_group_registere
                 "provider_hint": "other",
                 "access_key_id": "FREE-AK",
                 "secret_access_key": "FREE-SK",
+                "access_manager": False,
+                "access_browser": True,
             },
         )
     assert free_url.status_code == 201, free_url.text
@@ -338,6 +342,8 @@ def test_manual_connection_creation_supports_direct_free_url_and_group_registere
                 "storage_endpoint_id": endpoint.id,
                 "access_key_id": "REGISTERED-AK",
                 "secret_access_key": "REGISTERED-SK",
+                "access_manager": False,
+                "access_browser": True,
             },
         )
     assert registered.status_code == 201, registered.text

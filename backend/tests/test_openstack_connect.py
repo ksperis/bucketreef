@@ -8,6 +8,7 @@ from datetime import timedelta
 from unittest.mock import Mock
 
 import pytest
+from pydantic import ValidationError
 from sqlalchemy import select, text
 from sqlalchemy.orm import sessionmaker
 
@@ -284,6 +285,8 @@ def test_private_connection_import_preserves_managed_endpoint_association(db_ses
         OpenStackPrivateConnectionCreate(
             connection_name="Project A durable",
             target_id=target["target_id"],
+            access_manager=False,
+            access_browser=True,
         ),
     )
 
@@ -325,9 +328,30 @@ def test_managed_endpoints_only_keeps_unmanaged_target_visible_but_rejects_activ
             OpenStackPrivateConnectionCreate(
                 connection_name="Project A",
                 target_id=target["target_id"],
+                access_manager=False,
+                access_browser=True,
             ),
         )
     assert caught.value.code == "endpoint_not_allowed"
+
+
+@pytest.mark.parametrize("field", ["access_manager", "access_browser"])
+def test_private_connection_import_requires_explicit_workspace_access(field):
+    payload = {
+        "connection_name": "Project A",
+        "target_id": "target-a",
+        "access_manager": False,
+        "access_browser": True,
+    }
+
+    missing = dict(payload)
+    missing.pop(field)
+    with pytest.raises(ValidationError):
+        OpenStackPrivateConnectionCreate.model_validate(missing)
+
+    null_value = {**payload, field: None}
+    with pytest.raises(ValidationError):
+        OpenStackPrivateConnectionCreate.model_validate(null_value)
 
 
 def test_context_is_explicit_private_session_bound_and_secrets_are_encrypted(db_session, setup_cloud):

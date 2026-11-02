@@ -48,8 +48,8 @@ export type CreateConnectionPayload = {
   provider_hint?: string | null;
   storage_endpoint_id?: number | null;
   is_active?: boolean | null;
-  access_manager?: boolean | null;
-  access_browser?: boolean | null;
+  access_manager: boolean;
+  access_browser: boolean;
   rgw_user_uid?: string | null;
   rgw_tenant?: string | null;
   rgw_account_id?: string | null;

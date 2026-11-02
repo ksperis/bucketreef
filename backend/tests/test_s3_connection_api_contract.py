@@ -105,6 +105,8 @@ def test_private_connection_create_rejects_unknown_managed_endpoint(
             "storage_endpoint_id": 999_999,
             "access_key_id": "AKIAPRIVATEMISSINGENDPOINT",
             "secret_access_key": "SECRETPRIVATEMISSINGENDPOINT",
+            "access_manager": False,
+            "access_browser": True,
         },
     )
 
@@ -146,16 +148,19 @@ def test_connections_api_rejects_legacy_rgw_user_uid_syntax(
     path,
 ):
     client, _, _ = contract_client
+    payload = {
+        "name": "invalid-rgw-user-uid",
+        "endpoint_url": "https://invalid-rgw-user-uid.example.test",
+        "access_key_id": "AKIAINVALIDOWNERTYPE",
+        "secret_access_key": "SECRETINVALIDOWNERTYPE",
+        "rgw_user_uid": "iam:rgw-user",
+    }
+    if path == "/api/connections":
+        payload.update(access_manager=False, access_browser=True)
 
     response = client.post(
         path,
-        json={
-            "name": "invalid-rgw-user-uid",
-            "endpoint_url": "https://invalid-rgw-user-uid.example.test",
-            "access_key_id": "AKIAINVALIDOWNERTYPE",
-            "secret_access_key": "SECRETINVALIDOWNERTYPE",
-            "rgw_user_uid": "iam:rgw-user",
-        },
+        json=payload,
     )
 
     assert response.status_code == 400
