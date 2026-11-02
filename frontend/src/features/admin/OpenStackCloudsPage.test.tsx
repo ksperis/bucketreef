@@ -83,4 +83,22 @@ describe("OpenStackCloudsPage", () => {
     expect(screen.queryByText("Lab")).not.toBeInTheDocument();
     expect(screen.getByText("No OpenStack cloud is available for your account.")).toBeInTheDocument();
   });
+
+  it("tracks editor dirtiness against the shared draft baseline", async () => {
+    renderPage();
+    await screen.findByText("Lab");
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+
+    const name = screen.getByRole("textbox", { name: "Name" });
+    expect(screen.getByRole("button", { name: "Done" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+
+    fireEvent.change(name, { target: { value: "Lab updated" } });
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+
+    fireEvent.change(name, { target: { value: "Lab" } });
+    expect(screen.getByRole("button", { name: "Done" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+  });
 });
