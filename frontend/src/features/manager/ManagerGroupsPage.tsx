@@ -360,7 +360,7 @@ export default function ManagerGroupsPage() {
             </div>
           </SettingsSection>
           <ManagedPolicySelectionPanel
-            title={text("Attach policies")}
+            title={text("Attach policies (optional)")}
             description={text("Select managed policies to link immediately.")}
             emptyMessage={text("No policies available. Create them first.")}
             footer="Policies can also be attached later from the group page."
