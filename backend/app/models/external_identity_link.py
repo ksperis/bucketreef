@@ -8,6 +8,7 @@ from typing import Literal, Optional
 from pydantic import Field, field_validator
 
 from app.models.base import ApiModel
+from app.utils.identity_provider_ids import normalize_identity_provider_id
 
 
 class ExternalIdentityLinkProofMethod(ApiModel):
@@ -69,6 +70,8 @@ class ExternalIdentityLinkLdapProof(ApiModel):
     provider_id: str = Field(min_length=1, max_length=128)
     username: str = Field(min_length=1, max_length=512)
     password: str = Field(min_length=1, max_length=4096)
+
+    normalize_provider_id = field_validator("provider_id", mode="before")(normalize_identity_provider_id)
 
 
 class ExternalIdentityLinkMfaRegistrationResult(ApiModel):

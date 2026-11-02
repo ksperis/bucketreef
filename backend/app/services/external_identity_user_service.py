@@ -17,6 +17,7 @@ from app.services.external_identity_link_request_service import ExternalIdentity
 from app.services.external_identity_link_attempt_service import ExternalIdentityLinkAttemptService
 from app.services.external_identity_query_service import ExternalIdentityQueryService
 from app.services.user_notifications_service import UserNotificationsService
+from app.utils.identity_provider_ids import normalize_identity_provider_id, normalize_oidc_issuer
 from app.utils.normalize import normalize_optional_email
 from app.utils.time import utcnow
 
@@ -183,15 +184,13 @@ class ExternalIdentityUserService:
         link_source: str = "administrator",
     ) -> tuple[ExternalIdentity, bool]:
         provider_kind = str(provider_type or "").strip().lower()
-        provider_key = str(provider_id or "").strip().lower()
-        normalized_issuer = str(issuer or "").rstrip("/") or None
         normalized_subject = str(subject or "").strip()
         if provider_kind not in {"oidc", "ldap"}:
             raise ValueError("provider_type must be oidc or ldap")
-        if not provider_key or not normalized_subject:
-            raise ValueError("External provider and subject are required")
-        if provider_kind == "oidc" and not normalized_issuer:
-            raise ValueError("OIDC issuer is required")
+        provider_key = normalize_identity_provider_id(provider_id)
+        normalized_issuer = normalize_oidc_issuer(issuer) if provider_kind == "oidc" else None
+        if not normalized_subject:
+            raise ValueError("External subject is required")
         existing = self._find_mapping(
             provider_kind,
             provider_key,
@@ -261,13 +260,11 @@ class ExternalIdentityUserService:
         browser_secret_hash: Optional[str],
         redirect_path: Optional[str],
     ) -> tuple[User, bool]:
-        provider_key = str(provider_id or "").strip().lower()
-        normalized_issuer = str(issuer or "").rstrip("/") or None
+        provider_key = normalize_identity_provider_id(provider_id)
+        normalized_issuer = normalize_oidc_issuer(issuer) if provider_type == "oidc" else None
         normalized_subject = str(subject or "").strip()
-        if not provider_key or not normalized_subject:
-            raise ValueError("External provider and subject are required")
-        if provider_type == "oidc" and not normalized_issuer:
-            raise ValueError("OIDC issuer is required")
+        if not normalized_subject:
+            raise ValueError("External subject is required")
         normalized_email = normalize_optional_email(email)
         identity = self._find_mapping(
             provider_type,

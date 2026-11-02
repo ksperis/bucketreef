@@ -5,6 +5,8 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Mapping
 from typing import TypeVar
 
+from app.utils.identity_provider_ids import normalize_identity_provider_id
+
 
 _PersistedProviderT = TypeVar("_PersistedProviderT")
 _ProviderSettingsT = TypeVar("_ProviderSettingsT")
@@ -23,7 +25,7 @@ def list_effective_identity_providers(
         for provider_id, provider in environment_providers.items()
     ]
     for provider in persisted_providers:
-        provider_id = str(provider.provider_id).lower()
+        provider_id = normalize_identity_provider_id(provider.provider_id)
         if provider_id not in environment_providers:
             items.append(persisted_item(provider))
     return items
@@ -37,7 +39,7 @@ def resolve_identity_provider_map(
 ) -> dict[str, _ProviderSettingsT]:
     resolved = dict(environment_providers)
     for provider in persisted_providers:
-        provider_id = str(provider.provider_id).lower()
+        provider_id = normalize_identity_provider_id(provider.provider_id)
         if provider_id not in resolved:
             resolved[provider_id] = persisted_to_settings(provider)
     return resolved

@@ -54,6 +54,7 @@ from app.services.oidc_provider_settings_service import (
 )
 from app.services.quota_alert_email_service import QuotaAlertEmailService
 from app.services.portal_service import get_portal_service
+from app.utils.identity_provider_ids import normalize_identity_provider_id
 
 router = APIRouter(prefix="/admin/settings", tags=["admin-settings"])
 
@@ -114,7 +115,7 @@ def _delete_identity_provider_settings(
     except ValueError as exc:
         raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
 
-    normalized_provider_id = provider_id.lower()
+    normalized_provider_id = normalize_identity_provider_id(provider_id)
     audit.record_action(
         user=current_user,
         scope="admin",

@@ -17,7 +17,11 @@ from app.models.external_identity_link import ExternalIdentityLinkProofMethod, E
 from app.services.audit_service import AuditService
 from app.services.auth_session_service import AuthSessionService, SessionCredentials
 from app.services.external_identity_link_attempt_service import ExternalIdentityLinkAttemptService
-from app.services.external_identity_link_contracts import ExternalIdentityLinkError
+from app.services.external_identity_link_contracts import (
+    ExternalIdentityLinkError,
+    normalize_link_oidc_issuer,
+    normalize_link_provider_id,
+)
 from app.services.identity_security_requirements import passkey_required_for_role
 from app.services.ldap_service import LDAPAuthService
 from app.services.user_notifications_service import UserNotificationsService
@@ -114,8 +118,9 @@ class ExternalIdentityLinkService:
             raise ExternalIdentityLinkError("External identity link attempt is unavailable")
         if attempt.provider_type != "oidc":
             raise ExternalIdentityLinkError("OIDC identity cannot continue this link attempt")
-        normalized_issuer = self._normalize_issuer(issuer)
-        if attempt.provider_id != provider_id.lower() or attempt.issuer != normalized_issuer:
+        provider_key = normalize_link_provider_id(provider_id)
+        normalized_issuer = normalize_link_oidc_issuer(issuer)
+        if attempt.provider_id != provider_key or attempt.issuer != normalized_issuer:
             raise ExternalIdentityLinkError("OIDC link identity does not match the requested provider")
 
         existing = self.db.scalar(
@@ -192,19 +197,20 @@ class ExternalIdentityLinkService:
     ) -> ExternalIdentityLinkStatus:
         attempt = self.attempts.require_attempt(attempt_id, browser_secret_hash, for_update=True)
         user = self.attempts.require_user(attempt)
+        provider_key = normalize_link_provider_id(provider_id)
         linked = self.db.scalar(
             select(ExternalIdentity).where(
                 ExternalIdentity.user_id == user.id,
                 ExternalIdentity.provider_type == "oidc",
-                ExternalIdentity.provider_id == provider_id.lower(),
-                ExternalIdentity.issuer == self._normalize_issuer(issuer),
+                ExternalIdentity.provider_id == provider_key,
+                ExternalIdentity.issuer == normalize_link_oidc_issuer(issuer),
                 ExternalIdentity.subject == subject,
                 ExternalIdentity.revoked_at.is_(None),
             )
         )
         if linked is None:
             raise ExternalIdentityLinkError("OIDC proof identity is not linked to the target account")
-        self._mark_proof(attempt, f"oidc:{provider_id.lower()}")
+        self._mark_proof(attempt, f"oidc:{provider_key}")
         self.db.commit()
         AuditService(self.db).record_action(
             user=user,
@@ -212,7 +218,7 @@ class ExternalIdentityLinkService:
             action="external_identity_account_proof",
             entity_type="external_identity_link_attempt",
             entity_id=attempt.id,
-            metadata={"method": "oidc", "provider_id": provider_id.lower()},
+            metadata={"method": "oidc", "provider_id": provider_key},
         )
         return self._status_model(attempt, user)
 
@@ -392,12 +398,13 @@ class ExternalIdentityLinkService:
         provider_id: str,
     ) -> ExternalIdentity:
         attempt = self.attempts.require_attempt(attempt_id, browser_secret_hash)
+        provider_key = normalize_link_provider_id(provider_id)
         row = self.db.scalar(
             select(ExternalIdentity)
             .where(
                 ExternalIdentity.user_id == attempt.user_id,
                 ExternalIdentity.provider_type == "oidc",
-                ExternalIdentity.provider_id == provider_id.lower(),
+                ExternalIdentity.provider_id == provider_key,
                 ExternalIdentity.revoked_at.is_(None),
             )
             .order_by(ExternalIdentity.created_at.asc(), ExternalIdentity.id.asc())
@@ -485,10 +492,3 @@ class ExternalIdentityLinkService:
         attempt.proof_method = method
         attempt.proof_verified_at = utcnow()
         self.db.add(attempt)
-
-    @staticmethod
-    def _normalize_issuer(issuer: Optional[str]) -> str:
-        value = str(issuer or "").rstrip("/")
-        if not value:
-            raise ExternalIdentityLinkError("OIDC issuer is required")
-        return value

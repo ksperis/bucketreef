@@ -13,7 +13,11 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.db import ExternalIdentityLinkAttempt, ExternalIdentityLinkRequest, User
-from app.services.external_identity_link_contracts import ExternalIdentityLinkError
+from app.services.external_identity_link_contracts import (
+    ExternalIdentityLinkError,
+    normalize_link_oidc_issuer,
+    normalize_link_provider_id,
+)
 from app.services.external_identity_link_request_service import ExternalIdentityLinkRequestService
 from app.utils.normalize import normalize_optional_email
 from app.utils.time import utcnow
@@ -42,13 +46,14 @@ class ExternalIdentityLinkAttemptService:
         if not browser_secret_hash:
             raise ExternalIdentityLinkError("External identity browser binding is required")
         provider_kind = self._normalize_provider_type(provider_type)
-        normalized_issuer = self._normalize_issuer(issuer) if provider_kind == "oidc" else None
+        provider_key = normalize_link_provider_id(provider_id)
+        normalized_issuer = normalize_link_oidc_issuer(issuer) if provider_kind == "oidc" else None
         now = utcnow()
         row = ExternalIdentityLinkAttempt(
             id=str(uuid.uuid4()),
             user_id=user.id,
             provider_type=provider_kind,
-            provider_id=provider_id.lower(),
+            provider_id=provider_key,
             issuer=normalized_issuer,
             subject=subject,
             email=normalize_optional_email(email),
@@ -80,13 +85,14 @@ class ExternalIdentityLinkAttemptService:
     ) -> ExternalIdentityLinkAttempt:
         if not browser_secret_hash:
             raise ExternalIdentityLinkError("External identity browser binding is required")
+        provider_key = normalize_link_provider_id(provider_id)
         now = utcnow()
         row = ExternalIdentityLinkAttempt(
             id=str(uuid.uuid4()),
             user_id=user.id,
             provider_type="oidc",
-            provider_id=provider_id.lower(),
-            issuer=self._normalize_issuer(issuer),
+            provider_id=provider_key,
+            issuer=normalize_link_oidc_issuer(issuer),
             source="profile",
             browser_secret_hash=browser_secret_hash,
             initiating_auth_session_id=auth_session_id,
@@ -167,11 +173,4 @@ class ExternalIdentityLinkAttemptService:
         value = str(provider_type or "").strip().lower()
         if value not in {"oidc", "ldap"}:
             raise ExternalIdentityLinkError("Unsupported external identity provider type")
-        return value
-
-    @staticmethod
-    def _normalize_issuer(issuer: Optional[str]) -> str:
-        value = str(issuer or "").rstrip("/")
-        if not value:
-            raise ExternalIdentityLinkError("OIDC issuer is required")
         return value

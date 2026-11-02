@@ -36,6 +36,7 @@ from app.services.ldap_service import (
 )
 from app.services.users_service import UsersService
 from app.utils.http_errors import raise_http_exception_from_exception
+from app.utils.identity_provider_ids import normalize_identity_provider_id
 from app.utils.request_security import require_trusted_origin
 
 
@@ -67,7 +68,10 @@ def login_with_ldap(
 ) -> AuthenticationResponse:
     require_trusted_origin(request)
     username = (payload.username or "").strip()
-    provider = provider_id.lower()
+    try:
+        provider = normalize_identity_provider_id(provider_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="LDAP provider not found") from exc
     account_key = f"ldap:{provider}:{username.lower()}"
     attempt = AuthAttemptContext.from_request(
         request=request,

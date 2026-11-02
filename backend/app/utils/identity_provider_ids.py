@@ -22,6 +22,13 @@ def normalize_identity_provider_id(value: object) -> str:
     return normalized
 
 
+def normalize_oidc_issuer(value: object) -> str:
+    normalized = str(value or "").strip().rstrip("/")
+    if not normalized:
+        raise ValueError("OIDC issuer is required")
+    return normalized
+
+
 def normalize_identity_provider_map(
     value: dict[object, _ProviderT] | None,
     *,
@@ -29,8 +36,9 @@ def normalize_identity_provider_map(
 ) -> dict[str, _ProviderT]:
     normalized: dict[str, _ProviderT] = {}
     for key, provider in (value or {}).items():
-        provider_id = str(key or "").strip().lower()
-        if not provider_id or not IDENTITY_PROVIDER_ID_PATTERN.fullmatch(provider_id):
+        try:
+            provider_id = normalize_identity_provider_id(key)
+        except ValueError as exc:
             raise ValueError(f"{provider_type} provider keys must match [a-z0-9_-]+")
         if provider_id in normalized:
             raise ValueError(f"Duplicate {provider_type} provider key after normalization: {provider_id}")
