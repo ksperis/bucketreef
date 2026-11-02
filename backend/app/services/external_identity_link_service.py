@@ -2,7 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-import secrets
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -17,7 +16,8 @@ from app.db import ExternalIdentity, ExternalIdentityLinkRequest, ExternalIdenti
 from app.models.external_identity_link import ExternalIdentityLinkProofMethod, ExternalIdentityLinkStatus
 from app.services.audit_service import AuditService
 from app.services.auth_session_service import AuthSessionService, SessionCredentials
-from app.services.external_identity_link_request_service import ExternalIdentityLinkRequestService
+from app.services.external_identity_link_attempt_service import ExternalIdentityLinkAttemptService
+from app.services.external_identity_link_contracts import ExternalIdentityLinkError
 from app.services.identity_security_requirements import passkey_required_for_role
 from app.services.ldap_service import LDAPAuthService
 from app.services.user_notifications_service import UserNotificationsService
@@ -25,10 +25,6 @@ from app.services.users_service import get_users_service
 from app.services.webauthn_service import WebAuthnService
 from app.utils.normalize import normalize_optional_email
 from app.utils.time import utcnow
-
-
-class ExternalIdentityLinkError(ValueError):
-    pass
 
 
 @dataclass(frozen=True)
@@ -43,6 +39,7 @@ class ExternalIdentityLinkService:
     def __init__(self, db: Session, settings: Optional[Settings] = None) -> None:
         self.db = db
         self.settings = settings or get_settings()
+        self.attempts = ExternalIdentityLinkAttemptService(db, self.settings)
 
     def create_login_collision_attempt(
         self,
@@ -59,33 +56,19 @@ class ExternalIdentityLinkService:
         browser_secret_hash: str,
         redirect_path: Optional[str],
     ) -> ExternalIdentityLinkAttempt:
-        if not browser_secret_hash:
-            raise ExternalIdentityLinkError("External identity browser binding is required")
-        provider_kind = self._normalize_provider_type(provider_type)
-        normalized_issuer = self._normalize_issuer(issuer) if provider_kind == "oidc" else None
-        now = utcnow()
-        row = ExternalIdentityLinkAttempt(
-            id=str(uuid.uuid4()),
-            user_id=user.id,
-            provider_type=provider_kind,
-            provider_id=provider_id.lower(),
-            issuer=normalized_issuer,
+        return self.attempts.create_login_collision_attempt(
+            user=user,
+            provider_type=provider_type,
+            provider_id=provider_id,
+            issuer=issuer,
             subject=subject,
-            email=normalize_optional_email(email),
-            email_verified=bool(email_verified),
+            email=email,
+            email_verified=email_verified,
             display_name=display_name,
             picture_url=picture_url,
-            source="login_collision",
             browser_secret_hash=browser_secret_hash,
-            status="pending",
             redirect_path=redirect_path,
-            created_at=now,
-            expires_at=now + timedelta(seconds=self.settings.oidc_link_attempt_ttl_seconds),
         )
-        self.db.add(row)
-        self.db.commit()
-        self.db.refresh(row)
-        return row
 
     def create_profile_attempt(
         self,
@@ -98,34 +81,19 @@ class ExternalIdentityLinkService:
         mfa_verified_at: Optional[datetime],
         redirect_path: Optional[str],
     ) -> ExternalIdentityLinkAttempt:
-        if not browser_secret_hash:
-            raise ExternalIdentityLinkError("External identity browser binding is required")
-        now = utcnow()
-        row = ExternalIdentityLinkAttempt(
-            id=str(uuid.uuid4()),
-            user_id=user.id,
-            provider_type="oidc",
-            provider_id=provider_id.lower(),
-            issuer=self._normalize_issuer(issuer),
-            source="profile",
+        return self.attempts.create_profile_attempt(
+            user=user,
+            provider_id=provider_id,
+            issuer=issuer,
             browser_secret_hash=browser_secret_hash,
-            initiating_auth_session_id=auth_session_id,
-            proof_method="session_step_up",
-            proof_verified_at=now,
+            auth_session_id=auth_session_id,
             mfa_verified_at=mfa_verified_at,
-            status="pending",
             redirect_path=redirect_path,
-            created_at=now,
-            expires_at=now + timedelta(seconds=self.settings.oidc_link_attempt_ttl_seconds),
         )
-        self.db.add(row)
-        self.db.commit()
-        self.db.refresh(row)
-        return row
 
     def status(self, attempt_id: str, browser_secret_hash: Optional[str]) -> ExternalIdentityLinkStatus:
-        attempt = self._require_attempt(attempt_id, browser_secret_hash)
-        user = self._require_user(attempt)
+        attempt = self.attempts.require_attempt(attempt_id, browser_secret_hash)
+        user = self.attempts.require_user(attempt)
         return self._status_model(attempt, user)
 
     def record_oidc_identity(
@@ -141,7 +109,7 @@ class ExternalIdentityLinkService:
         picture_url: Optional[str],
         email_verified: bool,
     ) -> ExternalIdentityLinkStatus:
-        attempt = self._require_attempt(attempt_id, browser_secret_hash, for_update=True)
+        attempt = self.attempts.require_attempt(attempt_id, browser_secret_hash, for_update=True)
         if attempt.status != "pending" or attempt.consumed_at is not None:
             raise ExternalIdentityLinkError("External identity link attempt is unavailable")
         if attempt.provider_type != "oidc":
@@ -169,7 +137,7 @@ class ExternalIdentityLinkService:
         attempt.picture_url = picture_url
         self.db.add(attempt)
         self.db.commit()
-        return self._status_model(attempt, self._require_user(attempt))
+        return self._status_model(attempt, self.attempts.require_user(attempt))
 
     def verify_password(
         self,
@@ -177,8 +145,8 @@ class ExternalIdentityLinkService:
         browser_secret_hash: Optional[str],
         password: str,
     ) -> ExternalIdentityLinkStatus:
-        attempt = self._require_attempt(attempt_id, browser_secret_hash, for_update=True)
-        user = self._require_user(attempt)
+        attempt = self.attempts.require_attempt(attempt_id, browser_secret_hash, for_update=True)
+        user = self.attempts.require_user(attempt)
         if not user.hashed_password or not verify_password(password, user.hashed_password):
             raise ExternalIdentityLinkError("Invalid account password")
         self._mark_proof(attempt, "password")
@@ -194,8 +162,8 @@ class ExternalIdentityLinkService:
         username: str,
         password: str,
     ) -> ExternalIdentityLinkStatus:
-        attempt = self._require_attempt(attempt_id, browser_secret_hash, for_update=True)
-        user = self._require_user(attempt)
+        attempt = self.attempts.require_attempt(attempt_id, browser_secret_hash, for_update=True)
+        user = self.attempts.require_user(attempt)
         ldap = LDAPAuthService(self.db, get_users_service(self.db), self.settings)
         identity = ldap.verify_credentials(provider_id, username, password)
         linked = self.db.scalar(
@@ -222,8 +190,8 @@ class ExternalIdentityLinkService:
         issuer: str,
         subject: str,
     ) -> ExternalIdentityLinkStatus:
-        attempt = self._require_attempt(attempt_id, browser_secret_hash, for_update=True)
-        user = self._require_user(attempt)
+        attempt = self.attempts.require_attempt(attempt_id, browser_secret_hash, for_update=True)
+        user = self.attempts.require_user(attempt)
         linked = self.db.scalar(
             select(ExternalIdentity).where(
                 ExternalIdentity.user_id == user.id,
@@ -253,8 +221,8 @@ class ExternalIdentityLinkService:
         attempt_id: str,
         browser_secret_hash: Optional[str],
     ) -> ExternalIdentityLinkStatus:
-        attempt = self._require_attempt(attempt_id, browser_secret_hash, for_update=True)
-        user = self._require_user(attempt)
+        attempt = self.attempts.require_attempt(attempt_id, browser_secret_hash, for_update=True)
+        user = self.attempts.require_user(attempt)
         if attempt.proof_verified_at is None:
             raise ExternalIdentityLinkError("Account proof is required before MFA")
         attempt.mfa_verified_at = utcnow()
@@ -267,32 +235,7 @@ class ExternalIdentityLinkService:
         attempt_id: str,
         browser_secret_hash: Optional[str],
     ) -> ExternalIdentityLinkRequest:
-        attempt = self._require_attempt(attempt_id, browser_secret_hash)
-        user = self._require_user(attempt)
-        if attempt.status != "pending" or attempt.consumed_at is not None:
-            raise ExternalIdentityLinkError("External identity link attempt is unavailable")
-        if not attempt.subject:
-            raise ExternalIdentityLinkError("External identity must be validated before requesting approval")
-        request = ExternalIdentityLinkRequestService(self.db).request(
-            user=user,
-            provider_type=attempt.provider_type,
-            provider_id=attempt.provider_id,
-            issuer=attempt.issuer,
-            subject=attempt.subject,
-            email=attempt.email or user.email,
-            email_verified=bool(attempt.email_verified),
-            request_source=attempt.source,
-            full_name=attempt.display_name,
-            picture_url=attempt.picture_url,
-        )
-        attempt = self.db.get(ExternalIdentityLinkAttempt, attempt.id)
-        if attempt:
-            attempt.status = "admin_requested"
-            if request.expires_at > attempt.expires_at:
-                attempt.expires_at = request.expires_at
-            self.db.add(attempt)
-            self.db.commit()
-        return request
+        return self.attempts.request_admin_approval(attempt_id, browser_secret_hash)
 
     def confirm(
         self,
@@ -302,8 +245,8 @@ class ExternalIdentityLinkService:
         ip_address: Optional[str],
         user_agent: Optional[str],
     ) -> ExternalIdentityLinkCompletion:
-        attempt = self._require_attempt(attempt_id, browser_secret_hash, for_update=True)
-        user = self._require_user(attempt)
+        attempt = self.attempts.require_attempt(attempt_id, browser_secret_hash, for_update=True)
+        user = self.attempts.require_user(attempt)
         if self._stage(attempt, user) != "confirm" or not attempt.subject:
             raise ExternalIdentityLinkError("External identity link attempt is not ready for confirmation")
 
@@ -448,7 +391,7 @@ class ExternalIdentityLinkService:
         browser_secret_hash: Optional[str],
         provider_id: str,
     ) -> ExternalIdentity:
-        attempt = self._require_attempt(attempt_id, browser_secret_hash)
+        attempt = self.attempts.require_attempt(attempt_id, browser_secret_hash)
         row = self.db.scalar(
             select(ExternalIdentity)
             .where(
@@ -465,34 +408,8 @@ class ExternalIdentityLinkService:
         return row
 
     def target_user(self, attempt_id: str, browser_secret_hash: Optional[str]) -> User:
-        return self._require_user(self._require_attempt(attempt_id, browser_secret_hash))
-
-    def _require_attempt(
-        self,
-        attempt_id: str,
-        browser_secret_hash: Optional[str],
-        *,
-        for_update: bool = False,
-    ) -> ExternalIdentityLinkAttempt:
-        statement = select(ExternalIdentityLinkAttempt).where(ExternalIdentityLinkAttempt.id == attempt_id)
-        if for_update:
-            statement = statement.with_for_update()
-        attempt = self.db.scalar(statement)
-        if attempt is None or not browser_secret_hash:
-            raise ExternalIdentityLinkError("External identity link attempt is unavailable")
-        if not secrets.compare_digest(attempt.browser_secret_hash, browser_secret_hash):
-            raise ExternalIdentityLinkError("External identity link attempt browser binding mismatch")
-        if attempt.expires_at <= utcnow():
-            raise ExternalIdentityLinkError("External identity link attempt expired")
-        if attempt.consumed_at is not None and attempt.status != "completed":
-            raise ExternalIdentityLinkError("External identity link attempt has already been consumed")
-        return attempt
-
-    def _require_user(self, attempt: ExternalIdentityLinkAttempt) -> User:
-        user = self.db.get(User, attempt.user_id)
-        if user is None or not user.is_active:
-            raise ExternalIdentityLinkError("Target account is unavailable")
-        return user
+        attempt = self.attempts.require_attempt(attempt_id, browser_secret_hash)
+        return self.attempts.require_user(attempt)
 
     def _status_model(self, attempt: ExternalIdentityLinkAttempt, user: User) -> ExternalIdentityLinkStatus:
         return ExternalIdentityLinkStatus(
@@ -574,11 +491,4 @@ class ExternalIdentityLinkService:
         value = str(issuer or "").rstrip("/")
         if not value:
             raise ExternalIdentityLinkError("OIDC issuer is required")
-        return value
-
-    @staticmethod
-    def _normalize_provider_type(provider_type: str) -> str:
-        value = str(provider_type or "").strip().lower()
-        if value not in {"oidc", "ldap"}:
-            raise ExternalIdentityLinkError("Unsupported external identity provider type")
         return value

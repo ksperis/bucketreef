@@ -17,7 +17,8 @@ from app.services.api_token_service import ApiTokenService
 from app.services.auth_session_service import AuthSessionService
 from app.services.ldap_service import LDAPIdentity
 from app.services.external_identity_user_service import ExternalIdentityUserService
-from app.services.external_identity_link_service import ExternalIdentityLinkError, ExternalIdentityLinkService
+from app.services.external_identity_link_contracts import ExternalIdentityLinkError
+from app.services.external_identity_link_service import ExternalIdentityLinkService
 from app.utils.time import utcnow
 
 

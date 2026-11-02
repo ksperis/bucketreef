@@ -14,6 +14,7 @@ from app.db import ExternalIdentity, ExternalIdentityLinkRequest, User, UserRole
 from app.services.auth_session_service import AuthSessionService
 from app.services.audit_service import AuditService
 from app.services.external_identity_link_request_service import ExternalIdentityLinkRequestService
+from app.services.external_identity_link_attempt_service import ExternalIdentityLinkAttemptService
 from app.services.external_identity_query_service import ExternalIdentityQueryService
 from app.services.user_notifications_service import UserNotificationsService
 from app.utils.normalize import normalize_optional_email
@@ -436,10 +437,8 @@ class ExternalIdentityUserService:
             provider_type == "ldap" or bool(issuer)
         )
         if can_create_bound_attempt:
-            from app.services.external_identity_link_service import ExternalIdentityLinkService
-
-            link_service = ExternalIdentityLinkService(self.db)
-            attempt = link_service.create_login_collision_attempt(
+            attempts = ExternalIdentityLinkAttemptService(self.db)
+            attempt = attempts.create_login_collision_attempt(
                 user=user,
                 provider_type=provider_type,
                 provider_id=provider_id,
@@ -453,7 +452,7 @@ class ExternalIdentityUserService:
                 redirect_path=redirect_path,
             )
             if linking_policy != "reauthenticate":
-                link_service.request_admin_approval(attempt.id, browser_secret_hash)
+                attempts.request_admin_approval(attempt.id, browser_secret_hash)
             raise ExternalIdentityReauthenticationRequiredError(attempt.id)
 
         if linking_policy == "reauthenticate":
