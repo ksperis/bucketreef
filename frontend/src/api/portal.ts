@@ -69,12 +69,12 @@ export type PortalStorageSpaceInitialShare = {
 
 export type PortalStorageSpaceCreate = {
   name: string;
-  naming_mode?: "generic_uuid" | "named_bucket";
+  naming_mode: "generic_uuid" | "named_bucket";
   description?: string | null;
-  visibility?: PortalStorageSpaceVisibility;
-  share_scope?: PortalStorageSpaceShareScope;
-  account_member_role?: PortalStorageSpaceAccountMemberRole | null;
-  initial_shares?: PortalStorageSpaceInitialShare[];
+  visibility: PortalStorageSpaceVisibility;
+  share_scope: PortalStorageSpaceShareScope;
+  account_member_role: PortalStorageSpaceAccountMemberRole | null;
+  initial_shares: PortalStorageSpaceInitialShare[];
   project_key?: string | null;
   dataset_label?: string | null;
 };
@@ -82,10 +82,10 @@ export type PortalStorageSpaceCreate = {
 type PortalStorageSpaceImport = {
   bucket_name: string;
   description?: string | null;
-  visibility?: PortalStorageSpaceVisibility;
-  share_scope?: PortalStorageSpaceShareScope;
-  account_member_role?: PortalStorageSpaceAccountMemberRole | null;
-  initial_shares?: PortalStorageSpaceInitialShare[];
+  visibility: PortalStorageSpaceVisibility;
+  share_scope: PortalStorageSpaceShareScope;
+  account_member_role: PortalStorageSpaceAccountMemberRole | null;
+  initial_shares: PortalStorageSpaceInitialShare[];
   project_key?: string | null;
   dataset_label?: string | null;
 };

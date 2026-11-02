@@ -15,9 +15,18 @@ from app.models.portal_storage_spaces import (
     PortalStorageSpaceCollaboratorPreview,
     PortalStorageSpaceCreate,
     PortalStorageSpaceIcon,
+    PortalStorageSpaceImport,
     PortalStorageSpaceSummary,
 )
 from app.routers import portal_storage_spaces
+
+
+PRIVATE_STORAGE_SPACE_ACCESS = {
+    "visibility": "private",
+    "share_scope": "restricted",
+    "account_member_role": None,
+    "initial_shares": [],
+}
 
 
 @pytest.mark.parametrize("name", ["bad**name", "Uppercase", " bucket ", "a" * 64])
@@ -31,7 +40,10 @@ def test_named_space_api_returns_field_error_before_any_mutation(name):
     test_app.dependency_overrides[portal_storage_spaces.get_portal_service_dependency] = lambda: service
     test_app.dependency_overrides[portal_storage_spaces.get_audit_service] = lambda: audit
     with TestClient(test_app) as client:
-        response = client.post("/api/portal/storage-spaces", json={"name": name, "naming_mode": "named_bucket"})
+        response = client.post(
+            "/api/portal/storage-spaces",
+            json={"name": name, "naming_mode": "named_bucket", **PRIVATE_STORAGE_SPACE_ACCESS},
+        )
     assert response.status_code == 422
     assert response.json()["detail"][0]["loc"] == ["body", "name"]
     service.create_storage_space.assert_not_called()
@@ -41,14 +53,44 @@ def test_named_space_api_returns_field_error_before_any_mutation(name):
 @pytest.mark.parametrize("name", ["bucket**", "Mon_Bucket", " reports ", "a" * 64, "ab", "a..b", "a.-b", "127.0.0.1", "bucket\n"])
 def test_named_space_validation_is_attached_to_name_without_normalization(name):
     with pytest.raises(ValidationError) as caught:
-        PortalStorageSpaceCreate(name=name, naming_mode="named_bucket")
+        PortalStorageSpaceCreate(
+            name=name,
+            naming_mode="named_bucket",
+            **PRIVATE_STORAGE_SPACE_ACCESS,
+        )
     assert caught.value.errors()[0]["loc"] == ("name",)
 
 
 def test_generic_space_names_remain_display_labels_and_named_ids_are_exact():
-    assert PortalStorageSpaceCreate(name="  Résultats  projet *** ").name == "Résultats projet ***"
+    assert PortalStorageSpaceCreate(
+        name="  Résultats  projet *** ",
+        naming_mode="generic_uuid",
+        **PRIVATE_STORAGE_SPACE_ACCESS,
+    ).name == "Résultats projet ***"
     for name in ["research-data.v1", "a" * 63]:
-        assert PortalStorageSpaceCreate(name=name, naming_mode="named_bucket").name == name
+        assert PortalStorageSpaceCreate(
+            name=name,
+            naming_mode="named_bucket",
+            **PRIVATE_STORAGE_SPACE_ACCESS,
+        ).name == name
+
+
+def test_storage_space_create_and_import_require_explicit_access_choices() -> None:
+    assert set(PortalStorageSpaceCreate.model_json_schema()["required"]) == {
+        "naming_mode",
+        "name",
+        "visibility",
+        "share_scope",
+        "account_member_role",
+        "initial_shares",
+    }
+    assert set(PortalStorageSpaceImport.model_json_schema()["required"]) == {
+        "bucket_name",
+        "visibility",
+        "share_scope",
+        "account_member_role",
+        "initial_shares",
+    }
 
 
 def test_portal_storage_space_models_have_a_single_canonical_module() -> None:

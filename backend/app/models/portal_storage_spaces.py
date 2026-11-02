@@ -81,13 +81,13 @@ class PortalStorageSpaceInitialShare(ApiModel):
 
 
 class PortalStorageSpaceCreate(ApiModel):
-    naming_mode: PortalStorageSpaceNamingMode = "generic_uuid"
+    naming_mode: PortalStorageSpaceNamingMode
     name: str = Field(min_length=1, max_length=120)
     description: Optional[str] = Field(default=None, max_length=2000)
-    visibility: PortalStorageSpaceVisibility = "private"
-    share_scope: PortalStorageSpaceShareScope = "restricted"
-    account_member_role: Optional[PortalStorageSpaceAccountMemberRole] = None
-    initial_shares: list[PortalStorageSpaceInitialShare] = Field(default_factory=list)
+    visibility: PortalStorageSpaceVisibility
+    share_scope: PortalStorageSpaceShareScope
+    account_member_role: Optional[PortalStorageSpaceAccountMemberRole]
+    initial_shares: list[PortalStorageSpaceInitialShare]
     project_key: Optional[str] = Field(default=None, max_length=80)
     dataset_label: Optional[str] = Field(default=None, max_length=120)
 
@@ -105,10 +105,10 @@ class PortalStorageSpaceCreate(ApiModel):
 class PortalStorageSpaceImport(ApiModel):
     bucket_name: str = Field(min_length=1, max_length=63)
     description: Optional[str] = Field(default=None, max_length=2000)
-    visibility: PortalStorageSpaceVisibility = "private"
-    share_scope: PortalStorageSpaceShareScope = "restricted"
-    account_member_role: Optional[PortalStorageSpaceAccountMemberRole] = None
-    initial_shares: list[PortalStorageSpaceInitialShare] = Field(default_factory=list)
+    visibility: PortalStorageSpaceVisibility
+    share_scope: PortalStorageSpaceShareScope
+    account_member_role: Optional[PortalStorageSpaceAccountMemberRole]
+    initial_shares: list[PortalStorageSpaceInitialShare]
     project_key: Optional[str] = Field(default=None, max_length=80)
     dataset_label: Optional[str] = Field(default=None, max_length=120)
 
