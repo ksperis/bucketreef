@@ -35,9 +35,11 @@ instead.
      the BucketReef workflow that owns them. Portal technical IAM groups
      (`bkr-portal-manager` and `bkr-portal-user`) also reject generic creation,
      deletion, membership and policy mutations in Manager.
-   - For roles, edit the trust policy and **Maximum session duration**. Ceph
-     RGW follows the IAM range of 3600 to 43200 seconds; BucketReef uses 3600
-     seconds when the provider omits the field.
+   - For roles, provide the trust policy explicitly when creating the role, then
+     edit it together with **Maximum session duration** as needed. BucketReef
+     does not grant any principal by default. Ceph RGW follows the IAM range of
+     3600 to 43200 seconds; BucketReef uses 3600 seconds when the provider omits
+     the field.
    - Role tags are native IAM tags. Ceph RGW can expose multiple values for the
      same tag key; Manager preserves those values. Removing a key removes all
      of its values, and editing one value replaces the complete set for that

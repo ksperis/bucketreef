@@ -31,19 +31,6 @@ from app.services.manager_iam_support import (
 )
 from app.services.resource_name_validation import validate_inline_policy_request, validate_inline_policy_requests
 
-DEFAULT_ASSUME_ROLE = """
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": { "AWS": "*" },
-      "Action": "sts:AssumeRole"
-    }
-  ]
-}
-""".strip()
-
 router = APIRouter(prefix="/manager/iam/roles", tags=["manager-iam-roles"])
 
 
@@ -103,7 +90,7 @@ def create_role(
 ) -> IAMRole:
     validate_inline_policy_requests(payload.inline_policies, "role", context)
     service = get_iam_service_for_context(context)
-    assume_policy = payload.assume_role_policy_document or DEFAULT_ASSUME_ROLE
+    assume_policy = payload.assume_role_policy_document
     if isinstance(assume_policy, str):
         try:
             assume_policy = json.loads(assume_policy)

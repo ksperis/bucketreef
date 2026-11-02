@@ -144,7 +144,7 @@ class IAMRoleCreate(ApiModel):
     name: _IAMRoleName
 
     path: Optional[_IAMPath] = None
-    assume_role_policy_document: Optional[Union[dict, str]] = None
+    assume_role_policy_document: Union[dict, str]
     max_session_duration: Optional[int] = Field(default=None, ge=3600, le=43200)
     tags: Optional[list[IAMTag]] = Field(default=None, max_length=50)
     policies: list[str]

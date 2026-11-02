@@ -1,28 +1,16 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 
-export const DEFAULT_ASSUME_ROLE_DOCUMENT = JSON.stringify(
-  {
-    Version: "2012-10-17",
-    Statement: [
-      {
-        Effect: "Allow",
-        Principal: { AWS: "*" },
-        Action: "sts:AssumeRole",
-      },
-    ],
-  },
-  null,
-  2
-);
+export const EMPTY_ASSUME_ROLE_DOCUMENT = "";
 export const DEFAULT_ROLE_PATH = "/";
 
 /** JSON syntax validation only; IAM policy semantics remain server-owned. */
 export function parseIamRolePolicy(text: string):
-  | { document: Record<string, unknown>; error?: never }
-  | { document?: never; error: string } {
+  | { document: Record<string, unknown>; error: undefined }
+  | { document: undefined; error: string } {
+  if (!text.trim()) return { document: undefined, error: "Assume role policy is required." };
   try {
-    return { document: JSON.parse(text) as Record<string, unknown> };
+    return { document: JSON.parse(text) as Record<string, unknown>, error: undefined };
   } catch {
-    return { error: "Assume role policy must be valid JSON." };
+    return { document: undefined, error: "Assume role policy must be valid JSON." };
   }
 }
