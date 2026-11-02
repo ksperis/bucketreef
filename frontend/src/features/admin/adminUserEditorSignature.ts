@@ -19,6 +19,13 @@ type AdminUserEditorSignatureInput = {
   accountAccessChoice: Record<number, AccountAccessGrant>;
 };
 
+type AdminUserCreateSignatureInput = {
+  editor: string;
+  source: "local" | "ldap";
+  providerId?: string;
+  directoryDn?: string | null;
+};
+
 export function adminUserEditorSignature(input: AdminUserEditorSignatureInput): string {
   return stableSignature(input);
 }
@@ -39,5 +46,22 @@ export function emptyAdminUserEditorSignature(
     pendingOpenStackSelections: [],
     pendingGroupSelections: [],
     accountAccessChoice: {},
+  });
+}
+
+export function adminUserCreateSignature({
+  editor,
+  source,
+  providerId = "",
+  directoryDn = null,
+}: AdminUserCreateSignatureInput): string {
+  const ldapIdentity = source === "ldap";
+  return stableSignature({
+    editor,
+    identity: {
+      source,
+      provider_id: ldapIdentity ? providerId : "",
+      directory_dn: ldapIdentity ? directoryDn : null,
+    },
   });
 }

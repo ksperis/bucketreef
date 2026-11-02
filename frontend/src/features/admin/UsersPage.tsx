@@ -60,7 +60,11 @@ import AdminUserAssociationEditorPanels, {
   type AdminUserAssociationEditorResources,
 } from "./AdminUserAssociationEditorPanels";
 import useAdminUserAssociationOptions from "./useAdminUserAssociationOptions";
-import { adminUserEditorSignature, emptyAdminUserEditorSignature } from "./adminUserEditorSignature";
+import {
+  adminUserCreateSignature,
+  adminUserEditorSignature,
+  emptyAdminUserEditorSignature,
+} from "./adminUserEditorSignature";
 import { useUsersI18n } from "./usersMessage";
 import { useAdminUserI18n } from "./adminUserMessage";
 import useAdminUserAssociationEditorState from "./useAdminUserAssociationEditorState";
@@ -84,6 +88,13 @@ type UserModalTab = "general" | "authentication" | "associations" | "groups" | "
 function focusIdentityError(prefix: string, errors: UserIdentityErrors) {
   const field = errors.email ? "email" : "password";
   requestAnimationFrame(() => document.getElementById(`${prefix}-${field}`)?.focus());
+}
+
+function emptyAdminUserCreateSignature(): string {
+  return adminUserCreateSignature({
+    editor: emptyAdminUserEditorSignature(emptyAdminUserCreateForm()),
+    source: "local",
+  });
 }
 
 export default function UsersPage() {
@@ -165,13 +176,9 @@ export default function UsersPage() {
   } = useAdminUserAssociationOptions();
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
-  const createFormTemplate = emptyAdminUserCreateForm;
-  const [form, setForm] = useState<CreateUserPayload>(() => createFormTemplate());
-  const [createInitialSignature, setCreateInitialSignature] = useState(() =>
-    JSON.stringify({
-      editor: emptyAdminUserEditorSignature(createFormTemplate()),
-      identity: { source: "local", provider_id: "", directory_dn: null },
-    })
+  const [form, setForm] = useState<CreateUserPayload>(emptyAdminUserCreateForm);
+  const [createInitialSignature, setCreateInitialSignature] = useState(
+    emptyAdminUserCreateSignature,
   );
   const [createModalTab, setCreateModalTab] = useState<UserModalTab>("general");
   const createAssociations = useAdminUserAssociationEditorState();
@@ -350,15 +357,9 @@ export default function UsersPage() {
     }
   }, [createModalTab, editModalTab, ensureGroups, showCreateModal, showEditModal]);
 
-  const emptyCreateSignature = () =>
-    JSON.stringify({
-      editor: emptyAdminUserEditorSignature(createFormTemplate()),
-      identity: { source: "local", provider_id: "", directory_dn: null },
-    });
-
   const createCurrentSignature = useMemo(
     () =>
-      JSON.stringify({
+      adminUserCreateSignature({
         editor: adminUserEditorSignature({
           form,
           selectedAccounts: createAssociations.accounts.selected,
@@ -373,11 +374,9 @@ export default function UsersPage() {
           pendingGroupSelections: createAssociations.groups.picker.selections,
           accountAccessChoice: createAssociations.accounts.accessChoice,
         }),
-        identity: {
-          source: createSource,
-          provider_id: createSource === "ldap" ? ldapProviderId : "",
-          directory_dn: createSource === "ldap" ? selectedLdapEntry?.directory_dn ?? null : null,
-        },
+        source: createSource,
+        providerId: ldapProviderId,
+        directoryDn: selectedLdapEntry?.directory_dn,
       }),
     [
       createAssociations.accounts.accessChoice,
@@ -400,14 +399,14 @@ export default function UsersPage() {
 
   const resetCreateModalState = () => {
     setCreateAttempted(false);
-    setForm(createFormTemplate());
+    setForm(emptyAdminUserCreateForm());
     setCreateSource("local");
     resetLdapImport();
     createAssociations.reset();
     resetAssociationOptionSearches();
     setCreateModalTab("general");
     setCreateRoleHelpOpen(false);
-    setCreateInitialSignature(emptyCreateSignature());
+    setCreateInitialSignature(emptyAdminUserCreateSignature());
   };
 
   const closeCreateModal = () => {
