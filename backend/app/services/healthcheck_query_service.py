@@ -377,44 +377,24 @@ class HealthCheckQueryService:
         now = utcnow()
         stale_after_seconds = max(1, int(settings.healthcheck_interval_seconds)) * 2
         endpoint_ids = [int(endpoint.id) for endpoint in endpoints]
-        latest_scope_by_endpoint = self._load_latest_scope_by_endpoint(endpoint_ids)
-        endpoint_snapshots = [
-            workspace_endpoint_snapshot(
-                endpoint=endpoint,
-                latest_scope=latest_scope_by_endpoint.get(endpoint.id),
-                now=now,
-                stale_after_seconds=stale_after_seconds,
-            )
-            for endpoint in endpoints
-        ]
-        payload_endpoints = [payload for payload, _status in endpoint_snapshots]
-        status_counts = Counter(status for _payload, status in endpoint_snapshots)
+        payload_endpoints, status_counts = self._workspace_endpoint_payloads(
+            endpoints=endpoints,
+            endpoint_ids=endpoint_ids,
+            now=now,
+            stale_after_seconds=stale_after_seconds,
+        )
 
         highlight_minutes = max(
             1,
             int(incident_highlight_minutes or settings.healthcheck_incident_recent_minutes),
         )
         incident_cutoff = now - timedelta(minutes=highlight_minutes)
-
-        endpoint_meta = {
-            int(endpoint.id): {
-                "name": endpoint.name,
-                "url": endpoint.endpoint_url,
-            }
-            for endpoint in endpoints
-        }
-        payload_incidents = [
-            workspace_incident_payload(
-                row,
-                endpoint_meta=endpoint_meta,
-                incident_cutoff=incident_cutoff,
-            )
-            for row in self._workspace_incident_rows(
-                endpoint_ids=endpoint_ids,
-                now=now,
-                incident_cutoff=incident_cutoff,
-            )
-        ]
+        payload_incidents = self._workspace_incident_payloads(
+            endpoints=endpoints,
+            endpoint_ids=endpoint_ids,
+            now=now,
+            incident_cutoff=incident_cutoff,
+        )
 
         return {
             "generated_at": now.isoformat(),
@@ -428,6 +408,57 @@ class HealthCheckQueryService:
             "endpoints": payload_endpoints,
             "incidents": payload_incidents,
         }
+
+    def _workspace_endpoint_payloads(
+        self,
+        *,
+        endpoints: list[StorageEndpoint],
+        endpoint_ids: list[int],
+        now: datetime,
+        stale_after_seconds: int,
+    ) -> tuple[list[dict], Counter]:
+        latest_scope_by_endpoint = self._load_latest_scope_by_endpoint(endpoint_ids)
+        endpoint_snapshots = [
+            workspace_endpoint_snapshot(
+                endpoint=endpoint,
+                latest_scope=latest_scope_by_endpoint.get(endpoint.id),
+                now=now,
+                stale_after_seconds=stale_after_seconds,
+            )
+            for endpoint in endpoints
+        ]
+        return (
+            [payload for payload, _status in endpoint_snapshots],
+            Counter(status for _payload, status in endpoint_snapshots),
+        )
+
+    def _workspace_incident_payloads(
+        self,
+        *,
+        endpoints: list[StorageEndpoint],
+        endpoint_ids: list[int],
+        now: datetime,
+        incident_cutoff: datetime,
+    ) -> list[dict]:
+        endpoint_meta = {
+            int(endpoint.id): {
+                "name": endpoint.name,
+                "url": endpoint.endpoint_url,
+            }
+            for endpoint in endpoints
+        }
+        return [
+            workspace_incident_payload(
+                row,
+                endpoint_meta=endpoint_meta,
+                incident_cutoff=incident_cutoff,
+            )
+            for row in self._workspace_incident_rows(
+                endpoint_ids=endpoint_ids,
+                now=now,
+                incident_cutoff=incident_cutoff,
+            )
+        ]
 
     def build_incidents(self, endpoint_id: int, window: HealthWindow) -> dict:
         endpoint = self.db.get(StorageEndpoint, endpoint_id)
