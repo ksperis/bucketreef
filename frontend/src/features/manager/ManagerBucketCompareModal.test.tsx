@@ -439,6 +439,37 @@ describe("ManagerBucketCompareModal remediation actions", () => {
     );
   });
 
+  it("uses the comparison parallelism bound for remediation actions", async () => {
+    const user = userEvent.setup();
+    render(
+      <ManagerBucketCompareModal
+        sourceContextId="ctx-source"
+        sourceContextName="Source context"
+        sourceBuckets={["bucket-a"]}
+        contexts={contexts}
+        onClose={() => undefined}
+      />
+    );
+
+    await screen.findByRole("option", { name: "Target context" });
+    await user.selectOptions(screen.getByLabelText("Target context"), "ctx-target");
+    const parallelismInput = screen.getByLabelText("Parallelism");
+    await user.clear(parallelismInput);
+    await user.type(parallelismInput, "99");
+    await user.click(screen.getByRole("button", { name: /run comparison/i }));
+    await waitFor(() => expect(compareManagerBucketPairMock).toHaveBeenCalledTimes(1));
+
+    await openContentDetails(user);
+    await user.click(await screen.findByRole("button", { name: "Sync all missing" }));
+    await user.click(screen.getByRole("button", { name: "Confirm" }));
+
+    await waitFor(() => expect(runManagerBucketCompareActionMock).toHaveBeenCalledTimes(1));
+    expect(runManagerBucketCompareActionMock).toHaveBeenCalledWith(
+      "ctx-source",
+      expect.objectContaining({ parallelism: 20 })
+    );
+  });
+
   it("sends modified-after cutoff as ISO when running comparison and remediation", async () => {
     runManagerBucketCompareActionMock.mockResolvedValueOnce(buildActionResult());
     const user = userEvent.setup();

@@ -456,7 +456,7 @@ export default function ManagerBucketCompareModal({
         return;
       }
 
-      const safeActionParallelism = Number.isFinite(parallelism) ? Math.max(1, Math.min(32, Math.floor(parallelism))) : 4;
+      const safeActionParallelism = normalizeBucketCompareParallelism(parallelism);
       setItems((prev) =>
         prev.map((item, index) =>
           index === pending.itemIndex
