@@ -171,14 +171,7 @@ def update_portal_storage_space(
             actor,
             access,
             space_id,
-            name=payload.name,
-            description=payload.description,
-            visibility=payload.visibility,
-            share_scope=payload.share_scope,
-            account_member_role=payload.account_member_role,
-            project_key=payload.project_key,
-            dataset_label=payload.dataset_label,
-            archived=payload.archived,
+            payload,
         )
         action = (
             "archive_storage_space"

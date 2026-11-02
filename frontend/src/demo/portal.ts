@@ -176,7 +176,7 @@ export function portal(c: DemoRequest): Response | undefined {
   if (method !== "GET" && !writable) throw new DemoError(403, "This action requires the owner or project manager identity");
   if (!match[2]) {
     if (method === "GET") return json(spaceView(c, space));
-    if (method === "PATCH") { for (const field of ["name", "description", "visibility", "share_scope", "account_member_role"]) if (field in body) Object.assign(space, { [field]: body[field] });
+    if (method === "PATCH") { for (const field of ["name", "description", "share_scope", "account_member_role"]) if (field in body) Object.assign(space, { [field]: body[field] });
       if ("archived" in body) space.archived_at = body.archived ? new Date().toISOString() : null;
       return json(spaceView(c, space)); }
     if (method === "DELETE") {

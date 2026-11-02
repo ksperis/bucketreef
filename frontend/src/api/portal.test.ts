@@ -121,7 +121,7 @@ describe("portal storage spaces api", () => {
       initial_shares: [],
     });
     await importPortalStorageSpace(101, { bucket_name: "existing-bucket", description: "Imported", visibility: "shared", share_scope: "account", account_member_role: "Viewer", initial_shares: [] });
-    await updatePortalStorageSpace(101, "research data", { description: "Updated", visibility: "private", share_scope: "restricted", archived: true });
+    await updatePortalStorageSpace(101, "research data", { description: "Updated", share_scope: "restricted", archived: true });
 
     expect(clientMock.post).toHaveBeenCalledWith(
       "/portal/storage-spaces",
@@ -135,7 +135,7 @@ describe("portal storage spaces api", () => {
     );
     expect(clientMock.patch).toHaveBeenCalledWith(
       "/portal/storage-spaces/research%20data",
-      { description: "Updated", visibility: "private", share_scope: "restricted", archived: true },
+      { description: "Updated", share_scope: "restricted", archived: true },
       { params: { account_id: 101 } }
     );
   });

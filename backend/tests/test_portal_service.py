@@ -41,7 +41,7 @@ from app.models.bucket import Bucket
 from app.models.bucket_usage_stats import BucketUsageStatsDistributionEntry, BucketUsageStatsSnapshot
 from app.models.iam import AccessKey as IAMAccessKey, IAMGroup, IAMUser
 from app.models.portal_monitoring import PortalAlert
-from app.models.portal_storage_spaces import PortalStorageSpaceInitialShare
+from app.models.portal_storage_spaces import PortalStorageSpaceInitialShare, PortalStorageSpaceUpdate
 from app.models.portal_context import PortalState
 from app.models.portal_access_keys import (
     PortalAccessKey,
@@ -3561,6 +3561,8 @@ def test_update_storage_space_locked_names_reject_rename_but_accept_description(
         bucket_name=f"{origin}-bucket",
         display_name=f"{origin.title()} Bucket",
         description="Initial",
+        project_key="PROJECT-1",
+        dataset_label="Dataset 1",
         owner_user_id=user.id,
         origin=origin,
         name_editable=False,
@@ -3586,12 +3588,36 @@ def test_update_storage_space_locked_names_reject_rename_but_accept_description(
         ),
     )
 
-    updated = service.update_storage_space(user, access, f"{origin}-bucket", description="Updated description")
+    updated = service.update_storage_space(
+        user,
+        access,
+        f"{origin}-bucket",
+        PortalStorageSpaceUpdate(description="Updated description"),
+    )
 
     assert updated.description == "Updated description"
     assert metadata.description == "Updated description"
     with pytest.raises(RuntimeError, match="cannot be changed"):
-        service.update_storage_space(user, access, f"{origin}-bucket", name="Renamed")
+        service.update_storage_space(
+            user,
+            access,
+            f"{origin}-bucket",
+            PortalStorageSpaceUpdate(name="Renamed"),
+        )
+
+    service.update_storage_space(
+        user,
+        access,
+        f"{origin}-bucket",
+        PortalStorageSpaceUpdate(
+            description=None,
+            project_key=None,
+            dataset_label=None,
+        ),
+    )
+    assert metadata.description is None
+    assert metadata.project_key is None
+    assert metadata.dataset_label is None
 
 
 def test_update_storage_space_allows_rename_when_name_is_editable(monkeypatch, db_session):
@@ -3627,13 +3653,18 @@ def test_update_storage_space_allows_rename_when_name_is_editable(monkeypatch, d
         ),
     )
 
-    updated = service.update_storage_space(user, access, "uuid-bucket", name="Renamed Space")
+    updated = service.update_storage_space(
+        user,
+        access,
+        "uuid-bucket",
+        PortalStorageSpaceUpdate(name="Renamed Space"),
+    )
 
     assert updated.name == "Renamed Space"
     assert metadata.display_name == "Renamed Space"
 
 
-def test_update_storage_space_updates_sharing_but_keeps_visibility_immutable(monkeypatch, db_session):
+def test_update_storage_space_updates_sharing_with_canonical_payload(monkeypatch, db_session):
     account = make_s3_account(
         db_session,
         name="portal-storage-update-sharing",
@@ -3686,25 +3717,23 @@ def test_update_storage_space_updates_sharing_but_keeps_visibility_immutable(mon
             user,
             access,
             "shared-data",
-            share_scope="account",
+            PortalStorageSpaceUpdate(share_scope="account"),
         )
 
     updated = service.update_storage_space(
         user,
         access,
         "shared-data",
-        share_scope="account",
-        account_member_role="Viewer",
+        PortalStorageSpaceUpdate(
+            share_scope="account",
+            account_member_role="Viewer",
+        ),
     )
 
     assert updated.share_scope == "account"
     assert updated.account_member_role == "Viewer"
     assert metadata.share_scope == "account"
     assert metadata.account_member_role == "Viewer"
-
-    with pytest.raises(RuntimeError, match="visibility cannot be changed"):
-        service.update_storage_space(user, access, "shared-data", visibility="private")
-
 
 @pytest.mark.parametrize(
     ("visibility", "share_scope", "account_member_role", "message"),
@@ -3819,7 +3848,12 @@ def test_update_storage_space_restores_archived_space_without_deleting_links(mon
         ),
     )
 
-    restored = service.update_storage_space(owner, access, "restore-data", archived=False)
+    restored = service.update_storage_space(
+        owner,
+        access,
+        "restore-data",
+        PortalStorageSpaceUpdate(archived=False),
+    )
 
     assert restored.archived_at is None
     assert metadata.archived_at is None

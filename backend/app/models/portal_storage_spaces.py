@@ -6,7 +6,7 @@
 from datetime import datetime
 from typing import Literal, Optional
 
-from pydantic import Field, ValidationInfo, field_validator
+from pydantic import Field, ValidationInfo, field_validator, model_validator
 
 from app.models.base import ApiModel
 from app.models.user import UserAvatar
@@ -124,7 +124,6 @@ class PortalStorageSpaceImport(ApiModel):
 class PortalStorageSpaceUpdate(ApiModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=120)
     description: Optional[str] = Field(default=None, max_length=2000)
-    visibility: Optional[PortalStorageSpaceVisibility] = None
     share_scope: Optional[PortalStorageSpaceShareScope] = None
     account_member_role: Optional[PortalStorageSpaceAccountMemberRole] = None
     project_key: Optional[str] = Field(default=None, max_length=80)
@@ -140,3 +139,10 @@ class PortalStorageSpaceUpdate(ApiModel):
         if not cleaned:
             raise ValueError("Storage Space name is required")
         return cleaned
+
+    @model_validator(mode="after")
+    def _reject_null_for_non_nullable_updates(self) -> "PortalStorageSpaceUpdate":
+        for field_name in ("name", "share_scope", "archived"):
+            if field_name in self.model_fields_set and getattr(self, field_name) is None:
+                raise ValueError(f"{field_name} cannot be null")
+        return self

@@ -844,7 +844,10 @@ Sharing combinations are validated as canonical state instead of being silently
 normalized. A `PATCH` that explicitly sets `share_scope` to `account` must also
 send `account_member_role` as `Viewer` or `Editor`; the backend no longer
 supplies an implicit `Editor` role. PATCH requests that do not change sharing
-continue to omit those fields normally.
+continue to omit those fields normally. `visibility` is creation-only and is no
+longer accepted by the update payload. Explicit `null` clears nullable update
+metadata such as `description`, `project_key`, and `dataset_label`, while
+omitting a field leaves its current value unchanged.
 
 Deploy the backend and bundled frontend together. No database migration is
 required.
