@@ -401,9 +401,8 @@ class StorageEndpointFeatureDetector:
         if not credentials.complete:
             return
 
-        supervision_client = None
+        supervision_client = self._client(context, credentials)
         try:
-            supervision_client = self._client(context, credentials)
             EndpointServiceIdentityValidationService.validate_functional_access(
                 "supervision",
                 supervision_client,
@@ -425,8 +424,13 @@ class StorageEndpointFeatureDetector:
                 ),
             )
 
-        if supervision_client is None:
-            return
+        self._detect_usage_feature(supervision_client, result)
+
+    def _detect_usage_feature(
+        self,
+        supervision_client: RGWAdminClient,
+        result: StorageEndpointFeatureDetectionResult,
+    ) -> None:
         try:
             usage_payload = EndpointServiceIdentityValidationService.validate_functional_access(
                 "supervision",
