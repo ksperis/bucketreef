@@ -97,6 +97,22 @@ class RGWIAMService:
     def _policy_target_kwargs(target: _IAMPolicyTarget, identity_name: str) -> dict[str, str]:
         return {f"{target.title()}Name": identity_name}
 
+    def _call_tolerating_missing_entity(
+        self,
+        operation: str,
+        *,
+        error_message: str,
+        **kwargs: object,
+    ) -> None:
+        try:
+            getattr(self.client, operation)(**kwargs)
+        except ClientError as exc:
+            if _is_no_such_entity(exc):
+                return
+            raise RuntimeError(f"{error_message}: {exc}") from exc
+        except BotoCoreError as exc:
+            raise RuntimeError(f"{error_message}: {exc}") from exc
+
     def _list_attached_policies(self, target: _IAMPolicyTarget, identity_name: str) -> List[Policy]:
         try:
             policies = list_iam_all(
@@ -160,18 +176,13 @@ class RGWIAMService:
             raise RuntimeError(f"Unable to put inline policy on {target}: {exc}") from exc
 
     def _delete_inline_policy(self, target: _IAMPolicyTarget, identity_name: str, policy_name: str) -> None:
-        operation = getattr(self.client, f"delete_{target}_policy")
-        try:
-            operation(
-                **self._policy_target_kwargs(target, identity_name),
-                PolicyName=policy_name,
-            )
-        except ClientError as exc:
-            if _is_no_such_entity(exc):
-                return
-            raise RuntimeError(f"Unable to delete inline policy from {target}: {exc}") from exc
-        except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to delete inline policy from {target}: {exc}") from exc
+        kwargs = self._policy_target_kwargs(target, identity_name)
+        kwargs["PolicyName"] = policy_name
+        self._call_tolerating_missing_entity(
+            f"delete_{target}_policy",
+            error_message=f"Unable to delete inline policy from {target}",
+            **kwargs,
+        )
 
     def _attach_policy(self, target: _IAMPolicyTarget, identity_name: str, policy_arn: str) -> None:
         operation = getattr(self.client, f"attach_{target}_policy")
@@ -184,18 +195,13 @@ class RGWIAMService:
             raise RuntimeError(f"Unable to attach policy to {target}: {exc}") from exc
 
     def _detach_policy(self, target: _IAMPolicyTarget, identity_name: str, policy_arn: str) -> None:
-        operation = getattr(self.client, f"detach_{target}_policy")
-        try:
-            operation(
-                **self._policy_target_kwargs(target, identity_name),
-                PolicyArn=policy_arn,
-            )
-        except ClientError as exc:
-            if _is_no_such_entity(exc):
-                return
-            raise RuntimeError(f"Unable to detach policy from {target}: {exc}") from exc
-        except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to detach policy from {target}: {exc}") from exc
+        kwargs = self._policy_target_kwargs(target, identity_name)
+        kwargs["PolicyArn"] = policy_arn
+        self._call_tolerating_missing_entity(
+            f"detach_{target}_policy",
+            error_message=f"Unable to detach policy from {target}",
+            **kwargs,
+        )
 
     def list_users_page(
         self,
@@ -333,14 +339,11 @@ class RGWIAMService:
             raise RuntimeError(f"Unable to update IAM user: {exc}") from exc
 
     def delete_user(self, name: str) -> None:
-        try:
-            self.client.delete_user(UserName=name)
-        except ClientError as exc:
-            if _is_no_such_entity(exc):
-                return
-            raise RuntimeError(f"Unable to delete IAM user: {exc}") from exc
-        except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to delete IAM user: {exc}") from exc
+        self._call_tolerating_missing_entity(
+            "delete_user",
+            error_message="Unable to delete IAM user",
+            UserName=name,
+        )
 
     def list_access_keys(self, user_name: str) -> List[AccessKey]:
         try:
@@ -357,14 +360,12 @@ class RGWIAMService:
         return self._format_access_key(resp.get("AccessKey", {}), include_secret=True)
 
     def delete_access_key(self, user_name: str, access_key_id: str) -> None:
-        try:
-            self.client.delete_access_key(UserName=user_name, AccessKeyId=access_key_id)
-        except ClientError as exc:
-            if _is_no_such_entity(exc):
-                return
-            raise RuntimeError(f"Unable to delete IAM access key: {exc}") from exc
-        except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to delete IAM access key: {exc}") from exc
+        self._call_tolerating_missing_entity(
+            "delete_access_key",
+            error_message="Unable to delete IAM access key",
+            UserName=user_name,
+            AccessKeyId=access_key_id,
+        )
 
     def update_access_key_status(self, user_name: str, access_key_id: str, status: str) -> None:
         try:
@@ -463,14 +464,11 @@ class RGWIAMService:
             raise RuntimeError(f"Unable to create IAM group: {exc}") from exc
 
     def delete_group(self, name: str) -> None:
-        try:
-            self.client.delete_group(GroupName=name)
-        except ClientError as exc:
-            if _is_no_such_entity(exc):
-                return
-            raise RuntimeError(f"Unable to delete IAM group: {exc}") from exc
-        except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to delete IAM group: {exc}") from exc
+        self._call_tolerating_missing_entity(
+            "delete_group",
+            error_message="Unable to delete IAM group",
+            GroupName=name,
+        )
 
     def get_group(self, name: str) -> Optional[IAMGroup]:
         try:
@@ -527,14 +525,12 @@ class RGWIAMService:
             raise RuntimeError(f"Unable to add user to group: {exc}") from exc
 
     def remove_user_from_group(self, group_name: str, user_name: str) -> None:
-        try:
-            self.client.remove_user_from_group(GroupName=group_name, UserName=user_name)
-        except ClientError as exc:
-            if _is_no_such_entity(exc):
-                return
-            raise RuntimeError(f"Unable to remove user from group: {exc}") from exc
-        except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to remove user from group: {exc}") from exc
+        self._call_tolerating_missing_entity(
+            "remove_user_from_group",
+            error_message="Unable to remove user from group",
+            GroupName=group_name,
+            UserName=user_name,
+        )
 
     def list_group_policies(self, group_name: str) -> List[Policy]:
         return self._list_attached_policies("group", group_name)
@@ -675,14 +671,11 @@ class RGWIAMService:
             raise RuntimeError(f"Unable to fetch IAM role: {exc}") from exc
 
     def delete_role(self, name: str) -> None:
-        try:
-            self.client.delete_role(RoleName=name)
-        except ClientError as exc:
-            if _is_no_such_entity(exc):
-                return
-            raise RuntimeError(f"Unable to delete IAM role: {exc}") from exc
-        except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to delete IAM role: {exc}") from exc
+        self._call_tolerating_missing_entity(
+            "delete_role",
+            error_message="Unable to delete IAM role",
+            RoleName=name,
+        )
 
     def update_role_assume_policy(self, role_name: str, assume_role_policy: Union[dict, str]) -> None:
         try:
@@ -718,14 +711,12 @@ class RGWIAMService:
             raise RuntimeError(f"Unable to tag IAM role: {exc}") from exc
 
     def untag_role(self, role_name: str, tag_keys: list[str]) -> None:
-        try:
-            self.client.untag_role(RoleName=role_name, TagKeys=tag_keys)
-        except ClientError as exc:
-            if _is_no_such_entity(exc):
-                return
-            raise RuntimeError(f"Unable to remove IAM role tags: {exc}") from exc
-        except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to remove IAM role tags: {exc}") from exc
+        self._call_tolerating_missing_entity(
+            "untag_role",
+            error_message="Unable to remove IAM role tags",
+            RoleName=role_name,
+            TagKeys=tag_keys,
+        )
 
     # Policies
     def _policy_from_data(self, data: dict, document: Optional[dict] = None) -> Policy:
@@ -811,14 +802,11 @@ class RGWIAMService:
         return self._policy_from_data(resp.get("Policy", {}), document=document)
 
     def delete_policy(self, policy_arn: str) -> None:
-        try:
-            self.client.delete_policy(PolicyArn=policy_arn)
-        except ClientError as exc:
-            if _is_no_such_entity(exc):
-                return
-            raise RuntimeError(f"Unable to delete IAM policy: {exc}") from exc
-        except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to delete IAM policy: {exc}") from exc
+        self._call_tolerating_missing_entity(
+            "delete_policy",
+            error_message="Unable to delete IAM policy",
+            PolicyArn=policy_arn,
+        )
 
     def list_role_policies(self, role_name: str) -> List[Policy]:
         return self._list_attached_policies("role", role_name)

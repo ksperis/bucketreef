@@ -1129,6 +1129,8 @@ def test_remaining_tolerant_detach_paths_and_group_users_error(monkeypatch):
     service.detach_user_policy("alice", "arn:policy:user")
     fake.raise_on["detach_role_policy"] = _client_error("NoSuchEntity", "DetachRolePolicy")
     service.detach_role_policy("role-a", "arn:policy:role")
+    fake.raise_on["untag_role"] = _client_error("NoSuchEntity", "UntagRole")
+    service.untag_role("role-a", ["owner"])
 
     monkeypatch.setattr(fake, "get_paginator", lambda operation_name: (_ for _ in ()).throw(BotoCoreError()))
     with pytest.raises(RuntimeError, match="Unable to list IAM group members"):
