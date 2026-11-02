@@ -21,6 +21,19 @@ def _is_no_such_entity(exc: ClientError) -> bool:
     return aws_error_code(exc) == "NoSuchEntity"
 
 
+def _role_name_from_data(data: dict, fallback: Optional[str] = None) -> Optional[str]:
+    """Return the public IAM role name from an RGW role payload."""
+    arn = data.get("Arn")
+    if isinstance(arn, str):
+        resource = arn.rsplit(":", 1)[-1]
+        if resource.startswith("role/"):
+            arn_name = resource.rsplit("/", 1)[-1]
+            if arn_name:
+                return arn_name
+    raw_name = data.get("RoleName")
+    return raw_name if isinstance(raw_name, str) and raw_name else fallback
+
+
 class RGWIAMGroupAlreadyExistsError(RuntimeError):
     """Raised when IAM reports a concurrent group-name conflict."""
 
@@ -522,7 +535,9 @@ class RGWIAMService:
         try:
             roles: List[IAMRole] = []
             for r in list_iam_all(self.client, "list_roles", "Roles"):
-                name = r.get("RoleName")
+                name = _role_name_from_data(r)
+                if not name:
+                    continue
                 arn = r.get("Arn")
                 attached = list_iam_all(
                     self.client,
@@ -559,16 +574,20 @@ class RGWIAMService:
                 search=search,
                 matcher=lambda row, needle: iam_matches_fields(row, needle, "RoleName", "Arn", "Path"),
             )
-            return [
-                IAMRole(
-                    name=row.get("RoleName"),
-                    arn=row.get("Arn"),
-                    path=row.get("Path"),
-                    max_session_duration=row.get("MaxSessionDuration") or 3600,
+            roles: list[IAMRole] = []
+            for row in rows:
+                name = _role_name_from_data(row)
+                if not name:
+                    continue
+                roles.append(
+                    IAMRole(
+                        name=name,
+                        arn=row.get("Arn"),
+                        path=row.get("Path"),
+                        max_session_duration=row.get("MaxSessionDuration") or 3600,
+                    )
                 )
-                for row in rows
-                if row.get("RoleName")
-            ], next_marker
+            return roles, next_marker
         except (BotoCoreError, ClientError) as exc:
             raise RuntimeError(f"Unable to list IAM roles: {exc}") from exc
 
@@ -592,7 +611,7 @@ class RGWIAMService:
             resp = self.client.create_role(**kwargs)
             r = resp.get("Role", {})
             return IAMRole(
-                name=r.get("RoleName") or name,
+                name=_role_name_from_data(r, fallback=name) or name,
                 arn=r.get("Arn"),
                 path=r.get("Path"),
                 max_session_duration=r.get("MaxSessionDuration") or max_session_duration or 3600,
@@ -613,7 +632,7 @@ class RGWIAMService:
             assume_doc = self._normalize_policy_document(data.get("AssumeRolePolicyDocument"))
             tags = self.list_role_tags(name)
             return IAMRole(
-                name=data.get("RoleName") or name,
+                name=_role_name_from_data(data, fallback=name) or name,
                 arn=data.get("Arn"),
                 path=data.get("Path"),
                 policies=policy_arns,

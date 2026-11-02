@@ -361,6 +361,49 @@ def test_list_users_enriches_user_data_and_skips_malformed_entries(monkeypatch):
     assert user.has_keys is True
 
 
+def test_tenanted_rgw_role_names_are_normalized_from_arn(monkeypatch):
+    fake = _FakeIAMClient()
+    role_payload = {
+        "RoleName": "user_tenant1$test",
+        "Arn": "arn:aws:iam::RGW80381948115268648:role/test",
+        "Path": "/",
+        "MaxSessionDuration": 3600,
+    }
+
+    def list_roles(**kwargs):
+        fake.calls.append(("list_roles", kwargs))
+        return {"Roles": [role_payload]}
+
+    def create_role(**kwargs):
+        fake.calls.append(("create_role", kwargs))
+        return {"Role": role_payload}
+
+    def get_role(**kwargs):
+        fake.calls.append(("get_role", kwargs))
+        return {"Role": role_payload}
+
+    fake.list_roles = list_roles
+    fake.create_role = create_role
+    fake.get_role = get_role
+    service, _ = _service(monkeypatch, fake)
+
+    assert service.list_roles()[0].name == "test"
+    roles, next_marker = service.list_roles_page(max_items=25)
+    assert [role.name for role in roles] == ["test"]
+    assert next_marker is None
+    assert service.create_role("test", {"Statement": []}).name == "test"
+    fetched = service.get_role("test")
+    assert fetched and fetched.name == "test"
+
+    attached_calls = [
+        kwargs
+        for operation, kwargs in fake.calls
+        if operation == "list_attached_role_policies"
+    ]
+    assert attached_calls
+    assert all(call["RoleName"] == "test" for call in attached_calls)
+
+
 def test_iam_list_operations_follow_markers_until_complete(monkeypatch):
     fake = _FakeIAMClient()
 
