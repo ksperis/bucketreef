@@ -1333,8 +1333,6 @@
   "policies": "politiques",
   "Create inline policy": "Créer une politique intégrée",
   "Select a context before editing inline policies.": "Sélectionnez un contexte avant de modifier les politiques intégrées.",
-  "Select an existing inline policy to review or edit": "Sélectionnez une politique intégrée existante à consulter ou modifier",
-  "Existing inline policies stay visible above so you can avoid creating a second policy by mistake.": "Les politiques intégrées existantes restent visibles ci-dessus afin d’éviter d’en créer une seconde par erreur.",
   "Edit \"{name}\"": "Modifier « {name} »",
   "Create a new inline policy": "Créer une nouvelle politique intégrée",
   "Update the selected inline policy or change its name to save a different one.": "Mettez à jour la politique intégrée sélectionnée ou modifiez son nom pour en enregistrer une autre.",

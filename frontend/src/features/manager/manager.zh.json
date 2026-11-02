@@ -1241,8 +1241,6 @@
   "policies": "策略",
   "Create inline policy": "创建内联策略",
   "Select a context before editing inline policies.": "在编辑内联策略之前，请先选择上下文。",
-  "Select an existing inline policy to review or edit": "选择现有的内联策略以查看或编辑",
-  "Existing inline policies stay visible above so you can avoid creating a second policy by mistake.": "现有的内联策略保留在上方可见，以避免误创建第二个策略。",
   "Edit \"{name}\"": "编辑 \"{name}\"",
   "Create a new inline policy": "创建新的内联策略",
   "Update the selected inline policy or change its name to save a different one.": "更新所选的内联策略，或更改其名称以保存不同的策略。",

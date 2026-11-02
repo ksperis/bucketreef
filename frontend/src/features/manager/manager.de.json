@@ -1241,8 +1241,6 @@
   "policies": "Richtlinien",
   "Create inline policy": "Inline-Richtlinie erstellen",
   "Select a context before editing inline policies.": "Wählen Sie einen Kontext, bevor Sie Inline-Richtlinien bearbeiten.",
-  "Select an existing inline policy to review or edit": "Eine vorhandene Inline-Richtlinie auswählen, um sie zu überprüfen oder zu bearbeiten",
-  "Existing inline policies stay visible above so you can avoid creating a second policy by mistake.": "Vorhandene Inline-Richtlinien bleiben oben sichtbar, um zu vermeiden, versehentlich eine zweite Richtlinie zu erstellen.",
   "Edit \"{name}\"": "„{name}“ bearbeiten",
   "Create a new inline policy": "Neue Inline-Richtlinie erstellen",
   "Update the selected inline policy or change its name to save a different one.": "Aktualisieren Sie die ausgewählte Inline-Richtlinie oder ändern Sie ihren Namen, um eine andere zu speichern.",
