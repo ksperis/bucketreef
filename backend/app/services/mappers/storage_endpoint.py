@@ -18,7 +18,7 @@ def storage_endpoint_from_db(
     features: dict[str, dict[str, object]],
     capabilities: dict[str, bool],
     admin_ops_permissions: StorageEndpointAdminOpsPermissions,
-    tags: list[TagDefinitionSummary] | None = None,
+    tags: list[TagDefinitionSummary],
     ceph_admin_enabled: bool = False,
 ) -> StorageEndpoint:
     return StorageEndpoint(
@@ -49,7 +49,7 @@ def storage_endpoint_from_db(
         is_editable=bool(endpoint.is_editable),
         created_at=endpoint.created_at,
         updated_at=endpoint.updated_at,
-        tags=tags or [],
+        tags=tags,
         has_admin_secret=bool(endpoint.admin_secret_key),
         features=features,
     )
