@@ -160,7 +160,9 @@ it.each([
   const name = within(form).getByLabelText(`${kind[0].toUpperCase()}${kind.slice(1)} name`);
   fireEvent.change(name, { target: { value: "New-identity" } });
   fillRequiredRoleTrust(form, kind);
-  const policies = within(screen.getByRole("region", { name: "Attach policies" }));
+  const policies = within(screen.getByRole("region", {
+    name: kind === "group" ? "Attach policies (optional)" : "Attach policies",
+  }));
   fireEvent.click(policies.getByRole("button", { name: "Show" }));
   fireEvent.click(policies.getByLabelText("ReadOnly"));
   fireEvent.submit(form);
