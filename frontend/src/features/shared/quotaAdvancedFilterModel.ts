@@ -48,8 +48,20 @@ export const quotaAdvancedFilterRules: readonly QuotaAdvancedFilterRule[] = [
   { stateField: "maxQuotaUsageObjectPercent", apiField: "quota_usage_object_percent", op: "lte", usagePercentage: true },
 ];
 
-export const quotaAdvancedNumericFields: readonly QuotaAdvancedNumericField[] =
-  quotaAdvancedFilterRules.map(({ stateField }) => stateField);
+export const quotaBaseAdvancedNumericFields: readonly QuotaAdvancedNumericField[] =
+  quotaAdvancedFilterRules
+    .filter(({ usagePercentage }) => !usagePercentage)
+    .map(({ stateField }) => stateField);
+
+export const quotaUsageAdvancedNumericFields: readonly QuotaAdvancedNumericField[] =
+  quotaAdvancedFilterRules
+    .filter(({ usagePercentage }) => usagePercentage)
+    .map(({ stateField }) => stateField);
+
+export const quotaAdvancedNumericFields: readonly QuotaAdvancedNumericField[] = [
+  ...quotaBaseAdvancedNumericFields,
+  ...quotaUsageAdvancedNumericFields,
+];
 
 export const hasQuotaAdvancedFilters = (
   advanced: QuotaAdvancedFilterState,

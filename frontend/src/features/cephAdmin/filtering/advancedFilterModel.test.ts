@@ -5,6 +5,7 @@ import {
   buildNumericFilterFields,
   buildNumericFilterFieldStates,
   buildNumericFilterSummaryItems,
+  countActiveNumericFilterFields,
   numericFilterRangeFieldHighlight,
 } from "./advancedFilterModel";
 
@@ -56,5 +57,12 @@ describe("advancedFilterModel", () => {
     expect(states.maxBuckets.labelClass).toContain("text-amber-700");
     expect(numericFilterRangeFieldHighlight(draft, applied, "minBuckets", "maxBuckets").labelClass)
       .toContain("text-amber-700");
+  });
+
+  it("counts active numeric fields from the shared field definition", () => {
+    expect(countActiveNumericFilterFields(
+      { minBuckets: " 2 ", maxBuckets: "", ignored: "7" },
+      ["minBuckets", "maxBuckets"],
+    )).toBe(1);
   });
 });
