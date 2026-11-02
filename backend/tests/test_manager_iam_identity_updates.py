@@ -300,6 +300,7 @@ def test_group_create_orchestration_does_not_undo_failed_policy_attachment():
     payload = IAMGroupCreate(
         name="researchers",
         policies=["arn:policy/read"],
+        inline_policies=[],
     )
 
     with pytest.raises(RuntimeError, match="attach_group_policy failed"):
@@ -525,7 +526,7 @@ def test_group_detail_update_and_managed_protection(monkeypatch):
 
 @pytest.mark.parametrize("group_name", ["bkr-portal-manager", "bkr-portal-user"])
 @pytest.mark.parametrize("operation,extra", [
-    ("create_group", {"payload": IAMGroupCreate(name="bkr-portal-manager")}),
+    ("create_group", {"payload": IAMGroupCreate(name="bkr-portal-manager", policies=[], inline_policies=[])}),
     ("update_group", {"payload": IAMGroupUpdate(path="/moved/")}),
     ("delete_group", {}),
     ("add_user_to_group", {"payload": IAMUser(name="alice")}),
@@ -537,7 +538,7 @@ def test_group_detail_update_and_managed_protection(monkeypatch):
 ])
 def test_portal_group_mutations_are_rejected_before_iam_calls(monkeypatch, group_name, operation, extra):
     if operation == "create_group":
-        extra = {"payload": IAMGroupCreate(name=group_name)}
+        extra = {"payload": IAMGroupCreate(name=group_name, policies=[], inline_policies=[])}
         kwargs = extra
     else:
         kwargs = {"group_name": group_name, **extra}
@@ -607,7 +608,7 @@ def test_iam_user_creation_rejects_portal_managed_group_membership(monkeypatch, 
     audit = _Audit()
     with pytest.raises(HTTPException) as exc_info:
         iam_users.create_user(
-            IAMUserCreate(name="alice", groups=[group_name]),
+            IAMUserCreate(name="alice", groups=[group_name], policies=[], inline_policies=[]),
             context=_context(), current_user=object(), audit_service=audit,
         )
     assert exc_info.value.status_code == 409
@@ -743,6 +744,29 @@ def test_iam_path_validation_is_shared(model):
 @pytest.mark.parametrize("duration", [3599, 43201])
 def test_role_duration_bounds_are_enforced(duration):
     with pytest.raises(ValidationError):
-        IAMRoleCreate(name="reader", max_session_duration=duration)
+        IAMRoleCreate(name="reader", max_session_duration=duration, policies=[], inline_policies=[])
     with pytest.raises(ValidationError):
         IAMRoleUpdate(max_session_duration=duration)
+
+
+@pytest.mark.parametrize(
+    ("model", "payload", "field"),
+    [
+        (IAMUserCreate, {"name": "alice", "groups": [], "policies": [], "inline_policies": []}, "groups"),
+        (IAMUserCreate, {"name": "alice", "groups": [], "policies": [], "inline_policies": []}, "policies"),
+        (IAMUserCreate, {"name": "alice", "groups": [], "policies": [], "inline_policies": []}, "inline_policies"),
+        (IAMGroupCreate, {"name": "researchers", "policies": [], "inline_policies": []}, "policies"),
+        (IAMGroupCreate, {"name": "researchers", "policies": [], "inline_policies": []}, "inline_policies"),
+        (IAMRoleCreate, {"name": "reader", "policies": [], "inline_policies": []}, "policies"),
+        (IAMRoleCreate, {"name": "reader", "policies": [], "inline_policies": []}, "inline_policies"),
+    ],
+)
+def test_iam_create_requires_non_null_collection_contracts(model, payload, field):
+    missing = dict(payload)
+    missing.pop(field)
+    with pytest.raises(ValidationError):
+        model.model_validate(missing)
+
+    null_value = {**payload, field: None}
+    with pytest.raises(ValidationError):
+        model.model_validate(null_value)

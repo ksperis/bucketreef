@@ -30,8 +30,8 @@ def validate_inline_policy_request(name: str, entity: IAMEntity, context: S3Exec
         raise RequestValidationError([{"type": "value_error", "loc": loc, "msg": str(exc)}]) from exc
 
 
-def validate_inline_policy_requests(policies: list | None, entity: IAMEntity, context: S3ExecutionTarget) -> None:
-    for index, policy in enumerate(policies or []):
+def validate_inline_policy_requests(policies: list, entity: IAMEntity, context: S3ExecutionTarget) -> None:
+    for index, policy in enumerate(policies):
         validate_inline_policy_request(policy.name, entity, context, loc=("body", "inline_policies", index, "name"))
 
 

@@ -80,9 +80,9 @@ class IAMUserCreate(ApiModel):
     name: _IAMUserName
 
     create_key: bool = False
-    groups: Optional[list[str]] = None
-    policies: Optional[list[str]] = None
-    inline_policies: Optional[list[InlinePolicy]] = None
+    groups: list[str]
+    policies: list[str]
+    inline_policies: list[InlinePolicy]
 
 
 class IAMUserUpdate(ApiModel):
@@ -106,8 +106,8 @@ class IAMGroup(ApiModel):
 class IAMGroupCreate(ApiModel):
     name: _IAMGroupName
 
-    policies: Optional[list[str]] = None
-    inline_policies: Optional[list[InlinePolicy]] = None
+    policies: list[str]
+    inline_policies: list[InlinePolicy]
 
 
 class IAMGroupUpdate(ApiModel):
@@ -137,8 +137,8 @@ class IAMRoleCreate(ApiModel):
     assume_role_policy_document: Optional[Union[dict, str]] = None
     max_session_duration: Optional[int] = Field(default=None, ge=3600, le=43200)
     tags: Optional[list[IAMTag]] = Field(default=None, max_length=50)
-    policies: Optional[list[str]] = None
-    inline_policies: Optional[list[InlinePolicy]] = None
+    policies: list[str]
+    inline_policies: list[InlinePolicy]
 
 
 class IAMRoleUpdate(ApiModel):

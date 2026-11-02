@@ -178,9 +178,9 @@ def create_user(
             execution_context=context,
             metadata={
                 "create_key": payload.create_key,
-                "groups": payload.groups or [],
-                "policies": payload.policies or [],
-                "inline_policies": [p.name for p in payload.inline_policies] if payload.inline_policies else [],
+                "groups": payload.groups,
+                "policies": payload.policies,
+                "inline_policies": [p.name for p in payload.inline_policies],
                 "access_key_created": result.access_key is not None,
             },
         )

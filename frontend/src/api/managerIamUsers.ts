@@ -69,10 +69,10 @@ export async function updateIamUser(
 export async function createIamUser(
   contextId: S3ExecutionContextSelector,
   name: string,
-  createKey = false,
-  groups?: string[],
-  policies?: string[],
-  inlinePolicies?: InlinePolicy[]
+  createKey: boolean,
+  groups: string[],
+  policies: string[],
+  inlinePolicies: InlinePolicy[]
 ): Promise<IAMUserWithKey> {
   return createIamEntity<IAMUserWithKey>("users", contextId, {
     name,
