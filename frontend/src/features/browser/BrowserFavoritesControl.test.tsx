@@ -53,12 +53,30 @@ describe("saved Browser locations", () => {
     expect(screen.queryByRole("region", { name: "Locations" })).not.toBeInTheDocument();
   });
 
-  it("anchors compact favorites to the shared sidebar rail", () => {
-    render(<BrowserFavoritesControl {...buildProps()} compact />);
+  it("anchors and numbers compact favorites in the shared sidebar rail", () => {
+    const other: BrowserFavorite = {
+      ...saved,
+      id: "other",
+      name: "Archive",
+      bucket: "archive",
+      prefix: "",
+    };
+    render(
+      <BrowserFavoritesControl
+        {...buildProps()}
+        favorites={[other, saved]}
+        compact
+      />,
+    );
 
     const region = screen.getByRole("region", { name: "Favorites" });
     expect(region).toHaveClass("shell-sidebar-scroll-compact");
     expect(region.firstElementChild).toHaveClass("shell-sidebar-compact-rail");
+
+    expect(screen.getByRole("button", { name: "1. Archive" })).toHaveTextContent("1");
+    const selected = screen.getByRole("button", { name: "2. Saved" });
+    expect(selected).toHaveTextContent("2");
+    expect(selected.querySelector("span[aria-hidden='true']")).toHaveClass("bg-primary");
   });
 
   it("shows the Storage Space name instead of its technical bucket for the current context", () => {

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import ToolbarSearchInput from "../../components/ToolbarSearchInput";
 import StorageSpaceIcon from "../../components/StorageSpaceIcon";
 import UiIconButton from "../../components/ui/UiIconButton";
+import { cx } from "../../components/ui/styles";
 import type { BrowserFavorite, BrowserFavoriteInput } from "../../api/browserFavorites";
 import type { BrowserBucket } from "../../api/browserContracts";
 import BrowserUtilityIcon from "./BrowserUtilityIcon";
@@ -101,7 +102,7 @@ export default function BrowserFavoritesControl({
             className={`shell-sidebar-scroll ${compact ? "shell-sidebar-scroll-compact py-2" : "px-2.5 py-3"} min-h-0 flex-1 overflow-y-auto`}
           >
             <div className={`space-y-1.5 ${compact ? "shell-sidebar-compact-rail" : ""}`}>
-              {filteredFavorites.map((favorite) => {
+              {filteredFavorites.map((favorite, favoriteIndex) => {
                 const bucketLabel =
                   favorite.context === current.context
                     ? bucketLabels?.get(favorite.bucket) ?? favorite.bucket
@@ -147,14 +148,27 @@ export default function BrowserFavoritesControl({
                           type="button"
                           disabled={busy}
                           title={`${displayName} · ${subtitle}`}
+                          aria-label={`${favoriteIndex + 1}. ${displayName}`}
                           onClick={() => onApply(favorite)}
                           className="flex min-w-0 flex-1 items-center justify-center rounded-md px-2 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
                         >
-                          <BrowserUtilityIcon
-                            filled
-                            className="h-4 w-4 text-yellow-400 dark:text-yellow-300"
-                          />
-                          <span className="sr-only">{displayName}</span>
+                          <span className="relative inline-flex items-center justify-center">
+                            <BrowserUtilityIcon
+                              filled
+                              className="h-4 w-4 text-yellow-400 dark:text-yellow-300"
+                            />
+                            <span
+                              aria-hidden="true"
+                              className={cx(
+                                "absolute -right-2 -top-2 inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-0.5 text-[9px] font-semibold leading-none ring-1",
+                                selected
+                                  ? "bg-primary text-white ring-primary"
+                                  : "bg-[var(--shell-sidebar-bg)] text-[var(--shell-muted-text)] ring-[var(--shell-border)]",
+                              )}
+                            >
+                              {favoriteIndex + 1}
+                            </span>
+                          </span>
                         </button>
                       ) : (
                         <>

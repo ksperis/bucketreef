@@ -243,6 +243,10 @@ describe("Sidebar", () => {
     const expandButton = screen.getByRole("button", { name: "Expand sidebar" });
     expect(expandButton).toHaveAttribute("title", "Expand sidebar");
     expect(expandButton.querySelector("img")).toHaveAttribute("src", "/brand/bucketreef-mark-256.png");
+    expect(expandButton.querySelector('svg[aria-hidden="true"]')).toHaveClass(
+      "group-hover:opacity-100",
+      "group-focus-visible:opacity-100",
+    );
     expect(expandButton).not.toHaveClass("bg-primary");
     expect(screen.getByRole("navigation", { name: "BucketReef navigation" })).toHaveClass(
       "shell-sidebar-scroll-compact",
@@ -250,9 +254,30 @@ describe("Sidebar", () => {
     expect(screen.getByRole("link", { name: "Metrics" }).closest("section")).toHaveClass(
       "shell-sidebar-compact-rail",
     );
+    expect(screen.getByRole("link", { name: "Metrics" })).toHaveClass("h-8");
     expect(container.querySelector('[data-sidebar-variant="desktop"]')?.firstElementChild).toContainElement(expandButton);
     fireEvent.click(expandButton);
     expect(onCollapseToggle).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses compact dividers only between navigation sections", () => {
+    const { container } = render(
+      <MemoryRouter>
+        <Sidebar
+          compact
+          sections={[
+            { links: [{ to: "/manager", label: "Dashboard", end: true }] },
+            { label: "Storage", links: [{ to: "/manager/buckets", label: "Buckets" }] },
+            { label: "Monitoring", links: [{ to: "/manager/metrics", label: "Metrics" }] },
+          ]}
+        />
+      </MemoryRouter>
+    );
+
+    const sections = container.querySelectorAll("nav section");
+    expect(sections).toHaveLength(3);
+    expect(sections[0]?.querySelector(".shell-sidebar-compact-divider")).toBeNull();
+    expect(container.querySelectorAll(".shell-sidebar-compact-divider")).toHaveLength(2);
   });
 
   it("keeps shared chrome and collapse controls around a custom body", () => {
@@ -413,6 +438,7 @@ describe("Sidebar", () => {
 
     const profileLink = screen.getByRole("link", { name: "Profile" });
     expect(profileLink).toHaveClass("shell-sidebar-item-active");
+    expect(profileLink).toHaveClass("mx-auto", "w-8");
     fireEvent.focus(profileLink);
     expect(screen.getByRole("tooltip")).toHaveTextContent("Profile");
   });
@@ -566,6 +592,40 @@ describe("Sidebar", () => {
     );
 
     expect(screen.getByRole("link", { name: "General" })).toBeInTheDocument();
+  });
+
+  it("allows the active route section to be manually collapsed and reopened", () => {
+    window.localStorage.setItem(
+      "shell:sidebar-sections:v1:admin",
+      JSON.stringify({ settings: true }),
+    );
+
+    render(
+      <MemoryRouter initialEntries={["/admin/general-settings"]}>
+        <Sidebar
+          title="ADMIN"
+          sections={[
+            {
+              id: "settings",
+              label: "Settings",
+              collapsible: true,
+              links: [{ to: "/admin/general-settings", label: "General" }],
+            },
+          ]}
+        />
+      </MemoryRouter>
+    );
+
+    const settingsToggle = screen.getByRole("button", { name: "Settings" });
+    expect(screen.getByRole("link", { name: "General" })).toBeInTheDocument();
+
+    fireEvent.click(settingsToggle);
+    expect(screen.queryByRole("link", { name: "General" })).not.toBeInTheDocument();
+    expect(window.localStorage.getItem("shell:sidebar-sections:v1:admin")).toContain('"settings":true');
+
+    fireEvent.click(settingsToggle);
+    expect(screen.getByRole("link", { name: "General" })).toBeInTheDocument();
+    expect(window.localStorage.getItem("shell:sidebar-sections:v1:admin")).toContain('"settings":false');
   });
 
   it("scrolls the active desktop navigation link into view", () => {
