@@ -52,41 +52,28 @@ def compare_manager_buckets(
         target_bucket=payload.target_bucket,
     )
 
-    content_diff = None
-    config_diff = None
-    if payload.include_content:
-        content_diff = service.compare_bucket_content(
-            payload.source_bucket,
-            source_context,
-            payload.target_bucket,
-            target_context,
-            ignore_modified_after=payload.ignore_modified_after,
-        )
-    if payload.include_config:
-        config_diff = service.compare_bucket_configuration(
-            payload.source_bucket,
-            source_context,
-            payload.target_bucket,
-            target_context,
-            include_sections=set(payload.config_features) if payload.config_features is not None else None,
-        )
-
-    has_content_differences = bool(
-        content_diff
-        and (
-            content_diff.different_count > 0
-            or content_diff.only_source_count > 0
-            or content_diff.only_target_count > 0
-        )
+    outcome = service.compare_buckets(
+        payload.source_bucket,
+        source_context,
+        payload.target_bucket,
+        target_context,
+        include_content=payload.include_content,
+        include_config=payload.include_config,
+        ignore_modified_after=payload.ignore_modified_after,
+        config_features=(
+            set(payload.config_features)
+            if payload.config_features is not None
+            else None
+        ),
     )
     return ManagerBucketCompareResult(
         source_context_id=source_context.context_id,
         target_context_id=target_context.context_id,
         source_bucket=payload.source_bucket,
         target_bucket=payload.target_bucket,
-        has_differences=has_content_differences or bool(config_diff and config_diff.changed),
-        content_diff=content_diff,
-        config_diff=config_diff,
+        has_differences=outcome.has_differences,
+        content_diff=outcome.content_diff,
+        config_diff=outcome.config_diff,
     )
 
 

@@ -147,38 +147,23 @@ def compare_bucket_pair(
     )
 
     service = get_bucket_comparison_service()
-    content_diff = None
-    config_diff = None
     try:
-        if payload.include_content:
-            content_diff = service.compare_bucket_content(
-                source_target.s3_name,
-                source_context,
-                target_target.s3_name,
-                target_context,
-                ignore_modified_after=payload.ignore_modified_after,
-            )
-        if payload.include_config:
-            config_diff = service.compare_bucket_configuration(
-                source_target.s3_name,
-                source_context,
-                target_target.s3_name,
-                target_context,
-                include_sections=set(payload.config_features) if payload.config_features is not None else None,
-            )
+        outcome = service.compare_buckets(
+            source_target.s3_name,
+            source_context,
+            target_target.s3_name,
+            target_context,
+            include_content=payload.include_content,
+            include_config=payload.include_config,
+            ignore_modified_after=payload.ignore_modified_after,
+            config_features=(
+                set(payload.config_features)
+                if payload.config_features is not None
+                else None
+            ),
+        )
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
-    has_differences = bool(
-        (
-            content_diff is not None
-            and (
-                content_diff.different_count > 0
-                or content_diff.only_source_count > 0
-                or content_diff.only_target_count > 0
-            )
-        )
-        or (config_diff.changed if config_diff else False)
-    )
     return CephAdminBucketCompareResult(
         source_endpoint_id=endpoint_id,
         target_endpoint_id=payload.target_endpoint_id,
@@ -186,9 +171,9 @@ def compare_bucket_pair(
         target_bucket=target_target.name,
         source_tenant=source_target.tenant,
         target_tenant=target_target.tenant,
-        has_differences=has_differences,
-        content_diff=content_diff,
-        config_diff=config_diff,
+        has_differences=outcome.has_differences,
+        content_diff=outcome.content_diff,
+        config_diff=outcome.config_diff,
     )
 
 

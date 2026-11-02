@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from contextlib import ExitStack, closing
+from dataclasses import dataclass
 from datetime import datetime
 import logging
 from typing import Any, Optional
@@ -22,6 +23,13 @@ from app.utils.s3_errors import format_s3_error
 from app.utils.s3_etag import etag_md5
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class BucketComparisonOutcome:
+    content_diff: BucketContentDiff | None
+    config_diff: BucketConfigDiff | None
+    has_differences: bool
 
 
 class BucketComparisonService(LongRunningS3ClientMixin):
@@ -95,6 +103,51 @@ class BucketComparisonService(LongRunningS3ClientMixin):
                 diff.target_count,
             )
             return diff
+
+    def compare_buckets(
+        self,
+        source_bucket: str,
+        source_context: S3ExecutionTarget,
+        target_bucket: str,
+        target_context: S3ExecutionTarget,
+        *,
+        include_content: bool,
+        include_config: bool,
+        ignore_modified_after: Optional[datetime] = None,
+        config_features: set[str] | None = None,
+    ) -> BucketComparisonOutcome:
+        content_diff = None
+        config_diff = None
+        if include_content:
+            content_diff = self.compare_bucket_content(
+                source_bucket,
+                source_context,
+                target_bucket,
+                target_context,
+                ignore_modified_after=ignore_modified_after,
+            )
+        if include_config:
+            config_diff = self.compare_bucket_configuration(
+                source_bucket,
+                source_context,
+                target_bucket,
+                target_context,
+                include_sections=config_features,
+            )
+
+        has_content_differences = bool(
+            content_diff
+            and (
+                content_diff.different_count > 0
+                or content_diff.only_source_count > 0
+                or content_diff.only_target_count > 0
+            )
+        )
+        return BucketComparisonOutcome(
+            content_diff=content_diff,
+            config_diff=config_diff,
+            has_differences=has_content_differences or bool(config_diff and config_diff.changed),
+        )
 
     def _contexts_share_storage_endpoint(
         self,
