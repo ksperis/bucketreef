@@ -214,6 +214,37 @@ def test_existing_destination_blocks_instead_of_skipping(prepared):
     assert migration.items[0].status == "pending"
 
 
+def test_unknown_destination_existence_blocks_precheck(prepared):
+    service, migration, _ = prepared
+    service._precheck_bucket_exists.return_value = None
+
+    service.run_precheck(migration.id, active_checks=True)
+
+    assert migration.preparation_status == "blocked"
+    check = next(
+        entry
+        for entry in migration.precheck_report["items"][0]["checks"]
+        if entry["code"] == "target_existence_unknown"
+    )
+    assert check["blocking"] is True
+
+
+def test_failed_destination_existence_probe_blocks_precheck(prepared):
+    service, migration, _ = prepared
+    service._precheck_bucket_exists.side_effect = RuntimeError("probe failed")
+
+    service.run_precheck(migration.id, active_checks=True)
+
+    assert migration.preparation_status == "blocked"
+    check = next(
+        entry
+        for entry in migration.precheck_report["items"][0]["checks"]
+        if entry["code"] == "target_existence_failed"
+    )
+    assert check["blocking"] is True
+    assert "probe failed" in check["message"]
+
+
 def test_destination_checks_run_without_write_lock(prepared):
     service, migration, _ = prepared
     migration.lock_target_writes = False
