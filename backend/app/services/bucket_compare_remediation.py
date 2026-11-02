@@ -50,8 +50,6 @@ def remediate_bucket_content(
         )
 
     safe_parallelism = max(1, min(32, int(parallelism or 1)))
-    failed_keys: list[str] = []
-    succeeded_count = 0
 
     if action == "delete_target_only":
         succeeded_count, failed_keys = _delete_objects(
@@ -60,29 +58,15 @@ def remediate_bucket_content(
             keys=selected_keys,
         )
     else:
-        if source_client is None:
-            raise ValueError("A source client is required for bucket comparison synchronization")
-        worker_count = max(1, min(safe_parallelism, planned_count))
-        with ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix="bucket-compare-remediate") as executor:
-            futures = {
-                executor.submit(
-                    _copy_single_object,
-                    source_client,
-                    target_client,
-                    source_bucket=source_bucket,
-                    target_bucket=target_bucket,
-                    key=key,
-                    same_endpoint=same_endpoint,
-                ): key
-                for key in selected_keys
-            }
-            for future in as_completed(futures):
-                key = futures[future]
-                try:
-                    future.result()
-                    succeeded_count += 1
-                except Exception:  # noqa: BLE001
-                    failed_keys.append(key)
+        succeeded_count, failed_keys = _copy_objects(
+            source_client,
+            target_client,
+            source_bucket=source_bucket,
+            target_bucket=target_bucket,
+            keys=selected_keys,
+            same_endpoint=same_endpoint,
+            parallelism=safe_parallelism,
+        )
 
     failed_count = len(failed_keys)
     return BucketCompareRemediationResult(
@@ -92,6 +76,47 @@ def remediate_bucket_content(
         failed_count=failed_count,
         failed_keys_sample=sorted(failed_keys)[: max(1, failed_keys_sample_limit)],
     )
+
+
+def _copy_objects(
+    source_client: Any | None,
+    target_client: Any,
+    *,
+    source_bucket: str,
+    target_bucket: str,
+    keys: list[str],
+    same_endpoint: bool,
+    parallelism: int,
+) -> tuple[int, list[str]]:
+    if source_client is None:
+        raise ValueError("A source client is required for bucket comparison synchronization")
+    worker_count = max(1, min(parallelism, len(keys)))
+    failed_keys: list[str] = []
+    succeeded_count = 0
+    with ThreadPoolExecutor(
+        max_workers=worker_count,
+        thread_name_prefix="bucket-compare-remediate",
+    ) as executor:
+        futures = {
+            executor.submit(
+                _copy_single_object,
+                source_client,
+                target_client,
+                source_bucket=source_bucket,
+                target_bucket=target_bucket,
+                key=key,
+                same_endpoint=same_endpoint,
+            ): key
+            for key in keys
+        }
+        for future in as_completed(futures):
+            key = futures[future]
+            try:
+                future.result()
+                succeeded_count += 1
+            except Exception:  # noqa: BLE001
+                failed_keys.append(key)
+    return succeeded_count, failed_keys
 
 
 def _copy_single_object(
