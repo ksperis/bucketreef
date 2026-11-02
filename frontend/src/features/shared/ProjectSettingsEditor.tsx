@@ -3,7 +3,7 @@ import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import { useEffect, useRef, useState } from "react";
 import type { S3AccountId } from "../../api/accountParams";
 import type { PortalProjectSettings } from "../../api/portalAccounts";
-import type { PortalSettingsAdminUpdate } from "../../api/appSettings";
+import type { PortalSettingsOverride } from "../../api/appSettings";
 import PageBanner from "../../components/PageBanner";
 import {
   SettingsItem,
@@ -45,9 +45,16 @@ type FlagField = {
     : never;
 }[keyof ProjectSettingsForm];
 
+export type ProjectSettingsUpdate = {
+  override: PortalSettingsOverride;
+  delegated_to_portal_managers?: boolean;
+  portal_collaborator_role_management_delegated?: boolean;
+  portal_collaborator_addition_delegated?: boolean;
+};
+
 export type ProjectSettingsAdapter = {
   load: (accountId: S3AccountId) => Promise<PortalProjectSettings>;
-  save: (accountId: S3AccountId, payload: PortalSettingsAdminUpdate) => Promise<PortalProjectSettings>;
+  save: (accountId: S3AccountId, payload: ProjectSettingsUpdate) => Promise<PortalProjectSettings>;
 };
 
 export default function ProjectSettingsEditor({
@@ -171,11 +178,13 @@ export default function ProjectSettingsEditor({
         setError("access");
         return;
       }
-      const payload: PortalSettingsAdminUpdate = mergeProjectOverrides(
-        baseline,
-        draft,
-        latest.project_override,
-      );
+      const payload: ProjectSettingsUpdate = {
+        override: mergeProjectOverrides(
+          baseline,
+          draft,
+          latest.project_override,
+        ),
+      };
       if (admin) {
         payload.delegated_to_portal_managers = mergeDelegation(
           baseline.delegatedToPortalManagers, draft.delegatedToPortalManagers,
@@ -191,12 +200,6 @@ export default function ProjectSettingsEditor({
           draft.collaboratorAdditionDelegated,
           latest.portal_collaborator_addition_delegated,
         );
-        // A delegation-only request preserves the override in the existing API.
-        if (Object.keys(payload).every((key) => [
-          "delegated_to_portal_managers",
-          "portal_collaborator_role_management_delegated",
-          "portal_collaborator_addition_delegated",
-        ].includes(key))) payload.bucket_defaults = null;
       }
       const next = await adapter.save(accountId, payload);
       if (!active.current) return;

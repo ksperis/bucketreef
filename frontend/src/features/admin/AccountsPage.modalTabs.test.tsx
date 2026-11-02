@@ -960,11 +960,13 @@ describe("AccountsPage modal tabs", () => {
         delegated_to_portal_managers: true,
         portal_collaborator_role_management_delegated: true,
         portal_collaborator_addition_delegated: true,
-        browser_access_enabled: true,
-        allow_private_storage_space_create: false,
-        allow_portal_named_bucket_create: true,
-        storage_space_version_cleanup_enabled: false,
-        bucket_defaults: { noncurrent_version_expiration_days: 45 },
+        override: {
+          browser_access_enabled: true,
+          allow_private_storage_space_create: false,
+          allow_portal_named_bucket_create: true,
+          storage_space_version_cleanup_enabled: false,
+          bucket_defaults: { noncurrent_version_expiration_days: 45 },
+        },
       });
     });
   });
@@ -1248,7 +1250,7 @@ describe("AccountsPage modal tabs", () => {
       delegated_to_portal_managers: true,
       portal_collaborator_role_management_delegated: false,
       portal_collaborator_addition_delegated: false,
-      bucket_defaults: null,
+      override: {},
     }));
     expect(updateS3AccountMock).not.toHaveBeenCalled();
   });
@@ -1266,11 +1268,13 @@ describe("AccountsPage modal tabs", () => {
     fetchAccountPortalSettingsMock.mockResolvedValue(makePortalAccountSettings({ admin_override: { allow_private_storage_space_create: false }, delegated_to_portal_managers: true }));
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     await waitFor(() => expect(updateAccountPortalSettingsMock).toHaveBeenCalledWith(1, {
-      browser_access_enabled: true,
-      allow_private_storage_space_create: false,
       delegated_to_portal_managers: true,
       portal_collaborator_role_management_delegated: false,
       portal_collaborator_addition_delegated: false,
+      override: {
+        browser_access_enabled: true,
+        allow_private_storage_space_create: false,
+      },
     }));
     expect(updateS3AccountMock).not.toHaveBeenCalled();
   });

@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 from pydantic import Field, field_validator, model_validator
 
 from app.core.config import get_settings
-from app.models.base import ApiModel
+from app.models.base import ApiModel, reject_explicit_null_fields
 from app.models.feature_policy import (
     ManagerFeaturePolicies,
     PortalFeaturePolicies,
@@ -52,10 +52,24 @@ class PortalSettingsOverride(ApiModel):
     bucket_defaults: Optional[PortalBucketDefaultsOverride] = None
 
 
-class PortalSettingsAdminUpdate(PortalSettingsOverride):
+class PortalSettingsAdminUpdate(ApiModel):
+    override: Optional[PortalSettingsOverride] = None
     delegated_to_portal_managers: Optional[bool] = None
     portal_collaborator_role_management_delegated: Optional[bool] = None
     portal_collaborator_addition_delegated: Optional[bool] = None
+
+    @model_validator(mode="after")
+    def reject_non_nullable_nulls(self) -> "PortalSettingsAdminUpdate":
+        reject_explicit_null_fields(
+            self,
+            (
+                "override",
+                "delegated_to_portal_managers",
+                "portal_collaborator_role_management_delegated",
+                "portal_collaborator_addition_delegated",
+            ),
+        )
+        return self
 
 
 class PortalBucketDefaults(ApiModel):

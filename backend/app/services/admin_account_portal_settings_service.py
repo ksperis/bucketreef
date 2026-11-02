@@ -13,13 +13,6 @@ from app.models.portal_settings import PortalAccountSettings
 from app.services.portal_service import PortalService, get_portal_service
 
 
-_DELEGATION_FIELDS = {
-    "delegated_to_portal_managers",
-    "portal_collaborator_role_management_delegated",
-    "portal_collaborator_addition_delegated",
-}
-
-
 @dataclass(frozen=True)
 class AdminAccountPortalSettingsUpdateResult:
     account: S3Account
@@ -49,17 +42,12 @@ class AdminAccountPortalSettingsService:
         payload: PortalSettingsAdminUpdate,
     ) -> AdminAccountPortalSettingsUpdateResult:
         account = self._account(account_id)
-        override_fields = payload.model_fields_set - _DELEGATION_FIELDS
-        if not override_fields and payload.model_fields_set.intersection(_DELEGATION_FIELDS):
+        if "override" not in payload.model_fields_set:
             override = self.portal.get_portal_account_settings(account).admin_override
         else:
-            override = PortalSettingsOverride.model_validate(
-                payload.model_dump(
-                    exclude=_DELEGATION_FIELDS,
-                    exclude_unset=True,
-                    exclude_none=False,
-                )
-            )
+            override = payload.override
+            if override is None:  # Guarded by PortalSettingsAdminUpdate validation.
+                raise ValueError("override cannot be null")
         settings = self.portal.update_admin_portal_settings_override(
             account,
             override,
