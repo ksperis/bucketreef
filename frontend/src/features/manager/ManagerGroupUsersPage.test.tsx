@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -7,6 +7,7 @@ import ManagerGroupUsersPage from "./ManagerGroupUsersPage";
 const useExecutionContextMock = vi.fn();
 const listIamGroupUsersMock = vi.fn();
 const listIamUsersPageMock = vi.fn();
+const addIamGroupUserMock = vi.fn();
 const removeIamGroupUserMock = vi.fn();
 
 vi.mock("./ExecutionContextProvider", () => ({
@@ -17,7 +18,7 @@ vi.mock("../../api/managerIamGroups", async () => {
   const actual = await vi.importActual<typeof import("../../api/managerIamGroups")>("../../api/managerIamGroups");
   return {
     ...actual,
-    addIamGroupUser: vi.fn(),
+    addIamGroupUser: (...args: unknown[]) => addIamGroupUserMock(...args),
     listIamGroupUsers: (...args: unknown[]) => listIamGroupUsersMock(...args),
     removeIamGroupUser: (...args: unknown[]) => removeIamGroupUserMock(...args),
   };
@@ -46,6 +47,7 @@ describe("ManagerGroupUsersPage", () => {
     useExecutionContextMock.mockReset();
     listIamGroupUsersMock.mockReset();
     listIamUsersPageMock.mockReset();
+    addIamGroupUserMock.mockReset().mockResolvedValue(undefined);
     removeIamGroupUserMock.mockReset().mockResolvedValue(undefined);
     useExecutionContextMock.mockReturnValue({
       selectedContextKind: "account",
@@ -57,13 +59,15 @@ describe("ManagerGroupUsersPage", () => {
     listIamUsersPageMock.mockResolvedValue({ items: [], next_marker: null });
   });
 
-  it("renders group members through the shared responsive table", async () => {
-    listIamGroupUsersMock.mockResolvedValue([
-      {
-        name: "alice",
-        arn: "arn:aws:iam::acc-1:user/alice",
-      },
-    ]);
+  it("shows current members first and adds an available user through the picker", async () => {
+    const members = new Set(["alice"]);
+    listIamGroupUsersMock.mockImplementation(async () => [...members].map((name) => ({
+      name,
+      arn: `arn:aws:iam::acc-1:user/${name}`,
+    })));
+    addIamGroupUserMock.mockImplementation(async (_contextId, _groupName, userName) => {
+      members.add(String(userName));
+    });
     listIamUsersPageMock.mockResolvedValue({
       items: [{
         name: "alice",
@@ -79,6 +83,10 @@ describe("ManagerGroupUsersPage", () => {
     renderPage();
 
     expect(await screen.findByText("alice")).toBeInTheDocument();
+    expect(screen.getByText(/Associated: 1/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add members" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Search IAM users")).not.toBeInTheDocument();
+    expect(listIamUsersPageMock).not.toHaveBeenCalled();
     expect(screen.getByRole("table")).toHaveClass("responsive-data-table");
     expect(screen.getByText("alice").closest("td")).toHaveAttribute("data-mobile-primary", "true");
     expect(screen.getByText("arn:aws:iam::acc-1:user/alice").closest("td")).toHaveAttribute("data-label", "ARN");
@@ -86,17 +94,33 @@ describe("ManagerGroupUsersPage", () => {
       "data-mobile-actions",
       "true"
     );
-    expect(screen.getByRole("combobox", { name: "IAM user" })).toHaveClass("ui-control");
-    expect(screen.getByRole("button", { name: "Add" })).toHaveClass("ui-button-base");
+    expect(listIamGroupUsersMock).toHaveBeenCalledWith("acc-1", "operators");
 
-    await waitFor(() => {
-      expect(listIamGroupUsersMock).toHaveBeenCalledWith("acc-1", "operators");
-      expect(listIamUsersPageMock).toHaveBeenCalledWith("acc-1", { marker: null, page_size: 25 });
-    });
+    fireEvent.click(screen.getByRole("button", { name: "Add members" }));
+    await waitFor(() => expect(listIamUsersPageMock).toHaveBeenCalledWith("acc-1", { marker: null, page_size: 25 }));
+    expect(screen.queryByRole("checkbox", { name: /alice/ })).not.toBeInTheDocument();
+    const bob = await screen.findByRole("checkbox", { name: /bob/ });
+    expect(screen.queryByRole("combobox", { name: "Page size" })).not.toBeInTheDocument();
+    fireEvent.click(bob);
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    await waitFor(() => expect(addIamGroupUserMock).toHaveBeenCalledWith("acc-1", "operators", "bob"));
+    expect(await screen.findByText("Members added")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Search IAM users")).not.toBeInTheDocument();
+    expect(await screen.findByText("bob")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+    const aliceRow = screen.getByText("alice").closest("tr");
+    if (!aliceRow) throw new Error("alice row not found");
+    fireEvent.click(within(aliceRow).getByRole("button", { name: "Remove" }));
     expect(screen.getByRole("heading", { name: "Remove user from group?" })).toBeInTheDocument();
     expect(screen.getByText("Permissions inherited only through this group will no longer apply to the user.")).toBeInTheDocument();
     expect(removeIamGroupUserMock).not.toHaveBeenCalled();
+  });
+
+  it("shows an explicit empty state with the add action available", async () => {
+    renderPage();
+
+    expect(await screen.findByText("No members in this group.")).toBeInTheDocument();
+    expect(screen.getByText(/Associated: 0/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add members" })).toBeEnabled();
   });
 });

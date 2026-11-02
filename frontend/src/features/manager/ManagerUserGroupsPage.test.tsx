@@ -65,8 +65,13 @@ describe("ManagerUserGroupsPage", () => {
     renderPage();
 
     expect(await screen.findByText("operators")).toBeInTheDocument();
-    await screen.findByRole("option", { name: "auditors" });
-    fireEvent.change(screen.getByRole("combobox", { name: "IAM group" }), { target: { value: "auditors" } });
+    expect(screen.getByText(/Associated: 1/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Search IAM groups")).not.toBeInTheDocument();
+    expect(api.listGroups).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Add to groups" }));
+    await waitFor(() => expect(api.listGroups).toHaveBeenCalledWith("acc-1", { marker: null, page_size: 25 }));
+    expect(screen.queryByRole("checkbox", { name: /operators/ })).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("checkbox", { name: /auditors/ }));
     fireEvent.click(screen.getByRole("button", { name: "Add" }));
 
     await waitFor(() => expect(api.addUser).toHaveBeenCalledWith("acc-1", "auditors", "alice"));
@@ -80,5 +85,92 @@ describe("ManagerUserGroupsPage", () => {
 
     await waitFor(() => expect(api.removeUser).toHaveBeenCalledWith("acc-1", "operators", "alice"));
     await waitFor(() => expect(within(screen.getByRole("table")).queryByText("operators")).not.toBeInTheDocument());
+  });
+
+  it("keeps selections across cursor pages and server-side searches", async () => {
+    api.listGroups.mockImplementation(async (_contextId, query) => {
+      if (query?.search === "secure") {
+        return {
+          items: [{ name: "security", arn: "arn:aws:iam::acc-1:group/security" }],
+          next_marker: null,
+        };
+      }
+      if (query?.marker === "page-2") {
+        return {
+          items: [{ name: "developers", arn: "arn:aws:iam::acc-1:group/developers" }],
+          next_marker: null,
+        };
+      }
+      return {
+        items: [
+          { name: "operators", arn: "arn:aws:iam::acc-1:group/operators" },
+          { name: "auditors", arn: "arn:aws:iam::acc-1:group/auditors" },
+        ],
+        next_marker: "page-2",
+      };
+    });
+
+    renderPage();
+    await screen.findByText("operators");
+    fireEvent.click(screen.getByRole("button", { name: "Add to groups" }));
+    fireEvent.click(await screen.findByRole("checkbox", { name: /auditors/ }));
+    expect(screen.getByText("1 selected")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await waitFor(() => expect(api.listGroups).toHaveBeenCalledWith("acc-1", { marker: "page-2", page_size: 25 }));
+    expect(await screen.findByRole("checkbox", { name: /developers/ })).toBeInTheDocument();
+    expect(screen.getByText("1 selected")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Search IAM groups"), { target: { value: "secure" } });
+    await waitFor(() => expect(api.listGroups).toHaveBeenCalledWith("acc-1", {
+      marker: null,
+      page_size: 25,
+      search: "secure",
+    }));
+    expect(await screen.findByRole("checkbox", { name: /security/ })).toBeInTheDocument();
+    expect(screen.getByText("1 selected")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: /security/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+
+    await waitFor(() => {
+      expect(api.addUser).toHaveBeenCalledWith("acc-1", "auditors", "alice");
+      expect(api.addUser).toHaveBeenCalledWith("acc-1", "security", "alice");
+    });
+  });
+
+  it("keeps only failed associations selected and retries them", async () => {
+    api.listGroups.mockResolvedValue({
+      items: [
+        { name: "auditors", arn: "arn:aws:iam::acc-1:group/auditors" },
+        { name: "developers", arn: "arn:aws:iam::acc-1:group/developers" },
+      ],
+      next_marker: null,
+    });
+    api.addUser.mockImplementationOnce(async (_account, group) => {
+      memberships.add(group);
+    }).mockRejectedValueOnce(new Error("RGW denied developers"))
+      .mockImplementationOnce(async (_account, group) => {
+        memberships.add(group);
+      });
+
+    renderPage();
+    await screen.findByText("operators");
+    fireEvent.click(screen.getByRole("button", { name: "Add to groups" }));
+    fireEvent.click(await screen.findByRole("checkbox", { name: /auditors/ }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /developers/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+
+    const failureHeading = await screen.findByText("Some associations could not be updated.");
+    const failureAlert = failureHeading.closest('[role="alert"]');
+    expect(failureAlert).not.toBeNull();
+    expect(failureAlert).toHaveTextContent("developers: RGW denied developers");
+    expect(screen.getByText("1 selected")).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /auditors/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /developers/ })).toBeChecked();
+
+    fireEvent.click(screen.getByRole("button", { name: "Add" }));
+    await waitFor(() => expect(api.addUser).toHaveBeenCalledTimes(3));
+    expect(await screen.findByText("Group memberships updated")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Search IAM groups")).not.toBeInTheDocument();
   });
 });

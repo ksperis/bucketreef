@@ -129,6 +129,39 @@ describe("manager entity policy pages", () => {
     expect(await screen.findByRole("button", { name: /readonly-inline/i })).toBeInTheDocument();
     expect(screen.getByText("Select an existing inline policy to review or edit.")).toBeInTheDocument();
   });
+
+  it.each(pages)("shows existing managed policies before opening the $label association picker", async ({ path, element }) => {
+    const attached = { name: "ExistingPolicy", arn: "arn:aws:iam::acc-1:policy/ExistingPolicy" };
+    const available = { name: "AvailablePolicy", arn: "arn:aws:iam::acc-1:policy/AvailablePolicy" };
+    listIamPoliciesPageMock.mockResolvedValue({ items: [attached, available], next_marker: null });
+    listUserPoliciesMock.mockResolvedValue([attached]);
+    listGroupPoliciesMock.mockResolvedValue([attached]);
+    listRolePoliciesMock.mockResolvedValue([attached]);
+    const url = path.replace(":userName", "alice").replace(":groupName", "admins").replace(":roleName", "auditor");
+
+    render(
+      <MemoryRouter initialEntries={[url]}>
+        <Routes>
+          <Route path={path} element={element} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("ExistingPolicy", { selector: "td" })).toBeInTheDocument();
+    expect(screen.getByText(/Associated: 1/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Search policies")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Attach policies" }));
+
+    const picker = await screen.findByRole("region", { name: "Attach policies" });
+    expect(within(picker).queryByRole("checkbox", { name: /ExistingPolicy/ })).not.toBeInTheDocument();
+    expect(within(picker).getByRole("checkbox", { name: /AvailablePolicy/ })).toBeInTheDocument();
+    expect(within(picker).queryByRole("combobox", { name: "Page size" })).not.toBeInTheDocument();
+    fireEvent.click(within(picker).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByLabelText("Search policies")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Detach" }));
+    expect(screen.getByRole("heading", { name: "Detach managed policy?" })).toBeInTheDocument();
+  });
 });
 
 
@@ -148,19 +181,22 @@ it.each(pages)("preserves the $label inline draft while a managed policy is atta
   fireEvent.click(choice);
   const document = screen.getByLabelText("Inline policy document (JSON)");
   fireEvent.change(document, { target: { value: '{"draft":true}' } });
-  const form = screen.getByRole("form", { name: "Attach managed policy" });
-  const managedPolicy = within(form).getByLabelText("Managed policy");
-  await waitFor(() => expect(within(form).getByRole("option", { name: "ManagedReadOnly" })).toBeInTheDocument());
-  fireEvent.change(managedPolicy, { target: { value: policy.arn } });
-  await waitFor(() => expect(within(form).getByRole("button", { name: "Attach" })).toBeEnabled());
-  fireEvent.submit(form);
+  expect(screen.queryByLabelText("Search policies")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Attach policies" }));
+  const managedPolicy = await screen.findByRole("checkbox", { name: /ManagedReadOnly/ });
+  fireEvent.click(managedPolicy);
+  const picker = screen.getByRole("region", { name: "Attach policies" });
+  const attachButton = within(picker).getByRole("button", { name: "Attach" });
+  await waitFor(() => expect(attachButton).toBeEnabled());
+  fireEvent.click(attachButton);
   expect(managedPolicy).toBeDisabled();
-  fireEvent.submit(form);
+  expect(within(picker).getByRole("button", { name: "Cancel" })).toBeDisabled();
+  fireEvent.click(attachButton);
   expect(attach).toHaveBeenCalledOnce();
   expect(attach).toHaveBeenCalledWith("acc-1", "fixture", policy);
   expect(document).toHaveValue('{"draft":true}');
   await act(async () => resolve(policy));
-  await screen.findByText("Policy attached");
+  await screen.findByText("Policies attached");
   expect(screen.getByLabelText("Inline policy document (JSON)")).toBe(document);
   expect(document).toHaveValue('{"draft":true}');
 });
