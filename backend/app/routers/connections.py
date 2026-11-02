@@ -150,7 +150,7 @@ def create_connection(
                 "created_by_user_id": created.created_by_user_id,
                 "access_manager": created.access_manager,
                 "access_browser": created.access_browser,
-                "can_manage_iam": bool((created.capabilities or {}).get("can_manage_iam", False)),
+                "can_manage_iam": created.capabilities["can_manage_iam"],
                 "access_key_id": created.access_key_id,
                 "tags": serialize_tag_summaries(created.tags),
             },
@@ -199,7 +199,7 @@ def update_connection(
                 "created_by_user_id": updated.created_by_user_id,
                 "access_manager": updated.access_manager,
                 "access_browser": updated.access_browser,
-                "can_manage_iam": bool((updated.capabilities or {}).get("can_manage_iam", False)),
+                "can_manage_iam": updated.capabilities["can_manage_iam"],
                 "tags": serialize_tag_summaries(updated.tags),
             },
         )

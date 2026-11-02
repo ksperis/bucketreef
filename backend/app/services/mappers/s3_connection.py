@@ -23,7 +23,7 @@ def s3_connection_from_db(
     row: DBS3Connection,
     *,
     capabilities: dict[str, Any],
-    tags: list[TagDefinitionSummary] | None = None,
+    tags: list[TagDefinitionSummary],
 ) -> S3Connection:
     details = resolve_connection_details(row)
     return S3Connection(
@@ -51,7 +51,7 @@ def s3_connection_from_db(
         force_path_style=details.force_path_style,
         verify_tls=details.verify_tls,
         capabilities=capabilities,
-        tags=tags or [],
+        tags=tags,
         created_at=row.created_at,
         updated_at=row.updated_at,
         last_used_at=row.last_used_at,
