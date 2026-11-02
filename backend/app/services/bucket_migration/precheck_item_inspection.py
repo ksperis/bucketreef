@@ -145,11 +145,45 @@ class BucketMigrationItemInspector:
         probe_policy: Any,
         add_check: Callable[..., None],
     ) -> TargetBucketInspection:
+        target_exists = self._inspect_target_existence(
+            context,
+            item.target_bucket,
+            add_check=add_check,
+        )
+
+        if target_exists is not True:
+            return TargetBucketInspection(
+                exists=target_exists,
+                object_count=0 if target_exists is False else None,
+                profile=None,
+            )
+
+        object_count, profile = self._inspect_existing_bucket_details(
+            context,
+            item.target_bucket,
+            scope_prefix="target",
+            probe_policy=probe_policy,
+            add_check=add_check,
+            profile_error_severity="warning",
+            profile_error_blocking=False,
+            profile_error_message="Unable to inspect existing target bucket features",
+        )
+        return TargetBucketInspection(
+            exists=True,
+            object_count=object_count,
+            profile=profile,
+        )
+
+    def _inspect_target_existence(
+        self,
+        context: Any,
+        bucket_name: str,
+        *,
+        add_check: Callable[..., None],
+    ) -> bool | None:
         target_exists: bool | None = None
         try:
-            target_exists = self._service._precheck_bucket_exists(
-                context, item.target_bucket
-            )
+            target_exists = self._service._precheck_bucket_exists(context, bucket_name)
             if target_exists is True:
                 add_check(
                     code="target_exists",
@@ -182,29 +216,7 @@ class BucketMigrationItemInspector:
                 scope="target_bucket",
                 message=f"Target bucket existence check failed: {exc}",
             )
-
-        if target_exists is not True:
-            return TargetBucketInspection(
-                exists=target_exists,
-                object_count=0 if target_exists is False else None,
-                profile=None,
-            )
-
-        object_count, profile = self._inspect_existing_bucket_details(
-            context,
-            item.target_bucket,
-            scope_prefix="target",
-            probe_policy=probe_policy,
-            add_check=add_check,
-            profile_error_severity="warning",
-            profile_error_blocking=False,
-            profile_error_message="Unable to inspect existing target bucket features",
-        )
-        return TargetBucketInspection(
-            exists=True,
-            object_count=object_count,
-            profile=profile,
-        )
+        return target_exists
 
     def _inspect_existing_bucket_details(
         self,
