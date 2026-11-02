@@ -608,7 +608,13 @@ def test_iam_user_creation_rejects_portal_managed_group_membership(monkeypatch, 
     audit = _Audit()
     with pytest.raises(HTTPException) as exc_info:
         iam_users.create_user(
-            IAMUserCreate(name="alice", groups=[group_name], policies=[], inline_policies=[]),
+            IAMUserCreate(
+                name="alice",
+                create_key=False,
+                groups=[group_name],
+                policies=[],
+                inline_policies=[],
+            ),
             context=_context(), current_user=object(), audit_service=audit,
         )
     assert exc_info.value.status_code == 409
@@ -752,9 +758,21 @@ def test_role_duration_bounds_are_enforced(duration):
 @pytest.mark.parametrize(
     ("model", "payload", "field"),
     [
-        (IAMUserCreate, {"name": "alice", "groups": [], "policies": [], "inline_policies": []}, "groups"),
-        (IAMUserCreate, {"name": "alice", "groups": [], "policies": [], "inline_policies": []}, "policies"),
-        (IAMUserCreate, {"name": "alice", "groups": [], "policies": [], "inline_policies": []}, "inline_policies"),
+        (
+            IAMUserCreate,
+            {"name": "alice", "create_key": False, "groups": [], "policies": [], "inline_policies": []},
+            "groups",
+        ),
+        (
+            IAMUserCreate,
+            {"name": "alice", "create_key": False, "groups": [], "policies": [], "inline_policies": []},
+            "policies",
+        ),
+        (
+            IAMUserCreate,
+            {"name": "alice", "create_key": False, "groups": [], "policies": [], "inline_policies": []},
+            "inline_policies",
+        ),
         (IAMGroupCreate, {"name": "researchers", "policies": [], "inline_policies": []}, "policies"),
         (IAMGroupCreate, {"name": "researchers", "policies": [], "inline_policies": []}, "inline_policies"),
         (IAMRoleCreate, {"name": "reader", "policies": [], "inline_policies": []}, "policies"),
@@ -770,3 +788,17 @@ def test_iam_create_requires_non_null_collection_contracts(model, payload, field
     null_value = {**payload, field: None}
     with pytest.raises(ValidationError):
         model.model_validate(null_value)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"name": "alice", "groups": [], "policies": [], "inline_policies": []},
+        {"name": "alice", "create_key": None, "groups": [], "policies": [], "inline_policies": []},
+    ],
+)
+def test_iam_user_create_requires_explicit_create_key(payload):
+    with pytest.raises(ValidationError) as caught:
+        IAMUserCreate.model_validate(payload)
+
+    assert caught.value.errors()[0]["loc"] == ("create_key",)
