@@ -234,13 +234,14 @@ export default function CephAdminAdminOpsModal({
     enabled: action.kind === "link-bucket",
     initialPageSize: 25,
   });
+  const { setSearch: setLinkTargetSearch } = linkTargetCatalog;
 
   useEffect(() => {
     if (action.kind !== "link-bucket" || linkTargetType !== "account" || canAccounts) return;
     setLinkTargetType("user");
     setSelectedLinkTarget(null);
-    linkTargetCatalog.setSearch("");
-  }, [action.kind, canAccounts, linkTargetCatalog.setSearch, linkTargetType]);
+    setLinkTargetSearch("");
+  }, [action.kind, canAccounts, linkTargetType, setLinkTargetSearch]);
 
   const resetOutcome = () => {
     setResult(null);
