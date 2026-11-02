@@ -39,7 +39,7 @@ def portal_access_keys(
 
 @router.post("/access-keys", response_model=PortalAccessKey, status_code=status.HTTP_201_CREATED)
 def create_portal_access_key(
-    payload: Optional[PortalAccessKeyCreate] = None,
+    payload: PortalAccessKeyCreate,
     access: AccountAccess = Depends(get_portal_account_access),
     audit_service: AuditService = Depends(get_audit_service),
     service: PortalService = Depends(get_portal_service_dependency),

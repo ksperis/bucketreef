@@ -175,11 +175,10 @@ class PortalAccessKeysMixin:
         self,
         user: User,
         access: "AccountAccess",
-        payload: Optional[PortalAccessKeyCreate] = None,
+        payload: PortalAccessKeyCreate,
     ) -> PortalAccessKey:
-        request = payload or PortalAccessKeyCreate()
-        if request.target_type == "external":
-            return self.create_external_access_key(user, access, request)
+        if payload.target_type == "external":
+            return self.create_external_access_key(user, access, payload)
         return self.create_personal_access_key(user, access)
 
     def create_personal_access_key(self, user: User, access: "AccountAccess") -> PortalAccessKey:

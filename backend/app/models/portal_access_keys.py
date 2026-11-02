@@ -29,7 +29,7 @@ class PortalAccessKey(ApiModel):
 
 
 class PortalAccessKeyCreate(ApiModel):
-    target_type: Literal["self", "external"] = "self"
+    target_type: Literal["self", "external"]
     storage_space_id: Optional[str] = Field(default=None, min_length=1, max_length=1024)
     external_email: Optional[str] = Field(default=None, max_length=254)
     permission: Optional[Literal["read_only", "read_write"]] = None
