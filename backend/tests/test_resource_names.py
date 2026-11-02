@@ -69,7 +69,7 @@ def test_bucket_contract_rejects_reserved_names(name):
 @pytest.mark.parametrize("model", [IAMUserCreate, IAMGroupCreate, IAMRoleCreate, PolicyCreate])
 def test_creation_models_reject_missing_or_invalid_name_at_field(model):
     create_kwargs = {
-        IAMUserCreate: {"groups": [], "policies": [], "inline_policies": []},
+        IAMUserCreate: {"create_key": False, "groups": [], "policies": [], "inline_policies": []},
         IAMGroupCreate: {"policies": [], "inline_policies": []},
         IAMRoleCreate: {"policies": [], "inline_policies": []},
         PolicyCreate: {"document": {}},
@@ -171,6 +171,7 @@ def _iam_create_payload(entity: str, **overrides):
         "inline_policies": [],
     }
     if entity == "user":
+        payload["create_key"] = False
         payload["groups"] = []
     return {**payload, **overrides}
 

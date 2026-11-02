@@ -480,6 +480,10 @@ configuration and compensates a failed policy step by removing the requested
 policies before deleting the newly created group or role. The bundled frontend
 no longer fans out separate policy-attachment requests after creation.
 
+Manager IAM user creation now also requires an explicit non-null `create_key`
+boolean. The bundled frontend already sends that choice for every create
+request, so the backend no longer treats omission as `false`.
+
 Deploy the bundled frontend and backend together. No database migration is
 required.
 

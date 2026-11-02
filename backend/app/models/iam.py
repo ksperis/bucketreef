@@ -79,7 +79,7 @@ class AccessKeyStatusChange(ApiModel):
 class IAMUserCreate(ApiModel):
     name: _IAMUserName
 
-    create_key: bool = False
+    create_key: bool
     groups: list[str]
     policies: list[str]
     inline_policies: list[InlinePolicy]
