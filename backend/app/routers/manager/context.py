@@ -64,6 +64,16 @@ class _ManagerLimits:
     max_groups: Optional[int] = None
 
 
+@dataclass(frozen=True)
+class _ManagerFeatureAvailability:
+    bucket_quota: bool
+    ceph_s3_user_keys: bool
+    access_key_metadata: bool
+    access_key_expiration: bool
+    managed_private_connection_provisioning: bool
+    private_access_state: Optional[Literal["provisioning", "active", "deleting", "cleanup_pending"]]
+
+
 def _manager_stats_state(
     context: S3ExecutionContext,
     actor: ManagerActor,
@@ -339,12 +349,7 @@ def _manager_feature_states(
     db: Session,
     app_settings: AppSettings,
     resolved_access: Optional[ResolvedUserAccess],
-    *,
-    manager_bucket_quota_enabled: bool,
-    manager_ceph_keys_enabled: bool,
-    manager_access_key_metadata_enabled: bool,
-    manager_access_key_expiration_enabled: bool,
-    manager_private_access_enabled: bool,
+    availability: _ManagerFeatureAvailability,
 ) -> dict[str, FeatureState]:
     project_resource = project_usage_resource(db, context)
     resource = None
@@ -362,12 +367,12 @@ def _manager_feature_states(
         app_settings.manager.feature_policies,
         resource,
         {
-            "bucket_quota_management": manager_bucket_quota_enabled,
-            "ceph_s3_user_keys": manager_ceph_keys_enabled,
-            "access_key_metadata": manager_access_key_metadata_enabled,
-            "access_key_expiration": manager_access_key_expiration_enabled,
+            "bucket_quota_management": availability.bucket_quota,
+            "ceph_s3_user_keys": availability.ceph_s3_user_keys,
+            "access_key_metadata": availability.access_key_metadata,
+            "access_key_expiration": availability.access_key_expiration,
             "cost_estimation": app_settings.general.cost_enabled,
-            "managed_private_connection_provisioning": manager_private_access_enabled,
+            "managed_private_connection_provisioning": availability.managed_private_connection_provisioning,
         },
         provisioning_source=provisioning_sources[0].kind if provisioning_sources else None,
         activity_resource=manager_activity_resource(db, context),
@@ -381,6 +386,45 @@ def _manager_feature_states(
         project_resource,
     )
     return states
+
+
+def _manager_feature_availability(
+    context: S3ExecutionContext,
+    actor: ManagerActor,
+    db: Session,
+    resolved_access: Optional[ResolvedUserAccess],
+) -> _ManagerFeatureAvailability:
+    access_key_metadata = AccessKeyMetadataService(db)
+    is_ui_user = isinstance(actor, User)
+    return _ManagerFeatureAvailability(
+        bucket_quota=(
+            is_manager_bucket_quota_available(context, actor, db=db)
+            if is_ui_user
+            else False
+        ),
+        ceph_s3_user_keys=(
+            is_manager_rgw_access_key_management_available(context, actor, db=db)
+            if is_ui_user
+            else False
+        ),
+        access_key_metadata=access_key_metadata.metadata_enabled_for_context(context),
+        access_key_expiration=access_key_metadata.expiration_enabled_for_context(context),
+        managed_private_connection_provisioning=_manager_private_access_enabled(
+            context,
+            actor,
+            db,
+            resolved_access,
+        ),
+        private_access_state=_manager_private_access_state(context, actor, db),
+    )
+
+
+def _manager_context_kind(access_mode: ManagerAccessMode) -> Literal["account", "connection", "openstack_project"]:
+    if access_mode == "openstack_project":
+        return "openstack_project"
+    if access_mode == "connection":
+        return "connection"
+    return "account"
 
 
 @router.get("/context", response_model=ManagerContext)
@@ -414,27 +458,7 @@ def get_manager_context(
         access_mode,
         connection_iam_identity,
     )
-
-    manager_ceph_keys_enabled = (
-        is_manager_rgw_access_key_management_available(context, actor, db=db)
-        if isinstance(actor, User)
-        else False
-    )
-    access_key_metadata = AccessKeyMetadataService(db)
-    manager_access_key_metadata_enabled = access_key_metadata.metadata_enabled_for_context(context)
-    manager_access_key_expiration_enabled = access_key_metadata.expiration_enabled_for_context(context)
-    manager_private_access_enabled = _manager_private_access_enabled(
-        context,
-        actor,
-        db,
-        resolved_access,
-    )
-    manager_private_access_state = _manager_private_access_state(context, actor, db)
-    manager_bucket_quota_enabled = (
-        is_manager_bucket_quota_available(context, actor, db=db)
-        if isinstance(actor, User)
-        else False
-    )
+    availability = _manager_feature_availability(context, actor, db, resolved_access)
     limits = _manager_limits(
         context,
         db,
@@ -445,28 +469,24 @@ def get_manager_context(
         db,
         app_settings,
         resolved_access,
-        manager_bucket_quota_enabled=manager_bucket_quota_enabled,
-        manager_ceph_keys_enabled=manager_ceph_keys_enabled,
-        manager_access_key_metadata_enabled=manager_access_key_metadata_enabled,
-        manager_access_key_expiration_enabled=manager_access_key_expiration_enabled,
-        manager_private_access_enabled=manager_private_access_enabled,
+        availability,
     )
     return ManagerContext(
         feature_states=feature_states,
         naming_validation_profile=naming_validation_profile(context),
         access_mode=access_mode,
-        context_kind=("openstack_project" if access_mode == "openstack_project" else ("connection" if access_mode == "connection" else "account")),
+        context_kind=_manager_context_kind(access_mode),
         iam_identity=iam_identity,
         manager_stats_enabled=manager_stats_enabled,
         manager_stats_message=manager_stats_message,
         manager_browser_enabled=browser_state.enabled,
         manager_browser_message=browser_state.message,
-        manager_bucket_quota_enabled=manager_bucket_quota_enabled,
-        manager_ceph_keys_enabled=manager_ceph_keys_enabled,
-        manager_access_key_metadata_enabled=manager_access_key_metadata_enabled,
-        manager_access_key_expiration_enabled=manager_access_key_expiration_enabled,
-        manager_private_access_enabled=manager_private_access_enabled,
-        manager_private_access_state=manager_private_access_state,
+        manager_bucket_quota_enabled=availability.bucket_quota,
+        manager_ceph_keys_enabled=availability.ceph_s3_user_keys,
+        manager_access_key_metadata_enabled=availability.access_key_metadata,
+        manager_access_key_expiration_enabled=availability.access_key_expiration,
+        manager_private_access_enabled=availability.managed_private_connection_provisioning,
+        manager_private_access_state=availability.private_access_state,
         quota_max_size_gb=limits.quota_max_size_gb,
         quota_max_objects=limits.quota_max_objects,
         max_buckets=limits.max_buckets,
