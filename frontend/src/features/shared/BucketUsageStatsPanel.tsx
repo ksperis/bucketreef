@@ -99,24 +99,6 @@ export default function BucketUsageStatsPanel({
           }}
           showVersionListingWarning={!snapshot.version_listing_available}
           currentVsNoncurrentEmptyMessage={text("fallbackScanUnavailable")}
-          labels={{
-            logicalBytes: text("logicalBytes"),
-            currentBytes: text("currentBytes"),
-            noncurrentBytes: text("noncurrentBytes"),
-            versionsUnit: text("versionsUnit"),
-            unavailable: text("unavailable"),
-            versionListingWarning: text("versionListingWarning"),
-            dataTypesTitle: text("dataTypesTitle"),
-            dataTypesSubtitle: text("dataTypesSubtitle"),
-            currentVsNoncurrentTitle: text("currentVsNoncurrentTitle"),
-            currentVsNoncurrentSubtitle: text("currentVsNoncurrentSubtitle"),
-            storageClassesTitle: text("storageClassesTitle"),
-            storageClassesSubtitle: text("storageClassesSubtitle"),
-            objectSizesTitle: text("objectSizesTitle"),
-            objectSizesSubtitle: text("objectSizesSubtitle"),
-            objectAgeTitle: text("objectAgeTitle"),
-            objectAgeSubtitle: text("objectAgeSubtitle"),
-          }}
         />
       )}
     </MetricsCard>
