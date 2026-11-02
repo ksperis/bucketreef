@@ -10,7 +10,6 @@ import {
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import ListPageSection from "../../components/list/ListPageSection";
 import ToolbarSearchInput from "../../components/ToolbarSearchInput";
-import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import PageBanner from "../../components/PageBanner";
 import WorkflowPage from "../../components/WorkflowPage";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
@@ -64,12 +63,10 @@ import {
   prepareUpdatePrivateConnectionPayload,
 } from "./s3ConnectionFormModel";
 import { useSharedI18n } from "./sharedI18n";
+import PrivateS3ConnectionDeleteDialog, {
+  type PendingPrivateConnectionDelete,
+} from "./PrivateS3ConnectionDeleteDialog";
 import PrivateS3ConnectionsTable from "./PrivateS3ConnectionsTable";
-
-type PendingPrivateConnectionDelete = {
-  scope: "single" | "bulk";
-  connections: S3Connection[];
-};
 
 type PrivateS3ConnectionsSectionProps = {
   profilePath?: string;
@@ -867,48 +864,12 @@ export default function PrivateS3ConnectionsSection({
       </section>
 
       {pendingConnectionDelete && (
-        <ConfirmActionDialog
-          title={surfaceText(
-            pendingConnectionDelete.scope === "single"
-              ? "Delete private S3 connection?"
-              : "Delete selected private S3 connections?",
-          )}
-          description={
-            pendingConnectionDelete.scope === "single"
-              ? surfaceText("Remove this private connection from your profile.")
-              : surfaceText("Remove all selected private connections from your profile.")
-          }
-          confirmLabel={surfaceText(
-            pendingConnectionDelete.scope === "single"
-              ? "Delete connection"
-              : "Delete selected connections",
-          )}
-          details={
-            pendingConnectionDelete.scope === "single"
-              ? [
-                  {
-                    label: surfaceText("Connection"),
-                    value: pendingConnectionDelete.connections[0]?.name || `#${pendingConnectionDelete.connections[0]?.id}`,
-                  },
-                  {
-                    label: surfaceText("Endpoint"),
-                    value: pendingConnectionDelete.connections[0]?.endpoint_url || surfaceText("Managed endpoint"),
-                    mono: true,
-                  },
-                ]
-              : [{ label: surfaceText("Connections"), value: pendingConnectionDelete.connections.length }]
-          }
-          impacts={[
-            surfaceText("Access through the selected connection will be removed from Manager and Browser."),
-            surfaceText("Remote buckets and their objects will not be deleted."),
-          ]}
-          loading={
-            pendingConnectionDelete.scope === "bulk"
-              ? bulkDeletingConnections
-              : deletingConnectionBusyId === pendingConnectionDelete.connections[0]?.id
-          }
+        <PrivateS3ConnectionDeleteDialog
+          pendingDelete={pendingConnectionDelete}
+          bulkDeleting={bulkDeletingConnections}
+          deletingConnectionBusyId={deletingConnectionBusyId}
           onCancel={() => setPendingConnectionDelete(null)}
-          onConfirm={() => void confirmPendingConnectionDelete()}
+          onConfirm={confirmPendingConnectionDelete}
         />
       )}
 
