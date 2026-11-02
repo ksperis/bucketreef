@@ -14,6 +14,8 @@ from app.db import (
     StorageEndpoint,
 )
 from app.services.healthcheck_common import (
+    DEFAULT_CHECK_TYPE,
+    DEFAULT_SCOPE,
     coerce_check_mode,
     percentile,
     resolve_healthcheck_profile,
@@ -105,6 +107,35 @@ def status_from_rollup_counts(*, up_count: int, degraded_count: int, down_count:
     if up_count > 0:
         return HealthCheckStatus.UP.value
     return HealthCheckStatus.UNKNOWN.value
+
+
+def build_rollup_series(
+    rollup_rows: list[EndpointHealthRollup],
+) -> tuple[list[dict[str, Any]], int]:
+    series: list[dict[str, Any]] = []
+    data_points = 0
+    for row in rollup_rows:
+        up_count = int(row.up_count or 0)
+        degraded_count = int(row.degraded_count or 0)
+        down_count = int(row.down_count or 0)
+        unknown_count = int(row.unknown_count or 0)
+        data_points += up_count + degraded_count + down_count + unknown_count
+        series.append(
+            {
+                "timestamp": row.bucket_start.isoformat(),
+                "status": status_from_rollup_counts(
+                    up_count=up_count,
+                    degraded_count=degraded_count,
+                    down_count=down_count,
+                ),
+                "latency_ms": row.latency_avg_ms,
+                "http_status": None,
+                "check_mode": coerce_check_mode(row.check_mode),
+                "check_type": row.check_type or DEFAULT_CHECK_TYPE,
+                "scope": row.scope or DEFAULT_SCOPE,
+            }
+        )
+    return series, data_points
 
 
 def build_segment_timeline_map(

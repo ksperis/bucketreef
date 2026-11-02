@@ -6,6 +6,7 @@ from app.db import EndpointHealthRollup, EndpointHealthStatusSegment, HealthChec
 from app.services.healthcheck_query_projection import (
     build_daily_from_rollups,
     build_rollup_availability_map,
+    build_rollup_series,
     build_segment_timeline_map,
     status_from_rollup_counts,
 )
@@ -16,6 +17,39 @@ def test_status_from_rollup_counts_uses_worst_known_status():
     assert status_from_rollup_counts(up_count=3, degraded_count=1, down_count=0) == "degraded"
     assert status_from_rollup_counts(up_count=3, degraded_count=0, down_count=0) == "up"
     assert status_from_rollup_counts(up_count=0, degraded_count=0, down_count=0) == "unknown"
+
+
+def test_build_rollup_series_projects_status_and_counts_samples():
+    bucket_start = datetime(2026, 9, 1, 10, tzinfo=UTC)
+    rows = [
+        EndpointHealthRollup(
+            storage_endpoint_id=1,
+            bucket_start=bucket_start,
+            check_mode="s3",
+            check_type="availability",
+            scope="endpoint",
+            up_count=2,
+            degraded_count=1,
+            down_count=0,
+            unknown_count=3,
+            latency_avg_ms=125,
+        )
+    ]
+
+    series, data_points = build_rollup_series(rows)
+
+    assert data_points == 6
+    assert series == [
+        {
+            "timestamp": bucket_start.isoformat(),
+            "status": "degraded",
+            "latency_ms": 125,
+            "http_status": None,
+            "check_mode": "s3",
+            "check_type": "availability",
+            "scope": "endpoint",
+        }
+    ]
 
 
 def test_build_daily_from_rollups_weights_latency_averages():

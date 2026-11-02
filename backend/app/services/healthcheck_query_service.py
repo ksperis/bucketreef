@@ -31,9 +31,9 @@ from app.services.healthcheck_common import (
 from app.services.healthcheck_query_projection import (
     build_daily_from_rollups,
     build_rollup_availability_map,
+    build_rollup_series,
     build_segment_timeline_map,
     incident_duration_minutes,
-    status_from_rollup_counts,
     workspace_endpoint_snapshot,
     workspace_incident_payload,
 )
@@ -116,30 +116,8 @@ class HealthCheckQueryService:
             (latest_scope.check_mode if latest_scope else None) or profile.mode
         )
 
-        series = [
-            {
-                "timestamp": row.bucket_start.isoformat(),
-                "status": status_from_rollup_counts(
-                    up_count=int(row.up_count or 0),
-                    degraded_count=int(row.degraded_count or 0),
-                    down_count=int(row.down_count or 0),
-                ),
-                "latency_ms": row.latency_avg_ms,
-                "http_status": None,
-                "check_mode": coerce_check_mode(row.check_mode),
-                "check_type": row.check_type or DEFAULT_CHECK_TYPE,
-                "scope": row.scope or DEFAULT_SCOPE,
-            }
-            for row in rollup_rows
-        ]
+        series, data_points = build_rollup_series(rollup_rows)
         daily = build_daily_from_rollups(rollup_rows, start=start, end=now)
-        data_points = sum(
-            int(row.up_count or 0)
-            + int(row.degraded_count or 0)
-            + int(row.down_count or 0)
-            + int(row.unknown_count or 0)
-            for row in rollup_rows
-        )
 
         return {
             "endpoint_id": endpoint_id,
