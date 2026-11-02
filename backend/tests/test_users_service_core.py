@@ -159,6 +159,49 @@ def test_create_user_and_authenticate(db_session):
     assert authenticated.last_login_at is not None
 
 
+@pytest.mark.parametrize(
+    "field",
+    [
+        "role",
+        "manager_tool_access",
+        "account_links",
+        "s3_user_links",
+        "s3_connection_ids",
+        "group_ids",
+    ],
+)
+def test_user_create_rejects_null_canonical_fields(field):
+    payload = {
+        "email": "canonical@example.com",
+        "password": "verylongpass123",
+        field: None,
+    }
+
+    with pytest.raises(ValidationError):
+        UserCreate.model_validate(payload)
+
+
+def test_user_create_defaults_canonical_fields():
+    payload = UserCreate(
+        email="canonical@example.com",
+        password="verylongpass123",
+    )
+
+    assert payload.role == UserRole.UI_USER.value
+    assert payload.manager_tool_access.model_dump() == {
+        "bucket_compare": False,
+        "bucket_integrity_check": False,
+        "bucket_migration": False,
+        "feature_rules": False,
+        "bucket_purge": False,
+    }
+    assert payload.account_links == []
+    assert payload.s3_user_links == []
+    assert payload.s3_connection_ids == []
+    assert payload.group_ids == []
+    assert payload.openstack_cloud_ids is None
+
+
 def test_update_user_and_link_validations(db_session):
     service = UsersService(db_session)
     user = _seed_user(db_session, "update-me@example.com", role=UserRole.UI_ADMIN.value)

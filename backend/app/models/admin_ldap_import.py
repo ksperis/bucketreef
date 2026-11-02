@@ -7,7 +7,7 @@ from typing import Literal, Optional
 from pydantic import EmailStr, Field, model_validator
 
 from app.models.base import ApiModel
-from app.models.user import ManagerToolAccess, UiRole, UserAssociationsPayload
+from app.models.user import ManagerToolAccess, UiRole, UserCreateAssociationsPayload
 
 
 class LDAPImportMatchedUser(ApiModel):
@@ -33,7 +33,7 @@ class LDAPImportSearchResponse(ApiModel):
     truncated: bool
 
 
-class LDAPImportCreatePayload(UserAssociationsPayload):
+class LDAPImportCreatePayload(UserCreateAssociationsPayload):
     email: EmailStr
     full_name: Optional[str] = None
     role: UiRole = "ui_user"
@@ -42,7 +42,7 @@ class LDAPImportCreatePayload(UserAssociationsPayload):
     can_create_manual_private_connections: bool = False
     can_provision_managed_private_connections: bool = False
     allow_multisite_endpoint_switching: bool = False
-    manager_tool_access: Optional[ManagerToolAccess] = None
+    manager_tool_access: ManagerToolAccess = Field(default_factory=ManagerToolAccess)
     browser_advanced_features_enabled: bool = False
 
 

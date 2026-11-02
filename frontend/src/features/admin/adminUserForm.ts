@@ -29,6 +29,15 @@ type AdminUserActorAccess = {
   currentIsSuperAdmin: boolean;
 };
 
+type AdminUserRoleAccessPatch = Pick<
+  UpdateUserPayload,
+  | "role"
+  | "can_access_ceph_admin"
+  | "can_access_storage_ops"
+  | "can_create_manual_private_connections"
+  | "can_provision_managed_private_connections"
+>;
+
 export function emptyAdminUserCreateForm(): CreateUserPayload {
   return {
     email: "",
@@ -78,7 +87,7 @@ export function adminUserRoleAccessPatch(
   role: UiRole,
   current: UpdateUserPayload,
   actor: AdminUserActorAccess,
-): UpdateUserPayload {
+): AdminUserRoleAccessPatch {
   const supportsCephAdmin = isAdminLikeRole(role);
   const supportsOperationalAccess = roleSupportsOperationalAccess(role);
   return {

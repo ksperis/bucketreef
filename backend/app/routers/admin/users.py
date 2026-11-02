@@ -214,7 +214,8 @@ def import_ldap_user(
             group_ids=payload.create.group_ids,
         )
     else:
-        target = users_service.get_by_id(int(payload.target_user_id or 0))
+        assert payload.target_user_id is not None
+        target = users_service.get_by_id(payload.target_user_id)
         if target is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
         ensure_actor_can_manage_user(
@@ -255,7 +256,7 @@ def create_user(
 ) -> UserOut:
     ensure_actor_can_assign_role(
         current_user,
-        payload.role or UserRole.UI_USER.value,
+        payload.role,
     )
     _require_superadmin_for_privileged_change(
         current_user,
@@ -279,8 +280,8 @@ def create_user(
             metadata={
                 "email": user.email,
                 "role": user.role,
-                "account_ids": [link.account_id for link in payload.account_links or []],
-                "s3_user_ids": [link.s3_user_id for link in payload.s3_user_links or []],
+                "account_ids": [link.account_id for link in payload.account_links],
+                "s3_user_ids": [link.s3_user_id for link in payload.s3_user_links],
                 "s3_connection_ids": payload.s3_connection_ids,
                 "group_ids": payload.group_ids,
                 "openstack_cloud_ids": payload.openstack_cloud_ids,

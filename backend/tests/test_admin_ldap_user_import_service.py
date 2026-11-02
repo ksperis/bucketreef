@@ -91,6 +91,11 @@ def test_create_ldap_user_creates_passwordless_user_and_identity_atomically(db_s
             },
         }
     )
+    assert request.create is not None
+    assert request.create.account_links == []
+    assert request.create.s3_user_links == []
+    assert request.create.s3_connection_ids == []
+    assert request.create.openstack_cloud_ids is None
 
     created, provider_id = service.import_user(request, actor=actor, session=session)
 
