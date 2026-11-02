@@ -23,6 +23,7 @@ from app.services.association_sync import (
     sync_metadata_association_links,
     sync_simple_association_links,
     sync_table_association_links,
+    update_account_access_link,
 )
 from app.services.association_validation import ensure_association_ids_exist, ensure_shared_s3_connections
 from app.services.portal_role_sync import (
@@ -103,14 +104,6 @@ class UserAssociationsService:
         )
         desired_ids = set(cleaned)
 
-        def update_link(row: UserS3Account, link: AccountMembership) -> None:
-            row.manager_role = link.manager_role
-            row.portal_role = link.portal_role
-            row.allow_manager_browser_data_access = bool(
-                link.allow_manager_browser_data_access
-            )
-            row.updated_at = utcnow()
-
         sync_metadata_association_links(
             self.db,
             link_model=UserS3Account,
@@ -122,7 +115,7 @@ class UserAssociationsService:
                 user_id=user.id,
                 account_id=account_id,
             ),
-            update_link=update_link,
+            update_link=update_account_access_link,
         )
         if desired_ids and user.role == UserRole.UI_NONE.value:
             user.role = UserRole.UI_USER.value

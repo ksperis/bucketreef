@@ -30,6 +30,7 @@ from app.services.association_sync import (
     sync_metadata_association_links,
     sync_simple_association_links,
     sync_table_association_links,
+    update_account_access_link,
 )
 from app.services.association_validation import ensure_association_ids_exist, ensure_shared_s3_connections
 from app.services.manager_tool_access import manager_tool_column_values
@@ -284,14 +285,6 @@ class UiGroupsService:
             entity_label="S3 accounts",
         )
 
-        def update_link(row: UiGroupS3Account, payload: AccountMembership) -> None:
-            row.manager_role = payload.manager_role
-            row.portal_role = payload.portal_role
-            row.allow_manager_browser_data_access = bool(
-                payload.allow_manager_browser_data_access
-            )
-            row.updated_at = utcnow()
-
         sync_metadata_association_links(
             self.db,
             link_model=UiGroupS3Account,
@@ -303,7 +296,7 @@ class UiGroupsService:
                 group_id=group.id,
                 account_id=account_id,
             ),
-            update_link=update_link,
+            update_link=update_account_access_link,
         )
 
     def _set_s3_user_links(self, group: UiGroup, links: list[S3UserMembership]) -> None:

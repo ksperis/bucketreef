@@ -3,14 +3,45 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping
-from typing import TypeVar
+from datetime import datetime
+from typing import Protocol, TypeVar
 
 from sqlalchemy import Column, Table, delete, select
 from sqlalchemy.orm import InstrumentedAttribute, Session
 
+from app.utils.account_roles import ManagerAccountRoleValue, PortalAccountRoleValue
+from app.utils.time import utcnow
+
 
 LinkT = TypeVar("LinkT")
 MetadataT = TypeVar("MetadataT")
+
+
+class AccountAccessLink(Protocol):
+    manager_role: ManagerAccountRoleValue | None
+    portal_role: PortalAccountRoleValue | None
+    allow_manager_browser_data_access: bool
+    updated_at: datetime
+
+
+class AccountAccessGrantLike(Protocol):
+    manager_role: ManagerAccountRoleValue | None
+    portal_role: PortalAccountRoleValue | None
+    allow_manager_browser_data_access: bool
+
+
+def update_account_access_link(
+    row: AccountAccessLink,
+    grant: AccountAccessGrantLike,
+) -> None:
+    """Apply the mutable metadata shared by direct and group account links."""
+
+    row.manager_role = grant.manager_role
+    row.portal_role = grant.portal_role
+    row.allow_manager_browser_data_access = bool(
+        grant.allow_manager_browser_data_access
+    )
+    row.updated_at = utcnow()
 
 
 def sync_simple_association_links(
