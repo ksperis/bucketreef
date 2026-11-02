@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import PaginationControls from "../../components/PaginationControls";
 import BucketCompareSetup, { BucketCompareProgress } from "../shared/BucketCompareSetup";
