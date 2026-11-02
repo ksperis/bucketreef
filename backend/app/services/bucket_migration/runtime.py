@@ -41,6 +41,24 @@ def wake_bucket_migration_worker() -> None:
     get_bucket_migration_worker(SessionLocal).wake_up()
 
 
+def build_bucket_migration_detail(
+    service: BucketMigrationService,
+    migration: BucketMigration,
+    *,
+    events_limit: int,
+) -> BucketMigrationDetail:
+    items = service.list_migration_items(migration.id)
+    recent_events = service.list_recent_migration_events(
+        migration.id,
+        limit=events_limit,
+    )
+    return bucket_migration_to_detail(
+        migration,
+        items=items,
+        recent_events=recent_events,
+    )
+
+
 def migration_stream_signature(
     db: Session,
     migration_id: int,
@@ -80,16 +98,11 @@ def load_migration_stream_snapshot(
     if signature == previous_signature:
         return BucketMigrationStreamSnapshot(signature=signature, detail=None)
 
-    items = service.list_migration_items(migration.id)
-    recent_events = service.list_recent_migration_events(
-        migration.id,
-        limit=events_limit,
-    )
     return BucketMigrationStreamSnapshot(
         signature=signature,
-        detail=bucket_migration_to_detail(
+        detail=build_bucket_migration_detail(
+            service,
             migration,
-            items=items,
-            recent_events=recent_events,
+            events_limit=events_limit,
         ),
     )
