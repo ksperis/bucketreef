@@ -4,34 +4,20 @@
  */
 import { useId } from "react";
 
-import type { IamPolicy } from "../../api/managerIamPolicies";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiInput from "../../components/ui/UiInput";
 import { SettingsButton } from "../../components/settings/SettingsControls";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import { useManagerI18n } from "./managerI18n";
 import IamCursorPaginationControls from "./IamCursorPaginationControls";
+import type { ManagedPolicySelectionViewModel } from "./useManagedPolicySelection";
 
 type ManagedPolicySelectionPanelProps = {
   title: string;
   description: string;
   emptyMessage: string;
   footer: string;
-  policies: IamPolicy[];
-  selectedPolicyArns: string[];
-  search: string;
-  expanded: boolean;
-  loading: boolean;
-  page: number;
-  pageSize: number;
-  canPrevious: boolean;
-  canNext: boolean;
-  onSearchChange: (value: string) => void;
-  onPreviousPage: () => void;
-  onNextPage: () => void;
-  onPageSizeChange: (pageSize: number) => void;
-  onExpandedChange: (expanded: boolean) => void;
-  onSelectionChange: (policyArns: string[]) => void;
+  selection: ManagedPolicySelectionViewModel;
 };
 
 export default function ManagedPolicySelectionPanel({
@@ -39,21 +25,23 @@ export default function ManagedPolicySelectionPanel({
   description,
   emptyMessage,
   footer,
-  policies,
-  selectedPolicyArns,
-  search,
-  expanded,
-  loading,
-  page,
-  pageSize,
-  canPrevious,
-  canNext,
-  onSearchChange,
-  onPreviousPage,
-  onNextPage,
-  onPageSizeChange,
-  onExpandedChange,
-  onSelectionChange,
+  selection: {
+    policies,
+    selectedPolicyArns,
+    search,
+    expanded,
+    loading,
+    page,
+    pageSize,
+    canPrevious,
+    canNext,
+    onSearchChange,
+    onPreviousPage,
+    onNextPage,
+    onPageSizeChange,
+    onExpandedChange,
+    onSelectionChange,
+  },
 }: ManagedPolicySelectionPanelProps) {
   const { text } = useManagerI18n();
   const contentId = useId();

@@ -82,23 +82,10 @@ export default function ManagerGroupsPage() {
 
   const {
     loadPolicies,
-    policies,
-    policySearch,
-    policiesLoading,
-    policyPage,
-    policyPageSize,
-    setPolicyPageSize,
-    canPreviousPolicyPage,
-    canNextPolicyPage,
-    previousPolicyPage,
-    nextPolicyPage,
+    panel: managedPolicySelection,
     resetPolicySelection,
     selectedPolicies,
     setPolicies,
-    setPolicySearch,
-    setSelectedPolicies,
-    setShowPolicyOptions,
-    showPolicyOptions,
   } = useManagedPolicySelection();
 
   useEffect(() => {
@@ -364,21 +351,7 @@ export default function ManagerGroupsPage() {
             description={text("Select managed policies to link immediately.")}
             emptyMessage={text("No policies available. Create them first.")}
             footer="Policies can also be attached later from the group page."
-            policies={policies}
-            selectedPolicyArns={selectedPolicies}
-            search={policySearch}
-            expanded={showPolicyOptions}
-            loading={policiesLoading}
-            page={policyPage}
-            pageSize={policyPageSize}
-            canPrevious={canPreviousPolicyPage}
-            canNext={canNextPolicyPage}
-            onSearchChange={setPolicySearch}
-            onPreviousPage={previousPolicyPage}
-            onNextPage={nextPolicyPage}
-            onPageSizeChange={setPolicyPageSize}
-            onExpandedChange={setShowPolicyOptions}
-            onSelectionChange={setSelectedPolicies}
+            selection={managedPolicySelection}
           />
           <InlinePolicyDraftEditor {...inlinePolicyEditorProps} />
         </SettingsWorkflowForm>

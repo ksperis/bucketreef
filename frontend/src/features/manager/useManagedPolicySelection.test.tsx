@@ -35,18 +35,18 @@ describe("useManagedPolicySelection", () => {
     const { result } = renderHook(() => useManagedPolicySelection());
 
     act(() => result.current.loadPolicies("acc-1"));
-    await waitFor(() => expect(result.current.policies).toEqual([policyA, policyB]));
+    await waitFor(() => expect(result.current.panel.policies).toEqual([policyA, policyB]));
 
     act(() => {
-      result.current.setSelectedPolicies([policyA.arn]);
-      result.current.setPolicySearch("PolicyA");
+      result.current.panel.onSelectionChange([policyA.arn]);
+      result.current.panel.onSearchChange("PolicyA");
     });
-    await waitFor(() => expect(result.current.showPolicyOptions).toBe(true));
+    await waitFor(() => expect(result.current.panel.expanded).toBe(true));
 
     act(() => result.current.resetPolicySelection());
     expect(result.current.selectedPolicies).toEqual([]);
-    expect(result.current.policySearch).toBe("");
-    expect(result.current.showPolicyOptions).toBe(false);
+    expect(result.current.panel.search).toBe("");
+    expect(result.current.panel.expanded).toBe(false);
   });
 
   it("retains selected policy arns when moving between inventory pages", async () => {
@@ -54,7 +54,7 @@ describe("useManagedPolicySelection", () => {
 
     act(() => {
       result.current.setPolicies([policyA, policyB]);
-      result.current.setSelectedPolicies([policyA.arn, policyB.arn]);
+      result.current.panel.onSelectionChange([policyA.arn, policyB.arn]);
     });
     await waitFor(() =>
       expect(result.current.selectedPolicies).toEqual([policyA.arn, policyB.arn]),
