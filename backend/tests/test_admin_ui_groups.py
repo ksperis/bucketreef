@@ -218,7 +218,7 @@ def test_ui_group_crud_defaults_and_rejects_private_connections(client: TestClie
 
 
 def test_ui_group_create_rolls_back_when_portal_role_sync_fails(db_session, monkeypatch):
-    from app.services import ui_groups_service as service_module
+    from app.services import portal_role_sync as service_module
 
     def fail_sync(*_args, **_kwargs):
         raise RuntimeError("portal sync failed")

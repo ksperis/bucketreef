@@ -21,8 +21,7 @@ from app.models.user import (
 from app.services.manager_tool_access import MANAGER_TOOL_ROLES, manager_tool_column_values
 from app.services.portal_role_sync import (
     capture_effective_portal_roles,
-    sync_portal_role_downgrades,
-    sync_portal_role_promotions,
+    commit_portal_role_changes,
 )
 from app.services.user_associations_service import UserAssociationsService
 from app.services.user_avatar_service import UserAvatarService
@@ -150,14 +149,12 @@ class UserUpdateService:
             user,
             was_active=was_active,
         )
-        portal_roles_after = capture_effective_portal_roles(
+        commit_portal_role_changes(
             self.db,
+            before=portal_roles_before,
             user_ids=[user.id],
             account_ids=affected_portal_account_ids,
         )
-        sync_portal_role_downgrades(self.db, before=portal_roles_before, after=portal_roles_after)
-        self.db.commit()
-        sync_portal_role_promotions(self.db, before=portal_roles_before, after=portal_roles_after)
         self.db.refresh(user)
         if security_changed:
             from app.services.auth_session_service import AuthSessionService

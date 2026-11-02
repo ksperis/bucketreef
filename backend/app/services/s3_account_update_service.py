@@ -17,10 +17,8 @@ from app.services.feature_policy_service import (
 )
 from app.services.mappers.s3_account import s3_account_from_db
 from app.services.portal_role_sync import (
-    PortalRoleMap,
     capture_effective_portal_roles,
-    sync_portal_role_downgrades,
-    sync_portal_role_promotions,
+    commit_portal_role_changes,
 )
 from app.services.s3_account_associations_service import S3AccountAssociationsService
 from app.services.s3_account_metrics_service import S3AccountMetricsService
@@ -72,11 +70,15 @@ class S3AccountUpdateService:
         self._apply_fields(account, payload)
         self._apply_quota(account, payload)
         self._apply_associations(account, payload)
-        self._commit_with_portal_sync(
-            account,
-            affected_portal_user_ids=affected_portal_user_ids,
-            portal_roles_before=portal_roles_before,
+        self.db.add(account)
+        self.db.flush()
+        commit_portal_role_changes(
+            self.db,
+            before=portal_roles_before,
+            user_ids=affected_portal_user_ids,
+            account_ids=[account.id],
         )
+        self.db.refresh(account)
         return self._serialize_updated_account(account)
 
     def _apply_fields(self, account: S3Account, payload: S3AccountUpdate) -> None:
@@ -155,37 +157,6 @@ class S3AccountUpdateService:
             self.associations.set_user_links(account, payload.user_links)
         if payload.group_links is not None:
             self.associations.set_group_links(account, payload.group_links)
-
-    def _commit_with_portal_sync(
-        self,
-        account: S3Account,
-        *,
-        affected_portal_user_ids: set[int],
-        portal_roles_before: PortalRoleMap,
-    ) -> None:
-        self.db.add(account)
-        self.db.flush()
-        portal_roles_after = capture_effective_portal_roles(
-            self.db,
-            user_ids=affected_portal_user_ids,
-            account_ids=[account.id],
-        )
-        try:
-            sync_portal_role_downgrades(
-                self.db,
-                before=portal_roles_before,
-                after=portal_roles_after,
-            )
-            self.db.commit()
-        except Exception:
-            self.db.rollback()
-            raise
-        sync_portal_role_promotions(
-            self.db,
-            before=portal_roles_before,
-            after=portal_roles_after,
-        )
-        self.db.refresh(account)
 
     def _serialize_updated_account(self, account: S3Account) -> S3AccountSchema:
         user_links = self.associations.load_user_links([account.id]).get(

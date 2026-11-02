@@ -80,3 +80,28 @@ def sync_portal_role_promotions(
         user = db.scalars(select(User).where(User.id == user_id)).one()
         account = db.scalars(select(S3Account).where(S3Account.id == account_id)).one()
         service.sync_existing_portal_user_access(user, account, next_role)
+
+
+def commit_portal_role_changes(
+    db: Session,
+    *,
+    before: PortalRoleMap,
+    user_ids: Iterable[int],
+    account_ids: Iterable[int],
+    sync_promotions: bool = True,
+) -> None:
+    """Commit persisted role changes while keeping Portal IAM in sync."""
+
+    after = capture_effective_portal_roles(
+        db,
+        user_ids=user_ids,
+        account_ids=account_ids,
+    )
+    try:
+        sync_portal_role_downgrades(db, before=before, after=after)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    if sync_promotions:
+        sync_portal_role_promotions(db, before=before, after=after)
