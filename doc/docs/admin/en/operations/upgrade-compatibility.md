@@ -781,6 +781,16 @@ normalizes them to `false`.
 Deploy the backend and bundled frontend together. No database migration is
 required.
 
+## 2026-11 canonical Browser bucket creation versioning
+
+Browser `POST /browser/buckets` now also requires a non-null `versioning`
+boolean. The Browser create dialog already tracks this choice explicitly, and
+the bundled frontend now requires callers of its Browser bucket API helper to
+provide that value instead of defaulting omission to `false`.
+
+Deploy the backend and bundled frontend together. No database migration is
+required.
+
 ## 2026-10 canonical OIDC provider collection payloads
 
 Admin OIDC provider create and update requests now require JSON arrays for

@@ -27,7 +27,7 @@ class BrowserBucket(ApiModel):
 
 class CreateBucketPayload(ApiModel):
     name: str
-    versioning: bool = False
+    versioning: bool
 
 
 class CreateFolderPayload(ApiModel):

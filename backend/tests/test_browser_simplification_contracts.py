@@ -25,10 +25,13 @@ def test_path_favorite_schema_has_no_generic_payload_or_saved_view_state():
 
 
 def test_browser_mutation_routes_use_canonical_empty_and_count_responses():
-    paths = app.openapi()["paths"]
+    schema = app.openapi()
+    paths = schema["paths"]
 
     create_response = paths["/api/browser/buckets"]["post"]["responses"]["201"]
     assert "content" not in create_response
+    create_schema = schema["components"]["schemas"]["CreateBucketPayload"]
+    assert {"name", "versioning"} <= set(create_schema["required"])
 
     delete_response = paths["/api/browser/buckets/{bucket_name}/delete"]["post"]["responses"]["200"]
     assert delete_response["content"]["application/json"]["schema"]["$ref"].endswith(
