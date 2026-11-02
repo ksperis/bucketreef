@@ -29,13 +29,20 @@ import AddS3ConnectionFromKeyModal from "../../components/AddS3ConnectionFromKey
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import { SettingsButton } from "../../components/settings/SettingsControls";
 import SettingsForm from "../../components/settings/SettingsForm";
+import { useSettingsDraft } from "../../components/settings/useSettingsDraft";
 import { useSettingsFormController } from "../../components/settings/useSettingsFormController";
 import OneTimeSecretPanel from "../../components/OneTimeSecretPanel";
 import PageBanner from "../../components/PageBanner";
 import UiButton from "../../components/ui/UiButton";
 import UiInput from "../../components/ui/UiInput";
 import { CephAdminUserProfileFields, CephAdminUserFlags, CephAdminUserCapsFields } from "./CephAdminUserFormFields";
-import { parseCephAdminUserCaps, validateCephAdminUserLimits, type CephAdminUserCapsMode } from "./cephAdminUserForm";
+import {
+  cephAdminUserDraftFromDetail,
+  createEmptyCephAdminUserDraft,
+  parseCephAdminUserCaps,
+  validateCephAdminUserLimits,
+  type CephAdminUserDraft,
+} from "./cephAdminUserForm";
 import UsageTile from "../../components/UsageTile";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 
@@ -43,12 +50,11 @@ import { extractApiError } from "../../utils/apiError";
 import { formatLocalDateTime } from "../../utils/dateTime";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import { formatBytes, formatNumber } from "../../utils/format";
-import { stableSignature } from "../../utils/stableSignature";
 import { canCreateManualPrivateConnections, readStoredUser } from "../../utils/workspaces";
 import { buildCephConnectionDefaults } from "../shared/s3ConnectionFromKey";
 import CephAdminQuotaFields from "./CephAdminQuotaFields";
 import { buildCephAdminQuotaPatch } from "./quotaPatch";
-import { parseOptionalNonNegativeInteger, parseQuotaBytes, quotaBytesToForm, type CephAdminQuotaUnit } from "./quotaForm";
+import { parseOptionalNonNegativeInteger, parseQuotaBytes } from "./quotaForm";
 import { useCephAdminI18n } from "./cephAdminI18n";
 import DetailsDrawerNavigation, {
   guardDetailsDrawerNavigation,
@@ -116,60 +122,9 @@ export default function CephAdminUserEditModal({
   const [keysBusy, setKeysBusy] = useState<string | null>(null);
   const [createdKey, setCreatedKey] = useState<CephAdminRgwGeneratedAccessKey | null>(null);
   const [showAddConnectionModal, setShowAddConnectionModal] = useState(false);
-
-  const [displayName, setDisplayName] = useState("");
-  const [email, setEmail] = useState("");
-  const [suspended, setSuspended] = useState(false);
-  const [maxBuckets, setMaxBuckets] = useState("");
-  const [opMask, setOpMask] = useState("");
-  const [defaultPlacement, setDefaultPlacement] = useState("");
-  const [defaultStorageClass, setDefaultStorageClass] = useState("");
-  const [adminFlag, setAdminFlag] = useState(false);
-  const [systemFlag, setSystemFlag] = useState(false);
-  const [quotaEnabled, setQuotaEnabled] = useState(true);
-  const [quotaSize, setQuotaSize] = useState("");
-  const [quotaUnit, setQuotaUnit] = useState<CephAdminQuotaUnit>("GiB");
-  const [quotaObjects, setQuotaObjects] = useState("");
-  const [capsMode, setCapsMode] = useState<CephAdminUserCapsMode>("replace");
-  const [capsText, setCapsText] = useState("");
-  const currentSignature = useMemo(
-    () =>
-      stableSignature({
-        displayName,
-        email,
-        suspended,
-        maxBuckets,
-        opMask,
-        defaultPlacement,
-        defaultStorageClass,
-        adminFlag,
-        systemFlag,
-        quotaEnabled,
-        quotaSize,
-        quotaUnit,
-        quotaObjects,
-        capsMode,
-        capsText,
-      }),
-    [
-      adminFlag,
-      capsMode,
-      capsText,
-      defaultPlacement,
-      defaultStorageClass,
-      displayName,
-      email,
-      maxBuckets,
-      opMask,
-      quotaEnabled,
-      quotaObjects,
-      quotaSize,
-      quotaUnit,
-      suspended,
-      systemFlag,
-    ]
+  const { draft, setDraft, accept, dirty } = useSettingsDraft<CephAdminUserDraft>(
+    () => createEmptyCephAdminUserDraft(true)
   );
-  const [initialSignature, setInitialSignature] = useState(currentSignature);
 
   const refreshKeys = async () => {
     setKeysLoading(true);
@@ -197,43 +152,7 @@ export default function CephAdminUserEditModal({
         }
         setDetail(payload);
         setKeys(payload.keys);
-        setDisplayName(payload.display_name ?? "");
-        setEmail(payload.email ?? "");
-        setSuspended(Boolean(payload.suspended));
-        setMaxBuckets(payload.max_buckets != null ? String(payload.max_buckets) : "");
-        setOpMask(payload.op_mask ?? "");
-        setDefaultPlacement(payload.default_placement ?? "");
-        setDefaultStorageClass(payload.default_storage_class ?? "");
-        setAdminFlag(Boolean(payload.admin));
-        setSystemFlag(Boolean(payload.system));
-        const quotaConfigured = Boolean(
-          payload.quota && (payload.quota.max_size_bytes != null || payload.quota.max_objects != null)
-        );
-        setQuotaEnabled(payload.quota?.enabled ?? quotaConfigured);
-        const quotaForm = quotaBytesToForm(payload.quota?.max_size_bytes);
-        setQuotaSize(quotaForm.value);
-        setQuotaUnit(quotaForm.unit);
-        setQuotaObjects(payload.quota?.max_objects != null ? String(payload.quota.max_objects) : "");
-        setCapsText(payload.caps.join("\n"));
-        setInitialSignature(
-          stableSignature({
-            displayName: payload.display_name ?? "",
-            email: payload.email ?? "",
-            suspended: Boolean(payload.suspended),
-            maxBuckets: payload.max_buckets != null ? String(payload.max_buckets) : "",
-            opMask: payload.op_mask ?? "",
-            defaultPlacement: payload.default_placement ?? "",
-            defaultStorageClass: payload.default_storage_class ?? "",
-            adminFlag: Boolean(payload.admin),
-            systemFlag: Boolean(payload.system),
-            quotaEnabled: payload.quota?.enabled ?? quotaConfigured,
-            quotaSize: quotaForm.value,
-            quotaUnit: quotaForm.unit,
-            quotaObjects: payload.quota?.max_objects != null ? String(payload.quota.max_objects) : "",
-            capsMode: "replace",
-            capsText: payload.caps.join("\n"),
-          })
-        );
+        accept(cephAdminUserDraftFromDetail(payload));
       } catch (err) {
         if (!cancelled) {
           setDetailError(extractApiError(err, "Unexpected error"));
@@ -251,7 +170,7 @@ export default function CephAdminUserEditModal({
     return () => {
       cancelled = true;
     };
-  }, [endpointId, uid, tenant, expectedAccountId]);
+  }, [accept, endpointId, uid, tenant, expectedAccountId]);
 
   useEffect(() => {
     if (!canViewMetrics || activeTab !== "metrics") return;
@@ -288,7 +207,13 @@ export default function CephAdminUserEditModal({
   }, [activeTab, canViewMetrics]);
 
   const [validationShown, setValidationShown] = useState(false);
-  const validationErrors = validateCephAdminUserLimits({ maxBuckets, quotaEnabled, quotaSize, quotaUnit, quotaObjects });
+  const validationErrors = validateCephAdminUserLimits({
+    maxBuckets: draft.profile.maxBuckets,
+    quotaEnabled: draft.quota.enabled,
+    quotaSize: draft.quota.size,
+    quotaUnit: draft.quota.unit,
+    quotaObjects: draft.quota.objects,
+  });
   const fieldErrors = validationShown ? validationErrors : {};
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
@@ -300,25 +225,25 @@ export default function CephAdminUserEditModal({
       focusFirstInvalidField(event.currentTarget);
       return;
     }
-    const parsedMaxBuckets = parseOptionalNonNegativeInteger(maxBuckets);
-    const parsedQuotaBytes = quotaEnabled ? parseQuotaBytes(quotaSize, quotaUnit) : null;
-    const parsedQuotaObjects = quotaEnabled ? parseOptionalNonNegativeInteger(quotaObjects) : null;
+    const parsedMaxBuckets = parseOptionalNonNegativeInteger(draft.profile.maxBuckets);
+    const parsedQuotaBytes = draft.quota.enabled ? parseQuotaBytes(draft.quota.size, draft.quota.unit) : null;
+    const parsedQuotaObjects = draft.quota.enabled ? parseOptionalNonNegativeInteger(draft.quota.objects) : null;
 
-    const nextDefaultPlacement = defaultPlacement.trim();
-    const nextDefaultStorageClass = defaultStorageClass.trim();
+    const nextDefaultPlacement = draft.profile.defaultPlacement.trim();
+    const nextDefaultStorageClass = draft.profile.defaultStorageClass.trim();
 
     setSaving(true);
     return (async () => {
       try {
         const payload: UpdateCephAdminUserPayload = {
-          display_name: displayName.trim() || null,
-          email: email.trim() || null,
-          suspended,
+          display_name: draft.profile.displayName.trim() || null,
+          email: draft.profile.email.trim() || null,
+          suspended: draft.flags.suspended,
           max_buckets: parsedMaxBuckets,
-          op_mask: opMask.trim() || null,
+          op_mask: draft.profile.opMask.trim() || null,
           caps: {
-            mode: capsMode,
-            values: parseCephAdminUserCaps(capsText),
+            mode: draft.caps.mode,
+            values: parseCephAdminUserCaps(draft.caps.text),
           },
           extra_params: {
             "default-placement": nextDefaultPlacement || "",
@@ -332,7 +257,7 @@ export default function CephAdminUserEditModal({
             },
             detail?.quota,
             {
-              enabled: quotaEnabled,
+              enabled: draft.quota.enabled,
               maxSizeBytes: parsedQuotaBytes,
               maxObjects: parsedQuotaObjects,
             }
@@ -347,7 +272,7 @@ export default function CephAdminUserEditModal({
         );
         setDetail(updated);
         setKeys(updated.keys);
-        setInitialSignature(currentSignature);
+        accept(draft);
         setSaveStatus(surfaceText("User configuration updated."));
         onSaved?.(updated);
         if (activeTab === "metrics") {
@@ -367,7 +292,7 @@ export default function CephAdminUserEditModal({
     })();
   };
   const formController = useSettingsFormController({
-    dirty: !detailLoading && currentSignature !== initialSignature,
+    dirty: !detailLoading && dirty,
     busy: saving,
     disabled: detailLoading || !detail,
     onSubmit: submit,
@@ -525,20 +450,29 @@ export default function CephAdminUserEditModal({
         {saveError && <PageBanner tone="error">{saveError}</PageBanner>}
         {saveStatus && <PageBanner tone="success">{saveStatus}</PageBanner>}
         <SettingsSection title={surfaceText("Profile")} presentation="compact">
-          <CephAdminUserProfileFields values={{ displayName, email, maxBuckets, opMask }}
-            onChange={(field, value) => ({ displayName: setDisplayName, email: setEmail, maxBuckets: setMaxBuckets, opMask: setOpMask })[field](value)}
+          <CephAdminUserProfileFields values={draft.profile}
+            onChange={(field, value) => setDraft(current => ({ ...current, profile: { ...current.profile, [field]: value } }))}
             maxBucketsError={fieldErrors.maxBuckets} maxBucketsHint={surfaceText("Leave empty to clear the limit.")}>
-            <UiInput label={surfaceText("Default placement")} value={defaultPlacement} onChange={(event) => setDefaultPlacement(event.target.value)} placeholder={surfaceText("e.g. default-placement")} />
-            <UiInput label={surfaceText("Default storage class")} value={defaultStorageClass} onChange={(event) => setDefaultStorageClass(event.target.value)} placeholder={surfaceText("e.g. STANDARD")} />
+            <UiInput label={surfaceText("Default placement")} value={draft.profile.defaultPlacement}
+              onChange={(event) => setDraft(current => ({ ...current, profile: { ...current.profile, defaultPlacement: event.target.value } }))}
+              placeholder={surfaceText("e.g. default-placement")} />
+            <UiInput label={surfaceText("Default storage class")} value={draft.profile.defaultStorageClass}
+              onChange={(event) => setDraft(current => ({ ...current, profile: { ...current.profile, defaultStorageClass: event.target.value } }))}
+              placeholder={surfaceText("e.g. STANDARD")} />
           </CephAdminUserProfileFields>
         </SettingsSection>
-        <CephAdminUserFlags values={{ suspended, admin: adminFlag, system: systemFlag }} readOnlyFields={["admin", "system"]}
-          onChange={(field, value) => ({ suspended: setSuspended, admin: setAdminFlag, system: setSystemFlag })[field](value)} />
-        <CephAdminQuotaFields title={surfaceText("User quota")} enabledLabel={surfaceText("Enable user quota")} enabled={quotaEnabled} onEnabledChange={setQuotaEnabled}
-          sizeValue={quotaSize} onSizeChange={setQuotaSize} unitValue={quotaUnit} onUnitChange={setQuotaUnit}
-          objectValue={quotaObjects} onObjectChange={setQuotaObjects} sizePlaceholder={surfaceText("Leave empty to clear")} objectPlaceholder={surfaceText("Leave empty to clear")}
+        <CephAdminUserFlags values={draft.flags} readOnlyFields={["admin", "system"]}
+          onChange={(field, value) => setDraft(current => ({ ...current, flags: { ...current.flags, [field]: value } }))} />
+        <CephAdminQuotaFields title={surfaceText("User quota")} enabledLabel={surfaceText("Enable user quota")}
+          enabled={draft.quota.enabled} onEnabledChange={(enabled) => setDraft(current => ({ ...current, quota: { ...current.quota, enabled } }))}
+          sizeValue={draft.quota.size} onSizeChange={(size) => setDraft(current => ({ ...current, quota: { ...current.quota, size } }))}
+          unitValue={draft.quota.unit} onUnitChange={(unit) => setDraft(current => ({ ...current, quota: { ...current.quota, unit } }))}
+          objectValue={draft.quota.objects} onObjectChange={(objects) => setDraft(current => ({ ...current, quota: { ...current.quota, objects } }))}
+          sizePlaceholder={surfaceText("Leave empty to clear")} objectPlaceholder={surfaceText("Leave empty to clear")}
           sizeError={fieldErrors.quotaSize} objectError={fieldErrors.quotaObjects} />
-        <CephAdminUserCapsFields mode={capsMode} onModeChange={setCapsMode} value={capsText} onChange={setCapsText} />
+        <CephAdminUserCapsFields mode={draft.caps.mode}
+          onModeChange={(mode) => setDraft(current => ({ ...current, caps: { ...current.caps, mode } }))}
+          value={draft.caps.text} onChange={(text) => setDraft(current => ({ ...current, caps: { ...current.caps, text } }))} />
       </div>
     </SettingsForm>
   );

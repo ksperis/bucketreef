@@ -107,6 +107,19 @@ describe("CephAdminUserCreateModal", () => {
     expect(onCreated).toHaveBeenCalledWith(expect.objectContaining({ uid: "alice" }));
   });
 
+  it("rebases the draft after creation so the workflow can close cleanly", async () => {
+    const onClose = vi.fn();
+    render(<CephAdminUserCreateModal endpointId={7} onClose={onClose} />);
+    fireEvent.change(screen.getByLabelText("UID"), { target: { value: "alice" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create user" }));
+
+    await screen.findByText("User alice created.");
+    fireEvent.click(screen.getByRole("button", { name: "Back to users" }));
+
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(screen.queryByText("Unsaved changes")).not.toBeInTheDocument();
+  });
+
   it("shows generated keys in the shared one-time secret panel", async () => {
     createCephAdminUserMock.mockResolvedValue({
       detail: {

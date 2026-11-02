@@ -17,6 +17,7 @@ import AddS3ConnectionFromKeyModal from "../../components/AddS3ConnectionFromKey
 import SettingsWorkflowForm from "../../components/settings/SettingsWorkflowForm";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import { SettingsButton } from "../../components/settings/SettingsControls";
+import { useSettingsDraft } from "../../components/settings/useSettingsDraft";
 import OneTimeSecretPanel from "../../components/OneTimeSecretPanel";
 import PageBanner from "../../components/PageBanner";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
@@ -24,10 +25,14 @@ import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
 import usePaginatedOptions from "../../hooks/usePaginatedOptions";
 import { CephAdminUserProfileFields, CephAdminUserFlags, CephAdminUserCapsFields } from "./CephAdminUserFormFields";
-import { parseCephAdminUserCaps, validateCephAdminUserLimits, type CephAdminUserCapsMode } from "./cephAdminUserForm";
+import {
+  createEmptyCephAdminUserDraft,
+  parseCephAdminUserCaps,
+  validateCephAdminUserLimits,
+  type CephAdminUserDraft,
+} from "./cephAdminUserForm";
 import { extractApiError } from "../../utils/apiError";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
-import { stableSignature } from "../../utils/stableSignature";
 import { canCreateManualPrivateConnections, readStoredUser } from "../../utils/workspaces";
 import { buildCephConnectionDefaults } from "../shared/s3ConnectionFromKey";
 import CephAdminQuotaFields from "./CephAdminQuotaFields";
@@ -35,7 +40,6 @@ import { cephAdminPageBreadcrumbs } from "./cephAdminBreadcrumbs";
 import {
   parseOptionalNonNegativeInteger,
   parseQuotaBytes,
-  type CephAdminQuotaUnit,
 } from "./quotaForm";
 import { useCephAdminI18n } from "./cephAdminI18n";
 
@@ -52,6 +56,13 @@ type AccountOption = {
   tenant: string;
 };
 
+type UserCreateDraft = CephAdminUserDraft & {
+  selectedAccountId: string;
+  uid: string;
+  tenant: string;
+  generateKey: boolean;
+};
+
 export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onClose, onCreated }: Props) {
   const { text: surfaceText } = useCephAdminI18n();
   const canAddAsS3Connection = useMemo(
@@ -59,69 +70,20 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
     []
   );
   const { locale } = useI18n();
-  const [selectedAccountId, setSelectedAccountId] = useState("");
   const [selectedAccountOption, setSelectedAccountOption] = useState<AccountOption | null>(null);
-  const [uid, setUid] = useState("");
-  const [tenant, setTenant] = useState("");
-  const [displayName, setDisplayName] = useState("");
-  const [email, setEmail] = useState("");
-  const [maxBuckets, setMaxBuckets] = useState("");
-  const [opMask, setOpMask] = useState("");
-  const [suspended, setSuspended] = useState(false);
-  const [systemFlag, setSystemFlag] = useState(false);
-  const [generateKey, setGenerateKey] = useState(true);
-  const [quotaEnabled, setQuotaEnabled] = useState(false);
-  const [quotaSize, setQuotaSize] = useState("");
-  const [quotaUnit, setQuotaUnit] = useState<CephAdminQuotaUnit>("GiB");
-  const [quotaObjects, setQuotaObjects] = useState("");
-  const [capsMode, setCapsMode] = useState<CephAdminUserCapsMode>("replace");
-  const [capsText, setCapsText] = useState("");
+  const { draft, setDraft, accept, dirty } = useSettingsDraft<UserCreateDraft>(() => ({
+    ...createEmptyCephAdminUserDraft(),
+    selectedAccountId: "",
+    uid: "",
+    tenant: "",
+    generateKey: true,
+  }));
 
   const [saving, setSaving] = useState(false);
   const [showAddConnectionModal, setShowAddConnectionModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [generatedKey, setGeneratedKey] = useState<{ access_key: string; secret_key: string } | null>(null);
-  const currentSignature = useMemo(
-    () =>
-      stableSignature({
-        selectedAccountId,
-        uid,
-        tenant,
-        displayName,
-        email,
-        maxBuckets,
-        opMask,
-        suspended,
-        systemFlag,
-        generateKey,
-        quotaEnabled,
-        quotaSize,
-        quotaUnit,
-        quotaObjects,
-        capsMode,
-        capsText,
-      }),
-    [
-      capsMode,
-      capsText,
-      displayName,
-      email,
-      generateKey,
-      maxBuckets,
-      opMask,
-      quotaEnabled,
-      quotaObjects,
-      quotaSize,
-      quotaUnit,
-      selectedAccountId,
-      suspended,
-      systemFlag,
-      tenant,
-      uid,
-    ]
-  );
-  const [initialSignature, setInitialSignature] = useState(currentSignature);
   const loadAccountOptions = useCallback(async ({ page, page_size, search }: {
     page?: number;
     page_size?: number;
@@ -158,21 +120,27 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
 
   const selectedAccount = useMemo(
     () =>
-      selectedAccountOption?.account_id === selectedAccountId
+      selectedAccountOption?.account_id === draft.selectedAccountId
         ? selectedAccountOption
-        : accounts.find((account) => account.account_id === selectedAccountId) ?? null,
-    [accounts, selectedAccountId, selectedAccountOption],
+        : accounts.find((account) => account.account_id === draft.selectedAccountId) ?? null,
+    [accounts, draft.selectedAccountId, selectedAccountOption],
   );
-  const effectiveTenant = selectedAccount ? selectedAccount.tenant : tenant.trim();
+  const effectiveTenant = selectedAccount ? selectedAccount.tenant : draft.tenant.trim();
 
   const [validationShown, setValidationShown] = useState(false);
-  const uidFormatError = rgwUserNameErrorText(rgwUserUidFormatError(uid.trim(), effectiveTenant), locale);
+  const uidFormatError = rgwUserNameErrorText(rgwUserUidFormatError(draft.uid.trim(), effectiveTenant), locale);
   const tenantFormatError = rgwUserNameErrorText(rgwTenantFormatError(effectiveTenant), locale);
   const validationErrors = {
     ...(uidFormatError ? { uid: uidFormatError } : {}),
     ...(tenantFormatError ? { tenant: tenantFormatError } : {}),
-    ...validateCephAdminUserLimits({ maxBuckets, quotaEnabled, quotaSize, quotaUnit, quotaObjects }),
-    ...(!uid.trim() ? { uid: rgwUserNameErrorText("UID is required.", locale)! } : {}),
+    ...validateCephAdminUserLimits({
+      maxBuckets: draft.profile.maxBuckets,
+      quotaEnabled: draft.quota.enabled,
+      quotaSize: draft.quota.size,
+      quotaUnit: draft.quota.unit,
+      quotaObjects: draft.quota.objects,
+    }),
+    ...(!draft.uid.trim() ? { uid: rgwUserNameErrorText("UID is required.", locale)! } : {}),
   };
   const fieldErrors = validationShown ? validationErrors : { uid: uidFormatError, tenant: tenantFormatError };
 
@@ -187,33 +155,33 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
     setStatus(null);
     setGeneratedKey(null);
 
-    const normalizedUid = uid.trim();
-    const normalizedAccountId = selectedAccountId.trim() || undefined;
+    const normalizedUid = draft.uid.trim();
+    const normalizedAccountId = draft.selectedAccountId.trim() || undefined;
     const normalizedTenant = effectiveTenant || undefined;
-    const parsedMaxBuckets = parseOptionalNonNegativeInteger(maxBuckets);
-    const parsedQuotaBytes = quotaEnabled ? parseQuotaBytes(quotaSize, quotaUnit) : null;
-    const parsedQuotaObjects = quotaEnabled ? parseOptionalNonNegativeInteger(quotaObjects) : null;
+    const parsedMaxBuckets = parseOptionalNonNegativeInteger(draft.profile.maxBuckets);
+    const parsedQuotaBytes = draft.quota.enabled ? parseQuotaBytes(draft.quota.size, draft.quota.unit) : null;
+    const parsedQuotaObjects = draft.quota.enabled ? parseOptionalNonNegativeInteger(draft.quota.objects) : null;
 
     const payload: CreateCephAdminUserPayload = {
       uid: normalizedUid,
       account_id: normalizedAccountId,
       tenant: normalizedTenant,
-      display_name: displayName.trim() || undefined,
-      email: email.trim() || undefined,
-      suspended,
+      display_name: draft.profile.displayName.trim() || undefined,
+      email: draft.profile.email.trim() || undefined,
+      suspended: draft.flags.suspended,
       max_buckets: parsedMaxBuckets ?? undefined,
-      op_mask: opMask.trim() || undefined,
-      system: systemFlag,
+      op_mask: draft.profile.opMask.trim() || undefined,
+      system: draft.flags.system,
       account_root: normalizedAccountId ? true : undefined,
-      generate_key: generateKey,
-      quota_enabled: quotaEnabled ? true : undefined,
+      generate_key: draft.generateKey,
+      quota_enabled: draft.quota.enabled ? true : undefined,
       quota_max_size_bytes: parsedQuotaBytes ?? undefined,
       quota_max_objects: parsedQuotaObjects ?? undefined,
       caps:
-        capsText.trim() !== ""
+        draft.caps.text.trim() !== ""
           ? {
-              mode: capsMode,
-              values: parseCephAdminUserCaps(capsText),
+              mode: draft.caps.mode,
+              values: parseCephAdminUserCaps(draft.caps.text),
             }
           : undefined,
     };
@@ -224,7 +192,7 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
         const response = await createCephAdminUser(endpointId, payload);
         onCreated?.(response.detail);
         setGeneratedKey(response.generated_key);
-        setInitialSignature(currentSignature);
+        accept(draft);
         setStatus(surfaceText("User {uid} created.", { uid: response.detail.uid }));
       } catch (err) {
         setError(extractApiError(err, surfaceText("Unexpected error")));
@@ -235,8 +203,8 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
   };
 
   const addConnectionDefaults = generatedKey
-    ? buildCephConnectionDefaults(uid, generatedKey.access_key, {
-        accountId: selectedAccountId,
+    ? buildCephConnectionDefaults(draft.uid, generatedKey.access_key, {
+        accountId: draft.selectedAccountId,
         tenant: effectiveTenant,
       })
     : null;
@@ -250,7 +218,7 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
       width="wide"
       contentVariant="plain"
       formLabel={surfaceText("Create RGW user")}
-      dirty={currentSignature !== initialSignature}
+      dirty={dirty}
       busy={saving}
       error={error}
       submitLabel={surfaceText("Create user")}
@@ -289,13 +257,13 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
               disabled={saving}
               fieldClassName="md:col-span-2"
             />
-            <UiSelect label={surfaceText("Account (optional)")} value={selectedAccountId}
+            <UiSelect label={surfaceText("Account (optional)")} value={draft.selectedAccountId}
               onChange={(event) => {
                 const nextId = event.target.value;
-                setSelectedAccountId(nextId);
+                setDraft(current => ({ ...current, selectedAccountId: nextId }));
                 setSelectedAccountOption(accounts.find((account) => account.account_id === nextId) ?? null);
               }} disabled={accountCatalog.loading}
-              fieldClassName="md:col-span-2" hint={selectedAccountId ? surfaceText("The new user will be the account root.") : undefined}>
+              fieldClassName="md:col-span-2" hint={draft.selectedAccountId ? surfaceText("The new user will be the account root.") : undefined}>
               <option value="">{surfaceText("No account")}</option>
               {accounts.map((account) => <option key={account.account_id} value={account.account_id}>
                 {account.account_name ? `${account.account_name} (${account.account_id})` : account.account_id}
@@ -312,28 +280,32 @@ export default function CephAdminUserCreateModal({ endpointId, endpointUrl, onCl
                 disabled={accountCatalog.loading || saving}
               />
             </div>
-            <UiInput label={surfaceText("UID")} required value={uid} onChange={(event) => setUid(event.target.value)} error={fieldErrors.uid} />
+            <UiInput label={surfaceText("UID")} required value={draft.uid}
+              onChange={(event) => setDraft(current => ({ ...current, uid: event.target.value }))} error={fieldErrors.uid} />
             <UiInput label={surfaceText("Tenant")} value={effectiveTenant} disabled={Boolean(selectedAccount)}
-              onChange={(event) => setTenant(event.target.value)}
+              onChange={(event) => setDraft(current => ({ ...current, tenant: event.target.value }))}
               hint={selectedAccount ? surfaceText("Inherited from the selected account.") : undefined} error={fieldErrors.tenant} />
           </div>
-          <CephAdminUserProfileFields values={{ displayName, email, maxBuckets, opMask }}
-            onChange={(field, value) => ({ displayName: setDisplayName, email: setEmail, maxBuckets: setMaxBuckets, opMask: setOpMask })[field](value)}
+          <CephAdminUserProfileFields values={draft.profile}
+            onChange={(field, value) => setDraft(current => ({ ...current, profile: { ...current.profile, [field]: value } }))}
             maxBucketsError={fieldErrors.maxBuckets} />
         </div>
       </SettingsSection>
-      <CephAdminUserFlags values={{ suspended, admin: false, system: systemFlag }} readOnlyFields={["admin"]}
-        onChange={(field, value) => {
-          if (field === "suspended") setSuspended(value);
-          if (field === "system") setSystemFlag(value);
-        }}>
-        <UiCheckboxField checked={generateKey} onChange={(event) => setGenerateKey(event.target.checked)} className="settings-choice">
+      <CephAdminUserFlags values={draft.flags} readOnlyFields={["admin"]}
+        onChange={(field, value) => setDraft(current => ({ ...current, flags: { ...current.flags, [field]: value } }))}>
+        <UiCheckboxField checked={draft.generateKey}
+          onChange={(event) => setDraft(current => ({ ...current, generateKey: event.target.checked }))} className="settings-choice">
           {surfaceText("Generate access key")}</UiCheckboxField>
       </CephAdminUserFlags>
-      <CephAdminQuotaFields title={surfaceText("User quota")} enabledLabel={surfaceText("Enable user quota")} enabled={quotaEnabled} onEnabledChange={setQuotaEnabled}
-        sizeValue={quotaSize} onSizeChange={setQuotaSize} unitValue={quotaUnit} onUnitChange={setQuotaUnit}
-        objectValue={quotaObjects} onObjectChange={setQuotaObjects} sizeError={fieldErrors.quotaSize} objectError={fieldErrors.quotaObjects} />
-      <CephAdminUserCapsFields mode={capsMode} onModeChange={setCapsMode} value={capsText} onChange={setCapsText} />
+      <CephAdminQuotaFields title={surfaceText("User quota")} enabledLabel={surfaceText("Enable user quota")}
+        enabled={draft.quota.enabled} onEnabledChange={(enabled) => setDraft(current => ({ ...current, quota: { ...current.quota, enabled } }))}
+        sizeValue={draft.quota.size} onSizeChange={(size) => setDraft(current => ({ ...current, quota: { ...current.quota, size } }))}
+        unitValue={draft.quota.unit} onUnitChange={(unit) => setDraft(current => ({ ...current, quota: { ...current.quota, unit } }))}
+        objectValue={draft.quota.objects} onObjectChange={(objects) => setDraft(current => ({ ...current, quota: { ...current.quota, objects } }))}
+        sizeError={fieldErrors.quotaSize} objectError={fieldErrors.quotaObjects} />
+      <CephAdminUserCapsFields mode={draft.caps.mode}
+        onModeChange={(mode) => setDraft(current => ({ ...current, caps: { ...current.caps, mode } }))}
+        value={draft.caps.text} onChange={(text) => setDraft(current => ({ ...current, caps: { ...current.caps, text } }))} />
     </SettingsWorkflowForm>
 
     {canAddAsS3Connection && showAddConnectionModal && generatedKey && addConnectionDefaults && (
