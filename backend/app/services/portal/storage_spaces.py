@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy import delete, func, select
@@ -41,6 +42,15 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class _StorageSpaceDeletionSnapshot:
+    participant_user_ids: set[int]
+    external_access_count: int
+    public_links: list[DBPortalPublicLink]
+    storage_space_name: str
+    origin: str
 
 
 class PortalStorageSpacesMixin:
@@ -568,24 +578,11 @@ class PortalStorageSpacesMixin:
             )
         )
 
-        participant_user_ids = self._storage_space_participant_user_ids(metadata)
-        external_access_count = self.db.scalar(
-            select(func.count())
-            .select_from(PortalExternalAccessCredential)
-            .where(
-                PortalExternalAccessCredential.account_id == access.account.id,
-                PortalExternalAccessCredential.storage_space_metadata_id == metadata.id,
-            )
-        ) or 0
-        public_links = self.db.scalars(
-            select(DBPortalPublicLink).where(
-                DBPortalPublicLink.account_id == access.account.id,
-                DBPortalPublicLink.bucket_name == bucket_name,
-                DBPortalPublicLink.revoked_at.is_(None),
-            )
-        ).all()
-        storage_space_name = self._display_storage_space_name(bucket_name, metadata)
-        origin = self._storage_space_origin(metadata)
+        snapshot = self._storage_space_deletion_snapshot(
+            access.account,
+            metadata,
+            bucket_name,
+        )
 
         try:
             bucket_already_absent = self._delete_storage_space_bucket(
@@ -596,23 +593,70 @@ class PortalStorageSpacesMixin:
             self._delete_storage_space_state(
                 access.account,
                 metadata,
-                public_links,
-                participant_user_ids,
+                snapshot.public_links,
+                snapshot.participant_user_ids,
             )
             self.db.commit()
         except Exception:
             self.db.rollback()
             raise
 
+        return self._storage_space_deletion_result(
+            bucket_name=bucket_name,
+            snapshot=snapshot,
+            used_bytes=used_bytes,
+            object_count=object_count,
+            bucket_already_absent=bucket_already_absent,
+        )
+
+    def _storage_space_deletion_snapshot(
+        self,
+        account: S3Account,
+        metadata: PortalStorageSpaceMetadata,
+        bucket_name: str,
+    ) -> _StorageSpaceDeletionSnapshot:
+        participant_user_ids = self._storage_space_participant_user_ids(metadata)
+        external_access_count = self.db.scalar(
+            select(func.count())
+            .select_from(PortalExternalAccessCredential)
+            .where(
+                PortalExternalAccessCredential.account_id == account.id,
+                PortalExternalAccessCredential.storage_space_metadata_id == metadata.id,
+            )
+        ) or 0
+        public_links = self.db.scalars(
+            select(DBPortalPublicLink).where(
+                DBPortalPublicLink.account_id == account.id,
+                DBPortalPublicLink.bucket_name == bucket_name,
+                DBPortalPublicLink.revoked_at.is_(None),
+            )
+        ).all()
+        return _StorageSpaceDeletionSnapshot(
+            participant_user_ids=participant_user_ids,
+            external_access_count=external_access_count,
+            public_links=public_links,
+            storage_space_name=self._display_storage_space_name(bucket_name, metadata),
+            origin=self._storage_space_origin(metadata),
+        )
+
+    @staticmethod
+    def _storage_space_deletion_result(
+        *,
+        bucket_name: str,
+        snapshot: _StorageSpaceDeletionSnapshot,
+        used_bytes: int | None,
+        object_count: int | None,
+        bucket_already_absent: bool,
+    ) -> dict[str, Any]:
         return {
             "storage_space_id": bucket_name,
-            "storage_space_name": storage_space_name,
-            "origin": origin,
+            "storage_space_name": snapshot.storage_space_name,
+            "origin": snapshot.origin,
             "used_bytes": used_bytes or 0,
             "object_count": object_count or 0,
-            "participant_count": len(participant_user_ids),
-            "external_access_count": external_access_count,
-            "public_link_count": len(public_links),
+            "participant_count": len(snapshot.participant_user_ids),
+            "external_access_count": snapshot.external_access_count,
+            "public_link_count": len(snapshot.public_links),
             "bucket_already_absent": bucket_already_absent,
         }
 
