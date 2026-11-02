@@ -30,7 +30,6 @@ import type { RgwBucketReference } from "../../api/bucketOperation";
 import { cephAdminPageBreadcrumbs } from "./cephAdminBreadcrumbs";
 import {
   BUCKET_COMPARE_CONFIG_FEATURE_OPTIONS,
-  BucketCompareManualMappingEditor,
   formatUnknown,
   getChangedTone,
   matchesBucketCompareRunFilters,
@@ -40,6 +39,7 @@ import {
   summarizeBucketCompareRun,
   useBucketCompareWorkflowState,
 } from "../shared/bucketCompareShared";
+import { BucketCompareManualMappingEditor } from "../shared/bucketCompareMapping";
 import {
   buildBucketCompareContentSections,
   getObjectParentPrefix,

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   BucketCompareManualMappingEditor,
   parseRawMappingText,
-} from "./bucketCompareShared";
+} from "./bucketCompareMapping";
 
 describe("BucketCompareManualMappingEditor", () => {
   it("keeps raw mappings authoritative and emits editable mapping changes", () => {

@@ -23,7 +23,7 @@ const manualTableAllowlist = new Map([
   ["features/shared/BucketOpsTable.tsx", 1],
   ["features/shared/BucketUsageStatsRunModal.tsx", 1],
   ["features/shared/ObjectTextPreview.tsx", 1],
-  ["features/shared/bucketCompareShared.tsx", 1],
+  ["features/shared/bucketCompareMapping.tsx", 1],
 ]);
 const geometry = /(?:^|\s)(?:\S+:)?!?(?:rounded(?:-\S+)?|font-(?:normal|medium|semibold|bold)|text-(?:xs|sm|base|\[\d[^\]]*\])|(?:min-)?h-\S+|px-\S+|py-\S+)(?=\s|$)/;
 
