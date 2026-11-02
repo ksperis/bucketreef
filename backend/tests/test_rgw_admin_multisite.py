@@ -211,6 +211,34 @@ def test_zone_configuration_is_allowlisted_and_projects_only_safe_fields(monkeyp
     assert "system_key" not in rendered
 
 
+def test_zone_configuration_normalizes_mapping_placements_and_list_storage_classes(monkeypatch) -> None:
+    client = _client()
+    payload = {
+        "id": "zone-a",
+        "name": "Paris",
+        "placement_pools": {
+            "default-placement": {
+                "storage_classes": [
+                    "STANDARD",
+                    {"key": "COLD"},
+                    "STANDARD",
+                ]
+            }
+        },
+    }
+    _capture(monkeypatch, client, json.dumps(payload).encode())
+
+    projected = client.get_zone_configuration()
+
+    assert projected["placements"] == [
+        {
+            "name": "default-placement",
+            "storage_classes": ["COLD", "STANDARD"],
+        }
+    ]
+    assert projected["storage_classes"] == ["COLD", "STANDARD"]
+
+
 def test_zone_configuration_error_body_is_never_exposed(monkeypatch) -> None:
     client = _client()
     monkeypatch.setattr(

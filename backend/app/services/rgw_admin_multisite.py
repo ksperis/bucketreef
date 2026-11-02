@@ -116,6 +116,37 @@ def _optional_text(value: Any) -> str | None:
     return normalized or None
 
 
+def _zone_placement_items(value: Any) -> list[Any]:
+    value = value or []
+    if isinstance(value, dict):
+        return [{"key": key, "val": item} for key, item in value.items()]
+    if isinstance(value, list):
+        return value
+    raise ValueError("RGW zone placement_pools has an invalid type")
+
+
+def _zone_storage_classes(value: Any) -> list[str]:
+    if isinstance(value, dict):
+        candidates = value.keys()
+    elif isinstance(value, list):
+        candidates = (
+            entry.get("key") if isinstance(entry, dict) else entry
+            for entry in value
+        )
+    elif value is None:
+        return []
+    else:
+        raise ValueError("RGW zone storage_classes has an invalid type")
+
+    return sorted(
+        {
+            normalized
+            for candidate in candidates
+            if (normalized := _optional_text(candidate)) is not None
+        }
+    )
+
+
 def project_local_zone_configuration(payload: Mapping[str, Any]) -> dict[str, Any]:
     """Return only non-sensitive local-zone fields needed by BucketReef."""
     zone_id = _optional_text(payload.get("id"))
@@ -124,19 +155,8 @@ def project_local_zone_configuration(payload: Mapping[str, Any]) -> dict[str, An
         raise ValueError("RGW zone configuration is missing id or name")
 
     placements: list[dict[str, Any]] = []
-    raw_placements = payload.get("placement_pools") or []
-    if isinstance(raw_placements, dict):
-        placement_items = [
-            {"key": key, "val": value}
-            for key, value in raw_placements.items()
-        ]
-    elif isinstance(raw_placements, list):
-        placement_items = raw_placements
-    else:
-        raise ValueError("RGW zone placement_pools has an invalid type")
-
     storage_classes: set[str] = set()
-    for item in placement_items:
+    for item in _zone_placement_items(payload.get("placement_pools")):
         if not isinstance(item, dict):
             continue
         name = _optional_text(item.get("key") or item.get("name"))
@@ -144,28 +164,7 @@ def project_local_zone_configuration(payload: Mapping[str, Any]) -> dict[str, An
             continue
         value = item.get("val") if isinstance(item.get("val"), dict) else item
         raw_classes = value.get("storage_classes") if isinstance(value, dict) else None
-        if isinstance(raw_classes, dict):
-            classes = sorted(
-                {
-                    normalized
-                    for key in raw_classes
-                    if (normalized := _optional_text(key)) is not None
-                }
-            )
-        elif isinstance(raw_classes, list):
-            classes = sorted(
-                {
-                    normalized
-                    for entry in raw_classes
-                    if (normalized := _optional_text(
-                        entry.get("key") if isinstance(entry, dict) else entry
-                    )) is not None
-                }
-            )
-        elif raw_classes is None:
-            classes = []
-        else:
-            raise ValueError("RGW zone storage_classes has an invalid type")
+        classes = _zone_storage_classes(raw_classes)
         storage_classes.update(classes)
         placements.append({"name": name, "storage_classes": classes})
 
