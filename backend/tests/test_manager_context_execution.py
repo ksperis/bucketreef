@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 import pytest
 
-from app.db import User
+from app.db import ManagedPrivateAccess, User
 from app.core.domain_enums import UserRole
 from app.services.access_context_contracts import AccountCapabilities, ManagerSessionPrincipal
 from app.models.app_settings import AppSettings
@@ -74,6 +74,46 @@ def test_account_iam_identity_uses_canonical_stored_root_uid(db_session, actor):
     )
 
     assert payload.iam_identity == "custom-root-identity"
+
+
+@pytest.mark.parametrize(
+    ("kind", "context_kwargs", "source_kind", "source_id"),
+    [
+        ("account", {"id": 41}, "account", 41),
+        ("connection", {"s3_connection_id": 42}, "connection", 42),
+        ("s3_user", {"s3_user_id": 43}, "s3_user", 43),
+    ],
+)
+def test_manager_private_access_state_tracks_current_user_and_context(
+    db_session,
+    actor,
+    kind,
+    context_kwargs,
+    source_kind,
+    source_id,
+):
+    provisioning = ManagedPrivateAccess(
+        owner_user_id=actor.id,
+        source_context_type=source_kind,
+        source_context_id=source_id,
+        remote_principal_type="iam_user" if source_kind != "s3_user" else "rgw_user",
+        remote_principal_identifier="managed-principal",
+        iam_username="managed-user" if source_kind != "s3_user" else None,
+        state="active",
+    )
+    db_session.add(provisioning)
+    db_session.commit()
+
+    assert context_router._manager_private_access_state(
+        _context(kind, **context_kwargs),
+        actor,
+        db_session,
+    ) == "active"
+    assert context_router._manager_private_access_state(
+        _context(kind),
+        actor,
+        db_session,
+    ) is None
 
 
 @pytest.mark.parametrize(

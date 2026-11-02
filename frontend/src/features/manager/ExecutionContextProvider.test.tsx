@@ -257,12 +257,14 @@ describe("ExecutionContextProvider", () => {
 
     await waitFor(() => expect(screen.getByTestId("selected")).toHaveTextContent("conn-1"));
     expect(listExecutionContextsMock).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(fetchManagerContextMock).toHaveBeenCalledTimes(1));
 
     act(() => {
       window.dispatchEvent(new Event(EXECUTION_CONTEXTS_REFRESH_EVENT));
     });
 
     await waitFor(() => expect(listExecutionContextsMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(fetchManagerContextMock).toHaveBeenCalledTimes(2));
     expect(screen.getByTestId("selected")).toHaveTextContent("conn-1");
     expect(screen.getByTestId("location")).toHaveTextContent("/manager?ctx=conn-1");
   });

@@ -47,6 +47,7 @@ def test_manager_context_schema_requires_complete_canonical_payload():
         "manager_access_key_metadata_enabled",
         "manager_access_key_expiration_enabled",
         "manager_private_access_enabled",
+        "manager_private_access_state",
         "quota_max_size_gb",
         "quota_max_objects",
         "max_buckets",

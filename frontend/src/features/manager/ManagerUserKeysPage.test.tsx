@@ -67,7 +67,7 @@ describe("ManagerUserKeysPage", () => {
     renderPage();
 
     expect(await screen.findByText("AK-MANAGED")).toBeInTheDocument();
-    expect(screen.getByText("Private access")).toBeInTheDocument();
+    expect(screen.getByText("Personal access")).toHaveAttribute("title", "Managed personal access key");
     expect(screen.getByRole("table")).toHaveClass("!table-auto", "!w-max");
     const updateButton = screen.getByTitle("Update the linked private connection instead") as HTMLButtonElement;
     const deleteButton = screen.getByTitle("Delete the linked private connection instead") as HTMLButtonElement;

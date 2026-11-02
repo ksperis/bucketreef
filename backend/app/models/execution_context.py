@@ -92,6 +92,7 @@ class ManagerContext(ApiModel):
     manager_access_key_metadata_enabled: bool
     manager_access_key_expiration_enabled: bool
     manager_private_access_enabled: bool
+    manager_private_access_state: Optional[Literal["provisioning", "active", "deleting", "cleanup_pending"]]
     quota_max_size_gb: Optional[float]
     quota_max_objects: Optional[int]
     max_buckets: Optional[int]

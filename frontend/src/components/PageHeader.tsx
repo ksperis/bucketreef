@@ -16,6 +16,7 @@ type Action = {
   to?: string;
   variant?: "primary" | "secondary" | "ghost" | "danger" | "neutral";
   disabled?: boolean;
+  title?: string;
 };
 
 export type PageHeaderProps = {
@@ -54,11 +55,12 @@ export default function PageHeader({
             to={action.to}
             variant={variant}
             aria-disabled={action.disabled || undefined}
+            title={action.title}
           >
             {action.label}
           </ListActionLink>
         ) : (
-          <ListActionButton key={action.label} onClick={action.onClick} variant={variant} disabled={action.disabled}>
+          <ListActionButton key={action.label} onClick={action.onClick} variant={variant} disabled={action.disabled} title={action.title}>
             {action.label}
           </ListActionButton>
         );
@@ -72,6 +74,7 @@ export default function PageHeader({
             variant={variant}
             size="sm"
             disabled={action.disabled}
+            title={action.title}
           >
             {action.label}
           </UiButtonLink>
@@ -84,6 +87,7 @@ export default function PageHeader({
           variant={variant}
           size="sm"
           disabled={action.disabled}
+          title={action.title}
         >
           {action.label}
         </UiButton>

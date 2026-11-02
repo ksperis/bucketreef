@@ -34,6 +34,7 @@ function buildContext(overrides?: Record<string, unknown>) {
     managerAccessKeyMetadataEnabled: false,
     managerAccessKeyExpirationEnabled: false,
     managerPrivateAccessEnabled: false,
+    managerPrivateAccessState: null,
     accessMode: "s3_user",
     ...overrides,
   };
@@ -106,7 +107,7 @@ describe("ManagerCephKeysPage", () => {
     expect(lockedButtons.every((button) => (button as HTMLButtonElement).disabled)).toBe(true);
     expect((lockedButtons[0] as HTMLButtonElement).className).toContain("ui-list-action");
     expect((lockedButtons[1] as HTMLButtonElement).className).toContain("ui-list-action");
-    expect(screen.getByText("Private access")).toHaveAttribute("title", "Managed private access key");
+    expect(screen.getByText("Personal access")).toHaveAttribute("title", "Managed personal access key");
     expect(screen.getAllByTitle("Update the linked private connection instead")).toHaveLength(1);
     expect(screen.getAllByTitle("Delete the linked private connection instead")).toHaveLength(1);
   });
@@ -126,6 +127,19 @@ describe("ManagerCephKeysPage", () => {
     expect(screen.queryByLabelText(/secret/i)).not.toBeInTheDocument();
   });
 
+  it("disables personal access creation when one already exists", async () => {
+    useExecutionContextMock.mockReturnValue(buildContext({
+      managerPrivateAccessEnabled: true,
+      managerPrivateAccessState: "active",
+    }));
+
+    render(<ManagerCephKeysPage />);
+
+    const action = await screen.findByRole("button", { name: "Create my personal access" });
+    expect(action).toBeDisabled();
+    expect(action).toHaveAttribute("title", "Personal access already created.");
+  });
+
   it("allows managed provisioning without exposing the Ceph key inventory", async () => {
     const user = userEvent.setup();
     useExecutionContextMock.mockReturnValue(
@@ -139,7 +153,7 @@ describe("ManagerCephKeysPage", () => {
     );
 
     expect(await screen.findByText("Ceph key inventory is unavailable for this context")).toBeInTheDocument();
-    expect(screen.getByText(/Managed private access remains available/)).toBeInTheDocument();
+    expect(screen.getByText(/Personal access remains available/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "New key" })).not.toBeInTheDocument();
     expect(listManagerCephAccessKeysMock).not.toHaveBeenCalled();
 

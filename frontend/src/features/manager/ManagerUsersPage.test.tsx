@@ -314,6 +314,7 @@ describe("ManagerUsersPage", () => {
       iamIdentity: null,
       sessionAccountName: null,
       managerPrivateAccessEnabled: true,
+      managerPrivateAccessState: null,
     });
 
     render(
@@ -332,6 +333,32 @@ describe("ManagerUsersPage", () => {
     expect(within(dialog).queryByLabelText(/secret/i)).not.toBeInTheDocument();
     expect(await within(dialog).findByText("readers")).toBeInTheDocument();
     expect(await within(dialog).findByText("ReadOnly")).toBeInTheDocument();
+  });
+
+  it("disables personal access creation when the current context already has one", async () => {
+    useExecutionContextMock.mockReturnValue({
+      contexts: [{ id: "acc-1", kind: "account", display_name: "Tenant account", endpoint_name: "Default" }],
+      selectedContextId: "acc-1",
+      selectedContextName: "Tenant account",
+      selectedContextKind: "account",
+      contextIdForApi: "acc-1",
+      requiresContextSelection: true,
+      accessMode: "default",
+      iamIdentity: null,
+      sessionAccountName: null,
+      managerPrivateAccessEnabled: true,
+      managerPrivateAccessState: "active",
+    });
+
+    render(
+      <MemoryRouter>
+        <ManagerUsersPage />
+      </MemoryRouter>
+    );
+
+    const action = await screen.findByRole("button", { name: "Create my personal access" });
+    expect(action).toBeDisabled();
+    expect(action).toHaveAttribute("title", "Personal access already created.");
   });
 
   it("marks managed IAM identities and routes deletion through their private connection", async () => {
@@ -365,7 +392,7 @@ describe("ManagerUsersPage", () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByText("Private access")).toHaveAttribute("title", "Managed private access identity");
+    expect(await screen.findByText("Personal access")).toHaveAttribute("title", "Managed personal access identity");
     const deleteButton = screen.getByTitle("Delete the linked private connection instead") as HTMLButtonElement;
     expect(deleteButton.disabled).toBe(true);
   });
