@@ -52,7 +52,13 @@ from app.services.external_identity_user_service import (
     ExternalIdentityReauthenticationRequiredError,
     ExternalIdentityUserService,
 )
-from app.services.oidc_service import OIDCLinkContinuationRequiredError, OIDCStateError
+from app.services.oidc_service import (
+    OIDCAuthenticationError,
+    OIDCConfigurationError,
+    OIDCLinkContinuationRequiredError,
+    OIDCProviderNotFoundError,
+    OIDCStateError,
+)
 from app.services import session_service
 from app.services.session_service import SessionService
 from app.services.users_service import UsersService
@@ -1129,6 +1135,57 @@ def test_oidc_callback_failure_is_generic_audited_and_never_persists_code_or_sta
     persisted = f"{audit.message or ''} {audit.audit_metadata or {}}"
     assert "secret-code" not in persisted
     assert "secret-state" not in persisted
+
+
+@pytest.mark.parametrize(
+    ("failure", "expected_status", "expected_detail"),
+    [
+        (OIDCProviderNotFoundError("missing provider"), 404, "OIDC provider is unavailable"),
+        (OIDCStateError("invalid state"), 400, "Invalid OIDC response"),
+        (OIDCConfigurationError("invalid provider config"), 503, "OIDC provider is unavailable"),
+        (OIDCAuthenticationError("invalid token"), 401, "OIDC authentication failed"),
+    ],
+)
+def test_oidc_callback_provider_failures_share_audited_public_error_mapping(
+    auth_client,
+    db_session,
+    monkeypatch,
+    failure,
+    expected_status,
+    expected_detail,
+):
+    class FailingOidcService:
+        db = db_session
+
+        def complete_login(
+            self,
+            provider_id,
+            code,
+            state,
+            *,
+            request_origin=None,
+            browser_secret_hash=None,
+        ):
+            raise failure
+
+    monkeypatch.setattr(auth_router, "get_oidc_service", lambda db: FailingOidcService())
+
+    response = auth_client.post(
+        "/api/auth/oidc/company/callback",
+        json={"code": "code", "state": "state"},
+        headers=trusted_origin_headers(),
+    )
+
+    assert response.status_code == expected_status
+    assert response.json()["detail"] == expected_detail
+    audit = db_session.scalars(
+        select(AuditLog).where(AuditLog.action == "login_oidc_failure")
+    ).one()
+    assert audit.message == expected_detail
+    assert audit.audit_metadata == {
+        "provider": "company",
+        "error_class": type(failure).__name__,
+    }
 
 
 def test_oidc_email_collision_creates_an_audited_manual_link_response(auth_client, db_session, monkeypatch):

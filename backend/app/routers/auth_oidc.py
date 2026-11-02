@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import NoReturn, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
@@ -56,6 +56,25 @@ def get_oidc_service_dependency(
     db: Session = Depends(get_db),
 ) -> OidcService:
     return get_oidc_service(db)
+
+
+def _raise_oidc_login_failure(
+    *,
+    attempt: AuthAttemptContext,
+    user_email: str,
+    provider: str,
+    exc: Exception,
+    status_code: int,
+    public_detail: str,
+) -> NoReturn:
+    attempt.record_failure(
+        user_email=user_email,
+        action="login_oidc_failure",
+        entity_type="ui_session",
+        message=public_detail,
+        metadata={"provider": provider, "error_class": type(exc).__name__},
+    )
+    raise HTTPException(status_code=status_code, detail=public_detail) from exc
 
 
 @router.get("/oidc/providers", response_model=list[OIDCProviderInfo])
@@ -158,39 +177,41 @@ def complete_oidc_login(
             link_request_id=exc.request_id,
         )
     except OIDCProviderNotFoundError as exc:
-        attempt.record_failure(
+        _raise_oidc_login_failure(
+            attempt=attempt,
             user_email=user_email,
-            action="login_oidc_failure",
-            entity_type="ui_session",
-            message="OIDC provider is unavailable",
-            metadata={"provider": provider, "error_class": type(exc).__name__},
+            provider=provider,
+            exc=exc,
+            status_code=status.HTTP_404_NOT_FOUND,
+            public_detail="OIDC provider is unavailable",
         )
-        raise HTTPException(status_code=404, detail="OIDC provider is unavailable") from exc
     except OIDCStateError as exc:
-        error_status = 400
-        public_detail = "Invalid OIDC response"
-        error_class = type(exc).__name__
-    except OIDCConfigurationError as exc:
-        error_status = 503
-        public_detail = "OIDC provider is unavailable"
-        error_class = type(exc).__name__
-    except OIDCAuthenticationError as exc:
-        error_status = 401
-        public_detail = "OIDC authentication failed"
-        error_class = type(exc).__name__
-    else:
-        error_status = None
-        public_detail = None
-        error_class = None
-    if error_status is not None:
-        attempt.record_failure(
+        _raise_oidc_login_failure(
+            attempt=attempt,
             user_email=user_email,
-            action="login_oidc_failure",
-            entity_type="ui_session",
-            message=public_detail,
-            metadata={"provider": provider, "error_class": error_class},
+            provider=provider,
+            exc=exc,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            public_detail="Invalid OIDC response",
         )
-        raise HTTPException(status_code=error_status, detail=public_detail)
+    except OIDCConfigurationError as exc:
+        _raise_oidc_login_failure(
+            attempt=attempt,
+            user_email=user_email,
+            provider=provider,
+            exc=exc,
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            public_detail="OIDC provider is unavailable",
+        )
+    except OIDCAuthenticationError as exc:
+        _raise_oidc_login_failure(
+            attempt=attempt,
+            user_email=user_email,
+            provider=provider,
+            exc=exc,
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            public_detail="OIDC authentication failed",
+        )
     attempt.clear_rate_limit()
     result = _finish_user_primary_auth(
         request=request,
