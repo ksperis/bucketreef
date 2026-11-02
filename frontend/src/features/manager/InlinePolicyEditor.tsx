@@ -305,12 +305,11 @@ export default function InlinePolicyEditor({
             ))}
           </div>
         </div>
-        {showPromptState ? (
+        {showPromptState ? hasPolicies && (
           <div className="settings-body">
-            <p>{text(hasPolicies ? "Select an existing inline policy to review or edit" : "Create the first inline policy")}</p>
+            <p>{text("Select an existing inline policy to review or edit")}</p>
             <p className="settings-description mt-1">
-              {hasPolicies ? text("Existing inline policies stay visible above so you can avoid creating a second policy by mistake.")
-                : text("Add an inline JSON policy that will live directly on {entity}.", { entity: entityLabel })}
+              {text("Existing inline policies stay visible above so you can avoid creating a second policy by mistake.")}
             </p>
           </div>
         ) : (
