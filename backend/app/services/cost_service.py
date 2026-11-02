@@ -214,7 +214,28 @@ class CostService:
             subject_id,
         )
         totals = self._subject_totals_from_rows(usage_rows, storage_rows)
+        daily = self._subject_daily_series(usage_rows, storage_rows)
 
+        return CostSubjectDetail(
+            month=period.month,
+            storage_endpoint_id=endpoint_id,
+            storage_endpoint_name=subject.storage_endpoint.name,
+            subject_type=subject_type,
+            subject_id=subject_id,
+            name=subject.name,
+            rgw_identifier=subject.rgw_user_uid,
+            daily=daily,
+            usage=build_usage_totals(totals),
+            storage=build_storage_totals(totals),
+            coverage=coverage_for_period(period, totals),
+            cost=compute_cost(self.queries.resolve_model(endpoint_id), totals),
+        )
+
+    @staticmethod
+    def _subject_daily_series(
+        usage_rows: Iterable[CostUsageDaily],
+        storage_rows: Iterable[CostStorageDaily],
+    ) -> list[CostDailySeriesPoint]:
         daily_map: dict[str, dict[str, Optional[int]]] = {}
         for row in storage_rows:
             key = row.day.isoformat()
@@ -232,25 +253,10 @@ class CostService:
             entry["bytes_out"] = row.bytes_out
             entry["ops_total"] = row.ops_total
 
-        daily = [
+        return [
             CostDailySeriesPoint(day=day, **values)
             for day, values in sorted(daily_map.items())
         ]
-
-        return CostSubjectDetail(
-            month=period.month,
-            storage_endpoint_id=endpoint_id,
-            storage_endpoint_name=subject.storage_endpoint.name,
-            subject_type=subject_type,
-            subject_id=subject_id,
-            name=subject.name,
-            rgw_identifier=subject.rgw_user_uid,
-            daily=daily,
-            usage=build_usage_totals(totals),
-            storage=build_storage_totals(totals),
-            coverage=coverage_for_period(period, totals),
-            cost=compute_cost(self.queries.resolve_model(endpoint_id), totals),
-        )
 
     def subject_history(
         self,
