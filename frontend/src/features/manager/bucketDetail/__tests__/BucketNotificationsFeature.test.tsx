@@ -32,6 +32,7 @@ function buildController(
     dirty: false,
     draftConfiguration: {},
     draftSignature: "{}",
+    draftTopicIds: [],
     draftTopics: [],
     editorError: null,
     editorMode: "visual",

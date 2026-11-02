@@ -71,7 +71,9 @@ describe("useBucketLifecycleController", () => {
     expect(result.current.rules).toEqual([existingRule]);
     expect(result.current.draftRules).toHaveLength(2);
     expect(result.current.draftRules[0].Status).toBe("Disabled");
-    expect(result.current.draftRules[1].ID).toMatch(/^rule-/);
+    expect(result.current.draftRules[1].ID).toBeUndefined();
+    expect(result.current.draftRuleIds).toHaveLength(2);
+    expect(result.current.draftRuleIds[1]).toMatch(/^lifecycle-rule-/);
     expect(result.current.dirty).toBe(true);
     expect(apiMocks.putBucketLifecycle).not.toHaveBeenCalled();
     expect(apiMocks.deleteBucketLifecycle).not.toHaveBeenCalled();

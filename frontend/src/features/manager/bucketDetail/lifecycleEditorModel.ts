@@ -328,9 +328,8 @@ export function updateLifecycleVisualRule(
   return next;
 }
 
-export function createVisualLifecycleRule(id: string): LifecycleRuleRecord {
+export function createVisualLifecycleRule(): LifecycleRuleRecord {
   return {
-    ID: id,
     Status: "Enabled",
     Filter: { Prefix: "" },
   };
