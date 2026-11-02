@@ -130,6 +130,7 @@ def test_manager_cost_requires_targeted_subject_opt_in(db_session, monkeypatch):
         lambda _db: settings,
     )
     context = S3ExecutionContext.from_account(account)
+    context.source_account = None
 
     with pytest.raises(HTTPException) as exc_info:
         manager_cost_me(month="2026-01", context=context, db=db_session)
@@ -159,9 +160,11 @@ def test_manager_cost_returns_estimate_after_targeted_opt_in(db_session, monkeyp
         ) or SimpleNamespace(subject_id=subject_id),
     )
 
+    context = S3ExecutionContext.from_account(account)
+    context.source_account = None
     result = manager_cost_me(
         month="2026-01",
-        context=S3ExecutionContext.from_account(account),
+        context=context,
         db=db_session,
     )
 
@@ -192,9 +195,11 @@ def test_manager_cost_returns_estimate_for_opted_in_s3_user(db_session, monkeypa
         ) or SimpleNamespace(subject_id=subject_id),
     )
 
+    context = S3ExecutionContext.from_s3_user(user)
+    context.source_s3_user = None
     result = manager_cost_me(
         month="2026-01",
-        context=S3ExecutionContext.from_s3_user(user),
+        context=context,
         db=db_session,
     )
 

@@ -55,9 +55,10 @@ RESOURCE_FEATURE_OVERRIDE_FIELDS = {
     **PROJECT_COLLECTION_RESOURCE_FIELDS,
 }
 
-ManagerActivityResource = S3Account | S3User | S3Connection
-ManagerUsageMetricsResource = S3Account | S3User
-ProjectUsageResource = S3Account | S3User
+ManagerSubjectResource = S3Account | S3User
+ManagerActivityResource = ManagerSubjectResource | S3Connection
+ManagerUsageMetricsResource = ManagerSubjectResource
+ProjectUsageResource = ManagerSubjectResource
 
 
 def _override_values(
@@ -224,13 +225,23 @@ def project_usage_resource(
     return project_account_resource(db, context)
 
 
+def manager_subject_resource(
+    db: Session,
+    context: S3ExecutionContext,
+) -> ManagerSubjectResource | None:
+    """Resolve the durable account or S3 user selected in a Manager context."""
+    if context.context_kind == "account" and isinstance(context.id, int):
+        return context.source_account or db.get(S3Account, context.id)
+    if context.context_kind == "s3_user" and context.s3_user_id is not None:
+        return context.source_s3_user or db.get(S3User, context.s3_user_id)
+    return None
+
+
 def manager_usage_metrics_resource(
     db: Session,
     context: S3ExecutionContext,
 ) -> ManagerUsageMetricsResource | None:
-    if context.context_kind == "s3_user" and context.s3_user_id is not None:
-        return db.get(S3User, context.s3_user_id)
-    return project_account_resource(db, context)
+    return manager_subject_resource(db, context)
 
 
 def manager_rgw_usage_metrics_state(
@@ -268,10 +279,9 @@ def manager_activity_resource(
     context: S3ExecutionContext,
 ) -> ManagerActivityResource | None:
     """Resolve the durable resource that owns Manager activity policy/history."""
-    if context.context_kind == "account" and isinstance(context.id, int):
-        return db.get(S3Account, context.id)
-    if context.context_kind == "s3_user" and context.s3_user_id is not None:
-        return db.get(S3User, context.s3_user_id)
+    subject = manager_subject_resource(db, context)
+    if subject is not None:
+        return subject
     if context.context_kind == "connection" and context.s3_connection_id is not None:
         connection = db.get(S3Connection, context.s3_connection_id)
         if connection is not None and connection.is_shared:

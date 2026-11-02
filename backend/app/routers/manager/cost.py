@@ -7,13 +7,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.db import S3Account, S3User
 from app.models.cost import CostSubjectDetail
 from app.models.feature_policy import resolve_feature_policy
 from app.routers.cost_common import raise_cost_disabled
 from app.routers.dependencies import get_s3_execution_context
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.cost_service import CostService
+from app.services.feature_policy_service import manager_subject_resource
 from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.http_errors import raise_http_error_from_value_error
 
@@ -33,21 +33,19 @@ def manager_cost_me(
 
     subject_type: str
     subject_id: int
-    resource: S3Account | S3User | None
     if context.context_kind == "account" and isinstance(context.id, int):
         subject_type = "account"
         subject_id = context.id
-        resource = context.source_account or db.get(S3Account, subject_id)
     elif context.context_kind == "s3_user" and context.s3_user_id is not None:
         subject_type = "s3_user"
         subject_id = context.s3_user_id
-        resource = context.source_s3_user or db.get(S3User, subject_id)
     else:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Cost estimation is unavailable for this Manager context",
         )
 
+    resource = manager_subject_resource(db, context)
     if resource is None or context.storage_endpoint_id is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
