@@ -23,6 +23,38 @@ def _access(enabled) -> ManagerToolAccess:
     return ManagerToolAccess(**{tool: tool in enabled for tool in _TOOLS})
 
 
+def _user_create(**overrides) -> UserCreate:
+    payload = {
+        "email": "tools@example.com",
+        "password": "valid-test-password",
+        "role": UserRole.UI_USER.value,
+        "can_access_ceph_admin": False,
+        "can_access_storage_ops": False,
+        "can_create_manual_private_connections": False,
+        "can_provision_managed_private_connections": False,
+        "allow_multisite_endpoint_switching": False,
+        "manager_tool_access": _access(()),
+        "browser_advanced_features_enabled": False,
+    }
+    payload.update(overrides)
+    return UserCreate(**payload)
+
+
+def _group_create(**overrides) -> UiGroupCreate:
+    payload = {
+        "name": "Tool operators",
+        "can_access_ceph_admin": False,
+        "can_access_storage_ops": False,
+        "can_create_manual_private_connections": False,
+        "can_provision_managed_private_connections": False,
+        "allow_multisite_endpoint_switching": False,
+        "manager_tool_access": _access(()),
+        "browser_advanced_features_enabled": False,
+    }
+    payload.update(overrides)
+    return UiGroupCreate(**payload)
+
+
 def test_manager_tool_contract_covers_exactly_the_persisted_user_and_group_columns():
     assert set(ManagerToolAccess.model_fields) == set(_TOOLS)
     assert MANAGER_TOOL_COLUMNS == {tool: f"can_access_manager_{tool}" for tool in _TOOLS}
@@ -40,15 +72,13 @@ def test_manager_tool_grants_round_trip_create_update_and_output(db_session, ent
     initial = _access(enabled)
     if entity == "user":
         service = UsersService(db_session)
-        subject = service.create_user(UserCreate(
-            email="tools@example.com", password="valid-test-password", manager_tool_access=initial,
-        ))
+        subject = service.create_user(_user_create(manager_tool_access=initial))
         to_out = service.user_to_out
         update = service.update_user
         payload_type = UserUpdate
     else:
         service = UiGroupsService(db_session)
-        subject = service.create_group(UiGroupCreate(name="Tool operators", manager_tool_access=initial))
+        subject = service.create_group(_group_create(manager_tool_access=initial))
         to_out = service.group_to_out
         update = service.update_group
         payload_type = UiGroupUpdate
@@ -77,8 +107,8 @@ def test_manager_tool_grants_round_trip_create_update_and_output(db_session, ent
 def test_user_role_controls_persisted_and_effective_manager_tools(db_session, role):
     requested = _access(_TOOLS)
     service = UsersService(db_session)
-    user = service.create_user(UserCreate(
-        email="role-tools@example.com", password="valid-test-password", role=role, manager_tool_access=requested,
+    user = service.create_user(_user_create(
+        email="role-tools@example.com", role=role, manager_tool_access=requested,
     ))
     expected = _access(()) if role == UserRole.UI_NONE.value else requested
     assert service.user_to_out(user).manager_tool_access == expected
@@ -93,9 +123,9 @@ def test_user_role_controls_persisted_and_effective_manager_tools(db_session, ro
 
 def test_role_masking_does_not_rewrite_group_grants(db_session):
     group_service = UiGroupsService(db_session)
-    group = group_service.create_group(UiGroupCreate(name="Shared tools", manager_tool_access=_access(_TOOLS)))
+    group = group_service.create_group(_group_create(name="Shared tools", manager_tool_access=_access(_TOOLS)))
     service = UsersService(db_session)
-    user = service.create_user(UserCreate(
+    user = service.create_user(_user_create(
         email="role-mask@example.com", password="valid-test-password",
         role=UserRole.UI_NONE.value, group_ids=[group.id], manager_tool_access=_access(_TOOLS),
     ))
@@ -111,9 +141,9 @@ def test_role_masking_does_not_rewrite_group_grants(db_session):
 @pytest.mark.parametrize("tool", _TOOLS)
 def test_effective_tools_preserve_direct_and_group_provenance(db_session, tool):
     service = UsersService(db_session)
-    user = service.create_user(UserCreate(email="group-tools@example.com", password="valid-test-password"))
+    user = service.create_user(_user_create(email="group-tools@example.com"))
     group_service = UiGroupsService(db_session)
-    group = group_service.create_group(UiGroupCreate(
+    group = group_service.create_group(_group_create(
         name="Tool group", user_ids=[user.id], manager_tool_access=_access((tool,)),
     ))
     inherited = service.user_to_out(user)

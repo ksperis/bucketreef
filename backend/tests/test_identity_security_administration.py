@@ -63,6 +63,44 @@ def _user(db_session, *, email: str, role: str) -> User:
     return row
 
 
+def _user_create_payload(
+    *,
+    email: str,
+    password: str,
+    role: str = UserRole.UI_USER.value,
+    **overrides: object,
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "email": email,
+        "password": password,
+        "role": role,
+        "can_access_ceph_admin": False,
+        "can_access_storage_ops": False,
+        "can_create_manual_private_connections": False,
+        "can_provision_managed_private_connections": False,
+        "allow_multisite_endpoint_switching": False,
+        "manager_tool_access": {},
+        "browser_advanced_features_enabled": False,
+    }
+    payload.update(overrides)
+    return payload
+
+
+def _group_create_payload(*, name: str, **overrides: object) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "name": name,
+        "can_access_ceph_admin": False,
+        "can_access_storage_ops": False,
+        "can_create_manual_private_connections": False,
+        "can_provision_managed_private_connections": False,
+        "allow_multisite_endpoint_switching": False,
+        "manager_tool_access": {},
+        "browser_advanced_features_enabled": False,
+    }
+    payload.update(overrides)
+    return payload
+
+
 def _set_admin_passkey_policy(db_session, required: bool) -> None:
     load_app_settings_for_db(db_session)
     row = db_session.scalars(
@@ -326,11 +364,11 @@ def test_only_superadmin_can_manage_privileged_users_and_self_protection_applies
     admin_credentials = authenticate_ui_client(auth_client, db_session, admin, mfa_verified=False)
     create_admin = auth_client.post(
         "/api/admin/users",
-        json={
-            "email": "forbidden-admin@example.com",
-            "password": "correct horse battery staple",
-            "role": UserRole.UI_ADMIN.value,
-        },
+        json=_user_create_payload(
+            email="forbidden-admin@example.com",
+            password="correct horse battery staple",
+            role=UserRole.UI_ADMIN.value,
+        ),
         headers=trusted_origin_headers(csrf_token=admin_credentials.csrf_token),
     )
     assert create_admin.status_code == 403
@@ -564,7 +602,10 @@ def test_group_access_mutations_require_recent_webauthn_but_descriptive_changes_
 
     descriptive_create = auth_client.post(
         "/api/admin/groups",
-        json={"name": "Descriptive group", "description": "No access yet"},
+        json=_group_create_payload(
+            name="Descriptive group",
+            description="No access yet",
+        ),
         headers=headers,
     )
     assert descriptive_create.status_code == 201
@@ -584,7 +625,10 @@ def test_group_access_mutations_require_recent_webauthn_but_descriptive_changes_
     )
     blocked_create = auth_client.post(
         "/api/admin/groups",
-        json={"name": "Sensitive group", "can_access_storage_ops": True},
+        json=_group_create_payload(
+            name="Sensitive group",
+            can_access_storage_ops=True,
+        ),
         headers=headers,
     )
     assert blocked_update.status_code == 403
@@ -732,11 +776,10 @@ def test_stale_session_must_step_up_for_user_creation_and_deletion(auth_client, 
 
     created = auth_client.post(
         "/api/admin/users",
-        json={
-            "email": "blocked-create@example.com",
-            "password": "correct horse battery staple",
-            "role": UserRole.UI_USER.value,
-        },
+        json=_user_create_payload(
+            email="blocked-create@example.com",
+            password="correct horse battery staple",
+        ),
         headers=headers,
     )
     deleted = auth_client.delete(f"/api/admin/users/{target.id}", headers=headers)
@@ -845,7 +888,10 @@ def test_bearer_token_cannot_perform_sensitive_access_mutations(auth_client, db_
 
     group_response = auth_client.post(
         "/api/admin/groups",
-        json={"name": "Bearer sensitive group", "can_access_storage_ops": True},
+        json=_group_create_payload(
+            name="Bearer sensitive group",
+            can_access_storage_ops=True,
+        ),
         headers=authorization,
     )
     connection_response = auth_client.post(

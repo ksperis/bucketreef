@@ -1,5 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
-import type { UiGroup, UiGroupPayload } from "../../api/groups";
+import type { UiGroup, UiGroupCreatePayload, UiGroupPayload } from "../../api/groups";
 import {
   DEFAULT_MANAGER_TOOL_ACCESS,
   normalizeManagerToolAccess,
@@ -67,7 +67,7 @@ export function adminGroupPayload(
     openStackEnabled: boolean;
     avatarUploadPending: boolean;
   },
-): UiGroupPayload {
+): UiGroupCreatePayload {
   return {
     name: String(form.name || "").trim(),
     description: form.description || null,

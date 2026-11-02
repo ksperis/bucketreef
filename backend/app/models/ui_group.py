@@ -40,13 +40,13 @@ class UiGroupCreate(ApiModel):
     description: Optional[str] = None
     avatar_source: UiGroupAvatarSource = "initials"
     avatar_icon: Optional[UiGroupAvatarIcon] = None
-    can_access_ceph_admin: bool = False
-    can_access_storage_ops: bool = False
-    can_create_manual_private_connections: bool = False
-    can_provision_managed_private_connections: bool = False
-    allow_multisite_endpoint_switching: bool = False
-    manager_tool_access: Optional[ManagerToolAccess] = None
-    browser_advanced_features_enabled: bool = False
+    can_access_ceph_admin: bool
+    can_access_storage_ops: bool
+    can_create_manual_private_connections: bool
+    can_provision_managed_private_connections: bool
+    allow_multisite_endpoint_switching: bool
+    manager_tool_access: ManagerToolAccess
+    browser_advanced_features_enabled: bool
     user_ids: list[int] = Field(default_factory=list)
     account_links: list[AccountMembership] = Field(default_factory=list)
     s3_user_links: list[S3UserMembership] = Field(default_factory=list)

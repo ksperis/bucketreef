@@ -124,7 +124,7 @@ export function adminUserCreatePayload(
   actor: AdminUserActorAccess,
   openStackEnabled: boolean,
 ): CreateUserPayload {
-  const role = form.role ?? "ui_user";
+  const role = form.role;
   const supportsOperationalAccess = roleSupportsOperationalAccess(role);
   return {
     email: form.email,

@@ -23,6 +23,7 @@ from app.db import (
 )
 from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, StorageProvider, UserRole
 from app.models.user import (
+    ManagerToolAccess,
     PASSWORD_POLICY_ERROR,
     S3UserMembership,
     UserCreate,
@@ -104,18 +105,38 @@ def _seed_connection(db_session, *, created_by_user_id: int, name: str, is_share
     return entry
 
 
+def _create_user_payload(**overrides):
+    payload = {
+        "email": "canonical@example.com",
+        "password": "verylongpass123",
+        "role": UserRole.UI_USER.value,
+        "can_access_ceph_admin": False,
+        "can_access_storage_ops": False,
+        "can_create_manual_private_connections": False,
+        "can_provision_managed_private_connections": False,
+        "allow_multisite_endpoint_switching": False,
+        "manager_tool_access": ManagerToolAccess(),
+        "browser_advanced_features_enabled": False,
+    }
+    payload.update(overrides)
+    return payload
+
+
 def test_create_user_and_authenticate(db_session):
     service = UsersService(db_session)
 
     with pytest.raises(ValueError, match=PASSWORD_POLICY_ERROR):
-        service.create_user(UserCreate(email="short@example.com", password="short", full_name="Short"))
+        service.create_user(
+            UserCreate(**_create_user_payload(email="short@example.com", password="short", full_name="Short"))
+        )
 
     with pytest.raises(ValidationError):
         UserCreate(
-            email="invalid-role@example.com",
-            password="verylongpass123",
-            full_name="Invalid",
-            role="bad-role",  # type: ignore[arg-type]
+            **_create_user_payload(
+                email="invalid-role@example.com",
+                full_name="Invalid",
+                role="bad-role",  # type: ignore[arg-type]
+            )
         )
 
     with pytest.raises(ValidationError):
@@ -139,6 +160,7 @@ def test_create_user_and_authenticate(db_session):
                 "feature_rules": True,
                 "bucket_purge": True,
             },
+            browser_advanced_features_enabled=False,
         )
     )
     assert created.role == UserRole.UI_ADMIN.value
@@ -163,7 +185,13 @@ def test_create_user_and_authenticate(db_session):
     "field",
     [
         "role",
+        "can_access_ceph_admin",
+        "can_access_storage_ops",
+        "can_create_manual_private_connections",
+        "can_provision_managed_private_connections",
+        "allow_multisite_endpoint_switching",
         "manager_tool_access",
+        "browser_advanced_features_enabled",
         "account_links",
         "s3_user_links",
         "s3_connection_ids",
@@ -171,23 +199,31 @@ def test_create_user_and_authenticate(db_session):
     ],
 )
 def test_user_create_rejects_null_canonical_fields(field):
-    payload = {
-        "email": "canonical@example.com",
-        "password": "verylongpass123",
-        field: None,
-    }
+    payload = _create_user_payload()
+    payload[field] = None
 
     with pytest.raises(ValidationError):
         UserCreate.model_validate(payload)
 
 
-def test_user_create_defaults_canonical_fields():
-    payload = UserCreate(
-        email="canonical@example.com",
-        password="verylongpass123",
+def test_user_create_requires_explicit_access_and_defaults_associations():
+    required_access = (
+        "role",
+        "can_access_ceph_admin",
+        "can_access_storage_ops",
+        "can_create_manual_private_connections",
+        "can_provision_managed_private_connections",
+        "allow_multisite_endpoint_switching",
+        "manager_tool_access",
+        "browser_advanced_features_enabled",
     )
+    for field in required_access:
+        candidate = _create_user_payload()
+        candidate.pop(field)
+        with pytest.raises(ValidationError):
+            UserCreate.model_validate(candidate)
 
-    assert payload.role == UserRole.UI_USER.value
+    payload = UserCreate.model_validate(_create_user_payload())
     assert payload.manager_tool_access.model_dump() == {
         "bucket_compare": False,
         "bucket_integrity_check": False,

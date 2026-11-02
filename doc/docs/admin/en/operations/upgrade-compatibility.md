@@ -801,6 +801,18 @@ required contract instead of allowing callers to rely on the backend default.
 Deploy the backend and bundled frontend together. No database migration is
 required.
 
+## 2026-11 explicit Admin principal access on create
+
+Admin creation of local UI users, LDAP-imported UI users, and UI groups now
+requires explicit role and access choices. The bundled Admin forms already
+materialize these values, so backend models no longer supply authorization
+defaults when a create caller omits them.
+
+Association collections keep their existing create defaults, including the
+intentional OpenStack association omission semantics, and PATCH/update payloads
+remain optional field-by-field. Deploy the backend and bundled frontend
+together. No database migration is required.
+
 ## 2026-10 canonical OIDC provider collection payloads
 
 Admin OIDC provider create and update requests now require JSON arrays for

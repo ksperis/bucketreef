@@ -136,14 +136,14 @@ class UserCreate(UserCreateAssociationsPayload):
     email: EmailStr
     password: str
     full_name: Optional[str] = None
-    role: UiRole = "ui_user"
-    can_access_ceph_admin: bool = False
-    can_access_storage_ops: bool = False
-    can_create_manual_private_connections: bool = False
-    can_provision_managed_private_connections: bool = False
-    allow_multisite_endpoint_switching: bool = False
-    manager_tool_access: ManagerToolAccess = Field(default_factory=ManagerToolAccess)
-    browser_advanced_features_enabled: bool = False
+    role: UiRole
+    can_access_ceph_admin: bool
+    can_access_storage_ops: bool
+    can_create_manual_private_connections: bool
+    can_provision_managed_private_connections: bool
+    allow_multisite_endpoint_switching: bool
+    manager_tool_access: ManagerToolAccess
+    browser_advanced_features_enabled: bool
 
 
 class UserProfilePreferencesUpdate(ApiModel):

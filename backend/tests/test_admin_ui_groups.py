@@ -128,6 +128,21 @@ def _connection(
     return connection
 
 
+def _group_create_payload(**overrides):
+    payload = {
+        "name": "Test group",
+        "can_access_ceph_admin": False,
+        "can_access_storage_ops": False,
+        "can_create_manual_private_connections": False,
+        "can_provision_managed_private_connections": False,
+        "allow_multisite_endpoint_switching": False,
+        "manager_tool_access": {},
+        "browser_advanced_features_enabled": False,
+    }
+    payload.update(overrides)
+    return payload
+
+
 def test_ui_group_crud_defaults_and_rejects_private_connections(client: TestClient, db_session):
     user = _user(db_session)
     account = _account(db_session)
@@ -140,6 +155,13 @@ def test_ui_group_crud_defaults_and_rejects_private_connections(client: TestClie
         json={
             "name": "Storage operators",
             "description": "Shared UI access",
+            "can_access_ceph_admin": False,
+            "can_access_storage_ops": False,
+            "can_create_manual_private_connections": False,
+            "can_provision_managed_private_connections": False,
+            "allow_multisite_endpoint_switching": False,
+            "manager_tool_access": {},
+            "browser_advanced_features_enabled": False,
             "user_ids": [user.id],
             "account_links": [
                 {
@@ -203,6 +225,12 @@ def test_ui_group_crud_defaults_and_rejects_private_connections(client: TestClie
         }
     ]
 
+    missing_access = client.post(
+        "/api/admin/groups",
+        json={"name": "Implicit access"},
+    )
+    assert missing_access.status_code == 422
+
     removed_ids_contract = client.patch(
         f"/api/admin/groups/{payload['id']}",
         json={"s3_user_ids": [s3_user.id]},
@@ -226,7 +254,18 @@ def test_ui_group_create_rolls_back_when_portal_role_sync_fails(db_session, monk
     monkeypatch.setattr(service_module, "sync_portal_role_downgrades", fail_sync)
 
     with pytest.raises(RuntimeError, match="portal sync failed"):
-        UiGroupsService(db_session).create_group(UiGroupCreate(name="Rollback group"))
+        UiGroupsService(db_session).create_group(
+            UiGroupCreate(
+                name="Rollback group",
+                can_access_ceph_admin=False,
+                can_access_storage_ops=False,
+                can_create_manual_private_connections=False,
+                can_provision_managed_private_connections=False,
+                allow_multisite_endpoint_switching=False,
+                manager_tool_access={},
+                browser_advanced_features_enabled=False,
+            )
+        )
 
     assert db_session.scalar(
         select(func.count()).select_from(UiGroup).where(UiGroup.name == "Rollback group")
@@ -273,7 +312,7 @@ def test_ui_group_projection_and_search_hide_private_connection_links(
     )
     created = client.post(
         "/api/admin/groups",
-        json={"name": "Private legacy link holder"},
+        json=_group_create_payload(name="Private legacy link holder"),
     )
     assert created.status_code == 201, created.text
     group_id = created.json()["id"]
@@ -304,7 +343,7 @@ def test_ui_group_projection_and_search_hide_private_connection_links(
 
 def test_ui_group_listings_share_stable_case_insensitive_order(client: TestClient, db_session):
     created = [
-        client.post("/api/admin/groups", json={"name": name}).json()
+        client.post("/api/admin/groups", json=_group_create_payload(name=name)).json()
         for name in ("Zulu", "alpha", "Beta")
     ]
     tied_at = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
@@ -346,7 +385,11 @@ def test_ui_group_listings_share_stable_case_insensitive_order(client: TestClien
 def test_ui_group_avatar_supports_presets_upload_and_initials_fallback(client: TestClient, db_session):
     created = client.post(
         "/api/admin/groups",
-        json={"name": "Research Operators", "avatar_source": "preset", "avatar_icon": "academic"},
+        json=_group_create_payload(
+            name="Research Operators",
+            avatar_source="preset",
+            avatar_icon="academic",
+        ),
     )
     assert created.status_code == 201, created.text
     group_id = created.json()["id"]
@@ -383,7 +426,10 @@ def test_ui_group_avatar_supports_presets_upload_and_initials_fallback(client: T
 
 
 def test_ui_group_avatar_rejects_unsupported_content(client: TestClient):
-    created = client.post("/api/admin/groups", json={"name": "Unsafe Image Group"})
+    created = client.post(
+        "/api/admin/groups",
+        json=_group_create_payload(name="Unsafe Image Group"),
+    )
     group_id = created.json()["id"]
     response = client.put(
         f"/api/admin/groups/{group_id}/avatar",
@@ -410,7 +456,7 @@ def test_ui_group_effective_access_is_inherited_without_overwriting_direct_user_
 
     response = client.post(
         "/api/admin/groups",
-        json={
+        json=_group_create_payload(**{
             "name": "Inherited operators",
             "can_access_storage_ops": True,
             "browser_advanced_features_enabled": True,
@@ -440,7 +486,7 @@ def test_ui_group_effective_access_is_inherited_without_overwriting_direct_user_
                     }
                 ],
             "s3_connection_ids": [connection.id],
-        },
+        }),
     )
     assert response.status_code == 201, response.text
 
@@ -515,7 +561,7 @@ def test_group_ceph_admin_grant_requires_superadmin(client: TestClient, db_sessi
 
     response = client.post(
         "/api/admin/groups",
-        json={"name": "Ceph admins", "can_access_ceph_admin": True},
+        json=_group_create_payload(name="Ceph admins", can_access_ceph_admin=True),
     )
 
     assert response.status_code == 403
@@ -534,10 +580,10 @@ def test_group_payload_rejects_removed_bucket_quota_permission(client: TestClien
 
     response = client.post(
         "/api/admin/groups",
-        json={
-            "name": "Quota operators",
-            "manager_tool_access": {"bucket_quota": True},
-        },
+        json=_group_create_payload(
+            name="Quota operators",
+            manager_tool_access={"bucket_quota": True},
+        ),
     )
 
     assert response.status_code == 422
@@ -549,11 +595,11 @@ def test_effective_ceph_admin_requires_user_admin_role(client: TestClient, db_se
 
     response = client.post(
         "/api/admin/groups",
-        json={
-            "name": "Ceph group",
-            "can_access_ceph_admin": True,
-            "user_ids": [ui_user.id, ui_admin.id],
-        },
+        json=_group_create_payload(
+            name="Ceph group",
+            can_access_ceph_admin=True,
+            user_ids=[ui_user.id, ui_admin.id],
+        ),
     )
     assert response.status_code == 201, response.text
 
