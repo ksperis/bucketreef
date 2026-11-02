@@ -813,6 +813,20 @@ overrides keep their existing clear/inherit semantics.
 Deploy the backend and bundled frontend together. No database migration is
 required.
 
+## 2026-11 canonical Storage Endpoint PATCH nullability
+
+Storage Endpoint PATCH payloads now reject explicit `null` for concrete
+configuration fields: `name`, `endpoint_url`, path-style and TLS booleans,
+`provider`, `service_identity_mode`, `ceph_admin_allowed`, and
+`features`. Omit those fields to preserve their current value.
+
+Intentional clear semantics remain nullable for region, Ceph multisite IDs,
+coordinates, and credential fields. Credential pair validation and write-only
+secret preservation continue to apply.
+
+Deploy the backend and bundled frontend together. No database migration is
+required.
+
 ## 2026-11 canonical UI principal PATCH nullability
 
 Admin UI User and UI Group PATCH payloads now reject explicit `null` for
