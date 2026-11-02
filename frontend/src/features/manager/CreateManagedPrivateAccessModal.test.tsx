@@ -83,7 +83,7 @@ describe("CreateManagedPrivateAccessModal", () => {
     expect(screen.queryByLabelText(/IAM user/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/access key/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/secret/i)).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Connection name")).toHaveValue("account-test private access");
+    expect(screen.getByLabelText("Connection name")).toHaveValue("account-test personal access");
     await waitFor(() => expect(screen.getByLabelText("Connection name")).toHaveFocus());
 
     await user.clear(screen.getByLabelText("Connection name"));
@@ -187,7 +187,7 @@ describe("CreateManagedPrivateAccessModal", () => {
     expect(screen.queryByText("Inline policies")).not.toBeInTheDocument();
     expect(screen.getByText(/new access key for this RGW user/i)).toBeInTheDocument();
     expect(screen.getByText("Advanced configuration").closest("details")).not.toHaveAttribute("open");
-    expect(screen.getByLabelText("Connection name")).toHaveValue("rgw-user-test private access");
+    expect(screen.getByLabelText("Connection name")).toHaveValue("rgw-user-test personal access");
     await user.clear(screen.getByLabelText("Connection name"));
     await user.type(screen.getByLabelText("Connection name"), "Personal RGW");
     await user.click(screen.getByRole("button", { name: "Create my personal access" }));

@@ -599,12 +599,12 @@ export default function PrivateS3ConnectionsSection({
     setDeletingConnectionBusyId(connectionId);
     try {
       await retryManagedPrivateAccessCleanup(connectionId);
-      setConnectionsMessage(surfaceText("Managed private access cleanup completed."));
+      setConnectionsMessage(surfaceText("Personal access cleanup completed."));
       await refreshConnections();
       notifyExecutionContextsRefresh();
     } catch (error) {
       console.error(error);
-      setConnectionsError(extractApiError(error, surfaceText("Unable to complete managed private access cleanup.")));
+      setConnectionsError(extractApiError(error, surfaceText("Unable to complete personal access cleanup.")));
     } finally {
       setDeletingConnectionBusyId(null);
     }
@@ -808,7 +808,7 @@ export default function PrivateS3ConnectionsSection({
               <p className="truncate">{connection.name || "-"}</p>
               {connection.server_managed && (
                 <ListBadge tone="primary" className="mt-1">
-                  {surfaceText("Server managed")}
+                  {surfaceText("Personal access")}
                   {connection.managed_access_state === "cleanup_pending"
                     ? ` - ${surfaceText("cleanup required")}`
                     : ""}

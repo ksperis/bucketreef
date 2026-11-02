@@ -328,7 +328,7 @@ describe("ManagerUsersPage", () => {
 
     const dialog = screen.getByRole("dialog", { name: "Create my personal access" });
     expect(dialog).toBeInTheDocument();
-    expect(within(dialog).getByLabelText("Connection name")).toHaveValue("Tenant account private access");
+    expect(within(dialog).getByLabelText("Connection name")).toHaveValue("Tenant account personal access");
     expect(within(dialog).queryByLabelText(/IAM user/i)).not.toBeInTheDocument();
     expect(within(dialog).queryByLabelText(/secret/i)).not.toBeInTheDocument();
     expect(await within(dialog).findByText("readers")).toBeInTheDocument();
