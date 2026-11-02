@@ -388,7 +388,7 @@ const getCompareHiddenCount = (totalCount: number, visibleCount: number, hiddenC
   return Math.max(0, reportedHiddenCount);
 };
 
-type BucketCompareContentSection = {
+export type BucketCompareContentSection = {
   key: "source_only" | "target_only" | "different";
   changed: boolean;
   objectCount: number;

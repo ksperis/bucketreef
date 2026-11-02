@@ -20,7 +20,7 @@ export type CompareObjectDetailLike = {
   storage_class: string | null;
 };
 
-type CompareObjectOptions = {
+export type CompareObjectOptions = {
   buildBrowserHref?: (detail: CompareObjectDetailLike) => string | null;
   browserDisabledReason?: string | null;
   onExplore?: (href: string, detail: CompareObjectDetailLike, index: number) => void;
