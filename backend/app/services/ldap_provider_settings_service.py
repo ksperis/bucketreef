@@ -15,16 +15,8 @@ from app.models.ldap import (
     LDAPProviderAdminPayload,
     LDAPProviderFieldLock,
 )
-from app.services.identity_provider_mutations import (
-    create_identity_provider,
-    delete_identity_provider,
-    update_identity_provider,
-)
 from app.services.identity_provider_repository import IdentityProviderRepository
-from app.services.identity_provider_resolution import (
-    list_effective_identity_providers,
-    resolve_identity_provider_map,
-)
+from app.services.identity_provider_settings_service import IdentityProviderSettingsService
 from app.utils.identity_provider_ids import (
     identity_provider_environment_source,
     normalize_identity_provider_id,
@@ -59,37 +51,21 @@ def list_effective_ldap_providers(
     db: Session,
     settings: Optional[Settings] = None,
 ) -> list[LDAPProviderAdminItem]:
-    settings = settings or get_settings()
-    env_providers = _environment_provider_map(settings)
-    return list_effective_identity_providers(
-        env_providers,
-        _provider_repository(db, env_providers).list(),
-        environment_item=_environment_provider_item,
-        persisted_item=_ui_provider_item,
-    )
+    return _provider_service(db, settings).list_effective()
 
 
 def resolve_ldap_provider_map(
     db: Session,
     settings: Optional[Settings] = None,
 ) -> dict[str, LDAPProviderSettings]:
-    settings = settings or get_settings()
-    env_providers = _environment_provider_map(settings)
-    return resolve_identity_provider_map(
-        env_providers,
-        _provider_repository(db, env_providers).list(),
-        persisted_to_settings=_ui_provider_to_settings,
-    )
+    return _provider_service(db, settings).resolve_map()
 
 
 def create_ldap_provider(db: Session, payload: LDAPProviderAdminPayload) -> LDAPProviderAdminItem:
     _validate_production_payload(payload)
-    return create_identity_provider(
-        _provider_repository(db),
+    return _provider_service(db).create(
         payload.provider_id,
-        normalize_provider_id=normalize_ldap_provider_id,
         apply=lambda current: _apply_payload(current, payload, replace_secret=True),
-        to_item=_ui_provider_item,
     )
 
 
@@ -99,22 +75,15 @@ def update_ldap_provider(
     payload: LDAPProviderAdminPayload,
 ) -> LDAPProviderAdminItem:
     _validate_production_payload(payload)
-    return update_identity_provider(
-        _provider_repository(db),
+    return _provider_service(db).update(
         provider_id,
         payload.provider_id,
-        normalize_provider_id=normalize_ldap_provider_id,
         apply=lambda current: _apply_payload(current, payload, replace_secret=False),
-        to_item=_ui_provider_item,
     )
 
 
 def delete_ldap_provider(db: Session, provider_id: str) -> None:
-    delete_identity_provider(
-        _provider_repository(db),
-        provider_id,
-        normalize_provider_id=normalize_ldap_provider_id,
-    )
+    _provider_service(db).delete(provider_id)
 
 
 def _environment_provider_map(settings: Optional[Settings] = None) -> dict[str, LDAPProviderSettings]:
@@ -122,12 +91,19 @@ def _environment_provider_map(settings: Optional[Settings] = None) -> dict[str, 
     return dict(settings.ldap_providers)
 
 
-def _provider_repository(
+def _provider_service(
     db: Session,
-    environment_providers: Optional[dict[str, LDAPProviderSettings]] = None,
-) -> IdentityProviderRepository[LdapProvider]:
-    providers = _environment_provider_map() if environment_providers is None else environment_providers
-    return IdentityProviderRepository(db, LdapProvider, providers, "LDAP")
+    settings: Optional[Settings] = None,
+) -> IdentityProviderSettingsService[LdapProvider, LDAPProviderSettings, LDAPProviderAdminItem]:
+    environment_providers = _environment_provider_map(settings)
+    return IdentityProviderSettingsService(
+        IdentityProviderRepository(db, LdapProvider, environment_providers, "LDAP"),
+        environment_providers,
+        normalize_provider_id=normalize_ldap_provider_id,
+        environment_item=_environment_provider_item,
+        persisted_item=_ui_provider_item,
+        persisted_to_settings=_ui_provider_to_settings,
+    )
 
 
 def _apply_payload(provider: LdapProvider, payload: LDAPProviderAdminPayload, *, replace_secret: bool) -> None:

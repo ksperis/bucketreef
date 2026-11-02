@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping
 from typing import TypeVar
-
 from app.utils.identity_provider_ids import normalize_identity_provider_id
 
 

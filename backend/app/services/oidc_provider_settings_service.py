@@ -15,16 +15,8 @@ from app.models.oidc import (
     OIDCProviderAdminPayload,
     OIDCProviderFieldLock,
 )
-from app.services.identity_provider_mutations import (
-    create_identity_provider,
-    delete_identity_provider,
-    update_identity_provider,
-)
 from app.services.identity_provider_repository import IdentityProviderRepository
-from app.services.identity_provider_resolution import (
-    list_effective_identity_providers,
-    resolve_identity_provider_map,
-)
+from app.services.identity_provider_settings_service import IdentityProviderSettingsService
 from app.utils.identity_provider_ids import (
     identity_provider_environment_source,
     normalize_identity_provider_id,
@@ -64,37 +56,21 @@ def list_effective_oidc_providers(
     db: Session,
     settings: Optional[Settings] = None,
 ) -> list[OIDCProviderAdminItem]:
-    settings = settings or get_settings()
-    env_providers = _environment_provider_map(settings)
-    return list_effective_identity_providers(
-        env_providers,
-        _provider_repository(db, env_providers).list(),
-        environment_item=_environment_provider_item,
-        persisted_item=_ui_provider_item,
-    )
+    return _provider_service(db, settings).list_effective()
 
 
 def resolve_oidc_provider_map(
     db: Session,
     settings: Optional[Settings] = None,
 ) -> dict[str, OIDCProviderSettings]:
-    settings = settings or get_settings()
-    env_providers = _environment_provider_map(settings)
-    return resolve_identity_provider_map(
-        env_providers,
-        _provider_repository(db, env_providers).list(),
-        persisted_to_settings=_ui_provider_to_settings,
-    )
+    return _provider_service(db, settings).resolve_map()
 
 
 def create_oidc_provider(db: Session, payload: OIDCProviderAdminPayload) -> OIDCProviderAdminItem:
     _validate_production_payload(payload)
-    return create_identity_provider(
-        _provider_repository(db),
+    return _provider_service(db).create(
         payload.provider_id,
-        normalize_provider_id=normalize_oidc_provider_id,
         apply=lambda current: _apply_payload(current, payload, replace_secret=True),
-        to_item=_ui_provider_item,
     )
 
 
@@ -104,22 +80,15 @@ def update_oidc_provider(
     payload: OIDCProviderAdminPayload,
 ) -> OIDCProviderAdminItem:
     _validate_production_payload(payload)
-    return update_identity_provider(
-        _provider_repository(db),
+    return _provider_service(db).update(
         provider_id,
         payload.provider_id,
-        normalize_provider_id=normalize_oidc_provider_id,
         apply=lambda current: _apply_payload(current, payload, replace_secret=False),
-        to_item=_ui_provider_item,
     )
 
 
 def delete_oidc_provider(db: Session, provider_id: str) -> None:
-    delete_identity_provider(
-        _provider_repository(db),
-        provider_id,
-        normalize_provider_id=normalize_oidc_provider_id,
-    )
+    _provider_service(db).delete(provider_id)
 
 
 def _environment_provider_map(settings: Optional[Settings] = None) -> dict[str, OIDCProviderSettings]:
@@ -127,12 +96,19 @@ def _environment_provider_map(settings: Optional[Settings] = None) -> dict[str, 
     return dict(settings.oidc_providers)
 
 
-def _provider_repository(
+def _provider_service(
     db: Session,
-    environment_providers: Optional[dict[str, OIDCProviderSettings]] = None,
-) -> IdentityProviderRepository[OidcProvider]:
-    providers = _environment_provider_map() if environment_providers is None else environment_providers
-    return IdentityProviderRepository(db, OidcProvider, providers, "OIDC")
+    settings: Optional[Settings] = None,
+) -> IdentityProviderSettingsService[OidcProvider, OIDCProviderSettings, OIDCProviderAdminItem]:
+    environment_providers = _environment_provider_map(settings)
+    return IdentityProviderSettingsService(
+        IdentityProviderRepository(db, OidcProvider, environment_providers, "OIDC"),
+        environment_providers,
+        normalize_provider_id=normalize_oidc_provider_id,
+        environment_item=_environment_provider_item,
+        persisted_item=_ui_provider_item,
+        persisted_to_settings=_ui_provider_to_settings,
+    )
 
 
 def _apply_payload(provider: OidcProvider, payload: OIDCProviderAdminPayload, *, replace_secret: bool) -> None:
