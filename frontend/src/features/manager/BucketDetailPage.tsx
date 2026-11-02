@@ -532,7 +532,7 @@ function BucketDetailPageContent({
     versioning: versioningController.saving,
     objectLock: objectLockController.saving,
     lifecycle: lifecycleController.saving,
-    policy: policyController.saving || policyController.deleting,
+    policy: policyController.saving,
     acl: bucketAclController.saving,
     replication: replicationController.saving,
     encryption: encryptionController.saving,
@@ -873,7 +873,6 @@ function BucketDetailPageContent({
     try {
       if (pendingConfigurationDelete === "tags") await bucketTagsController.clear();
       if (pendingConfigurationDelete === "website") await websiteController.clear();
-      if (pendingConfigurationDelete === "policy") await policyController.remove();
       if (pendingConfigurationDelete === "access-logging") await accessLoggingController.clear();
     } finally {
       setPendingConfigurationDelete(null);
@@ -885,11 +884,9 @@ function BucketDetailPageContent({
           ? bucketTagsController.clearing
           : pendingConfigurationDelete === "website"
                 ? websiteController.clearing
-                : pendingConfigurationDelete === "policy"
-                  ? policyController.deleting
-                  : pendingConfigurationDelete === "access-logging"
-                    ? accessLoggingController.clearing
-                    : false;
+                : pendingConfigurationDelete === "access-logging"
+                  ? accessLoggingController.clearing
+                  : false;
 
   return (
     <BucketFeatureSuggestionsProvider
@@ -1076,11 +1073,7 @@ function BucketDetailPageContent({
 
                 <BucketAclFeature controller={bucketAclController} />
 
-                <BucketPolicyFeature
-                  bucketName={bucketName}
-                  controller={policyController}
-                  onRequestDelete={() => setPendingConfigurationDelete("policy")}
-                />
+                <BucketPolicyFeature controller={policyController} />
 
                 <BucketCorsFeature controller={corsController} />
               </BucketFeatureGrid>

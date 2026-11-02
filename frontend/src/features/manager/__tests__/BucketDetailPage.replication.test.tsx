@@ -1530,7 +1530,7 @@ describe("BucketDetailPage replication state", () => {
     await user.click(editButton);
 
     const dialog = screen.getByRole("dialog", { name: "Edit lifecycle rules" });
-    const idInput = within(dialog).getByLabelText("ID");
+    const idInput = within(dialog).getByLabelText("ID (optional)");
     await waitFor(() => expect(idInput).toHaveFocus());
     await user.clear(idInput);
     await user.type(idInput, "changed-rule");
@@ -1539,7 +1539,7 @@ describe("BucketDetailPage replication state", () => {
     expect(screen.getByRole("dialog", { name: "Discard changes?" })).toBeVisible();
     expect(screen.getByRole("dialog", { name: "Edit lifecycle rules" })).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Keep editing" }));
-    expect(within(dialog).getByLabelText("ID")).toHaveValue("changed-rule");
+    expect(within(dialog).getByLabelText("ID (optional)")).toHaveValue("changed-rule");
 
     await user.keyboard("{Escape}");
     await user.click(screen.getByRole("button", { name: "Discard changes" }));

@@ -77,7 +77,6 @@ export function useBucketPolicyController({
   const [featureUnsupported, setFeatureUnsupported] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const {
     appendRowId: appendDraftStatementId,
     removeRowId: removeDraftStatementId,
@@ -339,29 +338,6 @@ export function useBucketPolicyController({
     setStatus,
   ]);
 
-  // Kept for the current page-level destructive-action contract. The Policy
-  // summary no longer exposes this action; modal Save is the editing boundary.
-  const remove = useCallback(async () => {
-    if (!bucketName || !enabled) return;
-    setDeleting(true);
-    setLoadError(null);
-    try {
-      if (cephAdmin) {
-        if (!endpointId) return;
-        await deleteCephAdminBucketPolicy(endpointId, bucketName, cephAdminTenant);
-      } else {
-        await bucketDetailsApi.deleteBucketPolicy(contextId, bucketName);
-      }
-      applyBaseline({});
-      setStatus("Bucket policy deleted");
-    } catch (removeFailure) {
-      setFeatureUnsupported(isApiFeatureUnsupportedError(removeFailure));
-      setLoadError(extractApiError(removeFailure, "Unable to delete the bucket policy."));
-    } finally {
-      setDeleting(false);
-    }
-  }, [bucketDetailsApi, contextId, applyBaseline, bucketName, cephAdmin, cephAdminTenant, enabled, endpointId, setStatus]);
-
   const statements = useMemo(() => policyStatements(policy), [policy]);
   const baselineSignature = stableBucketJsonSignature(policy);
   const draftSignature = useMemo(
@@ -376,7 +352,6 @@ export function useBucketPolicyController({
     allowCount: statements.filter((statement) => statement.Effect === "Allow").length,
     closeEditor,
     configured: !isPolicyConfigurationEmpty(policy),
-    deleting,
     denyCount: statements.filter((statement) => statement.Effect === "Deny").length,
     dirty,
     draftPolicy,
@@ -395,7 +370,6 @@ export function useBucketPolicyController({
     openEditorWithNew,
     openJsonEditor,
     policy,
-    remove,
     removeDraftCondition,
     removeDraftStatement,
     removeStatementDirect,

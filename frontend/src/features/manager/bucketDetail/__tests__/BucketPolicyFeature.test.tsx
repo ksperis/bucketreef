@@ -52,11 +52,7 @@ function PolicyHarness() {
     void load();
   }, [load]);
   return (
-    <BucketPolicyFeature
-      bucketName="reports"
-      controller={controller}
-      onRequestDelete={() => undefined}
-    />
+    <BucketPolicyFeature controller={controller} />
   );
 }
 
