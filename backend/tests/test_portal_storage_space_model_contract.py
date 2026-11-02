@@ -17,6 +17,7 @@ from app.models.portal_storage_spaces import (
     PortalStorageSpaceIcon,
     PortalStorageSpaceImport,
     PortalStorageSpaceSummary,
+    PortalStorageSpaceUpdate,
 )
 from app.routers import portal_storage_spaces
 
@@ -93,6 +94,47 @@ def test_storage_space_create_and_import_require_explicit_access_choices() -> No
     }
 
 
+def test_storage_space_update_exposes_only_mutable_fields() -> None:
+    schema = PortalStorageSpaceUpdate.model_json_schema()
+    assert set(schema["properties"]) == {
+        "name",
+        "description",
+        "share_scope",
+        "account_member_role",
+        "project_key",
+        "dataset_label",
+        "archived",
+    }
+    for removed_field, value in (
+        ("visibility", "private"),
+        ("naming_mode", "generic_uuid"),
+        ("initial_shares", []),
+    ):
+        with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+            PortalStorageSpaceUpdate(**{removed_field: value})
+
+
+def test_storage_space_update_distinguishes_omitted_and_nullable_fields() -> None:
+    update = PortalStorageSpaceUpdate(
+        description=None,
+        project_key=None,
+        dataset_label=None,
+        account_member_role=None,
+    )
+    assert update.model_fields_set == {
+        "description",
+        "project_key",
+        "dataset_label",
+        "account_member_role",
+    }
+
+
+@pytest.mark.parametrize("field_name", ["name", "share_scope", "archived"])
+def test_storage_space_update_rejects_null_for_non_nullable_fields(field_name: str) -> None:
+    with pytest.raises(ValidationError, match=f"{field_name} cannot be null"):
+        PortalStorageSpaceUpdate(**{field_name: None})
+
+
 def test_portal_storage_space_models_have_a_single_canonical_module() -> None:
     assert PortalStorageSpaceSummary.__module__ == "app.models.portal_storage_spaces"
 
@@ -126,6 +168,11 @@ def test_portal_storage_space_routes_preserve_their_openapi_contracts() -> None:
     }
     assert create_space["responses"]["201"]["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/PortalStorageSpaceSummary"
+    }
+
+    update_space = paths["/api/portal/storage-spaces/{space_id}"]["patch"]
+    assert update_space["requestBody"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/PortalStorageSpaceUpdate"
     }
 
     assert "PortalStorageSpace" not in app.openapi()["components"]["schemas"]

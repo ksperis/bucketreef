@@ -160,8 +160,13 @@ export function usePortalStorageSpaceAccess({
     setAccessBusy(true);
     onMessage(null);
     try {
+      const accessPayload = portalAccessPayloadFromMode(
+        change.mode,
+        change.accountMemberRole,
+      );
       await updatePortalStorageSpace(accountId, space.id, {
-        ...portalAccessPayloadFromMode(change.mode, change.accountMemberRole),
+        share_scope: accessPayload.share_scope,
+        account_member_role: accessPayload.account_member_role,
       });
       setPendingAccessChange(null);
       refreshWorkspaceData();

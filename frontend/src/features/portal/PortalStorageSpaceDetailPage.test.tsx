@@ -1420,7 +1420,6 @@ describe("PortalStorageSpaceDetailPage", () => {
 
     await waitFor(() => {
       expect(mocks.updateStorageSpaceMock).toHaveBeenCalledWith(101, "research-data", {
-        visibility: "shared",
         share_scope: "account",
         account_member_role: "Editor",
       });

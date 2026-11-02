@@ -24,6 +24,7 @@ from app.models.portal_storage_spaces import (
     PortalStorageSpaceRole,
     PortalStorageSpaceShareScope,
     PortalStorageSpaceSummary,
+    PortalStorageSpaceUpdate,
     PortalStorageSpaceVisibility,
 )
 from app.services import s3_client, s3_deletion
@@ -367,15 +368,7 @@ class PortalStorageSpacesMixin:
         user: User,
         access: "AccountAccess",
         space_id: str,
-        *,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        visibility: Optional[PortalStorageSpaceVisibility] = None,
-        share_scope: Optional[PortalStorageSpaceShareScope] = None,
-        account_member_role: Optional[PortalStorageSpaceAccountMemberRole] = None,
-        project_key: Optional[str] = None,
-        dataset_label: Optional[str] = None,
-        archived: Optional[bool] = None,
+        update: PortalStorageSpaceUpdate,
     ) -> PortalStorageSpaceSummary:
         bucket_name = self._resolve_storage_space_bucket_name(user, access, space_id, include_archived=True)
         if not bucket_name:
@@ -388,14 +381,7 @@ class PortalStorageSpacesMixin:
         self._apply_storage_space_update(
             metadata,
             bucket_name=bucket_name,
-            name=name,
-            description=description,
-            visibility=visibility,
-            share_scope=share_scope,
-            account_member_role=account_member_role,
-            project_key=project_key,
-            dataset_label=dataset_label,
-            archived=archived,
+            update=update,
         )
         self.db.add(metadata)
         self.db.flush()
@@ -415,72 +401,61 @@ class PortalStorageSpacesMixin:
         metadata: PortalStorageSpaceMetadata,
         *,
         bucket_name: str,
-        name: Optional[str],
-        description: Optional[str],
-        visibility: Optional[PortalStorageSpaceVisibility],
-        share_scope: Optional[PortalStorageSpaceShareScope],
-        account_member_role: Optional[PortalStorageSpaceAccountMemberRole],
-        project_key: Optional[str],
-        dataset_label: Optional[str],
-        archived: Optional[bool],
+        update: PortalStorageSpaceUpdate,
     ) -> None:
-        if name is not None:
+        fields_set = update.model_fields_set
+        if "name" in fields_set:
+            name = update.name
+            if name is None:
+                raise PortalBadRequestError("Storage Space name cannot be null.")
             current_name = self._display_storage_space_name(bucket_name, metadata)
             if not metadata.name_editable and name != current_name:
                 raise PortalForbiddenError("Storage Space name cannot be changed for this bucket.")
             if metadata.name_editable:
                 metadata.display_name = name
-        if description is not None:
-            metadata.description = description
+        if "description" in fields_set:
+            metadata.description = update.description
         self._apply_storage_space_sharing_update(
             metadata,
-            visibility=visibility,
-            share_scope=share_scope,
-            account_member_role=account_member_role,
+            update=update,
         )
-        if project_key is not None:
-            metadata.project_key = project_key
-        if dataset_label is not None:
-            metadata.dataset_label = dataset_label
-        if archived is not None:
-            metadata.archived_at = utcnow() if archived else None
+        if "project_key" in fields_set:
+            metadata.project_key = update.project_key
+        if "dataset_label" in fields_set:
+            metadata.dataset_label = update.dataset_label
+        if "archived" in fields_set:
+            metadata.archived_at = utcnow() if update.archived else None
         metadata.updated_at = utcnow()
 
     def _apply_storage_space_sharing_update(
         self,
         metadata: PortalStorageSpaceMetadata,
         *,
-        visibility: Optional[PortalStorageSpaceVisibility],
-        share_scope: Optional[PortalStorageSpaceShareScope],
-        account_member_role: Optional[PortalStorageSpaceAccountMemberRole],
+        update: PortalStorageSpaceUpdate,
     ) -> None:
-        current_visibility = self._metadata_visibility(metadata)
-        next_visibility = visibility if visibility is not None else current_visibility
-        if next_visibility != current_visibility:
-            raise PortalForbiddenError(
-                "Storage Space visibility cannot be changed after creation."
-            )
-        if visibility is None and share_scope is None and account_member_role is None:
+        fields_set = update.model_fields_set
+        if not fields_set.intersection({"share_scope", "account_member_role"}):
             return
 
+        current_visibility = self._metadata_visibility(metadata)
         next_share_scope = (
-            share_scope
-            if share_scope is not None
+            update.share_scope
+            if "share_scope" in fields_set
             else self._metadata_share_scope(metadata)
         )
-        if share_scope is None:
-            next_account_member_role = (
-                account_member_role
-                if account_member_role is not None
-                else self._metadata_account_member_role(metadata)
-            )
+        if next_share_scope is None:
+            raise PortalBadRequestError("Storage Space share scope cannot be null.")
+        if "account_member_role" in fields_set:
+            next_account_member_role = update.account_member_role
+        elif "share_scope" in fields_set:
+            next_account_member_role = None
         else:
-            next_account_member_role = account_member_role
+            next_account_member_role = self._metadata_account_member_role(metadata)
         (
             metadata.share_scope,
             metadata.account_member_role,
         ) = self._validate_storage_space_sharing(
-            next_visibility,
+            current_visibility,
             next_share_scope,
             next_account_member_role,
         )

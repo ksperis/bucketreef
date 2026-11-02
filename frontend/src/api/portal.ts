@@ -90,7 +90,13 @@ type PortalStorageSpaceImport = {
   dataset_label?: string | null;
 };
 
-type PortalStorageSpaceUpdate = Partial<PortalStorageSpaceCreate> & {
+type PortalStorageSpaceUpdate = {
+  name?: string;
+  description?: string | null;
+  share_scope?: PortalStorageSpaceShareScope;
+  account_member_role?: PortalStorageSpaceAccountMemberRole | null;
+  project_key?: string | null;
+  dataset_label?: string | null;
   archived?: boolean;
 };
 
