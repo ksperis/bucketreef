@@ -32,7 +32,6 @@ import {
   BUCKET_COMPARE_CONFIG_FEATURE_OPTIONS,
   BucketCompareManualMappingEditor,
   buildBucketCompareContentSections,
-  extractCompareError,
   formatCompareDisplayLimitMessage,
   formatUnknown,
   getChangedTone,
