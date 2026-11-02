@@ -21,11 +21,9 @@ from app.routers.dependencies import (
 )
 from app.services.audit_service import AuditService
 from app.services.bucket_migration.runtime import (
+    build_bucket_migration_detail,
     build_bucket_migration_service,
     wake_bucket_migration_worker,
-)
-from app.services.mappers.bucket_migration import (
-    bucket_migration_to_detail as _migration_to_detail,
 )
 from app.utils.http_errors import (
     raise_http_error_from_value_error,
@@ -98,9 +96,7 @@ def create_migration(
             "items": len(payload.buckets),
         },
     )
-    items = service.list_migration_items(migration.id)
-    recent_events = service.list_recent_migration_events(migration.id, limit=200)
-    return _migration_to_detail(migration, items=items, recent_events=recent_events)
+    return build_bucket_migration_detail(service, migration, events_limit=200)
 
 
 @router.patch("/{migration_id}", response_model=BucketMigrationDetail)
@@ -139,9 +135,7 @@ def update_migration(
             "items": len(payload.buckets),
         },
     )
-    items = service.list_migration_items(migration.id)
-    recent_events = service.list_recent_migration_events(migration.id, limit=200)
-    return _migration_to_detail(migration, items=items, recent_events=recent_events)
+    return build_bucket_migration_detail(service, migration, events_limit=200)
 
 
 @router.post(
@@ -181,6 +175,4 @@ def run_migration_precheck(
             "configuration_revision": migration.configuration_revision,
         },
     )
-    items = service.list_migration_items(migration.id)
-    recent_events = service.list_recent_migration_events(migration.id, limit=200)
-    return _migration_to_detail(migration, items=items, recent_events=recent_events)
+    return build_bucket_migration_detail(service, migration, events_limit=200)

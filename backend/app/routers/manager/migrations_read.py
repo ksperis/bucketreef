@@ -23,11 +23,11 @@ from app.models.bucket_migration import (
 from app.routers.dependencies import get_current_bucket_migration_scope
 from app.routers.sse_worker import SSE_RESPONSE_HEADERS, format_sse_event
 from app.services.bucket_migration.runtime import (
+    build_bucket_migration_detail,
     build_bucket_migration_service,
     load_migration_stream_snapshot,
 )
 from app.services.mappers.bucket_migration import (
-    bucket_migration_to_detail as _migration_to_detail,
     bucket_migration_to_list_item as _migration_to_list_item,
 )
 from app.utils.http_errors import raise_http_exception_from_exception
@@ -144,9 +144,11 @@ def get_migration(
         migration = service.get_migration(migration_id)
     except BucketMigrationNotFoundError as exc:
         raise_http_exception_from_exception(status.HTTP_404_NOT_FOUND, exc)
-    items = service.list_migration_items(migration.id)
-    recent_events = service.list_recent_migration_events(migration.id, limit=events_limit)
-    return _migration_to_detail(migration, items=items, recent_events=recent_events)
+    return build_bucket_migration_detail(
+        service,
+        migration,
+        events_limit=events_limit,
+    )
 
 
 @router.get("/{migration_id}/stream")
