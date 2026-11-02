@@ -36,12 +36,14 @@ export function useManagerIamCursorCollection<Item>(
   }, []);
 
   useEffect(() => {
+    const normalizedSearch = search.trim();
+    if (normalizedSearch === debouncedSearch) return;
     const handle = window.setTimeout(() => {
-      setDebouncedSearch(search.trim());
+      setDebouncedSearch(normalizedSearch);
       resetCursor();
     }, 250);
     return () => window.clearTimeout(handle);
-  }, [resetCursor, search]);
+  }, [debouncedSearch, resetCursor, search]);
 
   useEffect(() => {
     if (contextId === null) return;

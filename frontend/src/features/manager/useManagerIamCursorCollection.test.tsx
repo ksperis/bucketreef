@@ -24,6 +24,14 @@ describe("useManagerIamCursorCollection", () => {
       await Promise.resolve();
     });
     expect(listPage).toHaveBeenLastCalledWith("acc-1", { marker: null, page_size: 25 });
+    expect(listPage).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      vi.advanceTimersByTime(250);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(listPage).toHaveBeenCalledTimes(1);
 
     act(() => result.current.nextPage());
     await act(async () => {
