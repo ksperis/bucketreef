@@ -105,12 +105,15 @@ describe("bucket details api", () => {
     );
   });
 
-  it("patches sparse manager bucket quota updates", async () => {
-    await managerBucketDetails.updateBucketQuota("account-7", "reports/2026", { max_objects: 100 });
+  it("replaces manager bucket quota configuration explicitly", async () => {
+    await managerBucketDetails.updateBucketQuota("account-7", "reports/2026", {
+      enabled: true,
+      max_objects: 100,
+    });
 
-    expect(clientMock.patch).toHaveBeenCalledWith(
+    expect(clientMock.put).toHaveBeenCalledWith(
       "/manager/buckets/reports%2F2026/quota",
-      { max_objects: 100 },
+      { enabled: true, max_objects: 100 },
       { params: { context_id: "account-7" } },
     );
   });

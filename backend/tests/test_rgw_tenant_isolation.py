@@ -108,7 +108,12 @@ def test_manager_bucket_stats_and_quota_preserve_explicit_tenant(monkeypatch):
     assert summary.used_bytes == 25
     assert calls[0][2]["bucket"] == "same-name"
     configuration = BucketQuotaService()
-    configuration.set_bucket_quota("same-name", context, BucketQuotaUpdate(max_objects=10), rgw_admin=client)
+    configuration.set_bucket_quota(
+        "same-name",
+        context,
+        BucketQuotaUpdate(enabled=True, max_objects=10),
+        rgw_admin=client,
+    )
     assert calls[-1][2]["uid"] == "customer01$analyst"
 
 

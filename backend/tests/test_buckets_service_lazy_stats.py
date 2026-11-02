@@ -442,7 +442,7 @@ def test_set_bucket_quota_calls_single_scope_without_user_lookup(monkeypatch):
     service.set_bucket_quota(
         "bucket-a",
         account,
-        BucketQuotaUpdate(max_size_gb=10, max_size_unit="GiB", max_objects=1000),
+        BucketQuotaUpdate(enabled=True, max_size_gb=10, max_size_unit="GiB", max_objects=1000),
     )
 
     assert captured["bucket"] == "bucket-a"
@@ -477,7 +477,7 @@ def test_set_bucket_quota_uses_injected_rgw_admin_client(monkeypatch):
     service.set_bucket_quota(
         "bucket-b",
         account,
-        BucketQuotaUpdate(max_size_gb=5, max_size_unit="GiB"),
+        BucketQuotaUpdate(enabled=True, max_size_gb=5, max_size_unit="GiB"),
         rgw_admin=FakeRGWAdmin(),
     )
 
@@ -524,7 +524,7 @@ def test_set_bucket_quota_uses_endpoint_admin_credentials(monkeypatch):
     service.set_bucket_quota(
         "bucket-b",
         account,
-        BucketQuotaUpdate(max_size_gb=5, max_size_unit="GiB"),
+        BucketQuotaUpdate(enabled=True, max_size_gb=5, max_size_unit="GiB"),
     )
 
     assert captured["client"]["access_key"] == "endpoint-admin-ak"
@@ -552,8 +552,34 @@ def test_set_bucket_quota_raises_when_rgw_reports_not_found(monkeypatch):
         service.set_bucket_quota(
             "bucket-b",
             account,
-            BucketQuotaUpdate(max_size_gb=5, max_size_unit="GiB"),
+            BucketQuotaUpdate(enabled=True, max_size_gb=5, max_size_unit="GiB"),
         )
         assert False, "Expected RuntimeError for not_found bucket quota response"
     except RuntimeError as exc:
         assert "not found" in str(exc).lower()
+
+
+def test_set_bucket_quota_uses_explicit_disable_state(monkeypatch):
+    service = BucketQuotaService()
+    account = S3Account(
+        name="quota-owner-account",
+        rgw_account_id="RGW00000000000000009",
+        rgw_user_uid="quota-root-09",
+    )
+    captured: dict = {}
+
+    class FakeRGWAdmin:
+        def set_bucket_quota(self, **kwargs):
+            captured.update(kwargs)
+            return {"ok": True}
+
+    service.set_bucket_quota(
+        "bucket-b",
+        account,
+        BucketQuotaUpdate(enabled=False),
+        rgw_admin=FakeRGWAdmin(),
+    )
+
+    assert captured["enabled"] is False
+    assert captured["max_size_bytes"] is None
+    assert captured["max_objects"] is None

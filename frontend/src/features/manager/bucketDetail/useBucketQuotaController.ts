@@ -141,6 +141,7 @@ export function useBucketQuotaController({
     }
 
     const payload: BucketQuotaUpdate = {
+      enabled: parsedSize !== null || parsedObjects !== null,
       max_objects: parsedObjects ?? undefined,
       max_size_gb: parsedSize ?? undefined,
       max_size_unit: parsedSize != null ? normalized.unit : undefined,

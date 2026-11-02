@@ -42,6 +42,7 @@ describe("Ceph Admin bucket details api", () => {
 
     await putCephAdminBucketLifecycle(7, "reports/2026", rules);
     await updateCephAdminBucketQuota(7, "reports/2026", {
+      enabled: true,
       max_objects: 100,
     });
 
@@ -51,9 +52,10 @@ describe("Ceph Admin bucket details api", () => {
       { rules },
       { params: {} },
     );
-    expect(clientMock.patch).toHaveBeenCalledWith(
+    expect(clientMock.put).toHaveBeenNthCalledWith(
+      2,
       "/ceph-admin/endpoints/7/buckets/reports%2F2026/quota",
-      { max_objects: 100 },
+      { enabled: true, max_objects: 100 },
       { params: {} },
     );
   });

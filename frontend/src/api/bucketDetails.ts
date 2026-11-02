@@ -150,7 +150,7 @@ function createBucketDetailsApi(basePath: string) {
       bucketName: string,
       payload: BucketQuotaUpdate,
     ) => {
-      await client.patch(
+      await client.put(
         `${bucketPath(bucketName)}/quota`,
         payload,
         requestConfig(contextId),
