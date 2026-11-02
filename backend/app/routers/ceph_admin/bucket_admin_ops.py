@@ -153,11 +153,9 @@ def delete_bucket(
         invalidate=invalidate_all_admin_ops_caches,
     )
     if response.status_code == status.HTTP_200_OK:
-        tag_service = BucketUiTagsService(db)
-        with tag_service.transaction():
-            tag_service.remove_all_namespaces_for_bucket(
-                PhysicalBucketTarget.create(ctx.endpoint.id, tenant, bucket)
-            )
+        BucketUiTagsService(db).cleanup_deleted_bucket(
+            PhysicalBucketTarget.create(ctx.endpoint.id, tenant, bucket)
+        )
     return response
 
 

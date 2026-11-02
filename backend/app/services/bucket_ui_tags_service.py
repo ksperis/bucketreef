@@ -488,3 +488,9 @@ class BucketUiTagsService:
                     TAG_DOMAIN_BUCKET_UI_STORAGE_OPS,
                 ]
             )
+
+    def cleanup_deleted_bucket(self, target: PhysicalBucketTarget) -> None:
+        """Persist UI-tag cleanup after a bucket was deleted outside this transaction."""
+
+        with self.transaction():
+            self.remove_all_namespaces_for_bucket(target)
