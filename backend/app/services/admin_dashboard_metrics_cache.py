@@ -11,7 +11,7 @@ from threading import Lock
 from time import monotonic
 from typing import Callable
 
-from app.utils.cache import prune_expired_lru_cache
+from app.utils.cache import invalidate_single_flight_cache, prune_expired_lru_cache
 
 DASHBOARD_METRICS_TTL_SECONDS = 1800
 DASHBOARD_METRICS_FAILURE_TTL_SECONDS = 60
@@ -84,6 +84,4 @@ def get_cached_dashboard_metrics(kind: str, fingerprint: str, builder: Callable[
 
 
 def reset_dashboard_metrics_cache() -> None:
-    with _LOCK:
-        _CACHE.clear()
-        _INFLIGHT.clear()
+    invalidate_single_flight_cache(_CACHE, _INFLIGHT, _LOCK)

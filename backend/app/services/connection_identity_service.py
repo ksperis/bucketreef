@@ -26,7 +26,7 @@ from app.utils.rgw_payloads import (
     rgw_qualified_uid,
 )
 from app.utils.storage_endpoint_features import resolve_feature_flags, resolve_rgw_admin_api_endpoint
-from app.utils.cache import TtlCacheEntry, get_or_build_single_flight_cache
+from app.utils.cache import TtlCacheEntry, get_or_build_single_flight_cache, invalidate_single_flight_cache
 
 
 logger = logging.getLogger(__name__)
@@ -64,9 +64,7 @@ _CACHE_LOCK = Lock()
 
 
 def reset_connection_identity_cache_for_tests() -> None:
-    with _CACHE_LOCK:
-        _CACHE.clear()
-        _INFLIGHT.clear()
+    invalidate_single_flight_cache(_CACHE, _INFLIGHT, _CACHE_LOCK)
 
 
 class ConnectionIdentityService:
