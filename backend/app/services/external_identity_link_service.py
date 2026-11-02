@@ -17,7 +17,7 @@ from app.db import ExternalIdentity, ExternalIdentityLinkRequest, ExternalIdenti
 from app.models.external_identity_link import ExternalIdentityLinkProofMethod, ExternalIdentityLinkStatus
 from app.services.audit_service import AuditService
 from app.services.auth_session_service import AuthSessionService, SessionCredentials
-from app.services.external_identity_user_service import ExternalIdentityUserService
+from app.services.external_identity_link_request_service import ExternalIdentityLinkRequestService
 from app.services.identity_security_policy import passkey_required_for_role
 from app.services.ldap_service import LDAPAuthService
 from app.services.user_notifications_service import UserNotificationsService
@@ -273,7 +273,7 @@ class ExternalIdentityLinkService:
             raise ExternalIdentityLinkError("External identity link attempt is unavailable")
         if not attempt.subject:
             raise ExternalIdentityLinkError("External identity must be validated before requesting approval")
-        request = ExternalIdentityUserService(self.db).request_link_approval(
+        request = ExternalIdentityLinkRequestService(self.db).request(
             user=user,
             provider_type=attempt.provider_type,
             provider_id=attempt.provider_id,
