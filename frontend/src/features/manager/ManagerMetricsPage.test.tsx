@@ -307,6 +307,33 @@ describe("ManagerMetricsPage", () => {
     expect(screen.queryByTestId("traffic-analytics")).not.toBeInTheDocument();
   });
 
+  it("does not render the legacy metrics eyebrow for unavailable tab content", async () => {
+    costEnabled = true;
+    costEstimationEnabled = true;
+    useExecutionContextMock.mockReturnValue(
+      buildContext({
+        managerStatsEnabled: false,
+        managerStatsMessage: "Metrics are unavailable: unable to resolve RGW identity for this connection.",
+      })
+    );
+    useManagerStatsMock.mockReturnValue(buildStatsResult({ stats: null }));
+
+    render(
+      <MemoryRouter>
+        <ManagerMetricsPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(getManagerCostMeMock).toHaveBeenCalled());
+    expect(screen.getByText("Storage analytics")).toBeInTheDocument();
+    expect(screen.queryByText("Metrics", { exact: true })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Traffic" }));
+
+    expect(screen.getByRole("heading", { name: "Traffic" })).toBeInTheDocument();
+    expect(screen.queryByText("Metrics", { exact: true })).not.toBeInTheDocument();
+  });
+
   it("keeps disabled storage analytics inside a storage card", () => {
     useExecutionContextMock.mockReturnValue(buildContext({ capabilities: { metrics: false, usage: true } }));
     useManagerStatsMock.mockReturnValue(buildStatsResult({ stats: null }));
