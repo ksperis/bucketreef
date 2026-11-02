@@ -29,10 +29,10 @@ from app.services.audit_service import AuditService
 from app.services.auth_session_service import AuthSessionService
 from app.services.external_identity_user_service import ExternalIdentityUserService
 from app.services.identity_security_policy import (
-    passkey_required_for_role,
     require_admin_interactive_session,
     require_admin_sensitive_action,
 )
+from app.services.identity_security_requirements import passkey_required_for_role
 from app.services.mfa_reset_service import MfaResetService
 from app.services.users_service import UsersService
 from app.utils.http_errors import (

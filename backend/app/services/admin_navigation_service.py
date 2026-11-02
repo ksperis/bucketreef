@@ -12,7 +12,7 @@ from app.db import (
     is_superadmin_ui_role,
 )
 from app.models.admin_navigation import AdminPendingRequestCounts
-from app.services.identity_security_policy import STANDARD_UI_ROLES
+from app.services.identity_security_requirements import STANDARD_UI_ROLES
 from app.utils.time import utcnow
 
 

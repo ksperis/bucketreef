@@ -17,8 +17,8 @@ from app.core.database import SessionLocal
 from app.db import User
 from app.db.enums import UserRole
 from app.services.audit_service import AuditService
+from app.services.identity_security_requirements import passkey_required_for_role
 from app.services.mfa_reset_service import MfaResetService
-from app.services.identity_security_policy import passkey_required_for_role
 
 
 class OperatorRecoveryError(ValueError):
