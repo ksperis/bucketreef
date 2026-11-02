@@ -5,7 +5,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.models.ui_group import UiGroupUpdate
-from app.models.user import UserCreate, UserUpdate
+from app.models.user import UserCreate, UserSelfUpdate, UserUpdate
 
 
 def test_user_create_rejects_null_openstack_associations() -> None:
@@ -59,6 +59,30 @@ def test_user_update_rejects_null_for_concrete_mutations(field: str) -> None:
 @pytest.mark.parametrize("field", ["full_name", "ui_language"])
 def test_user_update_preserves_explicit_nullable_resets(field: str) -> None:
     payload = UserUpdate.model_validate({field: None})
+
+    assert field in payload.model_fields_set
+    assert getattr(payload, field) is None
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "avatar_preference",
+        "quota_alerts_enabled",
+        "quota_alerts_global_watch",
+        "ui_preferences",
+        "current_password",
+        "new_password",
+    ],
+)
+def test_self_update_rejects_null_for_concrete_mutations(field: str) -> None:
+    with pytest.raises(ValidationError, match=rf"{field} cannot be null"):
+        UserSelfUpdate.model_validate({field: None})
+
+
+@pytest.mark.parametrize("field", ["full_name", "ui_language"])
+def test_self_update_preserves_explicit_nullable_resets(field: str) -> None:
+    payload = UserSelfUpdate.model_validate({field: None})
 
     assert field in payload.model_fields_set
     assert getattr(payload, field) is None

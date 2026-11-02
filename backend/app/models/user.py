@@ -153,6 +153,18 @@ class UserProfilePreferencesUpdate(ApiModel):
     quota_alerts_enabled: Optional[bool] = None
     quota_alerts_global_watch: Optional[bool] = None
 
+    @model_validator(mode="after")
+    def reject_non_nullable_profile_nulls(self) -> Self:
+        reject_explicit_null_fields(
+            self,
+            (
+                "avatar_preference",
+                "quota_alerts_enabled",
+                "quota_alerts_global_watch",
+            ),
+        )
+        return self
+
 
 class UserUpdate(UserProfilePreferencesUpdate, UserAssociationsPayload):
     email: Optional[EmailStr] = None
@@ -174,9 +186,6 @@ class UserUpdate(UserProfilePreferencesUpdate, UserAssociationsPayload):
             self,
             (
                 "email",
-                "avatar_preference",
-                "quota_alerts_enabled",
-                "quota_alerts_global_watch",
                 "password",
                 "role",
                 "is_active",
@@ -202,6 +211,18 @@ class UserSelfUpdate(UserProfilePreferencesUpdate):
     ui_preferences: Optional[UiPreferences] = None
     current_password: Optional[str] = None
     new_password: Optional[str] = None
+
+    @model_validator(mode="after")
+    def reject_non_nullable_nulls(self) -> Self:
+        reject_explicit_null_fields(
+            self,
+            (
+                "ui_preferences",
+                "current_password",
+                "new_password",
+            ),
+        )
+        return self
 
 
 class EffectiveUserAccess(ApiModel):

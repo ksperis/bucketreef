@@ -126,7 +126,7 @@ def update_users_me(
     except ValueError as exc:
         raise_bad_request_from_value_error(exc)
 
-    audit_metadata = payload.model_dump(exclude_none=True)
+    audit_metadata = payload.model_dump(exclude_unset=True)
     if "current_password" in audit_metadata:
         audit_metadata["current_password"] = "<redacted>"
     if "new_password" in audit_metadata:

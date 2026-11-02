@@ -216,7 +216,7 @@ type UpdateCurrentUserPayload = {
   ui_language?: "en" | "fr" | "de" | "zh" | null;
   quota_alerts_enabled?: boolean;
   quota_alerts_global_watch?: boolean;
-  ui_preferences?: UiPreferencesUpdate | null;
+  ui_preferences?: UiPreferencesUpdate;
   current_password?: string;
   new_password?: string;
 };
