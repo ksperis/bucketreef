@@ -44,7 +44,6 @@ type CreateRolePayload = {
 };
 
 type UpdateRolePayload = {
-  path?: string;
   assume_role_policy_document?: Record<string, unknown> | string;
   max_session_duration?: number;
 };

@@ -41,10 +41,6 @@ def update_iam_role(
     existing = service.get_role(role_name)
     if existing is None:
         raise ManagerIAMRoleNotFoundError("Role not found")
-    if payload.path is not None and payload.path != existing.path:
-        raise ValueError(
-            "Updating an IAM role path is not supported. Create a new role with the desired path."
-        )
 
     assume_policy = _parse_assume_role_policy(payload.assume_role_policy_document)
     duration_changed = (

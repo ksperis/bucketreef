@@ -2,10 +2,10 @@
 # Licensed under the Apache License, Version 2.0
 from typing import Annotated, Optional, Union
 
-from pydantic import AfterValidator, Field
+from pydantic import AfterValidator, Field, model_validator
 
 from app.models.access_key_metadata import AccessKeyMetadata
-from app.models.base import ApiModel
+from app.models.base import ApiModel, reject_explicit_null_fields
 from app.utils.resource_names import validate_iam_name
 from app.models.policy import InlinePolicy, Policy
 
@@ -89,6 +89,11 @@ class IAMUserUpdate(ApiModel):
     name: Optional[_IAMUserName] = None
     path: Optional[_IAMPath] = None
 
+    @model_validator(mode="after")
+    def _reject_null_updates(self) -> "IAMUserUpdate":
+        reject_explicit_null_fields(self, ("name", "path"))
+        return self
+
 
 class IAMUserWithKey(IAMUser):
     access_key: Optional[AccessKey] = None
@@ -113,6 +118,11 @@ class IAMGroupCreate(ApiModel):
 class IAMGroupUpdate(ApiModel):
     name: Optional[_IAMGroupName] = None
     path: Optional[_IAMPath] = None
+
+    @model_validator(mode="after")
+    def _reject_null_updates(self) -> "IAMGroupUpdate":
+        reject_explicit_null_fields(self, ("name", "path"))
+        return self
 
 
 class IAMTag(ApiModel):
@@ -142,9 +152,16 @@ class IAMRoleCreate(ApiModel):
 
 
 class IAMRoleUpdate(ApiModel):
-    path: Optional[_IAMPath] = None
     assume_role_policy_document: Optional[Union[dict, str]] = None
     max_session_duration: Optional[int] = Field(default=None, ge=3600, le=43200)
+
+    @model_validator(mode="after")
+    def _reject_null_updates(self) -> "IAMRoleUpdate":
+        reject_explicit_null_fields(
+            self,
+            ("assume_role_policy_document", "max_session_duration"),
+        )
+        return self
 
 
 class IAMUserPage(ApiModel):
