@@ -86,7 +86,7 @@ export default function CreateManagedPrivateAccessModal({
 
   const inlineFormatError = inlinePolicyNameFormatError(inlineName.trim(), "user", namingValidationProfile ?? "standard");
   const namingRulesPending = variant === "iam" && namingValidationProfile === null;
-  const title = text(variant === "iam" ? "Create my private access" : "Create my private RGW access");
+  const title = text(variant === "iam" ? "Create my personal access" : "Create my personal RGW access");
   const selectedInlineNames = useMemo(() => new Set(inlinePolicies.map((policy) => policy.name)), [inlinePolicies]);
   const availablePolicies = useMemo(
     () => policies.items.filter((policy) => policy.arn !== AMAZON_S3_FULL_ACCESS_POLICY_ARN),
@@ -364,7 +364,7 @@ export default function CreateManagedPrivateAccessModal({
           </UiDetails>
           <ModalActions>
             <SettingsButton variant="secondary" onClick={closeGuard.requestClose}>{text("Cancel")}</SettingsButton>
-            <SettingsButton type="submit" disabled={namingRulesPending}>{text(busy ? "Creating…" : "Create my private access")}</SettingsButton>
+            <SettingsButton type="submit" disabled={namingRulesPending}>{text(busy ? "Creating…" : "Create my personal access")}</SettingsButton>
           </ModalActions>
         </fieldset>
       </form>

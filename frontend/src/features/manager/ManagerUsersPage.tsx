@@ -471,7 +471,7 @@ export default function ManagerUsersPage() {
                 onClick: openCreateForm,
               },
               ...(managerPrivateAccessEnabled
-                ? [{ label: text("Create my private access"), onClick: () => setShowPrivateAccessModal(true), variant: "primary" as const }]
+                ? [{ label: text("Create my personal access"), onClick: () => setShowPrivateAccessModal(true), variant: "primary" as const }]
                 : []),
             ]
           : []}

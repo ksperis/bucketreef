@@ -350,7 +350,7 @@ export default function ManagerCephKeysPage() {
         ...(canProvisionManagedPrivateAccess
           ? [
               {
-                label: text("Create my private access"),
+                label: text("Create my personal access"),
                 onClick: () => setShowPrivateAccessModal(true),
                 variant: canManageCephKeys ? ("secondary" as const) : ("primary" as const),
               },

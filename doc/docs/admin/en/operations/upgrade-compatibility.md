@@ -2225,7 +2225,7 @@ resources are not modified, adopted, or contacted during Alembic.
 
 Deploy backend and frontend together so Manager does not expose a provisioning
 action before the specialized endpoints and immutable-credential rules are
-available. After upgrade, smoke-test both **Create my private access** branches,
+available. After upgrade, smoke-test both **Create my personal access** branches,
 Profile deletion, and **Retry cleanup**. A `cleanup_pending` row is operational
 state, not disposable bookkeeping: retain it until the idempotent remote
 cleanup succeeds.
