@@ -80,6 +80,7 @@ export default function ManagerBucketComparePage() {
         />
       ) : (
         <ManagerBucketSelectionPanel
+          title={text("Source buckets")}
           description={text("{context} · Select source buckets to compare across manager contexts.", {
             context: sourceContext ? sourceContext.display_name : text("Source context"),
           })}

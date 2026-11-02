@@ -97,6 +97,7 @@ describe("ManagerBucketComparePage", () => {
       </MemoryRouter>,
     );
 
+    expect(screen.getByRole("heading", { name: "Source buckets" })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Filter source buckets"), {
       target: { value: "alp" },
     });

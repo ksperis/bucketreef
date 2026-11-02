@@ -17,6 +17,7 @@ import { useManagerI18n } from "./managerI18n";
 type ManagerBucketSelectionPanelProps = {
   className?: string;
   countLabel?: ReactNode;
+  title?: string;
   description: string;
   filter: string;
   filterPlaceholder: string;
@@ -41,6 +42,7 @@ type ManagerBucketSelectionPanelProps = {
 export default function ManagerBucketSelectionPanel({
   className = "ui-surface-card",
   countLabel,
+  title,
   description,
   filter,
   filterPlaceholder,
@@ -84,7 +86,7 @@ export default function ManagerBucketSelectionPanel({
   return (
     <div className={className}>
       <ListToolbar
-        title={text("Buckets")}
+        title={title ?? text("Buckets")}
         description={description}
         variant="section"
         countLabel={countLabel ?? text(total === 1 ? "{count} result" : "{count} results", { count: total })}

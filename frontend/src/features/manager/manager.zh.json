@@ -1203,6 +1203,7 @@
   "{count} result": "{count} 个结果",
   "{count} results": "{count} 个结果",
   "{count} shown on this page": "本页显示 {count} 项",
+  "Source buckets": "源Bucket",
   "{context} · Select source buckets to compare across manager contexts.": "{context} · 选择源Bucket以在 Manager 上下文之间进行比较。",
   "{context} · Select buckets to purge.": "{context} · 选择要清空的Bucket。",
   "{context} · Select buckets to check.": "{context} · 选择要检查的Bucket。",
