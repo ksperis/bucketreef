@@ -11,13 +11,15 @@ import usePaginatedOptions from "../../hooks/usePaginatedOptions";
 export default function useAdminPrincipalCatalogs() {
   const usersLoader = usePaginatedOptions(listUserOptions);
   const groupsLoader = usePaginatedOptions(listGroupOptions);
+  const { refresh: refreshUsers } = usersLoader;
+  const { refresh: refreshGroups } = groupsLoader;
   const loadUsers = useCallback(
-    async () => usersLoader.refresh(),
-    [usersLoader.refresh],
+    async () => refreshUsers(),
+    [refreshUsers],
   );
   const loadGroups = useCallback(
-    async () => groupsLoader.refresh(),
-    [groupsLoader.refresh],
+    async () => refreshGroups(),
+    [refreshGroups],
   );
 
   return {

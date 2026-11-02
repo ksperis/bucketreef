@@ -57,20 +57,25 @@ export default function useAdminGroupAssociationOptions({
     enabled: openStackEnabled,
     initialPageSize: 10,
   });
+  const { refresh: refreshUsers } = users;
+  const { refresh: refreshAccounts } = accounts;
+  const { refresh: refreshS3Users } = s3Users;
+  const { refresh: refreshConnections } = connections;
+  const { refresh: refreshOpenStackClouds } = openStackClouds;
 
   const refresh = useCallback(async () => {
-    users.refresh();
-    accounts.refresh();
-    s3Users.refresh();
-    connections.refresh();
-    if (openStackEnabled) openStackClouds.refresh();
+    refreshUsers();
+    refreshAccounts();
+    refreshS3Users();
+    refreshConnections();
+    if (openStackEnabled) refreshOpenStackClouds();
   }, [
-    accounts.refresh,
-    connections.refresh,
-    openStackClouds.refresh,
     openStackEnabled,
-    s3Users.refresh,
-    users.refresh,
+    refreshAccounts,
+    refreshConnections,
+    refreshOpenStackClouds,
+    refreshS3Users,
+    refreshUsers,
   ]);
 
   const error =

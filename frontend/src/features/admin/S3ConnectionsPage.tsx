@@ -252,11 +252,13 @@ export default function S3ConnectionsPage() {
   }, [loadGroups, loadPortalUsers]);
 
   useEffect(() => {
-    usersPagination.setSearch(editUserPicker.search);
+    const setSearch = usersPagination.setSearch;
+    setSearch(editUserPicker.search);
   }, [editUserPicker.search, usersPagination.setSearch]);
 
   useEffect(() => {
-    groupsPagination.setSearch(editGroupPicker.search);
+    const setSearch = groupsPagination.setSearch;
+    setSearch(editGroupPicker.search);
   }, [editGroupPicker.search, groupsPagination.setSearch]);
 
   const createValidationPayload = useMemo(
