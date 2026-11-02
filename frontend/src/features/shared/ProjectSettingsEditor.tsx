@@ -3,7 +3,6 @@ import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import { useEffect, useRef, useState } from "react";
 import type { S3AccountId } from "../../api/accountParams";
 import type { PortalProjectSettings } from "../../api/portalAccounts";
-import type { PortalSettingsOverride } from "../../api/appSettings";
 import PageBanner from "../../components/PageBanner";
 import {
   SettingsItem,
@@ -29,10 +28,10 @@ import { translate, type I18nMessage } from "../../i18n";
 import {
   emptyForm,
   formFromSettings,
-  mergeProjectOverrides,
-  mergeDelegation,
+  buildProjectSettingsUpdate,
   ProjectSettingsConflict,
   type ProjectSettingsForm,
+  type ProjectSettingsUpdate,
 } from "./projectSettingsForm";
 import { useSharedI18n } from "./sharedI18n";
 
@@ -44,13 +43,6 @@ type FlagField = {
     ? K
     : never;
 }[keyof ProjectSettingsForm];
-
-export type ProjectSettingsUpdate = {
-  override: PortalSettingsOverride;
-  delegated_to_portal_managers?: boolean;
-  portal_collaborator_role_management_delegated?: boolean;
-  portal_collaborator_addition_delegated?: boolean;
-};
 
 export type ProjectSettingsAdapter = {
   load: (accountId: S3AccountId) => Promise<PortalProjectSettings>;
@@ -178,29 +170,12 @@ export default function ProjectSettingsEditor({
         setError("access");
         return;
       }
-      const payload: ProjectSettingsUpdate = {
-        override: mergeProjectOverrides(
-          baseline,
-          draft,
-          latest.project_override,
-        ),
-      };
-      if (admin) {
-        payload.delegated_to_portal_managers = mergeDelegation(
-          baseline.delegatedToPortalManagers, draft.delegatedToPortalManagers,
-          latest.delegated_to_portal_managers,
-        );
-        payload.portal_collaborator_role_management_delegated = mergeDelegation(
-          baseline.collaboratorRoleManagementDelegated,
-          draft.collaboratorRoleManagementDelegated,
-          latest.portal_collaborator_role_management_delegated,
-        );
-        payload.portal_collaborator_addition_delegated = mergeDelegation(
-          baseline.collaboratorAdditionDelegated,
-          draft.collaboratorAdditionDelegated,
-          latest.portal_collaborator_addition_delegated,
-        );
-      }
+      const payload = buildProjectSettingsUpdate({
+        baseline,
+        draft,
+        latest,
+        admin,
+      });
       const next = await adapter.save(accountId, payload);
       if (!active.current) return;
       setSettings(next);

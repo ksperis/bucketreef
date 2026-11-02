@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { emptyForm, mergeProjectOverrides, ProjectSettingsConflict } from "./projectSettingsForm";
+import {
+  buildProjectSettingsUpdate,
+  emptyForm,
+  mergeProjectOverrides,
+  ProjectSettingsConflict,
+} from "./projectSettingsForm";
 
 describe("project override merge", () => {
   it("preserves unrelated flags and defaults changed on the server", () => {
@@ -54,6 +59,67 @@ describe("project override merge", () => {
     ).toEqual({
       allow_portal_user_access_key_create: false,
       allow_portal_user_external_sharing: true,
+    });
+  });
+});
+
+describe("project settings update payload", () => {
+  const latest = {
+    project_override: {
+      allow_portal_named_bucket_create: true,
+    },
+    delegated_to_portal_managers: true,
+    portal_collaborator_role_management_delegated: false,
+    portal_collaborator_addition_delegated: true,
+  } as Parameters<typeof buildProjectSettingsUpdate>[0]["latest"];
+
+  it("keeps Portal saves limited to the canonical replacement override", () => {
+    const draft = {
+      ...emptyForm,
+      browserAccess: "disabled" as const,
+    };
+
+    expect(
+      buildProjectSettingsUpdate({
+        baseline: emptyForm,
+        draft,
+        latest,
+        admin: false,
+      }),
+    ).toEqual({
+      override: {
+        browser_access_enabled: false,
+        allow_portal_named_bucket_create: true,
+      },
+    });
+  });
+
+  it("adds merged delegation controls for Admin saves", () => {
+    const baseline = {
+      ...emptyForm,
+      delegatedToPortalManagers: true,
+      collaboratorAdditionDelegated: true,
+    };
+    const draft = {
+      ...baseline,
+      collaboratorRoleManagementDelegated: true,
+      collaboratorAdditionDelegated: false,
+    };
+
+    expect(
+      buildProjectSettingsUpdate({
+        baseline,
+        draft,
+        latest,
+        admin: true,
+      }),
+    ).toEqual({
+      override: {
+        allow_portal_named_bucket_create: true,
+      },
+      delegated_to_portal_managers: true,
+      portal_collaborator_role_management_delegated: true,
+      portal_collaborator_addition_delegated: false,
     });
   });
 });
