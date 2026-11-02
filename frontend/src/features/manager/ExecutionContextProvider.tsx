@@ -4,7 +4,12 @@
  */
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import type { ExecutionContext } from "../../api/executionContexts";
-import { fetchManagerContext, type ManagerAccessMode, type ManagerPrivateAccessState } from "../../api/managerContext";
+import {
+  fetchManagerContext,
+  type ManagerAccessMode,
+  type ManagerContext,
+  type ManagerPrivateAccessState,
+} from "../../api/managerContext";
 import type { FeatureState } from "../../api/featurePolicies";
 import { useExecutionContextCatalog } from "../../hooks/useExecutionContextCatalog";
 import { useExecutionDestinationSelection } from "../../hooks/useExecutionDestinationSelection";
@@ -43,6 +48,18 @@ type ExecutionContextState = {
   managerPrivateAccessEnabled: boolean | null;
   managerPrivateAccessState: ManagerPrivateAccessState | null;
   managerFeatureStates: Record<string, FeatureState> | null;
+};
+
+type ManagerContextSnapshot = {
+  contextId: string | null;
+  data: ManagerContext | null;
+  failed: boolean;
+};
+
+const EMPTY_MANAGER_CONTEXT_SNAPSHOT: ManagerContextSnapshot = {
+  contextId: null,
+  data: null,
+  failed: false,
 };
 
 const defaultExecutionContextState: ExecutionContextState = {
@@ -107,20 +124,9 @@ export function ExecutionContextProvider({ children, scope = "manager" }: Execut
         ? "Access to browser contexts is denied for this user."
         : "Access to manager is denied for this user.",
   });
-  const [namingProfileState, setNamingProfileState] = useState<{ contextId: string | null; profile: NamingValidationProfile } | null>(null);
-  const [iamIdentity, setIamIdentity] = useState<string | null>(null);
-  const [accessMode, setAccessModeState] = useState<ManagerAccessMode | null>(null);
-  const [managerStatsEnabled, setManagerStatsEnabled] = useState<boolean | null>(null);
-  const [managerStatsMessage, setManagerStatsMessage] = useState<string | null>(null);
-  const [managerBrowserEnabled, setManagerBrowserEnabled] = useState<boolean | null>(null);
-  const [managerBrowserMessage, setManagerBrowserMessage] = useState<string | null>(null);
-  const [managerBucketQuotaEnabled, setManagerBucketQuotaEnabled] = useState<boolean | null>(null);
-  const [managerCephKeysEnabled, setManagerCephKeysEnabled] = useState<boolean | null>(null);
-  const [managerAccessKeyMetadataEnabled, setManagerAccessKeyMetadataEnabled] = useState<boolean | null>(null);
-  const [managerAccessKeyExpirationEnabled, setManagerAccessKeyExpirationEnabled] = useState<boolean | null>(null);
-  const [managerPrivateAccessEnabled, setManagerPrivateAccessEnabled] = useState<boolean | null>(null);
-  const [managerPrivateAccessState, setManagerPrivateAccessState] = useState<ManagerPrivateAccessState | null>(null);
-  const [managerFeatureStates, setManagerFeatureStates] = useState<Record<string, FeatureState> | null>(null);
+  const [managerContextState, setManagerContextState] = useState<ManagerContextSnapshot>(
+    EMPTY_MANAGER_CONTEXT_SNAPSHOT,
+  );
   const [managerContextRefreshToken, setManagerContextRefreshToken] = useState(0);
   const hasExecutionContext = requiresContextSelection ? selectedContext !== null : true;
   const contextIdForApi = requiresContextSelection ? selectedContextId : null;
@@ -139,8 +145,8 @@ export function ExecutionContextProvider({ children, scope = "manager" }: Execut
     destinationSwitchingAvailable,
   });
 
-  const namingValidationProfile = hasExecutionContext && namingProfileState?.contextId === contextIdForApi
-    ? namingProfileState.profile : null;
+  const namingValidationProfile = hasExecutionContext && managerContextState.contextId === contextIdForApi
+    ? managerContextState.data?.naming_validation_profile ?? null : null;
 
   useEffect(() => {
     if (scope !== "manager") return;
@@ -150,68 +156,22 @@ export function ExecutionContextProvider({ children, scope = "manager" }: Execut
   }, [scope]);
 
   useEffect(() => {
-    setNamingProfileState(null);
+    setManagerContextState(EMPTY_MANAGER_CONTEXT_SNAPSHOT);
     if (!hasExecutionContext) {
-      setIamIdentity(null);
-      setAccessModeState(null);
-      setManagerStatsEnabled(null);
-      setManagerStatsMessage(null);
-      setManagerBrowserEnabled(null);
-      setManagerBrowserMessage(null);
-      setManagerBucketQuotaEnabled(null);
-      setManagerCephKeysEnabled(null);
-      setManagerAccessKeyMetadataEnabled(null);
-      setManagerAccessKeyExpirationEnabled(null);
-      setManagerPrivateAccessEnabled(null);
-      setManagerPrivateAccessState(null);
-      setManagerFeatureStates(null);
       return;
     }
     let isMounted = true;
-    setManagerStatsEnabled(null);
-    setManagerStatsMessage(null);
-    setManagerBrowserEnabled(null);
-    setManagerBrowserMessage(null);
-    setManagerBucketQuotaEnabled(null);
-    setManagerCephKeysEnabled(null);
-    setManagerAccessKeyMetadataEnabled(null);
-    setManagerAccessKeyExpirationEnabled(null);
-    setManagerPrivateAccessEnabled(null);
-    setManagerPrivateAccessState(null);
-    setManagerFeatureStates(null);
     fetchManagerContext(contextIdForApi)
       .then((data) => {
         if (!isMounted) return;
-        setNamingProfileState({ contextId: contextIdForApi, profile: data.naming_validation_profile });
-        setIamIdentity(data.iam_identity);
-        setAccessModeState(data.access_mode);
-        setManagerStatsEnabled(data.manager_stats_enabled);
-        setManagerStatsMessage(data.manager_stats_message);
-        setManagerBrowserEnabled(data.manager_browser_enabled);
-        setManagerBrowserMessage(data.manager_browser_message);
-        setManagerBucketQuotaEnabled(data.manager_bucket_quota_enabled);
-        setManagerCephKeysEnabled(data.manager_ceph_keys_enabled);
-        setManagerAccessKeyMetadataEnabled(data.manager_access_key_metadata_enabled);
-        setManagerAccessKeyExpirationEnabled(data.manager_access_key_expiration_enabled);
-        setManagerPrivateAccessEnabled(data.manager_private_access_enabled);
-        setManagerPrivateAccessState(data.manager_private_access_state);
-        setManagerFeatureStates(data.feature_states);
+        setManagerContextState({ contextId: contextIdForApi, data, failed: false });
       })
       .catch(() => {
         if (!isMounted) return;
-        setIamIdentity(null);
-        setAccessModeState(null);
-        setManagerStatsEnabled(null);
-        setManagerStatsMessage(null);
-        setManagerBrowserEnabled(null);
-        setManagerBrowserMessage(null);
-        setManagerBucketQuotaEnabled(null);
-        setManagerCephKeysEnabled(null);
-        setManagerAccessKeyMetadataEnabled(null);
-        setManagerAccessKeyExpirationEnabled(null);
-        setManagerPrivateAccessEnabled(null);
-        setManagerPrivateAccessState(null);
-        setManagerFeatureStates({});
+        setManagerContextState({
+          ...EMPTY_MANAGER_CONTEXT_SNAPSHOT,
+          failed: true,
+        });
       });
     return () => {
       isMounted = false;
@@ -236,19 +196,20 @@ export function ExecutionContextProvider({ children, scope = "manager" }: Execut
         selectedStorageEndpointCapabilities,
         setExecutionEndpointId,
         accessError,
-        iamIdentity,
-        accessMode,
-        managerStatsEnabled,
-        managerStatsMessage,
-        managerBrowserEnabled,
-        managerBrowserMessage,
-        managerBucketQuotaEnabled,
-        managerCephKeysEnabled,
-        managerAccessKeyMetadataEnabled,
-        managerAccessKeyExpirationEnabled,
-        managerPrivateAccessEnabled,
-        managerPrivateAccessState,
-        managerFeatureStates,
+        iamIdentity: managerContextState.data?.iam_identity ?? null,
+        accessMode: managerContextState.data?.access_mode ?? null,
+        managerStatsEnabled: managerContextState.data?.manager_stats_enabled ?? null,
+        managerStatsMessage: managerContextState.data?.manager_stats_message ?? null,
+        managerBrowserEnabled: managerContextState.data?.manager_browser_enabled ?? null,
+        managerBrowserMessage: managerContextState.data?.manager_browser_message ?? null,
+        managerBucketQuotaEnabled: managerContextState.data?.manager_bucket_quota_enabled ?? null,
+        managerCephKeysEnabled: managerContextState.data?.manager_ceph_keys_enabled ?? null,
+        managerAccessKeyMetadataEnabled: managerContextState.data?.manager_access_key_metadata_enabled ?? null,
+        managerAccessKeyExpirationEnabled: managerContextState.data?.manager_access_key_expiration_enabled ?? null,
+        managerPrivateAccessEnabled: managerContextState.data?.manager_private_access_enabled ?? null,
+        managerPrivateAccessState: managerContextState.data?.manager_private_access_state ?? null,
+        managerFeatureStates: managerContextState.data?.feature_states
+          ?? (managerContextState.failed ? {} : null),
       }}
     >
       {children}

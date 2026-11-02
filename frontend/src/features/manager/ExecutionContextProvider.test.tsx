@@ -53,6 +53,8 @@ function Probe() {
     selectedContextId,
     selectedContextKind,
     namingValidationProfile,
+    iamIdentity,
+    managerStatsEnabled,
     selectedExecutionEndpointId,
     selectedStorageEndpointCapabilities,
     setExecutionEndpointId,
@@ -63,6 +65,10 @@ function Probe() {
     <>
       <div data-testid="selected">{selectedContextId ?? "null"}</div>
       <div data-testid="naming-profile">{namingValidationProfile ?? "pending"}</div>
+      <div data-testid="iam-identity">{iamIdentity ?? "pending"}</div>
+      <div data-testid="manager-stats">
+        {managerStatsEnabled == null ? "pending" : String(managerStatsEnabled)}
+      </div>
       <button type="button" onClick={() => navigate("/manager?ctx=s3u-2")}>Switch context</button>
       <div data-testid="selected-type">{selectedContextKind ?? "null"}</div>
       <div data-testid="selected-endpoint">{selectedExecutionEndpointId ?? "null"}</div>
@@ -300,9 +306,23 @@ it("clears the naming profile on context switches and ignores stale context resp
   await user.click(screen.getByRole("button", { name: "Switch context" }));
   await waitFor(() => expect(fetchManagerContextMock).toHaveBeenCalledWith("s3u-2"));
   expect(screen.getByTestId("naming-profile")).toHaveTextContent("pending");
-  await act(async () => resolveSecond(buildManagerContext({ naming_validation_profile: "standard" })));
+  expect(screen.getByTestId("iam-identity")).toHaveTextContent("pending");
+  expect(screen.getByTestId("manager-stats")).toHaveTextContent("pending");
+  await act(async () => resolveSecond(buildManagerContext({
+    naming_validation_profile: "standard",
+    iam_identity: "second-context",
+    manager_stats_enabled: false,
+  })));
   expect(screen.getByTestId("naming-profile")).toHaveTextContent("standard");
-  await act(async () => resolveFirst(buildManagerContext({ naming_validation_profile: "ceph" })));
+  expect(screen.getByTestId("iam-identity")).toHaveTextContent("second-context");
+  expect(screen.getByTestId("manager-stats")).toHaveTextContent("false");
+  await act(async () => resolveFirst(buildManagerContext({
+    naming_validation_profile: "ceph",
+    iam_identity: "stale-first-context",
+    manager_stats_enabled: true,
+  })));
   expect(screen.getByTestId("naming-profile")).toHaveTextContent("standard");
+  expect(screen.getByTestId("iam-identity")).toHaveTextContent("second-context");
+  expect(screen.getByTestId("manager-stats")).toHaveTextContent("false");
 });
 });
