@@ -335,7 +335,7 @@ class WebhookService:
             event_type=row.event_type,
             is_test=bool(row.is_test),
             status=row.status,
-            attempt_count=int(row.attempt_count or 0),
+            attempt_count=int(row.attempt_count),
             last_http_status=row.last_http_status,
             last_error=row.last_error,
             updated_at=row.updated_at,

@@ -74,7 +74,7 @@ def bucket_migration_item_to_view(item: BucketMigrationItem) -> BucketMigrationI
         recovery_required=bool(item.preparation_effects),
         source_deleted=bool(item.source_deleted),
         cleanup_error=item.cleanup_error,
-        objects_copied=int(item.objects_copied or 0),
+        objects_copied=int(item.objects_copied),
         different_count=item.different_count,
         only_source_count=item.only_source_count,
         only_target_count=item.only_target_count,

@@ -153,7 +153,7 @@ class WebhookDeliveryWorker:
         if 200 <= status_code < 300:
             now = utcnow()
             delivery.status = "delivered"
-            delivery.attempt_count = int(delivery.attempt_count or 0) + 1
+            delivery.attempt_count = int(delivery.attempt_count) + 1
             delivery.last_error = None
             delivery.delivered_at = now
             delivery.updated_at = now
@@ -169,7 +169,7 @@ class WebhookDeliveryWorker:
             )
             return
 
-        delivery.attempt_count = int(delivery.attempt_count or 0) + 1
+        delivery.attempt_count = int(delivery.attempt_count) + 1
         self._fail_terminal(delivery, f"HTTP {status_code}")
 
     def _deliver_one(self, delivery_id: int) -> None:
@@ -220,7 +220,7 @@ class WebhookDeliveryWorker:
         error: object,
         retry_after_seconds: int | None = None,
     ) -> None:
-        attempts = int(delivery.attempt_count or 0) + 1
+        attempts = int(delivery.attempt_count) + 1
         delivery.attempt_count = attempts
         if attempts >= self._runtime.max_attempts:
             self._fail_terminal(delivery, error)
