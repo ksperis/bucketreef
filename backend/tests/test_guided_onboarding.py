@@ -31,7 +31,7 @@ from app.models.storage_endpoint import (
 from app.services import app_settings_service as settings_service
 from app.services import onboarding_service as progress_module
 from app.services import onboarding_setup_service as setup_service
-from app.services import user_associations_service as user_associations_module
+from app.services import portal_role_sync as portal_role_sync_module
 from app.services.managed_resource_naming import onboarding_sample_account_name
 from app.services.onboarding_endpoint_setup_service import OnboardingEndpointSetupService
 from app.services.onboarding_service import OnboardingError, OnboardingService, REQUIRED_FEATURES
@@ -434,12 +434,12 @@ def test_manager_and_portal_share_one_sample_account_with_independent_roles(
     )
     monkeypatch.setattr(guided.endpoints, "detect_features", lambda *_args, **_kwargs: detection())
     monkeypatch.setattr(
-        user_associations_module,
+        portal_role_sync_module,
         "sync_portal_role_downgrades",
         lambda *_args, **_kwargs: None,
     )
     monkeypatch.setattr(
-        user_associations_module,
+        portal_role_sync_module,
         "sync_portal_role_promotions",
         lambda *_args, **_kwargs: None,
     )
@@ -557,12 +557,12 @@ def test_manager_and_portal_role_axes_remain_independent(
     )
     monkeypatch.setattr(guided.endpoints, "detect_features", lambda *_args, **_kwargs: detection())
     monkeypatch.setattr(
-        user_associations_module,
+        portal_role_sync_module,
         "sync_portal_role_downgrades",
         lambda *_args, **_kwargs: None,
     )
     monkeypatch.setattr(
-        user_associations_module,
+        portal_role_sync_module,
         "sync_portal_role_promotions",
         lambda *_args, **_kwargs: None,
     )

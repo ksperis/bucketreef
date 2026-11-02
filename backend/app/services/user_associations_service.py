@@ -27,8 +27,7 @@ from app.services.association_sync import (
 from app.services.association_validation import ensure_association_ids_exist, ensure_shared_s3_connections
 from app.services.portal_role_sync import (
     capture_effective_portal_roles,
-    sync_portal_role_downgrades,
-    sync_portal_role_promotions,
+    commit_portal_role_changes,
 )
 from app.utils.account_roles import ManagerAccountRoleValue, PortalAccountRoleValue
 from app.utils.time import utcnow
@@ -155,25 +154,11 @@ class UserAssociationsService:
             portal_role=portal_role,
         )
 
-        after_roles = capture_effective_portal_roles(
-            self.db,
-            user_ids=[user.id],
-            account_ids=[account.id],
-        )
-        try:
-            sync_portal_role_downgrades(
-                self.db,
-                before=before_roles,
-                after=after_roles,
-            )
-            self.db.commit()
-        except Exception:
-            self.db.rollback()
-            raise
-        sync_portal_role_promotions(
+        commit_portal_role_changes(
             self.db,
             before=before_roles,
-            after=after_roles,
+            user_ids=[user.id],
+            account_ids=[account.id],
         )
         self.db.refresh(user)
         return user

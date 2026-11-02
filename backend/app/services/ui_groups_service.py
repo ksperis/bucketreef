@@ -34,10 +34,8 @@ from app.services.association_sync import (
 from app.services.association_validation import ensure_association_ids_exist, ensure_shared_s3_connections
 from app.services.manager_tool_access import manager_tool_column_values
 from app.services.portal_role_sync import (
-    PortalRoleMap,
     capture_effective_portal_roles,
-    sync_portal_role_downgrades,
-    sync_portal_role_promotions,
+    commit_portal_role_changes,
 )
 from app.services.ui_group_avatar_service import UiGroupAvatarService
 from app.services.ui_group_query_service import UiGroupQueryService
@@ -73,28 +71,6 @@ class UiGroupsService:
         )
         return user_ids, account_ids
 
-    def _commit_portal_role_changes(
-        self,
-        *,
-        before: PortalRoleMap,
-        user_ids: set[int],
-        account_ids: set[int],
-        sync_promotions: bool = True,
-    ) -> None:
-        after = capture_effective_portal_roles(
-            self.db,
-            user_ids=user_ids,
-            account_ids=account_ids,
-        )
-        try:
-            sync_portal_role_downgrades(self.db, before=before, after=after)
-            self.db.commit()
-        except Exception:
-            self.db.rollback()
-            raise
-        if sync_promotions:
-            sync_portal_role_promotions(self.db, before=before, after=after)
-
     def create_group(self, payload: UiGroupCreate) -> UiGroup:
         name = self._available_name(payload.name)
         affected_user_ids = {int(user_id) for user_id in payload.user_ids}
@@ -127,7 +103,8 @@ class UiGroupsService:
         if payload.openstack_cloud_ids:
             self._set_openstack_cloud_links(group, payload.openstack_cloud_ids)
         self.db.flush()
-        self._commit_portal_role_changes(
+        commit_portal_role_changes(
+            self.db,
             before=portal_roles_before,
             user_ids=affected_user_ids,
             account_ids=affected_account_ids,
@@ -149,7 +126,8 @@ class UiGroupsService:
         group.updated_at = utcnow()
         self.db.add(group)
         self.db.flush()
-        self._commit_portal_role_changes(
+        commit_portal_role_changes(
+            self.db,
             before=portal_roles_before,
             user_ids=affected_user_ids,
             account_ids=affected_account_ids,
@@ -214,7 +192,8 @@ class UiGroupsService:
         )
         self.db.delete(group)
         self.db.flush()
-        self._commit_portal_role_changes(
+        commit_portal_role_changes(
+            self.db,
             before=portal_roles_before,
             user_ids=affected_user_ids,
             account_ids=affected_account_ids,
