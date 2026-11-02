@@ -136,6 +136,7 @@ def test_build_daily_from_rollups_keeps_empty_days_in_requested_range():
             up_count=1,
             degraded_count=0,
             down_count=0,
+            latency_sample_count=0,
         )
     ]
 

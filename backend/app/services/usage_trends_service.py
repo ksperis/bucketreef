@@ -58,8 +58,8 @@ def _serialize_usage_trend_baseline(
         window=window,
         label=label,
         period_start=row.day.isoformat(),
-        used_bytes=int(row.last_used_bytes or 0),
-        used_objects=int(row.last_used_objects or 0),
+        used_bytes=int(row.last_used_bytes),
+        used_objects=int(row.last_used_objects),
         bucket_count=int(row.bucket_count) if row.bucket_count is not None else None,
         collected_at=row.updated_at.isoformat() if row.updated_at else None,
     )
