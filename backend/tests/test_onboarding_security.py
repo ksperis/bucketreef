@@ -55,7 +55,12 @@ def test_apply_requires_authorized_recent_interactive_session(db_session, client
         raise OnboardingError("test_service_reached", 409)
 
     monkeypatch.setattr(OnboardingService, "apply", reached_service)
-    payload = {"revision": 1, "confirmed": True, "review_token": "0" * 64}
+    payload = {
+        "revision": 1,
+        "confirmed": True,
+        "review_token": "0" * 64,
+        "service_identity_mode": "managed",
+    }
     response = client.post(
         "/api/admin/onboarding/journeys/00000000-0000-4000-8000-000000000001/apply",
         json=payload, headers=headers,
