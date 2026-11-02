@@ -744,6 +744,27 @@ def test_update_user_persists_privileged_target_grants(db_session, monkeypatch):
     assert record.allow_bucket_usage_stats_collection is True
 
 
+def test_update_user_explicit_null_clears_email(db_session, monkeypatch):
+    endpoint = _seed_ceph_endpoint(db_session)
+    service = _build_service(db_session, monkeypatch, FakeRGWAdmin())
+    created = service.create_user(
+        S3UserCreate(
+            name="Clear email",
+            uid="clear-email",
+            rgw_tenant="",
+            email="user@example.test",
+            storage_endpoint_id=endpoint.id,
+        )
+    )
+
+    updated = service.update_user(created.id, S3UserUpdate(email=None))
+
+    assert updated.email is None
+    record = db_session.get(S3User, created.id)
+    assert record is not None
+    assert record.email is None
+
+
 def test_rotate_keys_replaces_old_credentials_and_deletes_previous(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session)
     fake = FakeRGWAdmin()

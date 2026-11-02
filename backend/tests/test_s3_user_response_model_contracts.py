@@ -103,6 +103,19 @@ def test_s3_user_update_uses_minimal_association_inputs() -> None:
     assert payload.group_links[0].allow_manager_browser_data_access is False
 
 
+@pytest.mark.parametrize("field_name", ["name", "user_links", "group_links", "tags"])
+def test_s3_user_update_rejects_null_for_non_nullable_fields(field_name: str) -> None:
+    with pytest.raises(ValidationError, match=f"{field_name} cannot be null"):
+        S3UserUpdate.model_validate({field_name: None})
+
+
+def test_s3_user_update_keeps_explicit_nullable_email() -> None:
+    payload = S3UserUpdate(email=None)
+
+    assert payload.email is None
+    assert payload.model_fields_set == {"email"}
+
+
 @pytest.mark.parametrize(
     ("model_type", "payload"),
     [

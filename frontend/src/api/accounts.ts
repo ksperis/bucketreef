@@ -142,10 +142,10 @@ type UpdateS3AccountPayload = {
   quota_max_objects?: number | null;
   user_links?: AccountUserLinkInput[];
   group_links?: AccountGroupLinkInput[];
-  name?: string | null;
+  name?: string;
   email?: string | null;
   storage_endpoint_id?: number;
-  tags?: TagDefinitionInput[] | null;
+  tags?: TagDefinitionInput[];
   allow_bucket_quota_management?: boolean | null;
   allow_access_key_metadata?: boolean | null;
   allow_access_key_expiration?: boolean | null;

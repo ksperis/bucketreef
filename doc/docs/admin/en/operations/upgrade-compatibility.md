@@ -801,6 +801,18 @@ required contract instead of allowing callers to rely on the backend default.
 Deploy the backend and bundled frontend together. No database migration is
 required.
 
+## 2026-11 canonical Admin RGW resource PATCH nullability
+
+Admin RGW Account and RGW User PATCH payloads now distinguish omission from an
+explicit `null`. `email: null` clears the stored optional email, while omitting
+`email` preserves it. Non-nullable update fields such as `name`, association
+lists, tags, and the Account storage endpoint reject explicit `null`; use an
+empty list to clear associations or tags. Nullable quota values and feature
+overrides keep their existing clear/inherit semantics.
+
+Deploy the backend and bundled frontend together. No database migration is
+required.
+
 ## 2026-11 explicit Admin principal access on create
 
 Admin creation of local UI users, LDAP-imported UI users, and UI groups now

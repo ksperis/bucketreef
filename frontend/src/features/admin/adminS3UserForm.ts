@@ -72,7 +72,7 @@ export function adminS3UserPayload(
 ): UpdateS3UserPayload {
   return {
     name: form.name || undefined,
-    email: form.email || undefined,
+    email: form.email.trim() || null,
     tags: normalizeUiTags(form.tags),
     user_links: form.user_links.map((link) => ({ ...link })),
     group_links: form.group_links.map((link) => ({ ...link })),

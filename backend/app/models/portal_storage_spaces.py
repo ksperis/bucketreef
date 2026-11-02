@@ -8,7 +8,7 @@ from typing import Literal, Optional
 
 from pydantic import Field, ValidationInfo, field_validator, model_validator
 
-from app.models.base import ApiModel
+from app.models.base import ApiModel, reject_explicit_null_fields
 from app.models.user import UserAvatar
 from app.utils.resource_names import validate_s3_bucket_name
 
@@ -142,7 +142,5 @@ class PortalStorageSpaceUpdate(ApiModel):
 
     @model_validator(mode="after")
     def _reject_null_for_non_nullable_updates(self) -> "PortalStorageSpaceUpdate":
-        for field_name in ("name", "share_scope", "archived"):
-            if field_name in self.model_fields_set and getattr(self, field_name) is None:
-                raise ValueError(f"{field_name} cannot be null")
+        reject_explicit_null_fields(self, ("name", "share_scope", "archived"))
         return self

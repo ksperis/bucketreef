@@ -129,6 +129,22 @@ def test_s3_account_update_uses_minimal_association_inputs() -> None:
 
 
 @pytest.mark.parametrize(
+    "field_name",
+    ["name", "storage_endpoint_id", "user_links", "group_links", "tags"],
+)
+def test_s3_account_update_rejects_null_for_non_nullable_fields(field_name: str) -> None:
+    with pytest.raises(ValidationError, match=f"{field_name} cannot be null"):
+        S3AccountUpdate.model_validate({field_name: None})
+
+
+def test_s3_account_update_keeps_explicit_nullable_email() -> None:
+    payload = S3AccountUpdate(email=None)
+
+    assert payload.email is None
+    assert payload.model_fields_set == {"email"}
+
+
+@pytest.mark.parametrize(
     ("model_type", "payload"),
     [
         (
