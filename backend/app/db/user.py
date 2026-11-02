@@ -18,6 +18,10 @@ class User(Base):
             "role IN ('ui_superadmin', 'ui_admin', 'ui_user', 'ui_none')",
             name="ck_users_role",
         ),
+        CheckConstraint(
+            "avatar_preference IN ('auto', 'uploaded', 'gravatar', 'initials')",
+            name="ck_users_avatar_preference",
+        ),
     )
 
     id = Column(Integer, primary_key=True, index=True)
