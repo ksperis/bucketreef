@@ -3,12 +3,13 @@
 import json
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
-from typing import Any, List, Optional, Union
+from typing import List, Optional, Union
 
 from app.models.iam import AccessKey, IAMGroup, IAMRole, IAMTag, IAMUser
 from app.models.policy import Policy
 from app.core.config import get_settings
 from app.services.aws_client_config import build_interactive_aws_config
+from app.services.rgw_iam_pagination import iam_matches_fields, list_iam_all, list_iam_page
 from app.services.s3_execution_context import S3ExecutionTarget
 from app.utils.aws_errors import aws_error_code
 from app.utils.s3_endpoint import resolve_iam_client_options
@@ -76,76 +77,6 @@ class RGWIAMService:
             secret_access_key=data.get("SecretAccessKey") if include_secret else None,
         )
 
-    def _list_all(self, operation_name: str, result_key: str, **kwargs) -> list[Any]:
-        items: list[Any] = []
-        marker: str | None = None
-        seen_markers: set[str] = set()
-        while True:
-            request = dict(kwargs)
-            if marker is not None:
-                request["Marker"] = marker
-            response = getattr(self.client, operation_name)(**request)
-            items.extend(response.get(result_key, []) or [])
-            if not response.get("IsTruncated"):
-                return items
-            next_marker = response.get("Marker")
-            if not isinstance(next_marker, str) or not next_marker or next_marker in seen_markers:
-                raise RuntimeError(
-                    f"IAM pagination for {operation_name} returned IsTruncated without a usable Marker"
-                )
-            seen_markers.add(next_marker)
-            marker = next_marker
-
-    def _list_page(
-        self,
-        operation_name: str,
-        result_key: str,
-        *,
-        marker: str | None = None,
-        max_items: int = 25,
-        search: str | None = None,
-        matcher=None,
-        max_requests: int = 20,
-        **kwargs,
-    ) -> tuple[list[Any], str | None]:
-        """Return a bounded IAM page without materializing the full RGW catalog.
-
-        IAM exposes Marker/MaxItems instead of totals. Search therefore advances
-        through bounded native pages until enough matching rows are collected or
-        the request budget is exhausted. MaxItems is reduced to the remaining
-        result capacity so no matching row is skipped between cursors.
-        """
-        items: list[Any] = []
-        current_marker = marker
-        needle = (search or "").strip().lower()
-        request_count = 0
-        seen_markers: set[str] = set()
-        while len(items) < max_items and request_count < max_requests:
-            request = dict(kwargs)
-            request["MaxItems"] = max(1, max_items - len(items))
-            if current_marker:
-                request["Marker"] = current_marker
-            response = getattr(self.client, operation_name)(**request)
-            request_count += 1
-            page_items = response.get(result_key, []) or []
-            if needle and matcher is not None:
-                page_items = [item for item in page_items if matcher(item, needle)]
-            items.extend(page_items)
-            if not response.get("IsTruncated"):
-                return items[:max_items], None
-            next_marker = response.get("Marker")
-            if not isinstance(next_marker, str) or not next_marker or next_marker in seen_markers:
-                raise RuntimeError(
-                    f"IAM pagination for {operation_name} returned IsTruncated without a usable Marker"
-                )
-            seen_markers.add(next_marker)
-            current_marker = next_marker
-        return items[:max_items], current_marker
-
-    @staticmethod
-    def _matches_fields(data: dict, needle: str, *fields: str) -> bool:
-        return any(needle in str(data.get(field) or "").lower() for field in fields)
-
     def list_users_page(
         self,
         *,
@@ -154,13 +85,14 @@ class RGWIAMService:
         search: str | None = None,
     ) -> tuple[list[IAMUser], str | None]:
         try:
-            rows, next_marker = self._list_page(
+            rows, next_marker = list_iam_page(
+                self.client,
                 "list_users",
                 "Users",
                 marker=marker,
                 max_items=max_items,
                 search=search,
-                matcher=lambda row, needle: self._matches_fields(row, needle, "UserName", "Arn", "Path"),
+                matcher=lambda row, needle: iam_matches_fields(row, needle, "UserName", "Arn", "Path"),
             )
             return [
                 IAMUser(
@@ -179,21 +111,22 @@ class RGWIAMService:
     def list_users(self) -> List[IAMUser]:
         try:
             users: List[IAMUser] = []
-            for u in self._list_all("list_users", "Users"):
+            for u in list_iam_all(self.client, "list_users", "Users"):
                 name = u.get("UserName")
                 arn = u.get("Arn")
                 user_id = u.get("UserId")
                 if not name:
                     # Skip malformed entries that don't expose a username
                     continue
-                user_groups = self._list_all("list_groups_for_user", "Groups", UserName=name)
+                user_groups = list_iam_all(self.client, "list_groups_for_user", "Groups", UserName=name)
                 group_names = [g.get("GroupName") for g in user_groups if g.get("GroupName")]
-                attached = self._list_all(
+                attached = list_iam_all(
+                    self.client,
                     "list_attached_user_policies", "AttachedPolicies", UserName=name
                 )
                 policy_arns = [p.get("PolicyArn") for p in attached if p.get("PolicyArn")]
-                inline_names = self._list_all("list_user_policies", "PolicyNames", UserName=name)
-                key_metadata = self._list_all("list_access_keys", "AccessKeyMetadata", UserName=name)
+                inline_names = list_iam_all(self.client, "list_user_policies", "PolicyNames", UserName=name)
+                key_metadata = list_iam_all(self.client, "list_access_keys", "AccessKeyMetadata", UserName=name)
                 users.append(
                     IAMUser(
                         name=name,
@@ -291,7 +224,7 @@ class RGWIAMService:
 
     def list_access_keys(self, user_name: str) -> List[AccessKey]:
         try:
-            keys = self._list_all("list_access_keys", "AccessKeyMetadata", UserName=user_name)
+            keys = list_iam_all(self.client, "list_access_keys", "AccessKeyMetadata", UserName=user_name)
         except (BotoCoreError, ClientError) as exc:
             raise RuntimeError(f"Unable to list IAM access keys: {exc}") from exc
         return [self._format_access_key(k) for k in keys]
@@ -325,7 +258,8 @@ class RGWIAMService:
 
     def list_user_policies(self, user_name: str) -> List[Policy]:
         try:
-            policies = self._list_all(
+            policies = list_iam_all(
+                self.client,
                 "list_attached_user_policies", "AttachedPolicies", UserName=user_name
             )
         except (BotoCoreError, ClientError) as exc:
@@ -334,7 +268,7 @@ class RGWIAMService:
 
     def list_user_inline_policies(self, user_name: str) -> list[str]:
         try:
-            policies = self._list_all("list_user_policies", "PolicyNames", UserName=user_name)
+            policies = list_iam_all(self.client, "list_user_policies", "PolicyNames", UserName=user_name)
             return [p for p in policies if p]
         except (BotoCoreError, ClientError) as exc:
             raise RuntimeError(f"Unable to list inline policies for user: {exc}") from exc
@@ -385,7 +319,7 @@ class RGWIAMService:
 
     def list_groups_for_user(self, user_name: str) -> List[IAMGroup]:
         try:
-            groups = self._list_all("list_groups_for_user", "Groups", UserName=user_name)
+            groups = list_iam_all(self.client, "list_groups_for_user", "Groups", UserName=user_name)
             return [
                 IAMGroup(name=g.get("GroupName"), arn=g.get("Arn"), path=g.get("Path"))
                 for g in groups
@@ -398,10 +332,11 @@ class RGWIAMService:
     def list_groups(self) -> List[IAMGroup]:
         try:
             groups: List[IAMGroup] = []
-            for g in self._list_all("list_groups", "Groups"):
+            for g in list_iam_all(self.client, "list_groups", "Groups"):
                 name = g.get("GroupName")
                 arn = g.get("Arn")
-                attached = self._list_all(
+                attached = list_iam_all(
+                    self.client,
                     "list_attached_group_policies", "AttachedPolicies", GroupName=name
                 )
                 policy_arns = [p.get("PolicyArn") for p in attached if p.get("PolicyArn")]
@@ -418,13 +353,14 @@ class RGWIAMService:
         search: str | None = None,
     ) -> tuple[list[IAMGroup], str | None]:
         try:
-            rows, next_marker = self._list_page(
+            rows, next_marker = list_iam_page(
+                self.client,
                 "list_groups",
                 "Groups",
                 marker=marker,
                 max_items=max_items,
                 search=search,
-                matcher=lambda row, needle: self._matches_fields(row, needle, "GroupName", "Arn", "Path"),
+                matcher=lambda row, needle: iam_matches_fields(row, needle, "GroupName", "Arn", "Path"),
             )
             return [
                 IAMGroup(name=row.get("GroupName"), arn=row.get("Arn"), path=row.get("Path"))
@@ -462,7 +398,8 @@ class RGWIAMService:
             group = resp.get("Group", {}) or {}
             if not group:
                 return None
-            attached = self._list_all(
+            attached = list_iam_all(
+                self.client,
                 "list_attached_group_policies", "AttachedPolicies", GroupName=name
             )
             policy_arns = [p.get("PolicyArn") for p in attached if p.get("PolicyArn")]
@@ -521,7 +458,8 @@ class RGWIAMService:
 
     def list_group_policies(self, group_name: str) -> List[Policy]:
         try:
-            policies = self._list_all(
+            policies = list_iam_all(
+                self.client,
                 "list_attached_group_policies", "AttachedPolicies", GroupName=group_name
             )
         except (BotoCoreError, ClientError) as exc:
@@ -530,7 +468,7 @@ class RGWIAMService:
 
     def list_group_inline_policies(self, group_name: str) -> list[str]:
         try:
-            policies = self._list_all("list_group_policies", "PolicyNames", GroupName=group_name)
+            policies = list_iam_all(self.client, "list_group_policies", "PolicyNames", GroupName=group_name)
             return [p for p in policies if p]
         except (BotoCoreError, ClientError) as exc:
             raise RuntimeError(f"Unable to list inline policies for group: {exc}") from exc
@@ -583,10 +521,11 @@ class RGWIAMService:
     def list_roles(self) -> List[IAMRole]:
         try:
             roles: List[IAMRole] = []
-            for r in self._list_all("list_roles", "Roles"):
+            for r in list_iam_all(self.client, "list_roles", "Roles"):
                 name = r.get("RoleName")
                 arn = r.get("Arn")
-                attached = self._list_all(
+                attached = list_iam_all(
+                    self.client,
                     "list_attached_role_policies", "AttachedPolicies", RoleName=name
                 )
                 policy_arns = [p.get("PolicyArn") for p in attached if p.get("PolicyArn")]
@@ -611,13 +550,14 @@ class RGWIAMService:
         search: str | None = None,
     ) -> tuple[list[IAMRole], str | None]:
         try:
-            rows, next_marker = self._list_page(
+            rows, next_marker = list_iam_page(
+                self.client,
                 "list_roles",
                 "Roles",
                 marker=marker,
                 max_items=max_items,
                 search=search,
-                matcher=lambda row, needle: self._matches_fields(row, needle, "RoleName", "Arn", "Path"),
+                matcher=lambda row, needle: iam_matches_fields(row, needle, "RoleName", "Arn", "Path"),
             )
             return [
                 IAMRole(
@@ -665,7 +605,8 @@ class RGWIAMService:
         try:
             resp = self.client.get_role(RoleName=name)
             data = resp.get("Role", {}) or {}
-            attached = self._list_all(
+            attached = list_iam_all(
+                self.client,
                 "list_attached_role_policies", "AttachedPolicies", RoleName=name
             )
             policy_arns = [p.get("PolicyArn") for p in attached if p.get("PolicyArn")]
@@ -712,7 +653,7 @@ class RGWIAMService:
 
     def list_role_tags(self, role_name: str) -> list[IAMTag]:
         try:
-            tags = self._list_all("list_role_tags", "Tags", RoleName=role_name)
+            tags = list_iam_all(self.client, "list_role_tags", "Tags", RoleName=role_name)
             return [
                 IAMTag(key=tag.get("Key", ""), value=tag.get("Value", ""))
                 for tag in tags
@@ -752,7 +693,7 @@ class RGWIAMService:
 
     def list_policies(self) -> List[Policy]:
         try:
-            policies = self._list_all("list_policies", "Policies", Scope="Local")
+            policies = list_iam_all(self.client, "list_policies", "Policies", Scope="Local")
             return [self._policy_from_data(p) for p in policies]
         except (BotoCoreError, ClientError):
             # Ceph RGW Squid/Quincy may not implement ListPolicies; fall back to known managed set
@@ -766,13 +707,14 @@ class RGWIAMService:
         search: str | None = None,
     ) -> tuple[list[Policy], str | None]:
         try:
-            rows, next_marker = self._list_page(
+            rows, next_marker = list_iam_page(
+                self.client,
                 "list_policies",
                 "Policies",
                 marker=marker,
                 max_items=max_items,
                 search=search,
-                matcher=lambda row, needle: self._matches_fields(row, needle, "PolicyName", "Arn", "Path"),
+                matcher=lambda row, needle: iam_matches_fields(row, needle, "PolicyName", "Arn", "Path"),
                 Scope="Local",
             )
             return [self._policy_from_data(row) for row in rows], next_marker
@@ -834,7 +776,8 @@ class RGWIAMService:
 
     def list_role_policies(self, role_name: str) -> List[Policy]:
         try:
-            policies = self._list_all(
+            policies = list_iam_all(
+                self.client,
                 "list_attached_role_policies", "AttachedPolicies", RoleName=role_name
             )
         except (BotoCoreError, ClientError) as exc:
@@ -843,7 +786,7 @@ class RGWIAMService:
 
     def list_role_inline_policies(self, role_name: str) -> list[str]:
         try:
-            policies = self._list_all("list_role_policies", "PolicyNames", RoleName=role_name)
+            policies = list_iam_all(self.client, "list_role_policies", "PolicyNames", RoleName=role_name)
             return [p for p in policies if p]
         except (BotoCoreError, ClientError) as exc:
             raise RuntimeError(f"Unable to list inline policies for role: {exc}") from exc
