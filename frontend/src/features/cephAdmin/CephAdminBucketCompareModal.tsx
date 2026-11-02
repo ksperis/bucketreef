@@ -7,16 +7,16 @@ import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import PaginationControls from "../../components/PaginationControls";
 import BucketCompareSetup, { BucketCompareProgress } from "../shared/BucketCompareSetup";
 import WorkflowPage from "../../components/WorkflowPage";
-import { ListActionButton, ListBadge } from "../../components/list/ListControls";
+import { ListBadge } from "../../components/list/ListControls";
 import UiButton from "../../components/ui/UiButton";
 import UiInput from "../../components/ui/UiInput";
 import {
+  BucketCompareContentDiff,
   BucketCompareFeedback,
   BucketCompareResult,
   BucketCompareResultFilters,
   BucketCompareSection,
 } from "../shared/BucketCompareResults";
-import BucketCompareObjectDetails from "../shared/BucketCompareObjectDetails";
 import UiSelect from "../../components/ui/UiSelect";
 import { runWithConcurrencySettled } from "../../utils/concurrency";
 import {
@@ -32,7 +32,6 @@ import {
   BUCKET_COMPARE_CONFIG_FEATURE_OPTIONS,
   BucketCompareManualMappingEditor,
   buildBucketCompareContentSections,
-  formatCompareDisplayLimitMessage,
   formatUnknown,
   getChangedTone,
   getObjectParentPrefix,
@@ -505,9 +504,6 @@ export default function CephAdminBucketCompareModal({
             />
             {filteredItems.map((item) => {
               const content = item.result?.content_diff;
-              const contentHasDifferences = Boolean(
-                content && (content.different_count > 0 || content.only_source_count > 0 || content.only_target_count > 0)
-              );
               const contentSections = content
                 ? buildBucketCompareContentSections(content).map((section) => ({
                     ...section,
@@ -542,97 +538,26 @@ export default function CephAdminBucketCompareModal({
                       </BucketCompareFeedback>
                     )}
                     {content && (
-                      <BucketCompareSection
-                        summary={
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="ui-caption font-semibold text-slate-700 dark:text-slate-200">
-                              {surfaceText("Content diff (md5 or size)")}</span>
-                            <ListBadge tone={getChangedTone(contentHasDifferences)}>
-                              {contentHasDifferences ? surfaceText("Different") : surfaceText("Identical")}
-                            </ListBadge>
-                          </div>
-                        }
-                      >
-                        <div className="mt-2 space-y-3">
-                          {contentSections.map((section) => {
-                            const sectionFeedbackId = `${item.sourceBucket}:${item.targetBucket}:content:${section.key}`;
-                            const sectionCopyFeedback = copyFeedback?.id === sectionFeedbackId ? copyFeedback : null;
-                            const displayLimitMessage = formatCompareDisplayLimitMessage(
-                              section.objectCount,
-                              section.visibleCount,
-                              section.hiddenCount
-                            );
-                            return (
-                              <BucketCompareSection
-                                key={sectionFeedbackId}
-                                summary={
-                                  <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      <span className="ui-caption font-semibold text-slate-700 dark:text-slate-200">{section.label}</span>
-                                      <ListBadge tone={getChangedTone(section.changed)}>
-                                        {section.changed ? surfaceText("Different") : surfaceText("Identical")}
-                                      </ListBadge>
-                                      {displayLimitMessage && (
-                                        <ListBadge tone="warning">
-                                          {surfaceText("Showing")}{section.visibleCount} {surfaceText("of")}{section.objectCount}
-                                        </ListBadge>
-                                      )}
-                                    </div>
-                                    {section.changed && section.copyKeys.length > 0 && (
-                                      <ListActionButton
-                                        variant="secondary"
-                                        onClick={(event) => {
-                                          event.preventDefault();
-                                          event.stopPropagation();
-                                          void copyVisibleKeys(sectionFeedbackId, section.copyKeys);
-                                        }}
-                                      >
-                                        {surfaceText("Copy keys")}</ListActionButton>
-                                    )}
-                                  </div>
-                                }
-                              >
-                                <div className="mt-1 space-y-2 pb-2">
-                                  {sectionCopyFeedback && (
-                                    <BucketCompareFeedback tone={sectionCopyFeedback.tone} announce>
-                                      {sectionCopyFeedback.message}
-                                    </BucketCompareFeedback>
-                                  )}
-                                  {displayLimitMessage && (
-                                    <BucketCompareFeedback tone="warning">
-                                      {displayLimitMessage}
-                                    </BucketCompareFeedback>
-                                  )}
-                                  <div className="grid gap-2 lg:grid-cols-2">
-                                    <div className="space-y-1">
-                                      <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                        {surfaceText("Source")}</p>
-                                      <BucketCompareObjectDetails rows={section.sourceDetails} options={{
-                                        onExplore: openExploreConfirm,
-                                        buildBrowserHref: (detail) =>
-                                          buildCephAdminBrowserHref(sourceEndpointId, item.sourceRef, detail.key),
-                                      }} />
-                                    </div>
-                                    <div className="space-y-1">
-                                      <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                        {surfaceText("Target")}</p>
-                                      <BucketCompareObjectDetails rows={section.targetDetails} options={{
-                                        onExplore: openExploreConfirm,
-                                        buildBrowserHref: (detail) =>
-                                          buildCephAdminBrowserHref(
-                                            item.result?.target_endpoint_id ?? targetEndpointId ?? sourceEndpointId,
-                                            item.targetRef,
-                                            detail.key
-                                          ),
-                                      }} />
-                                    </div>
-                                  </div>
-                                </div>
-                              </BucketCompareSection>
-                            );
-                          })}
-                        </div>
-                      </BucketCompareSection>
+                      <BucketCompareContentDiff
+                        sectionIdPrefix={`${item.sourceBucket}:${item.targetBucket}:content`}
+                        sections={contentSections}
+                        copyFeedback={copyFeedback}
+                        onCopyVisibleKeys={copyVisibleKeys}
+                        getSourceOptions={() => ({
+                          onExplore: openExploreConfirm,
+                          buildBrowserHref: (detail) =>
+                            buildCephAdminBrowserHref(sourceEndpointId, item.sourceRef, detail.key),
+                        })}
+                        getTargetOptions={() => ({
+                          onExplore: openExploreConfirm,
+                          buildBrowserHref: (detail) =>
+                            buildCephAdminBrowserHref(
+                              item.result?.target_endpoint_id ?? targetEndpointId ?? sourceEndpointId,
+                              item.targetRef,
+                              detail.key,
+                            ),
+                        })}
+                      />
                     )}
                     {item.result?.config_diff && (
                       <BucketCompareSection

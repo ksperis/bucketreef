@@ -12,13 +12,13 @@ import { ListActionButton, ListBadge } from "../../components/list/ListControls"
 import UiButton from "../../components/ui/UiButton";
 import UiInput from "../../components/ui/UiInput";
 import {
+  BucketCompareContentDiff,
   BucketCompareFeedback,
   BucketCompareResult,
   BucketCompareResultFilters,
   BucketCompareSection,
   type BucketCompareFeedbackTone,
 } from "../shared/BucketCompareResults";
-import BucketCompareObjectDetails from "../shared/BucketCompareObjectDetails";
 import UiSelect from "../../components/ui/UiSelect";
 import { proxyDownload } from "../../api/browserTransfers";
 import { runWithConcurrencySettled } from "../../utils/concurrency";
@@ -44,7 +44,6 @@ import {
   CompareVisibleKeysCopyFeedback,
   buildBucketCompareContentSections,
   extractCompareError,
-  formatCompareDisplayLimitMessage,
   formatUnknown,
   getChangedTone,
   getObjectParentPrefix,
@@ -53,6 +52,7 @@ import {
   renderDiffLines,
   resolveBucketCompareRunError,
   summarizeBucketCompareRun,
+  type BucketCompareContentSection,
   useBucketCompareWorkflowState,
 } from "../shared/bucketCompareShared";
 import {
@@ -768,12 +768,8 @@ export default function ManagerBucketCompareModal({
             />
             {filteredItems.map(({ item, index: itemIndex }) => {
               const content = item.result?.content_diff;
-              const contentHasDifferences = Boolean(
-                content && (content.different_count > 0 || content.only_source_count > 0 || content.only_target_count > 0)
-              );
               const contentSections = content
                 ? buildBucketCompareContentSections(content).map((section) => {
-                    const action = remediationSectionActionMap[section.key];
                     const label =
                       section.key === "source_only"
                         ? text("Source only ({count})", { count: section.objectCount })
@@ -783,15 +779,6 @@ export default function ManagerBucketCompareModal({
                     return {
                       ...section,
                       label,
-                      action: section.changed
-                        ? {
-                            type: action,
-                            label:
-                              section.hiddenCount > 0
-                                ? text(remediationVisibleActionLabel[action])
-                                : text(remediationActionLabel[action]),
-                          }
-                        : null,
                     };
                   })
                 : [];
@@ -805,6 +792,60 @@ export default function ManagerBucketCompareModal({
                 })) ?? [];
               const configHasDifferences = Boolean(item.result?.config_diff?.changed);
               const bucketHasDifferences = Boolean(item.result?.has_differences);
+              const sourceContextForRow = item.result?.source_context_id ?? sourceContextId;
+              const targetContextForRow =
+                item.result?.target_context_id || lastRunOptions?.targetContextId || targetContextId || "";
+              const renderObjectActions = (
+                section: BucketCompareContentSection,
+                sectionFeedbackId: string,
+                contextId: string,
+                bucket: string,
+                includeRemediation: boolean,
+                remediationVariant: "secondary" | "danger",
+              ) => (detail: BucketCompareObjectDetail, closeMetadata: () => void) => {
+                const downloadId = `${contextId}:${bucket}:${detail.key}`;
+                const downloadDisabled =
+                  Boolean(managerBrowserDisabledReason) || Boolean(downloadInFlight) || running;
+                const remediationAction = remediationSectionActionMap[section.key];
+                return (
+                  <>
+                    <ListActionButton
+                      variant="secondary"
+                      disabled={downloadDisabled}
+                      title={managerBrowserDisabledReason ?? undefined}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        closeMetadata();
+                        void downloadCompareObject({
+                          contextId,
+                          bucket,
+                          key: detail.key,
+                          feedbackId: sectionFeedbackId,
+                        });
+                      }}
+                    >
+                      {text(downloadInFlight === downloadId ? "Downloading..." : "Download")}
+                    </ListActionButton>
+                    {!isDemo && section.changed && includeRemediation && (
+                      <ListActionButton
+                        variant={remediationVariant}
+                        disabled={running || item.status !== "success" || Boolean(item.actionRunning)}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          closeMetadata();
+                          openRemediationConfirm(itemIndex, section.key, [detail.key]);
+                        }}
+                      >
+                        {item.actionRunning === remediationAction
+                          ? "Running..."
+                          : remediationSingleActionLabel[remediationAction]}
+                      </ListActionButton>
+                    )}
+                  </>
+                );
+              };
               return (
                 <BucketCompareResult
                   key={`${item.sourceBucket}->${item.targetBucket}:${item.status}:${bucketHasDifferences ? "diff" : "same"}`}
@@ -823,208 +864,92 @@ export default function ManagerBucketCompareModal({
                       </BucketCompareFeedback>
                     )}
                     {content && (
-                      <BucketCompareSection
-                        summary={
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="ui-caption font-semibold text-slate-700 dark:text-slate-200">
-                              {text("Content diff (md5 or size)")}
-                            </span>
-                            <ListBadge tone={getChangedTone(contentHasDifferences)}>
-                              {text(contentHasDifferences ? "Different" : "Identical")}
-                            </ListBadge>
-                          </div>
-                        }
-                      >
-                        <div className="mt-2 space-y-3">
-                          {contentSections.map((section) => {
-                            const sectionFeedbackId = `${item.sourceBucket}:${item.targetBucket}:content:${section.key}`;
-                            const sectionCopyFeedback = copyFeedback?.id === sectionFeedbackId ? copyFeedback : null;
-                            const sectionDownloadFeedback =
-                              downloadFeedback?.id === sectionFeedbackId ? downloadFeedback : null;
-                            const displayLimitMessage = formatCompareDisplayLimitMessage(
-                              section.objectCount,
-                              section.visibleCount,
-                              section.hiddenCount
-                            );
-                            const sourceContextForRow = item.result?.source_context_id ?? sourceContextId;
-                            const targetContextForRow =
-                              item.result?.target_context_id || lastRunOptions?.targetContextId || targetContextId || "";
-                            const renderObjectActions = (
-                              contextId: string,
-                              bucket: string,
-                              includeRemediation: boolean,
-                              remediationVariant: "secondary" | "danger"
-                            ) => (detail: BucketCompareObjectDetail, closeMetadata: () => void) => {
-                              const downloadId = `${contextId}:${bucket}:${detail.key}`;
-                              const downloadDisabled =
-                                Boolean(managerBrowserDisabledReason) || Boolean(downloadInFlight) || running;
-                              return (
-                                <>
-                                  <ListActionButton
-                                    variant="secondary"
-                                    disabled={downloadDisabled}
-                                    title={managerBrowserDisabledReason ?? undefined}
-                                    onClick={(event) => {
-                                      event.preventDefault();
-                                      event.stopPropagation();
-                                      closeMetadata();
-                                      void downloadCompareObject({
-                                        contextId,
-                                        bucket,
-                                        key: detail.key,
-                                        feedbackId: sectionFeedbackId,
-                                      });
-                                    }}
-                                  >
-                                    {text(downloadInFlight === downloadId ? "Downloading..." : "Download")}
-                                  </ListActionButton>
-                                  {!isDemo && section.action && includeRemediation && (
-                                    <ListActionButton
-                                      variant={remediationVariant}
-                                      disabled={running || item.status !== "success" || Boolean(item.actionRunning)}
-                                      onClick={(event) => {
-                                        event.preventDefault();
-                                        event.stopPropagation();
-                                        closeMetadata();
-                                        openRemediationConfirm(itemIndex, section.key, [detail.key]);
-                                      }}
-                                    >
-                                      {item.actionRunning === section.action.type
-                                        ? "Running..."
-                                        : remediationSingleActionLabel[section.action.type]}
-                                    </ListActionButton>
-                                  )}
-                                </>
-                              );
-                            };
-                            return (
-                              <BucketCompareSection
-                                key={sectionFeedbackId}
-                                summary={
-                                  <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      <span className="ui-caption font-semibold text-slate-700 dark:text-slate-200">{section.label}</span>
-                                      <ListBadge tone={getChangedTone(section.changed)}>
-                                        {text(section.changed ? "Different" : "Identical")}
-                                      </ListBadge>
-                                      {displayLimitMessage && (
-                                        <ListBadge tone="warning">
-                                          {text("Showing")} {section.visibleCount} {text("of")} {section.objectCount}
-                                        </ListBadge>
-                                      )}
-                                    </div>
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      {section.changed && section.copyKeys.length > 0 && (
-                                        <ListActionButton
-                                          variant="secondary"
-                                          onClick={(event) => {
-                                            event.preventDefault();
-                                            event.stopPropagation();
-                                            void copyVisibleKeys(sectionFeedbackId, section.copyKeys);
-                                          }}
-                                        >
-                                          {text("Copy keys")}
-                                        </ListActionButton>
-                                      )}
-                                      {!isDemo && section.action && (
-                                        <ListActionButton
-                                          variant={section.action.type === "delete_target_only" ? "danger" : "secondary"}
-                                          disabled={
-                                            running ||
-                                            item.status !== "success" ||
-                                            !content ||
-                                            section.copyKeys.length === 0 ||
-                                            Boolean(item.actionRunning) ||
-                                            item.actionRunning === section.action.type
-                                          }
-                                          onClick={(event) => {
-                                            event.preventDefault();
-                                            event.stopPropagation();
-                                            openRemediationConfirm(
-                                              itemIndex,
-                                              section.key,
-                                              section.copyKeys,
-                                              section.hiddenCount > 0
-                                            );
-                                          }}
-                                        >
-                                          {item.actionRunning === section.action.type ? "Running..." : section.action.label}
-                                        </ListActionButton>
-                                      )}
-                                    </div>
-                                  </div>
-                                }
-                              >
-                                <div className="mt-1 space-y-2 pb-2">
-                                  {sectionCopyFeedback && (
-                                    <BucketCompareFeedback tone={sectionCopyFeedback.tone} announce>
-                                      {sectionCopyFeedback.message}
-                                    </BucketCompareFeedback>
-                                  )}
-                                  {sectionDownloadFeedback && (
-                                    <BucketCompareFeedback tone={sectionDownloadFeedback.tone} announce>
-                                      {sectionDownloadFeedback.message}
-                                    </BucketCompareFeedback>
-                                  )}
-                                  {displayLimitMessage && (
-                                    <BucketCompareFeedback tone="warning">
-                                      {displayLimitMessage}
-                                    </BucketCompareFeedback>
-                                  )}
-                                  <div className="grid gap-2 lg:grid-cols-2">
-                                    <div className="space-y-1">
-                                      <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                        {text("Source")}
-                                      </p>
-                                      <BucketCompareObjectDetails rows={section.sourceDetails} options={{
-                                        browserDisabledReason: managerBrowserDisabledReason,
-                                        buildBrowserHref: (detail) =>
-                                          buildManagerBrowserHref(
-                                            sourceContextForRow,
-                                            item.sourceBucket,
-                                            detail.key
-                                          ),
-                                        renderAction:
-                                          section.sourceDetails.length > 0
-                                            ? renderObjectActions(
-                                                sourceContextForRow,
-                                                item.sourceBucket,
-                                                section.key !== "target_only",
-                                                "secondary"
-                                              )
-                                            : undefined,
-                                      }} />
-                                    </div>
-                                    <div className="space-y-1">
-                                      <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                        {text("Target")}
-                                      </p>
-                                      <BucketCompareObjectDetails rows={section.targetDetails} options={{
-                                        browserDisabledReason: managerBrowserDisabledReason,
-                                        buildBrowserHref: (detail) =>
-                                          buildManagerBrowserHref(
-                                            targetContextForRow,
-                                            item.targetBucket,
-                                            detail.key
-                                          ),
-                                        renderAction:
-                                          section.targetDetails.length > 0
-                                            ? renderObjectActions(
-                                                targetContextForRow,
-                                                item.targetBucket,
-                                                section.key === "target_only",
-                                                "danger"
-                                              )
-                                            : undefined,
-                                      }} />
-                                    </div>
-                                  </div>
-                                </div>
-                              </BucketCompareSection>
-                            );
-                          })}
-                        </div>
-                      </BucketCompareSection>
+                      <BucketCompareContentDiff
+                        sectionIdPrefix={`${item.sourceBucket}:${item.targetBucket}:content`}
+                        sections={contentSections}
+                        copyFeedback={copyFeedback}
+                        onCopyVisibleKeys={copyVisibleKeys}
+                        renderSectionActions={(section) => {
+                          if (isDemo || !section.changed) return null;
+                          const action = remediationSectionActionMap[section.key];
+                          const label =
+                            section.hiddenCount > 0
+                              ? text(remediationVisibleActionLabel[action])
+                              : text(remediationActionLabel[action]);
+                          return (
+                            <ListActionButton
+                              variant={action === "delete_target_only" ? "danger" : "secondary"}
+                              disabled={
+                                running ||
+                                item.status !== "success" ||
+                                section.copyKeys.length === 0 ||
+                                Boolean(item.actionRunning)
+                              }
+                              onClick={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                openRemediationConfirm(
+                                  itemIndex,
+                                  section.key,
+                                  section.copyKeys,
+                                  section.hiddenCount > 0,
+                                );
+                              }}
+                            >
+                              {item.actionRunning === action ? "Running..." : label}
+                            </ListActionButton>
+                          );
+                        }}
+                        renderSectionFeedback={(_section, sectionFeedbackId) => {
+                          const sectionDownloadFeedback =
+                            downloadFeedback?.id === sectionFeedbackId ? downloadFeedback : null;
+                          return sectionDownloadFeedback ? (
+                            <BucketCompareFeedback tone={sectionDownloadFeedback.tone} announce>
+                              {sectionDownloadFeedback.message}
+                            </BucketCompareFeedback>
+                          ) : null;
+                        }}
+                        getSourceOptions={(section, sectionFeedbackId) => ({
+                          browserDisabledReason: managerBrowserDisabledReason,
+                          buildBrowserHref: (detail) =>
+                            buildManagerBrowserHref(
+                              sourceContextForRow,
+                              item.sourceBucket,
+                              detail.key,
+                            ),
+                          renderAction:
+                            section.sourceDetails.length > 0
+                              ? renderObjectActions(
+                                  section,
+                                  sectionFeedbackId,
+                                  sourceContextForRow,
+                                  item.sourceBucket,
+                                  section.key !== "target_only",
+                                  "secondary",
+                                )
+                              : undefined,
+                        })}
+                        getTargetOptions={(section, sectionFeedbackId) => ({
+                          browserDisabledReason: managerBrowserDisabledReason,
+                          buildBrowserHref: (detail) =>
+                            buildManagerBrowserHref(
+                              targetContextForRow,
+                              item.targetBucket,
+                              detail.key,
+                            ),
+                          renderAction:
+                            section.targetDetails.length > 0
+                              ? renderObjectActions(
+                                  section,
+                                  sectionFeedbackId,
+                                  targetContextForRow,
+                                  item.targetBucket,
+                                  section.key === "target_only",
+                                  "danger",
+                                )
+                              : undefined,
+                        })}
+                      />
                     )}
                     {item.result?.config_diff && (
                       <BucketCompareSection
