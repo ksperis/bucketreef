@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { iamNameFormatError } from "../../utils/resourceNames";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useExecutionContext } from "./ExecutionContextProvider";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import { IamPolicy, createIamPolicy, listIamPoliciesPage } from "../../api/managerIamPolicies";
@@ -15,11 +15,11 @@ import DataTableShell, { type DataTableColumn } from "../../components/list/Data
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import { workflowPageHostClass } from "../../components/WorkflowPage";
 import { extractApiError } from "../../utils/apiError";
-import { stableSignature } from "../../utils/stableSignature";
 import ManagerToolbarSearch from "./ManagerToolbarSearch";
 import SettingsWorkflowForm from "../../components/settings/SettingsWorkflowForm";
 import SettingsJsonEditor from "../../components/settings/SettingsJsonEditor";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
+import { useSettingsDraft } from "../../components/settings/useSettingsDraft";
 import UiInput from "../../components/ui/UiInput";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import { useManagerIamCursorCollection } from "./useManagerIamCursorCollection";
@@ -34,6 +34,16 @@ const DEFAULT_POLICY_DOCUMENT = JSON.stringify(
   null,
   2
 );
+
+type PolicyDraft = {
+  advancedName: string;
+  documentText: string;
+};
+
+const createPolicyDraft = (): PolicyDraft => ({
+  advancedName: "",
+  documentText: DEFAULT_POLICY_DOCUMENT,
+});
 
 export default function PoliciesPage() {
   const { text } = useManagerI18n();
@@ -68,8 +78,13 @@ export default function PoliciesPage() {
     previousPage,
     nextPage,
   } = useManagerIamCursorCollection(listIamPoliciesPage, { includeDetails: true });
-  const [advancedName, setAdvancedName] = useState("");
-  const [documentText, setDocumentText] = useState(DEFAULT_POLICY_DOCUMENT);
+  const {
+    draft: policyDraft,
+    setDraft: setPolicyDraft,
+    accept: acceptPolicyDraft,
+    dirty: policyDraftDirty,
+  } = useSettingsDraft<PolicyDraft>(createPolicyDraft);
+  const { advancedName, documentText } = policyDraft;
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [creating, setCreating] = useState(false);
   const [validationAttempted, setValidationAttempted] = useState(false);
@@ -86,9 +101,6 @@ export default function PoliciesPage() {
     documentError = "Policy document must be valid JSON.";
   }
   const [actionMessage, setActionMessage] = useState<string | null>(null);
-  const [advancedInitialSignature, setAdvancedInitialSignature] = useState(() =>
-    stableSignature({ advancedName: "", documentText: DEFAULT_POLICY_DOCUMENT })
-  );
 
   useEffect(() => {
     if (needsContextSelection) {
@@ -114,8 +126,7 @@ export default function PoliciesPage() {
     setActionMessage(null);
     try {
       await createIamPolicy(contextIdForApi, advancedName.trim(), parsedDocument!);
-      setAdvancedName("");
-      setDocumentText(DEFAULT_POLICY_DOCUMENT);
+      acceptPolicyDraft(createPolicyDraft());
       setShowCreateForm(false);
       setActionMessage(text("Policy created"));
       await load(contextIdForApi);
@@ -129,21 +140,14 @@ export default function PoliciesPage() {
   const openCreateForm = () => {
     setError(null);
     setValidationAttempted(false);
-    setAdvancedInitialSignature(stableSignature({ advancedName, documentText }));
+    acceptPolicyDraft(policyDraft);
     setShowCreateForm(true);
   };
 
   const closeCreateForm = () => {
     setShowCreateForm(false);
-    setAdvancedName("");
-    setDocumentText(DEFAULT_POLICY_DOCUMENT);
-    setAdvancedInitialSignature(stableSignature({ advancedName: "", documentText: DEFAULT_POLICY_DOCUMENT }));
+    acceptPolicyDraft(createPolicyDraft());
   };
-
-  const advancedCurrentSignature = useMemo(
-    () => stableSignature({ advancedName, documentText }),
-    [advancedName, documentText]
-  );
 
   const filteredPolicies = policies;
   const filteredTableStatus = resolveListTableStatus({
@@ -236,20 +240,20 @@ export default function PoliciesPage() {
           backLabel={text("Back to policies")}
           onClose={closeCreateForm}
           contentVariant="plain"
-          dirty={advancedCurrentSignature !== advancedInitialSignature}
+          dirty={policyDraftDirty}
           error={error} onSubmit={handleAdvancedCreate}
           busy={creating} disabled={needsContextSelection || isS3User}
           submitLabel={text("Create policy")} busyLabel={text("Creating...")}
         >
           <SettingsSection title={text("Identity")} presentation="compact">
             <div className="settings-fields">
-              <UiInput label={text("Policy name")} required value={advancedName} onChange={(event) => setAdvancedName(event.target.value)}
+              <UiInput label={text("Policy name")} required value={advancedName} onChange={(event) => setPolicyDraft((current) => ({ ...current, advancedName: event.target.value }))}
                 placeholder={text("Policy name")} error={nameFormatError ? text(nameFormatError!) : validationAttempted && !advancedName.trim() ? text("Policy name is required.") : undefined} />
             </div>
           </SettingsSection>
           <SettingsSection title={text("Policy document")} presentation="compact">
             <div className="settings-fields">
-              <SettingsJsonEditor label={text("Policy document (JSON)")} value={documentText} onChange={setDocumentText}
+              <SettingsJsonEditor label={text("Policy document (JSON)")} value={documentText} onChange={(value) => setPolicyDraft((current) => ({ ...current, documentText: value }))}
                 rows={10} error={validationAttempted ? documentError : undefined}
                 hint={text("Provide a valid IAM policy JSON document. You can start from the default template and customize statements.")} />
             </div>
