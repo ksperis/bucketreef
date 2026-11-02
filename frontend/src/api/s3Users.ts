@@ -94,7 +94,7 @@ type CreateS3UserPayload = {
   quota_max_size_unit?: string | null;
   quota_max_objects?: number | null;
   storage_endpoint_id: number;
-  tags?: TagDefinitionInput[] | null;
+  tags?: TagDefinitionInput[];
   allow_bucket_quota_management?: boolean | null;
   allow_access_key_management?: boolean | null;
   allow_access_key_metadata?: boolean | null;

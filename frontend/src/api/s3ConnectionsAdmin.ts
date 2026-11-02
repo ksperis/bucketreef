@@ -85,9 +85,9 @@ export type CreateAdminS3ConnectionPayload = {
   region?: string | null;
   access_key_id: string;
   secret_access_key: string;
-  force_path_style?: boolean | null;
-  verify_tls?: boolean | null;
-  tags?: TagDefinitionInput[] | null;
+  force_path_style?: boolean;
+  verify_tls?: boolean;
+  tags?: TagDefinitionInput[];
 };
 
 export type UpdateAdminS3ConnectionPayload = {

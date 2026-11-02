@@ -128,7 +128,7 @@ type CreateS3AccountPayload = {
   quota_max_size_unit?: string | null;
   quota_max_objects?: number | null;
   storage_endpoint_id: number;
-  tags?: TagDefinitionInput[] | null;
+  tags?: TagDefinitionInput[];
 };
 
 export async function createS3Account(payload: CreateS3AccountPayload): Promise<S3Account> {

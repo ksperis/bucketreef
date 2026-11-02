@@ -104,13 +104,12 @@ def test_required_tag_models_share_canonical_normalization(model_type, base_payl
 
 
 @pytest.mark.parametrize(("model_type", "base_payload"), REQUIRED_TAG_MODELS)
-def test_required_tag_models_normalize_explicit_null_to_empty_list(
+def test_required_tag_models_reject_explicit_null(
     model_type,
     base_payload,
 ):
-    model = model_type.model_validate({**base_payload, "tags": None})
-
-    assert model.tags == []
+    with pytest.raises(ValidationError, match="tags cannot be null"):
+        model_type.model_validate({**base_payload, "tags": None})
 
 
 @pytest.mark.parametrize("model_type", NON_NULL_UPDATE_TAG_MODELS)
