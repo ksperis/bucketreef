@@ -4,6 +4,9 @@ import {
   appendQuotaAdvancedFilterRules,
   defaultQuotaAdvancedFilter,
   hasQuotaAdvancedFilters,
+  quotaAdvancedNumericFields,
+  quotaBaseAdvancedNumericFields,
+  quotaUsageAdvancedNumericFields,
 } from "./quotaAdvancedFilterModel";
 
 describe("quotaAdvancedFilterModel", () => {
@@ -36,6 +39,25 @@ describe("quotaAdvancedFilterModel", () => {
     appendQuotaAdvancedFilterRules(rules, advanced, true);
     expect(rules).toEqual([
       { field: "quota_usage_object_percent", op: "gte", value: 25 },
+    ]);
+  });
+
+  it("derives base and usage numeric fields from the quota rule catalogue", () => {
+    expect(quotaAdvancedNumericFields).toEqual([
+      ...quotaBaseAdvancedNumericFields,
+      ...quotaUsageAdvancedNumericFields,
+    ]);
+    expect(quotaBaseAdvancedNumericFields).toEqual([
+      "minQuotaBytes",
+      "maxQuotaBytes",
+      "minQuotaObjects",
+      "maxQuotaObjects",
+    ]);
+    expect(quotaUsageAdvancedNumericFields).toEqual([
+      "minQuotaUsageSizePercent",
+      "maxQuotaUsageSizePercent",
+      "minQuotaUsageObjectPercent",
+      "maxQuotaUsageObjectPercent",
     ]);
   });
 });

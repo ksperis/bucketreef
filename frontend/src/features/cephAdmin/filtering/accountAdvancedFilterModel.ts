@@ -13,11 +13,15 @@ import {
   appendQuotaAdvancedFilterRules,
   defaultQuotaAdvancedFilter,
   hasQuotaAdvancedFilters,
-  quotaAdvancedFilterRules,
+  quotaBaseAdvancedNumericFields,
+  quotaUsageAdvancedNumericFields,
   type QuotaAdvancedFilterState,
   type QuotaAdvancedNumericField,
 } from "../../shared/quotaAdvancedFilterModel";
-import { appendNumericFilterRule } from "./advancedFilterModel";
+import {
+  appendNumericFilterRule,
+  countActiveNumericFilterFields,
+} from "./advancedFilterModel";
 
 export type AccountAdvancedFilterState = QuotaAdvancedFilterState & {
   accountName: string;
@@ -123,18 +127,15 @@ const ACCOUNT_BASE_NUMERIC_FIELDS: readonly AccountAdvancedNumericField[] = [
   "maxMaxUsers",
   "minMaxBuckets",
   "maxMaxBuckets",
-  ...quotaAdvancedFilterRules
-    .filter(({ usagePercentage }) => !usagePercentage)
-    .map(({ stateField }) => stateField),
+  ...quotaBaseAdvancedNumericFields,
   "minBucketCount",
   "maxBucketCount",
   "minUserCount",
   "maxUserCount",
 ];
 
-const ACCOUNT_USAGE_NUMERIC_FIELDS: readonly AccountAdvancedNumericField[] = quotaAdvancedFilterRules
-  .filter(({ usagePercentage }) => usagePercentage)
-  .map(({ stateField }) => stateField);
+const ACCOUNT_USAGE_NUMERIC_FIELDS: readonly AccountAdvancedNumericField[] =
+  quotaUsageAdvancedNumericFields;
 
 type AccountAdvancedFilterCost = {
   activeCount: number;
@@ -142,11 +143,6 @@ type AccountAdvancedFilterCost = {
   numericCount: number;
   level: FilterCostLevel;
 };
-
-const countNonEmptyFields = (
-  advanced: AccountAdvancedFilterState,
-  fields: readonly AccountAdvancedNumericField[],
-) => fields.reduce((count, field) => count + Number(advanced[field].trim().length > 0), 0);
 
 export const resolveAccountAdvancedFilterCost = (
   advanced: AccountAdvancedFilterState,
@@ -156,8 +152,10 @@ export const resolveAccountAdvancedFilterCost = (
     Number(advanced.accountName.trim().length > 0) +
     Number(advanced.email.trim().length > 0);
   const numericCount =
-    countNonEmptyFields(advanced, ACCOUNT_BASE_NUMERIC_FIELDS) +
-    (allowUsageFilters ? countNonEmptyFields(advanced, ACCOUNT_USAGE_NUMERIC_FIELDS) : 0);
+    countActiveNumericFilterFields(advanced, ACCOUNT_BASE_NUMERIC_FIELDS) +
+    (allowUsageFilters
+      ? countActiveNumericFilterFields(advanced, ACCOUNT_USAGE_NUMERIC_FIELDS)
+      : 0);
   const activeCount = textCount + numericCount;
   const level: FilterCostLevel = numericCount >= 6
     ? "high"

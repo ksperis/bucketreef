@@ -52,6 +52,17 @@ export const buildNumericFilterFieldStates = <Key extends string>(
   return states;
 };
 
+export const countActiveNumericFilterFields = <Key extends string>(
+  values: object,
+  fields: readonly Key[],
+) => {
+  const fieldValues = values as Partial<Record<Key, unknown>>;
+  return fields.reduce((count, field) => {
+    const value = fieldValues[field];
+    return count + Number(typeof value === "string" && value.trim().length > 0);
+  }, 0);
+};
+
 export const numericFilterRangeFieldHighlight = <Key extends string>(
   draft: object,
   applied: object | null,

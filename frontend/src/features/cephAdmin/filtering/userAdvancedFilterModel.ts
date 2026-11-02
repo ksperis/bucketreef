@@ -13,11 +13,15 @@ import {
   appendQuotaAdvancedFilterRules,
   defaultQuotaAdvancedFilter,
   hasQuotaAdvancedFilters,
-  quotaAdvancedFilterRules,
+  quotaBaseAdvancedNumericFields,
+  quotaUsageAdvancedNumericFields,
   type QuotaAdvancedFilterState,
   type QuotaAdvancedNumericField,
 } from "../../shared/quotaAdvancedFilterModel";
-import { appendNumericFilterRule } from "./advancedFilterModel";
+import {
+  appendNumericFilterRule,
+  countActiveNumericFilterFields,
+} from "./advancedFilterModel";
 
 export type UserAdvancedStatusFilter = "any" | "active" | "suspended";
 
@@ -120,14 +124,11 @@ export const buildUserAdvancedFilterPayload = (
 const USER_BASE_NUMERIC_FIELDS: readonly UserAdvancedNumericField[] = [
   "minMaxBuckets",
   "maxMaxBuckets",
-  ...quotaAdvancedFilterRules
-    .filter(({ usagePercentage }) => !usagePercentage)
-    .map(({ stateField }) => stateField),
+  ...quotaBaseAdvancedNumericFields,
 ];
 
-const USER_USAGE_NUMERIC_FIELDS: readonly UserAdvancedNumericField[] = quotaAdvancedFilterRules
-  .filter(({ usagePercentage }) => usagePercentage)
-  .map(({ stateField }) => stateField);
+const USER_USAGE_NUMERIC_FIELDS: readonly UserAdvancedNumericField[] =
+  quotaUsageAdvancedNumericFields;
 
 type UserAdvancedFilterCost = {
   activeCount: number;
@@ -136,11 +137,6 @@ type UserAdvancedFilterCost = {
   numericCount: number;
   level: FilterCostLevel;
 };
-
-const countNonEmptyFields = (
-  advanced: UserAdvancedFilterState,
-  fields: readonly UserAdvancedNumericField[],
-) => fields.reduce((count, field) => count + Number(advanced[field].trim().length > 0), 0);
 
 export const resolveUserAdvancedFilterCost = (
   advanced: UserAdvancedFilterState,
@@ -154,8 +150,10 @@ export const resolveUserAdvancedFilterCost = (
     Number(advanced.email.trim().length > 0) +
     Number(advanced.suspended !== "any");
   const numericCount =
-    countNonEmptyFields(advanced, USER_BASE_NUMERIC_FIELDS) +
-    (allowUsageFilters ? countNonEmptyFields(advanced, USER_USAGE_NUMERIC_FIELDS) : 0);
+    countActiveNumericFilterFields(advanced, USER_BASE_NUMERIC_FIELDS) +
+    (allowUsageFilters
+      ? countActiveNumericFilterFields(advanced, USER_USAGE_NUMERIC_FIELDS)
+      : 0);
   const activeCount = directTextCount + enrichedTextCount + numericCount;
   const level: FilterCostLevel = numericCount >= 4
     ? "high"
