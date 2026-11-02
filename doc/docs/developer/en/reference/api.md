@@ -7,7 +7,12 @@ Typical local endpoints:
 - Swagger UI: `http://localhost:8000/docs`
 - OpenAPI JSON: `http://localhost:8000/openapi.json`
 
-Use route-level schemas and examples in code as the canonical API contract.
+Use route-level schemas and examples in code as the canonical contract for the
+current BucketReef release. The application routes below are an internal
+contract between the bundled frontend and backend; they are not a supported
+third-party API stability boundary. Deploy matching frontend and backend
+versions when these contracts change. External protocols and explicitly
+documented integration endpoints keep their own compatibility guarantees.
 
 ## Main route groups
 
