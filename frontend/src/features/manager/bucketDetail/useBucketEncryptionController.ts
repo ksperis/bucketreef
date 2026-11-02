@@ -17,6 +17,7 @@ import {
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
 import { useBucketFeatureEditorSession } from "./useBucketFeatureEditorSession";
+import { useBucketEditorRowIds } from "./useBucketEditorRowIds";
 import {
   createVisualEncryptionRule,
   parseEncryptionRulesJson,
@@ -63,20 +64,26 @@ export function useBucketEncryptionController({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const {
+    appendRowId: appendDraftRuleId,
+    removeRowId: removeDraftRuleId,
+    resetRowIds: resetDraftRuleIds,
+    rowIds: draftRuleIds,
+  } = useBucketEditorRowIds("encryption-rule");
+  const {
     closeEditor,
     draft: draftRules,
     editorError,
     editorMode,
     editorOpen,
     jsonText,
-    openEditorDraft,
+    openEditorDraft: openEditorSessionDraft,
     replaceDraft,
     setDraft: setDraftRules,
     setEditorError,
     setEditorOpen,
     setStatus,
     status,
-    updateEditorMode,
+    updateEditorMode: updateEditorSessionMode,
     updateJsonText,
   } = useBucketFeatureEditorSession<EncryptionRuleRecord[]>({
     initialDraft: [],
@@ -87,6 +94,22 @@ export function useBucketEncryptionController({
   const applyBaseline = useCallback((next: unknown) => {
     setRules(normalizeRules(next));
   }, []);
+
+  const openEditorDraft = useCallback((
+    nextDraft: EncryptionRuleRecord[],
+    mode: "visual" | "json",
+    targetIndex: number | null,
+  ) => {
+    resetDraftRuleIds(nextDraft.length);
+    openEditorSessionDraft(nextDraft, mode, targetIndex);
+  }, [openEditorSessionDraft, resetDraftRuleIds]);
+
+  const updateEditorMode = useCallback((nextMode: "visual" | "json") => {
+    const parsedDraft = updateEditorSessionMode(nextMode);
+    if (nextMode === "visual" && parsedDraft) {
+      resetDraftRuleIds(parsedDraft.length);
+    }
+  }, [resetDraftRuleIds, updateEditorSessionMode]);
 
   const load = useCallback(async () => {
     if (!bucketName || !enabled) {
@@ -133,13 +156,15 @@ export function useBucketEncryptionController({
 
   const addDraftRule = useCallback(() => {
     setDraftRules((current) => [...current, createVisualEncryptionRule()]);
+    appendDraftRuleId();
     setEditorError(null);
-  }, [setDraftRules, setEditorError]);
+  }, [appendDraftRuleId, setDraftRules, setEditorError]);
 
   const removeDraftRule = useCallback((index: number) => {
     setDraftRules((current) => current.filter((_, ruleIndex) => ruleIndex !== index));
+    removeDraftRuleId(index);
     setEditorError(null);
-  }, [setDraftRules, setEditorError]);
+  }, [removeDraftRuleId, setDraftRules, setEditorError]);
 
   const updateDraftRule = useCallback(
     (index: number, patch: EncryptionVisualRulePatch) => {
@@ -165,6 +190,7 @@ export function useBucketEncryptionController({
       }
       nextRules = parsed.rules;
       setDraftRules(parsed.rules);
+      resetDraftRuleIds(parsed.rules.length);
     } else {
       const validationError = validateVisualEncryptionRules(nextRules);
       if (validationError) {
@@ -186,6 +212,7 @@ export function useBucketEncryptionController({
         }
         applyBaseline([]);
         replaceDraft([]);
+        resetDraftRuleIds(0);
         setStatus("Bucket encryption disabled.");
       } else {
         let saved;
@@ -198,6 +225,7 @@ export function useBucketEncryptionController({
         const savedRules = normalizeRules(saved.rules ?? nextRules);
         applyBaseline(savedRules);
         replaceDraft(cloneBucketJsonValue(savedRules));
+        resetDraftRuleIds(savedRules.length);
         setStatus("Bucket encryption updated.");
       }
       closeEditor();
@@ -221,6 +249,7 @@ export function useBucketEncryptionController({
     endpointId,
     jsonText,
     replaceDraft,
+    resetDraftRuleIds,
     saving,
     closeEditor,
     setDraftRules,
@@ -241,6 +270,7 @@ export function useBucketEncryptionController({
     closeEditor,
     configured: rules.length > 0,
     dirty,
+    draftRuleIds,
     draftRules,
     draftSignature,
     editorError,

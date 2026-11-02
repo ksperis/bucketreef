@@ -11,7 +11,6 @@ import {
   putCephAdminBucketLifecycle,
 } from "../../../api/cephAdminBucketDetails";
 import { extractApiError, isApiFeatureUnsupportedError } from "../../../utils/apiError";
-import { createUiDraftId } from "../../../utils/uiDraftId";
 import type { LifecycleRuleRecord } from "../bucketLifecycle";
 import {
   bucketEditorDraftSignature,
@@ -19,6 +18,7 @@ import {
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
 import { useBucketFeatureEditorSession } from "./useBucketFeatureEditorSession";
+import { useBucketEditorRowIds } from "./useBucketEditorRowIds";
 import {
   createVisualLifecycleRule,
   parseLifecycleRulesJson,
@@ -49,10 +49,6 @@ function parseLifecycleEditorJson(text: string) {
   return { draft: parsed.rules, error: parsed.error };
 }
 
-function createDraftRuleIds(rules: LifecycleRuleRecord[]): string[] {
-  return rules.map(() => createUiDraftId("lifecycle-rule"));
-}
-
 export function useBucketLifecycleController({
   contextId,
   bucketName,
@@ -63,11 +59,17 @@ export function useBucketLifecycleController({
 }: UseBucketLifecycleControllerOptions) {
   const bucketDetailsApi = useBucketDetailsApi();
   const [rules, setRules] = useState<LifecycleRuleRecord[]>([]);
-  const [draftRuleIds, setDraftRuleIds] = useState<string[]>([]);
+  const {
+    appendRowId: appendDraftRuleId,
+    insertRowId: insertDraftRuleId,
+    removeRowId: removeDraftRuleId,
+    resetRowIds: resetDraftRuleIds,
+    rowIds: draftRuleIds,
+  } = useBucketEditorRowIds("lifecycle-rule");
   const [lastRemovedRule, setLastRemovedRule] = useState<{
     index: number;
     rule: LifecycleRuleRecord;
-    uiId: string;
+    uiId?: string;
   } | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [featureUnsupported, setFeatureUnsupported] = useState(false);
@@ -138,9 +140,9 @@ export function useBucketLifecycleController({
     targetIndex: number | null,
   ) => {
     setLastRemovedRule(null);
-    setDraftRuleIds(createDraftRuleIds(nextDraft));
+    resetDraftRuleIds(nextDraft.length);
     openEditorSessionDraft(nextDraft, mode, targetIndex);
-  }, [openEditorSessionDraft]);
+  }, [openEditorSessionDraft, resetDraftRuleIds]);
 
   const openEditor = useCallback(() => {
     openEditorDraft(cloneBucketJsonValue(rules), "visual", null);
@@ -177,10 +179,10 @@ export function useBucketLifecycleController({
       const parsedDraft = updateEditorSessionMode(nextMode);
       if (nextMode === "visual" && parsedDraft) {
         setLastRemovedRule(null);
-        setDraftRuleIds(createDraftRuleIds(parsedDraft));
+        resetDraftRuleIds(parsedDraft.length);
       }
     },
-    [updateEditorSessionMode],
+    [resetDraftRuleIds, updateEditorSessionMode],
   );
 
   const addDraftRule = useCallback(() => {
@@ -188,20 +190,20 @@ export function useBucketLifecycleController({
       ...current,
       createVisualLifecycleRule(),
     ]);
-    setDraftRuleIds((current) => [...current, createUiDraftId("lifecycle-rule")]);
+    appendDraftRuleId();
     setEditorTargetIndex(null);
     setEditorError(null);
-  }, [setDraftRules, setEditorError, setEditorTargetIndex]);
+  }, [appendDraftRuleId, setDraftRules, setEditorError, setEditorTargetIndex]);
 
   const removeDraftRule = useCallback((index: number) => {
     const removedRule = draftRules[index];
     if (!removedRule) return;
-    const uiId = draftRuleIds[index] ?? createUiDraftId("lifecycle-rule");
+    const uiId = draftRuleIds[index];
     setLastRemovedRule({ index, rule: cloneBucketJsonValue([removedRule])[0], uiId });
     setDraftRules((current) => current.filter((_, ruleIndex) => ruleIndex !== index));
-    setDraftRuleIds((current) => current.filter((_, ruleIndex) => ruleIndex !== index));
+    removeDraftRuleId(index);
     setEditorError(null);
-  }, [draftRuleIds, draftRules, setDraftRules, setEditorError]);
+  }, [draftRuleIds, draftRules, removeDraftRuleId, setDraftRules, setEditorError]);
 
   const restoreLastRemovedRule = useCallback(() => {
     if (!lastRemovedRule) return;
@@ -210,14 +212,10 @@ export function useBucketLifecycleController({
       restored.splice(Math.min(lastRemovedRule.index, restored.length), 0, lastRemovedRule.rule);
       return restored;
     });
-    setDraftRuleIds((current) => {
-      const restored = [...current];
-      restored.splice(Math.min(lastRemovedRule.index, restored.length), 0, lastRemovedRule.uiId);
-      return restored;
-    });
+    insertDraftRuleId(lastRemovedRule.index, lastRemovedRule.uiId);
     setLastRemovedRule(null);
     setEditorError(null);
-  }, [lastRemovedRule, setDraftRules, setEditorError]);
+  }, [insertDraftRuleId, lastRemovedRule, setDraftRules, setEditorError]);
 
   const updateDraftRule = useCallback((index: number, patch: LifecycleVisualRulePatch) => {
     setDraftRules((current) =>
@@ -294,7 +292,7 @@ export function useBucketLifecycleController({
       }
       nextRules = parsed.rules;
       setDraftRules(parsed.rules);
-      setDraftRuleIds(createDraftRuleIds(parsed.rules));
+      resetDraftRuleIds(parsed.rules.length);
     }
 
     const validationError = validateLifecycleVisualRules(nextRules);
@@ -311,7 +309,7 @@ export function useBucketLifecycleController({
       if (savedRules === null) return;
       applyBaseline(savedRules);
       replaceDraft(cloneBucketJsonValue(savedRules));
-      setDraftRuleIds(createDraftRuleIds(savedRules));
+      resetDraftRuleIds(savedRules.length);
       setStatus(savedRules.length === 0 ? "Lifecycle deleted" : "Lifecycle updated");
       closeEditor();
     } catch (saveFailure) {
@@ -329,6 +327,7 @@ export function useBucketLifecycleController({
     jsonText,
     persistRules,
     replaceDraft,
+    resetDraftRuleIds,
     saving,
     closeEditor,
     setDraftRules,

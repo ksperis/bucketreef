@@ -337,6 +337,7 @@ export default function BucketPolicyFeature({
     closeEditor,
     configured,
     draftPolicy,
+    draftStatementIds,
     draftSignature,
     dirty,
     editorError,
@@ -466,7 +467,7 @@ export default function BucketPolicyFeature({
         <BucketFeatureEditorList>
           {visibleDraftStatements.map(({ statement, index }) => (
             <PolicyStatementEditor
-              key={`policy-statement-${index}`}
+              key={draftStatementIds[index]}
               index={index}
               statement={statement}
               disabled={saving}

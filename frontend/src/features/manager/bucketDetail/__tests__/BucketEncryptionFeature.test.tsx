@@ -21,12 +21,14 @@ const kmsRule = {
 function buildController(
   overrides: Partial<EncryptionController> = {},
 ): EncryptionController {
+  const draftRules = overrides.draftRules ?? [];
   return {
     addDraftRule: vi.fn(),
     closeEditor: vi.fn(),
     configured: false,
     dirty: false,
-    draftRules: [],
+    draftRuleIds: draftRules.map((_, index) => `encryption-rule-test-${index}`),
+    draftRules,
     draftSignature: "[]",
     editorError: null,
     editorMode: "visual",

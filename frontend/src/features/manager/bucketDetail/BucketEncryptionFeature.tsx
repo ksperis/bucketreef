@@ -163,6 +163,7 @@ export default function BucketEncryptionFeature({
     addDraftRule,
     closeEditor,
     configured,
+    draftRuleIds,
     draftRules,
     draftSignature,
     dirty,
@@ -213,7 +214,7 @@ export default function BucketEncryptionFeature({
         <BucketFeatureEditorList>
           {draftRules.map((rule, index) => (
             <EncryptionRuleEditor
-              key={index}
+              key={draftRuleIds[index]}
               index={index}
               rule={rule}
               disabled={saving}

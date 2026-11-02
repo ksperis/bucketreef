@@ -17,6 +17,7 @@ import {
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
 import { useBucketFeatureEditorSession } from "./useBucketFeatureEditorSession";
+import { useBucketEditorRowIds } from "./useBucketEditorRowIds";
 import {
   createVisualPolicyStatement,
   isPolicyConfigurationEmpty,
@@ -78,6 +79,12 @@ export function useBucketPolicyController({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const {
+    appendRowId: appendDraftStatementId,
+    removeRowId: removeDraftStatementId,
+    resetRowIds: resetDraftStatementIds,
+    rowIds: draftStatementIds,
+  } = useBucketEditorRowIds("policy-statement");
+  const {
     closeEditor,
     draft: draftPolicy,
     editorError,
@@ -85,14 +92,14 @@ export function useBucketPolicyController({
     editorOpen,
     editorTargetIndex,
     jsonText,
-    openEditorDraft,
+    openEditorDraft: openEditorSessionDraft,
     replaceDraft,
     setDraft: setDraftPolicy,
     setEditorError,
     setEditorTargetIndex,
     setStatus,
     status,
-    updateEditorMode,
+    updateEditorMode: updateEditorSessionMode,
     updateJsonText,
   } = useBucketFeatureEditorSession<PolicyDocumentRecord>({
     initialDraft: {},
@@ -104,6 +111,22 @@ export function useBucketPolicyController({
   const applyBaseline = useCallback((next: unknown) => {
     setPolicy(cloneBucketJsonValue(normalizePolicy(next)));
   }, []);
+
+  const openEditorDraft = useCallback((
+    nextDraft: PolicyDocumentRecord,
+    mode: "visual" | "json",
+    targetIndex: number | null,
+  ) => {
+    resetDraftStatementIds(policyStatements(nextDraft).length);
+    openEditorSessionDraft(nextDraft, mode, targetIndex);
+  }, [openEditorSessionDraft, resetDraftStatementIds]);
+
+  const updateEditorMode = useCallback((nextMode: "visual" | "json") => {
+    const parsedDraft = updateEditorSessionMode(nextMode);
+    if (nextMode === "visual" && parsedDraft) {
+      resetDraftStatementIds(policyStatements(parsedDraft).length);
+    }
+  }, [resetDraftStatementIds, updateEditorSessionMode]);
 
   const load = useCallback(async () => {
     if (!bucketName || !enabled) {
@@ -159,17 +182,19 @@ export function useBucketPolicyController({
       current,
       [...policyStatements(current), createVisualPolicyStatement(nextStatementSid(current))],
     ));
+    appendDraftStatementId();
     setEditorTargetIndex(null);
     setEditorError(null);
-  }, [setDraftPolicy, setEditorError, setEditorTargetIndex]);
+  }, [appendDraftStatementId, setDraftPolicy, setEditorError, setEditorTargetIndex]);
 
   const removeDraftStatement = useCallback((index: number) => {
     setDraftPolicy((current) => withPolicyStatements(
       current,
       policyStatements(current).filter((_, statementIndex) => statementIndex !== index),
     ));
+    removeDraftStatementId(index);
     setEditorError(null);
-  }, [setDraftPolicy, setEditorError]);
+  }, [removeDraftStatementId, setDraftPolicy, setEditorError]);
 
   const updateDraftStatement = useCallback((
     index: number,
@@ -271,6 +296,7 @@ export function useBucketPolicyController({
       }
       nextPolicy = parsed.policy;
       setDraftPolicy(cloneBucketJsonValue(parsed.policy));
+      resetDraftStatementIds(policyStatements(parsed.policy).length);
     } else {
       const validationError = validateVisualPolicy(nextPolicy);
       if (validationError) {
@@ -287,6 +313,7 @@ export function useBucketPolicyController({
       if (savedPolicy === null) return;
       applyBaseline(savedPolicy);
       replaceDraft(cloneBucketJsonValue(savedPolicy));
+      resetDraftStatementIds(policyStatements(savedPolicy).length);
       setStatus(isPolicyConfigurationEmpty(savedPolicy) ? "Bucket policy deleted" : "Bucket policy updated");
       closeEditor();
     } catch (saveFailure) {
@@ -304,6 +331,7 @@ export function useBucketPolicyController({
     jsonText,
     persistPolicy,
     replaceDraft,
+    resetDraftStatementIds,
     saving,
     closeEditor,
     setDraftPolicy,
@@ -352,6 +380,7 @@ export function useBucketPolicyController({
     denyCount: statements.filter((statement) => statement.Effect === "Deny").length,
     dirty,
     draftPolicy,
+    draftStatementIds,
     draftSignature,
     editorError,
     editorMode,
