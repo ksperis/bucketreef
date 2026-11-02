@@ -473,7 +473,28 @@ def _merge_storage_endpoint_update_fields(
     payload: StorageEndpointUpdate,
     fields_set: set[str],
 ) -> None:
+    preserved_fields: set[str] = set()
+    for kind in ("runtime", "supervision", "ceph_admin"):
+        access_field = f"{kind}_access_key"
+        secret_field = f"{kind}_secret_key"
+        pair_fields = {access_field, secret_field}
+        if not pair_fields <= fields_set:
+            continue
+        raw_access = getattr(payload, access_field)
+        raw_secret = getattr(payload, secret_field)
+        access = normalize_optional_string(raw_access)
+        secret = normalize_optional_string(_secret_value(raw_secret))
+        if (
+            raw_access is not None
+            and raw_secret is not None
+            and not access
+            and not secret
+        ):
+            preserved_fields.update(pair_fields)
+
     for field in fields_set:
+        if field in preserved_fields:
+            continue
         merged[field] = getattr(payload, field)
 
 
