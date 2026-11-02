@@ -9,7 +9,7 @@ import BrowserLayout, { useBrowserSidebarSlot } from "./BrowserLayout";
 
 const useBrowserContextMock = vi.fn();
 const useOpenStackProjectSelectorMock = vi.fn();
-const fetchManagerContextMock = vi.hoisted(() => vi.fn(() => new Promise<never>(() => undefined)));
+const fetchManagerContextMock = vi.hoisted(() => vi.fn((): Promise<unknown> => new Promise(() => undefined)));
 const canAccessPrivateConnectionsSectionMock = vi.hoisted(() => vi.fn(() => false));
 let capturedLayoutProps: {
   headerTitle?: string;
@@ -23,6 +23,7 @@ let capturedLayoutProps: {
 let capturedSelectorProps: {
   selectedContextId?: string | null;
   selectedLabel?: string;
+  identityLabel?: string | null;
   triggerMode?: "icon" | "icon_label";
   widthClassName?: string;
   additionalOptions?: Array<{ value: string; label: string }>;
@@ -80,6 +81,7 @@ vi.mock("../../components/TopbarContextAccountSelector", () => ({
   default: (props: {
     selectedContextId?: string | null;
     selectedLabel?: string;
+    identityLabel?: string | null;
     triggerMode?: "icon" | "icon_label";
     additionalOptions?: Array<{ value: string; label: string }>;
   }) => {
@@ -190,6 +192,29 @@ describe("BrowserLayout", () => {
         widthClassName: TOPBAR_CONTEXT_SELECTOR_WIDTH_CLASS,
       })
     );
+  });
+
+  it("keeps the Browser identity and access mode from the same Manager context response", async () => {
+    fetchManagerContextMock.mockImplementationOnce(() => Promise.resolve({
+      iam_identity: "browser-user",
+      access_mode: "connection",
+    }));
+    useBrowserContextMock.mockReturnValue(buildBrowserContext());
+
+    render(
+      <MemoryRouter initialEntries={["/browser"]}>
+        <Routes>
+          <Route path="/browser" element={<BrowserLayout />}>
+            <Route index element={<BrowserSidebarSlotConsumer />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(capturedSelectorProps?.identityLabel).toBe("S3 Identity: browser-user");
+    });
+    expect(fetchManagerContextMock).toHaveBeenCalledWith("ctx-1");
   });
 
   it("renders the only Browser account as a static topbar control", () => {

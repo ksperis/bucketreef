@@ -49,6 +49,16 @@ const BROWSER_FALLBACK_NAV_LINKS: SidebarLink[] = [
   { to: "/browser", label: "Browser", end: true, iconName: "folder" },
 ];
 
+type BrowserIdentityState = {
+  iamIdentity: string | null;
+  accessMode: ContextAccessMode;
+};
+
+const EMPTY_BROWSER_IDENTITY_STATE: BrowserIdentityState = {
+  iamIdentity: null,
+  accessMode: null,
+};
+
 export function useBrowserSidebarSlot(): BrowserSidebarSlotContextValue {
   return useContext(BrowserSidebarSlotContext);
 }
@@ -69,8 +79,7 @@ function BrowserShell() {
     sessionAccountName,
     accessError,
   } = useBrowserContext();
-  const [iamIdentity, setIamIdentity] = useState<string | null>(null);
-  const [identityAccessMode, setIdentityAccessMode] = useState<ContextAccessMode>(null);
+  const [identityState, setIdentityState] = useState<BrowserIdentityState>(EMPTY_BROWSER_IDENTITY_STATE);
   const [sidebarBody, setSidebarBodyState] = useState<BrowserSidebarBodyRenderer | null>(null);
   const canManagePrivateConnections = useMemo(
     () => canAccessPrivateConnectionsSection(readStoredUser()),
@@ -82,10 +91,10 @@ function BrowserShell() {
   const canLoadManagerIdentity = !(
     selected?.kind === "connection" && selected.capabilities?.can_manage_iam === false
   );
-  const identityLabel = iamIdentity
-    ? identityAccessMode === "connection"
-      ? text("S3 Identity: {identity}", { identity: iamIdentity })
-      : text("IAM Identity: {identity}", { identity: iamIdentity })
+  const identityLabel = identityState.iamIdentity
+    ? identityState.accessMode === "connection"
+      ? text("S3 Identity: {identity}", { identity: identityState.iamIdentity })
+      : text("IAM Identity: {identity}", { identity: identityState.iamIdentity })
     : null;
   const selectedLabel = selected
     ? formatAccountLabel(selected)
@@ -95,36 +104,33 @@ function BrowserShell() {
 
   useEffect(() => {
     if (!isBrowserExplorerRoute) {
-      setIamIdentity(null);
-      setIdentityAccessMode(null);
+      setIdentityState(EMPTY_BROWSER_IDENTITY_STATE);
       return;
     }
     if (!requiresContextSelection) {
-      setIamIdentity(null);
-      setIdentityAccessMode("session");
+      setIdentityState({ iamIdentity: null, accessMode: "session" });
       return;
     }
     if (!selectedContextId) {
-      setIamIdentity(null);
-      setIdentityAccessMode(null);
+      setIdentityState(EMPTY_BROWSER_IDENTITY_STATE);
       return;
     }
     if (!canLoadManagerIdentity) {
-      setIamIdentity(null);
-      setIdentityAccessMode(null);
+      setIdentityState(EMPTY_BROWSER_IDENTITY_STATE);
       return;
     }
     let isMounted = true;
     fetchManagerContext(selectedContextId)
       .then((data) => {
         if (!isMounted) return;
-        setIamIdentity(data.iam_identity ?? null);
-        setIdentityAccessMode(data.access_mode);
+        setIdentityState({
+          iamIdentity: data.iam_identity ?? null,
+          accessMode: data.access_mode,
+        });
       })
       .catch(() => {
         if (!isMounted) return;
-        setIamIdentity(null);
-        setIdentityAccessMode(null);
+        setIdentityState(EMPTY_BROWSER_IDENTITY_STATE);
       });
     return () => {
       isMounted = false;
