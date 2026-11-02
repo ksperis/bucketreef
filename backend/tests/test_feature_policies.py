@@ -359,7 +359,10 @@ def test_admin_portal_prohibition_returns_forbidden_before_logging_reconciliatio
     account = make_s3_account(db_session, name="Locked project")
     db_session.add(account)
     db_session.commit()
-    response = client.patch(f"/api/admin/accounts/{account.id}/portal-settings", json={"allow_portal_user_external_sharing": True})
+    response = client.patch(
+        f"/api/admin/accounts/{account.id}/portal-settings",
+        json={"override": {"allow_portal_user_external_sharing": True}},
+    )
     assert response.status_code == 403, response.text
     assert "disabled by the platform" in response.json()["detail"]
     db_session.refresh(account)

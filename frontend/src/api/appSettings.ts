@@ -56,10 +56,11 @@ export type PortalSettingsOverride = {
   bucket_defaults?: PortalBucketDefaultsOverride | null;
 };
 
-export type PortalSettingsAdminUpdate = PortalSettingsOverride & {
-  delegated_to_portal_managers?: boolean | null;
-  portal_collaborator_role_management_delegated?: boolean | null;
-  portal_collaborator_addition_delegated?: boolean | null;
+export type PortalSettingsAdminUpdate = {
+  override?: PortalSettingsOverride;
+  delegated_to_portal_managers?: boolean;
+  portal_collaborator_role_management_delegated?: boolean;
+  portal_collaborator_addition_delegated?: boolean;
 };
 
 export type GeneralConfiguration = {

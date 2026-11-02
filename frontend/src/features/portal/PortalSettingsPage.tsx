@@ -9,7 +9,8 @@ import { portalBreadcrumbs } from "./portalBreadcrumbs";
 
 const portalSettingsAdapter: ProjectSettingsAdapter = {
   load: fetchPortalProjectSettings,
-  save: updatePortalProjectSettings,
+  save: (accountId, payload) =>
+    updatePortalProjectSettings(accountId, payload.override),
 };
 
 export default function PortalSettingsPage() {

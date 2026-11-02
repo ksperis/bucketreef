@@ -913,6 +913,21 @@ omitted.
 Deploy the backend and bundled frontend together. No database migration is
 required.
 
+## 2026-11 canonical Admin Portal settings PATCH payload
+
+Admin account Portal settings updates now separate the replacement override
+from delegation controls. Send the complete override under `override`; an
+explicit empty object (`"override": {}`) clears account-specific Portal
+overrides, while omitting `override` preserves the current override for a
+delegation-only update.
+
+The three delegation booleans and the `override` field reject explicit `null`.
+Omit one of those control fields to leave it unchanged. Nullable values inside
+`override` retain their existing inheritance/reset semantics.
+
+Deploy the backend and bundled frontend together. No database migration is
+required.
+
 ## 2026-11 canonical Ceph Admin RGW PATCH nullability
 
 Ceph Admin RGW account and user configuration PATCH payloads now reject

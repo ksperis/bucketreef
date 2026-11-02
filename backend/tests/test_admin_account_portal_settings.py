@@ -64,12 +64,14 @@ def test_admin_patch_account_portal_settings_replaces_override_and_audits(client
     response = client.patch(
         f"/api/admin/accounts/{account.id}/portal-settings",
         json={
-            "browser_access_enabled": True,
-            "allow_private_storage_space_create": False,
-            "allow_portal_user_external_sharing": True,
-            "bucket_defaults": {
-                "versioning": True,
-                "noncurrent_version_expiration_days": 45,
+            "override": {
+                "browser_access_enabled": True,
+                "allow_private_storage_space_create": False,
+                "allow_portal_user_external_sharing": True,
+                "bucket_defaults": {
+                    "versioning": True,
+                    "noncurrent_version_expiration_days": 45,
+                },
             },
         },
     )
@@ -122,10 +124,26 @@ def test_admin_patch_account_portal_settings_rejects_non_positive_expiration_day
 
     response = client.patch(
         f"/api/admin/accounts/{account.id}/portal-settings",
-        json={"bucket_defaults": {"noncurrent_version_expiration_days": 0}},
+        json={"override": {"bucket_defaults": {"noncurrent_version_expiration_days": 0}}},
     )
 
     assert response.status_code == 422, response.text
+
+
+def test_admin_patch_account_portal_settings_rejects_null_control_fields(client, db_session):
+    account = _seed_account(db_session)
+
+    for field in (
+        "override",
+        "delegated_to_portal_managers",
+        "portal_collaborator_role_management_delegated",
+        "portal_collaborator_addition_delegated",
+    ):
+        response = client.patch(
+            f"/api/admin/accounts/{account.id}/portal-settings",
+            json={field: None},
+        )
+        assert response.status_code == 422, (field, response.text)
 
 
 def test_admin_patch_account_portal_settings_rejects_unknown_fields(client, db_session):
@@ -157,6 +175,29 @@ def test_admin_can_delegate_shared_portal_overrides(client, db_session):
     assert body["admin_override"]["allow_private_storage_space_create"] is False
     assert body["delegated_to_portal_managers"] is True
     db_session.refresh(account)
+    assert account.portal_settings_delegated is True
+
+
+def test_admin_can_explicitly_clear_shared_portal_overrides(client, db_session):
+    account = _seed_account(
+        db_session,
+        overrides={"browser_access_enabled": True},
+    )
+
+    response = client.patch(
+        f"/api/admin/accounts/{account.id}/portal-settings",
+        json={
+            "override": {},
+            "delegated_to_portal_managers": True,
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["admin_override"] == {}
+    assert body["delegated_to_portal_managers"] is True
+    db_session.refresh(account)
+    assert account.portal_settings_override is None
     assert account.portal_settings_delegated is True
 
 
