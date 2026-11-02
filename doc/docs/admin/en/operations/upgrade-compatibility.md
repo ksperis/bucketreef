@@ -913,6 +913,21 @@ omitted.
 Deploy the backend and bundled frontend together. No database migration is
 required.
 
+## 2026-11 canonical Ceph Admin RGW PATCH nullability
+
+Ceph Admin RGW account and user configuration PATCH payloads now reject
+explicit `null` for boolean mutations and for the RGW user `caps` mutation.
+Omit one of those fields to leave it unchanged and send an explicit boolean or
+capability update to change it. This removes ambiguous cases where `null`
+either behaved as a no-op or implicitly enabled a quota.
+
+Intentional clear operations remain nullable: account and user text fields,
+profile limits, and quota size/object limits still use `null` to request the
+corresponding RGW clear/reset value.
+
+Deploy the backend and bundled frontend together. No database migration is
+required.
+
 ## 2026-11 explicit Portal access-key target
 
 Portal `POST /portal/access-keys` now requires a request body with an explicit

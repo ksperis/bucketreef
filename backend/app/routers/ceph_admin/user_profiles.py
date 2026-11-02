@@ -100,11 +100,15 @@ def _user_update_params(
             for field in USER_UPDATE_FIELDS
         }
     return {
-        field: nullable_update(
-            getattr(update, field),
-            field,
-            field_set,
-            USER_UPDATE_CLEAR_VALUES.get(field),
+        field: (
+            nullable_update(
+                getattr(update, field),
+                field,
+                field_set,
+                USER_UPDATE_CLEAR_VALUES[field],
+            )
+            if field in USER_UPDATE_CLEAR_VALUES
+            else getattr(update, field) if field in field_set else None
         )
         for field in USER_UPDATE_FIELDS
     }

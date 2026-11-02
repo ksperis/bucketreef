@@ -5,7 +5,7 @@ from typing import Any, Optional, Literal
 
 from pydantic import Field, ValidationError, ValidationInfo, field_validator, model_validator
 
-from app.models.base import ApiModel
+from app.models.base import ApiModel, reject_explicit_null_fields
 from app.models.bucket_listing import BucketListingSummary
 from app.models.pagination import PaginatedResponse
 from app.models.tagging import TagDefinitionSummary
@@ -304,6 +304,17 @@ class CephAdminRgwAccountConfigUpdate(ApiModel):
         validate_rgw_account_extra_params
     )
 
+    @model_validator(mode="after")
+    def reject_non_nullable_nulls(self):
+        reject_explicit_null_fields(
+            self,
+            (
+                "quota_enabled",
+                "bucket_quota_enabled",
+            ),
+        )
+        return self
+
 
 class CephAdminRgwUserConfigUpdate(ApiModel):
     display_name: Optional[str] = None
@@ -322,6 +333,20 @@ class CephAdminRgwUserConfigUpdate(ApiModel):
     _validate_extra_identifiers = field_validator("extra_params")(
         _safe_rgw_user_extra_params
     )
+
+    @model_validator(mode="after")
+    def reject_non_nullable_nulls(self):
+        reject_explicit_null_fields(
+            self,
+            (
+                "suspended",
+                "system",
+                "account_root",
+                "quota_enabled",
+                "caps",
+            ),
+        )
+        return self
 
 
 class CephAdminBucketUsagePoint(ApiModel):
