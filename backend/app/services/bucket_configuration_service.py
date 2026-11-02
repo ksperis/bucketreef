@@ -45,6 +45,28 @@ logger = logging.getLogger(__name__)
 
 
 class BucketConfigurationService:
+    @staticmethod
+    def _object_lock_from_raw(config: Any) -> BucketObjectLock | None:
+        if not isinstance(config, dict):
+            return None
+        return BucketObjectLock(
+            enabled=config.get("enabled"),
+            mode=config.get("mode"),
+            days=config.get("days"),
+            years=config.get("years"),
+        )
+
+    @staticmethod
+    def _public_access_block_from_raw(config: Any) -> BucketPublicAccessBlock | None:
+        if not isinstance(config, dict):
+            return None
+        return BucketPublicAccessBlock(
+            block_public_acls=config.get("block_public_acls"),
+            ignore_public_acls=config.get("ignore_public_acls"),
+            block_public_policy=config.get("block_public_policy"),
+            restrict_public_buckets=config.get("restrict_public_buckets"),
+        )
+
     def _bucket_client_kwargs(
         self,
         execution_context: S3ExecutionTarget,
@@ -100,26 +122,8 @@ class BucketConfigurationService:
             name,
             **self._bucket_client_kwargs(execution_context, name),
         )
-        object_lock = (
-            BucketObjectLock(
-                enabled=object_lock_raw.get("enabled"),
-                mode=object_lock_raw.get("mode"),
-                days=object_lock_raw.get("days"),
-                years=object_lock_raw.get("years"),
-            )
-            if isinstance(object_lock_raw, dict)
-            else None
-        )
-        public_access_block = (
-            BucketPublicAccessBlock(
-                block_public_acls=public_access_block_raw.get("block_public_acls"),
-                ignore_public_acls=public_access_block_raw.get("ignore_public_acls"),
-                block_public_policy=public_access_block_raw.get("block_public_policy"),
-                restrict_public_buckets=public_access_block_raw.get("restrict_public_buckets"),
-            )
-            if isinstance(public_access_block_raw, dict)
-            else None
-        )
+        object_lock = self._object_lock_from_raw(object_lock_raw)
+        public_access_block = self._public_access_block_from_raw(public_access_block_raw)
         lifecycle_rules_raw = s3_bucket_metadata.get_bucket_lifecycle(
             name, **self._bucket_client_kwargs(execution_context, name)
         )
@@ -152,14 +156,7 @@ class BucketConfigurationService:
         object_lock_raw = s3_bucket_security.get_bucket_object_lock(
             name, **self._bucket_client_kwargs(execution_context, name)
         )
-        if not isinstance(object_lock_raw, dict):
-            return None
-        return BucketObjectLock(
-            enabled=object_lock_raw.get("enabled"),
-            mode=object_lock_raw.get("mode"),
-            days=object_lock_raw.get("days"),
-            years=object_lock_raw.get("years"),
-        )
+        return self._object_lock_from_raw(object_lock_raw)
 
     def get_bucket_cors(self, name: str, execution_context: S3ExecutionTarget) -> list[dict]:
         return s3_bucket_access.get_bucket_cors(
@@ -199,15 +196,15 @@ class BucketConfigurationService:
         )
 
     def get_public_access_block(self, name: str, execution_context: S3ExecutionTarget) -> BucketPublicAccessBlock:
-        config = s3_bucket_security.get_bucket_public_access_block(
+        config_raw = s3_bucket_security.get_bucket_public_access_block(
             name,
             **self._bucket_client_kwargs(execution_context, name),
-        ) or {}
-        return BucketPublicAccessBlock(
-            block_public_acls=config.get("block_public_acls"),
-            ignore_public_acls=config.get("ignore_public_acls"),
-            block_public_policy=config.get("block_public_policy"),
-            restrict_public_buckets=config.get("restrict_public_buckets"),
+        )
+        return self._public_access_block_from_raw(config_raw) or BucketPublicAccessBlock(
+            block_public_acls=None,
+            ignore_public_acls=None,
+            block_public_policy=None,
+            restrict_public_buckets=None,
         )
 
     def set_public_access_block(
@@ -229,15 +226,15 @@ class BucketConfigurationService:
             configuration=config,
             **self._bucket_client_kwargs(execution_context, name),
         )
-        updated = s3_bucket_security.get_bucket_public_access_block(
+        updated_raw = s3_bucket_security.get_bucket_public_access_block(
             name,
             **self._bucket_client_kwargs(execution_context, name),
         )
-        return BucketPublicAccessBlock(
-            block_public_acls=(updated or {}).get("block_public_acls"),
-            ignore_public_acls=(updated or {}).get("ignore_public_acls"),
-            block_public_policy=(updated or {}).get("block_public_policy"),
-            restrict_public_buckets=(updated or {}).get("restrict_public_buckets"),
+        return self._public_access_block_from_raw(updated_raw) or BucketPublicAccessBlock(
+            block_public_acls=None,
+            ignore_public_acls=None,
+            block_public_policy=None,
+            restrict_public_buckets=None,
         )
 
     def get_policy(self, name: str, execution_context: S3ExecutionTarget) -> Optional[dict]:
@@ -582,13 +579,11 @@ class BucketConfigurationService:
             name,
             **self._bucket_client_kwargs(execution_context, name),
         )
-        if not config:
-            return BucketObjectLock(enabled=None, mode=None, days=None, years=None)
-        return BucketObjectLock(
-            enabled=config.get("enabled"),
-            mode=config.get("mode"),
-            days=config.get("days"),
-            years=config.get("years"),
+        return self._object_lock_from_raw(config) or BucketObjectLock(
+            enabled=None,
+            mode=None,
+            days=None,
+            years=None,
         )
 
     def set_object_lock(
