@@ -239,20 +239,17 @@ def manager_membership_capabilities(
     )
 
 
-def _resolve_user_execution_context(
+def _resolve_selected_execution_context(
     db: Session,
     user: User,
     *,
-    request: Request,
-    account_id: Optional[int],
     s3_user_id: Optional[int],
     connection_id: Optional[int],
     ceph_admin_endpoint_id: Optional[int],
     surface: str,
-    portal_browser: bool,
     metadata_only: bool,
     is_storage_ops_surface: bool,
-) -> S3ExecutionContext:
+) -> S3ExecutionContext | None:
     if ceph_admin_endpoint_id is not None:
         if surface == "manager-browser":
             raise HTTPException(
@@ -283,6 +280,19 @@ def _resolve_user_execution_context(
             surface=surface,
             metadata_only=metadata_only,
         )
+    return None
+
+
+def _resolve_account_execution_context(
+    db: Session,
+    user: User,
+    *,
+    request: Request,
+    account_id: Optional[int],
+    surface: str,
+    portal_browser: bool,
+    metadata_only: bool,
+) -> S3ExecutionContext:
     if surface == "browser" and not portal_browser:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -308,8 +318,6 @@ def _resolve_user_execution_context(
         )
 
     capabilities = manager_membership_capabilities(link)
-    if not capabilities.can_manage_buckets:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized for this account")
     if metadata_only:
         return S3ExecutionContext.from_account(account, manager_capabilities=capabilities)
 
@@ -324,6 +332,43 @@ def _resolve_user_execution_context(
         access_key=access_key,
         secret_key=secret_key,
         manager_capabilities=capabilities,
+    )
+
+
+def _resolve_user_execution_context(
+    db: Session,
+    user: User,
+    *,
+    request: Request,
+    account_id: Optional[int],
+    s3_user_id: Optional[int],
+    connection_id: Optional[int],
+    ceph_admin_endpoint_id: Optional[int],
+    surface: str,
+    portal_browser: bool,
+    metadata_only: bool,
+    is_storage_ops_surface: bool,
+) -> S3ExecutionContext:
+    selected = _resolve_selected_execution_context(
+        db,
+        user,
+        s3_user_id=s3_user_id,
+        connection_id=connection_id,
+        ceph_admin_endpoint_id=ceph_admin_endpoint_id,
+        surface=surface,
+        metadata_only=metadata_only,
+        is_storage_ops_surface=is_storage_ops_surface,
+    )
+    if selected is not None:
+        return selected
+    return _resolve_account_execution_context(
+        db,
+        user,
+        request=request,
+        account_id=account_id,
+        surface=surface,
+        portal_browser=portal_browser,
+        metadata_only=metadata_only,
     )
 
 
