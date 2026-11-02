@@ -396,3 +396,14 @@ def resolve_attached_policy(
         path=payload.path,
         default_version_id=payload.default_version_id,
     )
+
+
+def attach_iam_policy(
+    entity_name: str,
+    payload: Policy,
+    *,
+    attach_policy_fn: Callable[[str, str], None],
+    get_policy_fn: Callable[[str], Policy | None],
+) -> Policy:
+    attach_policy_fn(entity_name, payload.arn)
+    return resolve_attached_policy(payload, get_policy_fn=get_policy_fn)

@@ -22,9 +22,9 @@ from app.routers.manager.iam_common import (
 )
 from app.services.audit_service import AuditService
 from app.services.manager_iam_support import (
+    attach_iam_policy,
     create_iam_group,
     load_inline_policies,
-    resolve_attached_policy,
     save_inline_policy,
 )
 from app.services.managed_resource_naming import PORTAL_MANAGED_IAM_GROUP_NAMES
@@ -296,26 +296,22 @@ def put_group_inline_policy(
     validate_inline_policy_request(policy_name, "group", context, loc=("path", "policy_name"))
     ensure_inline_policy_name(payload, policy_name)
     service = get_iam_service_for_context(context)
-    try:
-        saved = save_inline_policy(
+    return run_audited_iam_mutation(
+        mutation=lambda: save_inline_policy(
             group_name,
             policy_name=policy_name,
             document=payload.document,
             put_policy_fn=service.put_group_inline_policy,
             get_policy_fn=service.get_group_inline_policy,
-        )
-        audit_service.record_action(
-            user=current_user,
-            scope="manager",
-            action="put_group_inline_policy",
-            entity_type="iam_group",
-            entity_id=group_name,
-            execution_context=context,
-            metadata={"policy_name": policy_name},
-        )
-        return saved
-    except RuntimeError as exc:
-        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+        ),
+        audit_service=audit_service,
+        current_user=current_user,
+        context=context,
+        action="put_group_inline_policy",
+        entity_type="iam_group",
+        entity_id=group_name,
+        metadata={"policy_name": policy_name},
+    )
 
 
 @router.delete("/{group_name}/inline-policies/{policy_name}", status_code=status.HTTP_204_NO_CONTENT)
@@ -363,20 +359,21 @@ def attach_group_policy(
 ) -> Policy:
     _ensure_unmanaged_group(group_name)
     service = get_iam_service_for_context(context)
-    try:
-        service.attach_group_policy(group_name, payload.arn)
-        audit_service.record_action(
-            user=current_user,
-            scope="manager",
-            action="attach_group_policy",
-            entity_type="iam_group",
-            entity_id=group_name,
-            execution_context=context,
-            metadata={"policy_arn": payload.arn},
-        )
-        return resolve_attached_policy(payload, get_policy_fn=service.get_policy)
-    except RuntimeError as exc:
-        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+    return run_audited_iam_mutation(
+        mutation=lambda: attach_iam_policy(
+            group_name,
+            payload,
+            attach_policy_fn=service.attach_group_policy,
+            get_policy_fn=service.get_policy,
+        ),
+        audit_service=audit_service,
+        current_user=current_user,
+        context=context,
+        action="attach_group_policy",
+        entity_type="iam_group",
+        entity_id=group_name,
+        metadata={"policy_arn": payload.arn},
+    )
 
 
 @router.delete("/{group_name}/policies/{policy_arn:path}", status_code=status.HTTP_204_NO_CONTENT)

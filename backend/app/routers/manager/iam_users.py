@@ -29,11 +29,11 @@ from app.services.audit_service import AuditService
 from app.services.resource_name_validation import validate_inline_policy_request
 from app.services.access_key_metadata_service import AccessKeyMetadataService
 from app.services.manager_iam_support import (
+    attach_iam_policy,
     create_iam_user,
     load_iam_user_details,
     load_inline_policies,
     managed_iam_user_source,
-    resolve_attached_policy,
     save_inline_policy,
     update_iam_user,
     validate_iam_user_create,
@@ -465,26 +465,22 @@ def put_user_inline_policy(
     validate_inline_policy_request(policy_name, "user", context, loc=("path", "policy_name"))
     ensure_inline_policy_name(payload, policy_name)
     service = get_iam_service_for_context(context)
-    try:
-        saved = save_inline_policy(
+    return run_audited_iam_mutation(
+        mutation=lambda: save_inline_policy(
             user_name,
             policy_name=policy_name,
             document=payload.document,
             put_policy_fn=service.put_user_inline_policy,
             get_policy_fn=service.get_user_inline_policy,
-        )
-        audit_service.record_action(
-            user=current_user,
-            scope="manager",
-            action="put_user_inline_policy",
-            entity_type="iam_user",
-            entity_id=user_name,
-            execution_context=context,
-            metadata={"policy_name": policy_name},
-        )
-        return saved
-    except RuntimeError as exc:
-        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+        ),
+        audit_service=audit_service,
+        current_user=current_user,
+        context=context,
+        action="put_user_inline_policy",
+        entity_type="iam_user",
+        entity_id=user_name,
+        metadata={"policy_name": policy_name},
+    )
 
 
 @router.delete("/{user_name}/inline-policies/{policy_name}", status_code=status.HTTP_204_NO_CONTENT)
@@ -534,20 +530,21 @@ def attach_user_policy(
 ) -> Policy:
     _ensure_unmanaged_user(db, context, user_name)
     service = get_iam_service_for_context(context)
-    try:
-        service.attach_user_policy(user_name, payload.arn)
-        audit_service.record_action(
-            user=current_user,
-            scope="manager",
-            action="attach_user_policy",
-            entity_type="iam_user",
-            entity_id=user_name,
-            execution_context=context,
-            metadata={"policy_arn": payload.arn},
-        )
-        return resolve_attached_policy(payload, get_policy_fn=service.get_policy)
-    except RuntimeError as exc:
-        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+    return run_audited_iam_mutation(
+        mutation=lambda: attach_iam_policy(
+            user_name,
+            payload,
+            attach_policy_fn=service.attach_user_policy,
+            get_policy_fn=service.get_policy,
+        ),
+        audit_service=audit_service,
+        current_user=current_user,
+        context=context,
+        action="attach_user_policy",
+        entity_type="iam_user",
+        entity_id=user_name,
+        metadata={"policy_arn": payload.arn},
+    )
 
 
 @router.delete("/{user_name}/policies/{policy_arn:path}", status_code=status.HTTP_204_NO_CONTENT)
