@@ -21,7 +21,7 @@ import { isAdminLikeRole, readStoredUser } from "../../utils/workspaces";
 import { useExecutionContext } from "./ExecutionContextProvider";
 import TrafficAnalytics from "./TrafficAnalytics";
 import BucketUsageStatsPanel from "../shared/BucketUsageStatsPanel";
-import PropertySummaryChip, { PropertySummaryTone } from "../../components/PropertySummaryChip";
+import PropertySummaryChip from "../../components/PropertySummaryChip";
 import { useCephAdminEndpoint } from "../cephAdmin/CephAdminEndpointContext";
 import {
   BucketAclFeature,
@@ -73,17 +73,12 @@ import { formatBytes } from "../../utils/format";
 import type { UiRole } from "../../api/users";
 import BucketFeatureGrid from "./bucketDetail/BucketFeatureGrid";
 import BucketObjectsPreview from "./bucketDetail/BucketObjectsPreview";
+import { buildBucketPropertySummary } from "./bucketDetail/bucketPropertySummary";
 import { useManagerI18n } from "./managerI18n";
 
 function getUserRole(): UiRole | null {
   return readStoredUser()?.role ?? null;
 }
-
-type PropertySummary = {
-  label: string;
-  state: string;
-  tone: PropertySummaryTone;
-};
 
 const bucketDetailHintClass = "settings-description";
 const bucketDetailTwoColumnGridClass = "grid gap-3 md:grid-cols-2";
@@ -747,183 +742,76 @@ function BucketDetailPageContent({
     return () => onBusyChange?.(false);
   }, [configurationBusy, onBusyChange]);
 
-  const propertySummary = useMemo<PropertySummary[]>(() => {
-    const versioningState = versioningLoading
-      ? "Loading..."
-      : versioningLoadError
-        ? "Unavailable"
-        : versioningStatus ?? "Disabled";
-    const versioningNormalized = String(versioningState || "").trim().toLowerCase();
-    const versioningTone: PropertySummary["tone"] =
-      versioningLoading || versioningLoadError
-        ? "unknown"
-        : versioningIsEnabled
-          ? "active"
-          : versioningNormalized === "suspended"
-            ? "unknown"
-            : "inactive";
-
-    const hasObjectLockData = !(objectLockLoading || objectLockLoadError);
-    let objectLockState = "Disabled";
-    let objectLockTone: PropertySummary["tone"] = "inactive";
-    if (!hasObjectLockData) {
-      objectLockState = objectLockLoading ? "Loading..." : "Unavailable";
-      objectLockTone = "unknown";
-    } else if (objectLockPersistentlyEnabled) {
-      objectLockState = "Enabled";
-      objectLockTone = "active";
-    } else {
-      objectLockState = "Disabled";
-      objectLockTone = "inactive";
-    }
-
-    const lifecycleState = lifecycleLoading
-      ? "Loading..."
-      : lifecycleError
-        ? "Unavailable"
-        : hasLifecycleRules
-          ? "Enabled"
-          : "Disabled";
-    const lifecycleTone: PropertySummary["tone"] = lifecycleLoading
-      ? "unknown"
-      : hasLifecycleRules
-        ? "active"
-        : lifecycleError
-          ? "unknown"
-          : "inactive";
-
-    const quotaState = bucket ? (quotaConfigured ? "Configured" : "Not set") : "Unknown";
-    const quotaTone: PropertySummary["tone"] =
-      !bucket || quotaState === "Unknown" ? "unknown" : quotaConfigured ? "active" : "inactive";
-
-    const policyState = policyLoading
-      ? "Loading..."
-      : policyError
-        ? "Unavailable"
-        : policyConfigured
-          ? "Configured"
-          : "Not set";
-    const policyTone: PropertySummary["tone"] =
-      policyLoading || policyError ? "unknown" : policyConfigured ? "active" : "inactive";
-
-    const corsState = corsLoading
-      ? "Loading..."
-      : corsError
-        ? "Unavailable"
-        : corsConfigured
-          ? "Configured"
-          : "Not set";
-    const corsTone: PropertySummary["tone"] = corsLoading || corsError ? "unknown" : corsConfigured ? "active" : "inactive";
-
-    const encryptionState = !sseFeatureEnabled
-      ? "Unavailable"
-      : encryptionLoading
-        ? "Loading..."
-        : encryptionError
-          ? "Unavailable"
-          : encryptionConfigured
-            ? "Enabled"
-            : "Disabled";
-    const encryptionTone: PropertySummary["tone"] = !sseFeatureEnabled
-      ? "unknown"
-      : encryptionLoading || encryptionError
-        ? "unknown"
-        : encryptionConfigured
-          ? "active"
-          : "inactive";
-
-    const accessLoggingState = accessLoggingLoading
-      ? "Loading..."
-      : accessLoggingError
-        ? "Unavailable"
-        : accessLoggingConfigured
-          ? "Enabled"
-          : "Disabled";
-    const accessLoggingTone: PropertySummary["tone"] =
-      accessLoggingLoading || accessLoggingError ? "unknown" : accessLoggingConfigured ? "active" : "inactive";
-
-    const notificationsState = notificationsLoading
-      ? "Loading..."
-      : notificationsError
-        ? "Unavailable"
-        : notificationsConfigured
-          ? "Configured"
-          : "Not set";
-    const notificationsTone: PropertySummary["tone"] =
-      notificationsLoading || notificationsError ? "unknown" : notificationsConfigured ? "active" : "inactive";
-
-    const replicationState = !isCephEndpoint || !replicationFeatureEnabled
-      ? "Unavailable"
-      : replicationLoading
-        ? "Loading..."
-        : replicationError
-          ? "Unavailable"
-          : replicationConfigured
-            ? "Configured"
-            : "Not set";
-    const replicationTone: PropertySummary["tone"] = !isCephEndpoint || !replicationFeatureEnabled
-      ? "unknown"
-      : replicationLoading || replicationError
-        ? "unknown"
-        : replicationConfigured
-          ? "active"
-          : "inactive";
-
-    const websiteState = !staticWebsiteEnabled
-      ? "Unavailable"
-      : websiteLoading
-        ? "Loading..."
-        : websiteError
-          ? "Unavailable"
-          : websiteConfigured
-            ? "Enabled"
-            : "Disabled";
-    const websiteTone: PropertySummary["tone"] = !staticWebsiteEnabled
-      ? "unknown"
-      : websiteLoading || websiteError
-        ? "unknown"
-        : websiteConfigured
-          ? "active"
-          : "inactive";
-
-    const publicAccessState = publicAccessLoading
-      ? "Loading..."
-      : publicAccessError
-        ? "Unavailable"
-        : publicAccessBlockEnabled
-          ? "Enabled"
-          : publicAccessBlockPartial
-            ? "Partial"
-            : "Disabled";
-    const publicAccessTone: PropertySummary["tone"] =
-      publicAccessLoading || publicAccessError ? "unknown" : publicAccessBlockEnabled || publicAccessBlockPartial ? "active" : "inactive";
-
-    const summary: PropertySummary[] = [
-      { label: text("Versioning"), state: text(versioningState), tone: versioningTone },
-      { label: text("Object Lock"), state: text(objectLockState), tone: objectLockTone },
-      { label: text("Block public access"), state: text(publicAccessState), tone: publicAccessTone },
-      { label: text("Lifecycle rules"), state: text(lifecycleState), tone: lifecycleTone },
-    ];
-    if (staticWebsiteEnabled) {
-      summary.push({ label: text("Static website"), state: text(websiteState), tone: websiteTone });
-    }
-    if (quotaFeatureEnabled) {
-      summary.push({ label: text("Quota"), state: text(quotaState), tone: quotaTone });
-    }
-    summary.push({ label: text("Bucket policy"), state: text(policyState), tone: policyTone });
-    summary.push({ label: text("CORS"), state: text(corsState), tone: corsTone });
-    if (sseFeatureEnabled) {
-      summary.push({ label: text("Server-side encryption"), state: text(encryptionState), tone: encryptionTone });
-    }
-    summary.push({ label: text("Access logging"), state: text(accessLoggingState), tone: accessLoggingTone });
-    if (snsFeatureEnabled) {
-      summary.push({ label: text("Notifications"), state: text(notificationsState), tone: notificationsTone });
-    }
-    if (replicationFeatureEnabled) {
-      summary.push({ label: text("Replication"), state: text(replicationState), tone: replicationTone });
-    }
-
-    return summary;
+  const propertySummary = useMemo(() => {
+    return buildBucketPropertySummary({
+      accessLogging: {
+        configured: accessLoggingConfigured,
+        loading: accessLoggingLoading,
+        hasError: Boolean(accessLoggingError),
+      },
+      bucketAvailable: Boolean(bucket),
+      cors: {
+        configured: corsConfigured,
+        loading: corsLoading,
+        hasError: Boolean(corsError),
+      },
+      encryption: {
+        configured: encryptionConfigured,
+        loading: encryptionLoading,
+        hasError: Boolean(encryptionError),
+      },
+      lifecycle: {
+        configured: hasLifecycleRules,
+        loading: lifecycleLoading,
+        hasError: Boolean(lifecycleError),
+      },
+      notifications: {
+        configured: notificationsConfigured,
+        loading: notificationsLoading,
+        hasError: Boolean(notificationsError),
+      },
+      notificationsEnabled: snsFeatureEnabled,
+      objectLock: {
+        configured: objectLockPersistentlyEnabled,
+        loading: objectLockLoading,
+        hasError: Boolean(objectLockLoadError),
+      },
+      policy: {
+        configured: policyConfigured,
+        loading: policyLoading,
+        hasError: Boolean(policyError),
+      },
+      publicAccess: {
+        blocked: publicAccessBlockEnabled,
+        partial: publicAccessBlockPartial,
+        loading: publicAccessLoading,
+        hasError: Boolean(publicAccessError),
+      },
+      quota: {
+        configured: quotaConfigured,
+        enabled: quotaFeatureEnabled,
+      },
+      replication: {
+        configured: replicationConfigured,
+        loading: replicationLoading,
+        hasError: Boolean(replicationError),
+        enabled: replicationFeatureEnabled,
+        endpointSupported: isCephEndpoint,
+      },
+      serverSideEncryptionEnabled: sseFeatureEnabled,
+      staticWebsite: {
+        configured: websiteConfigured,
+        loading: websiteLoading,
+        hasError: Boolean(websiteError),
+        enabled: staticWebsiteEnabled,
+      },
+      versioning: {
+        enabled: versioningIsEnabled,
+        loading: versioningLoading,
+        hasError: Boolean(versioningLoadError),
+        status: versioningStatus,
+      },
+    }, text);
   }, [
     bucket,
     accessLoggingConfigured,
