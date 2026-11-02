@@ -68,10 +68,10 @@ def _manager_stats_state(
     context: S3ExecutionContext,
     actor: ManagerActor,
     db: Session,
+    settings: AppSettings,
 ) -> tuple[bool, Optional[str], Optional[str]]:
     if context.context_kind == "openstack_project":
         return False, "RGW administrative metrics are unavailable for OpenStack contexts.", None
-    settings = load_app_settings_for_db_readonly(db)
     rgw_usage_metrics_enabled = manager_rgw_usage_metrics_state(
         settings.manager.feature_policies,
         manager_usage_metrics_resource(db, context),
@@ -172,10 +172,10 @@ def _manager_browser_state(
     context: S3ExecutionContext,
     actor: ManagerActor,
     db: Session,
+    settings: AppSettings,
     access_service: Optional[EffectiveAccessService],
     resolved_access: Optional[ResolvedUserAccess],
 ) -> _ManagerBrowserState:
-    settings = load_app_settings_for_db_readonly(db)
     feature_state = _manager_browser_feature_state(settings)
     if feature_state is not None:
         return feature_state
@@ -337,6 +337,7 @@ def _manager_limits(
 def _manager_feature_states(
     context: S3ExecutionContext,
     db: Session,
+    app_settings: AppSettings,
     resolved_access: Optional[ResolvedUserAccess],
     *,
     manager_bucket_quota_enabled: bool,
@@ -357,7 +358,6 @@ def _manager_feature_states(
         if resolved_access
         else ()
     )
-    app_settings = load_app_settings_for_db_readonly(db)
     states = manager_resource_states(
         app_settings.manager.feature_policies,
         resource,
@@ -391,13 +391,20 @@ def get_manager_context(
     include_limits: Annotated[bool, Query()] = False,
 ) -> ManagerContext:
     access_mode = _manager_access_mode(context)
-    manager_stats_enabled, manager_stats_message, connection_iam_identity = _manager_stats_state(context, actor, db)
+    app_settings = load_app_settings_for_db_readonly(db)
+    manager_stats_enabled, manager_stats_message, connection_iam_identity = _manager_stats_state(
+        context,
+        actor,
+        db,
+        app_settings,
+    )
     access_service = EffectiveAccessService(db) if isinstance(actor, User) else None
     resolved_access = access_service.resolve_user(actor) if access_service else None
     browser_state = _manager_browser_state(
         context,
         actor,
         db,
+        app_settings,
         access_service,
         resolved_access,
     )
@@ -436,6 +443,7 @@ def get_manager_context(
     feature_states = _manager_feature_states(
         context,
         db,
+        app_settings,
         resolved_access,
         manager_bucket_quota_enabled=manager_bucket_quota_enabled,
         manager_ceph_keys_enabled=manager_ceph_keys_enabled,
