@@ -813,6 +813,17 @@ intentional OpenStack association omission semantics, and PATCH/update payloads
 remain optional field-by-field. Deploy the backend and bundled frontend
 together. No database migration is required.
 
+## 2026-11 explicit Ceph Admin RGW user mutation choices
+
+Ceph Admin RGW user creation now requires an explicit `generate_key` choice,
+and RGW capability updates require an explicit `mode` (`replace`, `add`, or
+`remove`). The bundled create and edit forms already materialize these choices,
+so the backend no longer selects a mutating default when either field is
+omitted.
+
+Deploy the backend and bundled frontend together. No database migration is
+required.
+
 ## 2026-10 canonical OIDC provider collection payloads
 
 Admin OIDC provider create and update requests now require JSON arrays for

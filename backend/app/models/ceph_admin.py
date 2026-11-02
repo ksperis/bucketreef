@@ -198,7 +198,7 @@ class CephAdminRgwUserDetail(ApiModel):
 
 
 class CephAdminRgwUserCapsUpdate(ApiModel):
-    mode: Literal["replace", "add", "remove"] = "replace"
+    mode: Literal["replace", "add", "remove"]
     values: list[str]
 
 
@@ -256,7 +256,7 @@ class CephAdminRgwUserCreate(ApiModel):
     op_mask: Optional[str] = None
     system: Optional[bool] = None
     account_root: Optional[bool] = None
-    generate_key: bool = True
+    generate_key: bool
     quota_enabled: Optional[bool] = None
     quota_max_size_bytes: Optional[int] = Field(default=None, ge=0)
     quota_max_objects: Optional[int] = Field(default=None, ge=0)
