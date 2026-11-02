@@ -678,6 +678,35 @@ def test_user_group_role_policy_crud_smoke(monkeypatch):
     service.delete_role("missing")
 
 
+@pytest.mark.parametrize(
+    ("method_name", "identity_name", "operation", "identity_param"),
+    [
+        ("put_user_inline_policy", "alice", "put_user_policy", "UserName"),
+        ("put_group_inline_policy", "grp-a", "put_group_policy", "GroupName"),
+        ("put_role_inline_policy", "role-a", "put_role_policy", "RoleName"),
+    ],
+)
+def test_inline_policy_writes_preserve_target_identity_parameter(
+    monkeypatch,
+    method_name,
+    identity_name,
+    operation,
+    identity_param,
+):
+    service, fake = _service(monkeypatch)
+
+    getattr(service, method_name)(identity_name, "inline-policy", {"Statement": []})
+
+    assert fake.calls[-1] == (
+        operation,
+        {
+            identity_param: identity_name,
+            "PolicyName": "inline-policy",
+            "PolicyDocument": '{"Statement": []}',
+        },
+    )
+
+
 def test_create_group_exposes_structured_existing_group_conflict(monkeypatch):
     service, fake = _service(monkeypatch)
     fake.raise_on["create_group"] = _client_error("EntityAlreadyExists", "CreateGroup")
