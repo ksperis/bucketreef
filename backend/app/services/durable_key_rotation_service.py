@@ -19,6 +19,8 @@ from app.db import (
     User,
 )
 from app.services.audit_service import AuditService
+from app.services.endpoint_service_identity_validation import ManagedIdentityKeyDriftError
+from app.services.key_rotation_intent_queries import pending_rotation
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError, get_rgw_admin_client
 from app.utils.rgw_payloads import extract_rgw_user_caps, require_rgw_user_identity
 from app.services.rgw_admin_identity import classify_rgw_credential_failure
@@ -33,21 +35,6 @@ SERVICE_TYPES = {"endpoint_runtime": "runtime", "endpoint_supervision": "supervi
 IDENTITY_TYPES = {**SERVICE_TYPES, "ceph_admin": "ceph_admin"}
 ROTATION_TYPES = (*SERVICE_TYPES, "ceph_admin", "endpoint_admin", "account", "s3_user")
 RotationTarget = EndpointServiceIdentity | S3Account | S3User | StorageEndpoint
-
-
-def pending_rotation(
-    db: Session,
-    endpoint_id: int,
-    key_type: str,
-    target_id: int,
-) -> KeyRotationIntent | None:
-    return db.scalar(
-        select(KeyRotationIntent).where(
-            KeyRotationIntent.endpoint_id == endpoint_id,
-            KeyRotationIntent.key_type == key_type,
-            KeyRotationIntent.target_id == target_id,
-        )
-    )
 
 
 class ReplacementValidationError(ValueError):
@@ -580,8 +567,6 @@ class DurableKeyRotationService:
                 "then retry rotation."
             )
             self.db.commit()
-
-        from app.services.endpoint_service_identities import ManagedIdentityKeyDriftError
 
         if key_type not in SERVICE_TYPES:
             return
