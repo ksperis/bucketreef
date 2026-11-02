@@ -180,6 +180,27 @@ class BucketMigrationObjectComparisonMixin:
         if source_entry.is_delete_marker:
             return None, None
 
+        return self._compare_version_timeline_object_pair(
+            source_client,
+            target_client,
+            source_bucket=source_bucket,
+            target_bucket=target_bucket,
+            key=key,
+            source_entry=source_entry,
+            target_entry=target_entry,
+        )
+
+    def _compare_version_timeline_object_pair(
+        self,
+        source_client: Any,
+        target_client: Any,
+        *,
+        source_bucket: str,
+        target_bucket: str,
+        key: str,
+        source_entry: BucketVersionEntry,
+        target_entry: BucketVersionEntry,
+    ) -> tuple[VersionTimelineComparison | None, VersionTimelineDiffKey | None]:
         source_details = self._versioned_object_details(
             source_client,
             source_bucket,
