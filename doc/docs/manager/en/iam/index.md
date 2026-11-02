@@ -29,7 +29,7 @@ instead.
      path. You can rename the identity or change its path. After a rename,
      Manager follows the new provider name automatically and keeps the active
      resource tab when possible.
-   - BucketReef-managed identities used by Portal or managed private access
+   - BucketReef-managed identities used by Portal or personal access
      are read-only on the Details page and protected by the Manager API. Change
      their keys, IAM policies and group memberships, or remove them, only through
      the BucketReef workflow that owns them. Portal technical IAM groups

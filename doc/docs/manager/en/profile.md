@@ -20,8 +20,8 @@ When private connections are enabled for your user, the profile inventory lets
 you create, edit, tag, enable, disable, and remove your own connections. A
 connection can be enabled independently for Manager and Browser.
 
-A **Server managed** connection was created by the Manager **Create my private
-access** workflow. Its remote identity and credentials are managed by
+A connection marked **Personal access** was created by the Manager **Create my
+personal access** workflow. Its remote identity and credentials are managed by
 BucketReef. You can change its presentation and availability, but you cannot
 edit or reveal its managed secret. Removing it first runs the corresponding
 remote cleanup; if cleanup fails, use the retry action shown by BucketReef.

@@ -55,7 +55,7 @@ export default function CreateManagedPrivateAccessModal({
   const connectionNameRef = useRef<HTMLInputElement | null>(null);
   const [initialConnectionName] = useState(() => {
     const normalizedContextName = contextName?.trim();
-    return normalizedContextName ? `${normalizedContextName} private access` : "My private access";
+    return normalizedContextName ? `${normalizedContextName} personal access` : "My personal access";
   });
   const [connectionName, setConnectionName] = useState(initialConnectionName);
   const [accessBrowser, setAccessBrowser] = useState(true);

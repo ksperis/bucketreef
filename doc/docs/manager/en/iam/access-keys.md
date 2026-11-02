@@ -62,11 +62,11 @@ This is different from:
    delete actions.
 
 The key inventory distinguishes the locked BucketReef interface key, ordinary
-external-client keys, expiration state, and keys owned by private access.
+external-client keys, expiration state, and keys owned by personal access.
 
 <div class="docs-themed-shot" data-docs-themed-shot>
-  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/manager-access-keys.light.png" alt="Ceph access-key inventory for a Manager S3 User context with interface, external-client and private-access keys" loading="lazy">
-  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/manager-access-keys.dark.png" alt="Ceph access-key inventory for a Manager S3 User context with interface, external-client and private-access keys" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--light" data-docs-shot-variant="light" src="/assets/screenshots/user/manager-access-keys.light.png" alt="Ceph access-key inventory for a Manager S3 User context with interface, external-client and personal-access keys" loading="lazy">
+  <img class="docs-themed-shot__image docs-themed-shot__image--dark" data-docs-shot-variant="dark" src="/assets/screenshots/user/manager-access-keys.dark.png" alt="Ceph access-key inventory for a Manager S3 User context with interface, external-client and personal-access keys" loading="lazy">
 </div>
 
 ## Expected result
@@ -99,7 +99,7 @@ credentials.
     from this page.
 
 !!! note
-    A key marked **Private access** belongs to a server-managed private
+    A key marked **Personal access** belongs to a server-managed private
     connection. It cannot be disabled or deleted from this key inventory. Open
     **Profile > Private S3 connections** and delete the linked connection so
     the server can clean up the remote key and keep durable remediation state if
@@ -133,7 +133,7 @@ credentials.
     key automatically.
 
 !!! note
-    BucketReef interface keys and keys owned by managed private access cannot
+    BucketReef interface keys and keys owned by personal access cannot
     receive an expiration from this inventory because their lifecycle is owned
     by their dedicated BucketReef workflows.
 

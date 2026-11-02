@@ -122,7 +122,7 @@ describe("ManagerCephKeysPage", () => {
     expect(screen.getByText("Inactive")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Create my personal access" }));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
-    expect(screen.getByLabelText("Connection name")).toHaveValue("RGW user test private access");
+    expect(screen.getByLabelText("Connection name")).toHaveValue("RGW user test personal access");
     expect(screen.queryByText("IAM groups")).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/secret/i)).not.toBeInTheDocument();
   });
