@@ -33,8 +33,8 @@ export type IAMGroup = {
 
 type CreateGroupPayload = {
   name: string;
-  policies?: string[];
-  inline_policies?: InlinePolicy[];
+  policies: string[];
+  inline_policies: InlinePolicy[];
 };
 
 export async function listIamGroupsPage(

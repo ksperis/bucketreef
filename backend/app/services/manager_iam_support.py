@@ -140,7 +140,7 @@ def validate_iam_user_create(
     payload: IAMUserCreate,
     context: S3ExecutionContext,
 ) -> None:
-    if any(group in PORTAL_MANAGED_IAM_GROUP_NAMES for group in (payload.groups or [])):
+    if any(group in PORTAL_MANAGED_IAM_GROUP_NAMES for group in payload.groups):
         raise ResourceConflictError(
             "Portal-managed IAM groups cannot be assigned through generic IAM user creation"
         )
@@ -159,13 +159,13 @@ def create_iam_user(
     attached_policies: list[str] = []
     inline_policy_names: list[str] = []
     try:
-        for group_name in payload.groups or []:
+        for group_name in payload.groups:
             service.add_user_to_group(group_name, payload.name)
             added_groups.append(group_name)
-        for policy_arn in payload.policies or []:
+        for policy_arn in payload.policies:
             service.attach_user_policy(payload.name, policy_arn)
             attached_policies.append(policy_arn)
-        for inline in payload.inline_policies or []:
+        for inline in payload.inline_policies:
             service.put_user_inline_policy(payload.name, inline.name, inline.document)
             inline_policy_names.append(inline.name)
     except RuntimeError as exc:
@@ -315,8 +315,8 @@ def create_iam_group(
         service.create_group(payload.name),
         entity_label="IAM group",
         entity_name=payload.name,
-        policies=list(payload.policies or []),
-        inline_policies=list(payload.inline_policies or []),
+        policies=payload.policies,
+        inline_policies=payload.inline_policies,
         attach_policy_fn=service.attach_group_policy,
         put_inline_policy_fn=service.put_group_inline_policy,
         detach_policy_fn=service.detach_group_policy,
@@ -340,8 +340,8 @@ def create_iam_role(
         ),
         entity_label="IAM role",
         entity_name=payload.name,
-        policies=list(payload.policies or []),
-        inline_policies=list(payload.inline_policies or []),
+        policies=payload.policies,
+        inline_policies=payload.inline_policies,
         attach_policy_fn=service.attach_role_policy,
         put_inline_policy_fn=service.put_role_inline_policy,
         detach_policy_fn=service.detach_role_policy,

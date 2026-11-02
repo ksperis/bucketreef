@@ -68,9 +68,15 @@ def test_bucket_contract_rejects_reserved_names(name):
 
 @pytest.mark.parametrize("model", [IAMUserCreate, IAMGroupCreate, IAMRoleCreate, PolicyCreate])
 def test_creation_models_reject_missing_or_invalid_name_at_field(model):
+    create_kwargs = {
+        IAMUserCreate: {"groups": [], "policies": [], "inline_policies": []},
+        IAMGroupCreate: {"policies": [], "inline_policies": []},
+        IAMRoleCreate: {"policies": [], "inline_policies": []},
+        PolicyCreate: {"document": {}},
+    }[model]
     for name in ["", "bad name", "name*", "é"]:
         with pytest.raises(ValidationError) as caught:
-            model(name=name, **({"document": {}} if model is PolicyCreate else {}))
+            model(name=name, **create_kwargs)
         assert caught.value.errors()[0]["loc"] == ("name",)
 
 
@@ -158,11 +164,31 @@ def naming_client(monkeypatch):
         yield client, service, factories, account
 
 
+def _iam_create_payload(entity: str, **overrides):
+    payload = {
+        "name": "valid-name",
+        "policies": [],
+        "inline_policies": [],
+    }
+    if entity == "user":
+        payload["groups"] = []
+    return {**payload, **overrides}
+
+
 @pytest.mark.parametrize("entity", ["user", "group", "role"])
 def test_invalid_nested_policy_prevents_principal_creation(naming_client, entity):
     client, service, factories, account = naming_client
     account.storage_endpoint.provider = "aws"
-    response = client.post(f"/manager/iam/{entity}s", json={"name": "valid-name", "inline_policies": [{"name": "valid-policy", "document": {}}, {"name": "bad policy", "document": {}}]})
+    response = client.post(
+        f"/manager/iam/{entity}s",
+        json=_iam_create_payload(
+            entity,
+            inline_policies=[
+                {"name": "valid-policy", "document": {}},
+                {"name": "bad policy", "document": {}},
+            ],
+        ),
+    )
     assert response.status_code == 422
     assert response.json()["detail"][0]["loc"] == ["body", "inline_policies", 1, "name"]
     assert service.mock_calls == []
@@ -172,7 +198,10 @@ def test_invalid_nested_policy_prevents_principal_creation(naming_client, entity
 @pytest.mark.parametrize("entity", ["user", "group", "role"])
 def test_invalid_principal_name_is_rejected_at_name(naming_client, entity):
     client, service, _, _ = naming_client
-    response = client.post(f"/manager/iam/{entity}s", json={"name": "bad name"})
+    response = client.post(
+        f"/manager/iam/{entity}s",
+        json=_iam_create_payload(entity, name="bad name"),
+    )
     assert response.status_code == 422
     assert response.json()["detail"][0]["loc"] == ["body", "name"]
     assert service.mock_calls == []
@@ -185,7 +214,13 @@ def test_valid_ceph_inline_policy_reaches_the_correct_operation(naming_client, e
     model = {"user": IAMUser, "group": IAMGroup, "role": IAMRole}[entity]
     result = model(name="valid-name")
     getattr(service, f"create_{entity}").return_value = (result, None) if entity == "user" else result
-    response = client.post(f"/manager/iam/{entity}s", json={"name": "valid-name", "inline_policies": [{"name": policy_name, "document": {}}]})
+    response = client.post(
+        f"/manager/iam/{entity}s",
+        json=_iam_create_payload(
+            entity,
+            inline_policies=[{"name": policy_name, "document": {}}],
+        ),
+    )
     assert response.status_code == 201
     getattr(service, f"put_{entity}_inline_policy").assert_called_once_with("valid-name", policy_name, {})
 

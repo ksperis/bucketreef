@@ -119,8 +119,8 @@ def create_role(
             entity_id=payload.name,
             execution_context=context,
             metadata={
-                "policies": payload.policies or [],
-                "inline_policies": [p.name for p in payload.inline_policies] if payload.inline_policies else [],
+                "policies": payload.policies,
+                "inline_policies": [p.name for p in payload.inline_policies],
                 "max_session_duration": payload.max_session_duration,
                 "tag_keys": [tag.key for tag in payload.tags] if payload.tags else [],
             },
