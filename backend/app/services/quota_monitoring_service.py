@@ -230,40 +230,10 @@ class QuotaMonitoringService:
         endpoint: StorageEndpoint,
         run: _QuotaMonitorRun,
     ) -> _QuotaUsageSnapshot | None:
-        usage_client = self._resolve_usage_client(
-            endpoint,
-            run.usage_clients,
-        )
-        if usage_client is None:
-            run.summary["errors"].append(
-                self._subject_issue(
-                    subject,
-                    "error",
-                    f"Usage client unavailable for endpoint '{subject.endpoint_name}'.",
-                )
-            )
+        usage = self._collect_subject_usage(subject, endpoint, run)
+        if usage is None:
             return None
-        try:
-            used_bytes, used_objects, bucket_count = self._collect_usage(
-                usage_client,
-                subject.usage_uid,
-                subject.rgw_tenant,
-            )
-        except Exception as exc:  # pragma: no cover - defensive logging
-            logger.warning(
-                "Quota monitor usage collection failed for %s:%s: %s",
-                subject.subject_type,
-                subject.subject_id,
-                exc,
-            )
-            run.summary["errors"].append(
-                self._subject_issue(
-                    subject,
-                    "error",
-                    f"Usage collection failed: {exc}",
-                )
-            )
-            return None
+        used_bytes, used_objects, bucket_count = usage
 
         quota_size_bytes, quota_objects = self._collect_subject_quota(
             subject,
@@ -284,6 +254,47 @@ class QuotaMonitoringService:
             quota_objects=quota_objects,
             ratio_pct=ratio_pct,
         )
+
+    def _collect_subject_usage(
+        self,
+        subject: SubjectContext,
+        endpoint: StorageEndpoint,
+        run: _QuotaMonitorRun,
+    ) -> tuple[int, int, int] | None:
+        usage_client = self._resolve_usage_client(
+            endpoint,
+            run.usage_clients,
+        )
+        if usage_client is None:
+            run.summary["errors"].append(
+                self._subject_issue(
+                    subject,
+                    "error",
+                    f"Usage client unavailable for endpoint '{subject.endpoint_name}'.",
+                )
+            )
+            return None
+        try:
+            return self._collect_usage(
+                usage_client,
+                subject.usage_uid,
+                subject.rgw_tenant,
+            )
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.warning(
+                "Quota monitor usage collection failed for %s:%s: %s",
+                subject.subject_type,
+                subject.subject_id,
+                exc,
+            )
+            run.summary["errors"].append(
+                self._subject_issue(
+                    subject,
+                    "error",
+                    f"Usage collection failed: {exc}",
+                )
+            )
+            return None
 
     def _collect_subject_quota(
         self,
