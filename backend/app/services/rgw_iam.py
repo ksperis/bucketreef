@@ -3,7 +3,7 @@
 import json
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
-from typing import List, Optional, Union
+from typing import List, Literal, Optional, Union
 
 from app.models.iam import AccessKey, IAMGroup, IAMRole, IAMTag, IAMUser
 from app.models.policy import Policy
@@ -36,6 +36,9 @@ def _role_name_from_data(data: dict, fallback: Optional[str] = None) -> Optional
 
 class RGWIAMGroupAlreadyExistsError(RuntimeError):
     """Raised when IAM reports a concurrent group-name conflict."""
+
+
+_IAMPolicyTarget = Literal["user", "group", "role"]
 
 
 def get_iam_client(
@@ -89,6 +92,110 @@ class RGWIAMService:
             created_at=created_str,
             secret_access_key=data.get("SecretAccessKey") if include_secret else None,
         )
+
+    @staticmethod
+    def _policy_target_kwargs(target: _IAMPolicyTarget, identity_name: str) -> dict[str, str]:
+        return {f"{target.title()}Name": identity_name}
+
+    def _list_attached_policies(self, target: _IAMPolicyTarget, identity_name: str) -> List[Policy]:
+        try:
+            policies = list_iam_all(
+                self.client,
+                f"list_attached_{target}_policies",
+                "AttachedPolicies",
+                **self._policy_target_kwargs(target, identity_name),
+            )
+        except (BotoCoreError, ClientError) as exc:
+            raise RuntimeError(f"Unable to list {target} policies: {exc}") from exc
+        return [self._policy_from_data(policy) for policy in policies]
+
+    def _list_inline_policies(self, target: _IAMPolicyTarget, identity_name: str) -> list[str]:
+        try:
+            policies = list_iam_all(
+                self.client,
+                f"list_{target}_policies",
+                "PolicyNames",
+                **self._policy_target_kwargs(target, identity_name),
+            )
+            return [policy for policy in policies if policy]
+        except (BotoCoreError, ClientError) as exc:
+            raise RuntimeError(f"Unable to list inline policies for {target}: {exc}") from exc
+
+    def _get_inline_policy(
+        self,
+        target: _IAMPolicyTarget,
+        identity_name: str,
+        policy_name: str,
+    ) -> Optional[dict]:
+        operation = getattr(self.client, f"get_{target}_policy")
+        try:
+            resp = operation(
+                **self._policy_target_kwargs(target, identity_name),
+                PolicyName=policy_name,
+            )
+            return self._normalize_policy_document(resp.get("PolicyDocument"))
+        except ClientError as exc:
+            if _is_no_such_entity(exc):
+                return None
+            raise RuntimeError(f"Unable to fetch inline policy for {target}: {exc}") from exc
+        except BotoCoreError as exc:
+            raise RuntimeError(f"Unable to fetch inline policy for {target}: {exc}") from exc
+
+    def _put_inline_policy(
+        self,
+        target: _IAMPolicyTarget,
+        identity_name: str,
+        policy_name: str,
+        policy_document: Union[dict, str],
+    ) -> None:
+        operation = getattr(self.client, f"put_{target}_policy")
+        document = policy_document if isinstance(policy_document, str) else json.dumps(policy_document)
+        try:
+            operation(
+                **self._policy_target_kwargs(target, identity_name),
+                PolicyName=policy_name,
+                PolicyDocument=document,
+            )
+        except (BotoCoreError, ClientError) as exc:
+            raise RuntimeError(f"Unable to put inline policy on {target}: {exc}") from exc
+
+    def _delete_inline_policy(self, target: _IAMPolicyTarget, identity_name: str, policy_name: str) -> None:
+        operation = getattr(self.client, f"delete_{target}_policy")
+        try:
+            operation(
+                **self._policy_target_kwargs(target, identity_name),
+                PolicyName=policy_name,
+            )
+        except ClientError as exc:
+            if _is_no_such_entity(exc):
+                return
+            raise RuntimeError(f"Unable to delete inline policy from {target}: {exc}") from exc
+        except BotoCoreError as exc:
+            raise RuntimeError(f"Unable to delete inline policy from {target}: {exc}") from exc
+
+    def _attach_policy(self, target: _IAMPolicyTarget, identity_name: str, policy_arn: str) -> None:
+        operation = getattr(self.client, f"attach_{target}_policy")
+        try:
+            operation(
+                **self._policy_target_kwargs(target, identity_name),
+                PolicyArn=policy_arn,
+            )
+        except (BotoCoreError, ClientError) as exc:
+            raise RuntimeError(f"Unable to attach policy to {target}: {exc}") from exc
+
+    def _detach_policy(self, target: _IAMPolicyTarget, identity_name: str, policy_arn: str) -> None:
+        operation = getattr(self.client, f"detach_{target}_policy")
+        try:
+            operation(
+                **self._policy_target_kwargs(target, identity_name),
+                PolicyArn=policy_arn,
+            )
+        except ClientError as exc:
+            if _is_no_such_entity(exc):
+                return
+            raise RuntimeError(f"Unable to detach policy from {target}: {exc}") from exc
+        except BotoCoreError as exc:
+            raise RuntimeError(f"Unable to detach policy from {target}: {exc}") from exc
 
     def list_users_page(
         self,
@@ -270,65 +377,25 @@ class RGWIAMService:
             raise RuntimeError(f"Unable to update IAM access key: {exc}") from exc
 
     def list_user_policies(self, user_name: str) -> List[Policy]:
-        try:
-            policies = list_iam_all(
-                self.client,
-                "list_attached_user_policies", "AttachedPolicies", UserName=user_name
-            )
-        except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to list user policies: {exc}") from exc
-        return [self._policy_from_data(p) for p in policies]
+        return self._list_attached_policies("user", user_name)
 
     def list_user_inline_policies(self, user_name: str) -> list[str]:
-        try:
-            policies = list_iam_all(self.client, "list_user_policies", "PolicyNames", UserName=user_name)
-            return [p for p in policies if p]
-        except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to list inline policies for user: {exc}") from exc
+        return self._list_inline_policies("user", user_name)
 
     def get_user_inline_policy(self, user_name: str, policy_name: str) -> Optional[dict]:
-        try:
-            resp = self.client.get_user_policy(UserName=user_name, PolicyName=policy_name)
-            return self._normalize_policy_document(resp.get("PolicyDocument"))
-        except ClientError as exc:
-            if _is_no_such_entity(exc):
-                return None
-            raise RuntimeError(f"Unable to fetch inline policy for user: {exc}") from exc
-        except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to fetch inline policy for user: {exc}") from exc
+        return self._get_inline_policy("user", user_name, policy_name)
 
     def put_user_inline_policy(self, user_name: str, policy_name: str, policy_document: Union[dict, str]) -> None:
-        try:
-            document = policy_document if isinstance(policy_document, str) else json.dumps(policy_document)
-            self.client.put_user_policy(UserName=user_name, PolicyName=policy_name, PolicyDocument=document)
-        except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to put inline policy on user: {exc}") from exc
+        self._put_inline_policy("user", user_name, policy_name, policy_document)
 
     def delete_user_inline_policy(self, user_name: str, policy_name: str) -> None:
-        try:
-            self.client.delete_user_policy(UserName=user_name, PolicyName=policy_name)
-        except ClientError as exc:
-            if _is_no_such_entity(exc):
-                return
-            raise RuntimeError(f"Unable to delete inline policy from user: {exc}") from exc
-        except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to delete inline policy from user: {exc}") from exc
+        self._delete_inline_policy("user", user_name, policy_name)
 
     def attach_user_policy(self, user_name: str, policy_arn: str) -> None:
-        try:
-            self.client.attach_user_policy(UserName=user_name, PolicyArn=policy_arn)
-        except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to attach policy to user: {exc}") from exc
+        self._attach_policy("user", user_name, policy_arn)
 
     def detach_user_policy(self, user_name: str, policy_arn: str) -> None:
-        try:
-            self.client.detach_user_policy(UserName=user_name, PolicyArn=policy_arn)
-        except ClientError as exc:
-            if _is_no_such_entity(exc):
-                return
-            raise RuntimeError(f"Unable to detach policy from user: {exc}") from exc
-        except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to detach policy from user: {exc}") from exc
+        self._detach_policy("user", user_name, policy_arn)
 
     def list_groups_for_user(self, user_name: str) -> List[IAMGroup]:
         try:
@@ -470,65 +537,25 @@ class RGWIAMService:
             raise RuntimeError(f"Unable to remove user from group: {exc}") from exc
 
     def list_group_policies(self, group_name: str) -> List[Policy]:
-        try:
-            policies = list_iam_all(
-                self.client,
-                "list_attached_group_policies", "AttachedPolicies", GroupName=group_name
-            )
-        except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to list group policies: {exc}") from exc
-        return [self._policy_from_data(p) for p in policies]
+        return self._list_attached_policies("group", group_name)
 
     def list_group_inline_policies(self, group_name: str) -> list[str]:
-        try:
-            policies = list_iam_all(self.client, "list_group_policies", "PolicyNames", GroupName=group_name)
-            return [p for p in policies if p]
-        except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to list inline policies for group: {exc}") from exc
+        return self._list_inline_policies("group", group_name)
 
     def get_group_inline_policy(self, group_name: str, policy_name: str) -> Optional[dict]:
-        try:
-            resp = self.client.get_group_policy(GroupName=group_name, PolicyName=policy_name)
-            return self._normalize_policy_document(resp.get("PolicyDocument"))
-        except ClientError as exc:
-            if _is_no_such_entity(exc):
-                return None
-            raise RuntimeError(f"Unable to fetch inline policy for group: {exc}") from exc
-        except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to fetch inline policy for group: {exc}") from exc
+        return self._get_inline_policy("group", group_name, policy_name)
 
     def put_group_inline_policy(self, group_name: str, policy_name: str, policy_document: Union[dict, str]) -> None:
-        try:
-            document = policy_document if isinstance(policy_document, str) else json.dumps(policy_document)
-            self.client.put_group_policy(GroupName=group_name, PolicyName=policy_name, PolicyDocument=document)
-        except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to put inline policy on group: {exc}") from exc
+        self._put_inline_policy("group", group_name, policy_name, policy_document)
 
     def delete_group_inline_policy(self, group_name: str, policy_name: str) -> None:
-        try:
-            self.client.delete_group_policy(GroupName=group_name, PolicyName=policy_name)
-        except ClientError as exc:
-            if _is_no_such_entity(exc):
-                return
-            raise RuntimeError(f"Unable to delete inline policy from group: {exc}") from exc
-        except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to delete inline policy from group: {exc}") from exc
+        self._delete_inline_policy("group", group_name, policy_name)
 
     def attach_group_policy(self, group_name: str, policy_arn: str) -> None:
-        try:
-            self.client.attach_group_policy(GroupName=group_name, PolicyArn=policy_arn)
-        except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to attach policy to group: {exc}") from exc
+        self._attach_policy("group", group_name, policy_arn)
 
     def detach_group_policy(self, group_name: str, policy_arn: str) -> None:
-        try:
-            self.client.detach_group_policy(GroupName=group_name, PolicyArn=policy_arn)
-        except ClientError as exc:
-            if _is_no_such_entity(exc):
-                return
-            raise RuntimeError(f"Unable to detach policy from group: {exc}") from exc
-        except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to detach policy from group: {exc}") from exc
+        self._detach_policy("group", group_name, policy_arn)
 
     # Roles
     def list_roles(self) -> List[IAMRole]:
@@ -794,65 +821,25 @@ class RGWIAMService:
             raise RuntimeError(f"Unable to delete IAM policy: {exc}") from exc
 
     def list_role_policies(self, role_name: str) -> List[Policy]:
-        try:
-            policies = list_iam_all(
-                self.client,
-                "list_attached_role_policies", "AttachedPolicies", RoleName=role_name
-            )
-        except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to list role policies: {exc}") from exc
-        return [self._policy_from_data(p) for p in policies]
+        return self._list_attached_policies("role", role_name)
 
     def list_role_inline_policies(self, role_name: str) -> list[str]:
-        try:
-            policies = list_iam_all(self.client, "list_role_policies", "PolicyNames", RoleName=role_name)
-            return [p for p in policies if p]
-        except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to list inline policies for role: {exc}") from exc
+        return self._list_inline_policies("role", role_name)
 
     def get_role_inline_policy(self, role_name: str, policy_name: str) -> Optional[dict]:
-        try:
-            resp = self.client.get_role_policy(RoleName=role_name, PolicyName=policy_name)
-            return self._normalize_policy_document(resp.get("PolicyDocument"))
-        except ClientError as exc:
-            if _is_no_such_entity(exc):
-                return None
-            raise RuntimeError(f"Unable to fetch inline policy for role: {exc}") from exc
-        except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to fetch inline policy for role: {exc}") from exc
+        return self._get_inline_policy("role", role_name, policy_name)
 
     def put_role_inline_policy(self, role_name: str, policy_name: str, policy_document: Union[dict, str]) -> None:
-        try:
-            document = policy_document if isinstance(policy_document, str) else json.dumps(policy_document)
-            self.client.put_role_policy(RoleName=role_name, PolicyName=policy_name, PolicyDocument=document)
-        except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to put inline policy on role: {exc}") from exc
+        self._put_inline_policy("role", role_name, policy_name, policy_document)
 
     def delete_role_inline_policy(self, role_name: str, policy_name: str) -> None:
-        try:
-            self.client.delete_role_policy(RoleName=role_name, PolicyName=policy_name)
-        except ClientError as exc:
-            if _is_no_such_entity(exc):
-                return
-            raise RuntimeError(f"Unable to delete inline policy from role: {exc}") from exc
-        except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to delete inline policy from role: {exc}") from exc
+        self._delete_inline_policy("role", role_name, policy_name)
 
     def attach_role_policy(self, role_name: str, policy_arn: str) -> None:
-        try:
-            self.client.attach_role_policy(RoleName=role_name, PolicyArn=policy_arn)
-        except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to attach policy to role: {exc}") from exc
+        self._attach_policy("role", role_name, policy_arn)
 
     def detach_role_policy(self, role_name: str, policy_arn: str) -> None:
-        try:
-            self.client.detach_role_policy(RoleName=role_name, PolicyArn=policy_arn)
-        except ClientError as exc:
-            if _is_no_such_entity(exc):
-                return
-            raise RuntimeError(f"Unable to detach policy from role: {exc}") from exc
-        except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to detach policy from role: {exc}") from exc
+        self._detach_policy("role", role_name, policy_arn)
 
     def _normalize_policy_document(self, document: Optional[Union[str, dict]]) -> Optional[dict]:
         if document is None:
