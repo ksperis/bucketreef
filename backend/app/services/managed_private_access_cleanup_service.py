@@ -151,28 +151,10 @@ class ManagedPrivateAccessCleanupService:
         try:
             self.remote.cleanup(provisioning, user=user)
         except Exception as exc:
-            self._set_cleanup_pending(
-                provisioning,
-                sanitized_error_log_detail(exc),
-                user=user,
-            )
+            cleanup_error = sanitized_error_log_detail(exc)
+            self.state.mark_cleanup_pending(provisioning, cleanup_error)
+            self.audit.record_cleanup_pending(user, provisioning, cleanup_error)
             raise ManagedPrivateAccessCleanupPending(
                 provisioning.id,
                 pending_message,
             ) from exc
-
-    def _set_cleanup_pending(
-        self,
-        provisioning: ManagedPrivateAccess,
-        error: str,
-        *,
-        user: User,
-    ) -> None:
-        self.state.mark_cleanup_pending(provisioning, error)
-        self.audit.record(
-            user,
-            provisioning,
-            "managed_private_access.cleanup_pending",
-            status="failure",
-            message=error,
-        )
