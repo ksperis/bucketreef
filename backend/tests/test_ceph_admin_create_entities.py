@@ -36,9 +36,16 @@ def clear_ceph_admin_caches():
     ceph_admin_bucket_listing_cache.reset_ceph_admin_bucket_listing_caches_for_tests()
 
 
-def test_rgw_user_caps_update_requires_explicit_values() -> None:
+def test_rgw_user_caps_update_requires_explicit_mode_and_values() -> None:
     with pytest.raises(ValidationError):
         CephAdminRgwUserCapsUpdate.model_validate({"mode": "replace"})
+    with pytest.raises(ValidationError):
+        CephAdminRgwUserCapsUpdate.model_validate({"values": ["users=read"]})
+
+
+def test_rgw_user_create_requires_explicit_key_generation_choice() -> None:
+    with pytest.raises(ValidationError):
+        CephAdminRgwUserCreate.model_validate({"uid": "explicit-key-choice"})
 
 
 class FakeAccountsAdmin:
@@ -565,6 +572,7 @@ def test_create_rgw_user_rejects_tenant_conflicting_with_selected_account():
                 uid="cost-user",
                 account_id="RGW99999999999999999",
                 tenant="team_b",
+                generate_key=False,
             ),
             ctx=_ctx(902, fake_rgw),
         )
@@ -629,6 +637,7 @@ def test_create_rgw_user_rejects_foreign_identity_even_after_apparent_create_suc
         user_profiles_router.create_rgw_user(
             CephAdminRgwUserCreate(
                 uid="cost-user", account_id="RGW99999999999999999", display_name="Modified",
+                generate_key=False,
                 caps=CephAdminRgwUserCapsUpdate(values=["users=*"], mode="add"),
                 quota_enabled=True, quota_max_objects=100,
             ),

@@ -83,20 +83,31 @@ def test_creation_models_reject_missing_or_invalid_name_at_field(model):
 def test_uid_field_errors_and_optional_generated_uid():
     for uid in [None, "", "  "]:
         assert S3UserCreate(name="Display name: $", uid=uid, rgw_tenant="", storage_endpoint_id=1).uid == uid
-    for model, kwargs in [(S3UserCreate, {"name": "Display name", "storage_endpoint_id": 1}), (CephAdminRgwUserCreate, {})]:
+    for model, kwargs in [
+        (S3UserCreate, {"name": "Display name", "storage_endpoint_id": 1}),
+        (CephAdminRgwUserCreate, {"generate_key": False}),
+    ]:
         with pytest.raises(ValidationError) as caught:
             model(uid="tenant$", **kwargs)
         assert caught.value.errors()[0]["loc"] == ("uid",)
-    assert CephAdminRgwUserCreate(uid="bad-tenant$user", tenant="valid_tenant").uid == "bad-tenant$user"
+    assert CephAdminRgwUserCreate(
+        uid="bad-tenant$user",
+        tenant="valid_tenant",
+        generate_key=False,
+    ).uid == "bad-tenant$user"
     with pytest.raises(ValidationError) as caught:
-        CephAdminRgwUserCreate(uid="user", tenant="bad-tenant")
+        CephAdminRgwUserCreate(uid="user", tenant="bad-tenant", generate_key=False)
     assert caught.value.errors()[0]["loc"] == ("tenant",)
 
 
 @pytest.mark.parametrize("key,value", [("uid", "tenant$"), (" tenant ", "bad-tenant"), ("uid", "anonymous")])
 def test_ceph_extra_params_cannot_bypass_identifier_validation(key, value):
     with pytest.raises(ValidationError) as caught:
-        CephAdminRgwUserCreate(uid="valid-user", extra_params={key: value})
+        CephAdminRgwUserCreate(
+            uid="valid-user",
+            generate_key=False,
+            extra_params={key: value},
+        )
     assert caught.value.errors()[0]["loc"] == ("extra_params", key.strip())
 
 

@@ -47,7 +47,7 @@ describe("Ceph Admin users api", () => {
     const payload = { display_name: "Research User" };
 
     await getCephAdminUserDetail(7, "team/user", "tenant-a");
-    await createCephAdminUser(7, { uid: "team/user" });
+    await createCephAdminUser(7, { uid: "team/user", generate_key: false });
     await updateCephAdminUserConfig(7, "team/user", payload, "tenant-a");
 
     expect(clientMock.get).toHaveBeenCalledWith(
@@ -56,7 +56,7 @@ describe("Ceph Admin users api", () => {
     );
     expect(clientMock.post).toHaveBeenCalledWith(
       "/ceph-admin/endpoints/7/users",
-      { uid: "team/user" },
+      { uid: "team/user", generate_key: false },
     );
     expect(clientMock.patch).toHaveBeenCalledWith(
       "/ceph-admin/endpoints/7/users/team%2Fuser/config",

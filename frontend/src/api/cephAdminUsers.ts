@@ -31,7 +31,7 @@ export type CephAdminRgwUser = {
 };
 
 export type CephAdminRgwUserCapsUpdate = {
-  mode?: "replace" | "add" | "remove";
+  mode: "replace" | "add" | "remove";
   values: string[];
 };
 
@@ -81,7 +81,7 @@ export type CreateCephAdminUserPayload = {
   op_mask?: string | null;
   system?: boolean | null;
   account_root?: boolean | null;
-  generate_key?: boolean;
+  generate_key: boolean;
   quota_enabled?: boolean | null;
   quota_max_size_bytes?: number | null;
   quota_max_objects?: number | null;
