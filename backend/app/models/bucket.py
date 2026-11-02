@@ -55,7 +55,7 @@ class BucketPublicAccessBlockUpdate(ApiModel):
 
 class BucketCreate(ApiModel):
     name: str
-    versioning: Optional[bool] = None
+    versioning: bool
     location_constraint: Optional[str] = None
 
     _normalize_location_constraint = field_validator("location_constraint", mode="before")(

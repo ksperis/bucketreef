@@ -76,17 +76,17 @@ export async function listFeatureRuleInventory(
 }
 
 type CreateBucketOptions = {
-  versioning?: boolean;
+  versioning: boolean;
   locationConstraint?: string;
 };
 
-export async function createBucket(name: string, contextId: S3ExecutionContextSelector, options?: CreateBucketOptions): Promise<void> {
-  const locationConstraint = options?.locationConstraint?.trim();
+export async function createBucket(name: string, contextId: S3ExecutionContextSelector, options: CreateBucketOptions): Promise<void> {
+  const locationConstraint = options.locationConstraint?.trim();
   await client.post(
     MANAGER_BUCKETS_PATH,
     {
       name,
-      versioning: options?.versioning ?? false,
+      versioning: options.versioning,
       location_constraint: locationConstraint || undefined,
     },
     { params: withS3ContextParam(undefined, contextId) }
