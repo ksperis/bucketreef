@@ -74,6 +74,31 @@ class PortalStateUsageMixin:
             quota_max_objects=None,
         )
 
+    @staticmethod
+    def _scope_usage_bucket_payloads(
+        bucket_payloads: list[object],
+        *,
+        allowed: set[str],
+        is_portal_user: bool,
+    ) -> tuple[
+        list[dict],
+        list[dict],
+        dict[str, tuple[Optional[int], Optional[int]]],
+    ]:
+        scoped_payloads: list[dict] = []
+        detailed_payloads: list[dict] = []
+        usage_by_bucket: dict[str, tuple[Optional[int], Optional[int]]] = {}
+        for item in bucket_payloads:
+            if not isinstance(item, dict):
+                continue
+            bucket_name = item.get("bucket") or item.get("name")
+            if is_portal_user or bucket_name in allowed:
+                scoped_payloads.append(item)
+            if bucket_name in allowed:
+                usage_by_bucket[bucket_name] = extract_usage_stats(item.get("usage"))
+                detailed_payloads.append(item)
+        return scoped_payloads, detailed_payloads, usage_by_bucket
+
     def get_state(self, access: "AccountAccess") -> PortalState:
         account = access.account
         portal_settings = self.get_effective_portal_settings(account)
@@ -142,19 +167,11 @@ class PortalStateUsageMixin:
                 other_storage_space=None,
             )
 
-        usage_by_bucket: dict[str, tuple[Optional[int], Optional[int]]] = {}
-        scoped_payloads: list[dict] = []
-        detailed_payloads: list[dict] = []
-        for item in bucket_payloads:
-            if not isinstance(item, dict):
-                continue
-            bucket_name = item.get("bucket") or item.get("name")
-            if is_portal_user or bucket_name in allowed:
-                scoped_payloads.append(item)
-            if bucket_name in allowed:
-                usage_bytes, usage_objects = extract_usage_stats(item.get("usage"))
-                usage_by_bucket[bucket_name] = (usage_bytes, usage_objects)
-                detailed_payloads.append(item)
+        scoped_payloads, detailed_payloads, usage_by_bucket = self._scope_usage_bucket_payloads(
+            bucket_payloads,
+            allowed=allowed,
+            is_portal_user=is_portal_user,
+        )
         total_bytes, total_objects, _ = aggregate_bucket_usage(scoped_payloads)
         detailed_bytes, detailed_objects, _ = aggregate_bucket_usage(detailed_payloads)
         other_storage_space = (
