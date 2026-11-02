@@ -791,6 +791,16 @@ provide that value instead of defaulting omission to `false`.
 Deploy the backend and bundled frontend together. No database migration is
 required.
 
+## 2026-11 canonical onboarding service identity mode
+
+Admin onboarding apply requests now require an explicit `service_identity_mode`
+(`managed` or `external`). The onboarding form already selects and sends this
+mode for every apply operation; the bundled frontend type now reflects that
+required contract instead of allowing callers to rely on the backend default.
+
+Deploy the backend and bundled frontend together. No database migration is
+required.
+
 ## 2026-10 canonical OIDC provider collection payloads
 
 Admin OIDC provider create and update requests now require JSON arrays for

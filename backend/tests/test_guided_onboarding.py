@@ -7,6 +7,7 @@ from uuid import uuid4
 
 import pytest
 import sqlalchemy as sa
+from pydantic import ValidationError
 from sqlalchemy.orm import sessionmaker
 
 from app.db import (
@@ -141,7 +142,7 @@ def save(service, user, **values):
     )
 
 
-def apply(service, user, journey, **credentials):
+def apply(service, user, journey, *, service_identity_mode, **credentials):
     return service.apply(
         user,
         journey.id,
@@ -149,9 +150,19 @@ def apply(service, user, journey, **credentials):
             revision=journey.revision,
             confirmed=True,
             review_token=journey.preview.review_token,
+            service_identity_mode=service_identity_mode,
             **credentials,
         ),
     )
+
+
+def test_apply_requires_explicit_service_identity_mode():
+    with pytest.raises(ValidationError, match="service_identity_mode"):
+        OnboardingApply(
+            revision=1,
+            confirmed=True,
+            review_token="x" * 64,
+        )
 
 
 def lock_feature(monkeypatch, field):
@@ -298,6 +309,7 @@ def test_endpoint_prepare_rejects_missing_selected_endpoint(guided, db_session):
         revision=1,
         confirmed=True,
         review_token="x" * 64,
+        service_identity_mode="managed",
     )
 
     with pytest.raises(OnboardingError, match="endpoint_unavailable"):
@@ -320,6 +332,7 @@ def test_endpoint_prepare_rejects_non_ceph_endpoint_for_ceph_workflows(
         revision=1,
         confirmed=True,
         review_token="x" * 64,
+        service_identity_mode="managed",
     )
 
     with pytest.raises(OnboardingError, match="ceph_endpoint_required"):
@@ -351,6 +364,7 @@ def test_environment_lock_blocks_before_setup_runs(guided, db_session, monkeypat
             guided,
             user,
             journey,
+            service_identity_mode="managed",
             private_access_key="private-ak",
             private_secret_key="private-sk",
         )
@@ -386,6 +400,7 @@ def test_private_only_new_endpoint_does_not_configure_admin_credentials(
         guided,
         user,
         journey,
+        service_identity_mode="managed",
         private_access_key="private-ak",
         private_secret_key="private-sk",
     )
@@ -474,6 +489,7 @@ def test_manager_and_portal_share_one_sample_account_with_independent_roles(
         guided,
         user,
         save(guided, user, endpoint_id=ep.id, manager=True, portal=True),
+        service_identity_mode="managed",
         admin_access_key="admin-ak",
         admin_secret_key="admin-sk",
     )
@@ -529,7 +545,7 @@ def test_onboarding_rejects_admin_ops_without_required_provisioning_caps(
 
     journey = save(guided, user, endpoint_id=ep.id, manager=True)
     with pytest.raises(OnboardingError, match="admin_ops_permissions_insufficient"):
-        apply(guided, user, journey)
+        apply(guided, user, journey, service_identity_mode="managed")
 
 
 @pytest.mark.parametrize(
@@ -597,6 +613,7 @@ def test_manager_and_portal_role_axes_remain_independent(
         guided,
         user,
         save(guided, user, endpoint_id=ep.id, manager=manager, portal=portal),
+        service_identity_mode="managed",
     )
     link = db_session.scalars(
         sa.select(UserS3Account).where(
@@ -661,6 +678,7 @@ def test_new_endpoint_keeps_ceph_admin_credentials_separate_from_admin_ops(
             endpoint_url="https://ceph-admin-only.example.test",
             ceph_admin=True,
         ),
+        service_identity_mode="managed",
         admin_access_key="admin-ak", admin_secret_key="admin-sk",
         ceph_admin_access_key="ceph-ak", ceph_admin_secret_key="ceph-sk",
     )
@@ -695,6 +713,7 @@ def test_onboarding_rejects_partial_supervision_credentials(
             guided,
             user,
             journey,
+            service_identity_mode="managed",
             supervision_access_key="supervision-ak",
         )
 
@@ -720,7 +739,7 @@ def test_onboarding_allows_metrics_without_usage_data_for_supervision(
         ),
     )
 
-    result = apply(guided, user, save(guided, user, endpoint_id=ep.id, supervision=True), admin_access_key="admin-ak", admin_secret_key="admin-sk")
+    result = apply(guided, user, save(guided, user, endpoint_id=ep.id, supervision=True), service_identity_mode="managed", admin_access_key="admin-ak", admin_secret_key="admin-sk")
     assert result.configured
     assert resolve_feature_flags(ep).metrics_enabled
 
@@ -734,7 +753,7 @@ def test_ceph_admin_requires_valid_dedicated_identity_and_grants_access(
         admin_access_key="admin-ak", admin_secret_key="admin-sk",
     )
     monkeypatch.setattr(guided.endpoints, "detect_features", lambda *_args, **_kwargs: detection())
-    result = apply(guided, user, save(guided, user, endpoint_id=ep.id, ceph_admin=True), ceph_admin_access_key="ceph-ak", ceph_admin_secret_key="ceph-sk")
+    result = apply(guided, user, save(guided, user, endpoint_id=ep.id, ceph_admin=True), service_identity_mode="managed", ceph_admin_access_key="ceph-ak", ceph_admin_secret_key="ceph-sk")
     db_session.refresh(user)
     assert result.configured
     assert user.can_access_ceph_admin is True
@@ -764,7 +783,7 @@ def test_ceph_admin_requires_valid_dedicated_identity_and_grants_access(
         ),
     )
     with pytest.raises(OnboardingError, match="ceph_identity_denied"):
-        apply(guided, denied_user, denied, ceph_admin_access_key="ceph-ak", ceph_admin_secret_key="ceph-sk")
+        apply(guided, denied_user, denied, service_identity_mode="managed", ceph_admin_access_key="ceph-ak", ceph_admin_secret_key="ceph-sk")
     db_session.refresh(denied_user)
     assert denied_user.can_access_ceph_admin is False
 
@@ -825,6 +844,7 @@ def test_review_token_and_revision_prevent_stale_apply(guided, db_session, monke
                 revision=journey.revision,
                 confirmed=True,
                 review_token="0" * 64,
+                service_identity_mode="managed",
                 private_access_key="private-ak",
                 private_secret_key="private-sk",
             ),
@@ -844,6 +864,7 @@ def test_review_token_and_revision_prevent_stale_apply(guided, db_session, monke
             guided,
             user,
             journey,
+            service_identity_mode="managed",
             private_access_key="private-ak",
             private_secret_key="private-sk",
         )
@@ -861,6 +882,7 @@ def test_configured_apply_is_idempotent_and_does_not_duplicate_private_connectio
         guided,
         user,
         journey,
+        service_identity_mode="managed",
         private_access_key="private-ak",
         private_secret_key="private-sk",
     )
@@ -871,6 +893,7 @@ def test_configured_apply_is_idempotent_and_does_not_duplicate_private_connectio
             revision=first.revision,
             confirmed=True,
             review_token="0" * 64,
+            service_identity_mode="managed",
             private_access_key="private-ak",
             private_secret_key="private-sk",
         ),
@@ -949,7 +972,7 @@ def test_managed_onboarding_detects_usage_after_provisioning_without_admin_usage
     monkeypatch.setattr("app.services.rgw_admin.get_rgw_admin_client", lambda **kwargs: rgw.signed(kwargs["access_key"]))
 
     result = apply(guided, user, save(guided, user, endpoint_url="https://new.example.test", supervision=True),
-                   admin_access_key="ADMIN", admin_secret_key="ADMIN-SECRET")
+                   service_identity_mode="managed", admin_access_key="ADMIN", admin_secret_key="ADMIN-SECRET")
 
     assert result.configured
     ep = db_session.get(StorageEndpoint, result.resources["endpoint_id"])

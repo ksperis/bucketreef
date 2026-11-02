@@ -52,7 +52,7 @@ export type OnboardingJourney = {
 };
 
 export type OnboardingApplyCredentials = {
-  service_identity_mode?: "managed" | "external";
+  service_identity_mode: "managed" | "external";
   runtime_access_key?: string;
   runtime_secret_key?: string;
   admin_access_key?: string;
