@@ -6,11 +6,11 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, Self
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
-from app.models.base import ApiModel
+from app.models.base import ApiModel, reject_explicit_null_fields
 from app.models.tagging import (
     OptionalTagDefinitionList,
     RequiredTagDefinitionList,
@@ -99,6 +99,25 @@ class S3ConnectionAdminUpdate(ApiModel):
     allow_activity_history: Optional[bool] = None
     tags: OptionalTagDefinitionList = None
     credentials: Optional[S3ConnectionCredentialsUpdate] = None
+
+    @model_validator(mode="after")
+    def reject_non_nullable_nulls(self) -> Self:
+        reject_explicit_null_fields(
+            self,
+            (
+                "name",
+                "group_ids",
+                "user_ids",
+                "remediation_action",
+                "is_active",
+                "endpoint_url",
+                "force_path_style",
+                "verify_tls",
+                "tags",
+                "credentials",
+            ),
+        )
+        return self
 
 
 class PaginatedS3ConnectionsResponse(ApiModel):

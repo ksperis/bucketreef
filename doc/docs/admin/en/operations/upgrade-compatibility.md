@@ -813,6 +813,22 @@ overrides keep their existing clear/inherit semantics.
 Deploy the backend and bundled frontend together. No database migration is
 required.
 
+## 2026-11 canonical S3 Connection PATCH nullability
+
+Private and Admin S3 Connection PATCH payloads now reject explicit `null` for
+fields that represent concrete mutations such as names, status/access flags,
+custom endpoint URL and booleans, tags, association lists, and credential
+rotation. Omit those fields to preserve the current value and use an empty list
+to clear tags or Admin UI associations. The bundled frontend also omits the
+Admin `credentials` field when no rotation is requested.
+
+`null` remains intentional for fields with clear/detach/inherit semantics:
+`storage_endpoint_id`, `provider_hint`, `region`, RGW identity fields, and the
+Admin `allow_activity_history` override.
+
+Deploy the backend and bundled frontend together. No database migration is
+required.
+
 ## 2026-11 explicit Admin principal access on create
 
 Admin creation of local UI users, LDAP-imported UI users, and UI groups now

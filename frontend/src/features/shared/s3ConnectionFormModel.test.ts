@@ -368,6 +368,31 @@ describe("s3ConnectionFormModel", () => {
         allow_activity_history: true,
       },
     });
+    const withoutCredentialRotation = prepareUpdateAdminS3ConnectionPayload({
+      credentialDraft: {
+        access_key_id: "",
+        secret_access_key: "",
+      },
+      endpointId: "3",
+      endpointMode: "preset",
+      form: {
+        name: "Shared archive",
+        tags: [],
+        provider_hint: "",
+        rgw_user_uid: "",
+        rgw_tenant: "",
+        rgw_account_id: "",
+        endpoint_url: "",
+        region: "",
+        force_path_style: false,
+        verify_tls: true,
+        allow_activity_history: null,
+      },
+      linkedGroupIds: [],
+      linkedUserIds: [],
+    });
+    expect(withoutCredentialRotation.error).toBeNull();
+    expect(withoutCredentialRotation.payload).not.toHaveProperty("credentials");
     expect(
       prepareUpdateAdminS3ConnectionPayload({
         credentialDraft: {

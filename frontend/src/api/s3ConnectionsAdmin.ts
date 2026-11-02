@@ -91,26 +91,26 @@ export type CreateAdminS3ConnectionPayload = {
 };
 
 export type UpdateAdminS3ConnectionPayload = {
-  name?: string | null;
-  group_ids?: number[] | null;
-  user_ids?: number[] | null;
-  remediation_action?: "activate_manager" | null;
+  name?: string;
+  group_ids?: number[];
+  user_ids?: number[];
+  remediation_action?: "activate_manager";
   provider_hint?: string | null;
   storage_endpoint_id?: number | null;
-  is_active?: boolean | null;
+  is_active?: boolean;
   rgw_user_uid?: string | null;
   rgw_tenant?: string | null;
   rgw_account_id?: string | null;
-  endpoint_url?: string | null;
+  endpoint_url?: string;
   region?: string | null;
-  force_path_style?: boolean | null;
-  verify_tls?: boolean | null;
+  force_path_style?: boolean;
+  verify_tls?: boolean;
   allow_activity_history?: boolean | null;
-  tags?: TagDefinitionInput[] | null;
+  tags?: TagDefinitionInput[];
   credentials?: {
     access_key_id: string;
     secret_access_key: string;
-  } | null;
+  };
 };
 
 export async function listAdminS3Connections(params?: ListS3ConnectionsParams): Promise<PaginatedS3ConnectionsResponse> {

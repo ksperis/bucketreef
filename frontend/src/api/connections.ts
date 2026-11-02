@@ -63,22 +63,22 @@ export type CreateConnectionPayload = {
 };
 
 export type UpdateConnectionPayload = {
-  name?: string | null;
+  name?: string;
   provider_hint?: string | null;
   storage_endpoint_id?: number | null;
-  is_active?: boolean | null;
-  access_manager?: boolean | null;
-  access_browser?: boolean | null;
+  is_active?: boolean;
+  access_manager?: boolean;
+  access_browser?: boolean;
   rgw_user_uid?: string | null;
   rgw_tenant?: string | null;
   rgw_account_id?: string | null;
-  endpoint_url?: string | null;
+  endpoint_url?: string;
   region?: string | null;
-  access_key_id?: string | null;
-  secret_access_key?: string | null;
-  force_path_style?: boolean | null;
-  verify_tls?: boolean | null;
-  tags?: TagDefinitionInput[] | null;
+  access_key_id?: string;
+  secret_access_key?: string;
+  force_path_style?: boolean;
+  verify_tls?: boolean;
+  tags?: TagDefinitionInput[];
 };
 
 export async function listConnections(): Promise<S3Connection[]> {
