@@ -421,6 +421,7 @@ body {
   .shell-sidebar-scroll-compact {
     overflow-x: hidden;
     padding-inline-start: 12px;
+    scrollbar-gutter: auto;
   }
 
   .shell-sidebar-compact-rail {
