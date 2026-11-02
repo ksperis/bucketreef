@@ -61,6 +61,38 @@ def test_bucket_compare_types_are_owned_by_dedicated_module():
     assert hasattr(bucket_comparison_service_module.BucketComparisonService, "compare_bucket_content")
 
 
+def test_compare_buckets_combines_requested_scopes(monkeypatch):
+    service = _build_service()
+    source = _build_account("source")
+    target = _build_account("target")
+    content = Mock(different_count=0, only_source_count=1, only_target_count=0)
+    config = Mock(changed=False)
+    seen: dict[str, object] = {}
+
+    monkeypatch.setattr(service, "compare_bucket_content", lambda *_args, **_kwargs: content)
+
+    def compare_config(*_args, **kwargs):
+        seen["include_sections"] = kwargs["include_sections"]
+        return config
+
+    monkeypatch.setattr(service, "compare_bucket_configuration", compare_config)
+
+    outcome = service.compare_buckets(
+        "source-bucket",
+        source,
+        "target-bucket",
+        target,
+        include_content=True,
+        include_config=True,
+        config_features={"tags"},
+    )
+
+    assert outcome.content_diff is content
+    assert outcome.config_diff is config
+    assert outcome.has_differences is True
+    assert seen["include_sections"] == {"tags"}
+
+
 def test_compare_bucket_content_uses_md5_then_size_fallback(monkeypatch):
     service = _build_service()
     source = _build_account("source")
