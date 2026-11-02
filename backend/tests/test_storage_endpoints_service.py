@@ -1385,6 +1385,44 @@ def test_detect_features_requires_usage_values_for_usage_log_detection(
     assert len(result.warnings) == 1
 
 
+def test_detect_features_checks_usage_even_when_bucket_stats_probe_is_denied(
+    db_session, monkeypatch
+):
+    class FakeRGWClient:
+        account_api_supported = None
+
+        def get_all_buckets(self, with_stats: bool = False):
+            assert with_stats is True
+            raise RGWAdminError(
+                "RGW bucket stats request was denied",
+                status_code=403,
+                error_code="AccessDenied",
+            )
+
+        def get_usage(self, show_entries: bool = False, show_summary: bool = False):
+            assert show_entries is False
+            assert show_summary is True
+            return {"summary": [{"owner": "tenant-a", "bytes_sent": 1}]}
+
+    monkeypatch.setattr(
+        "app.services.storage_endpoints_service.get_rgw_admin_client",
+        lambda **_kwargs: FakeRGWClient(),
+    )
+
+    result = StorageEndpointsService(db_session).detect_features(
+        StorageEndpointFeatureDetectionRequest(
+            endpoint_url="https://ceph.example.test",
+            supervision_access_key="AKIA-SUPERVISION",
+            supervision_secret_key="SECRET-SUPERVISION",
+        )
+    )
+
+    assert result.metrics is False
+    assert result.credential_checks.supervision.status == "denied"
+    assert result.usage is True
+    assert result.usage_error is None
+
+
 @pytest.mark.parametrize("status_code", [204, 403])
 def test_detect_features_checks_http_endpoint_when_requested(
     db_session, monkeypatch, status_code
