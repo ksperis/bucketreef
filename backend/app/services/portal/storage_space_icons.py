@@ -36,7 +36,7 @@ class PortalStorageSpaceIconsMixin:
                 updated_at=None,
             )
         updated_at = metadata.icon_updated_at
-        source = str(metadata.icon_source or "preset")
+        source = str(metadata.icon_source)
         if (
             source == "uploaded"
             and metadata.icon_image
@@ -53,9 +53,7 @@ class PortalStorageSpaceIconsMixin:
                 ),
                 updated_at=updated_at,
             )
-        preset = str(metadata.icon_preset or "bucket")
-        if preset not in STORAGE_SPACE_ICON_PRESETS:
-            preset = "bucket"
+        preset = str(metadata.icon_preset)
         return PortalStorageSpaceIcon(
             source="preset",
             preset=preset,
