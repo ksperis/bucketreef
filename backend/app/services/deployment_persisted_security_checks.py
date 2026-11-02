@@ -9,7 +9,7 @@ from app.db import StorageEndpoint, User, UserRole, WebAuthnCredential
 from app.services.deployment_check_models import DeploymentCheckFinding, finding
 
 
-def persisted_security_findings(db: Session) -> list[DeploymentCheckFinding]:
+def _missing_admin_passkey_count(db: Session) -> int:
     admin_ids = db.scalars(
         select(User.id).where(
             User.is_active.is_(True),
@@ -28,8 +28,10 @@ def persisted_security_findings(db: Session) -> list[DeploymentCheckFinding]:
                 .distinct()
             ).all()
         )
-    missing_passkeys = len(admin_ids) - len(enrolled_admin_ids)
+    return len(admin_ids) - len(enrolled_admin_ids)
 
+
+def _storage_endpoint_security_counts(db: Session) -> tuple[int, int]:
     endpoints = db.scalars(select(StorageEndpoint)).all()
     unverified_tls = sum(1 for endpoint in endpoints if not endpoint.verify_tls)
     reused_privileged_identity = 0
@@ -47,6 +49,12 @@ def persisted_security_findings(db: Session) -> list[DeploymentCheckFinding]:
         ]
         if len(privileged_access_keys) != len(set(privileged_access_keys)):
             reused_privileged_identity += 1
+    return unverified_tls, reused_privileged_identity
+
+
+def persisted_security_findings(db: Session) -> list[DeploymentCheckFinding]:
+    missing_passkeys = _missing_admin_passkey_count(db)
+    unverified_tls, reused_privileged_identity = _storage_endpoint_security_counts(db)
 
     return [
         finding(
