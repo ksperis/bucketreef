@@ -957,6 +957,26 @@ def test_setting_change_request_rejects_when_project_settings_are_delegated(db_s
     assert db_session.scalar(select(func.count()).select_from(PortalAdminRequest)) == 0
 
 
+def test_setting_change_request_requires_portal_manager_before_persisting(db_session):
+    account = _seed_account(db_session)
+    requester = _seed_user(db_session, email="requester@example.org")
+    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+
+    with pytest.raises(ValueError, match="Portal manager rights required"):
+        service.create_request(
+            requester,
+            _portal_access(account, requester),
+            PortalSettingChangeRequestCreate(
+                request_type="portal_setting_change",
+                setting="browser_access_enabled",
+                mode="override",
+                value=True,
+            ),
+        )
+
+    assert db_session.scalar(select(func.count()).select_from(PortalAdminRequest)) == 0
+
+
 def test_approve_setting_change_preserves_concurrent_project_overrides(db_session, monkeypatch):
     from app.models.app_settings import AppSettings
     monkeypatch.setattr("app.services.portal.settings.load_app_settings_for_db_readonly", lambda _db: AppSettings())

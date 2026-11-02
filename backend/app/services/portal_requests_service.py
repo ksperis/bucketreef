@@ -97,26 +97,11 @@ class PortalRequestsService:
         access: AccountAccess,
         payload: PortalAdminRequestCreate,
     ) -> PortalAdminRequestOut:
-        if isinstance(payload, PortalUserAccessRequestCreate):
-            request_type, payload_data = self.collaborator_requests.normalize_user_access_request(
-                actor,
-                access,
-                payload,
-            )
-        else:
-            request_type, payload_data = self._normalize_create_payload(payload)
-        if isinstance(payload, PortalAccountQuotaChangeRequestCreate):
-            self._validate_quota_request_against_current_usage(actor, access, payload)
-        if isinstance(payload, PortalSettingChangeRequestCreate):
-            if access.portal_role != PortalAccountRole.PORTAL_MANAGER.value:
-                raise ValueError("Portal manager rights required for project setting requests")
-            if access.account.portal_settings_delegated:
-                raise ValueError("Portal settings are already delegated to Portal managers")
-            feature = PORTAL_FEATURE_FIELDS.get(payload.setting)
-            if feature and payload.mode != "inherit" and payload.value is True:
-                policy = PortalService(self.db).get_effective_portal_settings(access.account).feature_policies
-                if getattr(policy, feature) == FeaturePolicy.DISABLED:
-                    raise ValueError("This feature is disabled by the platform")
+        request_type, payload_data = self._prepare_create_request(
+            actor,
+            access,
+            payload,
+        )
         row = PortalAdminRequest(
             account_id=int(access.account.id),
             requester_user_id=int(actor.id),
@@ -153,6 +138,34 @@ class PortalRequestsService:
         self.notifications.notify_admins(row)
         self.db.commit()
         return self.to_out(row)
+
+    def _prepare_create_request(
+        self,
+        actor: User,
+        access: AccountAccess,
+        payload: PortalAdminRequestCreate,
+    ) -> tuple[str, dict[str, Any]]:
+        if isinstance(payload, PortalUserAccessRequestCreate):
+            request_type, payload_data = self.collaborator_requests.normalize_user_access_request(
+                actor,
+                access,
+                payload,
+            )
+        else:
+            request_type, payload_data = self._normalize_create_payload(payload)
+        if isinstance(payload, PortalAccountQuotaChangeRequestCreate):
+            self._validate_quota_request_against_current_usage(actor, access, payload)
+        if isinstance(payload, PortalSettingChangeRequestCreate):
+            if access.portal_role != PortalAccountRole.PORTAL_MANAGER.value:
+                raise ValueError("Portal manager rights required for project setting requests")
+            if access.account.portal_settings_delegated:
+                raise ValueError("Portal settings are already delegated to Portal managers")
+            feature = PORTAL_FEATURE_FIELDS.get(payload.setting)
+            if feature and payload.mode != "inherit" and payload.value is True:
+                policy = PortalService(self.db).get_effective_portal_settings(access.account).feature_policies
+                if getattr(policy, feature) == FeaturePolicy.DISABLED:
+                    raise ValueError("This feature is disabled by the platform")
+        return request_type, payload_data
 
     def _execute_delegated_request(
         self,
