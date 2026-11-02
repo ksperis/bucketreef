@@ -51,9 +51,7 @@ import { useManagerI18n } from "../managerI18n";
 type BucketPolicyController = ReturnType<typeof useBucketPolicyController>;
 
 type BucketPolicyFeatureProps = {
-  bucketName?: string;
   controller: BucketPolicyController;
-  onRequestDelete: () => void;
 };
 
 type PolicySummaryRow = {

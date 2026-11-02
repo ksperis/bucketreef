@@ -46,8 +46,6 @@ describe("Manager i18n", () => {
     expect(managerText("Source only ({count})", "zh", { count: 3 })).toBe("仅源端 (3)");
     expect(managerText("Bucket name is required.", "de")).toBe("Bucket-Name ist erforderlich.");
     expect(managerText("Bucket name is required.", "zh")).toBe("必须填写存储桶名称。");
-    expect(managerText("Delete bucket policy?", "de")).toBe("Bucket-Policy löschen?");
-    expect(managerText("Delete bucket policy?", "zh")).toBe("删除存储桶策略？");
     expect(managerText("Logical bytes", "de")).toBe("Logische Bytes");
     expect(managerText("Logical bytes", "zh")).toBe("逻辑字节数");
     expect(managerText("Maximum session duration (seconds)", "de")).toBe("Maximale Sitzungsdauer (Sekunden)");
