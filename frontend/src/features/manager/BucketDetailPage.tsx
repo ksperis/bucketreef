@@ -7,6 +7,7 @@ import { useParams } from "react-router-dom";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import PageHeader from "../../components/PageHeader";
+import { SettingsSection } from "../../components/settings/SettingsLayout";
 import { SettingsButton } from "../../components/settings/SettingsControls";
 import SettingsNavigationGuard from "../../components/settings/SettingsNavigationGuard";
 import { settingsLabels } from "../../components/settings/settingsLabels";
@@ -942,55 +943,70 @@ function BucketDetailPageContent({
             id: "overview",
             label: text("Overview"),
             content: (
-              <section className="space-y-5 px-1 py-2">
-                <dl className="grid gap-x-8 gap-y-3 sm:grid-cols-2">
-                  <div className="min-w-0">
-                    <dt className={bucketDetailHintClass}>{text("Owner:")}</dt>
-                    <dd className="mt-0.5 min-w-0 break-words ui-body font-semibold text-slate-800 dark:text-slate-100">
-                      {bucketOwner ?? text(loadingBucket || bucketAclLoading ? "Loading..." : "Unknown")}
-                    </dd>
+              <div className="settings-compact settings-stack px-1 py-2">
+                <SettingsSection
+                  title={text("Details")}
+                  description={text("Owner and creation information for this bucket.")}
+                  presentation="compact"
+                >
+                  <dl className="grid gap-x-8 gap-y-3 sm:grid-cols-2">
+                    <div className="min-w-0">
+                      <dt className={bucketDetailHintClass}>{text("Owner:")}</dt>
+                      <dd className="mt-0.5 min-w-0 break-words ui-body font-semibold text-slate-800 dark:text-slate-100">
+                        {bucketOwner ?? text(loadingBucket || bucketAclLoading ? "Loading..." : "Unknown")}
+                      </dd>
+                    </div>
+                    <div className="min-w-0">
+                      <dt className={bucketDetailHintClass}>{text("Created:")}</dt>
+                      <dd className="mt-0.5 min-w-0 break-words ui-body font-semibold text-slate-800 dark:text-slate-100">
+                        {loadingBucket
+                          ? text("Loading...")
+                          : bucket?.creation_date
+                            ? formatLocalDateTime(bucket.creation_date)
+                            : text("Unavailable")}
+                      </dd>
+                    </div>
+                  </dl>
+                </SettingsSection>
+                <SettingsSection
+                  title={text("Current usage and quota")}
+                  description={text("Observed storage and object usage against configured limits.")}
+                  presentation="compact"
+                >
+                  <div className={bucketDetailTwoColumnGridClass}>
+                    <UsageTile
+                      label={text("Storage")}
+                      used={storageUsage.used}
+                      quota={storageUsage.quota}
+                      formatter={formatBytes}
+                      quotaFormatter={formatBytes}
+                      loading={loadingBucket}
+                      emptyHint={text("No storage quota configured.")}
+                    />
+                    <UsageTile
+                      label={text("Objects")}
+                      used={objectUsage.used}
+                      quota={objectUsage.quota}
+                      formatter={formatCompactNumber}
+                      quotaFormatter={(value) => (value != null ? value.toLocaleString(intlLocale) : "-")}
+                      loading={loadingBucket}
+                      unitHint={text("objects")}
+                      emptyHint={text("No object quota configured.")}
+                    />
                   </div>
-                  <div className="min-w-0">
-                    <dt className={bucketDetailHintClass}>{text("Created:")}</dt>
-                    <dd className="mt-0.5 min-w-0 break-words ui-body font-semibold text-slate-800 dark:text-slate-100">
-                      {loadingBucket
-                        ? text("Loading...")
-                        : bucket?.creation_date
-                          ? formatLocalDateTime(bucket.creation_date)
-                          : text("Unavailable")}
-                    </dd>
-                  </div>
-                </dl>
-                <div className={bucketDetailTwoColumnGridClass}>
-                  <UsageTile
-                    label={text("Storage")}
-                    used={storageUsage.used}
-                    quota={storageUsage.quota}
-                    formatter={formatBytes}
-                    quotaFormatter={formatBytes}
-                    loading={loadingBucket}
-                    emptyHint={text("No storage quota configured.")}
-                  />
-                  <UsageTile
-                    label={text("Objects")}
-                    used={objectUsage.used}
-                    quota={objectUsage.quota}
-                    formatter={formatCompactNumber}
-                    quotaFormatter={(value) => (value != null ? value.toLocaleString(intlLocale) : "-")}
-                    loading={loadingBucket}
-                    unitHint={text("objects")}
-                    emptyHint={text("No object quota configured.")}
-                  />
-                </div>
-                <div className="border-t border-[color:var(--ui-border-soft)] pt-4">
-                  <p className="ui-body font-semibold text-slate-900 dark:text-slate-50">{text("Bucket properties")}</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
+                </SettingsSection>
+                <SettingsSection
+                  title={text("Bucket properties")}
+                  description={text("Configured features are highlighted. Changes remain scoped to each S3 feature.")}
+                  presentation="compact"
+                >
+                  <div className="flex flex-wrap gap-2">
                     {propertySummary.map((item) => (
                       <PropertySummaryChip key={item.label} label={item.label} state={item.state} tone={item.tone} />
                     ))}
                   </div>
-                </div>
-              </section>
+                </SettingsSection>
+              </div>
             ),
           },
           ...(showObjectsTab
