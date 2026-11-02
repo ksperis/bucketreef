@@ -393,7 +393,7 @@ def normalize_storage_endpoint_update(
     if endpoint.provider == StorageProvider.CEPH.value:
         assert runtime is not None, "Ceph endpoints require a Runtime service identity."
     current_identity_mode = runtime.mode if runtime is not None else "managed"
-    fields_set = _effective_storage_endpoint_update_fields(payload)
+    fields_set = set(payload.model_fields_set)
     merged = _storage_endpoint_update_base(
         endpoint,
         current_identity_mode=current_identity_mode,
@@ -422,21 +422,6 @@ def normalize_storage_endpoint_update(
     _clear_secrets_for_removed_access_keys(merged, fields_set)
 
     return normalize_storage_endpoint_state(StorageEndpointCreate.model_validate(merged))
-
-
-def _effective_storage_endpoint_update_fields(
-    payload: StorageEndpointUpdate,
-) -> set[str]:
-    fields_set = set(payload.model_fields_set)
-    ceph_pair = {"ceph_admin_access_key", "ceph_admin_secret_key"}
-    if (
-        ceph_pair & fields_set
-        and not normalize_optional_string(payload.ceph_admin_access_key)
-        and not normalize_optional_string(_secret_value(payload.ceph_admin_secret_key))
-    ):
-        # Empty write-only fields preserve the stored pair.
-        fields_set -= ceph_pair
-    return fields_set
 
 
 def _storage_endpoint_update_base(

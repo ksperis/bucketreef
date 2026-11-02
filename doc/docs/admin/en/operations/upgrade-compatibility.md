@@ -611,6 +611,16 @@ The dedicated tags/default operations keep their existing `PUT` routes. The
 bundled frontend has been updated with the API cutover. No database migration
 is required.
 
+## 2026-11 explicit storage endpoint credential removal
+
+Storage endpoint `PATCH` requests now distinguish omitted write-only credential
+pairs from explicit removal. Omitted Runtime, Supervision, or Ceph Admin credential
+fields preserve the stored pair. Sending both fields of a pair as `null` clears it
+when the resulting endpoint configuration does not require those credentials.
+
+The bundled frontend already omits stored write-only pairs during ordinary edits,
+so no frontend migration or database migration is required.
+
 ## 2026-10 UI user partial updates use PATCH
 
 The admin UI-user update endpoint now uses `PATCH /admin/users/{user_id}`
