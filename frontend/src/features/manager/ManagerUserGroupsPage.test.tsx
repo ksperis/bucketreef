@@ -65,6 +65,7 @@ describe("ManagerUserGroupsPage", () => {
     renderPage();
 
     expect(await screen.findByText("operators")).toBeInTheDocument();
+    await screen.findByRole("option", { name: "auditors" });
     fireEvent.change(screen.getByRole("combobox", { name: "IAM group" }), { target: { value: "auditors" } });
     fireEvent.click(screen.getByRole("button", { name: "Add" }));
 
