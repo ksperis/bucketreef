@@ -59,6 +59,26 @@ def test_iam_context_without_credentials_maps_to_http_400() -> None:
     assert exc_info.value.detail == "Execution context credentials are missing"
 
 
+def test_iam_read_preserves_structured_upstream_status() -> None:
+    def denied_read():
+        try:
+            raise ClientError(
+                {
+                    "Error": {"Code": "AccessDenied", "Message": "denied"},
+                    "ResponseMetadata": {"HTTPStatusCode": 403},
+                },
+                "ListPolicies",
+            )
+        except ClientError as exc:
+            raise RuntimeError("Unable to list IAM policies") from exc
+
+    with pytest.raises(HTTPException) as exc_info:
+        iam_common.run_iam_read(denied_read)
+
+    assert exc_info.value.status_code == 403
+    assert exc_info.value.detail == "Unable to list IAM policies"
+
+
 def test_inline_policy_name_mismatch_maps_to_http_400() -> None:
     with pytest.raises(HTTPException) as exc_info:
         iam_common.ensure_inline_policy_name(

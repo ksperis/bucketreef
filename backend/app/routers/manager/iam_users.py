@@ -24,6 +24,7 @@ from app.routers.manager.iam_common import (
     ensure_inline_policy_name,
     get_iam_service_for_context,
     run_audited_iam_mutation,
+    run_iam_read,
 )
 from app.services.audit_service import AuditService
 from app.services.resource_name_validation import validate_inline_policy_request
@@ -440,14 +441,13 @@ def list_user_inline_policies(
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> list[InlinePolicy]:
     service = get_iam_service_for_context(context)
-    try:
-        return load_inline_policies(
+    return run_iam_read(
+        lambda: load_inline_policies(
             user_name,
             list_names_fn=service.list_user_inline_policies,
             get_policy_fn=service.get_user_inline_policy,
         )
-    except RuntimeError as exc:
-        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+    )
 
 
 @router.put("/{user_name}/inline-policies/{policy_name}", response_model=InlinePolicy)
@@ -513,10 +513,7 @@ def list_user_policies(
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> list[Policy]:
     service = get_iam_service_for_context(context)
-    try:
-        return service.list_user_policies(user_name)
-    except RuntimeError as exc:
-        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+    return run_iam_read(lambda: service.list_user_policies(user_name))
 
 
 @router.post("/{user_name}/policies", response_model=Policy, status_code=status.HTTP_201_CREATED)
