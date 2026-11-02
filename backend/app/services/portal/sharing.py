@@ -98,10 +98,9 @@ class PortalSharingMixin:
         *,
         visibility: PortalStorageSpaceVisibility,
         share_scope: PortalStorageSpaceShareScope,
-        initial_shares: Optional[list[PortalStorageSpaceInitialShare]],
+        initial_shares: list[PortalStorageSpaceInitialShare],
     ) -> list[PortalStorageSpaceInitialShare]:
-        shares = initial_shares or []
-        if not shares:
+        if not initial_shares:
             return []
         if visibility != "shared" or share_scope != "restricted":
             raise PortalBadRequestError("Initial shares are allowed only for restricted shared Storage Spaces.")
@@ -110,7 +109,7 @@ class PortalSharingMixin:
         member_map = self._portal_account_member_map(access.account)
         seen_user_ids: set[int] = set()
         validated: list[PortalStorageSpaceInitialShare] = []
-        for share in shares:
+        for share in initial_shares:
             if share.user_id in seen_user_ids:
                 raise PortalBadRequestError("Duplicate initial share user.")
             member = member_map.get(share.user_id)

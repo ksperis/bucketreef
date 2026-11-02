@@ -18,6 +18,7 @@ from app.db import (
 )
 from app.core.domain_enums import PortalAccountRole
 from app.models.portal_storage_spaces import (
+    PortalStorageSpaceAccountMemberRole,
     PortalStorageSpaceInitialShare,
     PortalStorageSpaceNamingMode,
     PortalStorageSpaceRole,
@@ -60,12 +61,12 @@ class PortalStorageSpacesMixin:
         access: "AccountAccess",
         *,
         name: str,
-        naming_mode: PortalStorageSpaceNamingMode = "generic_uuid",
+        naming_mode: PortalStorageSpaceNamingMode,
+        visibility: PortalStorageSpaceVisibility,
+        share_scope: PortalStorageSpaceShareScope,
+        account_member_role: Optional[PortalStorageSpaceAccountMemberRole],
+        initial_shares: list[PortalStorageSpaceInitialShare],
         description: Optional[str] = None,
-        visibility: PortalStorageSpaceVisibility = "private",
-        share_scope: PortalStorageSpaceShareScope = "restricted",
-        account_member_role: Optional[PortalStorageSpaceRole] = None,
-        initial_shares: Optional[list[PortalStorageSpaceInitialShare]] = None,
         project_key: Optional[str] = None,
         dataset_label: Optional[str] = None,
     ) -> PortalStorageSpaceSummary:
@@ -73,7 +74,7 @@ class PortalStorageSpacesMixin:
             access,
             visibility=visibility,
         )
-        share_scope, account_member_role = self._normalize_storage_space_sharing(
+        share_scope, account_member_role = self._validate_storage_space_sharing(
             visibility,
             share_scope,
             account_member_role,
@@ -144,7 +145,7 @@ class PortalStorageSpacesMixin:
         description: str | None,
         visibility: PortalStorageSpaceVisibility,
         share_scope: PortalStorageSpaceShareScope,
-        account_member_role: PortalStorageSpaceRole | None,
+        account_member_role: PortalStorageSpaceAccountMemberRole | None,
         project_key: str | None,
         dataset_label: str | None,
         origin: str,
@@ -229,11 +230,11 @@ class PortalStorageSpacesMixin:
         access: "AccountAccess",
         *,
         bucket_name: str,
+        visibility: PortalStorageSpaceVisibility,
+        share_scope: PortalStorageSpaceShareScope,
+        account_member_role: Optional[PortalStorageSpaceAccountMemberRole],
+        initial_shares: list[PortalStorageSpaceInitialShare],
         description: Optional[str] = None,
-        visibility: PortalStorageSpaceVisibility = "private",
-        share_scope: PortalStorageSpaceShareScope = "restricted",
-        account_member_role: Optional[PortalStorageSpaceRole] = None,
-        initial_shares: Optional[list[PortalStorageSpaceInitialShare]] = None,
         project_key: Optional[str] = None,
         dataset_label: Optional[str] = None,
     ) -> PortalStorageSpaceSummary:
@@ -245,7 +246,7 @@ class PortalStorageSpacesMixin:
             bucket_name=cleaned_bucket_name,
             visibility=visibility,
         )
-        share_scope, account_member_role = self._normalize_storage_space_sharing(
+        share_scope, account_member_role = self._validate_storage_space_sharing(
             visibility,
             share_scope,
             account_member_role,
@@ -341,7 +342,7 @@ class PortalStorageSpacesMixin:
         description: str | None,
         visibility: PortalStorageSpaceVisibility,
         share_scope: PortalStorageSpaceShareScope,
-        account_member_role: PortalStorageSpaceRole | None,
+        account_member_role: PortalStorageSpaceAccountMemberRole | None,
         project_key: str | None,
         dataset_label: str | None,
     ) -> PortalStorageSpaceMetadata:
@@ -371,7 +372,7 @@ class PortalStorageSpacesMixin:
         description: Optional[str] = None,
         visibility: Optional[PortalStorageSpaceVisibility] = None,
         share_scope: Optional[PortalStorageSpaceShareScope] = None,
-        account_member_role: Optional[PortalStorageSpaceRole] = None,
+        account_member_role: Optional[PortalStorageSpaceAccountMemberRole] = None,
         project_key: Optional[str] = None,
         dataset_label: Optional[str] = None,
         archived: Optional[bool] = None,
@@ -418,7 +419,7 @@ class PortalStorageSpacesMixin:
         description: Optional[str],
         visibility: Optional[PortalStorageSpaceVisibility],
         share_scope: Optional[PortalStorageSpaceShareScope],
-        account_member_role: Optional[PortalStorageSpaceRole],
+        account_member_role: Optional[PortalStorageSpaceAccountMemberRole],
         project_key: Optional[str],
         dataset_label: Optional[str],
         archived: Optional[bool],
@@ -451,7 +452,7 @@ class PortalStorageSpacesMixin:
         *,
         visibility: Optional[PortalStorageSpaceVisibility],
         share_scope: Optional[PortalStorageSpaceShareScope],
-        account_member_role: Optional[PortalStorageSpaceRole],
+        account_member_role: Optional[PortalStorageSpaceAccountMemberRole],
     ) -> None:
         current_visibility = self._metadata_visibility(metadata)
         next_visibility = visibility if visibility is not None else current_visibility
@@ -467,13 +468,18 @@ class PortalStorageSpacesMixin:
             if share_scope is not None
             else self._metadata_share_scope(metadata)
         )
-        next_account_member_role = account_member_role
-        if account_member_role is None and share_scope is None:
-            next_account_member_role = self._metadata_account_member_role(metadata)
+        if share_scope is None:
+            next_account_member_role = (
+                account_member_role
+                if account_member_role is not None
+                else self._metadata_account_member_role(metadata)
+            )
+        else:
+            next_account_member_role = account_member_role
         (
             metadata.share_scope,
             metadata.account_member_role,
-        ) = self._normalize_storage_space_sharing(
+        ) = self._validate_storage_space_sharing(
             next_visibility,
             next_share_scope,
             next_account_member_role,

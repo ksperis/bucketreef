@@ -19,6 +19,7 @@ from app.db import (
 )
 from app.core.domain_enums import PortalAccountRole
 from app.models.portal_storage_spaces import (
+    PortalStorageSpaceAccountMemberRole,
     PortalStorageSpaceRole,
     PortalStorageSpaceShareScope,
     PortalStorageSpaceVisibility,
@@ -50,10 +51,10 @@ class PortalStorageSpaceAccessMixin:
     def _metadata_account_member_role(
         self,
         metadata: PortalStorageSpaceMetadata | None,
-    ) -> Optional[PortalStorageSpaceRole]:
+    ) -> Optional[PortalStorageSpaceAccountMemberRole]:
         if metadata is None:
             return None
-        return cast(Optional[PortalStorageSpaceRole], metadata.account_member_role)
+        return cast(Optional[PortalStorageSpaceAccountMemberRole], metadata.account_member_role)
 
     def _storage_space_role_is_valid(
         self,

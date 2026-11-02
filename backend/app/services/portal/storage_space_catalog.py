@@ -12,6 +12,7 @@ from app.db import PortalStorageSpaceMetadata, S3Account, User
 from app.core.domain_enums import PortalAccountRole
 from app.models.bucket import Bucket
 from app.models.portal_storage_spaces import (
+    PortalStorageSpaceAccountMemberRole,
     PortalStorageSpaceCollaboratorPreview,
     PortalStorageSpaceRole,
     PortalStorageSpaceShareScope,
@@ -28,20 +29,29 @@ if TYPE_CHECKING:
 
 
 class PortalStorageSpaceCatalogMixin:
-    def _normalize_storage_space_sharing(
+    def _validate_storage_space_sharing(
         self,
         visibility: PortalStorageSpaceVisibility,
-        share_scope: Optional[PortalStorageSpaceShareScope],
-        account_member_role: Optional[PortalStorageSpaceRole],
-    ) -> tuple[PortalStorageSpaceShareScope, Optional[PortalStorageSpaceRole]]:
-        if visibility != "shared":
-            return "restricted", None
-        scope = "account" if share_scope == "account" else "restricted"
-        if scope != "account":
-            return scope, None
-        if account_member_role in {"Viewer", "Editor"}:
-            return scope, account_member_role
-        return scope, "Editor"
+        share_scope: PortalStorageSpaceShareScope,
+        account_member_role: Optional[PortalStorageSpaceAccountMemberRole],
+    ) -> tuple[PortalStorageSpaceShareScope, Optional[PortalStorageSpaceAccountMemberRole]]:
+        if visibility == "private":
+            if share_scope != "restricted" or account_member_role is not None:
+                raise PortalBadRequestError(
+                    "Private Storage Spaces require restricted scope without an account member role."
+                )
+            return share_scope, None
+        if share_scope == "restricted":
+            if account_member_role is not None:
+                raise PortalBadRequestError(
+                    "Restricted shared Storage Spaces cannot define an account member role."
+                )
+            return share_scope, None
+        if account_member_role not in {"Viewer", "Editor"}:
+            raise PortalBadRequestError(
+                "Account-wide shared Storage Spaces require a Viewer or Editor account member role."
+            )
+        return share_scope, account_member_role
 
     def _storage_space_owner_label(
         self,

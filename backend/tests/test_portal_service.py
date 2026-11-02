@@ -2773,7 +2773,17 @@ def test_create_storage_space_generic_uses_managed_uuid_bucket_and_editable_name
         ),
     )
 
-    storage_space = service.create_storage_space(user, access, name="Research Data", description="Lab files")
+    storage_space = service.create_storage_space(
+        user,
+        access,
+        name="Research Data",
+        naming_mode="generic_uuid",
+        visibility="private",
+        share_scope="restricted",
+        account_member_role=None,
+        initial_shares=[],
+        description="Lab files",
+    )
 
     assert len(created_buckets) == 1
     bucket_name = created_buckets[0][0]
@@ -2829,7 +2839,16 @@ def test_create_storage_space_configures_server_access_logging(monkeypatch, db_s
         ),
     )
 
-    storage_space = service.create_storage_space(user, access, name="Research Data")
+    storage_space = service.create_storage_space(
+        user,
+        access,
+        name="Research Data",
+        naming_mode="generic_uuid",
+        visibility="private",
+        share_scope="restricted",
+        account_member_role=None,
+        initial_shares=[],
+    )
 
     assert storage_space.name == "Research Data"
     assert len(logging_calls) == 1
@@ -2997,7 +3016,16 @@ def test_portal_user_can_create_storage_space_when_setting_is_enabled(monkeypatc
         ),
     )
 
-    storage_space = service.create_storage_space(user, access, name="Research Data")
+    storage_space = service.create_storage_space(
+        user,
+        access,
+        name="Research Data",
+        naming_mode="generic_uuid",
+        visibility="private",
+        share_scope="restricted",
+        account_member_role=None,
+        initial_shares=[],
+    )
 
     assert storage_space.name == "Research Data"
     assert len(created_buckets) == 1
@@ -3032,7 +3060,16 @@ def test_portal_user_cannot_create_shared_storage_space(monkeypatch, db_session)
     )
 
     with pytest.raises(RuntimeError, match="Portal users can only create private"):
-        service.create_storage_space(user, access, name="Research Data", visibility="shared")
+        service.create_storage_space(
+            user,
+            access,
+            name="Research Data",
+            naming_mode="generic_uuid",
+            visibility="shared",
+            share_scope="restricted",
+            account_member_role=None,
+            initial_shares=[],
+        )
 
 
 def test_portal_user_cannot_create_storage_space_when_setting_is_disabled(monkeypatch, db_session):
@@ -3047,7 +3084,16 @@ def test_portal_user_cannot_create_storage_space_when_setting_is_disabled(monkey
     monkeypatch.setattr(service, "get_effective_portal_settings", lambda _account: portal_settings)
 
     with pytest.raises(RuntimeError, match="Storage Space creation not allowed"):
-        service.create_storage_space(user, access, name="Research Data")
+        service.create_storage_space(
+            user,
+            access,
+            name="Research Data",
+            naming_mode="generic_uuid",
+            visibility="private",
+            share_scope="restricted",
+            account_member_role=None,
+            initial_shares=[],
+        )
 
 
 def test_portal_manager_needs_private_create_setting_but_can_always_create_team_space(monkeypatch, db_session):
@@ -3076,8 +3122,26 @@ def test_portal_manager_needs_private_create_setting_but_can_always_create_team_
     )
 
     with pytest.raises(RuntimeError, match="Private Storage Space creation is disabled"):
-        service.create_storage_space(user, access, name="Private Space", visibility="private")
-    shared_space = service.create_storage_space(user, access, name="Shared Space", visibility="shared")
+        service.create_storage_space(
+            user,
+            access,
+            name="Private Space",
+            naming_mode="generic_uuid",
+            visibility="private",
+            share_scope="restricted",
+            account_member_role=None,
+            initial_shares=[],
+        )
+    shared_space = service.create_storage_space(
+        user,
+        access,
+        name="Shared Space",
+        naming_mode="generic_uuid",
+        visibility="shared",
+        share_scope="restricted",
+        account_member_role=None,
+        initial_shares=[],
+    )
 
     assert created_buckets == ["bucket-1"]
     assert shared_space.visibility == "shared"
@@ -3123,8 +3187,10 @@ def test_create_restricted_storage_space_persists_initial_shares_atomically(monk
         owner,
         access,
         name="Restricted Research",
+        naming_mode="generic_uuid",
         visibility="shared",
         share_scope="restricted",
+        account_member_role=None,
         initial_shares=[
             PortalStorageSpaceInitialShare(user_id=viewer.id, role="Viewer"),
             PortalStorageSpaceInitialShare(user_id=editor.id, role="Editor"),
@@ -3178,8 +3244,10 @@ def test_create_restricted_storage_space_rejects_invalid_initial_shares_before_b
             owner,
             access,
             name="Restricted Research",
+            naming_mode="generic_uuid",
             visibility="shared",
             share_scope="restricted",
+            account_member_role=None,
             initial_shares=shares(owner, viewer, outsider),
         )
 
@@ -3219,8 +3287,10 @@ def test_create_restricted_storage_space_rolls_back_bucket_and_grants_when_sync_
             owner,
             access,
             name="Rollback Research",
+            naming_mode="generic_uuid",
             visibility="shared",
             share_scope="restricted",
+            account_member_role=None,
             initial_shares=[PortalStorageSpaceInitialShare(user_id=viewer.id, role="Viewer")],
         )
 
@@ -3277,7 +3347,16 @@ def test_create_storage_space_named_bucket_preserves_exact_name_and_locks_name(m
         ),
     )
 
-    storage_space = service.create_storage_space(user, access, name="research-data.v1", naming_mode="named_bucket")
+    storage_space = service.create_storage_space(
+        user,
+        access,
+        name="research-data.v1",
+        naming_mode="named_bucket",
+        visibility="private",
+        share_scope="restricted",
+        account_member_role=None,
+        initial_shares=[],
+    )
 
     assert created_buckets == ["research-data.v1"]
     metadata = db_session.scalars(
@@ -3310,7 +3389,16 @@ def test_create_named_space_rejects_invalid_or_duplicate_name_without_mutation(n
     ])
     monkeypatch.setattr(service, "create_bucket", lambda *_args, **_kwargs: pytest.fail("Invalid named bucket must not be created"))
     with pytest.raises(RuntimeError, match="Invalid bucket name|already exists"):
-        service.create_storage_space(user, access, name=name, naming_mode="named_bucket")
+        service.create_storage_space(
+            user,
+            access,
+            name=name,
+            naming_mode="named_bucket",
+            visibility="private",
+            share_scope="restricted",
+            account_member_role=None,
+            initial_shares=[],
+        )
     assert db_session.scalars(sa.select(PortalStorageSpaceMetadata)).all() == []
 
 
@@ -3331,7 +3419,16 @@ def test_create_storage_space_named_bucket_requires_effective_setting(monkeypatc
     )
 
     with pytest.raises(RuntimeError, match="Named bucket Storage Space creation is not allowed"):
-        service.create_storage_space(user, access, name="Research Data", naming_mode="named_bucket")
+        service.create_storage_space(
+            user,
+            access,
+            name="Research Data",
+            naming_mode="named_bucket",
+            visibility="private",
+            share_scope="restricted",
+            account_member_role=None,
+            initial_shares=[],
+        )
 
 
 def test_import_storage_space_uses_existing_bucket_name_and_locks_name(monkeypatch, db_session):
@@ -3368,7 +3465,16 @@ def test_import_storage_space_uses_existing_bucket_name_and_locks_name(monkeypat
         ),
     )
 
-    storage_space = service.import_storage_space(user, access, bucket_name=" existing-bucket ", description="Imported bucket")
+    storage_space = service.import_storage_space(
+        user,
+        access,
+        bucket_name=" existing-bucket ",
+        visibility="private",
+        share_scope="restricted",
+        account_member_role=None,
+        initial_shares=[],
+        description="Imported bucket",
+    )
 
     assert storage_space.id == "existing-bucket"
     assert projection_calls == ["existing-bucket"]
@@ -3426,6 +3532,7 @@ def test_import_restricted_storage_space_persists_initial_shares(monkeypatch, db
         bucket_name="existing-restricted",
         visibility="shared",
         share_scope="restricted",
+        account_member_role=None,
         initial_shares=[PortalStorageSpaceInitialShare(user_id=viewer.id, role="Editor")],
     )
 
@@ -3574,6 +3681,14 @@ def test_update_storage_space_updates_sharing_but_keeps_visibility_immutable(mon
         ),
     )
 
+    with pytest.raises(RuntimeError, match="require a Viewer or Editor"):
+        service.update_storage_space(
+            user,
+            access,
+            "shared-data",
+            share_scope="account",
+        )
+
     updated = service.update_storage_space(
         user,
         access,
@@ -3589,6 +3704,72 @@ def test_update_storage_space_updates_sharing_but_keeps_visibility_immutable(mon
 
     with pytest.raises(RuntimeError, match="visibility cannot be changed"):
         service.update_storage_space(user, access, "shared-data", visibility="private")
+
+
+@pytest.mark.parametrize(
+    ("visibility", "share_scope", "account_member_role", "message"),
+    [
+        ("private", "account", None, "Private Storage Spaces require restricted scope"),
+        ("private", "restricted", "Viewer", "Private Storage Spaces require restricted scope"),
+        ("shared", "restricted", "Viewer", "Restricted shared Storage Spaces cannot define"),
+        ("shared", "account", None, "require a Viewer or Editor"),
+    ],
+)
+def test_create_storage_space_rejects_noncanonical_sharing_before_bucket(
+    monkeypatch,
+    db_session,
+    visibility,
+    share_scope,
+    account_member_role,
+    message,
+):
+    account = make_s3_account(
+        db_session,
+        name=f"portal-storage-invalid-sharing-{visibility}-{share_scope}-{account_member_role}",
+        rgw_access_key="ROOT-AK",
+        rgw_secret_key="ROOT-SK",
+    )
+    user = User(
+        email=f"invalid-sharing-{visibility}-{share_scope}-{account_member_role}@example.com",
+        hashed_password="x",
+        role="ui_user",
+    )
+    db_session.add_all([account, user])
+    db_session.commit()
+
+    access = _portal_access(
+        account,
+        user,
+        portal_role=PortalAccountRole.PORTAL_MANAGER.value,
+        can_manage_buckets=True,
+    )
+    service = PortalService(db_session)
+    monkeypatch.setattr(
+        service,
+        "get_effective_portal_settings",
+        lambda _account: portal_settings_fixture(allow_private_storage_space_create=True),
+    )
+    monkeypatch.setattr(
+        service,
+        "create_bucket",
+        lambda *_args, **_kwargs: pytest.fail("Invalid sharing state must be rejected before bucket creation"),
+    )
+
+    with pytest.raises(RuntimeError, match=message):
+        service.create_storage_space(
+            user,
+            access,
+            name="Invalid Sharing",
+            naming_mode="generic_uuid",
+            visibility=visibility,
+            share_scope=share_scope,
+            account_member_role=account_member_role,
+            initial_shares=[],
+        )
+
+    assert db_session.scalars(
+        sa.select(PortalStorageSpaceMetadata).where(PortalStorageSpaceMetadata.account_id == account.id)
+    ).all() == []
 
 
 def test_update_storage_space_restores_archived_space_without_deleting_links(monkeypatch, db_session):
