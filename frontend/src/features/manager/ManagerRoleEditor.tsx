@@ -10,19 +10,19 @@ import { extractApiError } from "../../utils/apiError";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import ManagerRoleFormFields from "./ManagerRoleFormFields";
 import ManagerRoleTagsEditor, { roleTagError } from "./ManagerRoleTagsEditor";
-import { DEFAULT_ASSUME_ROLE_DOCUMENT, DEFAULT_ROLE_PATH, parseIamRolePolicy } from "./iamRoleForm";
+import { DEFAULT_ROLE_PATH, EMPTY_ASSUME_ROLE_DOCUMENT, parseIamRolePolicy } from "./iamRoleForm";
 import { roleMaxSessionDurationError } from "./iamIdentityForm";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import { useManagerI18n } from "./managerI18n";
 
 function formatPolicy(document: unknown): string {
-  if (!document) return DEFAULT_ASSUME_ROLE_DOCUMENT;
+  if (!document) return EMPTY_ASSUME_ROLE_DOCUMENT;
   if (typeof document === "string") {
     try { return JSON.stringify(JSON.parse(document), null, 2); }
     catch { return document; }
   }
   try { return JSON.stringify(document, null, 2); }
-  catch { return DEFAULT_ASSUME_ROLE_DOCUMENT; }
+  catch { return EMPTY_ASSUME_ROLE_DOCUMENT; }
 }
 
 function tagsByKey(tags: IAMTag[]): Map<string, IAMTag[]> {
@@ -57,7 +57,7 @@ export default function ManagerRoleEditor({ contextId, roleName, onClose, onSave
     };
   }, [contextId, roleName]);
   const { baseline, draft, setDraft, accept, dirty: draftDirty, loading, loadError, retry } = useSettingsRemoteDraft(
-    () => ({ arn: "", path: DEFAULT_ROLE_PATH, policy: DEFAULT_ASSUME_ROLE_DOCUMENT, maxSessionDuration: 3600, tags: [] as IAMTag[] }), load, "Unable to load role details.",
+    () => ({ arn: "", path: DEFAULT_ROLE_PATH, policy: EMPTY_ASSUME_ROLE_DOCUMENT, maxSessionDuration: 3600, tags: [] as IAMTag[] }), load, "Unable to load role details.",
   );
   const [saving, setSaving] = useState(false);
   const [validationAttempted, setValidationAttempted] = useState(false);

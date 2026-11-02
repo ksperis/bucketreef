@@ -19,6 +19,17 @@ from app.routers.manager import iam_common, iam_groups, iam_roles, iam_users
 from app.services import manager_iam_support
 from app.services.s3_execution_context import S3ExecutionContext
 
+EXPLICIT_ROLE_TRUST = {
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": {"AWS": "arn:aws:iam::research:root"},
+            "Action": "sts:AssumeRole",
+        }
+    ],
+}
+
 
 def _context() -> S3ExecutionContext:
     return S3ExecutionContext(
@@ -371,6 +382,7 @@ def test_role_create_orchestration_applies_all_policies_and_audits(monkeypatch):
     payload = IAMRoleCreate(
         name="reader",
         path="/service/",
+        assume_role_policy_document=EXPLICIT_ROLE_TRUST,
         max_session_duration=7200,
         tags=[IAMTag(key="team", value="storage")],
         policies=["arn:policy/read"],
@@ -391,6 +403,7 @@ def test_role_create_orchestration_applies_all_policies_and_audits(monkeypatch):
         "attach_role_policy",
         "put_role_inline_policy",
     ]
+    assert service.calls[0][1][1] == EXPLICIT_ROLE_TRUST
     assert audit.calls[0]["metadata"] == {
         "policies": ["arn:policy/read"],
         "inline_policies": ["local-read"],
@@ -403,6 +416,7 @@ def test_role_create_orchestration_rolls_back_after_policy_failure():
     service = _CreateIdentityService(fail_on="put_role_inline_policy")
     payload = IAMRoleCreate(
         name="reader",
+        assume_role_policy_document=EXPLICIT_ROLE_TRUST,
         policies=["arn:policy/read"],
         inline_policies=[InlinePolicy(name="local-read", document={})],
     )
@@ -768,10 +782,21 @@ def test_iam_updates_reject_explicit_null_for_concrete_fields(model, field):
         model.model_validate({field: None})
 
 
+def test_role_create_requires_explicit_assume_role_policy():
+    with pytest.raises(ValidationError, match="assume_role_policy_document"):
+        IAMRoleCreate.model_validate({"name": "reader", "policies": [], "inline_policies": []})
+
+
 @pytest.mark.parametrize("duration", [3599, 43201])
 def test_role_duration_bounds_are_enforced(duration):
     with pytest.raises(ValidationError):
-        IAMRoleCreate(name="reader", max_session_duration=duration, policies=[], inline_policies=[])
+        IAMRoleCreate(
+            name="reader",
+            assume_role_policy_document=EXPLICIT_ROLE_TRUST,
+            max_session_duration=duration,
+            policies=[],
+            inline_policies=[],
+        )
     with pytest.raises(ValidationError):
         IAMRoleUpdate(max_session_duration=duration)
 

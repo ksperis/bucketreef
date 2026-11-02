@@ -36,7 +36,7 @@ export type IAMTag = { key: string; value: string };
 type CreateRolePayload = {
   name: string;
   path?: string;
-  assume_role_policy_document?: Record<string, unknown> | string;
+  assume_role_policy_document: Record<string, unknown> | string;
   max_session_duration?: number;
   tags?: IAMTag[];
   policies: string[];

@@ -48,6 +48,12 @@ const cases = [
   { kind: "role", Page: ManagerRolesPage, create: api.createRole },
 ] as const;
 
+function fillRequiredRoleTrust(form: HTMLElement, kind: string) {
+  if (kind === "role") {
+    fireEvent.change(within(form).getByLabelText("Assume role policy (JSON)"), { target: { value: JSON.stringify(trust) } });
+  }
+}
+
 it.each(cases)("blocks $kind creation while an attempted inline draft has a required-field error", async ({ kind, Page, create }) => {
   render(<MemoryRouter><Page /></MemoryRouter>);
   await screen.findByText(`Existing ${kind}`);
@@ -65,6 +71,7 @@ it.each(cases)("blocks $kind creation while an attempted inline draft has a requ
   fireEvent.change(name, { target: { value: "valid-policy" } });
   expect(name).not.toHaveAttribute("aria-invalid", "true");
   fireEvent.click(within(form).getByRole("button", { name: "Save draft" }));
+  fillRequiredRoleTrust(form, kind);
   fireEvent.submit(form);
   await waitFor(() => expect(create).toHaveBeenCalledOnce());
 });
@@ -107,6 +114,7 @@ describe.each(cases)("IAM $kind creation", ({ kind, Page, create }) => {
     expect(create).not.toHaveBeenCalled();
     fireEvent.change(name, { target: { value: " New-identity " } });
     expect(name).not.toHaveAttribute("aria-invalid", "true");
+    fillRequiredRoleTrust(form, kind);
     fireEvent.submit(form);
     await waitFor(() => expect(create).toHaveBeenCalledOnce());
     expect(create.mock.calls[0][0]).toBe("acc-7");
@@ -122,6 +130,7 @@ describe.each(cases)("IAM $kind creation", ({ kind, Page, create }) => {
     create.mockReturnValueOnce(new Promise((_, fail) => { reject = fail; }));
     const form = await open();
     fireEvent.change(within(form).getByLabelText(nameLabel), { target: { value: "New-identity" } });
+    fillRequiredRoleTrust(form, kind);
     fireEvent.submit(form);
     for (const field of form.querySelectorAll("fieldset input,fieldset textarea,fieldset button")) expect(field).toBeDisabled();
     expect(within(form).getByRole("button", { name: "Cancel" })).toBeDisabled();
@@ -150,6 +159,7 @@ it.each([
   const form = screen.getByRole("form", { name: `Create IAM ${kind}` });
   const name = within(form).getByLabelText(`${kind[0].toUpperCase()}${kind.slice(1)} name`);
   fireEvent.change(name, { target: { value: "New-identity" } });
+  fillRequiredRoleTrust(form, kind);
   const policies = within(screen.getByRole("region", { name: "Attach policies" }));
   fireEvent.click(policies.getByRole("button", { name: "Show" }));
   fireEvent.click(policies.getByLabelText("ReadOnly"));
@@ -181,6 +191,11 @@ describe("IAM role configuration", () => {
     const form = screen.getByRole("form", { name: "Create IAM role" });
     fireEvent.change(within(form).getByLabelText("Role name"), { target: { value: "New-role" } });
     const document = within(form).getByLabelText("Assume role policy (JSON)");
+    expect(document).toHaveValue("");
+    fireEvent.submit(form);
+    await waitFor(() => expect(document).toHaveFocus());
+    expect(document).toHaveAccessibleDescription(/Assume role policy is required\./);
+    expect(api.createRole).not.toHaveBeenCalled();
     fireEvent.change(document, { target: { value: "{" } });
     fireEvent.submit(form);
     await waitFor(() => expect(document).toHaveFocus());
@@ -296,7 +311,7 @@ const navigationCases = [
   { kind: "policy", Page: PoliciesPage, mutate: api.createPolicy, action: "Create policy", formName: "Create IAM policy", fieldName: "Policy name", draft: "Unsaved-policy" },
 ];
 
-it.each(navigationCases)("protects the $kind form through context navigation, pending work and error retry", async ({ Page, mutate, action, formName, fieldName, draft }) => {
+it.each(navigationCases)("protects the $kind form through context navigation, pending work and error retry", async ({ kind, Page, mutate, action, formName, fieldName, draft }) => {
   const user = userEvent.setup();
   setSessionUserCache({ role: "ui_user", authType: "password" });
   let reject!: (error: Error) => void;
@@ -318,6 +333,7 @@ it.each(navigationCases)("protects the $kind form through context navigation, pe
   const unload = new Event("beforeunload", { cancelable: true });
   window.dispatchEvent(unload);
   expect(unload.defaultPrevented).toBe(true);
+  if (kind !== "policy") fillRequiredRoleTrust(form, kind);
   fireEvent.submit(form);
   expect(mutate).toHaveBeenCalledOnce();
   await act(async () => { void router.navigate("/next"); });
@@ -353,6 +369,7 @@ it.each([...cases, { kind: "policy", Page: PoliciesPage, create: api.createPolic
   await waitFor(() => expect(name).toHaveFocus());
   fireEvent.change(name, { target: { value: "valid-name_+=,.@" } });
   expect(name).not.toHaveAttribute("aria-invalid", "true");
+  if (kind !== "policy") fillRequiredRoleTrust(form, kind);
   fireEvent.submit(form);
   await waitFor(() => expect(create).toHaveBeenCalledOnce());
 });
@@ -376,6 +393,7 @@ it.each(cases)("validates $kind inline drafts according to Ceph before creating 
   }
   expect(policyName).not.toHaveAttribute("aria-invalid", "true");
   fireEvent.click(within(form).getByRole("button", { name: "Save draft" }));
+  fillRequiredRoleTrust(form, kind);
   fireEvent.submit(form);
   await waitFor(() => expect(create).toHaveBeenCalledOnce());
   const expectedName = kind === "role" ? "inline_under+score" : "inline:valid";

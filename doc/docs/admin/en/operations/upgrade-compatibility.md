@@ -1,5 +1,15 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 explicit IAM role trust policy
+
+Manager role creation now requires `assume_role_policy_document` explicitly.
+The backend no longer injects a wildcard `Principal` when the field is omitted,
+and the bundled frontend starts new role trust policies empty so an
+administrator must choose the trusted principal deliberately.
+
+Deploy the backend and bundled frontend together. No database migration is
+required.
+
 ## 2026-11 paginated Admin association catalogs
 
 The internal unpaginated Admin summary routes

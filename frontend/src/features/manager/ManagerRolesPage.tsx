@@ -37,7 +37,7 @@ import SettingsWorkflowForm from "../../components/settings/SettingsWorkflowForm
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import ManagerRoleFormFields from "./ManagerRoleFormFields";
 import ManagerRoleTagsEditor, { roleTagError } from "./ManagerRoleTagsEditor";
-import { DEFAULT_ASSUME_ROLE_DOCUMENT, DEFAULT_ROLE_PATH, parseIamRolePolicy } from "./iamRoleForm";
+import { DEFAULT_ROLE_PATH, EMPTY_ASSUME_ROLE_DOCUMENT, parseIamRolePolicy } from "./iamRoleForm";
 import { iamPathFormatError, roleMaxSessionDurationError } from "./iamIdentityForm";
 import { useManagerI18n } from "./managerI18n";
 
@@ -78,7 +78,7 @@ export default function ManagerRolesPage() {
   const [advancedPath, setAdvancedPath] = useState(DEFAULT_ROLE_PATH);
   const [advancedMaxSessionDuration, setAdvancedMaxSessionDuration] = useState(3600);
   const [advancedTags, setAdvancedTags] = useState<IAMTag[]>([]);
-  const [assumeRolePolicyText, setAssumeRolePolicyText] = useState(DEFAULT_ASSUME_ROLE_DOCUMENT);
+  const [assumeRolePolicyText, setAssumeRolePolicyText] = useState(EMPTY_ASSUME_ROLE_DOCUMENT);
   const [creating, setCreating] = useState(false);
   const [deletingRole, setDeletingRole] = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -88,7 +88,7 @@ export default function ManagerRolesPage() {
       advancedPath: DEFAULT_ROLE_PATH,
       advancedMaxSessionDuration: 3600,
       advancedTags: [],
-      assumeRolePolicyText: DEFAULT_ASSUME_ROLE_DOCUMENT,
+      assumeRolePolicyText: EMPTY_ASSUME_ROLE_DOCUMENT,
       selectedPolicies: [],
       inlineDrafts: [],
       inlineDraftName: "",
@@ -166,7 +166,8 @@ export default function ManagerRolesPage() {
     e.preventDefault();
     if (needsContextSelection || creating) return;
     setAdvancedValidationAttempted(true);
-    if (!advancedName.trim() || nameFormatError || pathFormatError || maxSessionDurationError || tagsError || advancedPolicy.error || !validateInlineDrafts()) {
+    const assumeRolePolicyDocument = advancedPolicy.document;
+    if (!advancedName.trim() || nameFormatError || pathFormatError || maxSessionDurationError || tagsError || assumeRolePolicyDocument === undefined || !validateInlineDrafts()) {
       focusFirstInvalidField(e.currentTarget as HTMLFormElement);
       return;
     }
@@ -179,7 +180,7 @@ export default function ManagerRolesPage() {
       await createIamRole(contextIdForApi, {
         name: roleName,
         path: trimmedPath === "" ? undefined : trimmedPath,
-        assume_role_policy_document: advancedPolicy.document,
+        assume_role_policy_document: assumeRolePolicyDocument,
         max_session_duration: advancedMaxSessionDuration,
         tags: advancedTags,
         policies: selectedPolicies,
@@ -189,7 +190,7 @@ export default function ManagerRolesPage() {
       setAdvancedPath(DEFAULT_ROLE_PATH);
       setAdvancedMaxSessionDuration(3600);
       setAdvancedTags([]);
-      setAssumeRolePolicyText(DEFAULT_ASSUME_ROLE_DOCUMENT);
+      setAssumeRolePolicyText(EMPTY_ASSUME_ROLE_DOCUMENT);
       resetPolicySelection();
       resetInlinePolicyDraftEditor();
       setShowCreateForm(false);
@@ -237,7 +238,7 @@ export default function ManagerRolesPage() {
     setAdvancedPath(DEFAULT_ROLE_PATH);
     setAdvancedMaxSessionDuration(3600);
     setAdvancedTags([]);
-    setAssumeRolePolicyText(DEFAULT_ASSUME_ROLE_DOCUMENT);
+    setAssumeRolePolicyText(EMPTY_ASSUME_ROLE_DOCUMENT);
     resetPolicySelection();
     resetInlinePolicyDraftEditor();
     setShowCreateForm(true);
@@ -247,7 +248,7 @@ export default function ManagerRolesPage() {
         advancedPath: DEFAULT_ROLE_PATH,
         advancedMaxSessionDuration: 3600,
         advancedTags: [],
-        assumeRolePolicyText: DEFAULT_ASSUME_ROLE_DOCUMENT,
+        assumeRolePolicyText: EMPTY_ASSUME_ROLE_DOCUMENT,
         selectedPolicies: [],
         inlineDrafts: [],
         inlineDraftName: "",
@@ -262,7 +263,7 @@ export default function ManagerRolesPage() {
     setAdvancedPath(DEFAULT_ROLE_PATH);
     setAdvancedMaxSessionDuration(3600);
     setAdvancedTags([]);
-    setAssumeRolePolicyText(DEFAULT_ASSUME_ROLE_DOCUMENT);
+    setAssumeRolePolicyText(EMPTY_ASSUME_ROLE_DOCUMENT);
     resetPolicySelection();
     resetInlinePolicyDraftEditor();
   };
