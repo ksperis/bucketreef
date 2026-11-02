@@ -81,7 +81,7 @@ class S3Account(ApiModel):
 
 class S3AccountCreate(ApiModel):
     name: str
-    rgw_tenant: str = ""
+    rgw_tenant: str
     email: Optional[str] = None
     quota_max_size_gb: Optional[float] = None
     quota_max_size_unit: Optional[str] = None

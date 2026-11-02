@@ -510,6 +510,7 @@ def test_create_user_persists_credentials(db_session, monkeypatch):
             name="Standalone",
             uid="standalone",
             email="standalone@example.com",
+            rgw_tenant="",
             storage_endpoint_id=endpoint.id,
         )
     )
@@ -532,6 +533,7 @@ def test_create_user_treats_blank_uid_as_automatic(db_session, monkeypatch):
         S3UserCreate(
             name="Automatic UID",
             uid="   ",
+            rgw_tenant="",
             storage_endpoint_id=endpoint.id,
         )
     )
@@ -566,7 +568,7 @@ def test_update_links_normalizes_non_ui_roles_to_ui_user(db_session, monkeypatch
     fake = FakeRGWAdmin()
     service = _build_service(db_session, monkeypatch, fake)
 
-    created = service.create_user(S3UserCreate(name="Linkable", uid="linkable", storage_endpoint_id=endpoint.id))
+    created = service.create_user(S3UserCreate(name="Linkable", uid="linkable", rgw_tenant="", storage_endpoint_id=endpoint.id))
     actor = User(email="actor@example.test", hashed_password="x", role=UserRole.UI_NONE.value)
     db_session.add(actor)
     db_session.commit()
@@ -605,6 +607,7 @@ def test_update_links_validates_users_before_removing_existing_links(
         S3UserCreate(
             name="Stable links",
             uid="stable-links",
+            rgw_tenant="",
             storage_endpoint_id=endpoint.id,
         )
     )
@@ -656,6 +659,7 @@ def test_update_links_validates_groups_before_mutating_user_links(
         S3UserCreate(
             name="Atomic links",
             uid="atomic-links",
+            rgw_tenant="",
             storage_endpoint_id=endpoint.id,
         )
     )
@@ -711,7 +715,7 @@ def test_update_user_persists_privileged_target_grants(db_session, monkeypatch):
     fake = FakeRGWAdmin()
     service = _build_service(db_session, monkeypatch, fake)
 
-    created = service.create_user(S3UserCreate(name="Privileged", uid="privileged-target", storage_endpoint_id=endpoint.id))
+    created = service.create_user(S3UserCreate(name="Privileged", uid="privileged-target", rgw_tenant="", storage_endpoint_id=endpoint.id))
     record = db_session.get(S3User, created.id)
     assert record is not None
     assert record.allow_bucket_quota_management is None
@@ -745,7 +749,7 @@ def test_rotate_keys_replaces_old_credentials_and_deletes_previous(db_session, m
     fake = FakeRGWAdmin()
     service = _build_service(db_session, monkeypatch, fake)
 
-    created = service.create_user(S3UserCreate(name="Rotate", uid="rotate-me", storage_endpoint_id=endpoint.id))
+    created = service.create_user(S3UserCreate(name="Rotate", uid="rotate-me", rgw_tenant="", storage_endpoint_id=endpoint.id))
     record = db_session.get(S3User, created.id)
     assert record is not None
     previous_key = record.rgw_access_key
@@ -766,7 +770,7 @@ def test_list_keys_marks_ui_key(db_session, monkeypatch):
     fake = FakeRGWAdmin()
     service = _build_service(db_session, monkeypatch, fake)
 
-    created = service.create_user(S3UserCreate(name="Keys", uid="keys", storage_endpoint_id=endpoint.id))
+    created = service.create_user(S3UserCreate(name="Keys", uid="keys", rgw_tenant="", storage_endpoint_id=endpoint.id))
     extra = service.create_access_key_entry(created.id)
 
     keys = service.list_keys(created.id)
@@ -780,7 +784,7 @@ def test_list_keys_types_missing_remote_user(db_session, monkeypatch):
     fake = FakeRGWAdmin()
     service = _build_service(db_session, monkeypatch, fake)
 
-    created = service.create_user(S3UserCreate(name="MissingRemote", uid="missing-remote", storage_endpoint_id=endpoint.id))
+    created = service.create_user(S3UserCreate(name="MissingRemote", uid="missing-remote", rgw_tenant="", storage_endpoint_id=endpoint.id))
     fake.remote_users.pop("missing-remote")
 
     with pytest.raises(S3UserNotFoundError, match="RGW user not found"):
@@ -792,7 +796,7 @@ def test_set_key_status_types_rgw_not_found(db_session, monkeypatch):
     fake = FakeRGWAdmin()
     service = _build_service(db_session, monkeypatch, fake)
 
-    created = service.create_user(S3UserCreate(name="MissingKey", uid="missing-key", storage_endpoint_id=endpoint.id))
+    created = service.create_user(S3UserCreate(name="MissingKey", uid="missing-key", rgw_tenant="", storage_endpoint_id=endpoint.id))
 
     def missing_key(*_args, **_kwargs):
         raise RGWAdminError("missing", status_code=404, error_code="NoSuchKey")
@@ -808,7 +812,7 @@ def test_list_keys_uses_active_flag_when_status_is_missing(db_session, monkeypat
     fake = FakeRGWAdmin()
     service = _build_service(db_session, monkeypatch, fake)
 
-    created = service.create_user(S3UserCreate(name="ActiveFlag", uid="active-flag", storage_endpoint_id=endpoint.id))
+    created = service.create_user(S3UserCreate(name="ActiveFlag", uid="active-flag", rgw_tenant="", storage_endpoint_id=endpoint.id))
     record = db_session.get(S3User, created.id)
     assert record is not None
     fake.remote_users["active-flag"]["keys"] = [
@@ -828,7 +832,7 @@ def test_list_keys_defaults_missing_status_and_active_flag_to_enabled(db_session
     fake = FakeRGWAdmin()
     service = _build_service(db_session, monkeypatch, fake)
 
-    created = service.create_user(S3UserCreate(name="CanonicalKey", uid="canonical-key", storage_endpoint_id=endpoint.id))
+    created = service.create_user(S3UserCreate(name="CanonicalKey", uid="canonical-key", rgw_tenant="", storage_endpoint_id=endpoint.id))
     fake.remote_users["canonical-key"]["keys"] = [
         {"access_key": "AK-CANONICAL", "secret_key": "SK-CANONICAL"},
     ]
@@ -844,7 +848,7 @@ def test_list_keys_preserves_created_at_when_rgw_splits_key_metadata(db_session,
     fake = FakeRGWAdmin()
     service = _build_service(db_session, monkeypatch, fake)
 
-    created = service.create_user(S3UserCreate(name="Dates", uid="dates", storage_endpoint_id=endpoint.id))
+    created = service.create_user(S3UserCreate(name="Dates", uid="dates", rgw_tenant="", storage_endpoint_id=endpoint.id))
     record = db_session.get(S3User, created.id)
     assert record is not None
 
@@ -869,7 +873,7 @@ def test_create_access_key_entry_propagates_created_at_from_rgw_response(db_sess
     fake = FakeRGWAdmin()
     service = _build_service(db_session, monkeypatch, fake)
 
-    created = service.create_user(S3UserCreate(name="CreateDate", uid="create-date", storage_endpoint_id=endpoint.id))
+    created = service.create_user(S3UserCreate(name="CreateDate", uid="create-date", rgw_tenant="", storage_endpoint_id=endpoint.id))
 
     def create_with_split_metadata(uid: str, tenant: Optional[str] = None):
         assert uid == "create-date"
@@ -894,7 +898,7 @@ def test_create_access_key_entry_selects_new_key_when_response_contains_existing
     fake = FakeRGWAdmin()
     service = _build_service(db_session, monkeypatch, fake)
 
-    created = service.create_user(S3UserCreate(name="CreateSelect", uid="create-select", storage_endpoint_id=endpoint.id))
+    created = service.create_user(S3UserCreate(name="CreateSelect", uid="create-select", rgw_tenant="", storage_endpoint_id=endpoint.id))
     record = db_session.get(S3User, created.id)
     assert record is not None
 
@@ -923,7 +927,7 @@ def test_create_access_key_entry_accepts_list_response(db_session, monkeypatch):
     fake = FakeRGWAdmin()
     service = _build_service(db_session, monkeypatch, fake)
 
-    created = service.create_user(S3UserCreate(name="CreateList", uid="create-list", storage_endpoint_id=endpoint.id))
+    created = service.create_user(S3UserCreate(name="CreateList", uid="create-list", rgw_tenant="", storage_endpoint_id=endpoint.id))
 
     def create_with_list_response(uid: str, tenant: Optional[str] = None):
         assert uid == "create-list"
@@ -945,7 +949,7 @@ def test_delete_key_validations(db_session, monkeypatch):
     fake = FakeRGWAdmin()
     service = _build_service(db_session, monkeypatch, fake)
 
-    created = service.create_user(S3UserCreate(name="DeleteKey", uid="delete-key", storage_endpoint_id=endpoint.id))
+    created = service.create_user(S3UserCreate(name="DeleteKey", uid="delete-key", rgw_tenant="", storage_endpoint_id=endpoint.id))
     record = db_session.get(S3User, created.id)
     assert record is not None
 
@@ -962,7 +966,7 @@ def test_delete_user_with_delete_rgw_checks_buckets_then_deletes(db_session, mon
     fake = FakeRGWAdmin()
     service = _build_service(db_session, monkeypatch, fake)
 
-    created = service.create_user(S3UserCreate(name="Remote", uid="remote-user", storage_endpoint_id=endpoint.id))
+    created = service.create_user(S3UserCreate(name="Remote", uid="remote-user", rgw_tenant="", storage_endpoint_id=endpoint.id))
 
     monkeypatch.setattr(s3_client, "list_buckets", lambda **kwargs: [{"name": "owned-bucket"}])
     with pytest.raises(ValueError, match="still owns"):
@@ -985,7 +989,7 @@ def test_delete_user_removes_local_entry_when_remote_user_is_confirmed_missing(
     fake = FakeRGWAdmin()
     service = _build_service(db_session, monkeypatch, fake)
     created = service.create_user(
-        S3UserCreate(name="MissingRemote", uid="missing-remote-delete", storage_endpoint_id=endpoint.id)
+        S3UserCreate(name="MissingRemote", uid="missing-remote-delete", rgw_tenant="", storage_endpoint_id=endpoint.id)
     )
 
     lookup_modes: list[bool] = []
@@ -1021,7 +1025,7 @@ def test_delete_user_keeps_local_entry_when_remote_absence_is_not_confirmed(db_s
     fake = FakeRGWAdmin()
     service = _build_service(db_session, monkeypatch, fake)
     created = service.create_user(
-        S3UserCreate(name="UnknownRemote", uid="unknown-remote-delete", storage_endpoint_id=endpoint.id)
+        S3UserCreate(name="UnknownRemote", uid="unknown-remote-delete", rgw_tenant="", storage_endpoint_id=endpoint.id)
     )
 
     def ambiguous_not_found(uid, tenant=None, allow_not_found=False):
@@ -1081,7 +1085,7 @@ def test_delete_user_purges_derived_database_rows(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session)
     fake = FakeRGWAdmin()
     service = _build_service(db_session, monkeypatch, fake)
-    created = service.create_user(S3UserCreate(name="Derived", uid="derived-user", storage_endpoint_id=endpoint.id))
+    created = service.create_user(S3UserCreate(name="Derived", uid="derived-user", rgw_tenant="", storage_endpoint_id=endpoint.id))
     s3_user = db_session.get(S3User, created.id)
     assert s3_user is not None
     _seed_s3_user_derived_rows(db_session, endpoint=endpoint, s3_user=s3_user)
@@ -1159,7 +1163,7 @@ def test_delete_user_rejects_active_bucket_migration_before_remote_delete(db_ses
     fake = FakeRGWAdmin()
     service = _build_service(db_session, monkeypatch, fake)
     created = service.create_user(
-        S3UserCreate(name="MigrationSource", uid="migration-source", storage_endpoint_id=endpoint.id)
+        S3UserCreate(name="MigrationSource", uid="migration-source", rgw_tenant="", storage_endpoint_id=endpoint.id)
     )
     migration = BucketMigration(
         source_context_id=f"s3u-{created.id}",

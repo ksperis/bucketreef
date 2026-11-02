@@ -88,7 +88,7 @@ export type S3UserSummary = {
 type CreateS3UserPayload = {
   name: string;
   uid?: string | null;
-  rgw_tenant?: string;
+  rgw_tenant: string;
   email?: string | null;
   quota_max_size_gb?: number | null;
   quota_max_size_unit?: string | null;

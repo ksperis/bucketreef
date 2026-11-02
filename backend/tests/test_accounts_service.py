@@ -399,6 +399,7 @@ def test_create_account_with_root(db_session, monkeypatch):
         email=None,
         quota_max_size_gb=None,
         quota_max_objects=None,
+        rgw_tenant="",
         storage_endpoint_id=endpoint.id,
     )
     acc = svc.create_account_with_manager(payload)
@@ -551,10 +552,10 @@ def test_create_account_allows_same_name_on_different_endpoints(db_session, monk
     monkeypatch.setattr(svc.provisioning, "_generate_account_id", lambda: next(account_ids))
 
     first = svc.create_account_with_manager(
-        S3AccountCreate(name="Shared endpoint name", storage_endpoint_id=first_endpoint.id)
+        S3AccountCreate(name="Shared endpoint name", rgw_tenant="", storage_endpoint_id=first_endpoint.id)
     )
     second = svc.create_account_with_manager(
-        S3AccountCreate(name="Shared endpoint name", storage_endpoint_id=second_endpoint.id)
+        S3AccountCreate(name="Shared endpoint name", rgw_tenant="", storage_endpoint_id=second_endpoint.id)
     )
 
     assert first.storage_endpoint_id == first_endpoint.id
@@ -568,7 +569,7 @@ def test_create_account_normalizes_root_display_name_without_restricting_account
 
     account_name = "account ****with``symbols"
     created = svc.create_account_with_manager(
-        S3AccountCreate(name=account_name, storage_endpoint_id=endpoint.id)
+        S3AccountCreate(name=account_name, rgw_tenant="", storage_endpoint_id=endpoint.id)
     )
 
     assert created.name == account_name
@@ -589,7 +590,7 @@ def test_create_account_uses_configured_rgw_account_id_prefix(db_session, monkey
     monkeypatch.setattr("app.utils.rgw_identifiers.secrets.randbelow", lambda _limit: 42)
 
     created = svc.create_account_with_manager(
-        S3AccountCreate(name="Prefixed", storage_endpoint_id=endpoint.id)
+        S3AccountCreate(name="Prefixed", rgw_tenant="", storage_endpoint_id=endpoint.id)
     )
 
     assert created.rgw_account_id == "RGW12300000000000042"
@@ -704,7 +705,7 @@ def test_ensure_provisioned_account_keeps_fresh_account_and_root_on_same_client(
     account_id = "RGW42177749789247960"
 
     created = svc.ensure_provisioned_account(
-        S3AccountCreate(name="BucketReef sample", storage_endpoint_id=endpoint.id),
+        S3AccountCreate(name="BucketReef sample", rgw_tenant="", storage_endpoint_id=endpoint.id),
         account_id,
     )
 
@@ -731,6 +732,7 @@ def test_ensure_provisioned_account_stops_when_remote_name_is_already_used(
         svc.ensure_provisioned_account(
             S3AccountCreate(
                 name="BucketReef sample",
+                rgw_tenant="",
                 storage_endpoint_id=endpoint.id,
             ),
             "RGW42177749789247960",
@@ -749,7 +751,7 @@ def test_ensure_provisioned_account_resumes_orphaned_account_without_recreating_
     account_id = "RGW42177749789247960"
 
     created = svc.ensure_provisioned_account(
-        S3AccountCreate(name="BucketReef sample", storage_endpoint_id=endpoint.id),
+        S3AccountCreate(name="BucketReef sample", rgw_tenant="", storage_endpoint_id=endpoint.id),
         account_id,
     )
 
@@ -772,7 +774,7 @@ def test_ensure_provisioned_account_reuses_existing_root_credentials(
     account_id = "RGW42177749789247960"
 
     created = svc.ensure_provisioned_account(
-        S3AccountCreate(name="BucketReef sample", storage_endpoint_id=endpoint.id),
+        S3AccountCreate(name="BucketReef sample", rgw_tenant="", storage_endpoint_id=endpoint.id),
         account_id,
     )
 
@@ -823,6 +825,7 @@ def test_create_account_requires_account_api_feature(db_session, monkeypatch):
         email=None,
         quota_max_size_gb=None,
         quota_max_objects=None,
+        rgw_tenant="",
         storage_endpoint_id=endpoint.id,
     )
 

@@ -549,6 +549,16 @@ User association edits, so the backend no longer treats omission as `false`.
 Deploy the bundled frontend and backend together. No database migration is
 required.
 
+## 2026-11 RGW create tenant selection is explicit
+
+RGW Account and RGW User creation payloads now require a non-null
+`rgw_tenant` string. Use an empty string to select the default RGW tenant; the
+bundled frontend now sends that value explicitly when managed tenant creation
+is disabled or no named tenant is selected.
+
+Deploy the bundled frontend and backend together. Internal onboarding and demo
+seed paths have also been updated. No database migration is required.
+
 ## 2026-10 RGW User partial updates use PATCH
 
 Admin RGW User updates now use `PATCH /admin/s3-users/{user_id}`. The update

@@ -69,6 +69,7 @@ def test_admin_create_account_delegates_to_service(client: TestClient):
         "/api/admin/accounts",
         json={
             "name": "quota-acc",
+            "rgw_tenant": "",
             "email": "quota@example.com",
             "quota_max_size_gb": 500,
             "quota_max_objects": 1000000,
@@ -106,7 +107,7 @@ def test_admin_create_account_rejects_invalid_rgw_name_before_service(client: Te
 
     response = client.post(
         "/api/admin/accounts",
-        json={"name": name, "storage_endpoint_id": 1},
+        json={"name": name, "rgw_tenant": "", "storage_endpoint_id": 1},
     )
 
     assert response.status_code == 422
@@ -132,7 +133,7 @@ def test_admin_account_response_model_rejects_obsolete_fields():
 def test_admin_account_mutations_require_a_canonical_endpoint(client: TestClient):
     create_response = client.post(
         "/api/admin/accounts",
-        json={"name": "missing-endpoint"},
+        json={"name": "missing-endpoint", "rgw_tenant": ""},
     )
     import_response = client.post(
         "/api/admin/accounts/import",
@@ -150,6 +151,7 @@ def test_admin_account_mutations_require_a_canonical_endpoint(client: TestClient
         "/api/admin/accounts",
         json={
             "name": "legacy-endpoint-fields",
+            "rgw_tenant": "",
             "storage_endpoint_id": 1,
             "storage_endpoint_name": "removed",
             "storage_endpoint_url": "https://removed.example.test",
@@ -167,7 +169,7 @@ def test_admin_account_mutations_require_a_canonical_endpoint(client: TestClient
 def test_admin_account_create_maps_missing_storage_endpoint_to_not_found(client: TestClient):
     response = client.post(
         "/api/admin/accounts",
-        json={"name": "missing-storage", "storage_endpoint_id": 999},
+        json={"name": "missing-storage", "rgw_tenant": "", "storage_endpoint_id": 999},
     )
 
     assert response.status_code == 404, response.text

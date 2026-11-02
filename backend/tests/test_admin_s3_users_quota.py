@@ -101,7 +101,10 @@ def _seed_ceph_endpoint(db_session) -> StorageEndpoint:
 
 
 def test_admin_s3_user_writes_require_an_explicit_endpoint(client: TestClient):
-    create_response = client.post("/api/admin/s3-users", json={"name": "missing-endpoint"})
+    create_response = client.post(
+        "/api/admin/s3-users",
+        json={"name": "missing-endpoint", "rgw_tenant": ""},
+    )
     import_response = client.post("/api/admin/s3-users/import", json=[{"uid": "missing-endpoint"}])
 
     assert create_response.status_code == 422
@@ -111,7 +114,7 @@ def test_admin_s3_user_writes_require_an_explicit_endpoint(client: TestClient):
 def test_admin_s3_user_create_maps_missing_storage_endpoint_to_not_found(client: TestClient):
     response = client.post(
         "/api/admin/s3-users",
-        json={"name": "missing-storage", "storage_endpoint_id": 999},
+        json={"name": "missing-storage", "rgw_tenant": "", "storage_endpoint_id": 999},
     )
 
     assert response.status_code == 404, response.text
@@ -131,6 +134,7 @@ def test_admin_create_s3_user_with_quota_unit(monkeypatch, client: TestClient, d
 
     payload = {
         "name": "quota-user",
+        "rgw_tenant": "",
         "email": "quota-user@example.com",
         "storage_endpoint_id": endpoint.id,
         "quota_max_size_gb": 1,
@@ -167,7 +171,7 @@ def test_admin_update_s3_user_quota(monkeypatch, client: TestClient, db_session)
 
     create = client.post(
         "/api/admin/s3-users",
-        json={"name": "quota-update", "storage_endpoint_id": endpoint.id},
+        json={"name": "quota-update", "rgw_tenant": "", "storage_endpoint_id": endpoint.id},
     )
     assert create.status_code == 201, create.text
     created = create.json()

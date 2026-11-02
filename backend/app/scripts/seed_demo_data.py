@@ -481,6 +481,7 @@ def ensure_account(
         return existing
     payload = S3AccountCreate(
         name=name,
+        rgw_tenant="",
         email=email,
         quota_max_size_gb=quota_gb,
         quota_max_objects=None,
