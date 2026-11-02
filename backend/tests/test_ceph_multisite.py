@@ -903,13 +903,15 @@ class _FakeFuture:
 class _ImmediateExecutor:
     def __init__(self) -> None:
         self.futures: list[_FakeFuture] = []
+        self.shutdown_kwargs: dict[str, object] | None = None
 
     def submit(self, fn, *args):
         future = _FakeFuture(fn(*args))
         self.futures.append(future)
         return future
 
-    def shutdown(self, **_kwargs):
+    def shutdown(self, **kwargs):
+        self.shutdown_kwargs = kwargs
         return None
 
 
@@ -1022,6 +1024,43 @@ def test_overview_deadline_returns_pending_destinations_as_uncollected(db_sessio
     assert overview.data == []
     assert overview.uncollected == ["zone-a", "zone-b", "zone-c"]
     assert all(future.cancelled for future in executor.futures)
+
+
+def test_overview_job_planning_respects_explicit_sync_sources(db_session, monkeypatch) -> None:
+    service = _overview_fixture(db_session, monkeypatch)
+    topology = service.topology()
+    zones = topology.period.data.zones
+    destination = zones[1]
+    destination.sync_from_all = False
+    destination.sync_from = ["zone-c"]
+
+    jobs, uncollected = service._build_overview_jobs(topology, [destination])
+
+    assert uncollected == []
+    assert [(family, endpoint.id, source) for family, endpoint, source in jobs] == [
+        ("metadata", 2, "zone-a"),
+        ("data", 2, "zone-c"),
+    ]
+
+
+def test_overview_executor_is_shutdown_when_collection_wait_fails(db_session, monkeypatch) -> None:
+    service = _overview_fixture(db_session, monkeypatch)
+    executor = _ImmediateExecutor()
+    monkeypatch.setattr(
+        multisite_service_module,
+        "ThreadPoolExecutor",
+        lambda *args, **kwargs: executor,
+    )
+    monkeypatch.setattr(
+        multisite_service_module,
+        "wait",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("wait failed")),
+    )
+
+    with pytest.raises(RuntimeError, match="wait failed"):
+        service.overview()
+
+    assert executor.shutdown_kwargs == {"wait": False, "cancel_futures": True}
 
 
 def test_streaming_transport_aborts_when_real_download_exceeds_limit(monkeypatch) -> None:
