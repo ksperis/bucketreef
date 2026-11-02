@@ -51,6 +51,25 @@ from app.utils.request_security import require_trusted_origin
 
 router = APIRouter()
 
+_OIDC_LOGIN_FAILURE_RESPONSES: dict[type[Exception], tuple[int, str]] = {
+    OIDCProviderNotFoundError: (
+        status.HTTP_404_NOT_FOUND,
+        "OIDC provider is unavailable",
+    ),
+    OIDCStateError: (
+        status.HTTP_400_BAD_REQUEST,
+        "Invalid OIDC response",
+    ),
+    OIDCConfigurationError: (
+        status.HTTP_503_SERVICE_UNAVAILABLE,
+        "OIDC provider is unavailable",
+    ),
+    OIDCAuthenticationError: (
+        status.HTTP_401_UNAUTHORIZED,
+        "OIDC authentication failed",
+    ),
+}
+
 
 def get_oidc_service_dependency(
     db: Session = Depends(get_db),
@@ -63,10 +82,9 @@ def _raise_oidc_login_failure(
     attempt: AuthAttemptContext,
     user_email: str,
     provider: str,
-    exc: Exception,
-    status_code: int,
-    public_detail: str,
+    exc: OIDCProviderNotFoundError | OIDCStateError | OIDCConfigurationError | OIDCAuthenticationError,
 ) -> NoReturn:
+    status_code, public_detail = _OIDC_LOGIN_FAILURE_RESPONSES[type(exc)]
     attempt.record_failure(
         user_email=user_email,
         action="login_oidc_failure",
@@ -176,41 +194,17 @@ def complete_oidc_login(
             provider=provider,
             link_request_id=exc.request_id,
         )
-    except OIDCProviderNotFoundError as exc:
+    except (
+        OIDCProviderNotFoundError,
+        OIDCStateError,
+        OIDCConfigurationError,
+        OIDCAuthenticationError,
+    ) as exc:
         _raise_oidc_login_failure(
             attempt=attempt,
             user_email=user_email,
             provider=provider,
             exc=exc,
-            status_code=status.HTTP_404_NOT_FOUND,
-            public_detail="OIDC provider is unavailable",
-        )
-    except OIDCStateError as exc:
-        _raise_oidc_login_failure(
-            attempt=attempt,
-            user_email=user_email,
-            provider=provider,
-            exc=exc,
-            status_code=status.HTTP_400_BAD_REQUEST,
-            public_detail="Invalid OIDC response",
-        )
-    except OIDCConfigurationError as exc:
-        _raise_oidc_login_failure(
-            attempt=attempt,
-            user_email=user_email,
-            provider=provider,
-            exc=exc,
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            public_detail="OIDC provider is unavailable",
-        )
-    except OIDCAuthenticationError as exc:
-        _raise_oidc_login_failure(
-            attempt=attempt,
-            user_email=user_email,
-            provider=provider,
-            exc=exc,
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            public_detail="OIDC authentication failed",
         )
     attempt.clear_rate_limit()
     result = _finish_user_primary_auth(
