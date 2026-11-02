@@ -167,7 +167,7 @@ def update_s3_connection(
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
     audit_metadata = payload.model_dump(
-        exclude_none=True,
+        exclude_unset=True,
         exclude={"credentials"},
     )
     if payload.credentials is not None:

@@ -52,13 +52,10 @@ REQUIRED_TAG_MODELS = [
     pytest.param(StorageEndpointTagsUpdate, {}, id="storage-endpoint"),
 ]
 
-NULLABLE_UPDATE_TAG_MODELS = [
-    pytest.param(S3ConnectionUpdate, id="connection"),
-    pytest.param(S3ConnectionAdminUpdate, id="admin-connection"),
-]
-
 NON_NULL_UPDATE_TAG_MODELS = [
     pytest.param(S3AccountUpdate, id="account"),
+    pytest.param(S3ConnectionUpdate, id="connection"),
+    pytest.param(S3ConnectionAdminUpdate, id="admin-connection"),
     pytest.param(S3UserUpdate, id="s3-user"),
 ]
 
@@ -116,13 +113,6 @@ def test_required_tag_models_normalize_explicit_null_to_empty_list(
     assert model.tags == []
 
 
-@pytest.mark.parametrize("model_type", NULLABLE_UPDATE_TAG_MODELS)
-def test_nullable_update_tag_models_preserve_explicit_null(model_type):
-    model = model_type.model_validate({"tags": None})
-
-    assert model.tags is None
-
-
 @pytest.mark.parametrize("model_type", NON_NULL_UPDATE_TAG_MODELS)
 def test_non_null_update_tag_models_reject_explicit_null(model_type):
     with pytest.raises(ValidationError, match="tags cannot be null"):
@@ -131,7 +121,7 @@ def test_non_null_update_tag_models_reject_explicit_null(model_type):
 
 @pytest.mark.parametrize(
     "model_type",
-    [*NULLABLE_UPDATE_TAG_MODELS, *NON_NULL_UPDATE_TAG_MODELS],
+    NON_NULL_UPDATE_TAG_MODELS,
 )
 def test_update_tag_models_normalize_present_lists(model_type):
     model = model_type.model_validate({"tags": [" prod ", "PROD", ""]})

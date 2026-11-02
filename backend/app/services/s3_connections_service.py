@@ -149,7 +149,7 @@ class S3ConnectionsService:
         endpoint_plan, group_ids, user_ids = self._prepare_admin_shared_update(
             row,
             payload,
-            update_credentials=payload.credentials is not None,
+            update_credentials="credentials" in fields_set,
         )
         endpoint_changed = self._apply_admin_shared_values(
             row,
@@ -171,7 +171,7 @@ class S3ConnectionsService:
             group_ids=group_ids,
             user_ids=user_ids,
         )
-        if _CAPABILITY_PROBE_FIELDS & fields_set or payload.credentials is not None:
+        if _CAPABILITY_PROBE_FIELDS & fields_set or "credentials" in fields_set:
             self._refresh_detected_capabilities(row)
         row.updated_at = utcnow()
         self.db.commit()
@@ -187,7 +187,7 @@ class S3ConnectionsService:
         endpoint_plan: Optional[S3ConnectionEndpointPlan],
     ) -> bool:
         endpoint_changed = endpoint_plan is not None and not endpoint_plan.matches(row)
-        if payload.name is not None:
+        if "name" in fields_set:
             row.name = payload.name
         if "is_active" in fields_set:
             row.is_active = bool(payload.is_active)
@@ -381,7 +381,7 @@ class S3ConnectionsService:
         *,
         endpoint_plan: Optional[S3ConnectionEndpointPlan],
     ) -> bool:
-        if payload.name is not None:
+        if "name" in payload_data:
             row.name = payload.name
         if "is_active" in payload_data:
             row.is_active = bool(payload.is_active)
@@ -417,13 +417,13 @@ class S3ConnectionsService:
             endpoint_plan.apply(row)
             should_probe_iam = bool(_CAPABILITY_PROBE_FIELDS & payload_data.keys())
         access_key_changed = (
-            payload.access_key_id is not None
+            "access_key_id" in payload_data
             and row.access_key_id != payload.access_key_id
         )
-        if payload.access_key_id is not None:
+        if "access_key_id" in payload_data:
             row.access_key_id = payload.access_key_id
             should_probe_iam = True
-        if payload.secret_access_key is not None:
+        if "secret_access_key" in payload_data:
             row.secret_access_key = payload.secret_access_key
             should_probe_iam = True
         return should_probe_iam, endpoint_changed, access_key_changed

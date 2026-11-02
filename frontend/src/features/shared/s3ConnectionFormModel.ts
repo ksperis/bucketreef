@@ -467,13 +467,14 @@ export function prepareUpdateAdminS3ConnectionPayload({
       rgw_tenant: form.rgw_user_uid.trim() ? form.rgw_tenant.trim() : null,
       rgw_account_id: form.rgw_account_id.trim() || null,
       allow_activity_history: form.allow_activity_history,
-      credentials:
-        accessKeyId && secretAccessKey
-          ? {
+      ...(accessKeyId && secretAccessKey
+        ? {
+            credentials: {
               access_key_id: accessKeyId,
               secret_access_key: secretAccessKey,
-            }
-          : null,
+            },
+          }
+        : {}),
       ...endpointPayload,
     },
   };

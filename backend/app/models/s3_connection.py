@@ -6,7 +6,7 @@ from typing import Any, ClassVar, Literal, Optional, Self
 
 from pydantic import Field, model_validator
 
-from app.models.base import ApiModel
+from app.models.base import ApiModel, reject_explicit_null_fields
 from app.models.pagination import PaginatedResponse
 from app.models.tagging import (
     OptionalTagDefinitionList,
@@ -109,6 +109,25 @@ class S3ConnectionUpdate(_CanonicalEndpointPayload):
     force_path_style: Optional[bool] = None
     verify_tls: Optional[bool] = None
     tags: OptionalTagDefinitionList = None
+
+    @model_validator(mode="after")
+    def reject_non_nullable_nulls(self) -> Self:
+        reject_explicit_null_fields(
+            self,
+            (
+                "name",
+                "is_active",
+                "access_manager",
+                "access_browser",
+                "endpoint_url",
+                "access_key_id",
+                "secret_access_key",
+                "force_path_style",
+                "verify_tls",
+                "tags",
+            ),
+        )
+        return self
 
 
 class S3ConnectionCredentialsUpdate(ApiModel):
