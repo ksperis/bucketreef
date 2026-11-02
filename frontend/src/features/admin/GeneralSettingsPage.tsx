@@ -338,8 +338,8 @@ export default function GeneralSettingsPage() {
                 {smtpFields.map((field) => {
                   const path = `quota_notifications.${field.key}` as const;
                   return (
-                    <label key={path}>
-                      <span>{field.label}</span>
+                    <div key={path} className="grid gap-1">
+                      <span className="settings-label">{field.label}</span>
                       <SettingsField
                         label={field.label}
                         type={"max" in field ? "number" : "text"}
@@ -354,7 +354,7 @@ export default function GeneralSettingsPage() {
                           }))
                         }
                       />
-                    </label>
+                    </div>
                   );
                 })}
                 <div className="flex items-center justify-between gap-3">

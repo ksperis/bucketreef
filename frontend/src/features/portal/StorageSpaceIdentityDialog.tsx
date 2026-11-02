@@ -61,17 +61,19 @@ export default function StorageSpaceIdentityDialog({ accountId, space, onClose, 
       closeOnBackdropClick={!busy} closeOnEscape={!busy}>
       <form ref={(node) => { formRef.current = node; focusRef.current = node?.querySelector('input:not([disabled])') ?? null; }}
         noValidate onSubmit={(event) => { event.preventDefault(); void save(); }} className="settings-stack">
-        <label className="block settings-label">{t({ en: "Space name", fr: "Nom de l’espace", de: "Name des Bereichs", zh: "空间名称" })}
+        <div className="grid gap-1">
+          <span className="settings-label">{t({ en: "Space name", fr: "Nom de l’espace", de: "Name des Bereichs", zh: "空间名称" })}</span>
           {space.nameEditable ? <SettingsField label={t({ en: "Space name", fr: "Nom de l’espace", de: "Name des Bereichs", zh: "空间名称" })}
             value={draft.name} disabled={busy} maxLength={120} error={errors.name}
             onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
             : <span className="settings-readonly block">{space.name} — {t({ en: "Name locked for this space", fr: "Nom verrouillé pour cet espace", de: "Name für diesen Bereich gesperrt", zh: "此空间名称已锁定" })}</span>}
-        </label>
-        <label className="block settings-label">{t({ en: "Space description", fr: "Description de l’espace", de: "Beschreibung des Bereichs", zh: "空间描述" })}
+        </div>
+        <div className="grid gap-1">
+          <span className="settings-label">{t({ en: "Space description", fr: "Description de l’espace", de: "Beschreibung des Bereichs", zh: "空间描述" })}</span>
           <SettingsField label={t({ en: "Space description", fr: "Description de l’espace", de: "Beschreibung des Bereichs", zh: "空间描述" })}
             value={draft.description} disabled={busy} maxLength={2000} error={errors.description}
             onChange={(event) => setDraft({ ...draft, description: event.target.value })} />
-        </label>
+        </div>
         {errors.save && <UiInlineMessage tone="error" role="alert">{errors.save}</UiInlineMessage>}
         <ModalActions>
           <SettingsButton variant="secondary" disabled={busy} onClick={guard.requestClose}>{labels.cancel}</SettingsButton>
