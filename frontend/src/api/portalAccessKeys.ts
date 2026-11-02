@@ -23,7 +23,7 @@ export type PortalAccessKey = {
 };
 
 export type PortalAccessKeyCreate = {
-  target_type?: "self" | "external";
+  target_type: "self" | "external";
   storage_space_id?: string | null;
   external_email?: string | null;
   permission?: "read_only" | "read_write" | null;
@@ -57,7 +57,7 @@ export async function fetchPortalAccessKeysState(
 
 export async function createPortalAccessKey(
   accountId: S3AccountSelector,
-  payload?: PortalAccessKeyCreate,
+  payload: PortalAccessKeyCreate,
 ): Promise<PortalAccessKey> {
   const { data } = await client.post<PortalAccessKey>(
     "/portal/access-keys",

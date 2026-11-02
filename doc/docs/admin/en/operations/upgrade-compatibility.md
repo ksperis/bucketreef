@@ -824,6 +824,16 @@ omitted.
 Deploy the backend and bundled frontend together. No database migration is
 required.
 
+## 2026-11 explicit Portal access-key target
+
+Portal `POST /portal/access-keys` now requires a request body with an explicit
+`target_type` (`self` or `external`). The bundled Portal UI already sends this
+choice for personal and external access-key creation, so the backend no longer
+treats an omitted body or target as an implicit personal-key request.
+
+Deploy the backend and bundled frontend together. No database migration is
+required.
+
 ## 2026-10 canonical OIDC provider collection payloads
 
 Admin OIDC provider create and update requests now require JSON arrays for

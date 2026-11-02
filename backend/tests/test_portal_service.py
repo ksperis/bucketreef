@@ -7229,7 +7229,11 @@ def test_create_access_key_rejects_when_management_disabled(monkeypatch, db_sess
     monkeypatch.setattr(service, "_ensure_portal_user", lambda *args, **kwargs: pytest.fail("portal user should not be provisioned"))
 
     with pytest.raises(PortalAccessKeyManagementDisabled):
-        service.create_access_key(user, _portal_access(account, user))
+        service.create_access_key(
+            user,
+            _portal_access(account, user),
+            PortalAccessKeyCreate(target_type="self"),
+        )
 
 
 def test_access_key_mutations_reject_portal_key(monkeypatch, db_session):
@@ -7313,7 +7317,7 @@ def test_create_access_key_rejects_when_limit_reached(monkeypatch, db_session):
     )
 
     with pytest.raises(PortalAccessKeyLimitExceeded) as exc:
-        service.create_access_key(user, access)
+        service.create_access_key(user, access, PortalAccessKeyCreate(target_type="self"))
 
     assert "Maximum IAM user keys reached" in str(exc.value)
     assert iam_service.create_calls == 0
@@ -7367,7 +7371,7 @@ def test_create_access_key_allows_when_below_limit(monkeypatch, db_session):
         lambda link_obj, iam_obj, include_portal=False: [_portal_access_key("AK-1")],
     )
 
-    created = service.create_access_key(user, access)
+    created = service.create_access_key(user, access, PortalAccessKeyCreate(target_type="self"))
 
     assert created.access_key_id == "AK-NEW"
     assert created.secret_access_key == "SK-NEW"
@@ -7822,9 +7826,10 @@ def test_portal_access_key_routes_record_audit(db_session):
     access = _portal_access(account, user)
 
     class FakeService:
-        def create_access_key(self, user_obj, access_obj, payload=None):  # noqa: ARG002
+        def create_access_key(self, user_obj, access_obj, payload):
             assert user_obj == user
             assert access_obj == access
+            assert payload.target_type == "self"
             return _portal_access_key("AK-NEW", secret_access_key="SK-NEW")
 
         def update_access_key_status(self, user_obj, access_obj, access_key_id, active):
@@ -7851,7 +7856,10 @@ def test_portal_access_key_routes_record_audit(db_session):
     service = FakeService()
 
     created = portal_access_keys_router.create_portal_access_key(
-        access=access, audit_service=audit_service, service=service
+        payload=PortalAccessKeyCreate(target_type="self"),
+        access=access,
+        audit_service=audit_service,
+        service=service,
     )
     updated = portal_access_keys_router.update_portal_access_key_status(
         "AK-NEW",
@@ -7988,7 +7996,7 @@ def test_portal_access_key_routes_translate_disabled_management(db_session):
     db_session.commit()
 
     class FakeService:
-        def create_access_key(self, user_obj, access_obj, payload=None):  # noqa: ARG002
+        def create_access_key(self, user_obj, access_obj, payload):  # noqa: ARG002
             raise PortalAccessKeyManagementDisabled("Portal access-key management is disabled for this account.")
 
     class FakeAuditService:
@@ -7997,6 +8005,7 @@ def test_portal_access_key_routes_translate_disabled_management(db_session):
 
     with pytest.raises(HTTPException) as exc:
         portal_access_keys_router.create_portal_access_key(
+            payload=PortalAccessKeyCreate(target_type="self"),
             access=_portal_access(account, user),
             audit_service=FakeAuditService(),
             service=FakeService(),

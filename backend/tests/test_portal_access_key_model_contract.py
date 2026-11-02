@@ -1,8 +1,11 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
+import pytest
+from pydantic import ValidationError
+
 from app.main import app
-from app.models.portal_access_keys import PortalAccessKey, PortalAccessKeysState, PortalIAMUser
+from app.models.portal_access_keys import PortalAccessKey, PortalAccessKeyCreate, PortalAccessKeysState, PortalIAMUser
 
 
 def test_portal_access_key_models_have_a_single_canonical_module() -> None:
@@ -47,6 +50,11 @@ def test_portal_access_keys_state_requires_the_complete_canonical_payload() -> N
     }
 
 
+def test_portal_access_key_create_requires_explicit_target_type() -> None:
+    with pytest.raises(ValidationError):
+        PortalAccessKeyCreate.model_validate({})
+
+
 def test_portal_access_key_routes_preserve_their_openapi_contracts() -> None:
     paths = app.openapi()["paths"]
 
@@ -56,12 +64,9 @@ def test_portal_access_key_routes_preserve_their_openapi_contracts() -> None:
     }
 
     create_key = paths["/api/portal/access-keys"]["post"]
+    assert create_key["requestBody"]["required"] is True
     assert create_key["requestBody"]["content"]["application/json"]["schema"] == {
-        "anyOf": [
-            {"$ref": "#/components/schemas/PortalAccessKeyCreate"},
-            {"type": "null"},
-        ],
-        "title": "Payload",
+        "$ref": "#/components/schemas/PortalAccessKeyCreate"
     }
     assert create_key["responses"]["201"]["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/PortalAccessKey"
