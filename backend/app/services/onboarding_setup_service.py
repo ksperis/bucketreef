@@ -17,7 +17,7 @@ from app.services.onboarding_endpoint_setup_service import (
     OnboardingEndpointSetupService,
     credential_pair,
 )
-from app.services.onboarding_service import (
+from app.services.onboarding_contracts import (
     OnboardingError,
     required_onboarding_feature_fields,
 )

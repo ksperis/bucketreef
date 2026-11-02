@@ -15,7 +15,7 @@ from app.models.storage_endpoint import (
     StorageEndpointFeatures,
     StorageEndpointUpdate,
 )
-from app.services.onboarding_service import OnboardingError
+from app.services.onboarding_contracts import OnboardingError
 from app.services.storage_endpoint_admin_permissions import (
     has_account_provisioning_permissions,
 )
