@@ -14,7 +14,6 @@ import PageBanner from "../../components/PageBanner";
 import PageEmptyState from "../../components/PageEmptyState";
 import PageHeader from "../../components/PageHeader";
 import { workflowPageHostClass } from "../../components/WorkflowPage";
-import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import ColumnVisibilityMenu from "../../components/ColumnVisibilityMenu";
 import UiActionMenu from "../../components/ui/UiActionMenu";
@@ -69,9 +68,6 @@ import {
 } from "./filtering/accountAdvancedFilterModel";
 import { useCephAdminListingFilters } from "./filtering/useCephAdminListingFilters";
 import { useCephAdminEntityListing } from "./listing/useCephAdminEntityListing";
-import {
-  resolveCephAdminQuickFilterState,
-} from "./listing/cephAdminListingViewState";
 import { useCephAdminListingTableState } from "./listing/useCephAdminListingTableState";
 import { formatBytes, formatNumber } from "../../utils/format";
 import { useCephAdminI18n } from "./cephAdminI18n";
@@ -170,12 +166,15 @@ export default function CephAdminAccountsPage() {
     filter,
     setFilter,
     searchValue,
-    quickFilterMode,
-    setQuickFilterMode,
+    quickFilterState,
+    toggleQuickFilterMode,
     showAdvancedFilter,
     setShowAdvancedFilter,
     advancedDraft,
     advancedApplied,
+    hasPendingAdvancedChanges,
+    hasAnyAdvancedToClear,
+    advancedFilterCloseGuard,
     updateAdvancedField,
     applyAdvancedFilter,
     resetAdvancedFilter,
@@ -184,6 +183,8 @@ export default function CephAdminAccountsPage() {
   } = useCephAdminListingFilters<AccountAdvancedFilterState>({
     endpointId: selectedEndpointId,
     defaultAdvancedFilter: defaultAccountAdvancedFilter,
+    serializeAdvancedFilter: (state) =>
+      buildAccountAdvancedFilterPayload(state, "", "contains", canViewMetrics),
     setPage,
   });
 
@@ -210,7 +211,7 @@ export default function CephAdminAccountsPage() {
     fieldState: quickFilterFieldState,
     modeForDisplay: quickFilterModeForDisplay,
     pending: quickFilterPending,
-  } = resolveCephAdminQuickFilterState(filter, searchValue, quickFilterMode);
+  } = quickFilterState;
   const advancedFilterParam = useMemo(
     () => buildAccountAdvancedFilterPayload(advancedApplied, searchValue, effectiveQuickFilterMode, canViewMetrics),
     [advancedApplied, searchValue, effectiveQuickFilterMode, canViewMetrics]
@@ -283,34 +284,9 @@ export default function CephAdminAccountsPage() {
   const numericRangeFieldState = (minKey: AccountAdvancedNumericField, maxKey: AccountAdvancedNumericField) =>
     numericFilterRangeFieldHighlight(advancedDraft, advancedApplied, minKey, maxKey);
 
-  const toggleQuickFilterMode = () => {
-    if (quickFilterDraftForcesExact) return;
-    setQuickFilterMode((prev) => (prev === "contains" ? "exact" : "contains"));
-    setPage(1);
-  };
   const updateAdvancedMatchMode = (field: "accountNameMatchMode" | "emailMatchMode", value: TextMatchMode) => {
     updateAdvancedField(field, value);
   };
-
-  const closeAdvancedFilterDrawer = () => {
-    setShowAdvancedFilter(false);
-  };
-
-  const advancedAppliedPayload = useMemo(
-    () => buildAccountAdvancedFilterPayload(advancedApplied, "", "contains", canViewMetrics),
-    [advancedApplied, canViewMetrics]
-  );
-  const advancedDraftPayload = useMemo(
-    () => buildAccountAdvancedFilterPayload(advancedDraft, "", "contains", canViewMetrics),
-    [advancedDraft, canViewMetrics]
-  );
-  const hasPendingAdvancedChanges = advancedDraftPayload !== advancedAppliedPayload;
-  const hasAnyAdvancedToClear = advancedDraftPayload !== undefined || advancedAppliedPayload !== undefined;
-  const advancedFilterCloseGuard = useUnsavedChangesGuard({
-    hasUnsavedChanges: showAdvancedFilter && hasPendingAdvancedChanges,
-    onClose: closeAdvancedFilterDrawer,
-    zIndexClass: "z-[70]",
-  });
 
   const advancedFilterActive = hasAccountAdvancedFilters(advancedApplied, canViewMetrics);
   const activeFilterSummaryItems = useMemo(() => {

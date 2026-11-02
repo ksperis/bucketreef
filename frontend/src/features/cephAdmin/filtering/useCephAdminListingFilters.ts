@@ -4,7 +4,9 @@
  */
 import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from "react";
 
+import { useUnsavedChangesGuard } from "../../../components/useUnsavedChangesGuard";
 import type { TextMatchMode } from "../../shared/advancedFilterShared";
+import { resolveCephAdminQuickFilterState } from "../listing/cephAdminListingViewState";
 
 type StringState<State> = {
   [Field in keyof State]: string;
@@ -17,12 +19,14 @@ type CephAdminFilterRemoveAction<Field extends PropertyKey> =
 type UseCephAdminListingFiltersOptions<State> = {
   endpointId: number | null;
   defaultAdvancedFilter: State;
+  serializeAdvancedFilter: (state: State | null) => string | undefined;
   setPage: Dispatch<SetStateAction<number>>;
 };
 
 export function useCephAdminListingFilters<State extends StringState<State>>({
   endpointId,
   defaultAdvancedFilter,
+  serializeAdvancedFilter,
   setPage,
 }: UseCephAdminListingFiltersOptions<State>) {
   const [filter, setFilter] = useState("");
@@ -45,9 +49,32 @@ export function useCephAdminListingFilters<State extends StringState<State>>({
     setFilter("");
     setSearchValue("");
     setQuickFilterMode("contains");
+    setShowAdvancedFilter(false);
     setAdvancedDraft(defaultAdvancedFilter);
     setAdvancedApplied(null);
   }, [defaultAdvancedFilter, endpointId, setPage]);
+
+  const quickFilterState = resolveCephAdminQuickFilterState(filter, searchValue, quickFilterMode);
+  const advancedAppliedPayload = serializeAdvancedFilter(advancedApplied);
+  const advancedDraftPayload = serializeAdvancedFilter(advancedDraft);
+  const hasPendingAdvancedChanges = advancedDraftPayload !== advancedAppliedPayload;
+  const hasAnyAdvancedToClear = advancedDraftPayload !== undefined || advancedAppliedPayload !== undefined;
+
+  const toggleQuickFilterMode = useCallback(() => {
+    if (quickFilterState.draftForcesExact) return;
+    setQuickFilterMode((current) => (current === "contains" ? "exact" : "contains"));
+    setPage(1);
+  }, [quickFilterState.draftForcesExact, setPage]);
+
+  const closeAdvancedFilterDrawer = useCallback(() => {
+    setAdvancedDraft(advancedApplied ?? defaultAdvancedFilter);
+    setShowAdvancedFilter(false);
+  }, [advancedApplied, defaultAdvancedFilter]);
+  const advancedFilterCloseGuard = useUnsavedChangesGuard({
+    hasUnsavedChanges: showAdvancedFilter && hasPendingAdvancedChanges,
+    onClose: closeAdvancedFilterDrawer,
+    zIndexClass: "z-[70]",
+  });
 
   const updateAdvancedField = useCallback(<Field extends keyof State>(field: Field, value: State[Field]) => {
     setAdvancedDraft((current) => ({ ...current, [field]: value }));
@@ -102,12 +129,15 @@ export function useCephAdminListingFilters<State extends StringState<State>>({
     filter,
     setFilter,
     searchValue,
-    quickFilterMode,
-    setQuickFilterMode,
+    quickFilterState,
+    toggleQuickFilterMode,
     showAdvancedFilter,
     setShowAdvancedFilter,
     advancedDraft,
     advancedApplied,
+    hasPendingAdvancedChanges,
+    hasAnyAdvancedToClear,
+    advancedFilterCloseGuard,
     updateAdvancedField,
     applyAdvancedFilter,
     resetAdvancedFilter,

@@ -14,7 +14,6 @@ import PageBanner from "../../components/PageBanner";
 import PageEmptyState from "../../components/PageEmptyState";
 import PageHeader from "../../components/PageHeader";
 import { workflowPageHostClass } from "../../components/WorkflowPage";
-import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import ColumnVisibilityMenu from "../../components/ColumnVisibilityMenu";
 import UiActionMenu from "../../components/ui/UiActionMenu";
@@ -72,9 +71,6 @@ import {
   type UserAdvancedStatusFilter,
 } from "./filtering/userAdvancedFilterModel";
 import { useCephAdminEntityListing } from "./listing/useCephAdminEntityListing";
-import {
-  resolveCephAdminQuickFilterState,
-} from "./listing/cephAdminListingViewState";
 import { useCephAdminListingTableState } from "./listing/useCephAdminListingTableState";
 import { formatBytes, formatNumber } from "../../utils/format";
 import { useCephAdminI18n } from "./cephAdminI18n";
@@ -172,12 +168,15 @@ export default function CephAdminUsersPage() {
     filter,
     setFilter,
     searchValue,
-    quickFilterMode,
-    setQuickFilterMode,
+    quickFilterState,
+    toggleQuickFilterMode,
     showAdvancedFilter,
     setShowAdvancedFilter,
     advancedDraft,
     advancedApplied,
+    hasPendingAdvancedChanges,
+    hasAnyAdvancedToClear,
+    advancedFilterCloseGuard,
     updateAdvancedField,
     applyAdvancedFilter,
     resetAdvancedFilter,
@@ -186,6 +185,8 @@ export default function CephAdminUsersPage() {
   } = useCephAdminListingFilters<UserAdvancedFilterState>({
     endpointId: selectedEndpointId,
     defaultAdvancedFilter: defaultUserAdvancedFilter,
+    serializeAdvancedFilter: (state) =>
+      buildUserAdvancedFilterPayload(state, "", "contains", canViewMetrics),
     setPage,
   });
 
@@ -213,7 +214,7 @@ export default function CephAdminUsersPage() {
     fieldState: quickFilterFieldState,
     modeForDisplay: quickFilterModeForDisplay,
     pending: quickFilterPending,
-  } = resolveCephAdminQuickFilterState(filter, searchValue, quickFilterMode);
+  } = quickFilterState;
   const advancedFilterParam = useMemo(
     () => buildUserAdvancedFilterPayload(advancedApplied, searchValue, effectiveQuickFilterMode, canViewMetrics),
     [advancedApplied, searchValue, effectiveQuickFilterMode, canViewMetrics]
@@ -307,11 +308,6 @@ export default function CephAdminUsersPage() {
   const numericRangeFieldState = (minKey: UserAdvancedNumericField, maxKey: UserAdvancedNumericField) =>
     numericFilterRangeFieldHighlight(advancedDraft, advancedApplied, minKey, maxKey);
 
-  const toggleQuickFilterMode = () => {
-    if (quickFilterDraftForcesExact) return;
-    setQuickFilterMode((prev) => (prev === "contains" ? "exact" : "contains"));
-    setPage(1);
-  };
   const updateAdvancedMatchMode = (
     field:
       | "tenantMatchMode"
@@ -323,25 +319,6 @@ export default function CephAdminUsersPage() {
   ) => {
     updateAdvancedField(field, value);
   };
-  const closeAdvancedFilterDrawer = () => {
-    setShowAdvancedFilter(false);
-  };
-  const advancedAppliedPayload = useMemo(
-    () => buildUserAdvancedFilterPayload(advancedApplied, "", "contains", canViewMetrics),
-    [advancedApplied, canViewMetrics]
-  );
-  const advancedDraftPayload = useMemo(
-    () => buildUserAdvancedFilterPayload(advancedDraft, "", "contains", canViewMetrics),
-    [advancedDraft, canViewMetrics]
-  );
-  const hasPendingAdvancedChanges = advancedDraftPayload !== advancedAppliedPayload;
-  const hasAnyAdvancedToClear = advancedDraftPayload !== undefined || advancedAppliedPayload !== undefined;
-  const advancedFilterCloseGuard = useUnsavedChangesGuard({
-    hasUnsavedChanges: showAdvancedFilter && hasPendingAdvancedChanges,
-    onClose: closeAdvancedFilterDrawer,
-    zIndexClass: "z-[70]",
-  });
-
   const advancedFilterActive = hasUserAdvancedFilters(advancedApplied, canViewMetrics);
   const activeFilterSummaryItems = useMemo(() => {
     const items: UserActiveFilterSummaryItem[] = [];
