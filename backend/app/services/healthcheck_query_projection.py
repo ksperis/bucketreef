@@ -10,9 +10,9 @@ from app.db import (
     EndpointHealthLatest,
     EndpointHealthRollup,
     EndpointHealthStatusSegment,
-    HealthCheckStatus,
     StorageEndpoint,
 )
+from app.core.domain_enums import HealthCheckStatus
 from app.services.healthcheck_common import (
     DEFAULT_CHECK_TYPE,
     DEFAULT_SCOPE,

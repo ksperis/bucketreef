@@ -5,7 +5,8 @@ import json
 import pytest
 from sqlalchemy import func, select
 
-from app.db import AuditLog, S3Account, User, UserRole
+from app.db import AuditLog, S3Account, User
+from app.core.domain_enums import UserRole
 from app.models.audit import AuditLogEntry, AuditLogListResponse
 from app.models.session import SessionCapabilities
 from app.services.access_context_contracts import ManagerSessionPrincipal

@@ -7,7 +7,8 @@ from datetime import datetime, timezone
 import pytest
 from fastapi.responses import JSONResponse
 
-from app.db import User, UserRole
+from app.db import User
+from app.core.domain_enums import UserRole
 from app.main import app
 from app.models.bucket_purge import (
     BucketPurgeResult,

@@ -10,17 +10,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.sensitive_data import sanitized_error_log_detail
-from app.db import (
-    S3Account,
-    S3Connection,
-    S3User,
-    StorageEndpoint,
-    StorageProvider,
-    User,
-    UserRole,
-    UserS3Account,
-    UserS3User,
-)
+from app.db import S3Account, S3Connection, S3User, StorageEndpoint, User, UserS3Account, UserS3User
+from app.core.domain_enums import StorageProvider, UserRole
 from app.services.admin_metrics_service import AdminMetricsService
 from app.services.auth_session_service import AuthSessionService
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError

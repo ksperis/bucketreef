@@ -14,8 +14,8 @@ from app.db import (
     UserS3Connection,
     UserS3User,
     UserUiGroup,
-    is_admin_ui_role,
 )
+from app.core.domain_enums import is_admin_ui_role
 from app.db.openstack import OpenStackCloud, cloud_users
 from app.models.openstack import LinkedOpenStackCloud
 from app.models.user import (

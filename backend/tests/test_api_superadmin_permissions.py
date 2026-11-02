@@ -3,7 +3,8 @@
 from app.utils.storage_endpoint_features import parse_features_config
 from types import SimpleNamespace
 
-from app.db import StorageEndpoint, StorageProvider, User, UserRole
+from app.db import StorageEndpoint, User
+from app.core.domain_enums import StorageProvider, UserRole
 from app.main import app
 from app.routers import dependencies
 from app.routers.admin import storage_endpoints as storage_endpoints_router

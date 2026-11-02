@@ -2,7 +2,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from tests.feature_policy_fixtures import enable_manager_features
-from app.db import S3User, StorageEndpoint, StorageProvider, User, UserRole
+from app.db import S3User, StorageEndpoint, User
+from app.core.domain_enums import StorageProvider, UserRole
 from app.main import app
 from app.routers import dependencies
 from tests.s3_account_factory import make_s3_account

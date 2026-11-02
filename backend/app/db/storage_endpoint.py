@@ -17,7 +17,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 from app.core.security import EncryptedString
 from .base import Base
-from .enums import StorageProvider
+from app.core.domain_enums import StorageProvider
 
 
 class StorageEndpoint(Base):

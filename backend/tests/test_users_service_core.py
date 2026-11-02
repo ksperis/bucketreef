@@ -9,22 +9,19 @@ from sqlalchemy import select
 from app.core.security import get_password_hash
 from app.db import (
     AccountIAMUser,
-    ManagerAccountRole,
-    PortalAccountRole,
     S3Account,
     S3Connection,
     S3User,
     StorageEndpoint,
-    StorageProvider,
     UiGroup,
     UiGroupS3Account,
     User,
-    UserRole,
     UserS3Account,
     UserS3Connection,
     UserS3User,
     UserUiGroup,
 )
+from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, StorageProvider, UserRole
 from app.models.user import (
     PASSWORD_POLICY_ERROR,
     S3UserMembership,

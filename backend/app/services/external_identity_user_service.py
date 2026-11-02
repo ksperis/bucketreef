@@ -10,7 +10,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import ExternalIdentityNotFoundError
-from app.db import ExternalIdentity, ExternalIdentityLinkRequest, User, UserRole
+from app.db import ExternalIdentity, ExternalIdentityLinkRequest, User
+from app.core.domain_enums import UserRole
 from app.services.auth_session_service import AuthSessionService
 from app.services.audit_service import AuditService
 from app.services.external_identity_link_request_service import ExternalIdentityLinkRequestService

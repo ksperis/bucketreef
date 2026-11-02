@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.db import ManagerAccessKeyMetadata, S3Account, S3User
-from app.db.enums import StorageProvider
+from app.core.domain_enums import StorageProvider
 from app.models.feature_policy import FeaturePolicy, resolve_feature_policy
 from app.models.access_key_metadata import AccessKeyMetadata, AccessKeyMetadataInput
 from app.models.iam import AccessKey

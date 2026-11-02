@@ -7,7 +7,8 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db import S3User, StorageProvider, User
+from app.db import S3User, User
+from app.core.domain_enums import StorageProvider
 from app.models.feature_policy import resolve_feature_policy
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.effective_access_service import EffectiveAccessService

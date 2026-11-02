@@ -13,7 +13,8 @@ def fake_replacement_client(monkeypatch):
 
 _active_registry = [None]
 
-from app.db import S3Account, S3User, StorageEndpoint, StorageProvider
+from app.db import S3Account, S3User, StorageEndpoint
+from app.core.domain_enums import StorageProvider
 from app.models.key_rotation import KeyRotationRequest, KeyRotationType
 from app.services.key_rotation_service import KeyRotationService
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError

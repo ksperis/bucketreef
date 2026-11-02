@@ -24,11 +24,10 @@ from app.db import (
     QuotaUsageHourly,
     S3Account,
     StorageEndpoint,
-    StorageProvider,
     User,
-    UserRole,
     UserS3Account,
 )
+from app.core.domain_enums import StorageProvider, UserRole
 from app.models.s3_account import S3AccountCreate, S3AccountImport
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 

@@ -11,7 +11,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.sensitive_data import sanitized_error_log_detail
-from app.db import S3Account, S3User, StorageEndpoint, StorageProvider
+from app.db import S3Account, S3User, StorageEndpoint
+from app.core.domain_enums import StorageProvider
 from app.services.admin_dashboard_metrics_cache import get_cached_dashboard_metrics
 from app.services.admin_metrics_service import AdminMetricsService
 from app.services.rgw_admin import RGWAdminError

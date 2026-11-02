@@ -4,7 +4,8 @@
 import pytest
 
 from tests.feature_policy_fixtures import enable_manager_features
-from app.db import UiGroup, User, UserRole
+from app.db import UiGroup, User
+from app.core.domain_enums import UserRole
 from app.models.ui_group import UiGroupCreate, UiGroupUpdate
 from app.models.user import ManagerToolAccess, UserCreate, UserUpdate
 from app.services.effective_access_service import EffectiveAccessService

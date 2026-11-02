@@ -16,11 +16,10 @@ from app.db import (
     QuotaUsageHourly,
     S3Account,
     StorageEndpoint,
-    StorageProvider,
     User,
     UserNotification,
-    UserRole,
 )
+from app.core.domain_enums import StorageProvider, UserRole
 from app.services.data_retention_service import DataRetentionService
 
 

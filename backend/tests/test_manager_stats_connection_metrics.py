@@ -9,7 +9,16 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from app.db import QuotaUsageDaily, QuotaUsageHourly, S3Account, S3Connection, S3User, StorageEndpoint, User, UserRole
+from app.db import (
+    QuotaUsageDaily,
+    QuotaUsageHourly,
+    S3Account,
+    S3Connection,
+    S3User,
+    StorageEndpoint,
+    User,
+)
+from app.core.domain_enums import UserRole
 from app.main import app
 from app.services.access_context_contracts import AccountCapabilities, ManagerSessionPrincipal
 from app.models.app_settings import AppSettings

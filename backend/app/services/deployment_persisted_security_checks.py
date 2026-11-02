@@ -5,7 +5,8 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db import StorageEndpoint, User, UserRole, WebAuthnCredential
+from app.db import StorageEndpoint, User, WebAuthnCredential
+from app.core.domain_enums import UserRole
 from app.services.deployment_check_models import DeploymentCheckFinding, finding
 
 

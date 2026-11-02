@@ -13,7 +13,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.runtime_surfaces import endpoint_identity_management_enabled
-from app.db import StorageEndpoint, StorageProvider, User
+from app.db import StorageEndpoint, User
+from app.core.domain_enums import StorageProvider
 from app.services.endpoint_service_identities import EndpointServiceIdentityService
 from app.services.operation_lease_service import OperationLeaseService
 from app.services.storage_endpoint_normalization import (

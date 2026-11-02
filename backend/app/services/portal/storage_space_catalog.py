@@ -8,7 +8,8 @@ from typing import TYPE_CHECKING, Optional
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 
-from app.db import PortalAccountRole, PortalStorageSpaceMetadata, S3Account, User
+from app.db import PortalStorageSpaceMetadata, S3Account, User
+from app.core.domain_enums import PortalAccountRole
 from app.models.bucket import Bucket
 from app.models.portal_storage_spaces import (
     PortalStorageSpaceCollaboratorPreview,

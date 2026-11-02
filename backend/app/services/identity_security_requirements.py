@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from sqlalchemy.orm import Session
 
-from app.db import UserRole
+from app.core.domain_enums import UserRole
 from app.services.app_settings_service import load_app_settings_for_db
 
 

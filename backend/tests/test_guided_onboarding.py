@@ -17,9 +17,9 @@ from app.db import (
     S3Connection,
     StorageEndpoint,
     User,
-    UserRole,
     UserS3Account,
 )
+from app.core.domain_enums import UserRole
 from app.models.app_settings import AppSettings, GeneralFeatureLock, GeneralFeatureLocks
 from app.models.onboarding import OnboardingApply, OnboardingDraft, OnboardingSave
 from app.models.storage_endpoint import (

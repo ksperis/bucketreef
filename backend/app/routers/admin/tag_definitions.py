@@ -5,7 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.db import User, is_superadmin_ui_role
+from app.db import User
+from app.core.domain_enums import is_superadmin_ui_role
 from app.models.tagging import TagDefinitionListResponse
 from app.routers.dependencies import get_current_ui_admin
 from app.services.tags_service import TagsService

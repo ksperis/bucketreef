@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from app.db import S3Account, S3User, StorageEndpoint, StorageProvider
+from app.db import S3Account, S3User, StorageEndpoint
+from app.core.domain_enums import StorageProvider
 from app.main import app
 from app.models.browser import BrowserBucket, PaginatedBrowserBucketsResponse
 from app.routers import browser as browser_router

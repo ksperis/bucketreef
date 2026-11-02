@@ -8,7 +8,8 @@ from fastapi import HTTPException
 
 from tests.feature_policy_fixtures import enable_manager_features
 from tests.feature_policy_fixtures import manager_settings_fixture
-from app.db import BucketMigration, BucketMigrationItem, User, UserRole
+from app.db import BucketMigration, BucketMigrationItem, User
+from app.core.domain_enums import UserRole
 from app.main import app
 from app.services.access_context_contracts import BucketMigrationAccessScope
 from app.routers import dependencies

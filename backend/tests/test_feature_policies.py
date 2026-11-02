@@ -3,7 +3,7 @@
 import pytest
 
 from app.db import AppSetting, S3Connection, S3User, User
-from app.db.enums import UserRole
+from app.core.domain_enums import UserRole
 from app.models.app_settings import AppSettings
 from app.models.feature_policy import FeaturePolicy, resolve_feature_policy
 from app.services.effective_access_service import EffectiveAccessService

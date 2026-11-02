@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.db import User as DbUser
-from app.db import UserRole, is_superadmin_ui_role
+from app.core.domain_enums import UserRole, is_superadmin_ui_role
 from app.models.user import (
     PaginatedUserSummariesResponse,
     PaginatedUsersResponse,

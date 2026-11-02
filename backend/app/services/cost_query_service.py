@@ -15,8 +15,8 @@ from app.db import (
     S3Account,
     S3User,
     StorageEndpoint,
-    StorageProvider,
 )
+from app.core.domain_enums import StorageProvider
 from app.services.cost_calculations import (
     CostPeriod,
     CostTotals,

@@ -19,11 +19,10 @@ from app.db import (
     S3Connection,
     S3Session,
     StorageEndpoint,
-    StorageProvider,
     User,
-    UserRole,
     WebAuthnCredential,
 )
+from app.core.domain_enums import StorageProvider, UserRole
 from app.main import app
 from app.models.app_settings import AppSettings
 from app.models.user import ManagerToolAccess

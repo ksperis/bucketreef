@@ -9,7 +9,8 @@ from enum import Enum
 from typing import Literal, Optional
 
 from app.core.config import get_settings
-from app.db import HealthCheckStatus, StorageEndpoint
+from app.db import StorageEndpoint
+from app.core.domain_enums import HealthCheckStatus
 from app.utils.storage_endpoint_features import normalize_features
 
 settings = get_settings()

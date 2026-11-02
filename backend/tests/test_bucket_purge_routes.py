@@ -11,7 +11,8 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 
-from app.db import StorageEndpoint, User, UserRole
+from app.db import StorageEndpoint, User
+from app.core.domain_enums import UserRole
 from app.main import app
 from app.models.app_settings import AppSettings
 from app.models.bucket_purge import (

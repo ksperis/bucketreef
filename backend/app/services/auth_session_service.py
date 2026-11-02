@@ -21,7 +21,8 @@ from app.core.security import (
     decode_typed_token,
     hash_refresh_token,
 )
-from app.db import ApiToken, AuthSession, RefreshToken, S3Session, User, UserRole, is_superadmin_ui_role
+from app.db import ApiToken, AuthSession, RefreshToken, S3Session, User
+from app.core.domain_enums import UserRole, is_superadmin_ui_role
 from app.utils.time import utcnow
 
 

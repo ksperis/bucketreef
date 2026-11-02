@@ -2,7 +2,8 @@
 # Licensed under the Apache License, Version 2.0
 """Shared mapping between the Manager tool API contract and persisted grants."""
 
-from app.db import UiGroup, User, UserRole
+from app.db import UiGroup, User
+from app.core.domain_enums import UserRole
 from app.models.user import ManagerToolAccess
 
 

@@ -10,16 +10,8 @@ import sqlalchemy as sa
 from pydantic import ValidationError
 from sqlalchemy import event
 
-from app.db import (
-    AuditLog,
-    BucketUiTagAssignment,
-    S3Account,
-    StorageEndpoint,
-    StorageProvider,
-    TagDefinition,
-    User,
-    UserRole,
-)
+from app.db import AuditLog, BucketUiTagAssignment, S3Account, StorageEndpoint, TagDefinition, User
+from app.core.domain_enums import StorageProvider, UserRole
 from app.models.bucket import Bucket
 from app.models.bucket_ui_tags import StorageOpsBucketUiTagPatchRequest
 from app.services.bucket_ui_tags_service import (

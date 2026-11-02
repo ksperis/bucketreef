@@ -10,13 +10,8 @@ from sqlalchemy import String, cast, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.sensitive_data import sanitized_error_log_detail
-from app.db import (
-    PortalAccountRole,
-    PortalAdminRequest,
-    PortalAdminRequestMessage,
-    S3Account,
-    User,
-)
+from app.db import PortalAdminRequest, PortalAdminRequestMessage, S3Account, User
+from app.core.domain_enums import PortalAccountRole
 from app.services.access_context_contracts import AccountAccess
 from app.models.app_settings import PortalSettingsOverride
 from app.models.feature_policy import FeaturePolicy, PORTAL_FEATURE_FIELDS

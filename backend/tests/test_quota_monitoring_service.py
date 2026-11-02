@@ -9,25 +9,23 @@ import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
 
 from app.db import (
-    ManagerAccountRole, PortalAccountRole,
     QuotaAlertState,
     QuotaUsageDaily,
     QuotaUsageHourly,
     S3Account,
     S3User,
     StorageEndpoint,
-    StorageProvider,
     UiGroup,
     UiGroupS3Account,
     UiGroupS3User,
     User,
     UserNotification,
-    UserRole,
     UserS3Account,
     UserS3User,
     UserUiGroup,
     WebhookDelivery,
 )
+from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, StorageProvider, UserRole
 from app.models.app_settings import AppSettings
 from app.models.webhook import WebhookEndpointPayload
 from app.services import quota_monitoring_service

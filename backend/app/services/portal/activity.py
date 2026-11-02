@@ -7,7 +7,8 @@ from typing import Any, Optional, TYPE_CHECKING
 
 from sqlalchemy import select
 
-from app.db import AuditLog, PortalAccountRole, PortalPublicLink as DBPortalPublicLink, User
+from app.db import AuditLog, PortalPublicLink as DBPortalPublicLink, User
+from app.core.domain_enums import PortalAccountRole
 from app.models.portal_monitoring import PortalActivityItem, PortalAlert
 from app.models.portal_storage_spaces import PortalStorageSpaceSummary
 from app.services.audit_service import audit_metadata_object

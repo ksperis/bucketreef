@@ -6,7 +6,8 @@ from contextlib import contextmanager
 from botocore.exceptions import ClientError
 from fastapi.testclient import TestClient
 
-from app.db import StorageEndpoint, User, UserRole
+from app.db import StorageEndpoint, User
+from app.core.domain_enums import UserRole
 from app.main import app
 from app.routers import dependencies
 

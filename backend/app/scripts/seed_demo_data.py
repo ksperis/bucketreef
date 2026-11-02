@@ -16,7 +16,8 @@ from app.core.config import get_settings
 from app.core.logging_security import configure_secure_logging
 from app.core.database import SessionLocal, engine
 from app.services.database_initialization import init_db
-from app.db import ManagerAccountRole, S3Account, StorageEndpoint, StorageProvider
+from app.db import S3Account, StorageEndpoint
+from app.core.domain_enums import ManagerAccountRole, StorageProvider
 from app.models.s3_account import S3AccountCreate, S3AccountUpdate
 from app.models.user import UserCreate
 from app.services.buckets_service import BucketsService

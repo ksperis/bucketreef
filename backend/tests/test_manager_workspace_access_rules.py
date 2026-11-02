@@ -11,17 +11,16 @@ import sqlalchemy as sa
 from fastapi import HTTPException
 
 from app.db import (
-    ManagerAccountRole, PortalAccountRole,
     S3Account,
     S3Connection,
     S3User,
     StorageEndpoint,
     User,
-    UserRole,
     UserS3Account,
     UserS3Connection,
     UserS3User,
 )
+from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, UserRole
 from app.models.app_settings import AppSettings, GeneralSettings
 from app.routers.dependencies_internal import ceph_admin_context as ceph_admin_dependencies
 from app.routers import dependencies

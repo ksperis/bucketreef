@@ -6,17 +6,8 @@ from app.utils.storage_endpoint_features import parse_features_config
 import pytest
 from fastapi import HTTPException
 
-from app.db import (
-    S3Account,
-    S3Connection,
-    S3User,
-    StorageEndpoint,
-    StorageProvider,
-    User,
-    UserRole,
-    UserS3Account,
-    UserS3User,
-)
+from app.db import S3Account, S3Connection, S3User, StorageEndpoint, User, UserS3Account, UserS3User
+from app.core.domain_enums import StorageProvider, UserRole
 from app.services.admin_stats_service import AdminStatsService
 
 

@@ -5,7 +5,8 @@ from __future__ import annotations
 import pytest
 from fastapi import HTTPException
 
-from app.db import S3User, User, UserRole
+from app.db import S3User, User
+from app.core.domain_enums import UserRole
 from app.models.app_settings import AppSettings
 from app.models.feature_policy import FeaturePolicy
 from app.routers import dependencies as dependencies_router

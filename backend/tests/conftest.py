@@ -6,7 +6,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.db import Base, User, UserRole
+from app.db import Base, User
+from app.core.domain_enums import UserRole
 from app.main import app
 from app.routers import dependencies
 from app.services.bucket_listing_cache import invalidate_bucket_listing_cache

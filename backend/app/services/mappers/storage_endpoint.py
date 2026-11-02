@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from app.db import StorageEndpoint as DBStorageEndpoint
-from app.db import StorageProvider
+from app.core.domain_enums import StorageProvider
 from app.models.storage_endpoint import (
     StorageEndpoint,
     StorageEndpointAdminOpsPermissions,

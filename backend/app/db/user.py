@@ -7,7 +7,7 @@ from sqlalchemy import Boolean, CheckConstraint, Column, Integer, JSON, LargeBin
 from sqlalchemy.orm import relationship
 
 from .base import Base
-from .enums import UserRole
+from app.core.domain_enums import UserRole
 
 
 class User(Base):

@@ -7,17 +7,8 @@ from typing import Optional
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from app.db import (
-    ManagerAccountRole,
-    PortalAccountRole,
-    UiGroupS3Account,
-    UiGroupS3User,
-    User,
-    UserRole,
-    UserS3Account,
-    UserS3User,
-    UserUiGroup,
-)
+from app.db import UiGroupS3Account, UiGroupS3User, User, UserS3Account, UserS3User, UserUiGroup
+from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, UserRole
 from app.services.quota_subject import SubjectContext
 from app.utils.normalize import normalize_optional_email
 

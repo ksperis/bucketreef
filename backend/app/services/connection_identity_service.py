@@ -13,7 +13,8 @@ from threading import Lock
 from time import monotonic
 from typing import Callable, Literal, Optional
 
-from app.db import S3Connection, StorageEndpoint, StorageProvider
+from app.db import S3Connection, StorageEndpoint
+from app.core.domain_enums import StorageProvider
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.services.endpoint_read_credentials import resolve_endpoint_read_credentials
 from app.services.rgw_admin import RGWAdminError, get_rgw_admin_client

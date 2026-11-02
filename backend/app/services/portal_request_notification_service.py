@@ -8,7 +8,8 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db import PortalAdminRequest, User, UserNotification, UserRole
+from app.db import PortalAdminRequest, User, UserNotification
+from app.core.domain_enums import UserRole
 from app.utils.time import utcnow
 
 

@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from app.db import ManagerAccessKeyMetadata, S3Account, S3User, StorageEndpoint, StorageProvider
+from app.db import ManagerAccessKeyMetadata, S3Account, S3User, StorageEndpoint
+from app.core.domain_enums import StorageProvider
 from app.models.iam import AccessKey
 from app.models.s3_user import S3UserAccessKey
 from app.services import access_key_expiration_service

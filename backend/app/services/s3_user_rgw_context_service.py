@@ -6,7 +6,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import StorageEndpointNotFoundError
-from app.db import S3User, StorageEndpoint, StorageProvider
+from app.db import S3User, StorageEndpoint
+from app.core.domain_enums import StorageProvider
 from app.services.rgw_admin import RGWAdminClient
 from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client
 from app.utils.rgw_payloads import require_rgw_user_identity

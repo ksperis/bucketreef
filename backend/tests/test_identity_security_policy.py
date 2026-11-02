@@ -1,15 +1,8 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
-from app.db import (
-    UiGroup,
-    UiGroupS3Account,
-    UiGroupS3User,
-    User,
-    UserRole,
-    UserS3Account,
-    UserS3User,
-)
+from app.db import UiGroup, UiGroupS3Account, UiGroupS3User, User, UserS3Account, UserS3User
+from app.core.domain_enums import UserRole
 from app.models.ui_group import UiGroupUpdate
 from app.models.user import AccountMembership, S3UserMembership, UserUpdate
 from app.services.identity_security_policy import (

@@ -2,7 +2,8 @@
 # Licensed under the Apache License, Version 2.0
 from datetime import UTC, datetime, timedelta
 
-from app.db import EndpointHealthRollup, EndpointHealthStatusSegment, HealthCheckStatus
+from app.db import EndpointHealthRollup, EndpointHealthStatusSegment
+from app.core.domain_enums import HealthCheckStatus
 from app.services.healthcheck_query_projection import (
     build_daily_from_rollups,
     build_rollup_availability_map,

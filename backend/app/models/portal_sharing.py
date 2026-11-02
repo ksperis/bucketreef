@@ -8,7 +8,7 @@ from typing import Literal, Optional
 
 from pydantic import AwareDatetime, Field
 
-from app.db import PortalAccountRole
+from app.core.domain_enums import PortalAccountRole
 from app.models.base import ApiModel
 from app.models.pagination import PaginatedResponse
 from app.models.portal_storage_spaces import (

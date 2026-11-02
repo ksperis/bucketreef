@@ -6,7 +6,7 @@ from app.utils.time import utcnow
 from sqlalchemy import Column, JSON, String
 
 from .base import Base
-from .enums import UserRole
+from app.core.domain_enums import UserRole
 
 
 class S3Session(Base):

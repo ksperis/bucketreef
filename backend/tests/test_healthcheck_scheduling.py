@@ -11,7 +11,8 @@ import sqlalchemy as sa
 from botocore.exceptions import EndpointConnectionError
 from sqlalchemy.orm import sessionmaker
 
-from app.db import EndpointHealthLatest, StorageEndpoint, User, UserRole
+from app.db import EndpointHealthLatest, StorageEndpoint, User
+from app.core.domain_enums import UserRole
 from app.main import app
 from app.models.app_settings import AppSettings
 from app.routers import dependencies

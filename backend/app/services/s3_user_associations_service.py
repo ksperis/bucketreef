@@ -4,15 +4,8 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db import (
-    S3User,
-    UiGroup,
-    UiGroupS3User,
-    User,
-    UserRole,
-    UserS3User,
-    is_admin_ui_role,
-)
+from app.db import S3User, UiGroup, UiGroupS3User, User, UserS3User
+from app.core.domain_enums import UserRole, is_admin_ui_role
 from app.models.s3_user import S3UserGroupLink, S3UserUserLink
 from app.services.association_sync import sync_metadata_association_links
 from app.services.association_validation import (

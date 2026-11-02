@@ -9,13 +9,8 @@ from sqlalchemy import delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.db import (
-    ManagerAccountRole,
-    PortalAccountRole,
-    User,
-    UserNotification,
-    UserRole,
-)
+from app.db import User, UserNotification
+from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, UserRole
 from app.models.user_notification import UserNotificationOut, UserNotificationsResponse
 from app.services.effective_access_service import EffectiveAccessService
 from app.utils.time import utcnow

@@ -8,7 +8,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.security import create_ldap_import_selection_token, decode_typed_token
-from app.db import AuthSession, ExternalIdentity, User, UserRole, is_admin_ui_role
+from app.db import AuthSession, ExternalIdentity, User
+from app.core.domain_enums import UserRole, is_admin_ui_role
 from app.models.admin_ldap_import import (
     LDAPImportCreatePayload,
     LDAPImportMatchedUser,

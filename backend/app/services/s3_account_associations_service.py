@@ -4,16 +4,8 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db import (
-    S3Account,
-    UiGroup,
-    UiGroupS3Account,
-    User,
-    UserRole,
-    UserS3Account,
-    UserUiGroup,
-    is_admin_ui_role,
-)
+from app.db import S3Account, UiGroup, UiGroupS3Account, User, UserS3Account, UserUiGroup
+from app.core.domain_enums import UserRole, is_admin_ui_role
 from app.models.s3_account import (
     AccountGroupLink,
     AccountGroupLinkInput,

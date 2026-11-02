@@ -5,7 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional, TYPE_CHECKING
 
-from app.db import PortalAccountRole, S3Account, User
+from app.db import S3Account, User
+from app.core.domain_enums import PortalAccountRole
 from app.models.portal_versions import PortalStorageSpaceSettings, PortalStorageSpaceSettingsUpdate
 from app.services import s3_bucket_metadata, s3_client
 from app.services.managed_resource_naming import (

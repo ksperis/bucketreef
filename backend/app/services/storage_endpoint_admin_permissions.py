@@ -4,7 +4,8 @@ import logging
 from collections.abc import Callable
 from typing import Literal
 
-from app.db import StorageEndpoint, StorageProvider
+from app.db import StorageEndpoint
+from app.core.domain_enums import StorageProvider
 from app.models.storage_endpoint import StorageEndpointAdminOpsPermissions
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.utils.rgw_caps import parse_rgw_caps_permissions

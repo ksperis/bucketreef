@@ -18,7 +18,7 @@ from app.core.runtime_surfaces import ceph_admin_only_runtime
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.core.security import get_password_hash
 from app.db import FirstAdminBootstrap, User
-from app.db.enums import UserRole
+from app.core.domain_enums import UserRole
 from app.models.user import validate_password_policy
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.audit_service import AuditService

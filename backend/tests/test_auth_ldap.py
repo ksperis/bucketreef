@@ -5,7 +5,8 @@ import json
 from sqlalchemy import select
 
 from app.core.config import get_settings
-from app.db import AuditLog, AuthSession, User, UserRole
+from app.db import AuditLog, AuthSession, User
+from app.core.domain_enums import UserRole
 from app.routers import auth_ldap as auth_router
 from app.services.external_identity_user_service import ExternalIdentityReauthenticationRequiredError
 from app.services.ldap_service import LDAPAuthenticationError, LDAPConfigurationError

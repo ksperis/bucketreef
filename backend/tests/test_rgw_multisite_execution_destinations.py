@@ -5,16 +5,8 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from app.db import (
-    ManagerAccountRole,
-    S3Connection,
-    S3User,
-    StorageEndpoint,
-    User,
-    UserRole,
-    UserS3Account,
-    UserS3User,
-)
+from app.db import S3Connection, S3User, StorageEndpoint, User, UserS3Account, UserS3User
+from app.core.domain_enums import ManagerAccountRole, UserRole
 from app.models.app_settings import AppSettings
 from app.routers.dependencies_internal.execution_context import resolve_s3_execution_context
 from app.services.app_settings_service import save_app_settings_for_db

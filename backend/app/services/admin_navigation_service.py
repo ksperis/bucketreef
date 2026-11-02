@@ -5,12 +5,8 @@ from __future__ import annotations
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.db import (
-    ExternalIdentityLinkRequest,
-    PortalAdminRequest,
-    User,
-    is_superadmin_ui_role,
-)
+from app.db import ExternalIdentityLinkRequest, PortalAdminRequest, User
+from app.core.domain_enums import is_superadmin_ui_role
 from app.models.admin_navigation import AdminPendingRequestCounts
 from app.services.identity_security_requirements import STANDARD_UI_ROLES
 from app.utils.time import utcnow

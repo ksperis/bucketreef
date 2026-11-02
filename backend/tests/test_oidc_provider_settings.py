@@ -14,7 +14,8 @@ import sqlalchemy as sa
 from sqlalchemy import create_engine, select, text
 
 from app.core.config import OIDCProviderSettings, Settings
-from app.db import AuditLog, OidcLoginState, OidcProvider, User, UserRole
+from app.db import AuditLog, OidcLoginState, OidcProvider, User
+from app.core.domain_enums import UserRole
 from app.main import app
 from app.models.oidc import OIDCProviderAdminPayload
 from app.routers import dependencies

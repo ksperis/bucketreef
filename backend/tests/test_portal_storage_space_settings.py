@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from app.db import PortalAccountRole, PortalStorageSpaceMetadata, S3Account, User
+from app.db import PortalStorageSpaceMetadata, S3Account, User
+from app.core.domain_enums import PortalAccountRole
 from app.models.portal_versions import PortalStorageSpaceSettingsUpdate
 from app.services.access_context_contracts import AccountAccess, AccountCapabilities
 

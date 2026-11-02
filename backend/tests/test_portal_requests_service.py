@@ -7,7 +7,6 @@ import pytest
 from sqlalchemy import func, select
 
 from app.db import (
-    ManagerAccountRole, PortalAccountRole,
     AuditLog,
     PortalAdminRequest,
     S3Account,
@@ -15,10 +14,10 @@ from app.db import (
     UiGroupS3Account,
     User,
     UserNotification,
-    UserRole,
     UserS3Account,
     UserUiGroup,
 )
+from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, UserRole
 from app.models.portal_requests import (
     PortalAdminRequestDecision,
     PortalAccountQuotaChangeRequestCreate,

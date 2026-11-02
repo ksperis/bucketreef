@@ -5,7 +5,8 @@ from __future__ import annotations
 import sqlalchemy as sa
 from fastapi.testclient import TestClient
 
-from app.db import PortalAccountRole, S3Account, User, UserRole, UserS3Account
+from app.db import S3Account, User, UserS3Account
+from app.core.domain_enums import PortalAccountRole, UserRole
 from app.main import app
 from app.routers import dependencies
 from app.services.access_context_contracts import AccountAccess, AccountCapabilities

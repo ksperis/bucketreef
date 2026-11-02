@@ -8,7 +8,7 @@ from typing import Annotated
 
 from pydantic import AfterValidator
 
-from app.db.enums import ManagerAccountRole, PortalAccountRole
+from app.core.domain_enums import ManagerAccountRole, PortalAccountRole
 
 
 PORTAL_ROLE_RANK: dict[str, int] = {

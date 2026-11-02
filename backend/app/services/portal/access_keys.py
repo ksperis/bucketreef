@@ -10,7 +10,8 @@ from typing import Optional, TYPE_CHECKING
 
 from sqlalchemy import select
 
-from app.db import PortalAccountRole, PortalExternalAccessCredential, PortalStorageSpaceMetadata, S3Account, User
+from app.db import PortalExternalAccessCredential, PortalStorageSpaceMetadata, S3Account, User
+from app.core.domain_enums import PortalAccountRole
 from app.models.app_settings import PortalEffectiveSettings
 from app.models.iam import AccessKey as ModelAccessKey, IAMUser
 from app.models.portal_storage_spaces import PortalStorageSpaceRole

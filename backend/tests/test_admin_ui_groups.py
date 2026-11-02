@@ -13,18 +13,16 @@ from sqlalchemy import func, select, update
 
 from tests.feature_policy_fixtures import enable_manager_features
 from app.db import (
-    ManagerAccountRole, PortalAccountRole,
     S3Account,
     S3Connection,
     S3User,
     StorageEndpoint,
-    StorageProvider,
     User,
-    UserRole,
     UserS3Account,
     UiGroup,
     UiGroupS3Connection,
 )
+from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, StorageProvider, UserRole
 from app.main import app
 from app.models.ui_group import UiGroupCreate
 from app.routers import dependencies, execution_contexts

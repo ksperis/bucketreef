@@ -11,13 +11,8 @@ from sqlalchemy import func, select
 
 from app.core.config import LDAPProviderSettings, Settings
 from app.models.ldap import LDAPLoginRequest
-from app.db import (
-    ExternalIdentity,
-    ExternalIdentityLinkAttempt,
-    ExternalIdentityLinkRequest,
-    User,
-    UserRole,
-)
+from app.db import ExternalIdentity, ExternalIdentityLinkAttempt, ExternalIdentityLinkRequest, User
+from app.core.domain_enums import UserRole
 from app.services.external_identity_user_service import (
     ExternalIdentityLinkRequiredError,
     ExternalIdentityReauthenticationRequiredError,

@@ -11,7 +11,8 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db import ManagerAccountRole, S3Account, S3Connection, S3User, User, UserUiGroup
+from app.db import S3Account, S3Connection, S3User, User, UserUiGroup
+from app.core.domain_enums import ManagerAccountRole
 from app.models.access_audit import (
     AccessAuditGrantSource,
     AccessAuditPrincipal,

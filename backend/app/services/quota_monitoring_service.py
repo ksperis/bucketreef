@@ -11,13 +11,8 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db import (
-    QuotaAlertState,
-    S3Account,
-    S3User,
-    StorageEndpoint,
-    StorageProvider,
-)
+from app.db import QuotaAlertState, S3Account, S3User, StorageEndpoint
+from app.core.domain_enums import StorageProvider
 from app.models.app_settings import AppSettings
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.data_retention_service import DataRetentionService

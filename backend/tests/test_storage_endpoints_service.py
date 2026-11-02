@@ -20,17 +20,15 @@ from app.db import (
     EndpointHealthLatest,
     EndpointHealthRollup,
     EndpointHealthStatusSegment,
-    HealthCheckStatus,
     QuotaAlertState,
     QuotaUsageDaily,
     QuotaUsageHourly,
     S3Account,
     S3Connection,
     StorageEndpoint,
-    StorageProvider,
     User,
-    UserRole,
 )
+from app.core.domain_enums import HealthCheckStatus, StorageProvider, UserRole
 from app.models.storage_endpoint import (
     StorageEndpointFeatureDetectionRequest,
     StorageEndpointCreate,

@@ -9,7 +9,8 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db import S3Account, StorageEndpoint, StorageProvider
+from app.db import S3Account, StorageEndpoint
+from app.core.domain_enums import StorageProvider
 from app.services.bucket_usage_stats_service import (
     BucketUsageStatsAggregateTarget,
     BucketUsageStatsResolvedTarget,

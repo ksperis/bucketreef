@@ -15,11 +15,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.sensitive_data import sanitized_error_log_detail
-from app.db import (
-    EndpointHealthCheck,
-    HealthCheckStatus,
-    StorageEndpoint,
-)
+from app.db import EndpointHealthCheck, StorageEndpoint
+from app.core.domain_enums import HealthCheckStatus
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.healthcheck_common import (
     EndpointCheckTarget,

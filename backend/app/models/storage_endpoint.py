@@ -7,7 +7,7 @@ from typing import Literal, Optional
 from pydantic import ConfigDict, Field, SecretStr, field_validator
 
 from app.models.base import ApiModel
-from app.db import StorageProvider
+from app.core.domain_enums import StorageProvider
 from app.models.tagging import RequiredTagDefinitionList, TagDefinitionSummary
 from app.utils.normalize import normalize_optional_string_field
 

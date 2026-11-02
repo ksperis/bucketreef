@@ -8,7 +8,8 @@ from pydantic import ValidationError
 from sqlalchemy import func, select
 
 from tests.feature_policy_fixtures import manager_settings_fixture
-from app.db import ManagerAccessKeyMetadata, S3Account, S3User, StorageEndpoint, StorageProvider
+from app.db import ManagerAccessKeyMetadata, S3Account, S3User, StorageEndpoint
+from app.core.domain_enums import StorageProvider
 from app.models.access_key_metadata import AccessKeyMetadataInput
 from app.models.iam import AccessKey
 from app.models.s3_user import S3UserGeneratedKey

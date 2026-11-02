@@ -23,11 +23,10 @@ from app.db import (
     QuotaUsageHourly,
     S3User,
     StorageEndpoint,
-    StorageProvider,
     User,
-    UserRole,
     UserS3User,
 )
+from app.core.domain_enums import StorageProvider, UserRole
 from app.models.s3_user import (
     S3UserCreate,
     S3UserGroupLinkInput,

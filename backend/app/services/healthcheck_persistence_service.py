@@ -17,8 +17,8 @@ from app.db import (
     EndpointHealthLatest,
     EndpointHealthRollup,
     EndpointHealthStatusSegment,
-    HealthCheckStatus,
 )
+from app.core.domain_enums import HealthCheckStatus
 from app.services.healthcheck_common import (
     DEFAULT_CHECK_TYPE,
     DEFAULT_ROLLUP_RESOLUTION_SECONDS,

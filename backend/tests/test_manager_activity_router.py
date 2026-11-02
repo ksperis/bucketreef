@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from app.db import AuditLog, S3Account, S3Connection, S3User, User, UserRole
+from app.db import AuditLog, S3Account, S3Connection, S3User, User
+from app.core.domain_enums import UserRole
 from app.main import app
 from app.routers.manager import activity as manager_activity_router
 from app.services.s3_execution_context import S3ExecutionContext

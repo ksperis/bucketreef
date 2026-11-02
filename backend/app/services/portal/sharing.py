@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Optional
 from sqlalchemy import exists, func, or_, select
 
 from app.db import (
-    PortalAccountRole,
     PortalPublicLink as DBPortalPublicLink,
     PortalStorageSpaceGrant,
     PortalStorageSpaceMetadata,
@@ -17,6 +16,7 @@ from app.db import (
     UserS3Account,
     UserUiGroup,
 )
+from app.core.domain_enums import PortalAccountRole
 from app.models.portal_storage_spaces import (
     PortalStorageSpaceGrantRole,
     PortalStorageSpaceInitialShare,

@@ -7,7 +7,8 @@ from typing import Optional, TYPE_CHECKING
 
 from sqlalchemy import select
 
-from app.db import AccountIAMUser, PortalAccountRole, S3Account, User
+from app.db import AccountIAMUser, S3Account, User
+from app.core.domain_enums import PortalAccountRole
 from app.models.app_settings import PortalEffectiveSettings
 from app.models.bucket import Bucket
 from app.services import s3_bucket_access, s3_bucket_metadata, s3_client, s3_deletion

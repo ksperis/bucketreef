@@ -5,7 +5,8 @@ import json
 import pytest
 from pydantic import ValidationError
 
-from app.db import S3Account, StorageEndpoint, StorageProvider
+from app.db import S3Account, StorageEndpoint
+from app.core.domain_enums import StorageProvider
 from app.models.topic import Topic, TopicConfiguration, TopicCreate, TopicPolicy
 from app.services import sns_client
 from app.services.topics_service import TopicsService

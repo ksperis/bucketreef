@@ -9,7 +9,6 @@ from sqlalchemy import select
 
 from app.db import (
     AccountIAMUser,
-    PortalAccountRole,
     PortalStorageSpaceGrant,
     PortalStorageSpaceMetadata,
     S3Account,
@@ -18,6 +17,7 @@ from app.db import (
     UserS3Account,
     UserUiGroup,
 )
+from app.core.domain_enums import PortalAccountRole
 from app.models.portal_storage_spaces import (
     PortalStorageSpaceRole,
     PortalStorageSpaceShareScope,

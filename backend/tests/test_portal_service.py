@@ -22,7 +22,6 @@ from tests.feature_policy_fixtures import portal_settings_fixture
 from app.db import (
     AuditLog,
     AccountIAMUser,
-    PortalAccountRole,
     PortalExternalAccessCredential,
     PortalPublicLink,
     PortalStorageSpaceGrant,
@@ -36,6 +35,7 @@ from app.db import (
     UserUiGroup,
     UserS3Account,
 )
+from app.core.domain_enums import PortalAccountRole
 from app.models.app_settings import AppSettings, PortalSettings, PortalSettingsOverride
 from app.models.bucket import Bucket
 from app.models.bucket_usage_stats import BucketUsageStatsDistributionEntry, BucketUsageStatsSnapshot

@@ -8,7 +8,8 @@ import pytest
 from fastapi import HTTPException, Response
 from starlette.requests import Request
 
-from app.db import UserS3Account, UserRole
+from app.db import UserS3Account
+from app.core.domain_enums import UserRole
 from app.main import app
 from app.models.app_settings import AppSettings
 from app.models.session import SessionCapabilities

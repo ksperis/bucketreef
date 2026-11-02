@@ -12,8 +12,8 @@ from app.db import (
     BucketMigrationItem,
     BucketUsageStatsSnapshot,
     User,
-    UserRole,
 )
+from app.core.domain_enums import UserRole
 from app.services.resource_deletion_purge_service import ResourceDeletionPurgeService
 
 

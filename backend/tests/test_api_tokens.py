@@ -8,7 +8,8 @@ from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
 from app.core.security import create_api_access_token, decode_typed_token, get_password_hash
-from app.db import User, UserRole
+from app.db import User
+from app.core.domain_enums import UserRole
 from app.main import app
 from app.models.browser import BrowserStsCredentials
 from app.routers import dependencies

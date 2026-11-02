@@ -9,7 +9,8 @@ import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
-from app.db import StorageEndpoint, StorageProvider, User, UserRole
+from app.db import StorageEndpoint, User
+from app.core.domain_enums import StorageProvider, UserRole
 from app.models.ceph_multisite import (
     Flow,
     LocalZoneConfiguration,

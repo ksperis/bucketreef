@@ -20,7 +20,8 @@ from sqlalchemy.orm import sessionmaker
 from pydantic import ValidationError
 
 from app.core.config import Settings
-from app.db import User, UserRole, WebhookDelivery, WebhookEndpoint, WebhookEndpointSubscription
+from app.db import User, WebhookDelivery, WebhookEndpoint, WebhookEndpointSubscription
+from app.core.domain_enums import UserRole
 from app.models.webhook import WebhookEndpointPayload
 from app.services.audit_policy import should_persist_audit_action
 from app.services.audit_service import AuditService

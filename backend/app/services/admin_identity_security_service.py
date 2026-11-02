@@ -12,8 +12,8 @@ from app.db import (
     ExternalIdentityLinkRequest,
     User,
     WebAuthnCredential,
-    is_superadmin_ui_role,
 )
+from app.core.domain_enums import is_superadmin_ui_role
 from app.models.auth import SessionInfo
 from app.models.identity_security import (
     AdminExternalIdentityInfo,

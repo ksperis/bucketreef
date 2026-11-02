@@ -5,7 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Optional, TYPE_CHECKING
 
-from app.db import PortalAccountRole, User
+from app.db import User
+from app.core.domain_enums import PortalAccountRole
 from app.models.bucket import Bucket
 from app.models.portal_context import PortalState
 from app.models.portal_usage import (

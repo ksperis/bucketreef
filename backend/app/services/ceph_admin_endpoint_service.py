@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.domain_errors import StorageEndpointNotFoundError
-from app.db import StorageEndpoint, StorageProvider
+from app.db import StorageEndpoint
+from app.core.domain_enums import StorageProvider
 from app.models.ceph_admin import CephAdminEndpoint, CephAdminEndpointAccess
 from app.services.ceph_admin_service_identity import (
     build_ceph_admin_endpoint_payload,

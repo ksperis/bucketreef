@@ -8,7 +8,8 @@ from sqlalchemy.orm import Session
 
 from app.core.domain_errors import UiUserNotFoundError
 from app.core.security import get_password_hash, verify_password
-from app.db import AccountIAMUser, S3Account, User, is_admin_ui_role
+from app.db import AccountIAMUser, S3Account, User
+from app.core.domain_enums import is_admin_ui_role
 from app.models.user import (
     ManagerToolAccess,
     UiPreferences,

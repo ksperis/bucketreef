@@ -9,7 +9,8 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db import ExternalIdentity, ExternalIdentityLinkAttempt, ExternalIdentityLinkRequest, User, UserRole
+from app.db import ExternalIdentity, ExternalIdentityLinkAttempt, ExternalIdentityLinkRequest, User
+from app.core.domain_enums import UserRole
 from app.services.auth_session_service import AuthSessionService
 from app.services.external_identity_query_service import ExternalIdentityQueryService
 from app.services.user_notifications_service import UserNotificationsService

@@ -7,7 +7,8 @@ import json
 
 import sqlalchemy as sa
 
-from app.db import S3Connection, UiGroup, UiGroupS3Connection, User, UserRole, UserS3Connection
+from app.db import S3Connection, UiGroup, UiGroupS3Connection, User, UserS3Connection
+from app.core.domain_enums import UserRole
 from app.services.tags_service import TagsService
 from tests.auth_test_utils import authenticate_ui_client
 from tests.s3_connection_factory import custom_endpoint_fields

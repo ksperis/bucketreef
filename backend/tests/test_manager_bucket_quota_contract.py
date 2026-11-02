@@ -6,7 +6,8 @@ from app.utils.storage_endpoint_features import parse_features_config
 
 import pytest
 
-from app.db import ManagerAccountRole, S3Account, S3Connection, StorageEndpoint, User, UserRole, UserS3Account
+from app.db import S3Account, S3Connection, StorageEndpoint, User, UserS3Account
+from app.core.domain_enums import ManagerAccountRole, UserRole
 from app.main import app
 from app.models.app_settings import AppSettings
 from app.models.storage_endpoint import StorageEndpointAdminOpsPermissions
