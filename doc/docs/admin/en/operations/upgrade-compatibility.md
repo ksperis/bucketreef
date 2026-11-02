@@ -825,6 +825,12 @@ Nullable reset semantics remain explicit: UI Users accept `full_name: null` and
 `ui_language: null`; UI Groups accept `description: null` and
 `avatar_icon: null`.
 
+The current-user profile PATCH follows the same contract. It accepts `null`
+only for `full_name` and `ui_language`. Avatar preference, quota toggles,
+`ui_preferences`, and password fields reject explicit `null`; use
+`avatar_preference: "auto"` or `ui_preferences: {}` for those resets. Audit
+metadata now preserves explicit nullable resets instead of dropping them.
+
 Deploy the backend and bundled frontend together. No database migration is
 required.
 

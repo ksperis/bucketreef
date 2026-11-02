@@ -12,7 +12,6 @@ from app.db import AccountIAMUser, S3Account, User
 from app.core.domain_enums import is_admin_ui_role
 from app.models.user import (
     ManagerToolAccess,
-    UiPreferences,
     UserProfilePreferencesUpdate,
     UserSelfUpdate,
     UserUpdate,
@@ -171,9 +170,9 @@ class UserUpdateService:
         fields = payload.model_fields_set
         if "ui_language" in fields:
             user.ui_language = payload.ui_language or None
-        if "quota_alerts_enabled" in fields:
+        if payload.quota_alerts_enabled is not None:
             user.quota_alerts_enabled = bool(payload.quota_alerts_enabled)
-        if "quota_alerts_global_watch" in fields:
+        if payload.quota_alerts_global_watch is not None:
             if not is_admin_ui_role(user.role) and payload.quota_alerts_global_watch:
                 raise ValueError("Global quota watch requires admin role")
             user.quota_alerts_global_watch = (
@@ -181,10 +180,10 @@ class UserUpdateService:
                 if is_admin_ui_role(user.role)
                 else False
             )
-        if "avatar_preference" in fields:
+        if payload.avatar_preference is not None:
             UserAvatarService(self.db).set_preference(
                 user,
-                payload.avatar_preference or "auto",
+                payload.avatar_preference,
             )
 
     @staticmethod
@@ -210,10 +209,8 @@ class UserUpdateService:
             normalized_name = (payload.full_name or "").strip()
             user.full_name = normalized_name or None
         self._apply_profile_preferences(user, payload)
-        if "ui_preferences" in update_fields:
-            user.ui_preferences = (payload.ui_preferences or UiPreferences()).model_dump(
-                exclude_none=True
-            )
+        if payload.ui_preferences is not None:
+            user.ui_preferences = payload.ui_preferences.model_dump(exclude_none=True)
 
         password_changed = self._apply_current_user_password(user, payload)
 

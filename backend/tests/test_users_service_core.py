@@ -635,7 +635,7 @@ def test_update_current_user_password_paths(db_session):
     with pytest.raises(ValueError, match="Both current_password and new_password are required"):
         service.update_current_user(
             user,
-            UserSelfUpdate(current_password="initialpass123", new_password=None),
+            UserSelfUpdate(current_password="initialpass123"),
         )
 
     user.hashed_password = None

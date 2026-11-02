@@ -5,10 +5,11 @@ import hashlib
 
 import pytest
 from pydantic import ValidationError
+from sqlalchemy import select
 
 from app.core.domain_errors import AvatarNotFoundError
 from app.core.security import get_password_hash, verify_password
-from app.db import User, UserS3Account
+from app.db import AuditLog, User, UserS3Account
 from app.core.domain_enums import PortalAccountRole, UserRole
 from app.main import app
 from app.models.app_settings import AppSettings
@@ -219,6 +220,16 @@ def test_update_users_me_clears_ui_language(client, db_session):
 
     db_session.refresh(user)
     assert user.ui_language is None
+    audit = db_session.scalars(
+        select(AuditLog)
+        .where(
+            AuditLog.action == "update_profile",
+            AuditLog.entity_id == str(user.id),
+        )
+        .order_by(AuditLog.id.desc())
+    ).first()
+    assert audit is not None
+    assert audit.audit_metadata == {"ui_language": None}
 
 
 def test_update_users_me_updates_quota_alert_toggle(client, db_session):
