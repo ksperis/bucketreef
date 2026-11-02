@@ -207,7 +207,7 @@ def test_manager_migration_update_rejects_context_out_of_scope(client, db_sessio
     migration_id = _seed_migration(db_session, source_context_id="10", target_context_id="20", status="draft")
     _override_migration_scope(allowed_context_ids={"10", "20"})
     try:
-        response = client.patch(
+        response = client.put(
             f"/api/manager/migrations/{migration_id}",
             json={
                 "source_context_id": "10",
@@ -230,7 +230,7 @@ def test_manager_migration_update_requires_configuration_revision(client, db_ses
     )
     _override_migration_scope(allowed_context_ids={"10", "20"})
     try:
-        response = client.patch(
+        response = client.put(
             f"/api/manager/migrations/{migration_id}",
             json={
                 "source_context_id": "10",

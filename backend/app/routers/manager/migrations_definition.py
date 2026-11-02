@@ -99,7 +99,7 @@ def create_migration(
     return build_bucket_migration_detail(service, migration, events_limit=200)
 
 
-@router.patch("/{migration_id}", response_model=BucketMigrationDetail)
+@router.put("/{migration_id}", response_model=BucketMigrationDetail)
 def update_migration(
     migration_id: int,
     payload: BucketMigrationUpdateRequest,
