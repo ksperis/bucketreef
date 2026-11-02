@@ -23,6 +23,7 @@ from app.services.manager_iam_support import (
 from app.services.rgw_iam import RGWIAMService
 from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.http_errors import (
+    raise_bad_gateway_from_runtime,
     raise_bad_request_from_value_error,
     raise_http_error_from_value_error,
     raise_http_exception_from_exception,
@@ -50,6 +51,13 @@ def ensure_inline_policy_name(payload: InlinePolicy, policy_name: str) -> None:
         validate_inline_policy_name(payload, policy_name)
     except ValueError as exc:
         raise_bad_request_from_value_error(exc)
+
+
+def run_iam_read(read: Callable[[], _T]) -> _T:
+    try:
+        return read()
+    except RuntimeError as exc:
+        raise_bad_gateway_from_runtime(exc)
 
 
 def run_audited_iam_mutation(
