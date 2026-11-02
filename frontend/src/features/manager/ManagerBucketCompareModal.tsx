@@ -41,20 +41,22 @@ import {
 import {
   BUCKET_COMPARE_CONFIG_FEATURE_OPTIONS,
   BucketCompareManualMappingEditor,
-  CompareVisibleKeysCopyFeedback,
-  buildBucketCompareContentSections,
   extractCompareError,
   formatUnknown,
   getChangedTone,
-  getObjectParentPrefix,
   matchesBucketCompareRunFilters,
   normalizeBucketCompareParallelism,
   renderDiffLines,
   resolveBucketCompareRunError,
   summarizeBucketCompareRun,
-  type BucketCompareContentSection,
   useBucketCompareWorkflowState,
 } from "../shared/bucketCompareShared";
+import {
+  buildBucketCompareContentSections,
+  getObjectParentPrefix,
+  type BucketCompareContentSection,
+  type CompareVisibleKeysCopyFeedback,
+} from "../shared/bucketCompareContentDiff";
 import {
   formatDownloadTimestamp,
   triggerBlobDownload,
