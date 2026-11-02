@@ -140,7 +140,11 @@ class OnboardingSetupService:
         row.pending_step = "account"
         self.db.commit()
         created = get_s3_accounts_service(self.db).ensure_provisioned_account(
-            S3AccountCreate(name=account_name, storage_endpoint_id=endpoint.id),
+            S3AccountCreate(
+                name=account_name,
+                rgw_tenant="",
+                storage_endpoint_id=endpoint.id,
+            ),
             identifier,
         )
         self.progress.checkpoint(row, account_id=created.id)

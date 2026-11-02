@@ -388,7 +388,7 @@ export default function S3AccountsPage() {
     try {
       await createS3Account({
         name: form.name.trim(),
-        rgw_tenant: managedTenantCreationEnabled ? form.rgw_tenant.trim() || undefined : undefined,
+        rgw_tenant: managedTenantCreationEnabled ? form.rgw_tenant.trim() : "",
         email: form.email.trim() || undefined,
         tags: normalizeUiTags(form.tags),
         quota_max_size_gb: form.quota_max_size_gb ? Number(form.quota_max_size_gb) : undefined,

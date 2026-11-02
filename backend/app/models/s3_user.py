@@ -76,7 +76,7 @@ class S3User(ApiModel):
 class S3UserCreate(ApiModel):
     name: str
     uid: Optional[str] = None
-    rgw_tenant: str = ""
+    rgw_tenant: str
     email: Optional[str] = None
     quota_max_size_gb: Optional[float] = None
     quota_max_size_unit: Optional[str] = None

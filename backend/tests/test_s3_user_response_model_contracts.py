@@ -6,6 +6,7 @@ from pydantic import ValidationError
 
 from app.models.s3_user import (
     S3User,
+    S3UserCreate,
     S3UserGroupLink,
     S3UserGroupLinkInput,
     S3UserSummary,
@@ -78,6 +79,15 @@ def test_s3_user_responses_require_complete_canonical_payloads() -> None:
         "allow_managed_private_connection_provisioning",
         "tags",
     }
+
+
+def test_s3_user_create_requires_explicit_rgw_tenant() -> None:
+    payload = {"name": "example", "storage_endpoint_id": 1}
+    with pytest.raises(ValidationError):
+        S3UserCreate.model_validate(payload)
+    with pytest.raises(ValidationError):
+        S3UserCreate.model_validate({**payload, "rgw_tenant": None})
+    assert S3UserCreate.model_validate({**payload, "rgw_tenant": ""}).rgw_tenant == ""
 
 
 def test_s3_user_update_uses_minimal_association_inputs() -> None:

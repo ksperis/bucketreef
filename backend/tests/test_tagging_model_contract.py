@@ -19,7 +19,7 @@ from app.utils.tagging import tag_definition_sort_key
 REQUIRED_TAG_MODELS = [
     pytest.param(
         S3AccountCreate,
-        {"name": "Account", "storage_endpoint_id": 1},
+        {"name": "Account", "rgw_tenant": "", "storage_endpoint_id": 1},
         id="account",
     ),
     pytest.param(
@@ -46,7 +46,7 @@ REQUIRED_TAG_MODELS = [
     ),
     pytest.param(
         S3UserCreate,
-        {"name": "S3 user", "storage_endpoint_id": 1},
+        {"name": "S3 user", "rgw_tenant": "", "storage_endpoint_id": 1},
         id="s3-user",
     ),
     pytest.param(StorageEndpointTagsUpdate, {}, id="storage-endpoint"),

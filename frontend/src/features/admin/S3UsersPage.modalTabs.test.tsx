@@ -701,6 +701,7 @@ describe("S3UsersPage modal tabs", () => {
     expect(createS3UserMock).toHaveBeenCalledWith(
       expect.objectContaining({
         name: "tagged-user",
+        rgw_tenant: "",
         tags: [expect.objectContaining({ label: "finance", color_key: "neutral" })],
       })
     );

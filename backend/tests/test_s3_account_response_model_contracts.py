@@ -10,6 +10,7 @@ from app.models.s3_account import (
     AccountUserLink,
     AccountUserLinkInput,
     S3Account,
+    S3AccountCreate,
     S3AccountSummary,
     S3AccountUpdate,
 )
@@ -89,6 +90,15 @@ def test_s3_account_responses_require_complete_canonical_payloads() -> None:
         "allow_multisite_endpoint_switching",
         "tags",
     }
+
+
+def test_s3_account_create_requires_explicit_rgw_tenant() -> None:
+    payload = {"name": "example", "storage_endpoint_id": 1}
+    with pytest.raises(ValidationError):
+        S3AccountCreate.model_validate(payload)
+    with pytest.raises(ValidationError):
+        S3AccountCreate.model_validate({**payload, "rgw_tenant": None})
+    assert S3AccountCreate.model_validate({**payload, "rgw_tenant": ""}).rgw_tenant == ""
 
 
 def test_s3_account_update_uses_minimal_association_inputs() -> None:

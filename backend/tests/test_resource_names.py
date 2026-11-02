@@ -82,7 +82,7 @@ def test_creation_models_reject_missing_or_invalid_name_at_field(model):
 
 def test_uid_field_errors_and_optional_generated_uid():
     for uid in [None, "", "  "]:
-        assert S3UserCreate(name="Display name: $", uid=uid, storage_endpoint_id=1).uid == uid
+        assert S3UserCreate(name="Display name: $", uid=uid, rgw_tenant="", storage_endpoint_id=1).uid == uid
     for model, kwargs in [(S3UserCreate, {"name": "Display name", "storage_endpoint_id": 1}), (CephAdminRgwUserCreate, {})]:
         with pytest.raises(ValidationError) as caught:
             model(uid="tenant$", **kwargs)

@@ -1111,6 +1111,7 @@ describe("AccountsPage modal tabs", () => {
     expect(createS3AccountMock).toHaveBeenCalledWith(
       expect.objectContaining({
         name: "account-with-tags",
+        rgw_tenant: "",
         quota_max_size_gb: 2,
         quota_max_size_unit: "TiB",
         quota_max_objects: 1000,
