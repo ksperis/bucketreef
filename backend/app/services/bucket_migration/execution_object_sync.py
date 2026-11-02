@@ -61,8 +61,8 @@ class _SyncProgressTracker:
             if (now - self.last_flush) < SYNC_PROGRESS_FLUSH_INTERVAL_SECONDS:
                 return
 
-        self.item.objects_copied = int(self.item.objects_copied or 0) + self.pending_copied
-        self.item.objects_deleted = int(self.item.objects_deleted or 0) + self.pending_deleted
+        self.item.objects_copied = int(self.item.objects_copied) + self.pending_copied
+        self.item.objects_deleted = int(self.item.objects_deleted) + self.pending_deleted
         heartbeat_at = utcnow()
         self.item.updated_at = heartbeat_at
         self.migration.updated_at = heartbeat_at

@@ -26,7 +26,7 @@ class BucketMigrationRollbackMixin:
     def _retry_step_for_failed_item(self, item: BucketMigrationItem) -> str:
         if item.step in {"verify", "rollback_failed"}:
             return "sync"
-        return item.step or "create_bucket"
+        return item.step
 
     def _prepare_item_retry(self, migration: BucketMigration, item: BucketMigrationItem) -> None:
         item.status = "pending"

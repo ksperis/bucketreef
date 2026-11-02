@@ -113,7 +113,6 @@ class BucketMigrationProgressMixin:
             for item in migration.items:
                 if item.status == "running":
                     item.status = "failed"
-                    item.step = item.step or "unknown"
                     if not item.error_message:
                         item.error_message = "Migration stopped due to fatal worker error."
                     item.finished_at = now
@@ -540,8 +539,8 @@ class BucketMigrationProgressMixin:
                 "target_bucket": item.target_bucket,
                 "status": item.status,
                 "step": item.step,
-                "objects_copied": int(item.objects_copied or 0),
-                "objects_deleted": int(item.objects_deleted or 0),
+                "objects_copied": int(item.objects_copied),
+                "objects_deleted": int(item.objects_deleted),
                 "error_message": item.error_message,
             }
         return payload
