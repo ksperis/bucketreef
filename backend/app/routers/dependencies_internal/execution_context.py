@@ -17,15 +17,16 @@ from app.services.access_context_contracts import (
     ManagerSessionPrincipal,
 )
 
-from app.db import S3Account, S3Connection, S3User, StorageEndpoint, User, UserS3Account
+from app.db import S3Connection, S3User, User, UserS3Account
 
 from app.services import effective_access_service
-from app.services import app_settings_service
 from app.services.effective_access_service import EffectiveAccessService
-from app.services.feature_policy_service import multisite_endpoint_switching_allowed
+from app.services.execution_destination_service import (
+    ExecutionDestinationError,
+    ExecutionDestinationService,
+)
 from app.services.s3_connections_service import S3ConnectionsService
 from app.services.s3_execution_context import S3ExecutionContext
-from app.services.rgw_multisite_endpoints import rgw_multisite_endpoints_compatible
 from app.services.s3_users_service import get_s3_users_service
 from app.services.storage_endpoints_service import get_storage_endpoints_service
 from app.utils.s3_connection_capabilities import s3_connection_can_manage_iam
@@ -336,84 +337,47 @@ def _apply_user_execution_destination(
     portal_browser: bool,
     is_storage_ops_surface: bool,
 ) -> S3ExecutionContext:
-    if (
-        surface not in {"manager", "manager-browser", "browser"}
-        or portal_browser
-        or is_storage_ops_surface
-        or execution_context.context_kind not in {"account", "s3_user", "connection"}
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Execution endpoint override is not available for this context",
+    try:
+        return ExecutionDestinationService(db).apply_user_override(
+            user,
+            execution_context,
+            execution_endpoint_id,
+            surface=surface,
+            portal_browser=portal_browser,
+            is_storage_ops_surface=is_storage_ops_surface,
         )
-
-    origin = execution_context.storage_endpoint
-    if origin is None or execution_context.storage_endpoint_id is None:
+    except ExecutionDestinationError as exc:
+        error_by_reason = {
+            "unavailable_context": (
+                status.HTTP_403_FORBIDDEN,
+                "Execution endpoint override is not available for this context",
+            ),
+            "missing_origin": (
+                status.HTTP_400_BAD_REQUEST,
+                "Selected context has no configured storage endpoint",
+            ),
+            "temporary_credentials": (
+                status.HTTP_403_FORBIDDEN,
+                "RGW multisite endpoint switching is not available for temporary connection credentials",
+            ),
+            "not_allowed": (
+                status.HTTP_403_FORBIDDEN,
+                "RGW multisite endpoint switching is not allowed for this user or context",
+            ),
+            "destination_not_found": (
+                status.HTTP_404_NOT_FOUND,
+                "Execution endpoint not found",
+            ),
+            "incompatible_destination": (
+                status.HTTP_400_BAD_REQUEST,
+                "Execution endpoint is not in the same RGW realm and zonegroup",
+            ),
+        }
+        status_code, detail = error_by_reason[exc.reason]
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Selected context has no configured storage endpoint",
-        )
-    if execution_endpoint_id == origin.id:
-        return execution_context
-
-    if execution_context.context_kind == "connection":
-        source_connection = execution_context.source_connection
-        if source_connection is None and execution_context.s3_connection_id is not None:
-            source_connection = db.get(S3Connection, execution_context.s3_connection_id)
-        if execution_context.session_token_value is not None or (
-            source_connection is not None and source_connection.session_token is not None
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="RGW multisite endpoint switching is not available for temporary connection credentials",
-            )
-
-    effective = EffectiveAccessService(db).resolve_user(user)
-    resource = None
-    if execution_context.context_kind == "account":
-        resource = execution_context.source_account
-        if resource is None and isinstance(execution_context.id, int):
-            resource = db.get(S3Account, execution_context.id)
-    elif execution_context.context_kind == "s3_user":
-        resource = execution_context.source_s3_user
-        if resource is None and execution_context.s3_user_id is not None:
-            resource = db.get(S3User, execution_context.s3_user_id)
-    policies = app_settings_service.load_app_settings_for_db_readonly(
-        db
-    ).manager.feature_policies
-    if not multisite_endpoint_switching_allowed(
-        policies,
-        resource,
-        principal_allowed=effective.allow_multisite_endpoint_switching,
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="RGW multisite endpoint switching is not allowed for this user or context",
-        )
-
-    destination = db.get(StorageEndpoint, execution_endpoint_id)
-    if destination is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Execution endpoint not found",
-        )
-    if not rgw_multisite_endpoints_compatible(origin, destination):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Execution endpoint is not in the same RGW realm and zonegroup",
-        )
-
-    execution_context.storage_endpoint_id = destination.id
-    execution_context.storage_endpoint = destination
-    if execution_context.context_kind == "connection":
-        # Connections cache their resolved target in session_* fields. Update
-        # those options as well so S3 clients actually execute on the selected
-        # multisite destination while preserving the connection credentials.
-        execution_context.session_endpoint = destination.endpoint_url
-        execution_context.session_region = destination.region
-        execution_context.session_force_path_style = bool(destination.force_path_style)
-        execution_context.session_verify_tls = bool(destination.verify_tls)
-    return execution_context
+            status_code=status_code,
+            detail=detail,
+        ) from exc
 
 
 def get_s3_execution_context(
