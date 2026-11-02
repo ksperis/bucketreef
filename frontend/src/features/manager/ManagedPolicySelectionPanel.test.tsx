@@ -10,14 +10,14 @@ const policies = [
   { name: "StorageAdmin", arn: "arn:aws:iam::tenant:policy/StorageAdmin" },
 ];
 
+type PanelProps = React.ComponentProps<typeof ManagedPolicySelectionPanel>;
+type Selection = PanelProps["selection"];
+
 const renderPanel = (
-  overrides: Partial<React.ComponentProps<typeof ManagedPolicySelectionPanel>> = {}
+  selectionOverrides: Partial<Selection> = {},
+  overrides: Partial<Omit<PanelProps, "selection">> = {},
 ) => {
-  const props: React.ComponentProps<typeof ManagedPolicySelectionPanel> = {
-    title: "Attach policies",
-    description: "Select policies to attach immediately.",
-    emptyMessage: "No policies available.",
-    footer: "Policies can also be attached later.",
+  const selection: Selection = {
     policies,
     selectedPolicyArns: [],
     search: "",
@@ -33,6 +33,14 @@ const renderPanel = (
     onPageSizeChange: vi.fn(),
     onExpandedChange: vi.fn(),
     onSelectionChange: vi.fn(),
+    ...selectionOverrides,
+  };
+  const props: PanelProps = {
+    title: "Attach policies",
+    description: "Select policies to attach immediately.",
+    emptyMessage: "No policies available.",
+    footer: "Policies can also be attached later.",
+    selection,
     ...overrides,
   };
   return { ...render(<ManagedPolicySelectionPanel {...props} />), props };
@@ -45,7 +53,12 @@ describe("ManagedPolicySelectionPanel", () => {
     const hide = screen.getByRole("button", { name: "Hide" });
     expect(hide).toHaveAttribute("aria-expanded", "true");
     const contentId = hide.getAttribute("aria-controls")!;
-    rerender(<ManagedPolicySelectionPanel {...props} expanded={false} />);
+    rerender(
+      <ManagedPolicySelectionPanel
+        {...props}
+        selection={{ ...props.selection, expanded: false }}
+      />,
+    );
     expect(screen.getByRole("button", { name: "Show" })).toHaveAttribute("aria-expanded", "false");
     expect(document.getElementById(contentId)).not.toBeVisible();
     expect(screen.getByText("1 selected")).toBeVisible();
@@ -65,7 +78,12 @@ describe("ManagedPolicySelectionPanel", () => {
     );
     expect(onSearchChange).toHaveBeenCalled();
 
-    rerender(<ManagedPolicySelectionPanel {...props} search="tenant" policies={[policies[1]]} />);
+    rerender(
+      <ManagedPolicySelectionPanel
+        {...props}
+        selection={{ ...props.selection, search: "tenant", policies: [policies[1]] }}
+      />,
+    );
     expect(screen.queryByText("ReadOnlyAccess")).not.toBeInTheDocument();
     expect(screen.getByText("StorageAdmin")).toBeInTheDocument();
   });

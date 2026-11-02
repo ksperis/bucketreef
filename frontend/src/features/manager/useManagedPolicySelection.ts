@@ -4,8 +4,26 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import type { S3ExecutionContextSelector } from "../../api/accountParams";
-import { listIamPoliciesPage } from "../../api/managerIamPolicies";
+import { listIamPoliciesPage, type IamPolicy } from "../../api/managerIamPolicies";
 import { useManagerIamCursorCollection } from "./useManagerIamCursorCollection";
+
+export type ManagedPolicySelectionViewModel = {
+  policies: IamPolicy[];
+  selectedPolicyArns: string[];
+  search: string;
+  expanded: boolean;
+  loading: boolean;
+  page: number;
+  pageSize: number;
+  canPrevious: boolean;
+  canNext: boolean;
+  onSearchChange: (value: string) => void;
+  onPreviousPage: () => void;
+  onNextPage: () => void;
+  onPageSizeChange: (pageSize: number) => void;
+  onExpandedChange: (expanded: boolean) => void;
+  onSelectionChange: (policyArns: string[]) => void;
+};
 
 export function useManagedPolicySelection() {
   const collection = useManagerIamCursorCollection(listIamPoliciesPage);
@@ -29,25 +47,29 @@ export function useManagedPolicySelection() {
     }
   }, [selectedPolicies.length]);
 
+  const panel: ManagedPolicySelectionViewModel = {
+    policies: collection.items,
+    selectedPolicyArns: selectedPolicies,
+    search: collection.search,
+    expanded: showPolicyOptions,
+    loading: collection.loading,
+    page: collection.page,
+    pageSize: collection.pageSize,
+    canPrevious: collection.canPrevious,
+    canNext: collection.canNext,
+    onSearchChange: setCollectionSearch,
+    onPreviousPage: collection.previousPage,
+    onNextPage: collection.nextPage,
+    onPageSizeChange: collection.setPageSize,
+    onExpandedChange: setShowPolicyOptions,
+    onSelectionChange: setSelectedPolicies,
+  };
+
   return {
     loadPolicies,
-    policies: collection.items,
-    policiesLoading: collection.loading,
-    policiesError: collection.error,
-    policySearch: collection.search,
-    setPolicySearch: setCollectionSearch,
-    policyPage: collection.page,
-    policyPageSize: collection.pageSize,
-    setPolicyPageSize: collection.setPageSize,
-    canPreviousPolicyPage: collection.canPrevious,
-    canNextPolicyPage: collection.canNext,
-    previousPolicyPage: collection.previousPage,
-    nextPolicyPage: collection.nextPage,
+    panel,
     resetPolicySelection,
     selectedPolicies,
     setPolicies: collection.setItems,
-    setSelectedPolicies,
-    setShowPolicyOptions,
-    showPolicyOptions,
   };
 }

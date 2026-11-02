@@ -135,23 +135,10 @@ export default function ManagerUsersPage() {
 
   const {
     loadPolicies,
-    policies,
-    policiesLoading,
-    policySearch,
-    policyPage,
-    policyPageSize,
-    setPolicyPageSize,
-    canPreviousPolicyPage,
-    canNextPolicyPage,
-    previousPolicyPage,
-    nextPolicyPage,
+    panel: managedPolicySelection,
     resetPolicySelection,
     selectedPolicies,
     setPolicies,
-    setPolicySearch,
-    setSelectedPolicies,
-    setShowPolicyOptions,
-    showPolicyOptions,
   } = useManagedPolicySelection();
 
   useEffect(() => {
@@ -634,21 +621,7 @@ export default function ManagerUsersPage() {
             description={text("Bind JSON policies now or skip and attach later.")}
             emptyMessage={text("No policies available. Create them in the Policies tab.")}
             footer="Policies must be created first in the Policies tab."
-            policies={policies}
-            selectedPolicyArns={selectedPolicies}
-            search={policySearch}
-            expanded={showPolicyOptions}
-            loading={policiesLoading}
-            page={policyPage}
-            pageSize={policyPageSize}
-            canPrevious={canPreviousPolicyPage}
-            canNext={canNextPolicyPage}
-            onSearchChange={setPolicySearch}
-            onPreviousPage={previousPolicyPage}
-            onNextPage={nextPolicyPage}
-            onPageSizeChange={setPolicyPageSize}
-            onExpandedChange={setShowPolicyOptions}
-            onSelectionChange={setSelectedPolicies}
+            selection={managedPolicySelection}
           />
           <InlinePolicyDraftEditor {...inlinePolicyEditorProps} />
         </SettingsWorkflowForm>
