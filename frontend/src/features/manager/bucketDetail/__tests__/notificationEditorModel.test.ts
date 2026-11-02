@@ -70,9 +70,14 @@ describe("notificationEditorModel", () => {
     const initial = {
       QueueConfigurations: [{ Id: "queue" }],
     };
-    const added = addNotificationTopic(initial, createVisualNotificationTopic("new-topic"));
+    const added = addNotificationTopic(initial, createVisualNotificationTopic());
     expect(added.QueueConfigurations).toEqual(initial.QueueConfigurations);
-    expect(added.TopicConfigurations).toHaveLength(1);
+    expect(added.TopicConfigurations).toEqual([
+      {
+        TopicArn: "",
+        Events: ["s3:ObjectCreated:*"],
+      },
+    ]);
 
     const removed = removeNotificationTopicAt(added, 0);
     expect(removed).toEqual(initial);

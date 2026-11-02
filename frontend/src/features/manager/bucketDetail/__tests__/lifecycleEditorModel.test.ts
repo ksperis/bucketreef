@@ -8,10 +8,9 @@ import {
 
 describe("lifecycleEditorModel", () => {
   it("keeps a newly added rule explicitly incomplete until an action is configured", () => {
-    const rule = createVisualLifecycleRule("rule-1");
+    const rule = createVisualLifecycleRule();
 
     expect(rule).toEqual({
-      ID: "rule-1",
       Status: "Enabled",
       Filter: { Prefix: "" },
     });
@@ -27,7 +26,7 @@ describe("lifecycleEditorModel", () => {
   });
 
   it("preserves transition storage class edits made before Days and never injects a default class", () => {
-    const rule = createVisualLifecycleRule("rule-1");
+    const rule = createVisualLifecycleRule();
     expect(readLifecycleVisualRule(rule).transitionStorageClass).toBe("");
 
     const storageFirst = updateLifecycleVisualRule(rule, {
@@ -47,7 +46,7 @@ describe("lifecycleEditorModel", () => {
   });
 
   it("accepts the other supported lifecycle actions as complete rules", () => {
-    const base = createVisualLifecycleRule("rule-1");
+    const base = createVisualLifecycleRule();
     const deleteMarker = updateLifecycleVisualRule(base, {
       expiredObjectDeleteMarker: true,
     });
@@ -65,7 +64,7 @@ describe("lifecycleEditorModel", () => {
   });
 
   it("keeps expired delete marker and day expiration mutually exclusive", () => {
-    const base = createVisualLifecycleRule("rule-1");
+    const base = createVisualLifecycleRule();
 
     const expiration = updateLifecycleVisualRule(base, { expirationDays: "7" });
     expect(expiration.Expiration).toEqual({ Days: 7 });

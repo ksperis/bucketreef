@@ -302,7 +302,11 @@ export default function BucketNotificationsFeature({
     draftConfiguration.TopicConfigurations === undefined ||
     Array.isArray(draftConfiguration.TopicConfigurations);
   const visibleDraftTopics = draftTopics
-    .map((topic, index) => ({ topic, index }))
+    .map((topic, index) => ({
+      topic,
+      index,
+      uiId: controller.draftTopicIds[index] ?? `notification-topic-${index}`,
+    }))
     .filter(({ index }) => editorTargetIndex === null || index === editorTargetIndex);
 
   const visualEditor = (
@@ -338,9 +342,9 @@ export default function BucketNotificationsFeature({
         </BucketFeatureEditorEmpty>
       ) : (
         <BucketFeatureEditorList>
-          {visibleDraftTopics.map(({ topic, index }) => (
+          {visibleDraftTopics.map(({ topic, index, uiId }) => (
             <NotificationTopicEditor
-              key={`notification-topic-${index}`}
+              key={uiId}
               index={index}
               topic={topic}
               disabled={saving}

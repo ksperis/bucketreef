@@ -285,6 +285,12 @@ describe("useBucketNotificationsController", () => {
     await act(async () => result.current.load());
     act(() => result.current.openEditor());
     act(() => result.current.addDraftTopic());
+
+    expect(result.current.draftTopicIds).toHaveLength(1);
+    expect(result.current.draftTopicIds[0]).toMatch(/^notification-topic-/);
+    expect(
+      (result.current.draftConfiguration.TopicConfigurations as Array<{ Id?: string }>)[0].Id,
+    ).toBeUndefined();
     await act(async () => result.current.saveDraft());
 
     expect(apiMocks.getBucketNotifications).not.toHaveBeenCalled();

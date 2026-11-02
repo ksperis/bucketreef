@@ -151,9 +151,8 @@ function updateNotificationVisualTopic(
   return next;
 }
 
-export function createVisualNotificationTopic(id: string): NotificationTopicRecord {
+export function createVisualNotificationTopic(): NotificationTopicRecord {
   return {
-    Id: id,
     TopicArn: "",
     Events: ["s3:ObjectCreated:*"],
   };

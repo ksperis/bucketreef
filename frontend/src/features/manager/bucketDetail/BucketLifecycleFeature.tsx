@@ -138,7 +138,7 @@ function LifecycleRuleEditor({
 
       <div className="grid gap-3 md:grid-cols-3">
         <SettingsInput
-          label={text("ID")}
+          label={text("ID (optional)")}
           value={draft.id}
           onChange={(event) => onChange({ id: event.target.value })}
           disabled={disabled}
@@ -376,7 +376,11 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
   ];
 
   const visibleDraftRules = draftRules
-    .map((rule, index) => ({ rule, index }))
+    .map((rule, index) => ({
+      rule,
+      index,
+      uiId: controller.draftRuleIds[index] ?? `lifecycle-rule-${index}`,
+    }))
     .filter(({ index }) => editorTargetIndex === null || index === editorTargetIndex);
 
   const visualEditor = (
@@ -420,9 +424,9 @@ export default function BucketLifecycleFeature({ controller }: BucketLifecycleFe
         </div>
       ) : (
         <BucketFeatureEditorList>
-          {visibleDraftRules.map(({ rule, index }) => (
+          {visibleDraftRules.map(({ rule, index, uiId }) => (
             <LifecycleRuleEditor
-              key={`lifecycle-rule-${index}`}
+              key={uiId}
               index={index}
               rule={rule}
               disabled={saving}
