@@ -55,9 +55,9 @@ import SettingsForm from "../../components/settings/SettingsForm";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import { SettingsButton, SettingsPersistentEditActions, useSettingsCloseGuard } from "../../components/settings/SettingsControls";
 import SettingsNavigationGuard from "../../components/settings/SettingsNavigationGuard";
+import { useSettingsDraft } from "../../components/settings/useSettingsDraft";
 import UiInput from "../../components/ui/UiInput";
 import UiTextarea from "../../components/ui/UiTextarea";
-import { stableSignature } from "../../utils/stableSignature";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import { isFeaturePolicyAvailable } from "../../api/featurePolicies";
 import { extractApiError } from "../../utils/apiError";
@@ -195,8 +195,12 @@ export default function GroupsPage() {
   const [modalTab, setModalTab] = useState<GroupModalTab>("general");
   const [pendingDeleteGroup, setPendingDeleteGroup] = useState<UiGroup | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
-  const [form, setForm] = useState<UiGroupPayload>(emptyAdminGroupForm);
-  const [initialFormSignature, setInitialFormSignature] = useState(() => stableSignature(emptyAdminGroupForm()));
+  const {
+    draft: form,
+    setDraft: setForm,
+    accept: acceptForm,
+    dirty: formDirty,
+  } = useSettingsDraft<UiGroupPayload>(emptyAdminGroupForm);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
   const [attempted, setAttempted] = useState(false);
@@ -278,8 +282,7 @@ export default function GroupsPage() {
 
   const resetForm = () => {
     const draft = emptyAdminGroupForm();
-    setForm(draft);
-    setInitialFormSignature(stableSignature(draft));
+    acceptForm(draft);
     setAttempted(false);
     setModalTab("general");
     memberPicker.reset();
@@ -306,8 +309,7 @@ export default function GroupsPage() {
     resetForm();
     setEditingGroup(group);
     const draft = adminGroupForm(group);
-    setForm(draft);
-    setInitialFormSignature(stableSignature(draft));
+    acceptForm(draft);
     setModalTab("general");
     setActionError(null);
     setActionMessage(null);
@@ -332,7 +334,7 @@ export default function GroupsPage() {
   };
 
   const hasUnsavedChanges = showModal && (
-    stableSignature(form) !== initialFormSignature || Boolean(avatarFile) || removeAvatarImage ||
+    formDirty || Boolean(avatarFile) || removeAvatarImage ||
     memberPicker.selections.length > 0 || accountPicker.selections.length > 0 || s3UserPicker.selections.length > 0 ||
     connectionPicker.selections.length > 0 || openStackPicker.selections.length > 0 || Object.keys(accountAccessChoice).length > 0
   );
@@ -389,8 +391,7 @@ export default function GroupsPage() {
       if (editingGroup) {
         const savedDraft = adminGroupForm(savedGroup);
         setEditingGroup(savedGroup);
-        setForm(savedDraft);
-        setInitialFormSignature(stableSignature(savedDraft));
+        acceptForm(savedDraft);
         setAvatarFile(null);
         setRemoveAvatarImage(false);
         memberPicker.setSelections([]);
