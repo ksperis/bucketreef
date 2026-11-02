@@ -33,7 +33,8 @@ from app.services.app_settings_service import load_app_settings_for_db
 from app.services.auth_session_guards import current_auth_session
 from app.services.identity_security_policy import require_self_service_security_action
 from app.services.ldap_service import LDAPAuthenticationError, LDAPConfigurationError, LDAPProviderNotFoundError
-from app.services.external_identity_link_service import ExternalIdentityLinkError, ExternalIdentityLinkService
+from app.services.external_identity_link_contracts import ExternalIdentityLinkError
+from app.services.external_identity_link_service import ExternalIdentityLinkService
 from app.services.oidc_service import (
     OIDCConfigurationError,
     OIDCProviderNotFoundError,
