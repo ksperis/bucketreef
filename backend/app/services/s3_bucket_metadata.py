@@ -132,7 +132,7 @@ def put_bucket_notifications(
     try:
         client.put_bucket_notification_configuration(
             Bucket=bucket_name,
-            NotificationConfiguration=config or {},
+            NotificationConfiguration=config,
         )
     except (BotoCoreError, ClientError) as exc:
         raise RuntimeError(f"Unable to update bucket notifications for '{bucket_name}': {exc}") from exc

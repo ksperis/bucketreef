@@ -66,7 +66,7 @@ class BucketConfigurationService:
             **self._bucket_client_kwargs(execution_context, name),
         )
         tags: list[BucketTag] = []
-        for entry in tags_raw or []:
+        for entry in tags_raw:
             if not isinstance(entry, dict):
                 continue
             key = str(entry.get("key") or "")
@@ -329,7 +329,7 @@ class BucketConfigurationService:
         config = s3_bucket_metadata.get_bucket_notifications(
             name,
             **self._bucket_client_kwargs(execution_context, name),
-        ) or {}
+        )
         return BucketNotificationConfiguration(configuration=config)
 
     def get_bucket_replication(
@@ -340,7 +340,7 @@ class BucketConfigurationService:
         config = s3_bucket_replication.get_bucket_replication(
             name,
             **self._bucket_client_kwargs(execution_context, name),
-        ) or {}
+        )
         return BucketReplicationConfiguration(configuration=config)
 
     def _validate_bucket_replication_configuration(self, configuration: Any) -> dict:
