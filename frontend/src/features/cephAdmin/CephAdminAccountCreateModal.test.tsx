@@ -97,6 +97,19 @@ describe("CephAdminAccountCreateModal", () => {
     );
   });
 
+  it("rebases the draft after creation so the workflow can close cleanly", async () => {
+    const onClose = vi.fn();
+    render(<CephAdminAccountCreateModal endpointId={7} onClose={onClose} />);
+    fireEvent.change(screen.getByLabelText("Account name"), { target: { value: "Analytics" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create account" }));
+
+    await screen.findByText("Account RGW000000000000001 created.");
+    fireEvent.click(screen.getByRole("button", { name: "Back to accounts" }));
+
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(screen.queryByText("Unsaved changes")).not.toBeInTheDocument();
+  });
+
   it("focuses missing identity and invalid limits, then accepts zero without activating quotas", async () => {
     render(<CephAdminAccountCreateModal endpointId={7} onClose={vi.fn()} />);
     const form = screen.getByRole("form", { name: "Create RGW account" });

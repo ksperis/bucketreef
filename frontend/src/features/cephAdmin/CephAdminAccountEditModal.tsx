@@ -2,7 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { cx, uiPanelMutedClass } from "../../components/ui/styles";
 import {
   CephAdminRgwAccountDetail,
@@ -17,17 +17,23 @@ import {
 import PageBanner from "../../components/PageBanner";
 import { SettingsButton } from "../../components/settings/SettingsControls";
 import SettingsForm from "../../components/settings/SettingsForm";
+import { useSettingsDraft } from "../../components/settings/useSettingsDraft";
 import { useSettingsFormController } from "../../components/settings/useSettingsFormController";
 import CephAdminAccountFormFields from "./CephAdminAccountFormFields";
-import { parseCephAdminAccountLimits, validateCephAdminAccountForm } from "./cephAdminAccountForm";
+import {
+  cephAdminAccountDraftFromDetail,
+  createEmptyCephAdminAccountDraft,
+  parseCephAdminAccountLimits,
+  validateCephAdminAccountForm,
+  type CephAdminAccountDraft,
+} from "./cephAdminAccountForm";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import UsageTile from "../../components/UsageTile";
 import { extractApiError } from "../../utils/apiError";
 import { formatBytes, formatNumber } from "../../utils/format";
-import { stableSignature } from "../../utils/stableSignature";
 import CephAdminQuotaFields from "./CephAdminQuotaFields";
 import { buildCephAdminQuotaPatch } from "./quotaPatch";
-import { parseOptionalNonNegativeInteger, parseQuotaBytes, quotaBytesToForm, type CephAdminQuotaUnit } from "./quotaForm";
+import { parseOptionalNonNegativeInteger, parseQuotaBytes } from "./quotaForm";
 import { useCephAdminI18n } from "./cephAdminI18n";
 import DetailsDrawerNavigation, {
   guardDetailsDrawerNavigation,
@@ -66,60 +72,9 @@ export default function CephAdminAccountEditModal({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
-
-  const [accountName, setAccountName] = useState("");
-  const [email, setEmail] = useState("");
-  const [maxUsers, setMaxUsers] = useState("");
-  const [maxBuckets, setMaxBuckets] = useState("");
-  const [maxRoles, setMaxRoles] = useState("");
-  const [maxGroups, setMaxGroups] = useState("");
-  const [maxAccessKeys, setMaxAccessKeys] = useState("");
-  const [quotaEnabled, setQuotaEnabled] = useState(true);
-  const [quotaSize, setQuotaSize] = useState("");
-  const [quotaUnit, setQuotaUnit] = useState<CephAdminQuotaUnit>("GiB");
-  const [quotaObjects, setQuotaObjects] = useState("");
-  const [bucketQuotaEnabled, setBucketQuotaEnabled] = useState(true);
-  const [bucketQuotaSize, setBucketQuotaSize] = useState("");
-  const [bucketQuotaUnit, setBucketQuotaUnit] = useState<CephAdminQuotaUnit>("GiB");
-  const [bucketQuotaObjects, setBucketQuotaObjects] = useState("");
-  const currentSignature = useMemo(
-    () =>
-      stableSignature({
-        accountName,
-        email,
-        maxUsers,
-        maxBuckets,
-        maxRoles,
-        maxGroups,
-        maxAccessKeys,
-        quotaEnabled,
-        quotaSize,
-        quotaUnit,
-        quotaObjects,
-        bucketQuotaEnabled,
-        bucketQuotaSize,
-        bucketQuotaUnit,
-        bucketQuotaObjects,
-      }),
-    [
-      accountName,
-      bucketQuotaEnabled,
-      bucketQuotaObjects,
-      bucketQuotaSize,
-      bucketQuotaUnit,
-      email,
-      maxAccessKeys,
-      maxBuckets,
-      maxGroups,
-      maxRoles,
-      maxUsers,
-      quotaEnabled,
-      quotaObjects,
-      quotaSize,
-      quotaUnit,
-    ]
+  const { draft, setDraft, accept, dirty } = useSettingsDraft<CephAdminAccountDraft>(
+    () => createEmptyCephAdminAccountDraft(true)
   );
-  const [initialSignature, setInitialSignature] = useState(currentSignature);
 
   useEffect(() => {
     let cancelled = false;
@@ -130,48 +85,7 @@ export default function CephAdminAccountEditModal({
         const payload = await getCephAdminAccountDetail(endpointId, accountId);
         if (cancelled) return;
         setDetail(payload);
-        setAccountName(payload.account_name ?? "");
-        setEmail(payload.email ?? "");
-        setMaxUsers(payload.max_users != null ? String(payload.max_users) : "");
-        setMaxBuckets(payload.max_buckets != null ? String(payload.max_buckets) : "");
-        setMaxRoles(payload.max_roles != null ? String(payload.max_roles) : "");
-        setMaxGroups(payload.max_groups != null ? String(payload.max_groups) : "");
-        setMaxAccessKeys(payload.max_access_keys != null ? String(payload.max_access_keys) : "");
-        const quotaConfigured = Boolean(
-          payload.quota && (payload.quota.max_size_bytes != null || payload.quota.max_objects != null)
-        );
-        setQuotaEnabled(payload.quota?.enabled ?? quotaConfigured);
-        const quotaForm = quotaBytesToForm(payload.quota?.max_size_bytes);
-        setQuotaSize(quotaForm.value);
-        setQuotaUnit(quotaForm.unit);
-        setQuotaObjects(payload.quota?.max_objects != null ? String(payload.quota.max_objects) : "");
-        const bucketQuotaConfigured = Boolean(
-          payload.bucket_quota && (payload.bucket_quota.max_size_bytes != null || payload.bucket_quota.max_objects != null)
-        );
-        setBucketQuotaEnabled(payload.bucket_quota?.enabled ?? bucketQuotaConfigured);
-        const bucketQuotaForm = quotaBytesToForm(payload.bucket_quota?.max_size_bytes);
-        setBucketQuotaSize(bucketQuotaForm.value);
-        setBucketQuotaUnit(bucketQuotaForm.unit);
-        setBucketQuotaObjects(payload.bucket_quota?.max_objects != null ? String(payload.bucket_quota.max_objects) : "");
-        setInitialSignature(
-          stableSignature({
-            accountName: payload.account_name ?? "",
-            email: payload.email ?? "",
-            maxUsers: payload.max_users != null ? String(payload.max_users) : "",
-            maxBuckets: payload.max_buckets != null ? String(payload.max_buckets) : "",
-            maxRoles: payload.max_roles != null ? String(payload.max_roles) : "",
-            maxGroups: payload.max_groups != null ? String(payload.max_groups) : "",
-            maxAccessKeys: payload.max_access_keys != null ? String(payload.max_access_keys) : "",
-            quotaEnabled: payload.quota?.enabled ?? quotaConfigured,
-            quotaSize: quotaForm.value,
-            quotaUnit: quotaForm.unit,
-            quotaObjects: payload.quota?.max_objects != null ? String(payload.quota.max_objects) : "",
-            bucketQuotaEnabled: payload.bucket_quota?.enabled ?? bucketQuotaConfigured,
-            bucketQuotaSize: bucketQuotaForm.value,
-            bucketQuotaUnit: bucketQuotaForm.unit,
-            bucketQuotaObjects: payload.bucket_quota?.max_objects != null ? String(payload.bucket_quota.max_objects) : "",
-          })
-        );
+        accept(cephAdminAccountDraftFromDetail(payload));
       } catch (err) {
         if (!cancelled) {
           setDetailError(extractApiError(err, "Unexpected error"));
@@ -187,7 +101,7 @@ export default function CephAdminAccountEditModal({
     return () => {
       cancelled = true;
     };
-  }, [accountId, endpointId]);
+  }, [accept, accountId, endpointId]);
 
   useEffect(() => {
     if (!canViewMetrics || activeTab !== "metrics") return;
@@ -224,10 +138,7 @@ export default function CephAdminAccountEditModal({
   }, [activeTab, canViewMetrics]);
 
   const [validationAttempted, setValidationAttempted] = useState(false);
-  const profileValues = { accountName, email, maxUsers, maxBuckets, maxRoles, maxGroups, maxAccessKeys };
-  const validation = validateCephAdminAccountForm(profileValues,
-    { enabled: quotaEnabled, size: quotaSize, unit: quotaUnit, objects: quotaObjects },
-    { enabled: bucketQuotaEnabled, size: bucketQuotaSize, unit: bucketQuotaUnit, objects: bucketQuotaObjects });
+  const validation = validateCephAdminAccountForm(draft.profile, draft.accountQuota, draft.bucketQuota);
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     if (saving || detailLoading || !detail) return;
@@ -238,18 +149,18 @@ export default function CephAdminAccountEditModal({
       focusFirstInvalidField(event.currentTarget);
       return;
     }
-    const parsedQuotaBytes = quotaEnabled ? parseQuotaBytes(quotaSize, quotaUnit) : null;
-    const parsedQuotaObjects = quotaEnabled ? parseOptionalNonNegativeInteger(quotaObjects) : null;
-    const parsedBucketQuotaBytes = bucketQuotaEnabled ? parseQuotaBytes(bucketQuotaSize, bucketQuotaUnit) : null;
-    const parsedBucketQuotaObjects = bucketQuotaEnabled ? parseOptionalNonNegativeInteger(bucketQuotaObjects) : null;
+    const parsedQuotaBytes = draft.accountQuota.enabled ? parseQuotaBytes(draft.accountQuota.size, draft.accountQuota.unit) : null;
+    const parsedQuotaObjects = draft.accountQuota.enabled ? parseOptionalNonNegativeInteger(draft.accountQuota.objects) : null;
+    const parsedBucketQuotaBytes = draft.bucketQuota.enabled ? parseQuotaBytes(draft.bucketQuota.size, draft.bucketQuota.unit) : null;
+    const parsedBucketQuotaObjects = draft.bucketQuota.enabled ? parseOptionalNonNegativeInteger(draft.bucketQuota.objects) : null;
 
     setSaving(true);
     return (async () => {
       try {
         const payload: UpdateCephAdminAccountPayload = {
-          account_name: accountName.trim() || null,
-          email: email.trim() || null,
-          ...parseCephAdminAccountLimits(profileValues),
+          account_name: draft.profile.accountName.trim() || null,
+          email: draft.profile.email.trim() || null,
+          ...parseCephAdminAccountLimits(draft.profile),
           ...buildCephAdminQuotaPatch(
             {
               enabled: "quota_enabled",
@@ -258,7 +169,7 @@ export default function CephAdminAccountEditModal({
             },
             detail?.quota,
             {
-              enabled: quotaEnabled,
+              enabled: draft.accountQuota.enabled,
               maxSizeBytes: parsedQuotaBytes,
               maxObjects: parsedQuotaObjects,
             }
@@ -271,7 +182,7 @@ export default function CephAdminAccountEditModal({
             },
             detail?.bucket_quota,
             {
-              enabled: bucketQuotaEnabled,
+              enabled: draft.bucketQuota.enabled,
               maxSizeBytes: parsedBucketQuotaBytes,
               maxObjects: parsedBucketQuotaObjects,
             }
@@ -279,7 +190,7 @@ export default function CephAdminAccountEditModal({
         };
         const updated = await updateCephAdminAccountConfig(endpointId, accountId, payload);
         setDetail(updated);
-        setInitialSignature(currentSignature);
+        accept(draft);
         setSaveStatus(surfaceText("Account configuration updated."));
         onSaved?.(updated);
         if (activeTab === "metrics") {
@@ -299,7 +210,7 @@ export default function CephAdminAccountEditModal({
     })();
   };
   const formController = useSettingsFormController({
-    dirty: !detailLoading && currentSignature !== initialSignature,
+    dirty: !detailLoading && dirty,
     busy: saving,
     disabled: detailLoading || !detail,
     onSubmit: submit,
@@ -386,25 +297,26 @@ export default function CephAdminAccountEditModal({
         {detailError && <PageBanner tone="error">{detailError}</PageBanner>}
         {saveError && <PageBanner tone="error">{saveError}</PageBanner>}
         {saveStatus && <PageBanner tone="success">{saveStatus}</PageBanner>}
-        <CephAdminAccountFormFields values={profileValues}
+        <CephAdminAccountFormFields values={draft.profile}
           errors={validationAttempted ? validation.profile : undefined}
-          onChange={(field, value) => ({ accountName: setAccountName, email: setEmail,
-            maxBuckets: setMaxBuckets, maxUsers: setMaxUsers, maxRoles: setMaxRoles,
-            maxGroups: setMaxGroups, maxAccessKeys: setMaxAccessKeys })[field](value)} />
+          onChange={(field, value) => setDraft(current => ({
+            ...current,
+            profile: { ...current.profile, [field]: value },
+          }))} />
 
         <CephAdminQuotaFields
           title={surfaceText("Account quota")}
           enabledLabel={surfaceText("Enable account quota")}
-          enabled={quotaEnabled}
-          onEnabledChange={setQuotaEnabled}
+          enabled={draft.accountQuota.enabled}
+          onEnabledChange={(enabled) => setDraft(current => ({ ...current, accountQuota: { ...current.accountQuota, enabled } }))}
           sizeError={validationAttempted ? validation.accountQuota.size : undefined}
           objectError={validationAttempted ? validation.accountQuota.objects : undefined}
-          sizeValue={quotaSize}
-          onSizeChange={setQuotaSize}
-          unitValue={quotaUnit}
-          onUnitChange={setQuotaUnit}
-          objectValue={quotaObjects}
-          onObjectChange={setQuotaObjects}
+          sizeValue={draft.accountQuota.size}
+          onSizeChange={(size) => setDraft(current => ({ ...current, accountQuota: { ...current.accountQuota, size } }))}
+          unitValue={draft.accountQuota.unit}
+          onUnitChange={(unit) => setDraft(current => ({ ...current, accountQuota: { ...current.accountQuota, unit } }))}
+          objectValue={draft.accountQuota.objects}
+          onObjectChange={(objects) => setDraft(current => ({ ...current, accountQuota: { ...current.accountQuota, objects } }))}
           sizePlaceholder={surfaceText("Leave empty to clear")}
           objectPlaceholder={surfaceText("Leave empty to clear")}
         />
@@ -412,16 +324,16 @@ export default function CephAdminAccountEditModal({
         <CephAdminQuotaFields
           title={surfaceText("Bucket quota")}
           enabledLabel={surfaceText("Enable bucket quota")}
-          enabled={bucketQuotaEnabled}
-          onEnabledChange={setBucketQuotaEnabled}
+          enabled={draft.bucketQuota.enabled}
+          onEnabledChange={(enabled) => setDraft(current => ({ ...current, bucketQuota: { ...current.bucketQuota, enabled } }))}
           sizeError={validationAttempted ? validation.bucketQuota.size : undefined}
           objectError={validationAttempted ? validation.bucketQuota.objects : undefined}
-          sizeValue={bucketQuotaSize}
-          onSizeChange={setBucketQuotaSize}
-          unitValue={bucketQuotaUnit}
-          onUnitChange={setBucketQuotaUnit}
-          objectValue={bucketQuotaObjects}
-          onObjectChange={setBucketQuotaObjects}
+          sizeValue={draft.bucketQuota.size}
+          onSizeChange={(size) => setDraft(current => ({ ...current, bucketQuota: { ...current.bucketQuota, size } }))}
+          unitValue={draft.bucketQuota.unit}
+          onUnitChange={(unit) => setDraft(current => ({ ...current, bucketQuota: { ...current.bucketQuota, unit } }))}
+          objectValue={draft.bucketQuota.objects}
+          onObjectChange={(objects) => setDraft(current => ({ ...current, bucketQuota: { ...current.bucketQuota, objects } }))}
           sizePlaceholder={surfaceText("Leave empty to clear")}
           objectPlaceholder={surfaceText("Leave empty to clear")}
         />
