@@ -41,15 +41,16 @@ class UserAssociationsService:
         self.db = db
 
     def apply_updates(self, user: User, payload: UserAssociationsPayload) -> None:
-        if payload.account_links is not None:
+        fields = payload.model_fields_set
+        if "account_links" in fields:
             self.set_account_links(user, payload.account_links)
-        if payload.s3_user_links is not None:
+        if "s3_user_links" in fields:
             self.set_s3_user_links(user, payload.s3_user_links)
-        if payload.s3_connection_ids is not None:
+        if "s3_connection_ids" in fields:
             self.set_s3_connection_links(user, payload.s3_connection_ids)
-        if payload.group_ids is not None:
+        if "group_ids" in fields:
             self.set_group_links(user, payload.group_ids)
-        if payload.openstack_cloud_ids is not None:
+        if "openstack_cloud_ids" in fields:
             self.set_openstack_cloud_links(user, payload.openstack_cloud_ids)
 
     def affected_portal_account_ids(

@@ -813,6 +813,21 @@ overrides keep their existing clear/inherit semantics.
 Deploy the backend and bundled frontend together. No database migration is
 required.
 
+## 2026-11 canonical UI principal PATCH nullability
+
+Admin UI User and UI Group PATCH payloads now reject explicit `null` for
+concrete mutations such as identity/access fields, Manager tool access, and
+association lists. Omit those fields to preserve their current value and use an
+empty list to clear associations. UI User creation likewise rejects
+`openstack_cloud_ids: null`; omit it or send an array.
+
+Nullable reset semantics remain explicit: UI Users accept `full_name: null` and
+`ui_language: null`; UI Groups accept `description: null` and
+`avatar_icon: null`.
+
+Deploy the backend and bundled frontend together. No database migration is
+required.
+
 ## 2026-11 canonical S3 and RGW create payloads
 
 Create payloads for RGW Accounts, RGW Users, private S3 Connections, and Admin

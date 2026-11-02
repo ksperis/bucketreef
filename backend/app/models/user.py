@@ -1,12 +1,12 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Literal, Optional, Self
 
-from pydantic import EmailStr, Field, field_validator
+from pydantic import EmailStr, Field, field_validator, model_validator
 
 from app.models.account_access import AccountAccessGrant
-from app.models.base import ApiModel
+from app.models.base import ApiModel, reject_explicit_null_fields
 from app.models.pagination import PaginatedResponse
 from app.models.openstack import LinkedOpenStackCloud
 from app.utils.account_roles import ManagerAccountRoleValue, PortalAccountRoleValue
@@ -63,6 +63,7 @@ class UserCreateAssociationsPayload(UserAssociationsPayload):
     s3_user_links: list[S3UserMembership] = Field(default_factory=list)
     s3_connection_ids: list[int] = Field(default_factory=list)
     group_ids: list[int] = Field(default_factory=list)
+    openstack_cloud_ids: list[int] = Field(default_factory=list)
 
 
 class EffectiveAccountGroupSource(ApiModel):
@@ -166,6 +167,34 @@ class UserUpdate(UserProfilePreferencesUpdate, UserAssociationsPayload):
     allow_multisite_endpoint_switching: Optional[bool] = None
     manager_tool_access: Optional[ManagerToolAccess] = None
     browser_advanced_features_enabled: Optional[bool] = None
+
+    @model_validator(mode="after")
+    def reject_non_nullable_nulls(self) -> Self:
+        reject_explicit_null_fields(
+            self,
+            (
+                "email",
+                "avatar_preference",
+                "quota_alerts_enabled",
+                "quota_alerts_global_watch",
+                "password",
+                "role",
+                "is_active",
+                "can_access_ceph_admin",
+                "can_access_storage_ops",
+                "can_create_manual_private_connections",
+                "can_provision_managed_private_connections",
+                "allow_multisite_endpoint_switching",
+                "manager_tool_access",
+                "browser_advanced_features_enabled",
+                "account_links",
+                "s3_user_links",
+                "s3_connection_ids",
+                "group_ids",
+                "openstack_cloud_ids",
+            ),
+        )
+        return self
 
 
 class UserSelfUpdate(UserProfilePreferencesUpdate):
