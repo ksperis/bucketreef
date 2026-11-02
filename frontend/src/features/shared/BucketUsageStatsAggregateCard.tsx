@@ -138,25 +138,7 @@ export default function BucketUsageStatsAggregateCard({
             text={translateText}
             finalMetric={{ label: text("coverage"), value: coverageLabel, hint: coverageHint }}
             currentVsNoncurrentEmptyMessage={text("currentVsNoncurrentUnavailable")}
-            labels={{
-              logicalBytes: text("logicalBytes"),
-              currentBytes: text("currentBytes"),
-              noncurrentBytes: text("noncurrentBytes"),
-              versionsUnit: text("versionsUnit"),
-              unavailable: text("unavailable"),
-              versionListingWarning: text("versionListingWarning"),
-              dataTypesTitle: text("dataTypesTitle"),
-              dataTypesSubtitle: text("dataTypesSubtitle"),
-              currentVsNoncurrentTitle: text("currentVsNoncurrentTitle"),
-              currentVsNoncurrentSubtitle: text("currentVsNoncurrentSubtitle"),
-              storageClassesTitle: text("storageClassesTitle"),
-              storageClassesSubtitle: text("storageClassesSubtitle"),
-              objectSizesTitle: text("objectSizesTitle"),
-              objectSizesSubtitle: text("objectSizesSubtitle"),
-              objectAgeTitle: text("objectAgeTitle"),
-              objectAgeSubtitle: text("objectAgeSubtitle"),
-              ...compositionLabels,
-            }}
+            labels={compositionLabels}
           />
         </>
       )}
