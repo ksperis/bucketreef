@@ -14,7 +14,6 @@ from app.db import (
     WebAuthnCredential,
 )
 from app.core.domain_enums import is_superadmin_ui_role
-from app.models.auth import SessionInfo
 from app.models.identity_security import (
     AdminExternalIdentityInfo,
     AdminPasskeyInfo,
@@ -29,6 +28,7 @@ from app.services.identity_security_requirements import (
     STANDARD_UI_ROLES,
     passkey_required_for_role,
 )
+from app.services.mappers.auth_session import auth_session_info
 from app.services.users_service import UsersService
 
 
@@ -40,26 +40,6 @@ class AdminIdentitySecurityService:
         self.users = UsersService(db)
         self.sessions = AuthSessionService(db)
         self.identities = ExternalIdentityUserService(db)
-
-    @staticmethod
-    def session_info(row: AuthSession) -> SessionInfo:
-        return SessionInfo(
-            id=row.id,
-            principal_type=row.principal_type,
-            auth_type=row.auth_type,
-            created_at=row.created_at,
-            last_activity_at=row.last_activity_at,
-            idle_expires_at=row.idle_expires_at,
-            absolute_expires_at=row.absolute_expires_at,
-            mfa_verified_at=row.mfa_verified_at,
-            ip_address=row.ip_address,
-            user_agent=row.user_agent,
-            revoked_at=row.revoked_at,
-            revoke_reason=row.revoke_reason,
-            current=False,
-            user_id=row.user_id,
-            s3_session_id=row.s3_session_id,
-        )
 
     @staticmethod
     def external_identity_info(row: ExternalIdentity) -> AdminExternalIdentityInfo:
@@ -136,7 +116,7 @@ class AdminIdentitySecurityService:
                 for row in passkey_rows
             ],
             external_identities=[self.external_identity_info(row) for row in identities],
-            sessions=[self.session_info(row) for row in sessions],
+            sessions=[auth_session_info(row) for row in sessions],
         )
 
     def managed_identity(
@@ -244,7 +224,7 @@ class AdminIdentitySecurityService:
         users = self._users_by_id(user_ids)
         return [
             AdminSessionInfo(
-                **self.session_info(row).model_dump(),
+                **auth_session_info(row).model_dump(),
                 user_email=users[row.user_id].email if row.user_id in users else None,
                 user_full_name=(
                     users[row.user_id].full_name if row.user_id in users else None

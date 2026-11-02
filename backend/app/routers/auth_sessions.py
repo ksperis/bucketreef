@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.security import constant_time_equal, decode_typed_token
-from app.db import AuthSession, User
+from app.db import User
 from app.models.auth import (
     CurrentSessionResponse,
     ExternalIdentityInfo,
@@ -45,6 +45,7 @@ from app.services.app_settings_service import load_app_settings_for_db
 from app.services.identity_security_policy import (
     require_self_service_security_action,
 )
+from app.services.mappers.auth_session import auth_session_info
 from app.utils.http_errors import (
     raise_http_error_from_value_error,
     raise_http_exception_from_exception,
@@ -54,26 +55,6 @@ from app.utils.request_security import client_ip, require_trusted_origin
 
 router = APIRouter()
 settings = get_settings()
-
-
-def _session_info(row: AuthSession, *, current_id: Optional[str] = None) -> SessionInfo:
-    return SessionInfo(
-        id=row.id,
-        principal_type=row.principal_type,
-        auth_type=row.auth_type,
-        created_at=row.created_at,
-        last_activity_at=row.last_activity_at,
-        idle_expires_at=row.idle_expires_at,
-        absolute_expires_at=row.absolute_expires_at,
-        mfa_verified_at=row.mfa_verified_at,
-        ip_address=row.ip_address,
-        user_agent=row.user_agent,
-        revoked_at=row.revoked_at,
-        revoke_reason=row.revoke_reason,
-        current=row.id == current_id,
-        user_id=row.user_id,
-        s3_session_id=row.s3_session_id,
-    )
 
 
 @router.post("/refresh", response_model=RefreshResponse)
@@ -118,13 +99,13 @@ def current_session(
             authenticated=True,
             user=None,
             session=descriptor,
-            auth_session=_session_info(row, current_id=row.id),
+            auth_session=auth_session_info(row, current_id=row.id),
         )
     return CurrentSessionResponse(
         authenticated=True,
         user=get_users_service(db).user_to_out(actor),
         session=None,
-        auth_session=_session_info(row, current_id=row.id),
+        auth_session=auth_session_info(row, current_id=row.id),
     )
 
 
@@ -135,7 +116,10 @@ def list_sessions(
     current_user: User = Depends(get_current_user),
 ) -> list[SessionInfo]:
     current = current_auth_session(request, db)
-    return [_session_info(row, current_id=current.id) for row in AuthSessionService(db).list_for_user(current_user.id)]
+    return [
+        auth_session_info(row, current_id=current.id)
+        for row in AuthSessionService(db).list_for_user(current_user.id)
+    ]
 
 
 @router.delete("/sessions/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
