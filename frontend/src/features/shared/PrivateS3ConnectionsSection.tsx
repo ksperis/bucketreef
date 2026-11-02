@@ -4,19 +4,15 @@
  */
 import {
   ListActions,
-  ListBadge,
   ListActionButton,
   ListSelectionBar,
-  ListSelectionCheckbox,
 } from "../../components/list/ListControls";
-import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import ListPageSection from "../../components/list/ListPageSection";
 import ToolbarSearchInput from "../../components/ToolbarSearchInput";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import PageBanner from "../../components/PageBanner";
 import WorkflowPage from "../../components/WorkflowPage";
-import UiTagBadgeList from "../../components/UiTagBadgeList";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import {
@@ -32,7 +28,6 @@ import {
 import type { S3CredentialsValidationPayload } from "../../api/s3CredentialsValidation";
 import { retryManagedPrivateAccessCleanup } from "../../api/managedPrivateAccess";
 import { useLiveS3CredentialsValidation } from "./useLiveS3CredentialsValidation";
-import { formatLocalDateTime } from "../../utils/dateTime";
 import { extractApiError } from "../../utils/apiError";
 import { notifyExecutionContextsRefresh } from "../../utils/executionContextRefresh";
 import {
@@ -41,7 +36,6 @@ import {
   type SessionUser,
   readStoredUser,
 } from "../../utils/workspaces";
-import { buildUiTagItems } from "../../utils/uiTags";
 import { useTagCatalog } from "../../hooks/useTagCatalog";
 import S3ConnectionAccessFields from "./S3ConnectionAccessFields";
 import S3ConnectionCredentialFields from "./S3ConnectionCredentialFields";
@@ -70,6 +64,7 @@ import {
   prepareUpdatePrivateConnectionPayload,
 } from "./s3ConnectionFormModel";
 import { useSharedI18n } from "./sharedI18n";
+import PrivateS3ConnectionsTable from "./PrivateS3ConnectionsTable";
 
 type PendingPrivateConnectionDelete = {
   scope: "single" | "bulk";
@@ -762,172 +757,6 @@ export default function PrivateS3ConnectionsSection({
     setConnectionsPage(1);
   };
 
-  const privateConnectionsTableStatus = connectionsLoading
-    ? "loading"
-    : pagedConnections.length === 0
-      ? "empty"
-      : "ready";
-
-  const privateConnectionTableColumns: Array<DataTableColumn<S3Connection>> = [
-    {
-      id: "select",
-      label: surfaceText("Select"),
-      headerClassName: "w-10",
-      cellClassName: "w-10",
-      header: (
-        <ListSelectionCheckbox
-          aria-label={surfaceText("Select all filtered private connections")}
-          checked={allFilteredConnectionsSelected}
-          onChange={toggleSelectAllFilteredConnections}
-          disabled={
-            filteredConnectionIds.length === 0 ||
-            bulkActivatingConnections ||
-            bulkDisablingConnections ||
-            bulkDeletingConnections
-          }
-        />
-      ),
-      render: (connection) => (
-        <ListSelectionCheckbox
-          aria-label={surfaceText("Select private connection {connection}", { connection: connection.name || connection.id })}
-          checked={selectedFilteredConnectionIdSet.has(connection.id)}
-          onChange={() => togglePrivateConnectionSelection(connection.id)}
-          disabled={bulkActivatingConnections || bulkDisablingConnections || bulkDeletingConnections}
-        />
-      ),
-    },
-    {
-      id: "connection",
-      label: surfaceText("Connection"),
-      primary: true,
-      render: (connection) => {
-        const connectionTagItems = buildUiTagItems(connection.tags);
-        return (
-          <div className="flex flex-wrap items-start gap-x-2 gap-y-1">
-            <div className="min-w-0 flex-1">
-              <p className="truncate">{connection.name || "-"}</p>
-              {connection.server_managed && (
-                <ListBadge tone="primary" className="mt-1">
-                  {surfaceText("Personal access")}
-                  {connection.managed_access_state === "cleanup_pending"
-                    ? ` - ${surfaceText("cleanup required")}`
-                    : ""}
-                </ListBadge>
-              )}
-              <p className="ui-caption font-normal text-slate-500 dark:text-slate-400">
-                {surfaceText("Access Key:")}{connection.access_key_id || "-"}
-              </p>
-            </div>
-            {connectionTagItems.length > 0 && (
-              <UiTagBadgeList
-                items={connectionTagItems}
-                variant="listing-compact"
-                layout="inline-compact"
-                className="ml-auto max-w-full"
-                maxVisible={4}
-              />
-            )}
-          </div>
-        );
-      },
-    },
-    {
-      id: "endpoint",
-      label: surfaceText("Endpoint"),
-      render: (connection) => {
-        const endpointLabel = connection.storage_endpoint_id
-          ? storageEndpointLabelById.get(connection.storage_endpoint_id) ||
-            surfaceText("Managed endpoint #{id}", { id: connection.storage_endpoint_id })
-          : connection.endpoint_url || "-";
-        return connection.storage_endpoint_id ? (
-          <ListBadge tone="neutral">{endpointLabel}</ListBadge>
-        ) : (
-          <span className="ui-mono">{endpointLabel}</span>
-        );
-      },
-    },
-    {
-      id: "provider",
-      label: surfaceText("Provider"),
-      render: (connection) => connection.provider_hint || "-",
-    },
-    {
-      id: "status",
-      label: surfaceText("Status"),
-      render: (connection) => {
-        const isActive = connection.is_active;
-        return (
-          <ListBadge tone={isActive ? "success" : "neutral"}>
-            {surfaceText(isActive ? "Active" : "Inactive")}
-          </ListBadge>
-        );
-      },
-    },
-    {
-      id: "updated-at",
-      label: surfaceText("Last update"),
-      render: (connection) => formatLocalDateTime(connection.updated_at ?? connection.created_at),
-    },
-    {
-      id: "last-used-at",
-      label: surfaceText("Last used"),
-      render: (connection) => formatLocalDateTime(connection.last_used_at),
-    },
-    {
-      id: "actions",
-      label: surfaceText("Actions"),
-      align: "right",
-      mobileRole: "actions",
-      render: (connection) => {
-        const isActive = connection.is_active;
-        return (
-          <ListActions>
-            {connection.managed_access_state === "cleanup_pending" && (
-              <ListActionButton
-                type="button"
-                disabled={deletingConnectionBusyId === connection.id}
-                onClick={() => void handleRetryManagedCleanup(connection.id)}
-              >
-                {surfaceText(deletingConnectionBusyId === connection.id ? "Retrying..." : "Retry cleanup")}
-              </ListActionButton>
-            )}
-            <ListActionButton
-              type="button"
-              disabled={
-                togglingConnectionBusyId === connection.id ||
-                bulkActivatingConnections ||
-                bulkDisablingConnections ||
-                bulkDeletingConnections
-              }
-              onClick={() => void handleTogglePrivateConnectionStatus(connection)}
-            >
-              {surfaceText(togglingConnectionBusyId === connection.id ? "Saving..." : isActive ? "Deactivate" : "Activate")}
-            </ListActionButton>
-            <ListActionButton
-              type="button"
-              onClick={() => openEditConnectionModal(connection)}
-              disabled={bulkActivatingConnections || bulkDisablingConnections || bulkDeletingConnections}
-            >
-              {surfaceText("Edit")}</ListActionButton>
-            <ListActionButton
-              type="button"
-              variant="danger"
-              disabled={
-                deletingConnectionBusyId === connection.id ||
-                bulkActivatingConnections ||
-                bulkDisablingConnections ||
-                bulkDeletingConnections
-              }
-              onClick={() => handleDeletePrivateConnection(connection)}
-            >
-              {surfaceText(deletingConnectionBusyId === connection.id ? "Deleting..." : "Delete")}
-            </ListActionButton>
-          </ListActions>
-        );
-      },
-    },
-  ];
-
   return (
     <>
       <section className="settings-compact">
@@ -1001,30 +830,36 @@ export default function PrivateS3ConnectionsSection({
                     </ListActions>
                   </ListSelectionBar>
                 )}
-                <DataTableShell
-                  columns={privateConnectionTableColumns}
-                  rows={connectionsLoading ? [] : pagedConnections}
-                  rowKey={(connection) => connection.id}
-                  status={privateConnectionsTableStatus}
-                  loadingMessage={surfaceText("Loading connections...")}
-                  errorMessage={surfaceText("Unable to load private S3 connections.")}
-                  emptyMessage={surfaceText("No private S3 connection configured.")}
-                  responsiveCards
-                  pagination={!connectionsLoading && filteredConnections.length > 0 ? {
-                    page: connectionsPage,
-                    pageSize: connectionsPageSize,
-                    total: filteredConnections.length,
-                    onPageChange: (page) => {
-                      setConnectionsPage(Math.max(1, page));
-                      setSelectedConnectionIds([]);
-                    },
-                    onPageSizeChange: (size) => {
-                      setConnectionsPageSize(size);
-                      setSelectedConnectionIds([]);
-                      setConnectionsPage(1);
-                    },
-                    pageSizeOptions: [10, 25, 50, 100],
-                  } : undefined}
+                <PrivateS3ConnectionsTable
+                  connectionsLoading={connectionsLoading}
+                  pagedConnections={pagedConnections}
+                  filteredConnectionCount={filteredConnections.length}
+                  filteredConnectionIds={filteredConnectionIds}
+                  selectedFilteredConnectionIdSet={selectedFilteredConnectionIdSet}
+                  allFilteredConnectionsSelected={allFilteredConnectionsSelected}
+                  storageEndpointLabelById={storageEndpointLabelById}
+                  deletingConnectionBusyId={deletingConnectionBusyId}
+                  togglingConnectionBusyId={togglingConnectionBusyId}
+                  bulkActivatingConnections={bulkActivatingConnections}
+                  bulkDisablingConnections={bulkDisablingConnections}
+                  bulkDeletingConnections={bulkDeletingConnections}
+                  page={connectionsPage}
+                  pageSize={connectionsPageSize}
+                  onToggleSelectAll={toggleSelectAllFilteredConnections}
+                  onToggleSelection={togglePrivateConnectionSelection}
+                  onRetryCleanup={handleRetryManagedCleanup}
+                  onToggleStatus={handleTogglePrivateConnectionStatus}
+                  onEdit={openEditConnectionModal}
+                  onDelete={handleDeletePrivateConnection}
+                  onPageChange={(page) => {
+                    setConnectionsPage(Math.max(1, page));
+                    setSelectedConnectionIds([]);
+                  }}
+                  onPageSizeChange={(size) => {
+                    setConnectionsPageSize(size);
+                    setSelectedConnectionIds([]);
+                    setConnectionsPage(1);
+                  }}
                 />
               </ListPageSection>
             </>
