@@ -142,10 +142,10 @@ def build_rollup_series(
     series: list[dict[str, Any]] = []
     data_points = 0
     for row in rollup_rows:
-        up_count = int(row.up_count or 0)
-        degraded_count = int(row.degraded_count or 0)
-        down_count = int(row.down_count or 0)
-        unknown_count = int(row.unknown_count or 0)
+        up_count = int(row.up_count)
+        degraded_count = int(row.degraded_count)
+        down_count = int(row.down_count)
+        unknown_count = int(row.unknown_count)
         data_points += up_count + degraded_count + down_count + unknown_count
         series.append(
             {
@@ -210,9 +210,9 @@ def build_rollup_availability_map(
     for row in rows:
         endpoint_id = int(row.storage_endpoint_id)
         state = accumulator.setdefault(endpoint_id, {"up": 0, "known": 0})
-        up_count = int(row.up_count or 0)
-        degraded_count = int(row.degraded_count or 0)
-        down_count = int(row.down_count or 0)
+        up_count = int(row.up_count)
+        degraded_count = int(row.degraded_count)
+        down_count = int(row.down_count)
         state["up"] += up_count
         state["known"] += up_count + degraded_count + down_count
 
@@ -240,10 +240,10 @@ class _DailyHealthAccumulator:
     p95_values: list[int] = field(default_factory=list)
 
     def add(self, row: EndpointHealthRollup) -> None:
-        self.ok_count += int(row.up_count or 0)
-        self.degraded_count += int(row.degraded_count or 0)
-        self.down_count += int(row.down_count or 0)
-        sample_count = int(row.latency_sample_count or 0)
+        self.ok_count += int(row.up_count)
+        self.degraded_count += int(row.degraded_count)
+        self.down_count += int(row.down_count)
+        sample_count = int(row.latency_sample_count)
         if sample_count > 0 and row.latency_avg_ms is not None:
             self.latency_total += int(row.latency_avg_ms) * sample_count
             self.latency_samples += sample_count
