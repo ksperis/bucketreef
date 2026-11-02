@@ -115,7 +115,7 @@ export type StorageEndpointPayload = {
   ceph_admin_secret_key?: string | null;
   supervision_access_key?: string | null;
   supervision_secret_key?: string | null;
-  features?: StorageEndpointFeatures | null;
+  features?: StorageEndpointFeatures;
 };
 
 export type StorageEndpointFeatureDetectionPayload = {

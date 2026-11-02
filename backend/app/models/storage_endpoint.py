@@ -2,11 +2,11 @@
 # Licensed under the Apache License, Version 2.0
 import math
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Literal, Optional, Self
 
-from pydantic import ConfigDict, Field, SecretStr, field_validator
+from pydantic import ConfigDict, Field, SecretStr, field_validator, model_validator
 
-from app.models.base import ApiModel
+from app.models.base import ApiModel, reject_explicit_null_fields
 from app.core.domain_enums import StorageProvider
 from app.models.tagging import RequiredTagDefinitionList, TagDefinitionSummary
 from app.utils.normalize import normalize_optional_string_field
@@ -158,6 +158,23 @@ class StorageEndpointUpdate(StorageEndpointCoordinates):
     supervision_access_key: Optional[str] = None
     supervision_secret_key: Optional[SecretStr] = None
     features: Optional[StorageEndpointFeatures] = None
+
+    @model_validator(mode="after")
+    def reject_non_nullable_nulls(self) -> Self:
+        reject_explicit_null_fields(
+            self,
+            (
+                "name",
+                "endpoint_url",
+                "force_path_style",
+                "verify_tls",
+                "provider",
+                "service_identity_mode",
+                "ceph_admin_allowed",
+                "features",
+            ),
+        )
+        return self
 
     normalize_string_fields = field_validator(
         "name", "endpoint_url", "region", "realm_id", "zonegroup_id", "zone_id", mode="before"

@@ -1,6 +1,9 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
+import pytest
+from pydantic import ValidationError
+
 from app.main import app
 from app.models import storage_endpoint as storage_endpoint_models
 from app.models.storage_endpoint import (
@@ -9,6 +12,50 @@ from app.models.storage_endpoint import (
     StorageEndpointMetadata,
     StorageEndpointUpdate,
 )
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "name",
+        "endpoint_url",
+        "force_path_style",
+        "verify_tls",
+        "provider",
+        "service_identity_mode",
+        "ceph_admin_allowed",
+        "features",
+    ],
+)
+def test_storage_endpoint_update_rejects_null_for_concrete_mutations(field: str) -> None:
+    with pytest.raises(ValidationError, match=rf"{field} cannot be null"):
+        StorageEndpointUpdate.model_validate({field: None})
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "region",
+        "realm_id",
+        "zonegroup_id",
+        "zone_id",
+        "latitude",
+        "longitude",
+        "admin_access_key",
+        "admin_secret_key",
+        "runtime_access_key",
+        "runtime_secret_key",
+        "ceph_admin_access_key",
+        "ceph_admin_secret_key",
+        "supervision_access_key",
+        "supervision_secret_key",
+    ],
+)
+def test_storage_endpoint_update_preserves_explicit_nullable_resets(field: str) -> None:
+    payload = StorageEndpointUpdate.model_validate({field: None})
+
+    assert field in payload.model_fields_set
+    assert getattr(payload, field) is None
 
 
 def test_storage_endpoint_read_and_write_contracts_share_metadata_only() -> None:

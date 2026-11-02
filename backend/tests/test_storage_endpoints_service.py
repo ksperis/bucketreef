@@ -1205,7 +1205,7 @@ def test_update_endpoint_clearing_admin_access_key_also_clears_secret(db_session
     assert supervision.secret_key == "SECRET-SUPERVISION"
 
 
-def test_update_endpoint_preserves_omitted_secrets_and_nullable_settings(db_session):
+def test_update_endpoint_preserves_omitted_secrets_and_settings(db_session):
     endpoint = _create_ceph_endpoint_with_full_credentials(
         db_session,
         name="ceph-partial-update",
@@ -1217,12 +1217,7 @@ def test_update_endpoint_preserves_omitted_secrets_and_nullable_settings(db_sess
 
     updated = StorageEndpointsService(db_session).update_endpoint(
         endpoint.id,
-        StorageEndpointUpdate(
-            name="ceph-renamed",
-            force_path_style=None,
-            verify_tls=None,
-            features=None,
-        ),
+        StorageEndpointUpdate(name="ceph-renamed"),
     )
 
     assert updated.name == "ceph-renamed"

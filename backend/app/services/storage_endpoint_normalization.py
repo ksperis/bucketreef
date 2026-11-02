@@ -40,16 +40,6 @@ _CREDENTIAL_FIELD_PAIRS = (
     ("ceph_admin_access_key", "ceph_admin_secret_key"),
 )
 _CREDENTIAL_KINDS = ("admin", "runtime", "supervision", "ceph_admin")
-_PRESERVE_EXISTING_ON_NULL_UPDATE_FIELDS = frozenset(
-    {
-        "features",
-        "force_path_style",
-        "name",
-        "verify_tls",
-    }
-)
-
-
 class EnvStorageEndpoint(StorageEndpointCoordinates):
     name: str
     endpoint_url: str
@@ -499,10 +489,7 @@ def _merge_storage_endpoint_update_fields(
     fields_set: set[str],
 ) -> None:
     for field in fields_set:
-        value = getattr(payload, field)
-        if value is None and field in _PRESERVE_EXISTING_ON_NULL_UPDATE_FIELDS:
-            continue
-        merged[field] = value
+        merged[field] = getattr(payload, field)
 
 
 def _validate_external_identity_replacements(
