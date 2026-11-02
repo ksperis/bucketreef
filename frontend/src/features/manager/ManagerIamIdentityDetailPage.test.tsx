@@ -101,6 +101,39 @@ it("loads and updates a native IAM group", async () => {
   ));
 });
 
+it("tracks normalized identity draft changes and rebases after save", async () => {
+  api.updateUser.mockResolvedValue({
+    name: "alice",
+    path: "/service/",
+    arn: "arn:aws:iam::7:user/alice",
+  });
+  const router = createMemoryRouter([
+    { path: "/manager/users/:userName", element: <ManagerIamIdentityDetailPage kind="user" /> },
+  ], { initialEntries: ["/manager/users/alice"] });
+  render(<RouterProvider router={router} />);
+
+  const form = await screen.findByRole("form", { name: "IAM user details" });
+  const name = within(form).getByLabelText("User name");
+  const path = within(form).getByLabelText("IAM path");
+  expect(within(form).getByRole("button", { name: "Done" })).toBeInTheDocument();
+
+  fireEvent.change(name, { target: { value: " alice " } });
+  expect(within(form).getByRole("button", { name: "Done" })).toBeInTheDocument();
+
+  fireEvent.change(path, { target: { value: "/service/" } });
+  expect(within(form).getByRole("button", { name: "Save changes" })).toBeInTheDocument();
+  fireEvent.change(path, { target: { value: "/people/" } });
+  expect(within(form).getByRole("button", { name: "Done" })).toBeInTheDocument();
+
+  fireEvent.change(path, { target: { value: "/service/" } });
+  fireEvent.submit(form);
+  await waitFor(() => expect(api.updateUser).toHaveBeenCalledWith(
+    "acc-7", "alice", { name: "alice", path: "/service/" },
+  ));
+  await screen.findByText("Changes saved");
+  expect(within(form).getByRole("button", { name: "Done" })).toBeInTheDocument();
+});
+
 it("renders BucketReef-managed identities read-only", async () => {
   api.getUser.mockResolvedValue({
     name: "bkr-private-u1-acc7",
