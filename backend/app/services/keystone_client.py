@@ -185,57 +185,59 @@ class KeystoneClient:
         segments = [part.casefold() for part in path.split("/") if part]
         return not any(part == "v1" or part == "swift" or part.startswith("auth_") for part in segments)
 
-    @classmethod
-    def _catalog_targets(cls, catalog: list[dict]) -> list[dict]:
-        explicit: list[dict] = []
-        fallback: list[dict] = []
-        endpoint_count = 0
-        for service in catalog:
-            if not isinstance(service, dict):
-                raise OpenStackError("invalid_provider_response", "Invalid Keystone service catalog", 502)
-            service_type = service.get("type")
-            if not isinstance(service_type, str) or not service_type or len(service_type) > 128:
-                continue
-            service_type = service_type.casefold()
-            if service_type not in {"s3", "object-store"}:
-                continue
-            service_name = service.get("name")
-            if service_name is not None and (not isinstance(service_name, str) or len(service_name) > 255):
-                raise OpenStackError("invalid_provider_response", "Invalid Keystone service catalog", 502)
-            endpoints = service.get("endpoints")
-            if not isinstance(endpoints, list):
-                raise OpenStackError("invalid_provider_response", "Invalid Keystone service catalog", 502)
-            endpoint_count += len(endpoints)
-            if endpoint_count > 4096:
-                raise OpenStackError("invalid_provider_response", "Keystone service catalog is too large", 502)
-            for endpoint in endpoints:
-                if not isinstance(endpoint, dict):
-                    raise OpenStackError("invalid_provider_response", "Invalid Keystone catalog endpoint", 502)
-                interface = endpoint.get("interface")
-                if interface not in {"public", "internal"}:
-                    continue
-                raw_url = endpoint.get("url")
-                if not isinstance(raw_url, str) or not raw_url or len(raw_url) > 2048:
-                    continue
-                if service_type == "object-store" and not cls._looks_like_direct_s3_url(raw_url):
-                    continue
-                try:
-                    endpoint_url = validate_openstack_catalog_s3_endpoint(raw_url)
-                    target_id = identifier(endpoint.get("id"))
-                    region_id = identifier(endpoint.get("region_id") or endpoint.get("region") or "default")
-                except ValueError:
-                    continue
-                candidate = {
-                    "target_id": target_id,
-                    "region_id": region_id,
-                    "interface": interface,
-                    "service_type": service_type,
-                    "service_name": service_name,
-                    "endpoint_url": endpoint_url,
-                }
-                (explicit if service_type == "s3" else fallback).append(candidate)
+    @staticmethod
+    def _catalog_service(service: object) -> tuple[str, str | None, list[dict]] | None:
+        if not isinstance(service, dict):
+            raise OpenStackError("invalid_provider_response", "Invalid Keystone service catalog", 502)
+        service_type = service.get("type")
+        if not isinstance(service_type, str) or not service_type or len(service_type) > 128:
+            return None
+        service_type = service_type.casefold()
+        if service_type not in {"s3", "object-store"}:
+            return None
+        service_name = service.get("name")
+        if service_name is not None and (not isinstance(service_name, str) or len(service_name) > 255):
+            raise OpenStackError("invalid_provider_response", "Invalid Keystone service catalog", 502)
+        endpoints = service.get("endpoints")
+        if not isinstance(endpoints, list):
+            raise OpenStackError("invalid_provider_response", "Invalid Keystone service catalog", 502)
+        return service_type, service_name, endpoints
 
-        candidates = explicit or fallback
+    @classmethod
+    def _catalog_target_candidate(
+        cls,
+        endpoint: object,
+        *,
+        service_type: str,
+        service_name: str | None,
+    ) -> dict | None:
+        if not isinstance(endpoint, dict):
+            raise OpenStackError("invalid_provider_response", "Invalid Keystone catalog endpoint", 502)
+        interface = endpoint.get("interface")
+        if interface not in {"public", "internal"}:
+            return None
+        raw_url = endpoint.get("url")
+        if not isinstance(raw_url, str) or not raw_url or len(raw_url) > 2048:
+            return None
+        if service_type == "object-store" and not cls._looks_like_direct_s3_url(raw_url):
+            return None
+        try:
+            endpoint_url = validate_openstack_catalog_s3_endpoint(raw_url)
+            target_id = identifier(endpoint.get("id"))
+            region_id = identifier(endpoint.get("region_id") or endpoint.get("region") or "default")
+        except ValueError:
+            return None
+        return {
+            "target_id": target_id,
+            "region_id": region_id,
+            "interface": interface,
+            "service_type": service_type,
+            "service_name": service_name,
+            "endpoint_url": endpoint_url,
+        }
+
+    @staticmethod
+    def _preferred_catalog_targets(candidates: list[dict]) -> list[dict]:
         if not candidates:
             return []
         # One usable S3 target per real Keystone region. Prefer public over internal.
@@ -254,6 +256,30 @@ class KeystoneClient:
             seen_regions.add(region_key)
             result.append(candidate)
         return result
+
+    @classmethod
+    def _catalog_targets(cls, catalog: list[dict]) -> list[dict]:
+        explicit: list[dict] = []
+        fallback: list[dict] = []
+        endpoint_count = 0
+        for service in catalog:
+            parsed_service = cls._catalog_service(service)
+            if parsed_service is None:
+                continue
+            service_type, service_name, endpoints = parsed_service
+            endpoint_count += len(endpoints)
+            if endpoint_count > 4096:
+                raise OpenStackError("invalid_provider_response", "Keystone service catalog is too large", 502)
+            for endpoint in endpoints:
+                candidate = cls._catalog_target_candidate(
+                    endpoint,
+                    service_type=service_type,
+                    service_name=service_name,
+                )
+                if candidate is None:
+                    continue
+                (explicit if service_type == "s3" else fallback).append(candidate)
+        return cls._preferred_catalog_targets(explicit or fallback)
 
     def _credentials(self, identity: KeystoneIdentity, project_id: str, scoped: KeystoneIdentity) -> list[dict]:
         payload, _ = self._request("GET", f"/users/{quote(identity.user_id, safe='')}/credentials/OS-EC2", token=scoped.token)
