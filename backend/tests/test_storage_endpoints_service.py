@@ -465,6 +465,41 @@ def test_update_ceph_endpoint_requires_runtime_identity(db_session):
         )
 
 
+def test_update_ceph_admin_credentials_uses_omission_to_preserve_and_nulls_to_clear(
+    db_session,
+):
+    endpoint = _create_ceph_endpoint(db_session, name="ceph-admin-credential-update")
+    endpoint.service_identities.append(
+        service_identity("ceph_admin", "CEPH-AK", "CEPH-SK")
+    )
+    db_session.commit()
+
+    service = StorageEndpointsService(db_session)
+    service.update_endpoint(
+        endpoint.id,
+        StorageEndpointUpdate(name="ceph-admin-credential-preserved"),
+    )
+
+    db_session.refresh(endpoint)
+    ceph_admin = endpoint.service_identity("ceph_admin")
+    assert ceph_admin is not None
+    assert (ceph_admin.access_key, ceph_admin.secret_key) == ("CEPH-AK", "CEPH-SK")
+
+    service.update_endpoint(
+        endpoint.id,
+        StorageEndpointUpdate(
+            ceph_admin_access_key=None,
+            ceph_admin_secret_key=None,
+        ),
+    )
+
+    db_session.refresh(endpoint)
+    ceph_admin = endpoint.service_identity("ceph_admin")
+    assert ceph_admin is not None
+    assert ceph_admin.access_key is None
+    assert ceph_admin.secret_key is None
+
+
 def test_ceph_multisite_topology_requires_all_ids_together(db_session):
     service = StorageEndpointsService(db_session)
     endpoint = _create_ceph_endpoint(db_session, name="ceph-invalid-multisite")

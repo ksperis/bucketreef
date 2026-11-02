@@ -77,6 +77,11 @@ mode. Entirely empty optional pairs are accepted; partial pairs are rejected.
 Usage detection is signed exclusively by Supervision and is independent of Admin
 Ops capabilities. Managed onboarding probes Usage after provisioning Supervision.
 
+On endpoint `PATCH`, omitting a write-only credential pair preserves the stored
+pair. Sending both fields explicitly as `null` clears that pair when the resulting
+endpoint configuration does not require it. This makes omission and explicit
+credential removal distinct operations.
+
 Endpoint read responses use a separate contract. They keep the Admin Ops access-key
 ID and `has_admin_secret` for the administrator edit flow, but never return Runtime
 , Supervision or Ceph Admin access-key IDs or secret-presence fields. Instead,
