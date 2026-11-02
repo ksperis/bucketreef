@@ -132,17 +132,16 @@ def create_bucket_config(
     context: S3ExecutionTarget,
     payload: BucketCreate,
 ) -> dict[str, Any]:
-    versioning = payload.versioning if payload.versioning is not None else False
     location_constraint = payload.location_constraint
     _map_runtime_error(
         lambda: service.create_bucket(
             payload.name,
             context,
-            versioning=versioning,
+            versioning=payload.versioning,
             location_constraint=location_constraint,
         )
     )
-    audit_metadata: dict[str, Any] = {"versioning": versioning}
+    audit_metadata: dict[str, Any] = {"versioning": payload.versioning}
     if location_constraint:
         audit_metadata["location_constraint"] = location_constraint
     return audit_metadata

@@ -6,6 +6,7 @@ from pydantic import ValidationError
 
 from app.db import S3Account
 from app.main import app
+from app.models.bucket import BucketCreate
 from app.models.s3_account import S3Account as S3AccountSchema
 from app.routers.admin import s3_accounts as admin_accounts_router
 from app.routers.manager import bucket_config_core as manager_bucket_config_core
@@ -213,6 +214,20 @@ def test_manager_create_bucket_passes_versioning_and_location(client: TestClient
         "versioning": True,
         "location_constraint": "eu-west-1",
     }
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"name": "demo-bucket"},
+        {"name": "demo-bucket", "versioning": None},
+    ],
+)
+def test_manager_bucket_create_requires_explicit_versioning(payload):
+    with pytest.raises(ValidationError) as caught:
+        BucketCreate.model_validate(payload)
+
+    assert caught.value.errors()[0]["loc"] == ("versioning",)
 
 
 def test_manager_delete_bucket_returns_structured_not_empty_error(client: TestClient):

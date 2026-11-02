@@ -737,6 +737,16 @@ Deploy the backend and bundled frontend together. Direct callers must include
 `rules` when updating lifecycle configuration and must expect `rules` on
 successful lifecycle and CORS responses. No database migration is required.
 
+## 2026-11 canonical Manager bucket creation versioning
+
+Manager `POST /manager/buckets` now requires a non-null `versioning` boolean.
+The bundled frontend already sends the explicit value for every bucket create
+request, so the backend no longer accepts omission or `null` and silently
+normalizes them to `false`.
+
+Deploy the backend and bundled frontend together. No database migration is
+required.
+
 ## 2026-10 canonical OIDC provider collection payloads
 
 Admin OIDC provider create and update requests now require JSON arrays for
