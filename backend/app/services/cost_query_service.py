@@ -145,6 +145,38 @@ class CostQueryService:
         endpoint_id: Optional[int],
         subject_type: Optional[str] = None,
     ) -> CostTotals:
+        bytes_in, bytes_out, ops_total, days_with_usage = self._aggregate_usage_totals(
+            period,
+            endpoint_id=endpoint_id,
+            subject_type=subject_type,
+        )
+        total_bytes, total_objects, days_with_storage = self._aggregate_storage_totals(
+            period,
+            endpoint_id=endpoint_id,
+            subject_type=subject_type,
+        )
+        avg_storage_bytes = int(total_bytes / days_with_storage) if days_with_storage else None
+
+        return CostTotals(
+            bytes_in=bytes_in,
+            bytes_out=bytes_out,
+            ops_total=ops_total,
+            ops_breakdown=None,
+            avg_storage_bytes=avg_storage_bytes,
+            avg_storage_gb_month=bytes_to_gb(avg_storage_bytes) if avg_storage_bytes is not None else None,
+            total_objects=int(total_objects) if total_objects is not None else None,
+            days_with_data=max(days_with_storage, days_with_usage),
+            storage_days_with_data=days_with_storage,
+            usage_days_with_data=days_with_usage,
+        )
+
+    def _aggregate_usage_totals(
+        self,
+        period: CostPeriod,
+        *,
+        endpoint_id: Optional[int],
+        subject_type: Optional[str],
+    ) -> tuple[int, int, int, int]:
         usage_statement = select(
             func.sum(CostUsageDaily.bytes_in),
             func.sum(CostUsageDaily.bytes_out),
@@ -167,7 +199,15 @@ class CostQueryService:
         bytes_out = int(usage_row[1] or 0)
         ops_total = int(usage_row[2] or 0)
         days_with_usage = int(usage_row[3] or 0)
+        return bytes_in, bytes_out, ops_total, days_with_usage
 
+    def _aggregate_storage_totals(
+        self,
+        period: CostPeriod,
+        *,
+        endpoint_id: Optional[int],
+        subject_type: Optional[str],
+    ) -> tuple[int, int | None, int]:
         storage_statement = select(
             func.sum(CostStorageDaily.total_bytes),
             func.sum(CostStorageDaily.total_objects),
@@ -185,23 +225,10 @@ class CostQueryService:
             subject_type=subject_type,
         )
         storage_row = self.db.execute(storage_statement).one()
-        total_bytes = storage_row[0] or 0
+        total_bytes = int(storage_row[0] or 0)
         total_objects = storage_row[1]
         days_with_storage = int(storage_row[2] or 0)
-        avg_storage_bytes = int(total_bytes / days_with_storage) if days_with_storage else None
-
-        return CostTotals(
-            bytes_in=bytes_in,
-            bytes_out=bytes_out,
-            ops_total=ops_total,
-            ops_breakdown=None,
-            avg_storage_bytes=avg_storage_bytes,
-            avg_storage_gb_month=bytes_to_gb(avg_storage_bytes) if avg_storage_bytes is not None else None,
-            total_objects=int(total_objects) if total_objects is not None else None,
-            days_with_data=max(days_with_storage, days_with_usage),
-            storage_days_with_data=days_with_storage,
-            usage_days_with_data=days_with_usage,
-        )
+        return total_bytes, int(total_objects) if total_objects is not None else None, days_with_storage
 
     @staticmethod
     def _scope_daily_cost_statement(
