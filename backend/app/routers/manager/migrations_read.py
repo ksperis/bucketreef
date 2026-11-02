@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal, get_db
 from app.core.domain_errors import BucketMigrationNotFoundError
-from app.models.access_context import BucketMigrationAccessScope
+from app.services.access_context_contracts import BucketMigrationAccessScope
 from app.models.bucket_migration import (
     BucketMigrationDetail,
     BucketMigrationListResponse,

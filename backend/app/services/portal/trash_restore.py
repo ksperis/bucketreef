@@ -27,7 +27,7 @@ from app.services.object_restore_store import (
 from app.utils.cancellation import invoke_cancel_check
 
 if TYPE_CHECKING:
-    from app.models.access_context import AccountAccess
+    from app.services.access_context_contracts import AccountAccess
 
 
 PortalDeletedPrefixRestoreProgressCallback = Callable[

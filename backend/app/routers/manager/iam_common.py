@@ -11,7 +11,7 @@ from app.core.domain_errors import (
     ManagerIAMCredentialsMissingError,
     ManagerIAMManagedUserConflictError,
 )
-from app.models.access_context import ManagerActor
+from app.services.access_context_contracts import ManagerActor
 from app.models.policy import InlinePolicy
 from app.services.audit_service import AuditService
 from app.services.manager_iam_support import (

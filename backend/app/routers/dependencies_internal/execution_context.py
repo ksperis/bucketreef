@@ -10,10 +10,15 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.domain_errors import S3ConnectionNotFoundError, S3UserNotFoundError
-from app.models.access_context import EffectiveAccountLink, ManagerActor
-from app.models.account_capabilities import AccountCapabilities
+from app.services.access_context_contracts import (
+    AccountCapabilities,
+    EffectiveAccountLink,
+    ManagerActor,
+    ManagerSessionPrincipal,
+)
+
 from app.db import S3Account, S3Connection, S3User, StorageEndpoint, User, UserS3Account
-from app.models.session import ManagerSessionPrincipal
+
 from app.services import effective_access_service
 from app.services import app_settings_service
 from app.services.effective_access_service import EffectiveAccessService

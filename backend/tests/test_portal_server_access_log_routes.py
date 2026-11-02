@@ -11,8 +11,8 @@ from app.models.portal_access_logs import PortalServerAccessLogPage
 from app.routers import dependencies
 from app.routers import portal as portal_router
 from app.routers.portal_common import get_portal_service_dependency
-from app.models.access_context import AccountAccess
-from app.models.account_capabilities import AccountCapabilities
+from app.services.access_context_contracts import AccountAccess, AccountCapabilities
+
 from tests.s3_account_factory import make_s3_account
 from tests.router_test_utils import effective_routes
 

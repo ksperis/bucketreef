@@ -7,7 +7,7 @@ from typing import Annotated, Optional, TypeVar
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.models.access_context import ManagerActor
+from app.services.access_context_contracts import ManagerActor
 from app.models.browser import (
     CleanupObjectVersionsPayload,
     CleanupObjectVersionsResponse,

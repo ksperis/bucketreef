@@ -22,7 +22,8 @@ from app.db import (
 )
 from app.main import app
 from app.models.app_settings import AppSettings
-from app.models.session import ManagerSessionPrincipal, SessionCapabilities
+from app.models.session import SessionCapabilities
+from app.services.access_context_contracts import ManagerSessionPrincipal
 from app.routers import dependencies
 from app.routers.dependencies_internal.feature_gates import (
     require_browser_enabled,

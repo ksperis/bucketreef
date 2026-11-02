@@ -15,7 +15,7 @@ from app.services.managed_resource_naming import (
 from app.services.portal.exceptions import PortalForbiddenError, PortalNotFoundError
 
 if TYPE_CHECKING:
-    from app.models.access_context import AccountAccess
+    from app.services.access_context_contracts import AccountAccess
 
 logger = logging.getLogger(__name__)
 

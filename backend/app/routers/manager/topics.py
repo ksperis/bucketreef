@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from fastapi import APIRouter, Depends, status
 
-from app.models.access_context import ManagerActor
+from app.services.access_context_contracts import ManagerActor
 from app.services.s3_execution_context import S3ExecutionContext
 from app.models.topic import Topic, TopicConfiguration, TopicCreate, TopicPolicy
 from app.routers.dependencies import (

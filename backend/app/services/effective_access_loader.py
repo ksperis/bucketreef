@@ -23,7 +23,7 @@ from app.db import (
     UserUiGroup,
 )
 from app.db.ui_group import ALL_USERS_SYSTEM_KEY
-from app.models.access_context import EffectiveAccountGroupRole, EffectiveAccountLink
+from app.services.access_context_contracts import EffectiveAccountGroupRole, EffectiveAccountLink
 from app.services.effective_access_contracts import EffectiveAccessSource
 from app.utils.account_roles import (
     ManagerAccountRoleValue,

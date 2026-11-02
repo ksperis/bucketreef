@@ -25,7 +25,7 @@ from app.utils.s3_endpoint import resolve_s3_client_options
 from app.utils.storage_endpoint_features import resolve_feature_flags
 
 if TYPE_CHECKING:
-    from app.models.access_context import AccountAccess
+    from app.services.access_context_contracts import AccountAccess
 
 
 logger = logging.getLogger(__name__)

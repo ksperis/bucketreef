@@ -8,7 +8,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.db import User
-from app.models.access_context import AccountAccess
+from app.services.access_context_contracts import AccountAccess
 from app.models.traffic import TrafficStats
 from app.routers.dependencies import get_portal_account_access
 from app.routers.portal_common import get_portal_service_dependency

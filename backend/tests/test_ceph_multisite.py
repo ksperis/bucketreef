@@ -20,7 +20,8 @@ from app.models.ceph_multisite import (
     Topology,
     Zone,
 )
-from app.models.session import ManagerSessionPrincipal, SessionCapabilities
+from app.models.session import SessionCapabilities
+from app.services.access_context_contracts import ManagerSessionPrincipal
 from app.routers import dependencies
 from app.routers.ceph_admin import multisite as multisite_router
 from app.services import ceph_multisite_service as multisite_service_module

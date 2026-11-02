@@ -8,9 +8,9 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.runtime_surfaces import runtime_surface_enabled
-from app.models.access_context import ManagerActor
+from app.services.access_context_contracts import ManagerActor, ManagerSessionPrincipal
 from app.models.browser_transfer_policy import BrowserTransferPolicy, BrowserTransferWorkspace
-from app.models.session import ManagerSessionPrincipal
+
 from app.routers.dependencies_internal.auth_session import get_current_actor
 from app.routers.dependencies_internal.execution_context import resolve_s3_execution_context
 from app.services import app_settings_service

@@ -19,7 +19,7 @@ from app.utils.account_roles import PortalAccountRoleValue
 from app.utils.normalize import normalize_string_list
 
 if TYPE_CHECKING:
-    from app.models.access_context import AccountAccess
+    from app.services.access_context_contracts import AccountAccess
 
 
 class PortalBucketsUsersMixin:

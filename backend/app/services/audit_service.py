@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core.sensitive_data import sanitize_audit_metadata
 from app.db import AuditLog, User
-from app.models.access_context import ManagerActor
+from app.services.access_context_contracts import ManagerActor
 from app.models.audit import AuditStatus
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.audit_policy import should_persist_audit_action

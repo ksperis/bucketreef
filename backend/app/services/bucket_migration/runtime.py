@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
 from app.db import BucketMigration, BucketMigrationEvent, BucketMigrationItem
-from app.models.access_context import BucketMigrationAccessScope
+from app.services.access_context_contracts import BucketMigrationAccessScope
 from app.models.bucket_migration import BucketMigrationDetail
 from app.services.mappers.bucket_migration import bucket_migration_to_detail
 from app.services.bucket_migration.worker import get_bucket_migration_worker

@@ -17,7 +17,7 @@ from app.db import (
     S3Account,
     User,
 )
-from app.models.access_context import AccountAccess
+from app.services.access_context_contracts import AccountAccess
 from app.models.app_settings import PortalSettingsOverride
 from app.models.feature_policy import FeaturePolicy, PORTAL_FEATURE_FIELDS
 from app.models.portal_requests import (

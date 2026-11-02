@@ -23,7 +23,7 @@ from app.utils.resource_names import validate_s3_bucket_name
 from app.utils.time import normalize_utc
 
 if TYPE_CHECKING:
-    from app.models.access_context import AccountAccess
+    from app.services.access_context_contracts import AccountAccess
 
 
 class PortalStorageSpaceCatalogMixin:

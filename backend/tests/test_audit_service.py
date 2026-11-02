@@ -7,7 +7,8 @@ from sqlalchemy import func, select
 
 from app.db import AuditLog, S3Account, User, UserRole
 from app.models.audit import AuditLogEntry, AuditLogListResponse
-from app.models.session import ManagerSessionPrincipal, SessionCapabilities
+from app.models.session import SessionCapabilities
+from app.services.access_context_contracts import ManagerSessionPrincipal
 from app.services.audit_policy import (
     DATA_PLANE_AUDIT_ACTIONS,
     NON_AUDIT_OPERATION_ACTIONS,

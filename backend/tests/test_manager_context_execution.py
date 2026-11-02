@@ -3,9 +3,10 @@
 import pytest
 
 from app.db import User, UserRole
-from app.models.account_capabilities import AccountCapabilities
+from app.services.access_context_contracts import AccountCapabilities, ManagerSessionPrincipal
 from app.models.app_settings import AppSettings
-from app.models.session import ManagerSessionPrincipal, SessionCapabilities
+from app.models.session import SessionCapabilities
+
 from app.routers.manager import context as context_router
 from app.services.s3_execution_context import S3ExecutionContext
 

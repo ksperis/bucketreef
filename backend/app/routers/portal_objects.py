@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 
 from app.db import User
-from app.models.access_context import AccountAccess
+from app.services.access_context_contracts import AccountAccess
 from app.models.portal_objects import PortalStorageObjectDeleteResponse, PortalStorageObjectDetail
 from app.models.portal_versions import (
     PortalDeletedPrefixRestoreRequest,

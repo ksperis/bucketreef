@@ -3,7 +3,7 @@
 
 from fastapi import HTTPException, status
 
-from app.models.account_capabilities import AccountCapabilities
+from app.services.access_context_contracts import AccountCapabilities
 from app.services.s3_execution_context import S3ExecutionContext
 
 

@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.models.access_context import ManagerActor
+from app.services.access_context_contracts import ManagerActor
 from app.models.iam import IAMPolicyPage
 from app.models.policy import Policy, PolicyCreate
 from app.routers.dependencies import (

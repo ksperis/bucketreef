@@ -10,7 +10,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import sessionmaker
 
 from app.db import BucketMigration, BucketMigrationEvent, BucketMigrationItem
-from app.models.access_context import BucketMigrationAccessScope
+from app.services.access_context_contracts import BucketMigrationAccessScope
 from app.routers.manager import migrations_read as migrations_router
 
 

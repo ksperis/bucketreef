@@ -7,7 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-from app.models.access_context import EffectiveAccountLink
+from app.services.access_context_contracts import EffectiveAccountLink
 from app.models.user import LinkedUiGroup, ManagerToolAccess
 
 

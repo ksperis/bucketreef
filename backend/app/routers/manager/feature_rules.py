@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, Query
 
 from app.db import User
-from app.models.access_context import ManagerActor
+from app.services.access_context_contracts import ManagerActor
 from app.models.bucket import FeatureRuleInventoryBucket, FeatureRuleInventoryFeature
 from app.routers.dependencies import (
     get_s3_execution_context,

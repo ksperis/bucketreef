@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.db import QuotaUsageDaily
-from app.models.access_context import ManagerActor
+from app.services.access_context_contracts import ManagerActor
 from app.models.healthcheck import WorkspaceEndpointHealthOverviewResponse
 from app.models.storage_stats import StorageStats
 from app.models.traffic import TrafficStats

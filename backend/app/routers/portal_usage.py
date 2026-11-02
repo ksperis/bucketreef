@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.db import QuotaUsageDaily, User
-from app.models.access_context import AccountAccess
+from app.services.access_context_contracts import AccountAccess
 from app.models.bucket_usage_stats import BucketUsageStatsAggregateResponse
 from app.models.portal_usage import (
     PortalStorageSpaceUsageStatsResponse,

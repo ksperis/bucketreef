@@ -23,7 +23,7 @@ from app.models.access_audit import (
     AccessAuditTarget,
     PaginatedAccessAuditResponse,
 )
-from app.models.access_context import EffectiveAccountLink
+from app.services.access_context_contracts import EffectiveAccountLink
 from app.services.effective_access_contracts import EffectiveAccessSource, ResolvedUserAccess
 from app.services.effective_access_service import EffectiveAccessService
 

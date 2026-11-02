@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.db import PortalAccountRole, User
-from app.models.access_context import AccountAccess
+from app.services.access_context_contracts import AccountAccess
 from app.models.app_settings import PortalSettingsOverride
 from app.models.portal_context import PortalAccount, PortalState
 from app.models.portal_settings import PortalProjectSettings

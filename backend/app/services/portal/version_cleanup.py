@@ -23,7 +23,7 @@ from app.services.portal.exceptions import PortalForbiddenError, PortalNotFoundE
 from app.utils.cancellation import invoke_cancel_check
 
 if TYPE_CHECKING:
-    from app.models.access_context import AccountAccess
+    from app.services.access_context_contracts import AccountAccess
 
 
 PortalVersionCleanupProgressCallback = Callable[[PortalStorageSpaceVersionCleanupProgress], None]
