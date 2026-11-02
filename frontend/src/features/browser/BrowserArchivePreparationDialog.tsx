@@ -2,7 +2,7 @@
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import { formatBytes } from "../../utils/format";
 import { useBrowserI18n } from "./browserI18n";
-import type { BrowserArchivePreparation } from "./useBrowserDownloads";
+import type { BrowserArchivePreparation } from "./useBrowserArchiveDownload";
 
 type BrowserArchivePreparationDialogProps = {
   preparation: BrowserArchivePreparation;
