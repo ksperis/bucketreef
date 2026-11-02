@@ -17,11 +17,13 @@ import BucketCompareObjectDetails, {
 } from "./BucketCompareObjectDetails";
 import {
   formatCompareDisplayLimitMessage,
+  type BucketCompareContentSection,
+  type CompareVisibleKeysCopyFeedback,
+} from "./bucketCompareContentDiff";
+import {
   getChangedTone,
   getRunStatusLabel,
   getRunStatusTone,
-  type BucketCompareContentSection,
-  type CompareVisibleKeysCopyFeedback,
   type BucketCompareRunFilters,
   type BucketCompareRunPresentationItem,
 } from "./bucketCompareShared";

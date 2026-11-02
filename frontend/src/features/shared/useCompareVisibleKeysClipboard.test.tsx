@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { useCompareVisibleKeysClipboard } from "./bucketCompareShared";
+import { useCompareVisibleKeysClipboard } from "./bucketCompareContentDiff";
 
 const originalClipboardDescriptor = Object.getOwnPropertyDescriptor(
   window.navigator,

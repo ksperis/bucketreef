@@ -31,10 +31,8 @@ import { cephAdminPageBreadcrumbs } from "./cephAdminBreadcrumbs";
 import {
   BUCKET_COMPARE_CONFIG_FEATURE_OPTIONS,
   BucketCompareManualMappingEditor,
-  buildBucketCompareContentSections,
   formatUnknown,
   getChangedTone,
-  getObjectParentPrefix,
   matchesBucketCompareRunFilters,
   normalizeBucketCompareParallelism,
   renderDiffLines,
@@ -42,6 +40,10 @@ import {
   summarizeBucketCompareRun,
   useBucketCompareWorkflowState,
 } from "../shared/bucketCompareShared";
+import {
+  buildBucketCompareContentSections,
+  getObjectParentPrefix,
+} from "../shared/bucketCompareContentDiff";
 import {
   formatDownloadTimestamp,
   triggerJsonDownload,
