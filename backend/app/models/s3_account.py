@@ -2,10 +2,10 @@
 # Licensed under the Apache License, Version 2.0
 from typing import Optional
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
 from app.models.account_access import AccountAccessGrant
-from app.models.base import ApiModel
+from app.models.base import ApiModel, reject_explicit_null_fields
 from app.models.pagination import PaginatedResponse
 from app.models.tagging import (
     OptionalTagDefinitionList,
@@ -145,19 +145,13 @@ class S3AccountUpdate(ApiModel):
     allow_bucket_usage_stats_collection: Optional[bool] = None
     allow_multisite_endpoint_switching: Optional[bool] = None
 
-    @field_validator("storage_endpoint_id", mode="before")
-    @classmethod
-    def reject_null_storage_endpoint_id(cls, value: object) -> object:
-        if value is None:
-            raise ValueError("storage_endpoint_id cannot be null")
-        return value
-
-    @field_validator("user_links", "group_links", mode="before")
-    @classmethod
-    def reject_null_principal_links(cls, value: object) -> object:
-        if value is None:
-            raise ValueError("principal links cannot be null; use an empty list to clear them")
-        return value
+    @model_validator(mode="after")
+    def _reject_null_for_non_nullable_updates(self) -> "S3AccountUpdate":
+        reject_explicit_null_fields(
+            self,
+            ("name", "storage_endpoint_id", "user_links", "group_links", "tags"),
+        )
+        return self
 
 
 class S3AccountSummary(ApiModel):

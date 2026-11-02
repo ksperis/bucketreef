@@ -3,10 +3,10 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 
 from app.models.access_key_metadata import AccessKeyMetadata
-from app.models.base import ApiModel
+from app.models.base import ApiModel, reject_explicit_null_fields
 from app.utils.rgw_identifiers import validate_rgw_user_uid, validate_rgw_tenant
 from app.models.pagination import PaginatedResponse
 from app.models.tagging import (
@@ -125,6 +125,14 @@ class S3UserUpdate(ApiModel):
     allow_bucket_usage_stats_collection: Optional[bool] = None
     allow_multisite_endpoint_switching: Optional[bool] = None
     allow_managed_private_connection_provisioning: Optional[bool] = None
+
+    @model_validator(mode="after")
+    def _reject_null_for_non_nullable_updates(self) -> "S3UserUpdate":
+        reject_explicit_null_fields(
+            self,
+            ("name", "user_links", "group_links", "tags"),
+        )
+        return self
 
 class S3UserAccessKey(AccessKeyMetadata):
     access_key_id: str

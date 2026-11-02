@@ -116,7 +116,7 @@ class S3AccountUpdateService:
             )
         if payload.name:
             account.name = payload.name
-        if payload.email is not None:
+        if "email" in payload.model_fields_set:
             account.email = payload.email
         if payload.storage_endpoint_id is not None:
             account.storage_endpoint_id = target_endpoint_id

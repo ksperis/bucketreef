@@ -114,14 +114,14 @@ type ImportS3UserPayload = {
 };
 
 export type UpdateS3UserPayload = {
-  name?: string | null;
+  name?: string;
   email?: string | null;
-  user_links?: S3UserUserLinkInput[] | null;
-  group_links?: S3UserGroupLinkInput[] | null;
+  user_links?: S3UserUserLinkInput[];
+  group_links?: S3UserGroupLinkInput[];
   quota_max_size_gb?: number | null;
   quota_max_size_unit?: string | null;
   quota_max_objects?: number | null;
-  tags?: TagDefinitionInput[] | null;
+  tags?: TagDefinitionInput[];
   allow_bucket_quota_management?: boolean | null;
   allow_access_key_management?: boolean | null;
   allow_access_key_metadata?: boolean | null;

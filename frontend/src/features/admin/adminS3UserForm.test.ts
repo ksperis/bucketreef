@@ -83,7 +83,7 @@ describe("adminS3UserForm", () => {
 
     expect(adminS3UserPayload(form, true, false)).toEqual({
       name: "Updated",
-      email: undefined,
+      email: null,
       tags: [],
       user_links: [{ user_id: 7, allow_manager_browser_data_access: true }],
       group_links: [],
@@ -99,5 +99,12 @@ describe("adminS3UserForm", () => {
       allow_access_key_management: null,
     }));
     expect(adminS3UserPayload(form, false, true)).not.toHaveProperty("quota_max_size_gb");
+  });
+
+  it("uses null to clear an existing email address", () => {
+    const form = adminS3UserForm(makeUser({ email: "user@example.test" }));
+    form.email = "   ";
+
+    expect(adminS3UserPayload(form, false, false).email).toBeNull();
   });
 });

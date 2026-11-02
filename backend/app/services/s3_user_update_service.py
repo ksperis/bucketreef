@@ -68,9 +68,9 @@ class S3UserUpdateService:
             s3_user,
         )
 
-        if payload.name is not None:
+        if "name" in payload.model_fields_set:
             s3_user.name = payload.name
-        if payload.email is not None:
+        if "email" in payload.model_fields_set:
             s3_user.email = payload.email
         self.associations.replace_links(
             s3_user,

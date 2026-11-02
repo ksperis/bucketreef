@@ -490,6 +490,27 @@ def test_update_account_persists_project_usage_feature_overrides(db_session, mon
     assert account.allow_bucket_usage_stats_collection is True
 
 
+def test_update_account_explicit_null_clears_email(db_session, monkeypatch):
+    endpoint = _seed_endpoint(db_session, name="ceph-clear-email", is_default=True)
+    account = _seed_account(
+        db_session,
+        endpoint.id,
+        name="clear-email-account",
+        rgw_account_id="RGW-CLEAR-EMAIL",
+    )
+    account.email = "owner@example.test"
+    db_session.commit()
+
+    service, _ = _service(db_session)
+    monkeypatch.setattr(service.metrics, "get_quota", lambda *args, **kwargs: (None, None))
+
+    updated = service.update_account(account.id, S3AccountUpdate(email=None))
+
+    assert updated.email is None
+    db_session.refresh(account)
+    assert account.email is None
+
+
 def test_delete_account_guardrails_and_success(db_session, monkeypatch):
     endpoint = _seed_endpoint(db_session, name="ceph-delete", is_default=True)
     account = _seed_account(db_session, endpoint.id, name="delete-acc", rgw_account_id="RGW-DEL-1")

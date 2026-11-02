@@ -627,6 +627,22 @@ describe("S3UsersPage modal tabs", () => {
     }));
   });
 
+  it("clears the optional RGW user email with an explicit null update", async () => {
+    render(<MemoryRouter><S3UsersPage /></MemoryRouter>);
+    await screen.findByText("rgw-user-1");
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+
+    fireEvent.change(await screen.findByRole("textbox", { name: "Email" }), {
+      target: { value: "" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(updateS3UserMock).toHaveBeenCalled());
+    expect(updateS3UserMock.mock.calls.at(-1)?.[1]).toEqual(
+      expect.objectContaining({ email: null }),
+    );
+  });
+
   it("lets ui_admin submit Manager feature grants from S3 user edits", async () => {
     setSessionUserCache({ id: 2, role: "ui_admin" });
 
