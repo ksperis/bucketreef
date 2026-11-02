@@ -3,9 +3,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Optional, Protocol, Tuple
 
-from app.db import S3Connection
+from app.utils.storage_endpoint_features import StorageEndpointLike
+
+
+class S3ConnectionLike(Protocol):
+    storage_endpoint: Optional[StorageEndpointLike]
+    custom_endpoint_url: Optional[str]
+    custom_region: Optional[str]
+    custom_force_path_style: Optional[bool]
+    custom_verify_tls: Optional[bool]
+    custom_provider: Optional[str]
 
 
 @dataclass
@@ -18,7 +27,7 @@ class ConnectionEndpointDetails:
     endpoint_name: Optional[str]
 
 
-def resolve_connection_details(conn: S3Connection) -> ConnectionEndpointDetails:
+def resolve_connection_details(conn: S3ConnectionLike) -> ConnectionEndpointDetails:
     endpoint = conn.storage_endpoint
     if endpoint is not None:
         return ConnectionEndpointDetails(
@@ -46,6 +55,6 @@ def resolve_connection_details(conn: S3Connection) -> ConnectionEndpointDetails:
     )
 
 
-def resolve_connection_endpoint(conn: S3Connection) -> Tuple[Optional[str], Optional[str], bool, bool]:
+def resolve_connection_endpoint(conn: S3ConnectionLike) -> Tuple[Optional[str], Optional[str], bool, bool]:
     details = resolve_connection_details(conn)
     return details.endpoint_url, details.region, details.force_path_style, details.verify_tls

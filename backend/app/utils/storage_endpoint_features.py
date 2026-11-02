@@ -3,13 +3,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Optional, Protocol
 
 import yaml
 
-from app.db import StorageEndpoint
 from app.core.domain_enums import StorageProvider
 from app.utils.normalize import normalize_storage_provider
+
+
+class StorageEndpointLike(Protocol):
+    provider: str
+    features: Any
+    region: Optional[str]
+    endpoint_url: Optional[str]
 
 
 FEATURE_KEYS: tuple[str, ...] = (
@@ -340,7 +346,7 @@ def required_service_identity_kinds(features: dict[str, dict[str, Any]]) -> set[
     return required
 
 
-def resolve_feature_flags(endpoint: StorageEndpoint) -> EndpointFeatureFlags:
+def resolve_feature_flags(endpoint: StorageEndpointLike) -> EndpointFeatureFlags:
     features = normalize_features(
         endpoint.provider,
         endpoint.features,
@@ -367,19 +373,19 @@ def resolve_feature_flags(endpoint: StorageEndpoint) -> EndpointFeatureFlags:
     )
 
 
-def resolve_admin_endpoint(endpoint: StorageEndpoint) -> Optional[str]:
+def resolve_admin_endpoint(endpoint: StorageEndpointLike) -> Optional[str]:
     flags = resolve_feature_flags(endpoint)
     if not flags.admin_enabled:
         return None
     return resolve_rgw_admin_api_endpoint(endpoint)
 
 
-def resolve_rgw_admin_api_endpoint(endpoint: StorageEndpoint) -> Optional[str]:
+def resolve_rgw_admin_api_endpoint(endpoint: StorageEndpointLike) -> Optional[str]:
     flags = resolve_feature_flags(endpoint)
     return flags.admin_endpoint or endpoint.endpoint_url
 
 
-def resolve_sts_endpoint(endpoint: StorageEndpoint) -> Optional[str]:
+def resolve_sts_endpoint(endpoint: StorageEndpointLike) -> Optional[str]:
     flags = resolve_feature_flags(endpoint)
     if not flags.sts_enabled:
         return None
@@ -391,7 +397,7 @@ def resolve_sts_endpoint(endpoint: StorageEndpoint) -> Optional[str]:
     return endpoint.endpoint_url
 
 
-def resolve_iam_endpoint(endpoint: StorageEndpoint) -> Optional[str]:
+def resolve_iam_endpoint(endpoint: StorageEndpointLike) -> Optional[str]:
     flags = resolve_feature_flags(endpoint)
     if not flags.iam_enabled:
         return None
@@ -403,7 +409,7 @@ def resolve_iam_endpoint(endpoint: StorageEndpoint) -> Optional[str]:
     return endpoint.endpoint_url
 
 
-def resolve_iam_signing_region(endpoint: StorageEndpoint) -> Optional[str]:
+def resolve_iam_signing_region(endpoint: StorageEndpointLike) -> Optional[str]:
     provider = StorageProvider(endpoint.provider)
     region = endpoint.region
     if provider == StorageProvider.AWS:
