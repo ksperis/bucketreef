@@ -17,6 +17,8 @@ class ExpiringCacheEntry(Protocol):
 _KeyT = TypeVar("_KeyT")
 _EntryT = TypeVar("_EntryT", bound=ExpiringCacheEntry)
 _ValueT = TypeVar("_ValueT")
+_CacheValueT = TypeVar("_CacheValueT")
+_InflightValueT = TypeVar("_InflightValueT")
 
 
 @dataclass
@@ -99,8 +101,8 @@ def get_or_build_single_flight_cache(
 
 
 def invalidate_single_flight_cache(
-    cache: OrderedDict[_KeyT, TtlCacheEntry[_ValueT]],
-    inflight: dict[_KeyT, Future[_ValueT]],
+    cache: OrderedDict[_KeyT, _CacheValueT],
+    inflight: dict[_KeyT, _InflightValueT],
     lock: Lock,
     *,
     predicate: Callable[[_KeyT], bool] | None = None,
@@ -111,7 +113,9 @@ def invalidate_single_flight_cache(
             cache.clear()
             inflight.clear()
             return
-        for entries in (cache, inflight):
-            invalid_keys = [key for key in entries if predicate(key)]
-            for key in invalid_keys:
-                entries.pop(key, None)
+        cached_keys = [key for key in cache if predicate(key)]
+        for key in cached_keys:
+            cache.pop(key, None)
+        inflight_keys = [key for key in inflight if predicate(key)]
+        for key in inflight_keys:
+            inflight.pop(key, None)
