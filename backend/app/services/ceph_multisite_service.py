@@ -19,7 +19,7 @@ from app.db import StorageEndpoint
 from app.models.ceph_multisite import (
     BilogInfo, BucketDiagnostic, BucketIdentity, EndpointReference, Family, Flow,
     LocalZoneConfiguration, MultisiteState, Observation, Operation, Overview, Period,
-    Provenance, SyncStatus, Topology,
+    Provenance, SyncStatus, Topology, Zone,
 )
 from app.services.ceph_admin_endpoint_service import (
     CephAdminEndpointService, CephAdminEndpointProviderError, CephAdminEndpointUnavailableError,
@@ -312,6 +312,97 @@ class CephMultisiteService:
                     source_zone_id=source_zone_id, status=status,
                     scope_requires_confirmation=zone.policy_requires_confirmation if zone else False)
 
+    def _build_overview_jobs(
+        self,
+        topology: Topology,
+        selected_zones: list[Zone],
+    ) -> tuple[list[tuple[Family, StorageEndpoint, str]], list[str]]:
+        period = topology.period.data
+        if period is None:
+            return [], []
+
+        jobs: list[tuple[Family, StorageEndpoint, str]] = []
+        uncollected: list[str] = []
+        for zone in selected_zones:
+            if zone.diagnostic_endpoint_id is None:
+                uncollected.append(zone.id)
+                continue
+            try:
+                destination = self.resolve(zone.diagnostic_endpoint_id)
+            except HTTPException:
+                uncollected.append(zone.id)
+                continue
+            if period.master_zone:
+                jobs.append(("metadata", destination, period.master_zone))
+            for source in period.zones:
+                if source.id == zone.id:
+                    continue
+                if (
+                    zone.sync_from_all is False
+                    and not zone.policy_requires_confirmation
+                    and source.name not in zone.sync_from
+                    and source.id not in zone.sync_from
+                ):
+                    continue
+                jobs.append(("data", destination, source.id))
+
+        # Read metadata for every destination first, then spread the remaining
+        # budget across destinations for each candidate source.
+        jobs.sort(key=lambda job: (job[0] != "metadata", job[2], job[1].id))
+        return jobs, uncollected
+
+    def _collect_overview_jobs(
+        self,
+        topology: Topology,
+        jobs: list[tuple[Family, StorageEndpoint, str]],
+        result: Overview,
+    ) -> None:
+        # ORM reads and endpoint authorization stay on the calling DB thread.
+        # Workers receive only resolved endpoints, and execute fixed GET methods.
+        executor = ThreadPoolExecutor(max_workers=3, thread_name_prefix="multisite")
+        try:
+            futures = {
+                executor.submit(self.flow, topology, dest, source, family): (family, dest, source)
+                for family, dest, source in jobs[:self.settings.ceph_multisite_call_budget]
+            }
+            done, pending = wait(
+                futures,
+                timeout=max(0, self.deadline - monotonic()),
+            )
+            for future in done:
+                family, dest, source = futures[future]
+                try:
+                    flow = future.result()
+                except Exception:
+                    local = self.local_zones.get(dest.id)
+                    flow = Flow(
+                        destination_endpoint_id=dest.id,
+                        destination_zone_id=local.id if local else "",
+                        source_zone_id=source,
+                        status=self.missing(
+                            dest,
+                            "metadata_status" if family == "metadata" else "data_status",
+                            "collection_failed",
+                            availability="unavailable",
+                            source=source,
+                        ),
+                    )
+                getattr(result, family).append(flow)
+                if flow.status.reason_code == "collection_budget_exhausted":
+                    result.uncollected.append(flow.destination_zone_id)
+            for future in pending:
+                future.cancel()
+                _, dest, _ = futures[future]
+                local = self.local_zones.get(dest.id)
+                result.uncollected.append(local.id if local else str(dest.id))
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
+
+        result.uncollected.extend(
+            (self.local_zones.get(dest.id).id if self.local_zones.get(dest.id) else str(dest.id))
+            for _, dest, _ in jobs[self.settings.ceph_multisite_call_budget:]
+        )
+
     def overview(self, offset: int = 0) -> Overview:
         topology = self.topology()
         result = Overview(topology=topology, metadata=[], data=[], uncollected=[])
@@ -320,58 +411,12 @@ class CephMultisiteService:
         zones = topology.period.data.zones
         selected_zones = zones[offset:offset + 8]
         result.next_offset = offset + 8 if len(zones) > offset + 8 else None
-        jobs = []
-        for zone in selected_zones:
-            if zone.diagnostic_endpoint_id is None:
-                result.uncollected.append(zone.id)
-                continue
-            try:
-                dest = self.resolve(zone.diagnostic_endpoint_id)
-            except HTTPException:
-                result.uncollected.append(zone.id)
-                continue
-            if topology.period.data.master_zone:
-                jobs.append(("metadata", dest, topology.period.data.master_zone))
-            for source in zones:
-                if source.id == zone.id:
-                    continue
-                if zone.sync_from_all is False and not zone.policy_requires_confirmation and source.name not in zone.sync_from and source.id not in zone.sync_from:
-                    continue
-                jobs.append(("data", dest, source.id))
-        # Read metadata for every destination first, then spread the remaining
-        # budget across destinations for each candidate source.
-        jobs.sort(key=lambda job: (job[0] != "metadata", job[2], job[1].id))
-        # ORM reads and endpoint authorization stay on the calling DB thread.
-        # Workers receive only resolved endpoints, and execute fixed GET methods.
-        executor = ThreadPoolExecutor(max_workers=3, thread_name_prefix="multisite")
-        futures = {executor.submit(self.flow, topology, dest, source, family): (family, dest, source)
-                   for family, dest, source in jobs[:self.settings.ceph_multisite_call_budget]}
-        done, pending = wait(futures, timeout=max(0, self.deadline - monotonic()))
-        for future in done:
-            family, dest, source = futures[future]
-            try:
-                flow = future.result()
-            except Exception:
-                local = self.local_zones.get(dest.id)
-                flow = Flow(destination_endpoint_id=dest.id, destination_zone_id=local.id if local else "",
-                            source_zone_id=source, status=self.missing(dest, "metadata_status" if family == "metadata" else "data_status",
-                                                                     "collection_failed", availability="unavailable", source=source))
-            getattr(result, family).append(flow)
-            if flow.status.reason_code == "collection_budget_exhausted":
-                result.uncollected.append(flow.destination_zone_id)
-        for future in pending:
-            future.cancel()
-            _, dest, _ = futures[future]
-            local = self.local_zones.get(dest.id)
-            result.uncollected.append(local.id if local else str(dest.id))
-        result.uncollected.extend(
-            (self.local_zones.get(dest.id).id if self.local_zones.get(dest.id) else str(dest.id))
-            for _, dest, _ in jobs[self.settings.ceph_multisite_call_budget:]
-        )
+        jobs, uncollected = self._build_overview_jobs(topology, selected_zones)
+        result.uncollected.extend(uncollected)
+        self._collect_overview_jobs(topology, jobs, result)
         result.uncollected = sorted(set(result.uncollected))
         result.metadata.sort(key=lambda f: (f.destination_zone_id, f.source_zone_id))
         result.data.sort(key=lambda f: (f.destination_zone_id, f.source_zone_id))
-        executor.shutdown(wait=False, cancel_futures=True)
         return result
 
     def bucket_identity(self, endpoint, name: str, tenant: str | None) -> Observation[BucketIdentity]:
