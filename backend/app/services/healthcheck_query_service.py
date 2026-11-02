@@ -33,7 +33,8 @@ from app.services.healthcheck_query_projection import (
     build_rollup_availability_map,
     build_rollup_series,
     build_segment_timeline_map,
-    incident_duration_minutes,
+    global_incident_payload,
+    incident_payload,
     workspace_endpoint_snapshot,
     workspace_incident_payload,
 )
@@ -278,24 +279,10 @@ class HealthCheckQueryService:
             )
             .order_by(EndpointHealthStatusSegment.started_at.desc())
         ).all()
-        incidents = []
-        for row in segment_rows:
-            meta = endpoint_meta.get(int(row.storage_endpoint_id), {})
-            end_time = row.ended_at
-            incidents.append(
-                {
-                    "endpoint_id": int(row.storage_endpoint_id),
-                    "endpoint_name": meta.get("name") or f"Endpoint {row.storage_endpoint_id}",
-                    "endpoint_url": meta.get("url"),
-                    "status": row.status,
-                    "start": row.started_at.isoformat(),
-                    "end": end_time.isoformat() if end_time else None,
-                    "duration_minutes": incident_duration_minutes(row),
-                    "check_mode": coerce_check_mode(row.check_mode),
-                    "check_type": row.check_type or DEFAULT_CHECK_TYPE,
-                    "scope": row.scope or DEFAULT_SCOPE,
-                }
-            )
+        incidents = [
+            global_incident_payload(row, endpoint_meta=endpoint_meta)
+            for row in segment_rows
+        ]
 
         total = len(incidents)
         if limit > 0:
@@ -466,19 +453,7 @@ class HealthCheckQueryService:
             )
             .order_by(EndpointHealthStatusSegment.started_at.desc())
         ).all()
-        incidents: list[dict[str, Any]] = []
-        for row in rows:
-            incidents.append(
-                {
-                    "start": row.started_at.isoformat(),
-                    "end": row.ended_at.isoformat() if row.ended_at else None,
-                    "duration_minutes": incident_duration_minutes(row),
-                    "status": row.status,
-                    "check_mode": coerce_check_mode(row.check_mode),
-                    "check_type": row.check_type or DEFAULT_CHECK_TYPE,
-                    "scope": row.scope or DEFAULT_SCOPE,
-                }
-            )
+        incidents = [incident_payload(row) for row in rows]
         return {
             "endpoint_id": endpoint_id,
             "window": window.value,

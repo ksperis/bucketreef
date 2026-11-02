@@ -28,6 +28,33 @@ def incident_duration_minutes(row: EndpointHealthStatusSegment) -> int | None:
     return int((row.ended_at - row.started_at).total_seconds() / 60)
 
 
+def incident_payload(row: EndpointHealthStatusSegment) -> dict[str, Any]:
+    return {
+        "start": row.started_at.isoformat(),
+        "end": row.ended_at.isoformat() if row.ended_at else None,
+        "duration_minutes": incident_duration_minutes(row),
+        "status": row.status,
+        "check_mode": coerce_check_mode(row.check_mode),
+        "check_type": row.check_type or DEFAULT_CHECK_TYPE,
+        "scope": row.scope or DEFAULT_SCOPE,
+    }
+
+
+def global_incident_payload(
+    row: EndpointHealthStatusSegment,
+    *,
+    endpoint_meta: dict[int, dict[str, Any]],
+) -> dict[str, Any]:
+    endpoint_id = int(row.storage_endpoint_id)
+    meta = endpoint_meta.get(endpoint_id, {})
+    return {
+        "endpoint_id": endpoint_id,
+        "endpoint_name": meta.get("name") or f"Endpoint {row.storage_endpoint_id}",
+        "endpoint_url": meta.get("url"),
+        **incident_payload(row),
+    }
+
+
 def workspace_endpoint_snapshot(
     *,
     endpoint: StorageEndpoint,

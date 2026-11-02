@@ -8,6 +8,8 @@ from app.services.healthcheck_query_projection import (
     build_rollup_availability_map,
     build_rollup_series,
     build_segment_timeline_map,
+    global_incident_payload,
+    incident_payload,
     status_from_rollup_counts,
 )
 
@@ -50,6 +52,41 @@ def test_build_rollup_series_projects_status_and_counts_samples():
             "scope": "endpoint",
         }
     ]
+
+
+def test_incident_payloads_share_canonical_incident_fields():
+    started_at = datetime(2026, 9, 1, 10, tzinfo=UTC)
+    ended_at = started_at + timedelta(minutes=15)
+    row = EndpointHealthStatusSegment(
+        storage_endpoint_id=7,
+        check_mode="s3",
+        check_type="availability",
+        scope="endpoint",
+        status=HealthCheckStatus.DEGRADED.value,
+        started_at=started_at,
+        ended_at=ended_at,
+    )
+
+    base = incident_payload(row)
+
+    assert base == {
+        "start": started_at.isoformat(),
+        "end": ended_at.isoformat(),
+        "duration_minutes": 15,
+        "status": "degraded",
+        "check_mode": "s3",
+        "check_type": "availability",
+        "scope": "endpoint",
+    }
+    assert global_incident_payload(
+        row,
+        endpoint_meta={7: {"name": "RGW", "url": "https://rgw.example.test"}},
+    ) == {
+        "endpoint_id": 7,
+        "endpoint_name": "RGW",
+        "endpoint_url": "https://rgw.example.test",
+        **base,
+    }
 
 
 def test_build_daily_from_rollups_weights_latency_averages():
