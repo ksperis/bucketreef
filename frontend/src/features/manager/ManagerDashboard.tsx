@@ -4,9 +4,7 @@
  */
 import { ReactNode, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import type { Bucket } from "../../api/bucketContracts";
 import {
-  type HealthCheckStatus,
   type WorkspaceEndpointHealthEntry,
   type WorkspaceEndpointIncidentEntry,
 } from "../../api/healthchecks";
@@ -38,7 +36,7 @@ import {
   uiCardClass,
   uiMutedTextClass,
 } from "../../components/ui/styles";
-import { formatLocalDateTime, getBackendRelativeTime } from "../../utils/dateTime";
+import { formatLocalDateTime } from "../../utils/dateTime";
 import { formatBytes, formatPercentage, formatSpacedCompactNumber } from "../../utils/format";
 import { clampedPercentageOf } from "../../utils/numbers";
 import {
@@ -64,14 +62,18 @@ import { useManagerStats } from "./useManagerStats";
 import { useExecutionContext } from "./ExecutionContextProvider";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import { managerActivityPresentation, managerActivityTarget } from "./managerActivityPresentation";
+import {
+  buildManagerDashboardBucketRows,
+  formatManagerDashboardHealthStatus,
+  formatManagerDashboardLatency,
+  formatManagerDashboardQuotaValue,
+  formatManagerDashboardRelativeTime,
+  localizeManagerDashboardTrendBaseline,
+  resolveManagerDashboardBucketCount,
+  type ManagerDashboardBucketRankingRow,
+  type ManagerDashboardTextFunction,
+} from "./managerDashboardModel";
 import { useManagerI18n } from "./managerI18n";
-
-type BucketRankingRow = {
-  name: string;
-  storageBytes: number | null;
-  objectCount: number | null;
-  percent: number;
-};
 
 type ActivityRow = {
   id: number;
@@ -81,50 +83,6 @@ type ActivityRow = {
   tone: DashboardTone;
   icon: ReactNode;
 };
-
-type ManagerTextFunction = (message: string, values?: Record<string, string | number>) => string;
-
-function formatRelativeTime(value: string | null | undefined, text: ManagerTextFunction, now = Date.now()): string {
-  const relative = getBackendRelativeTime(value, now);
-  if (!relative) return "";
-  if (relative.unit === "now") return text("just now");
-  if (relative.unit === "minutes") return text("{count}m ago", { count: relative.count });
-  if (relative.unit === "hours") return text("{count}h ago", { count: relative.count });
-  return text("{count}d ago", { count: relative.count });
-}
-
-function localizeTrendBaseline<T extends ManagerUsageTrendBaseline | null | undefined>(
-  baseline: T,
-  text: ManagerTextFunction,
-): T {
-  if (!baseline) return baseline;
-  return { ...baseline, label: text(baseline.label) } as T;
-}
-
-function formatLatency(value?: number | null): string {
-  if (value == null) return "-";
-  return `${Math.round(value)} ms`;
-}
-
-function formatQuotaStatusValue(
-  used: number | null | undefined,
-  quota: number | null | undefined,
-  formatter: (value: number) => string
-): { current: string; quota: string | null } {
-  if (used == null) return { current: "", quota: null };
-  const usableQuota = quota != null && quota > 0 ? quota : null;
-  return {
-    current: formatter(used),
-    quota: usableQuota == null ? null : formatter(usableQuota),
-  };
-}
-
-function formatStatus(status: HealthCheckStatus): string {
-  if (status === "up") return "Operational";
-  if (status === "degraded") return "Degraded";
-  if (status === "down") return "Down";
-  return "Unknown";
-}
 
 function activityPresentation(log: ManagerActivityEntry): { label: string; tone: DashboardTone; icon: ReactNode } {
   const presentation = managerActivityPresentation(log);
@@ -139,7 +97,7 @@ function activityPresentation(log: ManagerActivityEntry): { label: string; tone:
   return { label: presentation.label, tone: "blue", icon: <InfoIcon className="h-4 w-4" /> };
 }
 
-function buildActivityRows(logs: ManagerActivityEntry[], text: ManagerTextFunction): ActivityRow[] {
+function buildActivityRows(logs: ManagerActivityEntry[], text: ManagerDashboardTextFunction): ActivityRow[] {
   return logs.map((log) => {
     const presentation = activityPresentation(log);
     return {
@@ -147,7 +105,7 @@ function buildActivityRows(logs: ManagerActivityEntry[], text: ManagerTextFuncti
       ...presentation,
       label: text(presentation.label),
       detail: managerActivityTarget(log),
-      time: formatRelativeTime(log.created_at, text),
+      time: formatManagerDashboardRelativeTime(log.created_at, text),
     };
   });
 }
@@ -214,7 +172,7 @@ function StorageOverviewCard({
   );
 }
 
-function TopBucketsCard({ rows }: { rows: BucketRankingRow[] }) {
+function TopBucketsCard({ rows }: { rows: ManagerDashboardBucketRankingRow[] }) {
   const { text } = useManagerI18n();
   const content = (
     <section className={cx(uiCardClass, "ui-dashboard-panel")}>
@@ -372,21 +330,21 @@ function QuotaStatusCard({
   const rows = [
     {
       label: text("Storage"),
-      value: formatQuotaStatusValue(visibleStorageUsed, visibleStorageQuota, formatBytes),
+      value: formatManagerDashboardQuotaValue(visibleStorageUsed, visibleStorageQuota, formatBytes),
       percent: storagePercent,
       tone: "blue" as DashboardTone,
       icon: <BucketIcon className="h-3.5 w-3.5" />,
     },
     {
       label: text("Objects"),
-      value: formatQuotaStatusValue(visibleObjectCount, visibleObjectQuota, formatSpacedCompactNumber),
+      value: formatManagerDashboardQuotaValue(visibleObjectCount, visibleObjectQuota, formatSpacedCompactNumber),
       percent: objectPercent,
       tone: "violet" as DashboardTone,
       icon: <FileIcon className="h-3.5 w-3.5" />,
     },
     {
       label: text("Buckets"),
-      value: formatQuotaStatusValue(visibleBucketCount, visibleBucketQuota, formatSpacedCompactNumber),
+      value: formatManagerDashboardQuotaValue(visibleBucketCount, visibleBucketQuota, formatSpacedCompactNumber),
       percent: bucketStatusPercent,
       to: "/manager/buckets",
       tone: "emerald" as DashboardTone,
@@ -394,7 +352,7 @@ function QuotaStatusCard({
     },
     {
       label: text("Users"),
-      value: formatQuotaStatusValue(visibleUserCount, visibleUserQuota, formatSpacedCompactNumber),
+      value: formatManagerDashboardQuotaValue(visibleUserCount, visibleUserQuota, formatSpacedCompactNumber),
       percent: userPercent,
       to: "/manager/users",
       tone: "blue" as DashboardTone,
@@ -402,7 +360,7 @@ function QuotaStatusCard({
     },
     {
       label: text("Roles"),
-      value: formatQuotaStatusValue(visibleRoleCount, visibleRoleQuota, formatSpacedCompactNumber),
+      value: formatManagerDashboardQuotaValue(visibleRoleCount, visibleRoleQuota, formatSpacedCompactNumber),
       percent: rolePercent,
       to: "/manager/roles",
       tone: "amber" as DashboardTone,
@@ -410,7 +368,7 @@ function QuotaStatusCard({
     },
     {
       label: text("Groups"),
-      value: formatQuotaStatusValue(visibleGroupCount, visibleGroupQuota, formatSpacedCompactNumber),
+      value: formatManagerDashboardQuotaValue(visibleGroupCount, visibleGroupQuota, formatSpacedCompactNumber),
       percent: groupPercent,
       to: "/manager/groups",
       tone: "emerald" as DashboardTone,
@@ -495,14 +453,14 @@ function BackendHealthCard({
               <span className="min-w-0 break-words">{endpoint.name}</span>
             </p>
             <UiBadge tone={healthStatus === "up" ? "success" : healthStatus === "down" ? "danger" : "warning"} className="ui-dashboard-badge">
-              {text(stale ? "Stale" : formatStatus(healthStatus))}
+              {text(stale ? "Stale" : formatManagerDashboardHealthStatus(healthStatus))}
             </UiBadge>
           </div>
         ) : (
           <div className="min-h-5" aria-hidden="true" />
         )}
         <div className="mt-3 space-y-2">
-          <HealthValue label={text("Latency (avg)")} value={showEndpoint ? formatLatency(endpoint.latency_ms) : ""} />
+          <HealthValue label={text("Latency (avg)")} value={showEndpoint ? formatManagerDashboardLatency(endpoint.latency_ms) : ""} />
           <HealthValue label={text("Last check")} value={showEndpoint ? formatLocalDateTime(endpoint.checked_at) : ""} />
         </div>
       </div>
@@ -577,29 +535,6 @@ function IncidentStrip({
       {content}
     </div>
   );
-}
-
-function buildBucketRows(statsRows: Array<{ name: string; used_bytes?: number | null; object_count?: number | null }>): BucketRankingRow[] {
-  const rows = statsRows
-    .filter((bucket) => bucket.name)
-    .map((bucket) => ({
-      name: bucket.name,
-      storageBytes: bucket.used_bytes ?? null,
-      objectCount: bucket.object_count ?? null,
-      percent: 0,
-    }))
-    .sort((left, right) => (right.storageBytes ?? 0) - (left.storageBytes ?? 0))
-    .slice(0, 5);
-  const maxBytes = Math.max(...rows.map((row) => row.storageBytes ?? 0), 1);
-  return rows.map((row) => ({
-    ...row,
-    percent: Math.max(4, ((row.storageBytes ?? 0) / maxBytes) * 100),
-  }));
-}
-
-function resolveBucketCount(buckets: Bucket[], fallback?: number | null): number | null {
-  if (buckets.length > 0) return buckets.length;
-  return fallback ?? null;
 }
 
 export default function ManagerDashboard() {
@@ -692,7 +627,7 @@ export default function ManagerDashboard() {
       : !usageFeatureEnabled
         ? managerStatsMessage || text("Storage metrics are not available for this context.")
         : error || null);
-  const bucketCount = stats?.total_buckets ?? resolveBucketCount(buckets, null);
+  const bucketCount = stats?.total_buckets ?? resolveManagerDashboardBucketCount(buckets, null);
   const bucketUnavailableReason =
     noContextReason || bucketCountError || (!bucketCountLoading && bucketCount == null ? text("Bucket list is not accessible.") : null);
   const iamUnavailableReason =
@@ -727,12 +662,12 @@ export default function ManagerDashboard() {
   const uploadBytes = trafficUnavailableReason ? null : trafficStats?.totals.bytes_in ?? null;
   const downloadBytes = trafficUnavailableReason ? null : trafficStats?.totals.bytes_out ?? null;
   const transferBytes = uploadBytes == null || downloadBytes == null ? null : uploadBytes + downloadBytes;
-  const bucketRows = buildBucketRows(stats?.bucket_usage ?? []);
+  const bucketRows = buildManagerDashboardBucketRows(stats?.bucket_usage ?? []);
   const activityRows = activityUnavailableReason ? [] : buildActivityRows(activityLogs, text);
   const healthEndpoint = workspaceHealth?.endpoints[0] ?? null;
-  const storageTrendBaseline = localizeTrendBaseline(metricsUnavailableReason ? null : usageTrends?.storage, text);
-  const objectTrendBaseline = localizeTrendBaseline(metricsUnavailableReason ? null : usageTrends?.objects, text);
-  const bucketTrendBaseline = localizeTrendBaseline(bucketUnavailableReason ? null : usageTrends?.buckets, text);
+  const storageTrendBaseline = localizeManagerDashboardTrendBaseline(metricsUnavailableReason ? null : usageTrends?.storage, text);
+  const objectTrendBaseline = localizeManagerDashboardTrendBaseline(metricsUnavailableReason ? null : usageTrends?.objects, text);
+  const bucketTrendBaseline = localizeManagerDashboardTrendBaseline(bucketUnavailableReason ? null : usageTrends?.buckets, text);
   const localizedTrafficTrend = trafficUnavailableReason || !trafficTrend
     ? null
     : { ...trafficTrend, label: text(trafficTrend.label) };
