@@ -7,7 +7,7 @@ from botocore.exceptions import ClientError
 from sqlalchemy import select
 
 from app.core.security import get_password_hash
-from app.db import AuditLog, S3Account, UserS3Account, User
+from app.db import AuditLog, S3Account, StorageEndpoint, UserS3Account, User
 from app.core.domain_enums import UserRole
 from app.main import app
 from app.routers import dependencies
@@ -197,6 +197,45 @@ def test_login_s3_rejects_invalid_custom_endpoint(monkeypatch, client, endpoint_
 
     assert response.status_code == 400
     assert response.json()["detail"] == "Invalid S3 endpoint"
+
+
+def test_login_s3_rejects_unregistered_endpoint_when_custom_endpoints_are_disabled(monkeypatch, client):
+    _enable_access_key_login(monkeypatch, allow_custom_endpoint=False)
+
+    response = client.post(
+        "/api/auth/login-s3",
+        json={"access_key": "AKIA", "secret_key": "SECRET", "endpoint_url": "https://s3.example.test"},
+        headers=trusted_origin_headers(),
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "S3 endpoint is not registered"
+
+
+def test_login_s3_allows_registered_endpoint_when_custom_endpoints_are_disabled(
+    monkeypatch,
+    client,
+    db_session,
+):
+    _enable_access_key_login(monkeypatch, allow_custom_endpoint=False)
+    _mock_external(monkeypatch, iam_allowed=True)
+    db_session.add(
+        StorageEndpoint(
+            name="Registered",
+            endpoint_url="https://s3.example.test",
+            is_default=True,
+        )
+    )
+    db_session.commit()
+
+    response = client.post(
+        "/api/auth/login-s3",
+        json={"access_key": "AKIA", "secret_key": "SECRET", "endpoint_url": "https://s3.example.test"},
+        headers=trusted_origin_headers(),
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["session"]["capabilities"]["endpoint_url"] == "https://s3.example.test"
 
 
 def test_login_s3_records_custom_endpoint_audit_event(monkeypatch, client, db_session):

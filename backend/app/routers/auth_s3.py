@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import hashlib
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
@@ -27,6 +28,29 @@ from app.utils.s3_endpoint import validate_custom_login_s3_endpoint
 router = APIRouter()
 
 
+def _resolve_login_endpoint(
+    db: Session,
+    requested_endpoint: Optional[str],
+    *,
+    allow_custom_endpoint: bool,
+) -> tuple[str, bool]:
+    service = get_storage_endpoints_service(db)
+    registered = {endpoint.endpoint_url for endpoint in service.list_endpoints()}
+    endpoint_url = requested_endpoint or service.get_default_endpoint_url()
+    custom_endpoint = endpoint_url not in registered
+    if not custom_endpoint:
+        return endpoint_url, False
+
+    if settings.require_registered_s3_login_endpoints or not allow_custom_endpoint:
+        raise HTTPException(status_code=400, detail="S3 endpoint is not registered")
+    if endpoint_url is None:
+        raise HTTPException(status_code=400, detail="Invalid S3 endpoint")
+    try:
+        return validate_custom_login_s3_endpoint(endpoint_url), True
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid S3 endpoint") from exc
+
+
 @router.post("/login-s3", response_model=AuthenticationResponse)
 def login_with_s3_keys(
     request: Request,
@@ -39,18 +63,11 @@ def login_with_s3_keys(
     general = load_app_settings_for_db_readonly(db).general
     if not general.allow_login_access_keys:
         raise HTTPException(status_code=403, detail="Access-key login is disabled")
-    service = get_storage_endpoints_service(db)
-    registered = {endpoint.endpoint_url for endpoint in service.list_endpoints()}
-    endpoint_url = payload.endpoint_url or service.get_default_endpoint_url()
-    custom_endpoint = endpoint_url not in registered
-    if settings.require_registered_s3_login_endpoints or not general.allow_login_custom_endpoint:
-        if endpoint_url not in registered:
-            raise HTTPException(status_code=400, detail="S3 endpoint is not registered")
-    elif endpoint_url not in registered:
-        try:
-            endpoint_url = validate_custom_login_s3_endpoint(endpoint_url)
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail="Invalid S3 endpoint") from exc
+    endpoint_url, custom_endpoint = _resolve_login_endpoint(
+        db,
+        payload.endpoint_url,
+        allow_custom_endpoint=general.allow_login_custom_endpoint,
+    )
     account_key = f"s3:{hashlib.sha256(payload.access_key.encode()).hexdigest()}"
     attempt = AuthAttemptContext.from_request(
         request=request,
