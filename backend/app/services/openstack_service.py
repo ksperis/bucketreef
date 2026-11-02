@@ -569,8 +569,7 @@ class OpenStackService:
             manager_capabilities=AccountCapabilities(can_manage_buckets=True, can_manage_iam=credential.can_manage_iam),
         )
 
-    def resolve(self, user: User, auth_id: str, context_ref: str, *, metadata_only: bool = False, attach_guard: bool = True) -> S3ExecutionContext:
-        self.require_enabled()
+    def _resolve_project_context(self, user: User, context_ref: str) -> OpenStackProjectContext:
         try:
             context_id = str(UUID(context_ref.removeprefix("os-")))
         except ValueError:
@@ -579,60 +578,133 @@ class OpenStackService:
         if context is None or context.connection.user_id != user.id:
             raise OpenStackError("context_not_found", "OpenStack context not found", 404)
         if not self._is_catalog_context(context):
-            raise OpenStackError("reauthentication_required", "Reactivate this OpenStack project to discover its S3 region")
-        connection = context.connection
-        if connection.cloud.managed_endpoints_only and self._managed_endpoint(context.endpoint_url) is None:
-            raise OpenStackError("endpoint_not_allowed", "This OpenStack S3 region is not managed by BucketReef", 403)
-        session = self._session(user, auth_id, connection)
-        credential = self.db.scalar(select(OpenStackProjectCredential).where(
-            OpenStackProjectCredential.session_id == session.id, OpenStackProjectCredential.context_id == context.id,
-        ).execution_options(populate_existing=True))
-        if credential is not None and credential.expires_at <= utcnow():
+            raise OpenStackError(
+                "reauthentication_required",
+                "Reactivate this OpenStack project to discover its S3 region",
+            )
+        if context.connection.cloud.managed_endpoints_only and self._managed_endpoint(context.endpoint_url) is None:
+            raise OpenStackError(
+                "endpoint_not_allowed",
+                "This OpenStack S3 region is not managed by BucketReef",
+                403,
+            )
+        return context
+
+    def _active_project_credential(
+        self,
+        user: User,
+        auth_id: str,
+        context: OpenStackProjectContext,
+    ) -> tuple[OpenStackSession, OpenStackProjectCredential]:
+        session = self._session(user, auth_id, context.connection)
+        credential = self.db.scalar(
+            select(OpenStackProjectCredential)
+            .where(
+                OpenStackProjectCredential.session_id == session.id,
+                OpenStackProjectCredential.context_id == context.id,
+            )
+            .execution_options(populate_existing=True)
+        )
+        now = utcnow()
+        if credential is not None and credential.expires_at <= now:
             self.db.delete(credential)
             self.db.commit()
             credential = None
-        if not credential or not credential.secret_key or credential.expires_at <= utcnow():
-            raise OpenStackError("reauthentication_required", "Reconnect to OpenStack and select this project")
-        if not metadata_only and credential.validated_at <= utcnow() - timedelta(seconds=60):
-            session_id, key_id = session.id, credential.access_key
-            access = self.project_access(user, auth_id, connection.id, context.project_id)
-            keys = access["credentials"]
-            key = next((item for item in keys if item["access"] == key_id and item["secret"] == credential.secret_key), None)
-            if key is None:
-                self.db.delete(credential)
-                self.db.commit()
-                raise OpenStackError("reauthentication_required", "EC2 credential changed; select a valid credential")
-            target = next((item for item in access["targets"] if item["target_id"] == context.target_id), None)
-            target_matches = target is not None and all((
+        if credential is None or not credential.secret_key or credential.expires_at <= utcnow():
+            raise OpenStackError(
+                "reauthentication_required",
+                "Reconnect to OpenStack and select this project",
+            )
+        return session, credential
+
+    def _revalidate_project_credential(
+        self,
+        user: User,
+        auth_id: str,
+        context: OpenStackProjectContext,
+        session: OpenStackSession,
+        credential: OpenStackProjectCredential,
+    ) -> None:
+        if credential.validated_at > utcnow() - timedelta(seconds=60):
+            return
+        session_id, key_id = session.id, credential.access_key
+        access = self.project_access(
+            user,
+            auth_id,
+            context.connection.id,
+            context.project_id,
+        )
+        key = next(
+            (
+                item
+                for item in access["credentials"]
+                if item["access"] == key_id and item["secret"] == credential.secret_key
+            ),
+            None,
+        )
+        if key is None:
+            self.db.delete(credential)
+            self.db.commit()
+            raise OpenStackError(
+                "reauthentication_required",
+                "EC2 credential changed; select a valid credential",
+            )
+        target = next(
+            (item for item in access["targets"] if item["target_id"] == context.target_id),
+            None,
+        )
+        target_matches = target is not None and all(
+            (
                 target["region_id"] == context.region_id,
                 target["endpoint_url"] == context.endpoint_url,
                 target["interface"] == context.endpoint_interface,
                 target["service_type"] == context.service_type,
-            ))
-            if not target_matches:
-                self.db.delete(credential)
-                self.db.commit()
-                raise OpenStackError("reauthentication_required", "OpenStack S3 region changed; select the project again")
-            self._auth(user, auth_id, lock=True)
-            self._session(user, auth_id, connection, expected_id=session_id)
-            self.db.refresh(credential)
-            credential.validated_at = utcnow()
-            credential.expires_at = min(credential.expires_at, key["expires_at"])
+            )
+        )
+        if not target_matches:
+            self.db.delete(credential)
             self.db.commit()
+            raise OpenStackError(
+                "reauthentication_required",
+                "OpenStack S3 region changed; select the project again",
+            )
+        self._auth(user, auth_id, lock=True)
+        self._session(user, auth_id, context.connection, expected_id=session_id)
+        self.db.refresh(credential)
+        credential.validated_at = utcnow()
+        credential.expires_at = min(credential.expires_at, key["expires_at"])
+        self.db.commit()
+
+    def _attach_execution_guard(
+        self,
+        result: S3ExecutionContext,
+        user: User,
+        auth_id: str,
+        context_ref: str,
+    ) -> None:
+        from app.services.openstack_execution_guard import make_openstack_validator
+        from app.services.s3_execution_client import s3_execution_cache_key
+
+        result.access_validator = make_openstack_validator(
+            self.db.get_bind(),
+            user.id,
+            auth_id,
+            context_ref,
+            s3_execution_cache_key(result),
+            resolve_context=_resolve_guard_context,
+        )
+
+    def resolve(self, user: User, auth_id: str, context_ref: str, *, metadata_only: bool = False, attach_guard: bool = True) -> S3ExecutionContext:
+        self.require_enabled()
+        context = self._resolve_project_context(user, context_ref)
+        session, credential = self._active_project_credential(user, auth_id, context)
+        if not metadata_only:
+            self._revalidate_project_credential(user, auth_id, context, session, credential)
         result = self._execution(context, credential, auth_id)
         auth = self._auth(user, auth_id)
         result.credential_expires_at = min(result.credential_expires_at, auth.idle_expires_at, auth.absolute_expires_at)
         if attach_guard and not metadata_only:
-            from app.services.openstack_execution_guard import make_openstack_validator
-            from app.services.s3_execution_client import s3_execution_cache_key
-            result.access_validator = make_openstack_validator(
-                self.db.get_bind(),
-                user.id,
-                auth_id,
-                context_ref,
-                s3_execution_cache_key(result),
-                resolve_context=_resolve_guard_context,
-            )
+            self._attach_execution_guard(result, user, auth_id, context_ref)
         if metadata_only:
             result.access_key = result.secret_key = None
         return result
