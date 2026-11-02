@@ -73,6 +73,37 @@ class AdminUsageStatsScopeService:
         )
         return [bucket.name for bucket in buckets if bucket.name]
 
+    def _account_usage_targets(
+        self,
+        account: S3Account,
+        bucket_names: list[str],
+    ) -> tuple[
+        list[BucketUsageStatsResolvedTarget],
+        list[BucketUsageStatsAggregateTarget],
+    ]:
+        context_id = self._manager_scope_id(account)
+        resolved_targets = [
+            BucketUsageStatsResolvedTarget(
+                context=account,
+                bucket_name=bucket_name,
+                scope_kind="manager",
+                scope_id=context_id,
+                scope_name=account.name,
+                context_id=context_id,
+                context_name=account.name,
+            )
+            for bucket_name in bucket_names
+        ]
+        aggregate_targets = [
+            BucketUsageStatsAggregateTarget(
+                scope_kind="manager",
+                scope_id=context_id,
+                bucket_name=bucket_name,
+            )
+            for bucket_name in bucket_names
+        ]
+        return resolved_targets, aggregate_targets
+
     def build_scope(self, endpoint: StorageEndpoint) -> AdminManagedUsageScope:
         accounts = self.db.scalars(
             select(S3Account)
@@ -105,26 +136,12 @@ class AdminUsageStatsScopeService:
                 continue
 
             accounts_with_listed_buckets += 1
-            context_id = self._manager_scope_id(account)
-            for bucket_name in bucket_names:
-                resolved_targets.append(
-                    BucketUsageStatsResolvedTarget(
-                        context=account,
-                        bucket_name=bucket_name,
-                        scope_kind="manager",
-                        scope_id=context_id,
-                        scope_name=account.name,
-                        context_id=context_id,
-                        context_name=account.name,
-                    )
-                )
-                aggregate_targets.append(
-                    BucketUsageStatsAggregateTarget(
-                        scope_kind="manager",
-                        scope_id=context_id,
-                        bucket_name=bucket_name,
-                    )
-                )
+            account_resolved, account_aggregate = self._account_usage_targets(
+                account,
+                bucket_names,
+            )
+            resolved_targets.extend(account_resolved)
+            aggregate_targets.extend(account_aggregate)
 
         if skipped_account_count > 0:
             warnings.insert(
