@@ -347,6 +347,60 @@ class WebhookEventPublisher:
     def __init__(self, db: Session) -> None:
         self.db = db
 
+    def _event_endpoints(
+        self,
+        event_type: str,
+        forced_ids: list[int],
+    ) -> list[WebhookEndpoint]:
+        statement = select(WebhookEndpoint)
+        if forced_ids:
+            statement = statement.where(WebhookEndpoint.id.in_(forced_ids))
+        else:
+            statement = (
+                statement.join(
+                    WebhookEndpointSubscription,
+                    WebhookEndpointSubscription.endpoint_id == WebhookEndpoint.id,
+                )
+                .where(
+                    WebhookEndpoint.enabled.is_(True),
+                    WebhookEndpoint.signing_secret.is_not(None),
+                    or_(
+                        WebhookEndpointSubscription.event_type == ALL_WEBHOOK_EVENTS,
+                        WebhookEndpointSubscription.event_type == event_type,
+                    ),
+                )
+                .distinct()
+            )
+        return self.db.scalars(statement.order_by(WebhookEndpoint.id.asc())).all()
+
+    def _queue_delivery(
+        self,
+        *,
+        endpoint: WebhookEndpoint,
+        event_id: str,
+        event_type: str,
+        payload: dict[str, Any],
+        occurred_at: datetime,
+        is_test: bool,
+    ) -> str:
+        delivery_id = str(uuid.uuid4())
+        self.db.add(
+            WebhookDelivery(
+                delivery_id=delivery_id,
+                event_id=event_id,
+                endpoint_id=int(endpoint.id),
+                event_type=event_type,
+                payload=payload,
+                is_test=bool(is_test),
+                status="pending",
+                attempt_count=0,
+                next_attempt_at=occurred_at,
+                created_at=occurred_at,
+                updated_at=occurred_at,
+            )
+        )
+        return delivery_id
+
     def publish_audit_event(
         self,
         *,
@@ -409,50 +463,18 @@ class WebhookEventPublisher:
             occurred_at=occurred_at,
             data=data,
         )
-        statement = select(WebhookEndpoint)
         forced_ids = sorted({int(item) for item in endpoint_ids or [] if int(item) > 0})
-        if forced_ids:
-            statement = statement.where(WebhookEndpoint.id.in_(forced_ids))
-        else:
-            statement = (
-                statement.join(
-                    WebhookEndpointSubscription,
-                    WebhookEndpointSubscription.endpoint_id == WebhookEndpoint.id,
-                )
-                .where(
-                    WebhookEndpoint.enabled.is_(True),
-                    WebhookEndpoint.signing_secret.is_not(None),
-                    or_(
-                        WebhookEndpointSubscription.event_type == ALL_WEBHOOK_EVENTS,
-                        WebhookEndpointSubscription.event_type == event_type,
-                    ),
-                )
-                .distinct()
+        delivery_ids = [
+            self._queue_delivery(
+                endpoint=endpoint,
+                event_id=event_id,
+                event_type=event_type,
+                payload=payload,
+                occurred_at=occurred_at,
+                is_test=is_test,
             )
-        endpoint_rows = self.db.scalars(
-            statement.order_by(WebhookEndpoint.id.asc())
-        ).all()
-        delivery_ids: list[str] = []
-        for endpoint in endpoint_rows:
-            if not forced_ids and (not endpoint.enabled or not endpoint.signing_secret):
-                continue
-            delivery_id = str(uuid.uuid4())
-            self.db.add(
-                WebhookDelivery(
-                    delivery_id=delivery_id,
-                    event_id=event_id,
-                    endpoint_id=int(endpoint.id),
-                    event_type=event_type,
-                    payload=payload,
-                    is_test=bool(is_test),
-                    status="pending",
-                    attempt_count=0,
-                    next_attempt_at=occurred_at,
-                    created_at=occurred_at,
-                    updated_at=occurred_at,
-                )
-            )
-            delivery_ids.append(delivery_id)
+            for endpoint in self._event_endpoints(event_type, forced_ids)
+        ]
         if commit and delivery_ids:
             try:
                 self.db.commit()
