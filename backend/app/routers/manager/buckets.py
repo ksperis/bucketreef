@@ -98,17 +98,6 @@ def _bucket_ui_target(
     )
 
 
-def _remove_bucket_ui_tags(
-    db: Session,
-    target: PhysicalBucketTarget | None,
-) -> None:
-    if target is None:
-        return
-    tag_service = BucketUiTagsService(db)
-    with tag_service.transaction():
-        tag_service.remove_all_namespaces_for_bucket(target)
-
-
 @router.get("", response_model=list[Bucket])
 def list_buckets(
     include: list[str] = Query(default=[], description="Optional extra fields to include (e.g. tags, versioning, cors)"),
@@ -345,7 +334,7 @@ def delete_bucket(
     )
     deleted_bucket_target = _bucket_ui_target(context, bucket_name)
     if deleted_bucket_target is not None:
-        _remove_bucket_ui_tags(audit_service.db, deleted_bucket_target)
+        BucketUiTagsService(audit_service.db).cleanup_deleted_bucket(deleted_bucket_target)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -384,7 +373,7 @@ def stream_delete_bucket_with_purge(
             _invalidate_bucket_listing_for_context(context)
             if deleted_bucket_target is not None:
                 with SessionLocal() as cleanup_db:
-                    _remove_bucket_ui_tags(cleanup_db, deleted_bucket_target)
+                    BucketUiTagsService(cleanup_db).cleanup_deleted_bucket(deleted_bucket_target)
 
     def result_succeeded(result: BucketPurgeResult) -> bool:
         return result.status == "completed" and result.bucket_deleted

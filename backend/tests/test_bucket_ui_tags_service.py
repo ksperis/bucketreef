@@ -747,8 +747,7 @@ def test_successful_bucket_deletion_cleanup_removes_both_namespaces_only_for_tar
         )
     db_session.commit()
 
-    service.remove_all_namespaces_for_bucket(deleted)
-    db_session.commit()
+    service.cleanup_deleted_bucket(deleted)
 
     for domain in (TAG_DOMAIN_BUCKET_UI_CEPH_ADMIN, TAG_DOMAIN_BUCKET_UI_STORAGE_OPS):
         catalog = service.catalog(
