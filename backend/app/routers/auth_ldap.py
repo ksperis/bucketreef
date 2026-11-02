@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from typing import NoReturn
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
@@ -47,6 +49,51 @@ def get_ldap_auth_service_dependency(
     db: Session = Depends(get_db),
 ) -> LDAPAuthService:
     return get_ldap_auth_service(db)
+
+
+def _raise_ldap_login_failure(
+    *,
+    attempt: AuthAttemptContext,
+    account_key: str,
+    provider: str,
+    exc: LDAPProviderNotFoundError | LDAPConfigurationError | LDAPAuthenticationError | LDAPUserConflictError,
+) -> NoReturn:
+    if isinstance(exc, LDAPProviderNotFoundError):
+        attempt.audit(
+            user=None,
+            user_email=account_key,
+            action="login_ldap_provider_not_found",
+            entity_type="ui_session",
+            status_value="failure",
+            message="LDAP provider is unavailable",
+            metadata={"provider": provider},
+        )
+        raise_http_exception_from_exception(status.HTTP_404_NOT_FOUND, exc)
+    if isinstance(exc, LDAPConfigurationError):
+        attempt.audit(
+            user=None,
+            user_email=account_key,
+            action="login_ldap_configuration_error",
+            entity_type="ui_session",
+            status_value="failure",
+            message="LDAP provider configuration error",
+            metadata={"provider": provider},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="LDAP provider is unavailable",
+        ) from exc
+    attempt.record_failure(
+        user_email=account_key,
+        action="login_failure",
+        entity_type="ui_session",
+        message="Invalid LDAP credentials",
+        metadata={"provider": provider},
+    )
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid credentials",
+    ) from exc
 
 
 @router.get("/ldap/providers", response_model=list[LDAPProviderInfo])
@@ -106,37 +153,18 @@ def login_with_ldap(
             provider=provider,
             link_request_id=exc.request_id,
         )
-    except LDAPProviderNotFoundError as exc:
-        attempt.audit(
-            user=None,
-            user_email=account_key,
-            action="login_ldap_provider_not_found",
-            entity_type="ui_session",
-            status_value="failure",
-            message="LDAP provider is unavailable",
-            metadata={"provider": provider},
+    except (
+        LDAPProviderNotFoundError,
+        LDAPConfigurationError,
+        LDAPAuthenticationError,
+        LDAPUserConflictError,
+    ) as exc:
+        _raise_ldap_login_failure(
+            attempt=attempt,
+            account_key=account_key,
+            provider=provider,
+            exc=exc,
         )
-        raise_http_exception_from_exception(status.HTTP_404_NOT_FOUND, exc)
-    except LDAPConfigurationError as exc:
-        attempt.audit(
-            user=None,
-            user_email=account_key,
-            action="login_ldap_configuration_error",
-            entity_type="ui_session",
-            status_value="failure",
-            message="LDAP provider configuration error",
-            metadata={"provider": provider},
-        )
-        raise HTTPException(status_code=400, detail="LDAP provider is unavailable") from exc
-    except (LDAPAuthenticationError, LDAPUserConflictError) as exc:
-        attempt.record_failure(
-            user_email=account_key,
-            action="login_failure",
-            entity_type="ui_session",
-            message="Invalid LDAP credentials",
-            metadata={"provider": provider},
-        )
-        raise HTTPException(status_code=401, detail="Invalid credentials") from exc
     attempt.clear_rate_limit()
     result = _finish_user_primary_auth(
         request=request,
