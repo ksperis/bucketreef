@@ -7,6 +7,7 @@ import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { SettingsInput } from "../../components/settings/SettingsControls";
 import { SettingsItem, SettingsSection, SettingsSwitch } from "../../components/settings/SettingsLayout";
 import SettingsWorkflowForm from "../../components/settings/SettingsWorkflowForm";
+import { useSettingsDraft } from "../../components/settings/useSettingsDraft";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
 import ListPageSection from "../../components/list/ListPageSection";
@@ -21,11 +22,10 @@ export default function OpenStackCloudsPage() {
   const { text } = useOpenStackI18n();
   const { runWithStepUp, verificationDialog } = useRecentWebAuthnStepUp();
   const [busy, setBusy] = useState(false);
-  const [draft, setDraft] = useState<OpenStackCloudWrite | null>(null);
-  const [initial, setInitial] = useState("");
+  const { draft, setDraft, accept: acceptDraft, dirty } =
+    useSettingsDraft<OpenStackCloudWrite | null>(null);
   const [editingId, setEditingId] = useState<number | undefined>();
   const [pendingDelete, setPendingDelete] = useState<OpenStackCloud | null>(null);
-  const dirty = draft !== null && JSON.stringify(draft) !== initial;
   const formatLoadError = useCallback((failure: unknown) => {
     return extractApiError(failure, text("error"));
   }, [text]);
@@ -42,11 +42,12 @@ export default function OpenStackCloudsPage() {
   const edit = (cloud?: OpenStackCloud) => {
     const next = cloud ? { ...cloud } : emptyCloud();
     if ("id" in next) delete (next as Partial<OpenStackCloud>).id;
-    setDraft(next); setInitial(JSON.stringify(next)); setEditingId(cloud?.id); setError(null);
+    acceptDraft(next);
+    setEditingId(cloud?.id);
+    setError(null);
   };
   const closeEditor = () => {
-    setDraft(null);
-    setInitial("");
+    acceptDraft(null);
     setEditingId(undefined);
     setError(null);
   };
