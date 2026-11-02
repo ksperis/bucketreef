@@ -222,5 +222,5 @@ class QuotaUsageHistoryService:
                     float(row.max_ratio_pct),
                     ratio_pct,
                 )
-        row.samples_count = int(row.samples_count or 0) + 1
+        row.samples_count = int(row.samples_count) + 1
         row.updated_at = now

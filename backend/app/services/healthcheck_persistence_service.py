@@ -151,7 +151,7 @@ class HealthCheckPersistenceService:
 
         if active and active.status == result.status.value:
             if latency_value is not None:
-                sample_count = int(active.latency_sample_count or 0)
+                sample_count = int(active.latency_sample_count)
                 avg = int(active.avg_latency_ms) if active.avg_latency_ms is not None else latency_value
                 total = (avg * sample_count) + latency_value
                 sample_count += 1
