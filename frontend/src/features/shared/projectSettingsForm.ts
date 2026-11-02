@@ -1,5 +1,8 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
-import type { PortalSettingsOverride } from "../../api/appSettings";
+import type {
+  PortalSettingsAdminUpdate,
+  PortalSettingsOverride,
+} from "../../api/appSettings";
 import type { PortalProjectSettings } from "../../api/portalAccounts";
 type TriState = "inherit" | "enabled" | "disabled";
 
@@ -22,6 +25,10 @@ export type ProjectSettingsForm = {
   cors: TriState;
   corsOriginsOverride: boolean;
   corsOriginsText: string;
+};
+
+export type ProjectSettingsUpdate = PortalSettingsAdminUpdate & {
+  override: PortalSettingsOverride;
 };
 
 export const emptyForm: ProjectSettingsForm = {
@@ -198,4 +205,42 @@ export function mergeProjectOverrides(
   return Object.keys(defaults).length
     ? { ...result, bucket_defaults: defaults }
     : result;
+}
+
+export function buildProjectSettingsUpdate({
+  baseline,
+  draft,
+  latest,
+  admin,
+}: {
+  baseline: ProjectSettingsForm;
+  draft: ProjectSettingsForm;
+  latest: PortalProjectSettings;
+  admin: boolean;
+}): ProjectSettingsUpdate {
+  const payload: ProjectSettingsUpdate = {
+    override: mergeProjectOverrides(
+      baseline,
+      draft,
+      latest.project_override,
+    ),
+  };
+  if (!admin) return payload;
+
+  payload.delegated_to_portal_managers = mergeDelegation(
+    baseline.delegatedToPortalManagers,
+    draft.delegatedToPortalManagers,
+    latest.delegated_to_portal_managers,
+  );
+  payload.portal_collaborator_role_management_delegated = mergeDelegation(
+    baseline.collaboratorRoleManagementDelegated,
+    draft.collaboratorRoleManagementDelegated,
+    latest.portal_collaborator_role_management_delegated,
+  );
+  payload.portal_collaborator_addition_delegated = mergeDelegation(
+    baseline.collaboratorAdditionDelegated,
+    draft.collaboratorAdditionDelegated,
+    latest.portal_collaborator_addition_delegated,
+  );
+  return payload;
 }
