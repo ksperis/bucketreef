@@ -1,14 +1,15 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, Protocol, cast
 from urllib.parse import urlsplit, urlunsplit
 
 from app.core.config import get_settings
-from app.db import S3Account, S3User
 from app.utils.network_targets import validate_outbound_url
+from app.utils.storage_endpoint_features import StorageEndpointLike
 
-if TYPE_CHECKING:
-    from app.services.s3_execution_context import S3ExecutionContext
+
+class S3EndpointTarget(Protocol):
+    storage_endpoint: Optional[StorageEndpointLike]
 
 settings = get_settings()
 
@@ -106,9 +107,13 @@ def configured_s3_endpoint() -> Optional[str]:
     return normalize_s3_endpoint(settings.seed_s3_endpoint)
 
 
-def resolve_s3_endpoint(account: "S3Account | S3User | S3ExecutionContext") -> Optional[str]:
-    if not isinstance(account, (S3Account, S3User)) and account.session_endpoint:
-        return account.session_endpoint
+def resolve_s3_endpoint(account: S3EndpointTarget) -> Optional[str]:
+    session_endpoint = cast(
+        Optional[str],
+        getattr(account, "session_endpoint", None),
+    )
+    if session_endpoint:
+        return session_endpoint
     endpoint = account.storage_endpoint
     if endpoint is not None and endpoint.endpoint_url:
         return endpoint.endpoint_url
@@ -116,19 +121,20 @@ def resolve_s3_endpoint(account: "S3Account | S3User | S3ExecutionContext") -> O
 
 
 def resolve_s3_client_options(
-    account: "S3Account | S3User | S3ExecutionContext",
+    account: S3EndpointTarget,
 ) -> tuple[Optional[str], Optional[str], bool, bool]:
     """Resolve S3 client options (endpoint, region, force_path_style, verify_tls)."""
     endpoint = resolve_s3_endpoint(account)
     endpoint_obj = account.storage_endpoint
-    if isinstance(account, (S3Account, S3User)):
-        region = None
-        session_force_path_style = None
-        session_verify_tls = None
-    else:
-        region = account.session_region
-        session_force_path_style = account.session_force_path_style
-        session_verify_tls = account.session_verify_tls
+    region = cast(Optional[str], getattr(account, "session_region", None))
+    session_force_path_style = cast(
+        Optional[bool],
+        getattr(account, "session_force_path_style", None),
+    )
+    session_verify_tls = cast(
+        Optional[bool],
+        getattr(account, "session_verify_tls", None),
+    )
     if region is None:
         region = endpoint_obj.region if endpoint_obj is not None else None
     if session_force_path_style is not None:
@@ -146,7 +152,7 @@ def resolve_s3_client_options(
     return endpoint, region, force_path_style, verify_tls
 
 
-def resolve_s3_client_kwargs(account: "S3Account | S3User | S3ExecutionContext") -> dict[str, object]:
+def resolve_s3_client_kwargs(account: S3EndpointTarget) -> dict[str, object]:
     endpoint, region, force_path_style, verify_tls = resolve_s3_client_options(account)
     return {
         "endpoint": endpoint,
@@ -156,7 +162,7 @@ def resolve_s3_client_kwargs(account: "S3Account | S3User | S3ExecutionContext")
     }
 
 
-def resolve_iam_client_options(account: "S3Account | S3ExecutionContext") -> tuple[Optional[str], Optional[str], bool]:
+def resolve_iam_client_options(account: S3EndpointTarget) -> tuple[Optional[str], Optional[str], bool]:
     """Resolve IAM client options for account-like manager contexts."""
     from app.utils.s3_connection_endpoint import resolve_connection_details
     from app.utils.storage_endpoint_features import (
@@ -166,7 +172,7 @@ def resolve_iam_client_options(account: "S3Account | S3ExecutionContext") -> tup
     )
 
     endpoint_obj = account.storage_endpoint
-    region: Optional[str] = None if isinstance(account, S3Account) else account.session_region
+    region = cast(Optional[str], getattr(account, "session_region", None))
     verify_tls = True
     if endpoint_obj is not None:
         endpoint = resolve_iam_endpoint(endpoint_obj)
@@ -177,7 +183,7 @@ def resolve_iam_client_options(account: "S3Account | S3ExecutionContext") -> tup
         verify_tls = bool(endpoint_obj.verify_tls)
         return endpoint, region, verify_tls
 
-    source_connection = None if isinstance(account, S3Account) else account.source_connection
+    source_connection = getattr(account, "source_connection", None)
     if source_connection is not None:
         details = resolve_connection_details(source_connection)
         provider = (details.provider or "").strip().lower()
