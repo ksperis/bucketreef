@@ -90,12 +90,12 @@ class PortalStorageSpacesMixin:
                 bucket_name,
                 portal_settings=portal_settings,
             )
-            metadata = PortalStorageSpaceMetadata(
-                account_id=access.account.id,
+            metadata = self._created_storage_space_metadata(
+                user,
+                access,
                 bucket_name=bucket_name,
-                display_name=name,
+                name=name,
                 description=description,
-                owner_user_id=user.id if visibility == "private" else None,
                 visibility=visibility,
                 share_scope=share_scope,
                 account_member_role=account_member_role,
@@ -104,11 +104,12 @@ class PortalStorageSpacesMixin:
                 origin=origin,
                 name_editable=name_editable,
             )
-            self.db.add(metadata)
-            self.db.flush()
-            self._add_storage_space_initial_grants(metadata, user, validated_initial_shares)
-            self.db.flush()
-            self._sync_storage_space_access_projection(access.account, metadata)
+            self._register_storage_space_metadata(
+                access.account,
+                metadata,
+                user,
+                validated_initial_shares,
+            )
             self.db.commit()
         except Exception:
             self.db.rollback()
@@ -122,6 +123,50 @@ class PortalStorageSpacesMixin:
         if storage_space is None:
             raise RuntimeError("Created Storage Space is not visible.")
         return storage_space
+
+    @staticmethod
+    def _created_storage_space_metadata(
+        user: User,
+        access: "AccountAccess",
+        *,
+        bucket_name: str,
+        name: str,
+        description: str | None,
+        visibility: PortalStorageSpaceVisibility,
+        share_scope: PortalStorageSpaceShareScope,
+        account_member_role: PortalStorageSpaceRole | None,
+        project_key: str | None,
+        dataset_label: str | None,
+        origin: str,
+        name_editable: bool,
+    ) -> PortalStorageSpaceMetadata:
+        return PortalStorageSpaceMetadata(
+            account_id=access.account.id,
+            bucket_name=bucket_name,
+            display_name=name,
+            description=description,
+            owner_user_id=user.id if visibility == "private" else None,
+            visibility=visibility,
+            share_scope=share_scope,
+            account_member_role=account_member_role,
+            project_key=project_key,
+            dataset_label=dataset_label,
+            origin=origin,
+            name_editable=name_editable,
+        )
+
+    def _register_storage_space_metadata(
+        self,
+        account: S3Account,
+        metadata: PortalStorageSpaceMetadata,
+        user: User,
+        initial_shares: list[PortalStorageSpaceInitialShare],
+    ) -> None:
+        self.db.add(metadata)
+        self.db.flush()
+        self._add_storage_space_initial_grants(metadata, user, initial_shares)
+        self.db.flush()
+        self._sync_storage_space_access_projection(account, metadata)
 
     def _validate_storage_space_creation_access(
         self,
@@ -218,15 +263,12 @@ class PortalStorageSpacesMixin:
             dataset_label=dataset_label,
         )
         try:
-            self.db.add(metadata)
-            self.db.flush()
-            self._add_storage_space_initial_grants(
+            self._register_storage_space_metadata(
+                access.account,
                 metadata,
                 user,
                 validated_initial_shares,
             )
-            self.db.flush()
-            self._sync_storage_space_access_projection(access.account, metadata)
             self.db.commit()
         except Exception:
             self.db.rollback()
