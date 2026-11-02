@@ -222,6 +222,7 @@ describe("CephAdminMetricsPage", () => {
     renderPage();
 
     expect(screen.getByText("Both storage metrics and usage logs are disabled for the selected endpoint.")).toBeInTheDocument();
+    expect(screen.queryByText("RGW metrics", { exact: true })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "Usage composition" }));
     expect(await screen.findByText("Cluster usage composition")).toBeInTheDocument();
     expect(screen.getByText("2 / 3 buckets covered")).toBeInTheDocument();
@@ -235,11 +236,13 @@ describe("CephAdminMetricsPage", () => {
     useCephAdminEndpointMock.mockReturnValue(context);
     renderPage();
     expect(screen.getByText("Supervision credentials are not configured for this endpoint.")).toBeInTheDocument();
+    expect(screen.queryByText("RGW metrics", { exact: true })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "Usage composition" }));
     expect(await screen.findByText("2 / 3 buckets covered")).toBeInTheDocument();
     expect(getCephAdminUsageStatsAggregateMock).toHaveBeenCalledWith(7);
     fireEvent.click(screen.getByRole("tab", { name: "Traffic" }));
     expect(screen.getByText("Supervision credentials are not configured for this endpoint.")).toBeInTheDocument();
+    expect(screen.queryByText("RGW metrics", { exact: true })).not.toBeInTheDocument();
     expect(fetchCephAdminClusterStorageMock).not.toHaveBeenCalled();
     expect(fetchCephAdminClusterTrafficMock).not.toHaveBeenCalled();
   });

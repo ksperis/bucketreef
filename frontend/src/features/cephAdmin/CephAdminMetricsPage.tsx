@@ -351,7 +351,6 @@ export default function CephAdminMetricsPage() {
           {activeTab === "storage" ? (
             metricsUnavailableError ? (
               <MetricsUnavailableCard
-                eyebrow={surfaceText("RGW metrics")}
                 title={surfaceText("Storage snapshot")}
                 description={surfaceText("Aggregated stats across the entire RGW cluster.")}
                 message={metricsUnavailableError}
@@ -359,7 +358,6 @@ export default function CephAdminMetricsPage() {
               />
             ) : noMetricsSurfaceAvailable ? (
               <MetricsUnavailableCard
-                eyebrow={surfaceText("RGW metrics")}
                 title={surfaceText("Storage snapshot")}
                 description={surfaceText("Aggregated stats across the entire RGW cluster.")}
                 message={surfaceText("Both storage metrics and usage logs are disabled for the selected endpoint.")}
@@ -458,7 +456,6 @@ export default function CephAdminMetricsPage() {
 
           {activeTab === "traffic" && metricsUnavailableError ? (
             <MetricsUnavailableCard
-              eyebrow={surfaceText("RGW metrics")}
               title={surfaceText("RGW traffic")}
               description={surfaceText("Reading cluster-wide RGW logs for the selected window.")}
               message={metricsUnavailableError}
@@ -467,7 +464,6 @@ export default function CephAdminMetricsPage() {
           ) : null}
           {activeTab === "traffic" && !metricsUnavailableError && noMetricsSurfaceAvailable ? (
             <MetricsUnavailableCard
-              eyebrow={surfaceText("RGW metrics")}
               title={surfaceText("RGW traffic")}
               description={surfaceText("Reading cluster-wide RGW logs for the selected window.")}
               message={surfaceText("Both storage metrics and usage logs are disabled for the selected endpoint.")}

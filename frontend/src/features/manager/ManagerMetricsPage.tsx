@@ -310,7 +310,6 @@ export default function ManagerMetricsPage() {
             <>
               {managerMetricsMessage && !showUsageBreakdowns && (
                 <MetricsUnavailableCard
-                  eyebrow={text("Metrics")}
                   title={text("Storage analytics")}
                   description={text("Bucket volume and object counts for the active context.")}
                   message={managerMetricsMessage}
@@ -319,7 +318,6 @@ export default function ManagerMetricsPage() {
               )}
               {!managerMetricsMessage && showMetricsDisabledBanner && (
                 <MetricsUnavailableCard
-                  eyebrow="Metrics"
                   title={text("Storage analytics")}
                   description={text("Bucket volume and object counts for the active context.")}
                   message={text("Neither storage analytics nor traffic analytics are enabled on the selected endpoint.")}
@@ -394,7 +392,6 @@ export default function ManagerMetricsPage() {
 
           {activeTab === "traffic" && managerMetricsMessage && !showTrafficAnalytics ? (
             <MetricsUnavailableCard
-              eyebrow={text("Metrics")}
               title={text("Traffic")}
               description={text("Ingress/egress volume, request types, and busiest buckets.")}
               message={managerMetricsMessage}
@@ -403,7 +400,6 @@ export default function ManagerMetricsPage() {
           ) : null}
           {activeTab === "traffic" && !managerMetricsMessage && showMetricsDisabledBanner ? (
             <MetricsUnavailableCard
-              eyebrow={text("Metrics")}
               title={text("Traffic")}
               description={text("Ingress/egress volume, request types, and busiest buckets.")}
               message={text("Neither storage analytics nor traffic analytics are enabled on the selected endpoint.")}
