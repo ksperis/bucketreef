@@ -49,20 +49,6 @@ class UserQueryService:
     def list_users(self) -> list[User]:
         return list(self.db.scalars(select(User)).all())
 
-    def list_users_minimal(self) -> list[UserSummary]:
-        rows = self.db.scalars(select(User).order_by(User.email.asc())).all()
-        avatar_service = UserAvatarService(self.db)
-        return [
-            UserSummary(
-                id=row.id,
-                email=row.email,
-                full_name=row.full_name,
-                avatar=avatar_service.descriptor(row),
-                role=row.role,
-            )
-            for row in rows
-        ]
-
     def paginate_user_summaries(
         self,
         *,

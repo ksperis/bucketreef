@@ -16,7 +16,6 @@ from app.models.s3_user import (
     S3UserGeneratedKey,
     S3UserImport,
     S3UserAccessKeyStatusChange,
-    S3UserSummary,
     S3UserUpdate,
 )
 from app.routers.dependencies import (
@@ -67,14 +66,6 @@ def list_s3_users(
         page_size=page_size,
         has_next=has_next,
     )
-
-
-@router.get("/minimal", response_model=list[S3UserSummary])
-def list_s3_users_minimal(
-    service: S3UsersService = Depends(get_admin_s3_users_service),
-    _: User = Depends(get_current_ui_admin),
-) -> list[S3UserSummary]:
-    return service.list_users_minimal()
 
 
 @router.post("", response_model=S3User, status_code=status.HTTP_201_CREATED)

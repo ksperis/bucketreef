@@ -1156,7 +1156,7 @@ def test_delete_user_rejects_active_bucket_migration_before_remote_delete(db_ses
     assert db_session.get(S3User, created.id) is not None
 
 
-def test_list_users_and_minimal_are_sorted_case_insensitive_and_stable(db_session):
+def test_list_users_and_paginated_are_sorted_case_insensitive_and_stable(db_session):
     endpoint = _seed_ceph_endpoint(db_session)
     _seed_local_user(db_session, name="Zulu", uid="sort-zulu", endpoint_id=endpoint.id)
     _seed_local_user(db_session, name="alpha", uid="sort-alpha", endpoint_id=endpoint.id)
@@ -1166,17 +1166,24 @@ def test_list_users_and_minimal_are_sorted_case_insensitive_and_stable(db_sessio
 
     service = S3UsersService(db_session)
     listed = service.list_users(include_quota=False)
-    minimal = service.list_users_minimal()
+    paginated, total = service.paginate_users(
+        page=1,
+        page_size=10,
+        sort_field="name",
+        sort_direction="asc",
+        include_quota=False,
+    )
 
     listed_names = [entry.name for entry in listed]
     listed_same_ids = [entry.id for entry in listed if entry.name == "same"]
-    minimal_names = [entry.name for entry in minimal]
-    minimal_same_ids = [entry.id for entry in minimal if entry.name == "same"]
+    paginated_names = [entry.name for entry in paginated]
+    paginated_same_ids = [entry.id for entry in paginated if entry.name == "same"]
 
+    assert total == 5
     assert listed_names == ["alpha", "Beta", "same", "same", "Zulu"]
-    assert minimal_names == ["alpha", "Beta", "same", "same", "Zulu"]
+    assert paginated_names == ["alpha", "Beta", "same", "same", "Zulu"]
     assert listed_same_ids == sorted([same_1.id, same_2.id])
-    assert minimal_same_ids == sorted([same_1.id, same_2.id])
+    assert paginated_same_ids == sorted([same_1.id, same_2.id])
 
 
 def test_paginate_users_name_and_non_name_sorts_are_stable(db_session):

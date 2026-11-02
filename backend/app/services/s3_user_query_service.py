@@ -19,10 +19,9 @@ from app.db import (
 from app.models.s3_user import (
     S3User as S3UserSchema,
     S3UserGroupLink,
-    S3UserSummary,
     S3UserUserLink,
 )
-from app.services.mappers.s3_user import s3_user_from_db, s3_user_summary_from_db
+from app.services.mappers.s3_user import s3_user_from_db
 from app.services.rgw_admin import RGWAdminClient
 from app.services.s3_user_associations_service import S3UserAssociationsService
 from app.services.s3_user_metrics_service import S3UserMetricsService
@@ -101,22 +100,6 @@ class S3UserQueryService:
             )
             for row in rows
         ]
-
-    def list_users_minimal(self) -> list[S3UserSummary]:
-        rows = self.db.scalars(
-            select(S3UserModel).order_by(*name_order_by(S3UserModel))
-        ).all()
-        summaries: list[S3UserSummary] = []
-        for row in rows:
-            endpoint = self.rgw_context.endpoint_for_user(row)
-            summaries.append(
-                s3_user_summary_from_db(
-                    row,
-                    storage_endpoint=endpoint,
-                    tags=self.tags.get_s3_user_tags(row),
-                )
-            )
-        return summaries
 
     @staticmethod
     def _apply_user_search(query, search_value: str, *, exact: bool):

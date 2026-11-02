@@ -13,7 +13,6 @@ from app.models.ui_group import (
     PaginatedUiGroupsResponse,
     UiGroupCreate,
     UiGroupOut,
-    UiGroupSummary,
     UiGroupUpdate,
 )
 from app.routers.dependencies import get_audit_service, get_current_ui_admin
@@ -72,14 +71,6 @@ def list_groups(
     )
     has_next = page * page_size < total
     return PaginatedUiGroupsResponse(items=items, total=total, page=page, page_size=page_size, has_next=has_next)
-
-
-@router.get("/minimal", response_model=list[UiGroupSummary])
-def list_groups_minimal(
-    groups_service: UiGroupsService = Depends(get_groups_service_dependency),
-    _: User = Depends(get_current_ui_admin),
-) -> list[UiGroupSummary]:
-    return groups_service.list_groups_minimal()
 
 
 @router.get("/options", response_model=PaginatedUiGroupSummariesResponse)

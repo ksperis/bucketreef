@@ -8,7 +8,7 @@ import type { PortalAdminRequest } from "../../api/portalRequests";
 
 const mocks = vi.hoisted(() => ({
   listS3Accounts: vi.fn(),
-  listMinimalUsers: vi.fn(),
+  listUserOptions: vi.fn(),
   listAdminPortalRequests: vi.fn(),
   approveAdminPortalRequest: vi.fn(),
   rejectAdminPortalRequest: vi.fn(),
@@ -20,7 +20,7 @@ vi.mock("../../api/accounts", () => ({
 }));
 
 vi.mock("../../api/users", () => ({
-  listMinimalUsers: mocks.listMinimalUsers,
+  listUserOptions: mocks.listUserOptions,
 }));
 
 vi.mock("../../api/portalRequests", () => ({
@@ -71,15 +71,35 @@ describe("AdminPortalRequestsPage", () => {
       page: 1,
       page_size: 25,
     });
-    mocks.listMinimalUsers.mockResolvedValue([
-      {
-        id: 1,
-        email: "requester@example.org",
-        full_name: "Request Owner",
-        role: "ui_user",
-        avatar: { preference: "initials", source: "initials", initials: "RO" },
-      },
-    ]);
+    mocks.listUserOptions.mockImplementation(({ page = 1 }: { page?: number }) => Promise.resolve(
+      page === 1
+        ? {
+            items: [{
+              id: 2,
+              email: "other@example.org",
+              full_name: "Other User",
+              role: "ui_user",
+              avatar: { preference: "initials", source: "initials", initials: "OU" },
+            }],
+            total: 2,
+            page: 1,
+            page_size: 100,
+            has_next: true,
+          }
+        : {
+            items: [{
+              id: 1,
+              email: "requester@example.org",
+              full_name: "Request Owner",
+              role: "ui_user",
+              avatar: { preference: "initials", source: "initials", initials: "RO" },
+            }],
+            total: 2,
+            page: 2,
+            page_size: 100,
+            has_next: false,
+          },
+    ));
     mocks.listAdminPortalRequests.mockResolvedValue([pendingRequest]);
     mocks.approveAdminPortalRequest.mockResolvedValue({
       ...pendingRequest,
@@ -116,6 +136,8 @@ describe("AdminPortalRequestsPage", () => {
     expect(await screen.findByRole("heading", { name: "Portal requests" })).toBeInTheDocument();
     expect(await screen.findByText("Jane Viewer <jane@example.org> · Portal manager")).toBeInTheDocument();
     const requesterBadge = await screen.findByRole("link", { name: "Edit UI user Request Owner" });
+    expect(mocks.listUserOptions).toHaveBeenCalledWith({ page: 1, page_size: 100 });
+    expect(mocks.listUserOptions).toHaveBeenCalledWith({ page: 2, page_size: 100 });
     expect(requesterBadge).toHaveAttribute(
       "href",
       "/admin/users?edit=1&search=requester%40example.org",

@@ -35,11 +35,13 @@ export function accountView(c: DemoRequest, a: S3Account): S3Account {
 
 export function governance(c: DemoRequest): Response | undefined {
   const { path, method, state } = c; const body = safeFields(c.body);
-  const userMatch = path.match(/^\/admin\/users(?:\/(\d+|minimal))?$/);
+  if (path === "/admin/users/options" && method === "GET") {
+    return json(page(state.users.map(demoUserSummary), c.url));
+  }
+  const userMatch = path.match(/^\/admin\/users(?:\/(\d+))?$/);
   if (userMatch) {
     const id = Number(userMatch[1]); const user = state.users.find(u => u.id === id);
     if (method === "GET") {
-      if (userMatch[1] === "minimal") return json(state.users.map(demoUserSummary));
       if (userMatch[1]) return json(demoUserView(state, required(user)));
       const result = page(state.users, c.url);
       return json({ ...result, items: result.items.map(item => demoUserView(state, item)) });
@@ -65,12 +67,16 @@ export function governance(c: DemoRequest): Response | undefined {
       userGroups(c, user, []); state.users = state.users.filter(u => u.id !== id); synchronizeLinks(c, "users"); return done();
     }
   }
-  const groupMatch = path.match(/^\/admin\/groups(?:\/(\d+|minimal))?$/);
+  if (path === "/admin/groups/options" && method === "GET") {
+    return json(page(
+      state.groups.map(({ id, name, system_key, avatar }) => ({ id, name, system_key, avatar })),
+      c.url,
+    ));
+  }
+  const groupMatch = path.match(/^\/admin\/groups(?:\/(\d+))?$/);
   if (groupMatch) {
     let group = state.groups.find(g => g.id === Number(groupMatch[1]));
-    if (method === "GET") return json(groupMatch[1] === "minimal"
-      ? state.groups.map(({ id, name, avatar }) => ({ id, name, avatar }))
-      : groupMatch[1] ? required(group) : page(state.groups, c.url));
+    if (method === "GET") return json(groupMatch[1] ? required(group) : page(state.groups, c.url));
     const creatingGroup = method === "POST" && !groupMatch[1];
     if (creatingGroup) { group = createDemoGroup({ id: state.nextId++, name: textField(body, "name") }); state.groups.push(group); }
     if ((creatingGroup || method === "PATCH") && group) {
@@ -81,10 +87,10 @@ export function governance(c: DemoRequest): Response | undefined {
     }
     if (method === "DELETE" && group) { state.groups = state.groups.filter(g => g !== group); synchronizeLinks(c, "groups"); return done(); }
   }
-  const accountMatch = path.match(/^\/admin\/accounts(?:\/(\d+|minimal))?$/);
+  const accountMatch = path.match(/^\/admin\/accounts(?:\/(\d+))?$/);
   if (accountMatch) {
     let account = state.accounts.find(a => a.id === Number(accountMatch[1]));
-    if (method === "GET") return json(accountMatch[1] === "minimal" ? state.accounts.map(a => accountView(c, a)) : accountMatch[1] ? accountView(c, required(account)) : page(state.accounts.map(a => accountView(c, a)), c.url));
+    if (method === "GET") return json(accountMatch[1] ? accountView(c, required(account)) : page(state.accounts.map(a => accountView(c, a)), c.url));
     const creatingAccount = method === "POST" && !accountMatch[1];
     if (creatingAccount) {
       const endpoint = required(state.endpoints.find(e => e.id === Number(body.storage_endpoint_id)));
@@ -129,19 +135,10 @@ export function governance(c: DemoRequest): Response | undefined {
   }
   if (path === "/connections/storage-endpoints" && method === "GET") return json(state.endpoints);
   if (["/connections/validate-credentials", "/admin/s3-connections/validate-credentials"].includes(path) && method === "POST") return json({ ok: false, severity: "warning", code: "demo_declaration_only", message: "Demo declaration only. Credentials are discarded and no connection is attempted; you can still save this record." });
-  const connectionMatch = path.match(/^\/(?:admin\/s3-connections|connections)(?:\/(\d+|minimal))?$/);
+  const connectionMatch = path.match(/^\/(?:admin\/s3-connections|connections)(?:\/(\d+))?$/);
   if (connectionMatch) {
     const connection = state.connections.find(v => v.id === Number(connectionMatch[1]));
     if (method === "GET") {
-      if (connectionMatch[1] === "minimal") {
-        return json(state.connections.map(({ id, name, created_by_user_id, is_active, execution_status }) => ({
-          id,
-          name,
-          created_by_user_id,
-          is_active,
-          execution_status,
-        })));
-      }
       return json(path === "/connections" ? state.connections : connectionMatch[1] ? required(connection) : page(state.connections, c.url));
     }
     if (method === "POST" && !connectionMatch[1]) {

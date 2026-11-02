@@ -118,14 +118,14 @@ def test_admin_s3_users_non_name_sort_still_applies(client, db_session):
     assert ids.index(same_time_2.id) < ids.index(same_time_1.id)
 
 
-def test_admin_s3_users_minimal_is_sorted_case_insensitive(client, db_session):
+def test_admin_s3_users_list_is_sorted_case_insensitive(client, db_session):
     _seed_s3_user(db_session, name="Zulu", uid="uid-min-zulu")
     _seed_s3_user(db_session, name="alpha", uid="uid-min-alpha")
     _seed_s3_user(db_session, name="Beta", uid="uid-min-beta")
 
-    response = client.get("/api/admin/s3-users/minimal")
+    response = client.get("/api/admin/s3-users", params={"page_size": 200})
     assert response.status_code == 200, response.text
-    payload = response.json()
+    payload = response.json()["items"]
 
     assert [item["name"] for item in payload] == ["alpha", "Beta", "Zulu"]
 

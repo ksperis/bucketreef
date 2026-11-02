@@ -21,9 +21,8 @@ from app.models.s3_account import (
     AccountUserLink,
     PaginatedS3AccountsResponse,
     S3Account as S3AccountSchema,
-    S3AccountSummary,
 )
-from app.services.mappers.s3_account import s3_account_from_db, s3_account_summary_from_db
+from app.services.mappers.s3_account import s3_account_from_db
 from app.services.rgw_account_root_service import RgwAccountRootService
 from app.services.rgw_account_topics_resolver import RgwAccountTopicsResolver
 from app.services.s3_account_associations_service import S3AccountAssociationsService
@@ -235,28 +234,6 @@ class S3AccountQueryService:
             page_size=page_size,
             has_next=page * page_size < total,
         )
-
-    def list_accounts_minimal(self) -> list[S3AccountSummary]:
-        db_accounts = self.db.scalars(
-            select(S3Account).order_by(*name_order_by(S3Account))
-        ).all()
-        account_ids = [account.id for account in db_accounts]
-        user_links_by_account = self.associations.load_user_links(account_ids)
-        group_links_by_account = self.associations.load_group_links(account_ids)
-        summaries: list[S3AccountSummary] = []
-        for account in db_accounts:
-            endpoint = self.rgw_context.resolve_storage_endpoint(account.storage_endpoint_id)
-            summaries.append(
-                s3_account_summary_from_db(
-                    account,
-                    user_links=user_links_by_account.get(account.id, []),
-                    group_links=group_links_by_account.get(account.id, []),
-                    storage_endpoint=endpoint,
-                    storage_endpoint_capabilities=self.rgw_context.endpoint_capabilities(endpoint),
-                    tags=self.tags.get_account_tags(account),
-                )
-            )
-        return summaries
 
     def get_account_detail(self, account_id: int, include_usage: bool = False) -> S3AccountSchema:
         account = self.repository.get(account_id)

@@ -16,7 +16,6 @@ from app.models.s3_account import (
     S3Account,
     S3AccountCreate,
     S3AccountImport,
-    S3AccountSummary,
     S3AccountUpdate,
 )
 from app.routers.dependencies import (
@@ -69,14 +68,6 @@ def list_accounts(
         include_quota=include_quota,
         include_rgw_details=include_rgw_details,
     )
-
-
-@router.get("/minimal", response_model=list[S3AccountSummary])
-def list_accounts_minimal(
-    service: S3AccountsService = Depends(get_admin_accounts_service),
-    _: User = Depends(get_current_ui_admin),
-) -> list[S3AccountSummary]:
-    return service.list_accounts_minimal()
 
 
 @router.get("/{account_id}", response_model=S3Account)

@@ -26,7 +26,6 @@ from app.models.s3_connection_admin import (
     S3ConnectionAdminCreate,
     S3ConnectionAdminItem,
     S3ConnectionAdminUpdate,
-    S3ConnectionSummary,
 )
 from app.routers.dependencies import get_audit_service, get_current_ui_admin
 from app.services.audit_service import AuditService
@@ -81,15 +80,6 @@ def list_s3_connections(
         sort_by=sort_by,
         sort_dir=sort_dir,
     )
-
-
-@router.get("/minimal", response_model=list[S3ConnectionSummary])
-def list_s3_connections_minimal(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_ui_admin),
-) -> list[S3ConnectionSummary]:
-    _ = current_user
-    return AdminS3ConnectionsReadService(db).list_minimal()
 
 
 @router.post("/validate-credentials", response_model=S3ConnectionCredentialsValidationResult)

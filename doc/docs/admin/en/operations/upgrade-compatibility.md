@@ -1,5 +1,19 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 paginated Admin association catalogs
+
+The internal unpaginated Admin summary routes
+`GET /api/admin/users/minimal`, `GET /api/admin/groups/minimal`,
+`GET /api/admin/accounts/minimal`, `GET /api/admin/s3-users/minimal`, and
+`GET /api/admin/s3-connections/minimal` have been removed.
+
+The bundled frontend now uses the paginated, searchable
+`/api/admin/users/options` and `/api/admin/groups/options` catalogs for UI
+principals, and the canonical paginated `/api/admin/accounts`,
+`/api/admin/s3-users`, and `/api/admin/s3-connections` listings for storage
+association candidates. Deploy the backend and bundled frontend together. No
+database migration is required.
+
 ## 2026-11 atomic UI user creation associations
 
 The internal `POST /api/admin/users` contract now accepts the complete initial

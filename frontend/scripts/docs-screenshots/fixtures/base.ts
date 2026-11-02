@@ -13,7 +13,7 @@ const MB = 1024 ** 2;
 const GB = 1024 ** 3;
 const TB = 1024 ** 4;
 
-const ADMIN_ACCOUNTS_MINIMAL = [
+const ADMIN_ACCOUNTS = [
   {
     id: 101,
     name: "Helios Retail",
@@ -481,7 +481,7 @@ function managerTrafficPayload(window: string) {
 }
 
 const ADMIN_STORAGE_STATS = {
-  total_accounts: ADMIN_ACCOUNTS_MINIMAL.length,
+  total_accounts: ADMIN_ACCOUNTS.length,
   total_users: ADMIN_UI_USERS.length,
   total_admins: 2,
   total_s3_users: 3,
@@ -1790,14 +1790,26 @@ export function buildBaseRules(): MockRule[] {
       },
     },
     {
-      id: "admin-users-minimal",
-      path: /^\/admin\/users\/minimal$/,
-      body: ADMIN_UI_USERS.map(({ id, email, role }) => ({ id, email, role })),
+      id: "admin-users-options",
+      path: /^\/admin\/users\/options$/,
+      body: {
+        items: ADMIN_UI_USERS.map(({ id, email, full_name, avatar, role }) => ({ id, email, full_name, avatar, role })),
+        total: ADMIN_UI_USERS.length,
+        page: 1,
+        page_size: 25,
+        has_next: false,
+      },
     },
     {
-      id: "admin-accounts-minimal",
-      path: /^\/admin\/accounts\/minimal$/,
-      body: ADMIN_ACCOUNTS_MINIMAL,
+      id: "admin-accounts",
+      path: /^\/admin\/accounts$/,
+      body: {
+        items: ADMIN_ACCOUNTS,
+        total: ADMIN_ACCOUNTS.length,
+        page: 1,
+        page_size: 25,
+        has_next: false,
+      },
     },
     {
       id: "admin-portal-requests",

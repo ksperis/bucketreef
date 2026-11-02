@@ -724,7 +724,7 @@ def test_delete_root_user_success_and_failure(db_session, monkeypatch):
         service.deletion._delete_root_user(account, admin)
 
 
-def test_list_accounts_and_minimal_are_sorted_case_insensitive(db_session):
+def test_list_accounts_and_paginated_are_sorted_case_insensitive(db_session):
     endpoint = _seed_endpoint(db_session, name="ceph-sorting", is_default=True)
     _seed_account(db_session, endpoint.id, name="Zulu", rgw_account_id="RGW-SORT-01")
     _seed_account(db_session, endpoint.id, name="alpha", rgw_account_id="RGW-SORT-02")
@@ -738,10 +738,18 @@ def test_list_accounts_and_minimal_are_sorted_case_insensitive(db_session):
         include_quota=False,
         include_rgw_details=False,
     )
-    minimal = service.list_accounts_minimal()
+    paginated = service.list_accounts_page(
+        page=1,
+        page_size=10,
+        search=None,
+        sort_by="name",
+        sort_dir="asc",
+        include_quota=False,
+        include_rgw_details=False,
+    )
 
     assert [entry.name for entry in listed] == ["alpha", "Beta", "Same", "same", "Zulu"]
-    assert [entry.name for entry in minimal] == ["alpha", "Beta", "Same", "same", "Zulu"]
+    assert [entry.name for entry in paginated.items] == ["alpha", "Beta", "Same", "same", "Zulu"]
 
 
 

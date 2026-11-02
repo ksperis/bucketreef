@@ -60,21 +60,6 @@ class UiGroupQueryService:
     def get_group(self, group_id: int) -> Optional[UiGroup]:
         return self.db.get(UiGroup, group_id)
 
-    def list_groups_minimal(self) -> list[UiGroupSummary]:
-        rows = self.db.scalars(
-            select(UiGroup).order_by(*name_order_by(UiGroup))
-        ).all()
-        avatar_service = UiGroupAvatarService(self.db)
-        return [
-            UiGroupSummary(
-                id=row.id,
-                name=row.name,
-                system_key=row.system_key,
-                avatar=avatar_service.descriptor(row),
-            )
-            for row in rows
-        ]
-
     def paginate_group_summaries(
         self,
         *,
