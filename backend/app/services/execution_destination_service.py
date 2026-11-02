@@ -39,16 +39,14 @@ class ExecutionDestinationService:
     def __init__(self, db: Session) -> None:
         self.db = db
 
-    def apply_user_override(
-        self,
-        user: User,
+    @staticmethod
+    def _require_available_context(
         execution_context: S3ExecutionContext,
-        execution_endpoint_id: int,
         *,
         surface: str,
         portal_browser: bool,
         is_storage_ops_surface: bool,
-    ) -> S3ExecutionContext:
+    ) -> None:
         if (
             surface not in {"manager", "manager-browser", "browser"}
             or portal_browser
@@ -57,24 +55,35 @@ class ExecutionDestinationService:
         ):
             raise ExecutionDestinationError("unavailable_context")
 
+    @staticmethod
+    def _origin_endpoint(execution_context: S3ExecutionContext) -> StorageEndpoint:
         origin = execution_context.storage_endpoint
         if origin is None or execution_context.storage_endpoint_id is None:
             raise ExecutionDestinationError("missing_origin")
-        if execution_endpoint_id == origin.id:
-            return execution_context
+        return origin
 
-        if execution_context.context_kind == "connection":
-            source_connection = execution_context.source_connection
-            if source_connection is None and execution_context.s3_connection_id is not None:
-                source_connection = self.db.get(
-                    S3Connection,
-                    execution_context.s3_connection_id,
-                )
-            if execution_context.session_token_value is not None or (
-                source_connection is not None and source_connection.session_token is not None
-            ):
-                raise ExecutionDestinationError("temporary_credentials")
+    def _require_persistent_connection_credentials(
+        self,
+        execution_context: S3ExecutionContext,
+    ) -> None:
+        if execution_context.context_kind != "connection":
+            return
+        source_connection = execution_context.source_connection
+        if source_connection is None and execution_context.s3_connection_id is not None:
+            source_connection = self.db.get(
+                S3Connection,
+                execution_context.s3_connection_id,
+            )
+        if execution_context.session_token_value is not None or (
+            source_connection is not None and source_connection.session_token is not None
+        ):
+            raise ExecutionDestinationError("temporary_credentials")
 
+    def _require_switching_allowed(
+        self,
+        user: User,
+        execution_context: S3ExecutionContext,
+    ) -> None:
         effective = EffectiveAccessService(self.db).resolve_user(user)
         resource = manager_subject_resource(self.db, execution_context)
         policies = app_settings_service.load_app_settings_for_db_readonly(
@@ -87,12 +96,23 @@ class ExecutionDestinationService:
         ):
             raise ExecutionDestinationError("not_allowed")
 
+    def _compatible_destination(
+        self,
+        origin: StorageEndpoint,
+        execution_endpoint_id: int,
+    ) -> StorageEndpoint:
         destination = self.db.get(StorageEndpoint, execution_endpoint_id)
         if destination is None:
             raise ExecutionDestinationError("destination_not_found")
         if not rgw_multisite_endpoints_compatible(origin, destination):
             raise ExecutionDestinationError("incompatible_destination")
+        return destination
 
+    @staticmethod
+    def _apply_destination(
+        execution_context: S3ExecutionContext,
+        destination: StorageEndpoint,
+    ) -> S3ExecutionContext:
         execution_context.storage_endpoint_id = destination.id
         execution_context.storage_endpoint = destination
         if execution_context.context_kind == "connection":
@@ -102,3 +122,27 @@ class ExecutionDestinationService:
             execution_context.session_force_path_style = bool(destination.force_path_style)
             execution_context.session_verify_tls = bool(destination.verify_tls)
         return execution_context
+
+    def apply_user_override(
+        self,
+        user: User,
+        execution_context: S3ExecutionContext,
+        execution_endpoint_id: int,
+        *,
+        surface: str,
+        portal_browser: bool,
+        is_storage_ops_surface: bool,
+    ) -> S3ExecutionContext:
+        self._require_available_context(
+            execution_context,
+            surface=surface,
+            portal_browser=portal_browser,
+            is_storage_ops_surface=is_storage_ops_surface,
+        )
+        origin = self._origin_endpoint(execution_context)
+        if execution_endpoint_id == origin.id:
+            return execution_context
+        self._require_persistent_connection_credentials(execution_context)
+        self._require_switching_allowed(user, execution_context)
+        destination = self._compatible_destination(origin, execution_endpoint_id)
+        return self._apply_destination(execution_context, destination)
