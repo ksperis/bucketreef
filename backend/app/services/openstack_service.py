@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import timedelta
 from uuid import UUID
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -17,7 +17,12 @@ from app.models.execution_context import (
     ExecutionContextCapabilities,
     OpenStackExecutionContextMetadata,
 )
-from app.models.openstack import OpenStackAuthenticate, OpenStackCloudWrite, OpenStackPrivateConnectionCreate
+from app.models.openstack import (
+    OpenStackAuthenticate,
+    OpenStackCloudWrite,
+    OpenStackPrivateConnectionCreate,
+    PaginatedOpenStackCloudsResponse,
+)
 from app.models.s3_connection import S3Connection, S3ConnectionCreate
 from app.services.keystone_client import KeystoneClient, KeystoneIdentity, OpenStackError
 from app.services.openstack_access_policy import can_connect_openstack_cloud
@@ -56,6 +61,51 @@ class OpenStackService:
             return []
         return [cloud for cloud in self.db.scalars(select(OpenStackCloud).order_by(OpenStackCloud.name)).all()
                 if can_connect_openstack_cloud(self.db, user, cloud)]
+
+    @staticmethod
+    def cloud_read(cloud: OpenStackCloud) -> dict:
+        return {
+            **{key: getattr(cloud, key) for key in OpenStackCloudWrite.model_fields},
+            "id": cloud.id,
+        }
+
+    def admin_clouds(self) -> list[dict]:
+        rows = self.db.scalars(select(OpenStackCloud).order_by(OpenStackCloud.name)).all()
+        return [self.cloud_read(row) for row in rows]
+
+    def paginated_admin_clouds(
+        self,
+        *,
+        page: int,
+        page_size: int,
+        search: str | None,
+    ) -> PaginatedOpenStackCloudsResponse:
+        query = select(OpenStackCloud)
+        count_query = select(func.count()).select_from(OpenStackCloud)
+        normalized_search = (search or "").strip()
+        if normalized_search:
+            predicate = OpenStackCloud.name.ilike(f"%{normalized_search}%")
+            query = query.where(predicate)
+            count_query = count_query.where(predicate)
+        total = int(self.db.scalar(count_query) or 0)
+        rows = self.db.scalars(
+            query.order_by(OpenStackCloud.name, OpenStackCloud.id)
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        ).all()
+        return PaginatedOpenStackCloudsResponse(
+            items=[self.cloud_read(row) for row in rows],
+            total=total,
+            page=page,
+            page_size=page_size,
+            has_next=page * page_size < total,
+        )
+
+    def user_connections(self, user: User, auth_id: str) -> list[dict]:
+        rows = self.db.scalars(
+            select(OpenStackConnection).where(OpenStackConnection.user_id == user.id)
+        ).all()
+        return [self.connection_read(row, user, auth_id) for row in rows]
 
     def cloud(self, user: User, cloud_id: int) -> OpenStackCloud:
         self.require_enabled()
