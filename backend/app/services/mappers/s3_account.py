@@ -9,7 +9,6 @@ from app.models.s3_account import (
     AccountGroupLink,
     AccountUserLink,
     S3Account,
-    S3AccountSummary,
 )
 from app.models.tagging import TagDefinitionSummary
 
@@ -30,7 +29,7 @@ def s3_account_from_db(
     group_links: list[AccountGroupLink],
     storage_endpoint: StorageEndpoint,
     storage_endpoint_capabilities: dict[str, bool],
-    tags: list[TagDefinitionSummary] | None = None,
+    tags: list[TagDefinitionSummary],
 ) -> S3Account:
     return S3Account(
         id=account.id,
@@ -63,39 +62,5 @@ def s3_account_from_db(
         allow_bucket_usage_stats=account.allow_bucket_usage_stats,
         allow_bucket_usage_stats_collection=account.allow_bucket_usage_stats_collection,
         allow_multisite_endpoint_switching=account.allow_multisite_endpoint_switching,
-        tags=tags or [],
-    )
-
-
-def s3_account_summary_from_db(
-    account: DBS3Account,
-    *,
-    user_links: list[AccountUserLink],
-    group_links: list[AccountGroupLink],
-    storage_endpoint: StorageEndpoint,
-    storage_endpoint_capabilities: dict[str, bool],
-    tags: list[TagDefinitionSummary] | None = None,
-) -> S3AccountSummary:
-    return S3AccountSummary(
-        id=account.id,
-        name=account.name,
-        rgw_account_id=account.rgw_account_id,
-        rgw_tenant=account.rgw_tenant,
-        user_links=user_links,
-        group_links=group_links,
-        storage_endpoint_id=storage_endpoint.id,
-        storage_endpoint_name=storage_endpoint.name,
-        storage_endpoint_url=storage_endpoint.endpoint_url,
-        storage_endpoint_is_default=bool(storage_endpoint.is_default),
-        storage_endpoint_capabilities=storage_endpoint_capabilities,
-        allow_bucket_quota_management=account.allow_bucket_quota_management,
-        allow_access_key_metadata=account.allow_access_key_metadata,
-        allow_access_key_expiration=account.allow_access_key_expiration,
-        allow_activity_history=account.allow_activity_history,
-        allow_rgw_usage_metrics=account.allow_rgw_usage_metrics,
-        allow_cost_estimation=account.allow_cost_estimation,
-        allow_bucket_usage_stats=account.allow_bucket_usage_stats,
-        allow_bucket_usage_stats_collection=account.allow_bucket_usage_stats_collection,
-        allow_multisite_endpoint_switching=account.allow_multisite_endpoint_switching,
-        tags=tags or [],
+        tags=tags,
     )

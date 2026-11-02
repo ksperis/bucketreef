@@ -8,7 +8,6 @@ from app.db import StorageEndpoint
 from app.models.s3_user import (
     S3User,
     S3UserGroupLink,
-    S3UserSummary,
     S3UserUserLink,
 )
 from app.models.tagging import TagDefinitionSummary
@@ -23,7 +22,7 @@ def s3_user_from_db(
     quota_max_size_gb: float | None = None,
     quota_max_objects: int | None = None,
     bucket_count: int | None = None,
-    tags: list[TagDefinitionSummary] | None = None,
+    tags: list[TagDefinitionSummary],
 ) -> S3User:
     return S3User(
         id=s3_user.id,
@@ -51,34 +50,5 @@ def s3_user_from_db(
         allow_bucket_usage_stats_collection=s3_user.allow_bucket_usage_stats_collection,
         allow_multisite_endpoint_switching=s3_user.allow_multisite_endpoint_switching,
         allow_managed_private_connection_provisioning=s3_user.allow_managed_private_connection_provisioning,
-        tags=tags or [],
-    )
-
-
-def s3_user_summary_from_db(
-    s3_user: DBS3User,
-    *,
-    storage_endpoint: StorageEndpoint,
-    tags: list[TagDefinitionSummary] | None = None,
-) -> S3UserSummary:
-    return S3UserSummary(
-        id=s3_user.id,
-        name=s3_user.name,
-        rgw_user_uid=s3_user.rgw_user_uid,
-        rgw_tenant=s3_user.rgw_tenant,
-        storage_endpoint_id=storage_endpoint.id,
-        storage_endpoint_name=storage_endpoint.name,
-        storage_endpoint_url=storage_endpoint.endpoint_url,
-        allow_bucket_quota_management=s3_user.allow_bucket_quota_management,
-        allow_access_key_management=s3_user.allow_access_key_management,
-        allow_access_key_metadata=s3_user.allow_access_key_metadata,
-        allow_access_key_expiration=s3_user.allow_access_key_expiration,
-        allow_activity_history=s3_user.allow_activity_history,
-        allow_rgw_usage_metrics=s3_user.allow_rgw_usage_metrics,
-        allow_cost_estimation=s3_user.allow_cost_estimation,
-        allow_bucket_usage_stats=s3_user.allow_bucket_usage_stats,
-        allow_bucket_usage_stats_collection=s3_user.allow_bucket_usage_stats_collection,
-        allow_multisite_endpoint_switching=s3_user.allow_multisite_endpoint_switching,
-        allow_managed_private_connection_provisioning=s3_user.allow_managed_private_connection_provisioning,
-        tags=tags or [],
+        tags=tags,
     )
