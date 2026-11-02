@@ -191,7 +191,7 @@ export default function CreateManagedPrivateAccessModal({
       onCreated(result.connection.name);
       onClose();
     } catch (err) {
-      setError(extractApiError(err, text("Unable to create managed private access.")));
+      setError(extractApiError(err, text("Unable to create personal access.")));
     } finally {
       setBusy(false);
     }

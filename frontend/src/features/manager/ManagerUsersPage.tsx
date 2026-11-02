@@ -44,6 +44,7 @@ import { SettingsSection } from "../../components/settings/SettingsLayout";
 import UiInput from "../../components/ui/UiInput";
 import { SettingsButton } from "../../components/settings/SettingsControls";
 import { useManagerI18n } from "./managerI18n";
+import { personalAccessDisabledReason } from "./managedPrivateAccessUi";
 
 export default function ManagerUsersPage() {
   const { text } = useManagerI18n();
@@ -57,10 +58,12 @@ export default function ManagerUsersPage() {
     requiresContextSelection,
     accessMode,
     managerPrivateAccessEnabled,
+    managerPrivateAccessState,
     namingValidationProfile,
   } = useExecutionContext();
   const needsContextSelection = requiresContextSelection && !contextIdForApi;
   const isS3User = selectedContextKind === "s3_user";
+  const personalAccessUnavailableReason = personalAccessDisabledReason(managerPrivateAccessState);
   const {
     error,
     items: users,
@@ -356,9 +359,9 @@ export default function ManagerUsersPage() {
             {user.is_private_access_managed && (
               <ListBadge
                 tone="primary"
-                title={text("Managed private access identity")}
+                title={text("Managed personal access identity")}
               >
-                {text("Private access")}
+                {text("Personal access")}
               </ListBadge>
             )}
             {showWarning && (
@@ -471,7 +474,13 @@ export default function ManagerUsersPage() {
                 onClick: openCreateForm,
               },
               ...(managerPrivateAccessEnabled
-                ? [{ label: text("Create my personal access"), onClick: () => setShowPrivateAccessModal(true), variant: "primary" as const }]
+                ? [{
+                    label: text("Create my personal access"),
+                    onClick: () => setShowPrivateAccessModal(true),
+                    variant: "primary" as const,
+                    disabled: personalAccessUnavailableReason !== null,
+                    title: personalAccessUnavailableReason ? text(personalAccessUnavailableReason) : undefined,
+                  }]
                 : []),
             ]
           : []}

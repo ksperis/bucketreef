@@ -34,6 +34,7 @@ import CreateManagedPrivateAccessModal from "./CreateManagedPrivateAccessModal";
 import AccessKeyMetadataDialog from "./AccessKeyMetadataDialog";
 import AccessKeyExpirationStatus, { accessKeyExpirationIsPast } from "./AccessKeyExpirationStatus";
 import { useManagerI18n } from "./managerI18n";
+import { personalAccessDisabledReason } from "./managedPrivateAccessUi";
 
 function parseError(err: unknown): string {
   return extractApiError(err, "Unexpected error");
@@ -50,6 +51,7 @@ export default function ManagerCephKeysPage() {
     managerAccessKeyMetadataEnabled,
     managerAccessKeyExpirationEnabled,
     managerPrivateAccessEnabled,
+    managerPrivateAccessState,
     accessMode,
   } = useExecutionContext();
 
@@ -70,6 +72,7 @@ export default function ManagerCephKeysPage() {
   const canProvisionManagedPrivateAccess = Boolean(
     hasExecutionContext && isS3UserContext && managerPrivateAccessEnabled
   );
+  const personalAccessUnavailableReason = personalAccessDisabledReason(managerPrivateAccessState);
 
   const loadKeys = useCallback(async () => {
     if (!canManageCephKeys) {
@@ -243,9 +246,9 @@ export default function ManagerCephKeysPage() {
             {locked && (
               <ListBadge
                 tone="neutral" className="shrink-0"
-                title={managedPrivate ? text("Managed private access key") : text("BucketReef interface key (locked)")}
+                title={managedPrivate ? text("Managed personal access key") : text("BucketReef interface key (locked)")}
               >
-                {text(managedPrivate ? "Private access" : "Interface key")}
+                {text(managedPrivate ? "Personal access" : "Interface key")}
               </ListBadge>
             )}
           </div>
@@ -335,7 +338,7 @@ export default function ManagerCephKeysPage() {
   return (
     <PageShell actionPresentation="listing"
       title={text("Ceph access keys")}
-      description={text("Manage Ceph RGW access keys and provision private access for this S3 User context.")}
+      description={text("Manage Ceph RGW access keys and provision personal access for this S3 User context.")}
       breadcrumbs={managerPageBreadcrumbs(text, "ceph-keys")}
       actions={[
         ...(canManageCephKeys
@@ -353,6 +356,8 @@ export default function ManagerCephKeysPage() {
                 label: text("Create my personal access"),
                 onClick: () => setShowPrivateAccessModal(true),
                 variant: canManageCephKeys ? ("secondary" as const) : ("primary" as const),
+                disabled: personalAccessUnavailableReason !== null,
+                title: personalAccessUnavailableReason ? text(personalAccessUnavailableReason) : undefined,
               },
             ]
           : []),
@@ -394,7 +399,7 @@ export default function ManagerCephKeysPage() {
           title={text("Ceph key inventory is unavailable for this context")}
           description={
             canProvisionManagedPrivateAccess
-              ? text("Manual RGW key management is unavailable. Managed private access remains available from the page action.")
+              ? text("Manual RGW key management is unavailable. Personal access remains available from the page action.")
               : text("The selected context does not expose RGW access-key management. Check the user tool access, feature toggle, endpoint provider, admin feature, and Ceph admin credentials.")
           }
           primaryAction={{ label: text("Open buckets"), to: "/manager/buckets" }}

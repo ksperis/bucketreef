@@ -18,6 +18,7 @@ export function buildManagerContext(
     manager_access_key_metadata_enabled: false,
     manager_access_key_expiration_enabled: false,
     manager_private_access_enabled: false,
+    manager_private_access_state: null,
     quota_max_size_gb: null,
     quota_max_objects: null,
     max_buckets: null,

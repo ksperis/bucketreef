@@ -49,6 +49,8 @@ This is different from:
    User key and private connection without transmitting the secret to the
    browser. This separate workflow requires the UI right
    `can_provision_managed_private_connections` and the S3 User opt-in
+   and is disabled while a personal access already exists or still requires cleanup
+   for the selected execution context.
    `allow_managed_private_connection_provisioning`; it does not use
    `allow_access_key_management`. The resulting private connection is available
    in Browser by default. Open **Advanced configuration** only when you need to

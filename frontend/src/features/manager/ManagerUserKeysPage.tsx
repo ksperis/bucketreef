@@ -229,7 +229,9 @@ export default function ManagerUserKeysPage({ embedded = false }: { embedded?: b
         <div className="flex flex-wrap items-center gap-2">
           <span>{key.access_key_id}</span>
           {key.is_private_access_managed && (
-            <ListBadge tone="neutral">{text("Private access")}</ListBadge>
+            <ListBadge tone="neutral" title={text("Managed personal access key")}>
+              {text("Personal access")}
+            </ListBadge>
           )}
         </div>
       ),
@@ -392,7 +394,7 @@ export default function ManagerUserKeysPage({ embedded = false }: { embedded?: b
             managerAccessKeyExpirationEnabled && !metadataDialog.key?.is_private_access_managed
           )}
           expirationLockedReason={metadataDialog.key?.is_private_access_managed && metadataDialog.key.expires_at
-            ? "This key belongs to managed private access. Its expiration cannot be changed from the generic key inventory."
+            ? "This key belongs to personal access. Its expiration cannot be changed from the generic key inventory."
             : undefined}
           busy={busy === "create" || busy?.startsWith("metadata:") === true}
           error={metadataError}

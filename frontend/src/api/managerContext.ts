@@ -9,6 +9,7 @@ import { S3ExecutionContextSelector, withS3ContextParam } from "./accountParams"
 
 export type ManagerAccessMode = "admin" | "session" | "s3_user" | "connection" | "openstack_project";
 export type ManagerContextKind = "account" | "connection" | "openstack_project";
+export type ManagerPrivateAccessState = "provisioning" | "active" | "deleting" | "cleanup_pending";
 
 export type ManagerContext = {
   feature_states: Record<string, FeatureState>;
@@ -25,6 +26,7 @@ export type ManagerContext = {
   manager_access_key_metadata_enabled: boolean;
   manager_access_key_expiration_enabled: boolean;
   manager_private_access_enabled: boolean;
+  manager_private_access_state: ManagerPrivateAccessState | null;
   quota_max_size_gb: number | null;
   quota_max_objects: number | null;
   max_buckets: number | null;

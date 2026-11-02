@@ -4,11 +4,12 @@
  */
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import type { ExecutionContext } from "../../api/executionContexts";
-import { fetchManagerContext, type ManagerAccessMode } from "../../api/managerContext";
+import { fetchManagerContext, type ManagerAccessMode, type ManagerPrivateAccessState } from "../../api/managerContext";
 import type { FeatureState } from "../../api/featurePolicies";
 import { useExecutionContextCatalog } from "../../hooks/useExecutionContextCatalog";
 import { useExecutionDestinationSelection } from "../../hooks/useExecutionDestinationSelection";
 import { CLIENT_STORAGE_KEYS } from "../../utils/clientStorage";
+import { EXECUTION_CONTEXTS_REFRESH_EVENT } from "../../utils/executionContextRefresh";
 import { useBrowserContext } from "../browser/BrowserContext";
 
 import type { NamingValidationProfile } from "../../utils/resourceNames";
@@ -40,6 +41,7 @@ type ExecutionContextState = {
   managerAccessKeyMetadataEnabled: boolean | null;
   managerAccessKeyExpirationEnabled: boolean | null;
   managerPrivateAccessEnabled: boolean | null;
+  managerPrivateAccessState: ManagerPrivateAccessState | null;
   managerFeatureStates: Record<string, FeatureState> | null;
 };
 
@@ -70,6 +72,7 @@ const defaultExecutionContextState: ExecutionContextState = {
   managerAccessKeyMetadataEnabled: null,
   managerAccessKeyExpirationEnabled: null,
   managerPrivateAccessEnabled: null,
+  managerPrivateAccessState: null,
   managerFeatureStates: null,
 };
 const ExecutionContextStateContext = createContext<ExecutionContextState>(
@@ -116,7 +119,9 @@ export function ExecutionContextProvider({ children, scope = "manager" }: Execut
   const [managerAccessKeyMetadataEnabled, setManagerAccessKeyMetadataEnabled] = useState<boolean | null>(null);
   const [managerAccessKeyExpirationEnabled, setManagerAccessKeyExpirationEnabled] = useState<boolean | null>(null);
   const [managerPrivateAccessEnabled, setManagerPrivateAccessEnabled] = useState<boolean | null>(null);
+  const [managerPrivateAccessState, setManagerPrivateAccessState] = useState<ManagerPrivateAccessState | null>(null);
   const [managerFeatureStates, setManagerFeatureStates] = useState<Record<string, FeatureState> | null>(null);
+  const [managerContextRefreshToken, setManagerContextRefreshToken] = useState(0);
   const hasExecutionContext = requiresContextSelection ? selectedContext !== null : true;
   const contextIdForApi = requiresContextSelection ? selectedContextId : null;
   const selectedContextName = selectedContext?.display_name ?? sessionAccountName;
@@ -138,6 +143,13 @@ export function ExecutionContextProvider({ children, scope = "manager" }: Execut
     ? namingProfileState.profile : null;
 
   useEffect(() => {
+    if (scope !== "manager") return;
+    const handleRefresh = () => setManagerContextRefreshToken((value) => value + 1);
+    window.addEventListener(EXECUTION_CONTEXTS_REFRESH_EVENT, handleRefresh);
+    return () => window.removeEventListener(EXECUTION_CONTEXTS_REFRESH_EVENT, handleRefresh);
+  }, [scope]);
+
+  useEffect(() => {
     setNamingProfileState(null);
     if (!hasExecutionContext) {
       setIamIdentity(null);
@@ -151,6 +163,7 @@ export function ExecutionContextProvider({ children, scope = "manager" }: Execut
       setManagerAccessKeyMetadataEnabled(null);
       setManagerAccessKeyExpirationEnabled(null);
       setManagerPrivateAccessEnabled(null);
+      setManagerPrivateAccessState(null);
       setManagerFeatureStates(null);
       return;
     }
@@ -164,6 +177,7 @@ export function ExecutionContextProvider({ children, scope = "manager" }: Execut
     setManagerAccessKeyMetadataEnabled(null);
     setManagerAccessKeyExpirationEnabled(null);
     setManagerPrivateAccessEnabled(null);
+    setManagerPrivateAccessState(null);
     setManagerFeatureStates(null);
     fetchManagerContext(contextIdForApi)
       .then((data) => {
@@ -180,6 +194,7 @@ export function ExecutionContextProvider({ children, scope = "manager" }: Execut
         setManagerAccessKeyMetadataEnabled(data.manager_access_key_metadata_enabled);
         setManagerAccessKeyExpirationEnabled(data.manager_access_key_expiration_enabled);
         setManagerPrivateAccessEnabled(data.manager_private_access_enabled);
+        setManagerPrivateAccessState(data.manager_private_access_state);
         setManagerFeatureStates(data.feature_states);
       })
       .catch(() => {
@@ -195,12 +210,13 @@ export function ExecutionContextProvider({ children, scope = "manager" }: Execut
         setManagerAccessKeyMetadataEnabled(null);
         setManagerAccessKeyExpirationEnabled(null);
         setManagerPrivateAccessEnabled(null);
+        setManagerPrivateAccessState(null);
         setManagerFeatureStates({});
       });
     return () => {
       isMounted = false;
     };
-  }, [contextIdForApi, hasExecutionContext, selectedExecutionEndpointId]);
+  }, [contextIdForApi, hasExecutionContext, managerContextRefreshToken, selectedContext, selectedExecutionEndpointId]);
 
   return (
     <ExecutionContextStateContext.Provider
@@ -231,6 +247,7 @@ export function ExecutionContextProvider({ children, scope = "manager" }: Execut
         managerAccessKeyMetadataEnabled,
         managerAccessKeyExpirationEnabled,
         managerPrivateAccessEnabled,
+        managerPrivateAccessState,
         managerFeatureStates,
       }}
     >

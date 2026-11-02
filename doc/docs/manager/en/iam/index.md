@@ -56,6 +56,8 @@ instead.
    dedicated IAM identity with `AmazonS3FullAccess` and a Browser-enabled
    private connection. Open **Advanced configuration** to replace that policy,
    attach IAM groups or inline policies, or change Browser/Manager availability.
+   The action is disabled while a personal access already exists or still requires
+   cleanup for the selected execution context.
    BucketReef creates the key on the server and never displays its generated
    secret in this flow.
 7. Verify resulting access with your standard IAM validation process.

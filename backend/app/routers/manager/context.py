@@ -10,7 +10,7 @@ from app.services.feature_policy_service import (
 )
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 from dataclasses import dataclass
-from typing import Annotated, Optional
+from typing import Annotated, Literal, Optional
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
@@ -40,6 +40,7 @@ from app.services.effective_access_service import EffectiveAccessService
 from app.services.managed_private_access_policy_service import (
     ManagedPrivateAccessPolicyService,
 )
+from app.services.managed_private_access_query_service import ManagedPrivateAccessQueryService
 from app.services.rgw_supervision import has_supervision_credentials
 from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.storage_endpoint_features import resolve_feature_flags
@@ -252,6 +253,37 @@ def _manager_private_access_enabled(
     )
 
 
+def _manager_private_access_state(
+    context: S3ExecutionContext,
+    actor: ManagerActor,
+    db: Session,
+) -> Optional[Literal["provisioning", "active", "deleting", "cleanup_pending"]]:
+    if not isinstance(actor, User):
+        return None
+
+    source_kind: Optional[str] = None
+    source_id: Optional[int] = None
+    if context.context_kind == "account":
+        source_kind = "account"
+        source_id = context.id
+    elif context.context_kind == "connection":
+        source_kind = "connection"
+        source_id = context.s3_connection_id
+    elif context.context_kind == "s3_user":
+        source_kind = "s3_user"
+        source_id = context.s3_user_id
+
+    if source_kind is None or not isinstance(source_id, int) or source_id <= 0:
+        return None
+
+    provisioning = ManagedPrivateAccessQueryService(db).active_for_source(
+        actor.id,
+        source_kind,
+        source_id,
+    )
+    return provisioning.state if provisioning is not None else None
+
+
 def _manager_limits(
     context: S3ExecutionContext,
     db: Session,
@@ -390,6 +422,7 @@ def get_manager_context(
         db,
         resolved_access,
     )
+    manager_private_access_state = _manager_private_access_state(context, actor, db)
     manager_bucket_quota_enabled = (
         is_manager_bucket_quota_available(context, actor, db=db)
         if isinstance(actor, User)
@@ -425,6 +458,7 @@ def get_manager_context(
         manager_access_key_metadata_enabled=manager_access_key_metadata_enabled,
         manager_access_key_expiration_enabled=manager_access_key_expiration_enabled,
         manager_private_access_enabled=manager_private_access_enabled,
+        manager_private_access_state=manager_private_access_state,
         quota_max_size_gb=limits.quota_max_size_gb,
         quota_max_objects=limits.quota_max_objects,
         max_buckets=limits.max_buckets,
