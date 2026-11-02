@@ -139,27 +139,72 @@ class KeystoneClient:
                 break
             visited.add(path)
             payload, _ = self._request("GET", path, token=token)
-            projects = payload.get("projects")
-            if not isinstance(projects, list) or len(result) + len(projects) > 10000:
-                raise OpenStackError("invalid_provider_response", "Invalid Keystone project listing", 502)
-            for item in projects:
-                if not isinstance(item, dict):
-                    raise OpenStackError("invalid_provider_response", "Invalid Keystone project", 502)
-                if item.get("enabled", True):
-                    result.append({"id": identifier(item.get("id")), "name": str(item.get("name") or item["id"]), "domain_id": item.get("domain_id")})
-            links = payload.get("links", {})
-            if not isinstance(links, dict):
-                raise OpenStackError("invalid_provider_response", "Invalid Keystone pagination", 502)
-            next_url = links.get("next")
-            if not next_url:
+            result.extend(self._project_page(payload, collected_count=len(result)))
+            next_path = self._next_projects_path(payload)
+            if next_path is None:
                 return result
-            if not isinstance(next_url, str):
-                raise OpenStackError("invalid_provider_response", "Invalid Keystone pagination", 502)
-            parsed, base = urlsplit(next_url), urlsplit(self.auth_url)
-            if parsed.scheme != base.scheme or parsed.netloc != base.netloc or not parsed.path.startswith(base.path + "/") or parsed.fragment:
-                raise OpenStackError("invalid_provider_response", "Unsafe Keystone pagination link", 502)
-            path = parsed.path[len(base.path):] + ("?" + parsed.query if parsed.query else "")
+            path = next_path
         raise OpenStackError("invalid_provider_response", "Keystone project pagination limit exceeded", 502)
+
+    @staticmethod
+    def _project_page(payload: dict, *, collected_count: int) -> list[dict]:
+        projects = payload.get("projects")
+        if not isinstance(projects, list) or collected_count + len(projects) > 10000:
+            raise OpenStackError(
+                "invalid_provider_response",
+                "Invalid Keystone project listing",
+                502,
+            )
+        result = []
+        for item in projects:
+            if not isinstance(item, dict):
+                raise OpenStackError(
+                    "invalid_provider_response",
+                    "Invalid Keystone project",
+                    502,
+                )
+            if item.get("enabled", True):
+                result.append(
+                    {
+                        "id": identifier(item.get("id")),
+                        "name": str(item.get("name") or item["id"]),
+                        "domain_id": item.get("domain_id"),
+                    }
+                )
+        return result
+
+    def _next_projects_path(self, payload: dict) -> str | None:
+        links = payload.get("links", {})
+        if not isinstance(links, dict):
+            raise OpenStackError(
+                "invalid_provider_response",
+                "Invalid Keystone pagination",
+                502,
+            )
+        next_url = links.get("next")
+        if not next_url:
+            return None
+        if not isinstance(next_url, str):
+            raise OpenStackError(
+                "invalid_provider_response",
+                "Invalid Keystone pagination",
+                502,
+            )
+        parsed, base = urlsplit(next_url), urlsplit(self.auth_url)
+        if (
+            parsed.scheme != base.scheme
+            or parsed.netloc != base.netloc
+            or not parsed.path.startswith(base.path + "/")
+            or parsed.fragment
+        ):
+            raise OpenStackError(
+                "invalid_provider_response",
+                "Unsafe Keystone pagination link",
+                502,
+            )
+        return parsed.path[len(base.path):] + (
+            "?" + parsed.query if parsed.query else ""
+        )
 
     def scoped(self, identity: KeystoneIdentity, project_id: str) -> KeystoneIdentity:
         return self._scoped_payload(identity, project_id)[0]
