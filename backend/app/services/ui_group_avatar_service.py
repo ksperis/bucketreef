@@ -34,7 +34,7 @@ class UiGroupAvatarService:
         self.db = db
 
     def descriptor(self, group: UiGroup) -> UiGroupAvatar:
-        source = str(group.avatar_source or "initials")
+        source = str(group.avatar_source)
         initials = _group_initials(group.name)
         if source == "uploaded" and group.avatar_image and group.avatar_content_type in ALLOWED_AVATAR_CONTENT_TYPES:
             version = int(group.avatar_updated_at.timestamp()) if group.avatar_updated_at else 0

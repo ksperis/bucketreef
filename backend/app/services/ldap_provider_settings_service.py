@@ -201,7 +201,7 @@ def _ui_provider_to_settings(provider: LdapProvider) -> LDAPProviderSettings:
         timeout_seconds=provider.timeout_seconds,
         enabled=bool(provider.enabled),
         allow_insecure=bool(provider.allow_insecure),
-        linking_policy=provider.linking_policy or "manual",
+        linking_policy=provider.linking_policy,
     )
 
 

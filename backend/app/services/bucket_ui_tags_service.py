@@ -375,7 +375,7 @@ class BucketUiTagsService:
             if link is not None:
                 self.db.delete(link)
         next_position = max(
-            (int(link.position or 0) for link in existing_by_id.values()),
+            (int(link.position) for link in existing_by_id.values()),
             default=-1,
         ) + 1
         for identifier, definition in plan.additions_by_id.items():
