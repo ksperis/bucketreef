@@ -145,8 +145,8 @@ class OpenStackPrivateConnectionCreate(ApiModel):
     connection_name: str = Field(min_length=1, max_length=255)
     target_id: str = Field(min_length=1, max_length=1024)
     access_key: str | None = Field(default=None, max_length=1024)
-    access_manager: bool = False
-    access_browser: bool = True
+    access_manager: bool
+    access_browser: bool
 
 
 class OpenStackContextRead(ApiModel):

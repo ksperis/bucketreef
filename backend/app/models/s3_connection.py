@@ -77,8 +77,8 @@ class S3ConnectionCreate(_CanonicalEndpointPayload):
 
     name: str
     provider_hint: Optional[str] = None
-    access_manager: bool = False
-    access_browser: bool = True
+    access_manager: bool
+    access_browser: bool
     rgw_user_uid: Optional[str] = None
     rgw_tenant: Optional[str] = None
     rgw_account_id: Optional[str] = None

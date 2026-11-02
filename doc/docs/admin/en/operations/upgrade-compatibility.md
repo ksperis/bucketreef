@@ -529,6 +529,16 @@ instead of retained as a compatibility alias.
 The bundled frontend has been updated with the API cutover. No database
 migration is required.
 
+## 2026-11 private connection workspace access is explicit
+
+Private S3 connection creation and OpenStack project imports now require
+non-null `access_manager` and `access_browser` booleans. The bundled frontend
+already sends both workspace choices for every create request, so the backend
+no longer invents Manager/Browser access when either field is omitted.
+
+Deploy the bundled frontend and backend together. No database migration is
+required.
+
 ## 2026-10 RGW User partial updates use PATCH
 
 Admin RGW User updates now use `PATCH /admin/s3-users/{user_id}`. The update

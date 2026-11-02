@@ -29,6 +29,8 @@ REQUIRED_TAG_MODELS = [
             "storage_endpoint_id": 1,
             "access_key_id": "access-key",
             "secret_access_key": "secret-key",
+            "access_manager": False,
+            "access_browser": True,
         },
         id="connection",
     ),
