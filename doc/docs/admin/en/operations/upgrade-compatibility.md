@@ -813,6 +813,19 @@ overrides keep their existing clear/inherit semantics.
 Deploy the backend and bundled frontend together. No database migration is
 required.
 
+## 2026-11 canonical S3 and RGW create payloads
+
+Create payloads for RGW Accounts, RGW Users, private S3 Connections, and Admin
+S3 Connections now reject explicit `tags: null`; omit `tags` to use an empty
+default or send an array to define tags. Private S3 Connection creation no
+longer exposes the unsupported `is_active` field in the bundled frontend, and
+custom-endpoint `force_path_style` / `verify_tls` values must be booleans when
+present. Preset endpoint creation continues to omit those endpoint booleans so
+the configured endpoint supplies them.
+
+Deploy the backend and bundled frontend together. No database migration is
+required.
+
 ## 2026-11 canonical S3 Connection PATCH nullability
 
 Private and Admin S3 Connection PATCH payloads now reject explicit `null` for

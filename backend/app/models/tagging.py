@@ -39,6 +39,8 @@ class TagDefinitionInput(ApiModel):
 
 
 def _normalize_required_tag_definitions(value: object) -> list[dict[str, str]]:
+    if value is None:
+        raise ValueError("tags cannot be null")
     return normalize_tag_items_input(value, allow_none=False) or []
 
 
