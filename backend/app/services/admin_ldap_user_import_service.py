@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import create_ldap_import_selection_token, decode_typed_token
 from app.db import AuthSession, ExternalIdentity, User
-from app.core.domain_enums import UserRole, is_admin_ui_role
+from app.core.domain_enums import is_admin_ui_role
 from app.models.admin_ldap_import import (
     LDAPImportCreatePayload,
     LDAPImportMatchedUser,
@@ -17,7 +17,6 @@ from app.models.admin_ldap_import import (
     LDAPImportSearchItem,
     LDAPImportSearchResponse,
 )
-from app.models.user import ManagerToolAccess
 from app.services.auth_session_service import AuthSessionService
 from app.services.ldap_service import LDAPAuthService, LDAPIdentity
 from app.services.manager_tool_access import MANAGER_TOOL_ROLES, manager_tool_column_values
@@ -155,9 +154,9 @@ class AdminLdapUserImportService:
         email = str(payload.email).strip().lower()
         if self.users.get_by_email_case_insensitive(email):
             raise ValueError("A UI user with this email already exists; link the LDAP identity instead")
-        role = payload.role or UserRole.UI_USER.value
+        role = payload.role
         manager_supported = role in MANAGER_TOOL_ROLES
-        manager_access = payload.manager_tool_access or ManagerToolAccess()
+        manager_access = payload.manager_tool_access
         user = User(
             email=email,
             full_name=(payload.full_name or "").strip() or None,

@@ -1,7 +1,7 @@
 /* Copyright (c) 2026 Laurent Barbe. Licensed under the Apache License, Version 2.0. */
 import type { ManagerFeaturePolicies } from "../../api/appSettings";
 import { isFeaturePolicyAvailable } from "../../api/featurePolicies";
-import type { ManagerToolAccess, UpdateUserPayload } from "../../api/users";
+import type { ManagerToolAccess } from "../../api/users";
 import PageBanner from "../../components/PageBanner";
 import {
   AdminAccessToggleSection,
@@ -15,16 +15,15 @@ import {
 } from "./adminAccessConfig";
 import type { UsersText } from "./usersMessage";
 
-type PlatformAccessValue = Pick<
-  UpdateUserPayload,
-  | "can_access_ceph_admin"
-  | "can_access_storage_ops"
-  | "can_create_manual_private_connections"
-  | "can_provision_managed_private_connections"
-  | "allow_multisite_endpoint_switching"
-  | "manager_tool_access"
-  | "browser_advanced_features_enabled"
->;
+type PlatformAccessValue = {
+  can_access_ceph_admin?: boolean;
+  can_access_storage_ops?: boolean;
+  can_create_manual_private_connections?: boolean;
+  can_provision_managed_private_connections?: boolean;
+  allow_multisite_endpoint_switching?: boolean;
+  manager_tool_access?: ManagerToolAccess;
+  browser_advanced_features_enabled?: boolean;
+};
 
 type AdminUserPlatformAccessPanelProps = {
   value: PlatformAccessValue;
