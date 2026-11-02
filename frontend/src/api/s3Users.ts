@@ -168,11 +168,6 @@ export async function listS3Users(params?: ListS3UsersParams): Promise<Paginated
   return data;
 }
 
-export async function listMinimalS3Users(): Promise<S3UserSummary[]> {
-  const { data } = await client.get<S3UserSummary[]>("/admin/s3-users/minimal");
-  return data;
-}
-
 export async function createS3User(payload: CreateS3UserPayload): Promise<S3User> {
   const { data } = await client.post<S3User>("/admin/s3-users", payload);
   return data;

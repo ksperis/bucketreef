@@ -118,11 +118,6 @@ export async function listAdminS3Connections(params?: ListS3ConnectionsParams): 
   return data;
 }
 
-export async function listMinimalS3Connections(): Promise<S3ConnectionSummary[]> {
-  const { data } = await client.get<S3ConnectionSummary[]>("/admin/s3-connections/minimal");
-  return data;
-}
-
 export async function createAdminS3Connection(payload: CreateAdminS3ConnectionPayload): Promise<S3ConnectionAdminItem> {
   const { data } = await client.post<S3ConnectionAdminItem>("/admin/s3-connections", payload);
   return data;

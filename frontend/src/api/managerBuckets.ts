@@ -35,7 +35,7 @@ export type FeatureRuleInventoryBucket = {
   error: string | null;
 };
 
-export type ManagerBucketOption = { name: string };
+type ManagerBucketOption = { name: string };
 
 export async function listBucketOptions(
   contextId: S3ExecutionContextSelector,

@@ -58,7 +58,6 @@ vi.mock("../../api/users", () => ({
 }));
 vi.mock("../../api/groups", () => ({
   listGroups: async () => ({ items: [fixtures.group], total: 1, page: 1, page_size: 25, has_next: false }),
-  listMinimalGroups: async () => [fixtures.group],
   listGroupOptions: async () => ({ items: [fixtures.group], total: 1, page: 1, page_size: 25, has_next: false }),
   updateGroup: fixtures.updateGroup,
   createGroup: vi.fn(),
@@ -66,9 +65,6 @@ vi.mock("../../api/groups", () => ({
   uploadGroupAvatar: vi.fn(),
   deleteGroupAvatar: vi.fn(),
 }));
-vi.mock("../../api/accounts", () => ({ listMinimalS3Accounts: async () => [] }));
-vi.mock("../../api/s3Users", () => ({ listMinimalS3Users: async () => [] }));
-vi.mock("../../api/s3ConnectionsAdmin", () => ({ listMinimalS3Connections: async () => [] }));
 vi.mock("../../api/openstack", () => ({ listAdminOpenStackClouds: async () => [] }));
 vi.mock("../../api/security", async (importOriginal) => ({
   ...(await importOriginal<object>()),

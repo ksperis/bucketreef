@@ -58,7 +58,7 @@ export type PortalStorageSpaceShareCandidate = {
   avatar: UserAvatarDescriptor | null;
 };
 
-export type PortalShareCandidatesQuery = {
+type PortalShareCandidatesQuery = {
   page?: number;
   page_size?: number;
   search?: string;

@@ -97,11 +97,6 @@ export async function listGroups(params?: ListUiGroupsParams): Promise<Paginated
   return data;
 }
 
-export async function listMinimalGroups(): Promise<UiGroupSummary[]> {
-  const { data } = await client.get<UiGroupSummary[]>("/admin/groups/minimal");
-  return data;
-}
-
 export async function listGroupOptions(params: {
   page?: number;
   page_size?: number;
