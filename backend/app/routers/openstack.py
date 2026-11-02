@@ -5,15 +5,13 @@ from __future__ import annotations
 import hashlib
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.db import User
-from app.db.openstack import OpenStackCloud, OpenStackConnection
 from app.models.openstack import (
     OpenStackActivate, OpenStackAuthenticate, OpenStackCloudPublic,
-    OpenStackCloudWrite, OpenStackConnectionRead, OpenStackContextRead, OpenStackProjectAccessRead,
+    OpenStackConnectionRead, OpenStackContextRead, OpenStackProjectAccessRead,
     OpenStackPrivateConnectionCreate, OpenStackProjectOptionsRead, OpenStackProjectRead,
 )
 from app.models.s3_connection import S3Connection
@@ -39,13 +37,6 @@ def ui_session(request: Request, response: Response, db: Session = Depends(get_d
     return row
 
 
-def cloud_read(row: OpenStackCloud) -> dict:
-    return {
-        **{key: getattr(row, key) for key in OpenStackCloudWrite.model_fields},
-        "id": row.id,
-    }
-
-
 def _record_action(db, user, scope, action, entity, entity_id):
     AuditService(db).record_action(
         user=user,
@@ -65,8 +56,7 @@ def available_clouds(db: Session = Depends(get_db), user: User = Depends(get_cur
 
 @router.get("/connections", response_model=list[OpenStackConnectionRead])
 def connections(db: Session = Depends(get_db), user: User = Depends(get_current_account_user), session=Depends(ui_session)):
-    service = OpenStackService(db)
-    return [service.connection_read(row, user, session.id) for row in db.scalars(select(OpenStackConnection).where(OpenStackConnection.user_id == user.id)).all()]
+    return OpenStackService(db).user_connections(user, session.id)
 
 
 @router.post("/connections", response_model=OpenStackConnectionRead)
