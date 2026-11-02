@@ -344,6 +344,43 @@ def test_compare_version_timeline_pair_preserves_size_only_version_ids(db_sessio
     )
 
 
+def test_compare_version_timeline_pair_preserves_object_mismatch_diagnostic(db_session):
+    service = BucketMigrationService(db_session)
+    details = iter(
+        [
+            _version_details(size=10, etag='"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"'),
+            _version_details(size=11, etag='"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"'),
+        ]
+    )
+    service._versioned_object_details = (  # type: ignore[method-assign]
+        lambda *_args, **_kwargs: next(details)
+    )
+    service._compare_versioned_object_details = (  # type: ignore[method-assign]
+        lambda *_args, **_kwargs: (False, "md5", "etag_mismatch")
+    )
+
+    comparison = service._compare_version_timeline_pair(
+        object(),
+        object(),
+        source_bucket="source",
+        target_bucket="target",
+        key="object.txt",
+        source_timeline=[_version_entry("object.txt", "source-v1")],
+        target_timeline=[_version_entry("object.txt", "target-v9")],
+    )
+
+    assert comparison.equal is False
+    assert comparison.first_difference == {
+        "key": "object.txt",
+        "reason": "etag_mismatch",
+        "compare_by": "md5",
+        "source_size": 10,
+        "target_size": 11,
+        "source_etag": '"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"',
+        "target_etag": '"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"',
+    }
+
+
 def _make_bucket_feature_probe_stub(
     *,
     get_bucket_website=None,
