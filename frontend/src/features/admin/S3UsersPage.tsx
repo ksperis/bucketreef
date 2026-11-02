@@ -226,11 +226,13 @@ export default function S3UsersPage() {
   }, [hasLinkedPortalUsers, loadPortalUsersIfNeeded]);
 
   useEffect(() => {
-    usersPagination.setSearch(portalUserPicker.search);
+    const setSearch = usersPagination.setSearch;
+    setSearch(portalUserPicker.search);
   }, [portalUserPicker.search, usersPagination.setSearch]);
 
   useEffect(() => {
-    groupsPagination.setSearch(groupPicker.search);
+    const setSearch = groupsPagination.setSearch;
+    setSearch(groupPicker.search);
   }, [groupPicker.search, groupsPagination.setSearch]);
 
   const portalUserOptions = useMemo(() => portalUsers.map((u) => ({ id: u.id, label: u.email })), [portalUsers]);
