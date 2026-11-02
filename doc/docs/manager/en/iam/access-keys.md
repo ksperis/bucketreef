@@ -45,7 +45,7 @@ This is different from:
    and notes before creation. When access-key expiration is enabled, optionally
    choose an expiration date and time. The secret is shown once. Use **Edit
    details** to add, change, or clear these optional values on an existing key.
-5. Select **Create my private access** to have BucketReef create a distinct RGW
+5. Select **Create my personal access** to have BucketReef create a distinct RGW
    User key and private connection without transmitting the secret to the
    browser. This separate workflow requires the UI right
    `can_provision_managed_private_connections` and the S3 User opt-in

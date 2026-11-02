@@ -88,7 +88,7 @@ describe("CreateManagedPrivateAccessModal", () => {
 
     await user.clear(screen.getByLabelText("Connection name"));
     await user.type(screen.getByLabelText("Connection name"), "Personal browser");
-    await user.click(screen.getByRole("button", { name: "Create my private access" }));
+    await user.click(screen.getByRole("button", { name: "Create my personal access" }));
 
     await waitFor(() => {
       expect(createIamMock).toHaveBeenCalledWith("acc-7", {
@@ -130,7 +130,7 @@ describe("CreateManagedPrivateAccessModal", () => {
     await user.type(screen.getByLabelText("Inline policy name"), "audit");
     await user.click(screen.getByRole("button", { name: "Add inline policy" }));
     await user.click(screen.getByRole("checkbox", { name: "Access manager" }));
-    await user.click(screen.getByRole("button", { name: "Create my private access" }));
+    await user.click(screen.getByRole("button", { name: "Create my personal access" }));
 
     await waitFor(() => {
       expect(createIamMock).toHaveBeenCalledWith("acc-7", {
@@ -154,17 +154,17 @@ describe("CreateManagedPrivateAccessModal", () => {
     await user.type(name, "policy_under+score");
     expect(name).toHaveAttribute("aria-invalid", "true");
     await user.click(screen.getByRole("button", { name: "Add inline policy" }));
-    await user.click(screen.getByRole("button", { name: "Create my private access" }));
+    await user.click(screen.getByRole("button", { name: "Create my personal access" }));
     expect(createIamMock).not.toHaveBeenCalled();
     await user.clear(name);
     await user.click(screen.getByRole("button", { name: "Add inline policy" }));
     expect(name).toHaveAccessibleDescription("Inline policy name is required.");
-    await user.click(screen.getByRole("button", { name: "Create my private access" }));
+    await user.click(screen.getByRole("button", { name: "Create my personal access" }));
     expect(createIamMock).not.toHaveBeenCalled();
     await user.type(name, "policy:valid");
     expect(name).not.toHaveAttribute("aria-invalid", "true");
     await user.click(screen.getByRole("button", { name: "Add inline policy" }));
-    await user.click(screen.getByRole("button", { name: "Create my private access" }));
+    await user.click(screen.getByRole("button", { name: "Create my personal access" }));
     await waitFor(() => expect(createIamMock).toHaveBeenCalledWith("acc-7", expect.objectContaining({
       inline_policies: [{ name: "policy:valid", document: { Version: "2012-10-17", Statement: [] } }],
     })));
@@ -190,7 +190,7 @@ describe("CreateManagedPrivateAccessModal", () => {
     expect(screen.getByLabelText("Connection name")).toHaveValue("rgw-user-test private access");
     await user.clear(screen.getByLabelText("Connection name"));
     await user.type(screen.getByLabelText("Connection name"), "Personal RGW");
-    await user.click(screen.getByRole("button", { name: "Create my private access" }));
+    await user.click(screen.getByRole("button", { name: "Create my personal access" }));
 
     await waitFor(() => {
       expect(createRgwUserMock).toHaveBeenCalledWith("s3u-9", {
@@ -214,7 +214,7 @@ describe("CreateManagedPrivateAccessModal", () => {
 
     await user.click(screen.getByText("Advanced configuration"));
     await user.click(screen.getByRole("checkbox", { name: "Access browser" }));
-    await user.click(screen.getByRole("button", { name: "Create my private access" }));
+    await user.click(screen.getByRole("button", { name: "Create my personal access" }));
 
     expect(screen.getByRole("alert")).toHaveTextContent("Enable Browser, Manager, or both.");
     expect(createRgwUserMock).not.toHaveBeenCalled();
@@ -230,7 +230,7 @@ describe("CreateManagedPrivateAccessModal", () => {
       />
     );
 
-    const dialog = screen.getByRole("dialog", { name: "Create my private access" });
+    const dialog = screen.getByRole("dialog", { name: "Create my personal access" });
     expect(await within(dialog).findByText("readers")).toBeInTheDocument();
     expect(await within(dialog).findByText("ReadOnly")).toBeInTheDocument();
     expect(await axe(container)).toHaveNoViolations();
@@ -239,7 +239,7 @@ describe("CreateManagedPrivateAccessModal", () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
     render(<CreateManagedPrivateAccessModal variant="iam" contextId="acc-7" onClose={onClose} onCreated={vi.fn()} />);
-    const dialog = screen.getByRole("dialog", { name: "Create my private access" });
+    const dialog = screen.getByRole("dialog", { name: "Create my personal access" });
     await user.click(screen.getByText("Advanced configuration"));
     await user.type(screen.getByLabelText("Inline policy name"), "unadded-draft");
     for (const dismiss of [
@@ -312,7 +312,7 @@ describe("CreateManagedPrivateAccessModal", () => {
     const name = screen.getByLabelText("Connection name");
     await user.clear(name);
     await user.type(name, "   ");
-    await user.click(screen.getByRole("button", { name: "Create my private access" }));
+    await user.click(screen.getByRole("button", { name: "Create my personal access" }));
     expect(name).toHaveAccessibleDescription("Connection name is required.");
     await waitFor(() => expect(name).toHaveFocus());
     expect(createIamMock).not.toHaveBeenCalled();
@@ -354,7 +354,7 @@ describe("CreateManagedPrivateAccessModal", () => {
     await user.click(advanced);
     await user.click(screen.getByRole("checkbox", { name: "Access browser" }));
     await user.click(advanced);
-    await user.click(screen.getByRole("button", { name: "Create my private access" }));
+    await user.click(screen.getByRole("button", { name: "Create my personal access" }));
     expect(advanced.closest("details")).toHaveAttribute("open");
     const manager = screen.getByRole("checkbox", { name: "Access manager" });
     expect(manager).toHaveAccessibleDescription(expect.stringContaining("Enable Browser, Manager, or both."));

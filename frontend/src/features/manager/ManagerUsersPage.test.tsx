@@ -323,9 +323,9 @@ describe("ManagerUsersPage", () => {
     );
 
     await waitFor(() => expect(listIamUsersPageMock).toHaveBeenCalledWith("acc-1", { marker: null, page_size: 25, include_details: true }));
-    fireEvent.click(screen.getByRole("button", { name: "Create my private access" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create my personal access" }));
 
-    const dialog = screen.getByRole("dialog", { name: "Create my private access" });
+    const dialog = screen.getByRole("dialog", { name: "Create my personal access" });
     expect(dialog).toBeInTheDocument();
     expect(within(dialog).getByLabelText("Connection name")).toHaveValue("Tenant account private access");
     expect(within(dialog).queryByLabelText(/IAM user/i)).not.toBeInTheDocument();

@@ -52,7 +52,7 @@ instead.
    **Edit details**. This metadata is stored only by BucketReef and does not
    change the IAM credential or its permissions.
 6. To create a personal private S3 connection without handling its secret,
-   select **Create my private access** on the Users page. The default creates a
+   select **Create my personal access** on the Users page. The default creates a
    dedicated IAM identity with `AmazonS3FullAccess` and a Browser-enabled
    private connection. Open **Advanced configuration** to replace that policy,
    attach IAM groups or inline policies, or change Browser/Manager availability.
@@ -96,7 +96,7 @@ Check endpoint IAM capability, Manager access, and the selected execution contex
     enforced by Manager.
 
 !!! note
-    **Create my private access** is available only for an authorized RGW Account
+    **Create my personal access** is available only for an authorized RGW Account
     or S3 Connection that is executable in Manager and reports IAM capability.
     It does not reuse a Portal identity or the credentials of a shared
     connection. Ordinary **Create user** and **New key** actions still display

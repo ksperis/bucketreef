@@ -119,7 +119,7 @@ describe("ManagerCephKeysPage", () => {
 
     await screen.findByText("AK-SECONDARY");
     expect(screen.getByText("Inactive")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Create my private access" }));
+    await user.click(screen.getByRole("button", { name: "Create my personal access" }));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.getByLabelText("Connection name")).toHaveValue("RGW user test private access");
     expect(screen.queryByText("IAM groups")).not.toBeInTheDocument();
@@ -143,7 +143,7 @@ describe("ManagerCephKeysPage", () => {
     expect(screen.queryByRole("button", { name: "New key" })).not.toBeInTheDocument();
     expect(listManagerCephAccessKeysMock).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole("button", { name: "Create my private access" }));
+    await user.click(screen.getByRole("button", { name: "Create my personal access" }));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 

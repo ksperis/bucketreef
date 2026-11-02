@@ -1537,7 +1537,7 @@ export const scenarios: DocScreenshotScenario[] = [
     },
     actions: [
       { type: "wait", selector: "text=Operations client" },
-      { type: "wait", selector: "button:has-text('Create my private access')" },
+      { type: "wait", selector: "button:has-text('Create my personal access')" },
     ],
     mockRules: withBaseRules(),
   },
