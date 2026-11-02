@@ -258,8 +258,6 @@ async function openBucketConfiguration(
     await page.goto("/ceph-admin/buckets?ep=11");
     await page.getByRole("button", { name: "helios-retail-logs", exact: true }).click();
   }
-  await page.getByRole("tab", { name: "Properties", exact: true }).click();
-  await expect(page.getByTestId("bucket-feature-versioning")).toBeVisible();
   return { errors, registry };
 }
 
@@ -268,6 +266,19 @@ for (const surface of ["manager", "ceph-admin"] as const) {
     for (const width of [1440, 390]) {
       test(`${surface} bucket feature cards ${theme} ${width}`, async ({ page }, testInfo) => {
       const { errors, registry } = await openBucketConfiguration(page, surface, theme, width);
+      await expect(page.getByRole("heading", { name: "Details", exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Current usage and quota", exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Bucket properties", exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Quotas", exact: true })).toHaveCount(0);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
+      await page.screenshot({
+        path: testInfo.outputPath(`bucket-overview-${surface}-${theme}-${width}.png`),
+        fullPage: true,
+        animations: "disabled",
+      });
+
+      await page.getByRole("tab", { name: "Properties", exact: true }).click();
+      await expect(page.getByTestId("bucket-feature-versioning")).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
       await expect(page.getByTestId("bucket-feature-versioning")).toHaveAttribute("data-feature-presentation", "simple");
       await expect(page.getByTestId("bucket-feature-encryption")).toHaveAttribute("data-feature-presentation", "simple");

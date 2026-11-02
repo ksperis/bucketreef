@@ -721,25 +721,23 @@ describe("BucketDetailPage replication state", () => {
     expect(onBack).toHaveBeenCalledOnce();
   });
 
-  it("renders a compact bucket overview without repeating the bucket title", async () => {
+  it("renders a compact bucket overview using the shared settings-section layout", async () => {
     render(
       <MemoryRouter>
         <BucketDetailPage mode="ceph-admin" bucketNameOverride="demo-bucket" embedded />
       </MemoryRouter>
     );
 
-    const propertiesLabel = await screen.findByText("Bucket properties");
-    const overviewSection = propertiesLabel.closest("section");
+    const propertiesLabel = await screen.findByRole("heading", { name: "Bucket properties" });
+    const overviewSection = propertiesLabel.closest("[role=tabpanel]") ?? propertiesLabel.closest("section")?.parentElement;
 
     expect(overviewSection).not.toBeNull();
-    expect(overviewSection).not.toHaveClass("ui-surface-card");
     expect(within(overviewSection as HTMLElement).queryByRole("heading", { name: "Bucket demo-bucket" })).not.toBeInTheDocument();
-    expect(within(overviewSection as HTMLElement).queryByText("Overview")).not.toBeInTheDocument();
-    expect(within(overviewSection as HTMLElement).queryByText("Summary of enabled features.")).not.toBeInTheDocument();
+    expect(within(overviewSection as HTMLElement).getByRole("heading", { name: "Details" })).toBeInTheDocument();
+    expect(within(overviewSection as HTMLElement).getByRole("heading", { name: "Current usage and quota" })).toBeInTheDocument();
+    expect(within(overviewSection as HTMLElement).getByRole("heading", { name: "Bucket properties" })).toBeInTheDocument();
+    expect(within(overviewSection as HTMLElement).queryByRole("heading", { name: "Quotas" })).not.toBeInTheDocument();
     expect(within(overviewSection as HTMLElement).getByText("Unavailable")).toBeInTheDocument();
-
-    const propertiesGroup = within(overviewSection as HTMLElement).getByText("Bucket properties").parentElement;
-    expect(propertiesGroup).not.toHaveClass("ui-surface-muted");
   });
 
   it("shows a read-only object browser for Ceph Admin buckets", async () => {
