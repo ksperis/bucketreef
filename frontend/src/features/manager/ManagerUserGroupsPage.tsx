@@ -36,6 +36,7 @@ export default function ManagerUserGroupsPage() {
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const membershipConfirmation = useConfirmActionDialog();
   const groupOptions = useManagerIamCursorCollection(listIamGroupsPage);
+  const { load: loadGroupOptions, setItems: setGroupOptions } = groupOptions;
 
   const load = useCallback(async (contextId: S3ExecutionContextSelector, targetUser: string) => {
     setLoading(true);
@@ -43,23 +44,23 @@ export default function ManagerUserGroupsPage() {
     try {
       const user = await getIamUser(contextId, targetUser);
       setGroups((user.groups ?? []).map((name) => ({ name })));
-      groupOptions.load(contextId);
+      loadGroupOptions(contextId);
     } catch (err) {
       setError(extractApiError(err, text("Unable to load IAM groups.")));
     } finally {
       setLoading(false);
     }
-  }, [groupOptions.load, text]);
+  }, [loadGroupOptions, text]);
 
   useEffect(() => {
     if (!userName || needsContextSelection || isS3User) {
       setGroups([]);
-      groupOptions.setItems([]);
+      setGroupOptions([]);
       setLoading(false);
       return;
     }
     void load(contextIdForApi, userName);
-  }, [accessMode, contextIdForApi, groupOptions.setItems, isS3User, load, needsContextSelection, userName]);
+  }, [accessMode, contextIdForApi, isS3User, load, needsContextSelection, setGroupOptions, userName]);
 
   const availableGroups = useMemo(
     () => groupOptions.items.filter((group) => !groups.some((current) => current.name === group.name)),

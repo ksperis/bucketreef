@@ -75,12 +75,14 @@ export default function CreateManagedPrivateAccessModal({
   const [accessError, setAccessError] = useState<string>();
   const groups = useManagerIamCursorCollection(listIamGroupsPage);
   const policies = useManagerIamCursorCollection(listIamPoliciesPage);
+  const { load: loadGroups } = groups;
+  const { load: loadPolicies } = policies;
 
   useEffect(() => {
     if (variant !== "iam") return;
-    groups.load(contextId);
-    policies.load(contextId);
-  }, [contextId, groups.load, policies.load, variant]);
+    loadGroups(contextId);
+    loadPolicies(contextId);
+  }, [contextId, loadGroups, loadPolicies, variant]);
 
   const inlineFormatError = inlinePolicyNameFormatError(inlineName.trim(), "user", namingValidationProfile ?? "standard");
   const namingRulesPending = variant === "iam" && namingValidationProfile === null;
