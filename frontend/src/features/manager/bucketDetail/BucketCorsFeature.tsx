@@ -281,6 +281,7 @@ export default function BucketCorsFeature({ controller }: BucketCorsFeatureProps
     addDraftRule,
     closeEditor,
     configured,
+    draftRuleIds,
     draftRules,
     draftSignature,
     dirty,
@@ -396,7 +397,7 @@ export default function BucketCorsFeature({ controller }: BucketCorsFeatureProps
         <BucketFeatureEditorList>
           {visibleDraftRules.map(({ rule, index }) => (
             <CorsRuleEditor
-              key={`cors-rule-${index}`}
+              key={draftRuleIds[index]}
               index={index}
               rule={rule}
               disabled={saving}

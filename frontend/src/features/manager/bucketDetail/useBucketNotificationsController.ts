@@ -11,7 +11,6 @@ import {
   putCephAdminBucketNotifications,
 } from "../../../api/cephAdminBucketDetails";
 import { extractApiError, isApiFeatureUnsupportedError } from "../../../utils/apiError";
-import { createUiDraftId } from "../../../utils/uiDraftId";
 import {
   bucketEditorDraftSignature,
   cloneBucketJsonValue,
@@ -19,6 +18,7 @@ import {
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
 import { useBucketFeatureEditorSession } from "./useBucketFeatureEditorSession";
+import { useBucketEditorRowIds } from "./useBucketEditorRowIds";
 import {
   addNotificationTopic,
   createVisualNotificationTopic,
@@ -56,12 +56,6 @@ function parseNotificationEditorJson(text: string) {
   return { draft: parsed.configuration, error: parsed.error };
 }
 
-function createDraftTopicIds(configuration: NotificationConfigurationRecord): string[] {
-  return notificationTopicConfigurations(configuration).map(() =>
-    createUiDraftId("notification-topic"),
-  );
-}
-
 export function useBucketNotificationsController({
   contextId,
   bucketName,
@@ -72,7 +66,12 @@ export function useBucketNotificationsController({
 }: UseBucketNotificationsControllerOptions) {
   const bucketDetailsApi = useBucketDetailsApi();
   const [configuration, setConfiguration] = useState<NotificationConfigurationRecord>({});
-  const [draftTopicIds, setDraftTopicIds] = useState<string[]>([]);
+  const {
+    appendRowId: appendDraftTopicId,
+    removeRowId: removeDraftTopicId,
+    resetRowIds: resetDraftTopicIds,
+    rowIds: draftTopicIds,
+  } = useBucketEditorRowIds("notification-topic");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [featureUnsupported, setFeatureUnsupported] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -138,9 +137,9 @@ export function useBucketNotificationsController({
     mode: "visual" | "json",
     targetIndex: number | null,
   ) => {
-    setDraftTopicIds(createDraftTopicIds(nextDraft));
+    resetDraftTopicIds(notificationTopicConfigurations(nextDraft).length);
     openEditorSessionDraft(nextDraft, mode, targetIndex);
-  }, [openEditorSessionDraft]);
+  }, [openEditorSessionDraft, resetDraftTopicIds]);
 
   const openEditor = useCallback(() => {
     openEditorDraft(cloneBucketJsonValue(configuration), "visual", null);
@@ -176,23 +175,23 @@ export function useBucketNotificationsController({
         createVisualNotificationTopic(),
       ),
     );
-    setDraftTopicIds((current) => [...current, createUiDraftId("notification-topic")]);
+    appendDraftTopicId();
     setEditorTargetIndex(null);
     setEditorError(null);
-  }, [draftConfiguration.TopicConfigurations, setDraftConfiguration, setEditorError, setEditorTargetIndex]);
+  }, [appendDraftTopicId, draftConfiguration.TopicConfigurations, setDraftConfiguration, setEditorError, setEditorTargetIndex]);
 
   const removeDraftTopic = useCallback((index: number) => {
     setDraftConfiguration((current) => removeNotificationTopicAt(current, index));
-    setDraftTopicIds((current) => current.filter((_, topicIndex) => topicIndex !== index));
+    removeDraftTopicId(index);
     setEditorError(null);
-  }, [setDraftConfiguration, setEditorError]);
+  }, [removeDraftTopicId, setDraftConfiguration, setEditorError]);
 
   const updateEditorMode = useCallback((nextMode: "visual" | "json") => {
     const parsedDraft = updateEditorSessionMode(nextMode);
     if (nextMode === "visual" && parsedDraft) {
-      setDraftTopicIds(createDraftTopicIds(parsedDraft));
+      resetDraftTopicIds(notificationTopicConfigurations(parsedDraft).length);
     }
-  }, [updateEditorSessionMode]);
+  }, [resetDraftTopicIds, updateEditorSessionMode]);
 
   const updateDraftTopic = useCallback(
     (index: number, patch: NotificationVisualTopicPatch) => {
@@ -253,7 +252,7 @@ export function useBucketNotificationsController({
       }
       nextConfiguration = parsed.configuration;
       setDraftConfiguration(parsed.configuration);
-      setDraftTopicIds(createDraftTopicIds(parsed.configuration));
+      resetDraftTopicIds(notificationTopicConfigurations(parsed.configuration).length);
     } else {
       const validationError = validateNotificationVisualConfiguration(nextConfiguration);
       if (validationError) {
@@ -270,7 +269,7 @@ export function useBucketNotificationsController({
       if (savedConfiguration === null) return;
       applyBaseline(savedConfiguration);
       replaceDraft(savedConfiguration);
-      setDraftTopicIds(createDraftTopicIds(savedConfiguration));
+      resetDraftTopicIds(notificationTopicConfigurations(savedConfiguration).length);
       setStatus(isEmptyConfiguration(savedConfiguration) ? "Notifications cleared." : "Notifications updated.");
       closeEditor();
     } catch (saveFailure) {
@@ -290,6 +289,7 @@ export function useBucketNotificationsController({
     jsonText,
     persistConfiguration,
     replaceDraft,
+    resetDraftTopicIds,
     saving,
     closeEditor,
     setDraftConfiguration,

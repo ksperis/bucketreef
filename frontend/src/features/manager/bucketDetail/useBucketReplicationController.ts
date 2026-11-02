@@ -11,7 +11,6 @@ import {
   putCephAdminBucketReplication,
 } from "../../../api/cephAdminBucketDetails";
 import { extractApiError, isApiFeatureUnsupportedError } from "../../../utils/apiError";
-import { createUiDraftId } from "../../../utils/uiDraftId";
 import {
   containsUnsupportedReplicationZone,
   isReplicationConfigurationConfigured,
@@ -23,6 +22,7 @@ import {
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
 import { useBucketFeatureEditorSession } from "./useBucketFeatureEditorSession";
+import { useBucketEditorRowIds } from "./useBucketEditorRowIds";
 import {
   cloneReplicationConfiguration,
   createReplicationVisualRule,
@@ -45,12 +45,6 @@ type UseBucketReplicationControllerOptions = {
   enabled: boolean;
   endpointId?: number | null;
 };
-
-function createRuleIds(configuration: Record<string, unknown>): string[] {
-  return replicationConfigurationRules(configuration).map(() =>
-    createUiDraftId("replication-rule"),
-  );
-}
 
 function parseReplicationEditorSessionJson(text: string) {
   const parsed = parseReplicationEditorJson(text);
@@ -89,7 +83,12 @@ export function useBucketReplicationController({
 }: UseBucketReplicationControllerOptions) {
   const bucketDetailsApi = useBucketDetailsApi();
   const [configuration, setConfiguration] = useState<Record<string, unknown>>({});
-  const [draftRuleIds, setDraftRuleIds] = useState<string[]>([]);
+  const {
+    appendRowId: appendDraftRuleId,
+    removeRowId: removeDraftRuleId,
+    resetRowIds: resetDraftRuleIds,
+    rowIds: draftRuleIds,
+  } = useBucketEditorRowIds("replication-rule");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [featureUnsupported, setFeatureUnsupported] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -158,9 +157,9 @@ export function useBucketReplicationController({
     mode: "visual" | "json",
     targetIndex: number | null,
   ) => {
-    setDraftRuleIds(createRuleIds(nextDraft));
+    resetDraftRuleIds(replicationConfigurationRules(nextDraft).length);
     openEditorSessionDraft(nextDraft, mode, targetIndex);
-  }, [openEditorSessionDraft]);
+  }, [openEditorSessionDraft, resetDraftRuleIds]);
 
   const openEditor = useCallback(() => {
     openEditorDraft(cloneReplicationConfiguration(configuration), "visual", null);
@@ -188,10 +187,10 @@ export function useBucketReplicationController({
     (nextMode: "visual" | "json") => {
       const parsedDraft = updateEditorSessionMode(nextMode);
       if (nextMode === "visual" && parsedDraft) {
-        setDraftRuleIds(createRuleIds(parsedDraft));
+        resetDraftRuleIds(replicationConfigurationRules(parsedDraft).length);
       }
     },
-    [updateEditorSessionMode],
+    [resetDraftRuleIds, updateEditorSessionMode],
   );
 
   const updateRole = useCallback((value: string) => {
@@ -227,13 +226,10 @@ export function useBucketReplicationController({
         createReplicationVisualRule(),
       ],
     }));
-    setDraftRuleIds((current) => [
-      ...current,
-      createUiDraftId("replication-rule"),
-    ]);
+    appendDraftRuleId();
     setEditorTargetIndex(null);
     setEditorError(null);
-  }, [setDraftConfiguration, setEditorError, setEditorTargetIndex]);
+  }, [appendDraftRuleId, setDraftConfiguration, setEditorError, setEditorTargetIndex]);
 
   const removeRule = useCallback(
     (uiId: string) => {
@@ -245,12 +241,10 @@ export function useBucketReplicationController({
           (_, ruleIndex) => ruleIndex !== index,
         ),
       }));
-      setDraftRuleIds((current) =>
-        current.filter((_, ruleIndex) => ruleIndex !== index),
-      );
+      removeDraftRuleId(index);
       setEditorError(null);
     },
-    [draftRuleIds, setDraftConfiguration, setEditorError],
+    [draftRuleIds, removeDraftRuleId, setDraftConfiguration, setEditorError],
   );
 
   const persistConfiguration = useCallback(async (nextConfiguration: Record<string, unknown>) => {
@@ -325,7 +319,7 @@ export function useBucketReplicationController({
       }
       nextConfiguration = parsed.configuration;
       setDraftConfiguration(parsed.configuration);
-      setDraftRuleIds(createRuleIds(parsed.configuration));
+      resetDraftRuleIds(replicationConfigurationRules(parsed.configuration).length);
     }
 
     const nextRules = replicationConfigurationRules(nextConfiguration);
@@ -352,7 +346,7 @@ export function useBucketReplicationController({
       if (savedConfiguration === null) return;
       applyBaseline(savedConfiguration);
       replaceDraft(cloneReplicationConfiguration(savedConfiguration));
-      setDraftRuleIds(createRuleIds(savedConfiguration));
+      resetDraftRuleIds(replicationConfigurationRules(savedConfiguration).length);
       setStatus(replicationConfigurationRules(savedConfiguration).length === 0
         ? "Replication configuration cleared."
         : "Replication configuration updated.");
@@ -379,6 +373,7 @@ export function useBucketReplicationController({
     jsonText,
     persistConfiguration,
     replaceDraft,
+    resetDraftRuleIds,
     saving,
     closeEditor,
     setDraftConfiguration,
