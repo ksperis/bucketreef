@@ -940,6 +940,16 @@ omitted otherwise.
 Deploy the backend and bundled frontend together. No database migration is
 required.
 
+## 2026-11 canonical bucket migration draft replacement
+
+Manager bucket migration draft updates now use `PUT` instead of `PATCH`.
+The update request already carries the complete draft definition plus its
+`configuration_revision`, and saving a draft replaces that configuration
+atomically before invalidating any previous precheck state.
+
+Deploy the backend and bundled frontend together. No database migration is
+required.
+
 ## 2026-11 canonical Ceph Admin RGW PATCH nullability
 
 Ceph Admin RGW account and user configuration PATCH payloads now reject

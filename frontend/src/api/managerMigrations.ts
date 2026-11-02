@@ -254,7 +254,7 @@ export async function updateManagerMigration(
   migrationId: number,
   payload: BucketMigrationUpdateRequest
 ): Promise<BucketMigrationDetail> {
-  const { data } = await client.patch<BucketMigrationDetail>(`/manager/migrations/${migrationId}`, payload);
+  const { data } = await client.put<BucketMigrationDetail>(`/manager/migrations/${migrationId}`, payload);
   return data;
 }
 
