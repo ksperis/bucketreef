@@ -272,9 +272,24 @@ async function expectBrowserSidebarShell(page: Page, viewportName: string) {
 
     await collapseButton.click();
     const expandButton = sidebar.getByRole("button", { name: "Expand sidebar" });
+    const compactBrand = expandButton.locator("img").locator("..");
+    const expandIcon = expandButton.locator('svg[aria-hidden="true"]');
     await expect(expandButton).toBeVisible();
     await expect(sidebar.getByText("BucketReef", { exact: true })).toHaveCount(0);
     await expect(sidebar).toHaveCSS("width", "56px");
+    await expect(compactBrand).toHaveCSS("opacity", "1");
+    await expect(expandIcon).toHaveCSS("opacity", "0");
+    await expandButton.hover();
+    await expect(compactBrand).toHaveCSS("opacity", "0");
+    await expect(expandIcon).toHaveCSS("opacity", "1");
+    const browserSidebar = sidebar.getByTestId("browser-workspace-sidebar");
+    const compactPanelToggle = browserSidebar.getByRole("button", { name: "Show favorites" });
+    await expect(compactPanelToggle).toBeVisible();
+    await expect(browserSidebar.getByRole("tab")).toHaveCount(0);
+    await expect(browserSidebar.locator("[data-bucket-panel-name]").first()).toHaveAttribute("aria-label", /^1\. /);
+    await compactPanelToggle.click();
+    await expect(browserSidebar.getByRole("button", { name: "Show buckets" })).toBeVisible();
+    await browserSidebar.getByRole("button", { name: "Show buckets" }).click();
     await profileLink.hover();
     await expect(page.getByRole("tooltip")).toHaveText("Profile");
 

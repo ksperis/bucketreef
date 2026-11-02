@@ -208,6 +208,7 @@ export default function Sidebar({
     });
     return initial;
   });
+  const [activeSectionCollapseOverrides, setActiveSectionCollapseOverrides] = useState<Record<string, boolean>>({});
   const [navScrolling, setNavScrolling] = useState(false);
   const navRef = useRef<HTMLElement | null>(null);
   const navScrollTimeoutRef = useRef<number | null>(null);
@@ -241,10 +242,32 @@ export default function Sidebar({
     activeLink?.scrollIntoView?.({ block: "nearest" });
   }, [collapsedSections, compact, location.pathname]);
 
-  const toggleSection = (stateKey: string, persistenceKey: string | null, collapsible: boolean) => {
+  useEffect(() => {
+    setActiveSectionCollapseOverrides({});
+  }, [location.pathname]);
+
+  const toggleSection = (
+    stateKey: string,
+    persistenceKey: string | null,
+    collapsible: boolean,
+    activeSection: boolean,
+    isCollapsed: boolean,
+  ) => {
     if (!collapsible) return;
+    const nextCollapsed = !isCollapsed;
+    setActiveSectionCollapseOverrides((previous) => {
+      if (!activeSection) {
+        if (!(stateKey in previous)) return previous;
+        const next = { ...previous };
+        delete next[stateKey];
+        return next;
+      }
+      return {
+        ...previous,
+        [stateKey]: nextCollapsed,
+      };
+    });
     setCollapsedSections((prev) => {
-      const nextCollapsed = !prev[stateKey];
       const next = {
         ...prev,
         [stateKey]: nextCollapsed,
@@ -285,7 +308,7 @@ export default function Sidebar({
   };
 
   const baseLinkClasses = compact
-    ? "shell-sidebar-action group relative flex h-9 items-center justify-center rounded-md px-2 text-[12px] font-medium leading-4 transition"
+    ? "shell-sidebar-action group relative flex h-8 items-center justify-center rounded-md px-2 text-[12px] font-medium leading-4 transition"
     : "shell-sidebar-action group relative flex h-9 items-center justify-between gap-2 overflow-hidden rounded-md px-2.5 text-[12px] font-medium leading-4 transition";
   const inactiveLinkClasses = "shell-sidebar-item";
   const activeLinkClasses =
@@ -322,9 +345,15 @@ export default function Sidebar({
             onClick={onCollapseToggle}
             aria-label={text("expandSidebar")}
             title={text("expandSidebar")}
-            className="shell-touch-target flex h-10 w-10 items-center justify-center rounded-lg bg-transparent transition-colors hover:bg-[var(--shell-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--shell-sidebar-bg)]"
+            className="shell-touch-target group relative flex h-10 w-10 items-center justify-center rounded-lg bg-transparent transition-colors hover:bg-[var(--shell-hover)] focus:outline-none focus-visible:bg-[var(--shell-hover)] focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--shell-sidebar-bg)]"
           >
-            <BrandMark className="h-9 w-9" />
+            <span className="absolute inset-0 flex items-center justify-center transition-[opacity,transform] duration-150 group-hover:scale-75 group-hover:opacity-0 group-focus-visible:scale-75 group-focus-visible:opacity-0">
+              <BrandMark className="h-9 w-9" />
+            </span>
+            <ExpandIcon
+              aria-hidden="true"
+              className="h-5 w-5 scale-75 text-[var(--shell-text)] opacity-0 transition-[opacity,transform] duration-150 group-hover:scale-100 group-hover:opacity-100 group-focus-visible:scale-100 group-focus-visible:opacity-100"
+            />
           </button>
         ) : (
           <>
@@ -361,7 +390,11 @@ export default function Sidebar({
               const sectionPersistenceKey = sidebarSectionPersistenceKey(section);
               const activeSection = section.links.some((link) => sidebarLinkMatchesPath(link, location.pathname));
               const isCollapsed =
-                compact || !section.label ? false : Boolean(collapsedSections[sectionStateKey] && !activeSection);
+                compact || !section.label
+                  ? false
+                  : activeSection && activeSectionCollapseOverrides[sectionStateKey]
+                    ? true
+                    : Boolean(collapsedSections[sectionStateKey] && !activeSection);
               const showSeparator = index < effectiveSections.length - 1;
               return (
                 <section
@@ -369,11 +402,22 @@ export default function Sidebar({
                   className={`${showSeparator && !compact ? "border-b border-[color:var(--shell-border-soft)] pb-3" : ""} ${compact ? "shell-sidebar-compact-rail" : ""} space-y-1.5`}
                 >
                   {compact ? (
-                    <div className="mx-auto my-1 h-px w-5 rounded-full bg-[var(--shell-border)]" />
+                    index > 0 ? (
+                      <div
+                        aria-hidden="true"
+                        className="shell-sidebar-compact-divider mx-auto my-1 h-px w-5 rounded-full bg-[var(--shell-border-soft)]"
+                      />
+                    ) : null
                   ) : !section.label ? null : collapsible ? (
                     <button
                       type="button"
-                      onClick={() => toggleSection(sectionStateKey, sectionPersistenceKey, collapsible)}
+                      onClick={() => toggleSection(
+                        sectionStateKey,
+                        sectionPersistenceKey,
+                        collapsible,
+                        activeSection,
+                        isCollapsed,
+                      )}
                       className="shell-section-label shell-sidebar-section-toggle flex h-5 w-full items-center justify-between rounded-md px-2 text-[10px] font-semibold uppercase transition hover:bg-[var(--shell-hover)] hover:text-[var(--shell-text)]"
                     >
                       <span>{section.label}</span>
@@ -475,7 +519,7 @@ export default function Sidebar({
               onClick={onNavigate}
               aria-label={text("profile")}
               className={({ isActive }) =>
-                `${baseLinkClasses} w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 ${isActive ? activeLinkClasses : inactiveLinkClasses}`
+                `${baseLinkClasses} mx-auto w-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 ${isActive ? activeLinkClasses : inactiveLinkClasses}`
               }
             >
               <UserProfileIcon className="h-4 w-4 shrink-0" />
@@ -513,6 +557,15 @@ function CollapseIcon(props: React.SVGProps<SVGSVGElement>) {
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" {...props}>
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="m12 5-5 5 5 5" />
       <path strokeLinecap="round" strokeWidth={1.7} d="M15 4.5v11" />
+    </svg>
+  );
+}
+
+function ExpandIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="m8 5 5 5-5 5" />
+      <path strokeLinecap="round" strokeWidth={1.7} d="M5 4.5v11" />
     </svg>
   );
 }

@@ -7,11 +7,74 @@ import { describe, expect, it, vi } from "vitest";
 import BrowserWorkspaceSidebar from "./BrowserWorkspaceSidebar";
 
 describe("BrowserWorkspaceSidebar", () => {
-  it("balances the compact bucket and favorites tab icons optically", () => {
+  it("uses one compact toggle and numbers bucket shortcuts", () => {
     const { container } = render(
       <BrowserWorkspaceSidebar
         favorites={<div>Favorite locations</div>}
         compact
+        variant="desktop"
+        isPortalContext={false}
+        rows={[
+          {
+            bucket: { name: "archive" },
+            access: { status: "available", detail: null },
+          },
+          {
+            bucket: { name: "reports" },
+            access: { status: "available", detail: null },
+          },
+        ]}
+        activeBucketName="reports"
+        bucketFilter=""
+        loadingBuckets={false}
+        bucketError={null}
+        bucketManagementEnabled={false}
+        canLoadMore={false}
+        bucketMenuLoadingMore={false}
+        bucketMenuTotal={2}
+        bucketTotalCount={2}
+        usageSummary={null}
+        usageLoading={false}
+        usageError={null}
+        closeMobile={vi.fn()}
+        onBucketFilterChange={vi.fn()}
+        onRetryBuckets={vi.fn()}
+        onCreateBucket={vi.fn()}
+        onSelectBucket={vi.fn()}
+        onLoadMore={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("tab")).not.toBeInTheDocument();
+    const toggle = screen.getByRole("button", { name: "Show favorites" });
+    expect(toggle).toHaveClass("h-8", "w-8");
+    expect(toggle.querySelector("svg")).toHaveClass(
+      "h-4",
+      "w-4",
+      "shrink-0",
+    );
+    expect(screen.getByRole("button", { name: "1. archive" })).toHaveTextContent("1");
+    const activeBucket = screen.getByRole("button", { name: "2. reports" });
+    expect(activeBucket).toHaveTextContent("2");
+    expect(activeBucket).toHaveAttribute("aria-current", "page");
+    expect(activeBucket.querySelector("span[aria-hidden='true']")).toHaveClass("bg-primary");
+    const viewport = container.querySelector(".shell-sidebar-scroll-compact");
+    expect(viewport).toBeInTheDocument();
+    expect(viewport?.firstElementChild).toHaveClass("shell-sidebar-compact-rail");
+
+    fireEvent.click(toggle);
+    expect(screen.getByText("Favorite locations")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Show buckets" }).querySelector("svg")).toHaveClass(
+      "h-4",
+      "w-4",
+    );
+  });
+
+  it("keeps separate bucket and favorite tabs when expanded", () => {
+    render(
+      <BrowserWorkspaceSidebar
+        favorites={<div>Favorite locations</div>}
+        compact={false}
         variant="desktop"
         isPortalContext={false}
         rows={[]}
@@ -36,18 +99,8 @@ describe("BrowserWorkspaceSidebar", () => {
       />,
     );
 
-    expect(screen.getByRole("tab", { name: "Buckets" }).querySelector("svg")).toHaveClass(
-      "h-5",
-      "w-5",
-      "shrink-0",
-    );
-    expect(screen.getByRole("tab", { name: "Favorites" }).querySelector("svg")).toHaveClass(
-      "h-4",
-      "w-4",
-    );
-    const viewport = container.querySelector(".shell-sidebar-scroll-compact");
-    expect(viewport).toBeInTheDocument();
-    expect(viewport?.firstElementChild).toHaveClass("shell-sidebar-compact-rail");
+    expect(screen.getByRole("tab", { name: "Buckets" })).toBeVisible();
+    expect(screen.getByRole("tab", { name: "Favorites" })).toBeVisible();
   });
 
   it("renders the Portal Storage Space descriptor instead of the generic bucket icon", () => {

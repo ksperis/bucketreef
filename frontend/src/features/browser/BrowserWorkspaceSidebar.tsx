@@ -144,6 +144,9 @@ export default function BrowserWorkspaceSidebar({
     : bucketFilter.trim()
       ? tr("No matching item.")
       : tr(isPortalContext ? "No spaces available." : "No buckets available.");
+  const compactToggleLabel = tab === "buckets"
+    ? tr("Show favorites")
+    : tr(isPortalContext ? "Show spaces" : "Show buckets");
 
   return (
     <div
@@ -151,12 +154,30 @@ export default function BrowserWorkspaceSidebar({
       aria-label={title}
       data-testid="browser-workspace-sidebar"
     >
-      {favorites && <div role="tablist" aria-label={tr("Favorites")} className="flex shrink-0 border-b border-[color:var(--shell-border-soft)]">
-        {(["buckets", "favorites"] as const).map(value => <button key={value} type="button" role="tab" id={`browser-${variant}-${value}-tab`} aria-controls={`browser-${variant}-${value}-panel`} aria-selected={tab === value} tabIndex={tab === value ? 0 : -1} aria-label={value === "buckets" ? title : tr("Favorites")} className={`flex min-w-0 flex-1 items-center justify-center gap-2 border-b-2 px-2 py-3 text-xs font-medium ${tab === value ? "border-primary text-primary" : "border-transparent text-[var(--shell-muted-text)]"}`} onClick={() => setTab(value)} onKeyDown={event => {
-          if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) { event.preventDefault(); const next = event.key === "Home" ? "buckets" : event.key === "End" ? "favorites" : value === "buckets" ? "favorites" : "buckets"; setTab(next); document.getElementById(`browser-${variant}-${next}-tab`)?.focus(); }
-        }}>{value === "buckets" ? <BucketIcon className={compact ? "h-5 w-5 shrink-0" : "h-4 w-4"} /> : <BrowserUtilityIcon />}{!compact && (value === "buckets" ? title : tr("Favorites"))}</button>)}
-      </div>}
-      {favorites && tab === "favorites" ? <div role="tabpanel" id={`browser-${variant}-favorites-panel`} aria-labelledby={`browser-${variant}-favorites-tab`} className="flex min-h-0 flex-1 flex-col">{favorites}</div> : <div role={favorites ? "tabpanel" : undefined} id={`browser-${variant}-buckets-panel`} aria-labelledby={favorites ? `browser-${variant}-buckets-tab` : undefined} className="flex min-h-0 flex-1 flex-col">
+      {favorites && (compact ? (
+        <div className="flex shrink-0 justify-center border-b border-[color:var(--shell-border-soft)] px-2 py-2">
+          <button
+            type="button"
+            aria-label={compactToggleLabel}
+            title={compactToggleLabel}
+            className="shell-sidebar-item flex h-8 w-8 items-center justify-center rounded-md transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+            onClick={() => setTab((current) => current === "buckets" ? "favorites" : "buckets")}
+          >
+            {tab === "buckets" ? (
+              <BucketIcon className="h-4 w-4 shrink-0" />
+            ) : (
+              <BrowserUtilityIcon className="h-4 w-4" />
+            )}
+          </button>
+        </div>
+      ) : (
+        <div role="tablist" aria-label={tr("Favorites")} className="flex shrink-0 border-b border-[color:var(--shell-border-soft)]">
+          {(["buckets", "favorites"] as const).map(value => <button key={value} type="button" role="tab" id={`browser-${variant}-${value}-tab`} aria-controls={`browser-${variant}-${value}-panel`} aria-selected={tab === value} tabIndex={tab === value ? 0 : -1} aria-label={value === "buckets" ? title : tr("Favorites")} className={`flex min-w-0 flex-1 items-center justify-center gap-2 border-b-2 px-2 py-3 text-xs font-medium ${tab === value ? "border-primary text-primary" : "border-transparent text-[var(--shell-muted-text)]"}`} onClick={() => setTab(value)} onKeyDown={event => {
+            if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) { event.preventDefault(); const next = event.key === "Home" ? "buckets" : event.key === "End" ? "favorites" : value === "buckets" ? "favorites" : "buckets"; setTab(next); document.getElementById(`browser-${variant}-${next}-tab`)?.focus(); }
+          }}>{value === "buckets" ? <BucketIcon className="h-4 w-4" /> : <BrowserUtilityIcon />}{value === "buckets" ? title : tr("Favorites")}</button>)}
+        </div>
+      ))}
+      {favorites && tab === "favorites" ? <div role={compact ? undefined : "tabpanel"} id={`browser-${variant}-favorites-panel`} aria-labelledby={compact ? undefined : `browser-${variant}-favorites-tab`} className="flex min-h-0 flex-1 flex-col">{favorites}</div> : <div role={favorites && !compact ? "tabpanel" : undefined} id={`browser-${variant}-buckets-panel`} aria-labelledby={favorites && !compact ? `browser-${variant}-buckets-tab` : undefined} className="flex min-h-0 flex-1 flex-col">
       {!compact && (
         <div className="shrink-0 space-y-2 border-b border-[color:var(--shell-border-soft)] px-3 py-3">
           <ToolbarSearchInput
@@ -202,7 +223,7 @@ export default function BrowserWorkspaceSidebar({
         className={`shell-sidebar-scroll ${compact ? "shell-sidebar-scroll-compact py-2" : "px-2.5 py-3"} min-h-0 flex-1 overflow-y-auto`}
       >
         <div className={`space-y-1.5 ${compact ? "shell-sidebar-compact-rail" : ""}`}>
-          {rows.map(({ bucket, access }) => {
+          {rows.map(({ bucket, access }, rowIndex) => {
             const isActive = bucket.name === activeBucketName;
             const displayName = getBucketDisplayName(bucket, isPortalContext);
             const description = isPortalContext ? bucket.description?.trim() : "";
@@ -213,7 +234,7 @@ export default function BrowserWorkspaceSidebar({
                   ? displayName
                   : bucket.name;
             const rowClasses = compact
-              ? `relative flex h-9 w-full items-center justify-center rounded-md transition ${
+              ? `relative flex h-8 w-full items-center justify-center rounded-md transition ${
                   isActive ? "shell-sidebar-item-active" : "shell-sidebar-item"
                 }`
               : `relative flex w-full min-w-0 items-center gap-2 rounded-md px-2.5 py-2 text-left text-[12px] font-medium leading-4 transition ${
@@ -233,19 +254,35 @@ export default function BrowserWorkspaceSidebar({
                   }
                 }}
                 title={rowTitle}
+                aria-label={compact ? `${rowIndex + 1}. ${displayName}` : undefined}
                 aria-current={isActive ? "page" : undefined}
                 data-bucket-panel-name={bucket.name}
               >
-                {isPortalContext ? (
-                  <StorageSpaceIcon
-                    icon={bucket.icon}
-                    name={displayName}
-                    size="sidebar"
-                    decorative
-                  />
-                ) : (
-                  <BucketIcon className="h-4 w-4 shrink-0" />
-                )}
+                <span className={compact ? "relative inline-flex items-center justify-center" : "contents"}>
+                  {isPortalContext ? (
+                    <StorageSpaceIcon
+                      icon={bucket.icon}
+                      name={displayName}
+                      size="sidebar"
+                      decorative
+                    />
+                  ) : (
+                    <BucketIcon className="h-4 w-4 shrink-0" />
+                  )}
+                  {compact && (
+                    <span
+                      aria-hidden="true"
+                      className={cx(
+                        "absolute -right-2 -top-2 inline-flex h-3.5 min-w-3.5 items-center justify-center rounded-full px-0.5 text-[9px] font-semibold leading-none ring-1",
+                        isActive
+                          ? "bg-primary text-white ring-primary"
+                          : "bg-[var(--shell-sidebar-bg)] text-[var(--shell-muted-text)] ring-[var(--shell-border)]",
+                      )}
+                    >
+                      {rowIndex + 1}
+                    </span>
+                  )}
+                </span>
                 {!compact && (
                   <>
                     <span className="min-w-0 flex-1">
@@ -309,7 +346,7 @@ export default function BrowserWorkspaceSidebar({
             type="button"
             className={
               compact
-                ? "flex h-9 w-full items-center justify-center rounded-md shell-sidebar-item"
+                ? "mx-auto flex h-8 w-8 items-center justify-center rounded-md shell-sidebar-item"
                 : cx(toolbarCompactButtonClasses, "inline-flex w-full items-center justify-center gap-2")
             }
             onClick={workspaceAccountAction.onClick}
