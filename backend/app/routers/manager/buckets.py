@@ -98,6 +98,77 @@ def _bucket_ui_target(
     )
 
 
+def _manager_bucket_delete_result_succeeded(result: BucketPurgeResult) -> bool:
+    return result.status == "completed" and result.bucket_deleted
+
+
+def _manager_bucket_delete_result_metadata(result: BucketPurgeResult) -> dict[str, object]:
+    return {
+        "result_status": result.status,
+        "listed_objects": result.listed_objects,
+        "listed_versions": result.listed_versions,
+        "deleted_objects": result.deleted_objects,
+        "deleted_versions": result.deleted_versions,
+        "failed_count": result.failed_count,
+        "bucket_deleted": result.bucket_deleted,
+    }
+
+
+def _manager_bucket_delete_after_result(
+    context: S3ExecutionContext,
+    deleted_bucket_target: PhysicalBucketTarget | None,
+    result: BucketPurgeResult,
+) -> None:
+    if not result.bucket_deleted:
+        return
+    _invalidate_bucket_listing_for_context(context)
+    if deleted_bucket_target is not None:
+        with SessionLocal() as cleanup_db:
+            BucketUiTagsService(cleanup_db).cleanup_deleted_bucket(deleted_bucket_target)
+
+
+def _manager_bucket_delete_audit(
+    *,
+    tool_user: User,
+    context: S3ExecutionContext,
+    bucket_name: str,
+    options: BucketPurgeOptions,
+    deleted_bucket_target: PhysicalBucketTarget | None,
+) -> BucketPurgeAuditLifecycle:
+    return BucketPurgeAuditLifecycle(
+        record=partial(
+            record_bucket_purge_audit,
+            user_id=int(tool_user.id),
+            user_email=str(tool_user.email),
+            user_role=str(tool_user.role),
+            scope="manager",
+            entity_type="bucket",
+            entity_id=bucket_name,
+            execution_context=context,
+        ),
+        base_metadata={
+            "bucket_name": bucket_name,
+            "context_id": context.context_id,
+            "parallelism": options.parallelism,
+            "include_versions": True,
+            "confirmation": "matched",
+        },
+        start_action="start_bucket_delete_with_purge",
+        result_action="finish_bucket_delete_with_purge",
+        cancel_action="cancel_bucket_delete_with_purge",
+        error_action="fail_bucket_delete_with_purge",
+        cancel_message="Bucket deletion canceled",
+        result_failure_action="fail_bucket_delete_with_purge",
+        result_succeeded=_manager_bucket_delete_result_succeeded,
+        result_metadata=_manager_bucket_delete_result_metadata,
+        after_result=partial(
+            _manager_bucket_delete_after_result,
+            context,
+            deleted_bucket_target,
+        ),
+    )
+
+
 @router.get("", response_model=list[Bucket])
 def list_buckets(
     include: list[str] = Query(default=[], description="Optional extra fields to include (e.g. tags, versioning, cors)"),
@@ -359,57 +430,13 @@ def stream_delete_bucket_with_purge(
         context_name=context.name,
     )
     service = BucketPurgeService()
-    base_metadata = {
-        "bucket_name": bucket_name,
-        "context_id": context.context_id,
-        "parallelism": options.parallelism,
-        "include_versions": True,
-        "confirmation": "matched",
-    }
     deleted_bucket_target = _bucket_ui_target(context, bucket_name)
-
-    def after_result(result: BucketPurgeResult) -> None:
-        if result.bucket_deleted:
-            _invalidate_bucket_listing_for_context(context)
-            if deleted_bucket_target is not None:
-                with SessionLocal() as cleanup_db:
-                    BucketUiTagsService(cleanup_db).cleanup_deleted_bucket(deleted_bucket_target)
-
-    def result_succeeded(result: BucketPurgeResult) -> bool:
-        return result.status == "completed" and result.bucket_deleted
-
-    def result_metadata(result: BucketPurgeResult) -> dict[str, object]:
-        return {
-            "result_status": result.status,
-            "listed_objects": result.listed_objects,
-            "listed_versions": result.listed_versions,
-            "deleted_objects": result.deleted_objects,
-            "deleted_versions": result.deleted_versions,
-            "failed_count": result.failed_count,
-            "bucket_deleted": result.bucket_deleted,
-        }
-
-    audit = BucketPurgeAuditLifecycle(
-        record=partial(
-            record_bucket_purge_audit,
-            user_id=int(tool_user.id),
-            user_email=str(tool_user.email),
-            user_role=str(tool_user.role),
-            scope="manager",
-            entity_type="bucket",
-            entity_id=bucket_name,
-            execution_context=context,
-        ),
-        base_metadata=base_metadata,
-        start_action="start_bucket_delete_with_purge",
-        result_action="finish_bucket_delete_with_purge",
-        cancel_action="cancel_bucket_delete_with_purge",
-        error_action="fail_bucket_delete_with_purge",
-        cancel_message="Bucket deletion canceled",
-        result_failure_action="fail_bucket_delete_with_purge",
-        result_succeeded=result_succeeded,
-        result_metadata=result_metadata,
-        after_result=after_result,
+    audit = _manager_bucket_delete_audit(
+        tool_user=tool_user,
+        context=context,
+        bucket_name=bucket_name,
+        options=options,
+        deleted_bucket_target=deleted_bucket_target,
     )
 
     return stream_bucket_purge(
