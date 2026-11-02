@@ -256,22 +256,18 @@ class PortalSharingMixin:
         access: "AccountAccess",
         space_id: str,
     ) -> PortalStorageSpaceAccessSummary:
-        bucket_name = self._resolve_storage_space_bucket_name(user, access, space_id, include_archived=True)
-        if not bucket_name:
+        storage_space = self._visible_storage_space_summary(
+            user,
+            access,
+            space_id,
+            include_archived=True,
+        )
+        if storage_space is None or not storage_space.internal_bucket_name:
             raise PortalNotFoundError("Storage space not found or not allowed.")
+        bucket_name = storage_space.internal_bucket_name
         metadata = self._storage_space_metadata(access.account, bucket_name)
         if metadata is None:
             raise RuntimeError("Storage space metadata is missing.")
-        storage_space = next(
-            (
-                item
-                for item in self.list_storage_spaces(user, access, include_archived=True)
-                if item.id == space_id or item.internal_bucket_name == bucket_name
-            ),
-            None,
-        )
-        if storage_space is None:
-            raise PortalNotFoundError("Storage space not found or not allowed.")
         actor_role = self._user_storage_space_role(user, access, bucket_name, include_archived=True)
         can_manage_access = (
             actor_role == "Manager"
@@ -350,22 +346,13 @@ class PortalSharingMixin:
         access: "AccountAccess",
         space_id: str,
     ) -> list[PortalStorageSpaceShare]:
-        bucket_name = self._resolve_storage_space_bucket_name(user, access, space_id)
-        if not bucket_name:
+        storage_space = self._visible_storage_space_summary(user, access, space_id)
+        if storage_space is None or not storage_space.internal_bucket_name:
             raise PortalNotFoundError("Storage space not found or not allowed.")
+        bucket_name = storage_space.internal_bucket_name
         metadata = self._require_storage_space_active(access.account, bucket_name)
         if self._metadata_visibility(metadata) != "shared":
             return []
-        storage_space = next(
-            (
-                item
-                for item in self.list_storage_spaces(user, access)
-                if item.id == space_id or item.internal_bucket_name == bucket_name
-            ),
-            None,
-        )
-        if storage_space is None:
-            raise PortalNotFoundError("Storage space not found or not allowed.")
         actor_role = self._user_storage_space_role(user, access, bucket_name)
         can_see_all = actor_role == "Manager"
         shares: list[PortalStorageSpaceShare] = []

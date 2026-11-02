@@ -345,22 +345,40 @@ class PortalStorageSpaceCatalogMixin:
         )
         return self._sort_storage_space_summaries(filtered, sort)
 
+    def _visible_storage_space_summary(
+        self,
+        user: User,
+        access: "AccountAccess",
+        space_id: str,
+        *,
+        include_archived: bool = False,
+    ) -> PortalStorageSpaceSummary | None:
+        if not space_id:
+            return None
+        return next(
+            (
+                space
+                for space in self.list_storage_spaces(
+                    user,
+                    access,
+                    include_archived=include_archived,
+                )
+                if space.id == space_id or space.internal_bucket_name == space_id
+            ),
+            None,
+        )
+
     def get_storage_space(
         self,
         user: User,
         access: "AccountAccess",
         space_id: str,
     ) -> Optional[PortalStorageSpaceSummary]:
-        if not space_id:
-            return None
-        visible_spaces = self.list_storage_spaces(user, access, include_archived=True)
-        summary = next(
-            (
-                space
-                for space in visible_spaces
-                if space.id == space_id or space.internal_bucket_name == space_id
-            ),
-            None,
+        summary = self._visible_storage_space_summary(
+            user,
+            access,
+            space_id,
+            include_archived=True,
         )
         if summary is None or not summary.internal_bucket_name:
             return None

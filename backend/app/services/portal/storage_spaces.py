@@ -690,15 +690,10 @@ class PortalStorageSpacesMixin:
         space_id: str,
         include_archived: bool = False,
     ) -> Optional[str]:
-        if not space_id:
-            return None
-        visible_spaces = self.list_storage_spaces(user, access, include_archived=include_archived)
-        summary = next(
-            (
-                space
-                for space in visible_spaces
-                if space.id == space_id or space.internal_bucket_name == space_id
-            ),
-            None,
+        summary = self._visible_storage_space_summary(
+            user,
+            access,
+            space_id,
+            include_archived=include_archived,
         )
         return summary.internal_bucket_name if summary and summary.internal_bucket_name else None

@@ -95,22 +95,13 @@ class PortalPublicLinksMixin:
         object_key: Optional[str] = None,
         include_revoked: bool = False,
     ) -> list[PortalPublicLink]:
-        bucket_name = self._resolve_storage_space_bucket_name(user, access, space_id)
-        if not bucket_name:
+        storage_space = self._visible_storage_space_summary(user, access, space_id)
+        if storage_space is None or not storage_space.internal_bucket_name:
             raise PortalNotFoundError("Storage space not found or not allowed.")
+        bucket_name = storage_space.internal_bucket_name
         self._require_storage_space_manager(user, access, bucket_name)
         self._require_storage_space_full_content_access(user, access, bucket_name)
         metadata = self._require_storage_space_active(access.account, bucket_name)
-        storage_space = next(
-            (
-                item
-                for item in self.list_storage_spaces(user, access)
-                if item.id == space_id or item.internal_bucket_name == bucket_name
-            ),
-            None,
-        )
-        if storage_space is None:
-            raise PortalNotFoundError("Storage space not found or not allowed.")
         stmt = select(DBPortalPublicLink).where(
             DBPortalPublicLink.account_id == access.account.id,
             DBPortalPublicLink.bucket_name == bucket_name,
@@ -144,9 +135,10 @@ class PortalPublicLinksMixin:
     ) -> PortalPublicLink:
         if not object_key:
             raise PortalBadRequestError("Object key is required.")
-        bucket_name = self._resolve_storage_space_bucket_name(user, access, space_id)
-        if not bucket_name:
+        storage_space = self._visible_storage_space_summary(user, access, space_id)
+        if storage_space is None or not storage_space.internal_bucket_name:
             raise PortalNotFoundError("Storage space not found or not allowed.")
+        bucket_name = storage_space.internal_bucket_name
         self._require_storage_space_manager(user, access, bucket_name)
         self._require_storage_space_full_content_access(user, access, bucket_name)
         metadata = self._require_storage_space_active(access.account, bucket_name)
@@ -155,16 +147,6 @@ class PortalPublicLinksMixin:
                 raise PortalForbiddenError("Private storage spaces cannot be shared.")
         elif not self._portal_user_can_create_external_sharing(user, access, bucket_name):
             raise PortalForbiddenError("External sharing is disabled for this Portal user.")
-        storage_space = next(
-            (
-                item
-                for item in self.list_storage_spaces(user, access)
-                if item.id == space_id or item.internal_bucket_name == bucket_name
-            ),
-            None,
-        )
-        if storage_space is None:
-            raise PortalNotFoundError("Storage space not found or not allowed.")
         expires_at = self._normalize_storage_space_datetime(expires_at)
         if expires_at is not None and expires_at <= utcnow():
             raise PortalBadRequestError("Public link expiration must be in the future.")
