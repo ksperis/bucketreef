@@ -170,10 +170,10 @@ def test_manager_migration_stream_hides_unexpected_error_details(
     monkeypatch.setattr(migrations_router, "SessionLocal", test_session_factory)
     migration_id = _seed_migration(test_session_factory, status="running")
 
-    def fail_signature(*_args, **_kwargs):
+    def fail_snapshot(*_args, **_kwargs):
         raise failure
 
-    monkeypatch.setattr(migrations_router, "migration_stream_signature", fail_signature)
+    monkeypatch.setattr(migrations_router, "load_migration_stream_snapshot", fail_snapshot)
 
     async def _run() -> str:
         request = _request_with_disconnect_after(calls_before_disconnect=100)
