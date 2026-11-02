@@ -5,11 +5,12 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal, Optional
 
-from pydantic import EmailStr, Field
+from pydantic import EmailStr, Field, field_validator, model_validator
 
 from app.models.base import ApiModel
 from app.models.auth import SessionInfo
 from app.models.user import UiRole
+from app.utils.identity_provider_ids import normalize_identity_provider_id, normalize_oidc_issuer
 
 
 class AdminPasskeyInfo(ApiModel):
@@ -63,6 +64,16 @@ class AdminExternalIdentityRequest(ApiModel):
     email: Optional[EmailStr] = None
     email_verified: bool = False
     restore: bool = False
+
+    normalize_provider_id = field_validator("provider_id", mode="before")(normalize_identity_provider_id)
+
+    @model_validator(mode="after")
+    def validate_provider_identity(self):
+        if self.provider_type == "oidc":
+            self.issuer = normalize_oidc_issuer(self.issuer)
+        elif self.issuer is not None:
+            raise ValueError("issuer is only valid for OIDC identities")
+        return self
 
 
 class AdminMfaResetResponse(ApiModel):

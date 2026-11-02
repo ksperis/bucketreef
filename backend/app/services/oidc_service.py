@@ -26,6 +26,7 @@ from app.db import OidcAuthorizationCode, OidcLoginState, OidcProviderIssuerPin
 from app.models.oidc import OIDCProviderInfo
 from app.services.oidc_provider_settings_service import resolve_oidc_provider_map
 from app.services.users_service import UsersService, get_users_service
+from app.utils.identity_provider_ids import normalize_identity_provider_id, normalize_oidc_issuer
 
 LOGGER = logging.getLogger(__name__)
 REQUEST_TIMEOUT = 10
@@ -433,7 +434,10 @@ class OidcService:
         return resolve_oidc_provider_map(self.db, self.settings)
 
     def _get_provider(self, provider_id: str) -> tuple[str, OIDCProviderSettings]:
-        provider_key = provider_id.lower()
+        try:
+            provider_key = normalize_identity_provider_id(provider_id)
+        except ValueError as exc:
+            raise OIDCProviderNotFoundError("OIDC provider not found") from exc
         provider = self._provider_map().get(provider_key)
         if not provider or not provider.enabled:
             raise OIDCProviderNotFoundError("OIDC provider not found")
@@ -566,9 +570,10 @@ class OidcService:
         provider_key: str,
         metadata: dict[str, Any],
     ) -> str:
-        issuer = str(metadata.get("issuer") or "").rstrip("/")
-        if not issuer:
-            raise OIDCConfigurationError("OIDC provider issuer is missing")
+        try:
+            issuer = normalize_oidc_issuer(metadata.get("issuer"))
+        except ValueError as exc:
+            raise OIDCConfigurationError("OIDC provider issuer is missing") from exc
         row = self.db.get(OidcProviderIssuerPin, provider_key)
         now = utcnow()
         if row is None:
@@ -581,7 +586,7 @@ class OidcService:
             self.db.add(row)
             self.db.commit()
             return issuer
-        if row.issuer.rstrip("/") != issuer:
+        if row.issuer != issuer:
             raise OIDCConfigurationError("OIDC provider issuer no longer matches its pinned issuer")
         row.last_verified_at = now
         self.db.add(row)
@@ -612,8 +617,11 @@ class OidcService:
             parsed = urlparse(str(raw or ""))
             if parsed.scheme != "https" or not parsed.hostname or parsed.hostname.lower() not in allowed_hosts:
                 raise OIDCConfigurationError(f"OIDC metadata field {field} is not an allowed HTTPS endpoint")
-        issuer = str(metadata.get("issuer") or "").rstrip("/")
-        discovery_base = provider.discovery_url.split("/.well-known/", 1)[0].rstrip("/")
+        try:
+            issuer = normalize_oidc_issuer(metadata.get("issuer"))
+            discovery_base = normalize_oidc_issuer(provider.discovery_url.split("/.well-known/", 1)[0])
+        except ValueError as exc:
+            raise OIDCConfigurationError("OIDC discovery issuer is missing") from exc
         if issuer != discovery_base:
             raise OIDCConfigurationError("OIDC discovery issuer does not match the configured issuer")
 

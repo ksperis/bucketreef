@@ -5725,7 +5725,13 @@
           "comments": null
         }
       ],
-      "checkConstraints": [],
+      "checkConstraints": [
+        {
+          "id": "check:external_identities:ck_external_identity_provider_issuer",
+          "expression": "provider_id = lower(trim(provider_id)) AND length(provider_id) > 0 AND ((provider_type = 'oidc' AND issuer IS NOT NULL AND length(issuer) > 0 AND issuer = trim(issuer) AND issuer = rtrim(issuer, '/')) OR (provider_type = 'ldap' AND issuer IS NULL))",
+          "createdAt": 0
+        }
+      ],
       "color": "#4F46E5",
       "isView": false,
       "isMaterializedView": false,
@@ -6181,7 +6187,13 @@
           "comments": null
         }
       ],
-      "checkConstraints": [],
+      "checkConstraints": [
+        {
+          "id": "check:external_identity_link_requests:ck_external_link_request_provider_issuer",
+          "expression": "provider_id = lower(trim(provider_id)) AND length(provider_id) > 0 AND ((provider_type = 'oidc' AND issuer IS NOT NULL AND length(issuer) > 0 AND issuer = trim(issuer) AND issuer = rtrim(issuer, '/')) OR (provider_type = 'ldap' AND issuer IS NULL))",
+          "createdAt": 0
+        }
+      ],
       "color": "#4F46E5",
       "isView": false,
       "isMaterializedView": false,
@@ -6709,7 +6721,13 @@
           "comments": null
         }
       ],
-      "checkConstraints": [],
+      "checkConstraints": [
+        {
+          "id": "check:external_identity_link_attempts:ck_external_link_attempt_provider_issuer",
+          "expression": "provider_id = lower(trim(provider_id)) AND length(provider_id) > 0 AND ((provider_type = 'oidc' AND issuer IS NOT NULL AND length(issuer) > 0 AND issuer = trim(issuer) AND issuer = rtrim(issuer, '/')) OR (provider_type = 'ldap' AND issuer IS NULL))",
+          "createdAt": 0
+        }
+      ],
       "color": "#4F46E5",
       "isView": false,
       "isMaterializedView": false,

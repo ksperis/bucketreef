@@ -5,10 +5,18 @@ from __future__ import annotations
 from app.db.utc_datetime import UTCDateTime
 from app.utils.time import utcnow
 
-from sqlalchemy import Boolean, Column, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint, text
+from sqlalchemy import Boolean, CheckConstraint, Column, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import relationship
 
 from .base import Base
+
+
+_EXTERNAL_IDENTITY_PROVIDER_CHECK = (
+    "provider_id = lower(trim(provider_id)) AND length(provider_id) > 0 AND ("
+    "(provider_type = 'oidc' AND issuer IS NOT NULL AND length(issuer) > 0 "
+    "AND issuer = trim(issuer) AND issuer = rtrim(issuer, '/')) OR "
+    "(provider_type = 'ldap' AND issuer IS NULL))"
+)
 
 
 class AuthSession(Base):
@@ -61,6 +69,10 @@ class RefreshToken(Base):
 class ExternalIdentity(Base):
     __tablename__ = "external_identities"
     __table_args__ = (
+        CheckConstraint(
+            _EXTERNAL_IDENTITY_PROVIDER_CHECK,
+            name="ck_external_identity_provider_issuer",
+        ),
         Index(
             "uq_external_identity_oidc_issuer_subject",
             "issuer",
@@ -98,6 +110,10 @@ class ExternalIdentity(Base):
 class ExternalIdentityLinkRequest(Base):
     __tablename__ = "external_identity_link_requests"
     __table_args__ = (
+        CheckConstraint(
+            _EXTERNAL_IDENTITY_PROVIDER_CHECK,
+            name="ck_external_link_request_provider_issuer",
+        ),
         Index(
             "uq_external_link_request_oidc_issuer_subject",
             "issuer",
@@ -138,6 +154,12 @@ class ExternalIdentityLinkRequest(Base):
 
 class ExternalIdentityLinkAttempt(Base):
     __tablename__ = "external_identity_link_attempts"
+    __table_args__ = (
+        CheckConstraint(
+            _EXTERNAL_IDENTITY_PROVIDER_CHECK,
+            name="ck_external_link_attempt_provider_issuer",
+        ),
+    )
 
     id = Column(String, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)

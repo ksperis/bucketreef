@@ -27,6 +27,7 @@ from app.services.external_identity_user_service import (
 )
 from app.services.ldap_provider_settings_service import resolve_ldap_provider_map
 from app.services.users_service import UsersService, get_users_service
+from app.utils.identity_provider_ids import normalize_identity_provider_id
 
 LOGGER = logging.getLogger(__name__)
 LDAP_INVALID_CREDENTIALS_RESULT = 49
@@ -214,7 +215,10 @@ class LDAPAuthService:
         return resolve_ldap_provider_map(self.db, self.settings)
 
     def _get_provider(self, provider_id: str) -> tuple[str, LDAPProviderSettings]:
-        provider_key = provider_id.lower()
+        try:
+            provider_key = normalize_identity_provider_id(provider_id)
+        except ValueError as exc:
+            raise LDAPProviderNotFoundError("LDAP provider not found") from exc
         provider = self._provider_map().get(provider_key)
         if not provider or not provider.enabled:
             raise LDAPProviderNotFoundError("LDAP provider not found")

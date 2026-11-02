@@ -45,6 +45,7 @@ from app.services.oidc_service import (
 )
 from app.services.users_service import UsersService
 from app.utils.http_errors import raise_http_exception_from_exception
+from app.utils.identity_provider_ids import normalize_identity_provider_id
 from app.utils.request_security import require_trusted_origin
 
 
@@ -74,7 +75,11 @@ def start_oidc_login(
 ) -> OIDCStartResponse:
     request_origin = require_trusted_origin(request)
     ip_address, _, _ = request_context(request, settings=settings)
-    account_key = f"oidc-start:{provider_id.lower()}"
+    try:
+        provider = normalize_identity_provider_id(provider_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="OIDC provider is unavailable") from exc
+    account_key = f"oidc-start:{provider}"
     limiter = AuthRateLimitService(oidc_service.db, settings=settings)
     try:
         limiter.check(account=account_key, ip_address=ip_address)
@@ -87,7 +92,7 @@ def start_oidc_login(
     try:
         _, browser_secret_hash = ensure_external_identity_browser_binding(request, response)
         result = oidc_service.start_login(
-            provider_id,
+            provider,
             payload.redirect_path if payload else None,
             request_origin=request_origin,
             browser_secret_hash=browser_secret_hash,
@@ -112,7 +117,10 @@ def complete_oidc_login(
     audit_service: AuditService = Depends(get_audit_service),
 ) -> AuthenticationResponse:
     request_origin = require_trusted_origin(request)
-    provider = provider_id.lower()
+    try:
+        provider = normalize_identity_provider_id(provider_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="OIDC provider is unavailable") from exc
     account_key = f"oidc-callback:{provider}"
     user_email = f"oidc:{provider}"
     attempt = AuthAttemptContext.from_request(
@@ -130,7 +138,7 @@ def complete_oidc_login(
     )
     try:
         user, redirect_path, created = oidc_service.complete_login(
-            provider_id,
+            provider,
             payload.code,
             payload.state,
             request_origin=request_origin,
