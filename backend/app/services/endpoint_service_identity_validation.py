@@ -8,6 +8,7 @@ from typing import Literal
 from sqlalchemy.orm import Session
 
 from app.db import EndpointServiceIdentity, StorageEndpoint
+from app.services.key_rotation_intent_queries import pending_rotation
 from app.services.rgw_admin import RGWAdminClient
 from app.services.rgw_admin_identity import extract_ceph_admin_flags
 from app.utils.rgw_caps import parse_rgw_caps_permissions
@@ -59,8 +60,6 @@ class EndpointServiceIdentityValidationService:
     ) -> None:
         if not isinstance(payload, dict):
             raise ManagedIdentityKeyDriftError()
-
-        from app.services.durable_key_rotation_service import pending_rotation
 
         key_type = f"endpoint_{identity.kind}"
         intent = pending_rotation(self.db, identity.endpoint_id, key_type, identity.id)

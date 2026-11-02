@@ -9,6 +9,7 @@ from sqlalchemy import func, select, text
 
 from app.db import AuditLog, EndpointServiceIdentity, KeyRotationIntent, StorageEndpoint
 from app.services import endpoint_service_identities as module
+from app.services.durable_key_rotation_service import DurableKeyRotationService
 from app.services.endpoint_service_identities import EndpointServiceIdentityService
 from app.services.endpoint_service_identity_validation import (
     SERVICE_CAPS,
@@ -107,6 +108,28 @@ def identities(db_session, monkeypatch):
     endpoint = StorageEndpoint(name="Ceph", endpoint_url="https://rgw.example.test", provider="ceph", admin_access_key="ADMIN", admin_secret_key="ADMIN-SECRET", features=parse_features_config("features:\n  admin:\n    enabled: true\n  metrics:\n    enabled: true\n"))
     db_session.add(endpoint); db_session.commit()
     return EndpointServiceIdentityService(db_session), endpoint, rgw
+
+
+def _rotate_identity(
+    service: EndpointServiceIdentityService,
+    endpoint: StorageEndpoint,
+    kind: str,
+    *,
+    deactivate_only: bool = False,
+):
+    identity = endpoint.service_identity(kind)
+    if identity is None or identity.mode != "managed":
+        raise ValueError("Only ready managed service identities can be rotated.")
+    return DurableKeyRotationService(
+        service.db,
+        actor=service.actor,
+        identity_service=service,
+    ).rotate(
+        endpoint,
+        f"endpoint_{kind}",
+        identity.id,
+        deactivate_only=deactivate_only,
+    )
 
 
 def test_managed_runtime_is_idempotent_encrypted_and_scoped(identities, db_session):
@@ -409,7 +432,7 @@ def test_rotation_persists_validated_new_key_before_retirement_and_retries(ident
     previous = identity.access_key
     rgw.fail_delete = True
     with pytest.raises((ValueError, RGWAdminError), match="retirement|request failed"):
-        service.rotate(endpoint, "runtime")
+        _rotate_identity(service, endpoint, "runtime")
     db_session.expire_all()
     assert (
         identity.status == "ready"
@@ -417,7 +440,7 @@ def test_rotation_persists_validated_new_key_before_retirement_and_retries(ident
         and service.db.scalars(select(KeyRotationIntent)).one().old_access_key == previous
     )
     rgw.fail_delete = False
-    service.rotate(endpoint, "runtime")
+    _rotate_identity(service, endpoint, "runtime")
     assert service.db.scalar(select(func.count()).select_from(KeyRotationIntent)) == 0
     assert len([call for call in rgw.calls if call[0] == "key_create"]) == 1
     assert rgw.users[identity.rgw_uid]["keys"] == [{"access_key": identity.access_key, "secret_key": identity.secret_key}]
@@ -503,7 +526,7 @@ def test_rotation_requires_installation_provenance(identities, db_session):
     endpoint.service_identity("runtime").provenance = "foreign-installation"
     db_session.commit()
     with pytest.raises(ValueError, match="ownership proof"):
-        service.rotate(endpoint, "runtime")
+        _rotate_identity(service, endpoint, "runtime")
     assert not any(call[0] == "key_create" for call in rgw.calls)
 
 
@@ -620,7 +643,7 @@ def test_managed_key_drift_blocks_rotation_and_revocation(identities, db_session
     rgw.calls.clear()
     if operation == "rotate":
         with pytest.raises(ValueError, match="key drift"):
-            service.rotate(endpoint, kind)
+            _rotate_identity(service, endpoint, kind)
         assert identity.status == "error"
     else:
         assert not service.revoke(endpoint, kind)
@@ -639,13 +662,13 @@ def test_pending_rotation_keys_are_nominal_during_reconciliation(identities):
     identity = endpoint.service_identity("runtime")
     rgw.fail_delete = True
     with pytest.raises((ValueError, RGWAdminError), match="retirement|request failed"):
-        service.rotate(endpoint, "runtime")
+        _rotate_identity(service, endpoint, "runtime")
     service.reconcile(endpoint)
     assert identity.status == "ready" and service.db.scalars(
         select(KeyRotationIntent)
     ).one().old_access_key
     rgw.fail_delete = False
-    service.rotate(endpoint, "runtime")
+    _rotate_identity(service, endpoint, "runtime")
     assert service.db.scalar(select(func.count()).select_from(KeyRotationIntent)) == 0
     assert len([call for call in rgw.calls if call[0] == "key_create"]) == 1
 
@@ -657,7 +680,7 @@ def test_rotation_requires_confirmed_key_retirement(identities):
     old = identity.access_key
     rgw.delete_access_key = lambda *_args: None
     with pytest.raises((ValueError, RGWAdminError), match="retirement|request failed"):
-        service.rotate(endpoint, "runtime")
+        _rotate_identity(service, endpoint, "runtime")
     assert (
         identity.status == "ready"
         and service.db.scalars(select(KeyRotationIntent)).one().old_access_key == old
@@ -672,7 +695,7 @@ def test_managed_rotation_rejects_deactivation_without_creating_an_untracked_key
     old = identity.access_key
     rgw.calls.clear()
     with pytest.raises(ValueError, match="require deleting previous keys"):
-        service.rotate(endpoint, "runtime", deactivate_only=True)
+        _rotate_identity(service, endpoint, "runtime", deactivate_only=True)
     assert identity.status == "ready" and identity.access_key == old and not rgw.calls
 
 
@@ -771,7 +794,7 @@ def test_key_added_concurrently_during_rotation_is_never_adopted_or_deleted(iden
     monkeypatch.setattr(rgw, "create_access_key", create_with_foreign_key)
     rgw.calls.clear()
     with pytest.raises(ValueError, match="key drift"):
-        service.rotate(endpoint, "runtime")
+        _rotate_identity(service, endpoint, "runtime")
     assert identity.status == "error" and identity.access_key == original
     assert {key["access_key"] for key in rgw.users[identity.rgw_uid]["keys"]} == {
         original,
@@ -940,7 +963,7 @@ def test_durable_rotation_resumes_exact_pair_after_partial_failure(identities, d
     monkeypatch.setattr(db_session, "commit", fail_commit)
     rgw.fail_delete = failure == "retirement"
     with pytest.raises((ValueError, RGWAdminError)):
-        service.rotate(endpoint, "runtime")
+        _rotate_identity(service, endpoint, "runtime")
     intent = db_session.scalars(select(KeyRotationIntent)).one()
     candidate = intent.new_access_key, intent.new_secret_key
     assert intent.phase == ("activated" if failure == "retirement" else "prepared")
@@ -949,7 +972,7 @@ def test_durable_rotation_resumes_exact_pair_after_partial_failure(identities, d
     monkeypatch.setattr(rgw, "create_access_key", create)
     monkeypatch.setattr(db_session, "commit", commit)
     rgw.fail_delete = False
-    service.rotate(endpoint, "runtime")
+    _rotate_identity(service, endpoint, "runtime")
     assert (identity.access_key, identity.secret_key) == candidate
     assert db_session.scalar(select(func.count()).select_from(KeyRotationIntent)) == 0
     assert len([call for call in rgw.calls if call[0] == "key_create"]) == 1
@@ -963,13 +986,13 @@ def test_resume_revalidates_candidate_before_retiring_old_key(identities):
     old = identity.access_key
     rgw.fail_delete = True
     with pytest.raises(RGWAdminError):
-        service.rotate(endpoint, "runtime")
+        _rotate_identity(service, endpoint, "runtime")
     rgw.fail_delete = False
     candidate = next(key for key in rgw.users[identity.rgw_uid]["keys"] if key["access_key"] == identity.access_key)
     candidate["active"] = False
     rgw.calls.clear()
     with pytest.raises(ValueError, match="active replacement"):
-        service.rotate(endpoint, "runtime")
+        _rotate_identity(service, endpoint, "runtime")
     assert not any(call[0] == "key_delete" for call in rgw.calls)
     assert old in {key["access_key"] for key in rgw.users[identity.rgw_uid]["keys"]}
 

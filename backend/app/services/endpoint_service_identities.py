@@ -372,21 +372,6 @@ class EndpointServiceIdentityService:
             self.db.commit()
             return False
 
-    def rotate(
-        self,
-        endpoint: StorageEndpoint,
-        kind: ServiceIdentityKind,
-        *,
-        deactivate_only: bool = False,
-    ) -> tuple[str, str, str]:
-        from app.services.durable_key_rotation_service import DurableKeyRotationService
-        identity = endpoint.service_identity(kind)
-        if identity is None or identity.mode != "managed":
-            raise ValueError("Only ready managed service identities can be rotated.")
-        key_type = f"endpoint_{kind}"
-        return DurableKeyRotationService(self.db, actor=self.actor, identity_service=self).rotate(
-            endpoint, key_type, identity.id, deactivate_only=deactivate_only)
-
     def _record_admin_validation_failure(
         self,
         endpoint: StorageEndpoint,

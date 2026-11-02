@@ -99,7 +99,8 @@ class KeyRotationService:
         key_type: KeyRotationType,
         deactivate_only: bool,
     ) -> tuple[list[KeyRotationResultItem], int, int]:
-        from app.services.durable_key_rotation_service import DurableKeyRotationService, pending_rotation
+        from app.services.durable_key_rotation_service import DurableKeyRotationService
+        from app.services.key_rotation_intent_queries import pending_rotation
         if endpoint.provider != "ceph":
             return ([self._build_result(endpoint=endpoint, key_type=key_type, target_type="endpoint",
                 status="failed", message="Key rotation is only supported for Ceph endpoints.")], 0, 0)

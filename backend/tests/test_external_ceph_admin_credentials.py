@@ -134,8 +134,6 @@ def test_ceph_admin_rotation_uses_admin_ops_and_updates_external_pair(identities
             KeyRotationIntent.target_id == identity.id,
         )
     ) is None
-    with pytest.raises(ValueError, match="managed"):
-        service.rotate(endpoint, "ceph_admin")
 
 
 def test_startup_does_not_resume_ceph_admin_rotation(identities, db_session):
