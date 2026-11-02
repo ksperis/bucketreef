@@ -160,9 +160,23 @@ class BucketAclUpdate(ApiModel):
 
 
 class BucketQuotaUpdate(ApiModel):
+    enabled: bool
     max_size_gb: Optional[float] = None
     max_size_unit: Optional[str] = None
     max_objects: Optional[int] = None
+
+    @model_validator(mode="after")
+    def validate_quota_contract(self) -> "BucketQuotaUpdate":
+        if self.max_size_gb is None and self.max_size_unit is not None:
+            raise ValueError("max_size_unit requires max_size_gb.")
+        if self.max_size_gb is not None and self.max_size_unit is None:
+            raise ValueError("max_size_unit is required when max_size_gb is set.")
+        if self.enabled:
+            if self.max_size_gb is None and self.max_objects is None:
+                raise ValueError("An enabled quota requires at least one limit.")
+        elif self.max_size_gb is not None or self.max_objects is not None:
+            raise ValueError("A disabled quota cannot include limits.")
+        return self
 
 
 class BucketCorsUpdate(ApiModel):

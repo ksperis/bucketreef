@@ -151,6 +151,7 @@ export async function applyBucketOpsBulkUpdate({
               : "GiB"
             : null;
         await updateBucketQuota(endpointId, bucketName, {
+          enabled: nextSize != null || nextObjects != null,
           max_size_gb: payloadSize,
           max_size_unit: payloadUnit,
           max_objects: nextObjects,

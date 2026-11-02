@@ -139,6 +139,7 @@ describe("applyBucketOpsConfigPaste", () => {
       summary: "Updated 1 bucket.",
     });
     expect(api.updateBucketQuota).toHaveBeenCalledWith(7, "destination-1", {
+      enabled: true,
       max_size_gb: 1,
       max_size_unit: "GiB",
       max_objects: 25,

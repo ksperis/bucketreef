@@ -110,6 +110,9 @@ export async function applyBucketOpsConfigPaste({
             ? bytesToGiB(source.quota.maxSizeBytes)
             : null;
           await updateBucketQuota(targetEndpointId, mapping.destinationBucket, {
+            enabled:
+              source.quota.maxSizeBytes != null ||
+              source.quota.maxObjects != null,
             max_size_gb: maxSizeGiB,
             max_size_unit: maxSizeGiB != null ? "GiB" : null,
             max_objects: source.quota.maxObjects,

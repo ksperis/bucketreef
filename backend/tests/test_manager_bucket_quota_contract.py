@@ -86,10 +86,10 @@ def test_manager_bucket_quota_update_requires_effective_manager_access(client, d
     app.dependency_overrides[dependencies.get_current_user] = lambda: user
     app.dependency_overrides[dependencies.get_current_actor] = lambda: user
     try:
-        response = client.patch(
+        response = client.put(
             "/api/manager/buckets/demo-bucket/quota",
             params={"context_id": account.id},
-            json={"max_size_gb": 1, "max_objects": 1000},
+            json={"enabled": True, "max_size_gb": 1, "max_size_unit": "GiB", "max_objects": 1000},
         )
     finally:
         app.dependency_overrides.pop(dependencies.get_current_user, None)
@@ -106,10 +106,10 @@ def test_manager_bucket_quota_update_requires_target_grant(client, db_session):
     app.dependency_overrides[dependencies.get_current_user] = lambda: user
     app.dependency_overrides[dependencies.get_current_actor] = lambda: user
     try:
-        response = client.patch(
+        response = client.put(
             "/api/manager/buckets/demo-bucket/quota",
             params={"context_id": account.id},
-            json={"max_size_gb": 1, "max_objects": 1000},
+            json={"enabled": True, "max_size_gb": 1, "max_size_unit": "GiB", "max_objects": 1000},
         )
     finally:
         app.dependency_overrides.pop(dependencies.get_current_user, None)
@@ -150,10 +150,10 @@ def test_manager_bucket_quota_update_succeeds_with_privileged_access(client, db_
         ),
     )
     try:
-        response = client.patch(
+        response = client.put(
             "/api/manager/buckets/demo-bucket/quota",
             params={"context_id": account.id},
-            json={"max_size_gb": 2, "max_size_unit": "GiB", "max_objects": 2000},
+            json={"enabled": True, "max_size_gb": 2, "max_size_unit": "GiB", "max_objects": 2000},
         )
     finally:
         app.dependency_overrides.pop(dependencies.get_current_user, None)
@@ -200,10 +200,10 @@ def test_embedded_browser_private_connection_cannot_forge_manager_quota_update(c
     app.dependency_overrides[dependencies.get_s3_execution_context] = lambda: context
     app.dependency_overrides[manager_buckets_router.get_bucket_quota_service] = fail_if_ceph_service_is_resolved
     try:
-        response = client.patch(
+        response = client.put(
             "/api/manager/buckets/demo-bucket/quota",
             params={"context_id": "conn-44"},
-            json={"max_size_gb": 1},
+            json={"enabled": True, "max_size_gb": 1, "max_size_unit": "GiB"},
         )
     finally:
         app.dependency_overrides.pop(dependencies.get_current_user, None)
@@ -214,3 +214,35 @@ def test_embedded_browser_private_connection_cannot_forge_manager_quota_update(c
     assert response.status_code == 403
     assert response.json()["detail"] == "Bucket quota management is not available for this context"
     assert ceph_calls == []
+
+
+def test_manager_bucket_quota_update_requires_explicit_enabled(client, db_session, monkeypatch):
+    user = _quota_user(db_session)
+    account = _quota_account(db_session)
+    _grant_manager_access(db_session, user, account)
+    app.dependency_overrides[dependencies.get_current_user] = lambda: user
+    app.dependency_overrides[dependencies.get_current_actor] = lambda: user
+    monkeypatch.setattr(
+        "app.services.manager_ceph_management_access_service._resolve_endpoint_admin_ops_permissions",
+        lambda _endpoint: StorageEndpointAdminOpsPermissions(
+            users_read=False,
+            users_write=False,
+            buckets_read=True,
+            buckets_write=True,
+            accounts_read=False,
+            accounts_write=False,
+            usage_read=False,
+            usage_write=False,
+        ),
+    )
+    try:
+        response = client.put(
+            "/api/manager/buckets/demo-bucket/quota",
+            params={"context_id": account.id},
+            json={"max_objects": 1000},
+        )
+    finally:
+        app.dependency_overrides.pop(dependencies.get_current_user, None)
+        app.dependency_overrides.pop(dependencies.get_current_actor, None)
+
+    assert response.status_code == 422

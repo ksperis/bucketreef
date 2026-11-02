@@ -137,6 +137,7 @@ describe("applyBucketOpsBulkUpdate", () => {
       summary: "Updated 1 bucket.",
     });
     expect(api.updateBucketQuota).toHaveBeenCalledWith(7, "archive", {
+      enabled: true,
       max_size_gb: 2,
       max_size_unit: "GiB",
       max_objects: 50,

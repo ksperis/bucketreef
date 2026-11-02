@@ -10,6 +10,7 @@ from app.models.bucket import (
     BucketObjectLockUpdate,
     BucketPublicAccessBlock,
     BucketPublicAccessBlockUpdate,
+    BucketQuotaUpdate,
     BucketWebsiteConfiguration,
     BucketWebsiteUpdate,
     BucketVersioningUpdate,
@@ -52,6 +53,26 @@ def test_website_read_and_write_contracts_are_explicit() -> None:
 
     with pytest.raises(ValidationError):
         BucketWebsiteUpdate.model_validate({"routing_rules": []})
+
+
+def test_bucket_quota_write_contract_is_explicit() -> None:
+    assert "enabled" in BucketQuotaUpdate.model_json_schema()["required"]
+
+    with pytest.raises(ValidationError):
+        BucketQuotaUpdate.model_validate({"max_objects": 100})
+    with pytest.raises(ValidationError):
+        BucketQuotaUpdate(enabled=True)
+    with pytest.raises(ValidationError):
+        BucketQuotaUpdate(enabled=False, max_objects=100)
+    with pytest.raises(ValidationError):
+        BucketQuotaUpdate(enabled=True, max_size_gb=1)
+
+    assert BucketQuotaUpdate(enabled=False).model_dump() == {
+        "enabled": False,
+        "max_size_gb": None,
+        "max_size_unit": None,
+        "max_objects": None,
+    }
 
 
 def test_get_bucket_cors_config_uses_dedicated_cors_service():

@@ -415,7 +415,7 @@ export async function updateCephAdminBucketQuota(
   payload: BucketQuotaUpdate,
   tenant?: string | null,
 ): Promise<void> {
-  await client.patch(
+  await client.put(
     `${cephAdminBucketPath(endpointId, bucketName)}/quota`,
     payload,
     cephAdminBucketRequestConfig(tenant),

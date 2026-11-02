@@ -928,6 +928,18 @@ Omit one of those control fields to leave it unchanged. Nullable values inside
 Deploy the backend and bundled frontend together. No database migration is
 required.
 
+## 2026-11 canonical bucket quota write contract
+
+Manager and Ceph Admin bucket quota updates now replace the quota subresource
+with `PUT` instead of exposing replacement semantics through `PATCH`. The
+payload requires an explicit `enabled` boolean: `true` requires at least one
+quota limit, while `false` clears the quota and must not carry limits.
+`max_size_unit` is required whenever `max_size_gb` is set and must be
+omitted otherwise.
+
+Deploy the backend and bundled frontend together. No database migration is
+required.
+
 ## 2026-11 canonical Ceph Admin RGW PATCH nullability
 
 Ceph Admin RGW account and user configuration PATCH payloads now reject

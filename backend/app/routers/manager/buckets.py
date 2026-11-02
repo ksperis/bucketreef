@@ -172,7 +172,7 @@ def get_bucket_stats(
         raise_bad_gateway_from_runtime(exc)
 
 
-@router.patch(
+@router.put(
     "/{bucket_name}/quota",
     status_code=status.HTTP_204_NO_CONTENT,
     response_class=Response,

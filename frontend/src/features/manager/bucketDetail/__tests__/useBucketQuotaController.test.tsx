@@ -68,6 +68,7 @@ describe("useBucketQuotaController", () => {
     await act(async () => result.current.save());
 
     expect(apiMocks.updateBucketQuota).toHaveBeenCalledWith(null, "reports", {
+      enabled: true,
       max_objects: 2000,
       max_size_gb: 3.5,
       max_size_unit: "TiB",
@@ -91,6 +92,7 @@ describe("useBucketQuotaController", () => {
       7,
       "reports",
       {
+        enabled: false,
         max_objects: undefined,
         max_size_gb: undefined,
         max_size_unit: undefined,

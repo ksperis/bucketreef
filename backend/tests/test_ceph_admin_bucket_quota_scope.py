@@ -53,7 +53,7 @@ def test_update_quota_builds_tenant_qualified_owner_uid(monkeypatch):
 
     response = buckets_router.update_quota(
         "bucket-a",
-        BucketQuotaUpdate(max_size_gb=10, max_size_unit="GiB", max_objects=1000),
+        BucketQuotaUpdate(enabled=True, max_size_gb=10, max_size_unit="GiB", max_objects=1000),
         ctx=_build_ctx(
             {
                 "bucket": "bucket-a",
@@ -88,7 +88,7 @@ def test_update_quota_uses_account_owner_identifier_as_uid(monkeypatch):
 
     response = buckets_router.update_quota(
         "bucket-b",
-        BucketQuotaUpdate(max_size_gb=1, max_size_unit="GiB"),
+        BucketQuotaUpdate(enabled=True, max_size_gb=1, max_size_unit="GiB"),
         ctx=_build_ctx(
             {
                 "bucket": "bucket-b",
@@ -134,7 +134,7 @@ def test_update_quota_preserves_explicit_bucket_tenant(monkeypatch):
 
     response = buckets_router.update_quota(
         "bucket-a",
-        BucketQuotaUpdate(max_objects=10),
+        BucketQuotaUpdate(enabled=True, max_objects=10),
         tenant="tenant_a",
         ctx=ctx,
     )

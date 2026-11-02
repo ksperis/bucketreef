@@ -76,7 +76,6 @@ class BucketQuotaService:
                 max_size_bytes = size_to_bytes(payload.max_size_gb, payload.max_size_unit)
             except ValueError as exc:
                 raise ValueError(sanitized_error_log_detail(exc)) from exc
-        enabled = max_size_bytes is not None or payload.max_objects is not None
         try:
             response = client.set_bucket_quota(
                 bucket=name,
@@ -84,7 +83,7 @@ class BucketQuotaService:
                 uid=root_uid,
                 max_size_bytes=max_size_bytes,
                 max_objects=payload.max_objects,
-                enabled=enabled,
+                enabled=payload.enabled,
             )
         except RGWAdminError as exc:
             raise RuntimeError(f"Unable to set bucket quota: {exc}") from exc
