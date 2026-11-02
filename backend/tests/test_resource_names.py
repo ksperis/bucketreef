@@ -26,6 +26,16 @@ from app.utils.rgw_identifiers import validate_rgw_user_uid
 from tests.s3_connection_factory import custom_endpoint_fields
 
 VECTORS = json.loads((Path(__file__).parent / "fixtures/resource_names.json").read_text())
+ROLE_TRUST_POLICY = {
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Principal": {"AWS": "arn:aws:iam::research:root"},
+            "Action": "sts:AssumeRole",
+        }
+    ],
+}
 
 
 @pytest.mark.parametrize("vector", VECTORS)
@@ -71,7 +81,11 @@ def test_creation_models_reject_missing_or_invalid_name_at_field(model):
     create_kwargs = {
         IAMUserCreate: {"create_key": False, "groups": [], "policies": [], "inline_policies": []},
         IAMGroupCreate: {"policies": [], "inline_policies": []},
-        IAMRoleCreate: {"policies": [], "inline_policies": []},
+        IAMRoleCreate: {
+            "assume_role_policy_document": ROLE_TRUST_POLICY,
+            "policies": [],
+            "inline_policies": [],
+        },
         PolicyCreate: {"document": {}},
     }[model]
     for name in ["", "bad name", "name*", "é"]:
@@ -184,6 +198,8 @@ def _iam_create_payload(entity: str, **overrides):
     if entity == "user":
         payload["create_key"] = False
         payload["groups"] = []
+    elif entity == "role":
+        payload["assume_role_policy_document"] = ROLE_TRUST_POLICY
     return {**payload, **overrides}
 
 
