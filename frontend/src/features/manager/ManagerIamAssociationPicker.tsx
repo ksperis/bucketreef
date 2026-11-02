@@ -104,7 +104,7 @@ export default function ManagerIamAssociationPicker({
                 checked={selectedIds.includes(item.id)}
                 onChange={(event) => onToggle(item, event.target.checked)}
                 disabled={submitting}
-                className="w-full min-w-0 px-3 py-2 ui-body text-slate-700 dark:text-slate-200"
+                className="w-full min-w-0 px-3 py-2 ui-caption text-slate-700 dark:text-slate-200"
                 labelProps={{ title: item.secondary }}
               >
                 <span className="min-w-0">
