@@ -23,6 +23,7 @@ import PageEmptyState from "../../components/PageEmptyState";
 import PageShell from "../../components/PageShell";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
+import UiInlineMessage from "../../components/ui/UiInlineMessage";
 
 import { cx } from "../../components/ui/styles";
 import { extractApiError } from "../../utils/apiError";
@@ -363,7 +364,7 @@ export default function ManagerCephKeysPage() {
           : []),
       ]}
     >
-      {error && <PageBanner tone="error">{text(error)}</PageBanner>}
+      {error && tableStatus !== "error" && <PageBanner tone="error">{text(error)}</PageBanner>}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
 
       {createdKey && (
@@ -408,7 +409,11 @@ export default function ManagerCephKeysPage() {
       ) : (
         <ListPageSection variant="page"
           title={text("Keys")}
-          secondaryContent={<p>{text("BucketReef interface keys and managed private-access keys are locked; delete a managed key through its private connection.")}</p>}
+          secondaryContent={
+            <UiInlineMessage tone="info">
+              {text("BucketReef interface keys and managed private-access keys are locked; delete a managed key through its private connection.")}
+            </UiInlineMessage>
+          }
           countLabel={text(filteredKeys.length === 1 ? "{count} result" : "{count} results", { count: filteredKeys.length })}
           search={
             <UiInput aria-label={text("Search")} size="compact"
@@ -429,7 +434,7 @@ export default function ManagerCephKeysPage() {
             }
             status={tableStatus}
             loadingMessage={text("Loading keys...")}
-            errorMessage={text("Unable to load keys.")}
+            errorMessage={error ? text(error) : text("Unable to load keys.")}
             emptyMessage={text("No keys.")}
           />
         </ListPageSection>

@@ -343,7 +343,7 @@ export default function ManagerRolesPage() {
         }
       />
 
-      {!showCreateForm && error && <PageBanner tone="error">{text(error)}</PageBanner>}
+      {!showCreateForm && error && filteredTableStatus !== "error" && <PageBanner tone="error">{text(error)}</PageBanner>}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
 
       {needsContextSelection ? (
@@ -378,7 +378,7 @@ export default function ManagerRolesPage() {
             rowKey={(role) => role.name}
             status={filteredTableStatus}
             loadingMessage={text("Loading roles...")}
-            errorMessage={text("Unable to load roles.")}
+            errorMessage={error ? text(error) : text("Unable to load roles.")}
             emptyMessage={text("No roles.")}
             responsiveCards
             tableLayout="fixed"

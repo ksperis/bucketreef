@@ -85,8 +85,6 @@ const bucketDetailTwoColumnGridClass = "grid gap-3 md:grid-cols-2";
 
 const bucketDetailSectionStackClass = "space-y-4";
 
-const bucketDetailTightStackClass = "space-y-1";
-
 type BucketDetailPageProps = {
   mode?: BucketDetailMode;
   bucketNameOverride?: string;
@@ -944,22 +942,25 @@ function BucketDetailPageContent({
             id: "overview",
             label: text("Overview"),
             content: (
-              <section className="space-y-4 px-1 py-2">
-                <header className={bucketDetailTightStackClass}>
-                  <h3 className="ui-subtitle font-semibold text-slate-900 dark:text-slate-100">
-                    {bucketName ? text("Bucket {name}", { name: bucketName }) : text("Bucket overview")}
-                  </h3>
-                  <dl className="flex flex-wrap gap-x-6 gap-y-1">
-                    <div className={bucketDetailHintClass}>
-                      <dt className="inline">{text("Owner:")} </dt>
-                      <dd className="inline font-semibold text-slate-700 dark:text-slate-200">{bucketOwner ?? text(loadingBucket || bucketAclLoading ? "Loading..." : "Unknown")}</dd>
-                    </div>
-                    <div className={bucketDetailHintClass}>
-                      <dt className="inline">{text("Created:")} </dt>
-                      <dd className="inline font-semibold text-slate-700 dark:text-slate-200">{loadingBucket ? text("Loading...") : formatLocalDateTime(bucket?.creation_date)}</dd>
-                    </div>
-                  </dl>
-                </header>
+              <section className="space-y-5 px-1 py-2">
+                <dl className="grid gap-x-8 gap-y-3 sm:grid-cols-2">
+                  <div className="min-w-0">
+                    <dt className={bucketDetailHintClass}>{text("Owner:")}</dt>
+                    <dd className="mt-0.5 min-w-0 break-words ui-body font-semibold text-slate-800 dark:text-slate-100">
+                      {bucketOwner ?? text(loadingBucket || bucketAclLoading ? "Loading..." : "Unknown")}
+                    </dd>
+                  </div>
+                  <div className="min-w-0">
+                    <dt className={bucketDetailHintClass}>{text("Created:")}</dt>
+                    <dd className="mt-0.5 min-w-0 break-words ui-body font-semibold text-slate-800 dark:text-slate-100">
+                      {loadingBucket
+                        ? text("Loading...")
+                        : bucket?.creation_date
+                          ? formatLocalDateTime(bucket.creation_date)
+                          : text("Unavailable")}
+                    </dd>
+                  </div>
+                </dl>
                 <div className={bucketDetailTwoColumnGridClass}>
                   <UsageTile
                     label={text("Storage")}

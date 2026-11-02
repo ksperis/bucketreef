@@ -721,20 +721,22 @@ describe("BucketDetailPage replication state", () => {
     expect(onBack).toHaveBeenCalledOnce();
   });
 
-  it("renders the bucket overview without a redundant eyebrow or nested card shell", async () => {
+  it("renders a compact bucket overview without repeating the bucket title", async () => {
     render(
       <MemoryRouter>
         <BucketDetailPage mode="ceph-admin" bucketNameOverride="demo-bucket" embedded />
       </MemoryRouter>
     );
 
-    const bucketTitle = await screen.findByRole("heading", { name: "Bucket demo-bucket" });
-    const overviewSection = bucketTitle.closest("section");
+    const propertiesLabel = await screen.findByText("Bucket properties");
+    const overviewSection = propertiesLabel.closest("section");
 
     expect(overviewSection).not.toBeNull();
     expect(overviewSection).not.toHaveClass("ui-surface-card");
+    expect(within(overviewSection as HTMLElement).queryByRole("heading", { name: "Bucket demo-bucket" })).not.toBeInTheDocument();
     expect(within(overviewSection as HTMLElement).queryByText("Overview")).not.toBeInTheDocument();
     expect(within(overviewSection as HTMLElement).queryByText("Summary of enabled features.")).not.toBeInTheDocument();
+    expect(within(overviewSection as HTMLElement).getByText("Unavailable")).toBeInTheDocument();
 
     const propertiesGroup = within(overviewSection as HTMLElement).getByText("Bucket properties").parentElement;
     expect(propertiesGroup).not.toHaveClass("ui-surface-muted");

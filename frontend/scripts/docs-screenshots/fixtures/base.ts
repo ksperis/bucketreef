@@ -2021,14 +2021,29 @@ export function buildBaseRules(): MockRule[] {
       body: IAM_USERS,
     },
     {
+      id: "manager-iam-users-page",
+      path: /^\/manager\/iam\/users\/page$/,
+      body: { items: IAM_USERS, next_marker: null },
+    },
+    {
       id: "manager-iam-groups",
       path: /^\/manager\/iam\/groups$/,
       body: IAM_GROUPS,
     },
     {
+      id: "manager-iam-groups-page",
+      path: /^\/manager\/iam\/groups\/page$/,
+      body: { items: IAM_GROUPS, next_marker: null },
+    },
+    {
       id: "manager-iam-policies",
       path: /^\/manager\/iam\/policies$/,
       body: IAM_POLICIES,
+    },
+    {
+      id: "manager-iam-policies-page",
+      path: /^\/manager\/iam\/policies\/page$/,
+      body: { items: IAM_POLICIES, next_marker: null },
     },
     {
       id: "manager-topics",
