@@ -11,34 +11,14 @@ import {
   AdminAssociationPickerPanel,
   AdminAssociationSectionHeader,
   adminAssociationTableContainerClass,
+  resetAdminAssociationPicker,
+  type AdminAssociationPickerState,
 } from "./AdminAssociationPicker";
 
-export type AdminSimpleAssociationOption = {
-  id: number;
-  label: string;
-};
-
-export type AdminSimpleIdAssociationsState = {
+export type AdminSimpleIdAssociationsState = AdminAssociationPickerState & {
   selected: number[];
   setSelected: Dispatch<SetStateAction<number[]>>;
   labelById: Map<number, string>;
-  available: AdminSimpleAssociationOption[];
-  visible: AdminSimpleAssociationOption[];
-  search: string;
-  setSearch: (value: string) => void;
-  loading: boolean;
-  showPanel: boolean;
-  setShowPanel: Dispatch<SetStateAction<boolean>>;
-  selections: number[];
-  setSelections: Dispatch<SetStateAction<number[]>>;
-  toggleSelection: (id: number) => void;
-  pagination?: {
-    page: number;
-    pageSize: number;
-    total: number;
-    onPageChange: (page: number) => void;
-    onPageSizeChange: (pageSize: number) => void;
-  };
 };
 
 type AdminSimpleIdAssociationsPanelProps = {
@@ -78,11 +58,6 @@ export default function AdminSimpleIdAssociationsPanel({
   normalizeSelection = (ids) => ids,
   section,
 }: AdminSimpleIdAssociationsPanelProps) {
-  const resetPicker = () => {
-    state.setShowPanel(false);
-    state.setSelections([]);
-    state.setSearch("");
-  };
   const columns: DataTableColumn<number>[] = [
     {
       id: "principal",
@@ -147,13 +122,13 @@ export default function AdminSimpleIdAssociationsPanel({
           emptyLabel={pickerEmptyMessage}
           pagination={state.pagination}
           addDisabled={state.selections.length === 0}
-          onCancel={resetPicker}
+          onCancel={() => resetAdminAssociationPicker(state)}
           onAdd={() => {
             if (state.selections.length === 0) return;
             state.setSelected((current) =>
               normalizeSelection([...current, ...state.selections]),
             );
-            resetPicker();
+            resetAdminAssociationPicker(state);
           }}
         >
           <AdminAssociationCheckboxOptions

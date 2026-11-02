@@ -6,7 +6,12 @@ import ListToolbar from "../../components/ListToolbar";
 import ToolbarSearchInput from "../../components/ToolbarSearchInput";
 import PaginationControls from "../../components/PaginationControls";
 import { ListActionButton } from "../../components/list/ListControls";
-import { useId, type ReactNode } from "react";
+import {
+  useId,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+} from "react";
 import PageTabs, { PageTabPanel } from "../../components/PageTabs";
 import {
   hasAccountAccessRole,
@@ -27,6 +32,37 @@ import "./adminAssociations.css";
 const adminAssociationAddPanelClass = cx(uiCardMutedClass, "space-y-2 px-3 py-2");
 export const adminAssociationPanelClass = "mt-3 min-w-0 space-y-3";
 export const adminAssociationTableContainerClass = uiTableContainerClass;
+
+export type AdminAssociationOption = {
+  id: number;
+  label: string;
+};
+
+export type AdminAssociationPickerState = {
+  available: AdminAssociationOption[];
+  visible: AdminAssociationOption[];
+  search: string;
+  setSearch: (value: string) => void;
+  loading: boolean;
+  showPanel: boolean;
+  setShowPanel: Dispatch<SetStateAction<boolean>>;
+  selections: number[];
+  setSelections: Dispatch<SetStateAction<number[]>>;
+  toggleSelection: (id: number) => void;
+  pagination?: {
+    page: number;
+    pageSize: number;
+    total: number;
+    onPageChange: (page: number) => void;
+    onPageSizeChange: (pageSize: number) => void;
+  };
+};
+
+export function resetAdminAssociationPicker(state: AdminAssociationPickerState) {
+  state.setShowPanel(false);
+  state.setSelections([]);
+  state.setSearch("");
+}
 
 const adminAssociationOptionLabelClass = "flex items-center gap-2 ui-body text-slate-700 dark:text-slate-200";
 const adminAssociationAccountOptionLabelClass =
