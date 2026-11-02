@@ -82,6 +82,17 @@ export type UiGroupPayload = {
   openstack_cloud_ids?: number[];
 };
 
+export type UiGroupCreatePayload = UiGroupPayload & {
+  name: string;
+  can_access_ceph_admin: boolean;
+  can_access_storage_ops: boolean;
+  can_create_manual_private_connections: boolean;
+  can_provision_managed_private_connections: boolean;
+  allow_multisite_endpoint_switching: boolean;
+  manager_tool_access: ManagerToolAccess;
+  browser_advanced_features_enabled: boolean;
+};
+
 type PaginatedUiGroupsResponse = PaginatedResponse<UiGroup>;
 
 type ListUiGroupsParams = {
@@ -106,7 +117,7 @@ export async function listGroupOptions(params: {
   return data;
 }
 
-export async function createGroup(payload: UiGroupPayload): Promise<UiGroup> {
+export async function createGroup(payload: UiGroupCreatePayload): Promise<UiGroup> {
   const { data } = await client.post<UiGroup>("/admin/groups", payload);
   return data;
 }

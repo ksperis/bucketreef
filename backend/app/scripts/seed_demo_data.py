@@ -17,9 +17,9 @@ from app.core.logging_security import configure_secure_logging
 from app.core.database import SessionLocal, engine
 from app.services.database_initialization import init_db
 from app.db import S3Account, StorageEndpoint
-from app.core.domain_enums import ManagerAccountRole, StorageProvider
+from app.core.domain_enums import ManagerAccountRole, StorageProvider, UserRole
 from app.models.s3_account import S3AccountCreate, S3AccountUpdate
-from app.models.user import UserCreate
+from app.models.user import ManagerToolAccess, UserCreate
 from app.services.buckets_service import BucketsService
 from app.services.s3_accounts_service import get_s3_accounts_service
 from app.services.s3_execution_client import s3_execution_request_kwargs
@@ -634,6 +634,14 @@ def _link_seed_users(users_service: UsersService, account: S3Account, user_plans
                         email=user_plan.email,
                         password=user_plan.password,
                         full_name=user_plan.full_name,
+                        role=UserRole.UI_USER.value,
+                        can_access_ceph_admin=False,
+                        can_access_storage_ops=False,
+                        can_create_manual_private_connections=False,
+                        can_provision_managed_private_connections=False,
+                        allow_multisite_endpoint_switching=False,
+                        manager_tool_access=ManagerToolAccess(),
+                        browser_advanced_features_enabled=False,
                     )
                 )
             except Exception as exc:

@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 
 import pytest
+from pydantic import ValidationError
 from sqlalchemy import select
 
 from app.core.security import create_ldap_import_selection_token
@@ -86,6 +87,12 @@ def test_create_ldap_user_creates_passwordless_user_and_identity_atomically(db_s
                 "email": "jane.profile@example.com",
                 "full_name": "Jane Profile",
                 "role": "ui_user",
+                "can_access_ceph_admin": False,
+                "can_access_storage_ops": False,
+                "can_create_manual_private_connections": False,
+                "can_provision_managed_private_connections": False,
+                "allow_multisite_endpoint_switching": False,
+                "manager_tool_access": {},
                 "browser_advanced_features_enabled": True,
                 "group_ids": [group.id],
             },
@@ -114,6 +121,24 @@ def test_create_ldap_user_creates_passwordless_user_and_identity_atomically(db_s
         select(UserUiGroup).where(UserUiGroup.user_id == created.id)
     ).one()
     assert membership.group_id == group.id
+
+
+def test_create_ldap_user_requires_explicit_access_contract(db_session):
+    actor = _actor(db_session)
+    identity = _identity()
+    session = SimpleNamespace(id="admin-session")
+
+    with pytest.raises(ValidationError):
+        LDAPImportRequest.model_validate(
+            {
+                "selection_token": _selection(actor, session.id, identity),
+                "action": "create",
+                "create": {
+                    "email": "implicit@example.test",
+                    "role": "ui_user",
+                },
+            }
+        )
 
 
 def test_link_ldap_identity_preserves_target_and_revokes_credentials(db_session):

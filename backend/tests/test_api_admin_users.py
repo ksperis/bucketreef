@@ -44,6 +44,29 @@ def seed_user_account(db_session):
     return usr, acc
 
 
+def _user_create_payload(
+    *,
+    email: str,
+    password: str,
+    role: str = UserRole.UI_USER.value,
+    **overrides: object,
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "email": email,
+        "password": password,
+        "role": role,
+        "can_access_ceph_admin": False,
+        "can_access_storage_ops": False,
+        "can_create_manual_private_connections": False,
+        "can_provision_managed_private_connections": False,
+        "allow_multisite_endpoint_switching": False,
+        "manager_tool_access": {},
+        "browser_advanced_features_enabled": False,
+    }
+    payload.update(overrides)
+    return payload
+
+
 @pytest.mark.parametrize(
     "legacy_role",
     ["super_admin", "superadmin", "account_admin", "admin", "account_user", "user", "none"],
@@ -57,11 +80,11 @@ def test_admin_user_api_rejects_legacy_ui_roles(
 
     create_response = client.post(
         "/api/admin/users",
-        json={
-            "email": f"legacy-{legacy_role}@example.com",
-            "password": "secret-pass-01",
-            "role": legacy_role,
-        },
+        json=_user_create_payload(
+            email=f"legacy-{legacy_role}@example.com",
+            password="secret-pass-01",
+            role=legacy_role,
+        ),
     )
     update_response = client.patch(
         f"/api/admin/users/{user.id}",
@@ -164,22 +187,22 @@ def test_admin_cannot_create_superadmin_or_grant_ceph_admin(client: TestClient):
 
     resp = client.post(
         "/api/admin/users",
-        json={
-            "email": "new-superadmin@example.com",
-            "password": "secret-pass-01",
-            "role": UserRole.UI_SUPERADMIN.value,
-        },
+        json=_user_create_payload(
+            email="new-superadmin@example.com",
+            password="secret-pass-01",
+            role=UserRole.UI_SUPERADMIN.value,
+        ),
     )
     assert resp.status_code == 403, resp.text
 
     resp = client.post(
         "/api/admin/users",
-        json={
-            "email": "new-admin@example.com",
-            "password": "secret-pass-02",
-            "role": UserRole.UI_ADMIN.value,
-            "can_access_ceph_admin": True,
-        },
+        json=_user_create_payload(
+            email="new-admin@example.com",
+            password="secret-pass-02",
+            role=UserRole.UI_ADMIN.value,
+            can_access_ceph_admin=True,
+        ),
     )
     assert resp.status_code == 403, resp.text
 
@@ -209,11 +232,11 @@ def test_admin_cannot_assign_group_that_grants_ceph_admin(
 
     response = client.post(
         "/api/admin/users",
-        json={
-            "email": "privileged-group-member@example.com",
-            "password": "secret-pass-05",
-            "group_ids": [privileged_group.id],
-        },
+        json=_user_create_payload(
+            email="privileged-group-member@example.com",
+            password="secret-pass-05",
+            group_ids=[privileged_group.id],
+        ),
     )
 
     assert response.status_code == 403, response.text
@@ -234,10 +257,10 @@ def test_create_user_applies_initial_account_links_in_same_request(
 
     response = client.post(
         "/api/admin/users",
-        json={
-            "email": "created-with-links@example.com",
-            "password": "secret-pass-06",
-            "account_links": [
+        json=_user_create_payload(
+            email="created-with-links@example.com",
+            password="secret-pass-06",
+            account_links=[
                 {
                     "account_id": account.id,
                     "manager_role": "account_administrator",
@@ -245,7 +268,7 @@ def test_create_user_applies_initial_account_links_in_same_request(
                     "allow_manager_browser_data_access": True,
                 }
             ],
-        },
+        ),
     )
 
     assert response.status_code == 201, response.text
@@ -266,10 +289,10 @@ def test_create_user_rolls_back_when_initial_association_is_invalid(
     email = "invalid-initial-link@example.com"
     response = client.post(
         "/api/admin/users",
-        json={
-            "email": email,
-            "password": "secret-pass-07",
-            "account_links": [
+        json=_user_create_payload(
+            email=email,
+            password="secret-pass-07",
+            account_links=[
                 {
                     "account_id": 999999,
                     "manager_role": "account_administrator",
@@ -277,7 +300,7 @@ def test_create_user_rolls_back_when_initial_association_is_invalid(
                     "allow_manager_browser_data_access": False,
                 }
             ],
-        },
+        ),
     )
 
     assert response.status_code == 400, response.text
@@ -297,11 +320,11 @@ def test_superadmin_can_create_superadmin_and_grant_ceph_admin(client: TestClien
 
     create_superadmin = client.post(
         "/api/admin/users",
-        json={
-            "email": "new-superadmin@example.com",
-            "password": "secret-pass-03",
-            "role": UserRole.UI_SUPERADMIN.value,
-        },
+        json=_user_create_payload(
+            email="new-superadmin@example.com",
+            password="secret-pass-03",
+            role=UserRole.UI_SUPERADMIN.value,
+        ),
     )
     assert create_superadmin.status_code == 201, create_superadmin.text
     assert create_superadmin.json()["role"] == UserRole.UI_SUPERADMIN.value
@@ -310,14 +333,14 @@ def test_superadmin_can_create_superadmin_and_grant_ceph_admin(client: TestClien
 
     create_admin_with_ceph = client.post(
         "/api/admin/users",
-        json={
-            "email": "new-admin@example.com",
-            "password": "secret-pass-04",
-            "role": UserRole.UI_ADMIN.value,
-            "can_access_ceph_admin": True,
-            "can_create_manual_private_connections": True,
-            "can_provision_managed_private_connections": True,
-        },
+        json=_user_create_payload(
+            email="new-admin@example.com",
+            password="secret-pass-04",
+            role=UserRole.UI_ADMIN.value,
+            can_access_ceph_admin=True,
+            can_create_manual_private_connections=True,
+            can_provision_managed_private_connections=True,
+        ),
     )
     assert create_admin_with_ceph.status_code == 201, create_admin_with_ceph.text
     payload = create_admin_with_ceph.json()
@@ -554,11 +577,10 @@ def test_admin_can_grant_and_revoke_storage_ops_on_update(client: TestClient, db
 def test_admin_create_user_rejects_short_password(client: TestClient):
     response = client.post(
         "/api/admin/users",
-        json={
-            "email": "short-password@example.com",
-            "password": "short123",
-            "role": UserRole.UI_USER.value,
-        },
+        json=_user_create_payload(
+            email="short-password@example.com",
+            password="short123",
+        ),
     )
     assert response.status_code == 400
     assert response.json()["detail"] == "Password must be at least 12 characters long"
