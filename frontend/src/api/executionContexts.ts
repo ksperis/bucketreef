@@ -57,7 +57,7 @@ export type ExecutionContext = {
   } | null;
 };
 
-export type ExecutionContextOption = Pick<
+type ExecutionContextOption = Pick<
   ExecutionContext,
   "kind" | "id" | "display_name" | "manager_role" | "endpoint_id" | "endpoint_url"
 >;

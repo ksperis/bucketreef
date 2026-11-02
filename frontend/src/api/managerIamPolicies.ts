@@ -19,13 +19,6 @@ export type InlinePolicy = {
   document: Record<string, unknown>;
 };
 
-export async function listIamPolicies(contextId?: S3ExecutionContextSelector): Promise<IamPolicy[]> {
-  const { data } = await client.get<IamPolicy[]>("/manager/iam/policies", {
-    params: withS3ContextParam(undefined, contextId),
-  });
-  return data;
-}
-
 export async function listIamPoliciesPage(
   contextId: S3ExecutionContextSelector,
   query: IamCursorQuery = {},

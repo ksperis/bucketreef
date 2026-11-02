@@ -14,7 +14,6 @@ import {
   getIamEntity,
   listEntityInlinePolicies,
   listEntityPolicies,
-  listIamEntities,
   listIamEntityPage,
   type IamCursorPage,
   type IamCursorQuery,
@@ -49,10 +48,6 @@ type UpdateRolePayload = {
   assume_role_policy_document?: Record<string, unknown> | string;
   max_session_duration?: number;
 };
-
-export async function listIamRoles(contextId?: S3ExecutionContextSelector): Promise<IAMRole[]> {
-  return listIamEntities<IAMRole>("roles", contextId);
-}
 
 export async function listIamRolesPage(
   contextId: S3ExecutionContextSelector,

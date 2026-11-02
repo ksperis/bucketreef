@@ -15,7 +15,6 @@ import {
   getIamEntity,
   listEntityInlinePolicies,
   listEntityPolicies,
-  listIamEntities,
   listIamEntityPage,
   type IamCursorPage,
   type IamCursorQuery,
@@ -47,10 +46,6 @@ export type IAMUser = {
 };
 
 type IAMUserWithKey = IAMUser & { access_key?: AccessKey };
-
-export async function listIamUsers(contextId?: S3ExecutionContextSelector): Promise<IAMUser[]> {
-  return listIamEntities<IAMUser>("users", contextId);
-}
 
 export async function listIamUsersPage(
   contextId: S3ExecutionContextSelector,

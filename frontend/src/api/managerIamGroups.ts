@@ -15,7 +15,6 @@ import {
   getIamEntity,
   listEntityInlinePolicies,
   listEntityPolicies,
-  listIamEntities,
   listIamEntityPage,
   type IamCursorPage,
   type IamCursorQuery,
@@ -37,10 +36,6 @@ type CreateGroupPayload = {
   policies?: string[];
   inline_policies?: InlinePolicy[];
 };
-
-export async function listIamGroups(contextId?: S3ExecutionContextSelector): Promise<IAMGroup[]> {
-  return listIamEntities<IAMGroup>("groups", contextId);
-}
 
 export async function listIamGroupsPage(
   contextId: S3ExecutionContextSelector,

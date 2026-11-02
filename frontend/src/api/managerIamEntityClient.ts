@@ -32,11 +32,6 @@ function withContext(contextId?: S3ExecutionContextSelector) {
   return { params: withS3ContextParam(undefined, contextId) };
 }
 
-export async function listIamEntities<T>(segment: IamEntitySegment, contextId?: S3ExecutionContextSelector): Promise<T[]> {
-  const { data } = await client.get<T[]>(segmentBasePath(segment), withContext(contextId));
-  return data;
-}
-
 export async function listIamEntityPage<T>(
   segment: IamEntitySegment,
   contextId: S3ExecutionContextSelector,

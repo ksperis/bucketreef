@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 type LoadState = "idle" | "loading" | "loaded" | "error";
 
-export type LazyListEnsureOptions = {
+type LazyListEnsureOptions = {
   retryOnError?: boolean;
 };
 

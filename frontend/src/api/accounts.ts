@@ -110,11 +110,6 @@ export async function listS3Accounts(params?: ListS3AccountsParams): Promise<Pag
   return data;
 }
 
-export async function listMinimalS3Accounts(): Promise<S3AccountSummary[]> {
-  const { data } = await client.get<S3AccountSummary[]>("/admin/accounts/minimal");
-  return data;
-}
-
 type GetS3AccountOptions = {
   includeUsage?: boolean;
 };
