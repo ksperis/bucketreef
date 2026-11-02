@@ -18,7 +18,7 @@ import {
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
 import { useBucketFeatureEditorSession } from "./useBucketFeatureEditorSession";
-import { useBucketEditorRowIds } from "./useBucketEditorRowIds";
+import { useEditorRowIds } from "../../../hooks/useEditorRowIds";
 import {
   addNotificationTopic,
   createVisualNotificationTopic,
@@ -71,7 +71,7 @@ export function useBucketNotificationsController({
     removeRowId: removeDraftTopicId,
     resetRowIds: resetDraftTopicIds,
     rowIds: draftTopicIds,
-  } = useBucketEditorRowIds("notification-topic");
+  } = useEditorRowIds("notification-topic");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [featureUnsupported, setFeatureUnsupported] = useState(false);
   const [loading, setLoading] = useState(false);

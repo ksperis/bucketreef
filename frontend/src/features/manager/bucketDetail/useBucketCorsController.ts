@@ -17,7 +17,7 @@ import {
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
 import { useBucketFeatureEditorSession } from "./useBucketFeatureEditorSession";
-import { useBucketEditorRowIds } from "./useBucketEditorRowIds";
+import { useEditorRowIds } from "../../../hooks/useEditorRowIds";
 import {
   createVisualCorsRule,
   parseCorsRulesJson,
@@ -68,7 +68,7 @@ export function useBucketCorsController({
     removeRowId: removeDraftRuleId,
     resetRowIds: resetDraftRuleIds,
     rowIds: draftRuleIds,
-  } = useBucketEditorRowIds("cors-rule");
+  } = useEditorRowIds("cors-rule");
   const {
     closeEditor,
     draft: draftRules,

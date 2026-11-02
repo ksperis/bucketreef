@@ -17,7 +17,7 @@ import {
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
 import { useBucketFeatureEditorSession } from "./useBucketFeatureEditorSession";
-import { useBucketEditorRowIds } from "./useBucketEditorRowIds";
+import { useEditorRowIds } from "../../../hooks/useEditorRowIds";
 import {
   createVisualPolicyStatement,
   isPolicyConfigurationEmpty,
@@ -83,7 +83,7 @@ export function useBucketPolicyController({
     removeRowId: removeDraftStatementId,
     resetRowIds: resetDraftStatementIds,
     rowIds: draftStatementIds,
-  } = useBucketEditorRowIds("policy-statement");
+  } = useEditorRowIds("policy-statement");
   const {
     closeEditor,
     draft: draftPolicy,

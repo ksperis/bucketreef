@@ -2,14 +2,29 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { useCallback, useState } from "react";
-import { createUiDraftId } from "../../../utils/uiDraftId";
+import { useCallback, useEffect, useState } from "react";
+import { createUiDraftId } from "../utils/uiDraftId";
 
-export function useBucketEditorRowIds(prefix: string) {
-  const [rowIds, setRowIds] = useState<string[]>([]);
+function createRowIds(prefix: string, count: number): string[] {
+  return Array.from({ length: count }, () => createUiDraftId(prefix));
+}
+
+export function useEditorRowIds(prefix: string, rowCount?: number) {
+  const [rowIds, setRowIds] = useState<string[]>(() =>
+    createRowIds(prefix, rowCount ?? 0),
+  );
+
+  useEffect(() => {
+    if (rowCount === undefined) return;
+    setRowIds((current) => {
+      if (current.length === rowCount) return current;
+      if (current.length > rowCount) return current.slice(0, rowCount);
+      return [...current, ...createRowIds(prefix, rowCount - current.length)];
+    });
+  }, [prefix, rowCount]);
 
   const resetRowIds = useCallback((count: number) => {
-    setRowIds(Array.from({ length: count }, () => createUiDraftId(prefix)));
+    setRowIds(createRowIds(prefix, count));
   }, [prefix]);
 
   const appendRowId = useCallback(() => {
