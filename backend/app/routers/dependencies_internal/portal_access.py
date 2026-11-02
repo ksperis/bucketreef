@@ -11,8 +11,8 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.db import PortalAccountRole, S3Account, StorageProvider, User, UserS3Account
-from app.models.access_context import AccountAccess, EffectiveAccountLink
-from app.models.account_capabilities import AccountCapabilities
+from app.services.access_context_contracts import AccountAccess, EffectiveAccountLink, AccountCapabilities
+
 from app.services import app_settings_service
 from app.services.portal_access_service import portal_membership_capabilities
 from app.services.s3_execution_context import S3ExecutionContext

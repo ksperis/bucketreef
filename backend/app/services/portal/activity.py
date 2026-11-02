@@ -16,7 +16,7 @@ from app.services.portal.exceptions import PortalNotFoundError
 from app.utils.time import utcnow
 
 if TYPE_CHECKING:
-    from app.models.access_context import AccountAccess
+    from app.services.access_context_contracts import AccountAccess
 
 
 class PortalActivityMixin:

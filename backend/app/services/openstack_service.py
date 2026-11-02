@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.db import AuthSession, User
 from app.db.openstack import OpenStackCloud, OpenStackConnection, OpenStackProjectContext, OpenStackProjectCredential, OpenStackSession
-from app.models.account_capabilities import AccountCapabilities
+from app.services.access_context_contracts import AccountCapabilities
 from app.models.execution_context import (
     ExecutionContext,
     ExecutionContextCapabilities,

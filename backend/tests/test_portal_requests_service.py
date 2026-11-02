@@ -27,8 +27,8 @@ from app.models.portal_requests import (
     PortalUserRemovalRequestCreate,
 )
 from app.models.portal_usage import PortalUsage
-from app.models.access_context import AccountAccess
-from app.models.account_capabilities import AccountCapabilities
+from app.services.access_context_contracts import AccountAccess, AccountCapabilities
+
 from app.services.portal_service import PortalService
 from app.services.portal_requests_service import PortalRequestConflict, PortalRequestExecutionError, PortalRequestsService
 from tests.s3_account_factory import make_s3_account

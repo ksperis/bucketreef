@@ -6,7 +6,7 @@ from typing import Any, Callable, Literal, TypeVar
 
 from fastapi import Response
 
-from app.models.access_context import ManagerActor
+from app.services.access_context_contracts import ManagerActor
 from app.services import bucket_config_actions
 from app.services.audit_service import AuditService
 from app.services.bucket_config_mutation_registry import (

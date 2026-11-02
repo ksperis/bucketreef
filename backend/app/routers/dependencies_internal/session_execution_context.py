@@ -8,8 +8,8 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.db import S3Account, StorageEndpoint
-from app.models.account_capabilities import AccountCapabilities
-from app.models.session import ManagerSessionPrincipal
+from app.services.access_context_contracts import AccountCapabilities, ManagerSessionPrincipal
+
 from app.services import app_settings_service
 from app.services.s3_accounts_service import get_s3_accounts_service
 from app.services.s3_execution_context import S3ExecutionContext

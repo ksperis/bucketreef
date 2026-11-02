@@ -27,7 +27,7 @@ from app.services.s3_object_download import S3ObjectDownload
 from app.utils.s3_endpoint import resolve_s3_client_options
 
 if TYPE_CHECKING:
-    from app.models.access_context import AccountAccess
+    from app.services.access_context_contracts import AccountAccess
 
 logger = logging.getLogger(__name__)
 _CONTENT_PREVIEW_MAX_BYTES = 64 * 1024

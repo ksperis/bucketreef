@@ -5,7 +5,7 @@
 
 from fastapi import APIRouter, Depends, Response, status
 
-from app.models.access_context import ManagerActor
+from app.services.access_context_contracts import ManagerActor
 from app.models.bucket import (
     BucketAcl,
     BucketAclUpdate,

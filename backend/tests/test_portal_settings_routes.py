@@ -10,8 +10,8 @@ from app.db import ManagerAccountRole, PortalAccountRole, AuditLog, S3Account, U
 from app.main import app
 from app.models.portal_versions import PortalStorageSpaceSettings
 from app.routers import dependencies
-from app.models.access_context import AccountAccess
-from app.models.account_capabilities import AccountCapabilities
+from app.services.access_context_contracts import AccountAccess, AccountCapabilities
+
 from app.routers.dependencies_internal.portal_access import _portal_membership_capabilities
 from app.services.portal_service import PortalService
 from tests.s3_account_factory import make_s3_account

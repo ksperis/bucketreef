@@ -4,7 +4,7 @@ import logging
 
 from fastapi import APIRouter, Depends
 
-from app.models.access_context import ManagerActor
+from app.services.access_context_contracts import ManagerActor
 from app.models.iam import IAMOverview
 from app.routers.dependencies import get_s3_execution_context, require_iam_capable_manager
 from app.routers.manager.iam_common import get_iam_service_for_context

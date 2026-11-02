@@ -19,7 +19,7 @@ from app.services.feature_policy_service import bucket_usage_stats_state
 from app.utils.usage_stats import aggregate_bucket_usage, extract_usage_stats
 
 if TYPE_CHECKING:
-    from app.models.access_context import AccountAccess
+    from app.services.access_context_contracts import AccountAccess
 
 logger = logging.getLogger(__name__)
 

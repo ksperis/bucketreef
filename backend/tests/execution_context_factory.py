@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.models.execution_context import ExecutionContext, ExecutionContextCapabilities
-from app.models.account_capabilities import AccountCapabilities
+from app.services.access_context_contracts import AccountCapabilities
 from app.services.s3_execution_context import S3ExecutionContext
 
 

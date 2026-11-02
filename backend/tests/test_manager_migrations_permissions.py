@@ -10,7 +10,7 @@ from tests.feature_policy_fixtures import enable_manager_features
 from tests.feature_policy_fixtures import manager_settings_fixture
 from app.db import BucketMigration, BucketMigrationItem, User, UserRole
 from app.main import app
-from app.models.access_context import BucketMigrationAccessScope
+from app.services.access_context_contracts import BucketMigrationAccessScope
 from app.routers import dependencies
 from app.routers.dependencies_internal.feature_gates import ensure_manager_tool_allowed
 from app.services.effective_access_service import EffectiveAccessService

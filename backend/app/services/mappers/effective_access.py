@@ -13,7 +13,7 @@ from app.models.user import (
     ManagerToolAccess,
 )
 from app.services.manager_tool_access import MANAGER_TOOL_COLUMNS
-from app.models.access_context import EffectiveAccountGroupRole, EffectiveAccountLink
+from app.services.access_context_contracts import EffectiveAccountGroupRole, EffectiveAccountLink
 from app.services.effective_access_contracts import ResolvedUserAccess
 
 

@@ -48,7 +48,7 @@ from app.utils.aws_errors import aws_error_code
 from app.utils.storage_endpoint_features import resolve_rgw_admin_api_endpoint
 
 if TYPE_CHECKING:
-    from app.models.access_context import AccountAccess
+    from app.services.access_context_contracts import AccountAccess
 
 
 logger = logging.getLogger(__name__)

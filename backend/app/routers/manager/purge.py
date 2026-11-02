@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
 from app.db import User
-from app.models.access_context import ManagerActor
+from app.services.access_context_contracts import ManagerActor
 from app.models.bucket_purge import BucketPurgeBucketRequest
 from app.routers.bucket_purge_stream import stream_audited_resolved_bucket_purge
 from app.routers.dependencies import (

@@ -23,7 +23,8 @@ from app.models.auth import (
     WebAuthnCredentialCreatedResponse,
     WebAuthnCredentialRequest,
 )
-from app.models.session import ManagerSessionPrincipal, SessionDescriptor
+from app.models.session import SessionDescriptor
+from app.services.access_context_contracts import ManagerSessionPrincipal
 from app.routers.auth_cookies import clear_auth_cookies, set_auth_cookies
 from app.services.auth_session_guards import (
     current_auth_session,

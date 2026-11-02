@@ -6,8 +6,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
-from app.models.access_context import ManagerActor
-from app.models.session import ManagerSessionPrincipal
+from app.services.access_context_contracts import ManagerActor, ManagerSessionPrincipal
+
 from app.core.database import get_db
 from app.models.bucket import Bucket
 from app.routers import bucket_config_inspector

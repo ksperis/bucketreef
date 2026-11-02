@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import User
-from app.models.access_context import AccountAccess
+from app.services.access_context_contracts import AccountAccess
 from app.models.audit import AuditStatus
 from app.routers.sse_worker import stream_status_operation
 from app.services.audit_service import AuditService

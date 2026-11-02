@@ -32,7 +32,7 @@ from app.utils.s3_endpoint import resolve_s3_client_options
 from app.utils.time import utcnow
 
 if TYPE_CHECKING:
-    from app.models.access_context import AccountAccess
+    from app.services.access_context_contracts import AccountAccess
 
 
 settings = get_settings()

@@ -40,7 +40,7 @@ from app.services.sqlalchemy_pagination import paginate_scalars
 from app.utils.time import utcnow
 
 if TYPE_CHECKING:
-    from app.models.access_context import AccountAccess
+    from app.services.access_context_contracts import AccountAccess
 
 
 class PortalSharingMixin:

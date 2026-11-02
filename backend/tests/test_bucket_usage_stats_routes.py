@@ -13,7 +13,7 @@ from sqlalchemy.orm import sessionmaker
 from app.db import S3Account, StorageEndpoint, User, UserRole, UserS3Account
 from app.db.bucket_usage_stats import BucketUsageStatsSnapshot as SnapshotRow
 from app.main import app
-from app.models.account_capabilities import AccountCapabilities
+from app.services.access_context_contracts import AccountCapabilities, ManagerSessionPrincipal
 from app.models.bucket_operation import RgwBucketReference
 from app.models.bucket_usage_stats import (
     BucketUsageStatsAggregate,
@@ -21,7 +21,8 @@ from app.models.bucket_usage_stats import (
     BucketUsageStatsLatestResponse,
     BucketUsageStatsSnapshot,
 )
-from app.models.session import ManagerSessionPrincipal, SessionCapabilities
+from app.models.session import SessionCapabilities
+
 from app.routers import bucket_usage_stats_stream as bucket_usage_stats_stream_router, dependencies
 from app.routers.admin import usage_stats as admin_usage_stats_router
 from app.routers.ceph_admin import usage_stats as ceph_usage_stats_router

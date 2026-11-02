@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models.access_context import ManagerActor
+from app.services.access_context_contracts import ManagerActor
 from app.services.s3_execution_context import S3ExecutionContext
 from app.models.iam import IAMGroup, IAMGroupCreate, IAMGroupPage, IAMGroupUpdate, IAMUser
 from app.models.policy import InlinePolicy, Policy

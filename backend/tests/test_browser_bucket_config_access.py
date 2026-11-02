@@ -10,7 +10,8 @@ from fastapi import HTTPException, Response
 from starlette.requests import Request
 
 from app.db import User, UserRole
-from app.models.session import ManagerSessionPrincipal, SessionCapabilities
+from app.models.session import SessionCapabilities
+from app.services.access_context_contracts import ManagerSessionPrincipal
 from app.routers import dependencies
 from app.routers.browser_bucket_config import require_advanced_browser_bucket_config
 from app.routers.manager.bucket_config_common import get_manager_bucket_config_mutation_service

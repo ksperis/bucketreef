@@ -9,10 +9,11 @@ from fastapi import HTTPException
 
 from app.db import S3Account, S3Connection, StorageEndpoint, User
 from app.main import app
-from app.models.account_capabilities import AccountCapabilities
+from app.services.access_context_contracts import AccountCapabilities, ManagerSessionPrincipal
 from app.models.app_settings import AppSettings
 from app.models.bucket_purge import bucket_purge_confirmation_phrase
-from app.models.session import ManagerSessionPrincipal, SessionCapabilities
+from app.models.session import SessionCapabilities
+
 from app.routers.dependencies_internal import feature_gates
 from app.routers import (
     bucket_integrity_stream as bucket_integrity_stream_router,

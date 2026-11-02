@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.domain_errors import S3AccountNotFoundError
 from app.db import S3Account, User, UserS3Account
-from app.models.access_context import EffectiveAccountLink
+from app.services.access_context_contracts import EffectiveAccountLink
 from app.services import effective_access_service
 from app.services.s3_accounts_service import get_s3_accounts_service
 from app.utils.request_paths import path_matches_prefix

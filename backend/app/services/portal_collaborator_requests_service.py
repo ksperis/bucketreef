@@ -17,7 +17,7 @@ from app.db import (
     UserS3Account,
     UserUiGroup,
 )
-from app.models.access_context import AccountAccess
+from app.services.access_context_contracts import AccountAccess
 from app.models.portal_requests import PortalUserAccessRequestCreate
 from app.services.portal_service import PortalService
 from app.services.users_service import UsersService

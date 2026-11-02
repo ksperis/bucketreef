@@ -8,8 +8,8 @@ from requests.exceptions import Timeout as RequestsTimeout
 
 from app.db import PortalAccountRole, S3Account, User, UserRole
 from app.main import app
-from app.models.access_context import AccountAccess
-from app.models.account_capabilities import AccountCapabilities
+from app.services.access_context_contracts import AccountAccess, AccountCapabilities
+
 from app.models.portal_usage import (
     PortalStorageSpaceUsageStatsResponse,
     PortalStorageSpaceUsageStatsSnapshot,

@@ -11,10 +11,11 @@ from fastapi import HTTPException
 
 from app.db import QuotaUsageDaily, QuotaUsageHourly, S3Account, S3Connection, S3User, StorageEndpoint, User, UserRole
 from app.main import app
-from app.models.account_capabilities import AccountCapabilities
+from app.services.access_context_contracts import AccountCapabilities, ManagerSessionPrincipal
 from app.models.app_settings import AppSettings
 from app.models.feature_policy import FeaturePolicy
-from app.models.session import ManagerSessionPrincipal, SessionCapabilities
+from app.models.session import SessionCapabilities
+
 from app.routers import dependencies
 from app.routers.dependencies_internal import feature_gates
 from app.routers.manager import stats as manager_stats_router

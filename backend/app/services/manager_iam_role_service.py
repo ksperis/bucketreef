@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 from app.core.domain_errors import ManagerIAMRoleNotFoundError
-from app.models.access_context import ManagerActor
+from app.services.access_context_contracts import ManagerActor
 from app.models.iam import IAMRole, IAMRoleUpdate
 from app.services.audit_service import AuditService
 from app.services.rgw_iam import RGWIAMService

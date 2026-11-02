@@ -21,7 +21,7 @@ from app.db import (
     is_admin_ui_role,
 )
 from app.models.user import EffectiveUserAccess, LinkedUiGroup, ManagerToolAccess
-from app.models.access_context import BucketMigrationAccessScope, EffectiveAccountLink
+from app.services.access_context_contracts import BucketMigrationAccessScope, EffectiveAccountLink
 from app.services.association_names import load_s3_user_names, load_shared_s3_connection_names
 from app.services.effective_access_contracts import EffectiveAccessSource, ResolvedUserAccess
 from app.services.effective_access_loader import EffectiveAccessLoader

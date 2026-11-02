@@ -27,7 +27,7 @@ from app.services.rgw_iam import RGWIAMService
 from app.utils.account_roles import PortalAccountRoleValue, max_portal_account_role
 
 if TYPE_CHECKING:
-    from app.models.access_context import AccountAccess
+    from app.services.access_context_contracts import AccountAccess
 
 
 class PortalStorageSpaceAccessMixin:

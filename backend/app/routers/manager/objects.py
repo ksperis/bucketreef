@@ -4,7 +4,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, status
 
-from app.models.access_context import ManagerActor
+from app.services.access_context_contracts import ManagerActor
 from app.models.manager_object_listing import ListObjectsResponse
 from app.routers.dependencies import get_s3_execution_context, get_current_account_admin
 from app.services.manager_object_listing_service import (

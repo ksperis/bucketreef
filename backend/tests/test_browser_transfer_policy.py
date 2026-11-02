@@ -11,7 +11,8 @@ from starlette.requests import Request
 from app.db import UserS3Account, UserRole
 from app.main import app
 from app.models.app_settings import AppSettings
-from app.models.session import ManagerSessionPrincipal, SessionCapabilities
+from app.models.session import SessionCapabilities
+from app.services.access_context_contracts import ManagerSessionPrincipal
 from app.routers import browser_transfer_policy as route
 from app.routers.dependencies_internal import ceph_admin_context
 from app.routers.dependencies_internal.auth_session import get_current_actor

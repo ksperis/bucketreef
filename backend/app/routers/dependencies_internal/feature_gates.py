@@ -10,10 +10,15 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.db import User
-from app.models.account_capabilities import AccountCapabilities
+from app.services.access_context_contracts import (
+    AccountCapabilities,
+    BucketMigrationAccessScope,
+    ManagerActor,
+    ManagerSessionPrincipal,
+)
 from app.models.feature_policy import FeaturePolicy
-from app.models.access_context import BucketMigrationAccessScope, ManagerActor
-from app.models.session import ManagerSessionPrincipal
+
+
 from app.routers.manager.access import require_manager_capabilities
 from app.services import app_settings_service
 from app.services.connection_identity_service import ConnectionIdentityService

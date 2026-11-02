@@ -8,7 +8,7 @@ from fastapi import APIRouter, Body, Depends, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models.access_context import BucketMigrationAccessScope
+from app.services.access_context_contracts import BucketMigrationAccessScope
 from app.models.bucket_migration import (
     BucketMigrationCreateRequest,
     BucketMigrationDetail,

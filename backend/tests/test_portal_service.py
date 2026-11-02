@@ -57,8 +57,8 @@ from app.models.portal_versions import (
     PortalStorageObjectRestoreResponse,
     portal_storage_space_version_cleanup_confirmation_phrase,
 )
-from app.models.access_context import AccountAccess
-from app.models.account_capabilities import AccountCapabilities
+from app.services.access_context_contracts import AccountAccess, AccountCapabilities
+
 from app.services.s3_object_download import S3ObjectDownload
 from app.routers import portal as portal_router
 from app.routers import portal_access_keys as portal_access_keys_router

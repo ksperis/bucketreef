@@ -12,8 +12,8 @@ import pytest
 
 from app.core.domain_errors import CostSubjectNotFoundError
 from app.db import CostEndpointOverride, CostModel, CostStorageDaily, CostUsageDaily, S3Account, S3User, StorageEndpoint, User
-from app.models.access_context import AccountAccess
-from app.models.account_capabilities import AccountCapabilities
+from app.services.access_context_contracts import AccountAccess, AccountCapabilities
+
 from app.models.app_settings import AppSettings
 from app.models.cost import CostEndpointCollectionError
 from app.main import app

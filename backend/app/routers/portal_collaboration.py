@@ -8,7 +8,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.db import User
-from app.models.access_context import AccountAccess
+from app.services.access_context_contracts import AccountAccess
 from app.models.portal_monitoring import PortalActivityItem
 from app.models.portal_sharing import (
     PortalCollaboratorAccessReview,

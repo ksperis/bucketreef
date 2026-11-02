@@ -2,13 +2,11 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Annotated, Optional
 
 from pydantic import BeforeValidator, Field
 
 from app.models.base import ApiModel
-from app.db import UserRole
 from app.utils.s3_endpoint import normalize_s3_endpoint
 
 NormalizedS3Endpoint = Annotated[Optional[str], BeforeValidator(normalize_s3_endpoint)]
@@ -33,18 +31,3 @@ class SessionDescriptor(ApiModel):
     account_id: Optional[str]
     account_name: Optional[str]
     capabilities: SessionCapabilities
-
-
-@dataclass
-class ManagerSessionPrincipal:
-    session_id: str
-    access_key: str
-    secret_key: str
-    actor_type: str
-    account_id: Optional[str]
-    account_name: Optional[str]
-    user_uid: Optional[str]
-    capabilities: SessionCapabilities
-    role: str = UserRole.UI_USER.value
-    email: str = "s3-session@local"
-    id: Optional[int] = None

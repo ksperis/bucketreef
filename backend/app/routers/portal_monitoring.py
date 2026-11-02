@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.db import User
-from app.models.access_context import AccountAccess
+from app.services.access_context_contracts import AccountAccess
 from app.models.healthcheck import WorkspaceEndpointHealthOverviewResponse
 from app.models.portal_monitoring import PortalAlert
 from app.routers.dependencies import get_portal_account_access

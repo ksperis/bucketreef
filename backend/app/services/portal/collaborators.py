@@ -37,7 +37,7 @@ from app.utils.account_roles import PortalAccountRoleValue
 from app.utils.time import utcnow
 
 if TYPE_CHECKING:
-    from app.models.access_context import AccountAccess
+    from app.services.access_context_contracts import AccountAccess
 
 
 COLLABORATOR_TREND_WINDOWS: tuple[tuple[str, str, int], ...] = (

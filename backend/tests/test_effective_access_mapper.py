@@ -1,7 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
-from app.models.access_context import EffectiveAccountGroupRole, EffectiveAccountLink
+from app.services.access_context_contracts import EffectiveAccountGroupRole, EffectiveAccountLink
 from app.models.user import ManagerToolAccess
 from app.services.effective_access_contracts import EffectiveAccessSource, ResolvedUserAccess
 from app.services.mappers.effective_access import effective_user_access_from_resolved

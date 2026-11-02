@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any, Callable, Literal, Optional, Protocol, TypeGuard
 
 from app.db import S3Account, S3Connection, S3User, StorageEndpoint
-from app.models.account_capabilities import AccountCapabilities
+from app.services.access_context_contracts import AccountCapabilities
 from app.models.portal_storage_spaces import PortalStorageSpaceSummary
 from app.utils.s3_connection_endpoint import resolve_connection_endpoint
 

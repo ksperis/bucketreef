@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.db import User
-from app.models.access_context import ManagerActor
+from app.services.access_context_contracts import ManagerActor
 from app.models.bucket_usage_stats import (
     BucketUsageStatsAggregateResponse,
     BucketUsageStatsLatestResponse,

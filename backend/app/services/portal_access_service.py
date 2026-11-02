@@ -1,8 +1,8 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 """Shared Portal access construction for HTTP and administrative workflows."""
-from app.models.access_context import AccountAccess
-from app.models.account_capabilities import AccountCapabilities
+from app.services.access_context_contracts import AccountAccess, AccountCapabilities
+
 from app.services.effective_access_service import EffectiveAccessService
 
 

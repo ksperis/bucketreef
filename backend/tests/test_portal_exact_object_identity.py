@@ -12,8 +12,8 @@ from botocore.response import StreamingBody
 
 from app.db import PortalPublicLink, PortalStorageSpaceMetadata, User
 from app.main import app
-from app.models.access_context import AccountAccess
-from app.models.account_capabilities import AccountCapabilities
+from app.services.access_context_contracts import AccountAccess, AccountCapabilities
+
 from app.models.app_settings import AppSettings
 from app.routers.dependencies import get_portal_account_access
 from app.routers.portal_common import get_portal_service_dependency

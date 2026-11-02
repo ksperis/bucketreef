@@ -3,7 +3,7 @@
 import json
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.models.access_context import ManagerActor
+from app.services.access_context_contracts import ManagerActor
 from app.services.s3_execution_context import S3ExecutionContext
 from app.models.iam import IAMRole, IAMRoleCreate, IAMRolePage, IAMRoleUpdate, IAMTag
 from app.models.policy import InlinePolicy, Policy

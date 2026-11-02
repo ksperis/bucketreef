@@ -18,11 +18,11 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.domain_errors import S3AccountNotFoundError, S3ConnectionNotFoundError, S3UserNotFoundError
 from app.db import User
-from app.models.access_context import ManagerActor
+from app.services.access_context_contracts import ManagerActor, ManagerSessionPrincipal
 from app.models.app_settings import AppSettings
 from app.models.execution_context import ManagerAccessMode, ManagerContext
 from app.models.feature_policy import FeatureState
-from app.models.session import ManagerSessionPrincipal
+
 from app.routers.dependencies import (
     get_s3_execution_context,
     get_current_actor,

@@ -10,8 +10,8 @@ from botocore.response import StreamingBody
 from starlette.requests import ClientDisconnect
 
 from app.db import PortalPublicLink, PortalStorageSpaceMetadata, User
-from app.models.access_context import AccountAccess
-from app.models.account_capabilities import AccountCapabilities
+from app.services.access_context_contracts import AccountAccess, AccountCapabilities
+
 from app.routers import browser_transfers, portal_objects, portal_sharing
 from app.routers.s3_download_response import S3DownloadResponse
 from app.services.browser_service import BrowserService
