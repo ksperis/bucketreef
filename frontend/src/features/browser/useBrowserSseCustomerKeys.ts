@@ -7,18 +7,14 @@ import {
   normalizeS3ExecutionContextId,
   type S3ExecutionContextSelector,
 } from "../../api/accountParams";
+import { useSettingsDraft } from "../../components/settings/useSettingsDraft";
 import { extractApiError } from "../../utils/apiError";
-import { stableSignature } from "../../utils/stableSignature";
 import {
   activateSseCustomerKeyForScope,
   copySseCustomerKeyWithFallback,
   generateAndActivateSseCustomerKeyForScope,
 } from "./sseCustomerKeyActions";
 import { useBrowserI18n } from "./browserI18n";
-
-function createInputSignature(value: string): string {
-  return stableSignature({ sseCustomerKeyInput: value });
-}
 
 type UseBrowserSseCustomerKeysOptions = {
   contextIdForApi: S3ExecutionContextSelector;
@@ -38,10 +34,12 @@ export function useBrowserSseCustomerKeys({
   const { text } = useBrowserI18n();
   const [keysByScope, setKeysByScope] = useState<Record<string, string>>({});
   const [showModal, setShowModal] = useState(false);
-  const [input, setInput] = useState("");
-  const [initialSignature, setInitialSignature] = useState(() =>
-    createInputSignature(""),
-  );
+  const {
+    draft: input,
+    setDraft: setInput,
+    accept: acceptInput,
+    dirty: inputDirty,
+  } = useSettingsDraft("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [visible, setVisible] = useState(false);
@@ -69,28 +67,21 @@ export function useBrowserSseCustomerKeys({
   const open = useCallback(() => {
     if (!enabled || !scopeKey) return;
     const nextInput = keyBase64 ?? "";
-    setInput(nextInput);
-    setInitialSignature(createInputSignature(nextInput));
+    acceptInput(nextInput);
     setError(null);
     setNotice(null);
     setVisible(false);
     setShowModal(true);
-  }, [enabled, keyBase64, scopeKey]);
+  }, [acceptInput, enabled, keyBase64, scopeKey]);
 
   const close = useCallback(() => {
     const nextInput = keyBase64 ?? "";
     setShowModal(false);
-    setInput(nextInput);
-    setInitialSignature(createInputSignature(nextInput));
+    acceptInput(nextInput);
     setError(null);
     setNotice(null);
     setVisible(false);
-  }, [keyBase64]);
-
-  const currentSignature = useMemo(
-    () => createInputSignature(input),
-    [input],
-  );
+  }, [acceptInput, keyBase64]);
 
   const updateInput = (value: string) => {
     setInput(value);
@@ -107,7 +98,7 @@ export function useBrowserSseCustomerKeys({
         input,
       );
       setKeysByScope(result.next);
-      setInitialSignature(createInputSignature(input));
+      acceptInput(input);
       setError(null);
       setNotice(null);
       setShowModal(false);
@@ -120,7 +111,7 @@ export function useBrowserSseCustomerKeys({
         ),
       );
     }
-  }, [input, keysByScope, scopeKey, setStatusMessage, text]);
+  }, [acceptInput, input, keysByScope, scopeKey, setStatusMessage, text]);
 
   const generate = useCallback(async () => {
     if (!scopeKey) return;
@@ -132,8 +123,7 @@ export function useBrowserSseCustomerKeys({
       );
       generatedKey = result.normalizedKey;
       setKeysByScope(result.next);
-      setInput(generatedKey);
-      setInitialSignature(createInputSignature(generatedKey));
+      acceptInput(generatedKey);
       setError(null);
       setVisible(false);
     } catch (generationError) {
@@ -163,7 +153,7 @@ export function useBrowserSseCustomerKeys({
     setStatusMessage(
       text("SSE-C key generated and enabled. Copy it manually from the dialog."),
     );
-  }, [keysByScope, onManualCopyRequired, scopeKey, setStatusMessage, text]);
+  }, [acceptInput, keysByScope, onManualCopyRequired, scopeKey, setStatusMessage, text]);
 
   const clear = useCallback(() => {
     if (!scopeKey) return;
@@ -172,14 +162,13 @@ export function useBrowserSseCustomerKeys({
       delete next[scopeKey];
       return next;
     });
-    setInput("");
-    setInitialSignature(createInputSignature(""));
+    acceptInput("");
     setError(null);
     setNotice(null);
     setVisible(false);
     setShowModal(false);
     setStatusMessage(text("SSE-C key cleared for this bucket."));
-  }, [scopeKey, setStatusMessage, text]);
+  }, [acceptInput, scopeKey, setStatusMessage, text]);
 
   useEffect(() => {
     if (!enabled && showModal) {
@@ -204,6 +193,6 @@ export function useBrowserSseCustomerKeys({
     clear,
     activate,
     close,
-    dirty: showModal && currentSignature !== initialSignature,
+    dirty: showModal && inputDirty,
   };
 }
