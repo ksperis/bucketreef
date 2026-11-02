@@ -1464,6 +1464,30 @@ describe("manager shell pages", () => {
     );
   });
 
+  it("sorts manager buckets by name ascending by default", async () => {
+    listBucketsMock.mockResolvedValue([
+      { name: "zeta", used_bytes: 1 },
+      { name: "alpha", used_bytes: 10_000 },
+      { name: "middle", used_bytes: 100 },
+    ]);
+    setSelectedManagerAccountContext();
+
+    render(
+      <MemoryRouter>
+        <BucketsPage />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText("alpha")).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Name" })).toHaveAttribute("aria-sort", "ascending");
+    expect(screen.getByRole("columnheader", { name: "Used" })).toHaveAttribute("aria-sort", "none");
+    expect(screen.getAllByRole("row").slice(1).map((row) => row.textContent)).toEqual([
+      expect.stringContaining("alpha"),
+      expect.stringContaining("middle"),
+      expect.stringContaining("zeta"),
+    ]);
+  });
+
   it("opens bucket configuration from the row without duplicating the name link", async () => {
     window.sessionStorage.setItem(
       MANAGER_BUCKET_COLUMNS_SESSION_STORAGE_KEY,

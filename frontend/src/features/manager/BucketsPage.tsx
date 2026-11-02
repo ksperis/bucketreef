@@ -240,8 +240,8 @@ export default function BucketsPage() {
   const bucketPropertiesInflightRef = useRef<Record<string, Promise<BucketProperties>>>({});
   const [activeTagsTooltipKey, setActiveTagsTooltipKey] = useState<string | null>(null);
   const [sort, setSort] = useState<{ field: SortField; direction: "asc" | "desc" }>({
-    field: "used_bytes",
-    direction: "desc",
+    field: "name",
+    direction: "asc",
   });
   const [enrichingColumns, setEnrichingColumns] = useState(false);
 
