@@ -40,7 +40,6 @@ import {
 } from "../../api/executionContexts";
 import {
   BUCKET_COMPARE_CONFIG_FEATURE_OPTIONS,
-  BucketCompareManualMappingEditor,
   extractCompareError,
   formatUnknown,
   getChangedTone,
@@ -51,6 +50,7 @@ import {
   summarizeBucketCompareRun,
   useBucketCompareWorkflowState,
 } from "../shared/bucketCompareShared";
+import { BucketCompareManualMappingEditor } from "../shared/bucketCompareMapping";
 import {
   buildBucketCompareContentSections,
   getObjectParentPrefix,
