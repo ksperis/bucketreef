@@ -214,6 +214,12 @@ def test_account_model_rejects_extra_params_overriding_dedicated_fields(model, f
         model(**fields, extra_params={key: "foreign"})
 
 
+@pytest.mark.parametrize("field", ["quota_enabled", "bucket_quota_enabled"])
+def test_account_update_rejects_null_for_boolean_mutations(field):
+    with pytest.raises(ValidationError, match=f"{field} cannot be null"):
+        CephAdminRgwAccountConfigUpdate(**{field: None})
+
+
 def test_create_rgw_account_conflict_never_updates_existing_quotas(db_session):
     class ConflictingAdmin(FakeAccountsAdmin):
         def create_account(self, **kwargs):
@@ -704,6 +710,15 @@ def test_key_creation_checks_account_before_mutating_rgw(db_session):
 def test_user_extra_params_cannot_override_identity_or_credentials(model, fields, override):
     with pytest.raises(ValidationError):
         model(**fields, extra_params={override: "arbitrary"})
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["suspended", "system", "account_root", "quota_enabled", "caps"],
+)
+def test_user_update_rejects_null_for_non_nullable_mutations(field):
+    with pytest.raises(ValidationError, match=f"{field} cannot be null"):
+        CephAdminRgwUserConfigUpdate(**{field: None})
 
 
 def test_update_rgw_user_quota_omits_unset_object_limit():

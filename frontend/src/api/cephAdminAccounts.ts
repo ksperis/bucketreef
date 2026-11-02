@@ -52,10 +52,10 @@ export type UpdateCephAdminAccountPayload = {
   max_roles?: number | null;
   max_groups?: number | null;
   max_access_keys?: number | null;
-  quota_enabled?: boolean | null;
+  quota_enabled?: boolean;
   quota_max_size_bytes?: number | null;
   quota_max_objects?: number | null;
-  bucket_quota_enabled?: boolean | null;
+  bucket_quota_enabled?: boolean;
   bucket_quota_max_size_bytes?: number | null;
   bucket_quota_max_objects?: number | null;
   extra_params?: Record<string, unknown>;

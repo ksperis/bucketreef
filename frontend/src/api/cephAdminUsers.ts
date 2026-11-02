@@ -58,15 +58,15 @@ export type CephAdminRgwUserDetail = {
 export type UpdateCephAdminUserPayload = {
   display_name?: string | null;
   email?: string | null;
-  suspended?: boolean | null;
+  suspended?: boolean;
   max_buckets?: number | null;
   op_mask?: string | null;
-  system?: boolean | null;
-  account_root?: boolean | null;
-  quota_enabled?: boolean | null;
+  system?: boolean;
+  account_root?: boolean;
+  quota_enabled?: boolean;
   quota_max_size_bytes?: number | null;
   quota_max_objects?: number | null;
-  caps?: CephAdminRgwUserCapsUpdate | null;
+  caps?: CephAdminRgwUserCapsUpdate;
   extra_params?: Record<string, unknown>;
 };
 
