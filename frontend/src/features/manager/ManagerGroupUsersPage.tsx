@@ -40,6 +40,7 @@ export default function ManagerGroupUsersPage({ embedded = false }: { embedded?:
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const memberConfirmation = useConfirmActionDialog();
   const userOptions = useManagerIamCursorCollection(listIamUsersPage);
+  const { load: loadUserOptions, setItems: setUserOptions } = userOptions;
 
   const decodedGroup = decodeRouteValue(groupName);
 
@@ -49,25 +50,25 @@ export default function ManagerGroupUsersPage({ embedded = false }: { embedded?:
     try {
       const members = await listIamGroupUsers(contextId, targetGroup);
       setUsers(members);
-      userOptions.load(contextId);
+      loadUserOptions(contextId);
     } catch (err) {
       setError(extractApiError(err, "Unexpected error"));
     } finally {
       setLoading(false);
     }
-  }, [userOptions.load]);
+  }, [loadUserOptions]);
 
   useEffect(() => {
     if (isS3User || needsContextSelection) {
       setUsers([]);
-      userOptions.setItems([]);
+      setUserOptions([]);
       setLoading(false);
       return;
     }
     if (groupName) {
       load(contextIdForApi, groupName);
     }
-  }, [accessMode, contextIdForApi, groupName, isS3User, load, needsContextSelection, userOptions.setItems]);
+  }, [accessMode, contextIdForApi, groupName, isS3User, load, needsContextSelection, setUserOptions]);
 
   const availableUsers = useMemo(
     () => userOptions.items.filter((u) => !users.some((member) => member.name === u.name)),

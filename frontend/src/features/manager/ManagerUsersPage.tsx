@@ -175,6 +175,7 @@ export default function ManagerUsersPage() {
     needsContextSelection,
     resetPolicySelection,
     resetInlinePolicyDraftEditor,
+    setGroups,
     setLoading,
     setPolicies,
     setUsers,

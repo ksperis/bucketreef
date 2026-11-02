@@ -115,6 +115,7 @@ export default function ManagerEntityPoliciesPage({
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const policyConfirmation = useConfirmActionDialog();
   const availablePolicies = useManagerIamCursorCollection(listIamPoliciesPage);
+  const { load: loadAvailablePolicies, setItems: setAvailablePolicies } = availablePolicies;
 
   const decodedEntity = decodeRouteValue(rawEntityName);
 
@@ -124,32 +125,32 @@ export default function ManagerEntityPoliciesPage({
     try {
       const attachedPolicies = await listPoliciesForEntity(contextId, entityName);
       setAttached(attachedPolicies);
-      availablePolicies.load(contextId);
+      loadAvailablePolicies(contextId);
       setSelectedArn("");
     } catch (err) {
       setError(extractApiError(err, text("Unexpected error")));
     } finally {
       setLoading(false);
     }
-  }, [availablePolicies.load, listPoliciesForEntity, text]);
+  }, [listPoliciesForEntity, loadAvailablePolicies, text]);
 
   useEffect(() => {
     if (isS3User) {
       setAttached([]);
-      availablePolicies.setItems([]);
+      setAvailablePolicies([]);
       setLoading(false);
       return;
     }
     if (needsContextSelection) {
       setAttached([]);
-      availablePolicies.setItems([]);
+      setAvailablePolicies([]);
       setLoading(false);
       return;
     }
     if (rawEntityName) {
       load(contextIdForApi, rawEntityName);
     }
-  }, [accessMode, availablePolicies.setItems, contextIdForApi, isS3User, load, needsContextSelection, rawEntityName]);
+  }, [accessMode, contextIdForApi, isS3User, load, needsContextSelection, rawEntityName, setAvailablePolicies]);
 
   const handleRefresh = () => {
     if (needsContextSelection || !rawEntityName) return;

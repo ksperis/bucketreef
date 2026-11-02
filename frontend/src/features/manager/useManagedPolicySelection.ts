@@ -11,16 +11,17 @@ export function useManagedPolicySelection() {
   const collection = useManagerIamCursorCollection(listIamPoliciesPage);
   const [selectedPolicies, setSelectedPolicies] = useState<string[]>([]);
   const [showPolicyOptions, setShowPolicyOptions] = useState(false);
+  const { load: loadCollection, setSearch: setCollectionSearch } = collection;
 
   const loadPolicies = useCallback((contextId: S3ExecutionContextSelector) => {
-    collection.load(contextId);
-  }, [collection.load]);
+    loadCollection(contextId);
+  }, [loadCollection]);
 
   const resetPolicySelection = useCallback(() => {
     setSelectedPolicies([]);
-    collection.setSearch("");
+    setCollectionSearch("");
     setShowPolicyOptions(false);
-  }, [collection.setSearch]);
+  }, [setCollectionSearch]);
 
   useEffect(() => {
     if (selectedPolicies.length > 0) {
@@ -34,7 +35,7 @@ export function useManagedPolicySelection() {
     policiesLoading: collection.loading,
     policiesError: collection.error,
     policySearch: collection.search,
-    setPolicySearch: collection.setSearch,
+    setPolicySearch: setCollectionSearch,
     policyPage: collection.page,
     policyPageSize: collection.pageSize,
     setPolicyPageSize: collection.setPageSize,
