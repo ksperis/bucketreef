@@ -78,6 +78,36 @@ class _Audit:
         self.calls.append(kwargs)
 
 
+def test_run_audited_iam_mutation_returns_mutation_result() -> None:
+    context = _context()
+    actor = SimpleNamespace(id=17, email="manager@example.test")
+    audit = _Audit()
+
+    result = iam_common.run_audited_iam_mutation(
+        mutation=lambda: Policy(name="ReadOnly", arn="arn:aws:iam::ceph:policy/ReadOnly"),
+        audit_service=audit,
+        current_user=actor,
+        context=context,
+        action="attach_user_policy",
+        entity_type="iam_user",
+        entity_id="alice",
+        metadata={"policy_arn": "arn:aws:iam::ceph:policy/ReadOnly"},
+    )
+
+    assert result.arn == "arn:aws:iam::ceph:policy/ReadOnly"
+    assert audit.calls == [
+        {
+            "user": actor,
+            "scope": "manager",
+            "action": "attach_user_policy",
+            "entity_type": "iam_user",
+            "entity_id": "alice",
+            "execution_context": context,
+            "metadata": {"policy_arn": "arn:aws:iam::ceph:policy/ReadOnly"},
+        }
+    ]
+
+
 class _Metadata:
     def __init__(self, _db) -> None:
         self.calls: list[tuple[int, str, str]] = []

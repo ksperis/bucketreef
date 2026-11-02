@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import TypeVar
 
 from fastapi import status
 from sqlalchemy.orm import Session
@@ -26,6 +27,8 @@ from app.utils.http_errors import (
     raise_http_error_from_value_error,
     raise_http_exception_from_exception,
 )
+
+_T = TypeVar("_T")
 
 
 def ensure_unmanaged_iam_user(db: Session, context: S3ExecutionContext, user_name: str) -> None:
@@ -51,7 +54,7 @@ def ensure_inline_policy_name(payload: InlinePolicy, policy_name: str) -> None:
 
 def run_audited_iam_mutation(
     *,
-    mutation: Callable[[], None],
+    mutation: Callable[[], _T],
     audit_service: AuditService,
     current_user: ManagerActor,
     context: S3ExecutionContext,
@@ -59,9 +62,9 @@ def run_audited_iam_mutation(
     entity_type: str,
     entity_id: str,
     metadata: dict[str, object],
-) -> None:
+) -> _T:
     try:
-        mutation()
+        result = mutation()
         audit_service.record_action(
             user=current_user,
             scope="manager",
@@ -71,5 +74,6 @@ def run_audited_iam_mutation(
             execution_context=context,
             metadata=metadata,
         )
+        return result
     except RuntimeError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
