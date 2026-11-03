@@ -17,6 +17,9 @@ type UsageTileProps = {
   loading?: boolean;
   unitHint?: string;
   emptyHint?: string;
+  usageRatio?: number | null;
+  limitLabel?: string;
+  limitWarning?: string;
 };
 
 export default function UsageTile({
@@ -28,12 +31,22 @@ export default function UsageTile({
   loading,
   unitHint,
   emptyHint,
+  usageRatio,
+  limitLabel,
+  limitWarning,
 }: UsageTileProps) {
   const { t } = useI18n();
   const hasUsage = typeof used === "number" && !Number.isNaN(used);
-  const ratio = hasUsage ? clampedPercentageOf(used, quota) : null;
+  const ratio = usageRatio !== undefined
+    ? usageRatio
+    : hasUsage
+      ? clampedPercentageOf(used, quota)
+      : null;
   const usedDisplay = hasUsage ? formatter(used) : loading ? t({ en: "Loading...", fr: "Chargement...", de: "Wird geladen...", zh: "正在加载..." }) : "—";
-  const quotaDisplay = quota && quota > 0 ? (quotaFormatter ? quotaFormatter(quota) : formatter(quota)) : null;
+  const hasQuota = typeof quota === "number" && Number.isFinite(quota) && (
+    quota > 0 || (quota === 0 && usageRatio !== undefined && usageRatio !== null)
+  );
+  const quotaDisplay = hasQuota ? (quotaFormatter ? quotaFormatter(quota) : formatter(quota)) : null;
   const ratioLabel = ratio !== null ? formatPercentage(ratio) : "—";
 
   return (
@@ -57,10 +70,12 @@ export default function UsageTile({
           {quotaDisplay ? (
             <p className={cx("ui-caption", uiMutedTextClass)}>
               {usedDisplay} / {quotaDisplay} · {ratioLabel}
+              {limitLabel ? ` · ${limitLabel}` : ""}
             </p>
           ) : (
             <p className={cx("ui-caption", uiMutedTextClass)}>{emptyHint ?? t({ en: "No quota defined.", fr: "Aucun quota défini.", de: "Kein Kontingent definiert.", zh: "未定义配额。" })}</p>
           )}
+          {limitWarning && <p className={cx("ui-caption", uiMutedTextClass)}>{limitWarning}</p>}
         </div>
       </div>
       <UiMeterBar

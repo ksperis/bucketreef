@@ -74,6 +74,8 @@ const deleteCephAdminBucketReplicationMock = vi.fn();
 const putCephAdminBucketReplicationMock = vi.fn();
 const putBucketCorsMock = vi.fn();
 const putCephAdminBucketCorsMock = vi.fn();
+const fetchManagerContextMock = vi.fn();
+const fetchManagerStatsMock = vi.fn();
 
 vi.mock("../../../api/bucketDetails", async () => {
   const actual = await vi.importActual<typeof import("../../../api/bucketDetails")>("../../../api/bucketDetails");
@@ -149,6 +151,22 @@ vi.mock("../../../api/managerObjects", async () => {
   return {
     ...actual,
     listManagerObjects: (...args: Parameters<ListManagerObjects>) => listManagerObjectsMock(...args),
+  };
+});
+
+vi.mock("../../../api/managerContext", async () => {
+  const actual = await vi.importActual<typeof import("../../../api/managerContext")>("../../../api/managerContext");
+  return {
+    ...actual,
+    fetchManagerContext: (...args: unknown[]) => fetchManagerContextMock(...args),
+  };
+});
+
+vi.mock("../../../api/stats", async () => {
+  const actual = await vi.importActual<typeof import("../../../api/stats")>("../../../api/stats");
+  return {
+    ...actual,
+    fetchManagerStats: (...args: unknown[]) => fetchManagerStatsMock(...args),
   };
 });
 
@@ -307,6 +325,23 @@ describe("BucketDetailPage replication state", () => {
     deleteCephAdminBucketReplicationMock.mockResolvedValue(undefined);
     putBucketCorsMock.mockImplementation((_account, _bucket, rules) => Promise.resolve({ rules }));
     putCephAdminBucketCorsMock.mockImplementation((_endpoint, _bucket, rules) => Promise.resolve({ rules }));
+    fetchManagerContextMock.mockResolvedValue({
+      access_mode: "admin",
+      context_kind: "account",
+      quota_max_size_gb: null,
+      quota_max_objects: null,
+    });
+    fetchManagerStatsMock.mockResolvedValue({
+      total_buckets: 0,
+      total_bytes: 0,
+      total_objects: 0,
+      bucket_usage: [],
+      bucket_overview: {
+        bucket_count: 0,
+        non_empty_buckets: 0,
+        empty_buckets: 0,
+      },
+    });
   });
 
   function renderNavigableBucket(mode: "manager" | "ceph-admin" = "manager") {
@@ -779,6 +814,81 @@ describe("BucketDetailPage replication state", () => {
     expect(detailsSection).not.toBeNull();
     expect(within(detailsSection as HTMLElement).getByText("Tenant")).toBeInTheDocument();
     expect(within(detailsSection as HTMLElement).getByText("tenant-a")).toBeInTheDocument();
+  });
+
+  it("uses remaining account headroom as the effective Manager bucket limit", async () => {
+    const gib = 1024 ** 3;
+    useExecutionContextMock.mockReturnValue(managerCephAccountContext("acc-1"));
+    getBucketStatsMock.mockResolvedValueOnce({
+      name: "demo-bucket",
+      used_bytes: gib,
+      object_count: 100,
+      quota_max_size_bytes: 5 * gib,
+      quota_max_objects: 500,
+    });
+    fetchManagerContextMock.mockResolvedValueOnce({
+      access_mode: "admin",
+      context_kind: "account",
+      quota_max_size_gb: 10,
+      quota_max_objects: 1000,
+    });
+    fetchManagerStatsMock.mockResolvedValueOnce({
+      total_buckets: 4,
+      total_bytes: 8 * gib,
+      total_objects: 800,
+      bucket_usage: [],
+      bucket_overview: {
+        bucket_count: 4,
+        non_empty_buckets: 4,
+        empty_buckets: 0,
+      },
+    });
+
+    render(
+      <MemoryRouter>
+        <BucketDetailPage bucketNameOverride="demo-bucket" embedded />
+      </MemoryRouter>
+    );
+
+    const usageHeading = await screen.findByRole("heading", { name: "Usage" });
+    const usageSection = usageHeading.closest("section");
+    expect(usageSection).not.toBeNull();
+    await waitFor(() => expect(fetchManagerStatsMock).toHaveBeenCalledWith("acc-1"));
+    expect(within(usageSection as HTMLElement).getByText(/1\.0 GB \/ 3\.0 GB · 33% · Account quota/)).toBeInTheDocument();
+    expect(within(usageSection as HTMLElement).getByText(/100 \/ 300 · 33% · Account quota/)).toBeInTheDocument();
+  });
+
+  it("uses Ceph Admin owner quota metadata for the effective bucket limit", async () => {
+    listCephAdminBucketsMock.mockResolvedValueOnce({
+      items: [{
+        name: "demo-bucket",
+        tenant: null,
+        used_bytes: 100,
+        object_count: 100,
+        quota_max_size_bytes: 500,
+        quota_max_objects: 500,
+        owner_used_bytes: 800,
+        owner_object_count: 800,
+        owner_quota_max_size_bytes: 1000,
+        owner_quota_max_objects: 1000,
+      }],
+    });
+
+    render(
+      <MemoryRouter>
+        <BucketDetailPage mode="ceph-admin" bucketNameOverride="demo-bucket" embedded />
+      </MemoryRouter>
+    );
+
+    const usageHeading = await screen.findByRole("heading", { name: "Usage" });
+    const usageSection = usageHeading.closest("section");
+    expect(usageSection).not.toBeNull();
+    await waitFor(() => expect(listCephAdminBucketsMock).toHaveBeenCalledWith(1, expect.objectContaining({
+      include: ["owner_quota", "owner_quota_usage"],
+      with_stats: true,
+    })));
+    expect(within(usageSection as HTMLElement).getByText(/100 B \/ 300 B · 33% · Owner quota/)).toBeInTheDocument();
+    expect(within(usageSection as HTMLElement).getByText(/100 \/ 300 · 33% · Owner quota/)).toBeInTheDocument();
   });
 
   it("shows a read-only object browser for Ceph Admin buckets", async () => {

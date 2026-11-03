@@ -1642,5 +1642,12 @@
   "notifications": "notifications",
   "Encryption": "Chiffrement",
   "Public access blocked": "Accès public bloqué",
-  "Public access partially blocked": "Accès public partiellement bloqué"
+  "Public access partially blocked": "Accès public partiellement bloqué",
+  "Bucket quota": "Quota du bucket",
+  "Account quota": "Quota du compte",
+  "User quota": "Quota utilisateur",
+  "Owner quota": "Quota du propriétaire",
+  "Account quota usage unavailable.": "Utilisation du quota du compte indisponible.",
+  "User quota usage unavailable.": "Utilisation du quota utilisateur indisponible.",
+  "Owner quota usage unavailable.": "Utilisation du quota du propriétaire indisponible."
 }

@@ -1642,5 +1642,12 @@
   "notifications": "通知",
   "Encryption": "加密",
   "Public access blocked": "已阻止公共访问",
-  "Public access partially blocked": "已部分阻止公共访问"
+  "Public access partially blocked": "已部分阻止公共访问",
+  "Bucket quota": "Bucket 配额",
+  "Account quota": "账户配额",
+  "User quota": "用户配额",
+  "Owner quota": "所有者配额",
+  "Account quota usage unavailable.": "账户配额使用量不可用。",
+  "User quota usage unavailable.": "用户配额使用量不可用。",
+  "Owner quota usage unavailable.": "所有者配额使用量不可用。"
 }
