@@ -39,6 +39,22 @@ def _payload(email: str = "first-admin@example.com") -> dict[str, str]:
     }
 
 
+def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
+    rollback_calls: list[None] = []
+    original_rollback = db_session.rollback
+
+    def rollback() -> None:
+        rollback_calls.append(None)
+        original_rollback()
+
+    def commit() -> None:
+        raise RuntimeError("commit failed")
+
+    monkeypatch.setattr(db_session, "rollback", rollback)
+    monkeypatch.setattr(db_session, "commit", commit)
+    return rollback_calls
+
+
 def test_issue_rotates_token_and_persists_only_sha256_digest(db_session):
     service = FirstAdminBootstrapService(db_session)
     first = service.issue_token()
@@ -61,6 +77,16 @@ def test_issue_rotates_token_and_persists_only_sha256_digest(db_session):
             full_name=None,
             password=PASSWORD,
         )
+
+
+def test_issue_token_rolls_back_when_commit_fails(db_session, monkeypatch):
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        FirstAdminBootstrapService(db_session).issue_token()
+
+    assert rollback_calls == [None]
+    assert db_session.get(FirstAdminBootstrap, FIRST_ADMIN_BOOTSTRAP_ID) is None
 
 
 def test_expired_or_invalid_token_is_unavailable(db_session):
@@ -192,6 +218,53 @@ def test_failed_user_insert_rolls_back_token_consumption(db_session, monkeypatch
         )
     monkeypatch.setattr(db_session, "flush", original_flush)
 
+    assert db_session.scalar(select(func.count()).select_from(User)) == 0
+    assert service.is_available() is True
+
+
+def test_failed_admin_commit_rolls_back_token_consumption(db_session, monkeypatch):
+    service = FirstAdminBootstrapService(db_session)
+    issued = service.issue_token()
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        service.create_with_token(
+            token=issued.token,
+            email="commit-rollback@example.com",
+            full_name=None,
+            password=PASSWORD,
+        )
+
+    assert rollback_calls == [None]
+    assert db_session.scalar(select(func.count()).select_from(User)) == 0
+    assert service.is_available() is True
+
+
+def test_failed_user_build_rolls_back_token_consumption(db_session, monkeypatch):
+    service = FirstAdminBootstrapService(db_session)
+    issued = service.issue_token()
+    rollback_calls: list[None] = []
+    original_rollback = db_session.rollback
+
+    def rollback() -> None:
+        rollback_calls.append(None)
+        original_rollback()
+
+    monkeypatch.setattr(db_session, "rollback", rollback)
+    monkeypatch.setattr(
+        "app.services.first_admin_bootstrap_service.get_password_hash",
+        lambda _password: (_ for _ in ()).throw(RuntimeError("hash failed")),
+    )
+
+    with pytest.raises(RuntimeError, match="hash failed"):
+        service.create_with_token(
+            token=issued.token,
+            email="hash-rollback@example.com",
+            full_name=None,
+            password=PASSWORD,
+        )
+
+    assert rollback_calls == [None]
     assert db_session.scalar(select(func.count()).select_from(User)) == 0
     assert service.is_available() is True
 
