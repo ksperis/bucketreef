@@ -9,6 +9,7 @@ from typing import Any, Callable
 
 from botocore.exceptions import BotoCoreError, ClientError
 
+from app.core.db_transactions import commit_or_rollback
 from app.models.browser import BrowserObject, BrowserObjectSortBy, BrowserObjectSortDir
 from app.services.object_listing_identity import (
     is_current_folder_marker,
@@ -123,7 +124,7 @@ class SortedObjectSnapshotBuilder:
             self._create_schema(store)
             self._scan_pages(store)
             self._create_indexes(store)
-            store.connection.commit()
+            commit_or_rollback(store.connection)
             prefix_count, object_count = self._row_counts(store)
             return SortedObjectSnapshot(
                 store=store,

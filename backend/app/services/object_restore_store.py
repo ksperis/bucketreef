@@ -6,6 +6,8 @@ import sqlite3
 from dataclasses import dataclass
 from typing import Any, Callable, Iterator
 
+from app.core.db_transactions import commit_or_rollback
+
 
 @dataclass(frozen=True)
 class ObjectRestoreScanCounts:
@@ -105,7 +107,7 @@ class ObjectRestoreStore:
                 "INSERT OR IGNORE INTO deleted_keys (key) VALUES (?)",
                 deleted_rows,
             )
-        self.connection.commit()
+        commit_or_rollback(self.connection)
         return ObjectRestoreScanCounts(
             versions=len(version_rows),
             delete_markers=delete_marker_count,
