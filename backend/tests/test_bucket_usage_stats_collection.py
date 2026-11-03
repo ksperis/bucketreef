@@ -112,7 +112,7 @@ def test_collection_selects_only_opted_in_due_buckets_oldest_first(db_session, m
     db_session.commit()
 
     settings = AppSettings()
-    monkeypatch.setattr(collection_module, "load_app_settings_for_db_readonly", lambda _db: settings)
+    monkeypatch.setattr(collection_module, "load_app_settings_for_db", lambda _db: settings)
 
     class FakeBucketsService:
         def list_buckets(self, context, **_kwargs):

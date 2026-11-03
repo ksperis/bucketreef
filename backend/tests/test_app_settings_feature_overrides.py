@@ -148,9 +148,9 @@ def test_load_app_settings_applies_feature_env_overrides(monkeypatch, tmp_path, 
     assert effective.general.openstack_enabled is True
     assert effective.general.browser_enabled is False
     assert effective.general.portal_enabled is True
-    # Not forced: persisted value is preserved.
+    # Not forced: the bootstrap value is preserved without a read-side write.
     assert effective.general.ceph_admin_enabled is True
-    assert _raw_db_settings(db_session)["general"]["ceph_admin_enabled"] is True
+    assert db_session.get(AppSetting, app_settings_service.APP_SETTINGS_DB_KEY) is None
 
 
 def test_save_app_settings_keeps_persisted_value_for_locked_features(monkeypatch, tmp_path, db_session):
@@ -192,13 +192,28 @@ def test_app_settings_json_bootstrap_imports_once_to_db(monkeypatch, tmp_path, d
     _use_settings_db(monkeypatch, db_session)
     monkeypatch.setattr(app_settings_service, "get_settings", lambda: _runtime_settings())
 
-    imported = app_settings_service.load_app_settings_for_db(db_session)
+    imported = app_settings_service.bootstrap_app_settings_for_db(db_session)
     assert imported.general.browser_enabled is False
 
     settings_path.unlink()
-    loaded_again = app_settings_service.load_app_settings_for_db(db_session)
+    loaded_again = app_settings_service.bootstrap_app_settings_for_db(db_session)
     assert loaded_again.general.browser_enabled is False
     assert db_session.scalar(select(func.count()).select_from(AppSetting)) == 1
+
+
+def test_app_settings_db_load_does_not_persist_bootstrap(monkeypatch, tmp_path, db_session):
+    settings_path = tmp_path / "app_settings.json"
+    bootstrap = AppSettings()
+    bootstrap.general.browser_enabled = False
+    settings_path.write_text(bootstrap.model_dump_json(indent=2), encoding="utf-8")
+
+    monkeypatch.setattr(app_settings_service, "_settings_path", lambda: settings_path)
+    monkeypatch.setattr(app_settings_service, "get_settings", lambda: _runtime_settings())
+
+    loaded = app_settings_service.load_app_settings_for_db(db_session)
+
+    assert loaded.general.browser_enabled is False
+    assert db_session.get(AppSetting, app_settings_service.APP_SETTINGS_DB_KEY) is None
 
 
 def test_app_settings_json_bootstrap_rejects_removed_portal_key_setting(tmp_path):
@@ -350,8 +365,8 @@ def test_fresh_settings_enable_access_key_extensions_and_preserve_disabled_choic
     features = ("access_key_metadata", "access_key_expiration")
     for feature in features:
         assert getattr(settings.manager.feature_policies, feature) == "targeted"
-        assert _raw_db_settings(db_session)["manager"]["feature_policies"][feature] == "targeted"
         setattr(settings.manager.feature_policies, feature, "disabled")
+    assert db_session.get(AppSetting, app_settings_service.APP_SETTINGS_DB_KEY) is None
 
     app_settings_service.save_app_settings_for_db(db_session, settings)
     reloaded = app_settings_service.load_app_settings()

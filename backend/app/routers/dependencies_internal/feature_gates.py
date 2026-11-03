@@ -92,7 +92,7 @@ def _require_supervision_access(
 
 
 def _require_usage_metrics_policy(context: S3ExecutionContext, db: Session) -> None:
-    settings = app_settings_service.load_app_settings_for_db_readonly(db)
+    settings = app_settings_service.load_app_settings_for_db(db)
     metrics_state = manager_rgw_usage_metrics_state(
         settings.manager.feature_policies,
         manager_usage_metrics_resource(db, context),
@@ -225,7 +225,7 @@ def require_usage_logs_capable_manager(
 
 
 def _manager_tool_global_state(tool: ManagerToolKey, db: Session) -> tuple[bool, str]:
-    app_settings = app_settings_service.load_app_settings_for_db_readonly(db)
+    app_settings = app_settings_service.load_app_settings_for_db(db)
     disabled_detail = _MANAGER_TOOL_DISABLED_MESSAGES[tool]
     return getattr(app_settings.manager.feature_policies, tool) != FeaturePolicy.DISABLED, disabled_detail
 
@@ -269,7 +269,7 @@ def require_bucket_purge_enabled(user: User = Depends(get_current_user), db: Ses
 
 
 def require_bucket_purge_global_enabled(db: Session = Depends(get_db)) -> None:
-    app_settings = app_settings_service.load_app_settings_for_db_readonly(db)
+    app_settings = app_settings_service.load_app_settings_for_db(db)
     if app_settings.manager.feature_policies.bucket_purge == FeaturePolicy.DISABLED:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Bucket purge feature is disabled")
 
@@ -279,7 +279,7 @@ def require_bucket_usage_stats_enabled(
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     db: Session = Depends(get_db),
 ) -> User:
-    app_settings = app_settings_service.load_app_settings_for_db_readonly(db)
+    app_settings = app_settings_service.load_app_settings_for_db(db)
     state = bucket_usage_stats_state(
         app_settings.general.project_feature_policies,
         project_usage_resource(db, context),
@@ -353,31 +353,31 @@ def require_manager_rgw_access_key_management(
 
 
 def require_manager_enabled(db: Session = Depends(get_db)) -> None:
-    settings = app_settings_service.load_app_settings_for_db_readonly(db)
+    settings = app_settings_service.load_app_settings_for_db(db)
     if not settings.general.manager_enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Manager feature is disabled")
 
 
 def require_openstack_enabled(db: Session = Depends(get_db)) -> None:
-    settings = app_settings_service.load_app_settings_for_db_readonly(db)
+    settings = app_settings_service.load_app_settings_for_db(db)
     if not settings.general.openstack_enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="OpenStack feature is disabled")
 
 
 def require_ceph_admin_enabled(db: Session = Depends(get_db)) -> None:
-    settings = app_settings_service.load_app_settings_for_db_readonly(db)
+    settings = app_settings_service.load_app_settings_for_db(db)
     if not settings.general.ceph_admin_enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Ceph admin feature is disabled")
 
 
 def require_storage_ops_enabled(db: Session = Depends(get_db)) -> None:
-    settings = app_settings_service.load_app_settings_for_db_readonly(db)
+    settings = app_settings_service.load_app_settings_for_db(db)
     if not settings.general.storage_ops_enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Storage Ops feature is disabled")
 
 
 def require_browser_enabled(db: Session = Depends(get_db)) -> None:
-    settings = app_settings_service.load_app_settings_for_db_readonly(db)
+    settings = app_settings_service.load_app_settings_for_db(db)
     if not settings.general.browser_enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Browser feature is disabled")
 
@@ -394,7 +394,7 @@ def require_browser_workspace_surface(
         )
     if surface != "manager-browser":
         return
-    settings = app_settings_service.load_app_settings_for_db_readonly(db)
+    settings = app_settings_service.load_app_settings_for_db(db)
     if not settings.general.manager_enabled:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -408,12 +408,12 @@ def require_browser_workspace_surface(
 
 
 def require_portal_enabled(db: Session = Depends(get_db)) -> None:
-    settings = app_settings_service.load_app_settings_for_db_readonly(db)
+    settings = app_settings_service.load_app_settings_for_db(db)
     if not settings.general.portal_enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal feature is disabled")
 
 
 def require_manager_context_enabled(db: Session = Depends(get_db)) -> None:
-    settings = app_settings_service.load_app_settings_for_db_readonly(db)
+    settings = app_settings_service.load_app_settings_for_db(db)
     if not settings.general.manager_enabled and not settings.general.browser_enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Manager access is disabled")

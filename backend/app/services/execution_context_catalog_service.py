@@ -55,7 +55,7 @@ class ExecutionContextCatalogService:
         workspace: str | None,
         resource: S3Account | S3User | None = None,
     ):
-        policies = app_settings_service.load_app_settings_for_db_readonly(
+        policies = app_settings_service.load_app_settings_for_db(
             self.db
         ).manager.feature_policies
         if (
@@ -278,7 +278,7 @@ class ExecutionContextCatalogService:
         effective,
         counts: dict[str, int],
     ) -> dict[str, bool]:
-        settings = app_settings_service.load_app_settings_for_db_readonly(self.db).general
+        settings = app_settings_service.load_app_settings_for_db(self.db).general
         runtime = get_runtime_settings()
         manager_count = counts["manager"]
 

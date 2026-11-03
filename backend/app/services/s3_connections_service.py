@@ -30,7 +30,7 @@ from app.services.s3_connection_endpoint_planner import (
     S3ConnectionEndpointPlanner,
 )
 from app.services.s3_connection_query_service import S3ConnectionQueryService
-from app.services.app_settings_service import load_app_settings_for_db_readonly
+from app.services.app_settings_service import load_app_settings_for_db
 from app.services.feature_policy_service import validate_manager_overrides
 from app.services.managed_private_access_query_service import (
     ManagedPrivateAccessQueryService,
@@ -144,7 +144,7 @@ class S3ConnectionsService:
     ) -> DBS3Connection:
         validate_manager_overrides(
             payload,
-            load_app_settings_for_db_readonly(self.db).manager.feature_policies,
+            load_app_settings_for_db(self.db).manager.feature_policies,
             row,
         )
         fields_set = payload.model_fields_set

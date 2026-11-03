@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.db import S3Account, StorageEndpoint
 from app.models.s3_account import S3Account as S3AccountSchema, S3AccountImport
-from app.services.app_settings_service import load_app_settings_for_db_readonly
+from app.services.app_settings_service import load_app_settings_for_db
 from app.services.mappers.s3_account import s3_account_from_db
 from app.services.rgw_admin import RGWAdminClient
 from app.services.rgw_account_root_service import RgwAccountRootService
@@ -93,7 +93,7 @@ class S3AccountImportService:
         return created
 
     def _prepare_imports(self, imports: list[S3AccountImport]) -> list[_PreparedAccountImport]:
-        app_settings = load_app_settings_for_db_readonly(self.db)
+        app_settings = load_app_settings_for_db(self.db)
         requested_ids = {item.rgw_account_id for item in imports}
         seen_ids = self.repository.existing_rgw_ids(requested_ids)
         prepared: list[_PreparedAccountImport] = []

@@ -51,7 +51,7 @@ class ManagedPrivateAccessPolicyService:
         resolved: ResolvedUserAccess | None = None,
     ) -> bool:
         if (
-            app_settings_service.load_app_settings_for_db_readonly(self.db)
+            app_settings_service.load_app_settings_for_db(self.db)
             .manager.feature_policies.managed_private_connection_provisioning
             == FeaturePolicy.DISABLED
         ):

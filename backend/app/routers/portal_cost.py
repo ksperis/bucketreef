@@ -12,7 +12,7 @@ from app.services.access_context_contracts import AccountAccess
 from app.models.cost import CostSubjectDetail
 from app.routers.cost_common import raise_cost_disabled
 from app.routers.dependencies import get_portal_account_access
-from app.services.app_settings_service import load_app_settings_for_db_readonly
+from app.services.app_settings_service import load_app_settings_for_db
 from app.services.cost_service import CostService
 from app.services.portal_service import PortalService
 from app.utils.http_errors import raise_http_error_from_value_error
@@ -26,7 +26,7 @@ def portal_cost_me(
     access: AccountAccess = Depends(get_portal_account_access),
     db: Session = Depends(get_db),
 ) -> CostSubjectDetail:
-    app_settings = load_app_settings_for_db_readonly(db)
+    app_settings = load_app_settings_for_db(db)
     if not app_settings.general.cost_enabled:
         raise_cost_disabled()
     actor = access.actor

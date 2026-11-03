@@ -20,7 +20,7 @@ from app.core.security import get_password_hash
 from app.db import FirstAdminBootstrap, User
 from app.core.domain_enums import UserRole
 from app.models.user import validate_password_policy
-from app.services.app_settings_service import load_app_settings_for_db_readonly
+from app.services.app_settings_service import load_app_settings_for_db
 from app.services.audit_service import AuditService
 from app.utils.time import utcnow
 
@@ -90,7 +90,7 @@ class FirstAdminBootstrapService:
 
     def _passkey_enrollment_required(self) -> bool:
         return bool(
-            load_app_settings_for_db_readonly(
+            load_app_settings_for_db(
                 self.db
             ).general.require_passkey_for_admins
         )

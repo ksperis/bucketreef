@@ -32,7 +32,7 @@ def _enable_access_key_login(
         allow_login_custom_endpoint=allow_custom_endpoint,
     )
     monkeypatch.setattr(
-        "app.routers.auth_s3.load_app_settings_for_db_readonly",
+        "app.routers.auth_s3.load_app_settings_for_db",
         lambda _db: SimpleNamespace(general=general),
     )
 

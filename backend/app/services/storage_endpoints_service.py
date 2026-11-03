@@ -105,8 +105,8 @@ class StorageEndpointsService:
         )
 
     def _ceph_admin_enabled(self) -> bool:
-        from app.services.app_settings_service import load_app_settings_for_db_readonly
-        return load_app_settings_for_db_readonly(self.db).general.ceph_admin_enabled
+        from app.services.app_settings_service import load_app_settings_for_db
+        return load_app_settings_for_db(self.db).general.ceph_admin_enabled
 
     def detect_features(
         self,

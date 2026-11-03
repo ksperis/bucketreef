@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.database import is_postgresql_url, is_sqlite_url, sqlite_integrity_status
+from app.services.app_settings_service import bootstrap_app_settings_for_db
 from app.services.storage_endpoints_service import StorageEndpointsService
 
 
@@ -136,6 +137,7 @@ def _init_db_locked(engine, session_factory) -> None:
     try:
         from app.services.auth_session_service import AuthSessionService
 
+        bootstrap_app_settings_for_db(db)
         expired_sessions = AuthSessionService(db).cleanup_expired()
         if expired_sessions:
             logger.info("Revoked %s expired authentication session row(s) during startup", expired_sessions)

@@ -141,7 +141,7 @@ def resolve_requested_session_endpoint(
         return pinned_endpoint
     if not requested_endpoint:
         return None
-    general = app_settings_service.load_app_settings_for_db_readonly(db).general
+    general = app_settings_service.load_app_settings_for_db(db).general
     if general.allow_login_custom_endpoint:
         return requested_endpoint
     if general.allow_login_endpoint_list:

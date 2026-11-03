@@ -35,7 +35,7 @@ def _seed_endpoint(db_session) -> StorageEndpoint:
 
 
 def test_list_usage_history_daily_records(client: TestClient, db_session, monkeypatch):
-    monkeypatch.setattr(usage_history_router, "load_app_settings_for_db_readonly", lambda _db: _settings(usage_history_enabled=True))
+    monkeypatch.setattr(usage_history_router, "load_app_settings_for_db", lambda _db: _settings(usage_history_enabled=True))
     endpoint = _seed_endpoint(db_session)
     account = S3Account(
         name="Tenant A",
@@ -100,7 +100,7 @@ def test_list_usage_history_daily_records(client: TestClient, db_session, monkey
 
 
 def test_list_usage_history_requires_enabled_feature(client: TestClient, monkeypatch):
-    monkeypatch.setattr(usage_history_router, "load_app_settings_for_db_readonly", lambda _db: _settings(usage_history_enabled=False))
+    monkeypatch.setattr(usage_history_router, "load_app_settings_for_db", lambda _db: _settings(usage_history_enabled=False))
 
     response = client.get("/api/admin/usage-history")
 
@@ -109,7 +109,7 @@ def test_list_usage_history_requires_enabled_feature(client: TestClient, monkeyp
 
 
 def test_usage_history_trends_aggregate_endpoint_subjects(client: TestClient, db_session, monkeypatch):
-    monkeypatch.setattr(usage_history_router, "load_app_settings_for_db_readonly", lambda _db: _settings(usage_history_enabled=True))
+    monkeypatch.setattr(usage_history_router, "load_app_settings_for_db", lambda _db: _settings(usage_history_enabled=True))
     monkeypatch.setattr(
         usage_history_service,
         "utcnow",
@@ -213,7 +213,7 @@ def test_usage_history_trends_aggregate_endpoint_subjects(client: TestClient, db
 
 
 def test_usage_history_trends_aggregate_hourly_records(client: TestClient, db_session, monkeypatch):
-    monkeypatch.setattr(usage_history_router, "load_app_settings_for_db_readonly", lambda _db: _settings(usage_history_enabled=True))
+    monkeypatch.setattr(usage_history_router, "load_app_settings_for_db", lambda _db: _settings(usage_history_enabled=True))
     monkeypatch.setattr(
         usage_history_service,
         "utcnow",
@@ -288,7 +288,7 @@ def test_usage_history_trends_aggregate_hourly_records(client: TestClient, db_se
 
 
 def test_usage_history_trends_require_enabled_feature(client: TestClient, monkeypatch):
-    monkeypatch.setattr(usage_history_router, "load_app_settings_for_db_readonly", lambda _db: _settings(usage_history_enabled=False))
+    monkeypatch.setattr(usage_history_router, "load_app_settings_for_db", lambda _db: _settings(usage_history_enabled=False))
 
     response = client.get("/api/admin/usage-history/trends")
 
@@ -297,7 +297,7 @@ def test_usage_history_trends_require_enabled_feature(client: TestClient, monkey
 
 
 def test_collect_usage_history_runs_without_quota_alerts_or_audit_rows(client: TestClient, db_session, monkeypatch):
-    monkeypatch.setattr(usage_history_router, "load_app_settings_for_db_readonly", lambda _db: _settings(usage_history_enabled=True))
+    monkeypatch.setattr(usage_history_router, "load_app_settings_for_db", lambda _db: _settings(usage_history_enabled=True))
     calls: list[dict[str, bool]] = []
 
     def fake_run_monitor(self, *, include_quota_alerts: bool = True, include_usage_history: bool = True):
@@ -356,7 +356,7 @@ def test_collect_usage_history_runs_without_quota_alerts_or_audit_rows(client: T
 
 
 def test_list_usage_history_hourly_records_include_quota(client: TestClient, db_session, monkeypatch):
-    monkeypatch.setattr(usage_history_router, "load_app_settings_for_db_readonly", lambda _db: _settings(usage_history_enabled=True))
+    monkeypatch.setattr(usage_history_router, "load_app_settings_for_db", lambda _db: _settings(usage_history_enabled=True))
     endpoint = _seed_endpoint(db_session)
     s3_user = S3User(
         name="S3 User",

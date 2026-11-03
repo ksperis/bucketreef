@@ -40,7 +40,7 @@ def test_rgw_credential_failure_classification_uses_structured_error_metadata():
 
 
 def test_probe_ceph_admin_service_identity_classifies_unavailable(monkeypatch):
-    monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db_readonly", lambda db: SimpleNamespace(general=SimpleNamespace(ceph_admin_enabled=True)))
+    monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db", lambda db: SimpleNamespace(general=SimpleNamespace(ceph_admin_enabled=True)))
     endpoint = SimpleNamespace(
         ceph_admin_allowed=True,
         service_identity=lambda kind: SimpleNamespace(
@@ -75,7 +75,7 @@ features:
 
 
 def test_probe_ceph_admin_service_identity_classifies_denied(monkeypatch):
-    monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db_readonly", lambda db: SimpleNamespace(general=SimpleNamespace(ceph_admin_enabled=True)))
+    monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db", lambda db: SimpleNamespace(general=SimpleNamespace(ceph_admin_enabled=True)))
     endpoint = SimpleNamespace(
         ceph_admin_allowed=True,
         service_identity=lambda kind: SimpleNamespace(
@@ -107,7 +107,7 @@ def test_probe_ceph_admin_service_identity_classifies_denied(monkeypatch):
 
 
 def test_probe_ceph_admin_service_identity_classifies_redirect_as_misconfigured(monkeypatch):
-    monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db_readonly", lambda db: SimpleNamespace(general=SimpleNamespace(ceph_admin_enabled=True)))
+    monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db", lambda db: SimpleNamespace(general=SimpleNamespace(ceph_admin_enabled=True)))
     endpoint = SimpleNamespace(
         ceph_admin_allowed=True,
         service_identity=lambda kind: SimpleNamespace(
@@ -144,7 +144,7 @@ def test_probe_ceph_admin_service_identity_classifies_redirect_as_misconfigured(
 
 @pytest.mark.parametrize("admin,system,allowed", [(True, False, True), (False, False, False), (True, True, False), (False, True, False)])
 def test_validate_ceph_admin_service_identity_checks_flags_when_admin_ops_disabled(monkeypatch, admin, system, allowed):
-    monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db_readonly", lambda db: SimpleNamespace(general=SimpleNamespace(ceph_admin_enabled=True)))
+    monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db", lambda db: SimpleNamespace(general=SimpleNamespace(ceph_admin_enabled=True)))
     endpoint = SimpleNamespace(
         ceph_admin_allowed=True,
         service_identity=lambda kind: SimpleNamespace(
@@ -283,7 +283,7 @@ features:
 
 
 def test_build_ceph_admin_endpoint_payload_exposes_admin_endpoint_when_admin_feature_disabled(monkeypatch):
-    monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db_readonly", lambda db: SimpleNamespace(general=SimpleNamespace(ceph_admin_enabled=True)))
+    monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db", lambda db: SimpleNamespace(general=SimpleNamespace(ceph_admin_enabled=True)))
     endpoint = SimpleNamespace(
         ceph_admin_allowed=True,
         service_identity=lambda kind: SimpleNamespace(

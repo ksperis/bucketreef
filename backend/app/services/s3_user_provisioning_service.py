@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.db import S3User, StorageEndpoint
 from app.models.s3_user import S3UserCreate
-from app.services.app_settings_service import load_app_settings_for_db_readonly
+from app.services.app_settings_service import load_app_settings_for_db
 from app.services.feature_policy_service import validate_manager_overrides
 from app.services.managed_resource_naming import managed_s3_user_uid
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
@@ -51,7 +51,7 @@ class S3UserProvisioningService:
         self.tags = tags or TagsService(db)
 
     def create_user(self, payload: S3UserCreate) -> S3UserProvisioningResult:
-        app_settings = load_app_settings_for_db_readonly(self.db)
+        app_settings = load_app_settings_for_db(self.db)
         validate_manager_overrides(payload, app_settings.manager.feature_policies)
         uid, tenant = split_rgw_tenant_uid(
             (payload.uid or "").strip() or managed_s3_user_uid(),

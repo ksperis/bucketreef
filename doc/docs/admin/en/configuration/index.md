@@ -290,9 +290,9 @@ identities are preserved.
 Primary model: `backend/app/models/app_settings.py`.
 Persistence source: the `app_settings` database table.
 
-`APP_SETTINGS_PATH` is an optional bootstrap import path. On startup or first
-settings read, a deployment with an empty `app_settings` table imports the JSON
-file once, then live reads and writes go through the database. Runtime database
+`APP_SETTINGS_PATH` is an optional bootstrap import path. On backend startup, a
+deployment with an empty `app_settings` table imports the JSON file once, then
+live reads and writes go through the database. Runtime database
 errors are not hidden by a file fallback. The bootstrap file must use the
 current `AppSettings` schema; removed historical fields are rejected instead of
 being converted at runtime. Environment force-locks such as

@@ -15,7 +15,7 @@ from app.models.feature_policy import FeaturePolicy, resolve_feature_policy
 from app.models.access_key_metadata import AccessKeyMetadata, AccessKeyMetadataInput
 from app.models.iam import AccessKey
 from app.models.s3_user import S3UserAccessKey, S3UserGeneratedKey
-from app.services.app_settings_service import load_app_settings_for_db_readonly
+from app.services.app_settings_service import load_app_settings_for_db
 from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.time import utcnow
 
@@ -28,7 +28,7 @@ class AccessKeyMetadataService:
         self.db = db
 
     def metadata_enabled_for_context(self, context: S3ExecutionContext) -> bool:
-        policy = load_app_settings_for_db_readonly(self.db).manager.feature_policies.access_key_metadata
+        policy = load_app_settings_for_db(self.db).manager.feature_policies.access_key_metadata
         if policy == FeaturePolicy.DISABLED:
             return False
         if context.context_kind == "account" and context.id is not None:
@@ -42,7 +42,7 @@ class AccessKeyMetadataService:
     def expiration_enabled_for_context(self, context: S3ExecutionContext) -> bool:
         if not get_settings().scheduled_jobs_enabled:
             return False
-        policies = load_app_settings_for_db_readonly(self.db).manager.feature_policies
+        policies = load_app_settings_for_db(self.db).manager.feature_policies
         policy = policies.access_key_expiration
         if policy == FeaturePolicy.DISABLED:
             return False

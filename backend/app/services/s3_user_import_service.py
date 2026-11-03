@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.db import S3User, StorageEndpoint
 from app.models.s3_user import S3UserImport
-from app.services.app_settings_service import load_app_settings_for_db_readonly
+from app.services.app_settings_service import load_app_settings_for_db
 from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.services.s3_user_metrics_service import S3UserMetricsService
@@ -42,7 +42,7 @@ class S3UserImportService:
         self.metrics = metrics or S3UserMetricsService()
 
     def import_users(self, items: list[S3UserImport]) -> list[S3UserImportResult]:
-        app_settings = load_app_settings_for_db_readonly(self.db)
+        app_settings = load_app_settings_for_db(self.db)
         parsed_items: list[tuple[S3UserImport, str, str]] = []
         for payload in items:
             uid, tenant = split_rgw_tenant_uid(payload.uid, payload.rgw_tenant)

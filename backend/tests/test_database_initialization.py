@@ -11,10 +11,12 @@ from alembic.script import ScriptDirectory
 import pytest
 import sqlalchemy as sa
 from sqlalchemy.engine import Engine
+from sqlalchemy.orm import sessionmaker
 
 from app.core.config import get_settings
 from app.db import AppSetting, Base
-from app.services import database_initialization
+from app.models.app_settings import AppSettings
+from app.services import app_settings_service, database_initialization
 from app.utils.time import utcnow
 
 
@@ -85,6 +87,53 @@ def test_empty_database_runs_migrations_then_regular_upgrade(
     assert upgrade_targets == ["head", "head"]
     with sqlite_database.connect() as connection:
         assert _database_revision(connection) == _alembic_head()
+
+
+def test_startup_bootstraps_app_settings_once(
+    sqlite_database: Engine,
+    monkeypatch,
+    tmp_path,
+) -> None:
+    settings_path = tmp_path / "app_settings.json"
+    bootstrap = AppSettings()
+    bootstrap.general.browser_enabled = False
+    settings_path.write_text(bootstrap.model_dump_json(indent=2), encoding="utf-8")
+    monkeypatch.setattr(app_settings_service, "_settings_path", lambda: settings_path)
+
+    class _StorageEndpoints:
+        def __init__(self, _db) -> None:
+            pass
+
+        def sync_env_endpoints(self) -> None:
+            pass
+
+        def env_endpoints_locked(self) -> bool:
+            return True
+
+        def ensure_default_endpoint(self) -> None:
+            raise AssertionError("default endpoint should not be created")
+
+        def reconcile_persisted_identities(self) -> None:
+            pass
+
+    monkeypatch.setattr(database_initialization, "StorageEndpointsService", _StorageEndpoints)
+    session_factory = sessionmaker(bind=sqlite_database)
+
+    database_initialization._init_db_locked(sqlite_database, session_factory)
+
+    with session_factory() as db:
+        row = db.get(AppSetting, app_settings_service.APP_SETTINGS_DB_KEY)
+        assert row is not None
+        assert row.payload["general"]["browser_enabled"] is False
+
+    bootstrap.general.browser_enabled = True
+    settings_path.write_text(bootstrap.model_dump_json(indent=2), encoding="utf-8")
+    database_initialization._init_db_locked(sqlite_database, session_factory)
+
+    with session_factory() as db:
+        row = db.get(AppSetting, app_settings_service.APP_SETTINGS_DB_KEY)
+        assert row is not None
+        assert row.payload["general"]["browser_enabled"] is False
 
 
 def test_non_empty_unversioned_database_is_rejected(sqlite_database: Engine) -> None:

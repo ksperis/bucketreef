@@ -12,7 +12,7 @@ from pydantic import ValidationError
 from app.core.config import DeploymentProfile, Settings
 from app.core.database import SessionLocal
 from app.models.app_settings import AppSettings
-from app.services.app_settings_service import load_app_settings, load_app_settings_for_db_readonly
+from app.services.app_settings_service import load_app_settings, load_app_settings_for_db
 from app.services.deployment_check_models import DeploymentCheckFinding
 from app.services.deployment_checks import deployment_exit_code, run_deployment_checks
 
@@ -80,7 +80,7 @@ def run(
     if settings is None:
         with SessionLocal() as db:
             try:
-                effective_app_settings = app_settings or load_app_settings_for_db_readonly(db)
+                effective_app_settings = app_settings or load_app_settings_for_db(db)
             except Exception:
                 effective_app_settings = None
             findings = run_deployment_checks(

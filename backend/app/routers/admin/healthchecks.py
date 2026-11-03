@@ -19,7 +19,7 @@ from app.models.healthcheck import (
     WorkspaceEndpointHealthOverviewResponse,
 )
 from app.routers.dependencies import get_current_ui_admin
-from app.services.app_settings_service import load_app_settings_for_db_readonly
+from app.services.app_settings_service import load_app_settings_for_db
 from app.services.healthcheck_common import HealthWindow
 from app.services.healthcheck_query_service import HealthCheckQueryService
 from app.services.healthcheck_service import HealthCheckService
@@ -37,7 +37,7 @@ router = APIRouter(prefix="/admin/health", tags=["admin-healthchecks"])
 
 
 def _ensure_endpoint_status_enabled(db: Session) -> None:
-    app_settings = load_app_settings_for_db_readonly(db)
+    app_settings = load_app_settings_for_db(db)
     if not app_settings.general.endpoint_status_enabled:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

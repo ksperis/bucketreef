@@ -22,7 +22,7 @@ from tests.s3_connection_factory import custom_endpoint_fields
 def _enable_manager_bucket_quota(monkeypatch):
     settings = AppSettings()
     settings.manager.feature_policies.bucket_quota_management = "targeted"
-    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: settings)
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db", lambda _db: settings)
 
 
 def _quota_user(db_session) -> User:

@@ -16,7 +16,7 @@ from app.models.session import S3KeyLogin, SessionDescriptor
 from app.routers.auth_common import AuthAttemptContext, settings
 from app.routers.auth_cookies import set_auth_cookies
 from app.routers.dependencies import get_audit_service
-from app.services.app_settings_service import load_app_settings_for_db_readonly
+from app.services.app_settings_service import load_app_settings_for_db
 from app.services.audit_service import AuditService
 from app.services.auth_session_service import AuthSessionService
 from app.services.session_service import SessionIntrospectionError, SessionService
@@ -60,7 +60,7 @@ def login_with_s3_keys(
     audit_service: AuditService = Depends(get_audit_service),
 ) -> AuthenticationResponse:
     require_trusted_origin(request)
-    general = load_app_settings_for_db_readonly(db).general
+    general = load_app_settings_for_db(db).general
     if not general.allow_login_access_keys:
         raise HTTPException(status_code=403, detail="Access-key login is disabled")
     endpoint_url, custom_endpoint = _resolve_login_endpoint(

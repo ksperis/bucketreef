@@ -15,7 +15,7 @@ from app.models.portal_usage import (
 )
 from app.services.rgw_admin import RGWAdminError
 from app.services.portal.exceptions import PortalBadRequestError, PortalForbiddenError
-from app.services.app_settings_service import load_app_settings_for_db_readonly
+from app.services.app_settings_service import load_app_settings_for_db
 from app.services.feature_policy_service import bucket_usage_stats_state
 from app.utils.usage_stats import aggregate_bucket_usage, extract_usage_stats
 
@@ -133,7 +133,7 @@ class PortalStateUsageMixin:
             storage_space_version_cleanup_enabled=portal_settings.storage_space_version_cleanup_enabled,
             cost_estimation_enabled=portal_settings.cost_estimation_enabled,
             bucket_usage_stats_enabled=bucket_usage_stats_state(
-                load_app_settings_for_db_readonly(self.db).general.project_feature_policies,
+                load_app_settings_for_db(self.db).general.project_feature_policies,
                 account,
             ).enabled,
         )
