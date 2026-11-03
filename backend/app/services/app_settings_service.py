@@ -10,6 +10,7 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 
 from app.core.config import get_settings
+from app.core.db_transactions import commit_or_rollback
 from app.db import AppSetting
 from app.models.app_settings import AppSettings, GeneralFeatureLock, GeneralFeatureLocks
 from app.utils.time import utcnow
@@ -75,16 +76,15 @@ def _save_persisted_settings_to_db(db, settings: AppSettings) -> None:
         )
         db.add(row)
         try:
-            db.commit()
+            commit_or_rollback(db)
             return
         except IntegrityError:
-            db.rollback()
             row = _get_persisted_settings_row(db)
             if row is None:
                 raise
     row.payload = payload
     row.updated_at = now
-    db.commit()
+    commit_or_rollback(db)
 
 
 def _load_or_import_persisted_settings_from_db(db) -> AppSettings:
@@ -220,7 +220,7 @@ def enable_onboarding_features(db, fields: tuple[str, ...]) -> list[str]:
             .execution_options(synchronize_session=False)
         ).rowcount
         if updated:
-            db.commit()
+            commit_or_rollback(db)
             db.expire(row)
             return changed
         db.rollback()
