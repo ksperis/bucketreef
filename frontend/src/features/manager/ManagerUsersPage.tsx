@@ -31,6 +31,7 @@ import { extractApiError } from "../../utils/apiError";
 import { useSettingsBaseline } from "../../components/settings/useSettingsDraft";
 import { compareByNullableField, nextSortState, type SortableField } from "../../utils/sortValues";
 import ManagerIamPoliciesCell from "./ManagerIamPoliciesCell";
+import ManagerIamNameListCell from "./ManagerIamNameListCell";
 import InlinePolicyDraftEditor from "./InlinePolicyDraftEditor";
 import ManagedPolicySelectionPanel from "./ManagedPolicySelectionPanel";
 import ManagerToolbarSearch from "./ManagerToolbarSearch";
@@ -313,6 +314,7 @@ export default function ManagerUsersPage() {
       id: "name",
       label: text("Name"),
       field: "name",
+      headerClassName: "w-[22%]",
       primary: true,
       mobileRole: "primary",
       render: (user) => {
@@ -367,26 +369,12 @@ export default function ManagerUsersPage() {
         );
       },
     },
-    { id: "arn", label: text("ARN"), field: "arn", render: (user) => user.arn ?? "-" },
     {
       id: "groups",
       label: text("Groups"),
+      headerClassName: "w-[27%]",
       cellClassName: "ui-table-wide",
-      render: (user) =>
-        user.groups && user.groups.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {user.groups.map((group) => (
-              <ListBadge
-                key={group}
-                tone="neutral"
-              >
-                {group}
-              </ListBadge>
-            ))}
-          </div>
-        ) : (
-          <span className="ui-caption text-slate-500 dark:text-slate-400">-</span>
-        ),
+      render: (user) => <ManagerIamNameListCell names={user.groups} />,
     },
     {
       id: "policies",

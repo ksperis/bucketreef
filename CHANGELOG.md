@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- Simplify Manager IAM user, group, and role inventories by moving ARN details to identity editors, compacting managed and inline policy summaries, and showing compact group member previews in detailed listings.
+
 ### Fixed
 
 - Display the S3 object owner in Browser object details by requesting owner data from object listings and preserving it through the backend/frontend contract.
@@ -9,6 +13,7 @@
 ### Upgrade notes
 
 - Deploy the matching backend and frontend together because Browser object-list responses now include the optional `owner` field used by object details.
+- Deploy the matching backend and frontend together because detailed Manager IAM group-list responses now include the optional `members` field used by the inventory.
 
 ## 0.2.18 - 2026-10-24
 

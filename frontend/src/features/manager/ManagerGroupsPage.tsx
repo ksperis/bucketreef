@@ -24,6 +24,7 @@ import InlinePolicyDraftEditor from "./InlinePolicyDraftEditor";
 import ManagedPolicySelectionPanel from "./ManagedPolicySelectionPanel";
 import ManagerToolbarSearch from "./ManagerToolbarSearch";
 import ManagerIamPoliciesCell from "./ManagerIamPoliciesCell";
+import ManagerIamNameListCell from "./ManagerIamNameListCell";
 import { useInlinePolicyDraftEditor } from "./useInlinePolicyDraftEditor";
 import { useManagedPolicySelection } from "./useManagedPolicySelection";
 import { useManagerIamCursorCollection } from "./useManagerIamCursorCollection";
@@ -203,8 +204,21 @@ export default function ManagerGroupsPage() {
     rowCount: filteredGroups.length,
   });
   const groupTableColumns: Array<DataTableColumn<IAMGroup>> = [
-    { id: "name", label: text("Name"), primary: true, mobileRole: "primary", render: (group) => group.name },
-    { id: "arn", label: text("ARN"), render: (group) => group.arn ?? "-" },
+    {
+      id: "name",
+      label: text("Name"),
+      headerClassName: "w-[22%]",
+      primary: true,
+      mobileRole: "primary",
+      render: (group) => group.name,
+    },
+    {
+      id: "members",
+      label: text("Members"),
+      headerClassName: "w-[28%]",
+      cellClassName: "ui-table-wide",
+      render: (group) => <ManagerIamNameListCell names={group.members} />,
+    },
     {
       id: "policies",
       label: text("Policies"),

@@ -16,7 +16,7 @@ function managedPolicyName(policyArn: string): string {
   return policyArn.split("/").pop() || policyArn;
 }
 
-function PolicyRow({
+function PolicySegment({
   label,
   policies,
   displayName,
@@ -31,11 +31,11 @@ function PolicyRow({
   const hiddenPolicies = policies.slice(MAX_VISIBLE_POLICIES);
 
   return (
-    <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-2">
-      <span className="ui-caption w-14 shrink-0 font-medium text-slate-500 dark:text-slate-400">
+    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+      <span className="ui-caption shrink-0 font-medium text-slate-500 dark:text-slate-400">
         {label}
       </span>
-      <div className="flex min-w-0 items-center gap-1.5">
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
         {visiblePolicies.map((policy) => (
           <ListBadge
             key={policy}
@@ -73,9 +73,9 @@ export default function ManagerIamPoliciesCell({
   }
 
   return (
-    <div className="min-w-0 space-y-1">
+    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
       {managed.length > 0 && (
-        <PolicyRow
+        <PolicySegment
           label={text("Managed")}
           policies={managed}
           displayName={managedPolicyName}
@@ -83,7 +83,7 @@ export default function ManagerIamPoliciesCell({
         />
       )}
       {inline.length > 0 && (
-        <PolicyRow
+        <PolicySegment
           label={text("Inline")}
           policies={inline}
           displayName={(policy) => policy}

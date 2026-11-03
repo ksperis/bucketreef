@@ -105,6 +105,7 @@ class IAMGroup(ApiModel):
     path: Optional[str] = None
     policies: Optional[list[str]] = None
     inline_policies: Optional[list[str]] = None
+    members: Optional[list[str]] = None
     is_bucketreef_managed: bool = False
     management_source: Optional[str] = None
 

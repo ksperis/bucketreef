@@ -109,7 +109,7 @@ describe("ManagerUsersPage", () => {
     const alice = {
       name: "alice",
       arn: "arn:aws:iam::acc-1:user/alice",
-      groups: ["operators"],
+      groups: ["operators", "auditors", "developers"],
       policies: ["arn:aws:iam::aws:policy/ReadOnlyAccess"],
       inline_policies: [],
       has_keys: true,
@@ -147,9 +147,13 @@ describe("ManagerUsersPage", () => {
     expect(screen.getByRole("table")).toHaveClass("responsive-data-table");
     expect(screen.getByRole("columnheader", { name: "Name" })).toHaveAttribute("aria-sort", "ascending");
     expect(screen.getByText("alice").closest("td")).toHaveAttribute("data-mobile-primary", "true");
-    expect(screen.getByText("arn:aws:iam::acc-1:user/alice").closest("td")).toHaveAttribute("data-label", "ARN");
+    expect(screen.queryByText("arn:aws:iam::acc-1:user/alice")).not.toBeInTheDocument();
     expect(screen.getByText("operators").closest("td")).toHaveAttribute("data-label", "Groups");
+    expect(screen.getByText("auditors")).toBeInTheDocument();
+    expect(screen.getByText("+1")).toHaveAttribute("title", "developers");
     expect(screen.getByText("ReadOnlyAccess").closest("td")).toHaveAttribute("data-label", "Policies");
+    expect(screen.getByRole("columnheader", { name: "Name" })).toHaveClass("w-[22%]");
+    expect(screen.getByRole("columnheader", { name: "Groups" })).toHaveClass("w-[27%]");
     const editLink = screen.getByRole("link", { name: "Edit" });
     expect(editLink).toHaveAttribute("href", "/manager/users/alice");
     expect(editLink).toHaveAttribute("data-table-default-action", "true");

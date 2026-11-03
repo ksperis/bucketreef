@@ -248,9 +248,15 @@ export default function ManagerRolesPage() {
     rowCount: filteredRoles.length,
   });
   const roleTableColumns: Array<DataTableColumn<IAMRole>> = [
-    { id: "name", label: text("Name"), primary: true, mobileRole: "primary", render: (role) => role.name },
-    { id: "path", label: text("Path"), render: (role) => role.path ?? "-" },
-    { id: "arn", label: text("ARN"), render: (role) => role.arn ?? "-" },
+    {
+      id: "name",
+      label: text("Name"),
+      headerClassName: "w-[22%]",
+      primary: true,
+      mobileRole: "primary",
+      render: (role) => role.name,
+    },
+    { id: "path", label: text("Path"), headerClassName: "w-[18%]", render: (role) => role.path ?? "-" },
     {
       id: "policies",
       label: text("Policies"),
