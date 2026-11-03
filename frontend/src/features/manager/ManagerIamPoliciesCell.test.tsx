@@ -8,34 +8,32 @@ describe("ManagerIamPoliciesCell", () => {
     render(<ManagerIamPoliciesCell managedPolicies={[]} inlinePolicies={[]} />);
 
     expect(screen.getByText("-")).toBeInTheDocument();
-    expect(screen.queryByText("Managed")).not.toBeInTheDocument();
-    expect(screen.queryByText("Inline")).not.toBeInTheDocument();
   });
 
-  it("renders only the managed segment when there are no inline policies", () => {
+  it("renders managed policies without a category label", () => {
     render(
       <ManagerIamPoliciesCell
         managedPolicies={["arn:aws:iam::aws:policy/ReadOnlyAccess"]}
       />,
     );
 
-    expect(screen.getByText("Managed")).toBeInTheDocument();
     expect(screen.getByText("ReadOnlyAccess")).toHaveAttribute(
       "title",
       "arn:aws:iam::aws:policy/ReadOnlyAccess",
     );
+    expect(screen.queryByText("Managed")).not.toBeInTheDocument();
     expect(screen.queryByText("Inline")).not.toBeInTheDocument();
   });
 
-  it("renders only the inline segment when there are no managed policies", () => {
+  it("renders inline policies without a category label", () => {
     render(<ManagerIamPoliciesCell inlinePolicies={["bucket-read"]} />);
 
-    expect(screen.getByText("Inline")).toBeInTheDocument();
     expect(screen.getByText("bucket-read")).toHaveAttribute("title", "bucket-read");
     expect(screen.queryByText("Managed")).not.toBeInTheDocument();
+    expect(screen.queryByText("Inline")).not.toBeInTheDocument();
   });
 
-  it("limits each category to two named badges and exposes hidden names on +N", () => {
+  it("renders managed and inline policies in one badge flow with per-category overflow", () => {
     render(
       <ManagerIamPoliciesCell
         managedPolicies={[
@@ -58,8 +56,11 @@ describe("ManagerIamPoliciesCell", () => {
     expect(screen.queryByText("inline-three")).not.toBeInTheDocument();
     expect(screen.getByText("+1")).toHaveAttribute("title", "inline-three");
 
-    const managedSegment = screen.getByText("Managed").parentElement;
-    expect(managedSegment?.parentElement).toContainElement(screen.getByText("Inline"));
-    expect(managedSegment?.parentElement).toHaveClass("flex-wrap");
+    expect(screen.queryByText("Managed")).not.toBeInTheDocument();
+    expect(screen.queryByText("Inline")).not.toBeInTheDocument();
+    expect(screen.getByText("ManagedOne").parentElement).toBe(
+      screen.getByText("inline-one").parentElement,
+    );
+    expect(screen.getByText("ManagedOne").parentElement).toHaveClass("flex-wrap");
   });
 });

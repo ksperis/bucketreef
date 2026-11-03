@@ -3,7 +3,6 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { ListBadge } from "../../components/list/ListControls";
-import { useManagerI18n } from "./managerI18n";
 
 type ManagerIamPoliciesCellProps = {
   managedPolicies?: string[] | null;
@@ -16,13 +15,11 @@ function managedPolicyName(policyArn: string): string {
   return policyArn.split("/").pop() || policyArn;
 }
 
-function PolicySegment({
-  label,
+function PolicyBadges({
   policies,
   displayName,
   title,
 }: {
-  label: string;
   policies: string[];
   displayName: (policy: string) => string;
   title: (policy: string) => string;
@@ -31,32 +28,27 @@ function PolicySegment({
   const hiddenPolicies = policies.slice(MAX_VISIBLE_POLICIES);
 
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-      <span className="ui-caption shrink-0 font-medium text-slate-500 dark:text-slate-400">
-        {label}
-      </span>
-      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-        {visiblePolicies.map((policy) => (
-          <ListBadge
-            key={policy}
-            tone="neutral"
-            className="min-w-0 max-w-36 truncate"
-            title={title(policy)}
-          >
-            {displayName(policy)}
-          </ListBadge>
-        ))}
-        {hiddenPolicies.length > 0 && (
-          <ListBadge
-            tone="neutral"
-            className="shrink-0"
-            title={hiddenPolicies.map(displayName).join(", ")}
-          >
-            +{hiddenPolicies.length}
-          </ListBadge>
-        )}
-      </div>
-    </div>
+    <>
+      {visiblePolicies.map((policy) => (
+        <ListBadge
+          key={policy}
+          tone="neutral"
+          className="min-w-0 max-w-36 truncate"
+          title={title(policy)}
+        >
+          {displayName(policy)}
+        </ListBadge>
+      ))}
+      {hiddenPolicies.length > 0 && (
+        <ListBadge
+          tone="neutral"
+          className="shrink-0"
+          title={hiddenPolicies.map(displayName).join(", ")}
+        >
+          +{hiddenPolicies.length}
+        </ListBadge>
+      )}
+    </>
   );
 }
 
@@ -64,7 +56,6 @@ export default function ManagerIamPoliciesCell({
   managedPolicies,
   inlinePolicies,
 }: ManagerIamPoliciesCellProps) {
-  const { text } = useManagerI18n();
   const managed = managedPolicies ?? [];
   const inline = inlinePolicies ?? [];
 
@@ -73,18 +64,16 @@ export default function ManagerIamPoliciesCell({
   }
 
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+    <div className="flex min-w-0 flex-wrap items-center gap-1.5">
       {managed.length > 0 && (
-        <PolicySegment
-          label={text("Managed")}
+        <PolicyBadges
           policies={managed}
           displayName={managedPolicyName}
           title={(policy) => policy}
         />
       )}
       {inline.length > 0 && (
-        <PolicySegment
-          label={text("Inline")}
+        <PolicyBadges
           policies={inline}
           displayName={(policy) => policy}
           title={(policy) => policy}

@@ -112,8 +112,8 @@ describe("Manager IAM inventory tables", () => {
     expect(screen.getByText("ReadOnlyAccess").closest("td")).toHaveAttribute("data-label", "Policies");
     expect(screen.getByRole("columnheader", { name: "Name" })).toHaveClass("w-[22%]");
     expect(screen.getByRole("columnheader", { name: "Members" })).toHaveClass("w-[28%]");
-    expect(screen.getByText("Managed")).toBeInTheDocument();
-    expect(screen.getByText("Inline")).toBeInTheDocument();
+    expect(screen.queryByText("Managed")).not.toBeInTheDocument();
+    expect(screen.queryByText("Inline")).not.toBeInTheDocument();
     expect(screen.getByText("local-read").closest("td")).toHaveAttribute("data-label", "Policies");
     const groupEdit = screen.getByRole("link", { name: "Edit" });
     expect(groupEdit).toHaveAttribute("href", "/manager/groups/operators");
@@ -157,8 +157,8 @@ describe("Manager IAM inventory tables", () => {
     expect(screen.getByText("ReadOnlyAccess").closest("td")).toHaveAttribute("data-label", "Policies");
     expect(screen.getByRole("columnheader", { name: "Name" })).toHaveClass("w-[22%]");
     expect(screen.getByRole("columnheader", { name: "Path" })).toHaveClass("w-[18%]");
-    expect(screen.getByText("Managed")).toBeInTheDocument();
-    expect(screen.getByText("Inline")).toBeInTheDocument();
+    expect(screen.queryByText("Managed")).not.toBeInTheDocument();
+    expect(screen.queryByText("Inline")).not.toBeInTheDocument();
     expect(screen.getByText("local-read").closest("td")).toHaveAttribute("data-label", "Policies");
     const roleEdit = screen.getByRole("link", { name: "Edit" });
     expect(roleEdit).toHaveAttribute("href", "/manager/roles/app-reader");

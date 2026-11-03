@@ -197,7 +197,7 @@ describe("ManagerUsersPage", () => {
     );
 
     expect(await screen.findByText("inline-only")).toBeInTheDocument();
-    expect(screen.getByText("Inline")).toBeInTheDocument();
+    expect(screen.queryByText("Inline")).not.toBeInTheDocument();
     expect(screen.getByText("local-read").closest("td")).toHaveAttribute("data-label", "Policies");
     expect(screen.queryByLabelText("Warning: user might lack necessary permissions")).not.toBeInTheDocument();
   });
