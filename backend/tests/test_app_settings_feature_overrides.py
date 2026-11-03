@@ -47,6 +47,22 @@ def _raw_db_settings(db_session) -> dict:
     return row.payload
 
 
+def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
+    rollback_calls: list[None] = []
+    original_rollback = db_session.rollback
+
+    def rollback() -> None:
+        rollback_calls.append(None)
+        original_rollback()
+
+    def commit() -> None:
+        raise RuntimeError("commit failed")
+
+    monkeypatch.setattr(db_session, "rollback", rollback)
+    monkeypatch.setattr(db_session, "commit", commit)
+    return rollback_calls
+
+
 def test_rgw_account_id_prefix_defaults_to_80_and_requires_one_to_three_digits():
     assert AppSettings().general.rgw_account_id_prefix == "80"
 
@@ -199,6 +215,57 @@ def test_app_settings_json_bootstrap_imports_once_to_db(monkeypatch, tmp_path, d
     loaded_again = app_settings_service.bootstrap_app_settings_for_db(db_session)
     assert loaded_again.general.browser_enabled is False
     assert db_session.scalar(select(func.count()).select_from(AppSetting)) == 1
+
+
+def test_app_settings_bootstrap_rolls_back_when_commit_fails(monkeypatch, tmp_path, db_session):
+    settings_path = tmp_path / "app_settings.json"
+    settings_path.write_text(AppSettings().model_dump_json(indent=2), encoding="utf-8")
+    monkeypatch.setattr(app_settings_service, "_settings_path", lambda: settings_path)
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        app_settings_service.bootstrap_app_settings_for_db(db_session)
+
+    assert rollback_calls == [None]
+    assert db_session.get(AppSetting, app_settings_service.APP_SETTINGS_DB_KEY) is None
+
+
+def test_app_settings_save_rolls_back_when_commit_fails(monkeypatch, tmp_path, db_session):
+    settings_path = tmp_path / "app_settings.json"
+    monkeypatch.setattr(app_settings_service, "_settings_path", lambda: settings_path)
+    monkeypatch.setattr(app_settings_service, "get_settings", lambda: _runtime_settings())
+    original = AppSettings()
+    original.general.browser_enabled = False
+    app_settings_service.save_app_settings_for_db(db_session, original)
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    changed = original.model_copy(deep=True)
+    changed.general.browser_enabled = True
+    with pytest.raises(RuntimeError, match="commit failed"):
+        app_settings_service.save_app_settings_for_db(db_session, changed)
+
+    assert rollback_calls == [None]
+    db_session.expire_all()
+    persisted = app_settings_service.load_app_settings_for_db(db_session)
+    assert persisted.general.browser_enabled is False
+
+
+def test_enable_onboarding_features_rolls_back_when_commit_fails(monkeypatch, tmp_path, db_session):
+    settings_path = tmp_path / "app_settings.json"
+    monkeypatch.setattr(app_settings_service, "_settings_path", lambda: settings_path)
+    monkeypatch.setattr(app_settings_service, "get_settings", lambda: _runtime_settings())
+    original = AppSettings()
+    original.general.manager_enabled = False
+    app_settings_service.save_app_settings_for_db(db_session, original)
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        app_settings_service.enable_onboarding_features(db_session, ("manager_enabled",))
+
+    assert rollback_calls == [None]
+    db_session.expire_all()
+    persisted = app_settings_service.load_app_settings_for_db(db_session)
+    assert persisted.general.manager_enabled is False
 
 
 def test_app_settings_db_load_does_not_persist_bootstrap(monkeypatch, tmp_path, db_session):
