@@ -6,6 +6,7 @@ import logging
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.db_transactions import commit_or_rollback
 from app.core.domain_errors import UiUserNotFoundError
 from app.core.security import get_password_hash, verify_password
 from app.db import AccountIAMUser, S3Account, User
@@ -215,7 +216,7 @@ class UserUpdateService:
         password_changed = self._apply_current_user_password(user, payload)
 
         self.db.add(user)
-        self.db.commit()
+        commit_or_rollback(self.db)
         self.db.refresh(user)
         if password_changed:
             from app.services.auth_session_service import AuthSessionService
