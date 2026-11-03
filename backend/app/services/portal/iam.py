@@ -89,6 +89,9 @@ class PortalIamMixin:
         link: AccountIAMUser,
         created_key: Optional[ModelAccessKey],
     ) -> AccountIAMUser:
+        if created_key:
+            link.active_access_key = created_key.access_key_id
+            link.active_secret_key = created_key.secret_access_key
         try:
             self.db.add(link)
             self.db.commit()
@@ -102,9 +105,6 @@ class PortalIamMixin:
                 self._persist_portal_key(link, created_key)
             return link
 
-        self.db.refresh(link)
-        if created_key:
-            self._persist_portal_key(link, created_key)
         return link
 
     def _provision_portal_user(
@@ -121,28 +121,80 @@ class PortalIamMixin:
             create_key=True,
             allow_existing=False,
         )
-        if link is None:
-            link = AccountIAMUser(
-                user_id=user.id,
-                account_id=account.id,
-                iam_user_id=iam_user.user_id or iam_user.arn or expected_username,
-                iam_username=iam_user.name,
-            )
-        else:
-            self._set_portal_link_identity(
+        try:
+            if link is None:
+                link = AccountIAMUser(
+                    user_id=user.id,
+                    account_id=account.id,
+                    iam_user_id=iam_user.user_id or iam_user.arn or expected_username,
+                    iam_username=iam_user.name,
+                )
+            else:
+                self._set_portal_link_identity(
+                    link,
+                    iam_user,
+                    fallback_username=expected_username,
+                )
+                link.active_access_key = None
+                link.active_secret_key = None
+            link = self._persist_provisioned_portal_link(
+                user,
+                account,
                 link,
-                iam_user,
-                fallback_username=expected_username,
+                created_key,
             )
-            link.active_access_key = None
-            link.active_secret_key = None
-        link = self._persist_provisioned_portal_link(
-            user,
-            account,
-            link,
-            created_key,
-        )
+        except Exception as exc:
+            db_rollback_failed = False
+            try:
+                self.db.rollback()
+            except Exception as rollback_exc:  # pragma: no cover - defensive database failure
+                logger.error(
+                    "Unable to roll back failed Portal IAM user transaction: %s",
+                    rollback_exc,
+                )
+                db_rollback_failed = True
+            remote_rollback_failed = self._rollback_provisioned_portal_user(
+                iam_service,
+                username=expected_username,
+                created_key=created_key,
+            )
+            if db_rollback_failed or remote_rollback_failed:
+                raise RuntimeError(
+                    "Unable to provision Portal IAM user. Local or IAM rollback also failed."
+                ) from exc
+            raise
+
+        self.db.refresh(link)
         return link, iam_user, created_key
+
+    @staticmethod
+    def _rollback_provisioned_portal_user(
+        iam_service: RGWIAMService,
+        *,
+        username: str,
+        created_key: Optional[ModelAccessKey],
+    ) -> bool:
+        failed = False
+        if created_key is not None:
+            try:
+                iam_service.delete_access_key(username, created_key.access_key_id)
+            except Exception as exc:  # pragma: no cover - defensive remote failure
+                logger.error(
+                    "Unable to remove Portal IAM access key %s after failed provisioning: %s",
+                    created_key.access_key_id,
+                    exc,
+                )
+                failed = True
+        try:
+            iam_service.delete_user(username)
+        except Exception as exc:  # pragma: no cover - defensive remote failure
+            logger.error(
+                "Unable to remove Portal IAM user %s after failed provisioning: %s",
+                username,
+                exc,
+            )
+            failed = True
+        return failed
 
     def _ensure_portal_user(
         self,
