@@ -15,6 +15,13 @@ class CostSettingsService:
     def __init__(self, db: Session) -> None:
         self.db = db
 
+    def _commit(self) -> None:
+        try:
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+
     def get_settings(self) -> CostSettings:
         model = self.db.get(CostModel, 1)
         overrides = self.db.scalars(
@@ -61,7 +68,7 @@ class CostSettingsService:
             model = self.db.get(CostModel, 1)
             if model is not None:
                 self.db.delete(model)
-            self.db.commit()
+            self._commit()
             return self.get_settings()
 
         now = utcnow()
@@ -99,5 +106,5 @@ class CostSettingsService:
             row.requests_per_1000_price = item.requests_per_1000_price
             row.updated_at = now
 
-        self.db.commit()
+        self._commit()
         return self.get_settings()
