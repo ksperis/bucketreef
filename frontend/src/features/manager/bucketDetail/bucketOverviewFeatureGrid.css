@@ -8,10 +8,10 @@
 .bucket-overview-feature-card {
   display: flex;
   min-width: 0;
-  min-height: 64px;
+  min-height: 56px;
   align-items: center;
   gap: 10px;
-  padding: 10px 12px;
+  padding: 7px 12px;
   border: 1px solid var(--ui-border);
   border-radius: 8px;
   background: var(--ui-surface-muted);
@@ -34,8 +34,8 @@
 
 .bucket-overview-feature-indicator {
   display: grid;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   flex: none;
   place-items: center;
   border: 1px solid var(--ui-border);
@@ -146,9 +146,5 @@
 @media (max-width: 767px) {
   .bucket-overview-feature-grid {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .bucket-overview-feature-card {
-    min-height: 56px;
   }
 }
