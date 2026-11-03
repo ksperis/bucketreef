@@ -11,6 +11,7 @@ from uuid import UUID
 from sqlalchemy import select
 
 from app.core.config import get_settings
+from app.core.db_transactions import commit_or_rollback
 from app.db import OnboardingJourney, OnboardingPreference, S3Account, StorageEndpoint, User
 from app.core.domain_enums import StorageProvider, is_admin_ui_role, is_superadmin_ui_role
 from app.models.onboarding import (
@@ -371,7 +372,7 @@ class OnboardingService:
             self.db.add(preference)
         preference.dismissed = dismissed
         preference.updated_at = utcnow()
-        self.db.commit()
+        commit_or_rollback(self.db)
         self.audit(actor, "dismiss" if dismissed else "resume", str(actor.id))
         return self.status(actor)
 
@@ -408,7 +409,7 @@ class OnboardingService:
                 row.revision += 1
                 row.resources = {}
             row.updated_at = utcnow()
-            self.db.commit()
+            commit_or_rollback(self.db)
             self.audit(actor, "save", row.id)
             return self.output(actor, row)
 
@@ -418,7 +419,7 @@ class OnboardingService:
         row.resources = {**row.resources, **resources}
         row.pending_step = None
         row.updated_at = utcnow()
-        self.db.commit()
+        commit_or_rollback(self.db)
 
     def audit(self, actor, action, identifier, *, status="success", **metadata):
         account_id = metadata.get("account_id")

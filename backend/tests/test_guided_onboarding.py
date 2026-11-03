@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from app.utils.storage_endpoint_features import parse_features_config
+from contextlib import nullcontext
 import json
 from types import SimpleNamespace
 from uuid import uuid4
@@ -14,6 +15,7 @@ from app.db import (
     AppSetting,
     AuditLog,
     OnboardingJourney,
+    OnboardingPreference,
     S3Account,
     S3Connection,
     StorageEndpoint,
@@ -142,6 +144,22 @@ def save(service, user, **values):
     )
 
 
+def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
+    rollback_calls: list[None] = []
+    original_rollback = db_session.rollback
+
+    def rollback() -> None:
+        rollback_calls.append(None)
+        original_rollback()
+
+    def commit() -> None:
+        raise RuntimeError("commit failed")
+
+    monkeypatch.setattr(db_session, "rollback", rollback)
+    monkeypatch.setattr(db_session, "commit", commit)
+    return rollback_calls
+
+
 def apply(service, user, journey, *, service_identity_mode, **credentials):
     return service.apply(
         user,
@@ -154,6 +172,44 @@ def apply(service, user, journey, *, service_identity_mode, **credentials):
             **credentials,
         ),
     )
+
+
+def test_onboarding_dismiss_rolls_back_when_commit_fails(guided, db_session, monkeypatch):
+    user = actor(db_session)
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        guided.dismiss(user)
+
+    assert rollback_calls == [None]
+    assert db_session.get(OnboardingPreference, user.id) is None
+
+
+def test_onboarding_save_rolls_back_when_commit_fails(guided, db_session, monkeypatch):
+    user = actor(db_session)
+    monkeypatch.setattr(guided, "editing", lambda _actor: nullcontext())
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        save(guided, user, manager=True)
+
+    assert rollback_calls == [None]
+    assert db_session.scalar(sa.select(sa.func.count()).select_from(OnboardingJourney)) == 0
+
+
+def test_onboarding_checkpoint_rolls_back_when_commit_fails(guided, db_session, monkeypatch):
+    user = actor(db_session)
+    journey = save(guided, user, manager=True)
+    row = guided.get(user, journey.id)
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        guided.checkpoint(row, account_id=42)
+
+    assert rollback_calls == [None]
+    db_session.expire_all()
+    persisted = guided.get(user, journey.id)
+    assert persisted.resources == {}
 
 
 def test_apply_requires_explicit_service_identity_mode():
