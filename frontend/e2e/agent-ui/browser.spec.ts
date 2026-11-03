@@ -48,7 +48,7 @@ test("keeps compact profile drafts across navigation and persists translated pre
   await expect(page.getByRole("heading", { name: "Mein Profil" })).toBeVisible();
   await page.getByRole("tab", { name: "Sicherheit", exact: true }).click();
   await expect(page.getByRole("region", { name: "Anmeldemethoden" })).toBeVisible();
-  await expect(page.getByRole("region", { name: "Zugriff wiederherstellen" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Kontosicherheit" })).toBeVisible();
   const sessions = page.getByRole("region", { name: "Offene Sitzungen" });
   await expect(sessions).toBeVisible();
   const bounds = await sessions.boundingBox();

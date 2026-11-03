@@ -78,6 +78,7 @@ describe("useBucketMetadataController", () => {
 
     expect(apiMocks.listCephAdminBuckets).toHaveBeenCalledWith(7, {
       filter: "reports",
+      include: ["owner_quota", "owner_quota_usage"],
       page: 1,
       page_size: 50,
       with_stats: true,

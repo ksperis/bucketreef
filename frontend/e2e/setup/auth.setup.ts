@@ -103,9 +103,20 @@ async function ensureUser(page: Page, seed: UserSeed): Promise<CreatedUser> {
         password: seed.password,
         full_name: seed.fullName,
         role: seed.role,
+        can_access_ceph_admin: false,
+        can_access_storage_ops: false,
         can_create_manual_private_connections: Boolean(
           seed.canCreateManualPrivateConnections,
         ),
+        can_provision_managed_private_connections: false,
+        allow_multisite_endpoint_switching: false,
+        manager_tool_access: {
+          bucket_compare: false,
+          bucket_integrity_check: false,
+          bucket_migration: false,
+          feature_rules: false,
+          bucket_purge: false,
+        },
         browser_advanced_features_enabled: Boolean(
           seed.browserAdvancedFeaturesEnabled,
         ),

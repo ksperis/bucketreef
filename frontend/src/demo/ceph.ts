@@ -1,10 +1,79 @@
 import type { CephAdminRgwAccountDetail } from "../api/cephAdminAccounts";
 import type { CephAdminEndpoint, CephAdminEndpointAccess } from "../api/cephAdminEndpoints";
 import type { CephAdminRgwUserDetail } from "../api/cephAdminUsers";
+import type { MultisiteObservation, MultisiteOverview, MultisiteTopology } from "../api/cephMultisite";
 import { GiB } from "./state";
 import { governance } from "./governance";
 import { generatedKey, keyActions } from "./iam";
 import { DemoError, json, listing, required, textField, type DemoRequest } from "./http";
+
+function multisiteObservation<T>(
+  c: DemoRequest,
+  endpointId: number,
+  operation: string,
+  data: T,
+): MultisiteObservation<T> {
+  const endpoint = required(c.state.endpoints.find(candidate => candidate.id === endpointId));
+  return {
+    availability: "available",
+    data,
+    collected_at: c.state.initializedAt,
+    last_success_at: c.state.initializedAt,
+    stale: false,
+    reason_code: null,
+    provenance: {
+      endpoint_id: endpoint.id,
+      realm_id: endpoint.realm_id ?? null,
+      local_zone_id: endpoint.zone_id ?? null,
+      source_zone_id: null,
+      operation,
+      http_status: 200,
+      duration_ms: 12,
+      collection_id: "demo-multisite",
+    },
+  };
+}
+
+function multisiteTopology(c: DemoRequest, endpointId: number): MultisiteTopology {
+  const endpoint = required(c.state.endpoints.find(candidate => candidate.id === endpointId));
+  const peers = c.state.endpoints.filter(candidate => candidate.realm_id === endpoint.realm_id);
+  const realmId = endpoint.realm_id ?? "demo-realm";
+  const localZoneId = endpoint.zone_id ?? "demo-zone";
+  const zones = peers.map(candidate => ({
+    id: candidate.zone_id ?? `demo-zone-${candidate.id}`,
+    name: candidate.name,
+    zonegroup_id: candidate.zonegroup_id ?? "demo-zonegroup",
+    zonegroup_name: "Demo zonegroup",
+    metadata_master: candidate.is_default,
+    read_only: false,
+    sync_from_all: true,
+    sync_from: [],
+    policy_requires_confirmation: false,
+    endpoints: [{ id: candidate.id, name: candidate.name, diagnostic: true }],
+    diagnostic_endpoint_id: candidate.id,
+  }));
+  return {
+    local_zone: multisiteObservation(c, endpointId, "zone", {
+      id: localZoneId,
+      name: endpoint.name,
+      realm_id: realmId,
+      placements: [{ name: "default-placement", storage_classes: ["STANDARD"] }],
+      storage_classes: ["STANDARD"],
+    }),
+    period: multisiteObservation(c, endpointId, "period", {
+      id: "demo-period",
+      realm_id: realmId,
+      epoch: "1",
+      realm_epoch: "1",
+      master_zone: zones.find(zone => zone.metadata_master)?.id ?? localZoneId,
+      zones,
+      details: {},
+    }),
+    realm: multisiteObservation(c, endpointId, "realm", { id: realmId, name: "Demo realm" }),
+    configured: true,
+    configuration_reason: null,
+  };
+}
 
 export function ceph(c: DemoRequest): Response | undefined {
   if (c.path === "/ceph-admin/endpoints" && c.method === "GET") {
@@ -36,6 +105,31 @@ export function ceph(c: DemoRequest): Response | undefined {
       availability_checked_at: probed ? c.state.initializedAt : null,
     };
     return json(response);
+  }
+  const multisite = c.path.match(/^\/ceph-admin\/endpoints\/(\d+)\/multisite\/(state|topology|overview)$/);
+  if (multisite && c.method === "GET") {
+    const endpointId = Number(multisite[1]);
+    const endpoint = required(c.state.endpoints.find(candidate => candidate.id === endpointId));
+    if (multisite[2] === "state") {
+      return json({
+        status: endpoint.realm_id && endpoint.zone_id ? "active" : "inactive",
+        realm_id: endpoint.realm_id ?? null,
+        local_zone_id: endpoint.zone_id ?? null,
+        checked_at: c.state.initializedAt,
+        availability: endpoint.realm_id && endpoint.zone_id ? "available" : "not_applicable",
+        reason_code: null,
+      });
+    }
+    const topology = multisiteTopology(c, endpointId);
+    if (multisite[2] === "topology") return json(topology);
+    const overview: MultisiteOverview = {
+      topology,
+      metadata: [],
+      data: [],
+      uncollected: [],
+      next_offset: null,
+    };
+    return json(overview);
   }
   const match = c.path.match(/^\/ceph-admin\/endpoints\/(\d+)\/(accounts|users)(?:\/([^/]+)(?:\/(detail|config|keys)(?:\/([^/]+)(?:\/(status))?)?)?)?$/);
   if (!match) return undefined;
