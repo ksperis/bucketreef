@@ -28,9 +28,10 @@ import PageBanner from "../../components/PageBanner";
 import { ListActionButton } from "../../components/list/ListControls";
 import { useTagCatalog } from "../../hooks/useTagCatalog";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
+import { equalSettings } from "../../components/settings/useSettingsDraft";
 import { extractApiError } from "../../utils/apiError";
-import { stableSignature } from "../../utils/stableSignature";
-import { normalizeUiTags } from "../../utils/uiTags";
+import { canonicalizeStableValue } from "../../utils/stableSignature";
+import { canonicalizeUiTags, normalizeUiTags } from "../../utils/uiTags";
 import { isSuperAdminRole, readStoredUser } from "../../utils/workspaces";
 import {
   applyFeatureConstraints,
@@ -72,7 +73,7 @@ const createEmptyCredentialChecks = (): StorageEndpointCredentialChecks => ({
   admin: { status: "not_configured" },
   supervision: { status: "not_configured" },
 });
-const configurationSignature = (form: FormState) => stableSignature({ ...form, tags: [] });
+const configurationDraft = (form: FormState) => canonicalizeStableValue({ ...form, tags: [] });
 function isMethodNotAllowedError(message?: string | null): boolean {
   if (!message) return false;
   const normalized = message.toLowerCase();
@@ -470,9 +471,9 @@ export default function StorageEndpointsPage() {
     }
   };
   const hasConfigurationChanges = !configurationReadOnly && formBaseline !== null
-    && configurationSignature(form) !== configurationSignature(formBaseline);
+    && !equalSettings(configurationDraft(form), configurationDraft(formBaseline));
   const hasTagChanges = formBaseline !== null
-    && stableSignature(normalizeUiTags(form.tags)) !== stableSignature(normalizeUiTags(formBaseline.tags));
+    && !equalSettings(canonicalizeUiTags(form.tags), canonicalizeUiTags(formBaseline.tags));
   const hasFormChanges = hasConfigurationChanges || hasTagChanges;
   const savedRuntimeIdentity = editingEndpoint?.service_identities.find(identity => identity.kind === "runtime");
   const requiredServiceIdentities = serviceIdentityRequirements(form.features);
