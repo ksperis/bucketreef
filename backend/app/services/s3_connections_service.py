@@ -603,12 +603,16 @@ class S3ConnectionsService:
         except ValueError as exc:
             raise S3ConnectionConflictError(str(exc)) from exc
         domain_kind, _owner_user_id = self.tags.resolve_connection_domain(row)
-        self.associations.delete_links(row.id)
-        purge.purge_execution_context_data(context_id)
-        self.db.delete(row)
-        self.db.flush()
-        self.tags.cleanup_orphan_definitions(domain_kinds=[domain_kind])
-        self.db.commit()
+        try:
+            self.associations.delete_links(row.id)
+            purge.purge_execution_context_data(context_id)
+            self.db.delete(row)
+            self.db.flush()
+            self.tags.cleanup_orphan_definitions(domain_kinds=[domain_kind])
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
 
     def _resolve_access_flags(self, *, access_manager: Optional[bool], access_browser: Optional[bool]) -> tuple[bool, bool]:
         manager = bool(access_manager)
