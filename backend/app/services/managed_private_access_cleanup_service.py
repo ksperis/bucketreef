@@ -7,6 +7,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.db_transactions import commit_or_rollback
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import ManagedPrivateAccess, User
 from app.services.managed_private_access_audit_service import (
@@ -89,7 +90,7 @@ class ManagedPrivateAccessCleanupService:
         self.db.delete(connection)
         self.db.flush()
         self.connections.tags.cleanup_orphan_definitions(domain_kinds=[domain_kind])
-        self.db.commit()
+        commit_or_rollback(self.db)
         self.audit.record(
             user,
             provisioning,
@@ -133,7 +134,7 @@ class ManagedPrivateAccessCleanupService:
         )
 
         self.db.delete(provisioning)
-        self.db.commit()
+        commit_or_rollback(self.db)
         self.audit.record(
             user,
             provisioning,
