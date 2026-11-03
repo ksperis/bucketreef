@@ -9,6 +9,7 @@ from sqlalchemy import delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.db_transactions import commit_or_rollback
 from app.core.sqlite import ensure_sqlite_transaction_for_savepoint
 from app.db import User, UserNotification
 from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, UserRole
@@ -150,7 +151,7 @@ class UserNotificationsService:
         rows = self.db.scalars(visible).all()
         for row in rows:
             row.read_at = now
-        self.db.commit()
+        commit_or_rollback(self.db)
         return len(rows)
 
     def unread_count_for_user(self, user: User) -> int:
@@ -187,7 +188,7 @@ class UserNotificationsService:
             .execution_options(synchronize_session=False)
         ).rowcount
         if deleted:
-            self.db.commit()
+            commit_or_rollback(self.db)
         return int(deleted or 0)
 
     def _visible_notifications_statement(self, user: User):
