@@ -379,6 +379,21 @@ allowed.
   reuse the resulting server session and call `/api/auth/session`; no access
   token is stored in browser storage.
 
+## S3 User import durability
+
+Importing an existing RGW User uses `s3_user_import_intents` before BucketReef
+creates the managed interface access key. The intent snapshots the endpoint,
+RGW UID and tenant, requested local metadata, a generated access-key ID, and
+the generated secret encrypted with the normal credential encryption type.
+
+The workflow marks the intent as `creating` before the RGW mutation, creates
+the exact persisted credential pair, verifies that the access-key ID is present
+on the expected RGW principal, and only then checkpoints `remote_created`. A
+retry can therefore distinguish a key collision from a previous ambiguous
+create and can finish the local import without generating another credential.
+For a batch, remote intents are completed first; local S3 User rows and intent
+removal are committed together only after every remote credential is durable.
+
 ## S3 User deletion durability
 
 Deleting a BucketReef-managed S3 User is a durable saga when RGW must be

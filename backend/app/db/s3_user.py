@@ -68,6 +68,40 @@ class S3User(Base):
     )
 
 
+class S3UserImportIntent(Base):
+    """Durable intent for importing one existing RGW user credential."""
+
+    __tablename__ = "s3_user_import_intents"
+    __table_args__ = (
+        UniqueConstraint(
+            "storage_endpoint_id",
+            "rgw_tenant",
+            "rgw_user_uid",
+            name="uq_s3_user_import_intents_identity",
+        ),
+        CheckConstraint(
+            "phase IN ('prepared', 'creating', 'remote_created')",
+            name="ck_s3_user_import_intents_phase",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    storage_endpoint_id = Column(
+        Integer,
+        ForeignKey("storage_endpoints.id"),
+        nullable=False,
+    )
+    rgw_user_uid = Column(String, nullable=False)
+    rgw_tenant = Column(String, nullable=False, default="", server_default="")
+    requested_name = Column(String, nullable=True)
+    requested_email = Column(String, nullable=True)
+    access_key_id = Column(String, nullable=False)
+    secret_access_key = Column(EncryptedString, nullable=False)
+    phase = Column(String, nullable=False, default="prepared", server_default="prepared")
+    created_at = Column(UTCDateTime(), default=utcnow, nullable=False)
+    updated_at = Column(UTCDateTime(), default=utcnow, onupdate=utcnow, nullable=False)
+
+
 class S3UserDeletion(Base):
     """Durable intent for deleting a BucketReef-managed RGW user or access key."""
 

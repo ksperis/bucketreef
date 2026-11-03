@@ -1,5 +1,22 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 durable S3 user import
+
+Migration `0230_s3_user_import_intents` adds the `s3_user_import_intents`
+saga table. Before BucketReef creates the managed access key used to import an
+existing RGW User, it now persists the target identity plus a generated access
+key ID and encrypted secret. The RGW key is then created with that exact pair
+and checkpointed before the local `s3_users` row is committed.
+
+Retries resume the same intent. If RGW created the key but the checkpoint or
+final local commit failed, BucketReef verifies the deterministic access-key ID
+and reuses the encrypted secret instead of creating another key. For batch
+imports, all remote credentials are checkpointed before any local S3 User row
+is staged, preserving local batch atomicity.
+
+Complete pending S3 User imports before downgrading. Migration `0230` refuses
+to drop the intent table while it contains rows.
+
 ## 2026-11 durable S3 account deletion
 
 Migration `0229_s3_account_deletion_state` adds the `s3_account_deletions`
