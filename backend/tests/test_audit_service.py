@@ -3,7 +3,8 @@
 import json
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import event, func, select
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.db import AuditLog, S3Account, User
 from app.core.domain_enums import UserRole
@@ -60,6 +61,29 @@ def test_record_action_persists_account_as_canonical_context(db_session) -> None
     assert log.context_kind == "account"
     assert log.context_id == str(account.id)
     assert log.context_name == "persisted-account"
+
+
+def test_audit_insert_failure_does_not_rollback_pending_business_change(db_session) -> None:
+    user = _create_user(db_session)
+    user.full_name = "Updated before audit"
+
+    def fail_audit_flush(session, _flush_context, _instances) -> None:
+        if any(isinstance(row, AuditLog) for row in session.new):
+            raise SQLAlchemyError("audit insert failed")
+
+    event.listen(db_session, "before_flush", fail_audit_flush)
+    try:
+        AuditService(db_session).record_action(
+            user=user,
+            scope="admin",
+            action="review_ui_consistency",
+        )
+    finally:
+        event.remove(db_session, "before_flush", fail_audit_flush)
+
+    db_session.expire(user)
+    assert user.full_name == "Updated before audit"
+    assert db_session.scalar(select(func.count()).select_from(AuditLog)) == 0
 
 
 def test_record_action_persists_generic_execution_context(db_session) -> None:
