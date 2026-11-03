@@ -27,6 +27,7 @@ from app.main import app
 from app.models.ui_group import UiGroupCreate
 from app.routers import dependencies, execution_contexts
 from app.services.effective_access_service import EffectiveAccessService
+from app.services.ui_group_avatar_service import UiGroupAvatarService
 from app.services.ui_groups_service import UiGroupsService
 from app.services.users_service import UsersService
 from tests.auth_test_utils import authenticate_ui_client, trusted_origin_headers
@@ -423,6 +424,47 @@ def test_ui_group_avatar_supports_presets_upload_and_initials_fallback(client: T
     assert deleted.json()["avatar"]["source"] == "initials"
     assert deleted.json()["avatar"]["initials"] == "RO"
     assert client.get(f"/api/admin/groups/{group_id}/avatar").status_code == 404
+
+
+def test_ui_group_avatar_upload_rolls_back_when_commit_fails(
+    client: TestClient,
+    db_session,
+    monkeypatch,
+):
+    created = client.post(
+        "/api/admin/groups",
+        json=_group_create_payload(name="Rollback Avatar Group"),
+    )
+    assert created.status_code == 201, created.text
+    group = db_session.get(UiGroup, created.json()["id"])
+    assert group is not None
+    original_rollback = db_session.rollback
+    rollback_calls: list[None] = []
+
+    def rollback() -> None:
+        rollback_calls.append(None)
+        original_rollback()
+
+    def commit() -> None:
+        raise RuntimeError("commit failed")
+
+    monkeypatch.setattr(db_session, "rollback", rollback)
+    monkeypatch.setattr(db_session, "commit", commit)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        UiGroupAvatarService(db_session).store_uploaded_image(
+            group,
+            PNG_1X1,
+            "image/png",
+        )
+
+    assert rollback_calls == [None]
+    db_session.expire_all()
+    stored = db_session.get(UiGroup, group.id)
+    assert stored is not None
+    assert stored.avatar_image is None
+    assert stored.avatar_content_type is None
+    assert stored.avatar_source == "initials"
 
 
 def test_ui_group_patch_clears_nullable_description_and_stale_avatar_icon(client: TestClient, db_session):

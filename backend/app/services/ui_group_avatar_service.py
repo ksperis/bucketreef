@@ -6,6 +6,7 @@ import re
 
 from sqlalchemy.orm import Session
 
+from app.core.db_transactions import commit_or_rollback
 from app.core.domain_errors import AvatarNotFoundError
 from app.db import UiGroup
 from app.models.ui_group import UiGroupAvatar, UiGroupAvatarIcon, UiGroupAvatarSource
@@ -92,7 +93,7 @@ class UiGroupAvatarService:
 
     def _persist(self, group: UiGroup) -> None:
         self.db.add(group)
-        self.db.commit()
+        commit_or_rollback(self.db)
         self.db.refresh(group)
 
     def image(self, group_id: int) -> tuple[bytes, str, str]:
