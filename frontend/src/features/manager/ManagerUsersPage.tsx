@@ -28,7 +28,7 @@ import { workflowPageHostClass } from "../../components/WorkflowPage";
 
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import { extractApiError } from "../../utils/apiError";
-import { stableSignature } from "../../utils/stableSignature";
+import { useSettingsBaseline } from "../../components/settings/useSettingsDraft";
 import { compareByNullableField, nextSortState, type SortableField } from "../../utils/sortValues";
 import InlinePolicyDraftEditor from "./InlinePolicyDraftEditor";
 import ManagedPolicySelectionPanel from "./ManagedPolicySelectionPanel";
@@ -117,17 +117,6 @@ export default function ManagerUsersPage() {
   const groupOptionsId = useId();
   const [showGroupOptions, setShowGroupOptions] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [advancedInitialSignature, setAdvancedInitialSignature] = useState(() =>
-    stableSignature({
-      advancedName: "",
-      createKey: true,
-      selectedGroups: [],
-      selectedPolicies: [],
-      inlineDrafts: [],
-      inlineDraftName: "",
-      inlinePolicyText: "",
-    })
-  );
   const [sort, setSort] = useState<{ field: SortField; direction: "asc" | "desc" }>({
     field: "name",
     direction: "asc",
@@ -184,26 +173,26 @@ export default function ManagerUsersPage() {
     return sorted;
   }, [users, sort]);
 
-  const advancedCurrentSignature = useMemo(
-    () =>
-      stableSignature({
-        advancedName,
-        createKey,
-        selectedGroups,
-        selectedPolicies,
-        inlineDrafts,
-        inlineDraftName,
-        inlinePolicyText,
-      }),
-    [
-      advancedName,
-      createKey,
-      inlineDraftName,
-      inlineDrafts,
-      inlinePolicyText,
-      selectedGroups,
-      selectedPolicies,
-    ]
+  const advancedDraft = {
+    advancedName,
+    createKey,
+    selectedGroups,
+    selectedPolicies,
+    inlineDrafts,
+    inlineDraftName,
+    inlinePolicyText,
+  };
+  const { accept: acceptAdvancedDraft, dirty: advancedDraftDirty } = useSettingsBaseline(
+    advancedDraft,
+    {
+      advancedName: "",
+      createKey: true,
+      selectedGroups: [],
+      selectedPolicies: [],
+      inlineDrafts: [],
+      inlineDraftName: "",
+      inlinePolicyText: "",
+    },
   );
   const tableStatus = resolveListTableStatus({
     loading,
@@ -296,17 +285,15 @@ export default function ManagerUsersPage() {
     resetPolicySelection();
     resetInlinePolicyDraftEditor();
     setShowCreateForm(true);
-    setAdvancedInitialSignature(
-      stableSignature({
-        advancedName: "",
-        createKey: true,
-        selectedGroups: [],
-        selectedPolicies: [],
-        inlineDrafts: [],
-        inlineDraftName: "",
-        inlinePolicyText: "",
-      })
-    );
+    acceptAdvancedDraft({
+      advancedName: "",
+      createKey: true,
+      selectedGroups: [],
+      selectedPolicies: [],
+      inlineDrafts: [],
+      inlineDraftName: "",
+      inlinePolicyText: "",
+    });
   };
 
   const closeCreateForm = () => {
@@ -560,7 +547,7 @@ export default function ManagerUsersPage() {
           backLabel={text("Back to users")}
           onClose={closeCreateForm}
           contentVariant="plain"
-          dirty={advancedCurrentSignature !== advancedInitialSignature}
+          dirty={advancedDraftDirty}
           error={error} onSubmit={handleAdvancedCreate}
           busy={busy !== null} disabled={needsContextSelection || namingValidationProfile === null}
           submitLabel={text("Create user")} busyLabel={text("Creating...")}
