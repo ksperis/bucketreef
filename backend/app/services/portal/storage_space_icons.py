@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from urllib.parse import quote
 
+from app.core.db_transactions import commit_or_rollback
 from app.db import PortalStorageSpaceMetadata, User
 from app.core.domain_enums import PortalAccountRole
 from app.models.portal_storage_spaces import (
@@ -102,7 +103,7 @@ class PortalStorageSpaceIconsMixin:
         metadata.icon_source = source
         metadata.icon_updated_at = utcnow()
         self.db.add(metadata)
-        self.db.commit()
+        commit_or_rollback(self.db)
         self.db.refresh(metadata)
         return self._storage_space_icon_descriptor(metadata)
 
@@ -123,7 +124,7 @@ class PortalStorageSpaceIconsMixin:
         metadata.icon_source = "uploaded"
         metadata.icon_updated_at = utcnow()
         self.db.add(metadata)
-        self.db.commit()
+        commit_or_rollback(self.db)
         self.db.refresh(metadata)
         return self._storage_space_icon_descriptor(metadata)
 
@@ -141,7 +142,7 @@ class PortalStorageSpaceIconsMixin:
         metadata.icon_source = "preset"
         metadata.icon_updated_at = utcnow()
         self.db.add(metadata)
-        self.db.commit()
+        commit_or_rollback(self.db)
         self.db.refresh(metadata)
         return self._storage_space_icon_descriptor(metadata)
 
