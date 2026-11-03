@@ -80,7 +80,7 @@ class ApiTokenService:
             expires_at=expires_at,
         )
         self.db.add(row)
-        self.db.commit()
+        commit_or_rollback(self.db)
         self.db.refresh(row)
         return token, row
 
@@ -104,7 +104,7 @@ class ApiTokenService:
             raise ApiTokenNotFoundError("API token not found")
         if row.revoked_at is None:
             row.revoked_at = utcnow()
-            self.db.commit()
+            commit_or_rollback(self.db)
             self.db.refresh(row)
         return row
 
