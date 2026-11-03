@@ -129,6 +129,33 @@ def test_users_me_uploads_serves_and_deletes_profile_avatar(client, db_session):
     assert client.get(f"/api/users/{user.id}/avatar").status_code == 404
 
 
+def test_user_avatar_upload_rolls_back_when_commit_fails(db_session, monkeypatch):
+    user = _seed_user(db_session, hashed_password=get_password_hash("old-password"))
+    original_rollback = db_session.rollback
+    rollback_calls: list[None] = []
+
+    def rollback() -> None:
+        rollback_calls.append(None)
+        original_rollback()
+
+    def commit() -> None:
+        raise RuntimeError("commit failed")
+
+    monkeypatch.setattr(db_session, "rollback", rollback)
+    monkeypatch.setattr(db_session, "commit", commit)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        UserAvatarService(db_session).store_uploaded_image(user, PNG_1X1, "image/png")
+
+    assert rollback_calls == [None]
+    db_session.expire_all()
+    stored = db_session.get(User, user.id)
+    assert stored is not None
+    assert stored.avatar_image is None
+    assert stored.avatar_content_type is None
+    assert stored.avatar_preference == "auto"
+
+
 def test_avatar_upload_rejects_unsupported_content(client, db_session):
     user = _seed_user(db_session, hashed_password=get_password_hash("old-password"))
     app.dependency_overrides[dependencies.get_current_user] = lambda: user

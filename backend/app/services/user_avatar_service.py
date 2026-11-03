@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.db_transactions import commit_or_rollback
 from app.core.domain_errors import AvatarNotFoundError
 from app.db import UiGroupS3Account, User, UserS3Account, UserUiGroup
 from app.core.domain_enums import PortalAccountRole, is_admin_ui_role
@@ -137,7 +138,7 @@ class UserAvatarService:
 
     def _persist(self, user: User) -> None:
         self.db.add(user)
-        self.db.commit()
+        commit_or_rollback(self.db)
         self.db.refresh(user)
 
     def image_for_viewer(self, viewer: User, target_user_id: int) -> tuple[bytes, str, str]:
