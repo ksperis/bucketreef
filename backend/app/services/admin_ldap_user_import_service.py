@@ -7,6 +7,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.db_transactions import commit_or_rollback
 from app.core.security import create_ldap_import_selection_token, decode_typed_token
 from app.db import AuthSession, ExternalIdentity, User
 from app.core.domain_enums import is_admin_ui_role
@@ -138,17 +139,21 @@ class AdminLdapUserImportService:
                         raise ValueError("LDAP identity is revoked; explicitly restore its existing link")
                     raise ValueError("LDAP identity is already linked to a UI user")
                 assert request.create is not None
-                return self._create_user(identity, request.create), identity.provider
-
-            target = self.db.get(User, request.target_user_id)
-            if target is None:
-                raise ValueError("Target UI user not found")
-            if request.action == "restore":
-                return self._restore_identity(identity, target, mapping), identity.provider
-            return self._link_identity(identity, target, mapping), identity.provider
+                imported = self._create_user(identity, request.create)
+            else:
+                target = self.db.get(User, request.target_user_id)
+                if target is None:
+                    raise ValueError("Target UI user not found")
+                if request.action == "restore":
+                    imported = self._restore_identity(identity, target, mapping)
+                else:
+                    imported = self._link_identity(identity, target, mapping)
         except Exception:
             self.db.rollback()
             raise
+        commit_or_rollback(self.db)
+        self.db.refresh(imported)
+        return imported, identity.provider
 
     def _create_user(self, identity: LDAPIdentity, payload: LDAPImportCreatePayload) -> User:
         email = str(payload.email).strip().lower()
@@ -197,8 +202,6 @@ class AdminLdapUserImportService:
         associations = UserAssociationsService(self.db)
         associations.apply_updates(user, payload)
         self.db.add(user)
-        self.db.commit()
-        self.db.refresh(user)
         return user
 
     def _link_identity(
@@ -232,8 +235,6 @@ class AdminLdapUserImportService:
             "external_identity_changed",
             increment_version=False,
         )
-        self.db.commit()
-        self.db.refresh(target)
         return target
 
     def _restore_identity(
@@ -256,6 +257,4 @@ class AdminLdapUserImportService:
             "external_identity_restored",
             increment_version=False,
         )
-        self.db.commit()
-        self.db.refresh(target)
         return target
