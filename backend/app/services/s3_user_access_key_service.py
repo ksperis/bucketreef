@@ -2,8 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from sqlalchemy.orm import Session
-
 from app.core.domain_errors import S3AccessKeyNotFoundError, S3UserNotFoundError
 from app.db import S3User
 from app.models.s3_user import S3UserAccessKey, S3UserGeneratedKey
@@ -13,10 +11,7 @@ from app.utils.rgw_payloads import require_rgw_user_identity
 
 
 class S3UserAccessKeyService:
-    """Manage RGW access keys for a persisted S3 user."""
-
-    def __init__(self, db: Session) -> None:
-        self.db = db
+    """Manage remote RGW access keys for a persisted S3 user."""
 
     @staticmethod
     def _tenant(s3_user: S3User) -> str:
@@ -87,7 +82,6 @@ class S3UserAccessKeyService:
             admin.extract_keys(response),
             existing_access_keys=existing_access_keys,
         )
-        self.db.commit()
         return key
 
     def set_key_status(
@@ -112,7 +106,6 @@ class S3UserAccessKeyService:
             raise ValueError(f"Unable to update access key status: {exc}") from exc
         for key in self.list_keys(s3_user, admin):
             if key.access_key_id == normalized:
-                self.db.commit()
                 return key
         raise S3AccessKeyNotFoundError("Access key not found after status update")
 
@@ -132,4 +125,3 @@ class S3UserAccessKeyService:
             )
         except RGWAdminError as exc:
             raise ValueError(f"Unable to delete access key: {exc}") from exc
-        self.db.commit()

@@ -115,6 +115,24 @@ class FakeRGWAdmin:
         payload["keys"] = filtered
         self.deleted_keys.append(access_key)
 
+    def set_access_key_status(
+        self,
+        uid: str,
+        access_key: str,
+        active: bool,
+        tenant: Optional[str] = None,
+    ):
+        if tenant is not None:
+            raise RGWAdminError("tenant not supported in fake")
+        payload = self.remote_users.get(uid)
+        if payload is None:
+            raise RGWAdminError("user not found")
+        for key in payload.get("keys", []):
+            if key.get("access_key") == access_key:
+                key["status"] = "enabled" if active else "disabled"
+                return {"ok": True}
+        raise RGWAdminError("key not found", status_code=404)
+
     def set_user_quota(
         self,
         uid: str,
@@ -1296,6 +1314,33 @@ def test_delete_key_validations(db_session, monkeypatch):
     extra_key = service.create_access_key_entry(created.id).access_key_id
     service.delete_key(created.id, extra_key)
     assert extra_key in fake.deleted_keys
+
+
+def test_remote_key_mutations_do_not_commit_database_session(db_session, monkeypatch):
+    endpoint = _seed_ceph_endpoint(db_session)
+    fake = FakeRGWAdmin()
+    service = _build_service(db_session, monkeypatch, fake)
+    created = service.create_user(
+        S3UserCreate(
+            name="Remote-only keys",
+            uid="remote-only-keys",
+            rgw_tenant="",
+            storage_endpoint_id=endpoint.id,
+        )
+    )
+
+    monkeypatch.setattr(
+        db_session,
+        "commit",
+        lambda: pytest.fail("remote-only key operations must not commit the database"),
+    )
+
+    generated = service.create_access_key_entry(created.id)
+    updated = service.set_key_status(created.id, generated.access_key_id, False)
+    service.delete_key(created.id, generated.access_key_id)
+
+    assert updated.is_active is False
+    assert generated.access_key_id in fake.deleted_keys
 
 
 def test_delete_user_with_delete_rgw_checks_buckets_then_deletes(db_session, monkeypatch):
