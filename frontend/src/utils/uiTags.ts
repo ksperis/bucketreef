@@ -54,6 +54,16 @@ export function normalizeUiTags(values?: Array<UiTagLike> | null): UiTagDefiniti
   return normalized;
 }
 
+export function canonicalizeUiTags(values?: Array<UiTagLike> | null): UiTagDefinition[] {
+  return normalizeUiTags(values).sort((left, right) => {
+    const leftLabel = left.label.toLocaleLowerCase();
+    const rightLabel = right.label.toLocaleLowerCase();
+    if (leftLabel < rightLabel) return -1;
+    if (leftLabel > rightLabel) return 1;
+    return 0;
+  });
+}
+
 export function filterSelectorVisibleUiTags(values?: Array<UiTagLike> | null): UiTagDefinition[] {
   return normalizeUiTags(values).filter((entry) => entry.scope !== "administrative");
 }
