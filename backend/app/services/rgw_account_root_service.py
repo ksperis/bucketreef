@@ -2,7 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 import logging
 import re
-from dataclasses import dataclass
 from typing import Any, Optional
 
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
@@ -20,14 +19,6 @@ from app.utils.rgw_payloads import (
 
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass(frozen=True)
-class RgwAccountImportCredentials:
-    access_key: str
-    secret_key: str
-    created_root: bool = False
-    created_access_key_id: str | None = None
 
 
 class RgwAccountRootService:
@@ -159,101 +150,6 @@ class RgwAccountRootService:
         )
         return uid, candidate_tenant
 
-    def obtain_import_credentials(
-        self,
-        admin: RGWAdminClient,
-        *,
-        account_id: str,
-        root_uid: str,
-        root_display_name: str,
-        tenant: str,
-    ) -> RgwAccountImportCredentials:
-        existing_root = self.load_existing_root_user(
-            admin,
-            root_uid,
-            account_id,
-            tenant,
-        )
-        created_root = False
-        created_access_key_id: str | None = None
-        access_key, secret_key = self._extract_credentials(admin, existing_root)
-        try:
-            if not access_key or not secret_key:
-                if not existing_root:
-                    response, created_root = self._create_import_root(
-                        admin,
-                        account_id=account_id,
-                        root_uid=root_uid,
-                        root_display_name=root_display_name,
-                        tenant=tenant,
-                    )
-                    access_key, secret_key = self._extract_credentials(admin, response)
-                    if not access_key or not secret_key:
-                        existing_root = self.load_existing_root_user(
-                            admin,
-                            root_uid,
-                            account_id,
-                            tenant,
-                        )
-                        access_key, secret_key = self._extract_credentials(
-                            admin,
-                            existing_root,
-                        )
-                if not access_key or not secret_key:
-                    access_key, secret_key, created_access_key_id = (
-                        self._create_import_access_key(
-                            admin,
-                            account_id=account_id,
-                            root_uid=root_uid,
-                            tenant=tenant,
-                        )
-                    )
-            if not access_key or not secret_key:
-                raise ValueError(f"Unable to obtain root keys for account {account_id}")
-            if not self.load_existing_root_user(admin, root_uid, account_id, tenant):
-                raise ValueError("RGW account root could not be verified after import")
-            return RgwAccountImportCredentials(
-                access_key=access_key,
-                secret_key=secret_key,
-                created_root=created_root,
-                created_access_key_id=created_access_key_id,
-            )
-        except Exception as exc:
-            if created_root or created_access_key_id:
-                try:
-                    self.rollback_import_credentials(
-                        admin,
-                        root_uid=root_uid,
-                        tenant=tenant,
-                        created_root=created_root,
-                        created_access_key_id=created_access_key_id,
-                    )
-                except Exception as rollback_exc:
-                    raise RuntimeError(
-                        "Unable to obtain RGW account root credentials. "
-                        "Remote rollback also failed."
-                    ) from exc
-            raise
-
-    @staticmethod
-    def rollback_import_credentials(
-        admin: RGWAdminClient,
-        *,
-        root_uid: str,
-        tenant: str,
-        created_root: bool,
-        created_access_key_id: str | None,
-    ) -> None:
-        if created_root:
-            admin.delete_user(root_uid, tenant=tenant or None)
-            return
-        if created_access_key_id:
-            admin.delete_access_key(
-                root_uid,
-                created_access_key_id,
-                tenant=tenant or None,
-            )
-
     @staticmethod
     def _extract_credentials(
         admin: RGWAdminClient,
@@ -262,103 +158,6 @@ class RgwAccountRootService:
         return RgwUserKeyParser.select_complete_credentials(
             admin.extract_keys(payload or {})
         )
-
-    def _create_import_root(
-        self,
-        admin: RGWAdminClient,
-        *,
-        account_id: str,
-        root_uid: str,
-        root_display_name: str,
-        tenant: str,
-    ) -> tuple[dict[str, Any] | None, bool]:
-        response = admin.create_user_with_account_id(
-            uid=root_uid,
-            account_id=account_id,
-            display_name=root_display_name,
-            account_root=True,
-            **({"tenant": tenant} if tenant else {}),
-        )
-        if not (isinstance(response, dict) and response.get("conflict")):
-            return response, True
-
-        existing_root = self.load_existing_root_user(
-            admin,
-            root_uid,
-            account_id,
-            tenant,
-        )
-        if not existing_root:
-            raise ValueError(
-                "RGW root UID conflict; account ownership could not be verified"
-            )
-        return existing_root, False
-
-    def _create_import_access_key(
-        self,
-        admin: RGWAdminClient,
-        *,
-        account_id: str,
-        root_uid: str,
-        tenant: str,
-    ) -> tuple[str | None, str | None, str | None]:
-        verified_root = self.load_existing_root_user(
-            admin,
-            root_uid,
-            account_id,
-            tenant,
-        )
-        if not verified_root:
-            raise ValueError(
-                "RGW account root could not be verified before key creation"
-            )
-        existing_access_keys = RgwUserKeyParser.access_key_ids(
-            admin.extract_keys(verified_root)
-        )
-        try:
-            response = admin.create_access_key(
-                root_uid,
-                tenant=tenant or None,
-            )
-        except RGWAdminError:
-            return None, None, None
-        response_keys = admin.extract_keys(response)
-        new_access_keys = (
-            RgwUserKeyParser.access_key_ids(response_keys) - existing_access_keys
-        )
-        if len(new_access_keys) != 1:
-            current_root = self.load_existing_root_user(
-                admin,
-                root_uid,
-                account_id,
-                tenant,
-            )
-            new_access_keys = (
-                RgwUserKeyParser.access_key_ids(
-                    admin.extract_keys(current_root or {})
-                )
-                - existing_access_keys
-            )
-        if len(new_access_keys) != 1:
-            raise ValueError(
-                f"RGW did not return an unambiguous new root access key for account {account_id}"
-            )
-        created_access_key_id = next(iter(new_access_keys))
-        access_key, secret_key = self._extract_credentials(admin, response)
-        if access_key != created_access_key_id or not secret_key:
-            try:
-                admin.delete_access_key(
-                    root_uid,
-                    created_access_key_id,
-                    tenant=tenant or None,
-                )
-            except Exception as rollback_exc:
-                raise RuntimeError(
-                    "RGW root access-key creation returned incomplete credentials "
-                    "and cleanup failed."
-                ) from rollback_exc
-            return None, None, None
-        return access_key, secret_key, created_access_key_id
 
     def ensure_provisioned_credentials(
         self,

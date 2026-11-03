@@ -109,6 +109,45 @@ class S3Account(Base):
         return None
 
 
+class S3AccountImportIntent(Base):
+    """Durable intent for importing one existing RGW account."""
+
+    __tablename__ = "s3_account_import_intents"
+    __table_args__ = (
+        UniqueConstraint(
+            "rgw_account_id",
+            name="uq_s3_account_import_intents_rgw_account",
+        ),
+        CheckConstraint(
+            "credential_action IN ('reuse', 'create_root', 'create_key')",
+            name="ck_s3_account_import_intents_credential_action",
+        ),
+        CheckConstraint(
+            "phase IN ('prepared', 'creating', 'remote_created')",
+            name="ck_s3_account_import_intents_phase",
+        ),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    storage_endpoint_id = Column(
+        Integer,
+        ForeignKey("storage_endpoints.id"),
+        nullable=False,
+    )
+    rgw_account_id = Column(String, nullable=False)
+    rgw_tenant = Column(String, nullable=False, default="", server_default="")
+    root_uid = Column(String, nullable=False)
+    account_name = Column(String, nullable=False)
+    requested_name = Column(String, nullable=True)
+    requested_email = Column(String, nullable=True)
+    credential_action = Column(String, nullable=False)
+    access_key_id = Column(String, nullable=False)
+    secret_access_key = Column(EncryptedString, nullable=False)
+    phase = Column(String, nullable=False, default="prepared", server_default="prepared")
+    created_at = Column(UTCDateTime(), default=utcnow, nullable=False)
+    updated_at = Column(UTCDateTime(), default=utcnow, onupdate=utcnow, nullable=False)
+
+
 class S3AccountDeletion(Base):
     """Durable checkpoints for destructive RGW account deletion."""
 

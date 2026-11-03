@@ -394,6 +394,27 @@ create and can finish the local import without generating another credential.
 For a batch, remote intents are completed first; local S3 User rows and intent
 removal are committed together only after every remote credential is durable.
 
+## S3 Account import durability
+
+Importing an existing RGW Account uses `s3_account_import_intents` before a
+missing account root or root access key is created. The intent snapshots the
+endpoint, RGW Account ID and tenant, resolved root UID, requested local
+metadata, and the root credential pair. The secret uses the normal encrypted
+credential type.
+
+The intent records one credential action: `reuse` for an existing complete
+root credential, `create_root` when the account has no root user, or
+`create_key` when the root exists without a complete credential. Remote
+creation actions persist the exact access-key/secret pair in `prepared`, move
+to `creating` before mutating RGW, verify the exact pair on the expected root,
+and then checkpoint `remote_created`. Retries therefore reuse the same
+credential and reject an access-key ID that resolves to a different secret.
+
+For a batch, every remote intent reaches `remote_created` before BucketReef
+stages local S3 Account rows. The local rows and intent deletion are committed
+together, preserving local batch atomicity while leaving any completed remote
+work recoverable after a later failure.
+
 ## S3 User deletion durability
 
 Deleting a BucketReef-managed S3 User is a durable saga when RGW must be

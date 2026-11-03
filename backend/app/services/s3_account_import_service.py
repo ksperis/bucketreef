@@ -2,26 +2,25 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-import logging
+import secrets
 from dataclasses import dataclass
 
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.db import S3Account, StorageEndpoint
+from app.core.db_transactions import commit_or_rollback
+from app.db import S3Account, S3AccountImportIntent, StorageEndpoint
 from app.models.s3_account import S3Account as S3AccountSchema, S3AccountImport
 from app.services.app_settings_service import load_app_settings_for_db
 from app.services.mappers.s3_account import s3_account_from_db
+from app.services.rgw_account_root_service import RgwAccountRootService
 from app.services.rgw_admin import RGWAdminClient
-from app.services.rgw_account_root_service import (
-    RgwAccountImportCredentials,
-    RgwAccountRootService,
-)
+from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.services.s3_account_repository import S3AccountRepository
 from app.services.s3_account_rgw_context_service import S3AccountRgwContextService
 from app.utils.rgw_payloads import extract_rgw_account_name
-
-
-logger = logging.getLogger(__name__)
+from app.utils.time import utcnow
 
 
 @dataclass(frozen=True)
@@ -35,14 +34,8 @@ class _PreparedAccountImport:
     rgw_tenant: str
 
 
-@dataclass(frozen=True)
-class _ResolvedAccountImport:
-    prepared: _PreparedAccountImport
-    credentials: RgwAccountImportCredentials
-
-
 class S3AccountImportService:
-    """Validate and persist existing RGW accounts imported into BucketReef."""
+    """Validate and durably import existing RGW accounts into BucketReef."""
 
     def __init__(
         self,
@@ -59,39 +52,32 @@ class S3AccountImportService:
 
     def import_accounts(self, imports: list[S3AccountImport]) -> list[S3AccountSchema]:
         prepared = self._prepare_imports(imports)
-        resolved: list[_ResolvedAccountImport] = []
+        if not prepared:
+            return []
+
+        claimed: list[tuple[_PreparedAccountImport, S3AccountImportIntent]] = []
         try:
             for item in prepared:
-                credentials = self.account_roots.obtain_import_credentials(
-                    item.admin,
-                    account_id=item.source.rgw_account_id,
-                    root_uid=item.root_uid,
-                    root_display_name=item.root_display_name,
-                    tenant=item.rgw_tenant,
-                )
-                resolved.append(
-                    _ResolvedAccountImport(
-                        prepared=item,
-                        credentials=credentials,
-                    )
-                )
+                intent = self._claim_intent(item)
+                self._ensure_remote_credentials(item, intent)
+                claimed.append((item, intent))
 
-            accounts: list[tuple[S3Account, StorageEndpoint]] = []
-            for item in resolved:
-                prepared_item = item.prepared
-                credentials = item.credentials
+            accounts: list[
+                tuple[S3Account, StorageEndpoint, S3AccountImportIntent]
+            ] = []
+            for item, intent in claimed:
                 account = S3Account(
-                    name=prepared_item.account_name,
-                    rgw_account_id=prepared_item.source.rgw_account_id,
-                    rgw_tenant=prepared_item.rgw_tenant,
-                    rgw_access_key=credentials.access_key,
-                    rgw_secret_key=credentials.secret_key,
-                    rgw_user_uid=prepared_item.root_uid,
-                    email=prepared_item.source.email,
-                    storage_endpoint_id=prepared_item.endpoint.id,
+                    name=intent.account_name,
+                    rgw_account_id=intent.rgw_account_id,
+                    rgw_tenant=intent.rgw_tenant,
+                    rgw_access_key=intent.access_key_id,
+                    rgw_secret_key=intent.secret_access_key,
+                    rgw_user_uid=intent.root_uid,
+                    email=intent.requested_email,
+                    storage_endpoint_id=intent.storage_endpoint_id,
                 )
                 self.db.add(account)
-                accounts.append((account, prepared_item.endpoint))
+                accounts.append((account, item.endpoint, intent))
 
             self.db.flush()
             created = [
@@ -105,50 +91,15 @@ class S3AccountImportService:
                     storage_endpoint_capabilities=self.rgw_context.endpoint_capabilities(endpoint),
                     tags=[],
                 )
-                for account, endpoint in accounts
+                for account, endpoint, _intent in accounts
             ]
-            self.db.commit()
+            for _account, _endpoint, intent in accounts:
+                self.db.delete(intent)
+            commit_or_rollback(self.db)
             return created
-        except Exception as exc:
-            db_rollback_failed = False
-            try:
-                self.db.rollback()
-            except Exception as rollback_exc:  # pragma: no cover - defensive database failure
-                logger.error("Unable to roll back failed S3 account import transaction: %s", rollback_exc)
-                db_rollback_failed = True
-            remote_rollback_failed = self._rollback_resolved_imports(resolved)
-            if db_rollback_failed or remote_rollback_failed:
-                raise RuntimeError(
-                    "Unable to import S3 accounts. Local or RGW rollback also failed."
-                ) from exc
+        except Exception:
+            self.db.rollback()
             raise
-
-    def _rollback_resolved_imports(
-        self,
-        resolved: list[_ResolvedAccountImport],
-    ) -> bool:
-        failed = False
-        for item in reversed(resolved):
-            credentials = item.credentials
-            if not credentials.created_root and not credentials.created_access_key_id:
-                continue
-            prepared = item.prepared
-            try:
-                self.account_roots.rollback_import_credentials(
-                    prepared.admin,
-                    root_uid=prepared.root_uid,
-                    tenant=prepared.rgw_tenant,
-                    created_root=credentials.created_root,
-                    created_access_key_id=credentials.created_access_key_id,
-                )
-            except Exception as rollback_exc:  # pragma: no cover - defensive remote failure
-                logger.error(
-                    "Unable to roll back RGW root credentials for account %s: %s",
-                    prepared.source.rgw_account_id,
-                    rollback_exc,
-                )
-                failed = True
-        return failed
 
     def _prepare_imports(self, imports: list[S3AccountImport]) -> list[_PreparedAccountImport]:
         app_settings = load_app_settings_for_db(self.db)
@@ -187,7 +138,12 @@ class S3AccountImportService:
         rgw_info = admin.get_account(item.rgw_account_id, allow_not_found=True)
         if not rgw_info or rgw_info.get("not_found"):
             raise ValueError(f"S3Account {item.rgw_account_id} not found in RGW")
-        account_name = extract_rgw_account_name(rgw_info) or item.name or item.rgw_account_id
+        pending = self._pending_intent(item.rgw_account_id)
+        account_name = (
+            pending.account_name
+            if pending is not None
+            else extract_rgw_account_name(rgw_info) or item.name or item.rgw_account_id
+        )
         root_uid, rgw_tenant = self.account_roots.resolve_import_identity(
             admin,
             rgw_info,
@@ -198,7 +154,11 @@ class S3AccountImportService:
             raise ValueError(
                 "Requested RGW tenant does not match the account tenant returned by RGW"
             )
-        if rgw_tenant and not allow_managed_rgw_tenant_creation:
+        if (
+            pending is None
+            and rgw_tenant
+            and not allow_managed_rgw_tenant_creation
+        ):
             raise ValueError("Managed RGW tenant creation is disabled")
 
         return _PreparedAccountImport(
@@ -213,6 +173,180 @@ class S3AccountImportService:
             ),
             rgw_tenant=rgw_tenant,
         )
+
+    def _pending_intent(self, rgw_account_id: str) -> S3AccountImportIntent | None:
+        return self.db.scalar(
+            select(S3AccountImportIntent).where(
+                S3AccountImportIntent.rgw_account_id == rgw_account_id
+            )
+        )
+
+    @staticmethod
+    def _new_credentials() -> tuple[str, str]:
+        return secrets.token_hex(10).upper(), secrets.token_urlsafe(32)
+
+    def _claim_intent(self, item: _PreparedAccountImport) -> S3AccountImportIntent:
+        existing = self._pending_intent(item.source.rgw_account_id)
+        if existing is not None:
+            self._validate_intent(existing, item)
+            return existing
+
+        root = self.account_roots.load_existing_root_user(
+            item.admin,
+            item.root_uid,
+            item.source.rgw_account_id,
+            item.rgw_tenant,
+        )
+        access_key, secret_key = RgwUserKeyParser.select_complete_credentials(
+            item.admin.extract_keys(root or {})
+        )
+        if access_key and secret_key:
+            credential_action = "reuse"
+        else:
+            credential_action = "create_key" if root is not None else "create_root"
+            access_key, secret_key = self._new_credentials()
+
+        intent = S3AccountImportIntent(
+            storage_endpoint_id=item.endpoint.id,
+            rgw_account_id=item.source.rgw_account_id,
+            rgw_tenant=item.rgw_tenant,
+            root_uid=item.root_uid,
+            account_name=item.account_name,
+            requested_name=item.source.name,
+            requested_email=item.source.email,
+            credential_action=credential_action,
+            access_key_id=access_key,
+            secret_access_key=secret_key,
+            phase="prepared",
+            created_at=utcnow(),
+            updated_at=utcnow(),
+        )
+        self.db.add(intent)
+        try:
+            commit_or_rollback(self.db)
+        except IntegrityError:
+            existing = self._pending_intent(item.source.rgw_account_id)
+            if existing is None:
+                raise
+            self._validate_intent(existing, item)
+            return existing
+        self.db.refresh(intent)
+        return intent
+
+    @staticmethod
+    def _validate_intent(
+        intent: S3AccountImportIntent,
+        item: _PreparedAccountImport,
+    ) -> None:
+        if (
+            intent.storage_endpoint_id != item.endpoint.id
+            or intent.rgw_account_id != item.source.rgw_account_id
+            or intent.rgw_tenant != item.rgw_tenant
+            or intent.root_uid != item.root_uid
+            or intent.requested_name != item.source.name
+            or intent.requested_email != item.source.email
+        ):
+            raise ValueError(
+                "S3 account import is already pending with different request metadata"
+            )
+
+    def _checkpoint(self, intent: S3AccountImportIntent, phase: str) -> None:
+        intent.phase = phase
+        intent.updated_at = utcnow()
+        commit_or_rollback(self.db)
+        self.db.refresh(intent)
+
+    def _load_root(self, item: _PreparedAccountImport) -> dict | None:
+        return self.account_roots.load_existing_root_user(
+            item.admin,
+            item.root_uid,
+            item.source.rgw_account_id,
+            item.rgw_tenant,
+        )
+
+    @staticmethod
+    def _intent_credentials_in_root(
+        item: _PreparedAccountImport,
+        intent: S3AccountImportIntent,
+        root: dict,
+    ) -> bool:
+        access_key, secret_key = RgwUserKeyParser.credentials_for_access_key(
+            item.admin.extract_keys(root),
+            intent.access_key_id,
+        )
+        if access_key is None:
+            return False
+        if secret_key != intent.secret_access_key:
+            raise ValueError(
+                "RGW root access key collides with the pending import credential"
+            )
+        return True
+
+    def _ensure_remote_credentials(
+        self,
+        item: _PreparedAccountImport,
+        intent: S3AccountImportIntent,
+    ) -> None:
+        root = self._load_root(item)
+
+        if intent.credential_action == "reuse":
+            if intent.phase not in {"prepared", "remote_created"}:
+                raise ValueError(f"Unsupported S3 account import phase: {intent.phase}")
+            if root is None or not self._intent_credentials_in_root(item, intent, root):
+                raise ValueError("RGW account root credentials changed during import")
+            if intent.phase != "remote_created":
+                self._checkpoint(intent, "remote_created")
+            return
+
+        if intent.phase == "prepared":
+            while (
+                root is not None
+                and intent.access_key_id
+                in RgwUserKeyParser.access_key_ids(item.admin.extract_keys(root))
+            ):
+                intent.access_key_id, intent.secret_access_key = self._new_credentials()
+                intent.updated_at = utcnow()
+                commit_or_rollback(self.db)
+                self.db.refresh(intent)
+                root = self._load_root(item)
+            self._checkpoint(intent, "creating")
+
+        if intent.phase not in {"creating", "remote_created"}:
+            raise ValueError(f"Unsupported S3 account import phase: {intent.phase}")
+
+        root = self._load_root(item)
+        if root is None:
+            if intent.credential_action != "create_root":
+                raise ValueError("RGW account root disappeared during import")
+            item.admin.create_user_with_account_id(
+                uid=item.root_uid,
+                account_id=item.source.rgw_account_id,
+                display_name=item.root_display_name,
+                account_root=True,
+                generate_key=False,
+                tenant=item.rgw_tenant or None,
+                access_key=intent.access_key_id,
+                secret_key=intent.secret_access_key,
+            )
+            root = self._load_root(item)
+            if root is None:
+                raise ValueError("RGW account root could not be verified after creation")
+
+        if not self._intent_credentials_in_root(item, intent, root):
+            item.admin.create_access_key(
+                item.root_uid,
+                tenant=item.rgw_tenant or None,
+                access_key=intent.access_key_id,
+                secret_key=intent.secret_access_key,
+            )
+            root = self._load_root(item)
+            if root is None or not self._intent_credentials_in_root(item, intent, root):
+                raise ValueError(
+                    "RGW did not persist the requested root access credential"
+                )
+
+        if intent.phase != "remote_created":
+            self._checkpoint(intent, "remote_created")
 
     def _validate_names(self, prepared: list[_PreparedAccountImport]) -> None:
         seen_scopes: set[tuple[int, str, str]] = set()

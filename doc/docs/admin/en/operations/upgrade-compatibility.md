@@ -1,5 +1,25 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 durable S3 account import
+
+Migration `0231_s3_account_import_intents` adds the
+`s3_account_import_intents` saga table. Before BucketReef creates a missing
+RGW Account root user or root access key, it persists the target identity and
+the exact credential pair that the remote mutation must use. Secrets use the
+normal encrypted credential type.
+
+Retries resume the same intent through `prepared`, `creating`, and
+`remote_created`. Existing complete root credentials are snapshotted and
+reused; missing credentials use a deterministic persisted pair. A retry after
+an ambiguous RGW or database failure verifies the exact access-key/secret pair
+before continuing, so it does not silently accept an access-key collision or
+generate another credential. For batch imports, all remote intents are
+completed before local S3 Account rows are staged, preserving local batch
+atomicity.
+
+Complete pending S3 Account imports before downgrading. Migration `0231`
+refuses to drop the intent table while it contains rows.
+
 ## 2026-11 durable S3 user import
 
 Migration `0230_s3_user_import_intents` adds the `s3_user_import_intents`

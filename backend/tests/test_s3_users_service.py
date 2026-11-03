@@ -350,6 +350,59 @@ def test_import_users_recovers_after_commit_failure_without_recreating_remote_ke
     ) == 0
 
 
+def test_import_user_rejects_pending_access_key_secret_collision(
+    db_session,
+    monkeypatch,
+):
+    endpoint = _seed_ceph_endpoint(db_session)
+    fake = FakeRGWAdmin()
+    fake.remote_users["import-collision"] = {
+        "display_name": "Import collision",
+        "email": None,
+        "keys": [
+            {
+                "access_key": "COLLIDING-KEY",
+                "secret_key": "REMOTE-SECRET",
+                "status": "enabled",
+            }
+        ],
+    }
+    service = _build_service(db_session, monkeypatch, fake)
+    db_session.add(
+        S3UserImportIntent(
+            storage_endpoint_id=endpoint.id,
+            rgw_user_uid="import-collision",
+            rgw_tenant="",
+            requested_name=None,
+            requested_email=None,
+            access_key_id="COLLIDING-KEY",
+            secret_access_key="PERSISTED-SECRET",
+            phase="creating",
+        )
+    )
+    db_session.commit()
+
+    with pytest.raises(
+        ValueError,
+        match="collides with the pending S3 user import credential",
+    ):
+        service.import_users(
+            [
+                S3UserImport(
+                    uid="import-collision",
+                    storage_endpoint_id=endpoint.id,
+                )
+            ]
+        )
+
+    assert fake.created_keys == []
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(S3User)
+        .where(S3User.rgw_user_uid == "import-collision")
+    ) == 0
+
+
 def test_import_users_mid_batch_failure_preserves_durable_intents_for_retry(
     db_session,
     monkeypatch,

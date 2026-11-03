@@ -91,6 +91,7 @@ DOMAINS = (
             "key_rotation_intents",
             "manager_access_key_metadata",
             "s3_accounts",
+            "s3_account_import_intents",
             "s3_account_deletions",
             "user_s3_accounts",
             "account_iam_users",

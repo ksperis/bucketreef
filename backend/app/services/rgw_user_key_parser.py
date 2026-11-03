@@ -44,6 +44,18 @@ class RgwUserKeyParser:
             if (access_key := cls._access_key(entry)) is not None
         }
 
+    @classmethod
+    def credentials_for_access_key(
+        cls,
+        entries: list[dict],
+        access_key_id: str,
+    ) -> tuple[Optional[str], Optional[str]]:
+        for entry in entries:
+            access_key = cls._access_key(entry)
+            if access_key == access_key_id:
+                return access_key, cls._secret_key(entry)
+        return None, None
+
     @staticmethod
     def _created_source(entry: dict[str, Any]) -> Any:
         return (
