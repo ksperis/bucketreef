@@ -12,6 +12,7 @@ export type BucketFeatureStatus = {
 
 export type Bucket = {
   name: string;
+  tenant?: string | null;
   creation_date?: string;
   owner?: string | null;
   owner_name?: string | null;

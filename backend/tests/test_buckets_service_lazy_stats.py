@@ -99,6 +99,17 @@ def test_list_buckets_skips_admin_stats_when_disabled(monkeypatch):
     assert buckets[0].quota_max_objects is None
 
 
+def test_list_buckets_exposes_resolved_tenant(monkeypatch):
+    service = BucketsService()
+    account = _build_account()
+    account.rgw_tenant = "tenant-a"
+    monkeypatch.setattr(s3_client, "list_buckets", lambda **kwargs: [{"name": "bucket-a"}])
+
+    buckets = service.list_buckets(account, with_stats=False)
+
+    assert buckets[0].tenant == "tenant-a"
+
+
 def test_list_buckets_fetches_admin_stats_when_enabled(monkeypatch):
     service = BucketsService()
     account = _build_account()

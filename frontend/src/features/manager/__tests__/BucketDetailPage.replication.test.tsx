@@ -733,19 +733,52 @@ describe("BucketDetailPage replication state", () => {
 
     expect(overviewSection).not.toBeNull();
     expect(within(overviewSection as HTMLElement).queryByRole("heading", { name: "Bucket demo-bucket" })).not.toBeInTheDocument();
-    for (const heading of [
+    const expectedHeadings = [
       "Bucket details",
-      "Active features",
       "Usage",
-      "Quotas",
+      "Active features",
       "Data protection",
       "Access & exposure",
       "Data management",
-    ]) {
+    ];
+    const overviewHeadings = expectedHeadings.map((heading) =>
+      within(overviewSection as HTMLElement).getByRole("heading", { name: heading }),
+    );
+    for (const heading of expectedHeadings) {
       expect(within(overviewSection as HTMLElement).getByRole("heading", { name: heading })).toBeInTheDocument();
     }
+    for (let index = 1; index < overviewHeadings.length; index += 1) {
+      expect(
+        overviewHeadings[index - 1].compareDocumentPosition(overviewHeadings[index]) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    }
+    expect(within(overviewSection as HTMLElement).queryByRole("heading", { name: "Quotas" })).not.toBeInTheDocument();
+    expect(within(overviewSection as HTMLElement).queryByText("Tenant")).not.toBeInTheDocument();
     expect(within(overviewSection as HTMLElement).queryByRole("heading", { name: "Bucket properties" })).not.toBeInTheDocument();
     expect(within(overviewSection as HTMLElement).getByText("Unavailable")).toBeInTheDocument();
+  });
+
+  it("shows the bucket tenant in details only when it is present", async () => {
+    listCephAdminBucketsMock.mockResolvedValueOnce({
+      items: [{ name: "demo-bucket", tenant: "tenant-a" }],
+    });
+
+    render(
+      <MemoryRouter>
+        <BucketDetailPage
+          mode="ceph-admin"
+          bucketNameOverride="demo-bucket"
+          cephAdminTenantOverride="tenant-a"
+          embedded
+        />
+      </MemoryRouter>
+    );
+
+    const detailsHeading = await screen.findByRole("heading", { name: "Bucket details" });
+    const detailsSection = detailsHeading.closest("section");
+    expect(detailsSection).not.toBeNull();
+    expect(within(detailsSection as HTMLElement).getByText("Tenant")).toBeInTheDocument();
+    expect(within(detailsSection as HTMLElement).getByText("tenant-a")).toBeInTheDocument();
   });
 
   it("shows a read-only object browser for Ceph Admin buckets", async () => {
