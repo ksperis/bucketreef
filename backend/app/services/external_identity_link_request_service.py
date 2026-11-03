@@ -9,6 +9,7 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.db_transactions import commit_or_rollback
 from app.db import ExternalIdentity, ExternalIdentityLinkAttempt, ExternalIdentityLinkRequest, User
 from app.core.domain_enums import UserRole
 from app.services.auth_session_service import AuthSessionService
@@ -23,13 +24,6 @@ class ExternalIdentityLinkRequestService:
     def __init__(self, db: Session) -> None:
         self.db = db
         self.queries = ExternalIdentityQueryService(db)
-
-    def _commit(self) -> None:
-        try:
-            self.db.commit()
-        except Exception:
-            self.db.rollback()
-            raise
 
     def list(self, *, include_decided: bool = False) -> list[ExternalIdentityLinkRequest]:
         return self.queries.list_link_requests(include_decided=include_decided)
@@ -63,7 +57,7 @@ class ExternalIdentityLinkRequestService:
                 "external_identity_changed",
                 increment_version=False,
             )
-        self._commit()
+        commit_or_rollback(self.db)
         self.db.refresh(request)
         return request
 
@@ -120,7 +114,7 @@ class ExternalIdentityLinkRequestService:
         self.db.add(request)
         self.db.flush()
         self._notify_admins(request, user)
-        self._commit()
+        commit_or_rollback(self.db)
         self.db.refresh(request)
         return request
 
@@ -291,7 +285,7 @@ class ExternalIdentityLinkRequestService:
             request.display_name = full_name
             request.picture_url = picture_url
             self.db.add(request)
-            self._commit()
+            commit_or_rollback(self.db)
             self.db.refresh(request)
         return request
 

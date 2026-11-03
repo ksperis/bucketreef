@@ -5,6 +5,7 @@ from __future__ import annotations
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from app.core.db_transactions import commit_or_rollback
 from app.db import CostEndpointOverride, CostModel, StorageEndpoint
 from app.models.cost import CostEndpointOverride as CostEndpointOverrideModel
 from app.models.cost import CostGlobalModel, CostSettings
@@ -14,13 +15,6 @@ from app.utils.time import utcnow
 class CostSettingsService:
     def __init__(self, db: Session) -> None:
         self.db = db
-
-    def _commit(self) -> None:
-        try:
-            self.db.commit()
-        except Exception:
-            self.db.rollback()
-            raise
 
     def get_settings(self) -> CostSettings:
         model = self.db.get(CostModel, 1)
@@ -68,7 +62,7 @@ class CostSettingsService:
             model = self.db.get(CostModel, 1)
             if model is not None:
                 self.db.delete(model)
-            self._commit()
+            commit_or_rollback(self.db)
             return self.get_settings()
 
         now = utcnow()
@@ -106,5 +100,5 @@ class CostSettingsService:
             row.requests_per_1000_price = item.requests_per_1000_price
             row.updated_at = now
 
-        self._commit()
+        commit_or_rollback(self.db)
         return self.get_settings()

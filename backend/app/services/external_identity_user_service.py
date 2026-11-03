@@ -9,6 +9,7 @@ from typing import NoReturn, Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.db_transactions import commit_or_rollback
 from app.core.domain_errors import ExternalIdentityNotFoundError
 from app.db import ExternalIdentity, ExternalIdentityLinkRequest, User
 from app.core.domain_enums import UserRole
@@ -42,13 +43,6 @@ class ExternalIdentityUserService:
         self.db = db
         self.queries = ExternalIdentityQueryService(db)
         self.link_requests = ExternalIdentityLinkRequestService(db)
-
-    def _commit(self) -> None:
-        try:
-            self.db.commit()
-        except Exception:
-            self.db.rollback()
-            raise
 
     def get_or_create_oidc_user(
         self,
@@ -159,7 +153,7 @@ class ExternalIdentityUserService:
                 reason,
                 increment_version=False,
             )
-        self._commit()
+        commit_or_rollback(self.db)
         self.db.refresh(identity)
         return identity
 
@@ -178,7 +172,7 @@ class ExternalIdentityUserService:
             reason,
             increment_version=False,
         )
-        self._commit()
+        commit_or_rollback(self.db)
         self.db.refresh(identity)
         return identity
 
@@ -246,7 +240,7 @@ class ExternalIdentityUserService:
             "external_identity_changed",
             increment_version=False,
         )
-        self._commit()
+        commit_or_rollback(self.db)
         self.db.refresh(identity)
         return identity, True
 
@@ -339,7 +333,7 @@ class ExternalIdentityUserService:
         if full_name and not user.full_name:
             user.full_name = full_name
         self.db.add_all([identity, user])
-        self._commit()
+        commit_or_rollback(self.db)
         self.db.refresh(user)
         return user
 
@@ -518,7 +512,7 @@ class ExternalIdentityUserService:
             link_source="jit",
         )
         self.db.add(identity)
-        self._commit()
+        commit_or_rollback(self.db)
         self.db.refresh(user)
         return user
 

@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
+from app.core.db_transactions import commit_or_rollback
 from app.db import AuthChallenge, RecoveryCode, User, WebAuthnCredential
 from app.services.auth_session_service import AuthSessionService
 
@@ -21,13 +22,6 @@ class MfaResetResult:
 class MfaResetService:
     def __init__(self, db: Session) -> None:
         self.db = db
-
-    def _commit(self) -> None:
-        try:
-            self.db.commit()
-        except Exception:
-            self.db.rollback()
-            raise
 
     def reset(self, user: User, *, reason: str) -> MfaResetResult:
         passkeys_removed = self.db.execute(
@@ -52,7 +46,7 @@ class MfaResetService:
             reason,
             increment_version=False,
         )
-        self._commit()
+        commit_or_rollback(self.db)
         return MfaResetResult(
             passkeys_removed=passkeys_removed,
             recovery_codes_removed=recovery_codes_removed,

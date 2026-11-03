@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.db_transactions import commit_or_rollback
 from app.utils.time import utcnow
 
 
@@ -60,9 +61,8 @@ class IdentityProviderRepository(Generic[_PersistedProviderT]):
         apply(provider)
         self.db.add(provider)
         try:
-            self.db.commit()
+            commit_or_rollback(self.db)
         except IntegrityError as exc:
-            self.db.rollback()
             raise IdentityProviderAlreadyExistsError(f"{self.provider_label} provider already exists") from exc
         self.db.refresh(provider)
         return provider
@@ -75,22 +75,14 @@ class IdentityProviderRepository(Generic[_PersistedProviderT]):
         provider = self._get_mutable(provider_id)
         apply(provider)
         provider.updated_at = utcnow()
-        try:
-            self.db.commit()
-        except Exception:
-            self.db.rollback()
-            raise
+        commit_or_rollback(self.db)
         self.db.refresh(provider)
         return provider
 
     def delete(self, provider_id: str) -> None:
         provider = self._get_mutable(provider_id)
         self.db.delete(provider)
-        try:
-            self.db.commit()
-        except Exception:
-            self.db.rollback()
-            raise
+        commit_or_rollback(self.db)
 
     def _get(self, provider_id: str) -> _PersistedProviderT | None:
         return self.db.scalar(
