@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 
 from sqlalchemy.orm import Session
 
@@ -20,6 +21,9 @@ from app.services.s3_user_rgw_context_service import S3UserRgwContextService
 from app.services.storage_endpoint_admin_permissions import require_endpoint_permissions
 from app.services.tags_service import TagsService
 from app.utils.rgw_payloads import split_rgw_tenant_uid
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -70,34 +74,66 @@ class S3UserProvisioningService:
         ):
             raise ValueError("An S3 user with this UID already exists in this tenant")
 
-        access_key, secret_key = self._provision_remote_user_credentials(
-            admin,
-            payload,
-            uid=uid,
-            tenant=tenant,
-        )
-        s3_user = S3User(
-            name=payload.name,
-            rgw_user_uid=uid,
-            rgw_tenant=tenant,
-            email=payload.email,
-            rgw_access_key=access_key,
-            rgw_secret_key=secret_key,
-            storage_endpoint_id=endpoint.id,
-        )
-        self.db.add(s3_user)
-        self.db.flush()
-        self.tags.replace_s3_user_tags(s3_user, payload.tags)
-
-        if payload.quota_max_size_gb is not None or payload.quota_max_objects is not None:
-            self.quota.update(
-                s3_user,
-                payload.quota_max_size_gb,
-                payload.quota_max_objects,
-                payload.quota_max_size_unit,
+        remote_created = False
+        try:
+            response = self._create_remote_user(
+                admin,
+                payload,
+                uid=uid,
+                tenant=tenant,
             )
+            remote_created = True
+            access_key, secret_key = self._resolve_remote_user_credentials(
+                admin,
+                response,
+                uid=uid,
+                tenant=tenant,
+            )
+            s3_user = S3User(
+                name=payload.name,
+                rgw_user_uid=uid,
+                rgw_tenant=tenant,
+                email=payload.email,
+                rgw_access_key=access_key,
+                rgw_secret_key=secret_key,
+                storage_endpoint_id=endpoint.id,
+            )
+            self.db.add(s3_user)
+            self.db.flush()
+            self.tags.replace_s3_user_tags(s3_user, payload.tags)
 
-        self.db.commit()
+            if payload.quota_max_size_gb is not None or payload.quota_max_objects is not None:
+                self.quota.update(
+                    s3_user,
+                    payload.quota_max_size_gb,
+                    payload.quota_max_objects,
+                    payload.quota_max_size_unit,
+                )
+
+            self.db.commit()
+        except Exception as exc:
+            db_rollback_failed = False
+            try:
+                self.db.rollback()
+            except Exception as rollback_exc:  # pragma: no cover - defensive database failure
+                logger.error(
+                    "Unable to roll back failed S3 user creation transaction: %s",
+                    rollback_exc,
+                )
+                db_rollback_failed = True
+            remote_rollback_failed = False
+            if remote_created:
+                remote_rollback_failed = self._delete_created_remote_user(
+                    admin,
+                    uid=uid,
+                    tenant=tenant,
+                )
+            if db_rollback_failed or remote_rollback_failed:
+                raise RuntimeError(
+                    "Unable to create S3 user. Local or RGW rollback also failed."
+                ) from exc
+            raise
+
         self.db.refresh(s3_user)
         quota_max_size_gb, quota_max_objects = self.metrics.get_quota(s3_user, admin)
         return S3UserProvisioningResult(
@@ -108,13 +144,13 @@ class S3UserProvisioningService:
         )
 
     @staticmethod
-    def _provision_remote_user_credentials(
+    def _create_remote_user(
         admin: RGWAdminClient,
         payload: S3UserCreate,
         *,
         uid: str,
         tenant: str,
-    ) -> tuple[str, str]:
+    ) -> dict:
         try:
             response = admin.create_user(
                 uid=uid,
@@ -126,7 +162,16 @@ class S3UserProvisioningService:
             raise ValueError(f"RGW user creation failed: {exc}") from exc
         if isinstance(response, dict) and response.get("conflict"):
             raise ValueError("An RGW user with this UID already exists in this tenant")
+        return response
 
+    @staticmethod
+    def _resolve_remote_user_credentials(
+        admin: RGWAdminClient,
+        response: dict,
+        *,
+        uid: str,
+        tenant: str,
+    ) -> tuple[str, str]:
         access_key, secret_key = RgwUserKeyParser.select_complete_credentials(
             admin.extract_keys(response)
         )
@@ -141,3 +186,21 @@ class S3UserProvisioningService:
         if not access_key or not secret_key:
             raise ValueError("RGW did not return access credentials for the new user")
         return access_key, secret_key
+
+    @staticmethod
+    def _delete_created_remote_user(
+        admin: RGWAdminClient,
+        *,
+        uid: str,
+        tenant: str,
+    ) -> bool:
+        try:
+            admin.delete_user(uid, tenant=tenant or None)
+        except Exception as exc:  # pragma: no cover - defensive remote failure
+            logger.error(
+                "Unable to remove RGW user %s after failed creation: %s",
+                uid,
+                exc,
+            )
+            return True
+        return False

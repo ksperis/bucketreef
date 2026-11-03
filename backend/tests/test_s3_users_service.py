@@ -204,6 +204,13 @@ class FakeTenantedRGWAdmin(FakeRGWAdmin):
             raise RGWAdminError("Unknown principal")
         return {"keys": [{"access_key": f"NEW-{tenant}-{uid}", "secret_key": "NEW-SECRET"}]}
 
+    def delete_user(self, uid, tenant=None):
+        key = (tenant or "", uid)
+        if key not in self.principals:
+            raise RGWAdminError("Unknown principal")
+        self.deleted_users.append(uid)
+        self.principals.pop(key)
+
     def get_user_quota(self, uid, tenant=None):
         return None, None
 
@@ -709,6 +716,144 @@ def test_create_user_persists_credentials(db_session, monkeypatch):
     assert record.rgw_access_key == "AK-standalone"
     assert record.rgw_secret_key == "SK-standalone"
     assert record.storage_endpoint_id == endpoint.id
+
+
+def test_create_user_commit_failure_compensates_remote_user(db_session, monkeypatch):
+    endpoint = _seed_ceph_endpoint(db_session)
+    fake = FakeRGWAdmin()
+    service = _build_service(db_session, monkeypatch, fake)
+
+    def fail_commit():
+        raise RuntimeError("simulated user create commit failure")
+
+    monkeypatch.setattr(db_session, "commit", fail_commit)
+
+    with pytest.raises(RuntimeError, match="simulated user create commit failure"):
+        service.create_user(
+            S3UserCreate(
+                name="Rollback create",
+                uid="rollback-create",
+                rgw_tenant="",
+                storage_endpoint_id=endpoint.id,
+            )
+        )
+
+    assert fake.deleted_users == ["rollback-create"]
+    assert "rollback-create" not in fake.remote_users
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(S3User)
+        .where(S3User.rgw_user_uid == "rollback-create")
+    ) == 0
+
+
+def test_create_user_key_failure_compensates_remote_user(db_session, monkeypatch):
+    endpoint = _seed_ceph_endpoint(db_session)
+    fake = FakeRGWAdmin()
+    service = _build_service(db_session, monkeypatch, fake)
+
+    def create_without_keys(uid, display_name, email="", tenant=None):
+        response = FakeRGWAdmin.create_user(
+            fake,
+            uid,
+            display_name,
+            email=email,
+            tenant=tenant,
+        )
+        fake.remote_users[uid]["keys"] = []
+        response["keys"] = []
+        return response
+
+    monkeypatch.setattr(fake, "create_user", create_without_keys)
+    monkeypatch.setattr(
+        fake,
+        "create_access_key",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            RGWAdminError("simulated key creation failure")
+        ),
+    )
+
+    with pytest.raises(ValueError, match="Unable to obtain RGW access keys"):
+        service.create_user(
+            S3UserCreate(
+                name="Missing credentials",
+                uid="missing-credentials",
+                rgw_tenant="",
+                storage_endpoint_id=endpoint.id,
+            )
+        )
+
+    assert fake.deleted_users == ["missing-credentials"]
+    assert "missing-credentials" not in fake.remote_users
+
+
+def test_create_tenanted_user_commit_failure_compensates_exact_remote_user(
+    db_session,
+    monkeypatch,
+):
+    endpoint = _seed_ceph_endpoint(db_session)
+    fake = FakeTenantedRGWAdmin()
+    service = _build_service(db_session, monkeypatch, fake)
+    settings = load_app_settings_for_db(db_session)
+    settings.general.allow_managed_rgw_tenant_creation = True
+    monkeypatch.setattr(
+        "app.services.s3_user_provisioning_service.load_app_settings_for_db",
+        lambda _db: settings,
+    )
+
+    monkeypatch.setattr(
+        db_session,
+        "commit",
+        lambda: (_ for _ in ()).throw(RuntimeError("simulated tenant commit failure")),
+    )
+
+    with pytest.raises(RuntimeError, match="simulated tenant commit failure"):
+        service.create_user(
+            S3UserCreate(
+                name="Tenant rollback",
+                uid="tenant-rollback",
+                rgw_tenant="team_a",
+                storage_endpoint_id=endpoint.id,
+            )
+        )
+
+    assert fake.deleted_users == ["tenant-rollback"]
+    assert ("team_a", "tenant-rollback") not in fake.principals
+
+
+def test_create_user_reports_remote_compensation_failure(db_session, monkeypatch):
+    endpoint = _seed_ceph_endpoint(db_session)
+    fake = FakeRGWAdmin()
+    service = _build_service(db_session, monkeypatch, fake)
+
+    def fail_commit():
+        raise RuntimeError("simulated user create commit failure")
+
+    monkeypatch.setattr(db_session, "commit", fail_commit)
+    monkeypatch.setattr(
+        fake,
+        "delete_user",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            RGWAdminError("simulated RGW cleanup failure")
+        ),
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="Local or RGW rollback also failed",
+    ) as raised:
+        service.create_user(
+            S3UserCreate(
+                name="Cleanup failure",
+                uid="cleanup-failure",
+                rgw_tenant="",
+                storage_endpoint_id=endpoint.id,
+            )
+        )
+
+    assert isinstance(raised.value.__cause__, RuntimeError)
+    assert str(raised.value.__cause__) == "simulated user create commit failure"
+    assert "cleanup-failure" in fake.remote_users
 
 
 def test_create_user_treats_blank_uid_as_automatic(db_session, monkeypatch):
