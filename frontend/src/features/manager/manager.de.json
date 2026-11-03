@@ -1642,5 +1642,12 @@
   "notifications": "Benachrichtigungen",
   "Encryption": "Verschlüsselung",
   "Public access blocked": "Öffentlicher Zugriff blockiert",
-  "Public access partially blocked": "Öffentlicher Zugriff teilweise blockiert"
+  "Public access partially blocked": "Öffentlicher Zugriff teilweise blockiert",
+  "Bucket quota": "Bucket-Kontingent",
+  "Account quota": "Kontingent des Kontos",
+  "User quota": "Benutzerkontingent",
+  "Owner quota": "Owner-Kontingent",
+  "Account quota usage unavailable.": "Nutzung des Kontingents des Kontos nicht verfügbar.",
+  "User quota usage unavailable.": "Nutzung des Benutzerkontingents nicht verfügbar.",
+  "Owner quota usage unavailable.": "Nutzung des Owner-Kontingents nicht verfügbar."
 }

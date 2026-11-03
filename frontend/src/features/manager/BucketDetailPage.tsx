@@ -79,6 +79,9 @@ import {
   type BucketOverviewSummaryItem,
 } from "./bucketDetail/bucketOverviewSummary";
 import { useManagerI18n } from "./managerI18n";
+import { useBrowserBucketDetailsScope } from "../shared/BucketDetailsScope";
+import { useBucketUsageLimits } from "./bucketDetail/useBucketUsageLimits";
+import type { BucketUsageLimitSource } from "./bucketDetail/bucketUsageLimit";
 
 function getUserRole(): UiRole | null {
   return readStoredUser()?.role ?? null;
@@ -207,6 +210,7 @@ function BucketDetailPageContent({
 }: BucketDetailPageContentProps) {
   const { text, intlLocale } = useManagerI18n();
   const { generalSettings } = useGeneralSettings();
+  const browserBucketDetailsScope = useBrowserBucketDetailsScope();
   const tabsId = useId();
   const bucketName = bucketNameOverride ?? routeBucketName;
   const isCephAdmin = mode === "ceph-admin";
@@ -724,20 +728,50 @@ function BucketDetailPageContent({
 
   const canRefreshActiveTab = hasContext;
 
+  const usageLimits = useBucketUsageLimits({
+    bucket,
+    cephAdmin: isCephAdmin,
+    browserScope: browserBucketDetailsScope,
+    managerContextId: contextId,
+    managerEnabled: hasContext && usageFeatureEnabled,
+  });
+  const usageLimitLabel = useCallback((source: BucketUsageLimitSource) => {
+    if (source === "bucket") return text("Bucket quota");
+    if (source === "account") return text("Account quota");
+    if (source === "user") return text("User quota");
+    if (source === "owner") return text("Owner quota");
+    return undefined;
+  }, [text]);
+  const usageOwnerSource = usageLimits.ownerSource;
+  const unavailableOwnerUsageLabel = useCallback(() => {
+    if (usageOwnerSource === "user") return text("User quota usage unavailable.");
+    if (usageOwnerSource === "owner") return text("Owner quota usage unavailable.");
+    return text("Account quota usage unavailable.");
+  }, [text, usageOwnerSource]);
   const storageUsage = useMemo(
     () => ({
       used: bucket?.used_bytes ?? null,
-      quota: bucket?.quota_max_size_bytes ?? null,
+      quota: usageLimits.storage.limit,
+      ratio: usageLimits.storage.ratio,
+      limitLabel: usageLimitLabel(usageLimits.storage.source),
+      limitWarning: usageLimits.storage.ownerConstraintUnavailable
+        ? unavailableOwnerUsageLabel()
+        : undefined,
     }),
-    [bucket]
+    [bucket?.used_bytes, unavailableOwnerUsageLabel, usageLimitLabel, usageLimits.storage]
   );
 
   const objectUsage = useMemo(
     () => ({
       used: bucket?.object_count ?? null,
-      quota: bucket?.quota_max_objects ?? null,
+      quota: usageLimits.objects.limit,
+      ratio: usageLimits.objects.ratio,
+      limitLabel: usageLimitLabel(usageLimits.objects.source),
+      limitWarning: usageLimits.objects.ownerConstraintUnavailable
+        ? unavailableOwnerUsageLabel()
+        : undefined,
     }),
-    [bucket]
+    [bucket?.object_count, unavailableOwnerUsageLabel, usageLimitLabel, usageLimits.objects]
   );
   const bucketOwner = useMemo(() => {
     const ownerFromBucket = (bucket?.owner ?? "").trim();
@@ -1000,6 +1034,9 @@ function BucketDetailPageContent({
                       quotaFormatter={formatBytes}
                       loading={loadingBucket}
                       emptyHint={text("No storage quota configured.")}
+                      usageRatio={storageUsage.ratio}
+                      limitLabel={storageUsage.limitLabel}
+                      limitWarning={storageUsage.limitWarning}
                     />
                     <UsageTile
                       label={text("Objects")}
@@ -1010,6 +1047,9 @@ function BucketDetailPageContent({
                       loading={loadingBucket}
                       unitHint={text("objects")}
                       emptyHint={text("No object quota configured.")}
+                      usageRatio={objectUsage.ratio}
+                      limitLabel={objectUsage.limitLabel}
+                      limitWarning={objectUsage.limitWarning}
                     />
                   </div>
                 </SettingsSection>
@@ -1164,6 +1204,9 @@ function BucketDetailPageContent({
                       quotaFormatter={formatBytes}
                       loading={loadingBucket}
                       emptyHint={text("No storage quota defined.")}
+                      usageRatio={storageUsage.ratio}
+                      limitLabel={storageUsage.limitLabel}
+                      limitWarning={storageUsage.limitWarning}
                     />
                     <UsageTile
                       label={text("Objects")}
@@ -1174,6 +1217,9 @@ function BucketDetailPageContent({
                       loading={loadingBucket}
                       unitHint={text("objects")}
                       emptyHint={text("No object quota defined.")}
+                      usageRatio={objectUsage.ratio}
+                      limitLabel={objectUsage.limitLabel}
+                      limitWarning={objectUsage.limitWarning}
                     />
                   </div>
                 </MetricsCard>

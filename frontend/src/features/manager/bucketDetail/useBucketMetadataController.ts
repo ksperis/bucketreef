@@ -61,6 +61,7 @@ export function useBucketMetadataController({
           page_size: 50,
           filter: bucketName,
           with_stats: withStats,
+          include: withStats ? ["owner_quota", "owner_quota_usage"] : undefined,
         });
         const found =
           response.items.find(
