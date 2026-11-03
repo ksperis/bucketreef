@@ -8263,6 +8263,177 @@ def test_create_external_access_key_scopes_policy_to_storage_space(
     assert resources == {f"arn:aws:s3:::{metadata.bucket_name}", f"arn:aws:s3:::{metadata.bucket_name}/*"}
 
 
+def test_create_external_access_key_commit_failure_compensates_remote_state(
+    monkeypatch,
+    db_session,
+):
+    account = make_s3_account(
+        db_session,
+        name="portal-account-ext-rollback",
+        rgw_access_key="ROOT-AK",
+        rgw_secret_key="ROOT-SK",
+    )
+    user = User(email="portal-owner-ext-rollback@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([account, user])
+    db_session.commit()
+    metadata = PortalStorageSpaceMetadata(
+        account_id=account.id,
+        bucket_name="external-rollback",
+        owner_user_id=user.id,
+    )
+    db_session.add(metadata)
+    db_session.commit()
+
+    class _FakeIAMService:
+        def __init__(self):
+            self.calls = []
+
+        def create_user(self, name, create_key=False, allow_existing=False):  # noqa: ARG002
+            self.calls.append(("create_user", name))
+            return IAMUser(name=name, user_id="uid-ext-rollback"), None
+
+        def put_user_inline_policy(self, user_name, policy_name, policy_document):  # noqa: ARG002
+            self.calls.append(("put_policy", user_name, policy_name))
+
+        def create_access_key(self, user_name):
+            self.calls.append(("create_key", user_name))
+            return IAMAccessKey(
+                access_key_id="AK-EXT-ROLLBACK",
+                secret_access_key="SK-EXT-ROLLBACK",
+                status="Active",
+            )
+
+        def delete_access_key(self, user_name, access_key_id):
+            self.calls.append(("delete_key", user_name, access_key_id))
+
+        def delete_user_inline_policy(self, user_name, policy_name):
+            self.calls.append(("delete_policy", user_name, policy_name))
+
+        def delete_user(self, user_name):
+            self.calls.append(("delete_user", user_name))
+
+    iam_service = _FakeIAMService()
+    projection_states = []
+    service = PortalService(db_session)
+    monkeypatch.setattr(service, "_get_iam_service", lambda _account: iam_service)
+    monkeypatch.setattr(
+        service,
+        "get_effective_portal_settings",
+        lambda _account: portal_settings_fixture(allow_portal_user_external_sharing=True),
+    )
+
+    def record_projection(_account, _metadata, **_kwargs):
+        projection_states.append(
+            db_session.scalar(
+                sa.select(sa.func.count())
+                .select_from(PortalExternalAccessCredential)
+                .where(PortalExternalAccessCredential.access_key_id == "AK-EXT-ROLLBACK")
+            )
+        )
+
+    monkeypatch.setattr(service, "_sync_storage_space_access_projection", record_projection)
+    monkeypatch.setattr(
+        db_session,
+        "commit",
+        lambda: (_ for _ in ()).throw(RuntimeError("simulated external credential commit failure")),
+    )
+
+    with pytest.raises(RuntimeError, match="simulated external credential commit failure"):
+        service.create_external_access_key(
+            user,
+            _portal_access(account, user),
+            PortalAccessKeyCreate(
+                target_type="external",
+                storage_space_id=metadata.bucket_name,
+                external_email="partner@example.org",
+                permission="read_only",
+            ),
+        )
+
+    assert projection_states == [1, 0]
+    assert ("delete_key", iam_service.calls[0][1], "AK-EXT-ROLLBACK") in iam_service.calls
+    assert any(call[0] == "delete_policy" for call in iam_service.calls)
+    assert any(call[0] == "delete_user" for call in iam_service.calls)
+    assert db_session.scalar(
+        sa.select(sa.func.count())
+        .select_from(PortalExternalAccessCredential)
+        .where(PortalExternalAccessCredential.access_key_id == "AK-EXT-ROLLBACK")
+    ) == 0
+
+
+def test_create_external_access_key_reports_compensation_failure(
+    monkeypatch,
+    db_session,
+):
+    account = make_s3_account(
+        db_session,
+        name="portal-account-ext-cleanup-failure",
+        rgw_access_key="ROOT-AK",
+        rgw_secret_key="ROOT-SK",
+    )
+    user = User(email="portal-owner-ext-cleanup-failure@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([account, user])
+    db_session.commit()
+    metadata = PortalStorageSpaceMetadata(
+        account_id=account.id,
+        bucket_name="external-cleanup-failure",
+        owner_user_id=user.id,
+    )
+    db_session.add(metadata)
+    db_session.commit()
+
+    iam_service = Mock()
+    iam_username = "bkr-portal-ext-cleanup-failure"
+    iam_service.create_user.return_value = (
+        IAMUser(name=iam_username, user_id="uid-cleanup-failure"),
+        None,
+    )
+    iam_service.create_access_key.return_value = IAMAccessKey(
+        access_key_id="AK-EXT-CLEANUP-FAILURE",
+        secret_access_key="SK-EXT-CLEANUP-FAILURE",
+        status="Active",
+    )
+    iam_service.delete_user.side_effect = RuntimeError("simulated external IAM cleanup failure")
+    service = PortalService(db_session)
+    monkeypatch.setattr(service, "_external_username", lambda *_args: iam_username)
+    monkeypatch.setattr(service, "_get_iam_service", lambda _account: iam_service)
+    monkeypatch.setattr(
+        service,
+        "get_effective_portal_settings",
+        lambda _account: portal_settings_fixture(allow_portal_user_external_sharing=True),
+    )
+    monkeypatch.setattr(service, "_sync_storage_space_access_projection", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        db_session,
+        "commit",
+        lambda: (_ for _ in ()).throw(RuntimeError("simulated external credential commit failure")),
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="Local or remote rollback also failed",
+    ) as raised:
+        service.create_external_access_key(
+            user,
+            _portal_access(account, user),
+            PortalAccessKeyCreate(
+                target_type="external",
+                storage_space_id=metadata.bucket_name,
+                external_email="partner@example.org",
+                permission="read_only",
+            ),
+        )
+
+    assert isinstance(raised.value.__cause__, RuntimeError)
+    assert str(raised.value.__cause__) == "simulated external credential commit failure"
+    iam_service.delete_access_key.assert_called_once_with(iam_username, "AK-EXT-CLEANUP-FAILURE")
+    iam_service.delete_user_inline_policy.assert_called_once_with(
+        iam_username,
+        PORTAL_EXTERNAL_ACCESS_POLICY_NAME,
+    )
+    iam_service.delete_user.assert_called_once_with(iam_username)
+
+
 def test_portal_user_external_access_requires_external_sharing_setting(monkeypatch, db_session):
     account = make_s3_account(
         db_session,
@@ -8487,6 +8658,79 @@ def test_external_access_key_status_and_delete_resync_policy(monkeypatch, db_ses
     assert ("delete_policy", "portal-ext-lifecycle", PORTAL_EXTERNAL_ACCESS_POLICY_NAME) in iam_service.calls
     assert ("delete_user", "portal-ext-lifecycle") in iam_service.calls
     assert synced == [(metadata.bucket_name, False), (metadata.bucket_name, False)]
+
+
+def test_external_access_key_status_commit_failure_restores_iam_and_projection(
+    monkeypatch,
+    db_session,
+):
+    account = make_s3_account(
+        db_session,
+        name="portal-account-ext-status-rollback",
+        rgw_access_key="ROOT-AK",
+        rgw_secret_key="ROOT-SK",
+    )
+    user = User(email="portal-owner-ext-status-rollback@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([account, user])
+    db_session.commit()
+    metadata = PortalStorageSpaceMetadata(
+        account_id=account.id,
+        bucket_name="external-status-rollback",
+        owner_user_id=user.id,
+    )
+    db_session.add(metadata)
+    db_session.commit()
+    credential = PortalExternalAccessCredential(
+        account_id=account.id,
+        storage_space_metadata_id=metadata.id,
+        bucket_name=metadata.bucket_name,
+        created_by_user_id=user.id,
+        external_email="partner@example.org",
+        permission="read_only",
+        iam_user_id="iam-ext-status-rollback",
+        iam_username="portal-ext-status-rollback",
+        access_key_id="AK-EXT-STATUS-ROLLBACK",
+        status="Active",
+    )
+    db_session.add(credential)
+    db_session.commit()
+
+    class _FakeIAMService:
+        def __init__(self):
+            self.status_updates = []
+
+        def update_access_key_status(self, user_name, access_key_id, status_value):
+            self.status_updates.append((user_name, access_key_id, status_value))
+
+    iam_service = _FakeIAMService()
+    projection_states = []
+    service = PortalService(db_session)
+    monkeypatch.setattr(service, "_get_iam_service", lambda _account: iam_service)
+
+    def record_projection(_account, _metadata, **_kwargs):
+        projection_states.append(credential.status)
+
+    monkeypatch.setattr(service, "_sync_storage_space_access_projection", record_projection)
+    monkeypatch.setattr(
+        db_session,
+        "commit",
+        lambda: (_ for _ in ()).throw(RuntimeError("simulated external status commit failure")),
+    )
+
+    with pytest.raises(RuntimeError, match="simulated external status commit failure"):
+        service.update_access_key_status(
+            user,
+            _portal_access(account, user),
+            "AK-EXT-STATUS-ROLLBACK",
+            False,
+        )
+
+    assert iam_service.status_updates == [
+        ("portal-ext-status-rollback", "AK-EXT-STATUS-ROLLBACK", "Inactive"),
+        ("portal-ext-status-rollback", "AK-EXT-STATUS-ROLLBACK", "Active"),
+    ]
+    assert projection_states == ["Inactive", "Active"]
+    assert credential.status == "Active"
 
 
 def test_bucket_policy_principals_include_active_external_credentials(db_session):
