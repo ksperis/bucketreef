@@ -9,6 +9,7 @@ from sqlalchemy import select
 from app.core.security import get_password_hash
 from app.db import (
     AccountIAMUser,
+    AuthSession,
     S3Account,
     S3Connection,
     S3User,
@@ -31,6 +32,7 @@ from app.models.user import (
     UserUpdate,
 )
 from app.services.user_output_service import UserOutputService
+from app.services.auth_session_service import AuthSessionService
 from app.services.users_service import UsersService
 from tests.s3_account_factory import make_s3_account
 from tests.s3_connection_factory import custom_endpoint_fields
@@ -179,6 +181,58 @@ def test_create_user_and_authenticate(db_session):
     authenticated = service.authenticate("ui-admin@example.com", "verylongpass123")
     assert authenticated is not None
     assert authenticated.last_login_at is not None
+
+
+def test_password_rehash_login_rolls_back_user_and_session_changes_on_commit_failure(
+    db_session,
+    monkeypatch,
+):
+    user = _seed_user(
+        db_session,
+        "rehash-rollback@example.com",
+        role=UserRole.UI_ADMIN.value,
+        password="supersecret1234",
+    )
+    credentials = AuthSessionService(db_session).create_for_user(
+        user,
+        auth_type="password",
+        ip_address=None,
+        user_agent="pytest",
+        mfa_verified=True,
+    )
+    original_hash = user.hashed_password
+    original_auth_version = user.auth_version
+    original_rollback = db_session.rollback
+    rollback_calls: list[None] = []
+
+    monkeypatch.setattr(
+        "app.services.user_login_service.verify_and_update_password",
+        lambda *_args, **_kwargs: (True, "replacement-hash"),
+    )
+
+    def rollback() -> None:
+        rollback_calls.append(None)
+        original_rollback()
+
+    def commit() -> None:
+        raise RuntimeError("commit failed")
+
+    monkeypatch.setattr(db_session, "rollback", rollback)
+    monkeypatch.setattr(db_session, "commit", commit)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        UsersService(db_session).authenticate(user.email, "supersecret1234")
+
+    assert rollback_calls == [None]
+    db_session.expire_all()
+    stored_user = db_session.get(User, user.id)
+    stored_session = db_session.get(AuthSession, credentials.session.id)
+    assert stored_user is not None
+    assert stored_user.hashed_password == original_hash
+    assert stored_user.auth_version == original_auth_version
+    assert stored_user.last_login_at is None
+    assert stored_session is not None
+    assert stored_session.revoked_at is None
 
 
 @pytest.mark.parametrize(

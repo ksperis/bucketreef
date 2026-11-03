@@ -5,6 +5,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
+from app.core.db_transactions import commit_or_rollback
 from app.core.security import consume_dummy_password_hash, verify_and_update_password
 from app.db import User
 from app.services.auth_session_service import AuthSessionService
@@ -34,13 +35,11 @@ class UserLoginService:
             user.hashed_password = updated_hash
             user.auth_version += 1
             self.db.add(user)
-            self.db.commit()
-            AuthSessionService(self.db).revoke_all_for_user(
+            AuthSessionService(self.db).revoke_all_for_user_in_transaction(
                 user,
                 "password_rehashed",
                 increment_version=False,
             )
-            self.db.refresh(user)
 
         logger.debug("Authenticated user id=%s email=%s", user.id, user.email)
         return self.mark_last_login(user)
@@ -48,7 +47,7 @@ class UserLoginService:
     def mark_last_login(self, user: User) -> User:
         user.last_login_at = utcnow()
         self.db.add(user)
-        self.db.commit()
+        commit_or_rollback(self.db)
         self.db.refresh(user)
         return user
 
