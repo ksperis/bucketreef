@@ -37,7 +37,6 @@ from app.services.tags_service import TagsService, serialize_tag_summaries
 from app.utils.tagging import TAG_DOMAIN_PRIVATE_CONNECTION_USER
 from app.core.sensitive_data import sanitize_error_detail
 from app.utils.http_errors import (
-    raise_bad_request_from_value_error,
     raise_http_error_from_value_error,
     raise_http_exception_from_exception,
 )
@@ -162,13 +161,7 @@ def create_connection(
             detail="Storage endpoint not found",
         ) from exc
     except ValueError as exc:
-        raise_bad_request_from_value_error(exc)
-    except Exception as exc:
-        # Avoid leaking internal details or sensitive hints.
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Failed to create S3Connection (invalid payload or duplicate name)",
-        ) from exc
+        raise_http_error_from_value_error(exc)
 
 
 @router.patch("/{connection_id}", response_model=S3Connection)

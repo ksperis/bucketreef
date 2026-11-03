@@ -114,6 +114,86 @@ def test_private_connection_create_rejects_unknown_managed_endpoint(
     assert response.json()["detail"] == "Storage endpoint not found"
 
 
+def test_connection_create_duplicate_names_return_conflict(monkeypatch, contract_client):
+    client, _, _ = contract_client
+    monkeypatch.setattr(
+        "app.services.s3_connection_capabilities_service.probe_connection_can_manage_iam",
+        lambda connection: False,
+    )
+    monkeypatch.setattr(
+        "app.services.s3_connection_endpoint_planner.validate_user_supplied_s3_endpoint",
+        lambda value, field_name="Endpoint URL": value.rstrip("/"),
+    )
+
+    private_payload = {
+        "name": "duplicate-private-api",
+        "endpoint_url": "https://duplicate-private.example.test",
+        "access_key_id": "AKIADUPLICATEPRIVATE",
+        "secret_access_key": "SECRETDUPLICATEPRIVATE",
+        "access_manager": False,
+        "access_browser": True,
+    }
+    assert client.post("/api/connections", json=private_payload).status_code == 201
+    private_duplicate = client.post("/api/connections", json=private_payload)
+    assert private_duplicate.status_code == 409
+    assert private_duplicate.json()["detail"] == "An S3 connection with this name already exists"
+
+    shared_payload = {
+        "name": "duplicate-shared-api",
+        "endpoint_url": "https://duplicate-shared.example.test",
+        "access_key_id": "AKIADUPLICATESHARED",
+        "secret_access_key": "SECRETDUPLICATESHARED",
+    }
+    assert client.post("/api/admin/s3-connections", json=shared_payload).status_code == 201
+    shared_duplicate = client.post("/api/admin/s3-connections", json=shared_payload)
+    assert shared_duplicate.status_code == 409
+    assert shared_duplicate.json()["detail"] == "An S3 connection with this name already exists"
+
+
+@pytest.mark.parametrize(
+    ("path", "service_method", "payload"),
+    [
+        (
+            "/api/connections",
+            "create",
+            {
+                "name": "unexpected-private-api",
+                "endpoint_url": "https://unexpected-private.example.test",
+                "access_key_id": "AKIAUNEXPECTEDPRIVATE",
+                "secret_access_key": "SECRETUNEXPECTEDPRIVATE",
+                "access_manager": False,
+                "access_browser": True,
+            },
+        ),
+        (
+            "/api/admin/s3-connections",
+            "create_admin_shared",
+            {
+                "name": "unexpected-shared-api",
+                "endpoint_url": "https://unexpected-shared.example.test",
+                "access_key_id": "AKIAUNEXPECTEDSHARED",
+                "secret_access_key": "SECRETUNEXPECTEDSHARED",
+            },
+        ),
+    ],
+)
+def test_connection_create_does_not_rewrite_unexpected_errors(
+    monkeypatch,
+    contract_client,
+    path,
+    service_method,
+    payload,
+):
+    client, _, _ = contract_client
+
+    def fail_unexpectedly(*args, **kwargs):
+        raise RuntimeError("synthetic unexpected create failure")
+
+    monkeypatch.setattr(S3ConnectionsService, service_method, fail_unexpectedly)
+    with pytest.raises(RuntimeError, match="synthetic unexpected create failure"):
+        client.post(path, json=payload)
+
+
 def test_admin_connections_api_does_not_expose_iam_capable(monkeypatch, contract_client):
     client, _, _ = contract_client
     monkeypatch.setattr(

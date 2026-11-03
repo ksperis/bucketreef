@@ -4,7 +4,8 @@
 from collections.abc import Collection
 from typing import Any, Optional
 
-from sqlalchemy import update
+from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import S3ConnectionConflictError
@@ -48,6 +49,7 @@ ACTIVE_MANAGED_SOURCE_UPDATE_ERROR = (
 ACTIVE_MANAGED_SOURCE_CREDENTIALS_ERROR = (
     "Connection credentials are locked while managed private accesses depend on this source"
 )
+S3_CONNECTION_NAME_CONFLICT_ERROR = "An S3 connection with this name already exists"
 _ADMIN_SHARED_SOURCE_IMMUTABLE_FIELDS = S3_CONNECTION_ENDPOINT_FIELDS | {
     "is_active",
     "rgw_user_uid",
@@ -303,7 +305,9 @@ class S3ConnectionsService:
         *,
         commit: bool,
     ) -> None:
+        conflict_key = (row.created_by_user_id, row.name, bool(row.is_shared))
         try:
+            self._ensure_connection_name_available(*conflict_key)
             self.db.add(row)
             self.db.flush()
             self.tags.replace_connection_tags(row, tags)
@@ -313,10 +317,47 @@ class S3ConnectionsService:
                 self.db.refresh(row)
             else:
                 self.db.flush()
+        except IntegrityError as exc:
+            if not commit:
+                raise
+            self.db.rollback()
+            if self._connection_name_exists(*conflict_key):
+                raise S3ConnectionConflictError(S3_CONNECTION_NAME_CONFLICT_ERROR) from exc
+            raise
         except Exception:
             if commit:
                 self.db.rollback()
             raise
+
+    def _ensure_connection_name_available(
+        self,
+        created_by_user_id: int,
+        name: str,
+        is_shared: bool,
+    ) -> None:
+        if self._connection_name_exists(created_by_user_id, name, is_shared):
+            raise S3ConnectionConflictError(S3_CONNECTION_NAME_CONFLICT_ERROR)
+
+    def _connection_name_exists(
+        self,
+        created_by_user_id: int,
+        name: str,
+        is_shared: bool,
+    ) -> bool:
+        predicates = [
+            DBS3Connection.name == name,
+            DBS3Connection.is_shared.is_(is_shared),
+        ]
+        if not is_shared:
+            predicates.append(DBS3Connection.created_by_user_id == created_by_user_id)
+        return (
+            self.db.scalar(
+                select(DBS3Connection.id)
+                .where(*predicates)
+                .limit(1)
+            )
+            is not None
+        )
 
     def update(self, user_id: int, connection_id: int, payload: S3ConnectionUpdate) -> S3Connection:
         row = self.get_owned(user_id, connection_id)
