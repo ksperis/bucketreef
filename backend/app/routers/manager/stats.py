@@ -19,7 +19,6 @@ from app.routers.dependencies import (
     require_usage_logs_capable_manager,
     require_storage_metrics_capable_manager,
 )
-from app.core.sensitive_data import sanitized_error_log_detail
 from app.services.app_settings_service import load_app_settings_for_db_readonly
 from app.services.buckets_service import BucketsService, get_buckets_service
 from app.services.healthcheck_query_service import HealthCheckQueryService
@@ -52,10 +51,11 @@ def account_stats(
         buckets = bucket_service.list_buckets(context)
         total_buckets = len(buckets)
     except Exception as exc:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Unable to fetch buckets: {sanitized_error_log_detail(exc)}",
-        ) from exc
+        raise_http_exception_from_exception(
+            502,
+            exc,
+            detail_prefix="Unable to fetch buckets: ",
+        )
 
     total_bytes = sum((bucket.used_bytes or 0) for bucket in buckets if bucket.used_bytes is not None)
     total_objects = sum((bucket.object_count or 0) for bucket in buckets if bucket.object_count is not None)
@@ -131,10 +131,11 @@ def account_traffic(
     except ValueError as exc:
         raise_http_exception_from_exception(400, exc)
     except RGWAdminError as exc:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Unable to fetch traffic logs: {sanitized_error_log_detail(exc)}",
-        ) from exc
+        raise_http_exception_from_exception(
+            502,
+            exc,
+            detail_prefix="Unable to fetch traffic logs: ",
+        )
 
 
 @router.get("/endpoint-health", response_model=WorkspaceEndpointHealthOverviewResponse)
