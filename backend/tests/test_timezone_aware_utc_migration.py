@@ -72,6 +72,7 @@ POST_MIGRATION_UTC_COLUMNS = {
         "updated_at",
     ),
     "portal_iam_revocations": ("created_at",),
+    "s3_account_import_intents": ("created_at", "updated_at"),
     "s3_account_deletions": ("created_at", "updated_at"),
     "s3_user_deletions": ("created_at", "updated_at"),
     "s3_user_import_intents": ("created_at", "updated_at"),

@@ -236,8 +236,15 @@ class S3UserImportService:
             raise ValueError(f"Unsupported S3 user import phase: {intent.phase}")
 
         user_info = self._load_remote_user(item)
-        key_ids = RgwUserKeyParser.access_key_ids(item.admin.extract_keys(user_info))
-        if intent.access_key_id not in key_ids:
+        access_key, secret_key = RgwUserKeyParser.credentials_for_access_key(
+            item.admin.extract_keys(user_info),
+            intent.access_key_id,
+        )
+        if access_key is not None and secret_key != intent.secret_access_key:
+            raise ValueError(
+                "RGW access key collides with the pending S3 user import credential"
+            )
+        if access_key is None:
             try:
                 item.admin.create_access_key(
                     item.uid,
@@ -248,10 +255,13 @@ class S3UserImportService:
             except RGWAdminError as exc:
                 raise ValueError(f"Unable to create access key for {item.uid}: {exc}") from exc
             user_info = self._load_remote_user(item)
-            key_ids = RgwUserKeyParser.access_key_ids(item.admin.extract_keys(user_info))
-            if intent.access_key_id not in key_ids:
+            access_key, secret_key = RgwUserKeyParser.credentials_for_access_key(
+                item.admin.extract_keys(user_info),
+                intent.access_key_id,
+            )
+            if access_key is None or secret_key != intent.secret_access_key:
                 raise ValueError(
-                    f"RGW did not persist the requested access key for {item.uid}"
+                    f"RGW did not persist the requested access credential for {item.uid}"
                 )
 
         if intent.phase != "remote_created":

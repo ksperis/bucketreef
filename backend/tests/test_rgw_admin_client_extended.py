@@ -755,6 +755,54 @@ def test_create_user_with_account_id_returns_conflict_payload(monkeypatch):
     assert payload == {"conflict": True}
 
 
+def test_create_user_with_account_id_supports_explicit_credentials(monkeypatch):
+    client = _client()
+    captured: list[dict[str, object]] = []
+
+    def fake_request(method: str, path: str, **kwargs):
+        captured.append(
+            {
+                "method": method,
+                "path": path,
+                "params": kwargs.get("params", {}),
+            }
+        )
+        return {"ok": True}
+
+    monkeypatch.setattr(client, "_request", fake_request)
+    result = client.create_user_with_account_id(
+        "root",
+        "RGW1",
+        tenant="research",
+        generate_key=False,
+        access_key="AK-EXPLICIT",
+        secret_key="SECRET-EXPLICIT",
+    )
+
+    assert result == {"ok": True}
+    params = captured[0]["params"]
+    assert params["uid"] == "research$root"
+    assert params["account-id"] == "RGW1"
+    assert params["generate-key"] == "false"
+    assert params["access-key"] == "AK-EXPLICIT"
+    assert params["secret-key"] == "SECRET-EXPLICIT"
+
+    with pytest.raises(ValueError, match="complete credential pair"):
+        client.create_user_with_account_id(
+            "root",
+            "RGW1",
+            access_key="AK-ONLY",
+            generate_key=False,
+        )
+    with pytest.raises(ValueError, match="generate_key=False"):
+        client.create_user_with_account_id(
+            "root",
+            "RGW1",
+            access_key="AK",
+            secret_key="SECRET",
+        )
+
+
 def test_create_and_delete_access_key_parameter_paths(monkeypatch):
     client = _client()
     captured: list[dict[str, object]] = []

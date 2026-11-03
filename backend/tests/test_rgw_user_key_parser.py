@@ -27,6 +27,27 @@ def test_select_complete_credentials_skips_partial_entries():
     assert RgwUserKeyParser.select_complete_credentials([]) == (None, None)
 
 
+def test_credentials_for_access_key_requires_matching_entry():
+    entries = [
+        {"access_key": "FIRST", "secret_key": "FIRST-SECRET"},
+        {"access-key": " TARGET ", "secret-key": " TARGET-SECRET "},
+        {"access_key": "PARTIAL"},
+    ]
+
+    assert RgwUserKeyParser.credentials_for_access_key(entries, "TARGET") == (
+        "TARGET",
+        "TARGET-SECRET",
+    )
+    assert RgwUserKeyParser.credentials_for_access_key(entries, "PARTIAL") == (
+        "PARTIAL",
+        None,
+    )
+    assert RgwUserKeyParser.credentials_for_access_key(entries, "MISSING") == (
+        None,
+        None,
+    )
+
+
 def test_to_access_keys_maps_status_dates_and_ui_managed_key():
     keys = RgwUserKeyParser.to_access_keys(
         [

@@ -296,7 +296,13 @@ class RGWAdminAccountOperations:
         generate_key: bool = True,
         extra_params: Optional[Dict[str, Any]] = None,
         tenant: Optional[str] = None,
+        access_key: Optional[str] = None,
+        secret_key: Optional[str] = None,
     ) -> Dict[str, Any]:
+        if bool(access_key) != bool(secret_key):
+            raise ValueError("Explicit key creation requires a complete credential pair")
+        if access_key and generate_key:
+            raise ValueError("Explicit credentials require generate_key=False")
         params: Dict[str, Any] = {
             "uid": rgw_qualified_uid(uid, tenant),
             "account-id": account_id,
@@ -310,6 +316,8 @@ class RGWAdminAccountOperations:
             params["account-root"] = "true"
         if tenant:
             params["tenant"] = tenant
+        if access_key:
+            params.update({"access-key": access_key, "secret-key": secret_key})
         self._validate_user_extra_params(extra_params)
         self._merge_extra_params(params, extra_params)
         return self._request(
