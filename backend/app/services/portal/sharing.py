@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import exists, func, or_, select
@@ -41,6 +42,9 @@ from app.utils.time import utcnow
 
 if TYPE_CHECKING:
     from app.services.access_context_contracts import AccountAccess
+
+
+logger = logging.getLogger(__name__)
 
 
 class PortalSharingMixin:
@@ -588,12 +592,33 @@ class PortalSharingMixin:
             grant.role = role
             grant.updated_at = utcnow()
         self.db.add(grant)
+        projection_attempted = False
         try:
             self.db.flush()
+            projection_attempted = True
             self._sync_storage_space_access_projection(access.account, metadata, extra_user_ids={target.id})
             self.db.commit()
-        except Exception:
-            self.db.rollback()
+        except Exception as exc:
+            db_rollback_failed = False
+            try:
+                self.db.rollback()
+            except Exception as rollback_exc:  # pragma: no cover - defensive database failure
+                logger.error(
+                    "Unable to roll back failed Storage Space share update: %s",
+                    rollback_exc,
+                )
+                db_rollback_failed = True
+            projection_rollback_failed = False
+            if projection_attempted and not db_rollback_failed:
+                projection_rollback_failed = self._restore_storage_space_access_projection(
+                    access.account,
+                    metadata,
+                    extra_user_ids={target.id},
+                )
+            if db_rollback_failed or projection_rollback_failed:
+                raise RuntimeError(
+                    "Unable to update Storage Space share. Local or remote rollback also failed."
+                ) from exc
             raise
         shares = self.list_storage_space_shares(user, access, space_id)
         return next(
@@ -622,14 +647,35 @@ class PortalSharingMixin:
         if metadata is None:
             raise RuntimeError("Storage space metadata is missing.")
         grant = self._storage_space_grant(metadata.id, target.id)
+        projection_attempted = False
         try:
             if grant is not None:
                 self.db.delete(grant)
                 self.db.flush()
             if grant is not None:
+                projection_attempted = True
                 self._sync_storage_space_access_projection(access.account, metadata, extra_user_ids={target.id})
             self.db.commit()
-        except Exception:
-            self.db.rollback()
+        except Exception as exc:
+            db_rollback_failed = False
+            try:
+                self.db.rollback()
+            except Exception as rollback_exc:  # pragma: no cover - defensive database failure
+                logger.error(
+                    "Unable to roll back failed Storage Space share revocation: %s",
+                    rollback_exc,
+                )
+                db_rollback_failed = True
+            projection_rollback_failed = False
+            if projection_attempted and not db_rollback_failed:
+                projection_rollback_failed = self._restore_storage_space_access_projection(
+                    access.account,
+                    metadata,
+                    extra_user_ids={target.id},
+                )
+            if db_rollback_failed or projection_rollback_failed:
+                raise RuntimeError(
+                    "Unable to revoke Storage Space share. Local or remote rollback also failed."
+                ) from exc
             raise
         return self.list_storage_space_shares(user, access, space_id)
