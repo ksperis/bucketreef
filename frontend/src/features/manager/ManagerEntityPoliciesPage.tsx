@@ -115,6 +115,7 @@ export default function ManagerEntityPoliciesPage({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [inlineRefreshToken, setInlineRefreshToken] = useState(0);
   const policyConfirmation = useConfirmActionDialog();
   const availablePolicies = useManagerIamCursorCollection(listIamPoliciesPage);
   const { setItems: setAvailablePolicies } = availablePolicies;
@@ -158,6 +159,7 @@ export default function ManagerEntityPoliciesPage({
   const handleRefresh = () => {
     if (needsContextSelection || !rawEntityName) return;
     load(contextIdForApi, rawEntityName);
+    setInlineRefreshToken((current) => current + 1);
   };
 
   const availablePolicyItems = useMemo(
@@ -352,6 +354,7 @@ export default function ManagerEntityPoliciesPage({
           deletePolicy={removeInlinePolicy}
           disabled={needsContextSelection}
           disabledReason={text("Select a context before editing {entity} inline policies.", { entity: singularLabel })}
+          refreshToken={inlineRefreshToken}
           key={`${config.singularLabel}-inline-${contextIdForApi ?? "none"}-${rawEntityName ?? ""}`}
         />
 

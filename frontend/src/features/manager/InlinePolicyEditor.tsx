@@ -9,12 +9,15 @@ import { extractApiError } from "../../utils/apiError";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 import { DEFAULT_INLINE_POLICY_TEXT } from "./inlinePolicyTemplate";
-import InlinePolicyChoice from "./InlinePolicyChoice";
+import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
+import { ListActionButton } from "../../components/list/ListControls";
+import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import SettingsJsonEditor from "../../components/settings/SettingsJsonEditor";
 import UiInput from "../../components/ui/UiInput";
 import { SettingsButton, SettingsDialog, useSettingsCloseGuard } from "../../components/settings/SettingsControls";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
+import { summarizeInlinePolicyDocument } from "./inlinePolicySummary";
 import { useManagerI18n } from "./managerI18n";
 
 type InlinePolicyEditorProps = {
@@ -27,6 +30,7 @@ type InlinePolicyEditorProps = {
   deletePolicy: (name: string) => Promise<void>;
   disabled?: boolean;
   disabledReason?: string;
+  refreshToken?: number;
 };
 
 type EditorMode = "idle" | "create" | "edit";
@@ -41,6 +45,7 @@ export default function InlinePolicyEditor({
   deletePolicy,
   disabled = false,
   disabledReason,
+  refreshToken = 0,
 }: InlinePolicyEditorProps) {
   const { text } = useManagerI18n();
   const [policies, setPolicies] = useState<InlinePolicy[]>([]);
@@ -115,7 +120,7 @@ export default function InlinePolicyEditor({
     setEditorError(null);
     setValidationAttempted(false);
     void refresh();
-  }, [entityName, disabled, refresh]);
+  }, [entityName, disabled, refresh, refreshToken]);
 
   const handleSelectExisting = (name: string) => {
     const existing = policies.find((policy) => policy.name === name);
@@ -221,36 +226,60 @@ export default function InlinePolicyEditor({
     });
   };
 
+  const tableStatus = resolveListTableStatus({ loading, error: listError, rowCount: policies.length });
+  const policyColumns: Array<DataTableColumn<InlinePolicy>> = [
+    {
+      id: "policy",
+      label: text("Policy"),
+      primary: true,
+      render: (policy) => policy.name,
+    },
+    {
+      id: "summary",
+      label: text("Summary"),
+      render: (policy) => summarizeInlinePolicyDocument(policy.document),
+    },
+    {
+      id: "actions",
+      label: text("Actions"),
+      align: "right",
+      mobileRole: "actions",
+      render: (policy) => (
+        <ListActionButton
+          type="button"
+          onClick={() => handleSelectExisting(policy.name)}
+          disabled={controlsDisabled}
+        >
+          {text("Edit")}
+        </ListActionButton>
+      ),
+    },
+  ];
+
   return (
     <>
       <SettingsSection title={text("Inline policies")} presentation="compact"
         description={hasPolicies ? text("Select an existing inline policy to review or edit.") : text("No inline policies created yet.")}>
         <div className="settings-stack">
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <span className="settings-description">{text("{count} {policyLabel}", { count: policies.length, policyLabel: text(policies.length === 1 ? "policy" : "policies") })}</span>
-            <SettingsButton variant="secondary" onClick={handleStartCreate} disabled={controlsDisabled}>
+          <div className="flex justify-end">
+            <ListActionButton type="button" onClick={handleStartCreate} disabled={controlsDisabled}>
               {text("Create inline policy")}
-            </SettingsButton>
-            <SettingsButton variant="secondary" onClick={() => void refresh()} disabled={controlsDisabled}>
-              {text(loading ? "Refreshing..." : "Refresh")}
-            </SettingsButton>
+            </ListActionButton>
           </div>
           {disabled && <UiInlineMessage tone="warning">{disabledReason ?? text("Select a context before editing inline policies.")}</UiInlineMessage>}
           {listError && <UiInlineMessage tone="error">{text(listError)}</UiInlineMessage>}
           {message && <UiInlineMessage tone="success" className="[overflow-wrap:anywhere]">{message}</UiInlineMessage>}
-          <div className="settings-stack">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="settings-label">{text("Existing inline policies")}</h3>
-              {loading && <span className="settings-description">{text("Loading inline policies...")}</span>}
-            </div>
-            {!loading && !hasPolicies && <p className="settings-description">{text("No inline policy exists yet.")}</p>}
-            <div className="grid gap-2">
-              {policies.map((policy) => (
-                <InlinePolicyChoice key={policy.name} policy={policy}
-                  disabled={controlsDisabled} onSelect={() => handleSelectExisting(policy.name)} />
-              ))}
-            </div>
-          </div>
+          <DataTableShell
+            columns={policyColumns}
+            rows={policies}
+            rowKey={(policy) => policy.name}
+            status={tableStatus}
+            loadingMessage={text("Loading inline policies...")}
+            errorMessage={text("Unable to load policies.")}
+            emptyMessage={text("No inline policy exists yet.")}
+            tableClassName="ui-data-table"
+            responsiveCards
+          />
         </div>
       </SettingsSection>
 
