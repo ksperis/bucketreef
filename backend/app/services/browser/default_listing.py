@@ -12,6 +12,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 from app.models.browser import BrowserObject, ListBrowserObjectsResponse
 from app.services.object_listing_identity import (
     is_current_folder_marker,
+    object_owner_label,
     recursive_prefixes_for_key,
 )
 
@@ -92,6 +93,7 @@ class _FilteredObjectListing:
                     last_modified=entry.get("LastModified"),
                     storage_class=storage_class,
                     etag=clean_etag(entry.get("ETag")),
+                    owner=object_owner_label(entry),
                 )
             )
         return recursive_prefixes
@@ -191,6 +193,7 @@ class DefaultObjectListingLoader:
             "Bucket": self.options.bucket_name,
             "Prefix": self.options.prefix,
             "MaxKeys": max_keys,
+            "FetchOwner": True,
         }
         if delimiter:
             kwargs["Delimiter"] = "/"
@@ -231,6 +234,7 @@ class DefaultObjectListingLoader:
                     last_modified=item.get("LastModified"),
                     storage_class=item.get("StorageClass"),
                     etag=self.clean_etag(item.get("ETag")),
+                    owner=object_owner_label(item),
                 )
             )
         prefixes = [

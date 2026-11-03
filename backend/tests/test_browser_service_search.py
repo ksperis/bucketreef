@@ -245,6 +245,48 @@ def test_listing_skips_only_exact_selected_folder_marker(monkeypatch, sort_by, s
     assert [item.key for item in result.objects] == ["docs//", "docs///", "docs/file.txt"]
 
 
+@pytest.mark.parametrize("sort_by", ["name", "size"])
+def test_list_objects_requests_and_returns_owner(monkeypatch, sort_by):
+    calls: list[dict] = []
+
+    class FakeClient:
+        def list_objects_v2(self, **kwargs):  # noqa: ANN001
+            calls.append(kwargs)
+            return {
+                "Contents": [
+                    {
+                        "Key": "a.txt",
+                        "Size": 1,
+                        "Owner": {"DisplayName": "alice", "ID": "canonical-alice"},
+                    },
+                    {
+                        "Key": "b.txt",
+                        "Size": 2,
+                        "Owner": {"ID": "canonical-bob"},
+                    },
+                ],
+                "IsTruncated": False,
+                "NextContinuationToken": None,
+            }
+
+    service = BrowserService()
+    monkeypatch.setattr(service, "_client", lambda _account: FakeClient())
+
+    result = service.list_objects(
+        "bucket-a",
+        _account(),
+        sort_by=sort_by,
+        sort_dir="asc",
+    )
+
+    assert calls
+    assert all(call["FetchOwner"] is True for call in calls)
+    assert [(item.key, item.owner) for item in result.objects] == [
+        ("a.txt", "alice"),
+        ("b.txt", "canonical-bob"),
+    ]
+
+
 def test_list_objects_force_refresh_invalidates_cached_listing(monkeypatch):
     calls: list[dict] = []
 

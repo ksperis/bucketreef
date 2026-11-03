@@ -136,6 +136,7 @@ describe("browserObjectTableModel", () => {
           last_modified: "2026-08-02T10:00:00.000Z",
           etag: '"abc"',
           storage_class: "STANDARD_IA",
+          owner: "alice",
         },
       ],
       [
@@ -168,6 +169,7 @@ describe("browserObjectTableModel", () => {
       name: "file.txt",
       type: "file",
       sizeBytes: 10,
+      owner: "alice",
       storageClass: "STANDARD_IA",
       etag: "abc",
     });

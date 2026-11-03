@@ -12,6 +12,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 from app.models.browser import BrowserObject, BrowserObjectSortBy, BrowserObjectSortDir
 from app.services.object_listing_identity import (
     is_current_folder_marker,
+    object_owner_label,
     recursive_prefixes_for_key,
 )
 from app.services.object_listing_temp_store import TemporarySqliteStore
@@ -59,7 +60,7 @@ class SortedObjectSnapshot:
             return []
         cursor = self.store.connection.execute(
             f"""
-            SELECT key, size, last_modified_iso, storage_class, etag
+            SELECT key, size, last_modified_iso, storage_class, etag, owner
             FROM sorted_objects
             ORDER BY {self._object_order_by()}
             LIMIT ? OFFSET ?
@@ -96,6 +97,7 @@ class SortedObjectSnapshot:
             last_modified=last_modified,
             storage_class=row["storage_class"] if isinstance(row["storage_class"], str) else None,
             etag=row["etag"] if isinstance(row["etag"], str) else None,
+            owner=row["owner"] if isinstance(row["owner"], str) else None,
         )
 
 
@@ -151,7 +153,8 @@ class SortedObjectSnapshotBuilder:
                 last_modified_ts REAL,
                 last_modified_iso TEXT,
                 storage_class TEXT,
-                etag TEXT
+                etag TEXT,
+                owner TEXT
             )
             """
         )
@@ -168,6 +171,7 @@ class SortedObjectSnapshotBuilder:
                 "Bucket": self.options.bucket_name,
                 "Prefix": self.options.prefix,
                 "MaxKeys": 1000,
+                "FetchOwner": True,
             }
             if not self.options.recursive:
                 kwargs["Delimiter"] = "/"
@@ -214,9 +218,9 @@ class SortedObjectSnapshotBuilder:
         store.connection.execute(
             """
             INSERT OR REPLACE INTO sorted_objects(
-                key, size, last_modified_ts, last_modified_iso, storage_class, etag
+                key, size, last_modified_ts, last_modified_iso, storage_class, etag, owner
             )
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 key,
@@ -225,6 +229,7 @@ class SortedObjectSnapshotBuilder:
                 last_modified_iso,
                 storage_class if isinstance(storage_class, str) else None,
                 self.clean_etag(item.get("ETag")),
+                object_owner_label(item),
             ),
         )
 

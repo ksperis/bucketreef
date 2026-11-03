@@ -44,6 +44,7 @@ class BrowserObject(ApiModel):
     last_modified: Optional[datetime] = None
     etag: Optional[str] = None
     storage_class: Optional[str] = None
+    owner: Optional[str] = None
 
 
 class ObjectUploadResponse(ApiModel):
