@@ -1,5 +1,23 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 durable S3 user deletion
+
+Migration `0228_s3_user_deletion_state` adds the `s3_user_deletions` saga
+table. BucketReef now persists the requested RGW cleanup action before deleting
+the managed interface access key or the complete RGW user, then checkpoints
+remote completion before purging the local S3 User row.
+
+This makes deletion retryable across database commit failures. In particular,
+if the interface access key was removed from RGW but the completion checkpoint
+did not commit, the next retry verifies that the key is already absent and
+continues without replaying the remote delete. S3 User metadata, quota, and key
+mutations are rejected while a deletion is pending so the persisted identity
+snapshot cannot drift during recovery.
+
+Complete pending S3 User deletions before downgrading. Migration `0228`
+refuses to drop the saga table while it contains rows. Apply the normal Alembic
+upgrade path when deploying this backend version.
+
 ## 2026-11 durable Portal IAM user revocation
 
 Migration `0227_portal_iam_revocation_state` adds the

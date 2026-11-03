@@ -379,6 +379,20 @@ allowed.
   reuse the resulting server session and call `/api/auth/session`; no access
   token is stored in browser storage.
 
+## S3 User deletion durability
+
+Deleting a BucketReef-managed S3 User is a durable saga when RGW must be
+mutated. `s3_user_deletions` stores the immutable RGW UID, tenant, deletion
+mode, interface access-key ID when applicable, and the remote-completion
+checkpoint before the destructive RGW operation starts. A retry first inspects
+RGW and treats an already absent target as completed, so a database failure
+after the remote delete does not require replaying that delete.
+
+The local S3 User row remains until remote cleanup has been checkpointed and
+all local derived data can be purged in one transaction. While the saga row is
+present, metadata, quota, rotation, and access-key mutations are blocked so the
+persisted deletion target cannot change underneath recovery.
+
 ## Server-managed private access
 
 Manager exposes two specialized provisioning branches that never return the

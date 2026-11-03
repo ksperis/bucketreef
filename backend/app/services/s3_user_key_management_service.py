@@ -42,6 +42,7 @@ class S3UserKeyManagementService:
         actor: User | None = None,
     ) -> S3UserSchema:
         s3_user = self.repository.get(user_id)
+        self.repository.ensure_not_pending_deletion(user_id)
         endpoint = self.rgw_context.endpoint_for_user(s3_user)
         try:
             DurableKeyRotationService(self.db, actor=actor).rotate(
@@ -70,6 +71,7 @@ class S3UserKeyManagementService:
 
     def create_access_key_entry(self, user_id: int) -> S3UserGeneratedKey:
         s3_user = self.repository.get(user_id)
+        self.repository.ensure_not_pending_deletion(user_id)
         admin = self.rgw_context.admin_for_user(s3_user)
         self.rgw_context.verified_user_tenant(s3_user, admin)
         return self.access_keys.create_key(s3_user, admin)
@@ -81,12 +83,14 @@ class S3UserKeyManagementService:
         active: bool,
     ) -> S3UserAccessKey:
         s3_user = self.repository.get(user_id)
+        self.repository.ensure_not_pending_deletion(user_id)
         admin = self.rgw_context.admin_for_user(s3_user)
         self.rgw_context.verified_user_tenant(s3_user, admin)
         return self.access_keys.set_key_status(s3_user, admin, access_key, active)
 
     def delete_key(self, user_id: int, access_key: str) -> None:
         s3_user = self.repository.get(user_id)
+        self.repository.ensure_not_pending_deletion(user_id)
         admin = self.rgw_context.admin_for_user(s3_user)
         self.rgw_context.verified_user_tenant(s3_user, admin)
         self.access_keys.delete_key(s3_user, admin, access_key)

@@ -22,6 +22,7 @@ from app.db import (
     QuotaUsageDaily,
     QuotaUsageHourly,
     S3User,
+    S3UserDeletion,
     StorageEndpoint,
     User,
     UserS3User,
@@ -34,7 +35,7 @@ from app.models.s3_user import (
     S3UserUpdate,
     S3UserUserLinkInput,
 )
-from app.services import s3_client
+from app.services import s3_client, s3_user_deletion_service as s3_user_deletion_service_module
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.app_settings_service import load_app_settings_for_db
 from app.services.s3_users_service import S3UsersService
@@ -1504,6 +1505,160 @@ def test_delete_user_with_delete_rgw_checks_buckets_then_deletes(db_session, mon
 
     assert "remote-user" in fake.deleted_users
     assert db_session.get(S3User, created.id) is None
+
+
+@pytest.mark.parametrize(
+    ("failure_call", "expected_remote_completed"),
+    [(2, False), (3, True)],
+)
+def test_delete_user_key_cleanup_recovers_after_commit_failure_without_replay(
+    db_session,
+    monkeypatch,
+    failure_call,
+    expected_remote_completed,
+):
+    endpoint = _seed_ceph_endpoint(db_session)
+    fake = FakeRGWAdmin()
+    service = _build_service(db_session, monkeypatch, fake)
+    created = service.create_user(
+        S3UserCreate(
+            name="RetryableDelete",
+            uid=f"retryable-delete-{failure_call}",
+            rgw_tenant="",
+            storage_endpoint_id=endpoint.id,
+        )
+    )
+    s3_user = db_session.get(S3User, created.id)
+    assert s3_user is not None
+    access_key = s3_user.rgw_access_key
+    original_commit = s3_user_deletion_service_module.commit_or_rollback
+    commit_calls = 0
+
+    def fail_selected_commit(db):
+        nonlocal commit_calls
+        commit_calls += 1
+        if commit_calls == failure_call:
+            db.rollback()
+            raise RuntimeError("simulated deletion commit failure")
+        original_commit(db)
+
+    monkeypatch.setattr(
+        s3_user_deletion_service_module,
+        "commit_or_rollback",
+        fail_selected_commit,
+    )
+
+    with pytest.raises(RuntimeError, match="simulated deletion commit failure"):
+        service.delete_user(created.id, delete_rgw=False)
+
+    db_session.expire_all()
+    persisted = db_session.get(S3User, created.id)
+    deletion = db_session.scalar(
+        select(S3UserDeletion).where(S3UserDeletion.s3_user_id == created.id)
+    )
+    assert persisted is not None
+    assert deletion is not None
+    assert deletion.remote_completed is expected_remote_completed
+    assert fake.deleted_keys == [access_key]
+    assert access_key not in {
+        entry["access_key"]
+        for entry in fake.remote_users[persisted.rgw_user_uid]["keys"]
+    }
+    with pytest.raises(ValueError, match="deletion is pending"):
+        service.update_user(
+            created.id,
+            S3UserUpdate(name="Must not mutate while deleting"),
+        )
+    with pytest.raises(ValueError, match="deletion is pending"):
+        service.create_access_key_entry(created.id)
+
+    monkeypatch.setattr(
+        s3_user_deletion_service_module,
+        "commit_or_rollback",
+        original_commit,
+    )
+    service.delete_user(created.id, delete_rgw=False)
+
+    assert fake.deleted_keys == [access_key]
+    assert db_session.get(S3User, created.id) is None
+    assert db_session.scalar(
+        select(S3UserDeletion).where(S3UserDeletion.s3_user_id == created.id)
+    ) is None
+
+
+@pytest.mark.parametrize(
+    ("failure_call", "expected_remote_completed"),
+    [(2, False), (3, True)],
+)
+def test_delete_remote_user_recovers_after_commit_failure_without_replay(
+    db_session,
+    monkeypatch,
+    failure_call,
+    expected_remote_completed,
+):
+    endpoint = _seed_ceph_endpoint(db_session)
+    fake = FakeRGWAdmin()
+    service = _build_service(db_session, monkeypatch, fake)
+    created = service.create_user(
+        S3UserCreate(
+            name="RetryableRemoteDelete",
+            uid=f"retryable-remote-delete-{failure_call}",
+            rgw_tenant="",
+            storage_endpoint_id=endpoint.id,
+        )
+    )
+    original_get_user = fake.get_user
+
+    def get_user_with_real_missing_contract(uid, tenant=None, allow_not_found=False):
+        if uid in fake.remote_users:
+            return original_get_user(uid, tenant=tenant, allow_not_found=allow_not_found)
+        if allow_not_found:
+            return None
+        raise RGWAdminError("missing", status_code=404, error_code="NoSuchUser")
+
+    monkeypatch.setattr(fake, "get_user", get_user_with_real_missing_contract)
+    monkeypatch.setattr(s3_client, "list_buckets", lambda **_kwargs: [])
+    original_commit = s3_user_deletion_service_module.commit_or_rollback
+    commit_calls = 0
+
+    def fail_selected_commit(db):
+        nonlocal commit_calls
+        commit_calls += 1
+        if commit_calls == failure_call:
+            db.rollback()
+            raise RuntimeError("simulated deletion commit failure")
+        original_commit(db)
+
+    monkeypatch.setattr(
+        s3_user_deletion_service_module,
+        "commit_or_rollback",
+        fail_selected_commit,
+    )
+
+    with pytest.raises(RuntimeError, match="simulated deletion commit failure"):
+        service.delete_user(created.id, delete_rgw=True)
+
+    db_session.expire_all()
+    deletion = db_session.scalar(
+        select(S3UserDeletion).where(S3UserDeletion.s3_user_id == created.id)
+    )
+    assert db_session.get(S3User, created.id) is not None
+    assert deletion is not None
+    assert deletion.remote_completed is expected_remote_completed
+    assert fake.deleted_users == [created.rgw_user_uid]
+
+    monkeypatch.setattr(
+        s3_user_deletion_service_module,
+        "commit_or_rollback",
+        original_commit,
+    )
+    service.delete_user(created.id, delete_rgw=True)
+
+    assert fake.deleted_users == [created.rgw_user_uid]
+    assert db_session.get(S3User, created.id) is None
+    assert db_session.scalar(
+        select(S3UserDeletion).where(S3UserDeletion.s3_user_id == created.id)
+    ) is None
 
 
 @pytest.mark.parametrize("delete_rgw", [False, True])

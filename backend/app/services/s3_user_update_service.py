@@ -55,6 +55,7 @@ class S3UserUpdateService:
 
     def update_user(self, user_id: int, payload: S3UserUpdate) -> S3UserSchema:
         s3_user = self.repository.get(user_id)
+        self.repository.ensure_not_pending_deletion(user_id)
         app_settings = load_app_settings_for_db(self.db)
         validate_manager_overrides(payload, app_settings.manager.feature_policies, s3_user)
         validate_multisite_endpoint_switching_override(
