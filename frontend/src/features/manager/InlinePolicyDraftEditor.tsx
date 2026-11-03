@@ -57,7 +57,6 @@ export default function InlinePolicyDraftEditor({
   const contentId = useId();
   const replacementMessageId = `${contentId}-replacement`;
   const hasDrafts = drafts.length > 0;
-  const selectedDraft = selectedDraftName ? drafts.find((draft) => draft.name === selectedDraftName) ?? null : null;
   const trimmedName = draftName.trim();
   const replacementTarget = trimmedName
     ? drafts.find((draft) => draft.name === trimmedName && draft.name !== selectedDraftName) ?? null
@@ -104,10 +103,9 @@ export default function InlinePolicyDraftEditor({
               </div>
               <div className="grid gap-2">
                 {drafts.map((draft) => {
-                  const isSelected = draft.name === selectedDraft?.name;
                   return (
                     <div key={draft.name} className="flex min-w-0 flex-wrap items-center gap-2">
-                      <InlinePolicyChoice policy={draft} selected={isSelected} onSelect={() => onSelectDraft(draft.name)} />
+                      <InlinePolicyChoice policy={draft} onSelect={() => onSelectDraft(draft.name)} />
                       <SettingsButton
                         variant="ghost"
                         onClick={() => onRemoveDraft(draft.name)}
