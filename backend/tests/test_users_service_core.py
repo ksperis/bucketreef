@@ -188,6 +188,38 @@ def test_create_user_and_authenticate(db_session):
     assert authenticated.last_login_at is not None
 
 
+def test_create_user_rolls_back_when_commit_fails(db_session, monkeypatch):
+    service = UsersService(db_session)
+    original_rollback = db_session.rollback
+    rollback_calls: list[None] = []
+
+    def rollback() -> None:
+        rollback_calls.append(None)
+        original_rollback()
+
+    def commit() -> None:
+        raise RuntimeError("commit failed")
+
+    monkeypatch.setattr(db_session, "rollback", rollback)
+    monkeypatch.setattr(db_session, "commit", commit)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        service.create_user(
+            UserCreate(
+                **_create_user_payload(
+                    email="create-rollback@example.com",
+                    full_name="Create Rollback",
+                )
+            )
+        )
+
+    assert rollback_calls == [None]
+    db_session.expire_all()
+    assert db_session.scalar(
+        select(User).where(User.email == "create-rollback@example.com")
+    ) is None
+
+
 def test_password_rehash_login_rolls_back_user_and_session_changes_on_commit_failure(
     db_session,
     monkeypatch,

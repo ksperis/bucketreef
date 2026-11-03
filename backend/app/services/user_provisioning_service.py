@@ -5,9 +5,10 @@ import logging
 
 from sqlalchemy.orm import Session
 
+from app.core.db_transactions import commit_or_rollback
+from app.core.domain_enums import is_admin_ui_role
 from app.core.security import get_password_hash
 from app.db import User
-from app.core.domain_enums import is_admin_ui_role
 from app.models.user import UserCreate, validate_password_policy
 from app.services.manager_tool_access import MANAGER_TOOL_ROLES, manager_tool_column_values
 from app.services.user_associations_service import UserAssociationsService
@@ -70,11 +71,11 @@ class UserProvisioningService:
 
             self.associations.apply_updates(user, payload)
             self.db.add(user)
-            self.db.commit()
         except Exception:
             self.db.rollback()
             raise
 
+        commit_or_rollback(self.db)
         self.db.refresh(user)
         logger.debug(
             "Created user id=%s email=%s role=%s",
