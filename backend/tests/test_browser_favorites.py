@@ -1,14 +1,18 @@
 from importlib import util
 from pathlib import Path
 
+import pytest
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from alembic.script import ScriptDirectory
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import create_engine, inspect, select, text
 
 from app.db import User
+from app.db.browser_favorite import BrowserFavorite
 from app.main import app
+from app.models.browser_favorites import BrowserFavoriteInput
 from app.routers import dependencies
+from app.services.browser_favorites_service import BrowserFavoritesService
 
 
 def login(db, email):
@@ -48,6 +52,64 @@ def test_two_clients_cannot_overwrite_or_delete_a_newer_revision(client, db_sess
     assert client.delete(path, params={"revision": 1}).status_code == 409
     assert client.get("/api/users/me/browser-favorites").json()[0]["name"] == "Renamed"
     assert client.delete(path, params={"revision": 2}).status_code == 204
+
+
+def test_favorite_create_rolls_back_when_commit_fails(db_session, monkeypatch):
+    user = login(db_session, "create-rollback@example.test")
+    service = BrowserFavoritesService(db_session)
+    original_rollback = db_session.rollback
+    rollback_calls: list[None] = []
+
+    def rollback() -> None:
+        rollback_calls.append(None)
+        original_rollback()
+
+    def commit() -> None:
+        raise RuntimeError("commit failed")
+
+    monkeypatch.setattr(db_session, "rollback", rollback)
+    monkeypatch.setattr(db_session, "commit", commit)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        service.create(user, BrowserFavoriteInput.model_validate(payload()))
+
+    assert rollback_calls == [None]
+    assert db_session.scalars(
+        select(BrowserFavorite).where(BrowserFavorite.user_id == user.id)
+    ).all() == []
+
+
+def test_favorite_mutation_rolls_back_when_commit_fails(db_session, monkeypatch):
+    user = login(db_session, "mutate-rollback@example.test")
+    service = BrowserFavoritesService(db_session)
+    created = service.create(user, BrowserFavoriteInput.model_validate(payload()))
+    original_rollback = db_session.rollback
+    rollback_calls: list[None] = []
+
+    def rollback() -> None:
+        rollback_calls.append(None)
+        original_rollback()
+
+    def commit() -> None:
+        raise RuntimeError("commit failed")
+
+    monkeypatch.setattr(db_session, "rollback", rollback)
+    monkeypatch.setattr(db_session, "commit", commit)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        service.mutate(
+            user,
+            created.id,
+            created.revision,
+            BrowserFavoriteInput.model_validate(payload(name="Renamed")),
+        )
+
+    assert rollback_calls == [None]
+    db_session.expire_all()
+    stored = db_session.get(BrowserFavorite, created.id)
+    assert stored is not None
+    assert stored.name == "Mes fichiers"
+    assert stored.revision == 1
 
 
 def test_favorites_reject_secrets_and_obsolete_view_fields(client, db_session):
