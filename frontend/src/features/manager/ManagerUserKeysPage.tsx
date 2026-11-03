@@ -339,13 +339,6 @@ export default function ManagerUserKeysPage({ embedded = false }: { embedded?: b
   }
 
   const content = <>
-      {embedded && (
-        <div className="flex justify-end">
-          <ListActionButton type="button" onClick={handleCreateKey} disabled={busy === "create"}>
-            {text(busy === "create" ? "Creating..." : "New key")}
-          </ListActionButton>
-        </div>
-      )}
       {error && tableStatus !== "error" && <PageBanner tone="error">{text(error)}</PageBanner>}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
 
@@ -364,6 +357,11 @@ export default function ManagerUserKeysPage({ embedded = false }: { embedded?: b
       <ListPageSection variant="page"
           title={text("Keys")}
           countLabel={text(keys.length === 1 ? "{count} key" : "{count} keys", { count: keys.length })}
+          actions={embedded ? (
+            <ListActionButton type="button" onClick={handleCreateKey} disabled={busy === "create"}>
+              {text(busy === "create" ? "Creating..." : "New key")}
+            </ListActionButton>
+          ) : undefined}
       >
         <DataTableShell
           responsiveCards

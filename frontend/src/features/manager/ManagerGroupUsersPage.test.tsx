@@ -32,11 +32,11 @@ vi.mock("../../api/managerIamUsers", async () => {
   };
 });
 
-function renderPage() {
+function renderPage(embedded = false) {
   return render(
       <MemoryRouter initialEntries={["/manager/groups/operators/members"]}>
       <Routes>
-          <Route path="/manager/groups/:groupName/members" element={<ManagerGroupUsersPage />} />
+          <Route path="/manager/groups/:groupName/members" element={<ManagerGroupUsersPage embedded={embedded} />} />
       </Routes>
     </MemoryRouter>
   );
@@ -89,7 +89,8 @@ describe("ManagerGroupUsersPage", () => {
     expect(listIamUsersPageMock).not.toHaveBeenCalled();
     expect(screen.getByRole("table")).toHaveClass("responsive-data-table");
     expect(screen.getByText("alice").closest("td")).toHaveAttribute("data-mobile-primary", "true");
-    expect(screen.getByText("arn:aws:iam::acc-1:user/alice").closest("td")).toHaveAttribute("data-label", "ARN");
+    expect(screen.queryByRole("columnheader", { name: "ARN" })).not.toBeInTheDocument();
+    expect(screen.queryByText("arn:aws:iam::acc-1:user/alice")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Remove" }).closest("td")).toHaveAttribute(
       "data-mobile-actions",
       "true"
@@ -122,5 +123,16 @@ describe("ManagerGroupUsersPage", () => {
     expect(await screen.findByText("No members in this group.")).toBeInTheDocument();
     expect(screen.getByText(/Associated: 0/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add members" })).toBeEnabled();
+  });
+
+  it("keeps embedded member actions and count in the shared list toolbar", async () => {
+    renderPage(true);
+
+    expect(await screen.findByText("No members in this group.")).toBeInTheDocument();
+    const toolbar = screen.getByRole("region", { name: "Members" });
+    expect(toolbar).toHaveAttribute("data-list-variant", "page");
+    expect(within(toolbar).getByText("Associated: 0")).toBeInTheDocument();
+    expect(within(toolbar).getByRole("button", { name: "Add members" })).toBeInTheDocument();
+    expect(within(toolbar).queryByRole("button", { name: "Refresh" })).not.toBeInTheDocument();
   });
 });
