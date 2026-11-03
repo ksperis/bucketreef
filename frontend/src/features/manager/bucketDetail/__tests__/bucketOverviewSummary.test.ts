@@ -50,6 +50,28 @@ function byLabel(input: BucketOverviewSummaryInput) {
 }
 
 describe("buildBucketOverviewSummary", () => {
+  it("uses stable feature identifiers independently from translated labels", () => {
+    const summary = buildBucketOverviewSummary(baseInput(), (message) => `translated:${message}`);
+
+    expect(summary.dataProtection.map((item) => item.id)).toEqual([
+      "versioning",
+      "object-lock",
+      "server-side-encryption",
+      "replication",
+    ]);
+    expect(summary.accessExposure.map((item) => item.id)).toEqual([
+      "public-access-block",
+      "bucket-policy",
+      "cors",
+      "static-website",
+    ]);
+    expect(summary.dataManagement.map((item) => item.id)).toEqual([
+      "lifecycle",
+      "access-logging",
+      "notifications",
+    ]);
+  });
+
   it("preserves detailed feature states and configured counts", () => {
     const input = baseInput();
     input.objectLock.configured = true;
@@ -103,10 +125,12 @@ describe("buildBucketOverviewSummary", () => {
     expect(buildBucketOverviewSummary(input, text).loadingFeatures).toBe(false);
   });
 
-  it("returns an empty active-feature list when every visible feature is inactive", () => {
+  it("keeps open public access attention-worthy when every configurable feature is inactive", () => {
     const summary = buildBucketOverviewSummary(baseInput(), text);
 
-    expect(summary.activeFeatures).toEqual([]);
+    expect(summary.activeFeatures).toEqual([
+      { label: "Public access not blocked", state: "warning" },
+    ]);
     expect(summary.loadingFeatures).toBe(false);
   });
 
@@ -142,13 +166,25 @@ describe("buildBucketOverviewSummary", () => {
 
   it("distinguishes fully blocked, partially blocked, and open public-access blocking", () => {
     const input = baseInput();
-    expect(byLabel(input)["Block public access"]).toBe("Not blocked");
+    let summary = buildBucketOverviewSummary(input, text);
+    expect(summary.accessExposure.find((item) => item.id === "public-access-block")).toMatchObject({
+      value: "Not blocked",
+      state: "warning",
+    });
 
     input.publicAccess.partial = true;
-    expect(byLabel(input)["Block public access"]).toBe("Partially blocked");
+    summary = buildBucketOverviewSummary(input, text);
+    expect(summary.accessExposure.find((item) => item.id === "public-access-block")).toMatchObject({
+      value: "Partially blocked",
+      state: "warning",
+    });
 
     input.publicAccess.partial = false;
     input.publicAccess.blocked = true;
-    expect(byLabel(input)["Block public access"]).toBe("Blocked");
+    summary = buildBucketOverviewSummary(input, text);
+    expect(summary.accessExposure.find((item) => item.id === "public-access-block")).toMatchObject({
+      value: "Blocked",
+      state: "active",
+    });
   });
 });

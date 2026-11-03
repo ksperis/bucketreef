@@ -5,37 +5,43 @@
 import { formatPercentage } from "../utils/format";
 import { clampPercentage, clampedPercentageOf } from "../utils/numbers";
 import { useI18n } from "../i18n";
-import UiMeterBar from "./ui/UiMeterBar";
 import { cx, uiCardMutedClass, uiMutedTextClass, uiTitleTextClass } from "./ui/styles";
+
+export type UsageTileQuotaLine = {
+  label: string;
+  value: number;
+};
 
 type UsageTileProps = {
   label: string;
   used?: number | null;
   quota?: number | null;
-  displayQuota?: number | null;
+  quotaLines?: UsageTileQuotaLine[];
   formatter: (value?: number | null) => string;
   quotaFormatter?: (value?: number | null) => string;
   loading?: boolean;
   unitHint?: string;
   emptyHint?: string;
   usageRatio?: number | null;
-  limitLabel?: string;
   limitWarning?: string;
+  onClick?: () => void;
+  actionLabel?: string;
 };
 
 export default function UsageTile({
   label,
   used,
   quota,
-  displayQuota,
+  quotaLines,
   formatter,
   quotaFormatter,
   loading,
   unitHint,
   emptyHint,
   usageRatio,
-  limitLabel,
   limitWarning,
+  onClick,
+  actionLabel,
 }: UsageTileProps) {
   const { t } = useI18n();
   const hasUsage = typeof used === "number" && !Number.isNaN(used);
@@ -45,16 +51,18 @@ export default function UsageTile({
       ? clampedPercentageOf(used, quota)
       : null;
   const usedDisplay = hasUsage ? formatter(used) : loading ? t({ en: "Loading...", fr: "Chargement...", de: "Wird geladen...", zh: "正在加载..." }) : "—";
-  const quotaForDisplay = displayQuota !== undefined ? displayQuota : quota;
-  const hasQuota = typeof quotaForDisplay === "number" && Number.isFinite(quotaForDisplay) && (
-    quotaForDisplay > 0 || (quotaForDisplay === 0 && usageRatio !== undefined && usageRatio !== null)
-  );
-  const quotaDisplay = hasQuota ? (quotaFormatter ? quotaFormatter(quotaForDisplay) : formatter(quotaForDisplay)) : null;
-  const ratioLabel = ratio !== null ? formatPercentage(ratio) : "—";
-  const ratioMatchesDisplayedQuota = displayQuota === undefined || displayQuota === quota;
+  const fallbackQuota = typeof quota === "number" && Number.isFinite(quota) && quota > 0
+    ? [{ label: t({ en: "Quota", fr: "Quota", de: "Kontingent", zh: "配额" }), value: quota }]
+    : [];
+  const configuredQuotas = quotaLines ?? fallbackQuota;
 
-  return (
-    <div className={cx(uiCardMutedClass, "flex flex-col gap-3 p-3")}>
+  const cardClassName = cx(
+    uiCardMutedClass,
+    "p-3",
+    onClick && "w-full cursor-pointer text-left transition-colors hover:border-[color:var(--ui-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ui-focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--ui-surface)]",
+  );
+  const content = (
+    <>
       <div className="flex items-center gap-3">
         <div className="shrink-0">
           {ratio === null ? (
@@ -71,26 +79,35 @@ export default function UsageTile({
             {usedDisplay}
             {unitHint && hasUsage && <span className={cx("ui-caption font-normal", uiMutedTextClass)}> {unitHint}</span>}
           </p>
-          {quotaDisplay ? (
-            <p className={cx("ui-caption", uiMutedTextClass)}>
-              {usedDisplay} / {quotaDisplay}
-              {ratioMatchesDisplayedQuota ? ` · ${ratioLabel}` : ""}
-              {limitLabel ? ` · ${limitLabel}` : ""}
-            </p>
+          {configuredQuotas.length > 0 ? (
+            <dl className="space-y-0.5 pt-0.5">
+              {configuredQuotas.map((configuredQuota) => (
+                <div key={configuredQuota.label} className="flex items-baseline justify-between gap-3 ui-caption">
+                  <dt className={uiMutedTextClass}>{configuredQuota.label}</dt>
+                  <dd className={cx("font-medium", uiTitleTextClass)}>
+                    {quotaFormatter ? quotaFormatter(configuredQuota.value) : formatter(configuredQuota.value)}
+                  </dd>
+                </div>
+              ))}
+            </dl>
           ) : (
             <p className={cx("ui-caption", uiMutedTextClass)}>{emptyHint ?? t({ en: "No quota defined.", fr: "Aucun quota défini.", de: "Kein Kontingent definiert.", zh: "未定义配额。" })}</p>
           )}
           {limitWarning && <p className={cx("ui-caption", uiMutedTextClass)}>{limitWarning}</p>}
         </div>
       </div>
-      <UiMeterBar
-        value={ratio ?? 0}
-        label={t({ en: `${label} quota usage`, fr: `Utilisation du quota — ${label}`, de: `Kontingentnutzung: ${label}`, zh: `${label} 配额使用情况` })}
-        className="h-1 bg-[var(--ui-hover)]"
-        barClassName={getBarColor(ratio ?? 0)}
-      />
-    </div>
+    </>
   );
+
+  if (onClick) {
+    return (
+      <button type="button" className={cardClassName} onClick={onClick} aria-label={actionLabel ?? label}>
+        {content}
+      </button>
+    );
+  }
+
+  return <div className={cardClassName}>{content}</div>;
 }
 
 function UsageGauge({ ratio }: { ratio: number }) {
@@ -120,10 +137,4 @@ function getAccentColor(ratio: number) {
   if (ratio >= 90) return "#f43f5e";
   if (ratio >= 75) return "#f97316";
   return "#0569f8";
-}
-
-function getBarColor(ratio: number) {
-  if (ratio >= 90) return "bg-rose-500";
-  if (ratio >= 75) return "bg-amber-500";
-  return "bg-primary";
 }

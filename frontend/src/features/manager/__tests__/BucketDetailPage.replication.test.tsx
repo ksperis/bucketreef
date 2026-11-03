@@ -793,6 +793,65 @@ describe("BucketDetailPage replication state", () => {
     expect(within(overviewSection as HTMLElement).getByText("Unavailable")).toBeInTheDocument();
   });
 
+  it("renders feature-state cards and navigates each overview category to its configuration tab", async () => {
+    const user = userEvent.setup();
+    useExecutionContextMock.mockReturnValue(managerCephAccountContext("acc-1"));
+    getBucketPolicyMock.mockResolvedValue({
+      policy: {
+        Version: "2012-10-17",
+        Statement: [{
+          Effect: "Allow",
+          Principal: "*",
+          Action: "s3:GetObject",
+          Resource: "arn:aws:s3:::demo-bucket/*",
+        }],
+      },
+    });
+    getBucketLifecycleMock.mockResolvedValue({
+      rules: [{ ID: "expire", Status: "Enabled", Filter: { Prefix: "" }, Expiration: { Days: 30 } }],
+    });
+    getBucketTagsMock.mockResolvedValue({
+      tags: [
+        { key: "environment", value: "prod" },
+        { key: "team", value: "storage" },
+      ],
+    });
+
+    render(
+      <MemoryRouter>
+        <BucketDetailPage bucketNameOverride="demo-bucket" embedded />
+      </MemoryRouter>
+    );
+
+    const policyCard = await screen.findByRole("button", { name: /Bucket policy.*Configured/i });
+    expect(policyCard).toHaveAttribute("data-feature-state", "active");
+
+    const publicAccessCard = screen.getByRole("button", { name: /Block public access.*Not blocked/i });
+    expect(publicAccessCard).toHaveAttribute("data-feature-state", "warning");
+
+    const lifecycleCard = screen.getByRole("button", { name: /Lifecycle.*1 rule/i });
+    expect(lifecycleCard).toHaveAttribute("data-feature-state", "active");
+
+    expect(screen.getByText("environment=prod")).toBeInTheDocument();
+    expect(screen.getByText("team=storage")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Storage — Usage & Metrics" }));
+    expect(screen.getByRole("tab", { name: "Usage & Metrics" })).toHaveAttribute("aria-selected", "true");
+
+    await user.click(screen.getByRole("tab", { name: "Overview" }));
+
+    await user.click(screen.getByRole("button", { name: /Versioning.*Disabled/i }));
+    expect(screen.getByRole("tab", { name: "Properties" })).toHaveAttribute("aria-selected", "true");
+
+    await user.click(screen.getByRole("tab", { name: "Overview" }));
+    await user.click(screen.getByRole("button", { name: /Bucket policy.*Configured/i }));
+    expect(screen.getByRole("tab", { name: "Permissions" })).toHaveAttribute("aria-selected", "true");
+
+    await user.click(screen.getByRole("tab", { name: "Overview" }));
+    await user.click(screen.getByRole("button", { name: /Lifecycle.*1 rule/i }));
+    expect(screen.getByRole("tab", { name: "Data management" })).toHaveAttribute("aria-selected", "true");
+  });
+
   it("shows the bucket tenant in details only when it is present", async () => {
     listCephAdminBucketsMock.mockResolvedValueOnce({
       items: [{ name: "demo-bucket", tenant: "tenant-a" }],
@@ -854,9 +913,14 @@ describe("BucketDetailPage replication state", () => {
     const usageSection = usageHeading.closest("section");
     expect(usageSection).not.toBeNull();
     await waitFor(() => expect(fetchManagerStatsMock).toHaveBeenCalledWith("acc-1"));
-    expect(within(usageSection as HTMLElement).getByText(/1\.0 GB \/ 10 GB · Account quota/)).toBeInTheDocument();
-    expect(within(usageSection as HTMLElement).getByText(/100 \/ 1,000 · Account quota/)).toBeInTheDocument();
+    expect(within(usageSection as HTMLElement).getAllByText("Bucket quota")).toHaveLength(2);
+    expect(within(usageSection as HTMLElement).getAllByText("Account quota")).toHaveLength(2);
+    expect(within(usageSection as HTMLElement).getByText("5.0 GB")).toBeInTheDocument();
+    expect(within(usageSection as HTMLElement).getByText("10 GB")).toBeInTheDocument();
+    expect(within(usageSection as HTMLElement).getByText("500")).toBeInTheDocument();
+    expect(within(usageSection as HTMLElement).getByText("1,000")).toBeInTheDocument();
     expect(within(usageSection as HTMLElement).getAllByRole("img", { name: "Usage at 33%" })).toHaveLength(2);
+    expect(within(usageSection as HTMLElement).queryByRole("meter")).not.toBeInTheDocument();
   });
 
   it("uses Ceph Admin owner quota metadata for the effective bucket limit", async () => {
@@ -888,9 +952,145 @@ describe("BucketDetailPage replication state", () => {
       include: ["owner_quota", "owner_quota_usage"],
       with_stats: true,
     })));
-    expect(within(usageSection as HTMLElement).getByText(/100 B \/ 1000 B · Owner quota/)).toBeInTheDocument();
-    expect(within(usageSection as HTMLElement).getByText(/100 \/ 1,000 · Owner quota/)).toBeInTheDocument();
+    expect(within(usageSection as HTMLElement).getAllByText("Bucket quota")).toHaveLength(2);
+    expect(within(usageSection as HTMLElement).getAllByText("Owner quota")).toHaveLength(2);
+    expect(within(usageSection as HTMLElement).getByText("500 B")).toBeInTheDocument();
+    expect(within(usageSection as HTMLElement).getByText("500")).toBeInTheDocument();
+    expect(within(usageSection as HTMLElement).getByText("1000 B")).toBeInTheDocument();
+    expect(within(usageSection as HTMLElement).getByText("1,000")).toBeInTheDocument();
     expect(within(usageSection as HTMLElement).getAllByRole("img", { name: "Usage at 33%" })).toHaveLength(2);
+    expect(within(usageSection as HTMLElement).queryByRole("meter")).not.toBeInTheDocument();
+  });
+
+  it("shows only bucket quota lines when no account quota is configured", async () => {
+    useExecutionContextMock.mockReturnValue(managerCephAccountContext("acc-1"));
+    getBucketStatsMock.mockResolvedValueOnce({
+      name: "demo-bucket",
+      used_bytes: 100,
+      object_count: 100,
+      quota_max_size_bytes: 500,
+      quota_max_objects: 500,
+    });
+
+    render(
+      <MemoryRouter>
+        <BucketDetailPage bucketNameOverride="demo-bucket" embedded />
+      </MemoryRouter>
+    );
+
+    const usageHeading = await screen.findByRole("heading", { name: "Usage" });
+    const usageSection = usageHeading.closest("section");
+    expect(usageSection).not.toBeNull();
+    await waitFor(() => expect(fetchManagerContextMock).toHaveBeenCalled());
+    expect(within(usageSection as HTMLElement).getAllByText("Bucket quota")).toHaveLength(2);
+    expect(within(usageSection as HTMLElement).queryByText("Account quota")).not.toBeInTheDocument();
+    expect(within(usageSection as HTMLElement).getAllByRole("img", { name: "Usage at 20%" })).toHaveLength(2);
+  });
+
+  it("shows only account quota lines when no bucket quota is configured", async () => {
+    const gib = 1024 ** 3;
+    useExecutionContextMock.mockReturnValue(managerCephAccountContext("acc-1"));
+    getBucketStatsMock.mockResolvedValueOnce({
+      name: "demo-bucket",
+      used_bytes: gib,
+      object_count: 100,
+    });
+    fetchManagerContextMock.mockResolvedValueOnce({
+      access_mode: "admin",
+      context_kind: "account",
+      quota_max_size_gb: 10,
+      quota_max_objects: 1000,
+    });
+    fetchManagerStatsMock.mockResolvedValueOnce({
+      total_buckets: 4,
+      total_bytes: 8 * gib,
+      total_objects: 800,
+      bucket_usage: [],
+      bucket_overview: {
+        bucket_count: 4,
+        non_empty_buckets: 4,
+        empty_buckets: 0,
+      },
+    });
+
+    render(
+      <MemoryRouter>
+        <BucketDetailPage bucketNameOverride="demo-bucket" embedded />
+      </MemoryRouter>
+    );
+
+    const usageHeading = await screen.findByRole("heading", { name: "Usage" });
+    const usageSection = usageHeading.closest("section");
+    expect(usageSection).not.toBeNull();
+    await waitFor(() => expect(fetchManagerStatsMock).toHaveBeenCalledWith("acc-1"));
+    expect(within(usageSection as HTMLElement).queryByText("Bucket quota")).not.toBeInTheDocument();
+    expect(within(usageSection as HTMLElement).getAllByText("Account quota")).toHaveLength(2);
+    expect(within(usageSection as HTMLElement).getAllByRole("img", { name: "Usage at 33%" })).toHaveLength(2);
+  });
+
+  it("keeps the no-quota state when neither bucket nor account quota is configured", async () => {
+    useExecutionContextMock.mockReturnValue(managerCephAccountContext("acc-1"));
+    getBucketStatsMock.mockResolvedValueOnce({
+      name: "demo-bucket",
+      used_bytes: 100,
+      object_count: 100,
+    });
+
+    render(
+      <MemoryRouter>
+        <BucketDetailPage bucketNameOverride="demo-bucket" embedded />
+      </MemoryRouter>
+    );
+
+    const usageHeading = await screen.findByRole("heading", { name: "Usage" });
+    const usageSection = usageHeading.closest("section");
+    expect(usageSection).not.toBeNull();
+    await waitFor(() => expect(fetchManagerContextMock).toHaveBeenCalled());
+    expect(within(usageSection as HTMLElement).queryByText("Bucket quota")).not.toBeInTheDocument();
+    expect(within(usageSection as HTMLElement).queryByText("Account quota")).not.toBeInTheDocument();
+    expect(within(usageSection as HTMLElement).getByText("No storage quota configured.")).toBeInTheDocument();
+    expect(within(usageSection as HTMLElement).getByText("No object quota configured.")).toBeInTheDocument();
+    expect(within(usageSection as HTMLElement).getAllByText("N/A")).toHaveLength(2);
+  });
+
+  it("labels an S3 user owner limit as User quota", async () => {
+    const gib = 1024 ** 3;
+    useExecutionContextMock.mockReturnValue(managerCephAccountContext("s3u-1"));
+    getBucketStatsMock.mockResolvedValueOnce({
+      name: "demo-bucket",
+      used_bytes: gib,
+      object_count: 100,
+    });
+    fetchManagerContextMock.mockResolvedValueOnce({
+      access_mode: "s3_user",
+      context_kind: "account",
+      quota_max_size_gb: 10,
+      quota_max_objects: 1000,
+    });
+    fetchManagerStatsMock.mockResolvedValueOnce({
+      total_buckets: 4,
+      total_bytes: 8 * gib,
+      total_objects: 800,
+      bucket_usage: [],
+      bucket_overview: {
+        bucket_count: 4,
+        non_empty_buckets: 4,
+        empty_buckets: 0,
+      },
+    });
+
+    render(
+      <MemoryRouter>
+        <BucketDetailPage bucketNameOverride="demo-bucket" embedded />
+      </MemoryRouter>
+    );
+
+    const usageHeading = await screen.findByRole("heading", { name: "Usage" });
+    const usageSection = usageHeading.closest("section");
+    expect(usageSection).not.toBeNull();
+    await waitFor(() => expect(fetchManagerStatsMock).toHaveBeenCalledWith("s3u-1"));
+    expect(within(usageSection as HTMLElement).getAllByText("User quota")).toHaveLength(2);
+    expect(within(usageSection as HTMLElement).queryByText("Account quota")).not.toBeInTheDocument();
   });
 
   it("shows a read-only object browser for Ceph Admin buckets", async () => {
@@ -1278,7 +1478,7 @@ describe("BucketDetailPage replication state", () => {
 
   it("preserves bucket tag row identity when removing another draft", async () => {
     const user = userEvent.setup();
-    getCephAdminBucketTagsMock.mockResolvedValueOnce({
+    getCephAdminBucketTagsMock.mockResolvedValue({
       tags: [
         { key: "environment", value: "test" },
         { key: "owner", value: "platform" },

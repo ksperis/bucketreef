@@ -17,6 +17,7 @@ import PageTabs from "../../components/PageTabs";
 import InlineSummary from "../../components/InlineSummary";
 import { MetricsCard } from "../../components/MetricsCard";
 import UsageTile from "../../components/UsageTile";
+import UiBadge from "../../components/ui/UiBadge";
 import { formatCompactNumber } from "../../utils/format";
 import { formatLocalDateTime } from "../../utils/dateTime";
 import { isAdminLikeRole, readStoredUser } from "../../utils/workspaces";
@@ -73,11 +74,9 @@ import {
 import { formatBytes } from "../../utils/format";
 import type { UiRole } from "../../api/users";
 import BucketFeatureGrid from "./bucketDetail/BucketFeatureGrid";
+import BucketOverviewFeatureGrid from "./bucketDetail/BucketOverviewFeatureGrid";
 import BucketObjectsPreview from "./bucketDetail/BucketObjectsPreview";
-import {
-  buildBucketOverviewSummary,
-  type BucketOverviewSummaryItem,
-} from "./bucketDetail/bucketOverviewSummary";
+import { buildBucketOverviewSummary } from "./bucketDetail/bucketOverviewSummary";
 import { useManagerI18n } from "./managerI18n";
 import { useBrowserBucketDetailsScope } from "../shared/BucketDetailsScope";
 import { useBucketUsageLimits } from "./bucketDetail/useBucketUsageLimits";
@@ -90,18 +89,6 @@ function getUserRole(): UiRole | null {
 const bucketDetailTwoColumnGridClass = "grid gap-3 md:grid-cols-2";
 
 const bucketDetailSectionStackClass = "space-y-4";
-
-function overviewInlineItems(items: BucketOverviewSummaryItem[]) {
-  return items.map((item) => ({
-    label: item.label,
-    value: item.value,
-    tone: item.state === "active"
-      ? "primary" as const
-      : item.state === "warning" || item.state === "unavailable"
-        ? "warning" as const
-        : undefined,
-  }));
-}
 
 type BucketDetailPageProps = {
   mode?: BucketDetailMode;
@@ -401,6 +388,7 @@ function BucketDetailPageContent({
     load: loadBucketTags,
     loading: bucketTagsLoading,
   } = bucketTagsController;
+  const overviewBucketTags = bucketTagsController.tags.filter((tag) => tag.key !== "" || tag.value !== "");
   const quotaFeatureEnabled = featureAvailability.quota;
   const showQuotaTab = !hideQuotaTab && (isCephAdmin || Boolean(quotaFeatureEnabled && hasManagerExecutionContext));
   const showObjectsTab = !hideObjectsTab;
@@ -603,6 +591,7 @@ function BucketDetailPageContent({
         loadClean("quota", refreshBucketMeta),
         loadClean("versioning", loadVersioning),
         loadClean("objectLock", loadObjectLock),
+        loadClean("tags", loadBucketTags),
         loadClean("lifecycle", loadLifecycle),
         loadClean("policy", loadPolicy),
         loadClean("acl", loadBucketAcl),
@@ -686,7 +675,8 @@ function BucketDetailPageContent({
         publicAccessLoading ||
         websiteLoading ||
         accessLoggingLoading ||
-        notificationsLoading
+        notificationsLoading ||
+        bucketTagsLoading
       );
     }
     if (activeTab === "objects") {
@@ -752,28 +742,40 @@ function BucketDetailPageContent({
     () => ({
       used: bucket?.used_bytes ?? null,
       quota: usageLimits.storage.limit,
-      displayQuota: usageLimits.storage.configuredQuota,
       ratio: usageLimits.storage.ratio,
-      limitLabel: usageLimitLabel(usageLimits.storage.source),
+      quotaLines: [
+        ...(usageLimits.storage.bucketQuota !== null
+          ? [{ label: text("Bucket quota"), value: usageLimits.storage.bucketQuota }]
+          : []),
+        ...(usageLimits.storage.ownerQuota !== null && usageOwnerSource
+          ? [{ label: usageLimitLabel(usageOwnerSource) ?? text("Owner quota"), value: usageLimits.storage.ownerQuota }]
+          : []),
+      ],
       limitWarning: usageLimits.storage.ownerConstraintUnavailable
         ? unavailableOwnerUsageLabel()
         : undefined,
     }),
-    [bucket?.used_bytes, unavailableOwnerUsageLabel, usageLimitLabel, usageLimits.storage]
+    [bucket?.used_bytes, text, unavailableOwnerUsageLabel, usageLimitLabel, usageLimits.storage, usageOwnerSource]
   );
 
   const objectUsage = useMemo(
     () => ({
       used: bucket?.object_count ?? null,
       quota: usageLimits.objects.limit,
-      displayQuota: usageLimits.objects.configuredQuota,
       ratio: usageLimits.objects.ratio,
-      limitLabel: usageLimitLabel(usageLimits.objects.source),
+      quotaLines: [
+        ...(usageLimits.objects.bucketQuota !== null
+          ? [{ label: text("Bucket quota"), value: usageLimits.objects.bucketQuota }]
+          : []),
+        ...(usageLimits.objects.ownerQuota !== null && usageOwnerSource
+          ? [{ label: usageLimitLabel(usageOwnerSource) ?? text("Owner quota"), value: usageLimits.objects.ownerQuota }]
+          : []),
+      ],
       limitWarning: usageLimits.objects.ownerConstraintUnavailable
         ? unavailableOwnerUsageLabel()
         : undefined,
     }),
-    [bucket?.object_count, unavailableOwnerUsageLabel, usageLimitLabel, usageLimits.objects]
+    [bucket?.object_count, text, unavailableOwnerUsageLabel, usageLimitLabel, usageLimits.objects, usageOwnerSource]
   );
   const bucketOwner = useMemo(() => {
     const ownerFromBucket = (bucket?.owner ?? "").trim();
@@ -1020,6 +1022,20 @@ function BucketDetailPageContent({
                           ? formatLocalDateTime(bucket.creation_date)
                           : text("Unavailable"),
                     },
+                    ...(overviewBucketTags.length > 0
+                      ? [{
+                          label: text("Tags"),
+                          value: (
+                            <div className="flex min-w-0 flex-wrap gap-1.5">
+                              {overviewBucketTags.map((tag) => (
+                                <UiBadge key={tag.uiId} tone="neutral">
+                                  {tag.key}={tag.value}
+                                </UiBadge>
+                              ))}
+                            </div>
+                          ),
+                        }]
+                      : []),
                   ]} />
                 </SettingsSection>
                 <SettingsSection
@@ -1032,28 +1048,30 @@ function BucketDetailPageContent({
                       label={text("Storage")}
                       used={storageUsage.used}
                       quota={storageUsage.quota}
-                      displayQuota={storageUsage.displayQuota}
+                      quotaLines={storageUsage.quotaLines}
                       formatter={formatBytes}
                       quotaFormatter={formatBytes}
                       loading={loadingBucket}
                       emptyHint={text("No storage quota configured.")}
                       usageRatio={storageUsage.ratio}
-                      limitLabel={storageUsage.limitLabel}
                       limitWarning={storageUsage.limitWarning}
+                      onClick={availableTabs.includes("usage-metrics") ? () => onActiveTabChange("usage-metrics") : undefined}
+                      actionLabel={`${text("Storage")} — ${text("Usage & Metrics")}`}
                     />
                     <UsageTile
                       label={text("Objects")}
                       used={objectUsage.used}
                       quota={objectUsage.quota}
-                      displayQuota={objectUsage.displayQuota}
+                      quotaLines={objectUsage.quotaLines}
                       formatter={formatCompactNumber}
                       quotaFormatter={(value) => (value != null ? value.toLocaleString(intlLocale) : "-")}
                       loading={loadingBucket}
                       unitHint={text("objects")}
                       emptyHint={text("No object quota configured.")}
                       usageRatio={objectUsage.ratio}
-                      limitLabel={objectUsage.limitLabel}
                       limitWarning={objectUsage.limitWarning}
+                      onClick={availableTabs.includes("usage-metrics") ? () => onActiveTabChange("usage-metrics") : undefined}
+                      actionLabel={`${text("Objects")} — ${text("Usage & Metrics")}`}
                     />
                   </div>
                 </SettingsSection>
@@ -1062,21 +1080,30 @@ function BucketDetailPageContent({
                   description={text("Protection and durability settings.")}
                   presentation="compact"
                 >
-                  <InlineSummary items={overviewInlineItems(overviewSummary.dataProtection)} />
+                  <BucketOverviewFeatureGrid
+                    items={overviewSummary.dataProtection}
+                    onNavigate={onActiveTabChange}
+                  />
                 </SettingsSection>
                 <SettingsSection
                   title={text("Access & exposure")}
                   description={text("External access controls.")}
                   presentation="compact"
                 >
-                  <InlineSummary items={overviewInlineItems(overviewSummary.accessExposure)} />
+                  <BucketOverviewFeatureGrid
+                    items={overviewSummary.accessExposure}
+                    onNavigate={onActiveTabChange}
+                  />
                 </SettingsSection>
                 <SettingsSection
                   title={text("Data management")}
                   description={text("Automation and data handling.")}
                   presentation="compact"
                 >
-                  <InlineSummary items={overviewInlineItems(overviewSummary.dataManagement)} />
+                  <BucketOverviewFeatureGrid
+                    items={overviewSummary.dataManagement}
+                    onNavigate={onActiveTabChange}
+                  />
                 </SettingsSection>
               </div>
             ),
@@ -1204,27 +1231,25 @@ function BucketDetailPageContent({
                       label={text("Storage")}
                       used={storageUsage.used}
                       quota={storageUsage.quota}
-                      displayQuota={storageUsage.displayQuota}
+                      quotaLines={storageUsage.quotaLines}
                       formatter={formatBytes}
                       quotaFormatter={formatBytes}
                       loading={loadingBucket}
                       emptyHint={text("No storage quota defined.")}
                       usageRatio={storageUsage.ratio}
-                      limitLabel={storageUsage.limitLabel}
                       limitWarning={storageUsage.limitWarning}
                     />
                     <UsageTile
                       label={text("Objects")}
                       used={objectUsage.used}
                       quota={objectUsage.quota}
-                      displayQuota={objectUsage.displayQuota}
+                      quotaLines={objectUsage.quotaLines}
                       formatter={formatCompactNumber}
                       quotaFormatter={(value) => (value != null ? value.toLocaleString(intlLocale) : "-")}
                       loading={loadingBucket}
                       unitHint={text("objects")}
                       emptyHint={text("No object quota defined.")}
                       usageRatio={objectUsage.ratio}
-                      limitLabel={objectUsage.limitLabel}
                       limitWarning={objectUsage.limitWarning}
                     />
                   </div>
