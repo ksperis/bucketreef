@@ -34,7 +34,7 @@ type UseBucketUsageLimitsOptions = {
   managerEnabled: boolean;
 };
 
-export type BucketUsageLimits = {
+type BucketUsageLimits = {
   storage: BucketUsageLimit;
   objects: BucketUsageLimit;
   ownerSource: Exclude<BucketUsageLimitSource, "bucket" | null> | null;

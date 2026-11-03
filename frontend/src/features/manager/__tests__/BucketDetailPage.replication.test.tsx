@@ -919,8 +919,8 @@ describe("BucketDetailPage replication state", () => {
     expect(within(usageSection as HTMLElement).getByText("10 GB")).toBeInTheDocument();
     expect(within(usageSection as HTMLElement).getByText("500")).toBeInTheDocument();
     expect(within(usageSection as HTMLElement).getByText("1,000")).toBeInTheDocument();
-    expect(within(usageSection as HTMLElement).getAllByRole("img", { name: "Usage at 33%" })).toHaveLength(2);
-    expect(within(usageSection as HTMLElement).queryByRole("meter")).not.toBeInTheDocument();
+    expect(within(usageSection as HTMLElement).getByRole("meter", { name: "Storage quota usage" })).toHaveAttribute("aria-valuetext", "33%");
+    expect(within(usageSection as HTMLElement).getByRole("meter", { name: "Objects quota usage" })).toHaveAttribute("aria-valuetext", "33%");
   });
 
   it("uses Ceph Admin owner quota metadata for the effective bucket limit", async () => {
@@ -958,8 +958,8 @@ describe("BucketDetailPage replication state", () => {
     expect(within(usageSection as HTMLElement).getByText("500")).toBeInTheDocument();
     expect(within(usageSection as HTMLElement).getByText("1000 B")).toBeInTheDocument();
     expect(within(usageSection as HTMLElement).getByText("1,000")).toBeInTheDocument();
-    expect(within(usageSection as HTMLElement).getAllByRole("img", { name: "Usage at 33%" })).toHaveLength(2);
-    expect(within(usageSection as HTMLElement).queryByRole("meter")).not.toBeInTheDocument();
+    expect(within(usageSection as HTMLElement).getByRole("meter", { name: "Storage quota usage" })).toHaveAttribute("aria-valuetext", "33%");
+    expect(within(usageSection as HTMLElement).getByRole("meter", { name: "Objects quota usage" })).toHaveAttribute("aria-valuetext", "33%");
   });
 
   it("shows only bucket quota lines when no account quota is configured", async () => {
@@ -984,7 +984,8 @@ describe("BucketDetailPage replication state", () => {
     await waitFor(() => expect(fetchManagerContextMock).toHaveBeenCalled());
     expect(within(usageSection as HTMLElement).getAllByText("Bucket quota")).toHaveLength(2);
     expect(within(usageSection as HTMLElement).queryByText("Account quota")).not.toBeInTheDocument();
-    expect(within(usageSection as HTMLElement).getAllByRole("img", { name: "Usage at 20%" })).toHaveLength(2);
+    expect(within(usageSection as HTMLElement).getByRole("meter", { name: "Storage quota usage" })).toHaveAttribute("aria-valuetext", "20%");
+    expect(within(usageSection as HTMLElement).getByRole("meter", { name: "Objects quota usage" })).toHaveAttribute("aria-valuetext", "20%");
   });
 
   it("shows only account quota lines when no bucket quota is configured", async () => {
@@ -1025,7 +1026,8 @@ describe("BucketDetailPage replication state", () => {
     await waitFor(() => expect(fetchManagerStatsMock).toHaveBeenCalledWith("acc-1"));
     expect(within(usageSection as HTMLElement).queryByText("Bucket quota")).not.toBeInTheDocument();
     expect(within(usageSection as HTMLElement).getAllByText("Account quota")).toHaveLength(2);
-    expect(within(usageSection as HTMLElement).getAllByRole("img", { name: "Usage at 33%" })).toHaveLength(2);
+    expect(within(usageSection as HTMLElement).getByRole("meter", { name: "Storage quota usage" })).toHaveAttribute("aria-valuetext", "33%");
+    expect(within(usageSection as HTMLElement).getByRole("meter", { name: "Objects quota usage" })).toHaveAttribute("aria-valuetext", "33%");
   });
 
   it("keeps the no-quota state when neither bucket nor account quota is configured", async () => {

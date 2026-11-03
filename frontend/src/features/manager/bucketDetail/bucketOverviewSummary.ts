@@ -20,7 +20,7 @@ export type BucketOverviewSummaryItem = {
   state: BucketOverviewFeatureState;
 };
 
-export type BucketOverviewActiveFeature = {
+type BucketOverviewActiveFeature = {
   label: string;
   detail?: string;
   state: "active" | "warning";
@@ -66,7 +66,7 @@ export type BucketOverviewSummaryInput = {
   };
 };
 
-export type BucketOverviewSummary = {
+type BucketOverviewSummary = {
   activeFeatures: BucketOverviewActiveFeature[];
   loadingFeatures: boolean;
   dataProtection: BucketOverviewSummaryItem[];
