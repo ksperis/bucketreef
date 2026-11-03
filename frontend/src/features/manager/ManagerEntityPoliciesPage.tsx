@@ -339,13 +339,6 @@ export default function ManagerEntityPoliciesPage({
       );
 
   const content = <>
-      {embedded && (
-        <div className="flex justify-end">
-          <ListActionButton type="button" onClick={handleRefresh} disabled={loading}>
-            {text("Refresh")}
-          </ListActionButton>
-        </div>
-      )}
       {error && <PageBanner tone="error">{text(error)}</PageBanner>}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
       <div className="settings-compact settings-stack">

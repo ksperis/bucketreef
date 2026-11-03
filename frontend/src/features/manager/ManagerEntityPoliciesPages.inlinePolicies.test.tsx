@@ -130,6 +130,19 @@ describe("manager entity policy pages", () => {
     expect(screen.getByText("Select an existing inline policy to review or edit.")).toBeInTheDocument();
   });
 
+  it("shows a single refresh action in the embedded user policies workspace", async () => {
+    render(
+      <MemoryRouter initialEntries={["/manager/users/alice/policies"]}>
+        <Routes>
+          <Route path="/manager/users/:userName/policies" element={<ManagerUserPoliciesPage embedded />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findByText("Existing inline policies");
+    expect(screen.getAllByRole("button", { name: "Refresh" })).toHaveLength(1);
+  });
+
   it.each(pages)("shows existing managed policies before opening the $label association picker", async ({ path, element }) => {
     const attached = { name: "ExistingPolicy", arn: "arn:aws:iam::acc-1:policy/ExistingPolicy" };
     const available = { name: "AvailablePolicy", arn: "arn:aws:iam::acc-1:policy/AvailablePolicy" };
