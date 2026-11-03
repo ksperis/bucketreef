@@ -33,6 +33,10 @@ function normalizeForStableSignature(value: unknown): unknown {
   return value;
 }
 
+export function canonicalizeStableValue<T>(value: T): T {
+  return normalizeForStableSignature(value) as T;
+}
+
 export function stableSignature(value: unknown): string {
-  return JSON.stringify(normalizeForStableSignature(value));
+  return JSON.stringify(canonicalizeStableValue(value));
 }

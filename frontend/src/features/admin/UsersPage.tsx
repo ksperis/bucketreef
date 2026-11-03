@@ -41,6 +41,7 @@ import {
 import PageBanner from "../../components/PageBanner";
 import SettingsForm from "../../components/settings/SettingsForm";
 import { SettingsButton, SettingsPersistentEditActions, useSettingsCloseGuard } from "../../components/settings/SettingsControls";
+import { useSettingsBaseline } from "../../components/settings/useSettingsDraft";
 import AdminUserIdentityFields, { userIdentityErrors, type UserIdentityErrors } from "./AdminUserIdentityFields";
 import AdminUserLdapImportFields, { type UserCreationSource } from "./AdminUserLdapImportFields";
 import SettingsNavigationGuard from "../../components/settings/SettingsNavigationGuard";
@@ -61,10 +62,11 @@ import AdminUserAssociationEditorPanels, {
 } from "./AdminUserAssociationEditorPanels";
 import useAdminUserAssociationOptions from "./useAdminUserAssociationOptions";
 import {
-  adminUserCreateSignature,
-  adminUserEditorSignature,
-  emptyAdminUserEditorSignature,
-} from "./adminUserEditorSignature";
+  buildAdminUserCreateDraft,
+  buildAdminUserEditorDraft,
+  emptyAdminUserCreateDraft,
+  emptyAdminUserEditorDraft,
+} from "./adminUserEditorDraft";
 import { useUsersI18n } from "./usersMessage";
 import { useAdminUserI18n } from "./adminUserMessage";
 import useAdminUserAssociationEditorState from "./useAdminUserAssociationEditorState";
@@ -88,13 +90,6 @@ type UserModalTab = "general" | "authentication" | "associations" | "groups" | "
 function focusIdentityError(prefix: string, errors: UserIdentityErrors) {
   const field = errors.email ? "email" : "password";
   requestAnimationFrame(() => document.getElementById(`${prefix}-${field}`)?.focus());
-}
-
-function emptyAdminUserCreateSignature(): string {
-  return adminUserCreateSignature({
-    editor: emptyAdminUserEditorSignature(emptyAdminUserCreateForm()),
-    source: "local",
-  });
 }
 
 export default function UsersPage() {
@@ -177,16 +172,10 @@ export default function UsersPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [form, setForm] = useState<CreateUserPayload>(emptyAdminUserCreateForm);
-  const [createInitialSignature, setCreateInitialSignature] = useState(
-    emptyAdminUserCreateSignature,
-  );
   const [createModalTab, setCreateModalTab] = useState<UserModalTab>("general");
   const createAssociations = useAdminUserAssociationEditorState();
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editForm, setEditForm] = useState<UpdateUserPayload>({});
-  const [editInitialSignature, setEditInitialSignature] = useState(() =>
-    emptyAdminUserEditorSignature({})
-  );
   const [editModalTab, setEditModalTab] = useState<UserModalTab>("general");
   const editAssociations = useAdminUserAssociationEditorState();
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -357,10 +346,10 @@ export default function UsersPage() {
     }
   }, [createModalTab, editModalTab, ensureGroups, showCreateModal, showEditModal]);
 
-  const createCurrentSignature = useMemo(
+  const createDraft = useMemo(
     () =>
-      adminUserCreateSignature({
-        editor: adminUserEditorSignature({
+      buildAdminUserCreateDraft({
+        editor: buildAdminUserEditorDraft({
           form,
           selectedAccounts: createAssociations.accounts.selected,
           selectedS3Users: createAssociations.s3Users.selected,
@@ -396,6 +385,10 @@ export default function UsersPage() {
       selectedLdapEntry?.directory_dn,
     ]
   );
+  const { accept: acceptCreateDraft, dirty: createDraftDirty } = useSettingsBaseline(
+    createDraft,
+    () => emptyAdminUserCreateDraft(emptyAdminUserCreateForm()),
+  );
 
   const resetCreateModalState = () => {
     setCreateAttempted(false);
@@ -406,7 +399,7 @@ export default function UsersPage() {
     resetAssociationOptionSearches();
     setCreateModalTab("general");
     setCreateRoleHelpOpen(false);
-    setCreateInitialSignature(emptyAdminUserCreateSignature());
+    acceptCreateDraft(emptyAdminUserCreateDraft(emptyAdminUserCreateForm()));
   };
 
   const closeCreateModal = () => {
@@ -415,9 +408,9 @@ export default function UsersPage() {
     resetCreateModalState();
   };
 
-  const editCurrentSignature = useMemo(
+  const editDraft = useMemo(
     () =>
-      adminUserEditorSignature({
+      buildAdminUserEditorDraft({
         form: editForm,
         selectedAccounts: editAssociations.accounts.selected,
         selectedS3Users: editAssociations.s3Users.selected,
@@ -446,6 +439,10 @@ export default function UsersPage() {
       editAssociations.s3Users.selected,
     ]
   );
+  const { accept: acceptEditDraft, dirty: editDraftDirty } = useSettingsBaseline(
+    editDraft,
+    () => emptyAdminUserEditorDraft({}),
+  );
 
   const closeEditModal = () => {
     setShowEditModal(false);
@@ -454,7 +451,7 @@ export default function UsersPage() {
     setEditModalTab("general");
     setEditForm({});
     setEditRoleHelpOpen(false);
-    setEditInitialSignature(emptyAdminUserEditorSignature({}));
+    acceptEditDraft(emptyAdminUserEditorDraft({}));
     clearAdminPrincipalEditRequest();
   };
 
@@ -464,8 +461,8 @@ export default function UsersPage() {
       currentIsSuperAdmin,
     });
 
-  const createDirty = showCreateModal && createCurrentSignature !== createInitialSignature;
-  const editMainDirty = showEditModal && editCurrentSignature !== editInitialSignature;
+  const createDirty = showCreateModal && createDraftDirty;
+  const editMainDirty = showEditModal && editDraftDirty;
   const editDirty = showEditModal && (editMainDirty || authenticationDirty || avatarDirty);
   const createCloseGuard = useSettingsCloseGuard({
     hasUnsavedChanges: createDirty,
@@ -662,8 +659,8 @@ export default function UsersPage() {
       selectedGroups: nextSelectedGroups,
       associationsTab: initialAssociationsTab,
     });
-    setEditInitialSignature(
-      adminUserEditorSignature({
+    acceptEditDraft(
+      buildAdminUserEditorDraft({
         form: nextEditForm,
         selectedAccounts,
         selectedS3Users: nextSelectedS3Users,
@@ -741,7 +738,7 @@ export default function UsersPage() {
       setEditingUser(updatedUser);
       setEditForm(savedForm);
       editAssociations.clearPendingSelections();
-      setEditInitialSignature(adminUserEditorSignature({
+      acceptEditDraft(buildAdminUserEditorDraft({
         form: savedForm,
         selectedAccounts: editAssociations.accounts.selected,
         selectedS3Users: editAssociations.s3Users.selected,
