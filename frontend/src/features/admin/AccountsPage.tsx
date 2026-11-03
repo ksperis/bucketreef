@@ -48,8 +48,8 @@ import {
 } from "./AssociationSummary";
 import AdminAccountEditor from "./AdminAccountEditor";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
+import { useSettingsBaseline } from "../../components/settings/useSettingsDraft";
 import { classifyApiError, extractApiError } from "../../utils/apiError";
-import { stableSignature } from "../../utils/stableSignature";
 import { type TextMatchMode } from "../../utils/textMatch";
 import { isAdminLikeRole, readStoredUser } from "../../utils/workspaces";
 import { buildUiTagItems, normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
@@ -60,6 +60,18 @@ import useAdminPaginatedListState from "./useAdminPaginatedListState";
 import useAdminPaginatedListController from "./useAdminPaginatedListController";
 
 type SortField = "name" | "rgw_account_id";
+
+const createEmptyAccountForm = (storageEndpointId = "") => ({
+  name: "",
+  rgw_tenant: "",
+  email: "",
+  tags: [] as UiTagDefinition[],
+  quota_max_size_gb: "",
+  quota_max_size_unit: "GiB",
+  quota_max_objects: "",
+  storage_endpoint_id: storageEndpointId,
+});
+
 export default function S3AccountsPage() {
   const { text: adminText } = useAdminI18n();
   const adminBreadcrumbs = useAdminPageBreadcrumbs();
@@ -90,24 +102,13 @@ export default function S3AccountsPage() {
     initialSort: { field: "name", direction: "asc" },
   });
   const [quickFilterMode, setQuickFilterMode] = useState<TextMatchMode>("contains");
-  const [form, setForm] = useState({
-    name: "",
-    rgw_tenant: "",
-    email: "",
-    tags: [] as UiTagDefinition[],
-    quota_max_size_gb: "",
-    quota_max_size_unit: "GiB",
-    quota_max_objects: "",
-    storage_endpoint_id: "",
-  });
-  const [createInitialSignature, setCreateInitialSignature] = useState("");
+  const [form, setForm] = useState(createEmptyAccountForm);
   const {
     items: storageEndpoints,
     loading: loadingEndpoints,
     ensure: ensureStorageEndpoints,
   } = useLazyListLoader(listStorageEndpoints, console.error);
   const [importTenantEndpointId, setImportTenantEndpointId] = useState<string>("");
-  const [importInitialSignature, setImportInitialSignature] = useState("");
   const [editingS3Account, setEditingS3Account] = useState<S3AccountSummary | null>(null);
   const [editorState, setEditorState] = useState({ dirty: false, busy: false });
   const [deletingS3AccountId, setDeletingS3AccountId] = useState<number | null>(null);
@@ -136,26 +137,26 @@ export default function S3AccountsPage() {
     const endpoint = accountCephEndpoints.find((candidate) => candidate.is_default) ?? accountCephEndpoints[0];
     return endpoint ? String(endpoint.id) : "";
   }, [accountCephEndpoints]);
-  const buildCreateSignature = useCallback(
-    (value: typeof form) =>
-      stableSignature({
-        form: {
-          ...value,
-          tags: normalizeUiTags(value.tags),
-          storage_endpoint_id:
-            value.storage_endpoint_id === defaultAccountEndpointId ? "" : value.storage_endpoint_id,
-        },
-      }),
-    [defaultAccountEndpointId]
+  const createDraft = useMemo(() => ({
+    form: {
+      ...form,
+      tags: normalizeUiTags(form.tags),
+      storage_endpoint_id:
+        form.storage_endpoint_id === defaultAccountEndpointId ? "" : form.storage_endpoint_id,
+    },
+  }), [defaultAccountEndpointId, form]);
+  const { accept: acceptCreateDraft, dirty: createDraftDirty } = useSettingsBaseline(
+    createDraft,
+    createDraft,
   );
-  const buildImportSignature = useCallback(
-    (value: { importText: string; importTenantEndpointId: string }) =>
-      stableSignature({
-        ...value,
-        importTenantEndpointId:
-          value.importTenantEndpointId === defaultAccountEndpointId ? "" : value.importTenantEndpointId,
-      }),
-    [defaultAccountEndpointId]
+  const importDraft = useMemo(() => ({
+    importText,
+    importTenantEndpointId:
+      importTenantEndpointId === defaultAccountEndpointId ? "" : importTenantEndpointId,
+  }), [defaultAccountEndpointId, importTenantEndpointId, importText]);
+  const { accept: acceptImportDraft, dirty: importDraftDirty } = useSettingsBaseline(
+    importDraft,
+    importDraft,
   );
 
   const extractError = useCallback((err: unknown) => extractApiError(err, adminText("Unexpected error")), [adminText]);
@@ -399,16 +400,7 @@ export default function S3AccountsPage() {
       setActionMessage(adminText("RGW account created."));
       const defaultCeph =
         accountCephEndpoints.find((ep) => ep.is_default) || accountCephEndpoints[0];
-      setForm({
-        name: "",
-        rgw_tenant: "",
-        email: "",
-        tags: [],
-        quota_max_size_gb: "",
-        quota_max_size_unit: "GiB",
-        quota_max_objects: "",
-        storage_endpoint_id: defaultCeph ? String(defaultCeph.id) : "",
-      });
+      setForm(createEmptyAccountForm(defaultCeph ? String(defaultCeph.id) : ""));
       await fetchS3Accounts();
       setShowCreateModal(false);
     } catch (err) {
@@ -436,7 +428,11 @@ export default function S3AccountsPage() {
       setImportMessage(adminText("RGW accounts imported."));
       importValidation.reset();
       setImportText("");
-      setImportInitialSignature(buildImportSignature({ importText: "", importTenantEndpointId }));
+      acceptImportDraft({
+        importText: "",
+        importTenantEndpointId:
+          importTenantEndpointId === defaultAccountEndpointId ? "" : importTenantEndpointId,
+      });
       await fetchS3Accounts();
     } catch (err) {
       setImportError(extractError(err));
@@ -495,21 +491,13 @@ export default function S3AccountsPage() {
     : false;
   const createPermissionError = selectedCreateEndpointId ? endpointPermissionErrors[selectedCreateEndpointId] ?? null : null;
   const importPermissionError = selectedImportEndpointId ? endpointPermissionErrors[selectedImportEndpointId] ?? null : null;
-  const createCurrentSignature = useMemo(
-    () => buildCreateSignature(form),
-    [buildCreateSignature, form]
-  );
   const createCloseGuard = useUnsavedChangesGuard({
-    hasUnsavedChanges: Boolean(createInitialSignature) && createCurrentSignature !== createInitialSignature,
+    hasUnsavedChanges: showCreateModal && createDraftDirty,
     disabled: creating,
     onClose: () => setShowCreateModal(false),
   });
-  const importCurrentSignature = useMemo(
-    () => buildImportSignature({ importText, importTenantEndpointId }),
-    [buildImportSignature, importTenantEndpointId, importText]
-  );
   const importCloseGuard = useUnsavedChangesGuard({
-    hasUnsavedChanges: Boolean(importInitialSignature) && importCurrentSignature !== importInitialSignature,
+    hasUnsavedChanges: showImportModal && importDraftDirty,
     disabled: importBusy,
     onClose: () => setShowImportModal(false),
   });
@@ -582,7 +570,11 @@ export default function S3AccountsPage() {
                     setImportText("");
                     setImportError(null);
                     setImportMessage(null);
-                    setImportInitialSignature(buildImportSignature({ importText: "", importTenantEndpointId }));
+                    acceptImportDraft({
+                      importText: "",
+                      importTenantEndpointId:
+                        importTenantEndpointId === defaultAccountEndpointId ? "" : importTenantEndpointId,
+                    });
                     setShowImportModal(true);
                     void loadEndpointsIfNeeded();
                   },
@@ -594,7 +586,7 @@ export default function S3AccountsPage() {
                     createValidation.reset();
                     setActionError(null);
                     setActionMessage(null);
-                    setCreateInitialSignature(buildCreateSignature(form));
+                    acceptCreateDraft(createDraft);
                     setShowCreateModal(true);
                     void loadEndpointsIfNeeded();
                   },
