@@ -71,6 +71,22 @@ def _service(db_session, identity: LDAPIdentity) -> AdminLdapUserImportService:
     )
 
 
+def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
+    rollback_calls: list[None] = []
+    original_rollback = db_session.rollback
+
+    def rollback() -> None:
+        rollback_calls.append(None)
+        original_rollback()
+
+    def commit() -> None:
+        raise RuntimeError("commit failed")
+
+    monkeypatch.setattr(db_session, "rollback", rollback)
+    monkeypatch.setattr(db_session, "commit", commit)
+    return rollback_calls
+
+
 def test_create_ldap_user_creates_passwordless_user_and_identity_atomically(db_session):
     actor = _actor(db_session)
     identity = _identity()
@@ -121,6 +137,41 @@ def test_create_ldap_user_creates_passwordless_user_and_identity_atomically(db_s
         select(UserUiGroup).where(UserUiGroup.user_id == created.id)
     ).one()
     assert membership.group_id == group.id
+
+
+def test_create_ldap_user_rolls_back_all_rows_when_commit_fails(db_session, monkeypatch):
+    actor = _actor(db_session)
+    identity = _identity()
+    session = SimpleNamespace(id="admin-session")
+    service = _service(db_session, identity)
+    request = LDAPImportRequest.model_validate(
+        {
+            "selection_token": _selection(actor, session.id, identity),
+            "action": "create",
+            "create": {
+                "email": "rollback-create@example.com",
+                "role": "ui_user",
+                "can_access_ceph_admin": False,
+                "can_access_storage_ops": False,
+                "can_create_manual_private_connections": False,
+                "can_provision_managed_private_connections": False,
+                "allow_multisite_endpoint_switching": False,
+                "manager_tool_access": {},
+                "browser_advanced_features_enabled": False,
+                "group_ids": [],
+            },
+        }
+    )
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        service.import_user(request, actor=actor, session=session)
+
+    assert rollback_calls == [None]
+    assert db_session.scalar(select(User).where(User.email == "rollback-create@example.com")) is None
+    assert db_session.scalar(
+        select(ExternalIdentity).where(ExternalIdentity.subject == identity.subject)
+    ) is None
 
 
 def test_create_ldap_user_requires_explicit_access_contract(db_session):
@@ -198,6 +249,56 @@ def test_link_ldap_identity_preserves_target_and_revokes_credentials(db_session)
     assert auth_session.revoked_at is not None
     assert auth_session.revoke_reason == "external_identity_changed"
     assert api_token.revoked_at is not None
+
+
+def test_link_ldap_identity_rolls_back_credentials_when_commit_fails(db_session, monkeypatch):
+    actor = _actor(db_session)
+    target = User(
+        email="rollback-link@example.test",
+        hashed_password="existing-password-hash",
+        is_active=True,
+        role=UserRole.UI_USER.value,
+        auth_version=4,
+    )
+    db_session.add(target)
+    db_session.flush()
+    auth_session = AuthSession(
+        id="rollback-link-session",
+        user_id=target.id,
+        principal_type="user",
+        auth_type="ui",
+        auth_version=target.auth_version,
+        last_activity_at=datetime(2026, 10, 31, tzinfo=UTC),
+        idle_expires_at=datetime(2099, 1, 1, tzinfo=UTC),
+        absolute_expires_at=datetime(2099, 1, 1, tzinfo=UTC),
+        csrf_token_hash="csrf-rollback-link",
+    )
+    db_session.add(auth_session)
+    db_session.commit()
+    identity = _identity()
+    session = SimpleNamespace(id="admin-session")
+    service = _service(db_session, identity)
+    request = LDAPImportRequest(
+        selection_token=_selection(actor, session.id, identity),
+        action="link",
+        target_user_id=target.id,
+    )
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        service.import_user(request, actor=actor, session=session)
+
+    assert rollback_calls == [None]
+    db_session.expire_all()
+    persisted_target = db_session.get(User, target.id)
+    persisted_session = db_session.get(AuthSession, auth_session.id)
+    assert persisted_target is not None
+    assert persisted_target.auth_version == 4
+    assert persisted_session is not None
+    assert persisted_session.revoked_at is None
+    assert db_session.scalar(
+        select(ExternalIdentity).where(ExternalIdentity.subject == identity.subject)
+    ) is None
 
 
 def test_restore_requires_original_owner_and_revokes_credentials(db_session):
