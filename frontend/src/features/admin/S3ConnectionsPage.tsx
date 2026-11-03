@@ -45,8 +45,8 @@ import S3ConnectionCredentialFields from "../shared/S3ConnectionCredentialFields
 import S3CredentialsValidationMessage from "../shared/S3CredentialsValidationMessage";
 import { useLiveS3CredentialsValidation } from "../shared/useLiveS3CredentialsValidation";
 import {
-  buildCreateS3ConnectionSignature,
-  buildEditAdminS3ConnectionSignature,
+  buildCreateS3ConnectionBaseline,
+  buildEditAdminS3ConnectionBaseline,
   buildS3CredentialsValidationPayload,
   createDefaultAdminS3ConnectionForm,
   normalizeS3ConnectionLinkedIds,
@@ -57,6 +57,7 @@ import {
   type S3ConnectionEndpointMode,
 } from "../shared/s3ConnectionFormModel";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
+import { useSettingsBaseline } from "../../components/settings/useSettingsDraft";
 import { useAdminI18n } from "./adminI18n";
 import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
 import useAdminPaginationState from "./useAdminPaginationState";
@@ -141,7 +142,6 @@ export default function S3ConnectionsPage() {
   const [createEndpointMode, setCreateEndpointMode] = useState<S3ConnectionEndpointMode>("custom");
   const [createEndpointPresetId, setCreateEndpointPresetId] = useState("");
   const [createForm, setCreateForm] = useState(createDefaultAdminS3ConnectionForm);
-  const [createInitialSignature, setCreateInitialSignature] = useState("");
 
   const [editing, setEditing] = useState<S3ConnectionAdminItem | null>(null);
   const [editBusy, setEditBusy] = useState(false);
@@ -165,7 +165,6 @@ export default function S3ConnectionsPage() {
     access_key_id: "",
     secret_access_key: "",
   });
-  const [editInitialSignature, setEditInitialSignature] = useState("");
   const [editTab, setEditTab] = useState<EditTab>("general");
   const [editLinkedUserIds, setEditLinkedUserIds] = useState<number[]>([]);
   const [editLinkedGroupIds, setEditLinkedGroupIds] = useState<number[]>([]);
@@ -198,7 +197,6 @@ export default function S3ConnectionsPage() {
     setEditing(null);
     setEditError(null);
     setEditCredentials({ access_key_id: "", secret_access_key: "" });
-    setEditInitialSignature("");
     resetEditUsersState();
   };
 
@@ -208,9 +206,7 @@ export default function S3ConnectionsPage() {
     setCreateEndpointPresetId("");
     setCreateError(null);
     setCreateForm(nextForm);
-    setCreateInitialSignature(
-      buildCreateS3ConnectionSignature(nextForm, "custom", ""),
-    );
+    acceptCreateDraft(buildCreateS3ConnectionBaseline(nextForm, "custom", ""));
   };
 
   const openCreateModal = () => {
@@ -232,12 +228,8 @@ export default function S3ConnectionsPage() {
     setCreateEndpointPresetId(nextEndpointPresetId);
     setCreateError(null);
     setCreateForm(nextForm);
-    setCreateInitialSignature(
-      buildCreateS3ConnectionSignature(
-        nextForm,
-        nextEndpointMode,
-        nextEndpointPresetId,
-      ),
+    acceptCreateDraft(
+      buildCreateS3ConnectionBaseline(nextForm, nextEndpointMode, nextEndpointPresetId),
     );
     setShowCreateModal(true);
   };
@@ -360,23 +352,27 @@ export default function S3ConnectionsPage() {
       onPageSizeChange: groupsPagination.setPageSize,
     },
   };
-  const createCurrentSignature = useMemo(
+  const createDraft = useMemo(
     () =>
-      buildCreateS3ConnectionSignature(
+      buildCreateS3ConnectionBaseline(
         createForm,
         createEndpointMode,
         createEndpointPresetId,
       ),
     [createEndpointMode, createEndpointPresetId, createForm]
   );
+  const { accept: acceptCreateDraft, dirty: createDraftDirty } = useSettingsBaseline(
+    createDraft,
+    createDraft,
+  );
   const createCloseGuard = useUnsavedChangesGuard({
-    hasUnsavedChanges: Boolean(createInitialSignature) && createCurrentSignature !== createInitialSignature,
+    hasUnsavedChanges: showCreateModal && createDraftDirty,
     disabled: creating,
     onClose: () => setShowCreateModal(false),
   });
-  const editCurrentSignature = useMemo(
+  const editDraft = useMemo(
     () =>
-      buildEditAdminS3ConnectionSignature({
+      buildEditAdminS3ConnectionBaseline({
         credentialDraft: editCredentials,
         endpointId: editEndpointPresetId,
         endpointMode: editEndpointMode,
@@ -386,8 +382,12 @@ export default function S3ConnectionsPage() {
       }),
     [editCredentials, editEndpointMode, editEndpointPresetId, editForm, editLinkedGroupIds, editLinkedUserIds]
   );
+  const { accept: acceptEditDraft, dirty: editDraftDirty } = useSettingsBaseline(
+    editDraft,
+    editDraft,
+  );
   const editCloseGuard = useUnsavedChangesGuard({
-    hasUnsavedChanges: Boolean(editing && editInitialSignature && editCurrentSignature !== editInitialSignature),
+    hasUnsavedChanges: Boolean(editing) && editDraftDirty,
     disabled: editBusy,
     onClose: closeEditModal,
   });
@@ -434,8 +434,8 @@ export default function S3ConnectionsPage() {
     editGroupPicker.reset();
     const nextCredentialDraft = { access_key_id: "", secret_access_key: "" };
     setEditCredentials(nextCredentialDraft);
-    setEditInitialSignature(
-      buildEditAdminS3ConnectionSignature({
+    acceptEditDraft(
+      buildEditAdminS3ConnectionBaseline({
         credentialDraft: nextCredentialDraft,
         endpointId: nextEndpointPresetId,
         endpointMode: nextEndpointMode,
@@ -630,7 +630,7 @@ export default function S3ConnectionsPage() {
           {actionMessage && <UiInlineMessage tone="success" role="status" className="mb-3">{actionMessage}</UiInlineMessage>}
           <SettingsForm label={adminText("Edit S3 connection")} onSubmit={submitEdit} busy={editBusy}
             onCancel={editCloseGuard.requestClose} submitLabel={adminText("Save")} busyLabel={adminText("Saving...")}
-            actions={<SettingsPersistentEditActions dirty={Boolean(editInitialSignature && editCurrentSignature !== editInitialSignature)}
+            actions={<SettingsPersistentEditActions dirty={Boolean(editing) && editDraftDirty}
               busy={editBusy} onCancel={editCloseGuard.requestClose} saveLabel={adminText("Save")} savingLabel={adminText("Saving...")} />}>
             <WorkflowTabs<EditTab>
               panelClassName={editTab === "users" || editTab === "groups" ? adminAssociationPanelClass : undefined}

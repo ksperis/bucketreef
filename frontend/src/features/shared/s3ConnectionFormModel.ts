@@ -212,14 +212,22 @@ export function buildCreateS3ConnectionSignature<T extends { tags: UiTagDefiniti
   endpointMode: S3ConnectionEndpointMode,
   endpointId: string,
 ): string {
-  return stableSignature({
+  return stableSignature(buildCreateS3ConnectionBaseline(form, endpointMode, endpointId));
+}
+
+export function buildCreateS3ConnectionBaseline<T extends { tags: UiTagDefinition[] }>(
+  form: T,
+  endpointMode: S3ConnectionEndpointMode,
+  endpointId: string,
+) {
+  return {
     endpointMode,
     endpointId,
     form: {
       ...form,
       tags: normalizeUiTags(form.tags),
     },
-  });
+  };
 }
 
 export function buildEditAdminS3ConnectionSignature({
@@ -230,7 +238,25 @@ export function buildEditAdminS3ConnectionSignature({
   linkedGroupIds,
   linkedUserIds,
 }: BuildAdminS3ConnectionEditSignatureOptions): string {
-  return stableSignature({
+  return stableSignature(buildEditAdminS3ConnectionBaseline({
+    credentialDraft,
+    endpointId,
+    endpointMode,
+    form,
+    linkedGroupIds,
+    linkedUserIds,
+  }));
+}
+
+export function buildEditAdminS3ConnectionBaseline({
+  credentialDraft,
+  endpointId,
+  endpointMode,
+  form,
+  linkedGroupIds,
+  linkedUserIds,
+}: BuildAdminS3ConnectionEditSignatureOptions) {
+  return {
     endpointMode,
     endpointId,
     form: {
@@ -240,7 +266,7 @@ export function buildEditAdminS3ConnectionSignature({
     credentialDraft,
     linkedGroupIds: normalizeS3ConnectionLinkedIds(linkedGroupIds),
     linkedUserIds: normalizeS3ConnectionLinkedIds(linkedUserIds),
-  });
+  };
 }
 
 export function buildEditPrivateConnectionSignature(
