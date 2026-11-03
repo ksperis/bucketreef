@@ -83,6 +83,22 @@ def _dist(snapshot, key: str, distribution: str = "data_type_distribution"):
     return next(entry for entry in entries if entry.key == key)
 
 
+def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
+    rollback_calls: list[None] = []
+    original_rollback = db_session.rollback
+
+    def rollback() -> None:
+        rollback_calls.append(None)
+        original_rollback()
+
+    def commit() -> None:
+        raise RuntimeError("commit failed")
+
+    monkeypatch.setattr(db_session, "rollback", rollback)
+    monkeypatch.setattr(db_session, "commit", commit)
+    return rollback_calls
+
+
 def test_bucket_lease_scope_uses_loaded_endpoint_when_context_id_is_absent():
     target = BucketUsageStatsResolvedTarget(
         context=S3ExecutionContext(
@@ -319,6 +335,49 @@ def test_usage_stats_upsert_replaces_latest_snapshot_without_history(db_session)
     assert db_session.scalar(sa.select(sa.func.count()).select_from(BucketUsageStatsSnapshotRow)) == 1
     assert persisted.total_bytes == 42
     assert service.get_latest(db_session, scope_kind="manager", scope_id="ctx-1", bucket_name="bucket-a").total_bytes == 42
+
+
+def test_usage_stats_upsert_rolls_back_insert_when_commit_fails(db_session, monkeypatch):
+    service = BucketUsageStatsService()
+    snapshot = FakeUsageStatsService(
+        FakeS3Client(
+            {"list_object_versions": FakePaginator([{"Versions": [{"Key": "a.txt", "IsLatest": True, "Size": 1}]}])}
+        )
+    ).calculate_bucket(_target())
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        service.upsert_snapshot(db_session, snapshot)
+
+    assert rollback_calls == [None]
+    assert db_session.scalar(sa.select(sa.func.count()).select_from(BucketUsageStatsSnapshotRow)) == 0
+
+
+def test_usage_stats_upsert_rolls_back_update_when_commit_fails(db_session, monkeypatch):
+    service = BucketUsageStatsService()
+    first = FakeUsageStatsService(
+        FakeS3Client(
+            {"list_object_versions": FakePaginator([{"Versions": [{"Key": "a.txt", "IsLatest": True, "Size": 1}]}])}
+        )
+    ).calculate_bucket(_target())
+    service.upsert_snapshot(db_session, first)
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        service.upsert_snapshot(
+            db_session,
+            first.model_copy(update={"total_bytes": 42, "current_bytes": 42}),
+        )
+
+    assert rollback_calls == [None]
+    db_session.expire_all()
+    persisted = service.get_latest(
+        db_session,
+        scope_kind="manager",
+        scope_id="ctx-1",
+        bucket_name="bucket-a",
+    )
+    assert persisted.total_bytes == 1
 
 
 def test_usage_stats_keeps_same_name_buckets_from_different_tenants_distinct(db_session):

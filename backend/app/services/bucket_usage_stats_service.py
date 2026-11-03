@@ -13,6 +13,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.core.db_transactions import commit_or_rollback
 from app.db.bucket_usage_stats import BucketUsageStatsSnapshot as BucketUsageStatsSnapshotRow
 from app.models.bucket_usage_stats import (
     BucketUsageStatsAggregate,
@@ -507,7 +508,7 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
         row.current_noncurrent_distribution = [entry.model_dump(mode="json") for entry in snapshot.current_vs_noncurrent]
         row.warnings = list(snapshot.warnings) if snapshot.warnings else None
         row.calculated_at = snapshot.calculated_at
-        db.commit()
+        commit_or_rollback(db)
         db.refresh(row)
         return self._snapshot_from_row(row)
 
