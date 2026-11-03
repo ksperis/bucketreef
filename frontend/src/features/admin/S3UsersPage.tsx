@@ -43,13 +43,13 @@ import UiTextarea from "../../components/ui/UiTextarea";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
+import { equalSettings, useSettingsBaseline } from "../../components/settings/useSettingsDraft";
 import { useTagCatalog } from "../../hooks/useTagCatalog";
 import useLazyListLoader from "../../hooks/useLazyListLoader";
 import { extractApiError } from "../../utils/apiError";
 import { formatBytes, formatCompactNumber } from "../../utils/format";
-import { stableSignature } from "../../utils/stableSignature";
 import { type TextMatchMode } from "../../utils/textMatch";
-import { normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
+import { canonicalizeUiTags, normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
 import { isAdminLikeRole, readStoredUser } from "../../utils/workspaces";
 import { adminAssociationPanelClass } from "./AdminAssociationPicker";
 import AdminRgwUserAccessAssociationsPanel, {
@@ -72,6 +72,35 @@ import {
 } from "./adminAssociationOptions";
 
 type EditTab = "general" | "users" | "groups" | "manager";
+
+const buildS3UserFormDraft = <T extends { tags: UiTagDefinition[] }>(form: T) => ({
+  ...form,
+  tags: canonicalizeUiTags(form.tags),
+});
+
+const buildCreateS3UserDraft = <T extends { tags: UiTagDefinition[]; storage_endpoint_id: string }>(
+  form: T,
+  defaultEndpointId: string,
+) => ({
+  createForm: {
+    ...buildS3UserFormDraft(form),
+    storage_endpoint_id:
+      form.storage_endpoint_id === defaultEndpointId ? "" : form.storage_endpoint_id,
+  },
+});
+
+const buildImportS3UserDraft = (
+  importText: string,
+  importEndpointId: string,
+  defaultEndpointId: string,
+) => ({
+  importText,
+  importEndpointId: importEndpointId === defaultEndpointId ? "" : importEndpointId,
+});
+
+const buildEditS3UserDraft = <T extends { tags: UiTagDefinition[] }>(form: T) => ({
+  editForm: buildS3UserFormDraft(form),
+});
 
 export default function S3UsersPage() {
   const { intlLocale, text: adminText } = useAdminI18n();
@@ -131,7 +160,6 @@ export default function S3UsersPage() {
     quota_max_objects: "",
     storage_endpoint_id: "",
   });
-  const [createInitialSignature, setCreateInitialSignature] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -141,11 +169,9 @@ export default function S3UsersPage() {
   const [importError, setImportError] = useState<string | null>(null);
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [importEndpointId, setImportEndpointId] = useState("");
-  const [importInitialSignature, setImportInitialSignature] = useState("");
 
   const [editingUser, setEditingUser] = useState<S3User | null>(null);
   const [editForm, setEditForm] = useState(emptyAdminS3UserForm);
-  const [editInitialSignature, setEditInitialSignature] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
   const [editBusy, setEditBusy] = useState(false);
   const [editTab, setEditTab] = useState<EditTab>("general");
@@ -358,6 +384,10 @@ export default function S3UsersPage() {
     () => cephEndpoints.filter((ep) => Boolean(ep.capabilities.admin)),
     [cephEndpoints]
   );
+  const defaultAdminCephEndpointId = useMemo(() => {
+    const endpoint = adminCephEndpoints.find((candidate) => candidate.is_default) ?? adminCephEndpoints[0];
+    return endpoint ? String(endpoint.id) : "";
+  }, [adminCephEndpoints]);
   const editingEndpointId = editingUser?.storage_endpoint_id ?? null;
   const allowUserQuotaUpdates = editingEndpointId
     ? endpointPermissions[editingEndpointId]?.users_write === true
@@ -369,19 +399,16 @@ export default function S3UsersPage() {
   const editPermissionError = editingEndpointId ? endpointPermissionErrors[editingEndpointId] ?? null : null;
 
   useEffect(() => {
-    const defaultCeph =
-      adminCephEndpoints.find((ep) => ep.is_default) || adminCephEndpoints[0];
-    const firstCephId = defaultCeph ? String(defaultCeph.id) : "";
     setCreateForm((prev) => ({
       ...prev,
       storage_endpoint_id: adminCephEndpoints.some((endpoint) => String(endpoint.id) === prev.storage_endpoint_id)
         ? prev.storage_endpoint_id
-        : firstCephId,
+        : defaultAdminCephEndpointId,
     }));
     setImportEndpointId((prev) =>
-      adminCephEndpoints.some((endpoint) => String(endpoint.id) === prev) ? prev : firstCephId
+      adminCephEndpoints.some((endpoint) => String(endpoint.id) === prev) ? prev : defaultAdminCephEndpointId
     );
-  }, [adminCephEndpoints]);
+  }, [adminCephEndpoints, defaultAdminCephEndpointId]);
 
   useEffect(() => {
     if (!showCreateModal) return;
@@ -435,7 +462,6 @@ export default function S3UsersPage() {
     const nextEditForm = adminS3UserForm(user);
     setEditingUser(user);
     setEditForm(nextEditForm);
-    setEditInitialSignature(stableSignature({ editForm: { ...nextEditForm, tags: normalizeUiTags(nextEditForm.tags) } }));
     setEditError(null);
     setEditTab("general");
     portalUserPicker.reset();
@@ -458,7 +484,6 @@ export default function S3UsersPage() {
       setEditForm(savedForm);
       portalUserPicker.setSelections([]);
       groupPicker.setSelections([]);
-      setEditInitialSignature(stableSignature({ editForm: { ...savedForm, tags: normalizeUiTags(savedForm.tags) } }));
       await fetchUsers();
       setActionMessage(adminText("User updated."));
     } catch (err) {
@@ -540,7 +565,7 @@ export default function S3UsersPage() {
       setImportMessage(adminText("RGW users imported."));
       importValidation.reset();
       setImportText("");
-      setImportInitialSignature(stableSignature({ importText: "", importEndpointId }));
+      acceptImportDraft(buildImportS3UserDraft("", importEndpointId, defaultAdminCephEndpointId));
       await fetchUsers();
     } catch (err) {
       setImportError(extractApiError(err, adminText("Unexpected error")));
@@ -586,21 +611,29 @@ export default function S3UsersPage() {
     : false;
   const createPermissionError = selectedCreateEndpointId ? endpointPermissionErrors[selectedCreateEndpointId] ?? null : null;
   const importPermissionError = selectedImportEndpointId ? endpointPermissionErrors[selectedImportEndpointId] ?? null : null;
-  const createCurrentSignature = useMemo(
-    () => stableSignature({ createForm: { ...createForm, tags: normalizeUiTags(createForm.tags) } }),
-    [createForm]
+  const createDraft = useMemo(
+    () => buildCreateS3UserDraft(createForm, defaultAdminCephEndpointId),
+    [createForm, defaultAdminCephEndpointId],
+  );
+  const { accept: acceptCreateDraft, dirty: createDraftDirty } = useSettingsBaseline(
+    createDraft,
+    createDraft,
   );
   const createCloseGuard = useUnsavedChangesGuard({
-    hasUnsavedChanges: Boolean(createInitialSignature) && createCurrentSignature !== createInitialSignature,
+    hasUnsavedChanges: showCreateModal && createDraftDirty,
     disabled: creating,
     onClose: () => setShowCreateModal(false),
   });
-  const importCurrentSignature = useMemo(
-    () => stableSignature({ importText, importEndpointId }),
-    [importEndpointId, importText]
+  const importDraft = useMemo(
+    () => buildImportS3UserDraft(importText, importEndpointId, defaultAdminCephEndpointId),
+    [defaultAdminCephEndpointId, importEndpointId, importText],
+  );
+  const { accept: acceptImportDraft, dirty: importDraftDirty } = useSettingsBaseline(
+    importDraft,
+    importDraft,
   );
   const importCloseGuard = useUnsavedChangesGuard({
-    hasUnsavedChanges: Boolean(importInitialSignature) && importCurrentSignature !== importInitialSignature,
+    hasUnsavedChanges: showImportModal && importDraftDirty,
     disabled: importBusy,
     onClose: () => setShowImportModal(false),
   });
@@ -609,13 +642,16 @@ export default function S3UsersPage() {
     setEditTab("general");
     portalUserPicker.reset();
     groupPicker.reset();
-    setEditInitialSignature("");
   };
-  const editCurrentSignature = useMemo(
-    () => stableSignature({ editForm: { ...editForm, tags: normalizeUiTags(editForm.tags) } }),
-    [editForm]
+  const editDraft = useMemo(
+    () => buildEditS3UserDraft(editForm),
+    [editForm],
   );
-  const editDirty = Boolean(editingUser && editInitialSignature && editCurrentSignature !== editInitialSignature);
+  const editBaseline = useMemo(
+    () => editingUser ? buildEditS3UserDraft(adminS3UserForm(editingUser)) : null,
+    [editingUser],
+  );
+  const editDirty = Boolean(editingUser && !equalSettings(editBaseline, editDraft));
   const editCloseGuard = useUnsavedChangesGuard({
     hasUnsavedChanges: editDirty,
     disabled: editBusy,
@@ -652,7 +688,7 @@ export default function S3UsersPage() {
               importValidation.reset();
               setImportError(null);
               setImportMessage(null);
-              setImportInitialSignature(stableSignature({ importText, importEndpointId }));
+              acceptImportDraft(importDraft);
               setShowImportModal(true);
               void loadEndpointsIfNeeded();
             },
@@ -663,7 +699,7 @@ export default function S3UsersPage() {
             onClick: () => {
               createValidation.reset();
               setCreateError(null);
-              setCreateInitialSignature(stableSignature({ createForm: { ...createForm, tags: normalizeUiTags(createForm.tags) } }));
+              acceptCreateDraft(createDraft);
               setShowCreateModal(true);
               void loadEndpointsIfNeeded();
             },
