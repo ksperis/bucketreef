@@ -736,7 +736,6 @@ describe("BucketDetailPage replication state", () => {
     const expectedHeadings = [
       "Bucket details",
       "Usage",
-      "Active features",
       "Data protection",
       "Access & exposure",
       "Data management",
@@ -753,6 +752,7 @@ describe("BucketDetailPage replication state", () => {
       ).toBeTruthy();
     }
     expect(within(overviewSection as HTMLElement).queryByRole("heading", { name: "Quotas" })).not.toBeInTheDocument();
+    expect(within(overviewSection as HTMLElement).queryByRole("heading", { name: "Active features" })).not.toBeInTheDocument();
     expect(within(overviewSection as HTMLElement).queryByText("Tenant")).not.toBeInTheDocument();
     expect(within(overviewSection as HTMLElement).queryByRole("heading", { name: "Bucket properties" })).not.toBeInTheDocument();
     expect(within(overviewSection as HTMLElement).getByText("Unavailable")).toBeInTheDocument();
@@ -1252,8 +1252,8 @@ describe("BucketDetailPage replication state", () => {
       expect(getCephAdminBucketNotificationsMock).toHaveBeenCalled();
     });
 
-    expect(screen.getAllByText("Notifications").length).toBeGreaterThanOrEqual(2);
-    expect(screen.getAllByText("1 notification").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText("Notifications")).toHaveLength(1);
+    expect(screen.getAllByText("1 notification")).toHaveLength(1);
   });
 
   it("hides the Notifications overview item when SNS is disabled", async () => {
