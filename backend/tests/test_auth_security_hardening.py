@@ -821,6 +821,73 @@ def test_external_identity_service_types_missing_revoke_and_restore(db_session):
         service.restore_identity(identity.id)
 
 
+def test_external_identity_revoke_rolls_back_related_security_state_on_commit_failure(
+    db_session,
+    monkeypatch,
+):
+    user = _user(
+        db_session,
+        email="identity-rollback@example.com",
+        role=UserRole.UI_ADMIN.value,
+    )
+    identity = ExternalIdentity(
+        id="identity-rollback",
+        user_id=user.id,
+        provider_type="oidc",
+        provider_id="company",
+        issuer="https://issuer.example.test",
+        subject="identity-rollback-subject",
+        email=user.email,
+        email_verified=True,
+    )
+    db_session.add(identity)
+    db_session.commit()
+    credentials = AuthSessionService(db_session).create_for_user(
+        user,
+        auth_type="password",
+        ip_address="127.0.0.1",
+        user_agent="pytest",
+        mfa_verified=True,
+    )
+    _, api_token = ApiTokenService(db_session).create_for_user(
+        user,
+        name="identity rollback token",
+        scopes=["profile:read"],
+    )
+    original_version = user.auth_version
+    original_rollback = db_session.rollback
+    rollback_calls = []
+
+    def failing_commit():
+        raise RuntimeError("commit failed")
+
+    def recording_rollback():
+        rollback_calls.append(True)
+        original_rollback()
+
+    monkeypatch.setattr(db_session, "commit", failing_commit)
+    monkeypatch.setattr(db_session, "rollback", recording_rollback)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        ExternalIdentityUserService(db_session).revoke_identity(identity.id)
+
+    assert rollback_calls == [True]
+    db_session.expire_all()
+    restored_identity = db_session.get(ExternalIdentity, identity.id)
+    restored_user = db_session.get(User, user.id)
+    restored_session = db_session.get(AuthSession, credentials.session.id)
+    db_session.refresh(api_token)
+    assert restored_identity is not None and restored_identity.revoked_at is None
+    assert restored_user is not None and restored_user.auth_version == original_version
+    assert restored_session is not None and restored_session.revoked_at is None
+    assert api_token.revoked_at is None
+    assert db_session.scalars(
+        select(UserNotification).where(
+            UserNotification.event_key.like("external_identity_revoked:identity-rollback:%")
+        )
+    ).all() == []
+
+
 def test_profile_name_edit_is_disabled_by_default_and_can_be_enabled(auth_client, db_session):
     user = _user(db_session, email="profile-name-policy@example.com")
     credentials = authenticate_ui_client(auth_client, db_session, user)
