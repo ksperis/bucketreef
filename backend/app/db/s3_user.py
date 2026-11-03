@@ -60,6 +60,42 @@ class S3User(Base):
     )
     storage_endpoint = relationship("StorageEndpoint", lazy="joined")
     tag_links = relationship("S3UserTag", back_populates="s3_user", cascade="all, delete-orphan")
+    deletion = relationship(
+        "S3UserDeletion",
+        back_populates="s3_user",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
+
+
+class S3UserDeletion(Base):
+    """Durable intent for deleting a BucketReef-managed RGW user or access key."""
+
+    __tablename__ = "s3_user_deletions"
+    __table_args__ = (
+        UniqueConstraint("s3_user_id", name="uq_s3_user_deletions_s3_user"),
+        CheckConstraint(
+            "mode IN ('access_key', 'remote_user')",
+            name="ck_s3_user_deletions_mode",
+        ),
+        Index("ix_s3_user_deletions_remote_completed", "remote_completed"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    s3_user_id = Column(
+        Integer,
+        ForeignKey("s3_users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    mode = Column(String, nullable=False)
+    rgw_user_uid = Column(String, nullable=False)
+    rgw_tenant = Column(String, nullable=False, default="", server_default="")
+    access_key_id = Column(String, nullable=True)
+    remote_completed = Column(Boolean, nullable=False, default=False, server_default="0")
+    created_at = Column(UTCDateTime(), default=utcnow, nullable=False)
+    updated_at = Column(UTCDateTime(), default=utcnow, onupdate=utcnow, nullable=False)
+
+    s3_user = relationship("S3User", back_populates="deletion")
 
 class UserS3User(Base):
     __tablename__ = "user_s3_users"

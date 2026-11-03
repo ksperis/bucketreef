@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import S3UserNotFoundError
-from app.db import S3User
+from app.db import S3User, S3UserDeletion
 
 
 class S3UserRepository:
@@ -22,6 +22,15 @@ class S3UserRepository:
         if s3_user is None:
             raise S3UserNotFoundError("S3 user not found")
         return s3_user
+
+    def ensure_not_pending_deletion(self, user_id: int) -> None:
+        pending = self.db.scalar(
+            select(S3UserDeletion.id).where(S3UserDeletion.s3_user_id == user_id)
+        )
+        if pending is not None:
+            raise ValueError(
+                "S3 user deletion is pending; retry deletion before modifying this user"
+            )
 
     def find_identity(
         self,
