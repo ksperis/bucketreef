@@ -9,6 +9,7 @@ from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.db_transactions import commit_or_rollback
 from app.db import (
     CostStorageDaily,
     CostUsageDaily,
@@ -44,7 +45,7 @@ class DataRetentionService:
         )
         return int(result.rowcount or 0)
 
-    def purge_quota_history(self) -> dict[str, Any]:
+    def _purge_quota_history(self) -> dict[str, Any]:
         deleted_hourly = 0
         deleted_daily = 0
 
@@ -62,9 +63,6 @@ class DataRetentionService:
                 QuotaUsageDaily.day < daily_cutoff,
             )
 
-        if deleted_hourly or deleted_daily:
-            self.db.commit()
-
         return {
             "quota_history": {
                 "hourly_retention_days": int(self.settings.quota_history_hourly_retention_days or 0),
@@ -74,7 +72,7 @@ class DataRetentionService:
             }
         }
 
-    def purge_cost_daily(self) -> dict[str, Any]:
+    def _purge_cost_daily(self) -> dict[str, Any]:
         deleted_usage = 0
         deleted_storage = 0
 
@@ -88,9 +86,6 @@ class DataRetentionService:
                 CostStorageDaily,
                 CostStorageDaily.day < daily_cutoff,
             )
-
-        if deleted_usage or deleted_storage:
-            self.db.commit()
 
         return {
             "cost_history": {
@@ -117,7 +112,7 @@ class DataRetentionService:
             UserNotification.created_at < cutoff,
         )
         if deleted:
-            self.db.commit()
+            commit_or_rollback(self.db)
         return {
             "user_notifications": {
                 "retention_days": retention_days,
@@ -127,7 +122,16 @@ class DataRetentionService:
         }
 
     def purge_all(self) -> dict[str, Any]:
-        result: dict[str, Any] = {}
-        result.update(self.purge_quota_history())
-        result.update(self.purge_cost_daily())
+        quota_result = self._purge_quota_history()
+        cost_result = self._purge_cost_daily()
+        result = {**quota_result, **cost_result}
+        quota = result["quota_history"]
+        cost = result["cost_history"]
+        if (
+            quota["deleted_hourly"]
+            or quota["deleted_daily"]
+            or cost["deleted_usage_daily"]
+            or cost["deleted_storage_daily"]
+        ):
+            commit_or_rollback(self.db)
         return result
