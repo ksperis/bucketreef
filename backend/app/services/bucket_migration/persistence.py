@@ -6,6 +6,7 @@ from typing import Optional
 
 from sqlalchemy import select
 
+from app.core.db_transactions import commit_or_rollback
 from app.db import BucketMigration, User
 from app.services.effective_access_service import EffectiveAccessService
 from app.utils.time import utcnow
@@ -33,7 +34,7 @@ class BucketMigrationPersistenceMixin:
             raise WorkerLeaseLostError("Migration worker lease lost")
 
     def _commit(self) -> None:
-        self.db.commit()
+        commit_or_rollback(self.db)
 
     def _is_context_authorized(self, context_id: str) -> bool:
         if self._authorized_context_ids is None:

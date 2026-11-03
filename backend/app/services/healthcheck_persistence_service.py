@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.db_transactions import commit_or_rollback
 from app.core.sensitive_data import sanitize_persisted_error
 from app.core.sqlite import ensure_sqlite_transaction_for_savepoint
 from app.db import (
@@ -37,13 +38,6 @@ class HealthCheckPersistenceService:
     def __init__(self, db: Session) -> None:
         self.db = db
 
-    def _commit(self) -> None:
-        try:
-            self.db.commit()
-        except Exception:
-            self.db.rollback()
-            raise
-
     def record_results(self, results: list[HealthCheckResult]) -> None:
         for result in results:
             safe_error = (
@@ -62,13 +56,13 @@ class HealthCheckPersistenceService:
                     error_message=safe_error,
                 )
             )
-        self._commit()
+        commit_or_rollback(self.db)
 
         for result in results:
             self._update_latest_entry(result)
             self._update_status_segment(result)
             self._update_rollup_bucket(result, resolution_seconds=DEFAULT_ROLLUP_RESOLUTION_SECONDS)
-        self._commit()
+        commit_or_rollback(self.db)
 
         self._prune_history()
 
@@ -312,4 +306,4 @@ class HealthCheckPersistenceService:
                 deleted_rollups,
                 deleted_segments,
             )
-        self._commit()
+        commit_or_rollback(self.db)
