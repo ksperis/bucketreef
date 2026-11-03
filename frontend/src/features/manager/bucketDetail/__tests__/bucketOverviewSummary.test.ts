@@ -72,6 +72,44 @@ describe("buildBucketOverviewSummary", () => {
     expect(summary.Notifications).toBe("3 notifications");
   });
 
+  it("builds a compact list containing only active or attention-worthy features", () => {
+    const input = baseInput();
+    input.versioning = { enabled: true, loading: false, hasError: false, status: "Enabled" };
+    input.objectLock.configured = true;
+    input.publicAccess.partial = true;
+    input.lifecycle = { configured: true, loading: false, hasError: false, count: 2 };
+    input.replication = { configured: true, loading: false, hasError: false, count: 1, enabled: true };
+    input.notifications = { configured: true, loading: false, hasError: false, count: 3 };
+
+    const summary = buildBucketOverviewSummary(input, text);
+
+    expect(summary.activeFeatures).toEqual([
+      { label: "Versioning", state: "active" },
+      { label: "Object Lock", state: "active" },
+      { label: "Replication", detail: "1 rule", state: "active" },
+      { label: "Public access partially blocked", state: "warning" },
+      { label: "Lifecycle", detail: "2 rules", state: "active" },
+      { label: "Notifications", detail: "3 notifications", state: "active" },
+    ]);
+  });
+
+  it("keeps the active-feature summary in loading state until visible feature states settle", () => {
+    const input = baseInput();
+    input.policy.loading = true;
+
+    expect(buildBucketOverviewSummary(input, text).loadingFeatures).toBe(true);
+
+    input.policy.loading = false;
+    expect(buildBucketOverviewSummary(input, text).loadingFeatures).toBe(false);
+  });
+
+  it("returns an empty active-feature list when every visible feature is inactive", () => {
+    const summary = buildBucketOverviewSummary(baseInput(), text);
+
+    expect(summary.activeFeatures).toEqual([]);
+    expect(summary.loadingFeatures).toBe(false);
+  });
+
   it("reports loading and unavailable states independently from unconfigured features", () => {
     const input = baseInput();
     input.objectLock.loading = true;

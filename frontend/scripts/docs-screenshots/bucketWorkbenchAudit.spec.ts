@@ -266,7 +266,7 @@ for (const surface of ["manager", "ceph-admin"] as const) {
     for (const width of [1440, 390]) {
       test(`${surface} bucket feature cards ${theme} ${width}`, async ({ page }, testInfo) => {
       const { errors, registry } = await openBucketConfiguration(page, surface, theme, width);
-      for (const heading of ["Bucket details", "Usage", "Quotas", "Data protection", "Access & exposure", "Data management"]) {
+      for (const heading of ["Bucket details", "Active features", "Usage", "Quotas", "Data protection", "Access & exposure", "Data management"]) {
         await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
       }
       await expect(page.getByRole("heading", { name: "Bucket properties", exact: true })).toHaveCount(0);

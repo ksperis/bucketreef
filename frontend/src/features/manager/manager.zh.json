@@ -1640,5 +1640,13 @@
   "Partially blocked": "部分阻止",
   "Not blocked": "未阻止",
   "notification": "通知",
-  "notifications": "通知"
+  "notifications": "通知",
+  "Active features": "已启用功能",
+  "Features currently enabled or configured for this bucket.": "此 Bucket 当前已启用或已配置的功能。",
+  "{count} active": "{count} 项已启用",
+  "No active features": "没有已启用的功能",
+  "Loading feature status...": "正在加载功能状态...",
+  "Encryption": "加密",
+  "Public access blocked": "已阻止公共访问",
+  "Public access partially blocked": "已部分阻止公共访问"
 }
