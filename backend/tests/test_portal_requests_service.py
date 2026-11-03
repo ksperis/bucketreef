@@ -155,6 +155,37 @@ def test_portal_request_creation_lists_only_requester_and_notifies_admin(db_sess
     assert audit.context_id == str(account.id)
 
 
+def test_portal_request_creation_rolls_back_session_when_commit_fails(
+    db_session,
+    monkeypatch,
+):
+    account = _seed_account(db_session)
+    requester = _seed_user(db_session, email="requester@example.org")
+    service = PortalRequestsService(
+        db_session,
+        accounts_service=FakeAccountsService(),
+    )
+    original_rollback = db_session.rollback
+    rollback_calls = 0
+
+    def fail_commit():
+        raise RuntimeError("commit failed")
+
+    def track_rollback():
+        nonlocal rollback_calls
+        rollback_calls += 1
+        original_rollback()
+
+    monkeypatch.setattr(db_session, "commit", fail_commit)
+    monkeypatch.setattr(db_session, "rollback", track_rollback)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        _create_user_request(service, account, requester)
+
+    assert rollback_calls == 1
+    assert db_session.scalars(select(PortalAdminRequest)).all() == []
+
+
 def test_admin_search_matches_structured_request_payload(db_session):
     account = _seed_account(db_session)
     requester = _seed_user(db_session, email="requester@example.org")

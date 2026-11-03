@@ -9,6 +9,7 @@ from typing import Any, NoReturn, Optional
 from sqlalchemy import String, cast, or_, select
 from sqlalchemy.orm import Session
 
+from app.core.db_transactions import commit_or_rollback
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import PortalAdminRequest, PortalAdminRequestMessage, S3Account, User
 from app.core.domain_enums import PortalAccountRole
@@ -86,6 +87,13 @@ class PortalRequestsService:
         )
         self.notifications = PortalRequestNotificationService(db)
 
+    def _commit(self) -> None:
+        commit_or_rollback(self.db)
+
+    def _commit_request(self, row: PortalAdminRequest) -> None:
+        self._commit()
+        self.db.refresh(row)
+
     def create_request(
         self,
         actor: User,
@@ -108,8 +116,7 @@ class PortalRequestsService:
             updated_at=utcnow(),
         )
         self.db.add(row)
-        self.db.commit()
-        self.db.refresh(row)
+        self._commit_request(row)
         delegated_execution = self.collaborator_requests.is_delegated_execution(
             access,
             request_type=request_type,
@@ -131,7 +138,7 @@ class PortalRequestsService:
         if delegated_execution:
             return self._execute_delegated_request(row, actor)
         self.notifications.notify_admins(row)
-        self.db.commit()
+        self._commit()
         return self.to_out(row)
 
     def _prepare_create_request(
@@ -216,7 +223,7 @@ class PortalRequestsService:
                 message="Your Portal request could not be completed after approval.",
                 event_suffix="failed",
             )
-            self.db.commit()
+            self._commit()
 
         metadata: dict[str, Any] = {"request_type": failed.request_type}
         if execution is not None:
@@ -299,15 +306,14 @@ class PortalRequestsService:
         self._add_message(row, actor, message)
         row.updated_at = utcnow()
         self.db.add(row)
-        self.db.commit()
-        self.db.refresh(row)
+        self._commit_request(row)
         self.notifications.notify_requester(
             row,
             title="Message on your Portal request",
             message=f"{actor.email} replied to your Portal request.",
             event_suffix=f"message:{row.messages[-1].id if row.messages else 'latest'}",
         )
-        self.db.commit()
+        self._commit()
         AuditService(self.db).record_action(
             user=actor,
             scope="admin",
@@ -337,15 +343,14 @@ class PortalRequestsService:
         if message:
             self._add_message(row, actor, message)
         self.db.add(row)
-        self.db.commit()
-        self.db.refresh(row)
+        self._commit_request(row)
         self.notifications.notify_requester(
             row,
             title="Portal request rejected",
             message="Your Portal request was rejected by a storage admin.",
             event_suffix="rejected",
         )
-        self.db.commit()
+        self._commit()
         AuditService(self.db).record_action(
             user=actor,
             scope="admin",
@@ -369,8 +374,7 @@ class PortalRequestsService:
         row.status = "processing"
         row.updated_at = utcnow()
         self.db.add(row)
-        self.db.commit()
-        self.db.refresh(row)
+        self._commit_request(row)
 
         try:
             result = self._execute_request(row)
@@ -396,7 +400,7 @@ class PortalRequestsService:
             message="Your Portal request was approved and applied.",
             event_suffix="approved",
         )
-        self.db.commit()
+        self._commit()
         AuditService(self.db).record_action(
             user=actor,
             scope="admin",
@@ -423,7 +427,7 @@ class PortalRequestsService:
         row.decided_at = now
         row.updated_at = now
         self.db.add(row)
-        self.db.commit()
+        self._commit()
         return row
 
     def _finalize_approved_request(
@@ -446,8 +450,7 @@ class PortalRequestsService:
         if message:
             self._add_message(row, actor, message)
         self.db.add(row)
-        self.db.commit()
-        self.db.refresh(row)
+        self._commit_request(row)
         return row
 
     def to_out(self, row: PortalAdminRequest) -> PortalAdminRequestOut:
