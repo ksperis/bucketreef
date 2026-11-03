@@ -26,6 +26,13 @@ class AuthRateLimitService:
         self.db = db
         self.settings = settings or get_settings()
 
+    def _commit(self) -> None:
+        try:
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+
     def check(self, *, account: str, ip_address: str) -> None:
         now = utcnow()
         window = self._window_start(now)
@@ -75,14 +82,14 @@ class AuthRateLimitService:
                         .where(AuthRateLimit.bucket_key == key, AuthRateLimit.window_started_at == window)
                         .values(attempts=AuthRateLimit.attempts + 1, updated_at=now)
                     )
-        self.db.commit()
+        self._commit()
 
     def clear_account(self, *, account: str, ip_address: str) -> None:
         key = self._key("account_ip", account.lower(), ip_address)
         self.db.execute(
             delete(AuthRateLimit).where(AuthRateLimit.bucket_key == key)
         )
-        self.db.commit()
+        self._commit()
 
     def _window_start(self, now: datetime) -> datetime:
         timestamp = int(now.timestamp())
