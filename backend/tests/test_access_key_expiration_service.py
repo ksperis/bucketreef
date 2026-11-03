@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+import pytest
+
 from app.db import ManagerAccessKeyMetadata, S3Account, S3User, StorageEndpoint
 from app.core.domain_enums import StorageProvider
 from app.models.iam import AccessKey
@@ -113,6 +115,18 @@ def _patch_audit(monkeypatch) -> None:
     monkeypatch.setattr(access_key_expiration_service, "AuditService", _FakeAuditService)
 
 
+def _track_rollback(db_session, monkeypatch) -> list[None]:
+    rollback_calls: list[None] = []
+    original_rollback = db_session.rollback
+
+    def rollback() -> None:
+        rollback_calls.append(None)
+        original_rollback()
+
+    monkeypatch.setattr(db_session, "rollback", rollback)
+    return rollback_calls
+
+
 def test_due_rgw_user_key_is_disabled_even_after_resource_opt_out(db_session, monkeypatch):
     endpoint = _endpoint(db_session)
     s3_user = _s3_user(db_session, endpoint)
@@ -134,6 +148,31 @@ def test_due_rgw_user_key_is_disabled_even_after_resource_opt_out(db_session, mo
     audit_context = _FakeAuditService.calls[0]["execution_context"]
     assert audit_context.context_kind == "s3_user"
     assert audit_context.context_id == f"s3u-{s3_user.id}"
+
+
+def test_attempt_commit_failure_rolls_back_before_provider_call(db_session, monkeypatch):
+    endpoint = _endpoint(db_session)
+    s3_user = _s3_user(db_session, endpoint)
+    row = _due_s3_user_row(db_session, s3_user)
+    fake = _FakeS3UsersService(db_session, active=True)
+    monkeypatch.setattr(access_key_expiration_service, "S3UsersService", lambda _db: fake)
+    rollback_calls = _track_rollback(db_session, monkeypatch)
+
+    def fail_commit() -> None:
+        raise RuntimeError("commit failed")
+
+    monkeypatch.setattr(db_session, "commit", fail_commit)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        AccessKeyExpirationService(db_session).run_due()
+
+    assert rollback_calls == [None]
+    assert fake.calls == []
+    db_session.expire_all()
+    persisted = db_session.get(ManagerAccessKeyMetadata, row.id)
+    assert persisted is not None
+    assert persisted.expiration_state == "scheduled"
+    assert persisted.expiration_last_attempt_at is None
 
 
 def test_already_inactive_key_is_idempotently_enforced(db_session, monkeypatch):
@@ -167,6 +206,37 @@ def test_provider_failure_is_retried_without_marking_key_expired(db_session, mon
     assert row.expiration_state == "retrying"
     assert row.expiration_enforced_at is None
     assert "temporary provider outage" in (row.expiration_last_error or "")
+
+
+def test_failure_state_commit_failure_restores_session(db_session, monkeypatch):
+    endpoint = _endpoint(db_session)
+    s3_user = _s3_user(db_session, endpoint)
+    row = _due_s3_user_row(db_session, s3_user)
+    fake = _FakeS3UsersService(db_session, failure=ValueError("temporary provider outage"))
+    monkeypatch.setattr(access_key_expiration_service, "S3UsersService", lambda _db: fake)
+    rollback_calls = _track_rollback(db_session, monkeypatch)
+    original_commit = db_session.commit
+    commit_calls = 0
+
+    def fail_second_commit() -> None:
+        nonlocal commit_calls
+        commit_calls += 1
+        if commit_calls == 2:
+            raise RuntimeError("commit failed")
+        original_commit()
+
+    monkeypatch.setattr(db_session, "commit", fail_second_commit)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        AccessKeyExpirationService(db_session).run_due()
+
+    assert commit_calls == 2
+    assert rollback_calls == [None, None]
+    db_session.expire_all()
+    persisted = db_session.get(ManagerAccessKeyMetadata, row.id)
+    assert persisted is not None
+    assert persisted.expiration_state == "scheduled"
+    assert persisted.expiration_last_error is None
 
 
 def test_provider_failure_persists_only_sanitized_error_details(db_session, monkeypatch):
