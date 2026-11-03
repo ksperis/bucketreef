@@ -145,7 +145,7 @@ describe("InlinePolicyDraftEditor", () => {
 
     expect(screen.getByLabelText("Inline policy name")).toHaveValue("readonly-inline");
     expect(screen.getByRole("button", { name: "Update draft" })).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: /readonly-inline/i })[0]).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getAllByRole("button", { name: /readonly-inline/i })[0]).not.toHaveAttribute("aria-pressed");
   });
 
   it("warns when a draft name matches another saved draft", () => {

@@ -1,256 +1,239 @@
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { IAMEntity, NamingValidationProfile } from "../../utils/resourceNames";
 import InlinePolicyEditor from "./InlinePolicyEditor";
 
 const loadPoliciesMock = vi.fn();
 const savePolicyMock = vi.fn();
 const deletePolicyMock = vi.fn();
 
+const readonlyPolicy = {
+  name: "readonly-inline",
+  document: {
+    Version: "2012-10-17",
+    Statement: [{ Effect: "Allow", Action: ["s3:GetObject"], Resource: "*" }],
+  },
+};
+
+function renderEditor({
+  entityType = "user",
+  namingValidationProfile = "standard",
+}: {
+  entityType?: IAMEntity;
+  namingValidationProfile?: NamingValidationProfile;
+} = {}) {
+  return render(
+    <InlinePolicyEditor
+      entityLabel={entityType}
+      entityType={entityType}
+      namingValidationProfile={namingValidationProfile}
+      entityName="alice"
+      loadPolicies={loadPoliciesMock}
+      savePolicy={savePolicyMock}
+      deletePolicy={deletePolicyMock}
+    />,
+  );
+}
+
+async function openEditDialog() {
+  const row = await screen.findByRole("button", { name: /readonly-inline/i });
+  await waitFor(() => expect(row).toBeEnabled());
+  fireEvent.click(row);
+  const dialog = screen.getByRole("dialog", { name: "Edit inline policy — readonly-inline" });
+  const form = within(dialog).getByRole("form", { name: "Edit inline policy" });
+  return { dialog, form };
+}
+
 describe("InlinePolicyEditor", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    loadPoliciesMock.mockResolvedValue([readonlyPolicy]);
+    savePolicyMock.mockResolvedValue(undefined);
+    deletePolicyMock.mockResolvedValue(undefined);
   });
 
-  it("keeps existing inline policies visible before anything is selected", async () => {
-    loadPoliciesMock.mockResolvedValue([
-      {
-        name: "readonly-inline",
-        document: {
-          Version: "2012-10-17",
-          Statement: [{ Effect: "Allow", Action: ["s3:GetObject"], Resource: "*" }],
-        },
-      },
-    ]);
-
-    render(
-      <InlinePolicyEditor
-        entityLabel="user"
-        entityName="alice"
-        loadPolicies={loadPoliciesMock}
-        savePolicy={savePolicyMock}
-        deletePolicy={deletePolicyMock}
-      />
-    );
+  it("keeps the page compact until an inline policy is edited", async () => {
+    renderEditor();
 
     expect(await screen.findByText("Existing inline policies")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /readonly-inline/i })).toBeInTheDocument();
-    expect(screen.queryByText("Select an existing inline policy to review or edit")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create inline policy" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Refresh" })).toBeInTheDocument();
+    expect(screen.queryByText("Selected")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Inline policy name")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Inline policy document (JSON)")).not.toBeInTheDocument();
   });
 
-  it("loads an existing inline policy into the editor and switches the CTA to update", async () => {
-    loadPoliciesMock.mockResolvedValue([
-      {
-        name: "readonly-inline",
-        document: {
-          Version: "2012-10-17",
-          Statement: [{ Effect: "Allow", Action: ["s3:GetObject"], Resource: "*" }],
-        },
-      },
+  it("opens an existing policy in a wide edit dialog with a locked name", async () => {
+    renderEditor();
+    const { dialog } = await openEditDialog();
+
+    const name = within(dialog).getByLabelText("Inline policy name");
+    expect(name).toHaveValue("readonly-inline");
+    expect(name).toHaveAttribute("readonly");
+    expect((within(dialog).getByLabelText("Inline policy document (JSON)") as HTMLTextAreaElement).value).toContain('"Action": [');
+    expect(within(dialog).getByRole("button", { name: "Format JSON" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Insert template" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Delete inline policy" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Save changes" })).toBeInTheDocument();
+  });
+
+  it("creates a policy from a dedicated dialog and closes it after saving", async () => {
+    loadPoliciesMock.mockResolvedValueOnce([readonlyPolicy]).mockResolvedValueOnce([
+      readonlyPolicy,
+      { name: "new-inline", document: {} },
     ]);
+    renderEditor();
+    await screen.findByText("readonly-inline");
 
-    render(
-      <InlinePolicyEditor
-        entityLabel="user"
-        entityName="alice"
-        loadPolicies={loadPoliciesMock}
-        savePolicy={savePolicyMock}
-        deletePolicy={deletePolicyMock}
-      />
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Create inline policy" }));
+    const dialog = screen.getByRole("dialog", { name: "Create inline policy" });
+    const form = within(dialog).getByRole("form", { name: "Create inline policy" });
+    const name = within(form).getByLabelText("Inline policy name");
+    expect(name).not.toHaveAttribute("readonly");
+    fireEvent.change(name, { target: { value: " new-inline " } });
+    fireEvent.submit(form);
 
-    await waitFor(() => {
-      expect(screen.queryByText("Loading inline policies...")).not.toBeInTheDocument();
-    });
-
-    fireEvent.click((await screen.findAllByRole("button", { name: /readonly-inline/i }))[0]);
-
-    expect(await screen.findByLabelText("Inline policy name")).toHaveValue("readonly-inline");
-    expect((screen.getByLabelText("Inline policy document (JSON)") as HTMLTextAreaElement).value).toContain('"Action": [');
-    expect(screen.getByRole("button", { name: "Update existing inline policy" })).toBeInTheDocument();
+    await waitFor(() => expect(savePolicyMock).toHaveBeenCalledWith("new-inline", {}));
+    expect(await screen.findByText("Inline policy saved.")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Create inline policy" })).not.toBeInTheDocument();
+    expect(loadPoliciesMock).toHaveBeenCalledTimes(2);
   });
 
-  it("warns when saving with the name of another existing inline policy", async () => {
-    loadPoliciesMock.mockResolvedValue([
-      {
-        name: "readonly-inline",
-        document: {
-          Version: "2012-10-17",
-          Statement: [{ Effect: "Allow", Action: ["s3:GetObject"], Resource: "*" }],
-        },
-      },
-      {
-        name: "write-inline",
-        document: {
-          Version: "2012-10-17",
-          Statement: [{ Effect: "Allow", Action: ["s3:PutObject"], Resource: "*" }],
-        },
-      },
-    ]);
+  it("validates create names and JSON while preserving focus on the invalid field", async () => {
+    renderEditor({ namingValidationProfile: "ceph" });
+    await screen.findByText("readonly-inline");
+    fireEvent.click(screen.getByRole("button", { name: "Create inline policy" }));
 
-    render(
-      <InlinePolicyEditor
-        entityLabel="user"
-        entityName="alice"
-        loadPolicies={loadPoliciesMock}
-        savePolicy={savePolicyMock}
-        deletePolicy={deletePolicyMock}
-      />
-    );
-
-    await waitFor(() => {
-      expect(screen.queryByText("Loading inline policies...")).not.toBeInTheDocument();
-    });
-
-    fireEvent.click((await screen.findAllByRole("button", { name: /readonly-inline/i }))[0]);
-    fireEvent.change(await screen.findByLabelText("Inline policy name"), { target: { value: "write-inline" } });
-
-    expect(screen.getByText(/will replace that existing inline policy/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Replace existing inline policy" })).toBeInTheDocument();
-  });
-
-  it("confirms inline policy deletion with the affected entity", async () => {
-    loadPoliciesMock.mockResolvedValue([
-      {
-        name: "readonly-inline",
-        document: { Version: "2012-10-17", Statement: [] },
-      },
-    ]);
-    deletePolicyMock.mockResolvedValue(undefined);
-
-    render(
-      <InlinePolicyEditor
-        entityLabel="user"
-        entityName="alice"
-        loadPolicies={loadPoliciesMock}
-        savePolicy={savePolicyMock}
-        deletePolicy={deletePolicyMock}
-      />
-    );
-
-    fireEvent.click((await screen.findAllByRole("button", { name: /readonly-inline/i }))[0]);
-    fireEvent.click(screen.getByRole("button", { name: "Delete inline policy" }));
-
-    expect(screen.getByRole("heading", { name: "Delete inline policy?" })).toBeInTheDocument();
-    expect(screen.getAllByText("alice").length).toBeGreaterThan(0);
-    expect(deletePolicyMock).not.toHaveBeenCalled();
-
-    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Delete inline policy" }));
-    await waitFor(() => expect(deletePolicyMock).toHaveBeenCalledWith("readonly-inline"));
-  });
-});
-
-
-describe("inline policy draft safety", () => {
-  const existing = { name: "readonly-inline", document: { Version: "2012-10-17", Statement: [] } };
-  const open = async () => {
-    loadPoliciesMock.mockResolvedValue([existing, { name: "write-inline", document: {} }]);
-    render(<InlinePolicyEditor entityLabel="user" entityName="alice" loadPolicies={loadPoliciesMock}
-      savePolicy={savePolicyMock} deletePolicy={deletePolicyMock} />);
-    const choice = await screen.findByRole("button", { name: /readonly-inline/ });
-    await waitFor(() => expect(choice).toBeEnabled());
-    fireEvent.click(choice);
-    return screen.getByRole("form", { name: "Edit inline policy" });
-  };
-
-  beforeEach(() => vi.resetAllMocks());
-
-  it("associates validation errors and keeps blank JSON as an empty document", async () => {
-    const form = await open();
+    const form = screen.getByRole("form", { name: "Create inline policy" });
     const name = within(form).getByLabelText("Inline policy name");
     const document = within(form).getByLabelText("Inline policy document (JSON)");
-    fireEvent.change(name, { target: { value: " " } });
+
     fireEvent.submit(form);
     await waitFor(() => expect(name).toHaveFocus());
     expect(name).toHaveAccessibleDescription("Inline policy name is required.");
-    fireEvent.change(name, { target: { value: " NewInline " } });
-    expect(name).not.toHaveAttribute("aria-invalid", "true");
+
+    fireEvent.change(name, { target: { value: "invalid_under+score" } });
+    expect(name).toHaveAttribute("aria-invalid", "true");
+    expect(name).toHaveAccessibleDescription(/Ceph inline policy name/);
+    fireEvent.change(name, { target: { value: "valid:policy" } });
     fireEvent.change(document, { target: { value: "{" } });
     fireEvent.submit(form);
     await waitFor(() => expect(document).toHaveFocus());
     expect(document).toHaveAccessibleDescription(/Inline policy must be valid JSON/);
     expect(savePolicyMock).not.toHaveBeenCalled();
-    fireEvent.change(document, { target: { value: " " } });
-    expect(document).not.toHaveAttribute("aria-invalid", "true");
-    fireEvent.submit(form);
-    await waitFor(() => expect(savePolicyMock).toHaveBeenCalledWith("NewInline", {}));
   });
 
-  it("freezes every editor action during save and retries the preserved draft", async () => {
-    let reject!: (error: Error) => void;
-    savePolicyMock.mockReturnValueOnce(new Promise((_, fail) => { reject = fail; }));
-    const form = await open();
+  it("updates the persisted policy document, refreshes the list, and closes the dialog", async () => {
+    const updated = { ...readonlyPolicy, document: { Version: "2012-10-17", Statement: [] } };
+    loadPoliciesMock.mockResolvedValueOnce([readonlyPolicy]).mockResolvedValueOnce([updated]);
+    renderEditor();
+    const { form } = await openEditDialog();
+
     const document = within(form).getByLabelText("Inline policy document (JSON)");
-    fireEvent.change(document, { target: { value: '{"Statement":[]}' } });
+    fireEvent.change(document, { target: { value: '{"Version":"2012-10-17","Statement":[]}' } });
     fireEvent.submit(form);
-    for (const control of screen.getAllByRole("button")) expect(control).toBeDisabled();
-    expect(document).toBeDisabled();
-    fireEvent.submit(form);
-    expect(savePolicyMock).toHaveBeenCalledOnce();
-    await act(async () => reject(new Error("Temporary inline failure")));
-    expect(await screen.findByText("Temporary inline failure")).toBeInTheDocument();
-    expect(document).toHaveValue('{"Statement":[]}');
-    expect(document).toBeEnabled();
-    fireEvent.submit(form);
-    await screen.findByText("Inline policy updated.");
-    expect(savePolicyMock.mock.calls[1]).toEqual(savePolicyMock.mock.calls[0]);
+
+    await waitFor(() => expect(savePolicyMock).toHaveBeenCalledWith("readonly-inline", {
+      Version: "2012-10-17",
+      Statement: [],
+    }));
+    expect(await screen.findByText("Inline policy updated.")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Edit inline policy — readonly-inline" })).not.toBeInTheDocument();
+    expect(loadPoliciesMock).toHaveBeenCalledTimes(2);
   });
 
-  it.each(["selection", "create", "cancel", "refresh"])("protects unsaved changes before %s", async (action) => {
-    const form = await open();
+  it("keeps a failed save open with the draft intact", async () => {
+    savePolicyMock.mockRejectedValueOnce(new Error("Temporary inline failure"));
+    renderEditor();
+    const { form } = await openEditDialog();
     const document = within(form).getByLabelText("Inline policy document (JSON)");
     fireEvent.change(document, { target: { value: '{"pending":true}' } });
-    const target = action === "selection" ? screen.getByRole("button", { name: /write-inline/ })
-      : screen.getByRole("button", { name: action === "create" ? "Create new inline policy" : action === "cancel" ? "Cancel" : "Refresh" });
-    fireEvent.click(target);
-    let dialog = screen.getByRole("dialog", { name: "Discard changes?" });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Keep editing" }));
+    fireEvent.submit(form);
+
+    expect(await within(form).findByText("Temporary inline failure")).toBeInTheDocument();
     expect(document).toHaveValue('{"pending":true}');
-    expect(loadPoliciesMock).toHaveBeenCalledOnce();
-    fireEvent.click(target);
-    dialog = screen.getByRole("dialog", { name: "Discard changes?" });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Discard changes" }));
-    if (action === "cancel") expect(form).not.toBeInTheDocument();
-    else if (action === "refresh") await waitFor(() => expect(document).toHaveValue(JSON.stringify(existing.document, null, 2)));
-    else expect(within(form).getByLabelText("Inline policy name")).toHaveValue(action === "create" ? "" : "write-inline");
-    expect(savePolicyMock).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "Edit inline policy — readonly-inline" })).toBeInTheDocument();
   });
 
-  it("keeps deletion explicit and targets the selected persisted policy", async () => {
-    let resolve!: () => void;
-    deletePolicyMock.mockReturnValueOnce(new Promise<void>((done) => { resolve = done; }));
-    const form = await open();
-    fireEvent.change(within(form).getByLabelText("Inline policy name"), { target: { value: "Unsaved name" } });
-    fireEvent.click(within(form).getByRole("button", { name: "Delete inline policy" }));
-    const dialog = screen.getByRole("dialog", { name: "Delete inline policy?" });
-    expect(within(dialog).getByText("readonly-inline")).toBeInTheDocument();
-    expect(deletePolicyMock).not.toHaveBeenCalled();
+  it.each(["cancel", "close", "escape", "backdrop"] as const)(
+    "protects unsaved changes when closing through %s",
+    async (closePath) => {
+      renderEditor();
+      let { dialog, form } = await openEditDialog();
+      const document = within(form).getByLabelText("Inline policy document (JSON)");
+      fireEvent.change(document, { target: { value: '{"pending":true}' } });
+
+      const requestClose = () => {
+        dialog = screen.getByRole("dialog", { name: "Edit inline policy — readonly-inline" });
+        form = within(dialog).getByRole("form", { name: "Edit inline policy" });
+        if (closePath === "cancel") fireEvent.click(within(form).getByRole("button", { name: "Cancel" }));
+        if (closePath === "close") fireEvent.click(within(dialog).getByRole("button", { name: "Close modal" }));
+        if (closePath === "escape") fireEvent.keyDown(document, { key: "Escape" });
+        if (closePath === "backdrop") fireEvent.mouseDown(dialog.parentElement!);
+      };
+
+      requestClose();
+      let confirm = screen.getByRole("dialog", { name: "Discard changes?" });
+      fireEvent.click(within(confirm).getByRole("button", { name: "Keep editing" }));
+      expect(screen.getByLabelText("Inline policy document (JSON)")).toHaveValue('{"pending":true}');
+
+      requestClose();
+      confirm = screen.getByRole("dialog", { name: "Discard changes?" });
+      fireEvent.click(within(confirm).getByRole("button", { name: "Discard changes" }));
+      expect(screen.queryByRole("dialog", { name: "Edit inline policy — readonly-inline" })).not.toBeInTheDocument();
+    },
+  );
+
+  it("deletes the selected persisted policy through explicit confirmation", async () => {
+    loadPoliciesMock.mockResolvedValueOnce([readonlyPolicy]).mockResolvedValueOnce([]);
+    renderEditor();
+    const { dialog } = await openEditDialog();
     fireEvent.click(within(dialog).getByRole("button", { name: "Delete inline policy" }));
+
+    const confirm = screen.getByRole("dialog", { name: "Delete inline policy?" });
+    expect(within(confirm).getByText("readonly-inline")).toBeInTheDocument();
+    expect(within(confirm).getByText("alice")).toBeInTheDocument();
+    fireEvent.click(within(confirm).getByRole("button", { name: "Delete inline policy" }));
+
     await waitFor(() => expect(deletePolicyMock).toHaveBeenCalledWith("readonly-inline"));
-    expect(within(form).getByLabelText("Inline policy name")).toBeDisabled();
-    expect(within(form).getByRole("button", { name: "Save new inline policy" })).toBeDisabled();
-    await act(async () => resolve());
-    await screen.findByText("Inline policy deleted.");
+    expect(await screen.findByText("Inline policy deleted.")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Edit inline policy — readonly-inline" })).not.toBeInTheDocument();
+    expect(loadPoliciesMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("refreshes the compact list without opening an editor", async () => {
+    loadPoliciesMock.mockResolvedValueOnce([readonlyPolicy]).mockResolvedValueOnce([
+      readonlyPolicy,
+      { name: "write-inline", document: {} },
+    ]);
+    renderEditor();
+    await screen.findByText("readonly-inline");
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+
+    expect(await screen.findByText("write-inline")).toBeInTheDocument();
+    expect(loadPoliciesMock).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });
 
-
-it.each(["user", "group"] as const)("uses Ceph %s policy rules for saving while retaining existing external names", async (entity) => {
-  const load = vi.fn().mockResolvedValue([{ name: "legacy_under+score", document: {} }]);
-  const save = vi.fn().mockResolvedValue(undefined);
-  render(<InlinePolicyEditor entityLabel={entity} entityType={entity} namingValidationProfile="ceph" entityName="alice"
-    loadPolicies={load} savePolicy={save} deletePolicy={vi.fn()} />);
+it.each(["user", "group"] as const)("uses Ceph %s policy naming rules only when creating", async (entityType) => {
+  vi.resetAllMocks();
+  loadPoliciesMock.mockResolvedValue([{ name: "legacy_under+score", document: {} }]);
+  savePolicyMock.mockResolvedValue(undefined);
+  renderEditor({ entityType, namingValidationProfile: "ceph" });
   await screen.findByText("legacy_under+score");
-  fireEvent.click(screen.getByRole("button", { name: "Create new inline policy" }));
-  const name = screen.getByLabelText("Inline policy name");
+
+  fireEvent.click(screen.getByRole("button", { name: /legacy_under\+score/i }));
+  const editDialog = screen.getByRole("dialog", { name: "Edit inline policy — legacy_under+score" });
+  expect(within(editDialog).getByLabelText("Inline policy name")).toHaveAttribute("readonly");
+  fireEvent.click(within(editDialog).getByRole("button", { name: "Cancel" }));
+
+  fireEvent.click(screen.getByRole("button", { name: "Create inline policy" }));
+  const createForm = screen.getByRole("form", { name: "Create inline policy" });
+  const name = within(createForm).getByLabelText("Inline policy name");
   fireEvent.change(name, { target: { value: "invalid_under+score" } });
   expect(name).toHaveAttribute("aria-invalid", "true");
   expect(name).toHaveAccessibleDescription(/Ceph inline policy name/);
-  fireEvent.submit(screen.getByRole("form", { name: "Edit inline policy" }));
-  expect(save).not.toHaveBeenCalled();
-  fireEvent.change(name, { target: { value: "valid:policy" } });
-  expect(name).not.toHaveAttribute("aria-invalid", "true");
-  fireEvent.submit(screen.getByRole("form", { name: "Edit inline policy" }));
-  await waitFor(() => expect(save).toHaveBeenCalledWith("valid:policy", {}));
 });

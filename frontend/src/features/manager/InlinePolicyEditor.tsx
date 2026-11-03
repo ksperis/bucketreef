@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { inlinePolicyNameFormatError, type IAMEntity, type NamingValidationProfile } from "../../utils/resourceNames";
-import { FormEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { InlinePolicy } from "../../api/managerIamPolicies";
 import { extractApiError } from "../../utils/apiError";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
@@ -12,7 +12,7 @@ import { DEFAULT_INLINE_POLICY_TEXT } from "./inlinePolicyTemplate";
 import InlinePolicyChoice from "./InlinePolicyChoice";
 import SettingsJsonEditor from "../../components/settings/SettingsJsonEditor";
 import UiInput from "../../components/ui/UiInput";
-import { SettingsButton, useSettingsCloseGuard } from "../../components/settings/SettingsControls";
+import { SettingsButton, SettingsDialog, useSettingsCloseGuard } from "../../components/settings/SettingsControls";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import { focusFirstInvalidField } from "../../utils/focusFirstInvalidField";
 import { useManagerI18n } from "./managerI18n";
@@ -51,12 +51,12 @@ export default function InlinePolicyEditor({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [listError, setListError] = useState<string | null>(null);
+  const [editorError, setEditorError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const deleteConfirmation = useConfirmActionDialog();
   const [validationAttempted, setValidationAttempted] = useState(false);
-  const replacementMessageId = useId();
-  const pendingTransition = useRef<() => void>(() => {});
+  const nameInputRef = useRef<HTMLInputElement | null>(null);
   const controlsDisabled = disabled || namingValidationProfile === null || loading || saving || deleting;
   let parsedDocument: Record<string, unknown> | undefined;
   let documentError: string | undefined;
@@ -67,24 +67,12 @@ export default function InlinePolicyEditor({
   }
 
   const trimmedName = selectedName.trim();
-  const nameFormatError = inlinePolicyNameFormatError(trimmedName, entityType, namingValidationProfile ?? "standard");
+  const nameFormatError = editorMode === "create"
+    ? inlinePolicyNameFormatError(trimmedName, entityType, namingValidationProfile ?? "standard")
+    : undefined;
   const hasPolicies = policies.length > 0;
   const selectedPolicy = activePolicyName ? policies.find((policy) => policy.name === activePolicyName) ?? null : null;
-  const replacementTarget = trimmedName
-    ? policies.find((policy) => policy.name === trimmedName && policy.name !== activePolicyName) ?? null
-    : null;
-  const createsNewFromExisting = Boolean(activePolicyName && trimmedName && trimmedName !== activePolicyName && !replacementTarget);
   const canDelete = editorMode === "edit" && Boolean(selectedPolicy);
-  const showPromptState = editorMode === "idle";
-  const actionLabel = useMemo(() => {
-    if (activePolicyName && trimmedName === activePolicyName) {
-      return "Update existing inline policy";
-    }
-    if (replacementTarget) {
-      return "Replace existing inline policy";
-    }
-    return "Save new inline policy";
-  }, [activePolicyName, replacementTarget, trimmedName]);
 
   const extractError = useCallback(
     (err: unknown): string => extractApiError(err, text("Unexpected error")),
@@ -100,38 +88,18 @@ export default function InlinePolicyEditor({
     }
   };
 
-  const refresh = useCallback(async (nextActiveName: string | null) => {
+  const refresh = useCallback(async () => {
     if (disabled || !entityName) {
       setPolicies([]);
-      setActivePolicyName(null);
       return;
     }
     setLoading(true);
-    setError(null);
+    setListError(null);
     try {
       const data = await loadPolicies();
       setPolicies(data);
-
-      if (!nextActiveName) {
-        return;
-      }
-
-      const current = data.find((policy) => policy.name === nextActiveName);
-      if (current) {
-        setActivePolicyName(current.name);
-        setSelectedName(current.name);
-        setPolicyText(formatPolicyText(current));
-        setEditorMode("edit");
-        setValidationAttempted(false);
-        return;
-      }
-
-      setActivePolicyName(null);
-      setSelectedName("");
-      setPolicyText("");
-      setEditorMode("idle");
     } catch (err) {
-      setError(extractError(err));
+      setListError(extractError(err));
     } finally {
       setLoading(false);
     }
@@ -143,9 +111,10 @@ export default function InlinePolicyEditor({
     setActivePolicyName(null);
     setEditorMode("idle");
     setMessage(null);
-    setError(null);
+    setListError(null);
+    setEditorError(null);
     setValidationAttempted(false);
-    void refresh(null);
+    void refresh();
   }, [entityName, disabled, refresh]);
 
   const handleSelectExisting = (name: string) => {
@@ -156,7 +125,7 @@ export default function InlinePolicyEditor({
     setPolicyText(formatPolicyText(existing));
     setEditorMode("edit");
     setMessage(null);
-    setError(null);
+    setEditorError(null);
     setValidationAttempted(false);
   };
 
@@ -166,71 +135,55 @@ export default function InlinePolicyEditor({
     setPolicyText("");
     setEditorMode("create");
     setMessage(null);
-    setError(null);
+    setEditorError(null);
     setValidationAttempted(false);
   };
 
-  const handleCancel = () => {
+  const closeEditor = useCallback(() => {
     setActivePolicyName(null);
     setSelectedName("");
     setPolicyText("");
     setEditorMode("idle");
-    setMessage(null);
-    setError(null);
+    setEditorError(null);
     setValidationAttempted(false);
-  };
+  }, []);
 
   const handleInsertTemplate = () => {
     setPolicyText(DEFAULT_INLINE_POLICY_TEXT);
-    setMessage(null);
-    setError(null);
+    setEditorError(null);
   };
 
-  const dirty = editorMode !== "idle" && (
-    selectedName !== (selectedPolicy?.name ?? "") || policyText !== formatPolicyText(selectedPolicy ?? undefined)
-  );
-  const transitionGuard = useSettingsCloseGuard({
+  const dirty = editorMode === "create"
+    ? selectedName !== "" || policyText !== ""
+    : editorMode === "edit" && selectedPolicy
+      ? policyText !== formatPolicyText(selectedPolicy)
+      : false;
+  const closeGuard = useSettingsCloseGuard({
     hasUnsavedChanges: dirty,
-    disabled: controlsDisabled,
+    disabled: saving || deleting,
     description: text("You have unsaved inline policy changes. Continuing will discard them."),
-    onClose: () => pendingTransition.current(),
+    onClose: closeEditor,
   });
-  const requestTransition = (action: () => void) => {
-    if (controlsDisabled) return;
-    pendingTransition.current = action;
-    transitionGuard.requestClose();
-  };
 
   const handleSave = async (event: FormEvent) => {
     event.preventDefault();
     if (controlsDisabled) return;
     setValidationAttempted(true);
-    if (!trimmedName || nameFormatError || documentError) {
+    const targetName = editorMode === "edit" ? selectedPolicy?.name ?? "" : trimmedName;
+    if (!targetName || (editorMode === "create" && nameFormatError) || documentError) {
       focusFirstInvalidField(event.currentTarget as HTMLFormElement);
       return;
     }
 
-    const isUpdatingSelected = Boolean(activePolicyName && trimmedName === activePolicyName);
-    const isReplacingExisting = Boolean(replacementTarget);
-    const isCreatingFromExisting = Boolean(activePolicyName && trimmedName !== activePolicyName && !replacementTarget);
-
     setSaving(true);
-    setError(null);
-    setMessage(null);
+    setEditorError(null);
     try {
-      await savePolicy(trimmedName, parsedDocument!);
-      await refresh(trimmedName);
-      if (isUpdatingSelected) {
-        setMessage(text("Inline policy updated."));
-      } else if (isReplacingExisting) {
-        setMessage(`Inline policy "${trimmedName}" replaced.`);
-      } else if (isCreatingFromExisting) {
-        setMessage(`New inline policy "${trimmedName}" created. "${activePolicyName}" remains unchanged.`);
-      } else {
-        setMessage(text("Inline policy saved."));
-      }
+      await savePolicy(targetName, parsedDocument!);
+      await refresh();
+      closeEditor();
+      setMessage(text(editorMode === "edit" ? "Inline policy updated." : "Inline policy saved."));
     } catch (err) {
-      setError(extractError(err));
+      setEditorError(extractError(err));
     } finally {
       setSaving(false);
     }
@@ -239,18 +192,14 @@ export default function InlinePolicyEditor({
   const deleteSelectedPolicy = async () => {
     if (controlsDisabled || !selectedPolicy) return;
     setDeleting(true);
-    setError(null);
-    setMessage(null);
+    setEditorError(null);
     try {
       await deletePolicy(selectedPolicy.name);
-      await refresh(null);
-      setActivePolicyName(null);
-      setSelectedName("");
-      setPolicyText("");
-      setEditorMode("idle");
+      await refresh();
+      closeEditor();
       setMessage(text("Inline policy deleted."));
     } catch (err) {
-      setError(extractError(err));
+      setEditorError(extractError(err));
     } finally {
       setDeleting(false);
     }
@@ -273,79 +222,81 @@ export default function InlinePolicyEditor({
   };
 
   return (
-    <SettingsSection title={text("Inline policies")} presentation="compact"
-      description={selectedPolicy ? text("Update the selected inline policy or create a separate one.") : hasPolicies
-        ? text("Select an existing inline policy to review or edit.") : text("No inline policies created yet.")}>
-      <div className="settings-stack">
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <span className="settings-description">{text("{count} {policyLabel}", { count: policies.length, policyLabel: text(policies.length === 1 ? "policy" : "policies") })}</span>
-          <SettingsButton variant="secondary" onClick={() => requestTransition(handleStartCreate)} disabled={controlsDisabled}>
-            {text(hasPolicies ? "Create new inline policy" : "Create inline policy")}
-          </SettingsButton>
-          <SettingsButton variant="secondary" onClick={() => requestTransition(() => {
-            if (!activePolicyName) handleCancel();
-            void refresh(activePolicyName);
-          })} disabled={controlsDisabled}>
-            {text(loading ? "Refreshing..." : "Refresh")}
-          </SettingsButton>
-        </div>
-        {disabled && <UiInlineMessage tone="warning">{disabledReason ?? text("Select a context before editing inline policies.")}</UiInlineMessage>}
-        {error && <UiInlineMessage tone="error">{text(error)}</UiInlineMessage>}
-        {message && <UiInlineMessage tone="success" className="[overflow-wrap:anywhere]">{message}</UiInlineMessage>}
+    <>
+      <SettingsSection title={text("Inline policies")} presentation="compact"
+        description={hasPolicies ? text("Select an existing inline policy to review or edit.") : text("No inline policies created yet.")}>
         <div className="settings-stack">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="settings-label">{text("Existing inline policies")}</h3>
-            {loading && <span className="settings-description">{text("Loading inline policies...")}</span>}
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <span className="settings-description">{text("{count} {policyLabel}", { count: policies.length, policyLabel: text(policies.length === 1 ? "policy" : "policies") })}</span>
+            <SettingsButton variant="secondary" onClick={handleStartCreate} disabled={controlsDisabled}>
+              {text("Create inline policy")}
+            </SettingsButton>
+            <SettingsButton variant="secondary" onClick={() => void refresh()} disabled={controlsDisabled}>
+              {text(loading ? "Refreshing..." : "Refresh")}
+            </SettingsButton>
           </div>
-          {!loading && !hasPolicies && <p className="settings-description">{text("No inline policy exists yet.")}</p>}
-          <div className="grid gap-2">
-            {policies.map((policy) => (
-              <InlinePolicyChoice key={policy.name} policy={policy} selected={policy.name === selectedPolicy?.name}
-                disabled={controlsDisabled} onSelect={() => requestTransition(() => handleSelectExisting(policy.name))} />
-            ))}
+          {disabled && <UiInlineMessage tone="warning">{disabledReason ?? text("Select a context before editing inline policies.")}</UiInlineMessage>}
+          {listError && <UiInlineMessage tone="error">{text(listError)}</UiInlineMessage>}
+          {message && <UiInlineMessage tone="success" className="[overflow-wrap:anywhere]">{message}</UiInlineMessage>}
+          <div className="settings-stack">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="settings-label">{text("Existing inline policies")}</h3>
+              {loading && <span className="settings-description">{text("Loading inline policies...")}</span>}
+            </div>
+            {!loading && !hasPolicies && <p className="settings-description">{text("No inline policy exists yet.")}</p>}
+            <div className="grid gap-2">
+              {policies.map((policy) => (
+                <InlinePolicyChoice key={policy.name} policy={policy}
+                  disabled={controlsDisabled} onSelect={() => handleSelectExisting(policy.name)} />
+              ))}
+            </div>
           </div>
         </div>
-        {!showPromptState && (
-          <form aria-label={text("Edit inline policy")} noValidate onSubmit={handleSave}>
-            <fieldset disabled={controlsDisabled} className="settings-fields">
-              <div>
-                <h3 className="settings-label [overflow-wrap:anywhere]">{selectedPolicy ? text("Edit \"{name}\"", { name: selectedPolicy.name }) : text("Create a new inline policy")}</h3>
-                <p className="settings-description mt-1">
-                  {selectedPolicy ? text("Update the selected inline policy or change its name to save a different one.")
-                    : text("Provide a name and valid JSON to create a new inline policy on {entity}.", { entity: entityLabel })}
-                </p>
-              </div>
-              {(replacementTarget || createsNewFromExisting) && (
-                <div id={replacementMessageId}>
-                  <UiInlineMessage tone={replacementTarget ? "warning" : "info"} className="[overflow-wrap:anywhere]">
-                    {replacementTarget
-                      ? text("Saving with the name \"{name}\" will replace that existing inline policy. The currently selected policy will remain unchanged.", { name: replacementTarget.name })
-                      : text("Changing the name from \"{name}\" will create a new inline policy instead of editing the selected one.", { name: activePolicyName ?? "" })}
-                  </UiInlineMessage>
-                </div>
+      </SettingsSection>
+
+      {editorMode !== "idle" && (
+        <SettingsDialog
+          title={editorMode === "edit" && selectedPolicy
+            ? `${text("Edit inline policy")} — ${selectedPolicy.name}`
+            : text("Create inline policy")}
+          onClose={closeGuard.requestClose}
+          closeDisabled={saving || deleting}
+          initialFocusRef={nameInputRef}
+          maxWidthClass="max-w-4xl"
+          maxBodyHeightClass="max-h-[80vh]"
+        >
+          <form aria-label={text(editorMode === "edit" ? "Edit inline policy" : "Create inline policy")} noValidate onSubmit={handleSave}>
+            <fieldset disabled={saving || deleting} className="settings-fields">
+              {editorError && <UiInlineMessage tone="error">{text(editorError)}</UiInlineMessage>}
+              {editorMode === "edit" && selectedPolicy ? (
+                <UiInput ref={nameInputRef} label={text("Inline policy name")} value={selectedPolicy.name} readOnly />
+              ) : (
+                <UiInput ref={nameInputRef} label={text("Inline policy name")} required value={selectedName}
+                  onChange={(event) => setSelectedName(event.target.value)} placeholder={text("inline-policy")}
+                  error={nameFormatError ? text(nameFormatError) : validationAttempted && !trimmedName ? text("Inline policy name is required.") : undefined} />
               )}
-              <UiInput label={text("Inline policy name")} required value={selectedName} onChange={(event) => setSelectedName(event.target.value)}
-                placeholder={text("inline-policy")} aria-describedby={replacementTarget || createsNewFromExisting ? replacementMessageId : undefined}
-                error={nameFormatError ? text(nameFormatError) : validationAttempted && !trimmedName ? text("Inline policy name is required.") : undefined} />
               <SettingsJsonEditor label={text("Inline policy document (JSON)")} value={policyText} onChange={setPolicyText}
-                rows={10} error={validationAttempted ? documentError : undefined}
+                rows={16} error={validationAttempted ? documentError : undefined}
                 hint={text("Blank JSON will save as an empty document.")} placeholder={text("{\n  \"Version\": \"2012-10-17\",\n  \"Statement\": []\n}")} />
               <div className="flex justify-end">
-                <SettingsButton variant="secondary" onClick={handleInsertTemplate}>{text("Insert template")}</SettingsButton>
+                <SettingsButton type="button" variant="secondary" onClick={handleInsertTemplate}>{text("Insert template")}</SettingsButton>
               </div>
             </fieldset>
             <div className="settings-actions">
-              {canDelete && <SettingsButton variant="danger" className="mr-auto" onClick={handleDelete} disabled={controlsDisabled}>
-              {text(deleting ? "Deleting..." : "Delete inline policy")}
+              {canDelete && <SettingsButton type="button" variant="danger" className="mr-auto" onClick={handleDelete} disabled={saving || deleting}>
+                {text(deleting ? "Deleting..." : "Delete inline policy")}
               </SettingsButton>}
-              <SettingsButton variant="secondary" onClick={() => requestTransition(handleCancel)} disabled={controlsDisabled}>{text("Cancel")}</SettingsButton>
-              <SettingsButton type="submit" disabled={controlsDisabled}>{text(saving ? "Saving..." : actionLabel)}</SettingsButton>
+              <SettingsButton type="button" variant="secondary" onClick={closeGuard.requestClose} disabled={saving || deleting}>{text("Cancel")}</SettingsButton>
+              <SettingsButton type="submit" disabled={saving || deleting}>
+                {text(saving ? "Saving..." : editorMode === "edit" ? "Save changes" : "Create inline policy")}
+              </SettingsButton>
             </div>
           </form>
-        )}
-      </div>
+        </SettingsDialog>
+      )}
+
       {deleteConfirmation.confirmationDialog}
-      {transitionGuard.confirmationDialog}
-    </SettingsSection>
+      {closeGuard.confirmationDialog}
+    </>
   );
 }
