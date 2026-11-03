@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from app.core.config import get_settings
 from app.core.security import create_api_access_token, decode_typed_token, get_password_hash
-from app.db import User
+from app.db import ApiToken, User
 from app.core.domain_enums import UserRole
 from app.main import app
 from app.models.browser import BrowserStsCredentials
@@ -172,10 +172,9 @@ def test_api_token_claim_mismatches_fail_closed(db_session, field, value):
     tampered = dict(claims)
     tampered[field] = value
 
-    assert service.resolve_user_from_claims(
+    assert service.resolve_from_claims(
         tampered,
         token=token,
-        required_scope="profile:read",
     ) is None
 
 
@@ -197,10 +196,9 @@ def test_api_token_rejects_corrupt_persisted_scopes(db_session):
     row.scopes = {"profile:read": True}
     db_session.commit()
 
-    assert service.resolve_user_from_claims(
+    assert service.resolve_from_claims(
         claims,
         token=token,
-        required_scope="profile:read",
     ) is None
 
 
@@ -257,17 +255,29 @@ def test_api_token_scope_is_enforced_and_unmapped_routes_are_denied_by_default(a
         headers=trusted_origin_headers(csrf_token=credentials.csrf_token),
     )
     assert created.status_code == 201
-    token = created.json()["access_token"]
+    created_payload = created.json()
+    token = created_payload["access_token"]
+    token_row = db_session.get(ApiToken, created_payload["api_token"]["id"])
+    assert token_row is not None
+    assert token_row.last_used_at is None
     clear_ui_client(auth_client)
 
-    allowed = auth_client.get("/api/users/me", headers={"Authorization": f"Bearer {token}"})
-    assert allowed.status_code == 200
     insufficient = auth_client.get("/api/admin/users/options", headers={"Authorization": f"Bearer {token}"})
     assert insufficient.status_code == 403
     assert insufficient.json()["detail"] == "API token scope is insufficient"
+    db_session.expire(token_row)
+    assert token_row.last_used_at is None
+
     unmapped = auth_client.get("/api/auth/session", headers={"Authorization": f"Bearer {token}"})
     assert unmapped.status_code == 403
     assert unmapped.json()["detail"] == "API tokens are not allowed for this route"
+    db_session.expire(token_row)
+    assert token_row.last_used_at is None
+
+    allowed = auth_client.get("/api/users/me", headers={"Authorization": f"Bearer {token}"})
+    assert allowed.status_code == 200
+    db_session.expire(token_row)
+    assert token_row.last_used_at is not None
 
 
 def test_api_token_scope_matching_does_not_accept_sibling_route_prefixes():

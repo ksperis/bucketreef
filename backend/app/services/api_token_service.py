@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.db_transactions import commit_or_rollback
 from app.core.security import constant_time_equal, create_api_access_token, hash_refresh_token
 from app.db import ApiToken, User
 from app.core.domain_enums import is_admin_ui_role
@@ -107,13 +108,12 @@ class ApiTokenService:
             self.db.refresh(row)
         return row
 
-    def resolve_user_from_claims(
+    def resolve_from_claims(
         self,
         claims: dict,
         *,
         token: Optional[str] = None,
-        required_scope: Optional[str] = None,
-    ) -> Optional[User]:
+    ) -> tuple[User, ApiToken] | None:
         claim_identity = self._claim_identity(claims)
         if claim_identity is None:
             return None
@@ -128,16 +128,17 @@ class ApiTokenService:
             row,
             claims,
             user_id=user_id,
-            required_scope=required_scope,
             now=now,
         ):
             return None
         user = self._active_token_user(row, user_id)
         if user is None:
             return None
-        row.last_used_at = now
-        self.db.commit()
-        return user
+        return user, row
+
+    def mark_used(self, row: ApiToken) -> None:
+        row.last_used_at = utcnow()
+        commit_or_rollback(self.db)
 
     @staticmethod
     def _claim_identity(claims: dict) -> tuple[str, int] | None:
@@ -158,7 +159,6 @@ class ApiTokenService:
         claims: dict,
         *,
         user_id: int,
-        required_scope: Optional[str],
         now,
     ) -> bool:
         if row.revoked_at is not None or row.expires_at <= now:
@@ -175,7 +175,7 @@ class ApiTokenService:
         claim_scopes = sorted(claims.get("scopes") or [])
         if db_scopes != claim_scopes:
             return False
-        return required_scope is None or required_scope in db_scopes
+        return True
 
     def _active_token_user(self, row: ApiToken, user_id: int) -> User | None:
         user = self.db.get(User, user_id)
