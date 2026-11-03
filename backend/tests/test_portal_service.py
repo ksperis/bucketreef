@@ -843,6 +843,84 @@ def test_portal_user_creation_uses_managed_name_without_adopting_existing_remote
     assert link.iam_username == username
     assert iam_user is not None and iam_user.name == username
     assert created is True
+    assert link.active_access_key == "AK-MANAGED"
+    assert link.active_secret_key == "SK-MANAGED"
+
+
+def test_portal_user_creation_commit_failure_compensates_remote_user(
+    db_session,
+    monkeypatch,
+):
+    account = make_s3_account(db_session, name="portal-managed-rollback")
+    user = User(email="portal-managed-rollback@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([account, user])
+    db_session.commit()
+    service = PortalService(db_session)
+    username = portal_iam_username(account.id, user.id)
+    iam_service = Mock()
+    iam_service.get_user.return_value = None
+    iam_service.create_user.return_value = (
+        IAMUser(name=username, user_id="managed-rollback-uid"),
+        IAMAccessKey(access_key_id="AK-ROLLBACK", secret_access_key="SK-ROLLBACK"),
+    )
+
+    monkeypatch.setattr(
+        db_session,
+        "commit",
+        lambda: (_ for _ in ()).throw(RuntimeError("simulated portal link commit failure")),
+    )
+
+    with pytest.raises(RuntimeError, match="simulated portal link commit failure"):
+        service._ensure_portal_user(user, account, iam_service)
+
+    iam_service.delete_access_key.assert_called_once_with(username, "AK-ROLLBACK")
+    iam_service.delete_user.assert_called_once_with(username)
+    assert db_session.scalar(
+        sa.select(AccountIAMUser).where(
+            AccountIAMUser.user_id == user.id,
+            AccountIAMUser.account_id == account.id,
+        )
+    ) is None
+
+
+def test_portal_user_creation_reports_remote_compensation_failure(
+    db_session,
+    monkeypatch,
+):
+    account = make_s3_account(db_session, name="portal-managed-cleanup-failure")
+    user = User(
+        email="portal-managed-cleanup-failure@example.com",
+        hashed_password="x",
+        role="ui_user",
+    )
+    db_session.add_all([account, user])
+    db_session.commit()
+    service = PortalService(db_session)
+    username = portal_iam_username(account.id, user.id)
+    iam_service = Mock()
+    iam_service.get_user.return_value = None
+    iam_service.create_user.return_value = (
+        IAMUser(name=username, user_id="managed-cleanup-failure-uid"),
+        IAMAccessKey(access_key_id="AK-CLEANUP-FAILURE", secret_access_key="SK-CLEANUP-FAILURE"),
+    )
+    iam_service.delete_user.side_effect = RuntimeError("simulated IAM cleanup failure")
+
+    monkeypatch.setattr(
+        db_session,
+        "commit",
+        lambda: (_ for _ in ()).throw(RuntimeError("simulated portal link commit failure")),
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="Local or IAM rollback also failed",
+    ) as raised:
+        service._ensure_portal_user(user, account, iam_service)
+
+    assert isinstance(raised.value.__cause__, RuntimeError)
+    assert str(raised.value.__cause__) == "simulated portal link commit failure"
+    iam_service.delete_access_key.assert_called_once_with(username, "AK-CLEANUP-FAILURE")
+    iam_service.delete_user.assert_called_once_with(username)
 
 
 def test_portal_user_creation_leaves_unowned_remote_collision_untouched(db_session):
