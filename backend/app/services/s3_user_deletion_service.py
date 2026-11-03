@@ -113,20 +113,24 @@ class S3UserDeletionService:
         self._delete_local_user(s3_user)
 
     def _delete_local_user(self, s3_user: S3User) -> None:
-        self.db.execute(
-            delete(UserS3User)
-            .where(UserS3User.s3_user_id == s3_user.id)
-            .execution_options(synchronize_session=False)
-        )
-        self.db.execute(
-            delete(UiGroupS3User)
-            .where(UiGroupS3User.s3_user_id == s3_user.id)
-            .execution_options(synchronize_session=False)
-        )
-        purge = ResourceDeletionPurgeService(self.db)
-        purge.purge_s3_user_derived_data(s3_user.id)
-        purge.purge_execution_context_data(f"s3u-{s3_user.id}")
-        self.db.delete(s3_user)
-        self.db.flush()
-        self.tags.cleanup_orphan_definitions(domain_kinds=[TAG_DOMAIN_ADMIN_MANAGED])
-        self.db.commit()
+        try:
+            self.db.execute(
+                delete(UserS3User)
+                .where(UserS3User.s3_user_id == s3_user.id)
+                .execution_options(synchronize_session=False)
+            )
+            self.db.execute(
+                delete(UiGroupS3User)
+                .where(UiGroupS3User.s3_user_id == s3_user.id)
+                .execution_options(synchronize_session=False)
+            )
+            purge = ResourceDeletionPurgeService(self.db)
+            purge.purge_s3_user_derived_data(s3_user.id)
+            purge.purge_execution_context_data(f"s3u-{s3_user.id}")
+            self.db.delete(s3_user)
+            self.db.flush()
+            self.tags.cleanup_orphan_definitions(domain_kinds=[TAG_DOMAIN_ADMIN_MANAGED])
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
