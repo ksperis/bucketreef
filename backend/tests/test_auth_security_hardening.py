@@ -1039,6 +1039,49 @@ def test_expired_s3_credentials_are_erased_by_startup_cleanup(db_session):
     assert s3_session.secret_key_enc is None
 
 
+def test_startup_cleanup_rolls_back_when_commit_fails(db_session, monkeypatch):
+    now = utcnow()
+    s3_session = S3Session(
+        id="s3-session-startup-cleanup-rollback",
+        access_key_enc="ACCESS",
+        secret_key_enc="SECRET",
+        access_key_hash="cleanup-rollback-hash",
+        actor_type="s3_account",
+        role=UserRole.UI_USER.value,
+        capabilities={"access_browser": True},
+        created_at=now - timedelta(hours=9),
+        last_used_at=now - timedelta(hours=9),
+        idle_expires_at=now - timedelta(minutes=1),
+        absolute_expires_at=now - timedelta(minutes=1),
+    )
+    db_session.add(s3_session)
+    db_session.commit()
+
+    original_rollback = db_session.rollback
+    rollback_calls = []
+
+    def failing_commit():
+        raise RuntimeError("commit failed")
+
+    def recording_rollback():
+        rollback_calls.append(True)
+        original_rollback()
+
+    monkeypatch.setattr(db_session, "commit", failing_commit)
+    monkeypatch.setattr(db_session, "rollback", recording_rollback)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        AuthSessionService(db_session).cleanup_expired()
+
+    assert rollback_calls == [True]
+    db_session.expire_all()
+    restored = db_session.get(S3Session, s3_session.id)
+    assert restored is not None
+    assert restored.revoked_at is None
+    assert restored.access_key_enc == "ACCESS"
+    assert restored.secret_key_enc == "SECRET"
+
+
 def test_argon2_accepts_long_passwords_and_legacy_bcrypt_is_rehashed(db_session):
     long_password = "long-password-" + ("é" * 100)
     modern_hash = get_password_hash(long_password)

@@ -50,6 +50,13 @@ class AuthSessionService:
         self.db = db
         self.settings = settings or get_settings()
 
+    def _commit(self) -> None:
+        try:
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+
     def create_for_user(
         self,
         user: User,
@@ -258,7 +265,7 @@ class AuthSessionService:
                 s3_session.absolute_expires_at,
             )
         self.db.add_all([current, session])
-        self.db.commit()
+        self._commit()
         return SessionCredentials(
             access_token=self._access_token(session, user=user, s3_session=s3_session),
             refresh_token=next_raw,
@@ -299,7 +306,7 @@ class AuthSessionService:
             session.absolute_expires_at,
         )
         self.db.add_all([session, principal])
-        self.db.commit()
+        self._commit()
         return session, principal
 
     def validate_access_token(
@@ -330,7 +337,7 @@ class AuthSessionService:
         session.auth_type = "webauthn"
         session.mfa_verified_at = utcnow()
         self.db.add(session)
-        self.db.commit()
+        self._commit()
         self.db.refresh(session)
         return session
 
@@ -391,7 +398,7 @@ class AuthSessionService:
         if session.s3_session_id:
             self._erase_s3_session(session.s3_session_id, reason, now)
         self.db.add(session)
-        self.db.commit()
+        self._commit()
 
     def revoke_family(self, family_id: str, reason: str) -> None:
         now = utcnow()
@@ -419,7 +426,7 @@ class AuthSessionService:
         # authentication locks this same AuthSession before storing its token.
         self.db.flush()
         erase_openstack_sessions(self.db, session_ids)
-        self.db.commit()
+        self._commit()
 
     def revoke_by_refresh_token(
         self,
@@ -449,7 +456,7 @@ class AuthSessionService:
             reason,
             increment_version=increment_version,
         )
-        self.db.commit()
+        self._commit()
 
     def revoke_all_for_user_in_transaction(
         self,
@@ -578,7 +585,7 @@ class AuthSessionService:
             row.revoked_at = now
             row.revoke_reason = "expired"
             self.db.add(row)
-        self.db.commit()
+        self._commit()
         return len(expired_auth) + len(expired_s3)
 
     def _persist_new_session(
@@ -602,7 +609,7 @@ class AuthSessionService:
         )
         self.db.add_all([session, refresh])
         if commit:
-            self.db.commit()
+            self._commit()
             self.db.refresh(session)
         else:
             self.db.flush()
