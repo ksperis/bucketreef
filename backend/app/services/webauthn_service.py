@@ -28,6 +28,7 @@ from webauthn.helpers.structs import (
 )
 
 from app.core.config import Settings, get_settings
+from app.core.db_transactions import commit_or_rollback
 from app.core.security import hash_refresh_token
 from app.db import AuthChallenge, AuthSession, RecoveryCode, User, WebAuthnCredential
 from app.services.identity_security_requirements import passkey_required_for_role
@@ -133,7 +134,7 @@ class WebAuthnService:
         )
         user.auth_version += 1
         self.db.add_all([row, user])
-        self.db.commit()
+        commit_or_rollback(self.db)
         self.db.refresh(row)
         return row
 
@@ -199,7 +200,7 @@ class WebAuthnService:
         row.sign_count = verified.new_sign_count
         row.last_used_at = utcnow()
         self.db.add(row)
-        self.db.commit()
+        commit_or_rollback(self.db)
         self.db.refresh(row)
         return row
 
@@ -222,7 +223,7 @@ class WebAuthnService:
                 for code in codes
             ]
         )
-        self.db.commit()
+        commit_or_rollback(self.db)
         return codes
 
     def consume_recovery_code(self, user: User, code: str) -> bool:
@@ -236,7 +237,7 @@ class WebAuthnService:
             )
             .values(consumed_at=now)
         )
-        self.db.commit()
+        commit_or_rollback(self.db)
         return result.rowcount == 1
 
     def revoke_credential(self, user: User, credential_id: str) -> None:
@@ -264,7 +265,7 @@ class WebAuthnService:
         row.revoked_at = utcnow()
         user.auth_version += 1
         self.db.add_all([row, user])
-        self.db.commit()
+        commit_or_rollback(self.db)
 
     def is_recent(self, auth_session: AuthSession) -> bool:
         return bool(
@@ -305,7 +306,7 @@ class WebAuthnService:
                 expires_at=now + timedelta(minutes=5),
             )
         )
-        self.db.commit()
+        commit_or_rollback(self.db)
 
     def _consume_challenge(
         self,
@@ -341,7 +342,7 @@ class WebAuthnService:
         if claimed.rowcount != 1:
             self.db.rollback()
             raise WebAuthnSecurityError("WebAuthn challenge has already been consumed")
-        self.db.commit()
+        commit_or_rollback(self.db)
         payload = row.payload
         encoded = payload.get("challenge") if isinstance(payload, dict) else None
         if not isinstance(encoded, str):
