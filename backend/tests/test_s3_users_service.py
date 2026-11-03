@@ -218,6 +218,175 @@ def test_import_same_uid_across_isolated_tenants(db_session, monkeypatch):
     assert service.import_users(items) == []
 
 
+def test_import_users_commit_failure_rolls_back_local_row_and_created_key(
+    db_session,
+    monkeypatch,
+):
+    endpoint = _seed_ceph_endpoint(db_session)
+    fake = FakeRGWAdmin()
+    fake.remote_users["import-rollback"] = {
+        "display_name": "Import Rollback",
+        "email": None,
+        "keys": [
+            {
+                "access_key": "PREEXISTING",
+                "secret_key": "PREEXISTING-SECRET",
+                "status": "enabled",
+            }
+        ],
+    }
+    service = _build_service(db_session, monkeypatch, fake)
+    settings = load_app_settings_for_db(db_session)
+    monkeypatch.setattr(
+        "app.services.s3_user_import_service.load_app_settings_for_db",
+        lambda _db: settings,
+    )
+    real_rollback = db_session.rollback
+    rollback_calls = []
+
+    def fail_commit():
+        raise RuntimeError("simulated import commit failure")
+
+    def track_rollback():
+        rollback_calls.append(True)
+        real_rollback()
+
+    monkeypatch.setattr(db_session, "commit", fail_commit)
+    monkeypatch.setattr(db_session, "rollback", track_rollback)
+
+    with pytest.raises(RuntimeError, match="simulated import commit failure"):
+        service.import_users(
+            [
+                S3UserImport(
+                    uid="import-rollback",
+                    storage_endpoint_id=endpoint.id,
+                )
+            ]
+        )
+
+    assert rollback_calls == [True]
+    assert fake.deleted_keys == ["ROT-import-rollback-2"]
+    assert [
+        key["access_key"]
+        for key in fake.remote_users["import-rollback"]["keys"]
+    ] == ["PREEXISTING"]
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(S3User)
+        .where(S3User.rgw_user_uid == "import-rollback")
+    ) == 0
+
+
+def test_import_users_mid_batch_failure_compensates_all_created_keys(
+    db_session,
+    monkeypatch,
+):
+    endpoint = _seed_ceph_endpoint(db_session)
+    fake = FakeRGWAdmin()
+    for uid in ("import-first", "import-second"):
+        fake.remote_users[uid] = {
+            "display_name": uid,
+            "email": None,
+            "keys": [
+                {
+                    "access_key": f"PRE-{uid}",
+                    "secret_key": f"PRE-SECRET-{uid}",
+                    "status": "enabled",
+                }
+            ],
+        }
+    service = _build_service(db_session, monkeypatch, fake)
+
+    def quota_with_second_failure(s3_user, _admin):
+        if s3_user.rgw_user_uid == "import-second":
+            raise RuntimeError("simulated quota lookup failure")
+        return None, None
+
+    monkeypatch.setattr(service.importer.metrics, "get_quota", quota_with_second_failure)
+
+    with pytest.raises(RuntimeError, match="simulated quota lookup failure"):
+        service.import_users(
+            [
+                S3UserImport(uid="import-first", storage_endpoint_id=endpoint.id),
+                S3UserImport(uid="import-second", storage_endpoint_id=endpoint.id),
+            ]
+        )
+
+    assert fake.deleted_keys == [
+        "ROT-import-second-2",
+        "ROT-import-first-2",
+    ]
+    assert [
+        key["access_key"]
+        for key in fake.remote_users["import-first"]["keys"]
+    ] == ["PRE-import-first"]
+    assert [
+        key["access_key"]
+        for key in fake.remote_users["import-second"]["keys"]
+    ] == ["PRE-import-second"]
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(S3User)
+        .where(S3User.rgw_user_uid.in_(["import-first", "import-second"]))
+    ) == 0
+
+
+def test_import_users_reports_remote_compensation_failure(
+    db_session,
+    monkeypatch,
+):
+    endpoint = _seed_ceph_endpoint(db_session)
+    fake = FakeRGWAdmin()
+    fake.remote_users["import-cleanup-failure"] = {
+        "display_name": "Import cleanup failure",
+        "email": None,
+        "keys": [],
+    }
+    service = _build_service(db_session, monkeypatch, fake)
+    settings = load_app_settings_for_db(db_session)
+    monkeypatch.setattr(
+        "app.services.s3_user_import_service.load_app_settings_for_db",
+        lambda _db: settings,
+    )
+
+    def fail_commit():
+        raise RuntimeError("simulated import commit failure")
+
+    monkeypatch.setattr(db_session, "commit", fail_commit)
+    monkeypatch.setattr(
+        fake,
+        "delete_access_key",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            RGWAdminError("simulated RGW cleanup failure")
+        ),
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="Local or RGW rollback also failed",
+    ) as raised:
+        service.import_users(
+            [
+                S3UserImport(
+                    uid="import-cleanup-failure",
+                    storage_endpoint_id=endpoint.id,
+                )
+            ]
+        )
+
+    assert isinstance(raised.value.__cause__, RuntimeError)
+    assert str(raised.value.__cause__) == "simulated import commit failure"
+    assert [
+        key["access_key"]
+        for key in fake.remote_users["import-cleanup-failure"]["keys"]
+    ] == ["ROT-import-cleanup-failure-1"]
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(S3User)
+        .where(S3User.rgw_user_uid == "import-cleanup-failure")
+    ) == 0
+
+
 def test_import_tenanted_user_rejects_when_managed_tenant_creation_disabled(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session)
     fake = FakeTenantedRGWAdmin()
