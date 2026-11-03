@@ -186,6 +186,22 @@ def _payload(name="Private account access"):
     )
 
 
+def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
+    rollback_calls: list[None] = []
+    original_rollback = db_session.rollback
+
+    def rollback() -> None:
+        rollback_calls.append(None)
+        original_rollback()
+
+    def commit() -> None:
+        raise RuntimeError("commit failed")
+
+    monkeypatch.setattr(db_session, "rollback", rollback)
+    monkeypatch.setattr(db_session, "commit", commit)
+    return rollback_calls
+
+
 def test_managed_access_iam_state_requires_string_lists():
     assert ManagedPrivateAccessStateService.string_list(["operators"]) == [
         "operators"
@@ -565,6 +581,68 @@ def test_claim_constraint_rejects_concurrent_active_source(db_session):
     state.claim(user, source)
     with pytest.raises(ManagedPrivateAccessConflict, match="already exists"):
         state.claim(user, source)
+
+
+def test_managed_private_access_claim_rolls_back_when_commit_fails(db_session, monkeypatch):
+    user = _user(db_session, email="claim-rollback@example.test")
+    account = _account(db_session, user, _endpoint(db_session))
+    source = ManagedPrivateAccessService(db_session).iam_sources.resolve(user, account)
+    state = ManagedPrivateAccessStateService(db_session)
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        state.claim(user, source)
+
+    assert rollback_calls == [None]
+    assert db_session.scalar(sa.select(sa.func.count()).select_from(ManagedPrivateAccess)) == 0
+
+
+def test_managed_private_access_checkpoint_rolls_back_when_commit_fails(db_session, monkeypatch):
+    user = _user(db_session, email="checkpoint-rollback@example.test")
+    account = _account(db_session, user, _endpoint(db_session))
+    source = ManagedPrivateAccessService(db_session).iam_sources.resolve(user, account)
+    state = ManagedPrivateAccessStateService(db_session)
+    provisioning = state.claim(user, source)
+    previous_updated_at = provisioning.updated_at
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        state.checkpoint(provisioning)
+
+    assert rollback_calls == [None]
+    db_session.expire_all()
+    assert db_session.get(ManagedPrivateAccess, provisioning.id).updated_at == previous_updated_at
+
+
+@pytest.mark.parametrize(
+    ("method_name", "args"),
+    [
+        ("mark_failed", ("remote provisioning failed",)),
+        ("mark_deleting", ()),
+        ("mark_cleanup_pending", ("cleanup failed",)),
+    ],
+)
+def test_managed_private_access_state_transition_rolls_back_when_commit_fails(
+    db_session,
+    monkeypatch,
+    method_name,
+    args,
+):
+    user = _user(db_session, email=f"{method_name}-rollback@example.test")
+    account = _account(db_session, user, _endpoint(db_session))
+    source = ManagedPrivateAccessService(db_session).iam_sources.resolve(user, account)
+    state = ManagedPrivateAccessStateService(db_session)
+    provisioning = state.claim(user, source)
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        getattr(state, method_name)(provisioning, *args)
+
+    assert rollback_calls == [None]
+    db_session.expire_all()
+    persisted = db_session.get(ManagedPrivateAccess, provisioning.id)
+    assert persisted.state == "provisioning"
+    assert persisted.cleanup_error is None
 
 
 def test_failed_local_creation_compensates_remote_resources(db_session, monkeypatch):
