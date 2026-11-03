@@ -302,7 +302,13 @@ function ManagerShell() {
   if (isS3User && (managerCephKeysEnabled || managerPrivateAccessEnabled)) {
     navSections.push({
       label: text("Ceph"),
-      links: [localizedPageLink(MANAGER_PAGE_CONTRACTS["ceph-keys"])],
+      links: [{
+        ...localizedPageLink(MANAGER_PAGE_CONTRACTS["ceph-keys"]),
+        disabled: managerCephKeysEnabled === false,
+        disabledHint: managerCephKeysEnabled === false
+          ? text("Ceph key inventory is unavailable for this context")
+          : undefined,
+      }],
     });
   }
 
