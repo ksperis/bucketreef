@@ -14,6 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
+from app.core.db_transactions import commit_or_rollback
 from app.core.runtime_surfaces import ceph_admin_only_runtime
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.core.security import get_password_hash
@@ -88,6 +89,14 @@ class FirstAdminBootstrapService:
     def _has_users(self) -> bool:
         return int(self.db.scalar(select(func.count(User.id))) or 0) != 0
 
+    def _commit_or_unavailable(self) -> None:
+        try:
+            commit_or_rollback(self.db)
+        except IntegrityError as exc:
+            raise FirstAdminBootstrapUnavailableError(
+                "First administrator bootstrap is unavailable"
+            ) from exc
+
     def _passkey_enrollment_required(self) -> bool:
         return bool(
             load_app_settings_for_db(
@@ -155,12 +164,15 @@ class FirstAdminBootstrapService:
                     raise FirstAdminBootstrapUnavailableError(
                         "First administrator bootstrap is unavailable"
                     )
-            self.db.commit()
         except IntegrityError as exc:
             self.db.rollback()
             raise FirstAdminBootstrapUnavailableError(
                 "First administrator bootstrap is unavailable"
             ) from exc
+        except Exception:
+            self.db.rollback()
+            raise
+        self._commit_or_unavailable()
 
         AuditService(self.db).record_action(
             user=None,
@@ -284,6 +296,9 @@ class FirstAdminBootstrapService:
             raise FirstAdminBootstrapUnavailableError(
                 "First administrator bootstrap is unavailable"
             ) from exc
+        except Exception:
+            self.db.rollback()
+            raise
 
         return self._complete_admin_creation(
             normalized_email=normalized_email,
@@ -307,9 +322,9 @@ class FirstAdminBootstrapService:
         user_agent: Optional[str] = None,
         request_id: Optional[str] = None,
     ) -> CreatedFirstAdmin:
-        user = self._new_user(normalized_email, full_name, password)
-        self.db.add(user)
         try:
+            user = self._new_user(normalized_email, full_name, password)
+            self.db.add(user)
             self.db.flush()
             self.db.execute(
                 update(FirstAdminBootstrap)
@@ -317,12 +332,15 @@ class FirstAdminBootstrapService:
                 .values(created_user_id=user.id)
             )
             user_id = int(user.id)
-            self.db.commit()
         except IntegrityError as exc:
             self.db.rollback()
             raise FirstAdminBootstrapUnavailableError(
                 "First administrator bootstrap is unavailable"
             ) from exc
+        except Exception:
+            self.db.rollback()
+            raise
+        self._commit_or_unavailable()
 
         user = self.db.get(User, user_id)
         AuditService(self.db).record_action(
