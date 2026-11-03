@@ -125,12 +125,14 @@ describe("manager entity policy pages", () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByText("Existing inline policies")).toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: /readonly-inline/i })).toBeInTheDocument();
+    const policyCell = await screen.findByText("readonly-inline", { selector: "td" });
+    const row = policyCell.closest("tr")!;
+    expect(within(row).getByText("0 statements • 2 top-level fields")).toBeInTheDocument();
+    expect(within(row).getByRole("button", { name: "Edit" })).toBeInTheDocument();
     expect(screen.getByText("Select an existing inline policy to review or edit.")).toBeInTheDocument();
   });
 
-  it("shows a single refresh action in the embedded user policies workspace", async () => {
+  it("does not expose a panel-local refresh action in the embedded user policies workspace", async () => {
     render(
       <MemoryRouter initialEntries={["/manager/users/alice/policies"]}>
         <Routes>
@@ -139,8 +141,31 @@ describe("manager entity policy pages", () => {
       </MemoryRouter>,
     );
 
-    await screen.findByText("Existing inline policies");
-    expect(screen.getAllByRole("button", { name: "Refresh" })).toHaveLength(1);
+    await screen.findByText("readonly-inline", { selector: "td" });
+    expect(screen.queryByRole("button", { name: "Refresh" })).not.toBeInTheDocument();
+  });
+
+  it("reloads managed and inline policies from the page-level refresh action", async () => {
+    render(
+      <MemoryRouter initialEntries={["/manager/users/alice/policies"]}>
+        <Routes>
+          <Route path="/manager/users/:userName/policies" element={<ManagerUserPoliciesPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findByText("readonly-inline", { selector: "td" });
+    await waitFor(() => {
+      expect(listUserPoliciesMock).toHaveBeenCalledTimes(1);
+      expect(listUserInlinePoliciesMock).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+
+    await waitFor(() => {
+      expect(listUserPoliciesMock).toHaveBeenCalledTimes(2);
+      expect(listUserInlinePoliciesMock).toHaveBeenCalledTimes(2);
+    });
   });
 
   it.each(pages)("shows existing managed policies before opening the $label association picker", async ({ path, element }) => {
@@ -189,9 +214,10 @@ it.each(pages)("preserves the $label inline draft while a managed policy is atta
   attach.mockReset().mockReturnValueOnce(new Promise((done) => { resolve = done; }));
   const url = path.replace(/:(userName|groupName|roleName)/, "fixture");
   render(<MemoryRouter initialEntries={[url]}><Routes><Route path={path} element={element} /></Routes></MemoryRouter>);
-  const choice = await screen.findByRole("button", { name: /readonly-inline/ });
-  await waitFor(() => expect(choice).toBeEnabled());
-  fireEvent.click(choice);
+  const policyCell = await screen.findByText("readonly-inline", { selector: "td" });
+  const edit = within(policyCell.closest("tr")!).getByRole("button", { name: "Edit" });
+  await waitFor(() => expect(edit).toBeEnabled());
+  fireEvent.click(edit);
   const document = screen.getByLabelText("Inline policy document (JSON)");
   fireEvent.change(document, { target: { value: '{"draft":true}' } });
   expect(screen.queryByLabelText("Search policies")).not.toBeInTheDocument();

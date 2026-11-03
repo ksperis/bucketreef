@@ -19,9 +19,11 @@ const readonlyPolicy = {
 function renderEditor({
   entityType = "user",
   namingValidationProfile = "standard",
+  refreshToken = 0,
 }: {
   entityType?: IAMEntity;
   namingValidationProfile?: NamingValidationProfile;
+  refreshToken?: number;
 } = {}) {
   return render(
     <InlinePolicyEditor
@@ -32,14 +34,17 @@ function renderEditor({
       loadPolicies={loadPoliciesMock}
       savePolicy={savePolicyMock}
       deletePolicy={deletePolicyMock}
+      refreshToken={refreshToken}
     />,
   );
 }
 
 async function openEditDialog() {
-  const row = await screen.findByRole("button", { name: /readonly-inline/i });
-  await waitFor(() => expect(row).toBeEnabled());
-  fireEvent.click(row);
+  const policyCell = await screen.findByText("readonly-inline", { selector: "td" });
+  const row = policyCell.closest("tr")!;
+  const edit = within(row).getByRole("button", { name: "Edit" });
+  await waitFor(() => expect(edit).toBeEnabled());
+  fireEvent.click(edit);
   const dialog = screen.getByRole("dialog", { name: "Edit inline policy — readonly-inline" });
   const form = within(dialog).getByRole("form", { name: "Edit inline policy" });
   return { dialog, form };
@@ -56,10 +61,15 @@ describe("InlinePolicyEditor", () => {
   it("keeps the page compact until an inline policy is edited", async () => {
     renderEditor();
 
-    expect(await screen.findByText("Existing inline policies")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /readonly-inline/i })).toBeInTheDocument();
+    expect(await screen.findByText("readonly-inline", { selector: "td" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Policy" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Summary" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Actions" })).toBeInTheDocument();
+    expect(screen.getByText("1 statement • 2 top-level fields")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Create inline policy" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Refresh" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Refresh" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Existing inline policies")).not.toBeInTheDocument();
     expect(screen.queryByText("Selected")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Inline policy name")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Inline policy document (JSON)")).not.toBeInTheDocument();
@@ -203,14 +213,25 @@ describe("InlinePolicyEditor", () => {
     expect(loadPoliciesMock).toHaveBeenCalledTimes(2);
   });
 
-  it("refreshes the compact list without opening an editor", async () => {
+  it("refreshes the compact list when the parent refresh token changes", async () => {
     loadPoliciesMock.mockResolvedValueOnce([readonlyPolicy]).mockResolvedValueOnce([
       readonlyPolicy,
       { name: "write-inline", document: {} },
     ]);
-    renderEditor();
+    const { rerender } = renderEditor();
     await screen.findByText("readonly-inline");
-    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    rerender(
+      <InlinePolicyEditor
+        entityLabel="user"
+        entityType="user"
+        namingValidationProfile="standard"
+        entityName="alice"
+        loadPolicies={loadPoliciesMock}
+        savePolicy={savePolicyMock}
+        deletePolicy={deletePolicyMock}
+        refreshToken={1}
+      />,
+    );
 
     expect(await screen.findByText("write-inline")).toBeInTheDocument();
     expect(loadPoliciesMock).toHaveBeenCalledTimes(2);
@@ -225,7 +246,8 @@ it.each(["user", "group"] as const)("uses Ceph %s policy naming rules only when 
   renderEditor({ entityType, namingValidationProfile: "ceph" });
   await screen.findByText("legacy_under+score");
 
-  fireEvent.click(screen.getByRole("button", { name: /legacy_under\+score/i }));
+  const row = screen.getByText("legacy_under+score", { selector: "td" }).closest("tr")!;
+  fireEvent.click(within(row).getByRole("button", { name: "Edit" }));
   const editDialog = screen.getByRole("dialog", { name: "Edit inline policy — legacy_under+score" });
   expect(within(editDialog).getByLabelText("Inline policy name")).toHaveAttribute("readonly");
   fireEvent.click(within(editDialog).getByRole("button", { name: "Cancel" }));
