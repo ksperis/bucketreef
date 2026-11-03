@@ -273,6 +273,78 @@ def test_admin_fallback_rejection_reaches_terminal_link_state(db_session):
     assert notification.payload["status"] == "rejected"
 
 
+def test_admin_link_approval_rolls_back_identity_and_credentials_on_commit_failure(
+    db_session,
+    monkeypatch,
+):
+    user = _user(
+        db_session,
+        email="approval-rollback@example.test",
+        role=UserRole.UI_ADMIN.value,
+    )
+    credentials = AuthSessionService(db_session).create_for_user(
+        user,
+        auth_type="test",
+        ip_address="127.0.0.1",
+        user_agent="pytest",
+        mfa_verified=True,
+    )
+    _, api_token = ApiTokenService(db_session).create_for_user(
+        user,
+        name="approval rollback token",
+        scopes=["profile:read"],
+    )
+    attempt = _attempt(db_session, user, subject="approval-rollback-subject")
+    service = ExternalIdentityLinkService(db_session)
+    request = service.request_admin_approval(attempt.id, BROWSER_HASH)
+    superadmin = _user(
+        db_session,
+        email="approval-rollback-superadmin@example.test",
+        role=UserRole.UI_SUPERADMIN.value,
+    )
+    original_version = user.auth_version
+    original_rollback = db_session.rollback
+    rollback_calls = []
+
+    def failing_commit():
+        raise RuntimeError("commit failed")
+
+    def recording_rollback():
+        rollback_calls.append(True)
+        original_rollback()
+
+    monkeypatch.setattr(db_session, "commit", failing_commit)
+    monkeypatch.setattr(db_session, "rollback", recording_rollback)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        ExternalIdentityUserService(db_session).decide_link_request(
+            request.id,
+            superadmin=superadmin,
+            approve=True,
+        )
+
+    assert rollback_calls == [True]
+    db_session.expire_all()
+    restored_request = db_session.get(type(request), request.id)
+    restored_attempt = db_session.get(ExternalIdentityLinkAttempt, attempt.id)
+    restored_user = db_session.get(User, user.id)
+    restored_session = db_session.get(type(credentials.session), credentials.session.id)
+    db_session.refresh(api_token)
+    assert restored_request is not None and restored_request.status == "pending"
+    assert restored_attempt is not None and restored_attempt.status == "admin_requested"
+    assert restored_user is not None and restored_user.auth_version == original_version
+    assert restored_session is not None and restored_session.revoked_at is None
+    assert api_token.revoked_at is None
+    assert db_session.scalars(
+        select(ExternalIdentity).where(ExternalIdentity.subject == "approval-rollback-subject")
+    ).all() == []
+    assert db_session.scalars(
+        select(UserNotification).where(
+            UserNotification.event_key.like(f"external_identity_link_decision:{request.id}:%")
+        )
+    ).all() == []
+
+
 def test_confirm_revokes_existing_credentials_and_creates_replacement_session(db_session):
     user = _user(db_session, email="confirm@example.test", role=UserRole.UI_ADMIN.value)
     original_version = user.auth_version

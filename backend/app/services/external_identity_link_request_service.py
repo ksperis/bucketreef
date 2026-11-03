@@ -24,6 +24,13 @@ class ExternalIdentityLinkRequestService:
         self.db = db
         self.queries = ExternalIdentityQueryService(db)
 
+    def _commit(self) -> None:
+        try:
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+
     def list(self, *, include_decided: bool = False) -> list[ExternalIdentityLinkRequest]:
         return self.queries.list_link_requests(include_decided=include_decided)
 
@@ -50,13 +57,13 @@ class ExternalIdentityLinkRequestService:
         request.decision_source = "administrator"
         self.db.add(request)
         self._notify_decision(request, user, now, approve=approve)
-        self.db.commit()
         if approve:
-            AuthSessionService(self.db).revoke_all_for_user(
+            AuthSessionService(self.db).revoke_all_for_user_in_transaction(
                 user,
                 "external_identity_changed",
                 increment_version=False,
             )
+        self._commit()
         self.db.refresh(request)
         return request
 
@@ -113,7 +120,7 @@ class ExternalIdentityLinkRequestService:
         self.db.add(request)
         self.db.flush()
         self._notify_admins(request, user)
-        self.db.commit()
+        self._commit()
         self.db.refresh(request)
         return request
 
@@ -284,7 +291,7 @@ class ExternalIdentityLinkRequestService:
             request.display_name = full_name
             request.picture_url = picture_url
             self.db.add(request)
-            self.db.commit()
+            self._commit()
             self.db.refresh(request)
         return request
 

@@ -43,6 +43,13 @@ class ExternalIdentityUserService:
         self.queries = ExternalIdentityQueryService(db)
         self.link_requests = ExternalIdentityLinkRequestService(db)
 
+    def _commit(self) -> None:
+        try:
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+
     def get_or_create_oidc_user(
         self,
         *,
@@ -146,13 +153,13 @@ class ExternalIdentityUserService:
                 created_at=now,
             )
         self.db.add(identity)
-        self.db.commit()
         if user:
-            AuthSessionService(self.db).revoke_all_for_user(
+            AuthSessionService(self.db).revoke_all_for_user_in_transaction(
                 user,
                 reason,
                 increment_version=False,
             )
+        self._commit()
         self.db.refresh(identity)
         return identity
 
@@ -166,8 +173,12 @@ class ExternalIdentityUserService:
             raise ValueError("External identity target does not exist")
         user.auth_version += 1
         self.db.add_all([identity, user])
-        self.db.commit()
-        AuthSessionService(self.db).revoke_all_for_user(user, reason, increment_version=False)
+        AuthSessionService(self.db).revoke_all_for_user_in_transaction(
+            user,
+            reason,
+            increment_version=False,
+        )
+        self._commit()
         self.db.refresh(identity)
         return identity
 
@@ -230,12 +241,12 @@ class ExternalIdentityUserService:
             user_id=user.id,
             source=link_source,
         )
-        self.db.commit()
-        AuthSessionService(self.db).revoke_all_for_user(
+        AuthSessionService(self.db).revoke_all_for_user_in_transaction(
             user,
             "external_identity_changed",
             increment_version=False,
         )
+        self._commit()
         self.db.refresh(identity)
         return identity, True
 
@@ -328,7 +339,7 @@ class ExternalIdentityUserService:
         if full_name and not user.full_name:
             user.full_name = full_name
         self.db.add_all([identity, user])
-        self.db.commit()
+        self._commit()
         self.db.refresh(user)
         return user
 
@@ -507,7 +518,7 @@ class ExternalIdentityUserService:
             link_source="jit",
         )
         self.db.add(identity)
-        self.db.commit()
+        self._commit()
         self.db.refresh(user)
         return user
 
