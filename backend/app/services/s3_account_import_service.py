@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
@@ -11,10 +12,16 @@ from app.models.s3_account import S3Account as S3AccountSchema, S3AccountImport
 from app.services.app_settings_service import load_app_settings_for_db
 from app.services.mappers.s3_account import s3_account_from_db
 from app.services.rgw_admin import RGWAdminClient
-from app.services.rgw_account_root_service import RgwAccountRootService
+from app.services.rgw_account_root_service import (
+    RgwAccountImportCredentials,
+    RgwAccountRootService,
+)
 from app.services.s3_account_repository import S3AccountRepository
 from app.services.s3_account_rgw_context_service import S3AccountRgwContextService
 from app.utils.rgw_payloads import extract_rgw_account_name
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -26,6 +33,12 @@ class _PreparedAccountImport:
     root_uid: str
     root_display_name: str
     rgw_tenant: str
+
+
+@dataclass(frozen=True)
+class _ResolvedAccountImport:
+    prepared: _PreparedAccountImport
+    credentials: RgwAccountImportCredentials
 
 
 class S3AccountImportService:
@@ -46,51 +59,96 @@ class S3AccountImportService:
 
     def import_accounts(self, imports: list[S3AccountImport]) -> list[S3AccountSchema]:
         prepared = self._prepare_imports(imports)
-        resolved = [
-            (
-                item,
-                *self.account_roots.obtain_import_credentials(
+        resolved: list[_ResolvedAccountImport] = []
+        try:
+            for item in prepared:
+                credentials = self.account_roots.obtain_import_credentials(
                     item.admin,
                     account_id=item.source.rgw_account_id,
                     root_uid=item.root_uid,
                     root_display_name=item.root_display_name,
                     tenant=item.rgw_tenant,
-                ),
-            )
-            for item in prepared
-        ]
+                )
+                resolved.append(
+                    _ResolvedAccountImport(
+                        prepared=item,
+                        credentials=credentials,
+                    )
+                )
 
-        accounts: list[tuple[S3Account, StorageEndpoint]] = []
-        for item, access_key, secret_key in resolved:
-            account = S3Account(
-                name=item.account_name,
-                rgw_account_id=item.source.rgw_account_id,
-                rgw_tenant=item.rgw_tenant,
-                rgw_access_key=access_key,
-                rgw_secret_key=secret_key,
-                rgw_user_uid=item.root_uid,
-                email=item.source.email,
-                storage_endpoint_id=item.endpoint.id,
-            )
-            self.db.add(account)
-            accounts.append((account, item.endpoint))
+            accounts: list[tuple[S3Account, StorageEndpoint]] = []
+            for item in resolved:
+                prepared_item = item.prepared
+                credentials = item.credentials
+                account = S3Account(
+                    name=prepared_item.account_name,
+                    rgw_account_id=prepared_item.source.rgw_account_id,
+                    rgw_tenant=prepared_item.rgw_tenant,
+                    rgw_access_key=credentials.access_key,
+                    rgw_secret_key=credentials.secret_key,
+                    rgw_user_uid=prepared_item.root_uid,
+                    email=prepared_item.source.email,
+                    storage_endpoint_id=prepared_item.endpoint.id,
+                )
+                self.db.add(account)
+                accounts.append((account, prepared_item.endpoint))
 
-        self.db.flush()
-        created = [
-            s3_account_from_db(
-                account,
-                quota_max_size_gb=None,
-                quota_max_objects=None,
-                user_links=[],
-                group_links=[],
-                storage_endpoint=endpoint,
-                storage_endpoint_capabilities=self.rgw_context.endpoint_capabilities(endpoint),
-                tags=[],
-            )
-            for account, endpoint in accounts
-        ]
-        self.db.commit()
-        return created
+            self.db.flush()
+            created = [
+                s3_account_from_db(
+                    account,
+                    quota_max_size_gb=None,
+                    quota_max_objects=None,
+                    user_links=[],
+                    group_links=[],
+                    storage_endpoint=endpoint,
+                    storage_endpoint_capabilities=self.rgw_context.endpoint_capabilities(endpoint),
+                    tags=[],
+                )
+                for account, endpoint in accounts
+            ]
+            self.db.commit()
+            return created
+        except Exception as exc:
+            db_rollback_failed = False
+            try:
+                self.db.rollback()
+            except Exception as rollback_exc:  # pragma: no cover - defensive database failure
+                logger.error("Unable to roll back failed S3 account import transaction: %s", rollback_exc)
+                db_rollback_failed = True
+            remote_rollback_failed = self._rollback_resolved_imports(resolved)
+            if db_rollback_failed or remote_rollback_failed:
+                raise RuntimeError(
+                    "Unable to import S3 accounts. Local or RGW rollback also failed."
+                ) from exc
+            raise
+
+    def _rollback_resolved_imports(
+        self,
+        resolved: list[_ResolvedAccountImport],
+    ) -> bool:
+        failed = False
+        for item in reversed(resolved):
+            credentials = item.credentials
+            if not credentials.created_root and not credentials.created_access_key_id:
+                continue
+            prepared = item.prepared
+            try:
+                self.account_roots.rollback_import_credentials(
+                    prepared.admin,
+                    root_uid=prepared.root_uid,
+                    tenant=prepared.rgw_tenant,
+                    created_root=credentials.created_root,
+                    created_access_key_id=credentials.created_access_key_id,
+                )
+            except Exception as rollback_exc:  # pragma: no cover - defensive remote failure
+                logger.error(
+                    "Unable to roll back RGW root credentials for account %s: %s",
+                    prepared.source.rgw_account_id,
+                    rollback_exc,
+                )
+                failed = True
+        return failed
 
     def _prepare_imports(self, imports: list[S3AccountImport]) -> list[_PreparedAccountImport]:
         app_settings = load_app_settings_for_db(self.db)
