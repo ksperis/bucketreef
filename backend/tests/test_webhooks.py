@@ -71,6 +71,22 @@ def _create_endpoint(
     )
 
 
+def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
+    rollback_calls: list[None] = []
+    original_rollback = db_session.rollback
+
+    def rollback() -> None:
+        rollback_calls.append(None)
+        original_rollback()
+
+    def commit() -> None:
+        raise RuntimeError("commit failed")
+
+    monkeypatch.setattr(db_session, "rollback", rollback)
+    monkeypatch.setattr(db_session, "commit", commit)
+    return rollback_calls
+
+
 def test_webhook_secret_is_one_time_and_encrypted_at_rest(db_session, monkeypatch):
     created = _create_endpoint(
         db_session,
@@ -94,6 +110,84 @@ def test_webhook_secret_is_one_time_and_encrypted_at_rest(db_session, monkeypatc
     assert listed[0].has_signing_secret is True
     assert not hasattr(listed[0], "signing_secret")
     assert not hasattr(loaded, "signing_secret")
+
+
+def test_webhook_create_rolls_back_when_commit_fails(db_session, monkeypatch):
+    monkeypatch.setattr("app.services.webhook_service.validate_webhook_target_url", lambda *_args, **_kwargs: None)
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        WebhookService(db_session).create_endpoint(
+            WebhookEndpointPayload(
+                name="failed-create",
+                url="https://hooks.example.test/failed-create",
+                enabled=True,
+                event_types=["*"],
+            )
+        )
+
+    assert rollback_calls == [None]
+    assert db_session.scalar(select(func.count()).select_from(WebhookEndpoint)) == 0
+
+
+def test_webhook_update_rolls_back_when_commit_fails(db_session, monkeypatch):
+    created = _create_endpoint(db_session, monkeypatch, name="before-update", event_types=["*"])
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        WebhookService(db_session).update_endpoint(
+            created.id,
+            WebhookEndpointPayload(
+                name="after-update",
+                url="https://hooks.example.test/after-update",
+                enabled=True,
+                event_types=["*"],
+            ),
+        )
+
+    assert rollback_calls == [None]
+    db_session.expire_all()
+    assert db_session.get(WebhookEndpoint, created.id).name == "before-update"
+
+
+def test_webhook_delete_rolls_back_when_commit_fails(db_session, monkeypatch):
+    created = _create_endpoint(db_session, monkeypatch, name="delete-failure", event_types=["*"])
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        WebhookService(db_session).delete_endpoint(created.id)
+
+    assert rollback_calls == [None]
+    assert db_session.get(WebhookEndpoint, created.id) is not None
+
+
+def test_webhook_secret_rotation_rolls_back_when_commit_fails(db_session, monkeypatch):
+    created = _create_endpoint(db_session, monkeypatch, name="rotate-failure", event_types=["*"])
+    endpoint = db_session.get(WebhookEndpoint, created.id)
+    original_secret = endpoint.signing_secret
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        WebhookService(db_session).rotate_secret(created.id)
+
+    assert rollback_calls == [None]
+    db_session.expire_all()
+    assert db_session.get(WebhookEndpoint, created.id).signing_secret == original_secret
+
+
+def test_webhook_event_publish_rolls_back_when_commit_fails(db_session, monkeypatch):
+    _create_endpoint(db_session, monkeypatch, name="publish-failure", event_types=["*"])
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        WebhookEventPublisher(db_session).publish_event(
+            event_type="audit.admin.update_ui_user",
+            data={"entity_id": "42"},
+            commit=True,
+        )
+
+    assert rollback_calls == [None]
+    assert db_session.scalar(select(func.count()).select_from(WebhookDelivery)) == 0
 
 
 def test_webhook_event_publisher_matches_wildcard_and_exact_subscriptions(db_session, monkeypatch):
