@@ -43,6 +43,7 @@ from app.services.managed_private_access_errors import (
 from app.services.managed_private_access_cleanup_service import (
     ManagedPrivateAccessCleanupService,
 )
+from app.services import managed_private_access_cleanup_service as cleanup_service_module
 from app.services.managed_private_access_service import ManagedPrivateAccessService
 from app.services.managed_private_access_state_service import ManagedPrivateAccessStateService
 from tests.s3_connection_factory import custom_endpoint_fields
@@ -896,6 +897,65 @@ def test_managed_iam_connection_delete_cleans_remote_resources_before_local_rows
     assert db_session.scalar(
         sa.select(ManagedPrivateAccess).where(ManagedPrivateAccess.id == result.provisioning_id)
     ) is None
+
+
+def test_managed_iam_connection_delete_recovers_after_final_commit_failure(
+    db_session,
+    monkeypatch,
+):
+    user = _user(db_session, email="delete-retry@example.test")
+    account = _account(db_session, user, _endpoint(db_session))
+    fake = FakeIAM()
+    service = ManagedPrivateAccessService(db_session)
+    monkeypatch.setattr(service.iam, "for_context", lambda _context: fake)
+    _disable_capability_probe(monkeypatch)
+    result = service.provision_iam(user=user, context=account, payload=_payload())
+    connection_id = result.connection.id
+    provisioning_id = result.provisioning_id
+    original_commit = cleanup_service_module.commit_or_rollback
+
+    def fail_final_commit(db):
+        db.rollback()
+        raise RuntimeError("final cleanup commit failed")
+
+    monkeypatch.setattr(
+        cleanup_service_module,
+        "commit_or_rollback",
+        fail_final_commit,
+    )
+
+    with pytest.raises(RuntimeError, match="final cleanup commit failed"):
+        service.cleanup.delete_owned_connection(
+            user=user,
+            connection_id=connection_id,
+        )
+
+    db_session.expire_all()
+    provisioning = db_session.get(ManagedPrivateAccess, provisioning_id)
+    connection = db_session.get(S3Connection, connection_id)
+    assert provisioning is not None
+    assert connection is not None
+    assert provisioning.state == "deleting"
+    assert provisioning.created_access_key is False
+    assert provisioning.created_remote_principal is False
+    assert connection.is_active is False
+
+    deleted_keys = list(fake.deleted_keys)
+    deleted_users = list(fake.deleted_users)
+    monkeypatch.setattr(
+        cleanup_service_module,
+        "commit_or_rollback",
+        original_commit,
+    )
+
+    assert service.cleanup.delete_owned_connection(
+        user=user,
+        connection_id=connection_id,
+    ) is True
+    assert fake.deleted_keys == deleted_keys
+    assert fake.deleted_users == deleted_users
+    assert db_session.get(S3Connection, connection_id) is None
+    assert db_session.get(ManagedPrivateAccess, provisioning_id) is None
 
 
 def test_server_managed_connection_generic_updates_protect_provenance_and_credentials(db_session):
