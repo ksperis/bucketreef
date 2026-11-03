@@ -1035,6 +1035,50 @@ def test_delete_admin_shared_cleans_links_and_orphan_tags(db_session):
     ) is None
 
 
+def test_delete_admin_shared_rolls_back_partial_cleanup_on_failure(
+    db_session,
+    monkeypatch,
+):
+    owner = _user(db_session, "shared-delete-rollback-owner@example.test")
+    linked_user = _user(db_session, "shared-delete-rollback-linked@example.test")
+    group = UiGroup(name="Shared delete rollback group")
+    row = _create_row(
+        db_session,
+        created_by_user_id=owner.id,
+        name="shared-delete-rollback",
+        is_shared=True,
+    )
+    db_session.add_all(
+        [
+            group,
+            UserS3Connection(user_id=linked_user.id, s3_connection_id=row.id),
+        ]
+    )
+    db_session.flush()
+    db_session.add(
+        UiGroupS3Connection(group_id=group.id, s3_connection_id=row.id)
+    )
+    db_session.commit()
+    service = S3ConnectionsService(db_session)
+    monkeypatch.setattr(
+        service.tags,
+        "cleanup_orphan_definitions",
+        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("tag cleanup failed")),
+    )
+
+    with pytest.raises(RuntimeError, match="tag cleanup failed"):
+        service.delete_admin_shared(row)
+
+    db_session.expire_all()
+    assert db_session.get(S3Connection, row.id) is not None
+    assert db_session.scalar(
+        select(UserS3Connection).where(UserS3Connection.s3_connection_id == row.id)
+    ) is not None
+    assert db_session.scalar(
+        select(UiGroupS3Connection).where(UiGroupS3Connection.s3_connection_id == row.id)
+    ) is not None
+
+
 def test_delete_admin_shared_rejects_active_managed_source(
     db_session,
     monkeypatch,
