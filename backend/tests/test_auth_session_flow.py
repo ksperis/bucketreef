@@ -4,15 +4,16 @@ from types import SimpleNamespace
 
 import pytest
 from botocore.exceptions import ClientError
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.core.security import get_password_hash
-from app.db import AuditLog, S3Account, StorageEndpoint, UserS3Account, User
+from app.db import AuthRateLimit, AuditLog, S3Account, StorageEndpoint, UserS3Account, User
 from app.core.domain_enums import UserRole
 from app.main import app
 from app.routers import dependencies
 from app.routers import auth as auth_router
 from app.routers import auth_common, auth_s3
+from app.services.auth_rate_limit_service import AuthRateLimitService
 from app.services import session_service as session_module
 from tests.auth_test_utils import trusted_origin_headers
 from tests.router_test_utils import effective_routes
@@ -391,6 +392,53 @@ def test_login_rate_limit_returns_429_after_max_failed_attempts(monkeypatch, cli
     assert event is not None
     assert event.ip_address == "testclient"
     assert event.user_agent == "pytest-rate-limit"
+
+
+def test_auth_rate_limit_record_failure_rolls_back_when_commit_fails(db_session, monkeypatch):
+    service = AuthRateLimitService(db_session)
+    original_rollback = db_session.rollback
+    rollback_calls = []
+
+    def failing_commit():
+        raise RuntimeError("commit failed")
+
+    def recording_rollback():
+        rollback_calls.append(True)
+        original_rollback()
+
+    monkeypatch.setattr(db_session, "commit", failing_commit)
+    monkeypatch.setattr(db_session, "rollback", recording_rollback)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        service.record_failure(account="rollback@example.com", ip_address="198.51.100.50")
+
+    assert rollback_calls == [True]
+    assert db_session.scalar(select(func.count()).select_from(AuthRateLimit)) == 0
+
+
+def test_auth_rate_limit_clear_account_rolls_back_when_commit_fails(db_session, monkeypatch):
+    service = AuthRateLimitService(db_session)
+    service.record_failure(account="clear-rollback@example.com", ip_address="198.51.100.51")
+    before = db_session.scalar(select(func.count()).select_from(AuthRateLimit))
+    assert before == 2
+    original_rollback = db_session.rollback
+    rollback_calls = []
+
+    def failing_commit():
+        raise RuntimeError("commit failed")
+
+    def recording_rollback():
+        rollback_calls.append(True)
+        original_rollback()
+
+    monkeypatch.setattr(db_session, "commit", failing_commit)
+    monkeypatch.setattr(db_session, "rollback", recording_rollback)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        service.clear_account(account="clear-rollback@example.com", ip_address="198.51.100.51")
+
+    assert rollback_calls == [True]
+    assert db_session.scalar(select(func.count()).select_from(AuthRateLimit)) == before
 
 
 def test_trusted_proxy_rate_limits_real_clients_and_ignores_injected_leftmost_xff(
