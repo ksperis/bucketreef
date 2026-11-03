@@ -141,7 +141,7 @@ class PortalExternalAccessCredential(Base):
             name="ck_portal_external_access_credentials_permission",
         ),
         CheckConstraint(
-            "status IN ('Active', 'Inactive')",
+            "status IN ('Active', 'Inactive', 'RevocationPending')",
             name="ck_portal_external_access_credentials_status",
         ),
         Index("ix_portal_external_access_credentials_account", "account_id"),

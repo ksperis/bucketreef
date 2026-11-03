@@ -389,12 +389,16 @@ class PortalStorageSpaceAccessMixin:
         metadata: PortalStorageSpaceMetadata,
         *,
         extra_user_ids: Optional[set[int]] = None,
+        sync_participants: bool = True,
+        sync_bucket_policy: bool = True,
     ) -> bool:
         try:
             self._sync_storage_space_access_projection(
                 account,
                 metadata,
                 extra_user_ids=extra_user_ids,
+                sync_participants=sync_participants,
+                sync_bucket_policy=sync_bucket_policy,
             )
         except Exception as exc:  # pragma: no cover - defensive remote failure
             logger.error(

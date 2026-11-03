@@ -45,6 +45,9 @@ type PendingAccessKeyAction =
   | { type: "disable"; key: PortalAccessKey }
   | { type: "delete"; key: PortalAccessKey };
 
+const isExternalRevocationPending = (key: PortalAccessKey) =>
+  key.target_type === "external" && key.status === "RevocationPending";
+
 /** A mounted tools page belongs to one project, including in-flight reads and secrets. */
 export default function PortalAccessKeysPage() {
   const { accountIdForApi } = usePortalAccountContext();
@@ -164,7 +167,7 @@ function PortalAccessKeysContent() {
   };
 
   const updateKeyStatus = async (key: PortalAccessKey, active: boolean) => {
-    if (!accountIdForApi || !canManageKey(key) || key.is_portal) return;
+    if (!accountIdForApi || !canManageKey(key) || key.is_portal || isExternalRevocationPending(key)) return;
     setBusy(`toggle:${key.access_key_id}`);
     setError(null);
     setActionMessage(null);
@@ -182,7 +185,7 @@ function PortalAccessKeysContent() {
   };
 
   const handleToggleKey = (key: PortalAccessKey) => {
-    if (!accountIdForApi || !canManageKey(key) || key.is_portal) return;
+    if (!accountIdForApi || !canManageKey(key) || key.is_portal || isExternalRevocationPending(key)) return;
     const active = key.is_active;
     if (active) {
       setPendingAction({ type: "disable", key });
@@ -207,8 +210,10 @@ function PortalAccessKeysContent() {
       setPendingAction(null);
       await loadKeys();
     } catch (err) {
-      setError(extractApiError(err, t({ en: "Unable to delete tool access.", fr: "Impossible de supprimer l'accès outil.", de: "Werkzeugzugriff kann nicht gelöscht werden.", zh: "无法删除工具访问凭据。" })));
+      const deleteError = extractApiError(err, t({ en: "Unable to delete tool access.", fr: "Impossible de supprimer l'accès outil.", de: "Werkzeugzugriff kann nicht gelöscht werden.", zh: "无法删除工具访问凭据。" }));
       setPendingAction(null);
+      await loadKeys();
+      setError(deleteError);
     } finally {
       setBusy(null);
     }
@@ -234,7 +239,9 @@ function PortalAccessKeysContent() {
       id: "status",
       label: t({ en: "Status", fr: "Statut", de: "Status", zh: "状态" }),
       cellClassName: "text-slate-700 dark:text-slate-200",
-      render: (key) => portalAccessKeyStatusLabel(key.is_active, t),
+      render: (key) => isExternalRevocationPending(key)
+        ? t({ en: "Revocation pending", fr: "Révocation en attente", de: "Widerruf ausstehend", zh: "撤销待处理" })
+        : portalAccessKeyStatusLabel(key.is_active, t),
     },
     {
       id: "target",
@@ -260,6 +267,7 @@ function PortalAccessKeysContent() {
       mobileRole: "actions",
       render: (key) => {
         const active = key.is_active;
+        const revocationPending = isExternalRevocationPending(key);
         const disabled = Boolean(busy) || !canManageKey(key);
         return (
           <ListActions>
@@ -274,24 +282,30 @@ function PortalAccessKeysContent() {
                 {t({ en: "Connect", fr: "Connecter", de: "Verbinden", zh: "连接" })}
               </ListActionButton>
             ) : null}
-            <ListActionButton
-              type="button"
-              onClick={() => handleToggleKey(key)}
-              disabled={disabled}
-            >
-              {busy === `toggle:${key.access_key_id}`
-                ? t({ en: "Saving...", fr: "Enregistrement...", de: "Wird gespeichert...", zh: "正在保存…" })
-                : active
-                  ? t({ en: "Disable", fr: "Désactiver", de: "Deaktivieren", zh: "禁用" })
-                  : t({ en: "Enable", fr: "Activer", de: "Aktivieren", zh: "启用" })}
-            </ListActionButton>
+            {!revocationPending ? (
+              <ListActionButton
+                type="button"
+                onClick={() => handleToggleKey(key)}
+                disabled={disabled}
+              >
+                {busy === `toggle:${key.access_key_id}`
+                  ? t({ en: "Saving...", fr: "Enregistrement...", de: "Wird gespeichert...", zh: "正在保存…" })
+                  : active
+                    ? t({ en: "Disable", fr: "Désactiver", de: "Deaktivieren", zh: "禁用" })
+                    : t({ en: "Enable", fr: "Activer", de: "Aktivieren", zh: "启用" })}
+              </ListActionButton>
+            ) : null}
             <ListActionButton
               type="button"
               onClick={() => handleDeleteKey(key)}
-               variant="danger"
+              variant="danger"
               disabled={disabled}
             >
-              {busy === `delete:${key.access_key_id}` ? t({ en: "Deleting...", fr: "Suppression...", de: "Wird gelöscht...", zh: "正在删除…" }) : t({ en: "Delete", fr: "Supprimer", de: "Löschen", zh: "删除" })}
+              {busy === `delete:${key.access_key_id}`
+                ? t({ en: "Deleting...", fr: "Suppression...", de: "Wird gelöscht...", zh: "正在删除…" })
+                : revocationPending
+                  ? t({ en: "Retry deletion", fr: "Réessayer la suppression", de: "Löschen erneut versuchen", zh: "重试删除" })
+                  : t({ en: "Delete", fr: "Supprimer", de: "Löschen", zh: "删除" })}
             </ListActionButton>
           </ListActions>
         );

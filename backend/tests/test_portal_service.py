@@ -79,6 +79,7 @@ from app.services.portal.exceptions import (
     PortalAccessKeyLimitExceeded,
     PortalAccessKeyManagementDisabled,
     PortalAccessKeyProtected,
+    PortalConflictError,
     PortalForbiddenError,
     PortalStorageSpaceNotEmpty,
 )
@@ -168,6 +169,44 @@ def _portal_access_key(access_key_id: str, **overrides) -> PortalAccessKey:
     }
     payload.update(overrides)
     return PortalAccessKey(access_key_id=access_key_id, **payload)
+
+
+def _external_credential_fixture(db_session, *, suffix: str, status: str = "Active"):
+    account = make_s3_account(
+        db_session,
+        name=f"portal-ext-{suffix}",
+        rgw_access_key="ROOT-AK",
+        rgw_secret_key="ROOT-SK",
+    )
+    user = User(
+        email=f"portal-ext-{suffix}@example.com",
+        hashed_password="x",
+        role="ui_user",
+    )
+    db_session.add_all([account, user])
+    db_session.commit()
+    metadata = PortalStorageSpaceMetadata(
+        account_id=account.id,
+        bucket_name=f"external-{suffix}",
+        owner_user_id=user.id,
+    )
+    db_session.add(metadata)
+    db_session.flush()
+    credential = PortalExternalAccessCredential(
+        account_id=account.id,
+        storage_space_metadata_id=metadata.id,
+        bucket_name=metadata.bucket_name,
+        created_by_user_id=user.id,
+        external_email="partner@example.org",
+        permission="read_only",
+        iam_user_id=f"iam-ext-{suffix}",
+        iam_username=f"portal-ext-{suffix}",
+        access_key_id=f"AK-EXT-{suffix.upper()}",
+        status=status,
+    )
+    db_session.add(credential)
+    db_session.commit()
+    return account, user, metadata, credential
 
 
 def test_portal_manager_bucket_stats_rejects_out_of_scope_bucket_before_admin(monkeypatch, db_session):
@@ -9215,6 +9254,204 @@ def test_external_access_key_status_commit_failure_restores_iam_and_projection(
     assert credential.status == "Active"
 
 
+def test_external_access_key_pending_revocation_rejects_status_changes(db_session):
+    account, user, _metadata, credential = _external_credential_fixture(
+        db_session,
+        suffix="pending-status",
+        status="RevocationPending",
+    )
+
+    with pytest.raises(PortalConflictError, match="revocation is pending"):
+        PortalService(db_session).update_access_key_status(
+            user,
+            _portal_access(account, user),
+            credential.access_key_id,
+            True,
+        )
+
+
+def test_external_access_key_delete_commit_failure_restores_iam_and_projection(monkeypatch, db_session):
+    account, user, _metadata, credential = _external_credential_fixture(
+        db_session,
+        suffix="delete-rollback",
+    )
+
+    class _FakeIAMService:
+        def __init__(self):
+            self.status_updates = []
+
+        def update_access_key_status(self, user_name, access_key_id, status_value):
+            self.status_updates.append((user_name, access_key_id, status_value))
+
+    iam_service = _FakeIAMService()
+    projection_states = []
+    service = PortalService(db_session)
+    monkeypatch.setattr(service, "_get_iam_service", lambda _account: iam_service)
+    monkeypatch.setattr(
+        service,
+        "_sync_storage_space_access_projection",
+        lambda *_args, **_kwargs: projection_states.append(credential.status),
+    )
+    monkeypatch.setattr(
+        db_session,
+        "commit",
+        lambda: (_ for _ in ()).throw(RuntimeError("simulated external delete commit failure")),
+    )
+
+    with pytest.raises(RuntimeError, match="simulated external delete commit failure"):
+        service.delete_access_key(
+            user,
+            _portal_access(account, user),
+            credential.access_key_id,
+        )
+
+    assert iam_service.status_updates == [
+        (credential.iam_username, credential.access_key_id, "Inactive"),
+        (credential.iam_username, credential.access_key_id, "Active"),
+    ]
+    assert projection_states == ["RevocationPending", "Active"]
+    assert credential.status == "Active"
+    assert credential.revoked_at is None
+
+
+def test_external_access_key_cleanup_failure_is_retryable(monkeypatch, db_session):
+    account, user, _metadata, credential = _external_credential_fixture(
+        db_session,
+        suffix="cleanup-retry",
+    )
+
+    class _FakeIAMService:
+        def __init__(self):
+            self.calls = []
+            self.fail_key_cleanup = True
+
+        def update_access_key_status(self, user_name, access_key_id, status_value):
+            self.calls.append(("update", user_name, access_key_id, status_value))
+
+        def delete_access_key(self, user_name, access_key_id):
+            self.calls.append(("delete_key", user_name, access_key_id))
+            if self.fail_key_cleanup:
+                raise RuntimeError("simulated remote key cleanup failure")
+
+        def delete_user_inline_policy(self, user_name, policy_name):
+            self.calls.append(("delete_policy", user_name, policy_name))
+
+        def delete_user(self, user_name):
+            self.calls.append(("delete_user", user_name))
+
+    iam_service = _FakeIAMService()
+    projection_states = []
+    service = PortalService(db_session)
+    monkeypatch.setattr(service, "_get_iam_service", lambda _account: iam_service)
+    monkeypatch.setattr(
+        service,
+        "_sync_storage_space_access_projection",
+        lambda *_args, **_kwargs: projection_states.append(credential.status),
+    )
+
+    with pytest.raises(RuntimeError, match="revocation is pending because remote cleanup failed"):
+        service.delete_access_key(
+            user,
+            _portal_access(account, user),
+            credential.access_key_id,
+        )
+
+    db_session.refresh(credential)
+    assert credential.status == "RevocationPending"
+    assert credential.revoked_at is None
+    assert projection_states == ["RevocationPending"]
+    assert ("delete_policy", credential.iam_username, PORTAL_EXTERNAL_ACCESS_POLICY_NAME) in iam_service.calls
+    assert ("delete_user", credential.iam_username) in iam_service.calls
+
+    with pytest.raises(PortalConflictError, match="revocation is pending"):
+        service.update_access_key_status(
+            user,
+            _portal_access(account, user),
+            credential.access_key_id,
+            True,
+        )
+
+    iam_service.fail_key_cleanup = False
+    calls_before_retry = len(iam_service.calls)
+    deleted = service.delete_access_key(
+        user,
+        _portal_access(account, user),
+        credential.access_key_id,
+    )
+
+    db_session.refresh(credential)
+    assert deleted is not None
+    assert credential.status == "Inactive"
+    assert credential.revoked_at is not None
+    assert not any(call[0] == "update" for call in iam_service.calls[calls_before_retry:])
+    assert projection_states == ["RevocationPending"]
+
+
+def test_external_access_key_final_commit_failure_keeps_retryable_state(monkeypatch, db_session):
+    account, user, _metadata, credential = _external_credential_fixture(
+        db_session,
+        suffix="final-commit-retry",
+    )
+
+    class _FakeIAMService:
+        def __init__(self):
+            self.calls = []
+
+        def update_access_key_status(self, user_name, access_key_id, status_value):
+            self.calls.append(("update", user_name, access_key_id, status_value))
+
+        def delete_access_key(self, user_name, access_key_id):
+            self.calls.append(("delete_key", user_name, access_key_id))
+
+        def delete_user_inline_policy(self, user_name, policy_name):
+            self.calls.append(("delete_policy", user_name, policy_name))
+
+        def delete_user(self, user_name):
+            self.calls.append(("delete_user", user_name))
+
+    iam_service = _FakeIAMService()
+    service = PortalService(db_session)
+    monkeypatch.setattr(service, "_get_iam_service", lambda _account: iam_service)
+    monkeypatch.setattr(service, "_sync_storage_space_access_projection", lambda *_args, **_kwargs: None)
+    real_commit = db_session.commit
+    commit_calls = 0
+
+    def fail_final_commit():
+        nonlocal commit_calls
+        commit_calls += 1
+        if commit_calls == 2:
+            raise RuntimeError("simulated final revocation commit failure")
+        real_commit()
+
+    monkeypatch.setattr(db_session, "commit", fail_final_commit)
+
+    with pytest.raises(RuntimeError, match="local revocation is pending") as raised:
+        service.delete_access_key(
+            user,
+            _portal_access(account, user),
+            credential.access_key_id,
+        )
+
+    assert isinstance(raised.value.__cause__, RuntimeError)
+    assert str(raised.value.__cause__) == "simulated final revocation commit failure"
+    db_session.refresh(credential)
+    assert credential.status == "RevocationPending"
+    assert credential.revoked_at is None
+
+    monkeypatch.setattr(db_session, "commit", real_commit)
+    calls_before_retry = len(iam_service.calls)
+    service.delete_access_key(
+        user,
+        _portal_access(account, user),
+        credential.access_key_id,
+    )
+
+    db_session.refresh(credential)
+    assert credential.status == "Inactive"
+    assert credential.revoked_at is not None
+    assert not any(call[0] == "update" for call in iam_service.calls[calls_before_retry:])
+
+
 def test_bucket_policy_principals_include_active_external_credentials(db_session):
     account = make_s3_account(db_session,
         name="portal-account-ext-policy",
@@ -9256,7 +9493,19 @@ def test_bucket_policy_principals_include_active_external_credentials(db_session
         access_key_id="AK-INACTIVE",
         status="Inactive",
     )
-    db_session.add_all([active, inactive])
+    pending = PortalExternalAccessCredential(
+        account_id=account.id,
+        storage_space_metadata_id=metadata.id,
+        bucket_name=metadata.bucket_name,
+        created_by_user_id=user.id,
+        external_email="pending@example.org",
+        permission="read_only",
+        iam_user_id="iam-pending",
+        iam_username="portal-ext-pending",
+        access_key_id="AK-PENDING",
+        status="RevocationPending",
+    )
+    db_session.add_all([active, inactive, pending])
     db_session.commit()
 
     principals = PortalService(db_session)._portal_policy_principals_for_space(account, metadata)
@@ -9264,6 +9513,7 @@ def test_bucket_policy_principals_include_active_external_credentials(db_session
     assert "arn:aws:iam::RGW1:user/portal-ext-active" in principals
     assert "arn:aws:iam:::user/portal-ext-active" in principals
     assert not any("portal-ext-inactive" in principal for principal in principals)
+    assert not any("portal-ext-pending" in principal for principal in principals)
 
 
 def test_list_external_access_key_exposes_bucket_without_secret(db_session):

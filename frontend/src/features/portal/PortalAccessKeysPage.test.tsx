@@ -778,4 +778,42 @@ describe("PortalAccessKeysPage", () => {
       expect(mocks.deletePortalAccessKey).toHaveBeenCalledWith(101, "AK-EXT-EXISTING"),
     );
   });
+
+  it("shows a failed external revocation as retryable and blocks reactivation", async () => {
+    const activeExternal = portalAccessKey({
+      access_key_id: "AK-EXT-PENDING",
+      status: "Active",
+      is_active: true,
+      target_type: "external",
+      external_email: "partner@example.org",
+      storage_space_name: "Research Data",
+      bucket_name: "research-data-internal",
+      permission: "read_only",
+    });
+    const pendingExternal = {
+      ...activeExternal,
+      status: "RevocationPending",
+      is_active: false,
+    };
+    mocks.state = { ...mocks.state, access_keys: [activeExternal] };
+    mocks.deletePortalAccessKey.mockImplementationOnce(async () => {
+      mocks.state = { ...mocks.state, access_keys: [pendingExternal] };
+      throw new Error("Remote cleanup pending");
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByText("AK-EXT-PENDING");
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+    await user.click(
+      within(screen.getByRole("dialog", { name: "Delete tool access" })).getByRole("button", {
+        name: "Delete access",
+      }),
+    );
+
+    expect(await screen.findByText("Remote cleanup pending")).toBeInTheDocument();
+    expect(screen.getByText("Revocation pending")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Enable" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry deletion" })).toBeEnabled();
+  });
 });
