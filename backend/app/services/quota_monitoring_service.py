@@ -11,6 +11,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.db_transactions import commit_or_rollback
 from app.db import QuotaAlertState, S3Account, S3User, StorageEndpoint
 from app.core.domain_enums import StorageProvider
 from app.models.app_settings import AppSettings
@@ -120,7 +121,7 @@ class QuotaMonitoringService:
         for subject in subjects:
             self._process_subject(subject, run)
 
-        self.db.commit()
+        commit_or_rollback(self.db)
         return self._finish_run(summary)
 
     @staticmethod
