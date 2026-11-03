@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
+from app.core.sqlite import ensure_sqlite_transaction_for_savepoint
 from app.db import AuthRateLimit
 from app.utils.time import utcnow
 
@@ -65,6 +66,7 @@ class AuthRateLimitService:
             )
             if changed.rowcount == 0:
                 try:
+                    ensure_sqlite_transaction_for_savepoint(self.db)
                     with self.db.begin_nested():
                         self.db.add(
                             AuthRateLimit(

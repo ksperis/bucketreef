@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.sensitive_data import sanitize_persisted_error
+from app.core.sqlite import ensure_sqlite_transaction_for_savepoint
 from app.db import (
     EndpointHealthCheck,
     EndpointHealthLatest,
@@ -36,6 +37,13 @@ class HealthCheckPersistenceService:
     def __init__(self, db: Session) -> None:
         self.db = db
 
+    def _commit(self) -> None:
+        try:
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+
     def record_results(self, results: list[HealthCheckResult]) -> None:
         for result in results:
             safe_error = (
@@ -54,13 +62,13 @@ class HealthCheckPersistenceService:
                     error_message=safe_error,
                 )
             )
-        self.db.commit()
+        self._commit()
 
         for result in results:
             self._update_latest_entry(result)
             self._update_status_segment(result)
             self._update_rollup_bucket(result, resolution_seconds=DEFAULT_ROLLUP_RESOLUTION_SECONDS)
-        self.db.commit()
+        self._commit()
 
         self._prune_history()
 
@@ -101,6 +109,7 @@ class HealthCheckPersistenceService:
         self._apply_latest_entry_values(entry, result, latencies, availability_24h)
         if created:
             try:
+                ensure_sqlite_transaction_for_savepoint(self.db)
                 with self.db.begin_nested():
                     self.db.add(entry)
                     self.db.flush()
@@ -244,6 +253,7 @@ class HealthCheckPersistenceService:
         self._apply_rollup_values(entry, counts, latencies)
         if created:
             try:
+                ensure_sqlite_transaction_for_savepoint(self.db)
                 with self.db.begin_nested():
                     self.db.add(entry)
                     self.db.flush()
@@ -302,4 +312,4 @@ class HealthCheckPersistenceService:
                 deleted_rollups,
                 deleted_segments,
             )
-        self.db.commit()
+        self._commit()
