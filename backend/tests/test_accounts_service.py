@@ -9,6 +9,8 @@ from pydantic import ValidationError
 from sqlalchemy import func, select
 
 from app.core.domain_errors import S3AccountNotFoundError
+from app.services import s3_account_deletion_service as s3_account_deletion_service_module
+from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_account_root_service import RgwAccountRootService
 from app.services.s3_account_provisioning_service import S3AccountProvisioningService
 from app.services.s3_accounts_service import S3AccountsService
@@ -22,12 +24,13 @@ from app.db import (
     QuotaUsageDaily,
     QuotaUsageHourly,
     S3Account,
+    S3AccountDeletion,
     StorageEndpoint,
     User,
     UserS3Account,
 )
 from app.core.domain_enums import StorageProvider, UserRole
-from app.models.s3_account import S3AccountCreate, S3AccountImport
+from app.models.s3_account import S3AccountCreate, S3AccountImport, S3AccountUpdate
 from app.services.app_settings_service import load_app_settings_for_db
 
 
@@ -1626,6 +1629,59 @@ class FakeRGWDeleteAdmin:
         return {"id": account_id, "user_list": []}
 
 
+class RetryableRGWDeleteAdmin(FakeRGWDeleteAdmin):
+    def __init__(self, *, account_id: str, root_uid: str) -> None:
+        super().__init__()
+        self.account_id = account_id
+        self.root_uid = root_uid
+        self.account_exists = True
+        self.root_exists = True
+
+    def delete_account(self, account_id: str):
+        assert account_id == self.account_id
+        assert self.account_exists
+        self.deleted.append(account_id)
+        self.account_exists = False
+        return {}
+
+    def delete_user(self, uid: str, tenant: Optional[str] = None):
+        assert uid == self.root_uid
+        assert self.root_exists
+        self.deleted_users.append((uid, tenant))
+        self.root_exists = False
+
+    def get_user(self, uid: str, tenant: Optional[str] = None, allow_not_found: bool = False):
+        assert uid == self.root_uid
+        if self.root_exists:
+            return {
+                "uid": uid,
+                "account_id": self.account_id,
+                "account_root": True,
+                "keys": [],
+            }
+        if allow_not_found:
+            return None
+        raise RGWAdminError("missing", status_code=404, error_code="NoSuchUser")
+
+    def get_account(
+        self,
+        account_id: str,
+        allow_not_found: bool = False,
+        allow_not_implemented: bool = False,
+    ):
+        assert account_id == self.account_id
+        if self.account_exists:
+            return {"id": account_id, "user_list": []}
+        if allow_not_found:
+            return None
+        raise RGWAdminError("missing", status_code=404, error_code="NoSuchAccount")
+
+    def list_accounts(self, include_details: bool = True):
+        if not self.account_exists:
+            return []
+        return [{"id": self.account_id}]
+
+
 
 def _seed_account_derived_rows(db_session, *, endpoint: StorageEndpoint, account: S3Account) -> None:
     db_session.add_all(
@@ -1875,3 +1931,129 @@ def test_delete_account_calls_rgw_when_flag_true(db_session, monkeypatch):
     assert fake_admin.deleted == ["RGW00000000000000002"]
     assert fake_admin.deleted_users == [("rgw00000000000000002-admin", None)]
     assert db_session.scalar(select(S3Account).where(S3Account.id == account.id)) is None
+
+
+@pytest.mark.parametrize(
+    ("failure_call", "root_checkpoint", "account_checkpoint", "account_deleted_before_retry"),
+    [
+        (3, False, False, False),
+        (4, True, False, True),
+        (5, True, True, True),
+    ],
+)
+def test_delete_account_recovers_after_commit_failure_without_remote_replay(
+    db_session,
+    monkeypatch,
+    failure_call,
+    root_checkpoint,
+    account_checkpoint,
+    account_deleted_before_retry,
+):
+    endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
+    account_id = f"RGW000000000000000{failure_call}"
+    root_uid = f"rgw000000000000000{failure_call}-admin"
+    account = S3Account(
+        name=f"RetryDelete{failure_call}",
+        rgw_account_id=account_id,
+        rgw_user_uid=root_uid,
+        rgw_tenant="",
+        storage_endpoint_id=endpoint.id,
+    )
+    db_session.add(account)
+    db_session.commit()
+
+    fake_admin = RetryableRGWDeleteAdmin(account_id=account_id, root_uid=root_uid)
+    svc = _build_service(db_session, monkeypatch, fake_admin)
+    svc.deletion.metrics.get_usage = lambda _account: (0, 0, 0)  # type: ignore[method-assign]
+    svc.rgw_users.resolve = lambda *_args, **_kwargs: (0, [])  # type: ignore[method-assign]
+    svc.account_topics.resolve = lambda *_args, **_kwargs: (0, [])  # type: ignore[method-assign]
+    original_commit = s3_account_deletion_service_module.commit_or_rollback
+    commit_calls = 0
+
+    def fail_selected_commit(db):
+        nonlocal commit_calls
+        commit_calls += 1
+        if commit_calls == failure_call:
+            db.rollback()
+            raise RuntimeError("simulated account deletion commit failure")
+        original_commit(db)
+
+    monkeypatch.setattr(
+        s3_account_deletion_service_module,
+        "commit_or_rollback",
+        fail_selected_commit,
+    )
+
+    with pytest.raises(RuntimeError, match="simulated account deletion commit failure"):
+        svc.delete_account(account.id, delete_rgw=True)
+
+    db_session.expire_all()
+    deletion = db_session.scalar(
+        select(S3AccountDeletion).where(S3AccountDeletion.account_id == account.id)
+    )
+    assert db_session.get(S3Account, account.id) is not None
+    assert deletion is not None
+    assert deletion.iam_cleanup_completed is True
+    assert deletion.root_user_deleted is root_checkpoint
+    assert deletion.remote_account_deleted is account_checkpoint
+    assert fake_admin.deleted_users == [(root_uid, None)]
+    assert fake_admin.deleted == ([account_id] if account_deleted_before_retry else [])
+
+    with pytest.raises(ValueError, match="deletion is pending"):
+        svc.update_account(account.id, S3AccountUpdate(name="Must not mutate"))
+    with pytest.raises(ValueError, match="deletion is pending"):
+        svc.delete_account(account.id, delete_rgw=False)
+
+    monkeypatch.setattr(
+        s3_account_deletion_service_module,
+        "commit_or_rollback",
+        original_commit,
+    )
+    svc.delete_account(account.id, delete_rgw=True)
+
+    assert fake_admin.deleted_users == [(root_uid, None)]
+    assert fake_admin.deleted == [account_id]
+    assert db_session.get(S3Account, account.id) is None
+    assert db_session.scalar(
+        select(S3AccountDeletion).where(S3AccountDeletion.account_id == account.id)
+    ) is None
+
+
+def test_delete_account_keeps_local_state_when_detail_absence_is_ambiguous(
+    db_session,
+    monkeypatch,
+):
+    endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
+    account = S3Account(
+        name="AmbiguousRemoteAccount",
+        rgw_account_id="RGW00000000000000091",
+        rgw_user_uid="rgw00000000000000091-admin",
+        rgw_tenant="",
+        storage_endpoint_id=endpoint.id,
+    )
+    db_session.add(account)
+    db_session.commit()
+
+    fake_admin = RetryableRGWDeleteAdmin(
+        account_id=account.rgw_account_id,
+        root_uid=account.rgw_user_uid,
+    )
+    monkeypatch.setattr(
+        fake_admin,
+        "get_account",
+        lambda *_args, **_kwargs: None,
+    )
+    svc = _build_service(db_session, monkeypatch, fake_admin)
+
+    with pytest.raises(
+        ValueError,
+        match="still exists but its detail could not be verified",
+    ):
+        svc.delete_account(account.id, delete_rgw=True)
+
+    assert db_session.get(S3Account, account.id) is not None
+    assert db_session.scalar(
+        select(S3AccountDeletion).where(S3AccountDeletion.account_id == account.id)
+    ) is None
+    assert fake_admin.deleted_users == []
+    assert fake_admin.deleted == []

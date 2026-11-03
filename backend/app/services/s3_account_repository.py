@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import S3AccountNotFoundError
-from app.db import S3Account
+from app.db import S3Account, S3AccountDeletion
 
 
 class S3AccountRepository:
@@ -24,6 +24,17 @@ class S3AccountRepository:
         if account is None:
             raise S3AccountNotFoundError("S3Account not found")
         return account
+
+    def ensure_not_pending_deletion(self, account_id: int) -> None:
+        pending = self.db.scalar(
+            select(S3AccountDeletion.id).where(
+                S3AccountDeletion.account_id == account_id
+            )
+        )
+        if pending is not None:
+            raise ValueError(
+                "S3 account deletion is pending; retry deletion before modifying this account"
+            )
 
     def find_by_rgw_id(self, rgw_account_id: str) -> Optional[S3Account]:
         return self.db.scalar(

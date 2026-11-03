@@ -18,7 +18,7 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0228_s3_user_deletion_state"
+_EXPECTED_ALEMBIC_HEAD = "0229_s3_account_deletion_state"
 
 
 def test_openstack_all_users_group_migration_preserves_global_grant(tmp_path, monkeypatch):

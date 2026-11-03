@@ -57,6 +57,7 @@ class S3AccountUpdateService:
         payload: S3AccountUpdate,
     ) -> S3AccountSchema:
         account = self.repository.get(account_id)
+        self.repository.ensure_not_pending_deletion(account_id)
         affected_portal_user_ids = self.associations.affected_portal_user_ids(
             account,
             payload,

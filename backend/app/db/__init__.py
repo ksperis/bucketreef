@@ -5,7 +5,7 @@ from .storage_endpoint import StorageEndpoint
 from .endpoint_service_identity import EndpointServiceIdentity
 from .key_rotation_intent import KeyRotationIntent
 from .access_key_metadata import ManagerAccessKeyMetadata
-from .s3_account import AccountIAMUser, S3Account, UserS3Account
+from .s3_account import AccountIAMUser, S3Account, S3AccountDeletion, UserS3Account
 from .user import User
 from .browser_favorite import BrowserFavorite
 from .audit import AuditLog
@@ -78,6 +78,7 @@ __all__ = [
     "ManagerAccessKeyMetadata",
     "AccountIAMUser",
     "S3Account",
+    "S3AccountDeletion",
     "UserS3Account",
     "User",
     "BrowserFavorite",
