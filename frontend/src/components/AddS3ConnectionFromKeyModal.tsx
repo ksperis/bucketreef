@@ -16,6 +16,7 @@ import S3ConnectionAccessFields from "../features/shared/S3ConnectionAccessField
 import S3ConnectionEndpointFields from "../features/shared/S3ConnectionEndpointFields";
 import type { S3ConnectionEndpointMode } from "../features/shared/s3ConnectionFormModel";
 import { SettingsButton, SettingsDialog, useSettingsCloseGuard } from "./settings/SettingsControls";
+import { useSettingsBaseline } from "./settings/useSettingsDraft";
 import { SettingsSection } from "./settings/SettingsLayout";
 import UiInlineMessage from "./ui/UiInlineMessage";
 import UiInput from "./ui/UiInput";
@@ -63,8 +64,8 @@ const INITIAL_CONNECTION_FORM = {
   access_browser: true,
 };
 
-function draftSignature(form: typeof INITIAL_CONNECTION_FORM, mode: S3ConnectionEndpointMode, endpointId: string, locked: boolean) {
-  return stableSignature({
+function connectionDraft(form: typeof INITIAL_CONNECTION_FORM, mode: S3ConnectionEndpointMode, endpointId: string, locked: boolean) {
+  return {
     name: form.name,
     access_manager: form.access_manager,
     access_browser: form.access_browser,
@@ -72,7 +73,7 @@ function draftSignature(form: typeof INITIAL_CONNECTION_FORM, mode: S3Connection
       mode, endpoint_url: form.endpoint_url, region: form.region, provider_hint: form.provider_hint,
       force_path_style: form.force_path_style, verify_tls: form.verify_tls,
     })),
-  });
+  };
 }
 
 export default function AddS3ConnectionFromKeyModal({ isOpen, ...props }: Props) {
@@ -128,7 +129,6 @@ function ConnectionFromKeyForm({
   }));
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<"name" | "endpointId" | "endpointUrl" | "access", string>>>({});
   const nameRef = useRef<HTMLInputElement>(null);
-  const [initialSignature] = useState(() => draftSignature(form, endpointMode, selectedEndpointId, endpointLocked));
 
   useEffect(() => {
     if (endpointLocked) {
@@ -188,11 +188,11 @@ function ConnectionFromKeyForm({
     return accountId && userIdentity ? `${userIdentity} · account ${accountId}` : accountId ? `account ${accountId}` : userIdentity;
   }, [defaultRgwAccountId, defaultRgwTenant, defaultRgwUserUid]);
   const showEndpointSection = !endpointLocked;
-  const currentSignature = useMemo(
-    () => draftSignature(form, endpointMode, selectedEndpointId, endpointLocked),
+  const currentDraft = useMemo(
+    () => connectionDraft(form, endpointMode, selectedEndpointId, endpointLocked),
     [endpointMode, form, selectedEndpointId, endpointLocked]
   );
-  const hasUnsavedChanges = Boolean(initialSignature) && currentSignature !== initialSignature;
+  const { dirty: hasUnsavedChanges } = useSettingsBaseline(currentDraft, currentDraft);
   const closeGuard = useSettingsCloseGuard({
     hasUnsavedChanges,
     disabled: saving,
