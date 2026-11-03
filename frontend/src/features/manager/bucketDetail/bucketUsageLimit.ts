@@ -12,7 +12,8 @@ type ResolveBucketUsageLimitOptions = {
 
 export type BucketUsageLimit = {
   limit: number | null;
-  configuredQuota: number | null;
+  bucketQuota: number | null;
+  ownerQuota: number | null;
   ratio: number | null;
   source: BucketUsageLimitSource;
   ownerConstraintUnavailable: boolean;
@@ -79,15 +80,10 @@ export function resolveBucketUsageLimit({
     : limit <= 0
       ? 100
       : clampPercentage((normalizedUsed / limit) * 100);
-  const configuredQuota = source === "bucket"
-    ? bucketLimit
-    : source !== null
-      ? normalizedOwnerQuota
-      : null;
-
   return {
     limit,
-    configuredQuota,
+    bucketQuota: bucketLimit,
+    ownerQuota: normalizedOwnerQuota,
     ratio,
     source,
     ownerConstraintUnavailable,

@@ -1,6 +1,20 @@
 export type BucketOverviewFeatureState = "active" | "inactive" | "warning" | "unavailable" | "loading";
 
+export type BucketOverviewFeatureId =
+  | "versioning"
+  | "object-lock"
+  | "server-side-encryption"
+  | "replication"
+  | "public-access-block"
+  | "bucket-policy"
+  | "cors"
+  | "static-website"
+  | "lifecycle"
+  | "access-logging"
+  | "notifications";
+
 export type BucketOverviewSummaryItem = {
+  id: BucketOverviewFeatureId;
   label: string;
   value: string;
   state: BucketOverviewFeatureState;
@@ -123,11 +137,15 @@ function resolvePublicAccess(
   if (publicAccess.loading) return { value: text("Loading..."), state: "loading" };
   if (publicAccess.blocked) return { value: text("Blocked"), state: "active" };
   if (publicAccess.partial) return { value: text("Partially blocked"), state: "warning" };
-  return { value: text("Not blocked"), state: "inactive" };
+  return { value: text("Not blocked"), state: "warning" };
 }
 
-function summaryItem(label: string, resolved: ResolvedFeature): BucketOverviewSummaryItem {
-  return { label, value: resolved.value, state: resolved.state };
+function summaryItem(
+  id: BucketOverviewFeatureId,
+  label: string,
+  resolved: ResolvedFeature,
+): BucketOverviewSummaryItem {
+  return { id, label, value: resolved.value, state: resolved.state };
 }
 
 function activeFeature(
@@ -136,7 +154,9 @@ function activeFeature(
   detail?: string,
 ): BucketOverviewActiveFeature | null {
   if (feature.state !== "active" && feature.state !== "warning") return null;
-  return { label, detail, state: feature.state };
+  return detail === undefined
+    ? { label, state: feature.state }
+    : { label, detail, state: feature.state };
 }
 
 export function buildBucketOverviewSummary(
@@ -156,35 +176,35 @@ export function buildBucketOverviewSummary(
   const notifications = resolveNotifications(input.notifications, text);
 
   const dataProtection: BucketOverviewSummaryItem[] = [
-    summaryItem(text("Versioning"), versioning),
-    summaryItem(text("Object Lock"), objectLock),
+    summaryItem("versioning", text("Versioning"), versioning),
+    summaryItem("object-lock", text("Object Lock"), objectLock),
   ];
 
   if (input.serverSideEncryptionEnabled) {
-    dataProtection.push(summaryItem(text("Server-side encryption"), encryption));
+    dataProtection.push(summaryItem("server-side-encryption", text("Server-side encryption"), encryption));
   }
 
   if (input.replication.enabled) {
-    dataProtection.push(summaryItem(text("Replication"), replication));
+    dataProtection.push(summaryItem("replication", text("Replication"), replication));
   }
 
   const accessExposure: BucketOverviewSummaryItem[] = [
-    summaryItem(text("Block public access"), publicAccess),
-    summaryItem(text("Bucket policy"), policy),
-    summaryItem(text("CORS"), cors),
+    summaryItem("public-access-block", text("Block public access"), publicAccess),
+    summaryItem("bucket-policy", text("Bucket policy"), policy),
+    summaryItem("cors", text("CORS"), cors),
   ];
 
   if (input.staticWebsite.enabled) {
-    accessExposure.push(summaryItem(text("Static website"), staticWebsite));
+    accessExposure.push(summaryItem("static-website", text("Static website"), staticWebsite));
   }
 
   const dataManagement: BucketOverviewSummaryItem[] = [
-    summaryItem(text("Lifecycle"), lifecycle),
-    summaryItem(text("Access logging"), accessLogging),
+    summaryItem("lifecycle", text("Lifecycle"), lifecycle),
+    summaryItem("access-logging", text("Access logging"), accessLogging),
   ];
 
   if (input.notificationsEnabled) {
-    dataManagement.push(summaryItem(text("Notifications"), notifications));
+    dataManagement.push(summaryItem("notifications", text("Notifications"), notifications));
   }
 
   const activeFeatures = [
@@ -195,7 +215,10 @@ export function buildBucketOverviewSummary(
     publicAccess.state === "active"
       ? activeFeature(publicAccess, text("Public access blocked"))
       : publicAccess.state === "warning"
-        ? activeFeature(publicAccess, text("Public access partially blocked"))
+        ? activeFeature(
+            publicAccess,
+            text(input.publicAccess.partial ? "Public access partially blocked" : "Public access not blocked"),
+          )
         : null,
     activeFeature(policy, text("Bucket policy")),
     activeFeature(cors, text("CORS")),
