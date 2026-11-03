@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { iamNameFormatError } from "../../utils/resourceNames";
-import { ListActions, ListBadge, ListActionLink, ListActionButton } from "../../components/list/ListControls";
+import { ListActions, ListActionLink, ListActionButton } from "../../components/list/ListControls";
 import { FormEvent, useEffect, useState } from "react";
 
 import { useExecutionContext } from "./ExecutionContextProvider";
@@ -23,6 +23,7 @@ import { useSettingsBaseline } from "../../components/settings/useSettingsDraft"
 import InlinePolicyDraftEditor from "./InlinePolicyDraftEditor";
 import ManagedPolicySelectionPanel from "./ManagedPolicySelectionPanel";
 import ManagerToolbarSearch from "./ManagerToolbarSearch";
+import ManagerIamPoliciesCell from "./ManagerIamPoliciesCell";
 import { useInlinePolicyDraftEditor } from "./useInlinePolicyDraftEditor";
 import { useManagedPolicySelection } from "./useManagedPolicySelection";
 import { useManagerIamCursorCollection } from "./useManagerIamCursorCollection";
@@ -208,22 +209,12 @@ export default function ManagerGroupsPage() {
       id: "policies",
       label: text("Policies"),
       cellClassName: "ui-table-wide",
-      render: (group) =>
-        group.policies && group.policies.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {group.policies.map((policy) => (
-              <ListBadge
-                key={policy}
-                tone="neutral"
-                title={policy}
-              >
-                {policy.split("/").pop()}
-              </ListBadge>
-            ))}
-          </div>
-        ) : (
-          <span className="ui-caption text-slate-500 dark:text-slate-400">-</span>
-        ),
+      render: (group) => (
+        <ManagerIamPoliciesCell
+          managedPolicies={group.policies}
+          inlinePolicies={group.inline_policies}
+        />
+      ),
     },
     {
       id: "actions",

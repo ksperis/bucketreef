@@ -27,6 +27,7 @@ export type IAMGroup = {
   arn?: string;
   path?: string;
   policies?: string[];
+  inline_policies?: string[];
   is_bucketreef_managed?: boolean;
   management_source?: string | null;
 };

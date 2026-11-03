@@ -163,6 +163,41 @@ describe("ManagerUsersPage", () => {
     await waitFor(() => expect(deleteIamUserMock).toHaveBeenCalledWith("acc-1", "alice"));
   });
 
+  it("shows inline-only policies without a false missing-permissions warning", async () => {
+    useExecutionContextMock.mockReturnValue({
+      contexts: [{ id: "acc-1", kind: "account", display_name: "Tenant account", endpoint_name: "Default" }],
+      selectedContextId: "acc-1",
+      selectedContextKind: "account",
+      contextIdForApi: "acc-1",
+      requiresContextSelection: true,
+      accessMode: "default",
+      iamIdentity: null,
+      sessionAccountName: null,
+    });
+    listIamUsersPageMock.mockResolvedValue({
+      items: [{
+        name: "inline-only",
+        arn: "arn:aws:iam::acc-1:user/inline-only",
+        groups: [],
+        policies: [],
+        inline_policies: ["local-read"],
+        has_keys: true,
+      }],
+      next_marker: null,
+    });
+
+    render(
+      <MemoryRouter>
+        <ManagerUsersPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("inline-only")).toBeInTheDocument();
+    expect(screen.getByText("Inline")).toBeInTheDocument();
+    expect(screen.getByText("local-read").closest("td")).toHaveAttribute("data-label", "Policies");
+    expect(screen.queryByLabelText("Warning: user might lack necessary permissions")).not.toBeInTheDocument();
+  });
+
   it("keeps saved inline policy drafts visible in the create user modal", async () => {
     useExecutionContextMock.mockReturnValue({
       contexts: [

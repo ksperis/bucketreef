@@ -91,6 +91,7 @@ describe("Manager IAM inventory tables", () => {
         name: "operators",
         arn: "arn:aws:iam::acc-1:group/operators",
         policies: ["arn:aws:iam::aws:policy/ReadOnlyAccess"],
+        inline_policies: ["local-read"],
       }],
       next_marker: null,
     });
@@ -105,6 +106,9 @@ describe("Manager IAM inventory tables", () => {
     expect(screen.getByText("operators").closest("td")).toHaveAttribute("data-mobile-primary", "true");
     expect(screen.getByText("arn:aws:iam::acc-1:group/operators").closest("td")).toHaveAttribute("data-label", "ARN");
     expect(screen.getByText("ReadOnlyAccess").closest("td")).toHaveAttribute("data-label", "Policies");
+    expect(screen.getByText("Managed")).toBeInTheDocument();
+    expect(screen.getByText("Inline")).toBeInTheDocument();
+    expect(screen.getByText("local-read").closest("td")).toHaveAttribute("data-label", "Policies");
     const groupEdit = screen.getByRole("link", { name: "Edit" });
     expect(groupEdit).toHaveAttribute("href", "/manager/groups/operators");
     expect(groupEdit).toHaveAttribute("data-table-default-action", "true");
@@ -130,6 +134,7 @@ describe("Manager IAM inventory tables", () => {
         path: "/application/",
         arn: "arn:aws:iam::acc-1:role/app-reader",
         policies: ["arn:aws:iam::aws:policy/ReadOnlyAccess"],
+        inline_policies: ["local-read"],
       }],
       next_marker: null,
     });
@@ -144,6 +149,9 @@ describe("Manager IAM inventory tables", () => {
     expect(screen.getByText("/application/").closest("td")).toHaveAttribute("data-label", "Path");
     expect(screen.getByText("arn:aws:iam::acc-1:role/app-reader").closest("td")).toHaveAttribute("data-label", "ARN");
     expect(screen.getByText("ReadOnlyAccess").closest("td")).toHaveAttribute("data-label", "Policies");
+    expect(screen.getByText("Managed")).toBeInTheDocument();
+    expect(screen.getByText("Inline")).toBeInTheDocument();
+    expect(screen.getByText("local-read").closest("td")).toHaveAttribute("data-label", "Policies");
     const roleEdit = screen.getByRole("link", { name: "Edit" });
     expect(roleEdit).toHaveAttribute("href", "/manager/roles/app-reader");
     expect(roleEdit).toHaveAttribute("data-table-default-action", "true");
