@@ -12,6 +12,7 @@ type UsageTileProps = {
   label: string;
   used?: number | null;
   quota?: number | null;
+  displayQuota?: number | null;
   formatter: (value?: number | null) => string;
   quotaFormatter?: (value?: number | null) => string;
   loading?: boolean;
@@ -26,6 +27,7 @@ export default function UsageTile({
   label,
   used,
   quota,
+  displayQuota,
   formatter,
   quotaFormatter,
   loading,
@@ -43,11 +45,13 @@ export default function UsageTile({
       ? clampedPercentageOf(used, quota)
       : null;
   const usedDisplay = hasUsage ? formatter(used) : loading ? t({ en: "Loading...", fr: "Chargement...", de: "Wird geladen...", zh: "正在加载..." }) : "—";
-  const hasQuota = typeof quota === "number" && Number.isFinite(quota) && (
-    quota > 0 || (quota === 0 && usageRatio !== undefined && usageRatio !== null)
+  const quotaForDisplay = displayQuota !== undefined ? displayQuota : quota;
+  const hasQuota = typeof quotaForDisplay === "number" && Number.isFinite(quotaForDisplay) && (
+    quotaForDisplay > 0 || (quotaForDisplay === 0 && usageRatio !== undefined && usageRatio !== null)
   );
-  const quotaDisplay = hasQuota ? (quotaFormatter ? quotaFormatter(quota) : formatter(quota)) : null;
+  const quotaDisplay = hasQuota ? (quotaFormatter ? quotaFormatter(quotaForDisplay) : formatter(quotaForDisplay)) : null;
   const ratioLabel = ratio !== null ? formatPercentage(ratio) : "—";
+  const ratioMatchesDisplayedQuota = displayQuota === undefined || displayQuota === quota;
 
   return (
     <div className={cx(uiCardMutedClass, "flex flex-col gap-3 p-3")}>
@@ -69,7 +73,8 @@ export default function UsageTile({
           </p>
           {quotaDisplay ? (
             <p className={cx("ui-caption", uiMutedTextClass)}>
-              {usedDisplay} / {quotaDisplay} · {ratioLabel}
+              {usedDisplay} / {quotaDisplay}
+              {ratioMatchesDisplayedQuota ? ` · ${ratioLabel}` : ""}
               {limitLabel ? ` · ${limitLabel}` : ""}
             </p>
           ) : (
