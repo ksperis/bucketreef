@@ -194,6 +194,77 @@ def test_connection_create_does_not_rewrite_unexpected_errors(
         client.post(path, json=payload)
 
 
+def test_connection_update_duplicate_names_return_conflict(contract_client):
+    client, db_session, user = contract_client
+    endpoint = StorageEndpoint(
+        name="contract-duplicate-update-endpoint",
+        endpoint_url="https://contract-duplicate-update.example.test",
+        provider=StorageProvider.CEPH.value,
+        is_default=False,
+        is_editable=True,
+    )
+    db_session.add(endpoint)
+    db_session.flush()
+    private_existing = S3Connection(
+        created_by_user_id=user.id,
+        name="contract-private-update-existing",
+        storage_endpoint_id=endpoint.id,
+        is_shared=False,
+        access_manager=False,
+        access_browser=True,
+        access_key_id="AKIAPRIVATEUPDATEEXISTING",
+        secret_access_key="SECRETPRIVATEUPDATEEXISTING",
+    )
+    private_renamed = S3Connection(
+        created_by_user_id=user.id,
+        name="contract-private-update-renamed",
+        storage_endpoint_id=endpoint.id,
+        is_shared=False,
+        access_manager=False,
+        access_browser=True,
+        access_key_id="AKIAPRIVATEUPDATERENAMED",
+        secret_access_key="SECRETPRIVATEUPDATERENAMED",
+    )
+    shared_existing = S3Connection(
+        created_by_user_id=user.id,
+        name="contract-shared-update-existing",
+        storage_endpoint_id=endpoint.id,
+        is_shared=True,
+        access_manager=True,
+        access_browser=False,
+        access_key_id="AKIASHAREDUPDATEEXISTING",
+        secret_access_key="SECRETSHAREDUPDATEEXISTING",
+    )
+    shared_renamed = S3Connection(
+        created_by_user_id=user.id,
+        name="contract-shared-update-renamed",
+        storage_endpoint_id=endpoint.id,
+        is_shared=True,
+        access_manager=True,
+        access_browser=False,
+        access_key_id="AKIASHAREDUPDATERENAMED",
+        secret_access_key="SECRETSHAREDUPDATERENAMED",
+    )
+    db_session.add_all(
+        [private_existing, private_renamed, shared_existing, shared_renamed]
+    )
+    db_session.commit()
+
+    private_conflict = client.patch(
+        f"/api/connections/{private_renamed.id}",
+        json={"name": private_existing.name},
+    )
+    shared_conflict = client.patch(
+        f"/api/admin/s3-connections/{shared_renamed.id}",
+        json={"name": shared_existing.name},
+    )
+
+    assert private_conflict.status_code == 409
+    assert private_conflict.json()["detail"] == "An S3 connection with this name already exists"
+    assert shared_conflict.status_code == 409
+    assert shared_conflict.json()["detail"] == "An S3 connection with this name already exists"
+
+
 def test_admin_connections_api_does_not_expose_iam_capable(monkeypatch, contract_client):
     client, _, _ = contract_client
     monkeypatch.setattr(

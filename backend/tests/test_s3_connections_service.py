@@ -795,6 +795,101 @@ def test_update_connection_supports_active_flag_and_keeps_inactive_visible_in_ma
     assert "active-flag-conn" in owned_private_names
 
 
+def test_update_private_duplicate_name_raises_typed_conflict(db_session):
+    owner = _user(db_session, "duplicate-private-update@example.test")
+    endpoint = _endpoint(db_session)
+    existing = _create_row(
+        db_session,
+        created_by_user_id=owner.id,
+        name="private-update-existing",
+        storage_endpoint_id=endpoint.id,
+    )
+    renamed = _create_row(
+        db_session,
+        created_by_user_id=owner.id,
+        name="private-update-renamed",
+        storage_endpoint_id=endpoint.id,
+    )
+    service = S3ConnectionsService(db_session)
+
+    with pytest.raises(S3ConnectionConflictError, match=S3_CONNECTION_NAME_CONFLICT_ERROR):
+        service.update(
+            owner.id,
+            renamed.id,
+            S3ConnectionUpdate(name=existing.name),
+        )
+
+    db_session.refresh(renamed)
+    assert renamed.name == "private-update-renamed"
+
+
+def test_update_admin_shared_duplicate_name_raises_typed_conflict(db_session):
+    first_admin = _user(db_session, "duplicate-shared-update-first@example.test")
+    second_admin = _user(db_session, "duplicate-shared-update-second@example.test")
+    endpoint = _endpoint(db_session)
+    existing = _create_row(
+        db_session,
+        created_by_user_id=first_admin.id,
+        name="shared-update-existing",
+        is_shared=True,
+        storage_endpoint_id=endpoint.id,
+        access_manager=True,
+        access_browser=False,
+    )
+    renamed = _create_row(
+        db_session,
+        created_by_user_id=second_admin.id,
+        name="shared-update-renamed",
+        is_shared=True,
+        storage_endpoint_id=endpoint.id,
+        access_manager=True,
+        access_browser=False,
+    )
+    service = S3ConnectionsService(db_session)
+
+    with pytest.raises(S3ConnectionConflictError, match=S3_CONNECTION_NAME_CONFLICT_ERROR):
+        service.update_admin_shared(
+            renamed,
+            S3ConnectionAdminUpdate(name=existing.name),
+        )
+
+    db_session.refresh(renamed)
+    assert renamed.name == "shared-update-renamed"
+
+
+def test_update_private_rolls_back_mutation_when_capability_refresh_fails(
+    db_session,
+    monkeypatch,
+):
+    owner = _user(db_session, "private-update-rollback@example.test")
+    endpoint = _endpoint(db_session)
+    row = _create_row(
+        db_session,
+        created_by_user_id=owner.id,
+        name="private-update-rollback",
+        storage_endpoint_id=endpoint.id,
+        access_key_id="AKIA-UPDATE-ROLLBACK-OLD",
+    )
+    service = S3ConnectionsService(db_session)
+    monkeypatch.setattr(
+        service,
+        "_refresh_detected_capabilities",
+        lambda current: (_ for _ in ()).throw(RuntimeError("capability refresh failed")),
+    )
+
+    with pytest.raises(RuntimeError, match="capability refresh failed"):
+        service.update(
+            owner.id,
+            row.id,
+            S3ConnectionUpdate(access_key_id="AKIA-UPDATE-ROLLBACK-NEW"),
+        )
+
+    db_session.expire_all()
+    persisted = db_session.get(S3Connection, row.id)
+    assert persisted is not None
+    assert persisted.access_key_id == "AKIA-UPDATE-ROLLBACK-OLD"
+
+
 def test_update_connection_rejects_endpoint_and_credentials_for_active_managed_source(
     db_session,
     monkeypatch,
