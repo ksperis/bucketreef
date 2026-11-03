@@ -34,6 +34,7 @@ from app.services.portal.exceptions import (
     PortalAccessKeyManagementDisabled,
     PortalAccessKeyProtected,
     PortalBadRequestError,
+    PortalConflictError,
     PortalNotFoundError,
 )
 from app.utils.s3_endpoint import resolve_s3_client_options
@@ -43,6 +44,8 @@ if TYPE_CHECKING:
     from app.services.access_context_contracts import AccountAccess
 
 logger = logging.getLogger(__name__)
+
+_EXTERNAL_REVOCATION_PENDING_STATUS = "RevocationPending"
 
 
 class PortalAccessKeysMixin:
@@ -357,113 +360,153 @@ class PortalAccessKeysMixin:
         iam_user: Optional[IAMUser],
         new_key: Optional[ModelAccessKey],
     ) -> bool:
+        return self._cleanup_external_iam_resources(
+            iam_service,
+            iam_username=iam_username,
+            access_key_id=new_key.access_key_id if new_key is not None else None,
+            cleanup_identity=iam_user is not None,
+        )
+
+    def _cleanup_external_iam_resources(
+        self,
+        iam_service,
+        *,
+        iam_username: str,
+        access_key_id: Optional[str],
+        cleanup_identity: bool,
+    ) -> bool:
+        cleanup_steps = []
+        if access_key_id is not None:
+            cleanup_steps.append(
+                (
+                    "access key",
+                    lambda: iam_service.delete_access_key(iam_username, access_key_id),
+                )
+            )
+        if cleanup_identity:
+            cleanup_steps.extend(
+                [
+                    (
+                        "inline policy",
+                        lambda: iam_service.delete_user_inline_policy(
+                            iam_username,
+                            self._external_access_policy_name,
+                        ),
+                    ),
+                    ("IAM user", lambda: iam_service.delete_user(iam_username)),
+                ]
+            )
         failed = False
-        if new_key is not None:
+        for resource, cleanup in cleanup_steps:
             try:
-                iam_service.delete_access_key(iam_username, new_key.access_key_id)
+                cleanup()
             except Exception as exc:  # pragma: no cover - defensive remote failure
                 logger.error(
-                    "Unable to clean external access key %s: %s",
-                    new_key.access_key_id,
-                    exc,
-                )
-                failed = True
-        if iam_user is not None:
-            try:
-                iam_service.delete_user_inline_policy(
-                    iam_username,
-                    self._external_access_policy_name,
-                )
-            except Exception as exc:  # pragma: no cover - defensive remote failure
-                logger.error(
-                    "Unable to clean external IAM policy for %s: %s",
-                    iam_username,
-                    exc,
-                )
-                failed = True
-            try:
-                iam_service.delete_user(iam_username)
-            except Exception as exc:  # pragma: no cover - defensive remote failure
-                logger.error(
-                    "Unable to clean external IAM user %s: %s",
+                    "Unable to clean external Portal %s for %s: %s",
+                    resource,
                     iam_username,
                     exc,
                 )
                 failed = True
         return failed
 
+    def _persist_external_access_key_status(
+        self,
+        account: S3Account,
+        credential: PortalExternalAccessCredential,
+        *,
+        remote_status: str,
+        persisted_status: str,
+        action: str,
+    ) -> None:
+        iam_service = self._get_iam_service(account)
+        previous_status = credential.status
+        metadata = credential.storage_space
+        remote_update_attempted = False
+        projection_attempted = False
+        try:
+            if previous_status != remote_status:
+                iam_service.update_access_key_status(
+                    credential.iam_username,
+                    credential.access_key_id,
+                    remote_status,
+                )
+                remote_update_attempted = True
+            credential.status = persisted_status
+            credential.updated_at = utcnow()
+            self.db.add(credential)
+            self.db.flush()
+            if metadata is not None:
+                projection_attempted = True
+                self._sync_storage_space_access_projection(
+                    account,
+                    metadata,
+                    sync_participants=False,
+                )
+            self.db.commit()
+        except Exception as exc:
+            db_rollback_failed = False
+            try:
+                self.db.rollback()
+            except Exception as rollback_exc:  # pragma: no cover - defensive database failure
+                logger.error("Unable to roll back failed %s: %s", action, rollback_exc)
+                db_rollback_failed = True
+            remote_rollback_failed = False
+            if remote_update_attempted:
+                try:
+                    iam_service.update_access_key_status(
+                        credential.iam_username,
+                        credential.access_key_id,
+                        previous_status,
+                    )
+                except Exception as rollback_exc:  # pragma: no cover - defensive remote failure
+                    logger.error(
+                        "Unable to restore external IAM access-key status %s: %s",
+                        credential.access_key_id,
+                        rollback_exc,
+                    )
+                    remote_rollback_failed = True
+            projection_rollback_failed = False
+            if projection_attempted and metadata is not None and not db_rollback_failed:
+                projection_rollback_failed = self._restore_storage_space_access_projection(
+                    account,
+                    metadata,
+                    sync_participants=False,
+                )
+            if db_rollback_failed or remote_rollback_failed or projection_rollback_failed:
+                raise RuntimeError(
+                    f"Unable to {action}. Local or remote rollback also failed."
+                ) from exc
+            raise
+
+    def _cleanup_external_credential_remote(
+        self,
+        iam_service,
+        credential: PortalExternalAccessCredential,
+    ) -> bool:
+        return self._cleanup_external_iam_resources(
+            iam_service,
+            iam_username=credential.iam_username,
+            access_key_id=credential.access_key_id,
+            cleanup_identity=True,
+        )
+
     def update_access_key_status(self, user: User, access: "AccountAccess", access_key_id: str, active: bool) -> PortalAccessKey:
         external = self._find_external_credential(user, access.account, access_key_id)
         if external is not None:
-            iam_service = self._get_iam_service(access.account)
-            previous_status = external.status
+            if external.status == _EXTERNAL_REVOCATION_PENDING_STATUS:
+                raise PortalConflictError(
+                    "External Portal access revocation is pending. Retry deletion instead of changing its status."
+                )
             status_value = "Active" if active else "Inactive"
             metadata = external.storage_space
-            remote_update_attempted = False
-            projection_attempted = False
-            try:
-                remote_update_attempted = True
-                iam_service.update_access_key_status(
-                    external.iam_username,
-                    access_key_id,
-                    status_value,
-                )
-                external.status = status_value
-                external.updated_at = utcnow()
-                self.db.add(external)
-                self.db.flush()
-                if metadata is not None:
-                    projection_attempted = True
-                    self._sync_storage_space_access_projection(
-                        access.account,
-                        metadata,
-                        sync_participants=False,
-                    )
-                self.db.commit()
-            except Exception as exc:
-                db_rollback_failed = False
-                try:
-                    self.db.rollback()
-                except Exception as rollback_exc:  # pragma: no cover - defensive database failure
-                    logger.error(
-                        "Unable to roll back failed external access-key status update: %s",
-                        rollback_exc,
-                    )
-                    db_rollback_failed = True
-                remote_rollback_failed = False
-                if remote_update_attempted:
-                    try:
-                        iam_service.update_access_key_status(
-                            external.iam_username,
-                            access_key_id,
-                            previous_status,
-                        )
-                    except Exception as rollback_exc:  # pragma: no cover - defensive remote failure
-                        logger.error(
-                            "Unable to restore external IAM access-key status %s: %s",
-                            access_key_id,
-                            rollback_exc,
-                        )
-                        remote_rollback_failed = True
-                projection_rollback_failed = False
-                if projection_attempted and metadata is not None:
-                    try:
-                        self._sync_storage_space_access_projection(
-                            access.account,
-                            metadata,
-                            sync_participants=False,
-                        )
-                    except Exception as rollback_exc:  # pragma: no cover - defensive remote failure
-                        logger.error(
-                            "Unable to restore storage-space access projection after access-key status failure: %s",
-                            rollback_exc,
-                        )
-                        projection_rollback_failed = True
-                if db_rollback_failed or remote_rollback_failed or projection_rollback_failed:
-                    raise RuntimeError(
-                        "Unable to update external Portal access key. Local or remote rollback also failed."
-                    ) from exc
-                raise
+            self._persist_external_access_key_status(
+                access.account,
+                external,
+                remote_status=status_value,
+                persisted_status=status_value,
+                action="update external Portal access key",
+            )
             self.db.refresh(external)
             return portal_access_key_from_external_credential(
                 external,
@@ -505,20 +548,30 @@ class PortalAccessKeysMixin:
                 external,
                 storage_space_name=self._display_storage_space_name(external.bucket_name, metadata),
             )
-            iam_service.delete_access_key(external.iam_username, access_key_id)
-            try:
-                iam_service.delete_user_inline_policy(external.iam_username, self._external_access_policy_name)
-                iam_service.delete_user(external.iam_username)
-            except Exception as exc:  # pragma: no cover - defensive
-                logger.warning("Unable to delete external IAM user %s: %s", external.iam_username, exc)
+            if external.status != _EXTERNAL_REVOCATION_PENDING_STATUS:
+                self._persist_external_access_key_status(
+                    access.account,
+                    external,
+                    remote_status="Inactive",
+                    persisted_status=_EXTERNAL_REVOCATION_PENDING_STATUS,
+                    action="start external Portal access revocation",
+                )
+                self.db.refresh(external)
+            if self._cleanup_external_credential_remote(iam_service, external):
+                raise RuntimeError(
+                    "External Portal access revocation is pending because remote cleanup failed. Retry deletion."
+                )
             external.status = "Inactive"
             external.revoked_at = utcnow()
             external.updated_at = utcnow()
             self.db.add(external)
-            self.db.flush()
-            if metadata is not None:
-                self._sync_storage_space_access_projection(access.account, metadata, sync_participants=False)
-            self.db.commit()
+            try:
+                self.db.commit()
+            except Exception as exc:
+                self.db.rollback()
+                raise RuntimeError(
+                    "External Portal access was removed remotely, but local revocation is pending. Retry deletion."
+                ) from exc
             return deleted
         self._ensure_access_key_management_allowed(access)
         iam_service = self._get_iam_service(access.account)

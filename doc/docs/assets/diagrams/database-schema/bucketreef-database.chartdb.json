@@ -23837,7 +23837,7 @@
         },
         {
           "id": "check:portal_external_access_credentials:ck_portal_external_access_credentials_status",
-          "expression": "status IN ('Active', 'Inactive')",
+          "expression": "status IN ('Active', 'Inactive', 'RevocationPending')",
           "createdAt": 0
         }
       ],

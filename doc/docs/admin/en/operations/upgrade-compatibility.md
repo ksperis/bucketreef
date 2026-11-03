@@ -1,5 +1,22 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 durable Portal external tool revocation
+
+Migration `0226_portal_external_credential_revocation` extends
+`portal_external_access_credentials.status` with `RevocationPending`. External
+tool credential deletion now disables the IAM access key, persists the pending
+state and removes that credential from the Storage Space policy projection
+before the remote access key, inline policy, and IAM user are removed.
+`revoked_at` is set only after remote cleanup succeeds.
+
+If remote cleanup or final persistence fails, the bundled Portal shows the
+credential as **Revocation pending**, prevents reactivation, and lets the user
+retry deletion. The remote cleanup operations are idempotent, so a retry can
+complete a partially finished revocation. Complete pending revocations before
+downgrading; migration `0226` refuses to downgrade while any pending row
+exists. Deploy the backend and bundled frontend together and apply the normal
+Alembic upgrade path.
+
 ## 2026-11 Manager bucket tenant metadata
 
 Manager bucket summary and listing responses now expose the resolved RGW tenant
