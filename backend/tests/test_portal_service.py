@@ -4371,6 +4371,11 @@ def test_reconcile_portal_server_access_logging_enables_and_disables_managed_buc
     service = PortalService(db_session)
     enabled_calls = []
     disabled_calls = []
+    monkeypatch.setattr(
+        service,
+        "_capture_portal_server_access_logging_state",
+        lambda _account: Mock(source_logging={"space-a": None, "space-b": None}),
+    )
     monkeypatch.setattr(service, "_ensure_portal_server_access_log_bucket", lambda _account, **_kwargs: "technical-logs")
     monkeypatch.setattr(service, "_ensure_portal_server_access_log_bucket_policy", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(
@@ -4397,6 +4402,357 @@ def test_reconcile_portal_server_access_logging_enables_and_disables_managed_buc
     assert sorted(enabled_calls) == [("space-a", "technical-logs"), ("space-b", "technical-logs")]
     assert disabled == {"enabled": 0, "disabled": 2, "skipped": 0}
     assert sorted(disabled_calls) == ["space-a", "space-b"]
+
+
+def _mock_portal_server_access_logging_remote_state(
+    monkeypatch,
+    service,
+    account,
+    *,
+    source_logging,
+    log_bucket_exists,
+    policy=None,
+    lifecycle=None,
+    fail_enabling_source=None,
+):
+    clone = lambda value: json.loads(json.dumps(value)) if value is not None else None
+    log_bucket = service._portal_server_access_log_bucket_name(account)
+    state = {
+        "source_logging": clone(source_logging),
+        "log_bucket_exists": log_bucket_exists,
+        "policy": clone(policy),
+        "lifecycle": clone(lifecycle or []),
+        "created": [],
+        "deleted": [],
+    }
+
+    class _Client:
+        def head_bucket(self, *, Bucket):
+            assert Bucket == log_bucket
+            if not state["log_bucket_exists"]:
+                raise ClientError({"Error": {"Code": "NoSuchBucket"}}, "HeadBucket")
+            return {}
+
+        def put_bucket_policy(self, *, Bucket, Policy):
+            assert Bucket == log_bucket
+            state["policy"] = {"raw": Policy}
+
+    monkeypatch.setattr(service, "_portal_server_access_client", lambda _account: _Client())
+    monkeypatch.setattr(
+        s3_bucket_metadata,
+        "get_bucket_logging_configuration",
+        lambda bucket, **_kwargs: clone(state["source_logging"][bucket]),
+    )
+
+    def put_bucket_logging(bucket, *, logging_config=None, **_kwargs):
+        if (
+            bucket == fail_enabling_source
+            and logging_config is not None
+            and logging_config.get("TargetBucket") == log_bucket
+        ):
+            raise RuntimeError("simulated source logging failure")
+        state["source_logging"][bucket] = clone(logging_config)
+
+    monkeypatch.setattr(s3_bucket_metadata, "put_bucket_logging", put_bucket_logging)
+    monkeypatch.setattr(
+        s3_bucket_access,
+        "get_bucket_policy",
+        lambda bucket, **_kwargs: clone(state["policy"]) if bucket == log_bucket else None,
+    )
+    monkeypatch.setattr(
+        s3_bucket_access,
+        "put_bucket_policy",
+        lambda bucket, *, policy, **_kwargs: state.update(policy=clone(policy)),
+    )
+    monkeypatch.setattr(
+        s3_bucket_access,
+        "delete_bucket_policy",
+        lambda bucket, **_kwargs: state.update(policy=None),
+    )
+    monkeypatch.setattr(
+        s3_bucket_metadata,
+        "get_bucket_lifecycle",
+        lambda bucket, **_kwargs: clone(state["lifecycle"]) if bucket == log_bucket else [],
+    )
+    monkeypatch.setattr(
+        s3_bucket_metadata,
+        "put_bucket_lifecycle",
+        lambda bucket, *, rules, **_kwargs: state.update(lifecycle=clone(rules)),
+    )
+    monkeypatch.setattr(
+        s3_bucket_metadata,
+        "delete_bucket_lifecycle",
+        lambda bucket, **_kwargs: state.update(lifecycle=[]),
+    )
+
+    def create_bucket(bucket, **_kwargs):
+        assert bucket == log_bucket
+        state["log_bucket_exists"] = True
+        state["created"].append(bucket)
+
+    monkeypatch.setattr(s3_client, "create_bucket", create_bucket)
+
+    def delete_empty_bucket(bucket, **_kwargs):
+        assert bucket == log_bucket
+        if not state["log_bucket_exists"]:
+            return False
+        state["log_bucket_exists"] = False
+        state["policy"] = None
+        state["lifecycle"] = []
+        state["deleted"].append(bucket)
+        return True
+
+    monkeypatch.setattr(s3_deletion, "delete_empty_bucket", delete_empty_bucket)
+    monkeypatch.setattr(
+        s3_deletion,
+        "delete_bucket",
+        lambda *_args, **_kwargs: pytest.fail("Empty compensation bucket should not need force deletion"),
+    )
+    return state
+
+
+def test_portal_settings_commit_failure_restores_existing_server_access_logging(monkeypatch, db_session):
+    previous_override = {"server_access_logging_enabled": False}
+    account = make_s3_account(
+        db_session,
+        name="portal-log-db-rollback",
+        rgw_account_id="rgw-log-db-rollback",
+        rgw_access_key="ROOT-AK",
+        rgw_secret_key="ROOT-SK",
+        portal_settings_override=previous_override,
+    )
+    db_session.add(account)
+    db_session.commit()
+    db_session.add_all(
+        [
+            PortalStorageSpaceMetadata(
+                account_id=account.id,
+                bucket_name="space-a",
+                display_name="Space A",
+                visibility="shared",
+            ),
+            PortalStorageSpaceMetadata(
+                account_id=account.id,
+                bucket_name="space-b",
+                display_name="Space B",
+                visibility="shared",
+            ),
+        ]
+    )
+    db_session.commit()
+    service = PortalService(db_session)
+    monkeypatch.setattr(
+        service,
+        "_portal_settings",
+        lambda: portal_settings_fixture(server_access_logging_enabled=True),
+    )
+    previous_source_logging = {
+        "space-a": {
+            "TargetBucket": "foreign-logs",
+            "TargetPrefix": "existing/",
+            "TargetGrants": [{"Grantee": {"Type": "Group", "URI": "example"}, "Permission": "WRITE"}],
+            "TargetObjectKeyFormat": {"SimplePrefix": {}},
+        },
+        "space-b": None,
+    }
+    previous_policy = {
+        "Version": "2012-10-17",
+        "Statement": [{"Sid": "Foreign", "Effect": "Deny", "Principal": "*", "Action": "s3:DeleteBucket"}],
+    }
+    previous_lifecycle = [
+        {"ID": "ForeignRetention", "Status": "Enabled", "Prefix": "foreign/", "Expiration": {"Days": 90}}
+    ]
+    remote = _mock_portal_server_access_logging_remote_state(
+        monkeypatch,
+        service,
+        account,
+        source_logging=previous_source_logging,
+        log_bucket_exists=True,
+        policy=previous_policy,
+        lifecycle=previous_lifecycle,
+    )
+    real_rollback = db_session.rollback
+    rollback_calls = []
+    monkeypatch.setattr(
+        db_session,
+        "rollback",
+        lambda: (rollback_calls.append(True), real_rollback())[1],
+    )
+    monkeypatch.setattr(
+        db_session,
+        "commit",
+        Mock(side_effect=RuntimeError("simulated database commit failure")),
+    )
+
+    with pytest.raises(RuntimeError, match="simulated database commit failure"):
+        service.update_admin_portal_settings_override(
+            account,
+            PortalSettingsOverride(server_access_logging_enabled=True),
+        )
+
+    assert rollback_calls == [True]
+    assert remote["source_logging"] == previous_source_logging
+    assert remote["policy"] == previous_policy
+    assert remote["lifecycle"] == previous_lifecycle
+    db_session.expire_all()
+    assert db_session.get(S3Account, account.id).portal_settings_override == previous_override
+
+
+def test_portal_settings_commit_failure_deletes_new_server_access_log_bucket(monkeypatch, db_session):
+    previous_override = {"server_access_logging_enabled": False}
+    account = make_s3_account(
+        db_session,
+        name="portal-log-created-rollback",
+        rgw_account_id="rgw-log-created-rollback",
+        rgw_access_key="ROOT-AK",
+        rgw_secret_key="ROOT-SK",
+        portal_settings_override=previous_override,
+    )
+    db_session.add(account)
+    db_session.commit()
+    db_session.add(
+        PortalStorageSpaceMetadata(
+            account_id=account.id,
+            bucket_name="space-created",
+            display_name="Space Created",
+            visibility="shared",
+        )
+    )
+    db_session.commit()
+    service = PortalService(db_session)
+    monkeypatch.setattr(
+        service,
+        "_portal_settings",
+        lambda: portal_settings_fixture(server_access_logging_enabled=True),
+    )
+    remote = _mock_portal_server_access_logging_remote_state(
+        monkeypatch,
+        service,
+        account,
+        source_logging={"space-created": None},
+        log_bucket_exists=False,
+    )
+    real_rollback = db_session.rollback
+    monkeypatch.setattr(db_session, "rollback", real_rollback)
+    monkeypatch.setattr(
+        db_session,
+        "commit",
+        Mock(side_effect=RuntimeError("simulated database commit failure")),
+    )
+
+    with pytest.raises(RuntimeError, match="simulated database commit failure"):
+        service.update_admin_portal_settings_override(
+            account,
+            PortalSettingsOverride(server_access_logging_enabled=True),
+        )
+
+    log_bucket = service._portal_server_access_log_bucket_name(account)
+    assert remote["created"] == [log_bucket]
+    assert remote["deleted"] == [log_bucket]
+    assert remote["log_bucket_exists"] is False
+    assert remote["source_logging"] == {"space-created": None}
+    db_session.expire_all()
+    assert db_session.get(S3Account, account.id).portal_settings_override == previous_override
+
+
+def test_portal_settings_update_skips_logging_reconcile_when_logging_state_is_unchanged(
+    monkeypatch,
+    db_session,
+):
+    account = make_s3_account(
+        db_session,
+        name="portal-log-unchanged",
+        rgw_account_id="rgw-log-unchanged",
+        rgw_access_key="ROOT-AK",
+        rgw_secret_key="ROOT-SK",
+    )
+    db_session.add(account)
+    db_session.commit()
+    db_session.add(
+        PortalStorageSpaceMetadata(
+            account_id=account.id,
+            bucket_name="space-unchanged",
+            display_name="Space Unchanged",
+            visibility="shared",
+        )
+    )
+    db_session.commit()
+    service = PortalService(db_session)
+    monkeypatch.setattr(
+        service,
+        "_portal_settings",
+        lambda: portal_settings_fixture(server_access_logging_enabled=True),
+    )
+    monkeypatch.setattr(
+        service,
+        "_capture_portal_server_access_logging_state",
+        lambda _account: pytest.fail("Unchanged logging settings must not inspect S3"),
+    )
+
+    service.update_admin_portal_settings_override(
+        account,
+        PortalSettingsOverride(allow_private_storage_space_create=False),
+    )
+
+    db_session.refresh(account)
+    assert account.portal_settings_override == {"allow_private_storage_space_create": False}
+
+
+def test_reconcile_portal_server_access_logging_restores_partial_remote_failure(monkeypatch, db_session):
+    account = make_s3_account(
+        db_session,
+        name="portal-log-partial-rollback",
+        rgw_account_id="rgw-log-partial-rollback",
+        rgw_access_key="ROOT-AK",
+        rgw_secret_key="ROOT-SK",
+    )
+    db_session.add(account)
+    db_session.commit()
+    db_session.add_all(
+        [
+            PortalStorageSpaceMetadata(
+                account_id=account.id,
+                bucket_name="space-a",
+                display_name="Space A",
+                visibility="shared",
+            ),
+            PortalStorageSpaceMetadata(
+                account_id=account.id,
+                bucket_name="space-b",
+                display_name="Space B",
+                visibility="shared",
+            ),
+        ]
+    )
+    db_session.commit()
+    service = PortalService(db_session)
+    previous_source_logging = {
+        "space-a": {"TargetBucket": "foreign-logs", "TargetPrefix": "a/"},
+        "space-b": {"TargetBucket": "foreign-logs", "TargetPrefix": "b/"},
+    }
+    previous_policy = {
+        "Version": "2012-10-17",
+        "Statement": [{"Sid": "Foreign", "Effect": "Allow", "Principal": "*", "Action": "s3:GetObject"}],
+    }
+    remote = _mock_portal_server_access_logging_remote_state(
+        monkeypatch,
+        service,
+        account,
+        source_logging=previous_source_logging,
+        log_bucket_exists=True,
+        policy=previous_policy,
+        lifecycle=[],
+        fail_enabling_source="space-b",
+    )
+
+    with pytest.raises(RuntimeError, match="simulated source logging failure"):
+        service.reconcile_portal_server_access_logging(
+            account,
+            portal_settings=portal_settings_fixture(server_access_logging_enabled=True),
+        )
+
+    assert remote["source_logging"] == previous_source_logging
+    assert remote["policy"] == previous_policy
 
 
 def test_portal_server_access_log_probe_uses_interactive_request_profile(monkeypatch, db_session):

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+from app.core.db_transactions import commit_or_rollback
 from app.db import S3Account
 from app.models.app_settings import (
     PortalBucketDefaults,
@@ -56,7 +57,7 @@ class PortalSettingsMixin:
                 portal_collaborator_addition_delegated
             )
         self.db.add(account)
-        self.db.commit()
+        commit_or_rollback(self.db)
         self.db.refresh(account)
 
     def _apply_bucket_defaults_override(
@@ -158,16 +159,46 @@ class PortalSettingsMixin:
             if (getattr(base.feature_policies, feature) == FeaturePolicy.DISABLED
                     and getattr(override, field) is True and getattr(previous, field) is not True):
                 raise PortalForbiddenError("This feature is disabled by the platform")
+        previous_effective = PortalEffectiveSettings(**base.model_dump())
+        self._apply_override(previous_effective, previous)
         effective = PortalEffectiveSettings(**base.model_dump())
         self._apply_override(effective, override)
-        self.reconcile_portal_server_access_logging(account, portal_settings=effective)
-        self._persist_portal_settings_override(
-            account,
-            override,
-            delegated_to_portal_managers=delegated_to_portal_managers,
-            portal_collaborator_role_management_delegated=(
-                portal_collaborator_role_management_delegated
-            ),
-            portal_collaborator_addition_delegated=portal_collaborator_addition_delegated,
+        logging_changed = (
+            previous_effective.server_access_logging_enabled
+            != effective.server_access_logging_enabled
         )
+        logging_snapshot = None
+        if logging_changed:
+            logging_snapshot = self._capture_portal_server_access_logging_state(account)
+        try:
+            if logging_changed:
+                source_buckets = (
+                    list(logging_snapshot.source_logging)
+                    if logging_snapshot is not None
+                    else []
+                )
+                self._apply_portal_server_access_logging_reconcile(
+                    account,
+                    portal_settings=effective,
+                    source_buckets=source_buckets,
+                )
+            self._persist_portal_settings_override(
+                account,
+                override,
+                delegated_to_portal_managers=delegated_to_portal_managers,
+                portal_collaborator_role_management_delegated=(
+                    portal_collaborator_role_management_delegated
+                ),
+                portal_collaborator_addition_delegated=portal_collaborator_addition_delegated,
+            )
+        except Exception as exc:
+            if logging_snapshot is not None:
+                try:
+                    self._restore_portal_server_access_logging_state(account, logging_snapshot)
+                except Exception as rollback_exc:  # pragma: no cover - defensive remote failure
+                    raise RuntimeError(
+                        "Unable to update Portal settings. "
+                        "Server Access Logging rollback also failed."
+                    ) from exc
+            raise
         return self.get_portal_account_settings(account)

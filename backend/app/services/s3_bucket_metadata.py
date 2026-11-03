@@ -75,7 +75,7 @@ def delete_bucket_tags(
         raise RuntimeError(f"Unable to delete bucket tags for '{bucket_name}': {exc}") from exc
 
 
-def get_bucket_logging(
+def get_bucket_logging_configuration(
     bucket_name: str,
     **client_kwargs: Unpack[S3BucketClientKwargs],
 ) -> Optional[dict]:
@@ -85,6 +85,16 @@ def get_bucket_logging(
     except (BotoCoreError, ClientError) as exc:
         raise RuntimeError(f"Unable to fetch bucket logging for '{bucket_name}': {exc}") from exc
     config = resp.get("LoggingEnabled") or {}
+    if not config:
+        return None
+    return config
+
+
+def get_bucket_logging(
+    bucket_name: str,
+    **client_kwargs: Unpack[S3BucketClientKwargs],
+) -> Optional[dict]:
+    config = get_bucket_logging_configuration(bucket_name, **client_kwargs)
     if not config:
         return None
     return {
