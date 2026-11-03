@@ -69,6 +69,22 @@ def _credential(user: User, credential_id: str) -> WebAuthnCredential:
     )
 
 
+def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
+    rollback_calls: list[None] = []
+    original_rollback = db_session.rollback
+
+    def rollback() -> None:
+        rollback_calls.append(None)
+        original_rollback()
+
+    def commit() -> None:
+        raise RuntimeError("commit failed")
+
+    monkeypatch.setattr(db_session, "rollback", rollback)
+    monkeypatch.setattr(db_session, "commit", commit)
+    return rollback_calls
+
+
 def test_last_passkey_can_be_revoked_only_when_role_policy_allows_it(db_session):
     standard = _user(db_session, email="optional-passkey@example.com")
     optional = _credential(standard, "optional-passkey")
@@ -93,6 +109,23 @@ def test_last_passkey_can_be_revoked_only_when_role_policy_allows_it(db_session)
         WebAuthnService(db_session).revoke_credential(admin, admin_credential.id)
 
 
+def test_revoke_credential_rolls_back_security_state_when_commit_fails(db_session, monkeypatch):
+    user = _user(db_session, email="revoke-rollback@example.com")
+    credential = _credential(user, "revoke-rollback")
+    db_session.add(credential)
+    db_session.commit()
+    original_auth_version = user.auth_version
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        WebAuthnService(db_session).revoke_credential(user, credential.id)
+
+    assert rollback_calls == [None]
+    db_session.expire_all()
+    assert db_session.get(WebAuthnCredential, credential.id).revoked_at is None
+    assert db_session.get(User, user.id).auth_version == original_auth_version
+
+
 def test_registration_options_require_user_verification_and_none_attestation(db_session):
     user = _user(db_session, email="registration-options@example.com")
     options = WebAuthnService(db_session).begin_registration(user, binding_sid="session-1")
@@ -104,6 +137,23 @@ def test_registration_options_require_user_verification_and_none_attestation(db_
     challenge = db_session.scalars(select(AuthChallenge)).one()
     assert challenge.binding_sid == "session-1"
     assert challenge.expires_at > challenge.created_at
+
+
+def test_registration_challenge_store_rolls_back_when_commit_fails(db_session, monkeypatch):
+    user = _user(db_session, email="challenge-store-rollback@example.com")
+    service = WebAuthnService(db_session)
+    service.begin_registration(user, binding_sid="session-existing")
+    existing = db_session.scalars(select(AuthChallenge)).one()
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        service.begin_registration(user, binding_sid="session-new")
+
+    assert rollback_calls == [None]
+    db_session.expire_all()
+    challenges = db_session.scalars(select(AuthChallenge)).all()
+    assert [row.id for row in challenges] == [existing.id]
+    assert challenges[0].consumed_at is None
 
 
 def test_registration_challenge_is_single_use_and_bound_to_the_ui_session(db_session):
@@ -120,6 +170,21 @@ def test_registration_challenge_is_single_use_and_bound_to_the_ui_session(db_ses
     assert len(challenge) == 32
     with pytest.raises(WebAuthnSecurityError, match="unavailable"):
         service._consume_challenge(user.id, "webauthn_register", binding_sid="session-a")
+
+
+def test_registration_challenge_consume_rolls_back_when_commit_fails(db_session, monkeypatch):
+    user = _user(db_session, email="challenge-consume-rollback@example.com")
+    service = WebAuthnService(db_session)
+    service.begin_registration(user, binding_sid="session-a")
+    challenge = db_session.scalars(select(AuthChallenge)).one()
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        service._consume_challenge(user.id, "webauthn_register", binding_sid="session-a")
+
+    assert rollback_calls == [None]
+    db_session.expire_all()
+    assert db_session.get(AuthChallenge, challenge.id).consumed_at is None
 
 
 def test_registration_verification_uses_exact_origin_rp_and_user_verification(db_session, monkeypatch):
@@ -149,6 +214,34 @@ def test_registration_verification_uses_exact_origin_rp_and_user_verification(db
     assert captured["expected_rp_id"] == get_settings().webauthn_rp_id
     assert captured["expected_origin"] == get_settings().effective_webauthn_origins()
     assert captured["require_user_verification"] is True
+
+
+def test_registration_rolls_back_credential_and_auth_version_when_commit_fails(db_session, monkeypatch):
+    user = _user(db_session, email="registration-rollback@example.com")
+    service = WebAuthnService(db_session)
+    original_auth_version = user.auth_version
+    monkeypatch.setattr(service, "_consume_challenge", lambda *_args, **_kwargs: b"challenge")
+    monkeypatch.setattr(
+        "app.services.webauthn_service.verify_registration_response",
+        lambda **_kwargs: SimpleNamespace(
+            credential_id=b"rollback-credential",
+            credential_public_key=b"rollback-public-key",
+            sign_count=0,
+        ),
+    )
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        service.finish_registration(
+            user,
+            credential={"response": {"transports": ["internal"]}},
+            name="Rollback passkey",
+        )
+
+    assert rollback_calls == [None]
+    db_session.expire_all()
+    assert db_session.scalar(select(func.count()).select_from(WebAuthnCredential)) == 0
+    assert db_session.get(User, user.id).auth_version == original_auth_version
 
 
 def test_registration_rejects_invalid_transport_structure(db_session, monkeypatch):
@@ -227,6 +320,38 @@ def test_authentication_updates_counter_and_rejects_counter_replay(db_session, m
         )
 
 
+def test_authentication_rolls_back_counter_when_commit_fails(db_session, monkeypatch):
+    user = _user(db_session, email="authentication-rollback@example.com")
+    credential_id = bytes_to_base64url(b"authentication-rollback")
+    row = WebAuthnCredential(
+        id="authentication-rollback-row",
+        user_id=user.id,
+        credential_id=credential_id,
+        public_key=bytes_to_base64url(b"public-key"),
+        sign_count=3,
+        transports=[],
+        name="Rollback key",
+    )
+    db_session.add(row)
+    db_session.commit()
+    service = WebAuthnService(db_session)
+    monkeypatch.setattr(service, "_consume_challenge", lambda *_args, **_kwargs: b"challenge")
+    monkeypatch.setattr(
+        "app.services.webauthn_service.verify_authentication_response",
+        lambda **_kwargs: SimpleNamespace(new_sign_count=4),
+    )
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        service.finish_authentication(user, credential={"id": credential_id})
+
+    assert rollback_calls == [None]
+    db_session.expire_all()
+    persisted = db_session.get(WebAuthnCredential, row.id)
+    assert persisted.sign_count == 3
+    assert persisted.last_used_at is None
+
+
 def test_recovery_codes_are_returned_once_hashed_at_rest_and_atomically_consumed(db_session):
     user = _user(db_session, email="recovery@example.com")
     service = WebAuthnService(db_session)
@@ -242,6 +367,47 @@ def test_recovery_codes_are_returned_once_hashed_at_rest_and_atomically_consumed
     assert all(code not in serialized for code in codes)
     assert service.consume_recovery_code(user, codes[0]) is True
     assert service.consume_recovery_code(user, codes[0]) is False
+
+
+def test_recovery_code_rotation_rolls_back_when_commit_fails(db_session, monkeypatch):
+    user = _user(db_session, email="recovery-rotation-rollback@example.com")
+    service = WebAuthnService(db_session)
+    service.issue_recovery_codes(user)
+    original_hashes = set(
+        db_session.scalars(select(RecoveryCode.code_hash).where(RecoveryCode.user_id == user.id)).all()
+    )
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        service.issue_recovery_codes(user)
+
+    assert rollback_calls == [None]
+    db_session.expire_all()
+    persisted_hashes = set(
+        db_session.scalars(select(RecoveryCode.code_hash).where(RecoveryCode.user_id == user.id)).all()
+    )
+    assert persisted_hashes == original_hashes
+
+
+def test_recovery_code_consume_rolls_back_when_commit_fails(db_session, monkeypatch):
+    user = _user(db_session, email="recovery-consume-rollback@example.com")
+    service = WebAuthnService(db_session)
+    codes = service.issue_recovery_codes(user)
+    target_hash = service._recovery_hash(user.id, codes[0])
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        service.consume_recovery_code(user, codes[0])
+
+    assert rollback_calls == [None]
+    db_session.expire_all()
+    persisted = db_session.scalar(
+        select(RecoveryCode).where(
+            RecoveryCode.user_id == user.id,
+            RecoveryCode.code_hash == target_hash,
+        )
+    )
+    assert persisted.consumed_at is None
 
 
 def test_recovery_code_login_does_not_count_as_recent_webauthn(db_session):
