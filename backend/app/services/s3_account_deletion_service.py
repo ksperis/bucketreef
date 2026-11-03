@@ -131,23 +131,27 @@ class S3AccountDeletionService:
         )
 
     def _delete_local_account(self, account: S3Account) -> None:
-        self.db.execute(
-            delete(AccountIAMUser).where(AccountIAMUser.account_id == account.id)
-        )
-        self.db.execute(
-            delete(UserS3Account).where(UserS3Account.account_id == account.id)
-        )
-        self.db.execute(
-            delete(UiGroupS3Account)
-            .where(UiGroupS3Account.account_id == account.id)
-            .execution_options(synchronize_session=False)
-        )
-        purge = ResourceDeletionPurgeService(self.db)
-        purge.purge_account_derived_data(account.id)
-        purge.purge_execution_context_data(str(account.id))
-        self.db.delete(account)
-        self.db.flush()
-        self.tags.cleanup_orphan_definitions(
-            domain_kinds=[TAG_DOMAIN_ADMIN_MANAGED]
-        )
-        self.db.commit()
+        try:
+            self.db.execute(
+                delete(AccountIAMUser).where(AccountIAMUser.account_id == account.id)
+            )
+            self.db.execute(
+                delete(UserS3Account).where(UserS3Account.account_id == account.id)
+            )
+            self.db.execute(
+                delete(UiGroupS3Account)
+                .where(UiGroupS3Account.account_id == account.id)
+                .execution_options(synchronize_session=False)
+            )
+            purge = ResourceDeletionPurgeService(self.db)
+            purge.purge_account_derived_data(account.id)
+            purge.purge_execution_context_data(str(account.id))
+            self.db.delete(account)
+            self.db.flush()
+            self.tags.cleanup_orphan_definitions(
+                domain_kinds=[TAG_DOMAIN_ADMIN_MANAGED]
+            )
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise

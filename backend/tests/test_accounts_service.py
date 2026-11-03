@@ -1478,6 +1478,48 @@ def test_delete_account_purges_derived_database_rows(db_session, monkeypatch):
     ) == 0
 
 
+def test_delete_account_rolls_back_partial_local_cleanup_on_failure(db_session, monkeypatch):
+    endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
+    owner = User(
+        email="account-delete-rollback@example.test",
+        hashed_password="x",
+        role=UserRole.UI_USER.value,
+        is_active=True,
+    )
+    account = S3Account(
+        name="DeleteRollback",
+        rgw_account_id="RGW00000000000000006",
+        rgw_user_uid="rgw00000000000000006-admin",
+        storage_endpoint_id=endpoint.id,
+    )
+    db_session.add_all([owner, account])
+    db_session.flush()
+    db_session.add(
+        UserS3Account(
+            user_id=owner.id,
+            account_id=account.id,
+            manager_role="account_administrator",
+        )
+    )
+    db_session.commit()
+
+    svc = _build_service(db_session, monkeypatch, FakeRGWDeleteAdmin())
+    monkeypatch.setattr(
+        svc.deletion.tags,
+        "cleanup_orphan_definitions",
+        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("tag cleanup failed")),
+    )
+
+    with pytest.raises(RuntimeError, match="tag cleanup failed"):
+        svc.delete_account(account.id, delete_rgw=False)
+
+    db_session.expire_all()
+    assert db_session.get(S3Account, account.id) is not None
+    assert db_session.scalar(
+        select(UserS3Account).where(UserS3Account.account_id == account.id)
+    ) is not None
+
+
 def test_delete_account_rejects_active_bucket_migration_before_remote_delete(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
     account = S3Account(
