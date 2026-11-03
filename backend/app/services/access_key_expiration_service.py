@@ -7,6 +7,7 @@ from typing import Literal
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
+from app.core.db_transactions import commit_or_rollback
 from app.core.sensitive_data import sanitize_persisted_error
 from app.db import ManagerAccessKeyMetadata, S3Account, S3User
 from app.core.domain_enums import StorageProvider
@@ -56,7 +57,7 @@ class AccessKeyExpirationService:
     def _process(self, row: ManagerAccessKeyMetadata) -> str:
         row.expiration_last_attempt_at = utcnow()
         row.expiration_last_error = None
-        self.db.commit()
+        commit_or_rollback(self.db)
         try:
             if row.account_id is not None:
                 return self._process_iam(row)
@@ -224,7 +225,7 @@ class AccessKeyExpirationService:
         row.expiration_state = "enforced"
         row.expiration_enforced_at = utcnow()
         row.expiration_last_error = None
-        self.db.commit()
+        commit_or_rollback(self.db)
         AuditService(self.db).record_action(
             user=None,
             scope="manager",
@@ -251,9 +252,9 @@ class AccessKeyExpirationService:
         persisted.expiration_state = state
         persisted.expiration_last_attempt_at = utcnow()
         persisted.expiration_last_error = sanitize_persisted_error(exc)
-        self.db.commit()
+        commit_or_rollback(self.db)
 
     def _remove_missing(self, row: ManagerAccessKeyMetadata) -> str:
         self.db.delete(row)
-        self.db.commit()
+        commit_or_rollback(self.db)
         return "missing"
