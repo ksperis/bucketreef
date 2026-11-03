@@ -8,10 +8,11 @@ import pytest
 from sqlalchemy import select
 
 from tests.feature_policy_fixtures import enable_manager_features
-from app.db import S3Account, StorageEndpoint, User, UserS3Account
+from app.db import S3Account, S3AccountDeletion, StorageEndpoint, User, UserS3Account
 from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, StorageProvider, UserRole
 from app.models.iam import IAMGroup, IAMRole, IAMUser
 from app.models.s3_account import AccountUserLinkInput, S3AccountUpdate
+from app.services import s3_account_deletion_service as s3_account_deletion_service_module
 from app.services.managed_resource_naming import (
     PORTAL_MANAGER_GROUP_NAME,
     PORTAL_MANAGER_GROUP_POLICY_NAME,
@@ -37,6 +38,7 @@ class _FakeRGWAdmin:
         self.list_topics_calls: list[str | None] = []
         self.account_api_supported: bool | None = None
         self.unsupported_account_api = False
+        self.last_account_id: str | None = None
 
     def list_topics(self, account_id: str | None = None):
         self.list_topics_calls.append(account_id)
@@ -51,19 +53,36 @@ class _FakeRGWAdmin:
         allow_not_implemented: bool = False,
     ):
         self.get_account_calls += 1
+        self.last_account_id = account_id
         if self.raise_get_account:
             raise self.raise_get_account
         if allow_not_implemented and self.unsupported_account_api:
             self.account_api_supported = False
             return None
         self.account_api_supported = True
-        return self.account_payload
+        payload = dict(self.account_payload)
+        payload.setdefault("id", account_id)
+        return payload
 
     def get_account_quota(self, account_id: str):
         return None, None
 
     def delete_user(self, uid: str, tenant: str | None = None):
         self.deleted_users.append((uid, tenant))
+
+    def get_user(self, uid: str, tenant: str | None = None, allow_not_found: bool = False):
+        account_id = (
+            self.account_payload.get("id")
+            or self.account_payload.get("account_id")
+            or self.last_account_id
+        )
+        return {
+            "uid": uid,
+            "tenant": tenant or "",
+            "account_id": account_id,
+            "account_root": True,
+            "keys": [],
+        }
 
     def delete_account(self, account_id: str):
         self.deleted_accounts.append(account_id)
@@ -578,6 +597,16 @@ class _FakeAccountIAM:
         self.calls.append(("delete_group", group_name))
 
 
+class _RetryableAccountIAM(_FakeAccountIAM):
+    def list_groups(self):
+        self.calls.append(("list_groups",))
+        return list(self.groups)
+
+    def delete_group(self, group_name: str):
+        super().delete_group(group_name)
+        self.groups = [group for group in self.groups if group.name != group_name]
+
+
 def _prepare_account_deletion_checks(service, admin, monkeypatch):
     monkeypatch.setattr(service.deletion.metrics, "get_usage", lambda *args, **kwargs: (0, 0, 0))
     monkeypatch.setattr(service.rgw_users, "resolve", lambda *args, **kwargs: (0, []))
@@ -644,6 +673,84 @@ def test_delete_account_removes_empty_portal_groups_before_root_user(db_session,
         "root",
         "account",
     ]
+
+
+def test_delete_account_recovers_when_iam_checkpoint_commit_fails(
+    db_session,
+    monkeypatch,
+):
+    endpoint = _seed_endpoint(
+        db_session,
+        name="ceph-delete-iam-retry",
+        is_default=True,
+        iam_enabled=True,
+    )
+    account = _seed_account(
+        db_session,
+        endpoint.id,
+        name="delete-iam-retry",
+        rgw_account_id="RGW-DEL-IAM-RETRY",
+    )
+    service, admin = _service(db_session)
+    iam = _RetryableAccountIAM(
+        groups=[
+            IAMGroup(name=PORTAL_MANAGER_GROUP_NAME),
+            IAMGroup(name=PORTAL_USER_GROUP_NAME),
+        ]
+    )
+    service.deletion.iam_cleanup = S3AccountIamCleanupService(
+        db_session,
+        iam_factory=lambda _account: iam,
+    )
+    _prepare_account_deletion_checks(service, admin, monkeypatch)
+    original_commit = s3_account_deletion_service_module.commit_or_rollback
+    commit_calls = 0
+
+    def fail_iam_checkpoint(db):
+        nonlocal commit_calls
+        commit_calls += 1
+        if commit_calls == 2:
+            db.rollback()
+            raise RuntimeError("simulated IAM checkpoint commit failure")
+        original_commit(db)
+
+    monkeypatch.setattr(
+        s3_account_deletion_service_module,
+        "commit_or_rollback",
+        fail_iam_checkpoint,
+    )
+
+    with pytest.raises(RuntimeError, match="simulated IAM checkpoint commit failure"):
+        service.delete_account(account.id, delete_rgw=True)
+
+    db_session.expire_all()
+    deletion = db_session.scalar(
+        select(S3AccountDeletion).where(S3AccountDeletion.account_id == account.id)
+    )
+    assert deletion is not None
+    assert deletion.iam_cleanup_completed is False
+    assert iam.groups == []
+    assert [call for call in iam.calls if call[0] == "delete_group"] == [
+        ("delete_group", PORTAL_MANAGER_GROUP_NAME),
+        ("delete_group", PORTAL_USER_GROUP_NAME),
+    ]
+    assert admin.deleted_users == []
+    assert admin.deleted_accounts == []
+
+    monkeypatch.setattr(
+        s3_account_deletion_service_module,
+        "commit_or_rollback",
+        original_commit,
+    )
+    service.delete_account(account.id, delete_rgw=True)
+
+    assert [call for call in iam.calls if call[0] == "delete_group"] == [
+        ("delete_group", PORTAL_MANAGER_GROUP_NAME),
+        ("delete_group", PORTAL_USER_GROUP_NAME),
+    ]
+    assert admin.deleted_users == [(account.rgw_user_uid, None)]
+    assert admin.deleted_accounts == [account.rgw_account_id]
+    assert db_session.get(S3Account, account.id) is None
 
 
 def test_delete_account_uses_scoped_iam_when_account_user_list_is_missing(db_session, monkeypatch):

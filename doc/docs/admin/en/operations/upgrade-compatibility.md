@@ -1,5 +1,20 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 durable S3 account deletion
+
+Migration `0229_s3_account_deletion_state` adds the `s3_account_deletions`
+saga table. BucketReef now checkpoints Portal IAM cleanup, RGW root-user
+deletion, and RGW Account deletion before removing the local Account row.
+
+Retries resume from the last durable checkpoint. If the root user or RGW
+Account was already deleted when a database commit failed, BucketReef verifies
+that absence and continues without replaying the destructive remote operation.
+Account metadata, quota, association, and feature updates are rejected while
+remote deletion is pending.
+
+Complete pending S3 Account deletions before downgrading. Migration `0229`
+refuses to drop the saga table while it contains rows.
+
 ## 2026-11 durable S3 user deletion
 
 Migration `0228_s3_user_deletion_state` adds the `s3_user_deletions` saga

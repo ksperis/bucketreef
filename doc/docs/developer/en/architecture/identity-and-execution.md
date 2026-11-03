@@ -393,6 +393,19 @@ all local derived data can be purged in one transaction. While the saga row is
 present, metadata, quota, rotation, and access-key mutations are blocked so the
 persisted deletion target cannot change underneath recovery.
 
+## S3 Account deletion durability
+
+Deleting a managed RGW Account uses `s3_account_deletions` to persist the
+immutable Account/root/endpoint identity and three remote checkpoints: Portal
+IAM cleanup completed, root user deleted, and RGW Account deleted. The intent
+row is committed before the first destructive remote action.
+
+Each retry resumes at the first incomplete checkpoint. Root-user absence is
+accepted only after a strict `NoSuchUser` confirmation, while RGW Account
+absence is confirmed against the account inventory so an ambiguous Admin Ops
+404 cannot silently erase the local record. The local Account and saga row are
+removed together only after all remote checkpoints are durable.
+
 ## Server-managed private access
 
 Manager exposes two specialized provisioning branches that never return the

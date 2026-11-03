@@ -95,12 +95,45 @@ class S3Account(Base):
         overlaps="users,account_links",
     )
     tag_links = relationship("S3AccountTag", back_populates="account", cascade="all, delete-orphan")
+    deletion = relationship(
+        "S3AccountDeletion",
+        back_populates="account",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
 
     def effective_rgw_credentials(self) -> tuple[Optional[str], Optional[str]]:
         return self.rgw_access_key, self.rgw_secret_key
 
     def session_token(self) -> Optional[str]:
         return None
+
+
+class S3AccountDeletion(Base):
+    """Durable checkpoints for destructive RGW account deletion."""
+
+    __tablename__ = "s3_account_deletions"
+    __table_args__ = (
+        UniqueConstraint("account_id", name="uq_s3_account_deletions_account"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    account_id = Column(
+        Integer,
+        ForeignKey("s3_accounts.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    rgw_account_id = Column(String, nullable=False)
+    rgw_user_uid = Column(String, nullable=False)
+    rgw_tenant = Column(String, nullable=False, default="", server_default="")
+    storage_endpoint_id = Column(Integer, nullable=False)
+    iam_cleanup_completed = Column(Boolean, nullable=False, default=False, server_default="0")
+    root_user_deleted = Column(Boolean, nullable=False, default=False, server_default="0")
+    remote_account_deleted = Column(Boolean, nullable=False, default=False, server_default="0")
+    created_at = Column(UTCDateTime(), default=utcnow, nullable=False)
+    updated_at = Column(UTCDateTime(), default=utcnow, onupdate=utcnow, nullable=False)
+
+    account = relationship("S3Account", back_populates="deletion")
 
 
 class UserS3Account(Base):
