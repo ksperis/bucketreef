@@ -22,7 +22,7 @@ from app.services.auth_session_guards import current_auth_session
 from app.services.effective_access_service import EffectiveAccessService
 from app.services.openstack_service import OpenStackService
 from app.services.keystone_client import OpenStackError
-from app.utils.http_errors import raise_bad_request_from_value_error
+from app.utils.http_errors import raise_http_error_from_value_error
 
 router = APIRouter(prefix="/me/openstack", tags=["openstack"])
 
@@ -128,7 +128,7 @@ def create_private_connection(
             payload,
         )
     except ValueError as exc:
-        raise_bad_request_from_value_error(exc)
+        raise_http_error_from_value_error(exc)
     AuditService(db).record_action(
         user=user,
         scope="auth",

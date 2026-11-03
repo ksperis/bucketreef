@@ -29,7 +29,10 @@ from app.models.s3_connection import (
     S3ConnectionUpdate,
 )
 from app.models.s3_connection_admin import S3ConnectionAdminCreate, S3ConnectionAdminUpdate
-from app.services.s3_connections_service import S3ConnectionsService
+from app.services.s3_connections_service import (
+    S3_CONNECTION_NAME_CONFLICT_ERROR,
+    S3ConnectionsService,
+)
 from tests.s3_connection_factory import custom_endpoint_fields
 
 
@@ -273,6 +276,54 @@ def test_create_admin_shared_rolls_back_service_owned_transaction_on_failure(
         select(func.count()).select_from(S3Connection).where(S3Connection.name == "rollback-shared")
     ) == 0
     assert db_session.get(User, user.id) is not None
+
+
+def test_create_private_duplicate_name_raises_typed_conflict_without_rolling_back_outer_transaction(
+    db_session,
+    monkeypatch,
+):
+    user = _user(db_session, "duplicate-private@example.test")
+    endpoint = _endpoint(db_session)
+    service = S3ConnectionsService(db_session)
+    monkeypatch.setattr(service, "_refresh_detected_capabilities", lambda row: None)
+    payload = S3ConnectionCreate(
+        name="duplicate-private",
+        storage_endpoint_id=endpoint.id,
+        access_key_id="AKIA-DUPLICATE-PRIVATE",
+        secret_access_key="SECRET-DUPLICATE-PRIVATE",
+        access_manager=False,
+        access_browser=True,
+    )
+    service.create(user.id, payload)
+
+    user.full_name = "Outer transaction remains usable"
+    with pytest.raises(S3ConnectionConflictError, match=S3_CONNECTION_NAME_CONFLICT_ERROR):
+        service.create(user.id, payload, commit=False)
+
+    db_session.commit()
+    db_session.refresh(user)
+    assert user.full_name == "Outer transaction remains usable"
+
+
+def test_create_admin_shared_duplicate_name_raises_typed_conflict_across_creators(
+    db_session,
+    monkeypatch,
+):
+    first_admin = _user(db_session, "duplicate-shared-first@example.test")
+    second_admin = _user(db_session, "duplicate-shared-second@example.test")
+    endpoint = _endpoint(db_session)
+    service = S3ConnectionsService(db_session)
+    monkeypatch.setattr(service, "_refresh_detected_capabilities", lambda row: None)
+    payload = S3ConnectionAdminCreate(
+        name="duplicate-shared",
+        storage_endpoint_id=endpoint.id,
+        access_key_id="AKIA-DUPLICATE-SHARED",
+        secret_access_key="SECRET-DUPLICATE-SHARED",
+    )
+    service.create_admin_shared(first_admin.id, payload)
+
+    with pytest.raises(S3ConnectionConflictError, match=S3_CONNECTION_NAME_CONFLICT_ERROR):
+        service.create_admin_shared(second_admin.id, payload)
 
 
 def test_update_admin_shared_clears_identity_when_endpoint_changes(

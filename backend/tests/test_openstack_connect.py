@@ -983,6 +983,19 @@ def test_private_connection_import_is_durable_encrypted_and_metadata_only(client
     ).scalar_one()
     assert "PRIVATE-EC2-SECRET" not in raw_secret
 
+    duplicate = client.post(
+        f"/api/me/openstack/connections/{connection_id}/projects/project-a/private-connections",
+        json={
+            "connection_name": "Project A durable",
+            "target_id": target["target_id"],
+            "access_browser": True,
+            "access_manager": False,
+        },
+        headers=headers,
+    )
+    assert duplicate.status_code == 409, duplicate.text
+    assert duplicate.json()["detail"] == "An S3 connection with this name already exists"
+
     disconnected = client.delete(
         f"/api/me/openstack/connections/{connection_id}/session",
         headers=headers,
