@@ -75,6 +75,27 @@ export function keyActions(
 }
 
 export function iam(c: DemoRequest): Response | undefined {
+  const pageMatch = c.path.match(/^\/manager\/iam\/(users|groups|roles|policies)\/page$/);
+  if (pageMatch && c.method === "GET") {
+    const account = scopedAccount(c);
+    const data = required(c.state.iam[account.id]);
+    const segment = pageMatch[1] as "users" | "groups" | "roles" | "policies";
+    const search = (c.url.searchParams.get("search") ?? "").trim().toLowerCase();
+    const marker = c.url.searchParams.get("marker") ?? "";
+    const start = marker.startsWith("demo-") ? Math.max(0, Number(marker.slice(5)) || 0) : 0;
+    const pageSize = Math.max(1, Math.min(Number(c.url.searchParams.get("page_size")) || 25, 1000));
+    const filtered = data[segment].filter(entity => !search || JSON.stringify(entity).toLowerCase().includes(search));
+    const slice = filtered.slice(start, start + pageSize);
+    const items = segment === "users"
+      ? slice.map(entity => ({ ...entity, has_keys: (data.keys[entity.name]?.length ?? 0) > 0 }))
+      : slice;
+    const nextOffset = start + slice.length;
+    return json({
+      items,
+      next_marker: nextOffset < filtered.length ? `demo-${nextOffset}` : null,
+    });
+  }
+
   const portalKeys = c.path.match(/^\/portal\/access-keys(?:\/([^/]+)(?:\/(status))?)?$/);
   const cephKeys = c.path.match(/^\/manager\/ceph\/keys(?:\/([^/]+)(?:\/(status))?)?$/);
   const match = c.path.match(/^\/manager\/iam\/(users|groups|roles|policies)(?:\/([^/]+)(?:\/(keys|policies|inline-policies|users|tags)(?:\/([^/]+)(?:\/(status))?)?)?)?$/);
