@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import logging
 from typing import TYPE_CHECKING, cast, Optional, TypeGuard
 
 from sqlalchemy import select
@@ -29,6 +30,9 @@ from app.utils.account_roles import PortalAccountRoleValue, max_portal_account_r
 
 if TYPE_CHECKING:
     from app.services.access_context_contracts import AccountAccess
+
+
+logger = logging.getLogger(__name__)
 
 
 class PortalStorageSpaceAccessMixin:
@@ -378,3 +382,25 @@ class PortalStorageSpaceAccessMixin:
             )
         if sync_bucket_policy:
             self._sync_storage_space_bucket_policy(account, metadata.bucket_name, metadata)
+
+    def _restore_storage_space_access_projection(
+        self,
+        account: S3Account,
+        metadata: PortalStorageSpaceMetadata,
+        *,
+        extra_user_ids: Optional[set[int]] = None,
+    ) -> bool:
+        try:
+            self._sync_storage_space_access_projection(
+                account,
+                metadata,
+                extra_user_ids=extra_user_ids,
+            )
+        except Exception as exc:  # pragma: no cover - defensive remote failure
+            logger.error(
+                "Unable to restore Storage Space access projection for %s: %s",
+                metadata.bucket_name,
+                exc,
+            )
+            return True
+        return False

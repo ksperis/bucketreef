@@ -4006,6 +4006,135 @@ def test_update_storage_space_updates_sharing_with_canonical_payload(monkeypatch
     assert metadata.share_scope == "account"
     assert metadata.account_member_role == "Viewer"
 
+
+def test_update_storage_space_commit_failure_restores_projection(monkeypatch, db_session):
+    account = make_s3_account(
+        db_session,
+        name="portal-storage-update-rollback",
+        rgw_access_key="ROOT-AK",
+        rgw_secret_key="ROOT-SK",
+    )
+    user = User(
+        email="portal-storage-update-rollback@example.com",
+        hashed_password="x",
+        role="ui_user",
+    )
+    db_session.add_all([account, user])
+    db_session.commit()
+    metadata = PortalStorageSpaceMetadata(
+        account_id=account.id,
+        bucket_name="shared-data",
+        display_name="Shared Data",
+        description="Before",
+        visibility="shared",
+        share_scope="restricted",
+    )
+    db_session.add(metadata)
+    db_session.commit()
+
+    access = _portal_access(
+        account,
+        user,
+        portal_role=PortalAccountRole.PORTAL_MANAGER.value,
+        can_manage_buckets=True,
+    )
+    service = PortalService(db_session)
+    monkeypatch.setattr(service, "_require_storage_space_manager", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(service, "_resolve_storage_space_bucket_name", lambda *_args, **_kwargs: "shared-data")
+    projection_states = []
+
+    def record_projection(_account, metadata_arg, **_kwargs):
+        projection_states.append(metadata_arg.description)
+
+    monkeypatch.setattr(service, "_sync_storage_space_access_projection", record_projection)
+    monkeypatch.setattr(
+        db_session,
+        "commit",
+        lambda: (_ for _ in ()).throw(RuntimeError("simulated storage update commit failure")),
+    )
+
+    with pytest.raises(RuntimeError, match="simulated storage update commit failure"):
+        service.update_storage_space(
+            user,
+            access,
+            "shared-data",
+            PortalStorageSpaceUpdate(description="After"),
+        )
+
+    assert projection_states == ["After", "Before"]
+    assert metadata.description == "Before"
+
+
+def test_storage_space_share_reports_projection_compensation_failure(monkeypatch, db_session):
+    account = make_s3_account(
+        db_session,
+        name="portal-share-compensation-failure",
+        rgw_access_key="ROOT-AK",
+        rgw_secret_key="ROOT-SK",
+    )
+    owner = User(email="owner-share-compensation-failure@example.com", hashed_password="x", role="ui_user")
+    target = User(email="target-share-compensation-failure@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([account, owner, target])
+    db_session.commit()
+    db_session.add(
+        UserS3Account(
+            user_id=target.id,
+            account_id=account.id,
+            manager_role=None,
+            portal_role=PortalAccountRole.PORTAL_USER.value,
+        )
+    )
+    metadata = PortalStorageSpaceMetadata(
+        account_id=account.id,
+        bucket_name="research-data",
+        display_name="Research Data",
+        visibility="shared",
+    )
+    db_session.add(metadata)
+    db_session.commit()
+    service = PortalService(db_session)
+    monkeypatch.setattr(
+        service,
+        "list_storage_spaces",
+        lambda *_args, **_kwargs: [
+            portal_storage_space_summary(
+                id="research-data",
+                name="Research Data",
+                role="Owner",
+                internal_bucket_name="research-data",
+            )
+        ],
+    )
+    calls = []
+
+    def projection(*_args, **_kwargs):
+        calls.append(None)
+        if len(calls) == 2:
+            raise RuntimeError("simulated projection compensation failure")
+
+    monkeypatch.setattr(service, "_sync_storage_space_access_projection", projection)
+    monkeypatch.setattr(
+        db_session,
+        "commit",
+        lambda: (_ for _ in ()).throw(RuntimeError("simulated share commit failure")),
+    )
+    access = _portal_access(
+        account,
+        owner,
+        portal_role=PortalAccountRole.PORTAL_MANAGER.value,
+        can_manage_buckets=True,
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="Local or remote rollback also failed",
+    ) as raised:
+        service.set_storage_space_share(owner, access, target, "research-data", "Viewer")
+
+    assert isinstance(raised.value.__cause__, RuntimeError)
+    assert str(raised.value.__cause__) == "simulated share commit failure"
+    assert len(calls) == 2
+
 @pytest.mark.parametrize(
     ("visibility", "share_scope", "account_member_role", "message"),
     [
@@ -6449,8 +6578,12 @@ def test_set_storage_space_share_rolls_back_db_grant_when_projection_fails(monke
         ],
     )
     monkeypatch.setattr(service, "_sync_user_group_membership", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(service, "_sync_storage_space_bucket_policy", lambda *_args, **_kwargs: None)
 
     class FailingIAMService:
+        def __init__(self):
+            self.policy_updates = 0
+
         def get_user(self, username):
             return IAMUser(name=username, arn=f"arn:aws:iam:::user/{username}")
 
@@ -6458,7 +6591,12 @@ def test_set_storage_space_share_rolls_back_db_grant_when_projection_fails(monke
             return None
 
         def put_user_inline_policy(self, username, policy_name, policy_document):  # noqa: ARG002
-            raise RuntimeError("projection failed")
+            self.policy_updates += 1
+            if self.policy_updates == 1:
+                raise RuntimeError("projection failed")
+
+        def delete_user_inline_policy(self, username, policy_name):  # noqa: ARG002
+            return None
 
     monkeypatch.setattr(service, "_get_iam_service", lambda _account: FailingIAMService())
     owner_access = _portal_access(account, owner, portal_role=PortalAccountRole.PORTAL_MANAGER.value, can_manage_buckets=True)
@@ -6469,6 +6607,157 @@ def test_set_storage_space_share_rolls_back_db_grant_when_projection_fails(monke
     assert db_session.scalars(
         sa.select(PortalStorageSpaceGrant).where(PortalStorageSpaceGrant.storage_space_metadata_id == metadata.id)
     ).all() == []
+
+
+def test_set_storage_space_share_commit_failure_restores_projection(monkeypatch, db_session):
+    account = make_s3_account(db_session, name="portal-share-commit-rollback", rgw_access_key="ROOT-AK", rgw_secret_key="ROOT-SK")
+    owner = User(email="owner-share-commit-rollback@example.com", hashed_password="x", role="ui_user")
+    target = User(email="target-share-commit-rollback@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([account, owner, target])
+    db_session.commit()
+    db_session.add(
+        UserS3Account(
+            user_id=target.id,
+            account_id=account.id,
+            manager_role=None,
+            portal_role=PortalAccountRole.PORTAL_USER.value,
+        )
+    )
+    metadata = PortalStorageSpaceMetadata(
+        account_id=account.id,
+        bucket_name="research-data",
+        display_name="Research Data",
+        visibility="shared",
+    )
+    db_session.add(metadata)
+    db_session.commit()
+    service = PortalService(db_session)
+    monkeypatch.setattr(
+        service,
+        "list_storage_spaces",
+        lambda *_args, **_kwargs: [
+            portal_storage_space_summary(
+                id="research-data",
+                name="Research Data",
+                role="Owner",
+                internal_bucket_name="research-data",
+            )
+        ],
+    )
+    projection_states = []
+
+    def record_projection(*_args, **_kwargs):
+        projection_states.append(
+            db_session.scalar(
+                sa.select(sa.func.count())
+                .select_from(PortalStorageSpaceGrant)
+                .where(
+                    PortalStorageSpaceGrant.storage_space_metadata_id == metadata.id,
+                    PortalStorageSpaceGrant.user_id == target.id,
+                )
+            )
+        )
+
+    monkeypatch.setattr(service, "_sync_storage_space_access_projection", record_projection)
+    monkeypatch.setattr(
+        db_session,
+        "commit",
+        lambda: (_ for _ in ()).throw(RuntimeError("simulated share commit failure")),
+    )
+    access = _portal_access(account, owner, portal_role=PortalAccountRole.PORTAL_MANAGER.value, can_manage_buckets=True)
+
+    with pytest.raises(RuntimeError, match="simulated share commit failure"):
+        service.set_storage_space_share(owner, access, target, "research-data", "Viewer")
+
+    assert projection_states == [1, 0]
+    assert db_session.scalar(
+        sa.select(sa.func.count())
+        .select_from(PortalStorageSpaceGrant)
+        .where(
+            PortalStorageSpaceGrant.storage_space_metadata_id == metadata.id,
+            PortalStorageSpaceGrant.user_id == target.id,
+        )
+    ) == 0
+
+
+def test_revoke_storage_space_share_commit_failure_restores_projection(monkeypatch, db_session):
+    account = make_s3_account(db_session, name="portal-share-revoke-rollback", rgw_access_key="ROOT-AK", rgw_secret_key="ROOT-SK")
+    owner = User(email="owner-share-revoke-rollback@example.com", hashed_password="x", role="ui_user")
+    target = User(email="target-share-revoke-rollback@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([account, owner, target])
+    db_session.commit()
+    db_session.add(
+        UserS3Account(
+            user_id=target.id,
+            account_id=account.id,
+            manager_role=None,
+            portal_role=PortalAccountRole.PORTAL_USER.value,
+        )
+    )
+    metadata = PortalStorageSpaceMetadata(
+        account_id=account.id,
+        bucket_name="research-data",
+        display_name="Research Data",
+        visibility="shared",
+    )
+    db_session.add(metadata)
+    db_session.flush()
+    db_session.add(
+        PortalStorageSpaceGrant(
+            storage_space_metadata_id=metadata.id,
+            user_id=target.id,
+            role="Viewer",
+            created_by_user_id=owner.id,
+        )
+    )
+    db_session.commit()
+    service = PortalService(db_session)
+    monkeypatch.setattr(
+        service,
+        "list_storage_spaces",
+        lambda *_args, **_kwargs: [
+            portal_storage_space_summary(
+                id="research-data",
+                name="Research Data",
+                role="Owner",
+                internal_bucket_name="research-data",
+            )
+        ],
+    )
+    projection_states = []
+
+    def record_projection(*_args, **_kwargs):
+        projection_states.append(
+            db_session.scalar(
+                sa.select(sa.func.count())
+                .select_from(PortalStorageSpaceGrant)
+                .where(
+                    PortalStorageSpaceGrant.storage_space_metadata_id == metadata.id,
+                    PortalStorageSpaceGrant.user_id == target.id,
+                )
+            )
+        )
+
+    monkeypatch.setattr(service, "_sync_storage_space_access_projection", record_projection)
+    monkeypatch.setattr(
+        db_session,
+        "commit",
+        lambda: (_ for _ in ()).throw(RuntimeError("simulated revoke commit failure")),
+    )
+    access = _portal_access(account, owner, portal_role=PortalAccountRole.PORTAL_MANAGER.value, can_manage_buckets=True)
+
+    with pytest.raises(RuntimeError, match="simulated revoke commit failure"):
+        service.revoke_storage_space_share(owner, access, target, "research-data")
+
+    assert projection_states == [0, 1]
+    assert db_session.scalar(
+        sa.select(sa.func.count())
+        .select_from(PortalStorageSpaceGrant)
+        .where(
+            PortalStorageSpaceGrant.storage_space_metadata_id == metadata.id,
+            PortalStorageSpaceGrant.user_id == target.id,
+        )
+    ) == 1
 
 
 def test_storage_space_share_mutations_resync_bucket_policy(monkeypatch, db_session):

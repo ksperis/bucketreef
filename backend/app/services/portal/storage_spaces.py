@@ -378,19 +378,44 @@ class PortalStorageSpacesMixin:
         if metadata is None:
             raise RuntimeError("Storage space metadata is missing.")
         previous_participant_user_ids = self._storage_space_participant_user_ids(metadata)
-        self._apply_storage_space_update(
-            metadata,
-            bucket_name=bucket_name,
-            update=update,
-        )
-        self.db.add(metadata)
-        self.db.flush()
-        self._sync_storage_space_access_projection(
-            access.account,
-            metadata,
-            extra_user_ids=previous_participant_user_ids,
-        )
-        self.db.commit()
+        projection_attempted = False
+        try:
+            self._apply_storage_space_update(
+                metadata,
+                bucket_name=bucket_name,
+                update=update,
+            )
+            self.db.add(metadata)
+            self.db.flush()
+            projection_attempted = True
+            self._sync_storage_space_access_projection(
+                access.account,
+                metadata,
+                extra_user_ids=previous_participant_user_ids,
+            )
+            self.db.commit()
+        except Exception as exc:
+            db_rollback_failed = False
+            try:
+                self.db.rollback()
+            except Exception as rollback_exc:  # pragma: no cover - defensive database failure
+                logger.error(
+                    "Unable to roll back failed Storage Space update: %s",
+                    rollback_exc,
+                )
+                db_rollback_failed = True
+            projection_rollback_failed = False
+            if projection_attempted and not db_rollback_failed:
+                projection_rollback_failed = self._restore_storage_space_access_projection(
+                    access.account,
+                    metadata,
+                    extra_user_ids=previous_participant_user_ids,
+                )
+            if db_rollback_failed or projection_rollback_failed:
+                raise RuntimeError(
+                    "Unable to update Storage Space. Local or remote rollback also failed."
+                ) from exc
+            raise
         storage_space = self.get_storage_space(user, access, bucket_name)
         if storage_space is None:
             raise PortalNotFoundError("Storage space not found after update.")
