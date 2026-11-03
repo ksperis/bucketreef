@@ -943,6 +943,199 @@ def test_portal_user_creation_leaves_unowned_remote_collision_untouched(db_sessi
     ) is None
 
 
+def test_portal_key_replacement_commit_failure_keeps_previous_remote_key(
+    db_session,
+    monkeypatch,
+):
+    account = make_s3_account(db_session, name="portal-key-rollback")
+    user = User(email="portal-key-rollback@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([account, user])
+    db_session.commit()
+    link = AccountIAMUser(
+        user_id=user.id,
+        account_id=account.id,
+        iam_user_id="portal-key-rollback-uid",
+        iam_username="portal-key-rollback-user",
+        active_access_key="AK-OLD",
+        active_secret_key=None,
+    )
+    db_session.add(link)
+    db_session.commit()
+    service = PortalService(db_session)
+
+    class FakeIAM:
+        def __init__(self):
+            self.deleted = []
+
+        def list_access_keys(self, _username):
+            return [IAMAccessKey(access_key_id="AK-OLD", status="Active")]
+
+        def create_access_key(self, _username):
+            return IAMAccessKey(
+                access_key_id="AK-NEW",
+                secret_access_key="SK-NEW",
+                status="Active",
+            )
+
+        def delete_access_key(self, _username, access_key_id):
+            self.deleted.append(access_key_id)
+
+    iam_service = FakeIAM()
+    monkeypatch.setattr(
+        db_session,
+        "commit",
+        lambda: (_ for _ in ()).throw(RuntimeError("simulated portal key commit failure")),
+    )
+
+    with pytest.raises(RuntimeError, match="simulated portal key commit failure"):
+        service._ensure_active_key(link, iam_service)
+
+    assert iam_service.deleted == ["AK-NEW"]
+    assert link.active_access_key == "AK-OLD"
+    assert link.active_secret_key is None
+
+
+def test_portal_key_replacement_persists_before_stale_key_cleanup(
+    db_session,
+    monkeypatch,
+):
+    account = make_s3_account(db_session, name="portal-key-order")
+    user = User(email="portal-key-order@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([account, user])
+    db_session.commit()
+    link = AccountIAMUser(
+        user_id=user.id,
+        account_id=account.id,
+        iam_user_id="portal-key-order-uid",
+        iam_username="portal-key-order-user",
+        active_access_key="AK-OLD",
+        active_secret_key=None,
+    )
+    db_session.add(link)
+    db_session.commit()
+    service = PortalService(db_session)
+    events = []
+
+    class FakeIAM:
+        def list_access_keys(self, _username):
+            return [IAMAccessKey(access_key_id="AK-OLD", status="Active")]
+
+        def create_access_key(self, _username):
+            events.append("create")
+            return IAMAccessKey(
+                access_key_id="AK-NEW",
+                secret_access_key="SK-NEW",
+                status="Active",
+            )
+
+        def delete_access_key(self, _username, access_key_id):
+            events.append(f"delete:{access_key_id}")
+
+    iam_service = FakeIAM()
+    real_commit = db_session.commit
+
+    def tracked_commit():
+        events.append("commit")
+        real_commit()
+
+    monkeypatch.setattr(db_session, "commit", tracked_commit)
+
+    active = service._ensure_active_key(link, iam_service)
+
+    assert active.access_key_id == "AK-NEW"
+    assert active.secret_access_key == "SK-NEW"
+    assert events == ["create", "commit", "delete:AK-OLD"]
+    assert link.active_access_key == "AK-NEW"
+    assert link.active_secret_key == "SK-NEW"
+
+
+def test_portal_active_key_retries_stale_key_cleanup(db_session):
+    account = make_s3_account(db_session, name="portal-key-stale-cleanup")
+    user = User(email="portal-key-stale-cleanup@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([account, user])
+    db_session.commit()
+    link = AccountIAMUser(
+        user_id=user.id,
+        account_id=account.id,
+        iam_user_id="portal-key-stale-cleanup-uid",
+        iam_username="portal-key-stale-cleanup-user",
+        active_access_key="AK-CURRENT",
+        active_secret_key="SK-CURRENT",
+    )
+    db_session.add(link)
+    db_session.commit()
+    service = PortalService(db_session)
+
+    class FakeIAM:
+        def __init__(self):
+            self.deleted = []
+
+        def list_access_keys(self, _username):
+            return [
+                IAMAccessKey(access_key_id="AK-CURRENT", status="Active"),
+                IAMAccessKey(access_key_id="AK-STALE", status="Active"),
+            ]
+
+        def delete_access_key(self, _username, access_key_id):
+            self.deleted.append(access_key_id)
+
+    iam_service = FakeIAM()
+
+    active = service._ensure_active_key(link, iam_service)
+
+    assert active.access_key_id == "AK-CURRENT"
+    assert active.secret_access_key == "SK-CURRENT"
+    assert iam_service.deleted == ["AK-STALE"]
+
+
+def test_portal_key_replacement_reports_cleanup_failure(db_session, monkeypatch):
+    account = make_s3_account(db_session, name="portal-key-cleanup-failure")
+    user = User(email="portal-key-cleanup-failure@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([account, user])
+    db_session.commit()
+    link = AccountIAMUser(
+        user_id=user.id,
+        account_id=account.id,
+        iam_user_id="portal-key-cleanup-failure-uid",
+        iam_username="portal-key-cleanup-failure-user",
+        active_access_key="AK-OLD",
+        active_secret_key=None,
+    )
+    db_session.add(link)
+    db_session.commit()
+    service = PortalService(db_session)
+
+    class FakeIAM:
+        def list_access_keys(self, _username):
+            return [IAMAccessKey(access_key_id="AK-OLD", status="Active")]
+
+        def create_access_key(self, _username):
+            return IAMAccessKey(
+                access_key_id="AK-NEW",
+                secret_access_key="SK-NEW",
+                status="Active",
+            )
+
+        def delete_access_key(self, _username, _access_key_id):
+            raise RuntimeError("simulated new key cleanup failure")
+
+    iam_service = FakeIAM()
+    monkeypatch.setattr(
+        db_session,
+        "commit",
+        lambda: (_ for _ in ()).throw(RuntimeError("simulated portal key commit failure")),
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="Local or IAM rollback also failed",
+    ) as raised:
+        service._ensure_active_key(link, iam_service)
+
+    assert isinstance(raised.value.__cause__, RuntimeError)
+    assert str(raised.value.__cause__) == "simulated portal key commit failure"
+
+
 def test_manager_group_access_is_protected_before_policy_update(monkeypatch, db_session):
     service = PortalService(db_session)
     account = make_s3_account(db_session, name="ordering")

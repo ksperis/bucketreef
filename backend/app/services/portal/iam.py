@@ -63,7 +63,6 @@ class PortalIamMixin:
         link.active_secret_key = key.secret_access_key
         self.db.add(link)
         self.db.commit()
-        self.db.refresh(link)
         return portal_access_key_from_iam_metadata(
             key,
             is_portal=True,
@@ -394,26 +393,97 @@ class PortalIamMixin:
         if active:
             if not link.active_secret_key:
                 new_key = iam_service.create_access_key(link.iam_username)
-                try:
-                    iam_service.delete_access_key(link.iam_username, active.access_key_id)
-                except Exception as exc:  # pragma: no cover - defensive
-                    logger.warning("Unable to delete incomplete access key %s: %s", active.access_key_id, exc)
-                return self._persist_portal_key(link, new_key)
-            return portal_access_key_from_iam_metadata(
+                return self._activate_replacement_portal_key(
+                    link,
+                    iam_service,
+                    new_key,
+                    previous_keys=key_list,
+                )
+            result = portal_access_key_from_iam_metadata(
                 active,
                 is_portal=True,
                 deletable=False,
                 secret_access_key=link.active_secret_key,
                 is_active=True,
             )
+            self._delete_stale_portal_keys(
+                iam_service,
+                link.iam_username,
+                key_list,
+                preserve_access_key=active.access_key_id,
+            )
+            return result
         new_key = iam_service.create_access_key(link.iam_username)
-        # Clean up any stale keys; we only persist the active one.
-        for k in key_list:
+        return self._activate_replacement_portal_key(
+            link,
+            iam_service,
+            new_key,
+            previous_keys=key_list,
+        )
+
+    def _activate_replacement_portal_key(
+        self,
+        link: AccountIAMUser,
+        iam_service: RGWIAMService,
+        new_key: ModelAccessKey,
+        *,
+        previous_keys: list[ModelAccessKey],
+    ) -> PortalAccessKey:
+        try:
+            result = self._persist_portal_key(link, new_key)
+        except Exception as exc:
+            db_rollback_failed = False
             try:
-                iam_service.delete_access_key(link.iam_username, k.access_key_id)
-            except Exception as exc:  # pragma: no cover - defensive
-                logger.warning("Unable to delete stale access key %s: %s", k.access_key_id, exc)
-        return self._persist_portal_key(link, new_key)
+                self.db.rollback()
+            except Exception as rollback_exc:  # pragma: no cover - defensive database failure
+                logger.error(
+                    "Unable to roll back failed Portal IAM key activation: %s",
+                    rollback_exc,
+                )
+                db_rollback_failed = True
+            remote_rollback_failed = False
+            try:
+                iam_service.delete_access_key(link.iam_username, new_key.access_key_id)
+            except Exception as rollback_exc:  # pragma: no cover - defensive remote failure
+                logger.error(
+                    "Unable to remove new Portal IAM access key %s after failed activation: %s",
+                    new_key.access_key_id,
+                    rollback_exc,
+                )
+                remote_rollback_failed = True
+            if db_rollback_failed or remote_rollback_failed:
+                raise RuntimeError(
+                    "Unable to activate Portal IAM key. Local or IAM rollback also failed."
+                ) from exc
+            raise
+
+        self._delete_stale_portal_keys(
+            iam_service,
+            link.iam_username,
+            previous_keys,
+            preserve_access_key=new_key.access_key_id,
+        )
+        return result
+
+    @staticmethod
+    def _delete_stale_portal_keys(
+        iam_service: RGWIAMService,
+        iam_username: str,
+        keys: list[ModelAccessKey],
+        *,
+        preserve_access_key: str,
+    ) -> None:
+        for key in keys:
+            if key.access_key_id == preserve_access_key:
+                continue
+            try:
+                iam_service.delete_access_key(iam_username, key.access_key_id)
+            except Exception as exc:  # pragma: no cover - defensive remote failure
+                logger.warning(
+                    "Unable to delete stale access key %s: %s",
+                    key.access_key_id,
+                    exc,
+                )
 
     def _list_access_keys(
         self,
