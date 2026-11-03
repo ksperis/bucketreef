@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import sqlite3
 from typing import Any, Callable, Iterable, Literal, Optional
 
+from app.core.db_transactions import commit_or_rollback
 from app.models.bucket_compare import (
     BucketContentDiff,
     BucketObjectDetail,
@@ -66,7 +67,7 @@ class BucketCompareObjectIndex:
                 batch = []
         if batch:
             self._insert_batch(batch)
-        self._conn.commit()
+        commit_or_rollback(self._conn)
         return count
 
     def build_content_diff(
@@ -204,7 +205,7 @@ class BucketCompareObjectIndex:
                 """
             )
         self._conn.execute("DROP TABLE ignored_compare_keys")
-        self._conn.commit()
+        commit_or_rollback(self._conn)
         return ignored_count
 
     def _count_side(self, side: Literal["source", "target"]) -> int:

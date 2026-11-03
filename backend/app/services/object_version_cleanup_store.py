@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Callable, Iterator
 
+from app.core.db_transactions import commit_or_rollback
+
 
 @dataclass(frozen=True)
 class ObjectVersionScanCounts:
@@ -111,7 +113,7 @@ class ObjectVersionCleanupStore:
                 """,
                 marker_rows,
             )
-        self.connection.commit()
+        commit_or_rollback(self.connection)
         return len(version_rows), len(marker_rows), version_scan_order, marker_scan_order
 
     def scan(
@@ -252,7 +254,7 @@ class ObjectVersionCleanupStore:
             "DELETE FROM cleanup_versions WHERE key = ? AND version_id = ?",
             versions,
         )
-        self.connection.commit()
+        commit_or_rollback(self.connection)
 
     def _count(self, query: str) -> int:
         row = self.connection.execute(query).fetchone()
