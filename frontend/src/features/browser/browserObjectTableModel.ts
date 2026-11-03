@@ -455,7 +455,7 @@ export const buildBrowserItems = (
     sizeBytes: object.size,
     modified: formatDateTime(object.last_modified),
     modifiedAt: object.last_modified ? new Date(object.last_modified).getTime() : null,
-    owner: "-",
+    owner: object.owner ?? "-",
     storageClass: object.storage_class ?? undefined,
     etag: normalizeEtag(object.etag ?? undefined) ?? null,
   } satisfies BrowserItem));

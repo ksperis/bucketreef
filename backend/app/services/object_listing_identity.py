@@ -2,6 +2,20 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+from typing import Any
+
+
+def object_owner_label(entry: dict[str, Any]) -> str | None:
+    """Return the most useful owner label exposed by an S3 listing entry."""
+    owner = entry.get("Owner")
+    if not isinstance(owner, dict):
+        return None
+    for field in ("DisplayName", "ID"):
+        value = owner.get(field)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
 
 def is_current_folder_marker(*, key: str, prefix: str, size: int) -> bool:
     """Return whether an S3 listing entry is the marker for the selected prefix."""
