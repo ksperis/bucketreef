@@ -15,7 +15,6 @@ import { useI18n } from "../../i18n";
 import PageBanner from "../../components/PageBanner";
 import PageTabs from "../../components/PageTabs";
 import InlineSummary from "../../components/InlineSummary";
-import UiBadge from "../../components/ui/UiBadge";
 import { MetricsCard } from "../../components/MetricsCard";
 import UsageTile from "../../components/UsageTile";
 import { formatCompactNumber } from "../../utils/format";
@@ -1013,36 +1012,6 @@ function BucketDetailPageContent({
                       emptyHint={text("No object quota configured.")}
                     />
                   </div>
-                </SettingsSection>
-                <SettingsSection
-                  title={text("Active features")}
-                  description={text("Features currently enabled or configured for this bucket.")}
-                  presentation="compact"
-                >
-                  {overviewSummary.loadingFeatures ? (
-                    <p className="settings-description">{text("Loading feature status...")}</p>
-                  ) : overviewSummary.activeFeatures.length === 0 ? (
-                    <p className="settings-description">{text("No active features")}</p>
-                  ) : (
-                    <div className="space-y-2">
-                      <p className="settings-description">
-                        {text("{count} active", { count: overviewSummary.activeFeatures.length })}
-                      </p>
-                      <div className="flex flex-wrap gap-2" aria-label={text("Active features")}>
-                        {overviewSummary.activeFeatures.map((feature) => (
-                          <UiBadge
-                            key={feature.label}
-                            tone={feature.state === "warning" ? "warning" : "primary"}
-                            className="gap-1.5 px-2.5 py-1"
-                          >
-                            <span>{feature.label}</span>
-                            {feature.detail ? <span aria-hidden="true">·</span> : null}
-                            {feature.detail ? <span>{feature.detail}</span> : null}
-                          </UiBadge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </SettingsSection>
                 <SettingsSection
                   title={text("Data protection")}

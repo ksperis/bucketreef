@@ -1640,11 +1640,6 @@
   "Not blocked": "Nicht blockiert",
   "notification": "Benachrichtigung",
   "notifications": "Benachrichtigungen",
-  "Active features": "Aktive Funktionen",
-  "Features currently enabled or configured for this bucket.": "Funktionen, die für diesen Bucket derzeit aktiviert oder konfiguriert sind.",
-  "{count} active": "{count} aktiv",
-  "No active features": "Keine aktiven Funktionen",
-  "Loading feature status...": "Funktionsstatus wird geladen...",
   "Encryption": "Verschlüsselung",
   "Public access blocked": "Öffentlicher Zugriff blockiert",
   "Public access partially blocked": "Öffentlicher Zugriff teilweise blockiert"
