@@ -178,9 +178,14 @@ def test_ceph_admin_bucket_configuration_and_compare(
 
         _optional(
             "ceph-admin bucket quota update",
-            lambda: super_admin_session.patch(
+            lambda: super_admin_session.put(
                 f"{base_path}/quota",
-                json={"max_size_gb": 1, "max_objects": 1000},
+                json={
+                    "enabled": True,
+                    "max_size_gb": 1,
+                    "max_size_unit": "GiB",
+                    "max_objects": 1000,
+                },
                 expected_status=204,
             ),
         )
