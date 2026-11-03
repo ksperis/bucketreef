@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 import requests
+import pytest
 from datetime import timedelta
 
 from sqlalchemy import select
@@ -348,6 +349,56 @@ def test_workspace_health_overview_projects_ongoing_and_recent_incidents(db_sess
     assert payload["incidents"][1]["ongoing"] is False
     assert payload["incidents"][1]["recent"] is True
     assert payload["incidents"][1]["duration_minutes"] == 15
+
+
+def test_healthcheck_projection_rolls_back_when_second_commit_fails(db_session, monkeypatch):
+    _seed_endpoint(
+        db_session,
+        name="Projection rollback endpoint",
+        endpoint_url="https://projection-rollback.example.test",
+        is_default=True,
+    )
+    db_session.commit()
+    endpoint = db_session.scalars(
+        select(StorageEndpoint).where(StorageEndpoint.name == "Projection rollback endpoint")
+    ).one()
+    result = HealthCheckResult(
+        endpoint_id=endpoint.id,
+        status=HealthCheckStatus.UP,
+        checked_at=utcnow(),
+        latency_ms=12,
+        http_status=200,
+        error_message=None,
+        check_mode="http",
+    )
+    original_commit = db_session.commit
+    original_rollback = db_session.rollback
+    commit_calls = 0
+    rollback_calls = []
+
+    def fail_second_commit():
+        nonlocal commit_calls
+        commit_calls += 1
+        if commit_calls == 2:
+            raise RuntimeError("commit failed")
+        original_commit()
+
+    def recording_rollback():
+        rollback_calls.append(True)
+        original_rollback()
+
+    monkeypatch.setattr(db_session, "commit", fail_second_commit)
+    monkeypatch.setattr(db_session, "rollback", recording_rollback)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        HealthCheckPersistenceService(db_session).record_results([result])
+
+    assert commit_calls == 2
+    assert rollback_calls == [True]
+    assert db_session.scalars(select(EndpointHealthCheck)).all()
+    assert db_session.scalars(select(EndpointHealthLatest)).all() == []
+    assert db_session.scalars(select(EndpointHealthRollup)).all() == []
+    assert db_session.scalars(select(EndpointHealthStatusSegment)).all() == []
 
 
 def test_healthcheck_history_pruning_keeps_recent_and_active_rows(db_session, monkeypatch):

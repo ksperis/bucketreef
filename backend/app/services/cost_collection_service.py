@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.sqlite import ensure_sqlite_transaction_for_savepoint
 from app.db import CostStorageDaily, CostUsageDaily, S3Account, S3User, StorageEndpoint
 from app.core.domain_enums import StorageProvider
 from app.models.cost import (
@@ -480,6 +481,7 @@ class CostCollector:
         else:
             row = build_row(collected_at)
             try:
+                ensure_sqlite_transaction_for_savepoint(self.db)
                 with self.db.begin_nested():
                     self.db.add(row)
                     self.db.flush()
