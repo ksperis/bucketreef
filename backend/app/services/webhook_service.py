@@ -12,10 +12,11 @@ from datetime import datetime
 from typing import Any, Iterable
 
 from sqlalchemy import delete, func, or_, select
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
+from app.core.db_transactions import commit_or_rollback
 from app.core.runtime_surfaces import runtime_surface_enabled
 from app.core.sensitive_data import sanitize_audit_metadata
 from app.core.sqlite import ensure_sqlite_transaction_for_savepoint
@@ -179,10 +180,10 @@ class WebhookService:
         try:
             self.db.flush()
             self._replace_subscriptions(row, event_types)
-            self.db.commit()
         except IntegrityError as exc:
             self.db.rollback()
             raise ValueError("A webhook endpoint with this name already exists") from exc
+        self._commit_endpoint_change()
         self.db.refresh(row)
         out = self._endpoint_out(row)
         return WebhookEndpointCreated(**out.model_dump(), signing_secret=secret)
@@ -197,26 +198,26 @@ class WebhookService:
         row.url = payload.url
         row.enabled = bool(payload.enabled)
         row.updated_at = utcnow()
-        self._replace_subscriptions(row, event_types)
         try:
-            self.db.commit()
+            self._replace_subscriptions(row, event_types)
         except IntegrityError as exc:
             self.db.rollback()
             raise ValueError("A webhook endpoint with this name already exists") from exc
+        self._commit_endpoint_change()
         self.db.refresh(row)
         return self._endpoint_out(row)
 
     def delete_endpoint(self, endpoint_id: int) -> None:
         row = self._require_endpoint(endpoint_id)
         self.db.delete(row)
-        self.db.commit()
+        commit_or_rollback(self.db)
 
     def rotate_secret(self, endpoint_id: int) -> WebhookSecretRotation:
         row = self._require_endpoint(endpoint_id)
         secret = _new_signing_secret()
         row.signing_secret = secret
         row.updated_at = utcnow()
-        self.db.commit()
+        commit_or_rollback(self.db)
         return WebhookSecretRotation(endpoint_id=row.id, signing_secret=secret)
 
     def enqueue_test(self, endpoint_id: int) -> WebhookTestResponse:
@@ -254,6 +255,12 @@ class WebhookService:
         if row is None:
             raise LookupError("Webhook endpoint not found")
         return row
+
+    def _commit_endpoint_change(self) -> None:
+        try:
+            commit_or_rollback(self.db)
+        except IntegrityError as exc:
+            raise ValueError("A webhook endpoint with this name already exists") from exc
 
     def _validate_event_types(self, event_types: Iterable[str]) -> list[str]:
         normalized = []
@@ -477,11 +484,7 @@ class WebhookEventPublisher:
             for endpoint in self._event_endpoints(event_type, forced_ids)
         ]
         if commit and delivery_ids:
-            try:
-                self.db.commit()
-            except SQLAlchemyError:
-                self.db.rollback()
-                raise
+            commit_or_rollback(self.db)
         return delivery_ids
 
     def publish_event_in_current_transaction(
