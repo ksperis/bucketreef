@@ -173,6 +173,78 @@ def test_common_mfa_reset_removes_all_factors_sessions_and_tokens(db_session):
     assert token.revoked_at is not None
 
 
+def test_common_mfa_reset_rolls_back_all_changes_when_commit_fails(db_session, monkeypatch):
+    target = _user(db_session, email="reset-rollback@example.com", role=UserRole.UI_ADMIN.value)
+    passkey = WebAuthnCredential(
+        id="reset-rollback-passkey",
+        user_id=target.id,
+        credential_id="reset-rollback-passkey-credential",
+        public_key="public-key",
+        sign_count=0,
+        transports=[],
+        name="Passkey",
+    )
+    recovery_code = RecoveryCode(
+        id="reset-rollback-recovery",
+        user_id=target.id,
+        code_hash="reset-rollback-recovery-hash",
+    )
+    challenge = AuthChallenge(
+        id="reset-rollback-challenge",
+        user_id=target.id,
+        binding_sid="pre-auth",
+        purpose="authentication",
+        challenge_hash="reset-rollback-challenge-hash",
+        payload={},
+        expires_at=utcnow() + timedelta(minutes=5),
+    )
+    db_session.add_all([passkey, recovery_code, challenge])
+    db_session.commit()
+    session = AuthSessionService(db_session).create_for_user(
+        target,
+        auth_type="password",
+        ip_address="127.0.0.1",
+        user_agent="pytest",
+        mfa_verified=True,
+    ).session
+    _, token = ApiTokenService(db_session).create_for_user(
+        target,
+        name="before-failed-reset",
+        scopes=["profile:read"],
+    )
+    previous_version = target.auth_version
+    original_rollback = db_session.rollback
+    rollback_calls = []
+
+    def failing_commit():
+        raise RuntimeError("commit failed")
+
+    def recording_rollback():
+        rollback_calls.append(True)
+        original_rollback()
+
+    monkeypatch.setattr(db_session, "commit", failing_commit)
+    monkeypatch.setattr(db_session, "rollback", recording_rollback)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        MfaResetService(db_session).reset(target, reason="test_failed_mfa_reset")
+
+    assert rollback_calls == [True]
+    db_session.expire_all()
+    restored_target = db_session.get(User, target.id)
+    restored_session = db_session.get(type(session), session.id)
+    restored_token = db_session.get(type(token), token.id)
+    assert restored_target is not None
+    assert restored_target.auth_version == previous_version
+    assert restored_session is not None
+    assert restored_session.revoked_at is None
+    assert restored_token is not None
+    assert restored_token.revoked_at is None
+    assert db_session.get(WebAuthnCredential, passkey.id) is not None
+    assert db_session.get(RecoveryCode, recovery_code.id) is not None
+    assert db_session.get(AuthChallenge, challenge.id) is not None
+
+
 def test_admin_mfa_reset_honors_role_hierarchy(auth_client, db_session):
     _set_admin_passkey_policy(db_session, False)
     admin = _user(db_session, email="reset-admin@example.com", role=UserRole.UI_ADMIN.value)
