@@ -4,7 +4,7 @@
  */
 import { iamNameFormatError } from "../../utils/resourceNames";
 import { ListActions, ListBadge, ListActionButton, ListActionLink } from "../../components/list/ListControls";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
 import { useExecutionContext } from "./ExecutionContextProvider";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
@@ -25,7 +25,7 @@ import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import { workflowPageHostClass } from "../../components/WorkflowPage";
 
 import { extractApiError } from "../../utils/apiError";
-import { stableSignature } from "../../utils/stableSignature";
+import { useSettingsBaseline } from "../../components/settings/useSettingsDraft";
 import InlinePolicyDraftEditor from "./InlinePolicyDraftEditor";
 import ManagedPolicySelectionPanel from "./ManagedPolicySelectionPanel";
 import ManagerToolbarSearch from "./ManagerToolbarSearch";
@@ -82,19 +82,6 @@ export default function ManagerRolesPage() {
   const [creating, setCreating] = useState(false);
   const [deletingRole, setDeletingRole] = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [advancedInitialSignature, setAdvancedInitialSignature] = useState(() =>
-    stableSignature({
-      advancedName: "",
-      advancedPath: DEFAULT_ROLE_PATH,
-      advancedMaxSessionDuration: 3600,
-      advancedTags: [],
-      assumeRolePolicyText: EMPTY_ASSUME_ROLE_DOCUMENT,
-      selectedPolicies: [],
-      inlineDrafts: [],
-      inlineDraftName: "",
-      inlinePolicyText: "",
-    })
-  );
   const advancedPolicy = parseIamRolePolicy(assumeRolePolicyText);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
@@ -119,30 +106,30 @@ export default function ManagerRolesPage() {
     resetInlinePolicyDraftEditor();
   }, [contextIdForApi, needsContextSelection, accessMode, load, loadPolicies, resetInlinePolicyDraftEditor, resetPolicySelection, setLoading, setPolicies, setRoles]);
 
-  const advancedCurrentSignature = useMemo(
-    () =>
-      stableSignature({
-        advancedName,
-        advancedPath,
-        advancedMaxSessionDuration,
-        advancedTags,
-        assumeRolePolicyText,
-        selectedPolicies,
-        inlineDrafts,
-        inlineDraftName,
-        inlinePolicyText,
-      }),
-    [
-      advancedName,
-      advancedPath,
-      advancedMaxSessionDuration,
-      advancedTags,
-      assumeRolePolicyText,
-      inlineDraftName,
-      inlineDrafts,
-      inlinePolicyText,
-      selectedPolicies,
-    ]
+  const advancedDraft = {
+    advancedName,
+    advancedPath,
+    advancedMaxSessionDuration,
+    advancedTags,
+    assumeRolePolicyText,
+    selectedPolicies,
+    inlineDrafts,
+    inlineDraftName,
+    inlinePolicyText,
+  };
+  const { accept: acceptAdvancedDraft, dirty: advancedDraftDirty } = useSettingsBaseline(
+    advancedDraft,
+    {
+      advancedName: "",
+      advancedPath: DEFAULT_ROLE_PATH,
+      advancedMaxSessionDuration: 3600,
+      advancedTags: [],
+      assumeRolePolicyText: EMPTY_ASSUME_ROLE_DOCUMENT,
+      selectedPolicies: [],
+      inlineDrafts: [],
+      inlineDraftName: "",
+      inlinePolicyText: "",
+    },
   );
   const nameFormatError = iamNameFormatError(advancedName.trim(), "role");
   const pathFormatError = advancedPath.trim() ? iamPathFormatError(advancedPath.trim()) : undefined;
@@ -229,19 +216,17 @@ export default function ManagerRolesPage() {
     resetPolicySelection();
     resetInlinePolicyDraftEditor();
     setShowCreateForm(true);
-    setAdvancedInitialSignature(
-      stableSignature({
-        advancedName: "",
-        advancedPath: DEFAULT_ROLE_PATH,
-        advancedMaxSessionDuration: 3600,
-        advancedTags: [],
-        assumeRolePolicyText: EMPTY_ASSUME_ROLE_DOCUMENT,
-        selectedPolicies: [],
-        inlineDrafts: [],
-        inlineDraftName: "",
-        inlinePolicyText: "",
-      })
-    );
+    acceptAdvancedDraft({
+      advancedName: "",
+      advancedPath: DEFAULT_ROLE_PATH,
+      advancedMaxSessionDuration: 3600,
+      advancedTags: [],
+      assumeRolePolicyText: EMPTY_ASSUME_ROLE_DOCUMENT,
+      selectedPolicies: [],
+      inlineDrafts: [],
+      inlineDraftName: "",
+      inlinePolicyText: "",
+    });
   };
 
   const closeCreateForm = () => {
@@ -391,7 +376,7 @@ export default function ManagerRolesPage() {
           backLabel={text("Back to roles")}
           onClose={closeCreateForm}
           contentVariant="plain"
-          dirty={advancedCurrentSignature !== advancedInitialSignature}
+          dirty={advancedDraftDirty}
           error={error} onSubmit={handleAdvancedCreate}
           busy={creating} disabled={needsContextSelection || namingValidationProfile === null}
           submitLabel={text("Create role")} busyLabel={text("Creating...")}

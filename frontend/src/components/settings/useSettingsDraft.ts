@@ -4,6 +4,15 @@ import { useCallback, useState } from "react";
 export const equalSettings = (left: unknown, right: unknown) =>
   JSON.stringify(left) === JSON.stringify(right);
 
+export function useSettingsBaseline<T>(current: T, initial: T | (() => T)) {
+  const [baseline, setBaseline] = useState(initial);
+  const accept = useCallback((value: T) => setBaseline(value), []);
+  return {
+    accept,
+    dirty: !equalSettings(baseline, current),
+  };
+}
+
 export function useSettingsDraft<T>(initial: T | (() => T)) {
   const [baseline, setBaseline] = useState(initial);
   const [draft, setDraft] = useState(initial);

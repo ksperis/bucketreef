@@ -4,7 +4,7 @@
  */
 import { iamNameFormatError } from "../../utils/resourceNames";
 import { ListActions, ListBadge, ListActionLink, ListActionButton } from "../../components/list/ListControls";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
 import { useExecutionContext } from "./ExecutionContextProvider";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
@@ -19,7 +19,7 @@ import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import { workflowPageHostClass } from "../../components/WorkflowPage";
 
 import { extractApiError } from "../../utils/apiError";
-import { stableSignature } from "../../utils/stableSignature";
+import { useSettingsBaseline } from "../../components/settings/useSettingsDraft";
 import InlinePolicyDraftEditor from "./InlinePolicyDraftEditor";
 import ManagedPolicySelectionPanel from "./ManagedPolicySelectionPanel";
 import ManagerToolbarSearch from "./ManagerToolbarSearch";
@@ -70,15 +70,6 @@ export default function ManagerGroupsPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
-  const [advancedInitialSignature, setAdvancedInitialSignature] = useState(() =>
-    stableSignature({
-      advancedName: "",
-      selectedPolicies: [],
-      inlineDrafts: [],
-      inlineDraftName: "",
-      inlinePolicyText: "",
-    })
-  );
 
   const {
     loadPolicies,
@@ -101,16 +92,22 @@ export default function ManagerGroupsPage() {
     resetInlinePolicyDraftEditor();
   }, [contextIdForApi, needsContextSelection, accessMode, load, loadPolicies, resetInlinePolicyDraftEditor, resetPolicySelection, setGroups, setLoading, setPolicies]);
 
-  const advancedCurrentSignature = useMemo(
-    () =>
-      stableSignature({
-        advancedName,
-        selectedPolicies,
-        inlineDrafts,
-        inlineDraftName,
-        inlinePolicyText,
-      }),
-    [advancedName, inlineDraftName, inlineDrafts, inlinePolicyText, selectedPolicies]
+  const advancedDraft = {
+    advancedName,
+    selectedPolicies,
+    inlineDrafts,
+    inlineDraftName,
+    inlinePolicyText,
+  };
+  const { accept: acceptAdvancedDraft, dirty: advancedDraftDirty } = useSettingsBaseline(
+    advancedDraft,
+    {
+      advancedName: "",
+      selectedPolicies: [],
+      inlineDrafts: [],
+      inlineDraftName: "",
+      inlinePolicyText: "",
+    },
   );
 
   const nameFormatError = iamNameFormatError(advancedName.trim(), "group");
@@ -181,15 +178,13 @@ export default function ManagerGroupsPage() {
     resetPolicySelection();
     resetInlinePolicyDraftEditor();
     setShowCreateForm(true);
-    setAdvancedInitialSignature(
-      stableSignature({
-        advancedName: "",
-        selectedPolicies: [],
-        inlineDrafts: [],
-        inlineDraftName: "",
-        inlinePolicyText: "",
-      })
-    );
+    acceptAdvancedDraft({
+      advancedName: "",
+      selectedPolicies: [],
+      inlineDrafts: [],
+      inlineDraftName: "",
+      inlinePolicyText: "",
+    });
   };
 
   const closeCreateForm = () => {
@@ -335,7 +330,7 @@ export default function ManagerGroupsPage() {
           backLabel={text("Back to groups")}
           onClose={closeCreateForm}
           contentVariant="plain"
-          dirty={advancedCurrentSignature !== advancedInitialSignature}
+          dirty={advancedDraftDirty}
           error={error} onSubmit={handleAdvancedCreate}
           busy={busy !== null} disabled={needsContextSelection || namingValidationProfile === null}
           submitLabel={text("Create group")} busyLabel={text("Creating...")}
