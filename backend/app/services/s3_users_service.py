@@ -33,7 +33,7 @@ class S3UsersService:
     def __init__(self, db: Session) -> None:
         self.db = db
         self.associations = S3UserAssociationsService(db)
-        self.access_keys = S3UserAccessKeyService(db)
+        self.access_keys = S3UserAccessKeyService()
         self.metrics = S3UserMetricsService()
         self.rgw_context = S3UserRgwContextService(db)
         self.quota = S3UserQuotaService(self.rgw_context)
