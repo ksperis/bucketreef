@@ -22,6 +22,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import OIDCProviderSettings, Settings, get_settings
+from app.core.db_transactions import commit_or_rollback
 from app.db import OidcAuthorizationCode, OidcLoginState, OidcProviderIssuerPin
 from app.models.oidc import OIDCProviderInfo
 from app.services.oidc_provider_settings_service import resolve_oidc_provider_map
@@ -161,7 +162,7 @@ class OidcService:
             require_auth_time=require_auth_time,
         )
         self.db.add(record)
-        self.db.commit()
+        commit_or_rollback(self.db)
 
         url = f"{authorization_endpoint}?{urlencode(params)}"
         return {
@@ -285,12 +286,12 @@ class OidcService:
         ttl = timedelta(seconds=self.settings.oidc_state_ttl_seconds)
         if login_state.created_at < utcnow() - ttl:
             self.db.delete(login_state)
-            self.db.commit()
+            commit_or_rollback(self.db)
             raise OIDCStateError("OIDC state expired")
         redirect_uri = login_state.redirect_uri or provider.redirect_uri
         if request_origin is not None and self._origin_from_url(redirect_uri) != request_origin.rstrip("/"):
             self.db.delete(login_state)
-            self.db.commit()
+            commit_or_rollback(self.db)
             raise OIDCStateError("OIDC state origin mismatch")
         claimed = _ClaimedLoginState(
             redirect_uri=redirect_uri,
@@ -315,7 +316,7 @@ class OidcService:
             )
             .execution_options(synchronize_session=False)
         ).rowcount
-        self.db.commit()
+        commit_or_rollback(self.db)
         if deleted != 1:
             raise OIDCStateError("OIDC state has already been consumed")
         return claimed
@@ -584,13 +585,13 @@ class OidcService:
                 last_verified_at=now,
             )
             self.db.add(row)
-            self.db.commit()
+            commit_or_rollback(self.db)
             return issuer
         if row.issuer != issuer:
             raise OIDCConfigurationError("OIDC provider issuer no longer matches its pinned issuer")
         row.last_verified_at = now
         self.db.add(row)
-        self.db.commit()
+        commit_or_rollback(self.db)
         return issuer
 
     def _validate_auth_time(self, claims: dict[str, Any], state_created_at: Any) -> None:
@@ -641,7 +642,7 @@ class OidcService:
             .where(OidcAuthorizationCode.expires_at <= utcnow())
             .execution_options(synchronize_session="auto")
         )
-        self.db.commit()
+        commit_or_rollback(self.db)
 
     def _claim_authorization_code(self, provider_key: str, code: str) -> None:
         now = utcnow()
@@ -661,9 +662,8 @@ class OidcService:
             )
         )
         try:
-            self.db.commit()
+            commit_or_rollback(self.db)
         except IntegrityError as exc:
-            self.db.rollback()
             raise OIDCStateError("OIDC authorization code has already been consumed") from exc
 
 
