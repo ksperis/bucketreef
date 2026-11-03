@@ -5980,6 +5980,116 @@ def test_public_links_are_scoped_expirable_and_revocable(monkeypatch, db_session
         )
 
 
+def _public_link_write_context(monkeypatch, db_session, *, suffix):
+    account = make_s3_account(
+        db_session,
+        name=f"portal-public-link-{suffix}",
+        rgw_access_key="ROOT-AK",
+        rgw_secret_key="ROOT-SK",
+    )
+    owner = User(email=f"owner-public-{suffix}@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([account, owner])
+    db_session.commit()
+    db_session.add(
+        PortalStorageSpaceMetadata(
+            account_id=account.id,
+            bucket_name="research-data",
+            display_name="Research Data",
+            visibility="shared",
+        )
+    )
+    db_session.commit()
+
+    service = PortalService(db_session)
+    monkeypatch.setattr(
+        service,
+        "list_storage_spaces",
+        lambda *_args, **_kwargs: [
+            portal_storage_space_summary(
+                id="research-data",
+                name="Research Data",
+                role="Owner",
+                internal_bucket_name="research-data",
+            )
+        ],
+    )
+    access = _portal_access(
+        account,
+        owner,
+        portal_role=PortalAccountRole.PORTAL_MANAGER.value,
+        can_manage_buckets=True,
+    )
+    return account, owner, service, access
+
+
+def _fail_commit_and_track_rollback(db_session, monkeypatch):
+    rollback_calls = []
+    original_rollback = db_session.rollback
+
+    def track_rollback():
+        rollback_calls.append(None)
+        original_rollback()
+
+    def fail_commit():
+        raise RuntimeError("commit failed")
+
+    monkeypatch.setattr(db_session, "rollback", track_rollback)
+    monkeypatch.setattr(db_session, "commit", fail_commit)
+    return rollback_calls
+
+
+def test_public_link_creation_rolls_back_failed_commit(monkeypatch, db_session):
+    _account, owner, service, access = _public_link_write_context(
+        monkeypatch,
+        db_session,
+        suffix="create-rollback",
+    )
+    monkeypatch.setattr(service, "_portal_object_client", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(service, "_head_storage_space_object", lambda *_args, **_kwargs: None)
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        service.create_storage_space_public_link(
+            owner,
+            access,
+            "research-data",
+            object_key="raw-data/report.csv",
+        )
+
+    assert rollback_calls == [None]
+    assert db_session.scalar(sa.select(sa.func.count()).select_from(PortalPublicLink)) == 0
+
+
+def test_public_link_revocation_rolls_back_failed_commit(monkeypatch, db_session):
+    account, owner, service, access = _public_link_write_context(
+        monkeypatch,
+        db_session,
+        suffix="revoke-rollback",
+    )
+    link = PortalPublicLink(
+        token="revoke-rollback-token",
+        account_id=account.id,
+        bucket_name="research-data",
+        object_key="raw-data/report.csv",
+        created_by_user_id=owner.id,
+        created_by_email=owner.email,
+    )
+    db_session.add(link)
+    db_session.commit()
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        service.revoke_storage_space_public_link(owner, access, "research-data", link.id)
+
+    assert rollback_calls == [None]
+    db_session.expire_all()
+    persisted_link = db_session.scalar(
+        sa.select(PortalPublicLink).where(PortalPublicLink.id == link.id)
+    )
+    assert persisted_link is not None
+    assert persisted_link.revoked_at is None
+
+
 def test_public_link_creation_rejects_missing_objects(monkeypatch, db_session):
     account = make_s3_account(db_session, name="portal-public-link-missing-object", rgw_access_key="ROOT-AK", rgw_secret_key="ROOT-SK")
     owner = User(email="owner-public-missing@example.com", hashed_password="x", role="ui_user")
