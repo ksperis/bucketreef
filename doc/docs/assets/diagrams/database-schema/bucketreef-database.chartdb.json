@@ -7,7 +7,7 @@
       "id": "table:storage_endpoints",
       "name": "storage_endpoints",
       "schema": null,
-      "x": 2520,
+      "x": 2100,
       "y": 132,
       "fields": [
         {
@@ -1677,7 +1677,7 @@
       "id": "table:s3_accounts",
       "name": "s3_accounts",
       "schema": null,
-      "x": 2100,
+      "x": 2520,
       "y": 132,
       "fields": [
         {
@@ -10051,6 +10051,299 @@
       "parentAreaId": "area:storage-s3-execution"
     },
     {
+      "id": "table:s3_user_import_intents",
+      "name": "s3_user_import_intents",
+      "schema": null,
+      "x": 2100,
+      "y": 3678,
+      "fields": [
+        {
+          "id": "field:s3_user_import_intents.id",
+          "name": "id",
+          "type": {
+            "id": "integer",
+            "name": "integer"
+          },
+          "primaryKey": true,
+          "unique": true,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:s3_user_import_intents.storage_endpoint_id",
+          "name": "storage_endpoint_id",
+          "type": {
+            "id": "integer",
+            "name": "integer"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:s3_user_import_intents.rgw_user_uid",
+          "name": "rgw_user_uid",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:s3_user_import_intents.rgw_tenant",
+          "name": "rgw_tenant",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": "",
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:s3_user_import_intents.requested_name",
+          "name": "requested_name",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:s3_user_import_intents.requested_email",
+          "name": "requested_email",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:s3_user_import_intents.access_key_id",
+          "name": "access_key_id",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:s3_user_import_intents.secret_access_key",
+          "name": "secret_access_key",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:s3_user_import_intents.phase",
+          "name": "phase",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": "prepared",
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:s3_user_import_intents.created_at",
+          "name": "created_at",
+          "type": {
+            "id": "datetime",
+            "name": "datetime"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:s3_user_import_intents.updated_at",
+          "name": "updated_at",
+          "type": {
+            "id": "datetime",
+            "name": "datetime"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        }
+      ],
+      "indexes": [
+        {
+          "id": "index:s3_user_import_intents:primary-key",
+          "name": "",
+          "unique": true,
+          "fieldIds": [
+            "field:s3_user_import_intents.id"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": true,
+          "comments": null
+        },
+        {
+          "id": "index:s3_user_import_intents:ix_s3_user_import_intents_id",
+          "name": "ix_s3_user_import_intents_id",
+          "unique": false,
+          "fieldIds": [
+            "field:s3_user_import_intents.id"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": false,
+          "comments": null
+        },
+        {
+          "id": "unique:s3_user_import_intents:uq_s3_user_import_intents_identity",
+          "name": "uq_s3_user_import_intents_identity",
+          "unique": true,
+          "fieldIds": [
+            "field:s3_user_import_intents.storage_endpoint_id",
+            "field:s3_user_import_intents.rgw_tenant",
+            "field:s3_user_import_intents.rgw_user_uid"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": false,
+          "comments": "SQLAlchemy UniqueConstraint"
+        }
+      ],
+      "checkConstraints": [
+        {
+          "id": "check:s3_user_import_intents:ck_s3_user_import_intents_phase",
+          "expression": "phase IN ('prepared', 'creating', 'remote_created')",
+          "createdAt": 0
+        }
+      ],
+      "color": "#0F766E",
+      "isView": false,
+      "isMaterializedView": false,
+      "createdAt": 0,
+      "width": 360,
+      "comments": null,
+      "order": 30,
+      "expanded": true,
+      "parentAreaId": "area:storage-s3-execution"
+    },
+    {
       "id": "table:s3_user_deletions",
       "name": "s3_user_deletions",
       "schema": null,
@@ -10306,7 +10599,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 30,
+      "order": 31,
       "expanded": true,
       "parentAreaId": "area:storage-s3-execution"
     },
@@ -10457,7 +10750,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 31,
+      "order": 32,
       "expanded": true,
       "parentAreaId": "area:storage-s3-execution"
     },
@@ -11139,7 +11432,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 32,
+      "order": 33,
       "expanded": true,
       "parentAreaId": "area:storage-s3-execution"
     },
@@ -11311,7 +11604,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 33,
+      "order": 34,
       "expanded": true,
       "parentAreaId": "area:storage-s3-execution"
     },
@@ -11794,7 +12087,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 34,
+      "order": 35,
       "expanded": true,
       "parentAreaId": "area:storage-s3-execution"
     },
@@ -12332,7 +12625,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 35,
+      "order": 36,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -12483,7 +12776,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 36,
+      "order": 37,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -12739,7 +13032,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 37,
+      "order": 38,
       "expanded": true,
       "parentAreaId": "area:storage-s3-execution"
     },
@@ -12890,7 +13183,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 38,
+      "order": 39,
       "expanded": true,
       "parentAreaId": "area:storage-s3-execution"
     },
@@ -13062,7 +13355,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 39,
+      "order": 40,
       "expanded": true,
       "parentAreaId": "area:storage-s3-execution"
     },
@@ -13331,7 +13624,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 40,
+      "order": 41,
       "expanded": true,
       "parentAreaId": "area:tags-classification"
     },
@@ -13570,7 +13863,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 41,
+      "order": 42,
       "expanded": true,
       "parentAreaId": "area:tags-classification"
     },
@@ -13763,7 +14056,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 42,
+      "order": 43,
       "expanded": true,
       "parentAreaId": "area:tags-classification"
     },
@@ -13956,7 +14249,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 43,
+      "order": 44,
       "expanded": true,
       "parentAreaId": "area:tags-classification"
     },
@@ -14149,7 +14442,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 44,
+      "order": 45,
       "expanded": true,
       "parentAreaId": "area:tags-classification"
     },
@@ -14342,7 +14635,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 45,
+      "order": 46,
       "expanded": true,
       "parentAreaId": "area:tags-classification"
     },
@@ -14858,7 +15151,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 46,
+      "order": 47,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -15250,7 +15543,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 47,
+      "order": 48,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -15420,7 +15713,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 48,
+      "order": 49,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -15831,7 +16124,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 49,
+      "order": 50,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -15958,7 +16251,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 50,
+      "order": 51,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -16345,7 +16638,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 51,
+      "order": 52,
       "expanded": true,
       "parentAreaId": "area:observability-quota-cost"
     },
@@ -16711,7 +17004,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 52,
+      "order": 53,
       "expanded": true,
       "parentAreaId": "area:observability-quota-cost"
     },
@@ -16937,7 +17230,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 53,
+      "order": 54,
       "expanded": true,
       "parentAreaId": "area:observability-quota-cost"
     },
@@ -17191,7 +17484,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 54,
+      "order": 55,
       "expanded": true,
       "parentAreaId": "area:observability-quota-cost"
     },
@@ -17588,7 +17881,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 55,
+      "order": 56,
       "expanded": true,
       "parentAreaId": "area:observability-quota-cost"
     },
@@ -17964,7 +18257,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 56,
+      "order": 57,
       "expanded": true,
       "parentAreaId": "area:observability-quota-cost"
     },
@@ -18241,7 +18534,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 57,
+      "order": 58,
       "expanded": true,
       "parentAreaId": "area:observability-quota-cost"
     },
@@ -18704,7 +18997,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 58,
+      "order": 59,
       "expanded": true,
       "parentAreaId": "area:operations-audit"
     },
@@ -18950,7 +19243,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 59,
+      "order": 60,
       "expanded": true,
       "parentAreaId": "area:observability-quota-cost"
     },
@@ -19390,7 +19683,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 60,
+      "order": 61,
       "expanded": true,
       "parentAreaId": "area:observability-quota-cost"
     },
@@ -19789,7 +20082,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 61,
+      "order": 62,
       "expanded": true,
       "parentAreaId": "area:observability-quota-cost"
     },
@@ -20211,7 +20504,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 62,
+      "order": 63,
       "expanded": true,
       "parentAreaId": "area:observability-quota-cost"
     },
@@ -21240,7 +21533,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 63,
+      "order": 64,
       "expanded": true,
       "parentAreaId": "area:operations-audit"
     },
@@ -22065,7 +22358,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 64,
+      "order": 65,
       "expanded": true,
       "parentAreaId": "area:operations-audit"
     },
@@ -22312,7 +22605,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 65,
+      "order": 66,
       "expanded": true,
       "parentAreaId": "area:operations-audit"
     },
@@ -22896,7 +23189,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 66,
+      "order": 67,
       "expanded": true,
       "parentAreaId": "area:operations-audit"
     },
@@ -23440,7 +23733,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 67,
+      "order": 68,
       "expanded": true,
       "parentAreaId": "area:portal"
     },
@@ -23670,7 +23963,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 68,
+      "order": 69,
       "expanded": true,
       "parentAreaId": "area:portal"
     },
@@ -23978,7 +24271,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 69,
+      "order": 70,
       "expanded": true,
       "parentAreaId": "area:portal"
     },
@@ -24392,7 +24685,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 70,
+      "order": 71,
       "expanded": true,
       "parentAreaId": "area:portal"
     },
@@ -24595,7 +24888,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 71,
+      "order": 72,
       "expanded": true,
       "parentAreaId": "area:portal"
     },
@@ -24980,7 +25273,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 72,
+      "order": 73,
       "expanded": true,
       "parentAreaId": "area:portal"
     },
@@ -25194,7 +25487,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 73,
+      "order": 74,
       "expanded": true,
       "parentAreaId": "area:portal"
     },
@@ -25342,7 +25635,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 74,
+      "order": 75,
       "expanded": true,
       "parentAreaId": "area:operations-audit"
     },
@@ -25458,7 +25751,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 75,
+      "order": 76,
       "expanded": true,
       "parentAreaId": "area:operations-audit"
     },
@@ -25601,7 +25894,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 76,
+      "order": 77,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -25717,7 +26010,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 77,
+      "order": 78,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -25949,7 +26242,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 78,
+      "order": 79,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -26162,7 +26455,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 79,
+      "order": 80,
       "expanded": true,
       "parentAreaId": "area:operations-audit"
     },
@@ -26303,7 +26596,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 80,
+      "order": 81,
       "expanded": true,
       "parentAreaId": "area:operations-audit"
     },
@@ -26776,7 +27069,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 81,
+      "order": 82,
       "expanded": true,
       "parentAreaId": "area:operations-audit"
     }
@@ -27271,6 +27564,19 @@
       "targetSchema": null,
       "targetTableId": "table:storage_endpoints",
       "sourceFieldId": "field:s3_users.storage_endpoint_id",
+      "targetFieldId": "field:storage_endpoints.id",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 0
+    },
+    {
+      "id": "relationship:s3_user_import_intents.storage_endpoint_id->storage_endpoints.id",
+      "name": "fk_s3_user_import_intents_storage_endpoint_id_storage_endpoints_id",
+      "sourceSchema": null,
+      "sourceTableId": "table:s3_user_import_intents",
+      "targetSchema": null,
+      "targetTableId": "table:storage_endpoints",
+      "sourceFieldId": "field:s3_user_import_intents.storage_endpoint_id",
       "targetFieldId": "field:storage_endpoints.id",
       "sourceCardinality": "many",
       "targetCardinality": "one",
@@ -28361,7 +28667,7 @@
       "x": 2040,
       "y": 0,
       "width": 1740,
-      "height": 3678,
+      "height": 4144,
       "color": "#0F766E",
       "order": 1
     },

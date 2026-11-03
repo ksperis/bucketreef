@@ -95,6 +95,7 @@ DOMAINS = (
             "user_s3_accounts",
             "account_iam_users",
             "s3_users",
+            "s3_user_import_intents",
             "s3_user_deletions",
             "user_s3_users",
             "s3_connections",

@@ -156,6 +156,19 @@ erDiagram
         boolean allow_multisite_endpoint_switching
         boolean allow_managed_private_connection_provisioning
     }
+    s3_user_import_intents {
+        integer id PK "NN"
+        integer storage_endpoint_id FK "NN"
+        varchar rgw_user_uid "NN"
+        varchar rgw_tenant "NN; default="
+        varchar requested_name
+        varchar requested_email
+        varchar access_key_id "NN"
+        varchar secret_access_key "NN"
+        varchar phase "NN; default=prepared"
+        datetime created_at "NN"
+        datetime updated_at "NN"
+    }
     s3_user_deletions {
         integer id PK "NN"
         integer s3_user_id FK, UK "NN"
@@ -332,6 +345,7 @@ erDiagram
     account_iam_users }o--|| users : "user_id to id"
     account_iam_users }o--|| s3_accounts : "account_id to id"
     s3_users }o--|| storage_endpoints : "storage_endpoint_id to id"
+    s3_user_import_intents }o--|| storage_endpoints : "storage_endpoint_id to id"
     s3_user_deletions o|--|| s3_users : "s3_user_id to id; ON DELETE CASCADE"
     user_s3_users }o--|| users : "user_id to id"
     user_s3_users }o--|| s3_users : "s3_user_id to id"
