@@ -752,6 +752,7 @@ function BucketDetailPageContent({
     () => ({
       used: bucket?.used_bytes ?? null,
       quota: usageLimits.storage.limit,
+      displayQuota: usageLimits.storage.configuredQuota,
       ratio: usageLimits.storage.ratio,
       limitLabel: usageLimitLabel(usageLimits.storage.source),
       limitWarning: usageLimits.storage.ownerConstraintUnavailable
@@ -765,6 +766,7 @@ function BucketDetailPageContent({
     () => ({
       used: bucket?.object_count ?? null,
       quota: usageLimits.objects.limit,
+      displayQuota: usageLimits.objects.configuredQuota,
       ratio: usageLimits.objects.ratio,
       limitLabel: usageLimitLabel(usageLimits.objects.source),
       limitWarning: usageLimits.objects.ownerConstraintUnavailable
@@ -1030,6 +1032,7 @@ function BucketDetailPageContent({
                       label={text("Storage")}
                       used={storageUsage.used}
                       quota={storageUsage.quota}
+                      displayQuota={storageUsage.displayQuota}
                       formatter={formatBytes}
                       quotaFormatter={formatBytes}
                       loading={loadingBucket}
@@ -1042,6 +1045,7 @@ function BucketDetailPageContent({
                       label={text("Objects")}
                       used={objectUsage.used}
                       quota={objectUsage.quota}
+                      displayQuota={objectUsage.displayQuota}
                       formatter={formatCompactNumber}
                       quotaFormatter={(value) => (value != null ? value.toLocaleString(intlLocale) : "-")}
                       loading={loadingBucket}
@@ -1200,6 +1204,7 @@ function BucketDetailPageContent({
                       label={text("Storage")}
                       used={storageUsage.used}
                       quota={storageUsage.quota}
+                      displayQuota={storageUsage.displayQuota}
                       formatter={formatBytes}
                       quotaFormatter={formatBytes}
                       loading={loadingBucket}
@@ -1212,6 +1217,7 @@ function BucketDetailPageContent({
                       label={text("Objects")}
                       used={objectUsage.used}
                       quota={objectUsage.quota}
+                      displayQuota={objectUsage.displayQuota}
                       formatter={formatCompactNumber}
                       quotaFormatter={(value) => (value != null ? value.toLocaleString(intlLocale) : "-")}
                       loading={loadingBucket}

@@ -6,6 +6,7 @@ describe("resolveBucketUsageLimit", () => {
   it("uses the bucket quota when it is the only limit", () => {
     expect(resolveBucketUsageLimit({ used: 25, bucketQuota: 100 })).toEqual({
       limit: 100,
+      configuredQuota: 100,
       ratio: 25,
       source: "bucket",
       ownerConstraintUnavailable: false,
@@ -20,6 +21,7 @@ describe("resolveBucketUsageLimit", () => {
       ownerSource: "account",
     });
     expect(result.limit).toBe(300);
+    expect(result.configuredQuota).toBe(1000);
     expect(result.ratio).toBeCloseTo(100 / 3);
     expect(result.source).toBe("account");
     expect(result.ownerConstraintUnavailable).toBe(false);
@@ -34,6 +36,7 @@ describe("resolveBucketUsageLimit", () => {
       ownerSource: "account",
     });
     expect(result.limit).toBe(250);
+    expect(result.configuredQuota).toBe(250);
     expect(result.source).toBe("bucket");
   });
 
@@ -46,6 +49,7 @@ describe("resolveBucketUsageLimit", () => {
       ownerSource: "account",
     });
     expect(result.limit).toBe(300);
+    expect(result.configuredQuota).toBe(1000);
     expect(result.source).toBe("account");
   });
 
@@ -57,6 +61,7 @@ describe("resolveBucketUsageLimit", () => {
       ownerSource: "account",
     });
     expect(result.limit).toBe(100);
+    expect(result.configuredQuota).toBe(1000);
     expect(result.ratio).toBe(100);
     expect(result.source).toBe("account");
   });
@@ -64,6 +69,7 @@ describe("resolveBucketUsageLimit", () => {
   it("returns no limit when no quota exists", () => {
     expect(resolveBucketUsageLimit({ used: 100 })).toEqual({
       limit: null,
+      configuredQuota: null,
       ratio: null,
       source: null,
       ownerConstraintUnavailable: false,
@@ -78,6 +84,7 @@ describe("resolveBucketUsageLimit", () => {
       ownerSource: "account",
     })).toEqual({
       limit: 500,
+      configuredQuota: 500,
       ratio: 20,
       source: "bucket",
       ownerConstraintUnavailable: true,
@@ -91,6 +98,7 @@ describe("resolveBucketUsageLimit", () => {
       ownerSource: "account",
     })).toEqual({
       limit: null,
+      configuredQuota: null,
       ratio: null,
       source: null,
       ownerConstraintUnavailable: true,
@@ -105,6 +113,7 @@ describe("resolveBucketUsageLimit", () => {
       ownerSource: "account",
     })).toEqual({
       limit: null,
+      configuredQuota: null,
       ratio: null,
       source: null,
       ownerConstraintUnavailable: false,
@@ -119,6 +128,7 @@ describe("resolveBucketUsageLimit", () => {
       ownerSource: "owner",
     });
     expect(result.limit).toBe(500);
+    expect(result.configuredQuota).toBe(500);
     expect(result.ratio).toBe(20);
     expect(result.source).toBe("owner");
   });

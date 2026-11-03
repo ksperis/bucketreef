@@ -854,8 +854,9 @@ describe("BucketDetailPage replication state", () => {
     const usageSection = usageHeading.closest("section");
     expect(usageSection).not.toBeNull();
     await waitFor(() => expect(fetchManagerStatsMock).toHaveBeenCalledWith("acc-1"));
-    expect(within(usageSection as HTMLElement).getByText(/1\.0 GB \/ 3\.0 GB · 33% · Account quota/)).toBeInTheDocument();
-    expect(within(usageSection as HTMLElement).getByText(/100 \/ 300 · 33% · Account quota/)).toBeInTheDocument();
+    expect(within(usageSection as HTMLElement).getByText(/1\.0 GB \/ 10 GB · Account quota/)).toBeInTheDocument();
+    expect(within(usageSection as HTMLElement).getByText(/100 \/ 1,000 · Account quota/)).toBeInTheDocument();
+    expect(within(usageSection as HTMLElement).getAllByRole("img", { name: "Usage at 33%" })).toHaveLength(2);
   });
 
   it("uses Ceph Admin owner quota metadata for the effective bucket limit", async () => {
@@ -887,8 +888,9 @@ describe("BucketDetailPage replication state", () => {
       include: ["owner_quota", "owner_quota_usage"],
       with_stats: true,
     })));
-    expect(within(usageSection as HTMLElement).getByText(/100 B \/ 300 B · 33% · Owner quota/)).toBeInTheDocument();
-    expect(within(usageSection as HTMLElement).getByText(/100 \/ 300 · 33% · Owner quota/)).toBeInTheDocument();
+    expect(within(usageSection as HTMLElement).getByText(/100 B \/ 1000 B · Owner quota/)).toBeInTheDocument();
+    expect(within(usageSection as HTMLElement).getByText(/100 \/ 1,000 · Owner quota/)).toBeInTheDocument();
+    expect(within(usageSection as HTMLElement).getAllByRole("img", { name: "Usage at 33%" })).toHaveLength(2);
   });
 
   it("shows a read-only object browser for Ceph Admin buckets", async () => {
