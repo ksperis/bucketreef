@@ -12,7 +12,6 @@ from app.db import PortalAdminRequest, UiGroupS3Account, User, UserS3Account, Us
 from app.core.domain_enums import PortalAccountRole, UserRole
 from app.services.access_context_contracts import AccountAccess
 from app.models.portal_requests import PortalUserAccessRequestCreate
-from app.services.portal_service import PortalService
 from app.services.users_service import UsersService
 from app.utils.normalize import normalize_optional_email
 from app.utils.time import utcnow
@@ -219,14 +218,12 @@ class PortalCollaboratorRequestsService:
             raise ValueError("Only Portal user links can be removed through this request")
 
         removed_role = link.portal_role
-        PortalService(self.db).remove_portal_user(target, row.account)
-        if link.manager_role is None:
-            self.db.delete(link)
-        else:
-            link.portal_role = None
-            link.updated_at = utcnow()
-            self.db.add(link)
-        self.db.commit()
+        self.users_service.assign_user_to_account(
+            int(target.id),
+            int(row.account_id),
+            manager_role=link.manager_role,
+            portal_role=None,
+        )
         return {
             "target_user_id": int(target.id),
             "target_email": target.email,

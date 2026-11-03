@@ -9,12 +9,13 @@ from typing import TYPE_CHECKING, Optional, Tuple
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from app.db import AccountIAMUser, S3Account, User
+from app.db import AccountIAMUser, PortalIAMRevocation, S3Account, User
 from app.core.domain_enums import PortalAccountRole
 from app.models.iam import AccessKey as ModelAccessKey, IAMUser
 from app.models.portal_access_keys import PortalAccessKey
 from app.services.managed_resource_naming import portal_iam_username
 from app.services.mappers.portal import portal_access_key_from_active_link, portal_access_key_from_iam_metadata
+from app.services.portal.exceptions import PortalConflictError
 from app.services.rgw_iam import RGWIAMGroupAlreadyExistsError, RGWIAMService, get_iam_service
 from app.utils.account_roles import PortalAccountRoleValue
 from app.utils.s3_endpoint import resolve_s3_client_options
@@ -206,6 +207,17 @@ class PortalIamMixin:
         iam_user: Optional[IAMUser] = None
         created_key: Optional[ModelAccessKey] = None
         expected_username = portal_iam_username(account.id, user.id)
+
+        pending_revocation = self.db.scalar(
+            select(PortalIAMRevocation.id).where(
+                PortalIAMRevocation.user_id == user.id,
+                PortalIAMRevocation.account_id == account.id,
+            )
+        )
+        if pending_revocation is not None:
+            raise PortalConflictError(
+                "Portal IAM revocation is pending. Retry reconciliation before provisioning Portal access."
+            )
 
         if link and link.iam_username and link.iam_username != expected_username:
             raise RuntimeError(

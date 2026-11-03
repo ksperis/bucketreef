@@ -3,17 +3,19 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Optional, TYPE_CHECKING
 
 from sqlalchemy import select
 
-from app.db import AccountIAMUser, S3Account, User
+from app.db import AccountIAMUser, PortalIAMRevocation, S3Account, User
 from app.core.domain_enums import PortalAccountRole
 from app.models.app_settings import PortalEffectiveSettings
 from app.models.bucket import Bucket
 from app.services import s3_bucket_access, s3_bucket_metadata, s3_client, s3_deletion
 from app.services.bucket_ui_tags_service import BucketUiTagsService, PhysicalBucketTarget
-from app.services.portal.exceptions import PortalForbiddenError
+from app.services.portal.exceptions import PortalConflictError, PortalForbiddenError
+from app.services.portal.iam_revocation import PortalIAMRevocationPreparation
 from app.services.rgw_iam import RGWIAMService
 from app.services.storage_ops_context_resolution import resolve_storage_ops_context_tenant
 from app.utils.account_roles import PortalAccountRoleValue
@@ -23,7 +25,176 @@ if TYPE_CHECKING:
     from app.services.access_context_contracts import AccountAccess
 
 
+logger = logging.getLogger(__name__)
+
+
 class PortalBucketsUsersMixin:
+    @staticmethod
+    def _restore_portal_iam_key_statuses(
+        iam_service: RGWIAMService,
+        *,
+        iam_username: str,
+        restore_key_statuses: list[tuple[str, str]] | tuple[tuple[str, str], ...],
+        context: str,
+    ) -> bool:
+        failed = False
+        for access_key_id, previous_status in reversed(restore_key_statuses):
+            try:
+                iam_service.update_access_key_status(
+                    iam_username,
+                    access_key_id,
+                    previous_status,
+                )
+            except Exception as exc:  # pragma: no cover - defensive remote failure
+                logger.error(
+                    "Unable to restore Portal IAM access key %s %s: %s",
+                    access_key_id,
+                    context,
+                    exc,
+                )
+                failed = True
+        return failed
+
+    def _prepare_portal_iam_revocation(
+        self,
+        target: User,
+        account: S3Account,
+    ) -> Optional[PortalIAMRevocationPreparation]:
+        pending = self.db.scalar(
+            select(PortalIAMRevocation).where(
+                PortalIAMRevocation.user_id == target.id,
+                PortalIAMRevocation.account_id == account.id,
+            )
+        )
+        if pending is not None:
+            return PortalIAMRevocationPreparation(
+                user_id=int(target.id),
+                account_id=int(account.id),
+                iam_username=pending.iam_username,
+                restore_key_statuses=(),
+                already_pending=True,
+            )
+
+        link = self._existing_portal_link(target, account)
+        if link is None:
+            return None
+
+        restored_statuses: list[tuple[str, str]] = []
+        if link.iam_username:
+            iam_service = self._get_iam_service(account)
+            remote_user = iam_service.get_user(link.iam_username)
+            if remote_user is not None:
+                try:
+                    for key in iam_service.list_access_keys(link.iam_username):
+                        previous_status = key.status or "Active"
+                        if previous_status == "Inactive":
+                            continue
+                        iam_service.update_access_key_status(
+                            link.iam_username,
+                            key.access_key_id,
+                            "Inactive",
+                        )
+                        restored_statuses.append((key.access_key_id, previous_status))
+                except Exception as exc:
+                    rollback_failed = self._restore_portal_iam_key_statuses(
+                        iam_service,
+                        iam_username=link.iam_username,
+                        restore_key_statuses=restored_statuses,
+                        context="after revocation preparation failed",
+                    )
+                    if rollback_failed:
+                        raise RuntimeError(
+                            "Unable to prepare Portal IAM revocation. Remote rollback also failed."
+                        ) from exc
+                    raise
+
+        try:
+            self.db.add(
+                PortalIAMRevocation(
+                    user_id=int(target.id),
+                    account_id=int(account.id),
+                    iam_user_id=link.iam_user_id,
+                    iam_username=link.iam_username,
+                )
+            )
+            self.db.delete(link)
+            self.db.flush()
+        except Exception as exc:
+            remote_rollback_failed = False
+            if link.iam_username and restored_statuses:
+                remote_rollback_failed = self._restore_portal_iam_key_statuses(
+                    self._get_iam_service(account),
+                    iam_username=link.iam_username,
+                    restore_key_statuses=restored_statuses,
+                    context="after local revocation preparation failed",
+                )
+            if remote_rollback_failed:
+                raise RuntimeError(
+                    "Unable to prepare Portal IAM revocation. Remote rollback also failed."
+                ) from exc
+            raise
+        return PortalIAMRevocationPreparation(
+            user_id=int(target.id),
+            account_id=int(account.id),
+            iam_username=link.iam_username,
+            restore_key_statuses=tuple(restored_statuses),
+        )
+
+    def _rollback_portal_iam_revocation(
+        self,
+        preparation: PortalIAMRevocationPreparation,
+    ) -> bool:
+        if preparation.already_pending or not preparation.iam_username:
+            return False
+        account = self.db.get(S3Account, preparation.account_id)
+        if account is None:
+            logger.error(
+                "Unable to restore Portal IAM revocation for missing account %s",
+                preparation.account_id,
+            )
+            return True
+        iam_service = self._get_iam_service(account)
+        return self._restore_portal_iam_key_statuses(
+            iam_service,
+            iam_username=preparation.iam_username,
+            restore_key_statuses=preparation.restore_key_statuses,
+            context="after database rollback",
+        )
+
+    def _finalize_portal_iam_revocation(
+        self,
+        *,
+        user_id: int,
+        account_id: int,
+    ) -> bool:
+        pending = self.db.scalar(
+            select(PortalIAMRevocation).where(
+                PortalIAMRevocation.user_id == user_id,
+                PortalIAMRevocation.account_id == account_id,
+            )
+        )
+        if pending is None:
+            return False
+        account = self.db.get(S3Account, account_id)
+        if account is None:
+            raise RuntimeError("Portal IAM revocation account no longer exists")
+        try:
+            if pending.iam_username:
+                self._delete_portal_iam_user(
+                    self._get_iam_service(account),
+                    pending.iam_username,
+                )
+            self._sync_account_storage_space_bucket_policies(account)
+            self._sync_portal_server_access_log_bucket_policy_if_present(account)
+            self.db.delete(pending)
+            self.db.commit()
+        except Exception as exc:
+            self.db.rollback()
+            raise RuntimeError(
+                "Portal IAM revocation is pending because cleanup failed. Retry reconciliation."
+            ) from exc
+        return True
+
     def _apply_bucket_creation_defaults(
         self,
         account: S3Account,
@@ -175,47 +346,41 @@ class PortalBucketsUsersMixin:
 
     def provision_portal_user(self, target: User, account: S3Account, portal_role: str) -> None:
         """Create/sync IAM user and group membership immediately when roles change."""
-        if portal_role in {PortalAccountRole.PORTAL_MANAGER.value, PortalAccountRole.PORTAL_USER.value}:
-            iam_service = self._get_iam_service(account)
-            link, _, _ = self._ensure_portal_user(target, account, iam_service)
-            self._sync_user_group_membership(
-                iam_service,
-                link.iam_username,
-                portal_role,
-                account=account,
-            )
-            self._sync_user_storage_space_projection(target, account, portal_role, iam_service, link.iam_username)
-            self._ensure_active_key(link, iam_service)
-            self._sync_account_storage_space_bucket_policies(account)
-            return
-        link = self.db.scalar(
-            select(AccountIAMUser).where(
-                AccountIAMUser.user_id == target.id,
-                AccountIAMUser.account_id == account.id,
-            )
-        )
-        if not link:
-            return
+        if portal_role not in {
+            PortalAccountRole.PORTAL_MANAGER.value,
+            PortalAccountRole.PORTAL_USER.value,
+        }:
+            raise ValueError("Portal role is required for IAM provisioning")
         iam_service = self._get_iam_service(account)
-        if link.iam_username:
-            self._delete_portal_iam_user(iam_service, link.iam_username)
-        self.db.delete(link)
-        self.db.flush()
+        link, _, _ = self._ensure_portal_user(target, account, iam_service)
+        self._sync_user_group_membership(
+            iam_service,
+            link.iam_username,
+            portal_role,
+            account=account,
+        )
+        self._sync_user_storage_space_projection(
+            target,
+            account,
+            portal_role,
+            iam_service,
+            link.iam_username,
+        )
+        self._ensure_active_key(link, iam_service)
         self._sync_account_storage_space_bucket_policies(account)
-        self._sync_portal_server_access_log_bucket_policy_if_present(account)
-        self.db.commit()
 
     def sync_existing_portal_user_access(
         self,
         target: User,
         account: S3Account,
-        portal_role: Optional[PortalAccountRoleValue],
+        portal_role: PortalAccountRoleValue,
     ) -> None:
         """Synchronize an existing IAM identity without creating credentials.
 
-        Administrative role changes use this path so revocations happen before
-        their database transaction is committed, while first-time identities
-        remain a lazy Portal bootstrap concern.
+        Active-role reconciliation updates the existing remote identity without
+        creating credentials. Durable role removal is coordinated by
+        ``commit_portal_role_changes`` so local access removal is committed
+        before destructive IAM cleanup.
         """
         link = self.db.scalar(
             select(AccountIAMUser).where(
@@ -226,30 +391,27 @@ class PortalBucketsUsersMixin:
         if not link:
             return
 
-        iam_service = self._get_iam_service(account)
-        if portal_role in {PortalAccountRole.PORTAL_MANAGER.value, PortalAccountRole.PORTAL_USER.value}:
-            self._sync_user_group_membership(
-                iam_service,
-                link.iam_username,
-                portal_role,
-                account=account,
-            )
-            self._sync_user_storage_space_projection(
-                target,
-                account,
-                portal_role,
-                iam_service,
-                link.iam_username,
-            )
-            self._sync_account_storage_space_bucket_policies(account)
-            return
+        if portal_role not in {
+            PortalAccountRole.PORTAL_MANAGER.value,
+            PortalAccountRole.PORTAL_USER.value,
+        }:
+            raise ValueError("Portal role is required for IAM reconciliation")
 
-        if link.iam_username:
-            self._delete_portal_iam_user(iam_service, link.iam_username)
-        self.db.delete(link)
-        self.db.flush()
+        iam_service = self._get_iam_service(account)
+        self._sync_user_group_membership(
+            iam_service,
+            link.iam_username,
+            portal_role,
+            account=account,
+        )
+        self._sync_user_storage_space_projection(
+            target,
+            account,
+            portal_role,
+            iam_service,
+            link.iam_username,
+        )
         self._sync_account_storage_space_bucket_policies(account)
-        self._sync_portal_server_access_log_bucket_policy_if_present(account)
 
     def _delete_portal_iam_user(self, iam_service: RGWIAMService, iam_username: str) -> None:
         iam_user = iam_service.get_user(iam_username)
@@ -267,7 +429,8 @@ class PortalBucketsUsersMixin:
             iam_service.remove_user_from_group(group.name, iam_username)
         iam_service.delete_user(iam_username)
 
-    def remove_portal_user(self, target: User, account: S3Account) -> None:
+    def revoke_portal_user(self, target: User, account: S3Account) -> None:
+        """Durably revoke one stale Portal IAM identity outside a role transaction."""
         from app.services.portal_ownership import require_no_private_storage_space_ownership
 
         require_no_private_storage_space_ownership(
@@ -275,19 +438,19 @@ class PortalBucketsUsersMixin:
             user_id=target.id,
             account_id=account.id,
         )
-        link = self.db.scalar(
-            select(AccountIAMUser).where(
-                AccountIAMUser.user_id == target.id,
-                AccountIAMUser.account_id == account.id,
-            )
-        )
-        if not link:
+        preparation = self._prepare_portal_iam_revocation(target, account)
+        if preparation is None:
             return
-        iam_service = self._get_iam_service(account)
-        if link.iam_username:
-            self._delete_portal_iam_user(iam_service, link.iam_username)
-        self.db.delete(link)
-        self.db.flush()
-        self._sync_account_storage_space_bucket_policies(account)
-        self._sync_portal_server_access_log_bucket_policy_if_present(account)
-        self.db.commit()
+        try:
+            self.db.commit()
+        except Exception as exc:
+            self.db.rollback()
+            if self._rollback_portal_iam_revocation(preparation):
+                raise RuntimeError(
+                    "Unable to persist Portal IAM revocation. Remote rollback also failed."
+                ) from exc
+            raise
+        self._finalize_portal_iam_revocation(
+            user_id=int(target.id),
+            account_id=int(account.id),
+        )

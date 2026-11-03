@@ -132,6 +132,7 @@ DOMAINS = (
             "portal_storage_space_grants",
             "portal_public_links",
             "portal_external_access_credentials",
+            "portal_iam_revocations",
             "portal_admin_requests",
             "portal_admin_request_messages",
         ),

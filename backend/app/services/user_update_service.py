@@ -3,13 +3,12 @@
 
 import logging
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.db_transactions import commit_or_rollback
 from app.core.domain_errors import UiUserNotFoundError
 from app.core.security import get_password_hash, verify_password
-from app.db import AccountIAMUser, S3Account, User
+from app.db import User
 from app.core.domain_enums import is_admin_ui_role
 from app.models.user import (
     ManagerToolAccess,
@@ -22,6 +21,7 @@ from app.services.manager_tool_access import MANAGER_TOOL_ROLES, manager_tool_co
 from app.services.portal_role_sync import (
     capture_effective_portal_roles,
     commit_portal_role_changes,
+    effective_portal_account_ids,
 )
 from app.services.user_associations_service import UserAssociationsService
 from app.services.user_avatar_service import UserAvatarService
@@ -100,36 +100,22 @@ class UserUpdateService:
         if not admin_role:
             user.quota_alerts_global_watch = False
 
-    def _revoke_portal_iam_for_deactivated_user(
-        self,
-        user: User,
-        *,
-        was_active: bool,
-    ) -> None:
-        if not was_active or user.is_active:
-            return
-
-        from app.services.portal_service import PortalService
-
-        portal_service = PortalService(self.db)
-        portal_accounts = self.db.scalars(
-            select(S3Account)
-            .join(AccountIAMUser, AccountIAMUser.account_id == S3Account.id)
-            .where(AccountIAMUser.user_id == user.id)
-            .order_by(S3Account.id.asc())
-        ).unique().all()
-        for account in portal_accounts:
-            portal_service.sync_existing_portal_user_access(user, account, None)
-
     def update_user(self, user_id: int, payload: UserUpdate) -> User:
         user = self.query.get_by_id(user_id)
         if not user:
             raise UiUserNotFoundError("User not found")
         was_active = bool(user.is_active)
-        affected_portal_account_ids = self.associations.affected_portal_account_ids(
-            user,
-            payload,
+        affected_portal_account_ids = set(
+            self.associations.affected_portal_account_ids(
+                user,
+                payload,
+            )
         )
+        if payload.is_active is not None and bool(payload.is_active) != was_active:
+            affected_portal_account_ids.update(
+                effective_portal_account_ids(self.db, user)
+            )
+        affected_portal_account_ids = sorted(affected_portal_account_ids)
         portal_roles_before = capture_effective_portal_roles(
             self.db,
             user_ids=[user.id],
@@ -145,10 +131,6 @@ class UserUpdateService:
             user.auth_version += 1
         self.db.add(user)
         self.db.flush()
-        self._revoke_portal_iam_for_deactivated_user(
-            user,
-            was_active=was_active,
-        )
         commit_portal_role_changes(
             self.db,
             before=portal_roles_before,

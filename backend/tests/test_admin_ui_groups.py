@@ -246,15 +246,14 @@ def test_ui_group_crud_defaults_and_rejects_private_connections(client: TestClie
     assert "Only shared S3 connections can be linked" in reject_resp.json()["detail"]
 
 
-def test_ui_group_create_rolls_back_when_portal_role_sync_fails(db_session, monkeypatch):
-    from app.services import portal_role_sync as service_module
+def test_ui_group_create_rolls_back_when_commit_fails(db_session, monkeypatch):
+    monkeypatch.setattr(
+        db_session,
+        "commit",
+        lambda: (_ for _ in ()).throw(RuntimeError("group commit failed")),
+    )
 
-    def fail_sync(*_args, **_kwargs):
-        raise RuntimeError("portal sync failed")
-
-    monkeypatch.setattr(service_module, "sync_portal_role_downgrades", fail_sync)
-
-    with pytest.raises(RuntimeError, match="portal sync failed"):
+    with pytest.raises(RuntimeError, match="group commit failed"):
         UiGroupsService(db_session).create_group(
             UiGroupCreate(
                 name="Rollback group",

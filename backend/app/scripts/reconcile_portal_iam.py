@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
 from app.core.logging_security import configure_secure_logging
-from app.db import AccountIAMUser, S3Account, User
+from app.db import AccountIAMUser, PortalIAMRevocation, S3Account, User
 from app.services.effective_access_contracts import ResolvedUserAccess
 from app.services.effective_access_service import EffectiveAccessService
 from app.services.portal_service import PortalService
@@ -64,7 +64,7 @@ def _desired_portal_roles(
 
 
 def _existing_portal_user_ids(db: Session, account_id: int) -> set[int]:
-    return {
+    user_ids = {
         int(value)
         for value in db.scalars(
             select(AccountIAMUser.user_id).where(
@@ -72,6 +72,15 @@ def _existing_portal_user_ids(db: Session, account_id: int) -> set[int]:
             )
         ).all()
     }
+    user_ids.update(
+        int(value)
+        for value in db.scalars(
+            select(PortalIAMRevocation.user_id).where(
+                PortalIAMRevocation.account_id == account_id
+            )
+        ).all()
+    )
+    return user_ids
 
 
 def _apply_target(
@@ -82,12 +91,12 @@ def _apply_target(
     role: str | None,
 ) -> Literal["reconciled", "removed"]:
     if role is None:
-        portal.sync_existing_portal_user_access(user, account, None)
+        portal.revoke_portal_user(user, account)
         outcome: Literal["reconciled", "removed"] = "removed"
     else:
         portal.provision_portal_user(user, account, role)
+        db.commit()
         outcome = "reconciled"
-    db.commit()
     return outcome
 
 
@@ -112,6 +121,26 @@ def _reconcile_account(
     for user_id in target_ids:
         target = users_by_id.get(user_id)
         if target is None:
+            pending = db.scalar(
+                select(PortalIAMRevocation.id).where(
+                    PortalIAMRevocation.user_id == user_id,
+                    PortalIAMRevocation.account_id == account_id,
+                )
+            )
+            if pending is not None:
+                if not dry_run:
+                    try:
+                        portal._finalize_portal_iam_revocation(
+                            user_id=user_id,
+                            account_id=account_id,
+                        )
+                        summary["removed"] += 1
+                    except Exception as exc:  # noqa: BLE001 - reconcile remaining users independently
+                        db.rollback()
+                        summary["errors"].append(
+                            {"user_id": user_id, "error": str(exc)}
+                        )
+                continue
             summary["errors"].append(
                 {"user_id": user_id, "error": "UI user not found"}
             )

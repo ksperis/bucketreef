@@ -1,5 +1,27 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 durable Portal IAM user revocation
+
+Migration `0227_portal_iam_revocation_state` adds the
+`portal_iam_revocations` cleanup queue. Portal role removal, UI-user
+deactivation, collaborator removal, and UI-user deletion now disable active
+Portal IAM access keys before committing the local access change, then persist
+the remote cleanup intent before deleting the IAM user. If the local database
+commit fails, BucketReef restores the previous key status and rolls back the
+queue entry.
+
+After the local access removal commits, a remote IAM cleanup failure no longer
+reverts or obscures the local result. The queue remains durable and the
+disabled IAM identity is retried by the normal Portal IAM reconciliation
+workflow. Queue rows deliberately do not reference `users` with a foreign key,
+so pending cleanup survives complete deletion of the BucketReef UI user.
+`reconcile_portal_iam` can therefore finish orphaned cleanup entries after the
+user row is gone.
+
+Complete pending Portal IAM revocations before downgrading. Migration `0227`
+refuses to drop the queue while it contains rows. Apply the normal Alembic
+upgrade path when deploying this backend version.
+
 ## 2026-11 durable Portal external tool revocation
 
 Migration `0226_portal_external_credential_revocation` extends

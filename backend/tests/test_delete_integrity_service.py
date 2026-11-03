@@ -3,13 +3,16 @@
 
 from datetime import UTC, datetime
 
+import pytest
 from sqlalchemy import select
 
 from app.db import (
+    AccountIAMUser,
     ApiToken,
     AuthSession,
     AuditLog,
     BucketMigration,
+    PortalIAMRevocation,
     RefreshToken,
     S3Connection,
     S3User,
@@ -19,6 +22,12 @@ from app.db import (
 from app.core.domain_enums import UserRole
 from app.services.users_service import UsersService
 from app.db.tag_definition import TagDefinition
+from app.services.portal_service import PortalService
+from tests.portal_iam_test_support import (
+    FakePortalRevocationIAM,
+    install_portal_revocation_fakes,
+)
+from tests.s3_account_factory import make_s3_account
 from tests.s3_connection_factory import custom_endpoint_fields
 
 
@@ -194,3 +203,199 @@ def test_delete_user_nulls_nullable_foreign_keys(db_session):
     assert refreshed_audit is not None and refreshed_audit.user_id is None
     assert refreshed_migration is not None and refreshed_migration.created_by_user_id is None
     assert refreshed_definition is not None and refreshed_definition.owner_user_id is None
+
+
+def _seed_portal_identity_for_user_deletion(db_session, *, suffix: str):
+    user = User(
+        email=f"delete-portal-{suffix}@example.com",
+        hashed_password="x",
+        role=UserRole.UI_USER.value,
+    )
+    account = make_s3_account(
+        db_session,
+        name=f"delete-portal-{suffix}",
+        rgw_account_id=f"RGW-DELETE-{suffix.upper()}",
+    )
+    db_session.add_all([user, account])
+    db_session.flush()
+    link = AccountIAMUser(
+        user_id=user.id,
+        account_id=account.id,
+        iam_user_id=f"iam-delete-{suffix}",
+        iam_username=f"portal-delete-{suffix}",
+        active_access_key=f"AK-DELETE-{suffix.upper()}",
+        active_secret_key=f"SK-DELETE-{suffix.upper()}",
+    )
+    db_session.add(link)
+    db_session.commit()
+    return user, account, link
+
+
+def test_delete_user_commit_failure_restores_portal_iam_identity(
+    db_session,
+    monkeypatch,
+):
+    user, account, link = _seed_portal_identity_for_user_deletion(
+        db_session,
+        suffix="rollback",
+    )
+    user_id = int(user.id)
+    account_id = int(account.id)
+    fake_iam = FakePortalRevocationIAM(link.iam_username, link.active_access_key)
+    install_portal_revocation_fakes(monkeypatch, fake_iam)
+
+    monkeypatch.setattr(
+        db_session,
+        "commit",
+        lambda: (_ for _ in ()).throw(RuntimeError("simulated user delete commit failure")),
+    )
+
+    with pytest.raises(RuntimeError, match="simulated user delete commit failure"):
+        UsersService(db_session).delete_user(user_id)
+
+    assert db_session.get(User, user_id) is not None
+    assert db_session.scalar(
+        select(AccountIAMUser).where(
+            AccountIAMUser.user_id == user_id,
+            AccountIAMUser.account_id == account_id,
+        )
+    ) is not None
+    assert db_session.scalar(
+        select(PortalIAMRevocation).where(
+            PortalIAMRevocation.user_id == user_id,
+            PortalIAMRevocation.account_id == account_id,
+        )
+    ) is None
+    assert fake_iam.key_status == "Active"
+
+
+def test_delete_user_prepare_failure_restores_earlier_portal_iam_identity(
+    db_session,
+    monkeypatch,
+):
+    user = User(
+        email="delete-portal-multi-account@example.com",
+        hashed_password="x",
+        role=UserRole.UI_USER.value,
+    )
+    first_account = make_s3_account(
+        db_session,
+        name="delete-portal-first",
+        rgw_account_id="RGW-DELETE-FIRST",
+    )
+    second_account = make_s3_account(
+        db_session,
+        name="delete-portal-second",
+        rgw_account_id="RGW-DELETE-SECOND",
+    )
+    db_session.add_all([user, first_account, second_account])
+    db_session.flush()
+    first_link = AccountIAMUser(
+        user_id=user.id,
+        account_id=first_account.id,
+        iam_user_id="iam-delete-first",
+        iam_username="portal-delete-first",
+        active_access_key="AK-DELETE-FIRST",
+        active_secret_key="SK-DELETE-FIRST",
+    )
+    second_link = AccountIAMUser(
+        user_id=user.id,
+        account_id=second_account.id,
+        iam_user_id="iam-delete-second",
+        iam_username="portal-delete-second",
+        active_access_key="AK-DELETE-SECOND",
+        active_secret_key="SK-DELETE-SECOND",
+    )
+    db_session.add_all([first_link, second_link])
+    db_session.commit()
+
+    first_iam = FakePortalRevocationIAM(
+        first_link.iam_username,
+        first_link.active_access_key,
+    )
+    second_iam = FakePortalRevocationIAM(
+        second_link.iam_username,
+        second_link.active_access_key,
+    )
+    second_iam.fail_get_user = True
+    services_by_account = {
+        int(first_account.id): first_iam,
+        int(second_account.id): second_iam,
+    }
+    monkeypatch.setattr(
+        PortalService,
+        "_get_iam_service",
+        lambda _service, account: services_by_account[int(account.id)],
+    )
+
+    with pytest.raises(RuntimeError, match="simulated IAM user lookup failure"):
+        UsersService(db_session).delete_user(int(user.id))
+
+    assert db_session.get(User, user.id) is not None
+    assert db_session.scalar(
+        select(AccountIAMUser.id).where(
+            AccountIAMUser.user_id == user.id,
+            AccountIAMUser.account_id == first_account.id,
+        )
+    ) is not None
+    assert db_session.scalar(
+        select(AccountIAMUser.id).where(
+            AccountIAMUser.user_id == user.id,
+            AccountIAMUser.account_id == second_account.id,
+        )
+    ) is not None
+    assert db_session.scalar(
+        select(PortalIAMRevocation.id).where(
+            PortalIAMRevocation.user_id == user.id
+        )
+    ) is None
+    assert first_iam.key_status == "Active"
+    assert second_iam.key_status == "Active"
+
+
+def test_delete_user_keeps_failed_portal_iam_cleanup_reconcilable(
+    db_session,
+    monkeypatch,
+):
+    user, account, link = _seed_portal_identity_for_user_deletion(
+        db_session,
+        suffix="pending",
+    )
+    user_id = int(user.id)
+    account_id = int(account.id)
+    fake_iam = FakePortalRevocationIAM(link.iam_username, link.active_access_key)
+    fake_iam.fail_delete_key = True
+    install_portal_revocation_fakes(monkeypatch, fake_iam)
+
+    UsersService(db_session).delete_user(user_id)
+
+    assert db_session.get(User, user_id) is None
+    assert db_session.scalar(
+        select(AccountIAMUser).where(
+            AccountIAMUser.user_id == user_id,
+            AccountIAMUser.account_id == account_id,
+        )
+    ) is None
+    pending = db_session.scalar(
+        select(PortalIAMRevocation).where(
+            PortalIAMRevocation.user_id == user_id,
+            PortalIAMRevocation.account_id == account_id,
+        )
+    )
+    assert pending is not None
+    assert pending.iam_username == link.iam_username
+    assert fake_iam.key_status == "Inactive"
+
+    fake_iam.fail_delete_key = False
+    assert PortalService(db_session)._finalize_portal_iam_revocation(
+        user_id=user_id,
+        account_id=account_id,
+    ) is True
+    assert db_session.scalar(
+        select(PortalIAMRevocation).where(
+            PortalIAMRevocation.user_id == user_id,
+            PortalIAMRevocation.account_id == account_id,
+        )
+    ) is None
+    assert fake_iam.key_exists is False
+    assert fake_iam.user_exists is False

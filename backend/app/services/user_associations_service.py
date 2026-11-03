@@ -175,6 +175,12 @@ class UserAssociationsService:
         )
         if user.role == UserRole.UI_NONE.value:
             user.role = UserRole.UI_USER.value
+        if manager_role is None and portal_role is None:
+            if link is not None:
+                self.db.delete(link)
+            self.db.add(user)
+            self.db.flush()
+            return
         membership = AccountMembership(
             account_id=account.id,
             manager_role=manager_role,

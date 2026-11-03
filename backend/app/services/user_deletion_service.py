@@ -14,6 +14,7 @@ from app.db import (
     AuditLog,
     AuthSession,
     BucketMigration,
+    PortalIAMRevocation,
     RefreshToken,
     S3Account,
     S3Connection,
@@ -24,6 +25,7 @@ from app.db import (
     UserS3User,
     UserUiGroup,
 )
+from app.services.portal.iam_revocation import PortalIAMRevocationPreparation
 from app.services.portal_ownership import require_no_private_storage_space_ownership
 from app.utils.tagging import (
     TAG_DOMAIN_BUCKET_UI_CEPH_ADMIN,
@@ -58,21 +60,91 @@ class UserDeletionService:
             )
         return [row[0] for row in created_connection_rows if not bool(row[1])]
 
-    def _sync_portal_access(self, user: User) -> None:
+    def _prepare_portal_revocations(
+        self,
+        user: User,
+    ) -> list[PortalIAMRevocationPreparation]:
         from app.services.portal_service import PortalService
 
         portal_service = PortalService(self.db)
-        portal_accounts = self.db.scalars(
-            select(S3Account)
-            .join(AccountIAMUser, AccountIAMUser.account_id == S3Account.id)
-            .where(AccountIAMUser.user_id == user.id)
-        ).unique().all()
-        for account in portal_accounts:
-            portal_service.sync_existing_portal_user_access(
-                user,
-                account,
-                None,
-            )
+        account_ids = {
+            int(account_id)
+            for account_id in self.db.scalars(
+                select(AccountIAMUser.account_id).where(
+                    AccountIAMUser.user_id == user.id
+                )
+            ).all()
+        }
+        account_ids.update(
+            int(account_id)
+            for account_id in self.db.scalars(
+                select(PortalIAMRevocation.account_id).where(
+                    PortalIAMRevocation.user_id == user.id
+                )
+            ).all()
+        )
+        preparations: list[PortalIAMRevocationPreparation] = []
+        try:
+            for account_id in sorted(account_ids):
+                account = self.db.get(S3Account, account_id)
+                if account is None:
+                    continue
+                preparation = portal_service._prepare_portal_iam_revocation(
+                    user,
+                    account,
+                )
+                if preparation is not None:
+                    preparations.append(preparation)
+        except Exception as exc:
+            if self._rollback_portal_revocation_transaction(preparations):
+                raise RuntimeError(
+                    "Unable to prepare Portal IAM revocations. Local or IAM rollback also failed."
+                ) from exc
+            raise
+        return preparations
+
+    def _restore_portal_revocations(
+        self,
+        preparations: list[PortalIAMRevocationPreparation],
+    ) -> bool:
+        from app.services.portal_service import PortalService
+
+        service = PortalService(self.db)
+        failed = False
+        for preparation in reversed(preparations):
+            failed = service._rollback_portal_iam_revocation(preparation) or failed
+        return failed
+
+    def _rollback_portal_revocation_transaction(
+        self,
+        preparations: list[PortalIAMRevocationPreparation],
+    ) -> bool:
+        try:
+            self.db.rollback()
+        except Exception:
+            return True
+        return self._restore_portal_revocations(preparations)
+
+    def _finalize_portal_revocations(
+        self,
+        preparations: list[PortalIAMRevocationPreparation],
+    ) -> None:
+        from app.services.portal_service import PortalService
+
+        service = PortalService(self.db)
+        for preparation in preparations:
+            try:
+                service._finalize_portal_iam_revocation(
+                    user_id=preparation.user_id,
+                    account_id=preparation.account_id,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Portal IAM cleanup remains pending after deleting user_id=%s account_id=%s: %s",
+                    preparation.user_id,
+                    preparation.account_id,
+                    exc,
+                )
 
     def _delete_links_and_private_connections(
         self,
@@ -80,11 +152,6 @@ class UserDeletionService:
         created_private_ids: list[int],
     ) -> None:
         # Remove dependent links/tokens first to satisfy FK constraints on PostgreSQL.
-        self.db.execute(
-            delete(AccountIAMUser)
-            .where(AccountIAMUser.user_id == user_id)
-            .execution_options(synchronize_session=False)
-        )
         self.db.execute(
             delete(UserS3Account)
             .where(UserS3Account.user_id == user_id)
@@ -183,11 +250,19 @@ class UserDeletionService:
             raise UiUserNotFoundError("User not found")
         require_no_private_storage_space_ownership(self.db, user_id=user.id)
         created_private_ids = self._created_private_connection_ids(user.id)
-        self._sync_portal_access(user)
-        self._delete_links_and_private_connections(user.id, created_private_ids)
-        self._delete_auth_artifacts(user.id)
-        self._anonymize_history(user.id)
-        self._cleanup_owned_tag_definitions(user.id)
-        self.db.delete(user)
-        self.db.commit()
+        portal_revocations = self._prepare_portal_revocations(user)
+        try:
+            self._delete_links_and_private_connections(user.id, created_private_ids)
+            self._delete_auth_artifacts(user.id)
+            self._anonymize_history(user.id)
+            self._cleanup_owned_tag_definitions(user.id)
+            self.db.delete(user)
+            self.db.commit()
+        except Exception as exc:
+            if self._rollback_portal_revocation_transaction(portal_revocations):
+                raise RuntimeError(
+                    "Unable to delete user. Portal IAM rollback also failed."
+                ) from exc
+            raise
+        self._finalize_portal_revocations(portal_revocations)
         logger.debug("Deleted user id=%s email=%s", user.id, user.email)
