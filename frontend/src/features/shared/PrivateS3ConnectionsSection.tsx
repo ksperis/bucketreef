@@ -13,6 +13,7 @@ import ToolbarSearchInput from "../../components/ToolbarSearchInput";
 import PageBanner from "../../components/PageBanner";
 import WorkflowPage from "../../components/WorkflowPage";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
+import { useSettingsBaseline } from "../../components/settings/useSettingsDraft";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import {
   S3Connection,
@@ -45,8 +46,8 @@ import { useS3ConnectionFormValidation } from "./useS3ConnectionFormValidation";
 import S3ConnectionEndpointFields from "./S3ConnectionEndpointFields";
 import S3CredentialsValidationMessage from "./S3CredentialsValidationMessage";
 import {
-  buildCreateS3ConnectionSignature,
-  buildEditPrivateConnectionSignature,
+  buildCreateS3ConnectionBaseline,
+  buildEditPrivateConnectionBaseline,
   buildPrivateConnectionDraft,
   buildPrivateConnectionEditorState,
   buildPrivateConnectionsProjection,
@@ -102,17 +103,6 @@ export default function PrivateS3ConnectionsSection({
   const [createConnectionEndpointId, setCreateConnectionEndpointId] = useState("");
   const [editConnectionEndpointMode, setEditConnectionEndpointMode] = useState<S3ConnectionEndpointMode>("custom");
   const [editConnectionEndpointId, setEditConnectionEndpointId] = useState("");
-  const [createConnectionInitialSignature, setCreateConnectionInitialSignature] = useState(() =>
-    buildCreateS3ConnectionSignature(createDefaultPrivateConnectionForm(), "custom", "")
-  );
-  const [editConnectionInitialSignature, setEditConnectionInitialSignature] = useState(() =>
-    buildEditPrivateConnectionSignature(
-      buildPrivateConnectionDraft({ id: 0 } as S3Connection),
-      createEmptyConnectionCredentialDraft(),
-      "custom",
-      "",
-    )
-  );
   const [availableStorageEndpoints, setAvailableStorageEndpoints] = useState<PrivateConnectionStorageEndpoint[]>([]);
   const [loadingStorageEndpoints, setLoadingStorageEndpoints] = useState(false);
   const [storageEndpointsError, setStorageEndpointsError] = useState<string | null>(null);
@@ -201,15 +191,19 @@ export default function PrivateS3ConnectionsSection({
   }) : { error: null, payload: null };
   const editFormValidation = useS3ConnectionFormValidation(editPrepared, canCreateManualConnections && !editingConnection?.server_managed && editConnectionEndpointMode === "custom" ? currentEditDraft?.endpoint_url : undefined);
 
-  const createConnectionCurrentSignature = useMemo(
+  const createConnectionDraft = useMemo(
     () =>
-      buildCreateS3ConnectionSignature(
+      buildCreateS3ConnectionBaseline(
         createConnectionForm,
         createConnectionEndpointMode,
         createConnectionEndpointId
       ),
     [createConnectionEndpointId, createConnectionEndpointMode, createConnectionForm]
   );
+  const {
+    accept: acceptCreateConnectionDraft,
+    dirty: createConnectionDraftDirty,
+  } = useSettingsBaseline(createConnectionDraft, createConnectionDraft);
 
   const closeCreateConnectionModal = useCallback(() => {
     if (creatingConnection) return;
@@ -234,12 +228,12 @@ export default function PrivateS3ConnectionsSection({
     setEditingConnectionId(null);
   }, [editingConnection, savingConnectionBusyId]);
 
-  const editConnectionCurrentSignature = useMemo(() => {
-    if (!editingConnection) return editConnectionInitialSignature;
+  const editConnectionDraft = useMemo(() => {
+    if (!editingConnection) return null;
     const draft = connectionDrafts[editingConnection.id] ?? buildPrivateConnectionDraft(editingConnection);
     const credentialDraft =
       connectionCredentialDrafts[editingConnection.id] ?? createEmptyConnectionCredentialDraft();
-    return buildEditPrivateConnectionSignature(
+    return buildEditPrivateConnectionBaseline(
       draft,
       credentialDraft,
       editConnectionEndpointMode,
@@ -250,13 +244,16 @@ export default function PrivateS3ConnectionsSection({
     connectionDrafts,
     editConnectionEndpointId,
     editConnectionEndpointMode,
-    editConnectionInitialSignature,
     editingConnection,
   ]);
+  const {
+    accept: acceptEditConnectionDraft,
+    dirty: editConnectionDraftDirty,
+  } = useSettingsBaseline(editConnectionDraft, null);
 
   const connectionHasUnsavedChanges =
-    (showCreateConnectionModal && createConnectionCurrentSignature !== createConnectionInitialSignature) ||
-    (Boolean(editingConnection) && editConnectionCurrentSignature !== editConnectionInitialSignature);
+    (showCreateConnectionModal && createConnectionDraftDirty) ||
+    (Boolean(editingConnection) && editConnectionDraftDirty);
 
   const workflowActive = showCreateConnectionModal || Boolean(editingConnection);
 
@@ -269,14 +266,14 @@ export default function PrivateS3ConnectionsSection({
   }, [onWorkflowActiveChange, workflowActive]);
 
   const createConnectionCloseGuard = useUnsavedChangesGuard({
-    hasUnsavedChanges: showCreateConnectionModal && createConnectionCurrentSignature !== createConnectionInitialSignature,
+    hasUnsavedChanges: showCreateConnectionModal && createConnectionDraftDirty,
     onClose: closeCreateConnectionModal,
     disabled: creatingConnection,
     zIndexClass: "z-[70]",
   });
 
   const editConnectionCloseGuard = useUnsavedChangesGuard({
-    hasUnsavedChanges: Boolean(editingConnection) && editConnectionCurrentSignature !== editConnectionInitialSignature,
+    hasUnsavedChanges: Boolean(editingConnection) && editConnectionDraftDirty,
     onClose: closeEditConnectionModal,
     disabled: editingConnection ? savingConnectionBusyId === editingConnection.id : false,
     zIndexClass: "z-[70]",
@@ -413,8 +410,8 @@ export default function PrivateS3ConnectionsSection({
     setCreateConnectionForm(nextForm);
     setCreateConnectionEndpointMode(nextEndpointMode);
     setCreateConnectionEndpointId(nextEndpointId);
-    setCreateConnectionInitialSignature(
-      buildCreateS3ConnectionSignature(
+    acceptCreateConnectionDraft(
+      buildCreateS3ConnectionBaseline(
         nextForm,
         nextEndpointMode,
         nextEndpointId,
@@ -445,8 +442,8 @@ export default function PrivateS3ConnectionsSection({
       ...prev,
       [connection.id]: nextCredentialDraft,
     }));
-    setEditConnectionInitialSignature(
-      buildEditPrivateConnectionSignature(
+    acceptEditConnectionDraft(
+      buildEditPrivateConnectionBaseline(
         nextDraft,
         nextCredentialDraft,
         nextEndpointMode,

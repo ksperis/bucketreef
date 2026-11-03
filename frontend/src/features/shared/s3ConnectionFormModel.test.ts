@@ -5,9 +5,9 @@
 import { describe, expect, it } from "vitest";
 import type { S3Connection } from "../../api/connections";
 import {
-  buildCreateS3ConnectionSignature,
-  buildEditAdminS3ConnectionSignature,
-  buildEditPrivateConnectionSignature,
+  buildCreateS3ConnectionBaseline,
+  buildEditAdminS3ConnectionBaseline,
+  buildEditPrivateConnectionBaseline,
   buildPrivateConnectionDraft,
   buildPrivateConnectionEditorState,
   buildPrivateConnectionsProjection,
@@ -112,7 +112,7 @@ describe("s3ConnectionFormModel", () => {
     );
   });
 
-  it("normalizes tags in create and edit dirty signatures", () => {
+  it("normalizes tags and linked IDs in create and edit baselines", () => {
     const createForm = createDefaultPrivateConnectionForm();
     createForm.tags = connection.tags ?? [];
     const reversedCreateForm = {
@@ -120,21 +120,21 @@ describe("s3ConnectionFormModel", () => {
       tags: [...createForm.tags].reverse(),
     };
     expect(
-      buildCreateS3ConnectionSignature(createForm, "custom", ""),
-    ).toBe(
-      buildCreateS3ConnectionSignature(reversedCreateForm, "custom", ""),
+      buildCreateS3ConnectionBaseline(createForm, "custom", ""),
+    ).toEqual(
+      buildCreateS3ConnectionBaseline(reversedCreateForm, "custom", ""),
     );
 
     const draft = buildPrivateConnectionDraft(connection);
     expect(
-      buildEditPrivateConnectionSignature(
+      buildEditPrivateConnectionBaseline(
         draft,
         createEmptyConnectionCredentialDraft(),
         "preset",
         "3",
       ),
-    ).toBe(
-      buildEditPrivateConnectionSignature(
+    ).toEqual(
+      buildEditPrivateConnectionBaseline(
         { ...draft, tags: [...draft.tags].reverse() },
         createEmptyConnectionCredentialDraft(),
         "preset",
@@ -147,9 +147,9 @@ describe("s3ConnectionFormModel", () => {
       tags: connection.tags ?? [],
     };
     expect(
-      buildCreateS3ConnectionSignature(adminForm, "custom", ""),
-    ).toBe(
-      buildCreateS3ConnectionSignature(
+      buildCreateS3ConnectionBaseline(adminForm, "custom", ""),
+    ).toEqual(
+      buildCreateS3ConnectionBaseline(
         { ...adminForm, tags: [...adminForm.tags].reverse() },
         "custom",
         "",
@@ -169,7 +169,7 @@ describe("s3ConnectionFormModel", () => {
       allow_activity_history: null,
     };
     expect(
-      buildEditAdminS3ConnectionSignature({
+      buildEditAdminS3ConnectionBaseline({
         credentialDraft: createEmptyConnectionCredentialDraft(),
         endpointId: "",
         endpointMode: "custom",
@@ -177,8 +177,8 @@ describe("s3ConnectionFormModel", () => {
         linkedGroupIds: [8, 3],
         linkedUserIds: [5, 2],
       }),
-    ).toBe(
-      buildEditAdminS3ConnectionSignature({
+    ).toEqual(
+      buildEditAdminS3ConnectionBaseline({
         credentialDraft: createEmptyConnectionCredentialDraft(),
         endpointId: "",
         endpointMode: "custom",
