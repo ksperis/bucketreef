@@ -506,11 +506,6 @@ def test_manager_and_portal_share_one_sample_account_with_independent_roles(
     monkeypatch.setattr(guided.endpoints, "detect_features", lambda *_args, **_kwargs: detection())
     monkeypatch.setattr(
         portal_role_sync_module,
-        "sync_portal_role_downgrades",
-        lambda *_args, **_kwargs: None,
-    )
-    monkeypatch.setattr(
-        portal_role_sync_module,
         "sync_portal_role_promotions",
         lambda *_args, **_kwargs: None,
     )
@@ -628,11 +623,6 @@ def test_manager_and_portal_role_axes_remain_independent(
         features=parse_features_config(account_feature_config(iam=True)),
     )
     monkeypatch.setattr(guided.endpoints, "detect_features", lambda *_args, **_kwargs: detection())
-    monkeypatch.setattr(
-        portal_role_sync_module,
-        "sync_portal_role_downgrades",
-        lambda *_args, **_kwargs: None,
-    )
     monkeypatch.setattr(
         portal_role_sync_module,
         "sync_portal_role_promotions",

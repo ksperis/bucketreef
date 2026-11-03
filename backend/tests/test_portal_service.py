@@ -87,7 +87,7 @@ from app.services.rgw_iam import RGWIAMGroupAlreadyExistsError
 from app.services.portal_service import PortalService
 from app.services.portal.version_cleanup import PortalStorageSpaceVersionCleanupTarget
 from app.services.portal.trash_restore import PortalDeletedPrefixRestoreTarget
-from app.services.portal_role_sync import sync_portal_role_downgrades
+from app.services.portal_role_sync import commit_portal_role_changes
 from app.services.bucket_usage_stats_service import BucketUsageStatsService
 from app.services.bucket_purge_service import BucketPurgeCancelled
 from app.services.traffic_service import TrafficWindow
@@ -1957,22 +1957,46 @@ def test_private_owner_cannot_lose_final_portal_role(db_session):
     account = make_s3_account(db_session, name="owned-role-guard")
     owner = User(email="guarded-owner@example.test", hashed_password="x", role="ui_user")
     db_session.add_all([account, owner])
-    db_session.commit()
-    db_session.add(
+    db_session.flush()
+    association = UserS3Account(
+        user_id=owner.id,
+        account_id=account.id,
+        manager_role=None,
+        portal_role=PortalAccountRole.PORTAL_USER.value,
+    )
+    db_session.add_all(
+        [
+            association,
         PortalStorageSpaceMetadata(
             account_id=account.id,
             bucket_name="guarded-private-space",
             visibility="private",
             owner_user_id=owner.id,
-        )
+            ),
+        ]
     )
     db_session.commit()
 
     before = {(owner.id, account.id): PortalAccountRole.PORTAL_USER.value}
-    after = {}
+    db_session.delete(association)
+    db_session.flush()
 
     with pytest.raises(ValueError, match="take ownership"):
-        sync_portal_role_downgrades(db_session, before=before, after=after)
+        commit_portal_role_changes(
+            db_session,
+            before=before,
+            user_ids=[owner.id],
+            account_ids=[account.id],
+        )
+
+    restored = db_session.scalar(
+        sa.select(UserS3Account).where(
+            UserS3Account.user_id == owner.id,
+            UserS3Account.account_id == account.id,
+        )
+    )
+    assert restored is not None
+    assert restored.portal_role == PortalAccountRole.PORTAL_USER.value
 
 
 def test_delete_storage_space_removes_empty_imported_bucket_and_access_state(monkeypatch, db_session):

@@ -3743,7 +3743,7 @@
       "name": "audit_logs",
       "schema": null,
       "x": 900,
-      "y": 8266,
+      "y": 8026,
       "fields": [
         {
           "id": "field:audit_logs.id",
@@ -15422,7 +15422,7 @@
       "name": "cost_usage_daily",
       "schema": null,
       "x": 2520,
-      "y": 6930,
+      "y": 6690,
       "fields": [
         {
           "id": "field:cost_usage_daily.id",
@@ -15809,7 +15809,7 @@
       "name": "cost_storage_daily",
       "schema": null,
       "x": 2100,
-      "y": 6930,
+      "y": 6690,
       "fields": [
         {
           "id": "field:cost_storage_daily.id",
@@ -16175,7 +16175,7 @@
       "name": "cost_models",
       "schema": null,
       "x": 2520,
-      "y": 8508,
+      "y": 8268,
       "fields": [
         {
           "id": "field:cost_models.id",
@@ -16401,7 +16401,7 @@
       "name": "cost_endpoint_overrides",
       "schema": null,
       "x": 2940,
-      "y": 7396,
+      "y": 7156,
       "fields": [
         {
           "id": "field:cost_endpoint_overrides.id",
@@ -16655,7 +16655,7 @@
       "name": "quota_usage_hourly",
       "schema": null,
       "x": 2520,
-      "y": 7396,
+      "y": 7156,
       "fields": [
         {
           "id": "field:quota_usage_hourly.id",
@@ -17052,7 +17052,7 @@
       "name": "quota_usage_daily",
       "schema": null,
       "x": 2100,
-      "y": 7396,
+      "y": 7156,
       "fields": [
         {
           "id": "field:quota_usage_daily.id",
@@ -17428,7 +17428,7 @@
       "name": "quota_alert_states",
       "schema": null,
       "x": 2940,
-      "y": 6930,
+      "y": 6690,
       "fields": [
         {
           "id": "field:quota_alert_states.id",
@@ -17705,7 +17705,7 @@
       "name": "user_notifications",
       "schema": null,
       "x": 480,
-      "y": 6930,
+      "y": 6690,
       "fields": [
         {
           "id": "field:user_notifications.id",
@@ -18168,7 +18168,7 @@
       "name": "endpoint_health_checks",
       "schema": null,
       "x": 2100,
-      "y": 7892,
+      "y": 7652,
       "fields": [
         {
           "id": "field:endpoint_health_checks.id",
@@ -18414,7 +18414,7 @@
       "name": "endpoint_health_latest",
       "schema": null,
       "x": 2520,
-      "y": 7892,
+      "y": 7652,
       "fields": [
         {
           "id": "field:endpoint_health_latest.id",
@@ -18854,7 +18854,7 @@
       "name": "endpoint_health_status_segments",
       "schema": null,
       "x": 2100,
-      "y": 8508,
+      "y": 8268,
       "fields": [
         {
           "id": "field:endpoint_health_status_segments.id",
@@ -19253,7 +19253,7 @@
       "name": "endpoint_health_rollups",
       "schema": null,
       "x": 2940,
-      "y": 7892,
+      "y": 7652,
       "fields": [
         {
           "id": "field:endpoint_health_rollups.id",
@@ -19675,7 +19675,7 @@
       "name": "bucket_migrations",
       "schema": null,
       "x": 60,
-      "y": 6930,
+      "y": 6690,
       "fields": [
         {
           "id": "field:bucket_migrations.execution_auth_session_id",
@@ -20704,7 +20704,7 @@
       "name": "bucket_migration_items",
       "schema": null,
       "x": 60,
-      "y": 8266,
+      "y": 8026,
       "fields": [
         {
           "id": "field:bucket_migration_items.id",
@@ -21529,7 +21529,7 @@
       "name": "bucket_migration_events",
       "schema": null,
       "x": 900,
-      "y": 6930,
+      "y": 6690,
       "fields": [
         {
           "id": "field:bucket_migration_events.id",
@@ -21776,7 +21776,7 @@
       "name": "bucket_usage_stats_snapshots",
       "schema": null,
       "x": 480,
-      "y": 10008,
+      "y": 9768,
       "fields": [
         {
           "id": "field:bucket_usage_stats_snapshots.id",
@@ -22903,7 +22903,7 @@
       "id": "table:portal_storage_space_grants",
       "name": "portal_storage_space_grants",
       "schema": null,
-      "x": 2520,
+      "x": 2100,
       "y": 5476,
       "fields": [
         {
@@ -23133,8 +23133,8 @@
       "id": "table:portal_public_links",
       "name": "portal_public_links",
       "schema": null,
-      "x": 2520,
-      "y": 6032,
+      "x": 2940,
+      "y": 5476,
       "fields": [
         {
           "id": "field:portal_public_links.id",
@@ -23441,8 +23441,8 @@
       "id": "table:portal_external_access_credentials",
       "name": "portal_external_access_credentials",
       "schema": null,
-      "x": 2100,
-      "y": 5476,
+      "x": 2940,
+      "y": 4710,
       "fields": [
         {
           "id": "field:portal_external_access_credentials.id",
@@ -23852,6 +23852,209 @@
       "parentAreaId": "area:portal"
     },
     {
+      "id": "table:portal_iam_revocations",
+      "name": "portal_iam_revocations",
+      "schema": null,
+      "x": 2100,
+      "y": 5942,
+      "fields": [
+        {
+          "id": "field:portal_iam_revocations.id",
+          "name": "id",
+          "type": {
+            "id": "integer",
+            "name": "integer"
+          },
+          "primaryKey": true,
+          "unique": true,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:portal_iam_revocations.user_id",
+          "name": "user_id",
+          "type": {
+            "id": "integer",
+            "name": "integer"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:portal_iam_revocations.account_id",
+          "name": "account_id",
+          "type": {
+            "id": "integer",
+            "name": "integer"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:portal_iam_revocations.iam_user_id",
+          "name": "iam_user_id",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:portal_iam_revocations.iam_username",
+          "name": "iam_username",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:portal_iam_revocations.created_at",
+          "name": "created_at",
+          "type": {
+            "id": "datetime",
+            "name": "datetime"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        }
+      ],
+      "indexes": [
+        {
+          "id": "index:portal_iam_revocations:primary-key",
+          "name": "",
+          "unique": true,
+          "fieldIds": [
+            "field:portal_iam_revocations.id"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": true,
+          "comments": null
+        },
+        {
+          "id": "index:portal_iam_revocations:ix_portal_iam_revocations_account",
+          "name": "ix_portal_iam_revocations_account",
+          "unique": false,
+          "fieldIds": [
+            "field:portal_iam_revocations.account_id"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": false,
+          "comments": null
+        },
+        {
+          "id": "index:portal_iam_revocations:ix_portal_iam_revocations_id",
+          "name": "ix_portal_iam_revocations_id",
+          "unique": false,
+          "fieldIds": [
+            "field:portal_iam_revocations.id"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": false,
+          "comments": null
+        },
+        {
+          "id": "index:portal_iam_revocations:ix_portal_iam_revocations_user",
+          "name": "ix_portal_iam_revocations_user",
+          "unique": false,
+          "fieldIds": [
+            "field:portal_iam_revocations.user_id"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": false,
+          "comments": null
+        },
+        {
+          "id": "unique:portal_iam_revocations:uq_portal_iam_revocations_user_account",
+          "name": "uq_portal_iam_revocations_user_account",
+          "unique": true,
+          "fieldIds": [
+            "field:portal_iam_revocations.user_id",
+            "field:portal_iam_revocations.account_id"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": false,
+          "comments": "SQLAlchemy UniqueConstraint"
+        }
+      ],
+      "checkConstraints": [],
+      "color": "#2563EB",
+      "isView": false,
+      "isMaterializedView": false,
+      "createdAt": 0,
+      "width": 360,
+      "comments": null,
+      "order": 69,
+      "expanded": true,
+      "parentAreaId": "area:portal"
+    },
+    {
       "id": "table:portal_admin_requests",
       "name": "portal_admin_requests",
       "schema": null,
@@ -24232,7 +24435,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 69,
+      "order": 70,
       "expanded": true,
       "parentAreaId": "area:portal"
     },
@@ -24240,8 +24443,8 @@
       "id": "table:portal_admin_request_messages",
       "name": "portal_admin_request_messages",
       "schema": null,
-      "x": 2100,
-      "y": 6032,
+      "x": 2520,
+      "y": 5476,
       "fields": [
         {
           "id": "field:portal_admin_request_messages.id",
@@ -24446,7 +24649,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 70,
+      "order": 71,
       "expanded": true,
       "parentAreaId": "area:portal"
     },
@@ -24455,7 +24658,7 @@
       "name": "backend_operation_leases",
       "schema": null,
       "x": 60,
-      "y": 10008,
+      "y": 9768,
       "fields": [
         {
           "id": "field:backend_operation_leases.operation_name",
@@ -24594,7 +24797,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 71,
+      "order": 72,
       "expanded": true,
       "parentAreaId": "area:operations-audit"
     },
@@ -24603,7 +24806,7 @@
       "name": "app_settings",
       "schema": null,
       "x": 900,
-      "y": 9422,
+      "y": 9182,
       "fields": [
         {
           "id": "field:app_settings.key",
@@ -24710,7 +24913,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 72,
+      "order": 73,
       "expanded": true,
       "parentAreaId": "area:operations-audit"
     },
@@ -24853,7 +25056,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 73,
+      "order": 74,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -24969,7 +25172,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 74,
+      "order": 75,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -25201,7 +25404,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 75,
+      "order": 76,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -25210,7 +25413,7 @@
       "name": "webhook_endpoints",
       "schema": null,
       "x": 480,
-      "y": 8266,
+      "y": 8026,
       "fields": [
         {
           "id": "field:webhook_endpoints.id",
@@ -25414,7 +25617,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 76,
+      "order": 77,
       "expanded": true,
       "parentAreaId": "area:operations-audit"
     },
@@ -25423,7 +25626,7 @@
       "name": "webhook_endpoint_subscriptions",
       "schema": null,
       "x": 480,
-      "y": 9422,
+      "y": 9182,
       "fields": [
         {
           "id": "field:webhook_endpoint_subscriptions.id",
@@ -25555,7 +25758,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 77,
+      "order": 78,
       "expanded": true,
       "parentAreaId": "area:operations-audit"
     },
@@ -25564,7 +25767,7 @@
       "name": "webhook_deliveries",
       "schema": null,
       "x": 60,
-      "y": 9422,
+      "y": 9182,
       "fields": [
         {
           "id": "field:webhook_deliveries.id",
@@ -26028,7 +26231,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 78,
+      "order": 79,
       "expanded": true,
       "parentAreaId": "area:operations-audit"
     }
@@ -27426,6 +27629,19 @@
       "createdAt": 0
     },
     {
+      "id": "relationship:portal_iam_revocations.account_id->s3_accounts.id",
+      "name": "fk_portal_iam_revocations_account_id_s3_accounts_id [ON DELETE CASCADE]",
+      "sourceSchema": null,
+      "sourceTableId": "table:portal_iam_revocations",
+      "targetSchema": null,
+      "targetTableId": "table:s3_accounts",
+      "sourceFieldId": "field:portal_iam_revocations.account_id",
+      "targetFieldId": "field:s3_accounts.id",
+      "sourceCardinality": "many",
+      "targetCardinality": "one",
+      "createdAt": 0
+    },
+    {
       "id": "relationship:portal_admin_requests.account_id->s3_accounts.id",
       "name": "fk_portal_admin_requests_account_id_s3_accounts_id [ON DELETE CASCADE]",
       "sourceSchema": null,
@@ -27593,8 +27809,8 @@
       "name": "Portal",
       "x": 2040,
       "y": 4578,
-      "width": 900,
-      "height": 1920,
+      "width": 1320,
+      "height": 1680,
       "color": "#2563EB",
       "order": 3
     },
@@ -27602,7 +27818,7 @@
       "id": "area:operations-audit",
       "name": "Operations and audit",
       "x": 0,
-      "y": 6798,
+      "y": 6558,
       "width": 1320,
       "height": 4066,
       "color": "#D97706",
@@ -27612,7 +27828,7 @@
       "id": "area:observability-quota-cost",
       "name": "Observability quota and cost",
       "x": 2040,
-      "y": 6798,
+      "y": 6558,
       "width": 1320,
       "height": 2236,
       "color": "#059669",

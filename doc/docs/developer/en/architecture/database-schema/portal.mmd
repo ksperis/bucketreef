@@ -63,6 +63,14 @@ erDiagram
         datetime created_at "NN"
         datetime updated_at "NN"
     }
+    portal_iam_revocations {
+        integer id PK "NN"
+        integer user_id "NN"
+        integer account_id FK "NN"
+        varchar iam_user_id "NN"
+        varchar iam_username
+        datetime created_at "NN"
+    }
     portal_admin_requests {
         integer id PK "NN"
         integer account_id FK "NN"
@@ -104,6 +112,7 @@ erDiagram
     portal_external_access_credentials }o--|| s3_accounts : "account_id to id; ON DELETE CASCADE"
     portal_external_access_credentials }o--|| portal_storage_space_metadata : "storage_space_metadata_id to id; ON DELETE CASCADE"
     portal_external_access_credentials }o--o| users : "created_by_user_id to id; ON DELETE SET NULL"
+    portal_iam_revocations }o--|| s3_accounts : "account_id to id; ON DELETE CASCADE"
     portal_admin_requests }o--|| s3_accounts : "account_id to id; ON DELETE CASCADE"
     portal_admin_requests }o--o| users : "requester_user_id to id; ON DELETE SET NULL"
     portal_admin_requests }o--o| users : "decided_by_user_id to id; ON DELETE SET NULL"

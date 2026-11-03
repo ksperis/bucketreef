@@ -10,6 +10,7 @@ from app.core.security import get_password_hash
 from app.db import (
     AccountIAMUser,
     AuthSession,
+    PortalIAMRevocation,
     S3Account,
     S3Connection,
     S3User,
@@ -34,6 +35,10 @@ from app.models.user import (
 from app.services.user_output_service import UserOutputService
 from app.services.auth_session_service import AuthSessionService
 from app.services.users_service import UsersService
+from tests.portal_iam_test_support import (
+    FakePortalRevocationIAM,
+    install_portal_revocation_fakes,
+)
 from tests.s3_account_factory import make_s3_account
 from tests.s3_connection_factory import custom_endpoint_fields
 
@@ -414,31 +419,17 @@ def test_deactivating_user_revokes_existing_portal_iam_identity(
     )
     db_session.commit()
 
-    revoked: list[tuple[int, int, object]] = []
-
-    from app.services.portal_service import PortalService
-
-    def revoke_existing_portal_access(portal_service, target, target_account, portal_role):
-        revoked.append((target.id, target_account.id, portal_role))
-        link = portal_service.db.scalars(
-            select(AccountIAMUser).where(
-                AccountIAMUser.user_id == target.id,
-                AccountIAMUser.account_id == target_account.id,
-            )
-        ).one()
-        portal_service.db.delete(link)
-        portal_service.db.flush()
-
-    monkeypatch.setattr(
-        PortalService,
-        "sync_existing_portal_user_access",
-        revoke_existing_portal_access,
+    fake_iam = FakePortalRevocationIAM(
+        f"portal-{membership_source}",
+        f"AK-{membership_source}",
     )
+    install_portal_revocation_fakes(monkeypatch, fake_iam)
 
     updated = service.update_user(user.id, UserUpdate(is_active=False))
 
     assert updated.is_active is False
-    assert revoked == [(user.id, account.id, None)]
+    assert fake_iam.key_exists is False
+    assert fake_iam.user_exists is False
     assert (
         db_session.scalars(
             select(AccountIAMUser).where(
@@ -449,6 +440,28 @@ def test_deactivating_user_revokes_existing_portal_iam_identity(
         .one_or_none()
         is None
     )
+    assert db_session.scalar(
+        select(PortalIAMRevocation).where(
+            PortalIAMRevocation.user_id == user.id,
+            PortalIAMRevocation.account_id == account.id,
+        )
+    ) is None
+    if membership_source == "direct":
+        association = db_session.scalar(
+            select(UserS3Account).where(
+                UserS3Account.user_id == user.id,
+                UserS3Account.account_id == account.id,
+            )
+        )
+        assert association is not None
+        assert association.portal_role == PortalAccountRole.PORTAL_USER.value
+    else:
+        assert db_session.scalar(
+            select(UserUiGroup).where(UserUiGroup.user_id == user.id)
+        ) is not None
+        assert db_session.scalar(
+            select(UiGroupS3Account).where(UiGroupS3Account.account_id == account.id)
+        ) is not None
 
 
 def test_reactivating_user_does_not_reprovision_portal_iam_identity(

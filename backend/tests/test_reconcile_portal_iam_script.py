@@ -2,9 +2,13 @@
 # Licensed under the Apache License, Version 2.0
 import sqlalchemy as sa
 
-from app.db import User, UserS3Account
+from app.db import PortalIAMRevocation, User, UserS3Account
 from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, UserRole
 from app.scripts import reconcile_portal_iam as script
+from tests.portal_iam_test_support import (
+    FakePortalRevocationIAM,
+    install_portal_revocation_fakes,
+)
 from tests.s3_account_factory import make_s3_account
 
 
@@ -20,6 +24,9 @@ class _FakePortalService:
 
     def sync_existing_portal_user_access(self, user, account, role):
         self.calls.append((int(user.id), int(account.id), str(role)))
+
+    def revoke_portal_user(self, user, account):
+        self.calls.append((int(user.id), int(account.id), "removed"))
 
 
 def _seed_access(db_session):
@@ -102,3 +109,49 @@ def test_reconcile_portal_iam_reports_partial_errors_and_continues(monkeypatch, 
         {"user_id": viewer_id, "error": "simulated IAM failure"}
     ]
     assert portal.calls == []
+
+
+def test_reconcile_portal_iam_finishes_orphaned_pending_revocation(
+    monkeypatch,
+    db_session,
+):
+    account, _administrator, viewer = _seed_access(db_session)
+    viewer_id = int(viewer.id)
+    account_id = int(account.id)
+    pending = PortalIAMRevocation(
+        user_id=viewer_id,
+        account_id=account_id,
+        iam_user_id="iam-orphaned-reconcile",
+        iam_username="portal-orphaned-reconcile",
+    )
+    db_session.add(pending)
+    db_session.execute(
+        sa.delete(UserS3Account).where(UserS3Account.user_id == viewer_id)
+    )
+    db_session.delete(viewer)
+    db_session.commit()
+
+    fake_iam = FakePortalRevocationIAM(
+        "portal-orphaned-reconcile",
+        "AK-ORPHANED-RECONCILE",
+    )
+    fake_iam.key_status = "Inactive"
+    install_portal_revocation_fakes(monkeypatch, fake_iam)
+    monkeypatch.setattr(script, "SessionLocal", lambda: db_session)
+    monkeypatch.setattr(
+        script.EffectiveAccessService,
+        "portal_account_is_compatible",
+        lambda _account: True,
+    )
+
+    summaries = script.reconcile_portal_iam(dry_run=False, account_id=account_id)
+
+    assert summaries[0]["removed"] == 1
+    assert summaries[0]["errors"] == []
+    assert db_session.scalar(
+        sa.select(PortalIAMRevocation).where(
+            PortalIAMRevocation.user_id == viewer_id,
+            PortalIAMRevocation.account_id == account_id,
+        )
+    ) is None
+    assert fake_iam.user_exists is False

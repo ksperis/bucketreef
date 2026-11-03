@@ -172,3 +172,32 @@ class PortalExternalAccessCredential(Base):
     account = relationship("S3Account")
     storage_space = relationship("PortalStorageSpaceMetadata")
     created_by = relationship("User")
+
+
+class PortalIAMRevocation(Base):
+    """Durable cleanup intent for a removed Portal IAM identity."""
+
+    __tablename__ = "portal_iam_revocations"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "account_id",
+            name="uq_portal_iam_revocations_user_account",
+        ),
+        Index("ix_portal_iam_revocations_account", "account_id"),
+        Index("ix_portal_iam_revocations_user", "user_id"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    # Intentionally no FK to users: revocation cleanup must survive UI-user deletion.
+    user_id = Column(Integer, nullable=False)
+    account_id = Column(
+        Integer,
+        ForeignKey("s3_accounts.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    iam_user_id = Column(String, nullable=False)
+    iam_username = Column(String, nullable=True)
+    created_at = Column(UTCDateTime(), default=utcnow, nullable=False)
+
+    account = relationship("S3Account")

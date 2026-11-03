@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy import func, select
 
 from app.db import (
+    AccountIAMUser,
     AuditLog,
     PortalAdminRequest,
     S3Account,
@@ -734,6 +735,16 @@ def test_delegated_role_change_is_applied_immediately(
             account_id=account.id,
             manager_role=None,
             portal_role=current_role,
+        )
+    )
+    db_session.add(
+        AccountIAMUser(
+            user_id=target.id,
+            account_id=account.id,
+            iam_user_id="iam-delegated-role-change",
+            iam_username="portal-delegated-role-change",
+            active_access_key="AK-DELEGATED-ROLE-CHANGE",
+            active_secret_key="SK-DELEGATED-ROLE-CHANGE",
         )
     )
     db_session.commit()
