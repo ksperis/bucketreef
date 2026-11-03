@@ -5,6 +5,7 @@
 ### Changed
 
 - Simplify Manager IAM user, group, and role inventories by moving ARN details to identity editors, compacting managed and inline policy summaries, and showing compact group member previews in detailed listings.
+- Align embedded Manager IAM user/group association and access-key tables on the shared compact list toolbar, with local actions and counts in one row and no redundant ARN columns in membership tables.
 
 ### Fixed
 

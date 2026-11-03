@@ -145,7 +145,6 @@ export default function ManagerUserGroupsPage() {
   const tableStatus = resolveListTableStatus({ loading, error, rowCount: groups.length });
   const columns: Array<DataTableColumn<IAMGroup>> = [
     { id: "group", label: text("Group"), primary: true, render: (group) => group.name },
-    { id: "arn", label: text("ARN"), cellClassName: "break-all font-mono text-[11px]", render: (group) => group.arn ?? "-" },
     {
       id: "actions",
       label: text("Actions"),
@@ -185,10 +184,10 @@ export default function ManagerUserGroupsPage() {
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
       {error && <PageBanner tone="error">{text(error)}</PageBanner>}
       <ListPageSection
-        variant="section"
-        title={text("Group memberships")}
-        description={<>{text("Groups this user belongs to.")} {text("Associated: {count}", { count: groups.length })}</>}
-        headingActions={(
+        variant="page"
+        title={text("Groups")}
+        countLabel={text("Associated: {count}", { count: groups.length })}
+        actions={(
           <ListActionButton type="button" onClick={openPicker} disabled={pickerOpen || busy !== null}>
             {text("Add to groups")}
           </ListActionButton>

@@ -207,12 +207,6 @@ export default function ManagerGroupUsersPage({ embedded = false }: { embedded?:
       render: (user) => user.name,
     },
     {
-      id: "arn",
-      label: text("ARN"),
-      cellClassName: "break-all font-mono text-[11px]",
-      render: (user) => user.arn ?? "-",
-    },
-    {
       id: "actions",
       label: text("Actions"),
       align: "right",
@@ -230,20 +224,13 @@ export default function ManagerGroupUsersPage({ embedded = false }: { embedded?:
   ];
 
   const content = <>
-      {embedded && (
-        <div className="flex justify-end">
-          <ListActionButton type="button" onClick={handleRefresh} disabled={loading}>
-            {text("Refresh")}
-          </ListActionButton>
-        </div>
-      )}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
       {error && <PageBanner tone="error">{text(error)}</PageBanner>}
       <ListPageSection
-        variant="section"
+        variant="page"
         title={text("Members")}
-        description={<>{text("Members of this group.")} {text("Associated: {count}", { count: users.length })}</>}
-        headingActions={(
+        countLabel={text("Associated: {count}", { count: users.length })}
+        actions={(
           <ListActionButton type="button" onClick={openPicker} disabled={pickerOpen || busy !== null}>
             {text("Add members")}
           </ListActionButton>

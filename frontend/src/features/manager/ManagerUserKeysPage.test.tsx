@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -26,11 +26,11 @@ vi.mock("../../api/managerIamUsers", async () => {
   };
 });
 
-function renderPage() {
+function renderPage(embedded = false) {
   return render(
     <MemoryRouter initialEntries={["/manager/users/alice/keys"]}>
       <Routes>
-        <Route path="/manager/users/:userName/keys" element={<ManagerUserKeysPage />} />
+        <Route path="/manager/users/:userName/keys" element={<ManagerUserKeysPage embedded={embedded} />} />
       </Routes>
     </MemoryRouter>
   );
@@ -75,6 +75,16 @@ describe("ManagerUserKeysPage", () => {
     expect(updateButton.closest("td")).not.toHaveClass("w-64");
     expect(updateButton.disabled).toBe(true);
     expect(deleteButton.disabled).toBe(true);
+  });
+
+  it("keeps embedded key actions and count in the shared list toolbar", async () => {
+    renderPage(true);
+
+    await screen.findByText("AK-MANAGED");
+    const toolbar = screen.getByRole("region", { name: "Keys" });
+    expect(toolbar).toHaveAttribute("data-list-variant", "page");
+    expect(within(toolbar).getByRole("button", { name: "New key" })).toBeInTheDocument();
+    expect(within(toolbar).getByText("1 key")).toBeInTheDocument();
   });
 
   it("keeps one-time secrets for manual keys but removes Add as S3 Connection", async () => {

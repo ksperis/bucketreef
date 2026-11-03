@@ -65,7 +65,11 @@ describe("ManagerUserGroupsPage", () => {
     renderPage();
 
     expect(await screen.findByText("operators")).toBeInTheDocument();
-    expect(screen.getByText(/Associated: 1/)).toBeInTheDocument();
+    const toolbar = screen.getByRole("region", { name: "Groups" });
+    expect(toolbar).toHaveAttribute("data-list-variant", "page");
+    expect(within(toolbar).getByText("Associated: 1")).toBeInTheDocument();
+    expect(within(toolbar).getByRole("button", { name: "Add to groups" })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "ARN" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Search IAM groups")).not.toBeInTheDocument();
     expect(api.listGroups).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Add to groups" }));
