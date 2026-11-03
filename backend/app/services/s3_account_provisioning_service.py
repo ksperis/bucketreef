@@ -91,30 +91,34 @@ class S3AccountProvisioningService:
             self._validate_existing_scope(existing, payload)
             return existing
 
-        endpoint, admin = self._prepare_managed_account_creation(payload)
-        remote = admin.get_account(rgw_account_id, allow_not_found=True)
-        resume = bool(remote and not remote.get("not_found"))
-        if not remote or remote.get("not_found"):
-            self._create_remote_account(admin, payload, rgw_account_id)
-        else:
-            self._validate_remote_account(remote, payload, rgw_account_id)
+        try:
+            endpoint, admin = self._prepare_managed_account_creation(payload)
+            remote = admin.get_account(rgw_account_id, allow_not_found=True)
+            resume = bool(remote and not remote.get("not_found"))
+            if not remote or remote.get("not_found"):
+                self._create_remote_account(admin, payload, rgw_account_id)
+            else:
+                self._validate_remote_account(remote, payload, rgw_account_id)
 
-        root_uid, access_key, secret_key = self.account_roots.ensure_provisioned_credentials(
-            admin,
-            rgw_account_id=rgw_account_id,
-            account_name=payload.name,
-            resume=resume,
-            tenant=payload.rgw_tenant,
-        )
-        account = self._persist_provisioned_account(
-            payload,
-            endpoint,
-            rgw_account_id=rgw_account_id,
-            root_uid=root_uid,
-            access_key=access_key,
-            secret_key=secret_key,
-        )
-        self.db.commit()
+            root_uid, access_key, secret_key = self.account_roots.ensure_provisioned_credentials(
+                admin,
+                rgw_account_id=rgw_account_id,
+                account_name=payload.name,
+                resume=resume,
+                tenant=payload.rgw_tenant,
+            )
+            account = self._persist_provisioned_account(
+                payload,
+                endpoint,
+                rgw_account_id=rgw_account_id,
+                root_uid=root_uid,
+                access_key=access_key,
+                secret_key=secret_key,
+            )
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
         self.db.refresh(account)
         return account
 
@@ -126,24 +130,44 @@ class S3AccountProvisioningService:
         endpoint, admin = self._prepare_managed_account_creation(payload)
         rgw_account_id = self._generate_account_id()
         self._create_remote_account(admin, payload, rgw_account_id)
-
-        root_uid, access_key, secret_key = self.account_roots.ensure_provisioned_credentials(
-            admin,
-            rgw_account_id=rgw_account_id,
-            account_name=payload.name,
-            resume=False,
-            tenant=payload.rgw_tenant,
-        )
-        account = self._persist_provisioned_account(
-            payload,
-            endpoint,
-            rgw_account_id=rgw_account_id,
-            root_uid=root_uid,
-            access_key=access_key,
-            secret_key=secret_key,
-        )
-        quota_max_size_gb, quota_max_objects = self.metrics.get_quota(account, admin)
-        self.db.commit()
+        try:
+            root_uid, access_key, secret_key = self.account_roots.ensure_provisioned_credentials(
+                admin,
+                rgw_account_id=rgw_account_id,
+                account_name=payload.name,
+                resume=False,
+                tenant=payload.rgw_tenant,
+            )
+            account = self._persist_provisioned_account(
+                payload,
+                endpoint,
+                rgw_account_id=rgw_account_id,
+                root_uid=root_uid,
+                access_key=access_key,
+                secret_key=secret_key,
+            )
+            quota_max_size_gb, quota_max_objects = self.metrics.get_quota(account, admin)
+            self.db.commit()
+        except Exception as exc:
+            db_rollback_failed = False
+            try:
+                self.db.rollback()
+            except Exception as rollback_exc:  # pragma: no cover - defensive database failure
+                logger.error(
+                    "Unable to roll back failed S3 account creation transaction: %s",
+                    rollback_exc,
+                )
+                db_rollback_failed = True
+            remote_rollback_failed = self._rollback_created_remote_account(
+                admin,
+                rgw_account_id=rgw_account_id,
+                tenant=payload.rgw_tenant,
+            )
+            if db_rollback_failed or remote_rollback_failed:
+                raise RuntimeError(
+                    "Unable to create S3 account. Local or RGW rollback also failed."
+                ) from exc
+            raise
         self.db.refresh(account)
         return S3AccountProvisioningResult(
             account=account,
@@ -152,6 +176,36 @@ class S3AccountProvisioningService:
             quota_max_size_gb=quota_max_size_gb,
             quota_max_objects=quota_max_objects,
         )
+
+    def _rollback_created_remote_account(
+        self,
+        admin: RGWAdminClient,
+        *,
+        rgw_account_id: str,
+        tenant: str,
+    ) -> bool:
+        failed = False
+        root_uid = self.account_roots.root_uid(rgw_account_id)
+        try:
+            admin.delete_user(root_uid, tenant=tenant or None)
+        except Exception as exc:  # pragma: no cover - defensive remote failure
+            logger.error(
+                "Unable to remove RGW root %s while rolling back account %s: %s",
+                root_uid,
+                rgw_account_id,
+                exc,
+            )
+            failed = True
+        try:
+            admin.delete_account(rgw_account_id)
+        except Exception as exc:  # pragma: no cover - defensive remote failure
+            logger.error(
+                "Unable to remove RGW account %s after failed creation: %s",
+                rgw_account_id,
+                exc,
+            )
+            failed = True
+        return failed
 
     def _validate_managed_account_creation_policy(self, payload: S3AccountCreate) -> None:
         app_settings = load_app_settings_for_db(self.db)
