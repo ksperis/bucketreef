@@ -34,11 +34,11 @@ export default function useOnboardingJourneyDraft() {
 
   const changeDraft = useCallback((patch: Partial<OnboardingDraft>) => {
     setDraft((current) => ({ ...current, ...patch }));
-  }, []);
+  }, [setDraft]);
 
   const replaceDraft = useCallback((value: OnboardingDraft) => {
     setDraft(value);
-  }, []);
+  }, [setDraft]);
 
   const getJourneyId = useCallback(() => journeyId.current, []);
 
