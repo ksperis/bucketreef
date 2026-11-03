@@ -69,6 +69,22 @@ def _s3_user(db_session, endpoint: StorageEndpoint, *, enabled: bool) -> S3User:
     return user
 
 
+def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
+    rollback_calls: list[None] = []
+    original_rollback = db_session.rollback
+
+    def rollback() -> None:
+        rollback_calls.append(None)
+        original_rollback()
+
+    def commit() -> None:
+        raise RuntimeError("commit failed")
+
+    monkeypatch.setattr(db_session, "rollback", rollback)
+    monkeypatch.setattr(db_session, "commit", commit)
+    return rollback_calls
+
+
 def test_access_key_metadata_requires_global_and_resource_opt_in(db_session, monkeypatch):
     endpoint = _storage_endpoint(db_session)
     account = _account(db_session, endpoint, enabled=False)
@@ -162,6 +178,24 @@ def test_iam_metadata_follows_principal_rename(db_session):
     assert renamed["AK-1"].notes == "renamed principal"
 
 
+def test_set_iam_metadata_rolls_back_when_commit_fails(db_session, monkeypatch):
+    endpoint = _storage_endpoint(db_session)
+    account = _account(db_session, endpoint, enabled=True)
+    db_session.commit()
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        AccessKeyMetadataService(db_session).set_iam_metadata(
+            account.id,
+            "alice",
+            "AK-ROLLBACK",
+            AccessKeyMetadataInput(name="temporary"),
+        )
+
+    assert rollback_calls == [None]
+    assert db_session.scalar(select(func.count()).select_from(ManagerAccessKeyMetadata)) == 0
+
+
 def test_apply_metadata_supports_generated_s3_user_key():
     expires_at = utcnow() + timedelta(hours=1)
     key = S3UserGeneratedKey(access_key_id="AK-GENERATED", secret_access_key="SK-GENERATED")
@@ -201,6 +235,25 @@ def test_s3_user_metadata_round_trip_and_delete(db_session):
 
     service.delete_s3_user_metadata(s3_user.id, "AK-SECONDARY")
     assert service.s3_user_metadata(s3_user.id) == {}
+
+
+def test_delete_s3_user_metadata_rolls_back_when_commit_fails(db_session, monkeypatch):
+    endpoint = _storage_endpoint(db_session)
+    s3_user = _s3_user(db_session, endpoint, enabled=True)
+    db_session.commit()
+    service = AccessKeyMetadataService(db_session)
+    service.set_s3_user_metadata(
+        s3_user.id,
+        "AK-ROLLBACK",
+        AccessKeyMetadataInput(name="preserved"),
+    )
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        service.delete_s3_user_metadata(s3_user.id, "AK-ROLLBACK")
+
+    assert rollback_calls == [None]
+    assert service.s3_user_metadata(s3_user.id)["AK-ROLLBACK"].name == "preserved"
 
 
 def test_expiration_update_preserves_existing_name_and_notes(db_session):

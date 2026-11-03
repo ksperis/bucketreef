@@ -9,6 +9,7 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.db_transactions import commit_or_rollback
 from app.db import ManagerAccessKeyMetadata, S3Account, S3User
 from app.core.domain_enums import StorageProvider
 from app.models.feature_policy import FeaturePolicy, resolve_feature_policy
@@ -183,11 +184,12 @@ class AccessKeyMetadataService:
             row = ManagerAccessKeyMetadata(**identity)
             self.db.add(row)
         self._apply_metadata_patch(row, payload)
-        if self._metadata_row_is_empty(row):
+        delete_row = self._metadata_row_is_empty(row)
+        if delete_row:
             self.db.delete(row)
-            self.db.commit()
+        commit_or_rollback(self.db)
+        if delete_row:
             return None
-        self.db.commit()
         self.db.refresh(row)
         return row
 
@@ -221,22 +223,18 @@ class AccessKeyMetadataService:
     def _metadata_row_is_empty(row: ManagerAccessKeyMetadata) -> bool:
         return row.name is None and row.notes is None and row.expires_at is None
 
+    def _delete_metadata(self, *predicates) -> None:
+        self.db.execute(delete(ManagerAccessKeyMetadata).where(*predicates))
+        commit_or_rollback(self.db)
+
     def delete_iam_metadata(self, account_id: int, principal_name: str, access_key_id: str) -> None:
-        self.db.execute(
-            delete(ManagerAccessKeyMetadata).where(
-                *self._iam_predicates(account_id, principal_name),
-                ManagerAccessKeyMetadata.access_key_id == access_key_id,
-            )
+        self._delete_metadata(
+            *self._iam_predicates(account_id, principal_name),
+            ManagerAccessKeyMetadata.access_key_id == access_key_id,
         )
-        self.db.commit()
 
     def delete_iam_principal_metadata(self, account_id: int, principal_name: str) -> None:
-        self.db.execute(
-            delete(ManagerAccessKeyMetadata).where(
-                *self._iam_predicates(account_id, principal_name),
-            )
-        )
-        self.db.commit()
+        self._delete_metadata(*self._iam_predicates(account_id, principal_name))
 
     def rename_iam_principal_metadata(self, account_id: int, principal_name: str, new_principal_name: str) -> None:
         self.db.execute(
@@ -246,16 +244,13 @@ class AccessKeyMetadataService:
             )
             .values(principal_name=new_principal_name)
         )
-        self.db.commit()
+        commit_or_rollback(self.db)
 
     def delete_s3_user_metadata(self, s3_user_id: int, access_key_id: str) -> None:
-        self.db.execute(
-            delete(ManagerAccessKeyMetadata).where(
-                *self._s3_user_predicates(s3_user_id),
-                ManagerAccessKeyMetadata.access_key_id == access_key_id,
-            )
+        self._delete_metadata(
+            *self._s3_user_predicates(s3_user_id),
+            ManagerAccessKeyMetadata.access_key_id == access_key_id,
         )
-        self.db.commit()
 
     def expiration_due(
         self,
