@@ -77,6 +77,8 @@ def list_roles_page(
         if include_details:
             for role in roles:
                 role.policies = [policy.arn for policy in service.list_role_policies(role.name)]
+                inline = service.list_role_inline_policies(role.name)
+                role.inline_policies = inline or None
         return IAMRolePage(items=roles, next_marker=next_marker)
     except RuntimeError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)

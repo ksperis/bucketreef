@@ -104,6 +104,7 @@ class IAMGroup(ApiModel):
     arn: Optional[str] = None
     path: Optional[str] = None
     policies: Optional[list[str]] = None
+    inline_policies: Optional[list[str]] = None
     is_bucketreef_managed: bool = False
     management_source: Optional[str] = None
 
@@ -135,6 +136,7 @@ class IAMRole(ApiModel):
     arn: Optional[str] = None
     path: Optional[str] = None
     policies: Optional[list[str]] = None
+    inline_policies: Optional[list[str]] = None
     assume_role_policy_document: Optional[Union[dict, str]] = None
     max_session_duration: Optional[int] = Field(default=None, ge=3600, le=43200)
     tags: Optional[list[IAMTag]] = None

@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { iamNameFormatError } from "../../utils/resourceNames";
-import { ListActions, ListBadge, ListActionButton, ListActionLink } from "../../components/list/ListControls";
+import { ListActions, ListActionButton, ListActionLink } from "../../components/list/ListControls";
 import { FormEvent, useEffect, useState } from "react";
 
 import { useExecutionContext } from "./ExecutionContextProvider";
@@ -26,6 +26,7 @@ import { workflowPageHostClass } from "../../components/WorkflowPage";
 
 import { extractApiError } from "../../utils/apiError";
 import { useSettingsBaseline } from "../../components/settings/useSettingsDraft";
+import ManagerIamPoliciesCell from "./ManagerIamPoliciesCell";
 import InlinePolicyDraftEditor from "./InlinePolicyDraftEditor";
 import ManagedPolicySelectionPanel from "./ManagedPolicySelectionPanel";
 import ManagerToolbarSearch from "./ManagerToolbarSearch";
@@ -254,22 +255,12 @@ export default function ManagerRolesPage() {
       id: "policies",
       label: text("Policies"),
       cellClassName: "ui-table-wide",
-      render: (role) =>
-        role.policies && role.policies.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {role.policies.map((policy) => (
-              <ListBadge
-                key={policy}
-                tone="neutral"
-                title={policy}
-              >
-                {policy.split("/").pop()}
-              </ListBadge>
-            ))}
-          </div>
-        ) : (
-          <span className="ui-caption text-slate-500 dark:text-slate-400">-</span>
-        ),
+      render: (role) => (
+        <ManagerIamPoliciesCell
+          managedPolicies={role.policies}
+          inlinePolicies={role.inline_policies}
+        />
+      ),
     },
     {
       id: "actions",

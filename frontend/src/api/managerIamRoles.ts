@@ -26,6 +26,7 @@ export type IAMRole = {
   arn?: string;
   path?: string;
   policies?: string[];
+  inline_policies?: string[];
   assume_role_policy_document?: Record<string, unknown> | string;
   max_session_duration?: number;
   tags?: IAMTag[];

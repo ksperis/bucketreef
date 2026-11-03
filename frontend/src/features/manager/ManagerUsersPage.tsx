@@ -30,6 +30,7 @@ import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import { extractApiError } from "../../utils/apiError";
 import { useSettingsBaseline } from "../../components/settings/useSettingsDraft";
 import { compareByNullableField, nextSortState, type SortableField } from "../../utils/sortValues";
+import ManagerIamPoliciesCell from "./ManagerIamPoliciesCell";
 import InlinePolicyDraftEditor from "./InlinePolicyDraftEditor";
 import ManagedPolicySelectionPanel from "./ManagedPolicySelectionPanel";
 import ManagerToolbarSearch from "./ManagerToolbarSearch";
@@ -391,22 +392,12 @@ export default function ManagerUsersPage() {
       id: "policies",
       label: text("Policies"),
       cellClassName: "ui-table-wide",
-      render: (user) =>
-        user.policies && user.policies.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {user.policies.map((policy) => (
-              <ListBadge
-                key={policy}
-                tone="neutral"
-                title={policy}
-              >
-                {policy.split("/").pop()}
-              </ListBadge>
-            ))}
-          </div>
-        ) : (
-          <span className="ui-caption text-slate-500 dark:text-slate-400">-</span>
-        ),
+      render: (user) => (
+        <ManagerIamPoliciesCell
+          managedPolicies={user.policies}
+          inlinePolicies={user.inline_policies}
+        />
+      ),
     },
     {
       id: "actions",
