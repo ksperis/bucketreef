@@ -723,6 +723,51 @@ def test_update_current_user_password_paths(db_session):
     assert updated.ui_language == "fr"
 
 
+def test_update_current_user_rolls_back_profile_and_password_when_commit_fails(db_session, monkeypatch):
+    service = UsersService(db_session)
+    user = _seed_user(
+        db_session,
+        "profile-rollback@example.com",
+        role=UserRole.UI_USER.value,
+        password="initialpass123",
+    )
+    original_name = user.full_name
+    original_hash = user.hashed_password
+    original_auth_version = user.auth_version
+    original_rollback = db_session.rollback
+    rollback_calls: list[None] = []
+
+    def rollback() -> None:
+        rollback_calls.append(None)
+        original_rollback()
+
+    def commit() -> None:
+        raise RuntimeError("commit failed")
+
+    monkeypatch.setattr(db_session, "rollback", rollback)
+    monkeypatch.setattr(db_session, "commit", commit)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        service.update_current_user(
+            user,
+            UserSelfUpdate(
+                full_name="Changed profile",
+                ui_language="fr",
+                current_password="initialpass123",
+                new_password="nextpass12345",
+            ),
+        )
+
+    assert rollback_calls == [None]
+    db_session.expire_all()
+    stored = db_session.get(User, user.id)
+    assert stored is not None
+    assert stored.full_name == original_name
+    assert stored.ui_language is None
+    assert stored.hashed_password == original_hash
+    assert stored.auth_version == original_auth_version
+
+
 def test_paginate_users_and_detached_user_use_canonical_preload(db_session, monkeypatch):
     service = UsersService(db_session)
     account = _seed_account(db_session, "acc-a", "RGW-ACC-A")
