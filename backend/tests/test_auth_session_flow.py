@@ -7,9 +7,10 @@ from botocore.exceptions import ClientError
 from sqlalchemy import func, select
 
 from app.core.security import get_password_hash
-from app.db import AuthRateLimit, AuditLog, S3Account, StorageEndpoint, UserS3Account, User
+from app.db import AuthRateLimit, AuditLog, S3Account, S3Session, StorageEndpoint, UserS3Account, User
 from app.core.domain_enums import UserRole
 from app.main import app
+from app.models.session import SessionCapabilities
 from app.routers import dependencies
 from app.routers import auth as auth_router
 from app.routers import auth_common, auth_s3
@@ -79,6 +80,50 @@ def _mock_external(monkeypatch, *, iam_allowed: bool) -> None:
     monkeypatch.setattr(session_module.s3_client, "get_s3_client", fake_s3_client)
     monkeypatch.setattr(session_module, "RGWAdminClient", FakeRGWAdmin)
     monkeypatch.setattr(session_module, "get_iam_client", lambda *args, **kwargs: FakeIAMClient())
+
+
+def test_session_replacement_rolls_back_atomically_when_commit_fails(db_session, monkeypatch):
+    service = session_module.SessionService(db_session)
+    first = service.create_session(
+        access_key="AKIA-ATOMIC",
+        secret_key="old-secret",
+        actor_type="account_user",
+        account_id="RGW00000000000000001",
+        account_name="tenant-alpha",
+        user_uid="iam-user",
+        capabilities=SessionCapabilities(),
+    )
+    original_rollback = db_session.rollback
+    rollback_calls: list[None] = []
+
+    def rollback() -> None:
+        rollback_calls.append(None)
+        original_rollback()
+
+    def commit() -> None:
+        raise RuntimeError("commit failed")
+
+    monkeypatch.setattr(db_session, "rollback", rollback)
+    monkeypatch.setattr(db_session, "commit", commit)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        service.create_session(
+            access_key="AKIA-ATOMIC",
+            secret_key="new-secret",
+            actor_type="account_user",
+            account_id="RGW00000000000000001",
+            account_name="tenant-alpha",
+            user_uid="iam-user",
+            capabilities=SessionCapabilities(),
+        )
+
+    assert rollback_calls == [None]
+    sessions = db_session.scalars(
+        select(S3Session).where(
+            S3Session.access_key_hash == service._hash_key("AKIA-ATOMIC")
+        )
+    ).all()
+    assert [row.id for row in sessions] == [first.session_id]
 
 
 def test_login_s3_grants_iam_capability_when_iam_client_succeeds(monkeypatch, client, db_session):

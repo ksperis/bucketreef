@@ -10,6 +10,7 @@ from typing import Optional
 from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy import select
 
+from app.core.db_transactions import commit_or_rollback
 from app.core.security import decrypt_secret, encrypt_secret
 from app.core.config import get_settings
 from app.db import S3Session
@@ -75,7 +76,7 @@ class SessionService:
             absolute_expires_at=absolute_expires_at,
         )
         self.db.add(session)
-        self.db.commit()
+        commit_or_rollback(self.db)
         return self.to_principal(session)
 
     def introspect_credentials(
@@ -147,8 +148,6 @@ class SessionService:
         ).all()
         for row in existing:
             self.db.delete(row)
-        if existing:
-            self.db.commit()
 
     def _fetch_admin_identity(self, access_key: str, secret_key: str, endpoint: Optional[str] = None) -> Optional[dict]:
         try:
