@@ -26,7 +26,7 @@ def _set_global_feature(monkeypatch, enabled: bool) -> None:
     )
     monkeypatch.setattr(
         access_key_metadata_service,
-        "load_app_settings_for_db_readonly",
+        "load_app_settings_for_db",
         lambda _db: settings,
     )
 
@@ -261,7 +261,7 @@ def test_expiration_requires_global_resource_and_scheduler_opt_in(db_session, mo
     )
     monkeypatch.setattr(
         access_key_metadata_service,
-        "load_app_settings_for_db_readonly",
+        "load_app_settings_for_db",
         lambda _db: manager_settings_fixture(
             access_key_metadata=True,
             access_key_expiration=True,

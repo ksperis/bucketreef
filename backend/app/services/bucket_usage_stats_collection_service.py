@@ -13,7 +13,7 @@ from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import S3Account, S3User
 from app.db.bucket_usage_stats import BucketUsageStatsSnapshot as BucketUsageStatsSnapshotRow
 from app.models.bucket_usage_stats import BucketUsageStatsCollectionResult
-from app.services.app_settings_service import load_app_settings_for_db_readonly
+from app.services.app_settings_service import load_app_settings_for_db
 from app.services.bucket_usage_stats_service import (
     BucketUsageStatsOptions,
     BucketUsageStatsResolvedTarget,
@@ -48,7 +48,7 @@ class BucketUsageStatsCollectionService:
         self.usage_stats_service = usage_stats_service or BucketUsageStatsService(session_factory)
 
     def _eligible_resources(self) -> list[UsageCollectionResource]:
-        settings = load_app_settings_for_db_readonly(self.db)
+        settings = load_app_settings_for_db(self.db)
         accounts = self.db.scalars(select(S3Account).order_by(S3Account.id.asc())).all()
         users = self.db.scalars(select(S3User).order_by(S3User.id.asc())).all()
         return [

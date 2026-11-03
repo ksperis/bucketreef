@@ -26,7 +26,7 @@ from app.scripts.create_first_admin import FirstAdminError, create_first_admin
 from app.scripts.reset_last_superadmin_mfa import OperatorRecoveryError, reset_last_superadmin_mfa
 from app.core.config import get_settings
 from app.services.auth_session_service import AuthSessionService
-from app.services.app_settings_service import load_app_settings_for_db
+from app.services.app_settings_service import bootstrap_app_settings_for_db
 from app.services.webauthn_service import LastRequiredPasskeyError, WebAuthnSecurityError, WebAuthnService
 
 
@@ -45,7 +45,7 @@ def _user(db_session, *, email: str, role: str = UserRole.UI_USER.value) -> User
 
 
 def _set_passkey_policy(db_session, *, admins: bool = True, users: bool = False) -> None:
-    load_app_settings_for_db(db_session)
+    bootstrap_app_settings_for_db(db_session)
     row = db_session.scalars(
         select(AppSetting).where(AppSetting.key == "default")
     ).one()

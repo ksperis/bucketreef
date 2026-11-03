@@ -65,7 +65,7 @@ def get_direct_transfer_policy(
     db: Session = Depends(get_db),
 ) -> BrowserTransferPolicy:
     current_auth_session(request, db)
-    general = app_settings_service.load_app_settings_for_db_readonly(db).general
+    general = app_settings_service.load_app_settings_for_db(db).general
     if not _workspace_enabled(workspace, general) or not runtime_surface_enabled(
         get_settings(),
         _RUNTIME_SURFACE_BY_WORKSPACE[workspace],

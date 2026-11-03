@@ -103,7 +103,7 @@ from app.routers.manager import usage_stats as manager_usage_stats
 from app.services.bucket_migration.worker import get_bucket_migration_worker
 from app.services.webhook_service import webhook_dispatcher_enabled
 from app.services.webhook_worker import get_webhook_delivery_worker
-from app.services.app_settings_service import load_app_settings_for_db_readonly
+from app.services.app_settings_service import load_app_settings_for_db
 from app.services.deployment_check_models import DeploymentCheckFinding
 from app.services.deployment_checks import run_deployment_checks, startup_blocking_findings
 from app.routers.dependencies import (
@@ -147,7 +147,7 @@ def _run_pre_database_startup_checks() -> None:
 
 def _run_startup_deployment_checks() -> None:
     with SessionLocal() as db:
-        app_settings = load_app_settings_for_db_readonly(db)
+        app_settings = load_app_settings_for_db(db)
         findings = run_deployment_checks(
             settings,
             app_settings=app_settings,

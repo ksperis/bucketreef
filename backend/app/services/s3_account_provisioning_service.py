@@ -10,10 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.db import S3Account, StorageEndpoint
 from app.models.s3_account import S3AccountCreate
-from app.services.app_settings_service import (
-    load_app_settings_for_db,
-    load_app_settings_for_db_readonly,
-)
+from app.services.app_settings_service import load_app_settings_for_db
 from app.services.feature_policy_service import validate_manager_overrides
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_account_root_service import RgwAccountRootService
@@ -157,7 +154,7 @@ class S3AccountProvisioningService:
         )
 
     def _validate_managed_account_creation_policy(self, payload: S3AccountCreate) -> None:
-        app_settings = load_app_settings_for_db_readonly(self.db)
+        app_settings = load_app_settings_for_db(self.db)
         validate_manager_overrides(payload, app_settings.manager.feature_policies)
         if payload.rgw_tenant and not app_settings.general.allow_managed_rgw_tenant_creation:
             raise ValueError("Managed RGW tenant creation is disabled")

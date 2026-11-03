@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.db import S3User, User
 from app.core.domain_enums import StorageProvider
 from app.models.feature_policy import resolve_feature_policy
-from app.services.app_settings_service import load_app_settings_for_db_readonly
+from app.services.app_settings_service import load_app_settings_for_db
 from app.services.effective_access_service import EffectiveAccessService
 from app.services.managed_private_access_errors import (
     ManagedPrivateAccessError,
@@ -69,7 +69,7 @@ class ManagedPrivateAccessRGWUserSourceService:
         endpoint = s3_user.storage_endpoint
         if (
             not resolve_feature_policy(
-                load_app_settings_for_db_readonly(self.db).manager.feature_policies.managed_private_connection_provisioning,
+                load_app_settings_for_db(self.db).manager.feature_policies.managed_private_connection_provisioning,
                 s3_user.allow_managed_private_connection_provisioning,
             ).enabled
             or endpoint is None

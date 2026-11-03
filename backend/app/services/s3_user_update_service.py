@@ -5,7 +5,7 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.models.s3_user import S3User as S3UserSchema, S3UserUpdate
-from app.services.app_settings_service import load_app_settings_for_db_readonly
+from app.services.app_settings_service import load_app_settings_for_db
 from app.services.feature_policy_service import (
     apply_resource_feature_overrides,
     validate_manager_overrides,
@@ -50,7 +50,7 @@ class S3UserUpdateService:
 
     def update_user(self, user_id: int, payload: S3UserUpdate) -> S3UserSchema:
         s3_user = self.repository.get(user_id)
-        app_settings = load_app_settings_for_db_readonly(self.db)
+        app_settings = load_app_settings_for_db(self.db)
         validate_manager_overrides(payload, app_settings.manager.feature_policies, s3_user)
         validate_multisite_endpoint_switching_override(
             payload,

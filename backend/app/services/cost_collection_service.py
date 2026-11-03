@@ -77,9 +77,9 @@ class CostCollector:
         self.db = db
 
     def collect_daily(self, day: date) -> CostCollectionResult:
-        from app.services.app_settings_service import load_app_settings_for_db_readonly
+        from app.services.app_settings_service import load_app_settings_for_db
 
-        app_settings = load_app_settings_for_db_readonly(self.db)
+        app_settings = load_app_settings_for_db(self.db)
         if not app_settings.general.cost_enabled:
             raise ValueError("Cost is disabled")
         endpoints = self.db.scalars(

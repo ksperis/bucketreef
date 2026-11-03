@@ -187,7 +187,7 @@ def test_create_rgw_account_generates_configured_id_when_omitted(db_session, mon
     ctx = _ctx(901, fake_rgw)
     monkeypatch.setattr(
         account_profiles_router,
-        "load_app_settings_for_db_readonly",
+        "load_app_settings_for_db",
         lambda _db: SimpleNamespace(
             general=SimpleNamespace(rgw_account_id_prefix="80")
         ),

@@ -86,7 +86,7 @@ class ExecutionDestinationService:
     ) -> None:
         effective = EffectiveAccessService(self.db).resolve_user(user)
         resource = manager_subject_resource(self.db, execution_context)
-        policies = app_settings_service.load_app_settings_for_db_readonly(
+        policies = app_settings_service.load_app_settings_for_db(
             self.db
         ).manager.feature_policies
         if not multisite_endpoint_switching_allowed(

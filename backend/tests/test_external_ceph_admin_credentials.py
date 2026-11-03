@@ -183,7 +183,7 @@ def test_ceph_admin_only_endpoint_creation_and_update(identities, db_session, mo
                  ceph_admin_access_key="CEPH-AK", ceph_admin_secret_key="CEPH-SK")
     settings = AppSettings()
     settings.general.ceph_admin_enabled = True
-    monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db_readonly", lambda _db: settings)
+    monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db", lambda _db: settings)
     monkeypatch.setattr("app.routers.ceph_admin.dependencies.get_rgw_admin_client", lambda **kwargs: rgw.signed(kwargs["access_key"]))
     monkeypatch.setattr(identity_service, "client_factory", lambda _ep: pytest.fail("Ceph Admin must not require Admin Ops"))
     endpoints = StorageEndpointsService(db_session)
@@ -307,7 +307,7 @@ def test_browser_ceph_admin_requires_active_external_identity(identities, db_ses
     settings = AppSettings()
     settings.general.ceph_admin_enabled = blocked != "global"
     settings.general.browser_ceph_admin_enabled = True
-    monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db_readonly", lambda _db: settings)
+    monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db", lambda _db: settings)
     if blocked == "allowed":
         endpoint.ceph_admin_allowed = False
     if blocked == "validation":

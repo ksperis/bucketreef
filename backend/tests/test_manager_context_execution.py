@@ -139,7 +139,7 @@ def test_manager_context_loads_app_settings_once(db_session, monkeypatch, actor)
         loads.append(db)
         return settings
 
-    monkeypatch.setattr(context_router, "load_app_settings_for_db_readonly", load_once)
+    monkeypatch.setattr(context_router, "load_app_settings_for_db", load_once)
 
     context_router.get_manager_context(
         context=_context("account"),
@@ -172,7 +172,7 @@ def test_manager_context_preserves_direct_session_capabilities(
     settings.general.manager_enabled = True
     settings.general.browser_enabled = True
     settings.general.browser_manager_enabled = True
-    monkeypatch.setattr(context_router, "load_app_settings_for_db_readonly", lambda _db: settings)
+    monkeypatch.setattr(context_router, "load_app_settings_for_db", lambda _db: settings)
     monkeypatch.setattr(context_router, "has_supervision_credentials", lambda _account: True)
     actor = _session_actor(access_browser=browser_allowed, can_view_traffic=traffic_allowed)
     account = _context("session", manager_capabilities=AccountCapabilities(can_manage_buckets=True))

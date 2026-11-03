@@ -49,8 +49,8 @@ class OpenStackService:
         self.db = db
 
     def enabled(self) -> bool:
-        from app.services.app_settings_service import load_app_settings_for_db_readonly
-        return load_app_settings_for_db_readonly(self.db).general.openstack_enabled
+        from app.services.app_settings_service import load_app_settings_for_db
+        return load_app_settings_for_db(self.db).general.openstack_enabled
 
     def require_enabled(self) -> None:
         if not self.enabled():

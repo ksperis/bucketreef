@@ -16,12 +16,12 @@ from app.models.app_settings import (
 from app.models.feature_policy import FeaturePolicy, PORTAL_FEATURE_FIELDS, resolve_feature_policy
 from app.services.portal.exceptions import PortalForbiddenError
 from app.models.portal_settings import PortalAccountSettings, PortalProjectSettings
-from app.services.app_settings_service import load_app_settings_for_db_readonly
+from app.services.app_settings_service import load_app_settings_for_db
 
 
 class PortalSettingsMixin:
     def _portal_settings(self) -> PortalSettings:
-        return load_app_settings_for_db_readonly(self.db).portal
+        return load_app_settings_for_db(self.db).portal
 
     def _load_portal_settings_override(
         self,

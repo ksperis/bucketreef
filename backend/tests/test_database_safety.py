@@ -94,7 +94,7 @@ def test_startup_deployment_checks_propagate_invalid_app_settings(monkeypatch):
         assert actual_db is db
         raise ValueError("invalid persisted application settings")
 
-    monkeypatch.setattr(main, "load_app_settings_for_db_readonly", fail_load)
+    monkeypatch.setattr(main, "load_app_settings_for_db", fail_load)
 
     with pytest.raises(ValueError, match="invalid persisted application settings"):
         main._run_startup_deployment_checks()

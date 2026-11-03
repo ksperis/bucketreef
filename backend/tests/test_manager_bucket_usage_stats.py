@@ -36,7 +36,7 @@ def _context() -> S3ExecutionContext:
 def test_require_bucket_usage_stats_enabled_blocks_when_feature_disabled(monkeypatch, db_session):
     settings = AppSettings()
     settings.general.project_feature_policies.bucket_usage_stats = FeaturePolicy.DISABLED
-    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: settings)
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db", lambda _db: settings)
 
     with pytest.raises(HTTPException) as exc:
         dependencies_router.require_bucket_usage_stats_enabled(_manager_user(), _context(), db_session)
@@ -48,7 +48,7 @@ def test_require_bucket_usage_stats_enabled_blocks_when_feature_disabled(monkeyp
 def test_require_bucket_usage_stats_enabled_blocks_non_manager_roles(monkeypatch, db_session):
     settings = AppSettings()
     settings.general.project_feature_policies.bucket_usage_stats = FeaturePolicy.DEFAULT_ON
-    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: settings)
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db", lambda _db: settings)
 
     with pytest.raises(HTTPException) as exc:
         dependencies_router.require_bucket_usage_stats_enabled(
@@ -63,7 +63,7 @@ def test_bucket_composition_stats_remain_enabled_when_rgw_metrics_are_disabled(m
     settings = AppSettings()
     settings.general.project_feature_policies.bucket_usage_stats = FeaturePolicy.DEFAULT_ON
     settings.manager.feature_policies.rgw_usage_metrics = FeaturePolicy.DISABLED
-    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: settings)
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db", lambda _db: settings)
 
     assert (
         dependencies_router.require_bucket_usage_stats_enabled(_manager_user(), _context(), db_session).email
@@ -75,7 +75,7 @@ def test_bucket_composition_stats_remain_enabled_when_rgw_metrics_are_disabled(m
 def test_bucket_composition_stats_use_s3_user_override(monkeypatch, db_session, override, allowed):
     settings = AppSettings()
     settings.general.project_feature_policies.bucket_usage_stats = FeaturePolicy.TARGETED
-    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db_readonly", lambda _db: settings)
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db", lambda _db: settings)
     s3_user = S3User(
         id=17,
         name="Usage user",

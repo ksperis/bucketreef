@@ -25,7 +25,7 @@ from app.services.ceph_admin_account_payloads import (
 from app.routers.ceph_admin.dependencies import get_ceph_admin_context
 from app.services.ceph_admin_context import CephAdminContext
 from app.routers.ceph_admin.profile_common import nullable_update, raise_if_unsupported
-from app.services.app_settings_service import load_app_settings_for_db_readonly
+from app.services.app_settings_service import load_app_settings_for_db
 from app.services.ceph_admin_identity_listing_cache import invalidate_accounts_listing_cache
 from app.services.ceph_admin_audit import record_ceph_admin_action
 from app.services.rgw_admin import RGWAdminError
@@ -194,7 +194,7 @@ def create_rgw_account(
     requested_account_id = requested_account_id or None
     if requested_account_id is None:
         requested_account_id = generate_rgw_account_id(
-            load_app_settings_for_db_readonly(db).general.rgw_account_id_prefix
+            load_app_settings_for_db(db).general.rgw_account_id_prefix
         )
     account_name = payload.account_name.strip()
     _create_rgw_account_record(

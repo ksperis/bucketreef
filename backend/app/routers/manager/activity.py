@@ -10,7 +10,7 @@ from app.services.s3_execution_context import S3ExecutionContext
 from app.models.audit import AuditStatus
 from app.models.manager_activity import ManagerActivityEntry
 from app.routers.dependencies import get_s3_execution_context, get_audit_service
-from app.services.app_settings_service import load_app_settings_for_db_readonly
+from app.services.app_settings_service import load_app_settings_for_db
 from app.services.audit_service import AuditService
 from app.services.feature_policy_service import manager_activity_resource, manager_activity_state
 
@@ -30,7 +30,7 @@ def list_manager_activity(
     resource = manager_activity_resource(db, context)
     if resource is None:
         raise HTTPException(status_code=404, detail="Activity history is unavailable for this Manager context")
-    settings = load_app_settings_for_db_readonly(db)
+    settings = load_app_settings_for_db(db)
     state = manager_activity_state(settings.manager.feature_policies, resource)
     if not state.enabled:
         raise HTTPException(status_code=403, detail="Activity history is disabled for this Manager context")

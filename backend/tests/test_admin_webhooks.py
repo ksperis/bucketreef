@@ -13,7 +13,7 @@ from app.core.domain_enums import UserRole
 from app.main import app
 from app.models.app_settings import AppSettings
 from app.routers import dependencies
-from app.services.app_settings_service import load_app_settings_for_db
+from app.services.app_settings_service import bootstrap_app_settings_for_db
 from tests.auth_test_utils import authenticate_ui_client, clear_ui_client, trusted_origin_headers
 
 
@@ -44,7 +44,7 @@ def _user(db_session, *, email: str, role: str) -> User:
 
 
 def _set_admin_passkey_policy(db_session, required: bool) -> None:
-    load_app_settings_for_db(db_session)
+    bootstrap_app_settings_for_db(db_session)
     row = db_session.scalars(sa.select(AppSetting).where(AppSetting.key == "default")).one()
     settings = AppSettings.model_validate(row.payload)
     settings.general.require_passkey_for_admins = required

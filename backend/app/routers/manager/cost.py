@@ -11,7 +11,7 @@ from app.models.cost import CostSubjectDetail
 from app.models.feature_policy import resolve_feature_policy
 from app.routers.cost_common import raise_cost_disabled
 from app.routers.dependencies import get_s3_execution_context
-from app.services.app_settings_service import load_app_settings_for_db_readonly
+from app.services.app_settings_service import load_app_settings_for_db
 from app.services.cost_service import CostService
 from app.services.feature_policy_service import manager_subject_resource
 from app.services.s3_execution_context import S3ExecutionContext
@@ -27,7 +27,7 @@ def manager_cost_me(
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     db: Session = Depends(get_db),
 ) -> CostSubjectDetail:
-    settings = load_app_settings_for_db_readonly(db)
+    settings = load_app_settings_for_db(db)
     if not settings.general.cost_enabled:
         raise_cost_disabled()
 

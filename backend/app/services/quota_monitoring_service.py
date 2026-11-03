@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.db import QuotaAlertState, S3Account, S3User, StorageEndpoint
 from app.core.domain_enums import StorageProvider
 from app.models.app_settings import AppSettings
-from app.services.app_settings_service import load_app_settings_for_db_readonly
+from app.services.app_settings_service import load_app_settings_for_db
 from app.services.data_retention_service import DataRetentionService
 from app.services.quota_alert_content import QuotaAlertContent, build_quota_alert_content
 from app.services.quota_alert_email_service import QuotaAlertEmailService
@@ -84,7 +84,7 @@ class QuotaMonitoringService:
         include_quota_alerts: bool = True,
         include_usage_history: bool = True,
     ) -> dict[str, Any]:
-        settings = load_app_settings_for_db_readonly(self.db)
+        settings = load_app_settings_for_db(self.db)
         now = utcnow()
         quota_alerts_enabled = bool(
             settings.general.quota_alerts_enabled and include_quota_alerts

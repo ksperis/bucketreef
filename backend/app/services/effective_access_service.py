@@ -151,7 +151,7 @@ class EffectiveAccessService:
         connection_grants = loaded.connection_grants
         owned_private_user_ids = loaded.owned_private_user_ids
 
-        policies = app_settings_service.load_app_settings_for_db_readonly(self.db).manager.feature_policies
+        policies = app_settings_service.load_app_settings_for_db(self.db).manager.feature_policies
         resolved_by_user: dict[int, ResolvedUserAccess] = {}
         for user_id, user in user_by_id.items():
             user_groups = groups.groups_by_user[user_id]
@@ -401,7 +401,7 @@ class EffectiveAccessService:
         """Return Portal identities explicitly exposed in standalone Browser."""
         from app.services.portal_service import PortalService
 
-        settings = app_settings_service.load_app_settings_for_db_readonly(self.db)
+        settings = app_settings_service.load_app_settings_for_db(self.db)
         if not (
             settings.general.browser_enabled
             and settings.general.browser_root_enabled

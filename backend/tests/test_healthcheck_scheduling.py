@@ -33,7 +33,7 @@ def scheduled_settings(db_session, test_engine, monkeypatch):
     factory = sessionmaker(bind=test_engine, autocommit=False, autoflush=False)
     monkeypatch.setattr(background, "SessionLocal", factory)
     for module in (background, healthcheck_service, healthchecks, cost_collect):
-        monkeypatch.setattr(module, "load_app_settings_for_db_readonly", lambda _db: settings)
+        monkeypatch.setattr(module, "load_app_settings_for_db", lambda _db: settings)
     monkeypatch.setattr(dependencies.settings, "internal_cron_token", "expected-token")
     return settings
 

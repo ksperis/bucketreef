@@ -978,7 +978,7 @@ def test_setting_change_request_requires_portal_manager_before_persisting(db_ses
 
 def test_approve_setting_change_preserves_concurrent_project_overrides(db_session, monkeypatch):
     from app.models.app_settings import AppSettings
-    monkeypatch.setattr("app.services.portal.settings.load_app_settings_for_db_readonly", lambda _db: AppSettings())
+    monkeypatch.setattr("app.services.portal.settings.load_app_settings_for_db", lambda _db: AppSettings())
     account = _seed_account(db_session)
     account.portal_settings_override = {"allow_portal_named_bucket_create": True}
     db_session.add(account)
@@ -1147,7 +1147,7 @@ def test_platform_prohibition_rejects_new_and_previously_pending_activation_requ
     from app.services.portal_requests_service import PortalRequestExecutionError
     settings = AppSettings()
     settings.portal.feature_policies.user_external_sharing = FeaturePolicy.TARGETED
-    monkeypatch.setattr("app.services.portal.settings.load_app_settings_for_db_readonly", lambda _db: settings)
+    monkeypatch.setattr("app.services.portal.settings.load_app_settings_for_db", lambda _db: settings)
     account = _seed_account(db_session)
     requester = _seed_user(db_session, email="policy-manager@example.test")
     admin = _seed_user(db_session, email="policy-admin@example.test", role=UserRole.UI_ADMIN.value)

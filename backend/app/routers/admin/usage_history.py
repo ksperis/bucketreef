@@ -13,7 +13,7 @@ from app.db import User
 from app.models.quota_monitoring import QuotaMonitoringResult
 from app.models.usage_history import UsageHistoryResponse, UsageHistoryTrendResponse
 from app.routers.dependencies import get_current_ui_admin
-from app.services.app_settings_service import load_app_settings_for_db_readonly
+from app.services.app_settings_service import load_app_settings_for_db
 from app.services.operation_lease_service import (
     OperationLeaseService,
     USAGE_HISTORY_COLLECT_OPERATION,
@@ -27,7 +27,7 @@ router = APIRouter(prefix="/admin/usage-history", tags=["admin-usage-history"])
 
 
 def _ensure_usage_history_enabled(db: Session) -> None:
-    app_settings = load_app_settings_for_db_readonly(db)
+    app_settings = load_app_settings_for_db(db)
     if not app_settings.general.usage_history_enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usage history is disabled")
 

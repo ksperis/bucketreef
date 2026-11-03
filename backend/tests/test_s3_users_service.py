@@ -36,7 +36,7 @@ from app.models.s3_user import (
 )
 from app.services import s3_client
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
-from app.services.app_settings_service import load_app_settings_for_db_readonly
+from app.services.app_settings_service import load_app_settings_for_db
 from app.services.s3_users_service import S3UsersService
 
 
@@ -196,10 +196,10 @@ def test_import_same_uid_across_isolated_tenants(db_session, monkeypatch):
     for tenant in ("", "team_a", "team_b"):
         fake.add_principal("analyst", tenant)
     service = _build_service(db_session, monkeypatch, fake)
-    settings = load_app_settings_for_db_readonly(db_session)
+    settings = load_app_settings_for_db(db_session)
     settings.general.allow_managed_rgw_tenant_creation = True
     monkeypatch.setattr(
-        "app.services.s3_user_import_service.load_app_settings_for_db_readonly",
+        "app.services.s3_user_import_service.load_app_settings_for_db",
         lambda _db: settings,
     )
 
@@ -259,10 +259,10 @@ def test_create_managed_user_allows_explicit_tenant_when_enabled(db_session, mon
     endpoint = _seed_ceph_endpoint(db_session)
     fake = FakeTenantedRGWAdmin()
     service = _build_service(db_session, monkeypatch, fake)
-    settings = load_app_settings_for_db_readonly(db_session)
+    settings = load_app_settings_for_db(db_session)
     settings.general.allow_managed_rgw_tenant_creation = True
     monkeypatch.setattr(
-        "app.services.s3_user_provisioning_service.load_app_settings_for_db_readonly",
+        "app.services.s3_user_provisioning_service.load_app_settings_for_db",
         lambda _db: settings,
     )
 
@@ -311,10 +311,10 @@ def test_import_allows_same_uid_in_another_tenant(db_session, monkeypatch):
     db_session.add(row)
     db_session.commit()
     service = _build_service(db_session, monkeypatch, fake)
-    settings = load_app_settings_for_db_readonly(db_session)
+    settings = load_app_settings_for_db(db_session)
     settings.general.allow_managed_rgw_tenant_creation = True
     monkeypatch.setattr(
-        "app.services.s3_user_import_service.load_app_settings_for_db_readonly",
+        "app.services.s3_user_import_service.load_app_settings_for_db",
         lambda _db: settings,
     )
     imported = service.import_users([S3UserImport(uid="team_a$analyst", storage_endpoint_id=endpoint.id)])

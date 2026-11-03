@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.db import S3Account
 from app.core.domain_enums import StorageProvider
 from app.models.s3_account import S3Account as S3AccountSchema, S3AccountUpdate
-from app.services.app_settings_service import load_app_settings_for_db_readonly
+from app.services.app_settings_service import load_app_settings_for_db
 from app.services.feature_policy_service import (
     apply_resource_feature_overrides,
     validate_manager_overrides,
@@ -82,7 +82,7 @@ class S3AccountUpdateService:
         return self._serialize_updated_account(account)
 
     def _apply_fields(self, account: S3Account, payload: S3AccountUpdate) -> None:
-        app_settings = load_app_settings_for_db_readonly(self.db)
+        app_settings = load_app_settings_for_db(self.db)
         validate_manager_overrides(payload, app_settings.manager.feature_policies, account)
         validate_multisite_endpoint_switching_override(
             payload,

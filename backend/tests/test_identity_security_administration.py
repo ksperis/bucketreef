@@ -29,7 +29,7 @@ from app.models.user import ManagerToolAccess
 from app.routers import dependencies
 from app.services.api_token_service import ApiTokenService
 from app.services import app_settings_service
-from app.services.app_settings_service import load_app_settings_for_db
+from app.services.app_settings_service import bootstrap_app_settings_for_db, load_app_settings_for_db
 from app.services.auth_session_service import AuthSessionService
 from app.services.mfa_reset_service import MfaResetService
 from app.utils.time import utcnow
@@ -102,7 +102,7 @@ def _group_create_payload(*, name: str, **overrides: object) -> dict[str, object
 
 
 def _set_admin_passkey_policy(db_session, required: bool) -> None:
-    load_app_settings_for_db(db_session)
+    bootstrap_app_settings_for_db(db_session)
     row = db_session.scalars(
         select(AppSetting).where(AppSetting.key == "default")
     ).one()

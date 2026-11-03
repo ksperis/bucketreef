@@ -8,7 +8,7 @@ from app.services.feature_policy_service import (
     manager_usage_metrics_resource,
     project_usage_resource,
 )
-from app.services.app_settings_service import load_app_settings_for_db_readonly
+from app.services.app_settings_service import load_app_settings_for_db
 from dataclasses import dataclass
 from typing import Annotated, Literal, Optional
 
@@ -435,7 +435,7 @@ def get_manager_context(
     include_limits: Annotated[bool, Query()] = False,
 ) -> ManagerContext:
     access_mode = _manager_access_mode(context)
-    app_settings = load_app_settings_for_db_readonly(db)
+    app_settings = load_app_settings_for_db(db)
     manager_stats_enabled, manager_stats_message, connection_iam_identity = _manager_stats_state(
         context,
         actor,
