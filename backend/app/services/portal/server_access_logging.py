@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import logging
+from dataclasses import dataclass
 from typing import Optional
 
 from botocore.exceptions import BotoCoreError, ClientError
@@ -14,7 +15,7 @@ from app.db import (
     S3Account,
 )
 from app.models.app_settings import PortalSettings
-from app.services import s3_bucket_access, s3_bucket_metadata, s3_client
+from app.services import s3_bucket_access, s3_bucket_metadata, s3_client, s3_deletion
 from app.services.managed_resource_naming import (
     PORTAL_SERVER_ACCESS_LOGGING_MANAGER_DENY_SID,
     PORTAL_SERVER_ACCESS_LOGGING_RETENTION_RULE_ID,
@@ -28,6 +29,15 @@ logger = logging.getLogger(__name__)
 
 
 SERVER_ACCESS_LOGGING_PREFIX_ROOT = "portal-server-access/"
+
+
+@dataclass(frozen=True)
+class _PortalServerAccessLoggingSnapshot:
+    source_logging: dict[str, Optional[dict]]
+    log_bucket: str
+    log_bucket_existed: bool
+    log_bucket_policy: Optional[dict]
+    log_bucket_lifecycle: list[dict]
 
 
 class PortalServerAccessLoggingReconcileError(RuntimeError):
@@ -65,6 +75,194 @@ class PortalServerAccessLoggingMixin:
             request_profile="interactive",
             **self._s3_client_kwargs(account),
         )
+
+    def _portal_server_access_log_source_buckets(self, account: S3Account) -> list[str]:
+        return [
+            metadata.bucket_name
+            for metadata in self.db.scalars(
+                select(PortalStorageSpaceMetadata).where(
+                    PortalStorageSpaceMetadata.account_id == account.id
+                )
+            ).all()
+        ]
+
+    def _capture_portal_server_access_logging_state(
+        self,
+        account: S3Account,
+    ) -> Optional[_PortalServerAccessLoggingSnapshot]:
+        source_buckets = self._portal_server_access_log_source_buckets(account)
+        if not source_buckets:
+            return None
+        access_key, secret_key = self._account_credentials(account)
+        kwargs = self._s3_client_kwargs(account)
+        source_logging = {
+            source_bucket: copy.deepcopy(
+                s3_bucket_metadata.get_bucket_logging_configuration(
+                    source_bucket,
+                    access_key=access_key,
+                    secret_key=secret_key,
+                    **kwargs,
+                )
+            )
+            for source_bucket in source_buckets
+        }
+        log_bucket = self._portal_server_access_log_bucket_name(account)
+        client = self._portal_server_access_client(account)
+        try:
+            client.head_bucket(Bucket=log_bucket)
+        except ClientError as exc:
+            code = aws_error_code(exc, lowercase=True)
+            if code not in {"404", "notfound", "nosuchbucket"}:
+                raise RuntimeError(
+                    f"Unable to inspect Portal access log bucket '{log_bucket}': {exc}"
+                ) from exc
+            return _PortalServerAccessLoggingSnapshot(
+                source_logging=source_logging,
+                log_bucket=log_bucket,
+                log_bucket_existed=False,
+                log_bucket_policy=None,
+                log_bucket_lifecycle=[],
+            )
+        except BotoCoreError as exc:
+            raise RuntimeError(
+                f"Unable to inspect Portal access log bucket '{log_bucket}': {exc}"
+            ) from exc
+        return _PortalServerAccessLoggingSnapshot(
+            source_logging=source_logging,
+            log_bucket=log_bucket,
+            log_bucket_existed=True,
+            log_bucket_policy=copy.deepcopy(
+                s3_bucket_access.get_bucket_policy(
+                    log_bucket,
+                    access_key=access_key,
+                    secret_key=secret_key,
+                    **kwargs,
+                )
+            ),
+            log_bucket_lifecycle=copy.deepcopy(
+                s3_bucket_metadata.get_bucket_lifecycle(
+                    log_bucket,
+                    access_key=access_key,
+                    secret_key=secret_key,
+                    **kwargs,
+                )
+            ),
+        )
+
+    def _restore_portal_server_access_logging_state(
+        self,
+        account: S3Account,
+        snapshot: _PortalServerAccessLoggingSnapshot,
+    ) -> None:
+        access_key, secret_key = self._account_credentials(account)
+        kwargs = self._s3_client_kwargs(account)
+        failures: list[str] = []
+        for source_bucket, logging_config in snapshot.source_logging.items():
+            try:
+                s3_bucket_metadata.put_bucket_logging(
+                    source_bucket,
+                    logging_config=copy.deepcopy(logging_config),
+                    access_key=access_key,
+                    secret_key=secret_key,
+                    **kwargs,
+                )
+            except Exception as exc:  # pragma: no cover - defensive remote failure
+                logger.error(
+                    "Unable to restore Server Access Logging on Portal bucket %s: %s",
+                    source_bucket,
+                    exc,
+                )
+                failures.append(f"logging:{source_bucket}")
+
+        if snapshot.log_bucket_existed:
+            try:
+                if snapshot.log_bucket_policy is None:
+                    s3_bucket_access.delete_bucket_policy(
+                        snapshot.log_bucket,
+                        access_key=access_key,
+                        secret_key=secret_key,
+                        **kwargs,
+                    )
+                elif "raw" in snapshot.log_bucket_policy:
+                    self._portal_server_access_client(account).put_bucket_policy(
+                        Bucket=snapshot.log_bucket,
+                        Policy=str(snapshot.log_bucket_policy["raw"]),
+                    )
+                else:
+                    s3_bucket_access.put_bucket_policy(
+                        snapshot.log_bucket,
+                        policy=copy.deepcopy(snapshot.log_bucket_policy),
+                        access_key=access_key,
+                        secret_key=secret_key,
+                        **kwargs,
+                    )
+            except Exception as exc:  # pragma: no cover - defensive remote failure
+                logger.error(
+                    "Unable to restore policy on Portal access log bucket %s: %s",
+                    snapshot.log_bucket,
+                    exc,
+                )
+                failures.append(f"policy:{snapshot.log_bucket}")
+            try:
+                if snapshot.log_bucket_lifecycle:
+                    s3_bucket_metadata.put_bucket_lifecycle(
+                        snapshot.log_bucket,
+                        rules=copy.deepcopy(snapshot.log_bucket_lifecycle),
+                        access_key=access_key,
+                        secret_key=secret_key,
+                        **kwargs,
+                    )
+                else:
+                    s3_bucket_metadata.delete_bucket_lifecycle(
+                        snapshot.log_bucket,
+                        access_key=access_key,
+                        secret_key=secret_key,
+                        **kwargs,
+                    )
+            except Exception as exc:  # pragma: no cover - defensive remote failure
+                logger.error(
+                    "Unable to restore lifecycle on Portal access log bucket %s: %s",
+                    snapshot.log_bucket,
+                    exc,
+                )
+                failures.append(f"lifecycle:{snapshot.log_bucket}")
+        else:
+            try:
+                s3_deletion.delete_empty_bucket(
+                    snapshot.log_bucket,
+                    access_key=access_key,
+                    secret_key=secret_key,
+                    **kwargs,
+                )
+            except s3_deletion.BucketNotEmptyError:
+                try:
+                    s3_deletion.delete_bucket(
+                        snapshot.log_bucket,
+                        force=True,
+                        access_key=access_key,
+                        secret_key=secret_key,
+                        **kwargs,
+                    )
+                except Exception as exc:  # pragma: no cover - defensive remote failure
+                    logger.error(
+                        "Unable to delete newly created Portal access log bucket %s: %s",
+                        snapshot.log_bucket,
+                        exc,
+                    )
+                    failures.append(f"bucket:{snapshot.log_bucket}")
+            except Exception as exc:  # pragma: no cover - defensive remote failure
+                logger.error(
+                    "Unable to delete newly created Portal access log bucket %s: %s",
+                    snapshot.log_bucket,
+                    exc,
+                )
+                failures.append(f"bucket:{snapshot.log_bucket}")
+
+        if failures:
+            raise RuntimeError(
+                "Unable to restore Portal Server Access Logging resources: "
+                + ", ".join(failures)
+            )
 
     def _portal_server_access_log_lifecycle_rules(self, portal_settings: PortalSettings) -> list[dict]:
         return [
@@ -266,6 +464,36 @@ class PortalServerAccessLoggingMixin:
         self._ensure_portal_server_access_log_bucket_policy(account, log_bucket)
         self._put_portal_server_access_logging(account, source_bucket, log_bucket)
 
+    def _apply_portal_server_access_logging_reconcile(
+        self,
+        account: S3Account,
+        *,
+        portal_settings: PortalSettings,
+        source_buckets: list[str],
+    ) -> dict[str, int]:
+        summary = {"enabled": 0, "disabled": 0, "skipped": 0}
+        if not source_buckets:
+            return summary
+        if portal_settings.server_access_logging_enabled:
+            log_bucket = self._ensure_portal_server_access_log_bucket(
+                account,
+                portal_settings=portal_settings,
+            )
+            self._ensure_portal_server_access_log_bucket_policy(account, log_bucket)
+            for source_bucket in source_buckets:
+                if source_bucket == log_bucket:
+                    summary["skipped"] += 1
+                    continue
+                self._put_portal_server_access_logging(account, source_bucket, log_bucket)
+                summary["enabled"] += 1
+            return summary
+        for source_bucket in source_buckets:
+            if self._delete_managed_portal_server_access_logging(account, source_bucket):
+                summary["disabled"] += 1
+            else:
+                summary["skipped"] += 1
+        return summary
+
     def reconcile_portal_server_access_logging(
         self,
         account: S3Account,
@@ -273,31 +501,24 @@ class PortalServerAccessLoggingMixin:
         portal_settings: Optional[PortalSettings] = None,
     ) -> dict[str, int]:
         effective = portal_settings or self.get_effective_portal_settings(account)
-        metadata_rows = self.db.scalars(
-            select(PortalStorageSpaceMetadata).where(
-                PortalStorageSpaceMetadata.account_id == account.id
+        snapshot = self._capture_portal_server_access_logging_state(account)
+        if snapshot is None:
+            return {"enabled": 0, "disabled": 0, "skipped": 0}
+        try:
+            return self._apply_portal_server_access_logging_reconcile(
+                account,
+                portal_settings=effective,
+                source_buckets=list(snapshot.source_logging),
             )
-        ).all()
-        summary = {"enabled": 0, "disabled": 0, "skipped": 0}
-        if not metadata_rows:
-            return summary
-        if effective.server_access_logging_enabled:
-            log_bucket = self._ensure_portal_server_access_log_bucket(account, portal_settings=effective)
-            self._ensure_portal_server_access_log_bucket_policy(account, log_bucket)
-            for metadata in metadata_rows:
-                source_bucket = metadata.bucket_name
-                if source_bucket == log_bucket:
-                    summary["skipped"] += 1
-                    continue
-                self._put_portal_server_access_logging(account, source_bucket, log_bucket)
-                summary["enabled"] += 1
-            return summary
-        for metadata in metadata_rows:
-            if self._delete_managed_portal_server_access_logging(account, metadata.bucket_name):
-                summary["disabled"] += 1
-            else:
-                summary["skipped"] += 1
-        return summary
+        except Exception as exc:
+            try:
+                self._restore_portal_server_access_logging_state(account, snapshot)
+            except Exception as rollback_exc:  # pragma: no cover - defensive remote failure
+                raise RuntimeError(
+                    "Unable to reconcile Portal Server Access Logging. "
+                    "Remote rollback also failed."
+                ) from exc
+            raise
 
     def reconcile_all_portal_server_access_logging(self, base_settings: PortalSettings) -> dict[str, int]:
         account_ids = [
