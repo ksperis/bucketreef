@@ -18,6 +18,7 @@ import {
 } from "../../auth/useRecentWebAuthnStepUp";
 import ListPageSection from "../../components/list/ListPageSection";
 import { SettingsButton, SettingsDialog } from "../../components/settings/SettingsControls";
+import { useSettingsBaseline } from "../../components/settings/useSettingsDraft";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiInput from "../../components/ui/UiInput";
 import OneTimeSecretPanel from "../../components/OneTimeSecretPanel";
@@ -31,7 +32,6 @@ import { toolbarCompactToggleClasses } from "../../components/toolbarControlClas
 import { extractApiError } from "../../utils/apiError";
 import { copyTextToClipboard } from "../../utils/clipboard";
 import { formatLocalDateTime } from "../../utils/dateTime";
-import { stableSignature } from "../../utils/stableSignature";
 import { useAdminI18n } from "./adminI18n";
 import useAdminListController from "./useAdminListController";
 
@@ -89,8 +89,14 @@ export default function ApiTokensPage({ onUnsavedChangesChange }: ApiTokensPageP
   const scopesErrorId = useId();
   const [invalidExpiryInput, setInvalidExpiryInput] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [createInitialSignature, setCreateInitialSignature] = useState(() =>
-    stableSignature({ tokenName: "", expiresInDays: String(DEFAULT_EXPIRY_DAYS), scopes: ["profile:read"] })
+  const createDraft = {
+    tokenName,
+    expiresInDays,
+    scopes: [...scopes].sort(),
+  };
+  const { accept: acceptCreateDraft, dirty: createDraftDirty } = useSettingsBaseline(
+    createDraft,
+    { tokenName: "", expiresInDays: String(DEFAULT_EXPIRY_DAYS), scopes: ["profile:read"] },
   );
 
   const [busyTokenId, setBusyTokenId] = useState<string | null>(null);
@@ -146,7 +152,7 @@ export default function ApiTokensPage({ onUnsavedChangesChange }: ApiTokensPageP
     setFormError(null);
     setCreateAttempted(false);
     setInvalidExpiryInput(false);
-    setCreateInitialSignature(stableSignature({ tokenName: "", expiresInDays: String(DEFAULT_EXPIRY_DAYS), scopes: ["profile:read"] }));
+    acceptCreateDraft({ tokenName: "", expiresInDays: String(DEFAULT_EXPIRY_DAYS), scopes: ["profile:read"] });
   };
 
   const openCreateModal = () => {
@@ -161,11 +167,7 @@ export default function ApiTokensPage({ onUnsavedChangesChange }: ApiTokensPageP
     setFormError(null);
   };
 
-  const createCurrentSignature = useMemo(
-    () => stableSignature({ tokenName, expiresInDays, scopes: [...scopes].sort() }),
-    [expiresInDays, scopes, tokenName]
-  );
-  const createHasUnsavedChanges = showCreateModal && createCurrentSignature !== createInitialSignature;
+  const createHasUnsavedChanges = showCreateModal && createDraftDirty;
   useEffect(() => {
     onUnsavedChangesChange?.(createHasUnsavedChanges);
   }, [createHasUnsavedChanges, onUnsavedChangesChange]);
