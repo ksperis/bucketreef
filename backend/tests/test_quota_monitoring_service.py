@@ -161,6 +161,22 @@ def _seed_user(
     return user
 
 
+def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
+    rollback_calls: list[None] = []
+    original_rollback = db_session.rollback
+
+    def rollback() -> None:
+        rollback_calls.append(None)
+        original_rollback()
+
+    def commit() -> None:
+        raise RuntimeError("commit failed")
+
+    monkeypatch.setattr(db_session, "rollback", rollback)
+    monkeypatch.setattr(db_session, "commit", commit)
+    return rollback_calls
+
+
 def test_run_monitor_skips_when_both_features_disabled(db_session, monkeypatch):
     monkeypatch.setattr(quota_monitoring_service, "load_app_settings_for_db", lambda _db: _settings(quota_alerts_enabled=False, usage_history_enabled=False))
     monkeypatch.setattr(quota_monitoring_service.DataRetentionService, "purge_all", lambda self: {"retention": "ok"})
@@ -212,6 +228,49 @@ def test_usage_history_hourly_and_daily_upserts(db_session, monkeypatch):
     assert daily.samples_count == 2
     assert int(daily.last_used_bytes) == 50
     assert int(daily.bucket_count) == 1
+
+
+def test_usage_history_rolls_back_when_final_commit_fails(db_session, monkeypatch):
+    endpoint = _seed_endpoint(db_session)
+    _seed_account(db_session, endpoint)
+    fake_admin = _FakeAdminClient(
+        usage_bytes=50,
+        usage_objects=5,
+        quota_bytes=100,
+        quota_objects=10,
+    )
+    fixed_now = datetime(2026, 1, 10, 10, 5, 0, tzinfo=UTC)
+    monkeypatch.setattr(quota_monitoring_service, "utcnow", lambda: fixed_now)
+    monkeypatch.setattr(
+        quota_monitoring_service,
+        "load_app_settings_for_db",
+        lambda _db: _settings(quota_alerts_enabled=False, usage_history_enabled=True),
+    )
+    monkeypatch.setattr(
+        quota_monitoring_service,
+        "get_supervision_rgw_client",
+        lambda endpoint: fake_admin,
+    )
+    monkeypatch.setattr(
+        QuotaMonitoringService,
+        "_resolve_runtime_client",
+        lambda self, endpoint, cache: fake_admin,
+    )
+    monkeypatch.setattr(
+        QuotaAlertRecipientsService,
+        "load",
+        lambda self: (_ for _ in ()).throw(
+            AssertionError("History-only runs must not load alert recipients")
+        ),
+    )
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        QuotaMonitoringService(db_session).run_monitor()
+
+    assert rollback_calls == [None]
+    assert db_session.scalar(sa.select(sa.func.count()).select_from(QuotaUsageHourly)) == 0
+    assert db_session.scalar(sa.select(sa.func.count()).select_from(QuotaUsageDaily)) == 0
 
 
 def test_quota_monitor_mode_does_not_persist_usage_history(db_session, monkeypatch):
