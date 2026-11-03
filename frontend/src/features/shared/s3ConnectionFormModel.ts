@@ -14,6 +14,7 @@ import type {
 } from "../../api/s3ConnectionsAdmin";
 import type { S3CredentialsValidationPayload } from "../../api/s3CredentialsValidation";
 import {
+  canonicalizeUiTags,
   extractUiTagLabels,
   normalizeUiTags,
   type UiTagDefinition,
@@ -177,16 +178,6 @@ export function createEmptyConnectionCredentialDraft(): ConnectionCredentialDraf
   return { access_key_id: "", secret_access_key: "" };
 }
 
-function normalizeS3ConnectionBaselineTags(tags: UiTagDefinition[]): UiTagDefinition[] {
-  return normalizeUiTags(tags).sort((left, right) => {
-    const leftLabel = left.label.toLocaleLowerCase();
-    const rightLabel = right.label.toLocaleLowerCase();
-    if (leftLabel < rightLabel) return -1;
-    if (leftLabel > rightLabel) return 1;
-    return 0;
-  });
-}
-
 export function buildPrivateConnectionDraft(
   connection: S3Connection,
 ): PrivateConnectionDraft {
@@ -226,7 +217,7 @@ export function buildCreateS3ConnectionBaseline<T extends { tags: UiTagDefinitio
     endpointId,
     form: {
       ...form,
-      tags: normalizeS3ConnectionBaselineTags(form.tags),
+      tags: canonicalizeUiTags(form.tags),
     },
   };
 }
@@ -244,7 +235,7 @@ export function buildEditAdminS3ConnectionBaseline({
     endpointId,
     form: {
       ...form,
-      tags: normalizeS3ConnectionBaselineTags(form.tags),
+      tags: canonicalizeUiTags(form.tags),
     },
     credentialDraft,
     linkedGroupIds: normalizeS3ConnectionLinkedIds(linkedGroupIds),
@@ -263,7 +254,7 @@ export function buildEditPrivateConnectionBaseline(
     endpointId,
     draft: {
       ...draft,
-      tags: normalizeS3ConnectionBaselineTags(draft.tags),
+      tags: canonicalizeUiTags(draft.tags),
     },
     credentialDraft,
   };

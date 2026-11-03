@@ -52,7 +52,7 @@ import { useSettingsBaseline } from "../../components/settings/useSettingsDraft"
 import { classifyApiError, extractApiError } from "../../utils/apiError";
 import { type TextMatchMode } from "../../utils/textMatch";
 import { isAdminLikeRole, readStoredUser } from "../../utils/workspaces";
-import { buildUiTagItems, normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
+import { buildUiTagItems, canonicalizeUiTags, normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
 import { buildAccessAuditHref } from "./accessAuditLink";
 import { useAdminI18n } from "./adminI18n";
 import useAdminEndpointAdminOpsPermissions from "./useAdminEndpointAdminOpsPermissions";
@@ -140,7 +140,7 @@ export default function S3AccountsPage() {
   const createDraft = useMemo(() => ({
     form: {
       ...form,
-      tags: normalizeUiTags(form.tags),
+      tags: canonicalizeUiTags(form.tags),
       storage_endpoint_id:
         form.storage_endpoint_id === defaultAccountEndpointId ? "" : form.storage_endpoint_id,
     },
