@@ -153,32 +153,47 @@ class S3ConnectionsService:
             payload,
             update_credentials="credentials" in fields_set,
         )
-        endpoint_changed = self._apply_admin_shared_values(
+        name_conflict_key = self._update_name_conflict_key(
             row,
-            payload,
-            fields_set=fields_set,
-            endpoint_plan=endpoint_plan,
+            payload.name if "name" in fields_set else None,
         )
-        self._apply_rgw_identity_update(row, payload, fields_set)
-        access_key_changed = self._apply_admin_shared_credentials(row, payload)
-        self._clear_rgw_identity_after_source_change(
-            row,
-            fields_set=fields_set,
-            source_changed=endpoint_changed or access_key_changed,
-        )
-        if "tags" in fields_set:
-            self.tags.replace_connection_tags(row, payload.tags)
-        self.associations.replace_links(
-            row.id,
-            group_ids=group_ids,
-            user_ids=user_ids,
-        )
-        if _CAPABILITY_PROBE_FIELDS & fields_set or "credentials" in fields_set:
-            self._refresh_detected_capabilities(row)
-        row.updated_at = utcnow()
-        self.db.commit()
-        self.db.refresh(row)
-        return row
+        if name_conflict_key is not None:
+            self._ensure_connection_name_available(*name_conflict_key)
+        try:
+            endpoint_changed = self._apply_admin_shared_values(
+                row,
+                payload,
+                fields_set=fields_set,
+                endpoint_plan=endpoint_plan,
+            )
+            self._apply_rgw_identity_update(row, payload, fields_set)
+            access_key_changed = self._apply_admin_shared_credentials(row, payload)
+            self._clear_rgw_identity_after_source_change(
+                row,
+                fields_set=fields_set,
+                source_changed=endpoint_changed or access_key_changed,
+            )
+            if "tags" in fields_set:
+                self.tags.replace_connection_tags(row, payload.tags)
+            self.associations.replace_links(
+                row.id,
+                group_ids=group_ids,
+                user_ids=user_ids,
+            )
+            if _CAPABILITY_PROBE_FIELDS & fields_set or "credentials" in fields_set:
+                self._refresh_detected_capabilities(row)
+            row.updated_at = utcnow()
+            self.db.commit()
+            self.db.refresh(row)
+            return row
+        except IntegrityError as exc:
+            self.db.rollback()
+            if name_conflict_key is not None and self._connection_name_exists(*name_conflict_key):
+                raise S3ConnectionConflictError(S3_CONNECTION_NAME_CONFLICT_ERROR) from exc
+            raise
+        except Exception:
+            self.db.rollback()
+            raise
 
     def _apply_admin_shared_values(
         self,
@@ -334,8 +349,14 @@ class S3ConnectionsService:
         created_by_user_id: int,
         name: str,
         is_shared: bool,
+        exclude_connection_id: int | None = None,
     ) -> None:
-        if self._connection_name_exists(created_by_user_id, name, is_shared):
+        if self._connection_name_exists(
+            created_by_user_id,
+            name,
+            is_shared,
+            exclude_connection_id,
+        ):
             raise S3ConnectionConflictError(S3_CONNECTION_NAME_CONFLICT_ERROR)
 
     def _connection_name_exists(
@@ -343,6 +364,7 @@ class S3ConnectionsService:
         created_by_user_id: int,
         name: str,
         is_shared: bool,
+        exclude_connection_id: int | None = None,
     ) -> bool:
         predicates = [
             DBS3Connection.name == name,
@@ -350,6 +372,8 @@ class S3ConnectionsService:
         ]
         if not is_shared:
             predicates.append(DBS3Connection.created_by_user_id == created_by_user_id)
+        if exclude_connection_id is not None:
+            predicates.append(DBS3Connection.id != exclude_connection_id)
         return (
             self.db.scalar(
                 select(DBS3Connection.id)
@@ -359,23 +383,52 @@ class S3ConnectionsService:
             is not None
         )
 
+    @staticmethod
+    def _update_name_conflict_key(
+        row: DBS3Connection,
+        requested_name: str | None,
+    ) -> tuple[int, str, bool, int] | None:
+        if requested_name is None or requested_name == row.name:
+            return None
+        return (
+            row.created_by_user_id,
+            requested_name,
+            bool(row.is_shared),
+            row.id,
+        )
+
     def update(self, user_id: int, connection_id: int, payload: S3ConnectionUpdate) -> S3Connection:
         row = self.get_owned(user_id, connection_id)
         payload_data = payload.model_dump(exclude_unset=True)
         self._validate_private_update_mutability(row, payload_data)
         endpoint_plan = self._plan_private_endpoint_update(row, payload, payload_data)
-        should_probe_iam = self._apply_private_update(
+        name_conflict_key = self._update_name_conflict_key(
             row,
-            payload,
-            payload_data,
-            endpoint_plan=endpoint_plan,
+            payload.name if "name" in payload_data else None,
         )
-        if should_probe_iam:
-            self._refresh_detected_capabilities(row)
-        row.updated_at = utcnow()
-        self.db.commit()
-        self.db.refresh(row)
-        return self.serialize(row)
+        if name_conflict_key is not None:
+            self._ensure_connection_name_available(*name_conflict_key)
+        try:
+            should_probe_iam = self._apply_private_update(
+                row,
+                payload,
+                payload_data,
+                endpoint_plan=endpoint_plan,
+            )
+            if should_probe_iam:
+                self._refresh_detected_capabilities(row)
+            row.updated_at = utcnow()
+            self.db.commit()
+            self.db.refresh(row)
+            return self.serialize(row)
+        except IntegrityError as exc:
+            self.db.rollback()
+            if name_conflict_key is not None and self._connection_name_exists(*name_conflict_key):
+                raise S3ConnectionConflictError(S3_CONNECTION_NAME_CONFLICT_ERROR) from exc
+            raise
+        except Exception:
+            self.db.rollback()
+            raise
 
     def _validate_private_update_mutability(
         self,
