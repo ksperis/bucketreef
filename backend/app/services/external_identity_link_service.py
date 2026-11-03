@@ -11,6 +11,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
+from app.core.db_transactions import commit_or_rollback
 from app.core.security import verify_password
 from app.db import ExternalIdentity, ExternalIdentityLinkRequest, ExternalIdentityLinkAttempt, User
 from app.models.external_identity_link import ExternalIdentityLinkProofMethod, ExternalIdentityLinkStatus
@@ -141,7 +142,7 @@ class ExternalIdentityLinkService:
         attempt.display_name = full_name
         attempt.picture_url = picture_url
         self.db.add(attempt)
-        self.db.commit()
+        commit_or_rollback(self.db)
         return self._status_model(attempt, self.attempts.require_user(attempt))
 
     def verify_password(
@@ -155,7 +156,7 @@ class ExternalIdentityLinkService:
         if not user.hashed_password or not verify_password(password, user.hashed_password):
             raise ExternalIdentityLinkError("Invalid account password")
         self._mark_proof(attempt, "password")
-        self.db.commit()
+        commit_or_rollback(self.db)
         return self._status_model(attempt, user)
 
     def verify_ldap(
@@ -183,7 +184,7 @@ class ExternalIdentityLinkService:
         if linked is None:
             raise ExternalIdentityLinkError("LDAP identity is not linked to the target account")
         self._mark_proof(attempt, f"ldap:{identity.provider}")
-        self.db.commit()
+        commit_or_rollback(self.db)
         return self._status_model(attempt, user)
 
     def verify_oidc_proof(
@@ -211,7 +212,7 @@ class ExternalIdentityLinkService:
         if linked is None:
             raise ExternalIdentityLinkError("OIDC proof identity is not linked to the target account")
         self._mark_proof(attempt, f"oidc:{provider_key}")
-        self.db.commit()
+        commit_or_rollback(self.db)
         AuditService(self.db).record_action(
             user=user,
             scope="security",
@@ -233,7 +234,7 @@ class ExternalIdentityLinkService:
             raise ExternalIdentityLinkError("Account proof is required before MFA")
         attempt.mfa_verified_at = utcnow()
         self.db.add(attempt)
-        self.db.commit()
+        commit_or_rollback(self.db)
         return self._status_model(attempt, user)
 
     def request_admin_approval(
@@ -269,7 +270,7 @@ class ExternalIdentityLinkService:
         attempt.consumed_at = now
         self.db.add(attempt)
         self._notify_identity_linked(attempt, user, identity, now)
-        self.db.commit()
+        commit_or_rollback(self.db)
         self.db.refresh(identity)
         return ExternalIdentityLinkCompletion(
             credentials=credentials,

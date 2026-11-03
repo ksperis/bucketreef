@@ -75,6 +75,37 @@ class ExternalIdentityLinkRequestService:
         full_name: Optional[str],
         picture_url: Optional[str],
     ) -> ExternalIdentityLinkRequest:
+        request = self.request_in_transaction(
+            user=user,
+            provider_type=provider_type,
+            provider_id=provider_id,
+            issuer=issuer,
+            subject=subject,
+            email=email,
+            email_verified=email_verified,
+            request_source=request_source,
+            full_name=full_name,
+            picture_url=picture_url,
+        )
+        commit_or_rollback(self.db)
+        self.db.refresh(request)
+        return request
+
+    def request_in_transaction(
+        self,
+        *,
+        user: User,
+        provider_type: str,
+        provider_id: str,
+        issuer: Optional[str],
+        subject: str,
+        email: str,
+        email_verified: bool = False,
+        request_source: Optional[str] = None,
+        full_name: Optional[str],
+        picture_url: Optional[str],
+    ) -> ExternalIdentityLinkRequest:
+        """Create or refresh a link request without committing the caller transaction."""
         now = utcnow()
         existing = self._find(
             provider_type=provider_type,
@@ -114,8 +145,6 @@ class ExternalIdentityLinkRequestService:
         self.db.add(request)
         self.db.flush()
         self._notify_admins(request, user)
-        commit_or_rollback(self.db)
-        self.db.refresh(request)
         return request
 
     def close_pending(
@@ -285,8 +314,6 @@ class ExternalIdentityLinkRequestService:
             request.display_name = full_name
             request.picture_url = picture_url
             self.db.add(request)
-            commit_or_rollback(self.db)
-            self.db.refresh(request)
         return request
 
     def _prepare(

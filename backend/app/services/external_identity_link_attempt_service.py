@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
+from app.core.db_transactions import commit_or_rollback
 from app.db import ExternalIdentityLinkAttempt, ExternalIdentityLinkRequest, User
 from app.services.external_identity_link_contracts import (
     ExternalIdentityLinkError,
@@ -68,7 +69,7 @@ class ExternalIdentityLinkAttemptService:
             expires_at=now + timedelta(seconds=self.settings.oidc_link_attempt_ttl_seconds),
         )
         self.db.add(row)
-        self.db.commit()
+        commit_or_rollback(self.db)
         self.db.refresh(row)
         return row
 
@@ -105,7 +106,7 @@ class ExternalIdentityLinkAttemptService:
             expires_at=now + timedelta(seconds=self.settings.oidc_link_attempt_ttl_seconds),
         )
         self.db.add(row)
-        self.db.commit()
+        commit_or_rollback(self.db)
         self.db.refresh(row)
         return row
 
@@ -114,13 +115,13 @@ class ExternalIdentityLinkAttemptService:
         attempt_id: str,
         browser_secret_hash: Optional[str],
     ) -> ExternalIdentityLinkRequest:
-        attempt = self.require_attempt(attempt_id, browser_secret_hash)
+        attempt = self.require_attempt(attempt_id, browser_secret_hash, for_update=True)
         user = self.require_user(attempt)
         if attempt.status != "pending" or attempt.consumed_at is not None:
             raise ExternalIdentityLinkError("External identity link attempt is unavailable")
         if not attempt.subject:
             raise ExternalIdentityLinkError("External identity must be validated before requesting approval")
-        request = ExternalIdentityLinkRequestService(self.db).request(
+        request = ExternalIdentityLinkRequestService(self.db).request_in_transaction(
             user=user,
             provider_type=attempt.provider_type,
             provider_id=attempt.provider_id,
@@ -132,13 +133,12 @@ class ExternalIdentityLinkAttemptService:
             full_name=attempt.display_name,
             picture_url=attempt.picture_url,
         )
-        refreshed = self.db.get(ExternalIdentityLinkAttempt, attempt.id)
-        if refreshed:
-            refreshed.status = "admin_requested"
-            if request.expires_at > refreshed.expires_at:
-                refreshed.expires_at = request.expires_at
-            self.db.add(refreshed)
-            self.db.commit()
+        attempt.status = "admin_requested"
+        if request.expires_at > attempt.expires_at:
+            attempt.expires_at = request.expires_at
+        self.db.add(attempt)
+        commit_or_rollback(self.db)
+        self.db.refresh(request)
         return request
 
     def require_attempt(

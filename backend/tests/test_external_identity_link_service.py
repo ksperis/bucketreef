@@ -11,7 +11,14 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.core.security import get_password_hash
-from app.db import ExternalIdentity, ExternalIdentityLinkAttempt, User, UserNotification
+from app.db import (
+    AuthSession,
+    ExternalIdentity,
+    ExternalIdentityLinkAttempt,
+    ExternalIdentityLinkRequest,
+    User,
+    UserNotification,
+)
 from app.core.domain_enums import UserRole
 from app.models.external_identity_link import ExternalIdentityProfileOidcStartRequest
 from app.services.api_token_service import ApiTokenService
@@ -246,6 +253,48 @@ def test_admin_fallback_creates_review_request_and_stops_local_flow(db_session):
     assert "subject" not in notification.payload
 
 
+def test_admin_fallback_rolls_back_request_and_attempt_when_commit_fails(
+    db_session,
+    monkeypatch,
+):
+    user = _user(db_session, email="fallback-request-rollback@example.test")
+    attempt = _attempt(db_session, user, subject="fallback-request-rollback-subject")
+    original_expiry = attempt.expires_at
+    original_rollback = db_session.rollback
+    rollback_calls = []
+    commit_calls = 0
+
+    def failing_commit():
+        nonlocal commit_calls
+        commit_calls += 1
+        raise RuntimeError("commit failed")
+
+    def recording_rollback():
+        rollback_calls.append(True)
+        original_rollback()
+
+    monkeypatch.setattr(db_session, "commit", failing_commit)
+    monkeypatch.setattr(db_session, "rollback", recording_rollback)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        ExternalIdentityLinkService(db_session).request_admin_approval(
+            attempt.id,
+            BROWSER_HASH,
+        )
+
+    assert commit_calls == 1
+    assert rollback_calls == [True]
+    db_session.expire_all()
+    restored_attempt = db_session.get(ExternalIdentityLinkAttempt, attempt.id)
+    assert restored_attempt is not None and restored_attempt.status == "pending"
+    assert restored_attempt.expires_at == original_expiry
+    assert db_session.scalars(
+        select(ExternalIdentityLinkRequest).where(
+            ExternalIdentityLinkRequest.subject == "fallback-request-rollback-subject"
+        )
+    ).all() == []
+
+
 def test_admin_fallback_rejection_reaches_terminal_link_state(db_session):
     user = _user(db_session, email="fallback-rejected@example.test")
     attempt = _attempt(db_session, user, subject="rejected-subject")
@@ -391,6 +440,82 @@ def test_confirm_revokes_existing_credentials_and_creates_replacement_session(db
             UserNotification.notification_type == "identity_changed",
         )
     ) is not None
+
+
+def test_confirm_rolls_back_identity_and_replacement_credentials_when_commit_fails(
+    db_session,
+    monkeypatch,
+):
+    user = _user(
+        db_session,
+        email="confirm-rollback@example.test",
+        role=UserRole.UI_ADMIN.value,
+    )
+    original_version = user.auth_version
+    old_credentials = AuthSessionService(db_session).create_for_user(
+        user,
+        auth_type="test",
+        ip_address="127.0.0.1",
+        user_agent="pytest",
+        mfa_verified=True,
+    )
+    _, api_token = ApiTokenService(db_session).create_for_user(
+        user,
+        name="confirm rollback token",
+        scopes=["profile:read"],
+    )
+    attempt = _attempt(db_session, user, subject="confirm-rollback-subject")
+    attempt.proof_method = "password"
+    attempt.proof_verified_at = utcnow()
+    attempt.mfa_verified_at = utcnow()
+    db_session.add(attempt)
+    db_session.commit()
+    original_rollback = db_session.rollback
+    rollback_calls = []
+    commit_calls = 0
+
+    def failing_commit():
+        nonlocal commit_calls
+        commit_calls += 1
+        raise RuntimeError("commit failed")
+
+    def recording_rollback():
+        rollback_calls.append(True)
+        original_rollback()
+
+    monkeypatch.setattr(db_session, "commit", failing_commit)
+    monkeypatch.setattr(db_session, "rollback", recording_rollback)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        ExternalIdentityLinkService(db_session).confirm(
+            attempt.id,
+            BROWSER_HASH,
+            ip_address="127.0.0.1",
+            user_agent="pytest",
+        )
+
+    assert commit_calls == 1
+    assert rollback_calls == [True]
+    db_session.expire_all()
+    restored_user = db_session.get(User, user.id)
+    restored_attempt = db_session.get(ExternalIdentityLinkAttempt, attempt.id)
+    restored_session = db_session.get(AuthSession, old_credentials.session.id)
+    db_session.refresh(api_token)
+    assert restored_user is not None and restored_user.auth_version == original_version
+    assert restored_attempt is not None and restored_attempt.status == "pending"
+    assert restored_attempt.consumed_at is None
+    assert restored_session is not None and restored_session.revoked_at is None
+    assert api_token.revoked_at is None
+    assert db_session.scalars(
+        select(ExternalIdentity).where(ExternalIdentity.subject == "confirm-rollback-subject")
+    ).all() == []
+    sessions = db_session.scalars(select(AuthSession).where(AuthSession.user_id == user.id)).all()
+    assert [session.id for session in sessions] == [old_credentials.session.id]
+    assert db_session.scalars(
+        select(UserNotification).where(
+            UserNotification.event_key.like("external_identity_linked:%")
+        )
+    ).all() == []
 
 
 def test_ldap_link_can_be_confirmed_after_proving_target_local_password(db_session):
