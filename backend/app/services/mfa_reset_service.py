@@ -22,6 +22,13 @@ class MfaResetService:
     def __init__(self, db: Session) -> None:
         self.db = db
 
+    def _commit(self) -> None:
+        try:
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+
     def reset(self, user: User, *, reason: str) -> MfaResetResult:
         passkeys_removed = self.db.execute(
             delete(WebAuthnCredential)
@@ -40,12 +47,12 @@ class MfaResetService:
         ).rowcount
         user.auth_version += 1
         self.db.add(user)
-        self.db.commit()
-        AuthSessionService(self.db).revoke_all_for_user(
+        AuthSessionService(self.db).revoke_all_for_user_in_transaction(
             user,
             reason,
             increment_version=False,
         )
+        self._commit()
         return MfaResetResult(
             passkeys_removed=passkeys_removed,
             recovery_codes_removed=recovery_codes_removed,
