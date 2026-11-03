@@ -165,8 +165,7 @@ class CephAdminBucketUiTagsWorkflow:
                     remove_tag_ids=payload.remove_tag_ids,
                     remove_all=payload.remove_all,
                 )
-            # Persist before the best-effort audit callback, which can roll back
-            # its request session if audit persistence itself fails.
+            # Persist the tag mutation before recording the best-effort audit event.
             if shared_mutation:
                 self.record_shared_mutation(len(set(targets)))
         except BucketUiTagNameConflictError as exc:

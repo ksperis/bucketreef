@@ -10,7 +10,9 @@ from sqlalchemy import String, cast, or_, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.core.db_transactions import commit_or_rollback
 from app.core.sensitive_data import sanitize_audit_metadata
+from app.core.sqlite import ensure_sqlite_transaction_for_savepoint
 from app.db import AuditLog, User
 from app.services.access_context_contracts import ManagerActor
 from app.models.audit import AuditStatus
@@ -97,17 +99,23 @@ class AuditService:
         return None, None, None
 
     def _persist_log(self, payload: AuditLog) -> bool:
-        self.db.add(payload)
+        # Flush caller-owned mutations before the savepoint so an audit-only
+        # failure can be rolled back without discarding the business change.
+        self.db.flush()
+        ensure_sqlite_transaction_for_savepoint(self.db)
         try:
-            self.db.commit()
+            with self.db.begin_nested():
+                self.db.add(payload)
+                self.db.flush()
         except SQLAlchemyError as exc:
-            self.db.rollback()
             logger.warning(
                 "Failed to persist audit log for action %s: %s",
                 payload.action,
                 exc,
             )
+            commit_or_rollback(self.db)
             return False
+        commit_or_rollback(self.db)
         return True
 
     def _publish_webhook(

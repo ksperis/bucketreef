@@ -562,7 +562,7 @@ def test_bucket_ui_tag_definition_routes_update_settings_and_enforce_visibility(
     assert "Mine" not in hidden_storage.text
 
 
-def test_ceph_shared_mutation_survives_audit_persistence_rollback(
+def test_ceph_shared_mutation_survives_audit_callback_rollback(
     client,
     db_session,
 ):
@@ -577,8 +577,7 @@ def test_ceph_shared_mutation_survives_audit_persistence_rollback(
 
     class RollingBackAuditService:
         def record_action(self, **_kwargs):
-            # AuditService rolls the request session back when its own commit
-            # fails. The feature mutation must already be durable at that point.
+            # The callback does not own the already committed tag transaction.
             db_session.rollback()
 
     ctx = SimpleNamespace(
