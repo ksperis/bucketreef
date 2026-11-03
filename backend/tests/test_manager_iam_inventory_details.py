@@ -1,4 +1,4 @@
-from app.models.iam import IAMGroup, IAMRole
+from app.models.iam import IAMGroup, IAMRole, IAMUser
 from app.models.policy import Policy
 from app.routers.manager import iam_groups, iam_roles
 
@@ -20,6 +20,10 @@ class _GroupInventoryService:
     def list_group_inline_policies(self, group_name: str):
         self.calls.append(("list_group_inline_policies", group_name))
         return ["local-read"]
+
+    def list_group_users(self, group_name: str):
+        self.calls.append(("list_group_users", group_name))
+        return [IAMUser(name="alice"), IAMUser(name="bob")]
 
 
 class _RoleInventoryService:
@@ -56,10 +60,12 @@ def test_group_page_details_include_inline_policy_names(monkeypatch):
 
     assert result.items[0].policies == ["arn:aws:iam::aws:policy/ReadOnlyAccess"]
     assert result.items[0].inline_policies == ["local-read"]
+    assert result.items[0].members == ["alice", "bob"]
     assert service.calls == [
         ("list_groups_page", None),
         ("list_group_policies", "operators"),
         ("list_group_inline_policies", "operators"),
+        ("list_group_users", "operators"),
     ]
 
 
@@ -78,6 +84,7 @@ def test_group_page_without_details_keeps_policy_details_unloaded(monkeypatch):
 
     assert result.items[0].policies is None
     assert result.items[0].inline_policies is None
+    assert result.items[0].members is None
     assert service.calls == [("list_groups_page", None)]
 
 

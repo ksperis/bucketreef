@@ -17,6 +17,7 @@ import { useExecutionContext } from "./ExecutionContextProvider";
 import { iamPathFormatError } from "./iamIdentityForm";
 import { managerPageBreadcrumbs } from "./managerBreadcrumbs";
 import { useManagerI18n } from "./managerI18n";
+import ManagerIamArnField from "./ManagerIamArnField";
 
 type Identity = IAMUser | IAMGroup;
 type IdentityDraft = { name: string; path: string };
@@ -106,7 +107,7 @@ export default function ManagerIamIdentityDetailPage({ kind, embedded = false }:
         <UiInput label={text("IAM path")} value={draft.path} required
           readOnly={managed} onChange={(event) => { setDraft(value => ({ ...value, path: event.target.value })); setSaved(false); }} error={pathError ? text(pathError) : undefined}
           hint={text("Use '/' or a path that starts and ends with '/'.")} />
-        <UiInput label="ARN" value={entity?.arn ?? ""} readOnly />
+        <ManagerIamArnField arn={entity?.arn ?? ""} />
       </div>
     </SettingsSection>
   </SettingsWorkflowForm>;

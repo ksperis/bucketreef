@@ -84,6 +84,8 @@ def list_groups_page(
                 group.policies = [policy.arn for policy in service.list_group_policies(group.name)]
                 inline = service.list_group_inline_policies(group.name)
                 group.inline_policies = inline or None
+                members = service.list_group_users(group.name)
+                group.members = [member.name for member in members] or None
         return IAMGroupPage(
             items=[_annotate_managed_group(group) for group in groups],
             next_marker=next_marker,

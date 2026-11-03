@@ -90,6 +90,7 @@ describe("Manager IAM inventory tables", () => {
       items: [{
         name: "operators",
         arn: "arn:aws:iam::acc-1:group/operators",
+        members: ["alice", "bob", "charlie"],
         policies: ["arn:aws:iam::aws:policy/ReadOnlyAccess"],
         inline_policies: ["local-read"],
       }],
@@ -104,8 +105,13 @@ describe("Manager IAM inventory tables", () => {
     expect(screen.getByLabelText("Search")).toHaveAttribute("placeholder", "Search by name or ARN");
     expect(screen.getByRole("table")).toHaveClass("responsive-data-table");
     expect(screen.getByText("operators").closest("td")).toHaveAttribute("data-mobile-primary", "true");
-    expect(screen.getByText("arn:aws:iam::acc-1:group/operators").closest("td")).toHaveAttribute("data-label", "ARN");
+    expect(screen.queryByText("arn:aws:iam::acc-1:group/operators")).not.toBeInTheDocument();
+    expect(screen.getByText("alice").closest("td")).toHaveAttribute("data-label", "Members");
+    expect(screen.getByText("bob")).toBeInTheDocument();
+    expect(screen.getByText("+1")).toHaveAttribute("title", "charlie");
     expect(screen.getByText("ReadOnlyAccess").closest("td")).toHaveAttribute("data-label", "Policies");
+    expect(screen.getByRole("columnheader", { name: "Name" })).toHaveClass("w-[22%]");
+    expect(screen.getByRole("columnheader", { name: "Members" })).toHaveClass("w-[28%]");
     expect(screen.getByText("Managed")).toBeInTheDocument();
     expect(screen.getByText("Inline")).toBeInTheDocument();
     expect(screen.getByText("local-read").closest("td")).toHaveAttribute("data-label", "Policies");
@@ -147,8 +153,10 @@ describe("Manager IAM inventory tables", () => {
     expect(screen.getByRole("table")).toHaveClass("responsive-data-table");
     expect(screen.getByText("app-reader").closest("td")).toHaveAttribute("data-mobile-primary", "true");
     expect(screen.getByText("/application/").closest("td")).toHaveAttribute("data-label", "Path");
-    expect(screen.getByText("arn:aws:iam::acc-1:role/app-reader").closest("td")).toHaveAttribute("data-label", "ARN");
+    expect(screen.queryByText("arn:aws:iam::acc-1:role/app-reader")).not.toBeInTheDocument();
     expect(screen.getByText("ReadOnlyAccess").closest("td")).toHaveAttribute("data-label", "Policies");
+    expect(screen.getByRole("columnheader", { name: "Name" })).toHaveClass("w-[22%]");
+    expect(screen.getByRole("columnheader", { name: "Path" })).toHaveClass("w-[18%]");
     expect(screen.getByText("Managed")).toBeInTheDocument();
     expect(screen.getByText("Inline")).toBeInTheDocument();
     expect(screen.getByText("local-read").closest("td")).toHaveAttribute("data-label", "Policies");

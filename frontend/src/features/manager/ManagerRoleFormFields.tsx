@@ -2,6 +2,7 @@
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import SettingsJsonEditor from "../../components/settings/SettingsJsonEditor";
 import UiInput from "../../components/ui/UiInput";
+import ManagerIamArnField from "./ManagerIamArnField";
 import { useManagerI18n } from "./managerI18n";
 
 type Props = {
@@ -36,7 +37,7 @@ export default function ManagerRoleFormFields({
           onChange={(event) => onPathChange?.(event.target.value)} placeholder={text("/application/")}
           error={pathError}
           hint={editing ? text("Path is fixed at creation. Create a new role to use a different path.") : text("Defaults to \"/\". Sets the IAM path prefix for the role.")} />
-        {editing && arn !== undefined && <UiInput label="ARN" value={arn} readOnly />}
+        {editing && arn !== undefined && <ManagerIamArnField arn={arn} />}
         <UiInput label={text("Maximum session duration (seconds)")} type="number" min={3600} max={43200} step={1}
           value={String(maxSessionDuration)} onChange={(event) => onMaxSessionDurationChange(Number(event.target.value))}
           error={maxSessionDurationError} hint={text("Allowed range: 3600 to 43200 seconds.")} />

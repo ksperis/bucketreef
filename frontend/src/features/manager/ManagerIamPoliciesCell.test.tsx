@@ -12,7 +12,7 @@ describe("ManagerIamPoliciesCell", () => {
     expect(screen.queryByText("Inline")).not.toBeInTheDocument();
   });
 
-  it("renders only the managed row when there are no inline policies", () => {
+  it("renders only the managed segment when there are no inline policies", () => {
     render(
       <ManagerIamPoliciesCell
         managedPolicies={["arn:aws:iam::aws:policy/ReadOnlyAccess"]}
@@ -27,7 +27,7 @@ describe("ManagerIamPoliciesCell", () => {
     expect(screen.queryByText("Inline")).not.toBeInTheDocument();
   });
 
-  it("renders only the inline row when there are no managed policies", () => {
+  it("renders only the inline segment when there are no managed policies", () => {
     render(<ManagerIamPoliciesCell inlinePolicies={["bucket-read"]} />);
 
     expect(screen.getByText("Inline")).toBeInTheDocument();
@@ -57,5 +57,9 @@ describe("ManagerIamPoliciesCell", () => {
     expect(screen.getByText("inline-two")).toBeInTheDocument();
     expect(screen.queryByText("inline-three")).not.toBeInTheDocument();
     expect(screen.getByText("+1")).toHaveAttribute("title", "inline-three");
+
+    const managedSegment = screen.getByText("Managed").parentElement;
+    expect(managedSegment?.parentElement).toContainElement(screen.getByText("Inline"));
+    expect(managedSegment?.parentElement).toHaveClass("flex-wrap");
   });
 });
