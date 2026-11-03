@@ -7,7 +7,7 @@ import { clampPercentage, clampedPercentageOf } from "../utils/numbers";
 import { useI18n } from "../i18n";
 import { cx, uiCardMutedClass, uiMutedTextClass, uiTitleTextClass } from "./ui/styles";
 
-export type UsageTileQuotaLine = {
+type UsageTileQuotaLine = {
   label: string;
   value: number;
 };
@@ -70,7 +70,7 @@ export default function UsageTile({
               {t({ en: "N/A", fr: "N/D", de: "k. A.", zh: "不适用" })}
             </div>
           ) : (
-            <UsageGauge ratio={ratio} />
+            <UsageGauge ratio={ratio} label={label} />
           )}
         </div>
         <div className="flex-1 space-y-1">
@@ -110,7 +110,7 @@ export default function UsageTile({
   return <div className={cardClassName}>{content}</div>;
 }
 
-function UsageGauge({ ratio }: { ratio: number }) {
+function UsageGauge({ ratio, label }: { ratio: number; label: string }) {
   const { t } = useI18n();
   const clamped = clampPercentage(ratio);
   const angle = (clamped / 100) * 360;
@@ -120,8 +120,12 @@ function UsageGauge({ ratio }: { ratio: number }) {
   return (
     <div
       className="relative h-16 w-16 rounded-full"
-      role="img"
-      aria-label={t({ en: `Usage at ${formatPercentage(clamped)}`, fr: `Utilisation à ${formatPercentage(clamped)}`, de: `Auslastung bei ${formatPercentage(clamped)}`, zh: `使用率为 ${formatPercentage(clamped)}` })}
+      role="meter"
+      aria-label={t({ en: `${label} quota usage`, fr: `Utilisation du quota — ${label}`, de: `Kontingentnutzung: ${label}`, zh: `${label} 配额使用情况` })}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={clamped}
+      aria-valuetext={formatPercentage(clamped)}
       style={{
         background: `conic-gradient(${color} ${angle}deg, ${track} ${angle}deg 360deg)`,
       }}

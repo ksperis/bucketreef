@@ -20,12 +20,13 @@ describe("UsageTile", () => {
       />
     );
 
-    expect(screen.getByRole("img", { name: "Usage at 33%" })).toBeInTheDocument();
+    const meter = screen.getByRole("meter", { name: "Storage quota usage" });
+    expect(meter).toHaveAttribute("aria-valuenow", "33.333333333333336");
+    expect(meter).toHaveAttribute("aria-valuetext", "33%");
     expect(screen.getByText("Bucket quota")).toBeInTheDocument();
     expect(screen.getByText("500 B")).toBeInTheDocument();
     expect(screen.getByText("Account quota")).toBeInTheDocument();
     expect(screen.getByText("1000 B")).toBeInTheDocument();
-    expect(screen.queryByRole("meter")).not.toBeInTheDocument();
   });
 
   it("keeps the existing unavailable state when no quota is configured", () => {
@@ -57,8 +58,9 @@ describe("UsageTile", () => {
 
     expect(screen.getByText("Quota")).toBeInTheDocument();
     expect(screen.getByText("100")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "Usage at 25%" })).toBeInTheDocument();
-    expect(screen.queryByRole("meter")).not.toBeInTheDocument();
+    const meter = screen.getByRole("meter", { name: "Objects quota usage" });
+    expect(meter).toHaveAttribute("aria-valuenow", "25");
+    expect(meter).toHaveAttribute("aria-valuetext", "25%");
   });
 
   it("becomes an accessible action only when a click handler is provided", () => {
