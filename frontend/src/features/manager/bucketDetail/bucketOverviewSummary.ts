@@ -1,6 +1,15 @@
-type BucketOverviewSummaryItem = {
+export type BucketOverviewFeatureState = "active" | "inactive" | "warning" | "unavailable" | "loading";
+
+export type BucketOverviewSummaryItem = {
   label: string;
   value: string;
+  state: BucketOverviewFeatureState;
+};
+
+export type BucketOverviewActiveFeature = {
+  label: string;
+  detail?: string;
+  state: "active" | "warning";
 };
 
 type LoadableFeatureState = {
@@ -44,6 +53,8 @@ export type BucketOverviewSummaryInput = {
 };
 
 export type BucketOverviewSummary = {
+  activeFeatures: BucketOverviewActiveFeature[];
+  loadingFeatures: boolean;
   dataProtection: BucketOverviewSummaryItem[];
   accessExposure: BucketOverviewSummaryItem[];
   dataManagement: BucketOverviewSummaryItem[];
@@ -51,109 +62,162 @@ export type BucketOverviewSummary = {
 
 type Text = (message: string, values?: Record<string, string | number>) => string;
 
+type ResolvedFeature = {
+  value: string;
+  state: BucketOverviewFeatureState;
+};
+
 function resolveLoadableFeature(
   feature: LoadableFeatureState,
   labels: { configured: string; empty: string },
   text: Text,
-): string {
-  if (feature.hasError) return text("Unavailable");
-  if (feature.loading) return text("Loading...");
-  return text(feature.configured ? labels.configured : labels.empty);
+): ResolvedFeature {
+  if (feature.hasError) return { value: text("Unavailable"), state: "unavailable" };
+  if (feature.loading) return { value: text("Loading..."), state: "loading" };
+  return feature.configured
+    ? { value: text(labels.configured), state: "active" }
+    : { value: text(labels.empty), state: "inactive" };
 }
 
-function resolveCountedFeature(feature: CountedFeatureState, text: Text): string {
-  if (feature.hasError) return text("Unavailable");
-  if (feature.loading) return text("Loading...");
-  if (!feature.configured || feature.count <= 0) return text("Not configured");
-  return `${feature.count} ${text(feature.count === 1 ? "rule" : "rules")}`;
+function resolveCountedFeature(feature: CountedFeatureState, text: Text): ResolvedFeature {
+  if (feature.hasError) return { value: text("Unavailable"), state: "unavailable" };
+  if (feature.loading) return { value: text("Loading..."), state: "loading" };
+  if (!feature.configured || feature.count <= 0) {
+    return { value: text("Not configured"), state: "inactive" };
+  }
+  return {
+    value: `${feature.count} ${text(feature.count === 1 ? "rule" : "rules")}`,
+    state: "active",
+  };
 }
 
-function resolveNotifications(feature: CountedFeatureState, text: Text): string {
-  if (feature.hasError) return text("Unavailable");
-  if (feature.loading) return text("Loading...");
-  if (!feature.configured || feature.count <= 0) return text("Not configured");
-  return `${feature.count} ${text(feature.count === 1 ? "notification" : "notifications")}`;
+function resolveNotifications(feature: CountedFeatureState, text: Text): ResolvedFeature {
+  if (feature.hasError) return { value: text("Unavailable"), state: "unavailable" };
+  if (feature.loading) return { value: text("Loading..."), state: "loading" };
+  if (!feature.configured || feature.count <= 0) {
+    return { value: text("Not configured"), state: "inactive" };
+  }
+  return {
+    value: `${feature.count} ${text(feature.count === 1 ? "notification" : "notifications")}`,
+    state: "active",
+  };
 }
 
 function resolveVersioning(
   versioning: BucketOverviewSummaryInput["versioning"],
   text: Text,
-): string {
-  if (versioning.hasError) return text("Unavailable");
-  if (versioning.loading) return text("Loading...");
-  return text(versioning.status ?? (versioning.enabled ? "Enabled" : "Disabled"));
+): ResolvedFeature {
+  if (versioning.hasError) return { value: text("Unavailable"), state: "unavailable" };
+  if (versioning.loading) return { value: text("Loading..."), state: "loading" };
+  return {
+    value: text(versioning.status ?? (versioning.enabled ? "Enabled" : "Disabled")),
+    state: versioning.enabled ? "active" : "inactive",
+  };
 }
 
 function resolvePublicAccess(
   publicAccess: BucketOverviewSummaryInput["publicAccess"],
   text: Text,
-): string {
-  if (publicAccess.hasError) return text("Unavailable");
-  if (publicAccess.loading) return text("Loading...");
-  if (publicAccess.blocked) return text("Blocked");
-  if (publicAccess.partial) return text("Partially blocked");
-  return text("Not blocked");
+): ResolvedFeature {
+  if (publicAccess.hasError) return { value: text("Unavailable"), state: "unavailable" };
+  if (publicAccess.loading) return { value: text("Loading..."), state: "loading" };
+  if (publicAccess.blocked) return { value: text("Blocked"), state: "active" };
+  if (publicAccess.partial) return { value: text("Partially blocked"), state: "warning" };
+  return { value: text("Not blocked"), state: "inactive" };
+}
+
+function summaryItem(label: string, resolved: ResolvedFeature): BucketOverviewSummaryItem {
+  return { label, value: resolved.value, state: resolved.state };
+}
+
+function activeFeature(
+  feature: ResolvedFeature,
+  label: string,
+  detail?: string,
+): BucketOverviewActiveFeature | null {
+  if (feature.state !== "active" && feature.state !== "warning") return null;
+  return { label, detail, state: feature.state };
 }
 
 export function buildBucketOverviewSummary(
   input: BucketOverviewSummaryInput,
   text: Text,
 ): BucketOverviewSummary {
+  const versioning = resolveVersioning(input.versioning, text);
+  const objectLock = resolveLoadableFeature(input.objectLock, { configured: "Enabled", empty: "Disabled" }, text);
+  const encryption = resolveLoadableFeature(input.encryption, { configured: "Configured", empty: "Not configured" }, text);
+  const replication = resolveCountedFeature(input.replication, text);
+  const publicAccess = resolvePublicAccess(input.publicAccess, text);
+  const policy = resolveLoadableFeature(input.policy, { configured: "Configured", empty: "Not configured" }, text);
+  const cors = resolveLoadableFeature(input.cors, { configured: "Configured", empty: "Not configured" }, text);
+  const staticWebsite = resolveLoadableFeature(input.staticWebsite, { configured: "Enabled", empty: "Disabled" }, text);
+  const lifecycle = resolveCountedFeature(input.lifecycle, text);
+  const accessLogging = resolveLoadableFeature(input.accessLogging, { configured: "Enabled", empty: "Disabled" }, text);
+  const notifications = resolveNotifications(input.notifications, text);
+
   const dataProtection: BucketOverviewSummaryItem[] = [
-    { label: text("Versioning"), value: resolveVersioning(input.versioning, text) },
-    {
-      label: text("Object Lock"),
-      value: resolveLoadableFeature(input.objectLock, { configured: "Enabled", empty: "Disabled" }, text),
-    },
+    summaryItem(text("Versioning"), versioning),
+    summaryItem(text("Object Lock"), objectLock),
   ];
 
   if (input.serverSideEncryptionEnabled) {
-    dataProtection.push({
-      label: text("Server-side encryption"),
-      value: resolveLoadableFeature(input.encryption, { configured: "Configured", empty: "Not configured" }, text),
-    });
+    dataProtection.push(summaryItem(text("Server-side encryption"), encryption));
   }
 
   if (input.replication.enabled) {
-    dataProtection.push({
-      label: text("Replication"),
-      value: resolveCountedFeature(input.replication, text),
-    });
+    dataProtection.push(summaryItem(text("Replication"), replication));
   }
 
   const accessExposure: BucketOverviewSummaryItem[] = [
-    { label: text("Block public access"), value: resolvePublicAccess(input.publicAccess, text) },
-    {
-      label: text("Bucket policy"),
-      value: resolveLoadableFeature(input.policy, { configured: "Configured", empty: "Not configured" }, text),
-    },
-    {
-      label: text("CORS"),
-      value: resolveLoadableFeature(input.cors, { configured: "Configured", empty: "Not configured" }, text),
-    },
+    summaryItem(text("Block public access"), publicAccess),
+    summaryItem(text("Bucket policy"), policy),
+    summaryItem(text("CORS"), cors),
   ];
 
   if (input.staticWebsite.enabled) {
-    accessExposure.push({
-      label: text("Static website"),
-      value: resolveLoadableFeature(input.staticWebsite, { configured: "Enabled", empty: "Disabled" }, text),
-    });
+    accessExposure.push(summaryItem(text("Static website"), staticWebsite));
   }
 
   const dataManagement: BucketOverviewSummaryItem[] = [
-    { label: text("Lifecycle"), value: resolveCountedFeature(input.lifecycle, text) },
-    {
-      label: text("Access logging"),
-      value: resolveLoadableFeature(input.accessLogging, { configured: "Enabled", empty: "Disabled" }, text),
-    },
+    summaryItem(text("Lifecycle"), lifecycle),
+    summaryItem(text("Access logging"), accessLogging),
   ];
 
   if (input.notificationsEnabled) {
-    dataManagement.push({
-      label: text("Notifications"),
-      value: resolveNotifications(input.notifications, text),
-    });
+    dataManagement.push(summaryItem(text("Notifications"), notifications));
   }
 
-  return { dataProtection, accessExposure, dataManagement };
+  const activeFeatures = [
+    activeFeature(versioning, text("Versioning")),
+    activeFeature(objectLock, text("Object Lock")),
+    input.serverSideEncryptionEnabled ? activeFeature(encryption, text("Encryption")) : null,
+    input.replication.enabled ? activeFeature(replication, text("Replication"), replication.value) : null,
+    publicAccess.state === "active"
+      ? activeFeature(publicAccess, text("Public access blocked"))
+      : publicAccess.state === "warning"
+        ? activeFeature(publicAccess, text("Public access partially blocked"))
+        : null,
+    activeFeature(policy, text("Bucket policy")),
+    activeFeature(cors, text("CORS")),
+    input.staticWebsite.enabled ? activeFeature(staticWebsite, text("Static website")) : null,
+    activeFeature(lifecycle, text("Lifecycle"), lifecycle.value),
+    activeFeature(accessLogging, text("Access logging")),
+    input.notificationsEnabled ? activeFeature(notifications, text("Notifications"), notifications.value) : null,
+  ].filter((feature): feature is BucketOverviewActiveFeature => feature !== null);
+
+  const loadingFeatures = [
+    versioning,
+    objectLock,
+    ...(input.serverSideEncryptionEnabled ? [encryption] : []),
+    ...(input.replication.enabled ? [replication] : []),
+    publicAccess,
+    policy,
+    cors,
+    ...(input.staticWebsite.enabled ? [staticWebsite] : []),
+    lifecycle,
+    accessLogging,
+    ...(input.notificationsEnabled ? [notifications] : []),
+  ].some((feature) => feature.state === "loading");
+
+  return { activeFeatures, loadingFeatures, dataProtection, accessExposure, dataManagement };
 }

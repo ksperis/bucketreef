@@ -15,6 +15,7 @@ import { useI18n } from "../../i18n";
 import PageBanner from "../../components/PageBanner";
 import PageTabs from "../../components/PageTabs";
 import InlineSummary from "../../components/InlineSummary";
+import UiBadge from "../../components/ui/UiBadge";
 import { MetricsCard } from "../../components/MetricsCard";
 import UsageTile from "../../components/UsageTile";
 import { formatCompactNumber } from "../../utils/format";
@@ -74,7 +75,10 @@ import { formatBytes } from "../../utils/format";
 import type { UiRole } from "../../api/users";
 import BucketFeatureGrid from "./bucketDetail/BucketFeatureGrid";
 import BucketObjectsPreview from "./bucketDetail/BucketObjectsPreview";
-import { buildBucketOverviewSummary } from "./bucketDetail/bucketOverviewSummary";
+import {
+  buildBucketOverviewSummary,
+  type BucketOverviewSummaryItem,
+} from "./bucketDetail/bucketOverviewSummary";
 import { useManagerI18n } from "./managerI18n";
 
 function getUserRole(): UiRole | null {
@@ -84,6 +88,18 @@ function getUserRole(): UiRole | null {
 const bucketDetailTwoColumnGridClass = "grid gap-3 md:grid-cols-2";
 
 const bucketDetailSectionStackClass = "space-y-4";
+
+function overviewInlineItems(items: BucketOverviewSummaryItem[]) {
+  return items.map((item) => ({
+    label: item.label,
+    value: item.value,
+    tone: item.state === "active"
+      ? "primary" as const
+      : item.state === "warning" || item.state === "unavailable"
+        ? "warning" as const
+        : undefined,
+  }));
+}
 
 type BucketDetailPageProps = {
   mode?: BucketDetailMode;
@@ -965,6 +981,36 @@ function BucketDetailPageContent({
                   ]} />
                 </SettingsSection>
                 <SettingsSection
+                  title={text("Active features")}
+                  description={text("Features currently enabled or configured for this bucket.")}
+                  presentation="compact"
+                >
+                  {overviewSummary.loadingFeatures ? (
+                    <p className="settings-description">{text("Loading feature status...")}</p>
+                  ) : overviewSummary.activeFeatures.length === 0 ? (
+                    <p className="settings-description">{text("No active features")}</p>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="settings-description">
+                        {text("{count} active", { count: overviewSummary.activeFeatures.length })}
+                      </p>
+                      <div className="flex flex-wrap gap-2" aria-label={text("Active features")}>
+                        {overviewSummary.activeFeatures.map((feature) => (
+                          <UiBadge
+                            key={feature.label}
+                            tone={feature.state === "warning" ? "warning" : "primary"}
+                            className="gap-1.5 px-2.5 py-1"
+                          >
+                            <span>{feature.label}</span>
+                            {feature.detail ? <span aria-hidden="true">·</span> : null}
+                            {feature.detail ? <span>{feature.detail}</span> : null}
+                          </UiBadge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </SettingsSection>
+                <SettingsSection
                   title={text("Usage")}
                   description={text("Current bucket consumption.")}
                   presentation="compact"
@@ -1024,21 +1070,21 @@ function BucketDetailPageContent({
                   description={text("Protection and durability settings.")}
                   presentation="compact"
                 >
-                  <InlineSummary items={overviewSummary.dataProtection} />
+                  <InlineSummary items={overviewInlineItems(overviewSummary.dataProtection)} />
                 </SettingsSection>
                 <SettingsSection
                   title={text("Access & exposure")}
                   description={text("External access controls.")}
                   presentation="compact"
                 >
-                  <InlineSummary items={overviewSummary.accessExposure} />
+                  <InlineSummary items={overviewInlineItems(overviewSummary.accessExposure)} />
                 </SettingsSection>
                 <SettingsSection
                   title={text("Data management")}
                   description={text("Automation and data handling.")}
                   presentation="compact"
                 >
-                  <InlineSummary items={overviewSummary.dataManagement} />
+                  <InlineSummary items={overviewInlineItems(overviewSummary.dataManagement)} />
                 </SettingsSection>
               </div>
             ),

@@ -1640,5 +1640,13 @@
   "Partially blocked": "Partiellement bloqué",
   "Not blocked": "Non bloqué",
   "notification": "notification",
-  "notifications": "notifications"
+  "notifications": "notifications",
+  "Active features": "Fonctionnalités actives",
+  "Features currently enabled or configured for this bucket.": "Fonctionnalités actuellement activées ou configurées pour ce bucket.",
+  "{count} active": "{count} actives",
+  "No active features": "Aucune fonctionnalité active",
+  "Loading feature status...": "Chargement de l’état des fonctionnalités...",
+  "Encryption": "Chiffrement",
+  "Public access blocked": "Accès public bloqué",
+  "Public access partially blocked": "Accès public partiellement bloqué"
 }
