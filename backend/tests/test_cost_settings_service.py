@@ -35,6 +35,32 @@ def _global_model() -> CostGlobalModel:
     )
 
 
+def _override(endpoint_id: int, price: str = "1") -> CostEndpointOverridePayload:
+    return CostEndpointOverridePayload(
+        storage_endpoint_id=endpoint_id,
+        storage_gb_month_price=Decimal(price),
+        egress_gb_price=Decimal(price),
+        ingress_gb_price=Decimal(price),
+        requests_per_1000_price=Decimal(price),
+    )
+
+
+def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
+    rollback_calls: list[None] = []
+    original_rollback = db_session.rollback
+
+    def rollback() -> None:
+        rollback_calls.append(None)
+        original_rollback()
+
+    def commit() -> None:
+        raise RuntimeError("commit failed")
+
+    monkeypatch.setattr(db_session, "rollback", rollback)
+    monkeypatch.setattr(db_session, "commit", commit)
+    return rollback_calls
+
+
 def test_cost_settings_round_trip_global_model_and_complete_endpoint_override(db_session):
     endpoint = _endpoint(db_session)
     service = CostSettingsService(db_session)
@@ -112,6 +138,51 @@ def test_cost_settings_clear_model_also_clears_endpoint_overrides(db_session):
     assert saved.endpoint_overrides == []
     assert db_session.get(CostModel, 1) is None
     assert db_session.scalar(sa.select(sa.func.count()).select_from(CostEndpointOverride)) == 0
+
+
+def test_cost_settings_save_rolls_back_when_commit_fails(db_session, monkeypatch):
+    endpoint = _endpoint(db_session)
+    service = CostSettingsService(db_session)
+    service.save_settings(
+        CostSettings(model=_global_model(), endpoint_overrides=[_override(endpoint.id)])
+    )
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    changed_model = _global_model().model_copy(
+        update={"storage_gb_month_price": Decimal("9.000000")}
+    )
+    with pytest.raises(RuntimeError, match="commit failed"):
+        service.save_settings(
+            CostSettings(
+                model=changed_model,
+                endpoint_overrides=[_override(endpoint.id, "7")],
+            )
+        )
+
+    assert rollback_calls == [None]
+    db_session.expire_all()
+    saved = service.get_settings()
+    assert saved.model is not None
+    assert saved.model.storage_gb_month_price == Decimal("0.020000")
+    assert saved.endpoint_overrides[0].storage_gb_month_price == Decimal("1.000000")
+
+
+def test_cost_settings_clear_rolls_back_when_commit_fails(db_session, monkeypatch):
+    endpoint = _endpoint(db_session)
+    service = CostSettingsService(db_session)
+    service.save_settings(
+        CostSettings(model=_global_model(), endpoint_overrides=[_override(endpoint.id)])
+    )
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        service.save_settings(CostSettings(model=None, endpoint_overrides=[]))
+
+    assert rollback_calls == [None]
+    db_session.expire_all()
+    saved = service.get_settings()
+    assert saved.model is not None
+    assert len(saved.endpoint_overrides) == 1
 
 
 def test_cost_settings_reject_unknown_endpoint(db_session):
