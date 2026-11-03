@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.db_transactions import commit_or_rollback
 from app.core.sqlite import ensure_sqlite_transaction_for_savepoint
 from app.db import CostStorageDaily, CostUsageDaily, S3Account, S3User, StorageEndpoint
 from app.core.domain_enums import StorageProvider
@@ -490,7 +491,7 @@ class CostCollector:
                 if existing is None:
                     raise
                 update_existing(existing, collected_at)
-        self.db.commit()
+        commit_or_rollback(self.db)
 
     def _find_daily_row(
         self,

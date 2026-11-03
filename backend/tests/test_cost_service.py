@@ -9,6 +9,7 @@ from app.utils.time import utcnow
 from datetime import date, datetime, timedelta
 
 import pytest
+from sqlalchemy import func, select
 
 from app.core.domain_errors import CostSubjectNotFoundError
 from app.db import CostEndpointOverride, CostModel, CostStorageDaily, CostUsageDaily, S3Account, S3User, StorageEndpoint, User
@@ -69,6 +70,22 @@ def _enabled_cost_settings() -> AppSettings:
     settings = AppSettings()
     settings.general.cost_enabled = True
     return settings
+
+
+def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
+    rollback_calls: list[None] = []
+    original_rollback = db_session.rollback
+
+    def rollback() -> None:
+        rollback_calls.append(None)
+        original_rollback()
+
+    def commit() -> None:
+        raise RuntimeError("commit failed")
+
+    monkeypatch.setattr(db_session, "rollback", rollback)
+    monkeypatch.setattr(db_session, "commit", commit)
+    return rollback_calls
 
 
 def _assert_cost_disabled_error(exc: HTTPException) -> None:
@@ -374,6 +391,28 @@ def test_cost_usage_collection_uses_half_open_daily_window(db_session, monkeypat
         "start": start,
         "end": end - timedelta(microseconds=1),
     }
+
+
+def test_cost_daily_upsert_rolls_back_when_commit_fails(db_session, monkeypatch):
+    endpoint = _seed_endpoint(db_session)
+    account = _seed_account(db_session, endpoint.id)
+    collector = CostCollector(db_session)
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        collector._upsert_usage(
+            day=date(2026, 1, 1),
+            endpoint_id=endpoint.id,
+            s3_account_id=account.id,
+            s3_user_id=None,
+            bytes_in=1,
+            bytes_out=2,
+            ops_total=3,
+            ops_breakdown={"get": 3},
+        )
+
+    assert rollback_calls == [None]
+    assert db_session.scalar(select(func.count()).select_from(CostUsageDaily)) == 0
 
 
 def test_cost_bucket_stats_accept_explicit_empty_usage_map(db_session):
