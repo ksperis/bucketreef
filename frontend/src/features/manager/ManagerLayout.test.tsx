@@ -291,7 +291,7 @@ describe("ManagerLayout", () => {
     expect(labels).not.toContain("Ceph");
   });
 
-  it("shows Ceph provisioning navigation without Ceph key inventory access", () => {
+  it("disables Ceph access-key navigation when key inventory access is unavailable", () => {
     setStoredManagerUser({
       managerToolAccess: {
         bucket_compare: false,
@@ -314,6 +314,10 @@ describe("ManagerLayout", () => {
 
     const cephSection = capturedNavSections.find((section) => section.label === "Ceph");
     expect(cephSection?.links.map((link) => link.label)).toEqual(["Access keys"]);
+    expect(cephSection?.links[0]).toEqual(expect.objectContaining({
+      disabled: true,
+      disabledHint: "Ceph key inventory is unavailable for this context",
+    }));
   });
 
   it("hides Ceph access-key navigation for RGW account contexts", () => {
