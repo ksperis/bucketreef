@@ -22,6 +22,7 @@ from app.db import (
 from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, StorageProvider, UserRole
 from app.main import app
 from app.routers import dependencies
+from app.services.user_notifications_service import UserNotificationsService
 
 
 def _seed_endpoint(db_session) -> StorageEndpoint:
@@ -111,6 +112,22 @@ def _seed_notification(
     db_session.commit()
     db_session.refresh(notification)
     return notification
+
+
+def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
+    rollback_calls: list[None] = []
+    original_rollback = db_session.rollback
+
+    def rollback() -> None:
+        rollback_calls.append(None)
+        original_rollback()
+
+    def commit() -> None:
+        raise RuntimeError("commit failed")
+
+    monkeypatch.setattr(db_session, "rollback", rollback)
+    monkeypatch.setattr(db_session, "commit", commit)
+    return rollback_calls
 
 
 def test_list_notifications_filters_by_current_account_access(client, db_session):
@@ -234,6 +251,27 @@ def test_mark_notifications_read_only_updates_visible_rows(client, db_session):
     assert hidden.read_at is None
 
 
+def test_mark_notifications_read_rolls_back_when_commit_fails(db_session, monkeypatch):
+    endpoint = _seed_endpoint(db_session)
+    user = _seed_user(db_session, email="read-rollback@example.test")
+    notification = _seed_notification(
+        db_session,
+        user=user,
+        endpoint=endpoint,
+        event_key="notification:read-rollback",
+    )
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        UserNotificationsService(db_session).mark_read(user, mark_all=True)
+
+    assert rollback_calls == [None]
+    db_session.expire_all()
+    stored = db_session.get(UserNotification, notification.id)
+    assert stored is not None
+    assert stored.read_at is None
+
+
 def test_delete_notifications_is_scoped_and_clear_read_keeps_unread(
     client,
     db_session,
@@ -296,6 +334,27 @@ def test_delete_notifications_is_scoped_and_clear_read_keeps_unread(
 
     assert response.status_code == 200
     assert response.json() == {"deleted_count": 1, "unread_count": 0}
+
+
+def test_delete_notification_rolls_back_when_commit_fails(db_session, monkeypatch):
+    endpoint = _seed_endpoint(db_session)
+    user = _seed_user(db_session, email="delete-rollback@example.test")
+    notification = _seed_notification(
+        db_session,
+        user=user,
+        endpoint=endpoint,
+        event_key="notification:delete-rollback",
+    )
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        UserNotificationsService(db_session).delete_for_user(
+            user,
+            notification_id=notification.id,
+        )
+
+    assert rollback_calls == [None]
+    assert db_session.get(UserNotification, notification.id) is not None
 
 
 def test_clear_read_notifications_requires_true_flag(client, db_session):
