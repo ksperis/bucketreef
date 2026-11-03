@@ -7,6 +7,7 @@ from __future__ import annotations
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.db_transactions import commit_or_rollback
 from app.db import ManagedPrivateAccess, User
 from app.services.managed_private_access_errors import ManagedPrivateAccessConflict
 from app.services.managed_private_access_sources import ManagedPrivateAccessSource
@@ -37,9 +38,8 @@ class ManagedPrivateAccessStateService:
         )
         self.db.add(row)
         try:
-            self.db.commit()
+            commit_or_rollback(self.db)
         except IntegrityError as exc:
-            self.db.rollback()
             raise ManagedPrivateAccessConflict(
                 "A managed private access operation already exists for this execution context"
             ) from exc
@@ -48,25 +48,25 @@ class ManagedPrivateAccessStateService:
 
     def checkpoint(self, provisioning: ManagedPrivateAccess) -> None:
         provisioning.updated_at = utcnow()
-        self.db.commit()
+        commit_or_rollback(self.db)
         self.db.refresh(provisioning)
 
     def mark_failed(self, provisioning: ManagedPrivateAccess, error: str) -> None:
         provisioning.state = "failed"
         provisioning.cleanup_error = error
         provisioning.updated_at = utcnow()
-        self.db.commit()
+        commit_or_rollback(self.db)
 
     def mark_deleting(self, provisioning: ManagedPrivateAccess) -> None:
         provisioning.state = "deleting"
         provisioning.updated_at = utcnow()
-        self.db.commit()
+        commit_or_rollback(self.db)
 
     def mark_cleanup_pending(self, provisioning: ManagedPrivateAccess, error: str) -> None:
         provisioning.state = "cleanup_pending"
         provisioning.cleanup_error = error
         provisioning.updated_at = utcnow()
-        self.db.commit()
+        commit_or_rollback(self.db)
 
     @staticmethod
     def string_list(value: object) -> list[str]:
