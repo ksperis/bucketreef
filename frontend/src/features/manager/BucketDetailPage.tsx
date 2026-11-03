@@ -14,6 +14,7 @@ import { settingsLabels } from "../../components/settings/settingsLabels";
 import { useI18n } from "../../i18n";
 import PageBanner from "../../components/PageBanner";
 import PageTabs from "../../components/PageTabs";
+import InlineSummary from "../../components/InlineSummary";
 import { MetricsCard } from "../../components/MetricsCard";
 import UsageTile from "../../components/UsageTile";
 import { formatCompactNumber } from "../../utils/format";
@@ -22,7 +23,6 @@ import { isAdminLikeRole, readStoredUser } from "../../utils/workspaces";
 import { useExecutionContext } from "./ExecutionContextProvider";
 import TrafficAnalytics from "./TrafficAnalytics";
 import BucketUsageStatsPanel from "../shared/BucketUsageStatsPanel";
-import PropertySummaryChip from "../../components/PropertySummaryChip";
 import { useCephAdminEndpoint } from "../cephAdmin/CephAdminEndpointContext";
 import {
   BucketAclFeature,
@@ -74,14 +74,13 @@ import { formatBytes } from "../../utils/format";
 import type { UiRole } from "../../api/users";
 import BucketFeatureGrid from "./bucketDetail/BucketFeatureGrid";
 import BucketObjectsPreview from "./bucketDetail/BucketObjectsPreview";
-import { buildBucketPropertySummary } from "./bucketDetail/bucketPropertySummary";
+import { buildBucketOverviewSummary } from "./bucketDetail/bucketOverviewSummary";
 import { useManagerI18n } from "./managerI18n";
 
 function getUserRole(): UiRole | null {
   return readStoredUser()?.role ?? null;
 }
 
-const bucketDetailHintClass = "settings-description";
 const bucketDetailTwoColumnGridClass = "grid gap-3 md:grid-cols-2";
 
 const bucketDetailSectionStackClass = "space-y-4";
@@ -320,6 +319,7 @@ function BucketDetailPageContent({
     error: notificationsError,
     load: loadNotifications,
     loading: notificationsLoading,
+    topicCount: notificationTopicCount,
   } = notificationsController;
   const publicAccessController = useBucketPublicAccessController({
     contextId,
@@ -440,6 +440,7 @@ function BucketDetailPageContent({
     hasRules: hasLifecycleRules,
     load: loadLifecycle,
     loading: lifecycleLoading,
+    ruleCount: lifecycleRuleCount,
   } = lifecycleController;
   const {
     cancelRecalculation: cancelUsageStatsRecalculation,
@@ -485,6 +486,7 @@ function BucketDetailPageContent({
     error: replicationError,
     load: loadReplication,
     loading: replicationLoading,
+    ruleCount: replicationRuleCount,
   } = replicationController;
   const usageFeatureEnabled = featureAvailability.usage;
   const canViewLiveBucketMetrics = featureAvailability.liveMetrics;
@@ -523,7 +525,6 @@ function BucketDetailPageContent({
     onSaved: refreshBucketMeta,
   });
   const {
-    configured: quotaConfigured,
     dirty: quotaDirty,
   } = quotaController;
 
@@ -663,7 +664,10 @@ function BucketDetailPageContent({
         corsLoading ||
         replicationLoading ||
         encryptionLoading ||
-        publicAccessLoading
+        publicAccessLoading ||
+        websiteLoading ||
+        accessLoggingLoading ||
+        notificationsLoading
       );
     }
     if (activeTab === "objects") {
@@ -741,14 +745,13 @@ function BucketDetailPageContent({
     return () => onBusyChange?.(false);
   }, [configurationBusy, onBusyChange]);
 
-  const propertySummary = useMemo(() => {
-    return buildBucketPropertySummary({
+  const overviewSummary = useMemo(() => {
+    return buildBucketOverviewSummary({
       accessLogging: {
         configured: accessLoggingConfigured,
         loading: accessLoggingLoading,
         hasError: Boolean(accessLoggingError),
       },
-      bucketAvailable: Boolean(bucket),
       cors: {
         configured: corsConfigured,
         loading: corsLoading,
@@ -763,11 +766,13 @@ function BucketDetailPageContent({
         configured: hasLifecycleRules,
         loading: lifecycleLoading,
         hasError: Boolean(lifecycleError),
+        count: lifecycleRuleCount,
       },
       notifications: {
         configured: notificationsConfigured,
         loading: notificationsLoading,
         hasError: Boolean(notificationsError),
+        count: notificationTopicCount,
       },
       notificationsEnabled: snsFeatureEnabled,
       objectLock: {
@@ -786,16 +791,12 @@ function BucketDetailPageContent({
         loading: publicAccessLoading,
         hasError: Boolean(publicAccessError),
       },
-      quota: {
-        configured: quotaConfigured,
-        enabled: quotaFeatureEnabled,
-      },
       replication: {
         configured: replicationConfigured,
         loading: replicationLoading,
         hasError: Boolean(replicationError),
+        count: replicationRuleCount,
         enabled: replicationFeatureEnabled,
-        endpointSupported: isCephEndpoint,
       },
       serverSideEncryptionEnabled: sseFeatureEnabled,
       staticWebsite: {
@@ -812,7 +813,6 @@ function BucketDetailPageContent({
       },
     }, text);
   }, [
-    bucket,
     accessLoggingConfigured,
     accessLoggingError,
     accessLoggingLoading,
@@ -820,6 +820,7 @@ function BucketDetailPageContent({
     encryptionError,
     encryptionLoading,
     hasLifecycleRules,
+    lifecycleRuleCount,
     corsConfigured,
     corsError,
     corsLoading,
@@ -828,14 +829,13 @@ function BucketDetailPageContent({
     notificationsConfigured,
     notificationsError,
     notificationsLoading,
+    notificationTopicCount,
     objectLockLoadError,
     objectLockLoading,
     objectLockPersistentlyEnabled,
     policyConfigured,
     policyError,
     policyLoading,
-    quotaConfigured,
-    quotaFeatureEnabled,
     publicAccessBlockEnabled,
     publicAccessBlockPartial,
     publicAccessError,
@@ -845,11 +845,11 @@ function BucketDetailPageContent({
     versioningIsEnabled,
     versioningLoading,
     versioningStatus,
-    isCephEndpoint,
     replicationConfigured,
     replicationError,
     replicationFeatureEnabled,
     replicationLoading,
+    replicationRuleCount,
     snsFeatureEnabled,
     staticWebsiteEnabled,
     websiteConfigured,
@@ -945,32 +945,28 @@ function BucketDetailPageContent({
             content: (
               <div className="settings-compact settings-stack px-1 py-2">
                 <SettingsSection
-                  title={text("Details")}
-                  description={text("Owner and creation information for this bucket.")}
+                  title={text("Bucket details")}
+                  description={text("Basic ownership and creation information for this bucket.")}
                   presentation="compact"
                 >
-                  <dl className="grid gap-x-8 gap-y-3 sm:grid-cols-2">
-                    <div className="min-w-0">
-                      <dt className={bucketDetailHintClass}>{text("Owner:")}</dt>
-                      <dd className="mt-0.5 min-w-0 break-words ui-body font-semibold text-slate-800 dark:text-slate-100">
-                        {bucketOwner ?? text(loadingBucket || bucketAclLoading ? "Loading..." : "Unknown")}
-                      </dd>
-                    </div>
-                    <div className="min-w-0">
-                      <dt className={bucketDetailHintClass}>{text("Created:")}</dt>
-                      <dd className="mt-0.5 min-w-0 break-words ui-body font-semibold text-slate-800 dark:text-slate-100">
-                        {loadingBucket
-                          ? text("Loading...")
-                          : bucket?.creation_date
-                            ? formatLocalDateTime(bucket.creation_date)
-                            : text("Unavailable")}
-                      </dd>
-                    </div>
-                  </dl>
+                  <InlineSummary items={[
+                    {
+                      label: text("Owner"),
+                      value: bucketOwner ?? text(loadingBucket || bucketAclLoading ? "Loading..." : "Unknown"),
+                    },
+                    {
+                      label: text("Created"),
+                      value: loadingBucket
+                        ? text("Loading...")
+                        : bucket?.creation_date
+                          ? formatLocalDateTime(bucket.creation_date)
+                          : text("Unavailable"),
+                    },
+                  ]} />
                 </SettingsSection>
                 <SettingsSection
-                  title={text("Current usage and quota")}
-                  description={text("Observed storage and object usage against configured limits.")}
+                  title={text("Usage")}
+                  description={text("Current bucket consumption.")}
                   presentation="compact"
                 >
                   <div className={bucketDetailTwoColumnGridClass}>
@@ -996,15 +992,53 @@ function BucketDetailPageContent({
                   </div>
                 </SettingsSection>
                 <SettingsSection
-                  title={text("Bucket properties")}
-                  description={text("Configured features are highlighted. Changes remain scoped to each S3 feature.")}
+                  title={text("Quotas")}
+                  description={text("Configured storage and object limits.")}
                   presentation="compact"
                 >
-                  <div className="flex flex-wrap gap-2">
-                    {propertySummary.map((item) => (
-                      <PropertySummaryChip key={item.label} label={item.label} state={item.state} tone={item.tone} />
-                    ))}
-                  </div>
+                  <InlineSummary items={[
+                    {
+                      label: text("Storage quota"),
+                      value: loadingBucket
+                        ? text("Loading...")
+                        : !quotaFeatureEnabled
+                          ? text("Unavailable")
+                          : storageUsage.quota != null && storageUsage.quota > 0
+                            ? formatBytes(storageUsage.quota)
+                            : text("No quota configured"),
+                    },
+                    {
+                      label: text("Object quota"),
+                      value: loadingBucket
+                        ? text("Loading...")
+                        : !quotaFeatureEnabled
+                          ? text("Unavailable")
+                          : objectUsage.quota != null && objectUsage.quota > 0
+                            ? objectUsage.quota.toLocaleString(intlLocale)
+                            : text("No quota configured"),
+                    },
+                  ]} />
+                </SettingsSection>
+                <SettingsSection
+                  title={text("Data protection")}
+                  description={text("Protection and durability settings.")}
+                  presentation="compact"
+                >
+                  <InlineSummary items={overviewSummary.dataProtection} />
+                </SettingsSection>
+                <SettingsSection
+                  title={text("Access & exposure")}
+                  description={text("External access controls.")}
+                  presentation="compact"
+                >
+                  <InlineSummary items={overviewSummary.accessExposure} />
+                </SettingsSection>
+                <SettingsSection
+                  title={text("Data management")}
+                  description={text("Automation and data handling.")}
+                  presentation="compact"
+                >
+                  <InlineSummary items={overviewSummary.dataManagement} />
                 </SettingsSection>
               </div>
             ),

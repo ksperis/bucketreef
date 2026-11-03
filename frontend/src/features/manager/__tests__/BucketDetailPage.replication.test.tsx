@@ -728,15 +728,22 @@ describe("BucketDetailPage replication state", () => {
       </MemoryRouter>
     );
 
-    const propertiesLabel = await screen.findByRole("heading", { name: "Bucket properties" });
-    const overviewSection = propertiesLabel.closest("[role=tabpanel]") ?? propertiesLabel.closest("section")?.parentElement;
+    const dataManagementLabel = await screen.findByRole("heading", { name: "Data management" });
+    const overviewSection = dataManagementLabel.closest("[role=tabpanel]") ?? dataManagementLabel.closest("section")?.parentElement;
 
     expect(overviewSection).not.toBeNull();
     expect(within(overviewSection as HTMLElement).queryByRole("heading", { name: "Bucket demo-bucket" })).not.toBeInTheDocument();
-    expect(within(overviewSection as HTMLElement).getByRole("heading", { name: "Details" })).toBeInTheDocument();
-    expect(within(overviewSection as HTMLElement).getByRole("heading", { name: "Current usage and quota" })).toBeInTheDocument();
-    expect(within(overviewSection as HTMLElement).getByRole("heading", { name: "Bucket properties" })).toBeInTheDocument();
-    expect(within(overviewSection as HTMLElement).queryByRole("heading", { name: "Quotas" })).not.toBeInTheDocument();
+    for (const heading of [
+      "Bucket details",
+      "Usage",
+      "Quotas",
+      "Data protection",
+      "Access & exposure",
+      "Data management",
+    ]) {
+      expect(within(overviewSection as HTMLElement).getByRole("heading", { name: heading })).toBeInTheDocument();
+    }
+    expect(within(overviewSection as HTMLElement).queryByRole("heading", { name: "Bucket properties" })).not.toBeInTheDocument();
     expect(within(overviewSection as HTMLElement).getByText("Unavailable")).toBeInTheDocument();
   });
 
@@ -999,7 +1006,7 @@ describe("BucketDetailPage replication state", () => {
     });
 
     expect(screen.getByText("Replication")).toBeInTheDocument();
-    expect((await screen.findAllByText("Not set")).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("Not configured")).length).toBeGreaterThan(0);
 
     await user.click(screen.getByRole("tab", { name: "Data management" }));
     const replicationCard = await screen.findByTestId("bucket-feature-replication");
@@ -1188,7 +1195,7 @@ describe("BucketDetailPage replication state", () => {
     expect(within(replicationCard).queryByLabelText("Role ARN")).not.toBeInTheDocument();
   });
 
-  it("shows the Notifications overview badge when SNS is enabled", async () => {
+  it("shows the Notifications overview count when SNS is enabled", async () => {
     getCephAdminBucketNotificationsMock.mockResolvedValueOnce({
       configuration: {
         TopicConfigurations: [
@@ -1212,10 +1219,10 @@ describe("BucketDetailPage replication state", () => {
     });
 
     expect(screen.getByText("Notifications")).toBeInTheDocument();
-    expect(screen.getAllByText("Configured").length).toBeGreaterThan(0);
+    expect(screen.getByText("1 notification")).toBeInTheDocument();
   });
 
-  it("hides the Notifications overview badge when SNS is disabled", async () => {
+  it("hides the Notifications overview item when SNS is disabled", async () => {
     useCephAdminEndpointMock.mockReturnValue({
       selectedEndpointId: 1,
       selectedEndpoint: {
