@@ -16,6 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.db_transactions import commit_or_rollback
 from app.db import BackendOperationLease
 from app.utils.time import utcnow
 
@@ -113,7 +114,7 @@ class OperationLeaseService:
             .execution_options(synchronize_session=False)
         ).rowcount
         if updated == 1:
-            self.db.commit()
+            commit_or_rollback(self.db)
             return OperationLeaseHandle(operation_name=name, owner=lease_owner, lease_until=lease_until)
 
         self.db.rollback()
@@ -126,9 +127,8 @@ class OperationLeaseService:
         )
         self.db.add(row)
         try:
-            self.db.commit()
+            commit_or_rollback(self.db)
         except IntegrityError:
-            self.db.rollback()
             return None
         return OperationLeaseHandle(operation_name=name, owner=lease_owner, lease_until=lease_until)
 
@@ -148,7 +148,7 @@ class OperationLeaseService:
             )
             .execution_options(synchronize_session=False)
         )
-        self.db.commit()
+        commit_or_rollback(self.db)
 
     @contextmanager
     def hold(
