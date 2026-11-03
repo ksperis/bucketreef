@@ -13,7 +13,6 @@ import type {
   UpdateAdminS3ConnectionPayload,
 } from "../../api/s3ConnectionsAdmin";
 import type { S3CredentialsValidationPayload } from "../../api/s3CredentialsValidation";
-import { stableSignature } from "../../utils/stableSignature";
 import {
   extractUiTagLabels,
   normalizeUiTags,
@@ -126,7 +125,7 @@ type PrepareAdminS3ConnectionUpdateOptions = {
   linkedUserIds: readonly number[];
 };
 
-type BuildAdminS3ConnectionEditSignatureOptions = {
+type BuildAdminS3ConnectionEditBaselineOptions = {
   credentialDraft: ConnectionCredentialDraft;
   endpointId: string;
   endpointMode: S3ConnectionEndpointMode;
@@ -178,6 +177,16 @@ export function createEmptyConnectionCredentialDraft(): ConnectionCredentialDraf
   return { access_key_id: "", secret_access_key: "" };
 }
 
+function normalizeS3ConnectionBaselineTags(tags: UiTagDefinition[]): UiTagDefinition[] {
+  return normalizeUiTags(tags).sort((left, right) => {
+    const leftLabel = left.label.toLocaleLowerCase();
+    const rightLabel = right.label.toLocaleLowerCase();
+    if (leftLabel < rightLabel) return -1;
+    if (leftLabel > rightLabel) return 1;
+    return 0;
+  });
+}
+
 export function buildPrivateConnectionDraft(
   connection: S3Connection,
 ): PrivateConnectionDraft {
@@ -207,14 +216,6 @@ export function buildPrivateConnectionEditorState(
   return { credentialDrafts, drafts };
 }
 
-export function buildCreateS3ConnectionSignature<T extends { tags: UiTagDefinition[] }>(
-  form: T,
-  endpointMode: S3ConnectionEndpointMode,
-  endpointId: string,
-): string {
-  return stableSignature(buildCreateS3ConnectionBaseline(form, endpointMode, endpointId));
-}
-
 export function buildCreateS3ConnectionBaseline<T extends { tags: UiTagDefinition[] }>(
   form: T,
   endpointMode: S3ConnectionEndpointMode,
@@ -225,27 +226,9 @@ export function buildCreateS3ConnectionBaseline<T extends { tags: UiTagDefinitio
     endpointId,
     form: {
       ...form,
-      tags: normalizeUiTags(form.tags),
+      tags: normalizeS3ConnectionBaselineTags(form.tags),
     },
   };
-}
-
-export function buildEditAdminS3ConnectionSignature({
-  credentialDraft,
-  endpointId,
-  endpointMode,
-  form,
-  linkedGroupIds,
-  linkedUserIds,
-}: BuildAdminS3ConnectionEditSignatureOptions): string {
-  return stableSignature(buildEditAdminS3ConnectionBaseline({
-    credentialDraft,
-    endpointId,
-    endpointMode,
-    form,
-    linkedGroupIds,
-    linkedUserIds,
-  }));
 }
 
 export function buildEditAdminS3ConnectionBaseline({
@@ -255,13 +238,13 @@ export function buildEditAdminS3ConnectionBaseline({
   form,
   linkedGroupIds,
   linkedUserIds,
-}: BuildAdminS3ConnectionEditSignatureOptions) {
+}: BuildAdminS3ConnectionEditBaselineOptions) {
   return {
     endpointMode,
     endpointId,
     form: {
       ...form,
-      tags: normalizeUiTags(form.tags),
+      tags: normalizeS3ConnectionBaselineTags(form.tags),
     },
     credentialDraft,
     linkedGroupIds: normalizeS3ConnectionLinkedIds(linkedGroupIds),
@@ -269,21 +252,21 @@ export function buildEditAdminS3ConnectionBaseline({
   };
 }
 
-export function buildEditPrivateConnectionSignature(
+export function buildEditPrivateConnectionBaseline(
   draft: PrivateConnectionDraft,
   credentialDraft: ConnectionCredentialDraft,
   endpointMode: S3ConnectionEndpointMode,
   endpointId: string,
-): string {
-  return stableSignature({
+) {
+  return {
     endpointMode,
     endpointId,
     draft: {
       ...draft,
-      tags: normalizeUiTags(draft.tags),
+      tags: normalizeS3ConnectionBaselineTags(draft.tags),
     },
     credentialDraft,
-  });
+  };
 }
 
 export function buildS3CredentialsValidationPayload(
