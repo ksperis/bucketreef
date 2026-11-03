@@ -105,6 +105,7 @@ def test_manager_bucket_stats_and_quota_preserve_explicit_tenant(monkeypatch):
     monkeypatch.setattr("app.services.buckets_service.s3_client.list_buckets",
                         lambda **kwargs: [{"name": "same-name"}])
     summary = service.get_bucket_stats("same-name", context)
+    assert summary.tenant == "customer01"
     assert summary.used_bytes == 25
     assert calls[0][2]["bucket"] == "same-name"
     configuration = BucketQuotaService()

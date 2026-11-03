@@ -120,6 +120,7 @@ class BucketsService:
         cls,
         entry: object,
         admin_by_name: dict[str, dict],
+        tenant: str | None = None,
     ) -> Bucket | None:
         if not isinstance(entry, dict):
             return None
@@ -132,6 +133,7 @@ class BucketsService:
         )
         return Bucket(
             name=bucket_name,
+            tenant=tenant,
             creation_date=entry.get("creation_date"),
             used_bytes=usage_bytes,
             object_count=object_count,
@@ -150,6 +152,7 @@ class BucketsService:
             execution_context,
             with_stats=with_stats,
         )
+        tenant = resolve_target_tenant(execution_context)
         logger.debug(
             "S3 execution context %s listed %s buckets",
             self._context_label(execution_context),
@@ -158,7 +161,7 @@ class BucketsService:
         enriched = [
             bucket
             for entry in buckets
-            if (bucket := self._bucket_from_listing(entry, admin_by_name)) is not None
+            if (bucket := self._bucket_from_listing(entry, admin_by_name, tenant)) is not None
         ]
         if not include:
             return enriched
@@ -180,6 +183,7 @@ class BucketsService:
         if not normalized_bucket:
             raise RuntimeError("Bucket name is required")
 
+        tenant = resolve_target_tenant(execution_context)
         buckets = s3_client.list_buckets(**s3_execution_request_kwargs(execution_context))
         creation_date = None
         bucket_in_scope = False
@@ -199,7 +203,6 @@ class BucketsService:
             if account_uid:
                 try:
                     rgw_admin = self._rgw_runtime_for_context(execution_context)
-                    tenant = resolve_target_tenant(execution_context)
                     stats = rgw_admin.get_bucket_info(
                         normalized_bucket, uid=account_uid, allow_not_found=True,
                         **({"tenant": tenant} if tenant else {}),
@@ -215,6 +218,7 @@ class BucketsService:
         usage_bytes, object_count, quota_size, quota_objects = self._usage_and_quota(stats)
         return Bucket(
             name=normalized_bucket,
+            tenant=tenant,
             creation_date=creation_date,
             used_bytes=usage_bytes,
             object_count=object_count,

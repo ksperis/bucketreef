@@ -1,5 +1,15 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 Manager bucket tenant metadata
+
+Manager bucket summary and listing responses now expose the resolved RGW tenant
+through the optional `tenant` field. The Bucket Overview shows that value in
+Bucket details only when the execution context is tenanted; non-tenanted
+buckets keep the previous layout without an empty tenant row.
+
+Deploy the backend and bundled frontend together. No database migration is
+required.
+
 ## 2026-11 explicit IAM role trust policy
 
 Manager role creation now requires `assume_role_policy_document` explicitly.

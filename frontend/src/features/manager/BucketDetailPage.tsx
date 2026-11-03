@@ -747,6 +747,7 @@ function BucketDetailPageContent({
     if (ownerFromAcl) return ownerFromAcl;
     return null;
   }, [bucket?.owner, bucketAcl?.owner]);
+  const bucketTenant = (bucket?.tenant ?? "").trim() || null;
 
   const hasUnsavedChanges = Object.values(drafts).some(Boolean);
   const configurationBusy = Object.values(mutations).some(Boolean);
@@ -970,6 +971,12 @@ function BucketDetailPageContent({
                       label: text("Owner"),
                       value: bucketOwner ?? text(loadingBucket || bucketAclLoading ? "Loading..." : "Unknown"),
                     },
+                    ...(bucketTenant
+                      ? [{
+                          label: text("Tenant"),
+                          value: bucketTenant,
+                        }]
+                      : []),
                     {
                       label: text("Created"),
                       value: loadingBucket
@@ -979,6 +986,33 @@ function BucketDetailPageContent({
                           : text("Unavailable"),
                     },
                   ]} />
+                </SettingsSection>
+                <SettingsSection
+                  title={text("Usage")}
+                  description={text("Current bucket consumption.")}
+                  presentation="compact"
+                >
+                  <div className={bucketDetailTwoColumnGridClass}>
+                    <UsageTile
+                      label={text("Storage")}
+                      used={storageUsage.used}
+                      quota={storageUsage.quota}
+                      formatter={formatBytes}
+                      quotaFormatter={formatBytes}
+                      loading={loadingBucket}
+                      emptyHint={text("No storage quota configured.")}
+                    />
+                    <UsageTile
+                      label={text("Objects")}
+                      used={objectUsage.used}
+                      quota={objectUsage.quota}
+                      formatter={formatCompactNumber}
+                      quotaFormatter={(value) => (value != null ? value.toLocaleString(intlLocale) : "-")}
+                      loading={loadingBucket}
+                      unitHint={text("objects")}
+                      emptyHint={text("No object quota configured.")}
+                    />
+                  </div>
                 </SettingsSection>
                 <SettingsSection
                   title={text("Active features")}
@@ -1009,61 +1043,6 @@ function BucketDetailPageContent({
                       </div>
                     </div>
                   )}
-                </SettingsSection>
-                <SettingsSection
-                  title={text("Usage")}
-                  description={text("Current bucket consumption.")}
-                  presentation="compact"
-                >
-                  <div className={bucketDetailTwoColumnGridClass}>
-                    <UsageTile
-                      label={text("Storage")}
-                      used={storageUsage.used}
-                      quota={storageUsage.quota}
-                      formatter={formatBytes}
-                      quotaFormatter={formatBytes}
-                      loading={loadingBucket}
-                      emptyHint={text("No storage quota configured.")}
-                    />
-                    <UsageTile
-                      label={text("Objects")}
-                      used={objectUsage.used}
-                      quota={objectUsage.quota}
-                      formatter={formatCompactNumber}
-                      quotaFormatter={(value) => (value != null ? value.toLocaleString(intlLocale) : "-")}
-                      loading={loadingBucket}
-                      unitHint={text("objects")}
-                      emptyHint={text("No object quota configured.")}
-                    />
-                  </div>
-                </SettingsSection>
-                <SettingsSection
-                  title={text("Quotas")}
-                  description={text("Configured storage and object limits.")}
-                  presentation="compact"
-                >
-                  <InlineSummary items={[
-                    {
-                      label: text("Storage quota"),
-                      value: loadingBucket
-                        ? text("Loading...")
-                        : !quotaFeatureEnabled
-                          ? text("Unavailable")
-                          : storageUsage.quota != null && storageUsage.quota > 0
-                            ? formatBytes(storageUsage.quota)
-                            : text("No quota configured"),
-                    },
-                    {
-                      label: text("Object quota"),
-                      value: loadingBucket
-                        ? text("Loading...")
-                        : !quotaFeatureEnabled
-                          ? text("Unavailable")
-                          : objectUsage.quota != null && objectUsage.quota > 0
-                            ? objectUsage.quota.toLocaleString(intlLocale)
-                            : text("No quota configured"),
-                    },
-                  ]} />
                 </SettingsSection>
                 <SettingsSection
                   title={text("Data protection")}

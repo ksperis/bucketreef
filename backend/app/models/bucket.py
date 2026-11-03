@@ -22,6 +22,7 @@ class BucketFeatureStatus(ApiModel):
 
 class Bucket(ApiModel):
     name: str
+    tenant: Optional[str] = None
     creation_date: Optional[datetime] = None
     used_bytes: Optional[int] = None
     object_count: Optional[int] = None
