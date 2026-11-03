@@ -75,14 +75,22 @@ class IdentityProviderRepository(Generic[_PersistedProviderT]):
         provider = self._get_mutable(provider_id)
         apply(provider)
         provider.updated_at = utcnow()
-        self.db.commit()
+        try:
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
         self.db.refresh(provider)
         return provider
 
     def delete(self, provider_id: str) -> None:
         provider = self._get_mutable(provider_id)
         self.db.delete(provider)
-        self.db.commit()
+        try:
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
 
     def _get(self, provider_id: str) -> _PersistedProviderT | None:
         return self.db.scalar(
