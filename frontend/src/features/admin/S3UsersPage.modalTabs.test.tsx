@@ -307,6 +307,78 @@ describe("S3UsersPage modal tabs", () => {
     expect(screen.getAllByText("UID").some((node) => node.tagName === "DT")).toBe(true);
   });
 
+  it("keeps asynchronously loaded quotas in the server baseline", async () => {
+    listS3UsersMock.mockResolvedValueOnce({
+      items: [
+        makeS3User({
+          tags: [makeTag(601, "legacy")],
+          email: "rgw-user-1@example.com",
+          quota_max_size_gb: null,
+          quota_max_objects: null,
+          bucket_count: 0,
+        }),
+      ],
+      total: 1,
+      page: 1,
+      page_size: 25,
+      has_next: false,
+    });
+    getS3UserMock.mockResolvedValueOnce({
+      id: 5,
+      quota_max_size_gb: 2,
+      quota_max_objects: 200,
+    });
+
+    render(
+      <MemoryRouter>
+        <S3UsersPage />
+      </MemoryRouter>
+    );
+
+    await screen.findByText("rgw-user-1");
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+
+    await waitFor(() => expect(screen.getByLabelText("Storage quota")).toHaveValue(2));
+    expect(screen.getByLabelText("Object quota")).toHaveValue(200);
+    expect(screen.getByRole("button", { name: "Done" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
+  });
+
+  it("does not mark the create draft dirty when the default endpoint loads after opening", async () => {
+    let resolveEndpoints!: (value: unknown[]) => void;
+    listStorageEndpointsMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveEndpoints = resolve;
+      }),
+    );
+
+    render(
+      <MemoryRouter>
+        <S3UsersPage />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Create user" }));
+    const form = await screen.findByRole("form", { name: "Create RGW user" });
+
+    await act(async () => {
+      resolveEndpoints([
+        {
+          id: 10,
+          name: "ceph-main",
+          provider: "ceph",
+          is_default: true,
+          capabilities: { admin: true },
+        },
+      ]);
+    });
+    await waitFor(() => expect(within(form).getByLabelText("Ceph endpoint *")).toHaveValue("10"));
+
+    fireEvent.click(within(form).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog", { name: /Discard/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("form", { name: "Create RGW user" })).not.toBeInTheDocument();
+  });
+
   it("links each RGW user to its filtered access review", async () => {
     render(
       <MemoryRouter>
