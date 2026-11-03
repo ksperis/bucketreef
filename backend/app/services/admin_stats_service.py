@@ -9,7 +9,6 @@ from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import S3Account, S3Connection, S3User, StorageEndpoint, User, UserS3Account, UserS3User
 from app.core.domain_enums import StorageProvider, UserRole
 from app.services.admin_metrics_service import AdminMetricsService
@@ -17,7 +16,10 @@ from app.services.auth_session_service import AuthSessionService
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_supervision import get_supervision_rgw_client
 from app.services.traffic_service import TrafficWindow
-from app.utils.http_errors import raise_bad_request_from_value_error
+from app.utils.http_errors import (
+    raise_bad_request_from_value_error,
+    raise_http_exception_from_exception,
+)
 from app.utils.rgw_payloads import extract_bucket_list
 from app.utils.storage_endpoint_features import resolve_feature_flags
 from app.utils.usage_stats import build_bucket_overview, summarize_bucket_usage
@@ -199,10 +201,11 @@ class AdminStatsService:
                 **({"tenant": tenant} if tenant else {}),
             )
         except RGWAdminError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=f"Unable to fetch buckets: {sanitized_error_log_detail(exc)}",
-            ) from exc
+            raise_http_exception_from_exception(
+                status.HTTP_502_BAD_GATEWAY,
+                exc,
+                detail_prefix="Unable to fetch buckets: ",
+            )
 
         bucket_usage, total_bytes, total_objects, total_buckets = summarize_bucket_usage(
             extract_bucket_list(payload)

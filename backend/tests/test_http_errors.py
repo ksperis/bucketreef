@@ -213,6 +213,20 @@ def test_raise_http_exception_from_exception_preserves_status_and_redacts_detail
         raise AssertionError("Expected HTTPException")
 
 
+def test_raise_http_exception_from_exception_supports_safe_context_prefix():
+    try:
+        raise_http_exception_from_exception(
+            502,
+            RuntimeError("request failed token=leaked"),
+            detail_prefix="Unable to fetch buckets: ",
+        )
+    except HTTPException as exc:
+        assert exc.status_code == 502
+        assert exc.detail == "Unable to fetch buckets: request failed token=<redacted>"
+    else:
+        raise AssertionError("Expected HTTPException")
+
+
 def test_http_exception_from_exception_builds_sanitized_exception_without_raising():
     exc = http_exception_from_exception(409, RuntimeError("busy token=leaked"))
 
