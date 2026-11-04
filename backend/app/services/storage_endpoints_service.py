@@ -53,7 +53,7 @@ from app.utils.name_ordering import name_order_by
 from app.utils.storage_endpoint_features import (
     features_to_capabilities,
     normalize_features,
-    normalize_features_config,
+    normalize_seed_features_config,
 )
 
 logger = logging.getLogger(__name__)
@@ -395,7 +395,7 @@ class StorageEndpointsService:
                 supervision_access_key=supervision_access,
                 supervision_secret_key=supervision_secret,
                 features=(
-                    normalize_features_config(
+                    normalize_seed_features_config(
                         provider,
                         settings.seed_s3_endpoint_features,
                         settings.seed_s3_region,

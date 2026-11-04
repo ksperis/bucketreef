@@ -46,7 +46,7 @@ from app.utils.storage_endpoint_features import (
     aws_iam_endpoint_for_region,
     aws_s3_endpoint_for_region,
     aws_sts_endpoint_for_region,
-    normalize_features_config,
+    normalize_seed_features_config,
     resolve_feature_flags,
     resolve_iam_endpoint,
     resolve_sts_endpoint,
@@ -648,10 +648,10 @@ def test_aws_endpoint_helpers_are_partition_aware():
 
 
 def test_replication_feature_defaults_to_disabled_and_can_be_enabled_for_ceph():
-    default_features = normalize_features_config(StorageProvider.CEPH, None)
+    default_features = normalize_seed_features_config(StorageProvider.CEPH, None)
     assert default_features["replication"]["enabled"] is False
 
-    enabled_features = normalize_features_config(
+    enabled_features = normalize_seed_features_config(
         StorageProvider.CEPH,
         "features:\n"
         "  replication:\n"
@@ -660,8 +660,8 @@ def test_replication_feature_defaults_to_disabled_and_can_be_enabled_for_ceph():
     assert enabled_features["replication"]["enabled"] is True
 
 
-def test_features_config_accepts_canonical_account_and_healthcheck_keys():
-    admin_only_features = normalize_features_config(
+def test_seed_features_config_accepts_canonical_account_and_healthcheck_keys():
+    admin_only_features = normalize_seed_features_config(
         StorageProvider.CEPH,
         "features:\n"
         "  admin:\n"
@@ -670,7 +670,7 @@ def test_features_config_accepts_canonical_account_and_healthcheck_keys():
     assert admin_only_features["admin"]["enabled"] is True
     assert admin_only_features["account"]["enabled"] is False
 
-    healthcheck_features = normalize_features_config(
+    healthcheck_features = normalize_seed_features_config(
         StorageProvider.CEPH,
         "features:\n"
         "  healthcheck:\n"
@@ -779,9 +779,9 @@ def test_env_external_supervision_credentials_enable_signed_s3_healthcheck(
         ),
     ],
 )
-def test_features_config_rejects_noncanonical_shapes(raw, message):
+def test_seed_features_config_rejects_noncanonical_shapes(raw, message):
     with pytest.raises(ValueError, match=message):
-        normalize_features_config(StorageProvider.CEPH, raw)
+        normalize_seed_features_config(StorageProvider.CEPH, raw)
 
 
 @pytest.mark.parametrize(
@@ -809,14 +809,14 @@ def test_features_config_rejects_noncanonical_shapes(raw, message):
         ),
     ],
 )
-def test_features_config_rejects_invalid_field_values(raw, message):
+def test_seed_features_config_rejects_invalid_field_values(raw, message):
     with pytest.raises(ValueError, match=message):
-        normalize_features_config(StorageProvider.CEPH, raw)
+        normalize_seed_features_config(StorageProvider.CEPH, raw)
 
 
 def test_aws_features_reject_ceph_only_capabilities():
     with pytest.raises(ValueError, match="only available for Ceph"):
-        normalize_features_config(
+        normalize_seed_features_config(
             StorageProvider.AWS,
             "features:\n"
             "  admin:\n"
@@ -826,7 +826,7 @@ def test_aws_features_reject_ceph_only_capabilities():
         )
 
     with pytest.raises(ValueError, match="Feature 'replication' is only available for Ceph"):
-        normalize_features_config(
+        normalize_seed_features_config(
             StorageProvider.AWS,
             "features:\n"
             "  replication:\n"
