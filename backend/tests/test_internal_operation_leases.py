@@ -113,7 +113,11 @@ def test_internal_quota_monitor_skips_when_lease_is_active(client, db_session, m
         ttl_seconds=600,
         owner="other-backend",
     )
-    monkeypatch.setattr(QuotaMonitoringService, "run_monitor", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError()))
+    monkeypatch.setattr(
+        QuotaMonitoringService,
+        "run_quota_alerts",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError()),
+    )
 
     response = client.post(
         "/api/internal/quota-monitor/run",
@@ -132,7 +136,11 @@ def test_internal_usage_history_skips_when_lease_is_active(client, db_session, m
         ttl_seconds=600,
         owner="other-backend",
     )
-    monkeypatch.setattr(QuotaMonitoringService, "run_monitor", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError()))
+    monkeypatch.setattr(
+        QuotaMonitoringService,
+        "collect_usage_history",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError()),
+    )
 
     response = client.post(
         "/api/internal/usage-history/collect",

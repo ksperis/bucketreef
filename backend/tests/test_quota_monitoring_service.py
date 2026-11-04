@@ -177,12 +177,12 @@ def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
     return rollback_calls
 
 
-def test_run_monitor_skips_when_both_features_disabled(db_session, monkeypatch):
+def test_collect_usage_history_skips_when_both_features_disabled(db_session, monkeypatch):
     monkeypatch.setattr(quota_monitoring_service, "load_app_settings_for_db", lambda _db: _settings(quota_alerts_enabled=False, usage_history_enabled=False))
     monkeypatch.setattr(quota_monitoring_service.DataRetentionService, "purge_all", lambda self: {"retention": "ok"})
 
     service = QuotaMonitoringService(db_session)
-    result = service.run_monitor()
+    result = service.collect_usage_history()
 
     assert result["status"] == "skipped"
     assert result["reason"] == "Both quota alerts and usage history collection are disabled for this run."
@@ -210,8 +210,8 @@ def test_usage_history_hourly_and_daily_upserts(db_session, monkeypatch):
     )
 
     service = QuotaMonitoringService(db_session)
-    first = service.run_monitor()
-    second = service.run_monitor()
+    first = service.collect_usage_history()
+    second = service.collect_usage_history()
 
     assert first["history_hourly_upserts"] == 1
     assert first["history_daily_upserts"] == 1
@@ -266,7 +266,7 @@ def test_usage_history_rolls_back_when_final_commit_fails(db_session, monkeypatc
     rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
 
     with pytest.raises(RuntimeError, match="commit failed"):
-        QuotaMonitoringService(db_session).run_monitor()
+        QuotaMonitoringService(db_session).collect_usage_history()
 
     assert rollback_calls == [None]
     assert db_session.scalar(sa.select(sa.func.count()).select_from(QuotaUsageHourly)) == 0
@@ -290,7 +290,7 @@ def test_quota_monitor_mode_does_not_persist_usage_history(db_session, monkeypat
     )
 
     service = QuotaMonitoringService(db_session)
-    result = service.run_monitor(include_usage_history=False)
+    result = service.run_quota_alerts()
 
     assert result["subjects_processed"] == 1
     assert result["quota_alerts_enabled"] is True
@@ -321,7 +321,7 @@ def test_usage_history_prefers_supervision_client_and_keeps_quota_optional(db_se
     monkeypatch.setattr(QuotaMonitoringService, "_resolve_runtime_client", lambda self, endpoint, cache: None)
 
     service = QuotaMonitoringService(db_session)
-    result = service.run_monitor()
+    result = service.collect_usage_history()
 
     assert seen["endpoint_id"] == endpoint.id
     assert result["subjects_processed"] == 1
@@ -367,7 +367,7 @@ def test_usage_history_skips_subject_when_supervision_client_is_unavailable(
         lambda self, endpoint, cache: None,
     )
 
-    result = QuotaMonitoringService(db_session).run_monitor()
+    result = QuotaMonitoringService(db_session).collect_usage_history()
 
     assert result["subjects_processed"] == 0
     assert result["errors"] == [
@@ -493,7 +493,7 @@ def test_usage_collection_failure_does_not_block_remaining_subjects(
     )
     monkeypatch.setattr(QuotaMonitoringService, "_collect_usage", collect_usage)
 
-    result = QuotaMonitoringService(db_session).run_monitor()
+    result = QuotaMonitoringService(db_session).collect_usage_history()
 
     assert result["subjects_total"] == 2
     assert result["subjects_processed"] == 1
@@ -550,13 +550,13 @@ def test_alert_crossing_first_run_no_duplicate_and_reset(db_session, monkeypatch
 
     service = QuotaMonitoringService(db_session)
 
-    first = service.run_monitor()  # first run above threshold => immediate alert
+    first = service.run_quota_alerts()  # first run above threshold => immediate alert
     assert first["alerts_triggered"] == 1
     assert first["alerts_sent"] == 1
     assert first["notifications_created"] == 1
     assert db_session.scalar(sa.select(sa.func.count()).select_from(UserNotification)) == 1
 
-    second = service.run_monitor()  # still threshold => no duplicate
+    second = service.run_quota_alerts()  # still threshold => no duplicate
     assert second["alerts_triggered"] == 0
     assert second["alerts_sent"] == 0
     assert second["notifications_created"] == 0
@@ -564,7 +564,7 @@ def test_alert_crossing_first_run_no_duplicate_and_reset(db_session, monkeypatch
 
     fake_admin.usage_bytes = 100
     fake_admin.usage_objects = 100
-    third = service.run_monitor()  # threshold -> full => alert
+    third = service.run_quota_alerts()  # threshold -> full => alert
     assert third["alerts_triggered"] == 1
     assert third["alerts_sent"] == 1
     assert third["notifications_created"] == 1
@@ -572,14 +572,14 @@ def test_alert_crossing_first_run_no_duplicate_and_reset(db_session, monkeypatch
 
     fake_admin.usage_bytes = 40
     fake_admin.usage_objects = 40
-    fourth = service.run_monitor()  # reset below threshold => no alert
+    fourth = service.run_quota_alerts()  # reset below threshold => no alert
     assert fourth["alerts_triggered"] == 0
     assert fourth["alerts_sent"] == 0
     assert fourth["notifications_created"] == 0
 
     fake_admin.usage_bytes = 90
     fake_admin.usage_objects = 90
-    fifth = service.run_monitor()  # back above threshold after reset => alert again
+    fifth = service.run_quota_alerts()  # back above threshold after reset => alert again
     assert fifth["alerts_triggered"] == 1
     assert fifth["alerts_sent"] == 1
     assert fifth["notifications_created"] == 1
@@ -806,7 +806,7 @@ def test_smtp_incomplete_is_non_blocking(db_session, monkeypatch):
     monkeypatch.setattr(QuotaMonitoringService, "_resolve_runtime_client", lambda self, endpoint, cache: fake_admin)
 
     service = QuotaMonitoringService(db_session)
-    result = service.run_monitor()
+    result = service.run_quota_alerts()
 
     assert result["alerts_triggered"] == 1
     assert result["alerts_sent"] == 0
@@ -871,7 +871,7 @@ def test_webhook_failure_is_non_blocking_for_other_alert_channels(db_session, mo
         fail_webhook,
     )
 
-    result = QuotaMonitoringService(db_session).run_monitor()
+    result = QuotaMonitoringService(db_session).run_quota_alerts()
 
     assert result["alerts_triggered"] == 1
     assert result["notifications_created"] == 1

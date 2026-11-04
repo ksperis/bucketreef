@@ -83,7 +83,11 @@ def test_admin_usage_history_returns_conflict_when_lease_is_active(client, db_se
         ttl_seconds=600,
         owner="other-backend",
     )
-    monkeypatch.setattr(QuotaMonitoringService, "run_monitor", _fail_if_called)
+    monkeypatch.setattr(
+        QuotaMonitoringService,
+        "collect_usage_history",
+        _fail_if_called,
+    )
 
     response = client.post("/api/admin/usage-history/collect")
 

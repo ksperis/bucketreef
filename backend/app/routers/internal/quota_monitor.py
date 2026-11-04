@@ -39,7 +39,7 @@ def run_quota_monitor(
         service = QuotaMonitoringService(db)
         try:
             return QuotaMonitoringResult.model_validate(
-                service.run_monitor(include_usage_history=False)
+                service.run_quota_alerts()
             )
         except ValueError as exc:
             raise_bad_request_from_value_error(exc)
