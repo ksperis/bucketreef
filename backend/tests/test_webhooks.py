@@ -16,7 +16,7 @@ import pytest
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.schema import CreateTable
 from sqlalchemy import func, select, text
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 from pydantic import ValidationError
 
 from app.core.config import Settings
@@ -526,6 +526,68 @@ def test_worker_signs_exact_body_and_marks_success(db_session, monkeypatch):
     assert delivered.status == "delivered"
     assert delivered.attempt_count == 1
     assert delivered.last_http_status == 204
+
+
+def test_worker_commit_failure_rolls_back_and_leaves_delivery_retriable(
+    db_session,
+    monkeypatch,
+):
+    _create_endpoint(
+        db_session,
+        monkeypatch,
+        name="commit-retry",
+        event_types=["audit.admin.update_ui_user"],
+    )
+    delivery_id = WebhookEventPublisher(db_session).publish_event(
+        event_type="audit.admin.update_ui_user",
+        data={},
+        commit=True,
+    )[0]
+    delivery = db_session.scalars(
+        select(WebhookDelivery).where(WebhookDelivery.delivery_id == delivery_id)
+    ).one()
+
+    failure_state = {"enabled": True}
+    rollback_calls: list[None] = []
+
+    class FailingCommitSession(Session):
+
+        def commit(self) -> None:
+            if failure_state["enabled"]:
+                raise RuntimeError("simulated worker commit failure")
+            super().commit()
+
+        def rollback(self) -> None:
+            rollback_calls.append(None)
+            super().rollback()
+
+    worker = WebhookDeliveryWorker(
+        sessionmaker(bind=db_session.get_bind(), class_=FailingCommitSession)
+    )
+    monkeypatch.setattr(
+        "app.services.webhook_worker.validate_webhook_target_url",
+        lambda *_args, **_kwargs: None,
+    )
+
+    with patch("app.services.webhook_worker.requests.post") as post:
+        post.return_value = SimpleNamespace(status_code=204, headers={})
+        with pytest.raises(RuntimeError, match="simulated worker commit failure"):
+            worker._deliver_one(delivery.id)
+
+        assert rollback_calls == [None]
+        db_session.expire_all()
+        pending = db_session.get(WebhookDelivery, delivery.id)
+        assert pending.status == "pending"
+        assert pending.attempt_count == 0
+
+        failure_state["enabled"] = False
+        worker._deliver_one(delivery.id)
+
+    db_session.expire_all()
+    delivered = db_session.get(WebhookDelivery, delivery.id)
+    assert delivered.status == "delivered"
+    assert delivered.attempt_count == 1
+    assert post.call_count == 2
 
 
 @pytest.mark.parametrize("failure_source", ["validation", "request"])

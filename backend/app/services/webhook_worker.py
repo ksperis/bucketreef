@@ -16,6 +16,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import get_settings
+from app.core.db_transactions import commit_or_rollback
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import WebhookDelivery, WebhookEndpoint
 from app.services.operation_lease_service import OperationLeaseService, generate_operation_owner
@@ -185,14 +186,14 @@ class WebhookDeliveryWorker:
                     delivery,
                     "Webhook endpoint is disabled or has no signing secret",
                 )
-                db.commit()
+                commit_or_rollback(db)
                 return
 
             try:
                 validate_webhook_target_url(endpoint.url, self._settings)
             except ValueError as exc:
                 self._fail_terminal(delivery, exc)
-                db.commit()
+                commit_or_rollback(db)
                 return
 
             body, headers = self._delivery_request(delivery, endpoint)
@@ -207,11 +208,11 @@ class WebhookDeliveryWorker:
                 )
             except Exception as exc:  # noqa: BLE001
                 self._retry_or_fail(delivery, error=exc)
-                db.commit()
+                commit_or_rollback(db)
                 return
 
             self._apply_delivery_response(delivery, response)
-            db.commit()
+            commit_or_rollback(db)
 
     def _retry_or_fail(
         self,
@@ -262,7 +263,7 @@ class WebhookDeliveryWorker:
                 )
                 .execution_options(synchronize_session=False)
             )
-            db.commit()
+            commit_or_rollback(db)
         self._last_purge_at = now
 
     def _retry_after_seconds(self, value: str | None) -> int | None:
