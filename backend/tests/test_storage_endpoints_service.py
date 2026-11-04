@@ -969,6 +969,45 @@ def test_sync_env_endpoints_releases_endpoint_lock_when_env_inventory_is_removed
     assert editable_endpoint.is_editable is True
 
 
+def test_sync_env_endpoints_rolls_back_failed_env_unlock(db_session, monkeypatch):
+    endpoint = StorageEndpoint(
+        name="former-env",
+        endpoint_url="https://former-env.example.test",
+        provider=StorageProvider.CEPH.value,
+        is_default=True,
+        is_editable=False,
+    )
+    db_session.add(endpoint)
+    db_session.commit()
+    monkeypatch.setattr(
+        "app.services.storage_endpoints_service.settings.env_storage_endpoints",
+        "",
+        raising=False,
+    )
+    commit = db_session.commit
+    rollback = db_session.rollback
+    rollback_calls = 0
+
+    def fail_commit():
+        raise RuntimeError("simulated ENV unlock commit failure")
+
+    def track_rollback():
+        nonlocal rollback_calls
+        rollback_calls += 1
+        return rollback()
+
+    monkeypatch.setattr(db_session, "commit", fail_commit)
+    monkeypatch.setattr(db_session, "rollback", track_rollback)
+
+    with pytest.raises(RuntimeError, match="ENV unlock commit failure"):
+        StorageEndpointsService(db_session).sync_env_endpoints()
+
+    assert rollback_calls == 1
+    monkeypatch.setattr(db_session, "commit", commit)
+    db_session.refresh(endpoint)
+    assert endpoint.is_editable is False
+
+
 def test_environment_storage_endpoint_rejects_unknown_fields(db_session, monkeypatch):
     monkeypatch.setattr(
         "app.services.storage_endpoints_service.settings.env_storage_endpoints",
@@ -1126,6 +1165,53 @@ def test_sync_env_endpoints_retries_after_concurrent_unique_conflict(db_session,
     assert len(synced) == 1
     assert synced[0].name == "ceph-env"
     assert db_session.scalar(select(func.count()).select_from(StorageEndpoint)) == 1
+
+
+def test_sync_env_endpoints_rolls_back_failed_upsert_before_releasing_lease(
+    db_session,
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "app.services.storage_endpoints_service.settings.env_storage_endpoints",
+        json.dumps(
+            [
+                {
+                    "name": "ceph-env",
+                    "endpoint_url": "https://ceph-env.example.test",
+                    "provider": "ceph",
+                    "service_identity_mode": "managed",
+                    "features": parse_features_config(
+                        "features:\n  admin:\n    enabled: false\n"
+                    ),
+                    "is_default": True,
+                }
+            ]
+        ),
+        raising=False,
+    )
+    commit = db_session.commit
+    rollback = db_session.rollback
+    rollback_states: list[bool] = []
+
+    def fail_endpoint_commit():
+        if any(isinstance(row, StorageEndpoint) for row in db_session.new):
+            raise RuntimeError("simulated ENV upsert commit failure")
+        return commit()
+
+    def track_rollback():
+        rollback_states.append(
+            any(isinstance(row, StorageEndpoint) for row in db_session.new)
+        )
+        return rollback()
+
+    monkeypatch.setattr(db_session, "commit", fail_endpoint_commit)
+    monkeypatch.setattr(db_session, "rollback", track_rollback)
+
+    with pytest.raises(RuntimeError, match="ENV upsert commit failure"):
+        StorageEndpointsService(db_session).sync_env_endpoints()
+
+    assert rollback_states.count(True) == 1
+    assert db_session.scalar(select(func.count()).select_from(StorageEndpoint)) == 0
 
 
 def test_sync_env_endpoints_updates_in_place_and_uses_first_default(db_session, monkeypatch):

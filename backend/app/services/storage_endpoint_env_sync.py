@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.db_transactions import commit_or_rollback
 from app.core.runtime_surfaces import endpoint_identity_management_enabled
 from app.db import StorageEndpoint, User
 from app.core.domain_enums import StorageProvider
@@ -71,7 +72,7 @@ class StorageEndpointEnvSyncService:
             endpoint.is_editable = True
             self.db.add(endpoint)
         if env_locked_endpoints:
-            self.db.commit()
+            commit_or_rollback(self.db)
 
     def _sync(
         self,
@@ -137,7 +138,7 @@ class StorageEndpointEnvSyncService:
             endpoint.is_default = config.is_default
             endpoint.is_editable = False
             self.db.add(endpoint)
-            self.db.commit()
+            commit_or_rollback(self.db)
             if identity_management_enabled and endpoint.provider == "ceph":
                 identities.reconcile(
                     endpoint,
