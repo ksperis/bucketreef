@@ -329,7 +329,7 @@ class OnboardingEndpointSetupService:
             credentials=credentials,
             detection=detection,
         )
-        created = self.endpoints.create_endpoint(endpoint_payload)
+        created = self.endpoints.create_endpoint(endpoint_payload, actor=actor)
         self.progress.checkpoint(row, endpoint_id=created.id)
         endpoint = self.db.get(StorageEndpoint, created.id)
         self.progress.audit(actor, "endpoint_created", row.id, endpoint_id=endpoint.id)
@@ -448,6 +448,7 @@ class OnboardingEndpointSetupService:
             self.endpoints.update_endpoint(
                 endpoint.id,
                 StorageEndpointUpdate(**update),
+                actor=actor,
             )
             endpoint = self.db.get(StorageEndpoint, endpoint.id)
         if credential_kinds:
@@ -480,7 +481,7 @@ class OnboardingEndpointSetupService:
         editable: bool,
     ) -> None:
         if requirements.ceph:
-            self.endpoints.reconcile_identities(endpoint.id)
+            self.endpoints.reconcile_identities(endpoint.id, actor=actor)
         if requirements.ceph_admin:
             ceph_identity = endpoint.service_identity("ceph_admin")
             if (
@@ -509,7 +510,7 @@ class OnboardingEndpointSetupService:
                 ("", "", False),
             )
             if detection.usage:
-                self.enable_features(endpoint, "usage")
+                self.enable_features(actor, endpoint, "usage")
                 self.progress.audit(
                     actor,
                     "endpoint_features_enabled",
@@ -578,7 +579,7 @@ class OnboardingEndpointSetupService:
         )
         return endpoint
 
-    def enable_features(self, endpoint, *fields):
+    def enable_features(self, actor, endpoint, *fields):
         features = normalize_features(
             endpoint.provider, endpoint.features, endpoint.region
         )
@@ -587,6 +588,7 @@ class OnboardingEndpointSetupService:
         self.endpoints.update_endpoint(
             endpoint.id,
             StorageEndpointUpdate(features=features),
+            actor=actor,
         )
 
     def _unique_endpoint_name(self, endpoint_url):

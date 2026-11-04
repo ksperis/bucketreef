@@ -72,6 +72,9 @@ class StorageEndpointsService:
         if self.env_endpoints_locked():
             raise ValueError("Storage endpoints are managed by ENV_STORAGE_ENDPOINTS.")
 
+    def _resolve_actor(self, actor: User | None) -> User | None:
+        return actor if actor is not None else self.actor
+
     def _serialize(
         self,
         endpoint: StorageEndpoint,
@@ -199,7 +202,12 @@ class StorageEndpointsService:
         self.db.commit()
         self.db.refresh(endpoint)
 
-    def create_endpoint(self, payload: StorageEndpointCreate) -> StorageEndpointSchema:
+    def create_endpoint(
+        self,
+        payload: StorageEndpointCreate,
+        *,
+        actor: User | None = None,
+    ) -> StorageEndpointSchema:
         self._ensure_env_editable()
         state = normalize_storage_endpoint_state(payload)
         ensure_unique_storage_endpoint_name(self.db, state.name)
@@ -212,13 +220,22 @@ class StorageEndpointsService:
         self._commit_endpoint(endpoint)
         if endpoint.provider == "ceph":
             from app.services.endpoint_service_identities import EndpointServiceIdentityService
-            EndpointServiceIdentityService(self.db, actor=self.actor).reconcile(
+            EndpointServiceIdentityService(
+                self.db,
+                actor=self._resolve_actor(actor),
+            ).reconcile(
                 endpoint,
                 provision_unprovisioned=False,
             )
         return self._serialize(endpoint)
 
-    def update_endpoint(self, endpoint_id: int, payload: StorageEndpointUpdate) -> StorageEndpointSchema:
+    def update_endpoint(
+        self,
+        endpoint_id: int,
+        payload: StorageEndpointUpdate,
+        *,
+        actor: User | None = None,
+    ) -> StorageEndpointSchema:
         self._ensure_env_editable()
         endpoint = self.get_endpoint_record(endpoint_id)
         if not endpoint.is_editable:
@@ -235,7 +252,10 @@ class StorageEndpointsService:
             exclude_id=endpoint.id,
         )
         from app.services.endpoint_service_identities import EndpointServiceIdentityService
-        identities = EndpointServiceIdentityService(self.db, actor=self.actor)
+        identities = EndpointServiceIdentityService(
+            self.db,
+            actor=self._resolve_actor(actor),
+        )
         lease, handle = identities.lease(endpoint)
         try:
             state = normalize_storage_endpoint_update(endpoint, payload)
@@ -260,10 +280,18 @@ class StorageEndpointsService:
             lease.release(handle)
         return self._serialize(endpoint)
 
-    def reconcile_identities(self, endpoint_id: int) -> StorageEndpointSchema:
+    def reconcile_identities(
+        self,
+        endpoint_id: int,
+        *,
+        actor: User | None = None,
+    ) -> StorageEndpointSchema:
         from app.services.endpoint_service_identities import EndpointServiceIdentityService
         endpoint = self.get_endpoint_record(endpoint_id)
-        EndpointServiceIdentityService(self.db, actor=self.actor).reconcile(
+        EndpointServiceIdentityService(
+            self.db,
+            actor=self._resolve_actor(actor),
+        ).reconcile(
             endpoint,
             provision_unprovisioned=True,
         )
