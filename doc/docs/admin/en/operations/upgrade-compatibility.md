@@ -1,5 +1,17 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 first-admin bootstrap provenance cleanup
+
+Migration `0234_remove_first_admin_created_user_id` removes the unused
+`first_admin_bootstrap.created_user_id` foreign key. The bootstrap singleton
+continues to retain `consumed_at` so an installation cannot reopen first-admin
+bootstrap after the initial account has been created.
+
+The created administrator is already identified durably by the security audit
+entry emitted by both web and CLI bootstrap flows, so the bootstrap row no
+longer duplicates that provenance. Downgrade recreates the nullable foreign key
+without inventing a historical user reference.
+
 ## 2026-11 OIDC link session metadata cleanup
 
 Migration `0233_remove_unused_oidc_link_session_metadata` removes three

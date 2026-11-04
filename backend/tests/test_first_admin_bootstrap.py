@@ -134,7 +134,6 @@ def test_token_consumption_creates_one_superadmin_and_audits_without_secret(db_s
     assert user.role == UserRole.UI_SUPERADMIN.value
     assert row is not None and row.consumed_at is not None
     assert row.token_digest is None
-    assert row.created_user_id == user.id
     assert service.is_available() is False
     assert issued.token not in " ".join(
         filter(
@@ -363,7 +362,6 @@ def test_create_from_cli_records_bootstrap_provenance_and_operator_audit(db_sess
     assert row is not None
     assert row.consumed_at is not None
     assert row.token_digest is None
-    assert row.created_user_id == user.id
     assert audit.entity_id == str(user.id)
     assert audit.audit_metadata == {
         "method": "cli",

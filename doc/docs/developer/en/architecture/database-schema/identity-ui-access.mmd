@@ -206,7 +206,6 @@ erDiagram
         varchar_64 token_digest
         datetime expires_at
         datetime consumed_at
-        integer created_user_id FK
     }
     s3_sessions {
         varchar id PK "NN"
@@ -339,7 +338,6 @@ erDiagram
     webauthn_credentials }o--|| users : "user_id to id; ON DELETE CASCADE"
     auth_challenges }o--|| users : "user_id to id; ON DELETE CASCADE"
     recovery_codes }o--|| users : "user_id to id; ON DELETE CASCADE"
-    first_admin_bootstrap }o--o| users : "created_user_id to id; ON DELETE SET NULL"
     oidc_login_states }o--o| external_identity_link_attempts : "link_attempt_id to id; ON DELETE CASCADE"
     browser_favorites }o--|| users : "user_id to id; ON DELETE CASCADE"
     onboarding_preferences o|--|| users : "user_id to id; ON DELETE CASCADE"

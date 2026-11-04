@@ -157,7 +157,6 @@ class FirstAdminBootstrapService:
                     .values(
                         token_digest=digest,
                         expires_at=expires_at,
-                        created_user_id=None,
                     )
                 )
                 if changed.rowcount != 1:
@@ -326,11 +325,6 @@ class FirstAdminBootstrapService:
             user = self._new_user(normalized_email, full_name, password)
             self.db.add(user)
             self.db.flush()
-            self.db.execute(
-                update(FirstAdminBootstrap)
-                .where(FirstAdminBootstrap.id == FIRST_ADMIN_BOOTSTRAP_ID)
-                .values(created_user_id=user.id)
-            )
             user_id = int(user.id)
         except IntegrityError as exc:
             self.db.rollback()

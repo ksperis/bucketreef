@@ -4387,7 +4387,7 @@
       "name": "audit_logs",
       "schema": null,
       "x": 900,
-      "y": 8086,
+      "y": 8206,
       "fields": [
         {
           "id": "field:audit_logs.id",
@@ -4884,8 +4884,8 @@
       "id": "table:s3_sessions",
       "name": "s3_sessions",
       "schema": null,
-      "x": 60,
-      "y": 2896,
+      "x": 1320,
+      "y": 2400,
       "fields": [
         {
           "id": "field:s3_sessions.id",
@@ -7359,8 +7359,8 @@
       "id": "table:webauthn_credentials",
       "name": "webauthn_credentials",
       "schema": null,
-      "x": 480,
-      "y": 2896,
+      "x": 60,
+      "y": 3016,
       "fields": [
         {
           "id": "field:webauthn_credentials.id",
@@ -7910,7 +7910,7 @@
       "id": "table:recovery_codes",
       "name": "recovery_codes",
       "schema": null,
-      "x": 1320,
+      "x": 900,
       "y": 2400,
       "fields": [
         {
@@ -8080,8 +8080,8 @@
       "id": "table:auth_rate_limits",
       "name": "auth_rate_limits",
       "schema": null,
-      "x": 900,
-      "y": 2896,
+      "x": 480,
+      "y": 3016,
       "fields": [
         {
           "id": "field:auth_rate_limits.id",
@@ -13691,7 +13691,7 @@
       "name": "tag_definitions",
       "schema": null,
       "x": 60,
-      "y": 4770,
+      "y": 4890,
       "fields": [
         {
           "id": "field:tag_definitions.id",
@@ -13960,7 +13960,7 @@
       "name": "bucket_ui_tag_assignments",
       "schema": null,
       "x": 480,
-      "y": 4770,
+      "y": 4890,
       "fields": [
         {
           "id": "field:bucket_ui_tag_assignments.id",
@@ -14199,7 +14199,7 @@
       "name": "storage_endpoint_tags",
       "schema": null,
       "x": 480,
-      "y": 5492,
+      "y": 5612,
       "fields": [
         {
           "id": "field:storage_endpoint_tags.id",
@@ -14392,7 +14392,7 @@
       "name": "s3_account_tags",
       "schema": null,
       "x": 60,
-      "y": 5176,
+      "y": 5296,
       "fields": [
         {
           "id": "field:s3_account_tags.id",
@@ -14585,7 +14585,7 @@
       "name": "s3_user_tags",
       "schema": null,
       "x": 60,
-      "y": 5492,
+      "y": 5612,
       "fields": [
         {
           "id": "field:s3_user_tags.id",
@@ -14778,7 +14778,7 @@
       "name": "s3_connection_tags",
       "schema": null,
       "x": 480,
-      "y": 5176,
+      "y": 5296,
       "fields": [
         {
           "id": "field:s3_connection_tags.id",
@@ -14971,7 +14971,7 @@
       "name": "ldap_providers",
       "schema": null,
       "x": 1320,
-      "y": 2896,
+      "y": 3016,
       "fields": [
         {
           "id": "field:ldap_providers.id",
@@ -15486,8 +15486,8 @@
       "id": "table:oidc_login_states",
       "name": "oidc_login_states",
       "schema": null,
-      "x": 60,
-      "y": 2400,
+      "x": 1320,
+      "y": 1904,
       "fields": [
         {
           "id": "field:oidc_login_states.state",
@@ -15815,7 +15815,7 @@
       "name": "oidc_authorization_codes",
       "schema": null,
       "x": 60,
-      "y": 3692,
+      "y": 3812,
       "fields": [
         {
           "id": "field:oidc_authorization_codes.id",
@@ -15985,7 +15985,7 @@
       "name": "oidc_providers",
       "schema": null,
       "x": 900,
-      "y": 3692,
+      "y": 3812,
       "fields": [
         {
           "id": "field:oidc_providers.id",
@@ -16396,7 +16396,7 @@
       "name": "oidc_provider_issuer_pins",
       "schema": null,
       "x": 480,
-      "y": 3692,
+      "y": 3812,
       "fields": [
         {
           "id": "field:oidc_provider_issuer_pins.provider_id",
@@ -16481,7 +16481,7 @@
       "name": "cost_usage_daily",
       "schema": null,
       "x": 2520,
-      "y": 6750,
+      "y": 6870,
       "fields": [
         {
           "id": "field:cost_usage_daily.id",
@@ -16868,7 +16868,7 @@
       "name": "cost_storage_daily",
       "schema": null,
       "x": 2100,
-      "y": 6750,
+      "y": 6870,
       "fields": [
         {
           "id": "field:cost_storage_daily.id",
@@ -17234,7 +17234,7 @@
       "name": "cost_models",
       "schema": null,
       "x": 2520,
-      "y": 8328,
+      "y": 8448,
       "fields": [
         {
           "id": "field:cost_models.id",
@@ -17460,7 +17460,7 @@
       "name": "cost_endpoint_overrides",
       "schema": null,
       "x": 2940,
-      "y": 7216,
+      "y": 7336,
       "fields": [
         {
           "id": "field:cost_endpoint_overrides.id",
@@ -17714,7 +17714,7 @@
       "name": "quota_usage_hourly",
       "schema": null,
       "x": 2520,
-      "y": 7216,
+      "y": 7336,
       "fields": [
         {
           "id": "field:quota_usage_hourly.id",
@@ -18111,7 +18111,7 @@
       "name": "quota_usage_daily",
       "schema": null,
       "x": 2100,
-      "y": 7216,
+      "y": 7336,
       "fields": [
         {
           "id": "field:quota_usage_daily.id",
@@ -18487,7 +18487,7 @@
       "name": "quota_alert_states",
       "schema": null,
       "x": 2940,
-      "y": 6750,
+      "y": 6870,
       "fields": [
         {
           "id": "field:quota_alert_states.id",
@@ -18764,7 +18764,7 @@
       "name": "user_notifications",
       "schema": null,
       "x": 480,
-      "y": 6750,
+      "y": 6870,
       "fields": [
         {
           "id": "field:user_notifications.id",
@@ -19227,7 +19227,7 @@
       "name": "endpoint_health_checks",
       "schema": null,
       "x": 2100,
-      "y": 7712,
+      "y": 7832,
       "fields": [
         {
           "id": "field:endpoint_health_checks.id",
@@ -19473,7 +19473,7 @@
       "name": "endpoint_health_latest",
       "schema": null,
       "x": 2520,
-      "y": 7712,
+      "y": 7832,
       "fields": [
         {
           "id": "field:endpoint_health_latest.id",
@@ -19913,7 +19913,7 @@
       "name": "endpoint_health_status_segments",
       "schema": null,
       "x": 2100,
-      "y": 8328,
+      "y": 8448,
       "fields": [
         {
           "id": "field:endpoint_health_status_segments.id",
@@ -20312,7 +20312,7 @@
       "name": "endpoint_health_rollups",
       "schema": null,
       "x": 2940,
-      "y": 7712,
+      "y": 7832,
       "fields": [
         {
           "id": "field:endpoint_health_rollups.id",
@@ -20734,7 +20734,7 @@
       "name": "bucket_migrations",
       "schema": null,
       "x": 60,
-      "y": 6750,
+      "y": 6870,
       "fields": [
         {
           "id": "field:bucket_migrations.execution_auth_session_id",
@@ -21763,7 +21763,7 @@
       "name": "bucket_migration_items",
       "schema": null,
       "x": 60,
-      "y": 8086,
+      "y": 8206,
       "fields": [
         {
           "id": "field:bucket_migration_items.id",
@@ -22588,7 +22588,7 @@
       "name": "bucket_migration_events",
       "schema": null,
       "x": 900,
-      "y": 6750,
+      "y": 6870,
       "fields": [
         {
           "id": "field:bucket_migration_events.id",
@@ -22835,7 +22835,7 @@
       "name": "bucket_usage_stats_snapshots",
       "schema": null,
       "x": 480,
-      "y": 9828,
+      "y": 9948,
       "fields": [
         {
           "id": "field:bucket_usage_stats_snapshots.id",
@@ -23419,7 +23419,7 @@
       "name": "portal_storage_space_metadata",
       "schema": null,
       "x": 2520,
-      "y": 4770,
+      "y": 4890,
       "fields": [
         {
           "id": "field:portal_storage_space_metadata.id",
@@ -23963,7 +23963,7 @@
       "name": "portal_storage_space_grants",
       "schema": null,
       "x": 2100,
-      "y": 5536,
+      "y": 5656,
       "fields": [
         {
           "id": "field:portal_storage_space_grants.id",
@@ -24193,7 +24193,7 @@
       "name": "portal_public_links",
       "schema": null,
       "x": 2940,
-      "y": 5536,
+      "y": 5656,
       "fields": [
         {
           "id": "field:portal_public_links.id",
@@ -24501,7 +24501,7 @@
       "name": "portal_external_access_credentials",
       "schema": null,
       "x": 2940,
-      "y": 4770,
+      "y": 4890,
       "fields": [
         {
           "id": "field:portal_external_access_credentials.id",
@@ -24915,7 +24915,7 @@
       "name": "portal_iam_revocations",
       "schema": null,
       "x": 2100,
-      "y": 6002,
+      "y": 6122,
       "fields": [
         {
           "id": "field:portal_iam_revocations.id",
@@ -25118,7 +25118,7 @@
       "name": "portal_admin_requests",
       "schema": null,
       "x": 2100,
-      "y": 4770,
+      "y": 4890,
       "fields": [
         {
           "id": "field:portal_admin_requests.id",
@@ -25503,7 +25503,7 @@
       "name": "portal_admin_request_messages",
       "schema": null,
       "x": 2520,
-      "y": 5536,
+      "y": 5656,
       "fields": [
         {
           "id": "field:portal_admin_request_messages.id",
@@ -25717,7 +25717,7 @@
       "name": "backend_operation_leases",
       "schema": null,
       "x": 60,
-      "y": 9828,
+      "y": 9948,
       "fields": [
         {
           "id": "field:backend_operation_leases.operation_name",
@@ -25865,7 +25865,7 @@
       "name": "app_settings",
       "schema": null,
       "x": 900,
-      "y": 9242,
+      "y": 9362,
       "fields": [
         {
           "id": "field:app_settings.key",
@@ -25980,8 +25980,8 @@
       "id": "table:first_admin_bootstrap",
       "name": "first_admin_bootstrap",
       "schema": null,
-      "x": 1320,
-      "y": 1904,
+      "x": 900,
+      "y": 3016,
       "fields": [
         {
           "id": "field:first_admin_bootstrap.id",
@@ -26066,27 +26066,6 @@
           "collation": null,
           "comments": null,
           "check": null
-        },
-        {
-          "id": "field:first_admin_bootstrap.created_user_id",
-          "name": "created_user_id",
-          "type": {
-            "id": "integer",
-            "name": "integer"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": true,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
         }
       ],
       "indexes": [
@@ -26123,7 +26102,7 @@
       "id": "table:onboarding_preferences",
       "name": "onboarding_preferences",
       "schema": null,
-      "x": 900,
+      "x": 480,
       "y": 2400,
       "fields": [
         {
@@ -26239,7 +26218,7 @@
       "id": "table:onboarding_journeys",
       "name": "onboarding_journeys",
       "schema": null,
-      "x": 480,
+      "x": 60,
       "y": 2400,
       "fields": [
         {
@@ -26472,7 +26451,7 @@
       "name": "webhook_endpoints",
       "schema": null,
       "x": 480,
-      "y": 8086,
+      "y": 8206,
       "fields": [
         {
           "id": "field:webhook_endpoints.id",
@@ -26685,7 +26664,7 @@
       "name": "webhook_endpoint_subscriptions",
       "schema": null,
       "x": 480,
-      "y": 9242,
+      "y": 9362,
       "fields": [
         {
           "id": "field:webhook_endpoint_subscriptions.id",
@@ -26826,7 +26805,7 @@
       "name": "webhook_deliveries",
       "schema": null,
       "x": 60,
-      "y": 9242,
+      "y": 9362,
       "fields": [
         {
           "id": "field:webhook_deliveries.id",
@@ -28779,19 +28758,6 @@
       "createdAt": 0
     },
     {
-      "id": "relationship:first_admin_bootstrap.created_user_id->users.id",
-      "name": "fk_first_admin_bootstrap_created_user_id_users_id [ON DELETE SET NULL]",
-      "sourceSchema": null,
-      "sourceTableId": "table:first_admin_bootstrap",
-      "targetSchema": null,
-      "targetTableId": "table:users",
-      "sourceFieldId": "field:first_admin_bootstrap.created_user_id",
-      "targetFieldId": "field:users.id",
-      "sourceCardinality": "many",
-      "targetCardinality": "one",
-      "createdAt": 0
-    },
-    {
       "id": "relationship:onboarding_preferences.user_id->users.id",
       "name": "fk_onboarding_preferences_user_id_users_id [ON DELETE CASCADE]",
       "sourceSchema": null,
@@ -28852,7 +28818,7 @@
       "x": 0,
       "y": 0,
       "width": 1740,
-      "height": 4338,
+      "height": 4458,
       "color": "#4F46E5",
       "order": 0
     },
@@ -28870,7 +28836,7 @@
       "id": "area:tags-classification",
       "name": "Tags and classification",
       "x": 0,
-      "y": 4638,
+      "y": 4758,
       "width": 900,
       "height": 1170,
       "color": "#7C3AED",
@@ -28880,7 +28846,7 @@
       "id": "area:portal",
       "name": "Portal",
       "x": 2040,
-      "y": 4638,
+      "y": 4758,
       "width": 1320,
       "height": 1680,
       "color": "#2563EB",
@@ -28890,7 +28856,7 @@
       "id": "area:operations-audit",
       "name": "Operations and audit",
       "x": 0,
-      "y": 6618,
+      "y": 6738,
       "width": 1320,
       "height": 4066,
       "color": "#D97706",
@@ -28900,7 +28866,7 @@
       "id": "area:observability-quota-cost",
       "name": "Observability quota and cost",
       "x": 2040,
-      "y": 6618,
+      "y": 6738,
       "width": 1320,
       "height": 2236,
       "color": "#059669",
