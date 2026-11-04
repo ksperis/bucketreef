@@ -28,12 +28,14 @@ export default function usePaginatedOptions<T>(
   const [revision, setRevision] = useState(0);
 
   useEffect(() => {
+    const nextSearch = search.trim();
+    if (nextSearch === debouncedSearch) return;
     const handle = window.setTimeout(() => {
-      setDebouncedSearch(search.trim());
+      setDebouncedSearch(nextSearch);
       setPage(1);
     }, debounceMs);
     return () => window.clearTimeout(handle);
-  }, [debounceMs, search]);
+  }, [debounceMs, debouncedSearch, search]);
 
   useEffect(() => {
     if (!enabled) {
