@@ -1,7 +1,11 @@
 import { renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 import type { StsCredentials } from "../../api/browserContracts";
 import { useBrowserPresignRequests } from "./useBrowserPresignRequests";
+
+type EnsureStsCredentials = (
+  forceRefresh?: boolean,
+) => Promise<StsCredentials | null>;
 
 const apiMocks = vi.hoisted(() => ({
   presignObject: vi.fn(),
@@ -50,11 +54,13 @@ function credentials(accessKeyId: string): StsCredentials {
 }
 
 function renderPresignRequests({
-  ensureStsCredentials = vi.fn().mockResolvedValue(credentials("sts-1")),
+  ensureStsCredentials = vi
+    .fn<EnsureStsCredentials>()
+    .mockResolvedValue(credentials("sts-1")),
   uploadMode = "sts",
   useStsPresigner = true,
 }: {
-  ensureStsCredentials?: ReturnType<typeof vi.fn>;
+  ensureStsCredentials?: Mock<EnsureStsCredentials>;
   uploadMode?: "sts" | "direct" | "proxy" | "unavailable";
   useStsPresigner?: boolean;
 } = {}) {

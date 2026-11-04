@@ -785,6 +785,9 @@ def test_explicit_tenant_account_user_manager_portal_and_metrics(
             "name": f"Tenant Portal {suffix}",
             "naming_mode": "generic_uuid",
             "visibility": "private",
+            "share_scope": "restricted",
+            "account_member_role": None,
+            "initial_shares": [],
         },
         expected_status=201,
     )

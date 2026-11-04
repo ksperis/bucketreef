@@ -160,7 +160,7 @@ def test_postgresql_migration_rotation_rollback_and_concurrent_consumption(monke
                 [
                     audit.user_email,
                     audit.message,
-                    audit.metadata_json,
+                    str(audit.audit_metadata or {}),
                     audit.request_id,
                     audit.ip_address,
                     audit.user_agent,

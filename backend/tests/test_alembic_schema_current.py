@@ -18,7 +18,7 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0225_canonical_user_avatar_preference"
+_EXPECTED_ALEMBIC_HEAD = "0226_reconcile_postgresql_schema_drift"
 
 
 def test_openstack_all_users_group_migration_preserves_global_grant(tmp_path, monkeypatch):
