@@ -268,9 +268,11 @@ describe("CephAdminAdminOpsModal", () => {
     fireEvent.click(alice);
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
+    await waitFor(() =>
+      expect(listUsersMock).toHaveBeenLastCalledWith(7, expect.objectContaining({ page: 2, page_size: 25 }))
+    );
     expect(await screen.findByRole("button", { name: "Bob · bob" })).toBeInTheDocument();
     expect(screen.getByText("LINK BUCKET bucket-a TO alice")).toBeInTheDocument();
-    expect(listUsersMock).toHaveBeenLastCalledWith(7, expect.objectContaining({ page: 2, page_size: 25 }));
   });
 
   it("shows structured RGW failures and leaves retry available", async () => {
