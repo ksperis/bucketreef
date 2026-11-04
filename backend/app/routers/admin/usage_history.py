@@ -120,7 +120,7 @@ def collect_usage_history(
             )
         service = QuotaMonitoringService(db)
         try:
-            result = service.run_monitor(include_quota_alerts=False, include_usage_history=True)
+            result = service.collect_usage_history()
         except ValueError as exc:
             raise_bad_request_from_value_error(exc)
 

@@ -46,20 +46,10 @@ def _monitor_result(**overrides):
 
 def test_internal_usage_history_collect_uses_daily_history_mode(client, monkeypatch):
     monkeypatch.setattr(dependencies.settings, "internal_cron_token", "expected-token")
-    calls: list[dict[str, bool]] = []
+    calls: list[str] = []
 
-    def fake_run_monitor(
-        self,
-        *,
-        include_quota_alerts: bool = True,
-        include_usage_history: bool = True,
-    ):
-        calls.append(
-            {
-                "include_quota_alerts": include_quota_alerts,
-                "include_usage_history": include_usage_history,
-            }
-        )
+    def fake_collect_usage_history(self):
+        calls.append("usage-history")
         return _monitor_result(
             subjects_total=2,
             subjects_processed=2,
@@ -68,7 +58,11 @@ def test_internal_usage_history_collect_uses_daily_history_mode(client, monkeypa
             usage_history_collection_enabled=True,
         )
 
-    monkeypatch.setattr(QuotaMonitoringService, "run_monitor", fake_run_monitor)
+    monkeypatch.setattr(
+        QuotaMonitoringService,
+        "collect_usage_history",
+        fake_collect_usage_history,
+    )
 
     response = client.post(
         "/api/internal/usage-history/collect",
@@ -76,33 +70,27 @@ def test_internal_usage_history_collect_uses_daily_history_mode(client, monkeypa
     )
 
     assert response.status_code == 200, response.text
-    assert calls == [{"include_quota_alerts": False, "include_usage_history": True}]
+    assert calls == ["usage-history"]
     assert response.json()["subjects_processed"] == 2
 
 
 def test_internal_quota_monitor_does_not_persist_usage_history(client, monkeypatch):
     monkeypatch.setattr(dependencies.settings, "internal_cron_token", "expected-token")
-    calls: list[dict[str, bool]] = []
+    calls: list[str] = []
 
-    def fake_run_monitor(
-        self,
-        *,
-        include_quota_alerts: bool = True,
-        include_usage_history: bool = True,
-    ):
-        calls.append(
-            {
-                "include_quota_alerts": include_quota_alerts,
-                "include_usage_history": include_usage_history,
-            }
-        )
+    def fake_run_quota_alerts(self):
+        calls.append("quota-alerts")
         return _monitor_result(
             subjects_total=1,
             subjects_processed=1,
             quota_alerts_enabled=True,
         )
 
-    monkeypatch.setattr(QuotaMonitoringService, "run_monitor", fake_run_monitor)
+    monkeypatch.setattr(
+        QuotaMonitoringService,
+        "run_quota_alerts",
+        fake_run_quota_alerts,
+    )
 
     response = client.post(
         "/api/internal/quota-monitor/run",
@@ -110,7 +98,7 @@ def test_internal_quota_monitor_does_not_persist_usage_history(client, monkeypat
     )
 
     assert response.status_code == 200, response.text
-    assert calls == [{"include_quota_alerts": True, "include_usage_history": False}]
+    assert calls == ["quota-alerts"]
     assert response.json()["history_hourly_upserts"] == 0
 
 

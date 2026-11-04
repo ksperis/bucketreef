@@ -298,15 +298,10 @@ def test_usage_history_trends_require_enabled_feature(client: TestClient, monkey
 
 def test_collect_usage_history_runs_without_quota_alerts_or_audit_rows(client: TestClient, db_session, monkeypatch):
     monkeypatch.setattr(usage_history_router, "load_app_settings_for_db", lambda _db: _settings(usage_history_enabled=True))
-    calls: list[dict[str, bool]] = []
+    calls: list[str] = []
 
-    def fake_run_monitor(self, *, include_quota_alerts: bool = True, include_usage_history: bool = True):
-        calls.append(
-            {
-                "include_quota_alerts": include_quota_alerts,
-                "include_usage_history": include_usage_history,
-            }
-        )
+    def fake_collect_usage_history(self):
+        calls.append("usage-history")
         return {
             "started_at": "2026-10-23T08:00:00+00:00",
             "finished_at": "2026-10-23T08:00:01+00:00",
@@ -342,12 +337,16 @@ def test_collect_usage_history_runs_without_quota_alerts_or_audit_rows(client: T
             },
         }
 
-    monkeypatch.setattr(QuotaMonitoringService, "run_monitor", fake_run_monitor)
+    monkeypatch.setattr(
+        QuotaMonitoringService,
+        "collect_usage_history",
+        fake_collect_usage_history,
+    )
 
     response = client.post("/api/admin/usage-history/collect")
 
     assert response.status_code == 200, response.text
-    assert calls == [{"include_quota_alerts": False, "include_usage_history": True}]
+    assert calls == ["usage-history"]
     payload = response.json()
     assert payload == {
         "subjects_processed": 1,

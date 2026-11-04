@@ -79,11 +79,23 @@ class QuotaMonitoringService:
     def __init__(self, db: Session) -> None:
         self.db = db
 
-    def run_monitor(
+    def run_quota_alerts(self) -> dict[str, Any]:
+        return self._run_monitor(
+            include_quota_alerts=True,
+            include_usage_history=False,
+        )
+
+    def collect_usage_history(self) -> dict[str, Any]:
+        return self._run_monitor(
+            include_quota_alerts=False,
+            include_usage_history=True,
+        )
+
+    def _run_monitor(
         self,
         *,
-        include_quota_alerts: bool = True,
-        include_usage_history: bool = True,
+        include_quota_alerts: bool,
+        include_usage_history: bool,
     ) -> dict[str, Any]:
         settings = load_app_settings_for_db(self.db)
         now = utcnow()
