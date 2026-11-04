@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Query, status
 
 from app.db import User
 from app.models.portal_requests import (
+    PaginatedPortalAdminRequestsResponse,
     PortalAdminRequestDecision,
     PortalAdminRequestMessageCreate,
     PortalAdminRequestOut,
@@ -37,22 +38,24 @@ def _raise_portal_request_error(exc: Exception) -> None:
     raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
 
 
-@router.get("", response_model=list[PortalAdminRequestOut])
+@router.get("", response_model=PaginatedPortalAdminRequestsResponse)
 def list_admin_portal_requests(
     status_filter: Optional[PortalAdminRequestStatus] = Query(None, alias="status"),
     request_type: Optional[PortalAdminRequestType] = Query(None),
     account_id: Optional[int] = Query(None),
     search: Optional[str] = Query(None),
-    limit: int = Query(200, ge=1, le=500),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(25, ge=1, le=200),
     _: User = Depends(get_current_ui_admin),
     service: PortalRequestsService = Depends(get_portal_requests_service_dependency),
-) -> list[PortalAdminRequestOut]:
+) -> PaginatedPortalAdminRequestsResponse:
     return service.list_for_admin(
         status=status_filter,
         request_type=request_type,
         account_id=account_id,
         search=search,
-        limit=limit,
+        page=page,
+        page_size=page_size,
     )
 
 

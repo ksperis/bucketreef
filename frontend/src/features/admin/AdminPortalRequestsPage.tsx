@@ -5,9 +5,7 @@
 import { ListActionButton } from "../../components/list/ListControls";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { listS3Accounts, type S3AccountSummary } from "../../api/accounts";
 import { listUserOptions } from "../../api/users";
-import type { PaginatedResponse } from "../../api/types";
 import {
   addAdminPortalRequestMessage,
   approveAdminPortalRequest,
@@ -25,14 +23,12 @@ import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import ListPageSection from "../../components/list/ListPageSection";
 import PageBanner from "../../components/PageBanner";
 import PageShell from "../../components/PageShell";
-import PaginationControls from "../../components/PaginationControls";
 import UserAvatar from "../../components/UserAvatar";
 import UiButton from "../../components/ui/UiButton";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
 import UiTextarea from "../../components/ui/UiTextarea";
 import useLazyListLoader from "../../hooks/useLazyListLoader";
-import usePaginatedOptions, { type PaginatedOptionsQuery } from "../../hooks/usePaginatedOptions";
 import { collectPaginatedItems } from "../../utils/pagination";
 import {
   cx,
@@ -53,15 +49,12 @@ import { useAdminPageBreadcrumbs } from "./adminBreadcrumbs";
 import { AssociationRoleTooltip, uiPrincipalRoleLabel } from "./AssociationSummary";
 import { buildAdminPrincipalEditHref } from "./adminPrincipalEditLink";
 import { useAdminI18n } from "./adminI18n";
-import useAdminListController from "./useAdminListController";
+import useAdminPaginatedListController from "./useAdminPaginatedListController";
+import useAdminPaginationState from "./useAdminPaginationState";
 
 type StatusFilter = PortalAdminRequestStatus | "all";
 type TypeFilter = PortalAdminRequestType | "all";
 type BusyAction = string | null;
-
-const loadAccountOptions = async (
-  query: PaginatedOptionsQuery,
-): Promise<PaginatedResponse<S3AccountSummary>> => listS3Accounts(query);
 
 const loadRequesterOptions = () => collectPaginatedItems((page) =>
   listUserOptions({ page, page_size: 100 }),
@@ -70,16 +63,22 @@ const loadRequesterOptions = () => collectPaginatedItems((page) =>
 export default function AdminPortalRequestsPage() {
   const { text: adminText } = useAdminI18n();
   const adminBreadcrumbs = useAdminPageBreadcrumbs();
-  const accountCatalog = usePaginatedOptions(loadAccountOptions, { initialPageSize: 25 });
+  const {
+    filter: search,
+    page,
+    pageSize,
+    handleFilterChange: setSearch,
+    handlePageChange,
+    handlePageSizeChange,
+    resetPage,
+    ensurePageInRange,
+  } = useAdminPaginationState();
   const {
     items: requesters,
     refresh: refreshRequesters,
   } = useLazyListLoader(loadRequesterOptions);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
-  const [accountFilter, setAccountFilter] = useState("all");
-  const [selectedAccountOption, setSelectedAccountOption] = useState<S3AccountSummary | null>(null);
-  const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [messageDrafts, setMessageDrafts] = useState<Record<number, string>>({});
   const [notice, setNotice] = useState<string | null>(null);
@@ -88,16 +87,6 @@ export default function AdminPortalRequestsPage() {
   useEffect(() => {
     void refreshRequesters();
   }, [refreshRequesters]);
-
-  const accountOptions = useMemo(() => {
-    if (
-      selectedAccountOption &&
-      !accountCatalog.items.some((account) => account.id === selectedAccountOption.id)
-    ) {
-      return [selectedAccountOption, ...accountCatalog.items];
-    }
-    return accountCatalog.items;
-  }, [accountCatalog.items, selectedAccountOption]);
 
   const requestersById = useMemo(
     () => new Map(requesters.map((requester) => [requester.id, requester])),
@@ -109,11 +98,11 @@ export default function AdminPortalRequestsPage() {
       listAdminPortalRequests({
         status: statusFilter,
         request_type: typeFilter,
-        account_id: accountFilter === "all" ? "all" : Number(accountFilter),
         search,
-        limit: 200,
+        page,
+        page_size: pageSize,
       }),
-    [accountFilter, search, statusFilter, typeFilter],
+    [page, pageSize, search, statusFilter, typeFilter],
   );
   const formatLoadError = useCallback(
     (error: unknown) => {
@@ -124,13 +113,15 @@ export default function AdminPortalRequestsPage() {
   );
   const {
     items: requests,
-    setItems: setRequests,
+    total,
     loading,
     error,
     setError,
     refresh: loadRequests,
-  } = useAdminListController<PortalAdminRequest>({
-    loadItems: fetchRequests,
+    updateItem,
+  } = useAdminPaginatedListController<PortalAdminRequest>({
+    loadPage: fetchRequests,
+    ensurePageInRange,
     formatError: formatLoadError,
   });
 
@@ -141,9 +132,9 @@ export default function AdminPortalRequestsPage() {
   }, [requests]);
 
   const updateRequest = useCallback((updated: PortalAdminRequest) => {
-    setRequests((current) => current.map((request) => (request.id === updated.id ? updated : request)));
+    updateItem(updated.id, () => updated);
     setExpandedId(updated.id);
-  }, [setRequests]);
+  }, [updateItem]);
 
   const runAction = useCallback(async (
     request: PortalAdminRequest,
@@ -304,7 +295,7 @@ export default function AdminPortalRequestsPage() {
       <ListPageSection
           title={adminText("Request queue")}
           variant="page"
-          countLabel={`${requests.length} request(s)`}
+          countLabel={`${total} request(s)`}
           search={
             <UiInput
               aria-label={adminText("Search Portal requests")}
@@ -322,7 +313,10 @@ export default function AdminPortalRequestsPage() {
                 label={adminText("Status")}
                 aria-label={adminText("Filter by status")}
                 value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+                onChange={(event) => {
+                  setStatusFilter(event.target.value as StatusFilter);
+                  resetPage();
+                }}
                 size="compact"
               >
                 <option value="pending">{adminText("Pending")}</option>
@@ -336,7 +330,10 @@ export default function AdminPortalRequestsPage() {
                 label={adminText("Type")}
                 aria-label={adminText("Filter by type")}
                 value={typeFilter}
-                onChange={(event) => setTypeFilter(event.target.value as TypeFilter)}
+                onChange={(event) => {
+                  setTypeFilter(event.target.value as TypeFilter);
+                  resetPage();
+                }}
                 size="compact"
               >
                 <option value="all">{adminText("All types")}</option>
@@ -345,47 +342,6 @@ export default function AdminPortalRequestsPage() {
                 <option value="account_quota_change">{adminText("Storage quota")}</option>
                 <option value="portal_setting_change">{adminText("Project setting")}</option>
               </UiSelect>
-              <div className="grid min-w-[240px] gap-2">
-                <UiInput
-                  label={adminText("Account search")}
-                  aria-label={adminText("Search accounts")}
-                  type="search"
-                  value={accountCatalog.search}
-                  onChange={(event) => accountCatalog.setSearch(event.target.value)}
-                  size="compact"
-                  placeholder={adminText("Search accounts")}
-                />
-                <UiSelect
-                  label={adminText("Account")}
-                  aria-label={adminText("Filter by account")}
-                  value={accountFilter}
-                  onChange={(event) => {
-                    const nextValue = event.target.value;
-                    setAccountFilter(nextValue);
-                    setSelectedAccountOption(
-                      nextValue === "all"
-                        ? null
-                        : accountOptions.find((account) => String(account.id) === nextValue) ?? null,
-                    );
-                  }}
-                  size="compact"
-                >
-                  <option value="all">{adminText("All accounts")}</option>
-                  {accountOptions.map((account) => (
-                    <option key={account.id} value={account.id}>
-                      {account.name}
-                    </option>
-                  ))}
-                </UiSelect>
-                <PaginationControls
-                  page={accountCatalog.page}
-                  pageSize={accountCatalog.pageSize}
-                  total={accountCatalog.total}
-                  onPageChange={accountCatalog.setPage}
-                  onPageSizeChange={accountCatalog.setPageSize}
-                  disabled={accountCatalog.loading}
-                />
-              </div>
             </>
           }
           actions={
@@ -402,6 +358,14 @@ export default function AdminPortalRequestsPage() {
           errorMessage={error ?? "Unable to load Portal requests."}
           emptyMessage="No Portal requests match the current filters."
           responsiveCards
+          pagination={{
+            page,
+            pageSize,
+            total,
+            onPageChange: handlePageChange,
+            onPageSizeChange: handlePageSizeChange,
+            disabled: loading,
+          }}
           expandedRow={(request) =>
             expandedId === request.id ? (
               <AdminPortalRequestDetails

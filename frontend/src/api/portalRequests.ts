@@ -5,6 +5,7 @@
 import client from "./client";
 import type { S3AccountSelector } from "./accountParams";
 import { withS3AccountParam } from "./accountParams";
+import type { PaginatedResponse } from "./types";
 import { notifyAdminPendingRequestsRefresh } from "../utils/adminPendingRequestsRefresh";
 
 export type PortalAdminRequestType =
@@ -116,7 +117,8 @@ type AdminPortalRequestListParams = {
   request_type?: PortalAdminRequestType | "all";
   account_id?: number | "all";
   search?: string;
-  limit?: number;
+  page?: number;
+  page_size?: number;
 };
 
 export async function listPortalRequests(
@@ -141,15 +143,16 @@ export async function createPortalRequest(
 
 export async function listAdminPortalRequests(
   params?: AdminPortalRequestListParams
-): Promise<PortalAdminRequest[]> {
+): Promise<PaginatedResponse<PortalAdminRequest>> {
   const query = {
     status: params?.status && params.status !== "all" ? params.status : undefined,
     request_type: params?.request_type && params.request_type !== "all" ? params.request_type : undefined,
     account_id: params?.account_id && params.account_id !== "all" ? params.account_id : undefined,
     search: params?.search?.trim() || undefined,
-    limit: params?.limit,
+    page: params?.page,
+    page_size: params?.page_size,
   };
-  const { data } = await client.get<PortalAdminRequest[]>("/admin/portal-requests", { params: query });
+  const { data } = await client.get<PaginatedResponse<PortalAdminRequest>>("/admin/portal-requests", { params: query });
   return data;
 }
 

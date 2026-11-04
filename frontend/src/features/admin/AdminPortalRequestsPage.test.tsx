@@ -7,16 +7,11 @@ import AdminPortalRequestsPage from "./AdminPortalRequestsPage";
 import type { PortalAdminRequest } from "../../api/portalRequests";
 
 const mocks = vi.hoisted(() => ({
-  listS3Accounts: vi.fn(),
   listUserOptions: vi.fn(),
   listAdminPortalRequests: vi.fn(),
   approveAdminPortalRequest: vi.fn(),
   rejectAdminPortalRequest: vi.fn(),
   addAdminPortalRequestMessage: vi.fn(),
-}));
-
-vi.mock("../../api/accounts", () => ({
-  listS3Accounts: mocks.listS3Accounts,
 }));
 
 vi.mock("../../api/users", () => ({
@@ -65,12 +60,6 @@ function renderPage() {
 describe("AdminPortalRequestsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.listS3Accounts.mockResolvedValue({
-      items: [{ id: 101, name: "Research Account", rgw_account_id: "RGW-RESEARCH", tags: [] }],
-      total: 1,
-      page: 1,
-      page_size: 25,
-    });
     mocks.listUserOptions.mockImplementation(({ page = 1 }: { page?: number }) => Promise.resolve(
       page === 1
         ? {
@@ -100,7 +89,13 @@ describe("AdminPortalRequestsPage", () => {
             has_next: false,
           },
     ));
-    mocks.listAdminPortalRequests.mockResolvedValue([pendingRequest]);
+    mocks.listAdminPortalRequests.mockResolvedValue({
+      items: [pendingRequest],
+      total: 1,
+      page: 1,
+      page_size: 25,
+      has_next: false,
+    });
     mocks.approveAdminPortalRequest.mockResolvedValue({
       ...pendingRequest,
       status: "approved",
@@ -148,9 +143,9 @@ describe("AdminPortalRequestsPage", () => {
     expect(mocks.listAdminPortalRequests).toHaveBeenCalledWith({
       status: "pending",
       request_type: "all",
-      account_id: "all",
       search: "",
-      limit: 200,
+      page: 1,
+      page_size: 25,
     });
 
     await user.click(screen.getByRole("button", { name: "Details" }));
@@ -189,36 +184,63 @@ describe("AdminPortalRequestsPage", () => {
       expect(mocks.listAdminPortalRequests).toHaveBeenLastCalledWith({
         status: "pending",
         request_type: "portal_setting_change",
-        account_id: "all",
         search: "",
-        limit: 200,
+        page: 1,
+        page_size: 25,
       });
     });
   });
 
-  it("searches and pages account filter options server-side", async () => {
-    mocks.listS3Accounts.mockImplementation(async (params: { page?: number; search?: string }) => {
-      const page = params.page ?? 1;
+  it("uses standard request pagination and resets it when searching", async () => {
+    mocks.listAdminPortalRequests.mockImplementation(async (params?: { page?: number; page_size?: number; search?: string }) => {
+      const page = params?.page ?? 1;
       return {
-        items: [{ id: page, name: page === 1 ? "Account One" : "Account Two", tags: [] }],
+        items: [{ ...pendingRequest, id: page, requester_email: page === 1 ? "first@example.org" : "second@example.org" }],
         total: 30,
         page,
-        page_size: 25,
+        page_size: params?.page_size ?? 25,
+        has_next: page === 1,
       };
     });
     const user = userEvent.setup();
     renderPage();
 
-    expect(await screen.findByRole("option", { name: "Account One" })).toBeInTheDocument();
+    expect(await screen.findByText("first@example.org")).toBeInTheDocument();
+    expect(screen.queryByRole("searchbox", { name: "Search accounts" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Filter by account" })).not.toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Page size" })).toHaveValue("25");
     await user.click(screen.getByRole("button", { name: "Next" }));
-    expect(await screen.findByRole("option", { name: "Account Two" })).toBeInTheDocument();
-    expect(mocks.listS3Accounts).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2, page_size: 25 }));
+    expect(await screen.findByText("second@example.org")).toBeInTheDocument();
+    expect(mocks.listAdminPortalRequests).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2, page_size: 25 }));
 
-    await user.type(screen.getByRole("searchbox", { name: "Search accounts" }), "research");
+    await user.type(screen.getByRole("searchbox", { name: "Search Portal requests" }), "research");
     await waitFor(() => {
-      expect(mocks.listS3Accounts).toHaveBeenLastCalledWith(
+      expect(mocks.listAdminPortalRequests).toHaveBeenLastCalledWith(
         expect.objectContaining({ page: 1, page_size: 25, search: "research" }),
       );
     });
+  });
+
+  it("resets to the first page when a filter changes", async () => {
+    mocks.listAdminPortalRequests.mockImplementation(async (params?: { page?: number; page_size?: number }) => ({
+      items: [pendingRequest],
+      total: 30,
+      page: params?.page ?? 1,
+      page_size: params?.page_size ?? 25,
+      has_next: (params?.page ?? 1) === 1,
+    }));
+    const user = userEvent.setup();
+    renderPage();
+
+    await screen.findByText("Jane Viewer <jane@example.org> · Portal manager");
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    await waitFor(() => expect(mocks.listAdminPortalRequests).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 2 }),
+    ));
+
+    await user.selectOptions(screen.getByLabelText("Filter by status"), "approved");
+    await waitFor(() => expect(mocks.listAdminPortalRequests).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 1, status: "approved" }),
+    ));
   });
 });

@@ -6,6 +6,7 @@
 
 - Simplify Manager IAM user, group, and role inventories by moving ARN details to identity editors, compacting managed and inline policy summaries, and showing compact group member previews in detailed listings.
 - Align embedded Manager IAM user/group association and access-key tables on the shared compact list toolbar, with local actions and counts in one row and no redundant ARN columns in membership tables.
+- Simplify Admin Portal requests to the essential search/status/type controls and move request pagination into the shared table footer.
 
 ### Fixed
 
@@ -15,6 +16,7 @@
 
 - Deploy the matching backend and frontend together because Browser object-list responses now include the optional `owner` field used by object details.
 - Deploy the matching backend and frontend together because detailed Manager IAM group-list responses now include the optional `members` field used by the inventory.
+- Deploy the matching backend and frontend together because Admin Portal request listings now use the standard paginated application response instead of an unpaginated list.
 
 ## 0.2.18 - 2026-10-24
 
