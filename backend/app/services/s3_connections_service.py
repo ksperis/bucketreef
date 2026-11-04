@@ -1,7 +1,8 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
-from collections.abc import Collection
+from collections.abc import Collection, Iterator
+from contextlib import contextmanager
 from typing import Any, Optional
 
 from sqlalchemy import select, update
@@ -85,6 +86,33 @@ class S3ConnectionsService:
         self.queries = S3ConnectionQueryService(db)
         self.managed_private_access_queries = ManagedPrivateAccessQueryService(db)
 
+    @contextmanager
+    def _write_transaction(
+        self,
+        *,
+        commit: bool,
+        name_conflict_key: tuple[int, str, bool, int | None] | None = None,
+    ) -> Iterator[None]:
+        try:
+            yield
+            if commit:
+                self.db.commit()
+        except IntegrityError as exc:
+            if not commit:
+                raise
+            self.db.rollback()
+            if name_conflict_key is not None and self._connection_name_exists(
+                *name_conflict_key
+            ):
+                raise S3ConnectionConflictError(
+                    S3_CONNECTION_NAME_CONFLICT_ERROR
+                ) from exc
+            raise
+        except Exception:
+            if commit:
+                self.db.rollback()
+            raise
+
     def list_for_user(self, user_id: int) -> list[S3Connection]:
         return self.queries.list_for_user(user_id)
 
@@ -159,7 +187,10 @@ class S3ConnectionsService:
         )
         if name_conflict_key is not None:
             self._ensure_connection_name_available(*name_conflict_key)
-        try:
+        with self._write_transaction(
+            commit=True,
+            name_conflict_key=name_conflict_key,
+        ):
             endpoint_changed = self._apply_admin_shared_values(
                 row,
                 payload,
@@ -183,17 +214,8 @@ class S3ConnectionsService:
             if _CAPABILITY_PROBE_FIELDS & fields_set or "credentials" in fields_set:
                 self._refresh_detected_capabilities(row)
             row.updated_at = utcnow()
-            self.db.commit()
-            self.db.refresh(row)
-            return row
-        except IntegrityError as exc:
-            self.db.rollback()
-            if name_conflict_key is not None and self._connection_name_exists(*name_conflict_key):
-                raise S3ConnectionConflictError(S3_CONNECTION_NAME_CONFLICT_ERROR) from exc
-            raise
-        except Exception:
-            self.db.rollback()
-            raise
+        self.db.refresh(row)
+        return row
 
     def _apply_admin_shared_values(
         self,
@@ -321,28 +343,19 @@ class S3ConnectionsService:
         commit: bool,
     ) -> None:
         conflict_key = (row.created_by_user_id, row.name, bool(row.is_shared))
-        try:
+        with self._write_transaction(
+            commit=commit,
+            name_conflict_key=(*conflict_key, None),
+        ):
             self._ensure_connection_name_available(*conflict_key)
             self.db.add(row)
             self.db.flush()
             self.tags.replace_connection_tags(row, tags)
             self._refresh_detected_capabilities(row)
-            if commit:
-                self.db.commit()
-                self.db.refresh(row)
-            else:
-                self.db.flush()
-        except IntegrityError as exc:
             if not commit:
-                raise
-            self.db.rollback()
-            if self._connection_name_exists(*conflict_key):
-                raise S3ConnectionConflictError(S3_CONNECTION_NAME_CONFLICT_ERROR) from exc
-            raise
-        except Exception:
-            if commit:
-                self.db.rollback()
-            raise
+                self.db.flush()
+        if commit:
+            self.db.refresh(row)
 
     def _ensure_connection_name_available(
         self,
@@ -408,7 +421,10 @@ class S3ConnectionsService:
         )
         if name_conflict_key is not None:
             self._ensure_connection_name_available(*name_conflict_key)
-        try:
+        with self._write_transaction(
+            commit=True,
+            name_conflict_key=name_conflict_key,
+        ):
             should_probe_iam = self._apply_private_update(
                 row,
                 payload,
@@ -418,17 +434,8 @@ class S3ConnectionsService:
             if should_probe_iam:
                 self._refresh_detected_capabilities(row)
             row.updated_at = utcnow()
-            self.db.commit()
-            self.db.refresh(row)
-            return self.serialize(row)
-        except IntegrityError as exc:
-            self.db.rollback()
-            if name_conflict_key is not None and self._connection_name_exists(*name_conflict_key):
-                raise S3ConnectionConflictError(S3_CONNECTION_NAME_CONFLICT_ERROR) from exc
-            raise
-        except Exception:
-            self.db.rollback()
-            raise
+        self.db.refresh(row)
+        return self.serialize(row)
 
     def _validate_private_update_mutability(
         self,
@@ -603,16 +610,12 @@ class S3ConnectionsService:
         except ValueError as exc:
             raise S3ConnectionConflictError(str(exc)) from exc
         domain_kind, _owner_user_id = self.tags.resolve_connection_domain(row)
-        try:
+        with self._write_transaction(commit=True):
             self.associations.delete_links(row.id)
             purge.purge_execution_context_data(context_id)
             self.db.delete(row)
             self.db.flush()
             self.tags.cleanup_orphan_definitions(domain_kinds=[domain_kind])
-            self.db.commit()
-        except Exception:
-            self.db.rollback()
-            raise
 
     def _resolve_access_flags(self, *, access_manager: Optional[bool], access_browser: Optional[bool]) -> tuple[bool, bool]:
         manager = bool(access_manager)
@@ -646,7 +649,7 @@ class S3ConnectionsService:
 
     def touch_usage(self, row: DBS3Connection) -> None:
         now = utcnow()
-        try:
+        with self._write_transaction(commit=True):
             self.db.execute(
                 update(DBS3Connection)
                 .where(DBS3Connection.id == row.id)
@@ -656,11 +659,7 @@ class S3ConnectionsService:
                 )
                 .execution_options(synchronize_session=False)
             )
-            self.db.commit()
-            self.db.refresh(row)
-        except Exception:
-            self.db.rollback()
-            raise
+        self.db.refresh(row)
 
     def touch_usage_best_effort(self, row: DBS3Connection) -> None:
         try:
