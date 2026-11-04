@@ -1950,18 +1950,20 @@ unrelated process environment variables are unchanged.
 ## 2026-08 canonical Storage Endpoint feature configuration
 
 Migration `0115_canonical_storage_endpoint_features` rewrites every persisted
-Storage Endpoint feature document under the single `features` root. It converts
-the former health-check `url` and `endpoint` aliases to `healthcheck_url`,
-normalizes configured URLs and modes, and removes unknown feature names or
-fields that the runtime previously ignored.
+Storage Endpoint feature document under the single `features` root inside the
+then-current YAML `features_config` column. It converts the former health-check
+`url` and `endpoint` aliases to `healthcheck_url`, normalizes configured URLs
+and modes, and removes unknown feature names or fields that the runtime
+previously ignored. Invalid active values with the wrong type stop the migration
+explicitly. The downgrade keeps the canonical YAML because discarded inert
+keys and aliases cannot be reconstructed.
 
-After this boundary, new API, automation, seed, and `ENV_STORAGE_ENDPOINTS`
-`features_config` values must use the canonical shape emitted by the Admin
-frontend. Unknown names and fields are rejected instead of being silently
-discarded. The database migration cannot rewrite environment values, so update
-those values before deploying. Invalid active values with the wrong type stop
-the migration explicitly. The downgrade keeps the canonical YAML because
-discarded inert keys and aliases cannot be reconstructed.
+That YAML contract was an intermediate migration state. Migration
+`0200_structure_storage_endpoint_features` later replaces the persisted
+`features_config` column with structured `features`. Current API and
+`ENV_STORAGE_ENDPOINTS` payloads use that structured field directly; only
+`SEED_S3_ENDPOINT_FEATURES` keeps the documented YAML/JSON text boundary. See
+[structured Storage Endpoint features](#2026-10-structured-storage-endpoint-features).
 
 ## 2026-08 canonical Storage Endpoint providers
 
@@ -1975,14 +1977,16 @@ keeps the canonicalized values.
 ## 2026-08 canonical Storage Endpoint admin endpoint
 
 Migration `0117_remove_storage_endpoint_admin_endpoint` removes the redundant
-`storage_endpoints.admin_endpoint` column. The configured override already
-lives in `features_config` at `features.admin.endpoint`, which is now the only
-persisted source. The downgrade recreates an empty nullable column but cannot
-reconstruct its former duplicate values.
+`storage_endpoints.admin_endpoint` column. At that migration boundary, the
+configured override already lived in `features_config` at
+`features.admin.endpoint`. Migration `0200_structure_storage_endpoint_features`
+subsequently moves that document into the structured `features` column, which
+is the current persisted source. The downgrade recreates an empty nullable
+column but cannot reconstruct its former duplicate values.
 
 Storage Endpoint create and update requests now reject the removed
-`admin_endpoint` property. Put the override in the canonical `features_config`
-document instead. Storage Endpoint responses expose it through
+`admin_endpoint` property. Put the override in the canonical `features` object
+instead. Storage Endpoint responses expose it through
 `features.admin.endpoint`; the separate feature-detection request keeps its
 transient `admin_endpoint` probe input. Deploy migration, backend, and frontend
 together.
