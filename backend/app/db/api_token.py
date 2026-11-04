@@ -4,7 +4,6 @@ from app.db.utc_datetime import UTCDateTime
 from app.utils.time import utcnow
 
 from sqlalchemy import Column, ForeignKey, Integer, JSON, String
-from sqlalchemy.orm import relationship
 
 from .base import Base
 
@@ -23,5 +22,3 @@ class ApiToken(Base):
     last_used_at = Column(UTCDateTime(), nullable=True)
     expires_at = Column(UTCDateTime(), nullable=False)
     revoked_at = Column(UTCDateTime(), nullable=True)
-
-    user = relationship("User", foreign_keys=[user_id])
