@@ -211,6 +211,8 @@ def test_storage_ops_summary_rejects_without_storage_ops_right(client):
 
 
 def test_storage_ops_summary_counts_authorized_accounts_connections_and_endpoints(db_session, client, monkeypatch):
+    db_session.add(_admin_user())
+    db_session.flush()
     db_session.add_all(
         [
             S3Connection(

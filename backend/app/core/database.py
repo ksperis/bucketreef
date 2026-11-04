@@ -41,7 +41,7 @@ def is_sqlite_malformed_database_error(exc: BaseException) -> bool:
     return False
 
 
-def _configure_sqlite_connection(
+def configure_sqlite_connection(
     dbapi_connection: DBAPIConnection,
     _connection_record: ConnectionPoolEntry,
 ) -> None:
@@ -90,7 +90,7 @@ def _create_engine() -> Engine:
         pool_pre_ping=True,
     )
     if is_sqlite_url(settings.database_url):
-        event.listen(engine, "connect", _configure_sqlite_connection)
+        event.listen(engine, "connect", configure_sqlite_connection)
     return engine
 
 

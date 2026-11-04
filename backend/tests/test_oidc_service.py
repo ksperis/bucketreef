@@ -12,7 +12,14 @@ from jose import JWTError
 from sqlalchemy import func, select
 
 from app.core.config import OIDCProviderSettings, Settings
-from app.db import OidcAuthorizationCode, OidcLoginState, OidcProviderIssuerPin
+from app.core.domain_enums import UserRole
+from app.db import (
+    ExternalIdentityLinkAttempt,
+    OidcAuthorizationCode,
+    OidcLoginState,
+    OidcProviderIssuerPin,
+    User,
+)
 from app.services.oidc_service import (
     OIDCAuthenticationError,
     OIDCConfigurationError,
@@ -564,6 +571,30 @@ def test_complete_login_routes_link_continuations(
     expected_method,
 ):
     service, users = _service(db_session)
+    db_session.add(
+        User(
+            id=1,
+            email="oidc-link@example.test",
+            hashed_password="x",
+            is_active=True,
+            role=UserRole.UI_USER.value,
+        )
+    )
+    db_session.flush()
+    db_session.add(
+        ExternalIdentityLinkAttempt(
+            id="link-attempt-1",
+            user_id=1,
+            provider_type="oidc",
+            provider_id="google",
+            issuer=OIDC_ISSUER,
+            source="profile",
+            browser_secret_hash="browser-hash",
+            redirect_path="/profile",
+            expires_at=utcnow() + timedelta(minutes=5),
+        )
+    )
+    db_session.commit()
     monkeypatch.setattr(
         service,
         "_get_metadata",

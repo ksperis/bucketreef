@@ -982,7 +982,6 @@ def test_admin_sensitive_actions_skip_step_up_when_admin_passkeys_are_not_requir
 
 
 def test_refresh_replay_revokes_the_entire_family(db_session):
-    db_session.execute(text("PRAGMA foreign_keys = ON"))
     try:
         user = _user(db_session, email="refresh-replay@example.com")
         service = AuthSessionService(db_session)
@@ -1012,7 +1011,6 @@ def test_refresh_replay_revokes_the_entire_family(db_session):
             service.rotate(replacement.refresh_token)
     finally:
         db_session.rollback()
-        db_session.execute(text("PRAGMA foreign_keys = OFF"))
 
 
 def test_expired_s3_auth_session_erases_persisted_credentials(db_session):

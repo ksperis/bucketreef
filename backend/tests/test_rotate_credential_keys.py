@@ -9,6 +9,8 @@ from app.core.security import (
     decrypt_secret,
     set_credential_keys_override,
 )
+from app.core.domain_enums import UserRole
+from app.db import S3Account, StorageEndpoint, User
 from app.db.ldap import LdapProvider
 from app.db.oidc import OidcProvider
 from app.db.s3_account import AccountIAMUser
@@ -19,11 +21,31 @@ def test_rotate_credentials_includes_iam_and_authentication_provider_secrets(
     db_session,
     monkeypatch,
 ):
+    endpoint = StorageEndpoint(
+        name="credential-rotation-endpoint",
+        endpoint_url="https://credential-rotation.example.test",
+    )
+    user = User(
+        email="credential-rotation@example.test",
+        hashed_password="x",
+        is_active=True,
+        role=UserRole.UI_USER.value,
+    )
+    db_session.add_all([endpoint, user])
+    db_session.flush()
+    account = S3Account(
+        name="credential-rotation-account",
+        rgw_account_id="RGW-CREDENTIAL-ROTATION",
+        rgw_user_uid="credential-rotation-admin",
+        storage_endpoint_id=endpoint.id,
+    )
+    db_session.add(account)
+    db_session.flush()
     db_session.add_all(
         [
             AccountIAMUser(
-                user_id=1,
-                account_id=1,
+                user_id=user.id,
+                account_id=account.id,
                 iam_user_id="iam-user",
                 active_secret_key="iam-secret",
             ),

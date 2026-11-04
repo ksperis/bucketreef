@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 
 import sqlalchemy as sa
 
-from app.db import QuotaAlertState
+from app.db import QuotaAlertState, S3Account, StorageEndpoint
 from app.services.quota_alert_state_service import (
     QUOTA_ALERT_FULL,
     QUOTA_ALERT_NORMAL,
@@ -30,7 +30,28 @@ def _subject() -> SubjectContext:
     )
 
 
+def _seed_subject_parents(db_session) -> None:
+    db_session.add_all(
+        [
+            StorageEndpoint(
+                id=7,
+                name="quota-alert-state-endpoint",
+                endpoint_url="https://quota-alert-state.example.test",
+            ),
+            S3Account(
+                id=42,
+                name="quota-alert-state-account",
+                rgw_account_id="RGW-QUOTA-ALERT-STATE",
+                rgw_user_uid="quota-alert-state-admin",
+                storage_endpoint_id=7,
+            ),
+        ]
+    )
+    db_session.commit()
+
+
 def test_quota_alert_state_tracks_escalation_reset_and_reentry(db_session):
+    _seed_subject_parents(db_session)
     service = QuotaAlertStateService(db_session)
     states = service.load_states()
     subject = _subject()

@@ -38,13 +38,6 @@ class WebhookEndpoint(Base):
 
     subscriptions = relationship(
         "WebhookEndpointSubscription",
-        back_populates="endpoint",
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-    )
-    deliveries = relationship(
-        "WebhookDelivery",
-        back_populates="endpoint",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
@@ -60,8 +53,6 @@ class WebhookEndpointSubscription(Base):
     id = Column(Integer, primary_key=True, index=True)
     endpoint_id = Column(Integer, ForeignKey("webhook_endpoints.id", ondelete="CASCADE"), nullable=False, index=True)
     event_type = Column(String, nullable=False)
-
-    endpoint = relationship("WebhookEndpoint", back_populates="subscriptions")
 
 
 class WebhookDelivery(Base):
@@ -88,5 +79,3 @@ class WebhookDelivery(Base):
     created_at = Column(UTCDateTime(), nullable=False, default=utcnow, index=True)
     updated_at = Column(UTCDateTime(), nullable=False, default=utcnow)
     delivered_at = Column(UTCDateTime(), nullable=True)
-
-    endpoint = relationship("WebhookEndpoint", back_populates="deliveries")

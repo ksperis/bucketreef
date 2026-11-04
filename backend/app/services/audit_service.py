@@ -6,7 +6,7 @@ import json
 import logging
 from typing import Any, Literal, Optional, Protocol
 
-from sqlalchemy import String, cast, or_, select
+from sqlalchemy import String, cast, inspect, or_, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -187,7 +187,11 @@ class AuditService:
         )
         resolved_user_email = user.email if user else (user_email or "unknown")
         resolved_user_role = user.role if user else (user_role or "unknown")
-        resolved_user_id = user.id if isinstance(user, User) else None
+        resolved_user_id = (
+            user.id
+            if isinstance(user, User) and inspect(user).identity is not None
+            else None
+        )
 
         payload = AuditLog(
             user_id=resolved_user_id,

@@ -2,10 +2,11 @@
 # Licensed under the Apache License, Version 2.0
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.core.database import configure_sqlite_connection
 from app.db import Base, User
 from app.core.domain_enums import UserRole
 from app.main import app
@@ -19,11 +20,13 @@ from app.services.webhook_worker import reset_webhook_delivery_worker_for_tests
 @pytest.fixture(scope="session")
 def test_engine():
     # Shared in-memory sqlite database for the whole test session.
-    return create_engine(
+    engine = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
+    event.listen(engine, "connect", configure_sqlite_connection)
+    return engine
 
 
 @pytest.fixture
@@ -31,6 +34,7 @@ def dashboard_test_engine(tmp_path):
     # Dashboard workers need distinct DB connections. StaticPool shares one
     # SQLite connection across threads and can crash the native sqlite driver.
     engine = create_engine(f"sqlite:///{tmp_path / 'dashboard.db'}", connect_args={"check_same_thread": False})
+    event.listen(engine, "connect", configure_sqlite_connection)
     yield engine
     engine.dispose()
 

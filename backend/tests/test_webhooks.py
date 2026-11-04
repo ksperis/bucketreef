@@ -161,6 +161,28 @@ def test_webhook_delete_rolls_back_when_commit_fails(db_session, monkeypatch):
     assert db_session.get(WebhookEndpoint, created.id) is not None
 
 
+def test_webhook_delete_cascades_persisted_deliveries(db_session, monkeypatch):
+    created = _create_endpoint(db_session, monkeypatch, name="delete-cascade", event_types=["*"])
+    db_session.add(
+        WebhookDelivery(
+            delivery_id="delivery-delete-cascade",
+            event_id="event-delete-cascade",
+            endpoint_id=created.id,
+            event_type="audit.admin.update_ui_user",
+            payload={"event": "delete-cascade"},
+        )
+    )
+    db_session.commit()
+
+    WebhookService(db_session).delete_endpoint(created.id)
+
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(WebhookDelivery)
+        .where(WebhookDelivery.endpoint_id == created.id)
+    ) == 0
+
+
 def test_webhook_secret_rotation_rolls_back_when_commit_fails(db_session, monkeypatch):
     created = _create_endpoint(db_session, monkeypatch, name="rotate-failure", event_types=["*"])
     endpoint = db_session.get(WebhookEndpoint, created.id)
