@@ -106,6 +106,22 @@ def isolate_remote_identity_lifecycle(monkeypatch):
     monkeypatch.setattr("app.services.endpoint_service_identities.EndpointServiceIdentityService.reconcile", lambda *args, **kwargs: [])
 
 
+def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
+    rollback_calls: list[None] = []
+    original_rollback = db_session.rollback
+
+    def rollback() -> None:
+        rollback_calls.append(None)
+        original_rollback()
+
+    def commit() -> None:
+        raise RuntimeError("commit failed")
+
+    monkeypatch.setattr(db_session, "rollback", rollback)
+    monkeypatch.setattr(db_session, "commit", commit)
+    return rollback_calls
+
+
 def test_get_endpoint_uses_typed_not_found_error(db_session):
     service = StorageEndpointsService(db_session)
 
@@ -1286,6 +1302,24 @@ def test_update_endpoint_tags_normalizes_and_serializes_tags(db_session):
     assert [
         tag.label for tag in service.tags.get_storage_endpoint_tags(persisted)
     ] == ["prod", "rgw-a"]
+
+
+def test_update_endpoint_tags_rolls_back_when_commit_fails(db_session, monkeypatch):
+    endpoint = _create_ceph_endpoint(db_session, name="ceph-tags-rollback")
+    service = StorageEndpointsService(db_session)
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        service.update_endpoint_tags(
+            endpoint.id,
+            StorageEndpointTagsUpdate(tags=["prod"]),
+        )
+
+    assert rollback_calls == [None]
+    db_session.expire_all()
+    persisted = db_session.get(StorageEndpoint, endpoint.id)
+    assert persisted is not None
+    assert service.tags.get_storage_endpoint_tags(persisted) == []
 
 
 def test_detect_features_types_missing_stored_endpoint(db_session):

@@ -7,6 +7,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.db_transactions import commit_or_rollback
 from app.core.domain_errors import StorageEndpointNotFoundError
 from app.db import S3Account, S3Connection, S3User, StorageEndpoint, User
 from app.core.domain_enums import StorageProvider
@@ -193,13 +194,13 @@ class StorageEndpointsService:
     def update_endpoint_tags(self, endpoint_id: int, payload: StorageEndpointTagsUpdate) -> StorageEndpointSchema:
         endpoint = self.get_endpoint_record(endpoint_id)
         self.tags.replace_storage_endpoint_tags(endpoint, payload.tags)
-        self.db.commit()
+        commit_or_rollback(self.db)
         self.db.refresh(endpoint)
         return self._serialize(endpoint)
 
     def _commit_endpoint(self, endpoint: StorageEndpoint) -> None:
         self.db.add(endpoint)
-        self.db.commit()
+        commit_or_rollback(self.db)
         self.db.refresh(endpoint)
 
     def create_endpoint(
@@ -349,7 +350,7 @@ class StorageEndpointsService:
         )
         endpoint.is_default = True
         self.db.add(endpoint)
-        self.db.commit()
+        commit_or_rollback(self.db)
         self.db.refresh(endpoint)
         return self._serialize(endpoint)
 
@@ -412,7 +413,7 @@ class StorageEndpointsService:
         )
         apply_storage_endpoint_state(entry, state)
         self.db.add(entry)
-        self.db.commit()
+        commit_or_rollback(self.db)
         self.db.refresh(entry)
         from app.core.runtime_surfaces import endpoint_identity_management_enabled
         if endpoint_identity_management_enabled(settings) and entry.admin_access_key and entry.admin_secret_key:
