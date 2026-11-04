@@ -324,12 +324,12 @@ def normalize_features(
     return features
 
 
-def normalize_features_config(
+def normalize_seed_features_config(
     provider: object,
     raw: Optional[str],
     region: Optional[object] = None,
 ) -> dict[str, dict[str, Any]]:
-    """Parse the documented YAML/JSON boundary used by ENV and seed settings."""
+    """Parse and normalize the SEED_S3_ENDPOINT_FEATURES YAML/JSON boundary."""
     raw_features = parse_features_config(raw)
     return normalize_features(provider, raw_features, region)
 
