@@ -1,5 +1,18 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 OIDC link session metadata cleanup
+
+Migration `0233_remove_unused_oidc_link_session_metadata` removes three
+persisted fields that were carried through secure external-identity linking but
+never consumed by the runtime: `external_identity_link_attempts.initiating_auth_session_id`
+and `oidc_login_states.target_user_id` / `auth_session_id`.
+
+Link attempts remain bound to the browser secret and explicit
+`link_attempt_id`. The target user is resolved from the link attempt itself,
+and profile-link MFA freshness is captured in `mfa_verified_at` when the
+attempt is created. Downgrade recreates the removed nullable columns without
+inventing historical values.
+
 ## 2026-11 OIDC issuer pin timestamp cleanup
 
 Migration `0232_remove_oidc_issuer_pin_timestamps` removes the unused

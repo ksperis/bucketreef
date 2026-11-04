@@ -173,12 +173,6 @@ class ExternalIdentityLinkAttempt(Base):
     picture_url = Column(String, nullable=True)
     source = Column(String, nullable=False)
     browser_secret_hash = Column(String, nullable=False)
-    initiating_auth_session_id = Column(
-        String,
-        ForeignKey("auth_sessions.id", ondelete="SET NULL"),
-        nullable=True,
-        index=True,
-    )
     proof_method = Column(String, nullable=True)
     proof_verified_at = Column(UTCDateTime(), nullable=True)
     mfa_verified_at = Column(UTCDateTime(), nullable=True)
