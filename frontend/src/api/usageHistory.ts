@@ -72,36 +72,11 @@ type UsageHistoryCollectionSubjectWarning = {
 };
 
 type UsageHistoryCollectionResult = {
-  started_at: string;
-  finished_at: string;
-  subjects_total: number;
   subjects_processed: number;
   history_hourly_upserts: number;
   history_daily_upserts: number;
-  alerts_triggered: number;
-  alerts_sent: number;
-  notifications_created: number;
-  email_errors: number;
   errors: UsageHistoryCollectionSubjectError[];
   warnings: Array<string | UsageHistoryCollectionSubjectWarning>;
-  quota_alerts_enabled: boolean;
-  quota_alerts_configured: boolean;
-  usage_history_enabled: boolean;
-  usage_history_collection_enabled: boolean;
-  threshold_percent: number;
-  retention: {
-    quota_history: {
-      hourly_retention_days: number;
-      daily_retention_days: number;
-      deleted_hourly: number;
-      deleted_daily: number;
-    };
-    cost_history: {
-      daily_retention_days: number;
-      deleted_usage_daily: number;
-      deleted_storage_daily: number;
-    };
-  };
   status: "skipped" | null;
   reason: string | null;
 };

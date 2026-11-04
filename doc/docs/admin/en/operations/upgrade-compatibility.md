@@ -1,5 +1,16 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 Admin usage-history collection response cleanup
+
+`POST /api/admin/usage-history/collect` now returns only the collection outcome
+used by the Admin UI: processed-subject and snapshot counters, collection
+errors and warnings, plus the optional skipped status and reason. Internal
+quota configuration, alert-delivery counters, retention details, and run
+timestamps remain available to the operational quota-monitoring service and
+its internal endpoints instead of being duplicated in the Admin response.
+
+Deploy matching backend and frontend versions together.
+
 ## 2026-11 first-admin bootstrap provenance cleanup
 
 Migration `0234_remove_first_admin_created_user_id` removes the unused

@@ -20,6 +20,16 @@ class QuotaMonitoringSubjectWarning(ApiModel):
     warning: str
 
 
+class UsageHistoryCollectionResult(ApiModel):
+    subjects_processed: int
+    history_hourly_upserts: int
+    history_daily_upserts: int
+    errors: list[QuotaMonitoringSubjectError]
+    warnings: list[str | QuotaMonitoringSubjectWarning]
+    status: Optional[Literal["skipped"]]
+    reason: Optional[str]
+
+
 class QuotaMonitoringResult(ApiModel):
     started_at: str
     finished_at: str
