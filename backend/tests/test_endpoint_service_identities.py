@@ -890,6 +890,101 @@ def test_absent_remote_principal_can_be_revoked_without_users_write(identities):
     assert not any(call[0] == "delete" for call in rgw.calls)
 
 
+def test_ready_checkpoint_commit_failure_rolls_back_and_reuses_remote_identity(
+    identities, db_session, monkeypatch
+):
+    from sqlalchemy.exc import OperationalError
+
+    service, endpoint, rgw = identities
+    commit = db_session.commit
+    failed = False
+
+    def fail_ready_checkpoint():
+        nonlocal failed
+        if not failed and any(
+            isinstance(row, EndpointServiceIdentity)
+            and row.kind == "runtime"
+            and row.status == "ready"
+            for row in db_session.dirty
+        ):
+            failed = True
+            raise OperationalError("commit", {}, Exception("injected"))
+        return commit()
+
+    monkeypatch.setattr(db_session, "commit", fail_ready_checkpoint)
+
+    with pytest.raises(OperationalError):
+        service.reconcile(endpoint, locked=True)
+
+    identity = endpoint.service_identity("runtime")
+    assert identity is not None
+    uid = identity.rgw_uid
+    assert identity.status == "provisioning"
+    assert uid in rgw.users
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(AuditLog)
+        .where(AuditLog.action == "endpoint_service_identity.validated")
+    ) == 0
+    assert len([call for call in rgw.calls if call[0] == "create" and call[1] == uid]) == 1
+
+    monkeypatch.setattr(db_session, "commit", commit)
+    service.reconcile(endpoint, locked=True)
+
+    assert identity.status == "ready"
+    assert len([call for call in rgw.calls if call[0] == "create" and call[1] == uid]) == 1
+
+
+def test_revocation_final_commit_failure_restores_pending_checkpoint(
+    identities, db_session, monkeypatch
+):
+    from sqlalchemy.exc import OperationalError
+
+    service, endpoint, rgw = identities
+    service.reconcile(endpoint, locked=True)
+    identity = endpoint.service_identity("runtime")
+    uid = identity.rgw_uid
+    access_key = identity.access_key
+    commit = db_session.commit
+    failed = False
+
+    def fail_disabled_checkpoint():
+        nonlocal failed
+        if not failed and any(
+            row is identity
+            and row.status == "disabled"
+            and row.access_key is None
+            for row in db_session.dirty
+        ):
+            failed = True
+            raise OperationalError("commit", {}, Exception("injected"))
+        return commit()
+
+    monkeypatch.setattr(db_session, "commit", fail_disabled_checkpoint)
+
+    with pytest.raises(OperationalError):
+        service.revoke(endpoint, "runtime")
+
+    assert identity.status == "revocation_pending"
+    assert identity.access_key == access_key
+    assert uid not in rgw.users
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(AuditLog)
+        .where(AuditLog.action == "endpoint_service_identity.revoked")
+    ) == 0
+
+    monkeypatch.setattr(db_session, "commit", commit)
+    assert service.revoke(endpoint, "runtime")
+    assert identity.status == "disabled" and identity.access_key is None
+    assert len([call for call in rgw.calls if call[0] == "delete" and call[1] == uid]) == 1
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(AuditLog)
+        .where(AuditLog.action == "endpoint_service_identity.revoked")
+    ) == 1
+
+
 def test_unchanged_external_env_preserves_ready_state_on_user_instance(identities, db_session, monkeypatch):
     _, endpoint, rgw = identities
     row = service_identity("runtime", "EXTERNAL", "EXTERNAL-SECRET")

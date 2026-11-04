@@ -11,6 +11,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.db_transactions import commit_or_rollback
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.core.sqlite import ensure_sqlite_transaction_for_savepoint
 from app.db import AppSetting, EndpointServiceIdentity, StorageEndpoint, User
@@ -93,7 +94,7 @@ class EndpointServiceIdentityService:
             identity.status = "error"
         identity.last_error = str(error)
         identity.last_reconciled_at = utcnow()
-        self.db.commit()
+        commit_or_rollback(self.db)
         if changed:
             self._audit(endpoint, identity, "key_drift_detected")
 
@@ -159,7 +160,7 @@ class EndpointServiceIdentityService:
         identity.access_key = identity.access_key or secrets.token_hex(10).upper()
         identity.secret_key = identity.secret_key or secrets.token_urlsafe(32)
         identity.status = "provisioning"
-        self.db.commit()
+        commit_or_rollback(self.db)
         return identity
 
     def _ensure_managed_remote_user(
@@ -183,7 +184,7 @@ class EndpointServiceIdentityService:
             if not permissions.users_write:
                 raise ValueError("Managed service identity is absent; recreation requires users=write.")
             identity.status = "provisioning"
-            self.db.commit()
+            commit_or_rollback(self.db)
             payload = admin.create_user(
                 identity.rgw_uid,
                 display_name=f"BucketReef {kind} service",
@@ -239,7 +240,7 @@ class EndpointServiceIdentityService:
         )
         identity.status, identity.last_error = "ready", None
         identity.last_reconciled_at = utcnow()
-        self.db.commit()
+        commit_or_rollback(self.db)
         self._audit(endpoint, identity, "validated")
         return identity
 
@@ -315,7 +316,7 @@ class EndpointServiceIdentityService:
                     "Ceph Admin validation failed; check the RGW endpoint configuration and connectivity."
                 )
             identity.last_reconciled_at = utcnow()
-        self.db.commit()
+        commit_or_rollback(self.db)
         if validated:
             self._audit(endpoint, identity, "validated")
         return {"kind": "ceph_admin", "status": identity.status}
@@ -328,10 +329,10 @@ class EndpointServiceIdentityService:
             return True
         if identity.status == "disabled" or not any((identity.rgw_uid, identity.access_key, identity.secret_key, identity.provenance)):
             identity.status, identity.last_error = "disabled", None
-            self.db.commit()
+            commit_or_rollback(self.db)
             return True
         identity.status = "revocation_pending"
-        self.db.commit()  # Access is denied even if remote revocation subsequently fails.
+        commit_or_rollback(self.db)  # Access is denied even if remote revocation subsequently fails.
         try:
             admin, permissions = self.admin_permissions(endpoint)
             payload = admin.get_user(identity.rgw_uid, allow_not_found=True)
@@ -363,7 +364,7 @@ class EndpointServiceIdentityService:
             )
             identity.last_error = None
             identity.last_reconciled_at = utcnow()
-            self.db.commit()
+            commit_or_rollback(self.db)
             self._audit(endpoint, identity, "revoked")
             return True
         except ManagedIdentityKeyDriftError as exc:
@@ -374,7 +375,7 @@ class EndpointServiceIdentityService:
             self.db.rollback()
             identity.status = "revocation_pending"
             identity.last_error = "Remote revocation is pending; check Admin Ops permissions and RGW connectivity."
-            self.db.commit()
+            commit_or_rollback(self.db)
             return False
 
     def _record_admin_validation_failure(
@@ -405,7 +406,7 @@ class EndpointServiceIdentityService:
                 if failure == "misconfigured"
                 else "Admin Ops validation failed; check its required read permissions and RGW connectivity."
             )
-        self.db.commit()
+        commit_or_rollback(self.db)
 
     def _record_identity_reconcile_failure(
         self,
@@ -440,7 +441,7 @@ class EndpointServiceIdentityService:
                 if unavailable and identity.status == "ready"
                 else f"Unable to configure {kind}; check credentials, required caps, ownership and RGW connectivity."
             )
-        self.db.commit()
+        commit_or_rollback(self.db)
         return identity
 
     def _reconcile_service_identity(
