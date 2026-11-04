@@ -84,6 +84,34 @@ def connect(db, setup):
     return service, user, auth, connection, ctx
 
 
+def test_save_cloud_rolls_back_when_commit_fails(db_session, monkeypatch):
+    rollback_calls: list[None] = []
+    original_rollback = db_session.rollback
+
+    def rollback() -> None:
+        rollback_calls.append(None)
+        original_rollback()
+
+    def commit() -> None:
+        raise RuntimeError("commit failed")
+
+    monkeypatch.setattr(db_session, "rollback", rollback)
+    monkeypatch.setattr(db_session, "commit", commit)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        OpenStackService(db_session).save_cloud(
+            OpenStackCloudWrite(
+                name="Commit failure",
+                auth_url="https://commit-failure.example.test/v3",
+            )
+        )
+
+    assert rollback_calls == [None]
+    assert db_session.scalar(
+        select(OpenStackCloud).where(OpenStackCloud.name == "Commit failure")
+    ) is None
+
+
 def test_connected_projects_are_candidates_and_reuse_previously_activated_context(db_session, setup_cloud):
     user, target, cloud = setup_cloud
     auth, _ = authenticated(db_session, user)

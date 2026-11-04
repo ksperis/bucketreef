@@ -9,6 +9,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.db_transactions import commit_or_rollback
 from app.db import AuthSession, User
 from app.db.openstack import OpenStackCloud, OpenStackConnection, OpenStackProjectContext, OpenStackProjectCredential, OpenStackSession
 from app.services.access_context_contracts import AccountCapabilities
@@ -130,9 +131,8 @@ class OpenStackService:
             setattr(cloud, name, value)
         self.db.add(cloud)
         try:
-            self.db.commit()
+            commit_or_rollback(self.db)
         except IntegrityError:
-            self.db.rollback()
             raise OpenStackError("cloud_conflict", "OpenStack cloud name already exists", 409) from None
         return cloud
 
@@ -163,7 +163,7 @@ class OpenStackService:
         if cloud is None:
             raise OpenStackError("cloud_not_found", "OpenStack cloud not found", 404)
         self.db.delete(cloud)
-        self.db.commit()
+        commit_or_rollback(self.db)
 
     def _auth(self, user: User, auth_id: str, *, lock: bool = False) -> AuthSession:
         statement = select(AuthSession).where(AuthSession.id == auth_id).execution_options(populate_existing=True)
@@ -193,7 +193,7 @@ class OpenStackService:
         if row is not None and row.expires_at <= utcnow() and row.token:
             self.db.execute(delete(OpenStackProjectCredential).where(OpenStackProjectCredential.session_id == row.id))
             row.token = None
-            self.db.commit()
+            commit_or_rollback(self.db)
         if not row or not row.token or row.cloud_version != connection.cloud.config_version or row.expires_at <= utcnow() or (expected_id is not None and row.id != expected_id):
             raise OpenStackError("reauthentication_required", "Reconnect to OpenStack")
         return row
@@ -228,7 +228,7 @@ class OpenStackService:
         self.db.flush()
         self.db.add(OpenStackSession(connection_id=connection.id, auth_session_id=auth_id, token=identity.token, cloud_version=expected_version,
                                     expires_at=min(identity.expires_at, auth.absolute_expires_at)))
-        self.db.commit()
+        commit_or_rollback(self.db)
         return connection
 
     def connection_read(self, connection: OpenStackConnection, user: User, auth_id: str) -> dict:
@@ -545,7 +545,7 @@ class OpenStackService:
         credential.can_manage_iam = self._probe_iam(context, credential, auth_id)
         self._auth(user, auth_id, lock=True)
         self._session(user, auth_id, connection, expected_id=session_id)
-        self.db.commit()
+        commit_or_rollback(self.db)
         return f"os-{context.id}"
 
     def _probe_iam(self, context, credential, auth_id) -> bool:
@@ -608,7 +608,7 @@ class OpenStackService:
         now = utcnow()
         if credential is not None and credential.expires_at <= now:
             self.db.delete(credential)
-            self.db.commit()
+            commit_or_rollback(self.db)
             credential = None
         if credential is None or not credential.secret_key or credential.expires_at <= utcnow():
             raise OpenStackError(
@@ -644,7 +644,7 @@ class OpenStackService:
         )
         if key is None:
             self.db.delete(credential)
-            self.db.commit()
+            commit_or_rollback(self.db)
             raise OpenStackError(
                 "reauthentication_required",
                 "EC2 credential changed; select a valid credential",
@@ -663,7 +663,7 @@ class OpenStackService:
         )
         if not target_matches:
             self.db.delete(credential)
-            self.db.commit()
+            commit_or_rollback(self.db)
             raise OpenStackError(
                 "reauthentication_required",
                 "OpenStack S3 region changed; select the project again",
@@ -673,7 +673,7 @@ class OpenStackService:
         self.db.refresh(credential)
         credential.validated_at = utcnow()
         credential.expires_at = min(credential.expires_at, key["expires_at"])
-        self.db.commit()
+        commit_or_rollback(self.db)
 
     def _attach_execution_guard(
         self,
@@ -790,4 +790,4 @@ class OpenStackService:
         self._erase_connection(connection, None if forget else auth_id)
         if forget:
             self.db.delete(connection)
-        self.db.commit()
+        commit_or_rollback(self.db)
