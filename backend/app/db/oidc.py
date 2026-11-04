@@ -77,5 +77,3 @@ class OidcProviderIssuerPin(Base):
 
     provider_id = Column(String, primary_key=True)
     issuer = Column(String, nullable=False, index=True)
-    created_at = Column(UTCDateTime(), default=utcnow, nullable=False)
-    last_verified_at = Column(UTCDateTime(), default=utcnow, nullable=False)

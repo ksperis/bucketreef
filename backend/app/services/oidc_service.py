@@ -576,22 +576,16 @@ class OidcService:
         except ValueError as exc:
             raise OIDCConfigurationError("OIDC provider issuer is missing") from exc
         row = self.db.get(OidcProviderIssuerPin, provider_key)
-        now = utcnow()
         if row is None:
             row = OidcProviderIssuerPin(
                 provider_id=provider_key,
                 issuer=issuer,
-                created_at=now,
-                last_verified_at=now,
             )
             self.db.add(row)
             commit_or_rollback(self.db)
             return issuer
         if row.issuer != issuer:
             raise OIDCConfigurationError("OIDC provider issuer no longer matches its pinned issuer")
-        row.last_verified_at = now
-        self.db.add(row)
-        commit_or_rollback(self.db)
         return issuer
 
     def _validate_auth_time(self, claims: dict[str, Any], state_created_at: Any) -> None:

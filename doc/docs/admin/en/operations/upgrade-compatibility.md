@@ -1,5 +1,19 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 OIDC issuer pin timestamp cleanup
+
+Migration `0232_remove_oidc_issuer_pin_timestamps` removes the unused
+`created_at` and `last_verified_at` columns from `oidc_provider_issuer_pins`.
+The durable security contract remains the provider ID and its pinned issuer;
+neither timestamp was consumed for expiry, authorization, audit, or display.
+
+An already-pinned provider whose discovered issuer still matches now follows a
+read-only database path instead of writing a verification timestamp on every
+OIDC authentication. First-time issuer pinning still persists the provider and
+issuer before authentication continues. Downgrade recreates both historical
+timestamp columns using the downgrade time because their previous values are
+not part of the current contract and cannot be reconstructed.
+
 ## 2026-11 durable S3 account import
 
 Migration `0231_s3_account_import_intents` adds the

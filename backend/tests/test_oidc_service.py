@@ -130,6 +130,30 @@ def test_provider_issuer_rolls_back_when_commit_fails(db_session, monkeypatch):
     assert db_session.get(OidcProviderIssuerPin, "google") is None
 
 
+def test_provider_issuer_does_not_commit_matching_existing_pin(db_session, monkeypatch):
+    db_session.add(
+        OidcProviderIssuerPin(
+            provider_id="google",
+            issuer=OIDC_ISSUER,
+        )
+    )
+    db_session.commit()
+
+    service, _ = _service(db_session)
+    monkeypatch.setattr(
+        service,
+        "_get_metadata",
+        lambda *args, **kwargs: {"issuer": OIDC_ISSUER},
+    )
+
+    def commit() -> None:
+        raise AssertionError("matching issuer pin must remain read-only")
+
+    monkeypatch.setattr(db_session, "commit", commit)
+
+    assert service.provider_issuer("google") == OIDC_ISSUER
+
+
 def test_start_login_generates_authorization_url_and_persists_state(db_session, monkeypatch):
     service, _ = _service(db_session)
     monkeypatch.setattr(
