@@ -386,7 +386,7 @@ class BucketUiTagsService:
                     storage_endpoint_id=target.endpoint_id,
                     tenant_key=target.tenant,
                     bucket_name=target.name,
-                    tag_definition=definition,
+                    tag_definition_id=int(definition.id),
                     position=next_position,
                 )
             )

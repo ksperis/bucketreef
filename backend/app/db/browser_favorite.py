@@ -1,7 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from sqlalchemy import Column, ForeignKey, Index, Integer, String
-from sqlalchemy.orm import relationship
 from app.db.base import Base
 from app.db.utc_datetime import UTCDateTime
 from app.utils.time import utcnow
@@ -21,4 +20,3 @@ class BrowserFavorite(Base):
     revision = Column(Integer, nullable=False, default=1)
     created_at = Column(UTCDateTime(), nullable=False, default=utcnow)
     updated_at = Column(UTCDateTime(), nullable=False, default=utcnow)
-    user = relationship("User", back_populates="browser_favorites")

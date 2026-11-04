@@ -60,8 +60,6 @@ class User(Base):
     quota_alerts_global_watch = Column(Boolean, default=False, nullable=False, server_default="0")
     ui_preferences = Column(JSON, nullable=False, default=dict, server_default="{}")
 
-    browser_favorites = relationship("BrowserFavorite", back_populates="user", cascade="all, delete-orphan")
-
     accounts = relationship(
         "S3Account",
         secondary="user_s3_accounts",
@@ -83,11 +81,6 @@ class User(Base):
         "UserS3User",
         back_populates="user",
         overlaps="s3_users",
-    )
-    portal_iam_links = relationship(
-        "AccountIAMUser",
-        back_populates="user",
-        overlaps="accounts,account_links",
     )
     # User-scoped S3 connections (credential-first).
     s3_connections = relationship(
