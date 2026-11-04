@@ -1,5 +1,15 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 quota-monitor result cleanup
+
+The internal quota-monitor and usage-history collection responses no longer
+echo `quota_alerts_enabled`, `quota_alerts_configured`,
+`usage_history_enabled`, `usage_history_collection_enabled`, or
+`threshold_percent`. Those values are configuration inputs to the workflows,
+while the operational responses now contain only execution outcomes such as
+processed subjects, generated snapshots and alerts, errors, retention results,
+and skipped status.
+
 ## 2026-11 Admin usage-history collection response cleanup
 
 `POST /api/admin/usage-history/collect` now returns only the collection outcome

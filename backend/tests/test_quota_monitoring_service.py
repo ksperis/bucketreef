@@ -293,9 +293,6 @@ def test_quota_monitor_mode_does_not_persist_usage_history(db_session, monkeypat
     result = service.run_quota_alerts()
 
     assert result["subjects_processed"] == 1
-    assert result["quota_alerts_enabled"] is True
-    assert result["usage_history_enabled"] is True
-    assert result["usage_history_collection_enabled"] is False
     assert result["history_hourly_upserts"] == 0
     assert result["history_daily_upserts"] == 0
     assert db_session.scalar(sa.select(sa.func.count()).select_from(QuotaUsageHourly)) == 0

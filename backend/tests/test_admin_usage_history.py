@@ -315,11 +315,6 @@ def test_collect_usage_history_runs_without_quota_alerts_or_audit_rows(client: T
             "email_errors": 0,
             "errors": [],
             "warnings": [],
-            "quota_alerts_enabled": False,
-            "quota_alerts_configured": True,
-            "usage_history_enabled": True,
-            "usage_history_collection_enabled": True,
-            "threshold_percent": 85,
             "status": None,
             "reason": None,
             "retention": {

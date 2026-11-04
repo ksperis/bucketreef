@@ -105,12 +105,7 @@ class QuotaMonitoringService:
         usage_history_enabled = bool(
             settings.general.usage_history_enabled and include_usage_history
         )
-        summary = self._new_summary(
-            settings=settings,
-            now=now,
-            quota_alerts_enabled=quota_alerts_enabled,
-            usage_history_enabled=usage_history_enabled,
-        )
+        summary = self._new_summary(now=now)
         if not quota_alerts_enabled and not usage_history_enabled:
             summary.update(
                 status="skipped",
@@ -139,10 +134,7 @@ class QuotaMonitoringService:
     @staticmethod
     def _new_summary(
         *,
-        settings: AppSettings,
         now: datetime,
-        quota_alerts_enabled: bool,
-        usage_history_enabled: bool,
     ) -> dict[str, Any]:
         return {
             "started_at": now.isoformat(),
@@ -156,11 +148,6 @@ class QuotaMonitoringService:
             "email_errors": 0,
             "errors": [],
             "warnings": [],
-            "quota_alerts_enabled": quota_alerts_enabled,
-            "quota_alerts_configured": bool(settings.general.quota_alerts_enabled),
-            "usage_history_enabled": bool(settings.general.usage_history_enabled),
-            "usage_history_collection_enabled": usage_history_enabled,
-            "threshold_percent": int(settings.quota_notifications.threshold_percent),
             "status": None,
             "reason": None,
         }
