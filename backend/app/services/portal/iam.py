@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Optional, Tuple
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
+from app.core.db_transactions import commit_or_rollback
 from app.db import AccountIAMUser, PortalIAMRevocation, S3Account, User
 from app.core.domain_enums import PortalAccountRole
 from app.models.iam import AccessKey as ModelAccessKey, IAMUser
@@ -63,7 +64,7 @@ class PortalIamMixin:
         link.active_access_key = key.access_key_id
         link.active_secret_key = key.secret_access_key
         self.db.add(link)
-        self.db.commit()
+        commit_or_rollback(self.db)
         return portal_access_key_from_iam_metadata(
             key,
             is_portal=True,
@@ -94,9 +95,8 @@ class PortalIamMixin:
             link.active_secret_key = created_key.secret_access_key
         try:
             self.db.add(link)
-            self.db.commit()
+            commit_or_rollback(self.db)
         except IntegrityError:
-            self.db.rollback()
             concurrent_link = self._existing_portal_link(user, account)
             if concurrent_link is None:
                 raise
@@ -236,12 +236,6 @@ class PortalIamMixin:
                 expected_username=expected_username,
             )
             created = created_key is not None
-
-        if not link.iam_user_id and iam_user:
-            link.iam_user_id = iam_user.user_id or iam_user.arn or link.iam_username
-            self.db.add(link)
-            self.db.commit()
-            self.db.refresh(link)
 
         if iam_user is None and link.iam_username:
             iam_user = iam_service.get_user(link.iam_username)
