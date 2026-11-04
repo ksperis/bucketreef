@@ -39,7 +39,7 @@ def test_manager_migrations_router_preserves_the_public_route_contract() -> None
         ("GET", "/manager/migrations"),
         ("GET", "/manager/migrations/{migration_id}"),
         ("GET", "/manager/migrations/{migration_id}/stream"),
-        ("PATCH", "/manager/migrations/{migration_id}"),
+        ("PUT", "/manager/migrations/{migration_id}"),
         ("POST", "/manager/migrations"),
         ("POST", "/manager/migrations/{migration_id}/continue"),
         ("POST", "/manager/migrations/{migration_id}/cleanup-source"),

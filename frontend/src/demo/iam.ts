@@ -5,6 +5,17 @@ import type { IamPolicy, InlinePolicy } from "../api/managerIamPolicies";
 import { DemoError, done, json, required, scopedAccount, textField, type DemoRequest } from "./http";
 import type { DemoIam } from "./state";
 
+function cursorPage<T>(items: T[], c: DemoRequest) {
+  const search = (c.url.searchParams.get("search") ?? "").trim().toLowerCase();
+  const matches = search
+    ? items.filter(item => JSON.stringify(item).toLowerCase().includes(search))
+    : [...items];
+  const size = Math.max(1, Math.min(Number(c.url.searchParams.get("page_size")) || 25, 1000));
+  const start = Math.max(0, Number(c.url.searchParams.get("marker")) || 0);
+  const end = Math.min(matches.length, start + size);
+  return { items: matches.slice(start, end), next_marker: end < matches.length ? String(end) : null };
+}
+
 export function generatedKey(c: DemoRequest): AccessKey {
   return {
     access_key_id: `DEMO${String(c.state.nextId++).padStart(16, "0")}`,
@@ -77,9 +88,22 @@ export function keyActions(
 export function iam(c: DemoRequest): Response | undefined {
   const portalKeys = c.path.match(/^\/portal\/access-keys(?:\/([^/]+)(?:\/(status))?)?$/);
   const cephKeys = c.path.match(/^\/manager\/ceph\/keys(?:\/([^/]+)(?:\/(status))?)?$/);
+  const pageMatch = c.path.match(/^\/manager\/iam\/(users|groups|roles|policies)\/page$/);
   const match = c.path.match(/^\/manager\/iam\/(users|groups|roles|policies)(?:\/([^/]+)(?:\/(keys|policies|inline-policies|users|tags)(?:\/([^/]+)(?:\/(status))?)?)?)?$/);
-  if (!match && !portalKeys && !cephKeys) return undefined;
+  if (!match && !pageMatch && !portalKeys && !cephKeys) return undefined;
   const account = scopedAccount(c); const data = required(c.state.iam[account.id]);
+  if (pageMatch && c.method === "GET") {
+    const segment = pageMatch[1] as "users" | "groups" | "roles" | "policies";
+    if (segment === "users") {
+      return json(cursorPage(
+        data.users.map(entity => ({ ...entity, has_keys: (data.keys[entity.name]?.length ?? 0) > 0 })),
+        c,
+      ));
+    }
+    if (segment === "groups") return json(cursorPage(data.groups, c));
+    if (segment === "roles") return json(cursorPage(data.roles, c));
+    return json(cursorPage(data.policies, c));
+  }
   if (portalKeys || cephKeys) {
     const owner = portalKeys ? `portal-${c.user.id}` : "account-root";
     if (portalKeys && c.body.target_type === "external") throw new DemoError(403, "External key sharing is disabled in this demo");

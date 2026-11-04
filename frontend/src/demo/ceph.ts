@@ -37,6 +37,18 @@ export function ceph(c: DemoRequest): Response | undefined {
     };
     return json(response);
   }
+  const multisiteState = c.path.match(/^\/ceph-admin\/endpoints\/(\d+)\/multisite\/state$/);
+  if (multisiteState && c.method === "GET") {
+    const endpoint = required(c.state.endpoints.find(e => e.id === Number(multisiteState[1])));
+    return json({
+      status: endpoint.realm_id ? "active" : "inactive",
+      realm_id: endpoint.realm_id ?? null,
+      local_zone_id: endpoint.zone_id ?? null,
+      checked_at: c.state.initializedAt,
+      availability: "available",
+      reason_code: null,
+    });
+  }
   const match = c.path.match(/^\/ceph-admin\/endpoints\/(\d+)\/(accounts|users)(?:\/([^/]+)(?:\/(detail|config|keys)(?:\/([^/]+)(?:\/(status))?)?)?)?$/);
   if (!match) return undefined;
   const endpoint = required(c.state.endpoints.find(e => e.id === Number(match[1])));

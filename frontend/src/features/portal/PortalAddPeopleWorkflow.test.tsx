@@ -83,7 +83,7 @@ it("keeps roles and counts across searches, excludes existing grants and submits
   await user.click(screen.getByRole("checkbox", { name: /Chen/ }));
   expect(screen.getByText("2 selected")).toBeVisible();
   await user.clear(screen.getByRole("textbox", { name: "People" }));
-  expect(screen.getByRole("combobox", { name: "Access for bob@example.test" })).toHaveValue("Editor");
+  expect(await screen.findByRole("combobox", { name: "Access for bob@example.test" })).toHaveValue("Editor");
   await user.click(screen.getByRole("checkbox", { name: /Chen/ }));
   expect(screen.getByText("1 selected")).toBeVisible();
   expect(await axe(container)).toHaveNoViolations();

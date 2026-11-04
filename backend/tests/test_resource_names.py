@@ -184,6 +184,17 @@ def _iam_create_payload(entity: str, **overrides):
     if entity == "user":
         payload["create_key"] = False
         payload["groups"] = []
+    if entity == "role":
+        payload["assume_role_policy_document"] = {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {"AWS": "*"},
+                    "Action": "sts:AssumeRole",
+                }
+            ],
+        }
     return {**payload, **overrides}
 
 
