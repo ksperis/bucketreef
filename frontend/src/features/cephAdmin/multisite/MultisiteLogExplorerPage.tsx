@@ -126,7 +126,6 @@ export default function MultisiteLogExplorerPage() {
   useEffect(() => () => requestController.current?.abort(), []);
 
   const updateForm = <K extends keyof LogForm>(key: K, value: LogForm[K]) => setForm((current) => ({ ...current, [key]: value }));
-  const endpointLabel = (endpoint: (typeof endpointOptions)[number]) => text("{zone} — {endpoint} (#{id})", { zone: endpoint.zoneName, endpoint: endpoint.endpointName, id: endpoint.endpointId });
 
   const load = useCallback((scope: MultisiteLogScope, cursorHistory: LogCursorHistory, identity: string, formForUrl: LogForm) => {
     if (selectedEndpointId == null) return;
@@ -250,9 +249,9 @@ export default function MultisiteLogExplorerPage() {
             <option value="data">{text("Data")}</option>
             <option value="bucket-index">{text("Bucket index")}</option>
           </UiSelect>
-          <UiSelect label={text("Target zone and endpoint")} value={form.targetEndpointId} onChange={(event) => updateForm("targetEndpointId", event.target.value)}>
-            <option value="">{text("Select target endpoint")}</option>
-            {endpointOptions.map((endpoint) => <option key={endpoint.endpointId} value={endpoint.endpointId}>{endpointLabel(endpoint)}</option>)}
+          <UiSelect label={text("Target zone")} value={form.targetEndpointId} onChange={(event) => updateForm("targetEndpointId", event.target.value)}>
+            <option value="">{text("Select target zone")}</option>
+            {endpointOptions.map((endpoint) => <option key={endpoint.endpointId} value={endpoint.endpointId}>{endpoint.zoneName}</option>)}
           </UiSelect>
           <UiInput label={text("Page size")} type="number" min={1} max={500} value={form.limit} onChange={(event) => updateForm("limit", event.target.value)} />
           {form.family === "metadata" ? <>
