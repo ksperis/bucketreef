@@ -65,7 +65,31 @@ def test_internal_usage_history_collect_uses_daily_history_mode(client, monkeypa
 
     assert response.status_code == 200, response.text
     assert calls == ["usage-history"]
-    assert response.json()["subjects_processed"] == 2
+    assert response.json() == {
+        "started_at": "2026-10-23T08:00:00+00:00",
+        "finished_at": "2026-10-23T08:00:01+00:00",
+        "subjects_total": 2,
+        "subjects_processed": 2,
+        "history_hourly_upserts": 2,
+        "history_daily_upserts": 2,
+        "errors": [],
+        "warnings": [],
+        "retention": {
+            "quota_history": {
+                "hourly_retention_days": 30,
+                "daily_retention_days": 365,
+                "deleted_hourly": 0,
+                "deleted_daily": 0,
+            },
+            "cost_history": {
+                "daily_retention_days": 365,
+                "deleted_usage_daily": 0,
+                "deleted_storage_daily": 0,
+            },
+        },
+        "status": None,
+        "reason": None,
+    }
 
 
 def test_internal_quota_monitor_does_not_persist_usage_history(client, monkeypatch):
@@ -92,7 +116,33 @@ def test_internal_quota_monitor_does_not_persist_usage_history(client, monkeypat
 
     assert response.status_code == 200, response.text
     assert calls == ["quota-alerts"]
-    assert response.json()["history_hourly_upserts"] == 0
+    assert response.json() == {
+        "started_at": "2026-10-23T08:00:00+00:00",
+        "finished_at": "2026-10-23T08:00:01+00:00",
+        "subjects_total": 1,
+        "subjects_processed": 1,
+        "alerts_triggered": 0,
+        "alerts_sent": 0,
+        "notifications_created": 0,
+        "email_errors": 0,
+        "errors": [],
+        "warnings": [],
+        "retention": {
+            "quota_history": {
+                "hourly_retention_days": 30,
+                "daily_retention_days": 365,
+                "deleted_hourly": 0,
+                "deleted_daily": 0,
+            },
+            "cost_history": {
+                "daily_retention_days": 365,
+                "deleted_usage_daily": 0,
+                "deleted_storage_daily": 0,
+            },
+        },
+        "status": None,
+        "reason": None,
+    }
 
 
 def test_internal_notification_retention_runs_scoped_purge(client, monkeypatch):

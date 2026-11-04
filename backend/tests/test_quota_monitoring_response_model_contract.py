@@ -1,21 +1,39 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
-from app.models.quota_monitoring import QuotaMonitoringResult, UsageHistoryCollectionResult
+from app.models.quota_monitoring import (
+    QuotaAlertRunResult,
+    UsageHistoryCollectionResult,
+    UsageHistoryRunResult,
+)
 
 
-def test_quota_monitoring_result_requires_complete_canonical_payload() -> None:
-    assert set(QuotaMonitoringResult.model_json_schema()["required"]) == {
+def test_quota_alert_run_result_exposes_alert_outcomes_only() -> None:
+    assert set(QuotaAlertRunResult.model_json_schema()["required"]) == {
+        "started_at",
+        "finished_at",
+        "subjects_total",
+        "subjects_processed",
+        "alerts_triggered",
+        "alerts_sent",
+        "notifications_created",
+        "email_errors",
+        "errors",
+        "warnings",
+        "retention",
+        "status",
+        "reason",
+    }
+
+
+def test_usage_history_run_result_exposes_snapshot_outcomes_only() -> None:
+    assert set(UsageHistoryRunResult.model_json_schema()["required"]) == {
         "started_at",
         "finished_at",
         "subjects_total",
         "subjects_processed",
         "history_hourly_upserts",
         "history_daily_upserts",
-        "alerts_triggered",
-        "alerts_sent",
-        "notifications_created",
-        "email_errors",
         "errors",
         "warnings",
         "retention",

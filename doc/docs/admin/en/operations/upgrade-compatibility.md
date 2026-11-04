@@ -6,9 +6,10 @@ The internal quota-monitor and usage-history collection responses no longer
 echo `quota_alerts_enabled`, `quota_alerts_configured`,
 `usage_history_enabled`, `usage_history_collection_enabled`, or
 `threshold_percent`. Those values are configuration inputs to the workflows,
-while the operational responses now contain only execution outcomes such as
-processed subjects, generated snapshots and alerts, errors, retention results,
-and skipped status.
+while the operational responses now contain only execution outcomes. The quota
+monitor endpoint exposes alert, notification, and email counters; the usage
+history endpoint exposes hourly and daily snapshot counters. Shared subject,
+error, retention, and skipped-status fields remain on both responses.
 
 ## 2026-11 Admin usage-history collection response cleanup
 

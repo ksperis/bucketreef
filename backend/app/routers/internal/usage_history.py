@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.operation import OperationSkippedResponse
-from app.models.quota_monitoring import QuotaMonitoringResult
+from app.models.quota_monitoring import UsageHistoryRunResult
 from app.routers.dependencies import require_internal_cron_token
 from app.services.quota_monitoring_service import QuotaMonitoringService
 from app.services.operation_lease_service import (
@@ -20,11 +20,11 @@ from app.utils.http_errors import raise_bad_request_from_value_error
 router = APIRouter(prefix="/internal/usage-history", tags=["internal-usage-history"])
 
 
-@router.post("/collect", response_model=QuotaMonitoringResult | OperationSkippedResponse)
+@router.post("/collect", response_model=UsageHistoryRunResult | OperationSkippedResponse)
 def collect_usage_history(
     _: None = Depends(require_internal_cron_token),
     db: Session = Depends(get_db),
-) -> QuotaMonitoringResult | OperationSkippedResponse:
+) -> UsageHistoryRunResult | OperationSkippedResponse:
     with OperationLeaseService(db).hold(
         USAGE_HISTORY_COLLECT_OPERATION,
         ttl_seconds=default_operation_lease_ttl_seconds(),
@@ -38,8 +38,9 @@ def collect_usage_history(
             )
         service = QuotaMonitoringService(db)
         try:
-            return QuotaMonitoringResult.model_validate(
-                service.collect_usage_history()
+            result = service.collect_usage_history()
+            return UsageHistoryRunResult.model_validate(
+                {field: result[field] for field in UsageHistoryRunResult.model_fields}
             )
         except ValueError as exc:
             raise_bad_request_from_value_error(exc)
