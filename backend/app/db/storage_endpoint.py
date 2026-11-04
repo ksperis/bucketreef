@@ -65,8 +65,3 @@ class StorageEndpoint(Base):
         return next((row for row in self.service_identities if row.kind == kind), None)
 
     tag_links = relationship("StorageEndpointTag", back_populates="endpoint", cascade="all, delete-orphan")
-    bucket_ui_tag_assignments = relationship(
-        "BucketUiTagAssignment",
-        back_populates="endpoint",
-        cascade="all, delete-orphan",
-    )

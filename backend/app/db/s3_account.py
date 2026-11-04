@@ -89,11 +89,6 @@ class S3Account(Base):
         back_populates="account",
         overlaps="users,accounts,account_links",
     )
-    portal_iam_links = relationship(
-        "AccountIAMUser",
-        back_populates="account",
-        overlaps="users,account_links",
-    )
     tag_links = relationship("S3AccountTag", back_populates="account", cascade="all, delete-orphan")
     deletion = relationship(
         "S3AccountDeletion",
@@ -241,14 +236,3 @@ class AccountIAMUser(Base):
     active_access_key = Column(String, nullable=True)
     active_secret_key = Column(EncryptedString, nullable=True)
     created_at = Column(UTCDateTime(), default=utcnow, nullable=False)
-
-    user = relationship(
-        "User",
-        back_populates="portal_iam_links",
-        overlaps="accounts,account_links",
-    )
-    account = relationship(
-        "S3Account",
-        back_populates="portal_iam_links",
-        overlaps="users,account_links",
-    )

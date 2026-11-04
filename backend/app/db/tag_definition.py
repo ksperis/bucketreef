@@ -52,14 +52,6 @@ class TagDefinition(Base):
     created_at = Column(UTCDateTime(), default=utcnow, nullable=False)
     updated_at = Column(UTCDateTime(), default=utcnow, onupdate=utcnow, nullable=False)
 
-    owner = relationship("User")
-    bucket_ui_assignments = relationship(
-        "BucketUiTagAssignment",
-        back_populates="tag_definition",
-        cascade="all, delete-orphan",
-    )
-
-
 class BucketUiTagAssignment(Base):
     __tablename__ = "bucket_ui_tag_assignments"
     __table_args__ = (
@@ -99,10 +91,6 @@ class BucketUiTagAssignment(Base):
     position = Column(Integer, nullable=False, default=0)
     created_at = Column(UTCDateTime(), default=utcnow, nullable=False)
     updated_at = Column(UTCDateTime(), default=utcnow, onupdate=utcnow, nullable=False)
-
-    endpoint = relationship("StorageEndpoint", back_populates="bucket_ui_tag_assignments")
-    tag_definition = relationship("TagDefinition", back_populates="bucket_ui_assignments")
-
 
 class StorageEndpointTag(Base):
     __tablename__ = "storage_endpoint_tags"
