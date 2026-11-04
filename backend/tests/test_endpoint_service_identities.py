@@ -1108,6 +1108,49 @@ def test_durable_rotation_audits_completion_only_after_final_checkpoint(identiti
     assert db_session.scalar(select(func.count()).select_from(KeyRotationIntent)) == 0
 
 
+def test_rotation_failure_checkpoint_commit_failure_restores_pending_state(
+    identities,
+    db_session,
+    monkeypatch,
+):
+    from sqlalchemy.exc import OperationalError
+
+    service, endpoint, rgw = identities
+    service.reconcile(endpoint)
+    identity = endpoint.service_identity("runtime")
+    original_create = rgw.create_access_key
+    original_commit = db_session.commit
+
+    def fail_create(uid, **kwargs):
+        raise RGWAdminError("temporary provider outage")
+
+    def fail_failure_checkpoint():
+        if any(
+            isinstance(row, KeyRotationIntent) and row.last_error is not None
+            for row in db_session.dirty
+        ):
+            raise OperationalError("commit", {}, Exception("injected"))
+        original_commit()
+
+    monkeypatch.setattr(rgw, "create_access_key", fail_create)
+    monkeypatch.setattr(db_session, "commit", fail_failure_checkpoint)
+
+    with pytest.raises(ValueError, match="persistence failed"):
+        _rotate_identity(service, endpoint, "runtime")
+
+    db_session.expire_all()
+    intent = db_session.scalars(select(KeyRotationIntent)).one()
+    persisted_identity = db_session.get(EndpointServiceIdentity, identity.id)
+    assert intent.phase == "prepared"
+    assert intent.last_error is None
+    assert persisted_identity is not None and persisted_identity.status == "ready"
+
+    monkeypatch.setattr(rgw, "create_access_key", original_create)
+    monkeypatch.setattr(db_session, "commit", original_commit)
+    _rotate_identity(service, endpoint, "runtime")
+    assert db_session.scalar(select(func.count()).select_from(KeyRotationIntent)) == 0
+
+
 def test_resume_revalidates_candidate_before_retiring_old_key(identities):
     service, endpoint, rgw = identities
     service.reconcile(endpoint)
@@ -1124,6 +1167,13 @@ def test_resume_revalidates_candidate_before_retiring_old_key(identities):
         _rotate_identity(service, endpoint, "runtime")
     assert not any(call[0] == "key_delete" for call in rgw.calls)
     assert old in {key["access_key"] for key in rgw.users[identity.rgw_uid]["keys"]}
+    assert identity.status == "error"
+    assert identity.last_error == (
+        "Service rotation validation failed; check credentials and permissions, then retry."
+    )
+    assert service.db.scalars(select(KeyRotationIntent)).one().last_error == (
+        "Rotation pending; check credentials, permissions and RGW connectivity, then retry rotation."
+    )
 
 
 def test_pending_rotation_api_metadata_never_exposes_candidate_credentials(identities, db_session):
