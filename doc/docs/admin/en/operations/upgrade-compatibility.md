@@ -1691,7 +1691,7 @@ API compatibility changes:
 - `GET /manager/migrations/{id}` and its existing SSE stream publish progress,
   preparation state, typed diagnostics and backend-authorized actions.
 - `POST /manager/migrations` accepts only draft configuration fields. The update-only
-  `configuration_revision` field is rejected on creation. `PATCH` draft updates require
+  `configuration_revision` field is rejected on creation. `PUT` draft updates require
   `configuration_revision`; they increment it and invalidate the report. `POST /start`
   requires the checked revision and, for
   immediate mode, `confirm_write_interruption: true`. Reports expire after 15 minutes.
