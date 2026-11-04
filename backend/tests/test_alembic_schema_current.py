@@ -18,7 +18,7 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0233_remove_unused_oidc_link_session_metadata"
+_EXPECTED_ALEMBIC_HEAD = "0234_remove_first_admin_created_user_id"
 
 
 def test_openstack_all_users_group_migration_preserves_global_grant(tmp_path, monkeypatch):
