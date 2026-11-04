@@ -47,16 +47,9 @@ class S3User(Base):
         nullable=True,
     )
 
-    users = relationship(
-        "User",
-        secondary="user_s3_users",
-        back_populates="s3_users",
-        overlaps="s3_user_links,user_links",
-    )
     user_links = relationship(
         "UserS3User",
         back_populates="s3_user",
-        overlaps="users,s3_users",
     )
     storage_endpoint = relationship("StorageEndpoint", lazy="joined")
     tag_links = relationship("S3UserTag", back_populates="s3_user", cascade="all, delete-orphan")
@@ -151,10 +144,8 @@ class UserS3User(Base):
     user = relationship(
         "User",
         back_populates="s3_user_links",
-        overlaps="s3_users,users",
     )
     s3_user = relationship(
         "S3User",
         back_populates="user_links",
-        overlaps="users,s3_users",
     )
