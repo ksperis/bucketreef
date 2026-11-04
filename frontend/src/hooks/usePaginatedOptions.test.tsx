@@ -31,6 +31,15 @@ describe("usePaginatedOptions", () => {
       await Promise.resolve();
     });
     expect(loader).toHaveBeenLastCalledWith({ page: 3, page_size: 25 });
+    const callsBeforeInitialDebounce = loader.mock.calls.length;
+
+    await act(async () => {
+      vi.advanceTimersByTime(250);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(result.current.page).toBe(3);
+    expect(loader).toHaveBeenCalledTimes(callsBeforeInitialDebounce);
     const callsBeforeSearch = loader.mock.calls.length;
 
     act(() => result.current.setSearch("  archive  "));
