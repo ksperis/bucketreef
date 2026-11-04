@@ -1,7 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
-from app.models.quota_monitoring import QuotaMonitoringResult
+from app.models.quota_monitoring import QuotaMonitoringResult, UsageHistoryCollectionResult
 
 
 def test_quota_monitoring_result_requires_complete_canonical_payload() -> None:
@@ -24,6 +24,18 @@ def test_quota_monitoring_result_requires_complete_canonical_payload() -> None:
         "usage_history_collection_enabled",
         "threshold_percent",
         "retention",
+        "status",
+        "reason",
+    }
+
+
+def test_usage_history_collection_result_exposes_only_frontend_consumed_fields() -> None:
+    assert set(UsageHistoryCollectionResult.model_json_schema()["required"]) == {
+        "subjects_processed",
+        "history_hourly_upserts",
+        "history_daily_upserts",
+        "errors",
+        "warnings",
         "status",
         "reason",
     }

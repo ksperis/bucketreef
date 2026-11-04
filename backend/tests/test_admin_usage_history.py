@@ -349,7 +349,15 @@ def test_collect_usage_history_runs_without_quota_alerts_or_audit_rows(client: T
     assert response.status_code == 200, response.text
     assert calls == [{"include_quota_alerts": False, "include_usage_history": True}]
     payload = response.json()
-    assert payload["subjects_processed"] == 1
+    assert payload == {
+        "subjects_processed": 1,
+        "history_hourly_upserts": 1,
+        "history_daily_upserts": 1,
+        "errors": [],
+        "warnings": [],
+        "status": None,
+        "reason": None,
+    }
     assert db_session.scalar(
         sa.select(sa.func.count()).select_from(AuditLog).where(AuditLog.action == "collect_usage_history")
     ) == 0
