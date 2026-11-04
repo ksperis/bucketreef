@@ -105,7 +105,7 @@ def test_ceph_admin_account_metrics_are_scoped_to_requested_account(
     provisioned_account.manager_session.post(
         "/manager/buckets",
         params={"context_id": provisioned_account.account_id},
-        json={"name": bucket_name},
+        json={"name": bucket_name, "versioning": False},
         expected_status=201,
     )
     resource_tracker.track_bucket(provisioned_account.account_id, bucket_name)

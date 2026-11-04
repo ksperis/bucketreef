@@ -47,7 +47,13 @@ def test_iam_policy_and_user_flow(
     created_user = manager_session.post(
         "/manager/iam/users",
         params={"context_id": account_id},
-        json={"name": iam_user, "create_key": True},
+        json={
+            "name": iam_user,
+            "create_key": True,
+            "groups": [],
+            "policies": [],
+            "inline_policies": [],
+        },
         expected_status=201,
     )
     assert created_user["name"] == iam_user
