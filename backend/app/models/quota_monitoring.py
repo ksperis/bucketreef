@@ -30,19 +30,25 @@ class UsageHistoryCollectionResult(ApiModel):
     reason: Optional[str]
 
 
-class QuotaMonitoringResult(ApiModel):
+class QuotaMonitoringRunResult(ApiModel):
     started_at: str
     finished_at: str
     subjects_total: int
     subjects_processed: int
-    history_hourly_upserts: int
-    history_daily_upserts: int
-    alerts_triggered: int
-    alerts_sent: int
-    notifications_created: int
-    email_errors: int
     errors: list[QuotaMonitoringSubjectError]
     warnings: list[str | QuotaMonitoringSubjectWarning]
     retention: DataRetentionResult
     status: Optional[Literal["skipped"]]
     reason: Optional[str]
+
+
+class QuotaAlertRunResult(QuotaMonitoringRunResult):
+    alerts_triggered: int
+    alerts_sent: int
+    notifications_created: int
+    email_errors: int
+
+
+class UsageHistoryRunResult(QuotaMonitoringRunResult):
+    history_hourly_upserts: int
+    history_daily_upserts: int
