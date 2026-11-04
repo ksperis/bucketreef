@@ -2216,7 +2216,7 @@ metadata representation with structured JSON.
 
 ## 2026-08 canonical cost operation breakdowns
 
-Migration `0086_canonical_cost_ops_breakdown` rewrites each available daily
+Migration `0086_canonical_billing_ops_breakdown` rewrites each available daily
 operation breakdown as a JSON object mapping operation names to integer counts.
 Malformed, non-object, and empty payloads become `NULL`, which remains the
 canonical representation when detailed operation data was not collected.
