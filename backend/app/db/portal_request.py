@@ -43,8 +43,6 @@ class PortalAdminRequest(Base):
     updated_at = Column(UTCDateTime(), default=utcnow, onupdate=utcnow, nullable=False)
 
     account = relationship("S3Account")
-    requester = relationship("User", foreign_keys=[requester_user_id])
-    decided_by = relationship("User", foreign_keys=[decided_by_user_id])
     messages = relationship(
         "PortalAdminRequestMessage",
         back_populates="request",
@@ -69,4 +67,3 @@ class PortalAdminRequestMessage(Base):
     created_at = Column(UTCDateTime(), default=utcnow, nullable=False)
 
     request = relationship("PortalAdminRequest", back_populates="messages")
-    author = relationship("User")
