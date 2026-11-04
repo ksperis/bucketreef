@@ -70,6 +70,17 @@ def test_bucket_migration_forbidden_for_unassigned_user(db_session, monkeypatch)
 
 
 def _seed_migration(db_session, *, source_context_id: str, target_context_id: str, status: str = "draft") -> int:
+    if db_session.get(User, 1) is None:
+        db_session.add(
+            User(
+                id=1,
+                email="migration-fixture@example.com",
+                hashed_password="x",
+                is_active=True,
+                role=UserRole.UI_SUPERADMIN.value,
+            )
+        )
+        db_session.flush()
     migration = BucketMigration(
         created_by_user_id=1,
         source_context_id=source_context_id,

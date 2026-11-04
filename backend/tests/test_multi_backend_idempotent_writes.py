@@ -13,9 +13,12 @@ from app.db import (
     EndpointHealthRollup,
     QuotaUsageDaily,
     QuotaUsageHourly,
+    S3Account,
+    StorageEndpoint,
+    User,
     UserNotification,
 )
-from app.core.domain_enums import HealthCheckStatus
+from app.core.domain_enums import HealthCheckStatus, UserRole
 from app.services.cost_collection_service import CostCollector
 from app.services.healthcheck_common import (
     DEFAULT_ROLLUP_RESOLUTION_SECONDS,
@@ -43,7 +46,36 @@ def _subject() -> SubjectContext:
     )
 
 
+def _seed_subject_parents(db_session, *, include_user: bool = False) -> None:
+    endpoint = StorageEndpoint(
+        id=7,
+        name="idempotent-writes-endpoint",
+        endpoint_url="https://idempotent-writes.example.test",
+    )
+    account = S3Account(
+        id=42,
+        name="idempotent-writes-account",
+        rgw_account_id="RGW-IDEMPOTENT-WRITES",
+        rgw_user_uid="idempotent-writes-admin",
+        storage_endpoint_id=7,
+    )
+    rows = [endpoint, account]
+    if include_user:
+        rows.append(
+            User(
+                id=1,
+                email="idempotent-writes@example.test",
+                hashed_password="x",
+                is_active=True,
+                role=UserRole.UI_USER.value,
+            )
+        )
+    db_session.add_all(rows)
+    db_session.commit()
+
+
 def test_quota_usage_history_upserts_keep_one_row(db_session):
+    _seed_subject_parents(db_session)
     service = QuotaUsageHistoryService(db_session)
     now = utcnow()
     subject = _subject()
@@ -63,6 +95,7 @@ def test_quota_usage_history_upserts_keep_one_row(db_session):
 
 
 def test_user_quota_notifications_are_idempotent_per_event_key(db_session):
+    _seed_subject_parents(db_session, include_user=True)
     service = UserNotificationsService(db_session)
     now = utcnow()
 
@@ -98,6 +131,7 @@ def test_user_quota_notifications_are_idempotent_per_event_key(db_session):
 
 
 def test_cost_daily_upserts_keep_one_row(db_session):
+    _seed_subject_parents(db_session)
     collector = CostCollector(db_session)
     day = date(2026, 7, 3)
 
@@ -149,6 +183,7 @@ def test_cost_daily_upserts_keep_one_row(db_session):
 
 
 def test_health_latest_and_rollup_upserts_keep_one_row(db_session):
+    _seed_subject_parents(db_session)
     service = HealthCheckPersistenceService(db_session)
     checked_at = utcnow()
     first = HealthCheckResult(

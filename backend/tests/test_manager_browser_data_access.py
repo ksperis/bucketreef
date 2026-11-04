@@ -10,6 +10,7 @@ from fastapi import HTTPException
 from app.db import (
     S3Connection,
     S3User,
+    StorageEndpoint,
     UiGroup,
     UiGroupS3Account,
     UiGroupS3User,
@@ -167,6 +168,11 @@ def test_account_permissions_cannot_escalate_by_combining_links(db_session):
 def test_rgw_user_permission_aggregates_direct_and_group_and_revokes(db_session):
     user = _user("manager-browser-rgw@example.test")
     group = UiGroup(name="Manager Browser RGW group")
+    endpoint = StorageEndpoint(
+        id=1,
+        name="manager-browser-rgw-endpoint",
+        endpoint_url="https://manager-browser-rgw.example.test",
+    )
     s3_user = S3User(
         name="shared-rgw-user",
         rgw_user_uid="shared-rgw-user",
@@ -174,7 +180,7 @@ def test_rgw_user_permission_aggregates_direct_and_group_and_revokes(db_session)
         rgw_secret_key="RGW-SK",
         storage_endpoint_id=1,
     )
-    db_session.add_all([user, group, s3_user])
+    db_session.add_all([user, group, endpoint, s3_user])
     db_session.commit()
     direct = UserS3User(
         user_id=user.id,

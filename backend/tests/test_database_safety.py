@@ -18,7 +18,7 @@ from app import main
 from app.core.config import DEFAULT_SQLITE_DB_PATH, Settings
 from app.core.database import (
     _SQLITE_BUSY_TIMEOUT_MS,
-    _configure_sqlite_connection,
+    configure_sqlite_connection,
     is_sqlite_malformed_database_error,
     sqlite_integrity_status,
 )
@@ -103,7 +103,7 @@ def test_startup_deployment_checks_propagate_invalid_app_settings(monkeypatch):
 def test_configure_sqlite_connection_applies_safe_pragmas():
     connection = sqlite3.connect(":memory:")
     try:
-        _configure_sqlite_connection(connection, None)
+        configure_sqlite_connection(connection, None)
         cursor = connection.cursor()
         try:
             cursor.execute("PRAGMA foreign_keys")
@@ -192,7 +192,7 @@ def test_sqlite_integrity_status_reports_readonly_access_before_wal_setup(tmp_pa
     with sqlite3.connect(db_path) as connection:
         connection.execute("CREATE TABLE existing_data (id INTEGER)")
     engine = create_engine(f"sqlite:///file:{db_path}?mode=ro&uri=true")
-    event.listen(engine, "connect", _configure_sqlite_connection)
+    event.listen(engine, "connect", configure_sqlite_connection)
     try:
         with pytest.raises(RuntimeError, match="SQLite database is read-only") as raised:
             sqlite_integrity_status(engine)

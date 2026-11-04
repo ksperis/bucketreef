@@ -158,6 +158,28 @@ def test_record_action_accepts_manager_session_actor(db_session) -> None:
     assert log.user_role == actor.role
 
 
+def test_record_action_does_not_persist_transient_user_primary_key(db_session) -> None:
+    actor = User(
+        id=999,
+        email="synthetic-admin@example.com",
+        full_name="Synthetic Admin",
+        hashed_password="x",
+        is_active=True,
+        role=UserRole.UI_SUPERADMIN.value,
+    )
+
+    AuditService(db_session).record_action(
+        user=actor,
+        scope="admin",
+        action="review_ui_consistency",
+    )
+
+    log = db_session.scalars(select(AuditLog)).one()
+    assert log.user_id is None
+    assert log.user_email == actor.email
+    assert log.user_role == actor.role
+
+
 def test_serialize_log_matches_the_public_audit_contract(db_session) -> None:
     user = _create_user(db_session)
     service = AuditService(db_session)
