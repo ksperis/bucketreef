@@ -19,3 +19,13 @@ def commit_or_rollback(db: _CommitRollback) -> None:
     except Exception:
         db.rollback()
         raise
+
+
+def rollback_safely(db: _CommitRollback) -> Exception | None:
+    """Attempt a rollback without masking the exception that triggered compensation."""
+
+    try:
+        db.rollback()
+    except Exception as exc:
+        return exc
+    return None

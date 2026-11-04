@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Optional, Tuple
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import commit_or_rollback, rollback_safely
 from app.db import AccountIAMUser, PortalIAMRevocation, S3Account, User
 from app.core.domain_enums import PortalAccountRole
 from app.models.iam import AccessKey as ModelAccessKey, IAMUser
@@ -144,21 +144,18 @@ class PortalIamMixin:
                 created_key,
             )
         except Exception as exc:
-            db_rollback_failed = False
-            try:
-                self.db.rollback()
-            except Exception as rollback_exc:  # pragma: no cover - defensive database failure
+            rollback_error = rollback_safely(self.db)
+            if rollback_error is not None:  # pragma: no cover - defensive database failure
                 logger.error(
                     "Unable to roll back failed Portal IAM user transaction: %s",
-                    rollback_exc,
+                    rollback_error,
                 )
-                db_rollback_failed = True
             remote_rollback_failed = self._rollback_provisioned_portal_user(
                 iam_service,
                 username=expected_username,
                 created_key=created_key,
             )
-            if db_rollback_failed or remote_rollback_failed:
+            if rollback_error is not None or remote_rollback_failed:
                 raise RuntimeError(
                     "Unable to provision Portal IAM user. Local or IAM rollback also failed."
                 ) from exc
@@ -438,15 +435,12 @@ class PortalIamMixin:
         try:
             result = self._persist_portal_key(link, new_key)
         except Exception as exc:
-            db_rollback_failed = False
-            try:
-                self.db.rollback()
-            except Exception as rollback_exc:  # pragma: no cover - defensive database failure
+            rollback_error = rollback_safely(self.db)
+            if rollback_error is not None:  # pragma: no cover - defensive database failure
                 logger.error(
                     "Unable to roll back failed Portal IAM key activation: %s",
-                    rollback_exc,
+                    rollback_error,
                 )
-                db_rollback_failed = True
             remote_rollback_failed = False
             try:
                 iam_service.delete_access_key(link.iam_username, new_key.access_key_id)
@@ -457,7 +451,7 @@ class PortalIamMixin:
                     rollback_exc,
                 )
                 remote_rollback_failed = True
-            if db_rollback_failed or remote_rollback_failed:
+            if rollback_error is not None or remote_rollback_failed:
                 raise RuntimeError(
                     "Unable to activate Portal IAM key. Local or IAM rollback also failed."
                 ) from exc

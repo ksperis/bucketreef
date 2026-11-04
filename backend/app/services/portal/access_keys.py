@@ -10,6 +10,7 @@ from typing import Optional, TYPE_CHECKING
 
 from sqlalchemy import select
 
+from app.core.db_transactions import rollback_safely
 from app.db import PortalExternalAccessCredential, PortalStorageSpaceMetadata, S3Account, User
 from app.core.domain_enums import PortalAccountRole
 from app.models.app_settings import PortalEffectiveSettings
@@ -311,15 +312,12 @@ class PortalAccessKeysMixin:
             self._sync_storage_space_access_projection(access.account, metadata, sync_participants=False)
             self.db.commit()
         except Exception as exc:
-            db_rollback_failed = False
-            try:
-                self.db.rollback()
-            except Exception as rollback_exc:  # pragma: no cover - defensive database failure
+            rollback_error = rollback_safely(self.db)
+            if rollback_error is not None:  # pragma: no cover - defensive database failure
                 logger.error(
                     "Unable to roll back failed external Portal access creation: %s",
-                    rollback_exc,
+                    rollback_error,
                 )
-                db_rollback_failed = True
             projection_rollback_failed = False
             if projection_attempted:
                 try:
@@ -340,7 +338,7 @@ class PortalAccessKeysMixin:
                 iam_user=iam_user,
                 new_key=new_key,
             )
-            if db_rollback_failed or projection_rollback_failed or iam_rollback_failed:
+            if rollback_error is not None or projection_rollback_failed or iam_rollback_failed:
                 raise RuntimeError(
                     "Unable to create external Portal access. Local or remote rollback also failed."
                 ) from exc
@@ -445,12 +443,9 @@ class PortalAccessKeysMixin:
                 )
             self.db.commit()
         except Exception as exc:
-            db_rollback_failed = False
-            try:
-                self.db.rollback()
-            except Exception as rollback_exc:  # pragma: no cover - defensive database failure
-                logger.error("Unable to roll back failed %s: %s", action, rollback_exc)
-                db_rollback_failed = True
+            rollback_error = rollback_safely(self.db)
+            if rollback_error is not None:  # pragma: no cover - defensive database failure
+                logger.error("Unable to roll back failed %s: %s", action, rollback_error)
             remote_rollback_failed = False
             if remote_update_attempted:
                 try:
@@ -467,13 +462,13 @@ class PortalAccessKeysMixin:
                     )
                     remote_rollback_failed = True
             projection_rollback_failed = False
-            if projection_attempted and metadata is not None and not db_rollback_failed:
+            if projection_attempted and metadata is not None and rollback_error is None:
                 projection_rollback_failed = self._restore_storage_space_access_projection(
                     account,
                     metadata,
                     sync_participants=False,
                 )
-            if db_rollback_failed or remote_rollback_failed or projection_rollback_failed:
+            if rollback_error is not None or remote_rollback_failed or projection_rollback_failed:
                 raise RuntimeError(
                     f"Unable to {action}. Local or remote rollback also failed."
                 ) from exc

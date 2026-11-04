@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import exists, func, or_, select
 
+from app.core.db_transactions import rollback_safely
 from app.db import (
     PortalPublicLink as DBPortalPublicLink,
     PortalStorageSpaceGrant,
@@ -599,23 +600,20 @@ class PortalSharingMixin:
             self._sync_storage_space_access_projection(access.account, metadata, extra_user_ids={target.id})
             self.db.commit()
         except Exception as exc:
-            db_rollback_failed = False
-            try:
-                self.db.rollback()
-            except Exception as rollback_exc:  # pragma: no cover - defensive database failure
+            rollback_error = rollback_safely(self.db)
+            if rollback_error is not None:  # pragma: no cover - defensive database failure
                 logger.error(
                     "Unable to roll back failed Storage Space share update: %s",
-                    rollback_exc,
+                    rollback_error,
                 )
-                db_rollback_failed = True
             projection_rollback_failed = False
-            if projection_attempted and not db_rollback_failed:
+            if projection_attempted and rollback_error is None:
                 projection_rollback_failed = self._restore_storage_space_access_projection(
                     access.account,
                     metadata,
                     extra_user_ids={target.id},
                 )
-            if db_rollback_failed or projection_rollback_failed:
+            if rollback_error is not None or projection_rollback_failed:
                 raise RuntimeError(
                     "Unable to update Storage Space share. Local or remote rollback also failed."
                 ) from exc
@@ -657,23 +655,20 @@ class PortalSharingMixin:
                 self._sync_storage_space_access_projection(access.account, metadata, extra_user_ids={target.id})
             self.db.commit()
         except Exception as exc:
-            db_rollback_failed = False
-            try:
-                self.db.rollback()
-            except Exception as rollback_exc:  # pragma: no cover - defensive database failure
+            rollback_error = rollback_safely(self.db)
+            if rollback_error is not None:  # pragma: no cover - defensive database failure
                 logger.error(
                     "Unable to roll back failed Storage Space share revocation: %s",
-                    rollback_exc,
+                    rollback_error,
                 )
-                db_rollback_failed = True
             projection_rollback_failed = False
-            if projection_attempted and not db_rollback_failed:
+            if projection_attempted and rollback_error is None:
                 projection_rollback_failed = self._restore_storage_space_access_projection(
                     access.account,
                     metadata,
                     extra_user_ids={target.id},
                 )
-            if db_rollback_failed or projection_rollback_failed:
+            if rollback_error is not None or projection_rollback_failed:
                 raise RuntimeError(
                     "Unable to revoke Storage Space share. Local or remote rollback also failed."
                 ) from exc
