@@ -2119,6 +2119,8 @@ instead of the JSON scalar `null`.
 Deploy the migration and backend together. Worker and API readers now reject
 malformed or non-object persisted JSON rather than silently treating it as
 missing state. The cleanup is not reversed on downgrade.
+Migration `0213_structure_bucket_migration_json` later replaces these canonical
+text JSON values with structured JSON columns.
 
 ## 2026-08 canonical custom S3 connection endpoints
 
@@ -2145,6 +2147,8 @@ become `NULL`, the canonical representation of no account override.
 Deploy the migration and backend together. The backend no longer unwraps old
 payloads or hides invalid persisted values, and the API rejects unknown override
 fields. The data cleanup is not reversed on downgrade.
+Migration `0217_structure_portal_settings_override` later changes this canonical
+text representation to structured JSON.
 
 ## 2026-08 canonical audit metadata
 
@@ -2157,6 +2161,8 @@ valid JSON envelope with a preview and the original serialized length.
 Deploy the migration and backend together. Audit and Portal readers now share a
 strict object contract instead of hiding malformed storage independently. The
 data cleanup is not reversed on downgrade.
+Migration `0215_structure_audit_metadata` later replaces the canonical text
+metadata representation with structured JSON.
 
 ## 2026-08 canonical cost operation breakdowns
 
@@ -2168,17 +2174,22 @@ canonical representation when detailed operation data was not collected.
 Deploy the migration and backend together. Cost aggregation now rejects any
 remaining non-canonical breakdown instead of skipping it or coercing values at
 runtime. The data cleanup is not reversed on downgrade.
+Migration `0218_structure_cost_measurement_breakdowns` later changes the
+canonical text breakdowns to structured JSON.
 
 ## 2026-08 canonical bucket usage statistics JSON
 
 Migration `0085_canonical_bucket_usage_stats_json` rewrites every persisted
 bucket distribution as a JSON list of objects and every non-null warning set as
-a JSON list of strings. Malformed containers and entries are removed once;
-`warnings_json = NULL` remains the canonical representation of no warnings.
+a JSON list of strings. Malformed containers and entries are removed once; at
+this migration boundary, `warnings_json = NULL` is the canonical representation
+of no warnings.
 
 Deploy the migration and backend together. Snapshot loading now validates every
 distribution entry and warning instead of returning empty data for malformed
 storage. The data cleanup is not reversed on downgrade.
+Migration `0207_structure_bucket_usage_stats_payloads` later replaces the text
+distribution and warning columns with structured JSON lists.
 
 ## 2026-08 canonical managed-access IAM state
 
@@ -2190,6 +2201,8 @@ non-list values become empty lists.
 Deploy the migration and backend together. Saga replay and cleanup now reject
 any remaining malformed or non-string IAM state instead of coercing or dropping
 values at runtime. The data cleanup is not reversed on downgrade.
+Migration `0210_structure_managed_access_iam_lists` later replaces these
+canonical text lists with structured JSON lists.
 
 ## 2026-08 legacy Portal application settings
 
@@ -2233,6 +2246,8 @@ invalid values instead of reverting silently to defaults. The optional disk
 bootstrap uses defaults only when the configured bootstrap file is absent; an
 invalid file fails validation and must already use the current schema. Data
 cleanup is not reversed on downgrade.
+Migration `0205_structure_app_settings_payloads` later replaces the canonical
+text payload with the structured JSON `payload` column.
 
 ## 2026-08 canonical Portal request JSON
 
@@ -2243,6 +2258,8 @@ become `{}` while an absent result remains `NULL` for undecided requests.
 Deploy the migration and backend together. Portal request execution and API
 serialization now reject any remaining malformed or non-object JSON instead of
 repairing it at runtime. The data cleanup is not reversed on downgrade.
+Migration `0208_structure_portal_request_payloads` later replaces the canonical
+text payload and result columns with structured JSON objects.
 
 ## 2026-08 canonical user notification payloads
 
@@ -2266,6 +2283,8 @@ are discarded, and account identifiers are trimmed.
 Deploy the migration and backend together. The backend now treats any remaining
 non-canonical payload as data corruption instead of repairing it during profile
 serialization. The data cleanup is intentionally not reversed on downgrade.
+Migration `0212_structure_user_ui_preferences` later replaces the canonical text
+preferences with the structured JSON `ui_preferences` column.
 
 ## 2026-08 normalized tags only
 
@@ -2290,6 +2309,8 @@ Deploy the migration and backend together. The backend now treats missing,
 malformed, or non-canonical profiles as data corruption instead of repairing
 them at runtime. Downgrade restores the old empty-object default but cannot
 recreate discarded malformed or legacy values.
+Migration `0219_structure_s3_capabilities` later replaces the canonical text
+profile with the structured JSON `s3_connections.capabilities` column.
 
 ## 2026-08 schema index reconciliation
 
@@ -2312,6 +2333,8 @@ during the table alteration. Existing direct S3 sessions remain usable with
 their canonicalized snapshot. Downgrade makes the column nullable again but
 does not recreate missing or malformed values; deploy matching code if a
 downgrade is unavoidable.
+Migration `0219_structure_s3_capabilities` later changes the session capability
+snapshot from text JSON to structured JSON while retaining the column name.
 
 ## 2026-08 timezone-aware UTC migration
 
