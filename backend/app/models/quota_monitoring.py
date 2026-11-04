@@ -43,11 +43,6 @@ class QuotaMonitoringResult(ApiModel):
     email_errors: int
     errors: list[QuotaMonitoringSubjectError]
     warnings: list[str | QuotaMonitoringSubjectWarning]
-    quota_alerts_enabled: bool
-    quota_alerts_configured: bool
-    usage_history_enabled: bool
-    usage_history_collection_enabled: bool
-    threshold_percent: int
     retention: DataRetentionResult
     status: Optional[Literal["skipped"]]
     reason: Optional[str]

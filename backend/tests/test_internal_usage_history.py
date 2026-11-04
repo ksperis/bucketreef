@@ -19,11 +19,6 @@ def _monitor_result(**overrides):
         "email_errors": 0,
         "errors": [],
         "warnings": [],
-        "quota_alerts_enabled": False,
-        "quota_alerts_configured": True,
-        "usage_history_enabled": True,
-        "usage_history_collection_enabled": False,
-        "threshold_percent": 85,
         "status": None,
         "reason": None,
         "retention": {
@@ -55,7 +50,6 @@ def test_internal_usage_history_collect_uses_daily_history_mode(client, monkeypa
             subjects_processed=2,
             history_hourly_upserts=2,
             history_daily_upserts=2,
-            usage_history_collection_enabled=True,
         )
 
     monkeypatch.setattr(
@@ -83,7 +77,6 @@ def test_internal_quota_monitor_does_not_persist_usage_history(client, monkeypat
         return _monitor_result(
             subjects_total=1,
             subjects_processed=1,
-            quota_alerts_enabled=True,
         )
 
     monkeypatch.setattr(
