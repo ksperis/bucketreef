@@ -6,8 +6,6 @@ from app.db.utc_datetime import UTCDateTime
 from app.utils.time import utcnow
 
 from sqlalchemy import Boolean, CheckConstraint, Column, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint, text
-from sqlalchemy.orm import relationship
-
 from .base import Base
 
 
@@ -39,10 +37,6 @@ class AuthSession(Base):
     revoked_at = Column(UTCDateTime(), nullable=True, index=True)
     revoke_reason = Column(String, nullable=True)
 
-    user = relationship("User", foreign_keys=[user_id])
-    s3_session = relationship("S3Session", foreign_keys=[s3_session_id])
-
-
 class RefreshToken(Base):
     __tablename__ = "refresh_tokens"
 
@@ -62,9 +56,6 @@ class RefreshToken(Base):
     replaced_by_id = Column(String, ForeignKey("refresh_tokens.id", ondelete="SET NULL"), nullable=True)
     revoked_at = Column(UTCDateTime(), nullable=True, index=True)
     revoke_reason = Column(String, nullable=True)
-
-    auth_session = relationship("AuthSession", foreign_keys=[auth_session_id])
-
 
 class ExternalIdentity(Base):
     __tablename__ = "external_identities"
@@ -103,9 +94,6 @@ class ExternalIdentity(Base):
     last_login_at = Column(UTCDateTime(), nullable=True)
     revoked_at = Column(UTCDateTime(), nullable=True, index=True)
     link_source = Column(String, nullable=False, default="jit", server_default="jit")
-
-    user = relationship("User", foreign_keys=[user_id])
-
 
 class ExternalIdentityLinkRequest(Base):
     __tablename__ = "external_identity_link_requests"
