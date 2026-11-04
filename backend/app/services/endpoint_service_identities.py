@@ -278,6 +278,7 @@ class EndpointServiceIdentityService:
         identity = endpoint.service_identity("ceph_admin")
         if identity is None:
             return {"kind": "ceph_admin", "status": "missing"}
+        validated = False
         if not identity.access_key or not identity.secret_key:
             identity.status, identity.last_error = "missing", None
             identity.last_reconciled_at = None
@@ -299,7 +300,7 @@ class EndpointServiceIdentityService:
                     raise ValueError("Ceph Admin user could not be identified by RGW.")
                 identity.rgw_uid = rgw_qualified_uid(uid, tenant)
                 identity.status, identity.last_error = "ready", None
-                self._audit(endpoint, identity, "validated")
+                validated = True
             except ValueError as exc:
                 identity.status, identity.last_error = (
                     "error",
@@ -315,6 +316,8 @@ class EndpointServiceIdentityService:
                 )
             identity.last_reconciled_at = utcnow()
         self.db.commit()
+        if validated:
+            self._audit(endpoint, identity, "validated")
         return {"kind": "ceph_admin", "status": identity.status}
 
     def revoke(self, endpoint: StorageEndpoint, kind: ServiceIdentityKind) -> bool:
