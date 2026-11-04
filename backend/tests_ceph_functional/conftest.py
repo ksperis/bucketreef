@@ -320,6 +320,7 @@ def _provision_account(
 ) -> S3AccountTestContext:
     default_payload = {
         "name": f"{ceph_test_settings.test_prefix}-acct-{_rand_suffix()}",
+        "rgw_tenant": "",
         "email": f"{_rand_suffix()}@example.com",
         "quota_max_size_gb": 5,
         "quota_max_objects": 5000,
@@ -367,12 +368,19 @@ def _provision_account(
             "password": manager_password,
             "full_name": "Ceph Functional Manager",
             "role": "ui_user",
+            "can_access_ceph_admin": False,
+            "can_access_storage_ops": False,
+            "can_create_manual_private_connections": False,
+            "can_provision_managed_private_connections": False,
+            "allow_multisite_endpoint_switching": False,
             "manager_tool_access": {
                 "bucket_compare": True,
                 "bucket_integrity_check": True,
                 "bucket_migration": True,
+                "bucket_purge": False,
                 "feature_rules": True,
             },
+            "browser_advanced_features_enabled": False,
         },
         expected_status=201,
     )

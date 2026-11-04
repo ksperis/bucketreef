@@ -242,6 +242,9 @@ def test_portal_storage_space_configures_server_access_logging_on_lab(
                 "name": _storage_space_name(ceph_test_settings.test_prefix),
                 "naming_mode": "generic_uuid",
                 "visibility": "private",
+                "share_scope": "restricted",
+                "account_member_role": None,
+                "initial_shares": [],
             },
             expected_status=201,
         )
