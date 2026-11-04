@@ -166,7 +166,7 @@ export default function ManagerSettingsPage() {
           form={form}
           field="manager.feature_policies.activity_history"
           title={text("Manager activity history")}
-          description={text("Control and configuration history for supported Manager execution contexts. Enabled by default; each RGW Account, RGW User, or S3 Connection can inherit, enable, or disable it.")}
+          description={text("Control and configuration history for supported Manager execution contexts.")}
         />
         <AppSettingsPolicy
           form={form}
@@ -209,7 +209,7 @@ export default function ManagerSettingsPage() {
           form={form}
           field="manager.feature_policies.rgw_multisite_endpoint_switching"
           title={text("RGW Account and User endpoint switching")}
-          description={text("Set the default endpoint-switching policy for compatible RGW Accounts and RGW Users. Each resource can inherit, explicitly grant, or explicitly disable it.")}
+          description={text("Endpoint switching for compatible RGW Accounts and RGW Users.")}
         />
       </SettingsSection>
       <SettingsSection
