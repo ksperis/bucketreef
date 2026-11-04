@@ -646,6 +646,36 @@ def test_managed_private_access_state_transition_rolls_back_when_commit_fails(
     assert persisted.cleanup_error is None
 
 
+def test_managed_private_access_activation_rolls_back_when_commit_fails(
+    db_session, monkeypatch
+):
+    user = _user(db_session, email="activation-rollback@example.test")
+    account = _account(db_session, user, _endpoint(db_session))
+    service = ManagedPrivateAccessService(db_session)
+    source = service.iam_sources.resolve(user, account)
+    destination = service.destinations.resolve(source)
+    provisioning = ManagedPrivateAccessStateService(db_session).claim(user, source)
+    _disable_capability_probe(monkeypatch)
+    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+
+    with pytest.raises(RuntimeError, match="commit failed"):
+        service.connection.activate(
+            user=user,
+            provisioning=provisioning,
+            destination=destination,
+            payload=_payload(),
+            access_key_id="AK-MANAGED",
+            secret_access_key="NEVER-IN-RESPONSE",
+        )
+
+    assert rollback_calls == [None]
+    assert db_session.scalar(sa.select(sa.func.count()).select_from(S3Connection)) == 0
+    db_session.expire_all()
+    persisted = db_session.get(ManagedPrivateAccess, provisioning.id)
+    assert persisted.state == "provisioning"
+    assert persisted.s3_connection_id is None
+
+
 def test_failed_local_creation_compensates_remote_resources(db_session, monkeypatch):
     user = _user(db_session, email="compensate@example.test")
     account = _account(db_session, user, _endpoint(db_session))

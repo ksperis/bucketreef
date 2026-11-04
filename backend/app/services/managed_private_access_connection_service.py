@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
+from app.core.db_transactions import commit_or_rollback
 from app.db import ManagedPrivateAccess, S3Account, S3Connection, User
 from app.models.managed_private_access import (
     ManagedIAMPrivateAccessRequest,
@@ -120,7 +121,7 @@ class ManagedPrivateAccessConnectionService:
         provisioning.state = "active"
         provisioning.cleanup_error = None
         provisioning.updated_at = utcnow()
-        self.db.commit()
+        commit_or_rollback(self.db)
         self.db.refresh(connection)
         result = ManagedPrivateAccessResult(
             provisioning_id=provisioning.id,
