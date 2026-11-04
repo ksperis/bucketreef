@@ -2,7 +2,7 @@
  * Copyright (c) 2025 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { ListActionButton } from "../../components/list/ListControls";
+import { ListActionButton, ListBadge } from "../../components/list/ListControls";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AuditLogEntry, listAuditLogs, type AuditStatus } from "../../api/audit";
 import ListPageSection from "../../components/list/ListPageSection";
@@ -11,8 +11,7 @@ import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 import PageBanner from "../../components/PageBanner";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
-import UiBadge from "../../components/ui/UiBadge";
-import UiInput from "../../components/ui/UiInput";
+import ToolbarSearchInput from "../../components/ToolbarSearchInput";
 import UiSelect from "../../components/ui/UiSelect";
 import { intlLocale } from "../../i18n";
 import { extractApiError } from "../../utils/apiError";
@@ -39,32 +38,42 @@ const scopeLabelKeys = {
 } as const;
 
 function RoleBadge({ role, text }: { role: string; text: AuditLogsText }) {
-  const base = "inline-flex items-center rounded-full px-2 py-0.5 ui-caption font-semibold";
   if (role === "ui_superadmin") {
     return (
-      <span className={`${base} bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200`}>
+      <ListBadge disableToneStyles className="bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200">
         {text("superadmin")}
-      </span>
+      </ListBadge>
     );
   }
   if (role === "ui_admin") {
-    return <span className={`${base} bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200`}>{text("admin")}</span>;
+    return (
+      <ListBadge disableToneStyles className="bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200">
+        {text("admin")}
+      </ListBadge>
+    );
   }
   if (role === "ui_user") {
     return (
-      <span className={`${base} bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-100`}>{text("user")}</span>
+      <ListBadge disableToneStyles className="bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-100">
+        {text("user")}
+      </ListBadge>
     );
   }
   if (role === "ui_none") {
     return (
-      <span className={`${base} bg-slate-100 text-slate-600 dark:bg-slate-800/60 dark:text-slate-200`}>{text("noAccess")}</span>
+      <ListBadge disableToneStyles className="bg-slate-100 text-slate-600 dark:bg-slate-800/60 dark:text-slate-200">
+        {text("noAccess")}
+      </ListBadge>
     );
   }
-  return <span className={`${base} bg-slate-100 text-slate-600 dark:bg-slate-800/60 dark:text-slate-200`}>{role}</span>;
+  return (
+    <ListBadge disableToneStyles className="bg-slate-100 text-slate-600 dark:bg-slate-800/60 dark:text-slate-200">
+      {role}
+    </ListBadge>
+  );
 }
 
 function ScopeBadge({ scope, text }: { scope: string; text: AuditLogsText }) {
-  const base = "inline-flex items-center rounded-full px-2 py-0.5 ui-caption font-semibold";
   let styles = "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-100";
   let label = text("managerUi");
   if (scope === "admin") {
@@ -74,7 +83,7 @@ function ScopeBadge({ scope, text }: { scope: string; text: AuditLogsText }) {
     styles = "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-100";
     label = text("portalUi");
   }
-  return <span className={`${base} ${styles}`}>{label}</span>;
+  return <ListBadge disableToneStyles className={styles}>{label}</ListBadge>;
 }
 
 function formatAuditStatus(status: AuditStatus, text: AuditLogsText) {
@@ -83,7 +92,7 @@ function formatAuditStatus(status: AuditStatus, text: AuditLogsText) {
 
 function StatusBadge({ status, text }: { status: AuditStatus; text: AuditLogsText }) {
   const tone = status === "success" ? "success" : status === "failure" ? "danger" : "neutral";
-  return <UiBadge tone={tone}>{formatAuditStatus(status, text)}</UiBadge>;
+  return <ListBadge tone={tone}>{formatAuditStatus(status, text)}</ListBadge>;
 }
 
 function formatAuditDate(value: string, locale: UiLanguage) {
@@ -391,18 +400,15 @@ export default function AuditLogsPage() {
       {errorMessage && <PageBanner tone="error">{errorMessage}</PageBanner>}
 
       <ListPageSection variant="page"
-        className="bg-white/95 dark:bg-slate-900/60"
         title={text("title")}
         countLabel={text("loadedCount", { filtered: filteredLogs.length, total: logs.length })}
         search={
-          <UiInput
-            aria-label={text("search")}
-            type="search"
+          <ToolbarSearchInput
+            label={text("search")}
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={setSearchTerm}
             placeholder={text("searchPlaceholder")}
-            fieldClassName="min-w-[220px] flex-1"
-            size="compact"
+            className="min-w-0 flex-1 sm:w-64 md:w-72"
           />
         }
         filters={filters}
@@ -423,7 +429,6 @@ export default function AuditLogsPage() {
           primaryColumnId="action"
           responsiveCards
           tableClassName="ui-data-table"
-          rowClassName="bg-white/80 hover:bg-slate-50 dark:bg-transparent dark:hover:bg-slate-900/50"
         />
 
         <div className="ui-list-pagination flex flex-wrap items-center justify-end gap-2 border-t border-[var(--ui-border-soft)]">

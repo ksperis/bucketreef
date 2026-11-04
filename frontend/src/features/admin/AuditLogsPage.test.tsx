@@ -52,8 +52,12 @@ describe("AuditLogsPage", () => {
     expect(table).toHaveClass("responsive-data-table");
     expect(within(table).getByText("users.update").closest("td")).toHaveAttribute("data-mobile-primary", "true");
     expect(within(table).getByText("admin@example.com").closest("td")).toHaveAttribute("data-label", "Actor");
-    expect(within(table).getByText("Success").closest("td")).toHaveAttribute("data-label", "Status");
-    expect(screen.getByRole("searchbox", { name: "Search audit logs" })).toBeInTheDocument();
+    const status = within(table).getByText("Success");
+    expect(status.closest("td")).toHaveAttribute("data-label", "Status");
+    expect(status).toHaveClass("ui-list-badge");
+    expect(within(table).getByText("Admin")).toHaveClass("ui-list-badge");
+    expect(within(table).getByText("Admin UI")).toHaveClass("ui-list-badge");
+    expect(screen.getByRole("searchbox", { name: "Search audit logs" })).toHaveClass("ui-list-control");
     expect(screen.getByRole("combobox", { name: "Filter by action" })).toHaveValue("all");
     expect(screen.getByRole("combobox", { name: "Filter by status" })).toHaveValue("all");
     expect(screen.getByRole("combobox", { name: "Filter by actor role" })).toHaveValue("all");
