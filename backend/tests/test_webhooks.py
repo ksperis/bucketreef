@@ -15,7 +15,7 @@ from unittest.mock import patch
 import pytest
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.schema import CreateTable
-from sqlalchemy import func, select, text
+from sqlalchemy import event, func, select, text
 from sqlalchemy.orm import Session, sessionmaker
 from pydantic import ValidationError
 
@@ -112,6 +112,39 @@ def test_webhook_secret_is_one_time_and_encrypted_at_rest(db_session, monkeypatc
     assert not hasattr(loaded, "signing_secret")
 
 
+def test_webhook_list_endpoints_loads_subscriptions_in_one_query(db_session, monkeypatch):
+    _create_endpoint(
+        db_session,
+        monkeypatch,
+        name="audit-events",
+        event_types=["audit.admin.update_ui_user"],
+    )
+    _create_endpoint(
+        db_session,
+        monkeypatch,
+        name="all-events",
+        event_types=["*"],
+    )
+    subscription_selects: list[str] = []
+    bind = db_session.get_bind()
+
+    def track_subscription_selects(_conn, _cursor, statement, _parameters, _context, _executemany):
+        if "FROM webhook_endpoint_subscriptions" in statement:
+            subscription_selects.append(statement)
+
+    event.listen(bind, "before_cursor_execute", track_subscription_selects)
+    try:
+        listed = WebhookService(db_session).list_endpoints()
+    finally:
+        event.remove(bind, "before_cursor_execute", track_subscription_selects)
+
+    assert {item.name: item.event_types for item in listed} == {
+        "all-events": ["*"],
+        "audit-events": ["audit.admin.update_ui_user"],
+    }
+    assert len(subscription_selects) == 1
+
+
 def test_webhook_create_rolls_back_when_commit_fails(db_session, monkeypatch):
     monkeypatch.setattr("app.services.webhook_service.validate_webhook_target_url", lambda *_args, **_kwargs: None)
     rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
@@ -161,7 +194,7 @@ def test_webhook_delete_rolls_back_when_commit_fails(db_session, monkeypatch):
     assert db_session.get(WebhookEndpoint, created.id) is not None
 
 
-def test_webhook_delete_cascades_persisted_deliveries(db_session, monkeypatch):
+def test_webhook_delete_cascades_persisted_children(db_session, monkeypatch):
     created = _create_endpoint(db_session, monkeypatch, name="delete-cascade", event_types=["*"])
     db_session.add(
         WebhookDelivery(
@@ -180,6 +213,11 @@ def test_webhook_delete_cascades_persisted_deliveries(db_session, monkeypatch):
         select(func.count())
         .select_from(WebhookDelivery)
         .where(WebhookDelivery.endpoint_id == created.id)
+    ) == 0
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(WebhookEndpointSubscription)
+        .where(WebhookEndpointSubscription.endpoint_id == created.id)
     ) == 0
 
 
