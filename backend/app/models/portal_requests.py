@@ -16,6 +16,7 @@ from pydantic import (
 )
 
 from app.models.base import ApiModel
+from app.models.pagination import PaginatedResponse
 
 
 PortalAdminRequestType = Literal[
@@ -205,3 +206,7 @@ class PortalAdminRequestOut(ApiModel):
     created_at: datetime
     updated_at: datetime
     messages: list[PortalAdminRequestMessageOut]
+
+
+class PaginatedPortalAdminRequestsResponse(PaginatedResponse):
+    items: list[PortalAdminRequestOut]

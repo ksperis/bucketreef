@@ -192,9 +192,33 @@ def test_admin_search_matches_structured_request_payload(db_session):
     service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
     created = _create_user_request(service, account, requester)
 
-    rows = service.list_for_admin(search="jane.viewer@example.org")
+    response = service.list_for_admin(search="jane.viewer@example.org")
 
-    assert [row.id for row in rows] == [created.id]
+    assert [row.id for row in response.items] == [created.id]
+    assert response.total == 1
+
+
+def test_admin_request_listing_is_paginated_and_searches_account_name(db_session):
+    account = _seed_account(db_session, name="Research Account")
+    first_requester = _seed_user(db_session, email="first@example.org")
+    second_requester = _seed_user(db_session, email="second@example.org")
+    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    first = _create_user_request(service, account, first_requester)
+    second = _create_user_request(service, account, second_requester)
+
+    first_page = service.list_for_admin(page=1, page_size=1)
+    second_page = service.list_for_admin(page=2, page_size=1)
+    account_search = service.list_for_admin(search="Research Account")
+
+    assert first_page.total == 2
+    assert first_page.page == 1
+    assert first_page.page_size == 1
+    assert first_page.has_next is True
+    assert [row.id for row in first_page.items] == [second.id]
+    assert second_page.total == 2
+    assert second_page.has_next is False
+    assert [row.id for row in second_page.items] == [first.id]
+    assert {row.id for row in account_search.items} == {first.id, second.id}
 
 
 def test_approve_user_access_creates_placeholder_and_portal_link(db_session):

@@ -282,7 +282,12 @@ def test_admin_request_routes_approve_and_conflict(client: TestClient, db_sessio
 
     list_response = client.get("/api/admin/portal-requests", params={"status": "pending"})
     assert list_response.status_code == 200
-    assert [item["id"] for item in list_response.json()] == [request_id]
+    listed = list_response.json()
+    assert listed["total"] == 1
+    assert listed["page"] == 1
+    assert listed["page_size"] == 25
+    assert listed["has_next"] is False
+    assert [item["id"] for item in listed["items"]] == [request_id]
 
     approve_response = client.post(
         f"/api/admin/portal-requests/{request_id}/approve",
@@ -305,6 +310,51 @@ def test_admin_request_routes_approve_and_conflict(client: TestClient, db_sessio
 
     conflict = client.post(f"/api/admin/portal-requests/{request_id}/approve", json={})
     assert conflict.status_code == 409
+
+
+def test_admin_request_route_paginates_results(client: TestClient, db_session):
+    account = _seed_account(db_session)
+    first_requester = _seed_user(db_session, email="first-requester@example.org")
+    second_requester = _seed_user(db_session, email="second-requester@example.org")
+    admin = _seed_user(db_session, email="admin-pagination@example.org", role=UserRole.UI_ADMIN.value)
+
+    request_ids = []
+    for requester, target_email in (
+        (first_requester, "first-target@example.org"),
+        (second_requester, "second-target@example.org"),
+    ):
+        _install_portal_access_override(account, requester)
+        response = client.post(
+            "/api/portal/requests",
+            json={
+                "request_type": "portal_user_access",
+                "intent": "add",
+                "target_name": "Target User",
+                "target_email": target_email,
+                "portal_role": "portal_user",
+            },
+        )
+        assert response.status_code == 201
+        request_ids.append(response.json()["id"])
+
+    _install_admin_override(admin)
+    first_page = client.get(
+        "/api/admin/portal-requests",
+        params={"status": "pending", "page": 1, "page_size": 1},
+    )
+    second_page = client.get(
+        "/api/admin/portal-requests",
+        params={"status": "pending", "page": 2, "page_size": 1},
+    )
+
+    assert first_page.status_code == 200
+    assert first_page.json()["total"] == 2
+    assert first_page.json()["has_next"] is True
+    assert [item["id"] for item in first_page.json()["items"]] == [request_ids[1]]
+    assert second_page.status_code == 200
+    assert second_page.json()["total"] == 2
+    assert second_page.json()["has_next"] is False
+    assert [item["id"] for item in second_page.json()["items"]] == [request_ids[0]]
 
 
 def test_admin_request_routes_approve_user_removal(client: TestClient, db_session):

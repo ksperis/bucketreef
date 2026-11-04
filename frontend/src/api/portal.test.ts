@@ -469,7 +469,8 @@ describe("portal storage spaces api", () => {
       request_type: "account_quota_change",
       account_id: 101,
       search: "jane",
-      limit: 50,
+      page: 2,
+      page_size: 50,
     });
     await approveAdminPortalRequest(7, { message: "Approved" });
     await rejectAdminPortalRequest(8, { message: "Rejected" });
@@ -515,7 +516,8 @@ describe("portal storage spaces api", () => {
         request_type: "account_quota_change",
         account_id: 101,
         search: "jane",
-        limit: 50,
+        page: 2,
+        page_size: 50,
       },
     });
     expect(clientMock.post).toHaveBeenCalledWith(

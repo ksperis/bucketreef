@@ -6,7 +6,7 @@ from __future__ import annotations
 import logging
 from typing import Any, NoReturn, Optional
 
-from sqlalchemy import String, cast, or_, select
+from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.db_transactions import commit_or_rollback
@@ -22,6 +22,7 @@ from app.models.portal_requests import (
     PortalAdminRequestMessageOut,
     PortalAdminRequestOut,
     PortalAdminRequestType,
+    PaginatedPortalAdminRequestsResponse,
     PortalSettingChangeRequestCreate,
     PortalUserAccessRequestCreate,
     PortalUserRemovalRequestCreate,
@@ -267,8 +268,9 @@ class PortalRequestsService:
         request_type: Optional[PortalAdminRequestType] = None,
         account_id: Optional[int] = None,
         search: Optional[str] = None,
-        limit: int = 200,
-    ) -> list[PortalAdminRequestOut]:
+        page: int = 1,
+        page_size: int = 25,
+    ) -> PaginatedPortalAdminRequestsResponse:
         stmt = select(PortalAdminRequest)
         if status:
             stmt = stmt.where(PortalAdminRequest.status == status)
@@ -290,11 +292,23 @@ class PortalRequestsService:
                         )
                     )
                 )
+
+        total = self.db.scalar(
+            select(func.count()).select_from(stmt.order_by(None).subquery())
+        ) or 0
+        offset = (page - 1) * page_size
         rows = self.db.scalars(
             stmt.order_by(PortalAdminRequest.created_at.desc(), PortalAdminRequest.id.desc())
-            .limit(max(1, min(int(limit), 500)))
+            .offset(offset)
+            .limit(page_size)
         ).all()
-        return [self.to_out(row) for row in rows]
+        return PaginatedPortalAdminRequestsResponse(
+            items=[self.to_out(row) for row in rows],
+            total=total,
+            page=page,
+            page_size=page_size,
+            has_next=page * page_size < total,
+        )
 
     def add_admin_message(
         self,
