@@ -531,6 +531,7 @@ export default function PortalRequestsPage() {
             actions={
               <UiButton
                 size="sm"
+                variant="secondary"
                 onClick={() => openCollaboratorDialog("add")}
                 disabled={requestsDisabled || !canRequestManagedChanges}
               >
