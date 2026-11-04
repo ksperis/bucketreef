@@ -6,7 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 import logging
-from typing import Any
+from typing import Any, Literal
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -44,6 +44,8 @@ from app.utils.usage_stats import extract_usage_stats
 
 logger = logging.getLogger(__name__)
 
+_QuotaMonitorMode = Literal["quota_alerts", "usage_history"]
+
 
 @dataclass(frozen=True)
 class _QuotaUsageSnapshot:
@@ -59,8 +61,7 @@ class _QuotaUsageSnapshot:
 class _QuotaMonitorRun:
     settings: AppSettings
     now: datetime
-    quota_alerts_enabled: bool
-    usage_history_enabled: bool
+    mode: _QuotaMonitorMode
     summary: dict[str, Any]
     endpoint_map: dict[int, StorageEndpoint]
     usage_clients: dict[int, RGWAdminClient | None]
@@ -80,33 +81,25 @@ class QuotaMonitoringService:
         self.db = db
 
     def run_quota_alerts(self) -> dict[str, Any]:
-        return self._run_monitor(
-            include_quota_alerts=True,
-            include_usage_history=False,
-        )
+        return self._run_monitor(mode="quota_alerts")
 
     def collect_usage_history(self) -> dict[str, Any]:
-        return self._run_monitor(
-            include_quota_alerts=False,
-            include_usage_history=True,
-        )
+        return self._run_monitor(mode="usage_history")
 
     def _run_monitor(
         self,
         *,
-        include_quota_alerts: bool,
-        include_usage_history: bool,
+        mode: _QuotaMonitorMode,
     ) -> dict[str, Any]:
         settings = load_app_settings_for_db(self.db)
         now = utcnow()
-        quota_alerts_enabled = bool(
-            settings.general.quota_alerts_enabled and include_quota_alerts
-        )
-        usage_history_enabled = bool(
-            settings.general.usage_history_enabled and include_usage_history
+        enabled = bool(
+            settings.general.quota_alerts_enabled
+            if mode == "quota_alerts"
+            else settings.general.usage_history_enabled
         )
         summary = self._new_summary(now=now)
-        if not quota_alerts_enabled and not usage_history_enabled:
+        if not enabled:
             summary.update(
                 status="skipped",
                 reason=(
@@ -119,8 +112,7 @@ class QuotaMonitoringService:
         run = self._prepare_run(
             settings=settings,
             now=now,
-            quota_alerts_enabled=quota_alerts_enabled,
-            usage_history_enabled=usage_history_enabled,
+            mode=mode,
             summary=summary,
         )
         subjects = self._load_subjects(endpoint_map=run.endpoint_map)
@@ -157,10 +149,10 @@ class QuotaMonitoringService:
         *,
         settings: AppSettings,
         now: datetime,
-        quota_alerts_enabled: bool,
-        usage_history_enabled: bool,
+        mode: _QuotaMonitorMode,
         summary: dict[str, Any],
     ) -> _QuotaMonitorRun:
+        quota_alerts_enabled = mode == "quota_alerts"
         endpoint_map = {
             endpoint.id: endpoint
             for endpoint in self.db.scalars(select(StorageEndpoint)).all()
@@ -188,8 +180,7 @@ class QuotaMonitoringService:
         return _QuotaMonitorRun(
             settings=settings,
             now=now,
-            quota_alerts_enabled=quota_alerts_enabled,
-            usage_history_enabled=usage_history_enabled,
+            mode=mode,
             summary=summary,
             endpoint_map=endpoint_map,
             usage_clients={},
@@ -213,9 +204,9 @@ class QuotaMonitoringService:
         snapshot = self._collect_subject_snapshot(subject, endpoint, run)
         if snapshot is None:
             return
-        if run.usage_history_enabled:
+        if run.mode == "usage_history":
             self._record_usage_history(subject, snapshot, run)
-        if run.quota_alerts_enabled:
+        if run.mode == "quota_alerts":
             self._process_quota_alert(subject, snapshot, run)
         run.summary["subjects_processed"] += 1
 
