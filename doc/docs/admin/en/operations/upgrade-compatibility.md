@@ -109,6 +109,34 @@ downgrading; migration `0226` refuses to downgrade while any pending row
 exists. Deploy the backend and bundled frontend together and apply the normal
 Alembic upgrade path.
 
+## 2026-11 canonical user avatar preferences
+
+Migration `0225_canonical_user_avatar_preference` normalizes every persisted
+`users.avatar_preference` value to one of `auto`, `uploaded`, `gravatar`, or
+`initials`. Matching values are trimmed and lowercased; unsupported values are
+reset to the safe `auto` preference. The migration then installs a database
+check constraint so later writes cannot reintroduce another value.
+
+The backend ORM carries the same constraint and the application API validates
+the same preference set. Downgrade removes only the database constraint; the
+canonicalized values are preserved.
+
+## 2026-11 canonical external identity provider invariants
+
+Migration `0224_external_identity_provider_invariants` canonicalizes provider
+metadata in external identities, link requests, and link attempts, then
+enforces the same rules with database check constraints. Provider types are
+limited to `oidc` and `ldap`; provider IDs are trimmed, lowercased, non-empty,
+and limited to the supported identifier syntax. OIDC rows require a trimmed
+issuer without a trailing slash, while LDAP rows require `issuer=NULL`.
+
+For durable identities and pending link requests, the migration validates the
+canonical identity key before writing. It stops the upgrade if normalization
+would collapse two rows onto the same OIDC `(issuer, subject)` or LDAP
+`(provider_id, subject)` identity instead of silently choosing one. Repair the
+reported rows and retry the migration. Downgrade removes the new check
+constraints but keeps the canonicalized provider metadata.
+
 ## 2026-11 Manager bucket tenant metadata
 
 Manager bucket summary and listing responses now expose the resolved RGW tenant
