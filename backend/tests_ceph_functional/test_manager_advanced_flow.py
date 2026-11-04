@@ -313,7 +313,13 @@ def test_manager_iam_roles_and_groups_flow(
         created_user = manager_session.post(
             "/manager/iam/users",
             params=_context_params(account_id),
-            json={"name": user_name, "create_key": True},
+            json={
+                "name": user_name,
+                "create_key": True,
+                "groups": [],
+                "policies": [],
+                "inline_policies": [],
+            },
             expected_status=201,
         )
         assert created_user["name"] == user_name
@@ -323,6 +329,7 @@ def test_manager_iam_roles_and_groups_flow(
             params=_context_params(account_id),
             json={
                 "name": group_name,
+                "policies": [],
                 "inline_policies": [
                     {
                         "name": "GroupInlineAccess",
@@ -347,6 +354,7 @@ def test_manager_iam_roles_and_groups_flow(
                     "Version": "2012-10-17",
                     "Statement": [{"Effect": "Allow", "Principal": {"AWS": "*"}, "Action": "sts:AssumeRole"}],
                 },
+                "policies": [],
                 "inline_policies": [
                     {
                         "name": "RoleInlineAccess",

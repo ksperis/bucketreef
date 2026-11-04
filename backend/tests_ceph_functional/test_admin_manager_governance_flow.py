@@ -65,7 +65,13 @@ def test_manager_iam_key_metadata_and_audit(
         created_user = manager_session.post(
             "/manager/iam/users",
             params={"context_id": account_id},
-            json={"name": user_name, "create_key": False},
+            json={
+                "name": user_name,
+                "create_key": False,
+                "groups": [],
+                "policies": [],
+                "inline_policies": [],
+            },
             expected_status=201,
         )
         assert created_user["name"] == user_name
@@ -210,6 +216,8 @@ def test_manager_iam_role_tags_detect_storage_backend_false_success(
                     "Version": "2012-10-17",
                     "Statement": [{"Effect": "Allow", "Principal": {"AWS": "*"}, "Action": "sts:AssumeRole"}],
                 },
+                "policies": [],
+                "inline_policies": [],
             },
             expected_status=201,
         )
