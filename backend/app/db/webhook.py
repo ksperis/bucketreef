@@ -16,8 +16,6 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.orm import relationship
-
 from .base import Base
 
 
@@ -35,13 +33,6 @@ class WebhookEndpoint(Base):
     signing_secret = Column(EncryptedString, nullable=True)
     created_at = Column(UTCDateTime(), nullable=False, default=utcnow)
     updated_at = Column(UTCDateTime(), nullable=False, default=utcnow)
-
-    subscriptions = relationship(
-        "WebhookEndpointSubscription",
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-    )
-
 
 class WebhookEndpointSubscription(Base):
     __tablename__ = "webhook_endpoint_subscriptions"

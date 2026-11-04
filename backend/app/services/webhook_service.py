@@ -156,13 +156,26 @@ class WebhookService:
                 WebhookEndpoint.id.asc(),
             )
         ).all()
-        latest = self._latest_deliveries([int(row.id) for row in rows])
-        return [self._endpoint_out(row, latest_delivery=latest.get(int(row.id))) for row in rows]
+        endpoint_ids = [int(row.id) for row in rows]
+        latest = self._latest_deliveries(endpoint_ids)
+        event_types = self._event_types_by_endpoint(endpoint_ids)
+        return [
+            self._endpoint_out(
+                row,
+                event_types=event_types.get(int(row.id), []),
+                latest_delivery=latest.get(int(row.id)),
+            )
+            for row in rows
+        ]
 
     def get_endpoint(self, endpoint_id: int) -> WebhookEndpointOut:
         row = self._require_endpoint(endpoint_id)
         latest = self._latest_deliveries([int(row.id)])
-        return self._endpoint_out(row, latest_delivery=latest.get(int(row.id)))
+        return self._endpoint_out(
+            row,
+            event_types=self._event_types_by_endpoint([int(row.id)]).get(int(row.id), []),
+            latest_delivery=latest.get(int(row.id)),
+        )
 
     def create_endpoint(self, payload: WebhookEndpointPayload) -> WebhookEndpointCreated:
         validate_webhook_target_url(payload.url, self.settings)
@@ -293,10 +306,27 @@ class WebhookService:
                 )
             )
 
-    @staticmethod
-    def _event_types(row: WebhookEndpoint) -> list[str]:
-        values = sorted({str(item.event_type) for item in row.subscriptions})
-        return [ALL_WEBHOOK_EVENTS] if ALL_WEBHOOK_EVENTS in values else values
+    def _event_types_by_endpoint(self, endpoint_ids: Iterable[int]) -> dict[int, list[str]]:
+        ids = sorted({int(endpoint_id) for endpoint_id in endpoint_ids})
+        if not ids:
+            return {}
+        grouped: dict[int, list[str]] = {}
+        for endpoint_id, event_type in self.db.execute(
+            select(
+                WebhookEndpointSubscription.endpoint_id,
+                WebhookEndpointSubscription.event_type,
+            )
+            .where(WebhookEndpointSubscription.endpoint_id.in_(ids))
+            .order_by(
+                WebhookEndpointSubscription.endpoint_id.asc(),
+                WebhookEndpointSubscription.event_type.asc(),
+            )
+        ):
+            grouped.setdefault(int(endpoint_id), []).append(str(event_type))
+        return {
+            endpoint_id: [ALL_WEBHOOK_EVENTS] if ALL_WEBHOOK_EVENTS in values else values
+            for endpoint_id, values in grouped.items()
+        }
 
     def _latest_deliveries(self, endpoint_ids: Iterable[int]) -> dict[int, WebhookDelivery]:
         ids = sorted({int(endpoint_id) for endpoint_id in endpoint_ids})
@@ -322,14 +352,17 @@ class WebhookService:
         self,
         row: WebhookEndpoint,
         *,
+        event_types: list[str] | None = None,
         latest_delivery: WebhookDelivery | None = None,
     ) -> WebhookEndpointOut:
+        if event_types is None:
+            event_types = self._event_types_by_endpoint([int(row.id)]).get(int(row.id), [])
         return WebhookEndpointOut(
             id=int(row.id),
             name=row.name,
             url=row.url,
             enabled=bool(row.enabled),
-            event_types=self._event_types(row),
+            event_types=event_types,
             has_signing_secret=bool(row.signing_secret),
             last_delivery=(self._delivery_out(latest_delivery) if latest_delivery is not None else None),
             created_at=row.created_at,
