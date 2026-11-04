@@ -979,6 +979,40 @@ def test_durable_rotation_resumes_exact_pair_after_partial_failure(identities, d
     assert old not in {key["access_key"] for key in rgw.users[identity.rgw_uid]["keys"]}
 
 
+def test_durable_rotation_audits_completion_only_after_final_checkpoint(identities, db_session, monkeypatch):
+    from sqlalchemy.exc import OperationalError
+
+    service, endpoint, _ = identities
+    service.reconcile(endpoint)
+    commit = db_session.commit
+
+    def fail_final_checkpoint():
+        if any(isinstance(row, KeyRotationIntent) for row in db_session.deleted):
+            raise OperationalError("commit", {}, Exception("injected"))
+        return commit()
+
+    monkeypatch.setattr(db_session, "commit", fail_final_checkpoint)
+    with pytest.raises(ValueError, match="persistence failed"):
+        _rotate_identity(service, endpoint, "runtime")
+
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(AuditLog)
+        .where(AuditLog.action == "key_rotation.completed")
+    ) == 0
+    intent = db_session.scalars(select(KeyRotationIntent)).one()
+    assert intent.phase == "activated"
+
+    monkeypatch.setattr(db_session, "commit", commit)
+    _rotate_identity(service, endpoint, "runtime")
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(AuditLog)
+        .where(AuditLog.action == "key_rotation.completed")
+    ) == 1
+    assert db_session.scalar(select(func.count()).select_from(KeyRotationIntent)) == 0
+
+
 def test_resume_revalidates_candidate_before_retiring_old_key(identities):
     service, endpoint, rgw = identities
     service.reconcile(endpoint)

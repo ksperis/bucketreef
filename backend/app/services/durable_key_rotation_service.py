@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.core.db_transactions import commit_or_rollback
 from app.db import (
     EndpointServiceIdentity,
     KeyRotationIntent,
@@ -68,6 +69,17 @@ class DurableKeyRotationService:
                       "account_id": intent.target_id if intent.key_type == "account" else None,
                       "executor": "admin_ops", "workflow": "key-rotation", "phase": intent.phase},
         )
+
+    def _commit_checkpoint(
+        self,
+        endpoint: StorageEndpoint,
+        intent: KeyRotationIntent,
+        action: str,
+    ) -> None:
+        """Persist one durable rotation checkpoint before auditing it."""
+
+        commit_or_rollback(self.db)
+        self._audit(endpoint, intent, action)
 
     def _target(
         self,
@@ -344,8 +356,7 @@ class DurableKeyRotationService:
             actor_email=self.actor.email if self.actor else "system",
         )
         self.db.add(intent)
-        self.db.commit()
-        self._audit(endpoint, intent, "prepared")
+        self._commit_checkpoint(endpoint, intent, "prepared")
         return intent
 
     def _validate_pending_intent(
@@ -479,8 +490,7 @@ class DurableKeyRotationService:
             intent.new_secret_key,
         )
         intent.phase, intent.last_error = "activated", None
-        self.db.commit()
-        self._audit(endpoint, intent, "activated")
+        self._commit_checkpoint(endpoint, intent, "activated")
         if key_type == "endpoint_admin":
             return self.identities.client_factory(endpoint)
         return admin
@@ -631,13 +641,12 @@ class DurableKeyRotationService:
         target: RotationTarget,
         intent: KeyRotationIntent,
     ) -> None:
-        self._audit(endpoint, intent, "completed")
         self.db.delete(intent)
         if key_type in IDENTITY_TYPES:
             target.last_error = None
             target.status = "ready"
             target.last_reconciled_at = utcnow()
-        self.db.commit()
+        self._commit_checkpoint(endpoint, intent, "completed")
 
     def rotate(
         self,
