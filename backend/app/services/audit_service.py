@@ -12,7 +12,6 @@ from sqlalchemy.orm import Session
 
 from app.core.db_transactions import commit_or_rollback
 from app.core.sensitive_data import sanitize_audit_metadata
-from app.core.sqlite import ensure_sqlite_transaction_for_savepoint
 from app.db import AuditLog, User
 from app.services.access_context_contracts import ManagerActor
 from app.models.audit import AuditStatus
@@ -98,24 +97,30 @@ class AuditService:
             )
         return None, None, None
 
+    def _ensure_clean_transaction_boundary(self) -> None:
+        has_pending_changes = bool(self.db.new or self.db.deleted)
+        if not has_pending_changes:
+            has_pending_changes = any(
+                self.db.is_modified(row, include_collections=True)
+                for row in self.db.dirty
+            )
+        if has_pending_changes:
+            raise RuntimeError(
+                "Audit logging requires business database changes to be committed first"
+            )
+
     def _persist_log(self, payload: AuditLog) -> bool:
-        # Flush caller-owned mutations before the savepoint so an audit-only
-        # failure can be rolled back without discarding the business change.
-        self.db.flush()
-        ensure_sqlite_transaction_for_savepoint(self.db)
+        self._ensure_clean_transaction_boundary()
+        self.db.add(payload)
         try:
-            with self.db.begin_nested():
-                self.db.add(payload)
-                self.db.flush()
+            commit_or_rollback(self.db)
         except SQLAlchemyError as exc:
             logger.warning(
                 "Failed to persist audit log for action %s: %s",
                 payload.action,
                 exc,
             )
-            commit_or_rollback(self.db)
             return False
-        commit_or_rollback(self.db)
         return True
 
     def _publish_webhook(
