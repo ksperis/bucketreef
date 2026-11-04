@@ -3,6 +3,7 @@
 """Setup orchestration for the guided administrator onboarding."""
 from sqlalchemy import select
 
+from app.core.db_transactions import commit_or_rollback
 from app.db import S3Account, S3Connection, UserS3Account
 from app.models.onboarding import OnboardingApply
 from app.models.s3_account import S3AccountCreate
@@ -51,7 +52,6 @@ class OnboardingSetupService:
 
     def configure(self, actor, row, payload):
         draft = self.progress.draft(row)
-        self.endpoints.actor = actor
         endpoint = self.endpoint_setup.prepare(actor, row, draft, payload)
         draft = self.progress.draft(row)
 
@@ -93,7 +93,7 @@ class OnboardingSetupService:
         row.configured_at = utcnow()
         row.updated_at = utcnow()
         row.pending_step = None
-        self.db.commit()
+        commit_or_rollback(self.db)
         self.progress.audit(
             actor,
             "configured",
@@ -138,7 +138,7 @@ class OnboardingSetupService:
             self.progress.checkpoint(row, account_name=account_name)
 
         row.pending_step = "account"
-        self.db.commit()
+        commit_or_rollback(self.db)
         created = get_s3_accounts_service(self.db).ensure_provisioned_account(
             S3AccountCreate(
                 name=account_name,
@@ -173,7 +173,7 @@ class OnboardingSetupService:
             verify_tls=endpoint.verify_tls,
         )
         client.list_users(MaxItems=1)
-        self.endpoint_setup.enable_features(endpoint, "iam")
+        self.endpoint_setup.enable_features(actor, endpoint, "iam")
         self.progress.audit(
             actor,
             "endpoint_features_enabled",
@@ -199,7 +199,7 @@ class OnboardingSetupService:
         if draft.manager and not link.allow_manager_browser_data_access:
             link.allow_manager_browser_data_access = True
             link.updated_at = utcnow()
-            self.db.commit()
+            commit_or_rollback(self.db)
         self.progress.audit(
             actor,
             "access_assigned",
