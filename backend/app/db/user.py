@@ -60,47 +60,24 @@ class User(Base):
     quota_alerts_global_watch = Column(Boolean, default=False, nullable=False, server_default="0")
     ui_preferences = Column(JSON, nullable=False, default=dict, server_default="{}")
 
-    accounts = relationship(
-        "S3Account",
-        secondary="user_s3_accounts",
-        back_populates="users",
-        overlaps="user_links,account_links",
-    )
     account_links = relationship(
         "UserS3Account",
         back_populates="user",
-        overlaps="accounts,users,user_links",
-    )
-    s3_users = relationship(
-        "S3User",
-        secondary="user_s3_users",
-        back_populates="users",
-        overlaps="s3_user_links",
     )
     s3_user_links = relationship(
         "UserS3User",
         back_populates="user",
-        overlaps="s3_users",
     )
     # User-scoped S3 connections (credential-first).
     s3_connections = relationship(
         "S3Connection",
         back_populates="created_by",
         cascade="all, delete-orphan",
-        overlaps="created_by",
     )
 
-    # Connections explicitly shared with the user (UI access control).
-    shared_s3_connections = relationship(
-        "S3Connection",
-        secondary="user_s3_connections",
-        back_populates="users",
-        overlaps="s3_connections,created_by,user_links,connection_links",
-    )
     s3_connection_links = relationship(
         "UserS3Connection",
         back_populates="user",
-        overlaps="shared_s3_connections,s3_connections,users",
     )
     ui_group_links = relationship(
         "UserUiGroup",

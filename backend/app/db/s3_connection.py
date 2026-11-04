@@ -97,19 +97,12 @@ class S3Connection(Base):
     updated_at = Column(UTCDateTime(), default=utcnow, nullable=False)
     last_used_at = Column(UTCDateTime(), nullable=True)
 
-    created_by = relationship("User", back_populates="s3_connections", overlaps="s3_connections")
+    created_by = relationship("User", back_populates="s3_connections")
     storage_endpoint = relationship("StorageEndpoint")
 
-    users = relationship(
-        "User",
-        secondary="user_s3_connections",
-        back_populates="shared_s3_connections",
-        overlaps="user_links,connection_links,created_by,s3_connection_links",
-    )
     user_links = relationship(
         "UserS3Connection",
         back_populates="connection",
-        overlaps="users,shared_s3_connections,connection_links,created_by",
         cascade="all, delete-orphan",
     )
     tag_links = relationship("S3ConnectionTag", back_populates="connection", cascade="all, delete-orphan")
@@ -137,12 +130,10 @@ class UserS3Connection(Base):
     user = relationship(
         "User",
         back_populates="s3_connection_links",
-        overlaps="shared_s3_connections,s3_connections,users",
     )
     connection = relationship(
         "S3Connection",
         back_populates="user_links",
-        overlaps="users,shared_s3_connections,created_by",
     )
 
 

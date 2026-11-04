@@ -78,16 +78,9 @@ class S3Account(Base):
 
     storage_endpoint = relationship("StorageEndpoint", lazy="joined")
 
-    users = relationship(
-        "User",
-        secondary="user_s3_accounts",
-        back_populates="accounts",
-        overlaps="user_links,account_links",
-    )
     user_links = relationship(
         "UserS3Account",
         back_populates="account",
-        overlaps="users,accounts,account_links",
     )
     tag_links = relationship("S3AccountTag", back_populates="account", cascade="all, delete-orphan")
     deletion = relationship(
@@ -211,12 +204,10 @@ class UserS3Account(Base):
     user = relationship(
         "User",
         back_populates="account_links",
-        overlaps="accounts,users,user_links",
     )
     account = relationship(
         "S3Account",
         back_populates="user_links",
-        overlaps="users,accounts,account_links",
     )
 
 
