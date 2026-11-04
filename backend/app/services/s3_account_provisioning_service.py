@@ -8,6 +8,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.core.db_transactions import rollback_safely
 from app.db import S3Account, StorageEndpoint
 from app.models.s3_account import S3AccountCreate
 from app.services.app_settings_service import load_app_settings_for_db
@@ -149,21 +150,18 @@ class S3AccountProvisioningService:
             quota_max_size_gb, quota_max_objects = self.metrics.get_quota(account, admin)
             self.db.commit()
         except Exception as exc:
-            db_rollback_failed = False
-            try:
-                self.db.rollback()
-            except Exception as rollback_exc:  # pragma: no cover - defensive database failure
+            rollback_error = rollback_safely(self.db)
+            if rollback_error is not None:  # pragma: no cover - defensive database failure
                 logger.error(
                     "Unable to roll back failed S3 account creation transaction: %s",
-                    rollback_exc,
+                    rollback_error,
                 )
-                db_rollback_failed = True
             remote_rollback_failed = self._rollback_created_remote_account(
                 admin,
                 rgw_account_id=rgw_account_id,
                 tenant=payload.rgw_tenant,
             )
-            if db_rollback_failed or remote_rollback_failed:
+            if rollback_error is not None or remote_rollback_failed:
                 raise RuntimeError(
                     "Unable to create S3 account. Local or RGW rollback also failed."
                 ) from exc

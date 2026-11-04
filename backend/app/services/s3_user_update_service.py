@@ -6,6 +6,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
+from app.core.db_transactions import rollback_safely
 from app.models.s3_user import S3User as S3UserSchema, S3UserUpdate
 from app.services.app_settings_service import load_app_settings_for_db
 from app.services.feature_policy_service import (
@@ -105,12 +106,9 @@ class S3UserUpdateService:
             self.db.add(s3_user)
             self.db.commit()
         except Exception as exc:
-            db_rollback_failed = False
-            try:
-                self.db.rollback()
-            except Exception as rollback_exc:  # pragma: no cover - defensive database failure
-                logger.error("Unable to roll back failed S3 user update: %s", rollback_exc)
-                db_rollback_failed = True
+            rollback_error = rollback_safely(self.db)
+            if rollback_error is not None:  # pragma: no cover - defensive database failure
+                logger.error("Unable to roll back failed S3 user update: %s", rollback_error)
 
             quota_rollback_failed = False
             if quota_update_attempted and quota_before is not None:
@@ -124,7 +122,7 @@ class S3UserUpdateService:
                     )
                     quota_rollback_failed = True
 
-            if db_rollback_failed or quota_rollback_failed:
+            if rollback_error is not None or quota_rollback_failed:
                 raise RuntimeError(
                     "Unable to update S3 user. Local or RGW rollback also failed."
                 ) from exc
