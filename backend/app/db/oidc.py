@@ -21,14 +21,12 @@ class OidcLoginState(Base):
     redirect_uri = Column(String, nullable=True)
     browser_secret_hash = Column(String, nullable=True)
     purpose = Column(String, nullable=False, default="login", server_default="login", index=True)
-    target_user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     link_attempt_id = Column(
         String,
         ForeignKey("external_identity_link_attempts.id", ondelete="CASCADE"),
         nullable=True,
         index=True,
     )
-    auth_session_id = Column(String, ForeignKey("auth_sessions.id", ondelete="SET NULL"), nullable=True, index=True)
     require_auth_time = Column(Boolean, nullable=False, default=False, server_default="0")
     created_at = Column(UTCDateTime(), default=utcnow, nullable=False, index=True)
 

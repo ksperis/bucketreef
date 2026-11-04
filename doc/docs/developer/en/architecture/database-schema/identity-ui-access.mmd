@@ -155,7 +155,6 @@ erDiagram
         varchar picture_url
         varchar source "NN"
         varchar browser_secret_hash "NN"
-        varchar initiating_auth_session_id FK
         varchar proof_method
         datetime proof_verified_at
         datetime mfa_verified_at
@@ -260,9 +259,7 @@ erDiagram
         varchar redirect_uri
         varchar browser_secret_hash
         varchar purpose "NN; default=login"
-        integer target_user_id FK
         varchar link_attempt_id FK
-        varchar auth_session_id FK
         boolean require_auth_time "NN; default=0"
         datetime created_at "NN"
     }
@@ -339,14 +336,11 @@ erDiagram
     external_identity_link_requests }o--|| users : "user_id to id; ON DELETE CASCADE"
     external_identity_link_requests }o--o| users : "decided_by_user_id to id; ON DELETE SET NULL"
     external_identity_link_attempts }o--|| users : "user_id to id; ON DELETE CASCADE"
-    external_identity_link_attempts }o--o| auth_sessions : "initiating_auth_session_id to id; ON DELETE SET NULL"
     webauthn_credentials }o--|| users : "user_id to id; ON DELETE CASCADE"
     auth_challenges }o--|| users : "user_id to id; ON DELETE CASCADE"
     recovery_codes }o--|| users : "user_id to id; ON DELETE CASCADE"
     first_admin_bootstrap }o--o| users : "created_user_id to id; ON DELETE SET NULL"
-    oidc_login_states }o--o| users : "target_user_id to id; ON DELETE CASCADE"
     oidc_login_states }o--o| external_identity_link_attempts : "link_attempt_id to id; ON DELETE CASCADE"
-    oidc_login_states }o--o| auth_sessions : "auth_session_id to id; ON DELETE SET NULL"
     browser_favorites }o--|| users : "user_id to id; ON DELETE CASCADE"
     onboarding_preferences o|--|| users : "user_id to id; ON DELETE CASCADE"
     onboarding_journeys }o--|| users : "user_id to id; ON DELETE CASCADE"

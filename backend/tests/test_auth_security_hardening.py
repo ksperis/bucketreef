@@ -714,18 +714,14 @@ def test_profile_oidc_link_requires_explicit_self_service_permission(
             request_origin,
             browser_secret_hash,
             purpose,
-            target_user_id,
             link_attempt_id,
-            auth_session_id,
         ):
             assert provider_id == "company"
             assert redirect_path is None
             assert request_origin
             assert browser_secret_hash
             assert purpose == "link_identity"
-            assert target_user_id == user.id
             assert link_attempt_id
-            assert auth_session_id == credentials.session.id
             return {
                 "provider": "company",
                 "authorization_url": "https://issuer.example.test/authorize",

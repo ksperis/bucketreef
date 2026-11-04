@@ -41,9 +41,7 @@ class _ClaimedLoginState:
     redirect_path: Optional[str]
     issuer: str
     purpose: str
-    target_user_id: Optional[int]
     link_attempt_id: Optional[str]
-    auth_session_id: Optional[str]
     require_auth_time: bool
     created_at: Any
 
@@ -115,9 +113,7 @@ class OidcService:
         request_origin: Optional[str] = None,
         browser_secret_hash: Optional[str] = None,
         purpose: str = "login",
-        target_user_id: Optional[int] = None,
         link_attempt_id: Optional[str] = None,
-        auth_session_id: Optional[str] = None,
         require_auth_time: bool = False,
     ) -> dict[str, str]:
         provider_key, provider = self._get_provider(provider_id)
@@ -156,9 +152,7 @@ class OidcService:
             redirect_uri=redirect_uri,
             browser_secret_hash=browser_secret_hash,
             purpose=purpose,
-            target_user_id=target_user_id,
             link_attempt_id=link_attempt_id,
-            auth_session_id=auth_session_id,
             require_auth_time=require_auth_time,
         )
         self.db.add(record)
@@ -300,9 +294,7 @@ class OidcService:
             redirect_path=login_state.redirect_path,
             issuer=login_state.issuer,
             purpose=login_state.purpose,
-            target_user_id=login_state.target_user_id,
             link_attempt_id=login_state.link_attempt_id,
-            auth_session_id=login_state.auth_session_id,
             require_auth_time=bool(login_state.require_auth_time),
             created_at=login_state.created_at,
         )

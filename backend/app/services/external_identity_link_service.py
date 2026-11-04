@@ -82,7 +82,6 @@ class ExternalIdentityLinkService:
         provider_id: str,
         issuer: str,
         browser_secret_hash: str,
-        auth_session_id: str,
         mfa_verified_at: Optional[datetime],
         redirect_path: Optional[str],
     ) -> ExternalIdentityLinkAttempt:
@@ -91,7 +90,6 @@ class ExternalIdentityLinkService:
             provider_id=provider_id,
             issuer=issuer,
             browser_secret_hash=browser_secret_hash,
-            auth_session_id=auth_session_id,
             mfa_verified_at=mfa_verified_at,
             redirect_path=redirect_path,
         )

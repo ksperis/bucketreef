@@ -80,7 +80,6 @@ class ExternalIdentityLinkAttemptService:
         provider_id: str,
         issuer: str,
         browser_secret_hash: str,
-        auth_session_id: str,
         mfa_verified_at: Optional[datetime],
         redirect_path: Optional[str],
     ) -> ExternalIdentityLinkAttempt:
@@ -96,7 +95,6 @@ class ExternalIdentityLinkAttemptService:
             issuer=normalize_link_oidc_issuer(issuer),
             source="profile",
             browser_secret_hash=browser_secret_hash,
-            initiating_auth_session_id=auth_session_id,
             proof_method="session_step_up",
             proof_verified_at=now,
             mfa_verified_at=mfa_verified_at,

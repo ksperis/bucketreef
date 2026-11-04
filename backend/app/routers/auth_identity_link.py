@@ -223,7 +223,6 @@ def external_identity_link_oidc_proof_start(
             request_origin=request_origin,
             browser_secret_hash=browser_hash,
             purpose="link_proof",
-            target_user_id=proof_identity.user_id,
             link_attempt_id=attempt_id,
             require_auth_time=True,
         )
@@ -485,7 +484,6 @@ def profile_oidc_link_start(
             provider_id=provider_id,
             issuer=issuer,
             browser_secret_hash=browser_hash,
-            auth_session_id=current_session.id,
             mfa_verified_at=current_session.mfa_verified_at,
             redirect_path=payload.redirect_path if payload else None,
         )
@@ -495,9 +493,7 @@ def profile_oidc_link_start(
             request_origin=request_origin,
             browser_secret_hash=browser_hash,
             purpose="link_identity",
-            target_user_id=current_user.id,
             link_attempt_id=attempt.id,
-            auth_session_id=current_session.id,
         )
         return OIDCStartResponse.model_validate(result)
     except (ExternalIdentityLinkError, OIDCProviderNotFoundError, OIDCConfigurationError) as exc:

@@ -116,7 +116,6 @@ def test_profile_link_preserves_mfa_time_and_requires_fresh_step_up(db_session, 
         provider_id="company",
         issuer=OIDC_ISSUER,
         browser_secret_hash=BROWSER_HASH,
-        auth_session_id="profile-session",
         mfa_verified_at=verified_at,
         redirect_path="/manager/profile?tab=security",
     )
