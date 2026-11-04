@@ -490,6 +490,23 @@ The undocumented `ENV_STORAGE_ENDPOINTS[].features_config` compatibility field
 has been removed. The downgrade recreates the former YAML column from the
 structured values.
 
+## 2026-10 normalized S3 connection custom endpoints
+
+Migration `0199_normalize_s3_connection_custom_endpoints` replaces the
+`s3_connections.custom_endpoint_config` text JSON blob with dedicated
+`custom_endpoint_url`, `custom_region`, `custom_force_path_style`,
+`custom_verify_tls`, and `custom_provider` columns. Connections bound to a
+registered Storage Endpoint keep those custom columns empty. Manual connections
+must contain a usable endpoint URL plus boolean path-style and TLS flags;
+malformed persisted custom endpoint data stops the upgrade explicitly.
+
+Runtime connection services now read and write those structured columns
+directly. The application API continues to expose the endpoint as
+`endpoint_url`, `region`, `force_path_style`, `verify_tls`, and
+`provider_hint`; for a manual endpoint, `provider_hint` is backed by the
+`custom_provider` column. The downgrade recreates the canonical text JSON blob
+from the structured columns.
+
 ## OpenStack project connections
 
 Migration `0194_openstack_connect` adds optional clouds and session-bound
@@ -2125,9 +2142,10 @@ text JSON values with structured JSON columns.
 ## 2026-08 canonical custom S3 connection endpoints
 
 Migration `0089_canonical_s3_connection_endpoints` rewrites every manual S3
-connection endpoint with the exact current fields, maps the removed
-`provider_hint` key to `provider`, supplies current boolean defaults, and clears
-custom JSON from connections bound to a registered Storage Endpoint. The
+connection endpoint with the then-current JSON fields, maps the retired
+`provider_hint` key inside that blob to `provider`, supplies the migration's
+boolean defaults, and clears custom JSON from connections bound to a registered
+Storage Endpoint. The
 migration stops with the affected connection ID if a manual connection has no
 usable endpoint URL; repair or delete that invalid row before retrying.
 
@@ -2135,6 +2153,10 @@ Deploy the migration and backend together. Runtime readers now reject malformed,
 partial, or unknown custom endpoint data instead of repairing it or consulting
 removed model attributes. Registered endpoints also propagate their configured
 TLS verification flag to connections. The cleanup is not reversed on downgrade.
+Migration `0199_normalize_s3_connection_custom_endpoints` later removes that
+intermediate text blob and stores the custom endpoint fields in dedicated
+columns. See
+[normalized S3 connection custom endpoints](#2026-10-normalized-s3-connection-custom-endpoints).
 
 ## 2026-08 canonical account Portal settings overrides
 
