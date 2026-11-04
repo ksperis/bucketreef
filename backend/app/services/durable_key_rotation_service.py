@@ -576,22 +576,29 @@ class DurableKeyRotationService:
                 "Rotation pending; check credentials, permissions and RGW connectivity, "
                 "then retry rotation."
             )
-            self.db.commit()
 
         if key_type not in SERVICE_TYPES:
+            if persisted is not None:
+                commit_or_rollback(self.db)
             return
         target = self.db.get(EndpointServiceIdentity, target_id)
         if target is None:
+            if persisted is not None:
+                commit_or_rollback(self.db)
             return
         if isinstance(exc, ManagedIdentityKeyDriftError):
+            # record_key_drift commits the shared session, including the pending
+            # rotation error above, before it records the audit event.
             self.identities.record_key_drift(endpoint, target, exc)
-        elif isinstance(exc, ReplacementValidationError):
+            return
+        if isinstance(exc, ReplacementValidationError):
             target.last_error = (
                 "Service rotation validation failed; check credentials and permissions, "
                 "then retry."
             )
             target.status = "error"
-            self.db.commit()
+        if persisted is not None or isinstance(exc, ReplacementValidationError):
+            commit_or_rollback(self.db)
 
     @staticmethod
     def _validate_rotation_request(key_type: str, *, deactivate_only: bool) -> None:
@@ -700,7 +707,10 @@ class DurableKeyRotationService:
             self._complete_rotation(endpoint, key_type, target, intent)
             return result
         except (ValueError, RGWAdminError, SQLAlchemyError) as exc:
-            self._record_rotation_failure(endpoint, key_type, target_id, exc)
+            try:
+                self._record_rotation_failure(endpoint, key_type, target_id, exc)
+            except SQLAlchemyError:
+                raise ValueError("Rotation persistence failed; retry the pending rotation.") from None
             if isinstance(exc, SQLAlchemyError):
                 raise ValueError("Rotation persistence failed; retry the pending rotation.") from None
             raise
