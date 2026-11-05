@@ -97,7 +97,7 @@ class RecoveryCodesResponse(ApiModel):
 
 class ExternalIdentityInfo(ApiModel):
     id: str
-    provider_type: str
+    provider_type: Literal["oidc", "ldap"]
     provider_id: str
     issuer: Optional[str]
     email: Optional[str]

@@ -212,6 +212,10 @@ would collapse two rows onto the same OIDC `(issuer, subject)` or LDAP
 reported rows and retry the migration. Downgrade removes the new check
 constraints but keeps the canonicalized provider metadata.
 
+The authentication and Admin identity response schemas expose `provider_type`
+with the same closed `oidc` / `ldap` contract, and the bundled frontend relies
+on that canonical value. Deploy the backend and frontend from the same release.
+
 ## 2026-11 Manager bucket tenant metadata
 
 Manager bucket summary and listing responses now expose the resolved RGW tenant

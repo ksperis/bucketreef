@@ -89,7 +89,7 @@ class ExternalIdentityLinkRequestInfo(ApiModel):
     user_id: int
     user_email: str
     user_role: UiRole
-    provider_type: str
+    provider_type: Literal["oidc", "ldap"]
     provider_id: str
     issuer: Optional[str]
     subject: str

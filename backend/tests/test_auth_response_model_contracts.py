@@ -21,6 +21,10 @@ from app.models.identity_security import (
 from app.models.session import SessionDescriptor
 
 
+def _provider_type_enum(model) -> set[str]:
+    return set(model.model_json_schema()["properties"]["provider_type"]["enum"])
+
+
 def test_api_token_responses_require_complete_canonical_payloads() -> None:
     assert set(ApiTokenInfo.model_json_schema()["required"]) == {
         "id",
@@ -99,6 +103,7 @@ def test_authentication_responses_require_complete_canonical_payloads() -> None:
         "created_at",
         "last_login_at",
     }
+    assert _provider_type_enum(ExternalIdentityInfo) == {"oidc", "ldap"}
 
 
 def test_admin_identity_responses_require_complete_canonical_payloads() -> None:
@@ -128,6 +133,7 @@ def test_admin_identity_responses_require_complete_canonical_payloads() -> None:
         "last_login_at",
         "revoked_at",
     }
+    assert _provider_type_enum(AdminExternalIdentityInfo) == {"oidc", "ldap"}
     assert set(AdminUserSecurity.model_json_schema()["required"]) == {
         "user_id",
         "email",
@@ -156,3 +162,4 @@ def test_admin_identity_responses_require_complete_canonical_payloads() -> None:
         "decided_at",
         "decision_source",
     }
+    assert _provider_type_enum(ExternalIdentityLinkRequestInfo) == {"oidc", "ldap"}

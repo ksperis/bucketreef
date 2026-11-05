@@ -9,7 +9,9 @@ import {
   listExternalLinkRequests,
   type AdminSecuritySession,
   type ExternalLinkRequest,
+  type IdentityProviderType,
 } from "../../api/security";
+import type { UiRole } from "../../api/users";
 import {
   isRecentWebAuthnVerificationCancelled,
   useRecentWebAuthnStepUp,
@@ -59,7 +61,7 @@ function formatDate(value: string, locale: string): string {
     : new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(parsed);
 }
 
-function roleTone(role?: string | null): UiTone {
+function roleTone(role?: UiRole | null): UiTone {
   if (role === "ui_superadmin" || role === "ui_admin") return "primary";
   if (role === "ui_none") return "warning";
   return "neutral";
@@ -70,11 +72,8 @@ function authenticationLabel(authType: string, text: IdentitySecurityText): stri
   return key ? text(key) : authType.replaceAll("_", " ");
 }
 
-function providerLabel(providerType: string, text: IdentitySecurityText): string {
-  const normalized = providerType.toLowerCase();
-  if (normalized === "oidc") return text("oidc");
-  if (normalized === "ldap") return text("ldap");
-  return providerType.toUpperCase();
+function providerLabel(providerType: IdentityProviderType, text: IdentitySecurityText): string {
+  return providerType === "oidc" ? text("oidc") : text("ldap");
 }
 
 function requestSourceLabel(source: string | null, text: IdentitySecurityText): string {

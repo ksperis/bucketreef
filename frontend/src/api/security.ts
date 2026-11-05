@@ -6,6 +6,7 @@ import { notifyAdminPendingRequestsRefresh } from "../utils/adminPendingRequests
 
 export type SecurityCredential = { id: string; name: string; created_at: string; last_used_at: string | null };
 export type SecuritySession = AuthSessionInfo;
+export type IdentityProviderType = "oidc" | "ldap";
 export type AdminSecuritySession = SecuritySession & {
   user_email: string | null;
   user_full_name: string | null;
@@ -13,7 +14,7 @@ export type AdminSecuritySession = SecuritySession & {
 };
 export type ExternalIdentity = {
   id: string;
-  provider_type: string;
+  provider_type: IdentityProviderType;
   provider_id: string;
   issuer: string | null;
   email: string | null;
@@ -26,7 +27,7 @@ export type ExternalLinkRequest = {
   user_id: number;
   user_email: string;
   user_role: UiRole;
-  provider_type: string;
+  provider_type: IdentityProviderType;
   provider_id: string;
   issuer: string | null;
   subject: string;
@@ -125,7 +126,7 @@ export async function setAdminUserPassword(userId: number, password: string): Pr
 export async function addAdminExternalIdentity(
   userId: number,
   payload: {
-    provider_type: "oidc" | "ldap";
+    provider_type: IdentityProviderType;
     provider_id: string;
     issuer?: string | null;
     subject: string;
