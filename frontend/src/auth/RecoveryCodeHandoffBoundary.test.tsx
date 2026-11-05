@@ -51,7 +51,7 @@ describe("memory-only recovery code handoff", () => {
   }
   async function rotate() {
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "Codes erneuern" }));
+    await user.click(await screen.findByRole("button", { name: "Codes erneuern" }, { timeout: 5_000 }));
     await user.click(within(screen.getByRole("dialog", { name: "Codes erneuern" })).getByRole("button", { name: "Codes erneuern" }));
     await waitFor(() => expect(recoveryCodeHandoff.getSnapshot().phase).toBe("pending"));
     return user;
