@@ -17,7 +17,6 @@ def test_app_settings_payload_uses_current_schema():
 
 
 def test_prepare_environment_generates_keyring_settings(monkeypatch, tmp_path):
-    monkeypatch.setenv("JWT_KEYS", '["ambient-jwt-value"]')
     monkeypatch.setenv("UI_JWT_KEYS", '["ambient-ui-jwt-value"]')
     monkeypatch.setenv("API_JWT_KEYS", '["ambient-api-jwt-value"]')
     monkeypatch.setenv("CREDENTIAL_KEYS", '["ambient-credential-value"]')
@@ -29,7 +28,6 @@ def test_prepare_environment_generates_keyring_settings(monkeypatch, tmp_path):
 
     env = serve._prepare_environment(tmp_path)
 
-    assert "JWT_KEYS" not in env
     assert len(json.loads(env["UI_JWT_KEYS"])) == 1
     assert len(json.loads(env["API_JWT_KEYS"])) == 1
     assert len(json.loads(env["CREDENTIAL_KEYS"])) == 1

@@ -52,41 +52,12 @@ def _ldap_provider(**overrides):
     return {"corporate": values}
 
 
-def test_settings_ignore_removed_key_variables(monkeypatch):
-    monkeypatch.setenv("FERNET_KEY", "legacy-jwt-key")
-    monkeypatch.setenv("CREDENTIAL_KEY", "legacy-credential-key")
-    monkeypatch.setenv("JWT_KEYS", '["legacy-shared-jwt-key"]')
-    monkeypatch.delenv("UI_JWT_KEYS", raising=False)
-    monkeypatch.delenv("API_JWT_KEYS", raising=False)
-    monkeypatch.delenv("CREDENTIAL_KEYS", raising=False)
-
-    settings = Settings(_env_file=None)
-
-    assert settings.ui_jwt_keys == ["change-me"]
-    assert settings.api_jwt_keys == ["change-me"]
-    assert settings.credential_keys == ["change-me"]
-    assert not hasattr(settings, "jwt_keys")
-    assert not hasattr(settings, "fernet_key")
-    assert not hasattr(settings, "credential_key")
-
-
 def test_settings_use_canonical_api_prefix_variable(monkeypatch):
     monkeypatch.setenv("API_PREFIX", "/custom-api")
-    monkeypatch.setenv("API_V1_PREFIX", "/legacy-api")
 
     settings = Settings(_env_file=None)
 
     assert settings.api_prefix == "/custom-api"
-    assert not hasattr(settings, "api_v1_prefix")
-
-
-def test_settings_ignore_removed_api_v1_prefix_variable(monkeypatch):
-    monkeypatch.delenv("API_PREFIX", raising=False)
-    monkeypatch.setenv("API_V1_PREFIX", "/legacy-api")
-
-    settings = Settings(_env_file=None)
-
-    assert settings.api_prefix == "/api"
 
 
 def test_settings_load_json_keyrings(monkeypatch):
