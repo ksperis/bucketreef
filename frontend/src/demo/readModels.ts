@@ -14,7 +14,7 @@ import { bucketView, GiB, settings, type DemoState } from "./state";
 import { accountView } from "./governance";
 import { accountGrant, json, page, required, scopedAccount, type DemoRequest } from "./http";
 import { demoUserView } from "./userProjection";
-import { buildDemoAccessAuditRows, listDemoS3Users } from "./accessAudit";
+import { buildDemoAccessAuditRows, demoAccessAuditRightLabel, listDemoS3Users } from "./accessAudit";
 import snapshots from "./snapshots.json";
 
 export type DemoStorageTrendBaseline = ManagerUsageTrendBaseline & {
@@ -98,7 +98,7 @@ export function readModels(c: DemoRequest): Response | undefined {
     if (scope) rows = rows.filter(row => row.scope === scope);
     if (right) rows = rows.filter(row => row.rights.some(candidate => candidate.code === right));
     if (source) rows = rows.filter(row => row.rights.some(candidate => candidate.sources.some(candidateSource => candidateSource.kind === source)));
-    if (path.endsWith(".csv")) return new Response("User,Account,Rights\n" + rows.map(r => [r.principal.email, r.target.name, r.rights.map(v => v.label).join("; ")].map(v => JSON.stringify(v)).join(",")).join("\n"), { headers: { "Content-Type": "text/csv" } });
+    if (path.endsWith(".csv")) return new Response("User,Account,Rights\n" + rows.map(r => [r.principal.email, r.target.name, r.rights.map(v => demoAccessAuditRightLabel(v.code)).join("; ")].map(v => JSON.stringify(v)).join(",")).join("\n"), { headers: { "Content-Type": "text/csv" } });
     return json(page(rows, c.url));
   }
   if (path === "/me/workspace-access") return json({

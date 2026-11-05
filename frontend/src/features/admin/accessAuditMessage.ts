@@ -103,14 +103,7 @@ export function useAccessAuditI18n() {
     (key, values) => interpolateText(t(accessAuditMessage[key]), values),
     [t],
   );
-  const scopeLabel = useCallback((scope: AccessAuditScope, fallback?: string) => {
-    const key = Object.hasOwn(scopeMessageKeys, scope) ? scopeMessageKeys[scope] : undefined;
-    if (key) return text(key);
-    return fallback ?? scope;
-  }, [text]);
-  const rightLabel = useCallback((code: AccessAuditRightCode, fallback: string) => {
-    const key = Object.hasOwn(rightMessageKeys, code) ? rightMessageKeys[code] : undefined;
-    return key ? text(key) : fallback;
-  }, [text]);
+  const scopeLabel = useCallback((scope: AccessAuditScope) => text(scopeMessageKeys[scope]), [text]);
+  const rightLabel = useCallback((code: AccessAuditRightCode) => text(rightMessageKeys[code]), [text]);
   return { text, scopeLabel, rightLabel };
 }

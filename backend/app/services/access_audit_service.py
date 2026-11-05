@@ -99,7 +99,6 @@ class AccessAuditService:
     ) -> AccessAuditRight:
         return AccessAuditRight(
             code=code,
-            label=RIGHT_LABELS[code],
             sources=[cls._source(source) for source in sources],
         )
 
@@ -412,7 +411,7 @@ class AccessAuditService:
             str(row.target.id or ""),
         ]
         for right in row.rights:
-            values.extend([right.code, right.label])
+            values.extend([right.code, RIGHT_LABELS[right.code]])
             values.extend(source.group_name or source.kind for source in right.sources)
         return any(needle in str(value).lower() for value in values)
 
@@ -517,9 +516,9 @@ class AccessAuditService:
             "sources",
         ])
         for row in rows:
-            rights = "; ".join(right.label for right in row.rights)
+            rights = "; ".join(RIGHT_LABELS[right.code] for right in row.rights)
             sources = "; ".join(
-                f"{right.label}: {', '.join(self._source_label(source) for source in right.sources)}"
+                f"{RIGHT_LABELS[right.code]}: {', '.join(self._source_label(source) for source in right.sources)}"
                 for right in row.rights
             )
             writer.writerow([

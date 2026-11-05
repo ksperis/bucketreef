@@ -1,5 +1,4 @@
 import {
-  ACCESS_AUDIT_RIGHTS,
   type AccessAuditRight,
   type AccessAuditRightCode,
   type AccessAuditRow,
@@ -12,7 +11,29 @@ import { demoGroupsForUser, type DemoState, type DemoUser } from "./state";
 type AuditSource = AccessAuditRight["sources"][number];
 type AuditTarget = AccessAuditRow["target"];
 
-const rightLabels = new Map(ACCESS_AUDIT_RIGHTS.map(({ value, label }) => [value, label]));
+const demoRightLabels = {
+  ceph_admin: "Ceph Admin",
+  storage_ops: "Storage Ops",
+  manager_bucket_compare: "Manager · Bucket compare",
+  manager_bucket_integrity_check: "Manager · Integrity check",
+  manager_bucket_migration: "Manager · Bucket migration",
+  manager_feature_rules: "Manager · Feature rules",
+  manager_bucket_purge: "Manager · Bucket purge",
+  private_connection_create: "Create manual private connections",
+  managed_private_connection_provision: "Provision managed private connections",
+  browser_advanced_features: "Browser advanced features",
+  account_administrator: "Account administrator",
+  portal_manager: "Portal manager",
+  portal_user: "Portal user",
+  manager_browser_data_access: "Manager Browser data access",
+  rgw_user_access: "RGW user access",
+  shared_connection_access: "Shared S3 connection access",
+} satisfies Record<AccessAuditRightCode, string>;
+
+export function demoAccessAuditRightLabel(code: AccessAuditRightCode): string {
+  return demoRightLabels[code];
+}
+
 const managerToolRights = {
   bucket_compare: "manager_bucket_compare",
   bucket_integrity_check: "manager_bucket_integrity_check",
@@ -76,7 +97,7 @@ function addRight(
     }
     return;
   }
-  row.rights.push({ code, label: rightLabels.get(code) ?? code, sources: [...sources] });
+  row.rights.push({ code, sources: [...sources] });
 }
 
 function addPlatformRows(rows: Map<string, AccessAuditRow>, user: DemoUser, groups: UiGroup[]): void {

@@ -37,7 +37,7 @@ def test_access_audit_models_require_complete_canonical_payloads() -> None:
         "group_id",
         "group_name",
     }
-    assert set(AccessAuditRight.model_json_schema()["required"]) == {"code", "label", "sources"}
+    assert set(AccessAuditRight.model_json_schema()["required"]) == {"code", "sources"}
     assert set(AccessAuditPrincipal.model_json_schema()["required"]) == {
         "id",
         "email",
@@ -162,7 +162,6 @@ def _filter_row() -> AccessAuditRow:
         rights=[
             AccessAuditRight(
                 code="portal_manager",
-                label="Portal manager",
                 sources=[
                     AccessAuditGrantSource(kind="direct", group_id=None, group_name=None),
                     AccessAuditGrantSource(kind="group", group_id=23, group_name="Storage Operators"),

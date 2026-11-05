@@ -55,8 +55,8 @@ export default function AccessAuditPage() {
     resetPage,
     ensurePageInRange,
   } = useAdminPaginationState({ initialFilter: searchParams.get("search") ?? "" });
-  const [scope, setScope] = useState<AllOr<AccessAuditScope>>(initialScope && ACCESS_AUDIT_SCOPES.some((item) => item.value === initialScope) ? initialScope : "all");
-  const [right, setRight] = useState<AllOr<AccessAuditRightCode>>(initialRight && ACCESS_AUDIT_RIGHTS.some((item) => item.value === initialRight) ? initialRight : "all");
+  const [scope, setScope] = useState<AllOr<AccessAuditScope>>(initialScope && ACCESS_AUDIT_SCOPES.includes(initialScope) ? initialScope : "all");
+  const [right, setRight] = useState<AllOr<AccessAuditRightCode>>(initialRight && ACCESS_AUDIT_RIGHTS.includes(initialRight) ? initialRight : "all");
   const [source, setSource] = useState<AllOr<AccessAuditSourceKind>>(
     initialSource && ACCESS_AUDIT_SOURCES.includes(initialSource) ? initialSource : "all",
   );
@@ -149,7 +149,7 @@ export default function AccessAuditPage() {
       const target = rows.find((row) => row.target.id === targetId)?.target;
       const label = scope === "all"
         ? text("target")
-        : scopeLabel(scope, ACCESS_AUDIT_SCOPES.find((item) => item.value === scope)?.label ?? text("target"));
+        : scopeLabel(scope);
       parts.push(text("targetContext", { scope: label, name: target?.name || `#${targetId}` }));
     }
     return parts.join(" · ");
@@ -178,7 +178,7 @@ export default function AccessAuditPage() {
               setScope(event.target.value as AllOr<AccessAuditScope>);
             }}>
             <option value="all">{text("allScopes")}</option>
-            {ACCESS_AUDIT_SCOPES.map((item) => <option key={item.value} value={item.value}>{scopeLabel(item.value, item.label)}</option>)}
+            {ACCESS_AUDIT_SCOPES.map((item) => <option key={item} value={item}>{scopeLabel(item)}</option>)}
           </UiSelect>
           <UiSelect label={text("right")} aria-label={text("filterRight")} size="compact" value={right}
             onChange={(event) => {
@@ -186,7 +186,7 @@ export default function AccessAuditPage() {
               setRight(event.target.value as AllOr<AccessAuditRightCode>);
             }}>
             <option value="all">{text("allRights")}</option>
-            {ACCESS_AUDIT_RIGHTS.map((item) => <option key={item.value} value={item.value}>{rightLabel(item.value, item.label)}</option>)}
+            {ACCESS_AUDIT_RIGHTS.map((item) => <option key={item} value={item}>{rightLabel(item)}</option>)}
           </UiSelect>
           <UiSelect label={text("source")} aria-label={text("filterSource")} size="compact" value={source}
             onChange={(event) => {

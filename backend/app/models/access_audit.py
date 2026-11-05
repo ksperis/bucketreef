@@ -40,7 +40,6 @@ class AccessAuditGrantSource(ApiModel):
 
 class AccessAuditRight(ApiModel):
     code: AccessAuditRightCode
-    label: str
     sources: list[AccessAuditGrantSource]
 
 
