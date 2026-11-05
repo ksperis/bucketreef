@@ -3,6 +3,64 @@ from types import SimpleNamespace
 from app.scripts import seed_demo_data as seed
 
 
+def _plan_defaults(**overrides):
+    defaults = {
+        "min_buckets": 2,
+        "max_buckets": 4,
+        "min_objects": 3,
+        "max_objects": 6,
+        "users_per_account": 2,
+        "password": "ChangeMe123!",
+        "quota_gb": None,
+    }
+    defaults.update(overrides)
+    return SimpleNamespace(**defaults)
+
+
+def test_configured_demo_plan_uses_only_canonical_bucket_and_user_fields(monkeypatch):
+    monkeypatch.setattr(seed, "random_full_name", lambda: "Generated User")
+    monkeypatch.setattr(seed.random, "randint", lambda _minimum, _maximum: 5)
+
+    plans = seed.plans_from_config(
+        {
+            "accounts": [
+                {
+                    "name": "Demo",
+                    "buckets": [
+                        {"name": "empty", "object_count": 0, "objects": 99},
+                        {"name": "fallback", "objects": 77},
+                    ],
+                    "users": [
+                        {"full_name": "Canonical User", "name": "Legacy User"},
+                        {"name": "Legacy Only"},
+                    ],
+                }
+            ]
+        },
+        _plan_defaults(),
+        set(),
+    )
+
+    assert [(bucket.name, bucket.object_count) for bucket in plans[0].buckets] == [
+        ("empty", 0),
+        ("fallback", 5),
+    ]
+    assert [user.full_name for user in plans[0].users] == [
+        "Canonical User",
+        "Generated User",
+    ]
+
+
+def test_configured_demo_plan_preserves_explicit_zero_bucket_count():
+    plans = seed.plans_from_config(
+        {"accounts": [{"name": "Demo", "bucket_count": 0}]},
+        _plan_defaults(),
+        set(),
+    )
+
+    assert plans[0].buckets == []
+
+
 def test_seed_iam_client_reuses_cached_access_key(monkeypatch):
     account = SimpleNamespace(name="Demo")
     key = seed.IAMAccessKey(access_key_id="IAM-AK", secret_access_key="IAM-SK")
