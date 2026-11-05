@@ -1,7 +1,7 @@
 import type { BucketTag } from "../api/bucketContracts";
 import type { CephAdminBucket, CephAdminBucketCompareResult } from "../api/cephAdminBuckets";
 import { bucketView, GiB, newBucket } from "./state";
-import { spaceRole, DemoError, done, json, listing, scopedAccount, scopedBucket, textField, type DemoRequest } from "./http";
+import { spaceRole, DemoError, done, json, listing, scopedAccount, scopedBrowserAccount, scopedBrowserBucket, scopedBucket, textField, type DemoRequest } from "./http";
 import { objectListing } from "./objects";
 
 export function buckets(c: DemoRequest): Response | undefined {
@@ -11,7 +11,8 @@ export function buckets(c: DemoRequest): Response | undefined {
   if (!match && !ceph) return undefined;
   const name = ceph?.[2] ?? match?.[2]; const resource = ceph?.[3] ?? match?.[3];
   const endpointId = ceph ? Number(ceph[1]) : undefined;
-  const account = ceph ? undefined : scopedAccount(c);
+  const browser = match?.[1] === "browser";
+  const account = ceph ? undefined : browser ? scopedBrowserAccount(c) : scopedAccount(c);
   if (!name || name === "stream" || (match?.[1] === "browser" && name === "search")) {
     const selected = state.buckets.filter(b => endpointId ? b.endpointId === endpointId : b.accountId === account!.id);
     if (method === "GET") {
@@ -108,7 +109,7 @@ export function buckets(c: DemoRequest): Response | undefined {
       config_diff: configDiff,
     });
   }
-  const bucket = scopedBucket(c, name, endpointId);
+  const bucket = browser ? scopedBrowserBucket(c, name) : scopedBucket(c, name, endpointId);
   if (!resource && method === "DELETE" && match?.[1] === "manager") {
     if (bucket.objects.some(o => o.versions.length)) throw new DemoError(409, "Bucket is not empty. History cleanup is disabled in the demo; create an empty bucket to try deletion.");
     state.buckets = state.buckets.filter(b => b !== bucket); return done();

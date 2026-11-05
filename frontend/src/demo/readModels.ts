@@ -63,6 +63,7 @@ export function readModels(c: DemoRequest): Response | undefined {
   const currentUser = demoUserView(state, user);
   const admin = persona === "admin"; const ceph = persona === "ceph-admin";
   const endUser = persona === "member" || persona === "project-manager";
+  const browserUser = persona === "browser-user";
   if (path === "/auth/session") return json({ authenticated: true, user: currentUser, session: null,
     auth_session: { id: `demo-${user.id}`, principal_type: "user", auth_type: "password",
       created_at: "2026-01-01T00:00:00Z", last_activity_at: "2026-01-01T00:00:00Z",
@@ -102,11 +103,40 @@ export function readModels(c: DemoRequest): Response | undefined {
   }
   if (path === "/me/workspace-access") return json({
     admin: { available: admin || ceph, context_count: 0 }, ceph_admin: { available: admin || ceph, context_count: 2 }, storage_ops: { available: false, context_count: 0 },
-    manager: { available: persona === "manager", context_count: persona === "manager" ? state.accounts.length : 0 }, browser: { available: endUser, context_count: endUser ? 2 : 0 },
-    portal: { available: endUser, context_count: endUser ? 2 : 0 }, default_workspace: admin ? "admin" : ceph ? "ceph-admin" : endUser ? "portal" : "manager",
+    manager: { available: persona === "manager", context_count: persona === "manager" ? state.accounts.length : 0 }, browser: { available: endUser || browserUser, context_count: browserUser ? 1 : endUser ? 2 : 0 },
+    portal: { available: endUser, context_count: endUser ? 2 : 0 }, default_workspace: admin ? "admin" : ceph ? "ceph-admin" : browserUser ? "browser" : endUser ? "portal" : "manager",
   } satisfies WorkspaceAccess);
   if (path === "/me/execution-contexts") {
     const browser = c.url.searchParams.get("workspace") === "browser";
+    if (browser && browserUser) {
+      const connection = required(state.connections.find(candidate =>
+        !candidate.is_shared
+        && candidate.created_by_user_id === user.id
+        && candidate.is_active
+        && candidate.access_browser
+      ));
+      const endpoint = required(state.endpoints.find(candidate => candidate.id === connection.storage_endpoint_id));
+      return json([{
+        kind: "connection",
+        id: `conn-${connection.id}`,
+        display_name: connection.name,
+        connection_scope: "private",
+        tags: connection.tags,
+        endpoint_tags: endpoint.tags,
+        manager_role: null,
+        portal_role: null,
+        rgw_account_id: connection.rgw_account_id,
+        endpoint_id: endpoint.id,
+        endpoint_name: endpoint.name,
+        endpoint_url: connection.endpoint_url,
+        endpoint_provider: endpoint.provider,
+        endpoint_is_default: endpoint.is_default,
+        storage_endpoint_capabilities: endpoint.capabilities,
+        destination_switching_allowed: false,
+        execution_destinations: [],
+        capabilities: { can_manage_iam: false, sts_capable: Boolean(endpoint.capabilities.sts), admin_api_capable: false },
+      } satisfies ExecutionContext]);
+    }
     const selected = state.accounts.filter(a => (browser ? accountGrant(c, a).portal_role : accountGrant(c, a).manager_role));
     return json(selected.map(a => ({ kind: browser ? "portal_account" : "account", id: String(a.id), display_name: a.name,
       connection_scope: null, tags: a.tags, endpoint_tags: [], manager_role: browser ? null : "account_administrator", portal_role: browser ? accountGrant(c, a).portal_role : null,
@@ -145,7 +175,7 @@ export function readModels(c: DemoRequest): Response | undefined {
   }
   if (path === "/manager/iam/overview") { const data = required(state.iam[scopedAccount(c).id]); return json({ iam_users: data.users.length, iam_groups: data.groups.length, iam_roles: data.roles.length, iam_policies: data.policies.length, warnings: [] }); }
   if (path === "/users/me/notifications") { const items = state.notifications[user.id] ?? []; return json({ items, unread_count: items.filter(n => !n.read_at).length }); }
-  if (path === "/admin/stats/summary") return json({ total_accounts: state.accounts.length, total_users: state.users.filter(u => u.role === "ui_user").length, total_admins: state.users.filter(u => u.role !== "ui_user").length, total_none_users: 0, total_active_sessions: 18, active_sessions_by_type: { ui: 15, s3: 3 }, total_s3_users: Object.values(state.iam).reduce((n, v) => n + v.users.length, 0), assigned_accounts: state.accounts.filter(a => a.user_links.length).length, assigned_s3_users: 15, total_endpoints: state.endpoints.length, total_ceph_endpoints: state.endpoints.length, total_other_endpoints: 0, total_connections: state.connections.length, total_shared_connections: state.connections.length, total_private_connections: 0 });
+  if (path === "/admin/stats/summary") return json({ total_accounts: state.accounts.length, total_users: state.users.filter(u => u.role === "ui_user").length, total_admins: state.users.filter(u => u.role !== "ui_user").length, total_none_users: 0, total_active_sessions: 18, active_sessions_by_type: { ui: 15, s3: 3 }, total_s3_users: Object.values(state.iam).reduce((n, v) => n + v.users.length, 0), assigned_accounts: state.accounts.filter(a => a.user_links.length).length, assigned_s3_users: 15, total_endpoints: state.endpoints.length, total_ceph_endpoints: state.endpoints.length, total_other_endpoints: 0, total_connections: state.connections.length, total_shared_connections: state.connections.filter(connection => connection.is_shared).length, total_private_connections: state.connections.filter(connection => !connection.is_shared).length });
   const dashboardEndpoints = state.endpoints.filter(e => e.provider === "ceph" && e.service_identities.some(identity => identity.kind === "supervision" && identity.status === "ready" && identity.credentials_configured) && (e.capabilities.metrics || e.capabilities.usage));
   if (path === "/admin/stats/dashboard/scope") return json({ endpoints: dashboardEndpoints.map(e => ({ endpoint_id: e.id, name: e.name, storage_enabled: !!e.capabilities.metrics, traffic_enabled: !!e.capabilities.usage })) });
   if (path === "/browser/sts") return json({ available: false, error: "Demo uses local files" });

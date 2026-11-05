@@ -30,7 +30,12 @@ function personaForLocation(): Persona {
   if (url.pathname.startsWith("/admin")) return "admin";
   if (url.pathname.startsWith("/ceph-admin")) return "ceph-admin";
   if (url.pathname.startsWith("/manager")) return "manager";
-  if (url.pathname.startsWith("/portal") || url.pathname.startsWith("/browser")) return sessionStorage.getItem("demo-persona") === "project-manager" ? "project-manager" : "member";
+  if (url.pathname.startsWith("/portal")) return sessionStorage.getItem("demo-persona") === "project-manager" ? "project-manager" : "member";
+  if (url.pathname.startsWith("/browser")) {
+    const stored = sessionStorage.getItem("demo-persona");
+    if (stored === "browser-user" || stored === "project-manager") return stored;
+    return "member";
+  }
   return "manager";
 }
 

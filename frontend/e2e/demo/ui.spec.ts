@@ -135,7 +135,7 @@ test("workspaces UI: profiles, keyboard, mobile and both themes", async ({ page 
   await page.screenshot({ path: info.outputPath("manager-desktop-dark.png"), fullPage: true, animations: "disabled" });
   await page.getByRole("button", { name: "Switch to light theme", exact: true }).click();
   await expect(page.locator("html")).not.toHaveClass(/dark/);
-  for (const profile of ["admin", "ceph-admin", "member", "manager"]) {
+  for (const profile of ["admin", "ceph-admin", "member", "browser-user", "manager"]) {
     await page.getByLabel("Demo profile", { exact: true }).selectOption(profile);
     await expect(page.locator("main")).toBeVisible();
     await expect(page.getByLabel("Demo profile", { exact: true })).toHaveValue(profile);
@@ -153,5 +153,33 @@ test("workspaces UI: profiles, keyboard, mobile and both themes", async ({ page 
   await expect(page.getByLabel("End user identity")).toHaveValue("project-manager");
   await page.getByRole("navigation", { name: "Demo profiles" }).getByRole("link", { name: "Browser", exact: true }).click();
   await expect(page).toHaveURL(/\/browser/);
+  await page.getByLabel("Demo profile", { exact: true }).selectOption("browser-user");
+  await expect(page).toHaveURL(/\/browser/);
+  await expect(page.getByLabel("Demo profile", { exact: true })).toHaveValue("browser-user");
+  await expect(page.getByLabel("End user identity")).toHaveCount(0);
+  await expect(page.getByRole("navigation", { name: "Demo profiles" }).getByRole("link", { name: "Portal", exact: true })).toHaveCount(0);
+  await expect(page.getByText(/Helios S3 access/).first()).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel("Demo profile", { exact: true })).toHaveValue("browser-user");
+  await expect(page.getByLabel("End user identity")).toHaveCount(0);
+  await expect(page.getByText(/Helios S3 access/).first()).toBeVisible();
+
+  const browserBuckets = await api(page, "/browser/buckets?context_id=conn-303");
+  expect(browserBuckets.status).toBe(200);
+  expect(browserBuckets.data.items.some((bucket: { name: string }) => bucket.name === "helios-documents")).toBe(true);
+  const browserObjects = await api(page, "/browser/buckets/helios-documents/objects?context_id=conn-303");
+  expect(browserObjects.status).toBe(200);
+  expect(browserObjects.data.objects.some((object: { key: string }) => object.key === "README.txt")).toBe(true);
+  const presign = await api(page, "/browser/buckets/helios-documents/presign?context_id=conn-303", "POST", {
+    operation: "put_object",
+    key: "browser-persona-check.txt",
+    content_type: "text/plain",
+  });
+  expect(presign.status).toBe(200);
+  expect(new URL(presign.data.url).searchParams.get("context_id")).toBe("conn-303");
+  expect(await page.evaluate(async (url) => (await fetch(url, { method: "PUT", body: "browser persona" })).status, presign.data.url)).toBe(204);
+  const uploaded = await api(page, "/browser/buckets/helios-documents/objects?context_id=conn-303&query=browser-persona-check.txt");
+  expect(uploaded.data.objects.map((object: { key: string }) => object.key)).toContain("browser-persona-check.txt");
+  expect(await page.evaluate(() => window.__bucketreefDemo.failures)).toEqual([]);
   expect(external).toEqual([]);
 });

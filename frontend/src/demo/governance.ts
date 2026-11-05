@@ -1,7 +1,7 @@
 import type { UiGroup } from "../api/groups";
 import type { S3Account } from "../api/accounts";
 import type { StorageEndpoint } from "../api/storageEndpoints";
-import { bucketView, createDemoGroup, createDemoUser, demoConnectionUser, demoGroupUser, emptyIam, personaIds, settings, tools, type DemoUser } from "./state";
+import { bucketView, createDemoGroup, createDemoUser, demoConnectionUser, demoGroupUser, demoGroupsForUser, emptyIam, personaIds, settings, tools, type DemoConnection, type DemoUser } from "./state";
 import { DemoError, done, json, page, required, safeFields, textField, type DemoRequest } from "./http";
 import { demoUserSummary, demoUserView } from "./userProjection";
 
@@ -23,6 +23,21 @@ function userGroups(c: DemoRequest, user: DemoUser, ids: unknown) {
     group.user_details = group.user_details.filter(u => u.id !== user.id);
     if (ids.includes(group.id)) group.user_details.push(demoGroupUser(user));
   }
+}
+
+function userConnections(c: DemoRequest) {
+  const groupIds = new Set(demoGroupsForUser(c.state, c.user.id).map(group => group.id));
+  return c.state.connections.filter(connection =>
+    connection.is_shared
+      ? connection.user_details.some(member => member.id === c.user.id)
+        || connection.group_details.some(group => groupIds.has(group.id))
+      : connection.created_by_user_id === c.user.id
+  );
+}
+
+function connectionView(connection: DemoConnection) {
+  const { demo_backing_account_id: _demoBackingAccountId, ...view } = connection;
+  return view;
 }
 
 export function accountView(c: DemoRequest, a: S3Account): S3Account {
@@ -63,7 +78,7 @@ export function governance(c: DemoRequest): Response | undefined {
     }
     if (method === "PATCH" && user) { Object.assign(user, body, { manager_tool_access: { ...tools }, can_provision_managed_private_connections: false, can_access_storage_ops: false }); userGroups(c, user, body.group_ids); synchronizeLinks(c, "users"); return json(demoUserView(state, user)); }
     if (method === "DELETE" && user) {
-      if (Object.values(personaIds).includes(id)) throw new DemoError(409, "The five demo identities are reserved. Create another user to try deletion.");
+      if (Object.values(personaIds).includes(id)) throw new DemoError(409, "The six demo identities are reserved. Create another user to try deletion.");
       userGroups(c, user, []); state.users = state.users.filter(u => u.id !== id); synchronizeLinks(c, "users"); return done();
     }
   }
@@ -137,9 +152,14 @@ export function governance(c: DemoRequest): Response | undefined {
   if (["/connections/validate-credentials", "/admin/s3-connections/validate-credentials"].includes(path) && method === "POST") return json({ ok: false, severity: "warning", code: "demo_declaration_only", message: "Demo declaration only. Credentials are discarded and no connection is attempted; you can still save this record." });
   const connectionMatch = path.match(/^\/(?:admin\/s3-connections|connections)(?:\/(\d+))?$/);
   if (connectionMatch) {
-    const connection = state.connections.find(v => v.id === Number(connectionMatch[1]));
+    const adminConnections = state.connections.filter(connection => connection.is_shared);
+    const visibleConnections = path.startsWith("/admin/") ? adminConnections : userConnections(c);
+    const connection = visibleConnections.find(v => v.id === Number(connectionMatch[1]));
     if (method === "GET") {
-      return json(path === "/connections" ? state.connections : connectionMatch[1] ? required(connection) : page(state.connections, c.url));
+      if (path === "/connections") return json(visibleConnections.map(connectionView));
+      if (connectionMatch[1]) return json(connectionView(required(connection)));
+      const result = page(visibleConnections, c.url);
+      return json({ ...result, items: result.items.map(connectionView) });
     }
     if (method === "POST" && !connectionMatch[1]) {
       const endpoint = state.endpoints.find(e => e.id === Number(body.storage_endpoint_id));
@@ -180,8 +200,9 @@ export function governance(c: DemoRequest): Response | undefined {
         access_browser: isAdminConnection ? false : body.access_browser !== false,
         server_managed: false,
         managed_access_state: null,
+        demo_backing_account_id: null,
       };
-      state.connections.push(created); return json(created, 201);
+      state.connections.push(created); return json(connectionView(created), 201);
     }
     if (method === "PATCH" && connection) {
       Object.assign(connection, body, { access_key_id: "DEMO_NOT_A_REAL_KEY" });
@@ -191,7 +212,7 @@ export function governance(c: DemoRequest): Response | undefined {
         .map(({ id, name, avatar }) => ({ id, name, avatar }));
       connection.user_count = connection.user_details.length;
       connection.updated_at = new Date().toISOString();
-      return json(connection);
+      return json(connectionView(connection));
     }
     if (method === "DELETE" && connection) { state.connections = state.connections.filter(v => v !== connection); return done(); }
   }

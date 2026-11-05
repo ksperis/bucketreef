@@ -58,11 +58,36 @@ export function scopedAccount(c: DemoRequest) {
   if ((c.persona === "member" || c.persona === "project-manager") && !accountGrant(c, account).portal_role) throw new DemoError(403, "This project is not linked to the selected demo identity");
   return account;
 }
+export function scopedBrowserAccount(c: DemoRequest) {
+  const raw = c.url.searchParams.get("context_id");
+  if (!raw) throw new DemoError(422, "An explicit Browser context is required in the demo");
+  if (raw.startsWith("conn-")) {
+    const connectionId = Number(raw.slice("conn-".length));
+    const connection = required(c.state.connections.find(candidate => candidate.id === connectionId));
+    if (connection.is_shared || connection.created_by_user_id !== c.user.id || !connection.is_active || !connection.access_browser) {
+      throw new DemoError(403, "This Browser connection is not available to the selected demo identity");
+    }
+    const backingAccountId = required(connection.demo_backing_account_id, "This demo connection has no simulated storage backing");
+    return required(c.state.accounts.find(account => account.id === backingAccountId));
+  }
+  if (c.persona === "browser-user") throw new DemoError(403, "This demo identity only uses its private S3 connection");
+  return scopedAccount(c);
+}
+export function browserContextId(c: DemoRequest): string {
+  const raw = c.url.searchParams.get("context_id");
+  if (!raw) throw new DemoError(422, "An explicit Browser context is required in the demo");
+  return raw;
+}
 export function scopedBucket(c: DemoRequest, name: string, endpointId?: number): DemoBucket {
   const bucket = required(c.state.buckets.find(b => b.name === decodeURIComponent(name)));
   if (endpointId !== undefined) {
     if (bucket.endpointId !== endpointId) throw new DemoError(404, "Bucket not found on this endpoint");
   } else if (bucket.accountId !== scopedAccount(c).id) throw new DemoError(404, "Bucket not found in this context");
+  return bucket;
+}
+export function scopedBrowserBucket(c: DemoRequest, name: string): DemoBucket {
+  const bucket = required(c.state.buckets.find(candidate => candidate.name === decodeURIComponent(name)));
+  if (bucket.accountId !== scopedBrowserAccount(c).id) throw new DemoError(404, "Bucket not found in this Browser context");
   return bucket;
 }
 export function page<T>(items: T[], url: URL) {
