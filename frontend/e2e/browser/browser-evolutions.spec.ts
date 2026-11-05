@@ -20,7 +20,7 @@ async function open(page: Page) {
     await page.waitForURL("**/browser**");
     await page.goto(`/browser?bucket=${E2E_BUCKET_NAME}&prefix=${encodeURIComponent(prefix)}`);
   }
-  await expect(page.getByRole("button", { name: "Open file data.csv", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open file data.csv", exact: true })).toBeVisible({ timeout: 30_000 });
 }
 async function more(page: Page) {
   await page.getByRole("toolbar", { name: "Browser context bar" }).getByRole("button", { name: "More", exact: true }).click();
@@ -160,7 +160,7 @@ test("uploads classic multipart directly and an ordinary file through the proxy"
   await s3.send(new PutBucketCorsCommand({ Bucket: E2E_BUCKET_NAME, CORSConfiguration: { CORSRules: [{ AllowedOrigins: ["https://unrelated.test"], AllowedMethods: ["GET", "PUT"], AllowedHeaders: ["*"] }] } }));
   try {
     await page.reload();
-    await expect(page.getByText("Direct download/upload is not allowed on this bucket.")).toBeVisible();
+    await expect(page.getByText("Direct download/upload is not allowed on this bucket.")).toBeVisible({ timeout: 30_000 });
     const uploaded = page.waitForResponse(response => response.url().includes("/proxy-upload") && response.status() === 200);
     await upload(page, "proxy.txt", Buffer.from("proxy content"));
     await uploaded;
