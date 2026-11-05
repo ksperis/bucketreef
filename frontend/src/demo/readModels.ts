@@ -1,5 +1,6 @@
 import { projectGeneralSettings, resolvePortalSettings } from "../api/featurePolicies";
 import type { CurrentSessionResponse } from "../api/auth";
+import type { AuditLogEntry } from "../api/audit";
 import type { BrowserUsageSummary } from "../api/browserContracts";
 import type { ExecutionContext, WorkspaceAccess } from "../api/executionContexts";
 import type { ManagerContext } from "../api/managerContext";
@@ -83,7 +84,26 @@ export function readModels(c: DemoRequest): Response | undefined {
   if (["/admin/settings/webhooks", "/admin/settings/webhooks/events"].includes(path)) return json([]);
   if (path === "/admin/onboarding") return json({ dismissed: true, complete: true });
   if (path === "/admin/navigation/pending-requests") return json({ identity_link_requests: 0, portal_requests: state.requests.filter(r => r.status === "pending").length });
-  if (path === "/admin/audit/logs") return json({ logs: state.history.slice(-20).reverse().map((p, i) => ({ id: 800 - i, created_at: p.timestamp, user_email: state.users[i % 5].email, user_role: "ui_admin", scope: i % 2 ? "manager" : "admin", action: i % 2 ? "put_bucket_lifecycle" : "account.link_user", entity_type: i % 2 ? "bucket" : "account", entity_id: i % 2 ? "helios-documents" : "Helios Retail", account_id: 101, account_name: "Helios Retail", status: "success", message: "Historical demo activity", metadata: {} })), next_cursor: null });
+  if (path === "/admin/audit/logs") {
+    const account = required(state.accounts[0]);
+    const logs: AuditLogEntry[] = state.history.slice(-20).reverse().map((point, index) => ({
+      id: 800 - index,
+      created_at: point.timestamp,
+      user_email: state.users[index % 5].email,
+      user_role: "ui_admin",
+      scope: index % 2 ? "manager" : "admin",
+      action: index % 2 ? "put_bucket_lifecycle" : "account.link_user",
+      entity_type: index % 2 ? "bucket" : "account",
+      entity_id: index % 2 ? "helios-documents" : account.name,
+      context_kind: "account",
+      context_id: String(account.id),
+      context_name: account.name,
+      status: "success",
+      message: "Historical demo activity",
+      metadata: {},
+    }));
+    return json({ logs, next_cursor: null });
+  }
   if (path === "/admin/access-audit" || path === "/admin/access-audit/export.csv") {
     let rows = buildDemoAccessAuditRows(state);
     const userId = Number(c.url.searchParams.get("user_id") || 0);
