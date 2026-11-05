@@ -596,6 +596,10 @@ export function WorkspaceDashboardLinkRow({ className, ...props }: ComponentProp
   return <Link {...props} className={cx("ui-dashboard-link-row", className)} />;
 }
 
+export function WorkspaceDashboardRowLink({ className, ...props }: ComponentProps<typeof Link>) {
+  return <Link {...props} className={cx("ui-dashboard-row-link", className)} />;
+}
+
 export function WorkspaceDashboardSummary({ items, loading, unavailableReason, title }: {
   title?: string;
   items: WorkspaceDashboardSummaryItem[];

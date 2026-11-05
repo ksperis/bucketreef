@@ -3,7 +3,6 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useMemo, type ReactNode } from "react";
-import { Link } from "react-router-dom";
 import type { HealthCheckStatus } from "../../api/healthchecks";
 import type { PortalUsageStorageSpace } from "../../api/portalUsage";
 import type { ManagerUsageTrendBaseline } from "../../api/stats";
@@ -21,6 +20,7 @@ import {
   WorkspaceDashboardAction,
   WorkspaceDashboardActionLink,
   WorkspaceDashboardLinkRow,
+  WorkspaceDashboardRowLink,
   WorkspaceStatusDot,
   type WorkspaceDashboardMetric,
   type WorkspaceDashboardTone,
@@ -265,30 +265,36 @@ function TopStorageSpacesCard({ rows }: { rows: StorageSpaceRow[] }) {
             <span>{t({ en: "Storage", fr: "Stockage", de: "Speicher", zh: "存储" })}</span>
             <span className="text-right">{t({ en: "Files", fr: "Fichiers", de: "Dateien", zh: "文件" })}</span>
           </div>
-          {rows.map((row) => (
-            <div
-              key={row.id}
-              className="ui-dashboard-ranking-row"
-            >
-              <div className="flex min-w-0 items-center gap-2">
-                <IconBubble tone="emerald" className="h-7 w-7 rounded-md">
-                  <BucketIcon className="h-4 w-4" />
-                </IconBubble>
-                {row.space && !row.isOther ? (
-                  <Link to={storageSpacePath(row.space)} className="ui-dashboard-text-link ui-dashboard-label hover:text-primary">
-                    {row.name}
-                  </Link>
-                ) : (
+          {rows.map((row) => {
+            const content = (
+              <>
+                <div className="flex min-w-0 items-center gap-2">
+                  <IconBubble tone="emerald" className="h-7 w-7 rounded-md">
+                    <BucketIcon className="h-4 w-4" />
+                  </IconBubble>
                   <span className="ui-dashboard-label">{row.name}</span>
-                )}
+                </div>
+                <div className="ui-dashboard-ranking-storage">
+                  <span className="ui-dashboard-label">{formatBytes(row.usedBytes)}</span>
+                  {row.percent != null ? <ProgressBar value={row.percent} className="h-1.5" /> : <span className="h-1.5" />}
+                </div>
+                <span className="text-right ui-dashboard-label">{formatSpacedCompactNumber(row.objectCount)}</span>
+              </>
+            );
+            return row.space && !row.isOther ? (
+              <WorkspaceDashboardRowLink
+                key={row.id}
+                to={storageSpacePath(row.space)}
+                className="ui-dashboard-ranking-row"
+              >
+                {content}
+              </WorkspaceDashboardRowLink>
+            ) : (
+              <div key={row.id} className="ui-dashboard-ranking-row">
+                {content}
               </div>
-              <div className="ui-dashboard-ranking-storage">
-                <span className="ui-dashboard-label">{formatBytes(row.usedBytes)}</span>
-                {row.percent != null ? <ProgressBar value={row.percent} className="h-1.5" /> : <span className="h-1.5" />}
-              </div>
-              <span className="text-right ui-dashboard-label">{formatSpacedCompactNumber(row.objectCount)}</span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </WorkspaceDashboardCard>

@@ -1086,6 +1086,8 @@ describe("manager shell pages", () => {
       Array.from(kpiRow!.querySelectorAll("[data-kpi-card]"), (card) => card.getAttribute("data-kpi-card")),
     ).toEqual(["Storage used", "Objects", "Buckets", "Transfer"]);
     expect(screen.getByText("Top buckets by storage")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /^bucket-a\b/ })).toHaveAttribute("href", "/manager/buckets/bucket-a");
+    expect(screen.getByRole("link", { name: /^bucket-b\b/ })).toHaveAttribute("href", "/manager/buckets/bucket-b");
     expect(
       await screen.findByRole(
         "link",
