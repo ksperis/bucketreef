@@ -19,6 +19,7 @@ from app.db import Base
 
 
 _EXPECTED_ALEMBIC_HEAD = "0235_reconcile_postgresql_schema_drift"
+_LEGACY_GITLAB_HEAD = "0226_reconcile_postgresql_schema_drift"
 
 
 def test_openstack_all_users_group_migration_preserves_global_grant(tmp_path, monkeypatch):
@@ -99,6 +100,42 @@ def test_alembic_exposes_single_merge_head():
     script = ScriptDirectory.from_config(_alembic_config())
 
     assert script.get_heads() == [_EXPECTED_ALEMBIC_HEAD]
+    assert script.get_revision(_EXPECTED_ALEMBIC_HEAD).down_revision == (
+        "0234_remove_first_admin_created_user_id",
+        _LEGACY_GITLAB_HEAD,
+    )
+
+
+def test_legacy_gitlab_head_upgrades_to_rejoined_head(tmp_path, monkeypatch):
+    database_path = tmp_path / "legacy-gitlab-head.sqlite"
+    database_url = f"sqlite:///{database_path}"
+    monkeypatch.setenv("DATABASE_URL", database_url)
+    monkeypatch.delenv("BUCKETREEF_DB_BACKUP_VERIFIED", raising=False)
+    get_settings.cache_clear()
+
+    config = _alembic_config()
+    engine = sa.create_engine(database_url)
+    try:
+        command.upgrade(config, _LEGACY_GITLAB_HEAD)
+        with engine.connect() as connection:
+            assert connection.scalars(
+                sa.text("SELECT version_num FROM alembic_version")
+            ).all() == [_LEGACY_GITLAB_HEAD]
+
+        command.upgrade(config, "head")
+
+        with engine.connect() as connection:
+            assert connection.scalars(
+                sa.text("SELECT version_num FROM alembic_version")
+            ).all() == [_EXPECTED_ALEMBIC_HEAD]
+            context = MigrationContext.configure(
+                connection,
+                opts={"compare_type": True},
+            )
+            assert compare_metadata(context, Base.metadata) == []
+    finally:
+        engine.dispose()
+        get_settings.cache_clear()
 
 
 def test_alembic_head_matches_sqlalchemy_metadata(tmp_path, monkeypatch):
