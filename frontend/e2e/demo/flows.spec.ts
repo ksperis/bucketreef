@@ -35,7 +35,7 @@ test("portal-approval: request form to Admin approval to Portal collaborator", a
   await open(page, "/admin/portal-requests");
   const row = page.getByRole("row").filter({ hasText: "reviewer@example.com" });
   await row.getByRole("button", { name: "Approve", exact: true }).click();
-  await expect.poll(async () => (await api(page, "/admin/portal-requests")).data.find((r: { payload: { target_email?: string } }) => r.payload.target_email === "reviewer@example.com").status).toBe("approved");
+  await expect.poll(async () => (await api(page, "/admin/portal-requests")).data.items.find((r: { payload: { target_email?: string } }) => r.payload.target_email === "reviewer@example.com").status).toBe("approved");
   await open(page, "/portal/shares?demoPersona=project-manager");
   await expect(page.getByText("reviewer@example.com", { exact: true }).first()).toBeVisible();
   const result = await api(page, "/portal/requests?account_id=101");
