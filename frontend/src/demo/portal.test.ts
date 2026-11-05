@@ -67,4 +67,39 @@ describe("demo Portal request contract", () => {
       expect(item.payload).toMatchObject({ intent: "add", portal_role: "portal_user" });
     }
   });
+
+  it("paginates and searches the Admin request queue like the real API", async () => {
+    const state = createSeed();
+    const uniqueRequest = {
+      ...state.requests[0],
+      id: state.nextId++,
+      requester_email: "unique.admin.search@example.test",
+      account_name: "Unique Search Account",
+      payload: {
+        ...state.requests[0].payload,
+        target_email: "unique.target@example.test",
+      },
+    };
+    state.requests.push(uniqueRequest);
+
+    const paginated = request(state, "/admin/portal-requests", "GET", {}, "admin");
+    paginated.url.searchParams.set("page_size", "1");
+    expect(await portal(paginated)!.json()).toMatchObject({
+      items: [{ id: uniqueRequest.id }],
+      total: state.requests.length,
+      page: 1,
+      page_size: 1,
+      has_next: true,
+    });
+
+    const searched = request(state, "/admin/portal-requests", "GET", {}, "admin");
+    searched.url.searchParams.set("search", "unique.target@example.test");
+    expect(await portal(searched)!.json()).toMatchObject({
+      items: [{ id: uniqueRequest.id }],
+      total: 1,
+      page: 1,
+      page_size: 25,
+      has_next: false,
+    });
+  });
 });
