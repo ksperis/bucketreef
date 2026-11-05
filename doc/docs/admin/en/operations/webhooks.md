@@ -126,10 +126,8 @@ URLs or query strings.
 | `WEBHOOK_RETRY_MAX_SECONDS` | `3600` | Retry backoff and `Retry-After` cap. |
 | `WEBHOOK_RETENTION_DAYS` | `30` | Terminal delivery retention; `0` disables purge. |
 
-Only the canonical `WEBHOOK_*` runtime variables are supported. The former
-`BUCKET_MIGRATION_WEBHOOK_*` transition aliases have been removed; migrate
-those values before upgrading. Deliveries use the database-backed queue, so
-there is no queue-size environment setting.
+Only the canonical `WEBHOOK_*` runtime variables are supported. Deliveries use
+the database-backed queue, so there is no queue-size environment setting.
 
 In a multi-backend deployment, every backend may enqueue matching events into
 the shared PostgreSQL queue. Only an Admin-capable runtime (`full` or `admin`, with Admin enabled) may acquire the global dispatcher lease and perform the
