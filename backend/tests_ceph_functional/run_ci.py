@@ -283,7 +283,6 @@ def _build_app_settings_payload() -> str:
 
 def _prepare_environment(backend_root: Path, backend_base_url: str) -> dict[str, str]:
     env = os.environ.copy()
-    env.pop("JWT_KEYS", None)
 
     # CI should not rely on a repo-local .env file or partially injected nested auth provider variables.
     if env.get("CI"):
