@@ -284,6 +284,23 @@ describe("ManagerMetricsPage", () => {
     ]);
   });
 
+  it("opens usage composition from the tab query parameter", async () => {
+    bucketUsageStatsEnabled = true;
+    setManagerUser();
+    useExecutionContextMock.mockReturnValue(buildContext());
+    useManagerStatsMock.mockReturnValue(buildStatsResult());
+
+    render(
+      <MemoryRouter initialEntries={["/manager/metrics?tab=usage-composition"]}>
+        <ManagerMetricsPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(getManagerUsageStatsAggregateMock).toHaveBeenCalled());
+    expect(screen.getByRole("tab", { name: "Usage composition" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText("Latest calculated bucket snapshots for the active execution context.")).toBeInTheDocument();
+  });
+
   it("shows backend reason when metrics are unavailable for selected context", () => {
     useExecutionContextMock.mockReturnValue(
       buildContext({

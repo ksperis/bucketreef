@@ -796,6 +796,12 @@ export default function ManagerDashboard() {
               loading={usageStatsLoading}
               text={text}
               locale={intlLocale}
+              action={(
+                <WorkspaceDashboardActionLink to="/manager/metrics?tab=usage-composition">
+                  {text("Usage composition")}
+                  <OpenIcon className="h-3.5 w-3.5" />
+                </WorkspaceDashboardActionLink>
+              )}
               data-testid="manager-dashboard-data-types"
             />
           </div>

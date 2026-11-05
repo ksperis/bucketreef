@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   getManagerUsageStatsAggregate,
   streamManagerUsageStatsAggregate,
@@ -48,7 +49,7 @@ function formatCostCurrency(value: number | null | undefined, currency: string |
 export default function ManagerMetricsPage() {
   const { text, intlLocale } = useManagerI18n();
   const { generalSettings } = useGeneralSettings();
-  const [activeTab, setActiveTab] = useState<ManagerMetricsTab>("storage");
+  const [searchParams, setSearchParams] = useSearchParams();
   const [month, setMonth] = useState(currentUtcMonthInputValue());
   const [costDetail, setCostDetail] = useState<CostSubjectDetail | null>(null);
   const [costLoading, setCostLoading] = useState(false);
@@ -260,12 +261,18 @@ export default function ManagerMetricsPage() {
       ],
     [canLoadUsageStatsAggregate, canShowCostEstimation, showUsageHistoryTrends, text]
   );
+  const requestedTab = searchParams.get("tab") as ManagerMetricsTab | null;
+  const activeTab = requestedTab && metricsTabs.some((tab) => tab.id === requestedTab)
+    ? requestedTab
+    : (metricsTabs[0]?.id ?? "storage");
 
-  useEffect(() => {
-    if (!metricsTabs.some((tab) => tab.id === activeTab)) {
-      setActiveTab(metricsTabs[0]?.id ?? "storage");
-    }
-  }, [activeTab, metricsTabs]);
+  const handleTabChange = (tab: string) => {
+    const nextTab = tab as ManagerMetricsTab;
+    const nextParams = new URLSearchParams(searchParams);
+    if (nextTab === "storage") nextParams.delete("tab");
+    else nextParams.set("tab", nextTab);
+    setSearchParams(nextParams);
+  };
 
   return (
     <PageShell
@@ -299,7 +306,7 @@ export default function ManagerMetricsPage() {
           <PageTabs
             tabs={metricsTabs}
             activeTab={activeTab}
-            onChange={(tab) => setActiveTab(tab as ManagerMetricsTab)}
+            onChange={handleTabChange}
             variant="line"
             ariaLabel={text("Manager metrics sections")}
             idPrefix="manager-metrics"
