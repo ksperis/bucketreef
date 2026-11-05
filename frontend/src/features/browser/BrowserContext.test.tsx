@@ -193,8 +193,8 @@ describe("BrowserContextProvider", () => {
     await waitFor(() => {
       expect(screen.getByTestId("selected")).toHaveTextContent("conn-1");
       expect(localStorage.getItem("selectedBrowserExecutionContextId")).toBe("conn-1");
+      expect(screen.getByTestId("location")).toHaveTextContent("/browser?ctx=conn-1");
     });
-    expect(screen.getByTestId("location")).toHaveTextContent("/browser?ctx=conn-1");
     expect(screen.getByTestId("access-error")).toHaveTextContent("none");
   });
 
