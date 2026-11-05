@@ -9,6 +9,7 @@ from pathlib import Path
 import sys
 import uuid
 
+from alembic import command
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
@@ -19,6 +20,9 @@ from sqlalchemy.orm import sessionmaker
 
 from app.db import Base
 from app.services import database_initialization
+
+
+_LEGACY_GITLAB_HEAD = "0226_reconcile_postgresql_schema_drift"
 
 
 def _postgresql_url() -> str:
@@ -99,3 +103,43 @@ def test_postgresql_reference_snapshot_matches_current_metadata() -> None:
             connection.execute(sa.text(f'DROP SCHEMA "{schema_name}" CASCADE'))
     finally:
         engine.dispose()
+
+
+def test_postgresql_legacy_gitlab_head_upgrades_to_rejoined_head() -> None:
+    database_url = _postgresql_url()
+    schema_name = f"bucketreef_legacy_gitlab_{uuid.uuid4().hex}"
+    admin_engine = create_engine(database_url, pool_pre_ping=True)
+    scoped_engine = None
+    try:
+        with admin_engine.begin() as connection:
+            connection.execute(sa.text(f'CREATE SCHEMA "{schema_name}"'))
+
+        scoped_engine = create_engine(
+            database_url,
+            connect_args={"options": f"-csearch_path={schema_name}"},
+            pool_pre_ping=True,
+        )
+        config = database_initialization._alembic_config()
+        with scoped_engine.connect() as connection:
+            config.attributes["connection"] = connection
+            command.upgrade(config, _LEGACY_GITLAB_HEAD)
+            assert (
+                connection.scalar(sa.text("SELECT version_num FROM alembic_version"))
+                == _LEGACY_GITLAB_HEAD
+            )
+
+            command.upgrade(config, "head")
+
+            expected_head = ScriptDirectory.from_config(config).get_current_head()
+            assert (
+                connection.scalar(sa.text("SELECT version_num FROM alembic_version"))
+                == expected_head
+            )
+            context = MigrationContext.configure(connection, opts={"compare_type": True})
+            assert compare_metadata(context, Base.metadata) == []
+    finally:
+        if scoped_engine is not None:
+            scoped_engine.dispose()
+        with admin_engine.begin() as connection:
+            connection.execute(sa.text(f'DROP SCHEMA IF EXISTS "{schema_name}" CASCADE'))
+        admin_engine.dispose()
