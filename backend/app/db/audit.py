@@ -4,7 +4,6 @@ from app.db.utc_datetime import UTCDateTime
 from app.utils.time import utcnow
 
 from sqlalchemy import CheckConstraint, Column, ForeignKey, Index, Integer, JSON, String
-from sqlalchemy.orm import relationship
 
 from .base import Base
 
@@ -40,5 +39,3 @@ class AuditLog(Base):
     request_id = Column(String, nullable=True, index=True)
     ip_address = Column(String, nullable=True)
     user_agent = Column(String, nullable=True)
-
-    user = relationship("User", lazy="joined")
