@@ -28,7 +28,11 @@ AWS_FIXTURES = {
     "frontend/src/api/storageOps.stream.test.ts": {"AKIAIOSFODNN7EXAMPLE"},
     "frontend/src/utils/apiError.test.ts": {"AKIAIOSFODNN7EXAMPLE"},
     "frontend/src/utils/runtimeDiagnostics.test.ts": {"AKIAIOSFODNN7EXAMPLE"},
-    "backend/tests/test_s3_connection_api_contract.py": {"AKIAINVALIDOWNERTYPE"},
+    "backend/tests/test_s3_connection_api_contract.py": {
+        "AKIAINVALIDOWNERTYPE",
+        "AKIADUPLICATEPRIVATE",
+        "AKIAUNEXPECTEDSHARED",
+    },
     "frontend/scripts/docs-screenshots/fixtures/base.ts": {"AKIAHELIOSPORTALROOT"},
 }
 AWS_FIXTURES["ops/ci/secret_report.py"] = set().union(*AWS_FIXTURES.values())

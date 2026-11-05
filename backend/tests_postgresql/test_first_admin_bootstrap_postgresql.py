@@ -59,8 +59,8 @@ def test_postgresql_migration_rotation_rollback_and_concurrent_consumption(monke
             "token_digest",
             "expires_at",
             "consumed_at",
-            "created_user_id",
         }
+        assert "created_user_id" not in columns
         assert columns["expires_at"]["type"].timezone is True
         connection.execute(
             sa.delete(AuditLog).where(
