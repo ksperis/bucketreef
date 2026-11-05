@@ -4,7 +4,7 @@
  */
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { fetchCurrentSession, type AuthenticationResponse, type CurrentSessionResponse } from "../api/auth";
-import { clearAuthStorage, removeClientStorage, CLIENT_STORAGE_KEYS } from "../utils/clientStorage";
+import { clearSessionClientStorage, removeClientStorage, CLIENT_STORAGE_KEYS } from "../utils/clientStorage";
 import type { SessionUser } from "../utils/workspaces";
 import { readStoredUser, setSessionUserCache } from "../utils/workspaces";
 import { isApiError } from "../api/client";
@@ -53,7 +53,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [bootstrapError, setBootstrapError] = useState<unknown>(null);
 
   const clear = useCallback(() => {
-    clearAuthStorage();
+    clearSessionClientStorage();
     setSessionUserCache(null);
     setSession(null);
     setUser(null);
@@ -149,6 +149,6 @@ export function useSession(): SessionContextValue {
     acceptAuthentication: (response, authType) => {
       if (response.user) setSessionUserCache({ ...response.user, authType });
     },
-    clear: clearAuthStorage,
+    clear: clearSessionClientStorage,
   };
 }
