@@ -58,7 +58,6 @@ class OpenStackConnection(Base):
     created_at = Column(UTCDateTime(), nullable=False, default=utcnow)
     cloud = relationship("OpenStackCloud", back_populates="connections")
     sessions = relationship("OpenStackSession", cascade="all, delete-orphan", back_populates="connection")
-    contexts = relationship("OpenStackProjectContext", cascade="all, delete-orphan", back_populates="connection")
 
 
 class OpenStackSession(Base):
@@ -88,7 +87,7 @@ class OpenStackProjectContext(Base):
     endpoint_interface = Column(String, nullable=False)
     service_type = Column(String, nullable=False)
     service_name = Column(String, nullable=True)
-    connection = relationship("OpenStackConnection", back_populates="contexts")
+    connection = relationship("OpenStackConnection")
     credentials = relationship("OpenStackProjectCredential", cascade="all, delete-orphan", back_populates="context")
 
 

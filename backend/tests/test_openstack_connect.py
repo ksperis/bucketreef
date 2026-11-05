@@ -84,6 +84,27 @@ def connect(db, setup):
     return service, user, auth, connection, ctx
 
 
+def test_delete_cloud_cascades_project_state_without_parent_navigation(db_session, setup_cloud):
+    service, _, _, connection, context_ref = connect(db_session, setup_cloud)
+    context_id = context_ref.removeprefix("os-")
+
+    assert db_session.scalar(
+        select(OpenStackProjectCredential.id).where(OpenStackProjectCredential.context_id == context_id)
+    ) is not None
+
+    service.delete_cloud(setup_cloud[2].id)
+
+    assert db_session.scalar(
+        select(OpenStackConnection.id).where(OpenStackConnection.id == connection.id)
+    ) is None
+    assert db_session.scalar(
+        select(OpenStackProjectContext.id).where(OpenStackProjectContext.id == context_id)
+    ) is None
+    assert db_session.scalar(
+        select(OpenStackProjectCredential.id).where(OpenStackProjectCredential.context_id == context_id)
+    ) is None
+
+
 def test_save_cloud_rolls_back_when_commit_fails(db_session, monkeypatch):
     rollback_calls: list[None] = []
     original_rollback = db_session.rollback
