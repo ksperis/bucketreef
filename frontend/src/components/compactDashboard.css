@@ -98,12 +98,12 @@
 .ui-dashboard-storage-values { display: flex; justify-content: space-between; align-items: end; flex-wrap: wrap; gap: 4px 12px; }
 .ui-dashboard-storage-values > .ui-dashboard-value { color: var(--ui-primary); }
 .ui-dashboard-storage-quota { font-size: 14px; font-weight: 500; color: var(--ui-text-muted); }
-.ui-dashboard-storage-outlook { display: grid; gap: 8px; margin-top: 12px; }
-.ui-dashboard-inset { min-width: 0; border: 1px solid var(--ui-border); border-radius: 6px; background: var(--ui-surface-muted); padding: 6px 8px; }
+.ui-dashboard-storage-outlook { display: grid; gap: 12px; margin-top: 12px; }
+.ui-dashboard-inset { min-width: 0; }
 .ui-dashboard-outlook-value { font-size: 14px; line-height: 20px; font-weight: 500; overflow-wrap: anywhere; }
-.ui-dashboard-link-row { display: flex; min-width: 0; min-height: 28px; align-items: center; justify-content: space-between; gap: 8px; border: 1px solid var(--ui-border); border-radius: 6px; padding: 4px 8px; background: var(--ui-surface); font-size: 12px; line-height: 18px; font-weight: 400; overflow-wrap: anywhere; }
+.ui-dashboard-link-row { display: flex; min-width: 0; min-height: 28px; align-items: center; justify-content: space-between; gap: 8px; margin-inline: -8px; border-radius: 6px; padding: 4px 8px; background: transparent; font-size: 12px; line-height: 18px; font-weight: 400; overflow-wrap: anywhere; }
 .ui-dashboard-link-row .ui-dashboard-label { font-weight: 400; }
-.ui-dashboard-link-row:hover { border-color: var(--ui-primary); background: var(--ui-hover); }
+.ui-dashboard-link-row:hover { background: var(--ui-hover); }
 .ui-dashboard-link-row:focus-visible, .ui-dashboard-text-link:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; }
 .ui-dashboard-link-row[aria-disabled="true"] { cursor: not-allowed; opacity: .65; }
 .ui-dashboard-row-link { margin-inline: -8px; border-radius: 6px; padding: 2px 8px; color: inherit; cursor: pointer; text-decoration: none; }
@@ -126,7 +126,10 @@
 .ui-dashboard-nav-arrow { flex-shrink: 0; color: var(--ui-text-muted); }
 .ui-dashboard-data-types { align-self: start; }
 .ui-dashboard-data-type-label { min-width: 0; overflow-wrap: anywhere; }
-@media (min-width: 640px) { .ui-dashboard-storage-outlook { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 640px) {
+  .ui-dashboard-storage-outlook { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; }
+  .ui-dashboard-storage-outlook > .ui-dashboard-inset + .ui-dashboard-inset { margin-left: 16px; border-left: 1px solid var(--ui-border-soft); padding-left: 16px; }
+}
 @media (max-width: 767px), (any-pointer: coarse) {
   .ui-dashboard-link-row, .ui-dashboard-row-link, .ui-dashboard-text-link { min-height: 44px; min-width: 44px; }
 }
