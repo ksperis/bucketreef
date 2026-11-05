@@ -57,7 +57,26 @@ export function portal(c: DemoRequest): Response | undefined {
     const account = admin ? undefined : scopedAccount(c);
     if (method === "GET" && !requestMatch[2]) {
       const status = c.url.searchParams.get("status"), type = c.url.searchParams.get("request_type"), aid = account?.id ?? Number(c.url.searchParams.get("account_id"));
-      return json(state.requests.filter(r => (!aid || r.account_id === aid) && (!status || status === "all" || r.status === status) && (!type || r.request_type === type)).sort((a, b) => b.id - a.id));
+      const search = (c.url.searchParams.get("search") ?? "").trim().toLowerCase();
+      const requests = state.requests
+        .filter(r =>
+          (!aid || r.account_id === aid)
+          && (!status || status === "all" || r.status === status)
+          && (!type || r.request_type === type)
+          && (!search || `${r.requester_email} ${r.account_name} ${JSON.stringify(r.payload)}`.toLowerCase().includes(search))
+        )
+        .sort((a, b) => b.id - a.id);
+      if (!admin) return json(requests);
+      const page = Math.max(1, Number(c.url.searchParams.get("page") ?? "1") || 1);
+      const pageSize = Math.min(200, Math.max(1, Number(c.url.searchParams.get("page_size") ?? "25") || 25));
+      const offset = (page - 1) * pageSize;
+      return json({
+        items: requests.slice(offset, offset + pageSize),
+        total: requests.length,
+        page,
+        page_size: pageSize,
+        has_next: offset + pageSize < requests.length,
+      });
     }
     if (method === "POST" && !admin && !requestMatch[2]) {
       const type = textField(body, "request_type") as PortalAdminRequest["request_type"];
