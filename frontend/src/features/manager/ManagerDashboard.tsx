@@ -20,6 +20,7 @@ import {
   WorkspaceDashboardStorageOverview,
   WorkspaceDashboardAction,
   WorkspaceDashboardActionLink,
+  WorkspaceDashboardRowLink,
   WorkspaceStatusDot,
   type WorkspaceDashboardTone as DashboardTone,
 } from "../../components/WorkspaceDashboardKit";
@@ -190,8 +191,9 @@ function TopBucketsCard({ rows }: { rows: ManagerDashboardBucketRankingRow[] }) 
       </div>
       <div className="mt-2 space-y-2">
         {rows.map((row) => (
-          <div
+          <WorkspaceDashboardRowLink
             key={row.name}
+            to={`/manager/buckets/${encodeURIComponent(row.name)}`}
             className="ui-dashboard-ranking-row"
           >
             <div className="flex min-w-0 items-center gap-2">
@@ -207,7 +209,7 @@ function TopBucketsCard({ rows }: { rows: ManagerDashboardBucketRankingRow[] }) 
             <span className="text-right ui-dashboard-label">
               {formatSpacedCompactNumber(row.objectCount)}
             </span>
-          </div>
+          </WorkspaceDashboardRowLink>
         ))}
       </div>
     </section>

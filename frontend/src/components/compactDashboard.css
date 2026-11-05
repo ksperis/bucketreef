@@ -106,6 +106,9 @@
 .ui-dashboard-link-row:hover { border-color: var(--ui-primary); background: var(--ui-hover); }
 .ui-dashboard-link-row:focus-visible, .ui-dashboard-text-link:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; }
 .ui-dashboard-link-row[aria-disabled="true"] { cursor: not-allowed; opacity: .65; }
+.ui-dashboard-row-link { margin-inline: -8px; border-radius: 6px; padding: 2px 8px; color: inherit; cursor: pointer; text-decoration: none; }
+.ui-dashboard-row-link:hover { background: var(--ui-hover); }
+.ui-dashboard-row-link:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: 2px; }
 .ui-dashboard-ranking-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(76px, .8fr) minmax(52px, .5fr); align-items: center; gap: 8px; min-width: 0; min-height: 28px; }
 .ui-dashboard-ranking-storage { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
 .ui-dashboard-ranking-storage > :last-child { flex: 1 1 32px; }
@@ -125,7 +128,7 @@
 .ui-dashboard-data-type-label { min-width: 0; overflow-wrap: anywhere; }
 @media (min-width: 640px) { .ui-dashboard-storage-outlook { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 767px), (any-pointer: coarse) {
-  .ui-dashboard-link-row, .ui-dashboard-text-link { min-height: 44px; min-width: 44px; }
+  .ui-dashboard-link-row, .ui-dashboard-row-link, .ui-dashboard-text-link { min-height: 44px; min-width: 44px; }
 }
 @media (max-width: 639px) {
   .ui-dashboard-quota-row { grid-template-columns: minmax(76px, 1fr) minmax(0, 1.2fr) 44px 44px; gap: 6px; }
