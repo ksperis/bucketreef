@@ -60,6 +60,16 @@ def test_settings_use_canonical_api_prefix_variable(monkeypatch):
     assert settings.api_prefix == "/custom-api"
 
 
+def test_settings_load_external_identity_browser_settings(monkeypatch):
+    monkeypatch.setenv("EXTERNAL_IDENTITY_LINK_ATTEMPT_TTL_SECONDS", "900")
+    monkeypatch.setenv("EXTERNAL_IDENTITY_BROWSER_COOKIE_NAME", "external-link-binding")
+
+    settings = Settings(_env_file=None)
+
+    assert settings.external_identity_link_attempt_ttl_seconds == 900
+    assert settings.external_identity_browser_cookie_name == "external-link-binding"
+
+
 def test_settings_load_json_keyrings(monkeypatch):
     monkeypatch.setenv("UI_JWT_KEYS", '["ui-primary", "ui-previous"]')
     monkeypatch.setenv("API_JWT_KEYS", '["api-primary", "api-previous"]')

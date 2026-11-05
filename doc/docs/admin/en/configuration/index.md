@@ -183,10 +183,12 @@ or with nested environment variables:
   linking policy remains `manual` unless `LINKING_POLICY` is configured.
 - `OIDC_STATE_TTL_SECONDS` remains a backend runtime setting and is not editable
   from the UI.
-- `OIDC_LINK_ATTEMPT_TTL_SECONDS` controls the short-lived browser-bound external
-  identity linking transaction and defaults to 600 seconds (accepted range:
-  60–1800). The historical setting name now applies to both OIDC and LDAP link
-  attempts.
+- `EXTERNAL_IDENTITY_LINK_ATTEMPT_TTL_SECONDS` controls the short-lived
+  browser-bound external identity linking transaction and defaults to 600
+  seconds (accepted range: 60–1800).
+- `EXTERNAL_IDENTITY_BROWSER_COOKIE_NAME` controls the `HttpOnly` browser
+  binding cookie used by OIDC and LDAP external-identity flows and defaults to
+  `external_identity_browser_binding`.
 
 Common environment fields:
 
