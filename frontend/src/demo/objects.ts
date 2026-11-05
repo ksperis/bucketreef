@@ -1,7 +1,7 @@
 import type { BrowserObject, ListBrowserObjectsResponse, ObjectTag } from "../api/browserContracts";
 import { createRuntimeId } from "../utils/runtimeId";
 import { FILE_LIMIT, TOTAL_LIMIT, putObject, type DemoBucket, type DemoObject, type DemoObjectVersion } from "./state";
-import { spaceRole, DemoError, done, json, required, scopedBucket, textField, type DemoRequest } from "./http";
+import { browserContextId, spaceRole, DemoError, done, json, required, scopedBrowserBucket, scopedBucket, textField, type DemoRequest } from "./http";
 
 function objectView(version: DemoObjectVersion): BrowserObject {
   return { key: version.key, size: version.size, last_modified: version.last_modified, etag: version.etag, storage_class: version.storage_class, version_id: version.version_id, is_delete_marker: Boolean(version.deleted) };
@@ -62,7 +62,7 @@ export async function objects(c: DemoRequest): Promise<Response | undefined> {
   const portal = c.path.match(/^\/portal\/storage-spaces\/([^/]+)\/objects(?:\/(detail|versions|restore|download))?$/);
   if (!match && !portal) return undefined;
   const space = portal ? required(c.state.spaces.find(s => s.id === decodeURIComponent(portal[1]))) : c.state.spaces.find(s => s.bucketName === decodeURIComponent(match![1]));
-  const bucket = scopedBucket(c, space?.bucketName ?? match![1]);
+  const bucket = match ? scopedBrowserBucket(c, space?.bucketName ?? match[1]) : scopedBucket(c, space!.bucketName);
   const endUser = c.persona === "member" || c.persona === "project-manager";
   const role = space && spaceRole(c, space);
   if (endUser && (!space || !role)) throw new DemoError(403, "This space is not shared with the selected identity");
@@ -73,7 +73,7 @@ export async function objects(c: DemoRequest): Promise<Response | undefined> {
   const key = String(body.key ?? url.searchParams.get("key") ?? "");
   if (action === "objects" && method === "GET") return json(objectListing(bucket, url));
   if (action === "copy" && method === "POST") {
-    const source = scopedBucket(c, String(body.source_bucket));
+    const source = match ? scopedBrowserBucket(c, String(body.source_bucket)) : scopedBucket(c, String(body.source_bucket));
     const sourceSpace = c.state.spaces.find(item => item.bucketName === source.name);
     const sourceRole = sourceSpace && spaceRole(c, sourceSpace);
     if (endUser && (!sourceRole || (body.move && (sourceRole === "Viewer" || sourceSpace?.archived_at)))) throw new DemoError(403, "This source is not available for the requested operation");
@@ -116,7 +116,7 @@ export async function objects(c: DemoRequest): Promise<Response | undefined> {
   }
   if (action === "presign" && method === "POST" && body.operation === "put_object") {
     const destination = new URL(`/api/browser/buckets/${encodeURIComponent(bucket.name)}/local-upload`, location.origin);
-    destination.searchParams.set("key", key); destination.searchParams.set("context_id", String(bucket.accountId));
+    destination.searchParams.set("key", key); destination.searchParams.set("context_id", browserContextId(c));
     return json({ url: destination.href, method: "PUT", expires_in: 900, headers: { "Content-Type": String(body.content_type || "application/octet-stream") } });
   }
   const object = required(bucket.objects.find(o => o.key === key), "Object not found");

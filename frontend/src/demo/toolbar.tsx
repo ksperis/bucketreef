@@ -4,7 +4,7 @@ import { coverage } from "./registry";
 import { resetState } from "./persistence";
 import type { Persona } from "./state";
 
-const destinations = { admin: "/admin", manager: "/manager", member: "/portal", "project-manager": "/portal", "ceph-admin": "/ceph-admin" };
+const destinations = { admin: "/admin", manager: "/manager", member: "/portal", "project-manager": "/portal", "browser-user": "/browser", "ceph-admin": "/ceph-admin" };
 function switchProfile(persona: Persona, destination?: string) {
   location.href = `${destination ?? destinations[persona]}?demoPersona=${persona}`;
 }
@@ -19,7 +19,7 @@ function Toolbar({ persona, initializedAt }: { persona: Persona; initializedAt: 
     <nav className="demo-toolbar" aria-label="Demo profiles">
       <a className="demo-brand" href="https://bucketreef.ksperis.com">BucketReef <strong>DEMO</strong></a>
       <label>Explore as <select aria-label="Demo profile" value={endUser ? "member" : persona} onChange={e => switchProfile(e.target.value as Persona)}>
-        <option value="admin">Platform admin</option><option value="manager">Account manager</option><option value="member">End user</option><option value="ceph-admin">Ceph admin</option>
+        <option value="admin">Platform admin</option><option value="manager">Account manager</option><option value="member">End user</option><option value="browser-user">S3 browser user</option><option value="ceph-admin">Ceph admin</option>
       </select></label>
       {endUser && <><label>Identity <select aria-label="End user identity" value={persona} onChange={e => switchProfile(e.target.value as Persona)}><option value="member">Member</option><option value="project-manager">Project manager</option></select></label><a href={`/portal?demoPersona=${persona}`}>Portal</a><a href={`/browser?demoPersona=${persona}`}>Browser</a></>}
       <span className="demo-local">Simulated · saved in this browser</span>

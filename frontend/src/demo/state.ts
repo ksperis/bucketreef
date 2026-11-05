@@ -26,8 +26,8 @@ export const GiB = 1024 ** 3;
 export const FILE_LIMIT = 20 * MiB;
 export const TOTAL_LIMIT = 100 * MiB;
 export const tools = { bucket_compare: true, bucket_migration: false, bucket_integrity_check: false, bucket_purge: false, feature_rules: false };
-export type Persona = "admin" | "manager" | "member" | "project-manager" | "ceph-admin";
-export const personaIds: Record<Persona, number> = { admin: 1, manager: 2, member: 3, "project-manager": 4, "ceph-admin": 5 };
+export type Persona = "admin" | "manager" | "member" | "project-manager" | "browser-user" | "ceph-admin";
+export const personaIds: Record<Persona, number> = { admin: 1, manager: 2, member: 3, "project-manager": 4, "browser-user": 6, "ceph-admin": 5 };
 export type DemoObjectVersion = ObjectMetadata & { version_id: string; body: Blob; imported: boolean; deleted?: boolean };
 export type DemoObject = { key: string; tags: ObjectTag[]; versions: DemoObjectVersion[] };
 export type DemoBucket = Bucket & { accountId: number; endpointId: number; objects: DemoObject[]; config: Record<string, unknown> };
@@ -37,6 +37,7 @@ export type DemoIam = {
   keys: Record<string, AccessKey[]>; attachments: Record<string, IamPolicy[]>; inline: Record<string, InlinePolicy[]>;
 };
 export type DemoUser = Omit<User, "effective_access">;
+export type DemoConnection = S3Connection & S3ConnectionAdminItem & { demo_backing_account_id: number | null };
 
 export function createDemoSpace(
   input: Pick<DemoSpace, "id" | "name" | "accountId" | "bucketName" | "internal_bucket_name" | "role"> & Partial<DemoSpace>,
@@ -187,7 +188,7 @@ export type DemoState = {
   initializedAt: string; nextId: number; users: DemoUser[]; groups: UiGroup[];
   accounts: (S3Account & { rgw?: Partial<CephAdminRgwAccountDetail> })[]; endpoints: StorageEndpoint[]; buckets: DemoBucket[]; spaces: DemoSpace[];
   requests: PortalAdminRequest[]; iam: Record<number, DemoIam>;
-  connections: (S3Connection & S3ConnectionAdminItem)[];
+  connections: DemoConnection[];
   notifications: Record<number, UserNotification[]>;
   snapshotInventory: { accountId: number; endpointId: number; bucketName: string; bytes: number; objects: number }[];
   history: { timestamp: string; bytes_in: number; bytes_out: number; ops: number; success_ops: number }[];
@@ -321,6 +322,7 @@ export function createSeed(): DemoState {
   users[1].account_links = accounts.map(a => ({ account_id: a.id, manager_role: "account_administrator", portal_role: null, allow_manager_browser_data_access: true }));
   users[2].account_links = accounts.slice(0, 2).map(a => ({ account_id: a.id, manager_role: null, portal_role: "portal_user", allow_manager_browser_data_access: false }));
   users[3].account_links = accounts.slice(0, 2).map(a => ({ account_id: a.id, manager_role: null, portal_role: "portal_manager", allow_manager_browser_data_access: false }));
+  users[5].account_links = [];
   for (const account of accounts) account.user_links = users.flatMap(user => user.account_links?.filter(link => link.account_id === account.id).map(link => ({ ...link, user_id: user.id, user_email: user.email, user_full_name: user.full_name, user_avatar: user.avatar })) ?? []);
   const groups: UiGroup[] = ["Platform", "Engineering", "Design", "Research", "Operations", "Contractors"].map((name, i) => createDemoGroup({
     id: 201 + i,
@@ -378,7 +380,7 @@ export function createSeed(): DemoState {
   }
   for (const u of users) u.group_details = groups.filter(g => g.user_details?.some(m => m.id === u.id)).map(g => ({ id: g.id, name: g.name }));
   return { initializedAt: now.toISOString(), nextId: 1000, endpoints, accounts, users, groups, buckets, spaces, requests, iam,
-    connections: endpoints.map((e, i) => ({
+    connections: [...endpoints.map((e, i): DemoConnection => ({
       id: 301 + i,
       name: `${e.name} · service connection`,
       storage_endpoint_id: e.id,
@@ -412,7 +414,43 @@ export function createSeed(): DemoState {
       server_managed: false,
       managed_access_state: null,
       access_key_id: "DEMO_NOT_A_REAL_KEY",
-    })),
+      demo_backing_account_id: null,
+    })), {
+      id: 303,
+      name: "Helios S3 access",
+      storage_endpoint_id: endpoints[0].id,
+      endpoint_url: endpoints[0].endpoint_url,
+      is_active: true,
+      execution_status: "ready",
+      remediation_reason: null,
+      capabilities: {},
+      rgw_user_uid: null,
+      rgw_tenant: null,
+      rgw_account_id: accounts[0].rgw_account_id,
+      provider_hint: "ceph",
+      region: endpoints[0].region ?? null,
+      force_path_style: endpoints[0].force_path_style,
+      verify_tls: endpoints[0].verify_tls,
+      allow_activity_history: null,
+      created_by_user_id: users[5].id,
+      created_by_email: users[5].email,
+      created_by_full_name: users[5].full_name,
+      created_by_avatar: users[5].avatar,
+      user_count: 0,
+      user_details: [],
+      group_details: [],
+      tags: [],
+      last_used_at: null,
+      created_at: at(45),
+      updated_at: null,
+      is_shared: false,
+      access_manager: false,
+      access_browser: true,
+      server_managed: false,
+      managed_access_state: null,
+      access_key_id: "DEMO_NOT_A_REAL_KEY",
+      demo_backing_account_id: accounts[0].id,
+    } satisfies DemoConnection],
     notifications: Object.fromEntries(users.map(u => [u.id, [
       {
         id: 1,

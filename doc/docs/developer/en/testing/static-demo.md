@@ -4,8 +4,10 @@ The public demo at <https://demo.bucketreef.ksperis.com> uses the product fronte
 with a local HTTP adapter. It has no server, authentication, live S3 credentials,
 Ceph connection or external delivery. The default workspace is Manager, in English.
 The persistent profile bar switches between Platform admin, Account manager,
-End user (member or project manager), and Ceph admin. End users can open Portal
-and Browser. The displayed revision identifies the deployed source commit.
+End user (member or project manager), S3 browser user, and Ceph admin. End users
+can open Portal and Browser. S3 browser user demonstrates standalone Browser
+access through an owned private S3 connection, without Manager or Portal access.
+The displayed revision identifies the deployed source commit.
 
 ## Running and validating
 
@@ -81,7 +83,7 @@ resources and responses.
 | Admin | Users, groups, direct/group account associations, accounts, endpoints, manual connection declarations, quotas, Portal request approvals | Connection credentials are discarded; validation reports that no endpoint was contacted. Declarations do not introduce an additional storage scenario. Global settings, authentication, integrations and API tokens are read-only. |
 | Manager | Bucket creation/deletion, configuration documents, versioning, lifecycle, CORS, policies, quotas, IAM entities, group membership, policy attachments, inline policies and fictitious keys | Nonempty buckets cannot be removed. Lifecycle, IAM evaluation, replication and encryption do not execute. Compare returns a predefined example with no remediation. |
 | Portal | Private/team spaces, project collaborators, internal shares, Viewer/Editor access, requests, files and individual version restoration | Project settings stay locked. Archives and Viewer grants prevent writes. Public links are examples only. Removing nonempty spaces is rejected. |
-| Browser | Bucket/folder navigation, search, upload, preview, download, deletion, metadata and tags | Technical settings and version history are read-only. Imported data remains local. Seeded datasets download sample payloads. |
+| Browser | Bucket/folder navigation, search, upload, preview, download, deletion, metadata and tags, including the standalone S3 browser user backed by a private connection | Technical settings and version history are read-only. Imported data remains local. Seeded datasets download sample payloads. |
 | Ceph admin | Common bucket/account/RGW-user inventory, account and user quotas, current bucket configuration and fictitious keys | Health, traffic, cost, audit and operational history are snapshots. No Ceph operation is executed. |
 
 Migrations, purge, integrity/index operations, managed private provisioning,
