@@ -321,9 +321,11 @@ def _bucket_plans_from_config(
     buckets_cfg = entry.get("buckets") or []
     iam_user = entry.get("iam_user")
     if not buckets_cfg:
+        configured_bucket_count = entry.get("bucket_count")
         bucket_count = int(
-            entry.get("bucket_count")
-            or random.randint(defaults.min_buckets, defaults.max_buckets)
+            configured_bucket_count
+            if configured_bucket_count is not None
+            else random.randint(defaults.min_buckets, defaults.max_buckets)
         )
         return bucket_plans_for_account(
             account_slug,
@@ -343,10 +345,11 @@ def _bucket_plans_from_config(
             used_bucket_names,
         )
         bucket_name = slugify(bucket_name)
+        configured_object_count = bucket_config.get("object_count")
         object_count = int(
-            bucket_config.get("object_count")
-            or bucket_config.get("objects")
-            or random.randint(defaults.min_objects, defaults.max_objects)
+            configured_object_count
+            if configured_object_count is not None
+            else random.randint(defaults.min_objects, defaults.max_objects)
         )
         buckets.append(
             BucketPlan(
@@ -376,11 +379,7 @@ def _user_plans_from_config(
     for user_config in users_cfg:
         if not isinstance(user_config, dict):
             continue
-        full_name = (
-            user_config.get("full_name")
-            or user_config.get("name")
-            or random_full_name()
-        )
+        full_name = user_config.get("full_name") or random_full_name()
         email_value = user_config.get("email") or random_email(
             account_slug,
             slugify(full_name).replace("-", "."),
