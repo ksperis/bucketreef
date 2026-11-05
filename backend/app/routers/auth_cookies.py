@@ -22,7 +22,7 @@ def _external_identity_browser_binding_hash(raw_secret: str) -> str:
 
 
 def external_identity_browser_binding(request: Request) -> str | None:
-    return request.cookies.get(_settings.oidc_browser_cookie_name)
+    return request.cookies.get(_settings.external_identity_browser_cookie_name)
 
 
 def external_identity_browser_binding_hash(request: Request) -> str | None:
@@ -33,11 +33,11 @@ def external_identity_browser_binding_hash(request: Request) -> str | None:
 def ensure_external_identity_browser_binding(request: Request, response: Response) -> tuple[str, str]:
     raw_secret = external_identity_browser_binding(request) or secrets.token_urlsafe(32)
     response.set_cookie(
-        _settings.oidc_browser_cookie_name,
+        _settings.external_identity_browser_cookie_name,
         raw_secret,
         max_age=max(
             _settings.oidc_state_ttl_seconds,
-            _settings.oidc_link_attempt_ttl_seconds,
+            _settings.external_identity_link_attempt_ttl_seconds,
         ),
         httponly=True,
         secure=_settings.refresh_token_cookie_secure,

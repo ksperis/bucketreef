@@ -66,7 +66,7 @@ class ExternalIdentityLinkAttemptService:
             status="pending",
             redirect_path=redirect_path,
             created_at=now,
-            expires_at=now + timedelta(seconds=self.settings.oidc_link_attempt_ttl_seconds),
+            expires_at=now + timedelta(seconds=self.settings.external_identity_link_attempt_ttl_seconds),
         )
         self.db.add(row)
         commit_or_rollback(self.db)
@@ -101,7 +101,7 @@ class ExternalIdentityLinkAttemptService:
             status="pending",
             redirect_path=redirect_path,
             created_at=now,
-            expires_at=now + timedelta(seconds=self.settings.oidc_link_attempt_ttl_seconds),
+            expires_at=now + timedelta(seconds=self.settings.external_identity_link_attempt_ttl_seconds),
         )
         self.db.add(row)
         commit_or_rollback(self.db)

@@ -1,5 +1,19 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 canonical external identity browser settings
+
+External identity browser state now uses the provider-neutral runtime settings
+`EXTERNAL_IDENTITY_LINK_ATTEMPT_TTL_SECONDS` and
+`EXTERNAL_IDENTITY_BROWSER_COOKIE_NAME`. The retired
+`OIDC_LINK_ATTEMPT_TTL_SECONDS` and `OIDC_BROWSER_COOKIE_NAME` names are not
+runtime aliases.
+
+Before upgrading a deployment that overrides either old setting, move its value
+to the corresponding canonical setting. The default browser-binding cookie name
+changes from `oidc_browser_binding` to `external_identity_browser_binding`.
+OIDC or LDAP authentication/linking transactions already in progress across the
+deployment restart must be started again.
+
 ## 2026-11 quota-monitor result cleanup
 
 The internal quota-monitor and usage-history collection responses no longer

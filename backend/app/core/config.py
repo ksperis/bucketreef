@@ -375,14 +375,14 @@ class Settings(BaseSettings):
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
     oidc_providers: dict[str, OIDCProviderSettings] = Field(default_factory=dict)
     oidc_state_ttl_seconds: int = Field(600, description="Validity of OIDC login state (seconds)")
-    oidc_link_attempt_ttl_seconds: int = Field(
+    external_identity_link_attempt_ttl_seconds: int = Field(
         600,
         ge=60,
         le=1800,
-        description="Validity of an OIDC account-linking transaction (seconds)",
+        description="Validity of an external-identity account-linking transaction (seconds)",
     )
-    oidc_browser_cookie_name: str = Field(
-        "oidc_browser_binding",
+    external_identity_browser_cookie_name: str = Field(
+        "external_identity_browser_binding",
         description="HttpOnly cookie binding external-identity authentication and account-linking transactions to a browser",
     )
     ldap_providers: dict[str, LDAPProviderSettings] = Field(default_factory=dict)

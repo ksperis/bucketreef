@@ -124,6 +124,8 @@ Environment variables (or `.env` file) supported via `pydantic`:
 - `SEED_SUPERVISION_ACCESS_KEY` / `SEED_SUPERVISION_SECRET_KEY` (required in external mode; read-only usage/metrics identity)
 - `CORS_ORIGINS` (default: `["http://localhost:5173"]`)
 - `OIDC_STATE_TTL_SECONDS` (default: `600`, validity of login `state`)
+- `EXTERNAL_IDENTITY_LINK_ATTEMPT_TTL_SECONDS` (default: `600`, validity of browser-bound OIDC/LDAP account-linking transactions)
+- `EXTERNAL_IDENTITY_BROWSER_COOKIE_NAME` (default: `external_identity_browser_binding`)
 - `OIDC_PROVIDERS__<key>__*` to configure OpenID Connect providers (see below)
 - `LDAP_PROVIDERS__<key>__*` to configure LDAP providers (see below)
 

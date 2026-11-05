@@ -586,7 +586,7 @@ class OidcService:
             raise OIDCAuthenticationError("OIDC reauthentication did not return auth_time")
         now_epoch = int(utcnow().timestamp())
         auth_time = int(raw)
-        max_age = self.settings.oidc_link_attempt_ttl_seconds
+        max_age = self.settings.external_identity_link_attempt_ttl_seconds
         if auth_time > now_epoch + 60 or auth_time < now_epoch - max_age:
             raise OIDCAuthenticationError("OIDC reauthentication is not recent")
         if state_created_at is not None:
