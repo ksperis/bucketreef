@@ -371,7 +371,7 @@ def test_portal_storage_space_configures_server_access_logging_on_lab(
         # without sleeping for the default roll interval.
         super_admin_session.patch(
             f"/admin/accounts/{account_id}/portal-settings",
-            json={"server_access_logging_enabled": False},
+            json={"override": {"server_access_logging_enabled": False}},
             expected_status=200,
         )
         _wait_for_value(
