@@ -520,6 +520,10 @@ describe("manager shell pages", () => {
     const recentActivityCard = screen.getByTestId("manager-dashboard-recent-activity-card");
 
     expect(within(dataTypesCard).getByText("Data types")).toBeInTheDocument();
+    expect(within(dataTypesCard).getByRole("link", { name: /Usage composition/ })).toHaveAttribute(
+      "href",
+      "/manager/metrics?tab=usage-composition"
+    );
     expect(within(dataTypesCard).getByText("Documents")).toBeInTheDocument();
     expect(within(dataTypesCard).getByTestId("manager-dashboard-data-type-color-documents")).toHaveStyle({
       backgroundColor: "#2563EB",

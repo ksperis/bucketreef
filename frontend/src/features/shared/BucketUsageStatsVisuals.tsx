@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import type { ReactNode } from "react";
 import type {
   BucketUsageStatsAggregate,
   BucketUsageStatsDistributionEntry,
@@ -77,6 +78,7 @@ type BucketUsageStatsDataTypesCardProps = {
   className?: string;
   text?: (message: string, values?: Record<string, string | number>) => string;
   locale?: string;
+  action?: ReactNode;
   "data-testid"?: string;
 };
 
@@ -169,6 +171,7 @@ export function BucketUsageStatsDataTypesCard({
   className,
   text: translateText,
   locale,
+  action,
   "data-testid": dataTestId,
 }: BucketUsageStatsDataTypesCardProps) {
   const { text, distributionLabel } = useBucketUsageStatsI18n(translateText);
@@ -186,7 +189,7 @@ export function BucketUsageStatsDataTypesCard({
 
   return (
     <section className={cx(uiCardClass, "ui-dashboard-panel ui-dashboard-data-types", className)} data-testid={dataTestId}>
-      <div>
+      <div className="ui-dashboard-panel-heading">
         <div className="min-w-0">
           <h2 className="ui-dashboard-title">{text("dataTypesTitle")}</h2>
           <div className={cx("mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 ui-caption", uiMutedTextClass)}>
@@ -194,6 +197,7 @@ export function BucketUsageStatsDataTypesCard({
             {aggregate && <span>{coverage}</span>}
           </div>
         </div>
+        {action}
       </div>
 
       {error ? (
