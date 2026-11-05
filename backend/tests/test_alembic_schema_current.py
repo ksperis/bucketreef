@@ -18,7 +18,8 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0235_reconcile_postgresql_schema_drift"
+_EXPECTED_ALEMBIC_HEAD = "0236_repair_portal_iam_revocation_schema"
+_REJOINED_MERGE_REVISION = "0235_reconcile_postgresql_schema_drift"
 _LEGACY_GITLAB_HEAD = "0226_reconcile_postgresql_schema_drift"
 
 
@@ -96,14 +97,47 @@ def _alembic_config() -> Config:
     return config
 
 
-def test_alembic_exposes_single_merge_head():
+def test_alembic_exposes_single_head_after_rejoined_merge():
     script = ScriptDirectory.from_config(_alembic_config())
 
     assert script.get_heads() == [_EXPECTED_ALEMBIC_HEAD]
-    assert script.get_revision(_EXPECTED_ALEMBIC_HEAD).down_revision == (
+    assert script.get_revision(_EXPECTED_ALEMBIC_HEAD).down_revision == _REJOINED_MERGE_REVISION
+    assert script.get_revision(_REJOINED_MERGE_REVISION).down_revision == (
         "0234_remove_first_admin_created_user_id",
         _LEGACY_GITLAB_HEAD,
     )
+
+
+def test_rejoined_head_repairs_missing_portal_iam_revocation_table(tmp_path, monkeypatch):
+    database_path = tmp_path / "missing-portal-iam-revocations.sqlite"
+    database_url = f"sqlite:///{database_path}"
+    monkeypatch.setenv("DATABASE_URL", database_url)
+    monkeypatch.delenv("BUCKETREEF_DB_BACKUP_VERIFIED", raising=False)
+    get_settings.cache_clear()
+
+    config = _alembic_config()
+    engine = sa.create_engine(database_url)
+    try:
+        command.upgrade(config, _REJOINED_MERGE_REVISION)
+        with engine.begin() as connection:
+            assert "portal_iam_revocations" in sa.inspect(connection).get_table_names()
+            connection.exec_driver_sql("DROP TABLE portal_iam_revocations")
+            assert "portal_iam_revocations" not in sa.inspect(connection).get_table_names()
+            assert connection.scalar(sa.text("SELECT version_num FROM alembic_version")) == _REJOINED_MERGE_REVISION
+
+        command.upgrade(config, "head")
+
+        with engine.connect() as connection:
+            assert connection.scalar(sa.text("SELECT version_num FROM alembic_version")) == _EXPECTED_ALEMBIC_HEAD
+            assert "portal_iam_revocations" in sa.inspect(connection).get_table_names()
+            context = MigrationContext.configure(
+                connection,
+                opts={"compare_type": True},
+            )
+            assert compare_metadata(context, Base.metadata) == []
+    finally:
+        engine.dispose()
+        get_settings.cache_clear()
 
 
 def test_legacy_gitlab_head_upgrades_to_rejoined_head(tmp_path, monkeypatch):
