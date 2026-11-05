@@ -1,4 +1,4 @@
-import { buildBaseRules } from "./fixtures/base";
+import { buildBaseRules, GENERAL_SETTINGS } from "./fixtures/base";
 import { multisiteRules } from "./fixtures/multisite";
 import type { DocScreenshotScenario, LocalStorageSeed, MockRule } from "./types";
 import { adminUser, storageOpsAdminUser, storageUser, superAdminUser } from "./fixtures/users";
@@ -317,25 +317,8 @@ const storageOpsEnabledGeneralSettingsRule: MockRule = {
   id: "settings-general-storage-ops-enabled",
   path: /^\/settings\/general$/,
   body: {
-    manager_feature_policies: DEFAULT_MANAGER_FEATURE_POLICIES,
-    manager_enabled: true,
-    ceph_admin_enabled: true,
-    browser_enabled: true,
-    browser_root_enabled: true,
-    browser_manager_enabled: true,
-    browser_portal_enabled: true,
-    browser_ceph_admin_enabled: true,
-    portal_enabled: true,
-    cost_enabled: false,
-    endpoint_status_enabled: true,
-    bucket_migration_enabled: true,
-    bucket_compare_enabled: true,
-    bucket_integrity_check_enabled: true,
-    manager_ceph_s3_user_keys_enabled: true,
+    ...GENERAL_SETTINGS,
     storage_ops_enabled: true,
-    allow_login_access_keys: false,
-    allow_login_endpoint_list: true,
-    allow_login_custom_endpoint: false,
   },
 };
 
@@ -343,23 +326,8 @@ const costEnabledGeneralSettingsRule: MockRule = {
   id: "settings-general-cost-enabled",
   path: /^\/settings\/general$/,
   body: {
-    manager_enabled: true,
-    ceph_admin_enabled: true,
-    browser_enabled: true,
-    browser_root_enabled: true,
-    browser_manager_enabled: true,
-    browser_portal_enabled: true,
-    browser_ceph_admin_enabled: true,
-    portal_enabled: true,
+    ...GENERAL_SETTINGS,
     cost_enabled: true,
-    endpoint_status_enabled: true,
-    bucket_migration_enabled: true,
-    bucket_compare_enabled: true,
-    bucket_integrity_check_enabled: true,
-    manager_ceph_s3_user_keys_enabled: true,
-    allow_login_access_keys: false,
-    allow_login_endpoint_list: true,
-    allow_login_custom_endpoint: false,
   },
 };
 
@@ -367,28 +335,11 @@ const bucketPurgeEnabledGeneralSettingsRule: MockRule = {
   id: "settings-general-bucket-purge-enabled",
   path: /^\/settings\/general$/,
   body: {
+    ...GENERAL_SETTINGS,
     manager_feature_policies: {
       ...DEFAULT_MANAGER_FEATURE_POLICIES,
       bucket_purge: "default_on",
     },
-    manager_enabled: true,
-    ceph_admin_enabled: true,
-    browser_enabled: true,
-    browser_root_enabled: true,
-    browser_manager_enabled: true,
-    browser_portal_enabled: true,
-    browser_ceph_admin_enabled: true,
-    portal_enabled: true,
-    cost_enabled: false,
-    endpoint_status_enabled: true,
-    bucket_migration_enabled: true,
-    bucket_compare_enabled: true,
-    bucket_integrity_check_enabled: true,
-    bucket_purge_enabled: true,
-    manager_ceph_s3_user_keys_enabled: true,
-    allow_login_access_keys: false,
-    allow_login_endpoint_list: true,
-    allow_login_custom_endpoint: false,
   },
 };
 
