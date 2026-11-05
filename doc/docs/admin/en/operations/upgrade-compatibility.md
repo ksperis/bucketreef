@@ -1744,10 +1744,19 @@ Portal account rows to `context_kind=portal_account`, and then removes
 `audit_logs.account_id`, `audit_logs.account_name`, their foreign key, and their
 account lookup index.
 
-The Admin Audit and Manager Activity APIs now expose only `context_kind`,
-`context_id`, and `context_name`; deploy the backend and frontend together. The
-webhook event payload keeps its existing optional `account` object so external
-webhook consumers are unaffected by the database/API cleanup.
+At that cutover, the Admin Audit and Manager Activity APIs exposed only
+`context_kind`, `context_id`, and `context_name`; deploy the backend and frontend
+together. The webhook event payload keeps its existing optional `account` object
+so external webhook consumers are unaffected by the database/API cleanup.
+
+## 2026-11 Manager activity response cleanup
+
+`GET /manager/activity` no longer returns `context_kind` or `context_id`. The
+request already selects one execution context and the backend filters audit rows
+to that exact context, so those response fields duplicated request scope and had
+no frontend consumer. `context_name` remains available for historical display
+when an activity row has no more specific target identifier. Deploy the backend
+and frontend together.
 
 ## 2026-10 canonical Portal collaborator requests
 

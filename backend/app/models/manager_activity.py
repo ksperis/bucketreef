@@ -15,8 +15,6 @@ class ManagerActivityEntry(ApiModel):
     action: str
     entity_type: Optional[str]
     entity_id: Optional[str]
-    context_kind: Optional[str]
-    context_id: Optional[str]
     context_name: Optional[str]
     status: AuditStatus
     user_email: str
