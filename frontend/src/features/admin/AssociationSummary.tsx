@@ -7,6 +7,7 @@ import type {
   ManagerAccountRole,
   PortalAccountRole,
 } from "../../api/accountAccess";
+import type { UiRole } from "../../api/users";
 import GroupAvatar from "../../components/GroupAvatar";
 import UserAvatar from "../../components/UserAvatar";
 import AnchoredPortalMenu from "../../components/ui/AnchoredPortalMenu";
@@ -233,13 +234,11 @@ export function accountAssociationRoleLabels(account: AssociationAccountItem, lo
   return roles;
 }
 
-export function uiPrincipalRoleLabel(role?: string | null, locale: UiLanguage = "en"): string {
-  const normalized = (role ?? "").toLowerCase();
-  if (["ui_superadmin", "super_admin", "superadmin"].includes(normalized)) return associationSummaryText("superadmin", locale);
-  if (["ui_admin", "account_admin", "admin"].includes(normalized)) return associationSummaryText("admin", locale);
-  if (["ui_none", "none"].includes(normalized)) return associationSummaryText("noUiAccess", locale);
-  if (["ui_user", "account_user", "user"].includes(normalized)) return associationSummaryText("user", locale);
-  return role?.trim() || associationSummaryText("user", locale);
+export function uiPrincipalRoleLabel(role?: UiRole | null, locale: UiLanguage = "en"): string {
+  if (role === "ui_superadmin") return associationSummaryText("superadmin", locale);
+  if (role === "ui_admin") return associationSummaryText("admin", locale);
+  if (role === "ui_none") return associationSummaryText("noUiAccess", locale);
+  return associationSummaryText("user", locale);
 }
 
 export function CompactAssociationSummary({
