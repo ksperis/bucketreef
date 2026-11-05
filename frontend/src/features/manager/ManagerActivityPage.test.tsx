@@ -36,8 +36,7 @@ function activity(id: number, overrides?: Record<string, unknown>) {
     action: "create_bucket",
     entity_type: "bucket",
     entity_id: `bucket-${id}`,
-    account_id: 1,
-    account_name: "Research",
+    context_name: "Research",
     status: "success",
     user_email: "manager@example.test",
     ...overrides,
@@ -117,11 +116,7 @@ describe("ManagerActivityPage", () => {
       selectedContextKind: "s3_user",
     }));
     listManagerActivityMock.mockResolvedValue([activity(8, {
-      context_kind: "s3_user",
-      context_id: "s3u-8",
       context_name: "Standalone user",
-      account_id: null,
-      account_name: null,
     })]);
     render(<MemoryRouter><ManagerActivityPage /></MemoryRouter>);
 

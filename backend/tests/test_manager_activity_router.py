@@ -125,8 +125,6 @@ def test_manager_activity_filters_audit_logs_to_exact_execution_context(client, 
     assert entry["action"] == "create_bucket"
     assert entry["entity_type"] == "bucket"
     assert entry["entity_id"] == "bucket-a"
-    assert entry["context_kind"] == "account"
-    assert entry["context_id"] == str(account.id)
     assert entry["context_name"] == "account-a"
     assert entry["status"] == "success"
     assert entry["user_email"] == "manager@example.com"
@@ -151,8 +149,6 @@ def test_manager_activity_supports_non_account_manager_contexts(client, db_sessi
 
     assert response.status_code == 200, response.text
     assert [entry["id"] for entry in response.json()] == [expected.id]
-    assert response.json()[0]["context_kind"] == resource_kind
-    assert response.json()[0]["context_id"] == context.context_id
 
 
 def test_manager_activity_does_not_expose_sensitive_audit_fields(client, db_session):

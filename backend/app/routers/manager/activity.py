@@ -52,8 +52,6 @@ def list_manager_activity(
             action=log.action,
             entity_type=log.entity_type,
             entity_id=log.entity_id,
-            context_kind=log.context_kind,
-            context_id=log.context_id,
             context_name=log.context_name,
             status=log.status,
             user_email=log.user_email,

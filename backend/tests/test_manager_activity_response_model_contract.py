@@ -11,8 +11,6 @@ def test_manager_activity_entry_requires_complete_canonical_payload() -> None:
         "action",
         "entity_type",
         "entity_id",
-        "context_kind",
-        "context_id",
         "context_name",
         "status",
         "user_email",

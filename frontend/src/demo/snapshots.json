@@ -209,8 +209,7 @@
       "action": "put_bucket_lifecycle",
       "entity_type": "bucket",
       "entity_id": "helios-logs",
-      "account_id": 101,
-      "account_name": "Helios Retail",
+      "context_name": "Helios Retail",
       "status": "success",
       "user_email": "alex.martin@example.com"
     },
@@ -220,8 +219,7 @@
       "action": "create_access_key",
       "entity_type": "iam_user",
       "entity_id": "backup-service",
-      "account_id": 101,
-      "account_name": "Helios Retail",
+      "context_name": "Helios Retail",
       "status": "success",
       "user_email": "alex.martin@example.com"
     }
