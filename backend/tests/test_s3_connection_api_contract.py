@@ -128,7 +128,7 @@ def test_connection_create_duplicate_names_return_conflict(monkeypatch, contract
     private_payload = {
         "name": "duplicate-private-api",
         "endpoint_url": "https://duplicate-private.example.test",
-        "access_key_id": "AKIADUPLICATEPRIVATE",
+        "access_key_id": "TESTDUPLICATEPRIVATE",
         "secret_access_key": "SECRETDUPLICATEPRIVATE",
         "access_manager": False,
         "access_browser": True,
@@ -141,7 +141,7 @@ def test_connection_create_duplicate_names_return_conflict(monkeypatch, contract
     shared_payload = {
         "name": "duplicate-shared-api",
         "endpoint_url": "https://duplicate-shared.example.test",
-        "access_key_id": "AKIADUPLICATESHARED",
+        "access_key_id": "TESTDUPLICATESHARED",
         "secret_access_key": "SECRETDUPLICATESHARED",
     }
     assert client.post("/api/admin/s3-connections", json=shared_payload).status_code == 201
@@ -159,7 +159,7 @@ def test_connection_create_duplicate_names_return_conflict(monkeypatch, contract
             {
                 "name": "unexpected-private-api",
                 "endpoint_url": "https://unexpected-private.example.test",
-                "access_key_id": "AKIAUNEXPECTEDPRIVATE",
+                "access_key_id": "TESTUNEXPECTEDPRIVATE",
                 "secret_access_key": "SECRETUNEXPECTEDPRIVATE",
                 "access_manager": False,
                 "access_browser": True,
@@ -171,7 +171,7 @@ def test_connection_create_duplicate_names_return_conflict(monkeypatch, contract
             {
                 "name": "unexpected-shared-api",
                 "endpoint_url": "https://unexpected-shared.example.test",
-                "access_key_id": "AKIAUNEXPECTEDSHARED",
+                "access_key_id": "TESTUNEXPECTEDSHARED",
                 "secret_access_key": "SECRETUNEXPECTEDSHARED",
             },
         ),
