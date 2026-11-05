@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { AuditLogEntry } from "../../api/audit";
 import AuditLogsPage from "./AuditLogsPage";
 
 const listAuditLogsMock = vi.fn();
@@ -14,24 +15,31 @@ vi.mock("../../api/audit", async () => {
   };
 });
 
+function auditEntry(overrides: Partial<AuditLogEntry> = {}): AuditLogEntry {
+  return {
+    id: 1,
+    created_at: "2026-03-22T10:00:00Z",
+    user_email: "admin@example.com",
+    user_role: "ui_admin",
+    scope: "admin",
+    action: "users.update",
+    entity_type: "user",
+    entity_id: "12",
+    context_kind: null,
+    context_id: null,
+    context_name: null,
+    status: "success",
+    message: null,
+    metadata: { changed: true },
+    ...overrides,
+  };
+}
+
 describe("AuditLogsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     listAuditLogsMock.mockResolvedValue({
-      logs: [
-        {
-          id: 1,
-          created_at: "2026-03-22T10:00:00Z",
-          user_email: "admin@example.com",
-          user_role: "ui_admin",
-          scope: "admin",
-          action: "users.update",
-          status: "success",
-          entity_type: "user",
-          entity_id: "12",
-          metadata: { changed: true },
-        },
-      ],
+      logs: [auditEntry()],
       next_cursor: null,
     });
   });
@@ -90,11 +98,11 @@ describe("AuditLogsPage", () => {
 
   it("ignores a stale response after the server-side filters change", async () => {
     let resolveInitial!: (value: {
-      logs: Array<Record<string, unknown>>;
+      logs: AuditLogEntry[];
       next_cursor: number | null;
     }) => void;
     const initialResponse = new Promise<{
-      logs: Array<Record<string, unknown>>;
+      logs: AuditLogEntry[];
       next_cursor: number | null;
     }>((resolve) => {
       resolveInitial = resolve;
@@ -103,18 +111,14 @@ describe("AuditLogsPage", () => {
     listAuditLogsMock
       .mockReturnValueOnce(initialResponse)
       .mockResolvedValue({
-        logs: [{
+        logs: [auditEntry({
           id: 2,
           created_at: "2026-03-22T11:00:00Z",
           user_email: "alice@example.com",
-          user_role: "ui_admin",
-          scope: "admin",
           action: "users.create",
-          status: "success",
-          entity_type: "user",
           entity_id: "13",
           metadata: null,
-        }],
+        })],
         next_cursor: null,
       });
 
@@ -127,18 +131,11 @@ describe("AuditLogsPage", () => {
 
     await act(async () => {
       resolveInitial({
-        logs: [{
-          id: 1,
-          created_at: "2026-03-22T10:00:00Z",
+        logs: [auditEntry({
           user_email: "stale@example.com",
-          user_role: "ui_admin",
-          scope: "admin",
           action: "users.delete",
-          status: "success",
-          entity_type: "user",
-          entity_id: "12",
           metadata: null,
-        }],
+        })],
         next_cursor: null,
       });
     });
