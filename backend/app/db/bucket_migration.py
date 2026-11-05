@@ -78,7 +78,6 @@ class BucketMigration(Base):
     created_at = Column(UTCDateTime(), default=utcnow, nullable=False, index=True)
     updated_at = Column(UTCDateTime(), default=utcnow, nullable=False, index=True)
 
-    created_by = relationship("User", foreign_keys=[created_by_user_id], lazy="joined")
     items = relationship("BucketMigrationItem", back_populates="migration", cascade="all, delete-orphan")
     events = relationship("BucketMigrationEvent", back_populates="migration", cascade="all, delete-orphan")
 

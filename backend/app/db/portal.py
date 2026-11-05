@@ -104,7 +104,6 @@ class PortalStorageSpaceGrant(Base):
 
     storage_space = relationship("PortalStorageSpaceMetadata", back_populates="grants")
     user = relationship("User", foreign_keys=[user_id])
-    created_by = relationship("User", foreign_keys=[created_by_user_id])
 
 
 class PortalPublicLink(Base):
@@ -128,7 +127,6 @@ class PortalPublicLink(Base):
     created_at = Column(UTCDateTime(), default=utcnow, nullable=False)
 
     account = relationship("S3Account")
-    created_by = relationship("User")
 
 
 class PortalExternalAccessCredential(Base):
@@ -171,7 +169,6 @@ class PortalExternalAccessCredential(Base):
 
     account = relationship("S3Account")
     storage_space = relationship("PortalStorageSpaceMetadata")
-    created_by = relationship("User")
 
 
 class PortalIAMRevocation(Base):
