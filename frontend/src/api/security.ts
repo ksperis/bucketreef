@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import client from "./client";
 import type { AuthSessionInfo } from "./auth";
+import type { UiRole } from "./users";
 import { notifyAdminPendingRequestsRefresh } from "../utils/adminPendingRequestsRefresh";
 
 export type SecurityCredential = { id: string; name: string; created_at: string; last_used_at: string | null };
@@ -8,7 +9,7 @@ export type SecuritySession = AuthSessionInfo;
 export type AdminSecuritySession = SecuritySession & {
   user_email: string | null;
   user_full_name: string | null;
-  user_role: string | null;
+  user_role: UiRole | null;
 };
 export type ExternalIdentity = {
   id: string;
@@ -24,7 +25,7 @@ export type ExternalLinkRequest = {
   id: string;
   user_id: number;
   user_email: string;
-  user_role: string;
+  user_role: UiRole;
   provider_type: string;
   provider_id: string;
   issuer: string | null;
@@ -47,7 +48,7 @@ export type AdminExternalIdentity = ExternalIdentity & {
 export type AdminUserSecurity = {
   user_id: number;
   email: string;
-  role: string;
+  role: UiRole;
   has_local_password: boolean;
   passkey_required: boolean;
   passkeys: AdminPasskey[];
