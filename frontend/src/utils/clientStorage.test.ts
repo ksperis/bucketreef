@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   CLIENT_STORAGE_KEYS,
-  clearAuthStorage,
+  clearSessionClientStorage,
   readClientJson,
   readClientJsonFromKey,
   readClientStorage,
@@ -44,16 +44,12 @@ describe("clientStorage", () => {
     });
   });
 
-  it("clears auth storage without touching workspace preferences", () => {
-    window.localStorage.setItem("token", "legacy-bearer-token");
-    window.localStorage.setItem("user", JSON.stringify({ role: "ui_user" }));
+  it("clears session client storage without touching workspace preferences", () => {
     writeClientStorage(CLIENT_STORAGE_KEYS.s3SessionEndpoint, "https://s3.example.test");
     writeClientStorage(CLIENT_STORAGE_KEYS.selectedWorkspace, "browser");
 
-    clearAuthStorage();
+    clearSessionClientStorage();
 
-    expect(window.localStorage.getItem("token")).toBeNull();
-    expect(window.localStorage.getItem("user")).toBeNull();
     expect(readClientStorage(CLIENT_STORAGE_KEYS.s3SessionEndpoint)).toBeNull();
     expect(readClientStorage(CLIENT_STORAGE_KEYS.selectedWorkspace)).toBe("browser");
   });

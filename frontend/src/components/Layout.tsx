@@ -21,7 +21,7 @@ import UiDrawer from "./ui/UiDrawer";
 import { useWorkspaceDrawerAnchor } from "./useWorkspaceDrawerAnchor";
 import {
   CLIENT_STORAGE_KEYS,
-  clearAuthStorage,
+  clearSessionClientStorage,
   readClientStorage,
   writeClientStorage,
 } from "../utils/clientStorage";
@@ -93,7 +93,7 @@ export default function Layout({
     void logoutRequest().catch((err) => {
       console.warn("Unable to revoke refresh session", err);
     });
-    clearAuthStorage();
+    clearSessionClientStorage();
     broadcastSessionEnded();
     window.location.href = "/login";
   };

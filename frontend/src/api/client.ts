@@ -2,7 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { CLIENT_STORAGE_KEYS, clearAuthStorage, readClientStorage } from "../utils/clientStorage";
+import { CLIENT_STORAGE_KEYS, clearSessionClientStorage, readClientStorage } from "../utils/clientStorage";
 import { deferRecoveryAuthRedirect } from "../auth/recoveryCodeHandoff";
 import { broadcastSessionEnded } from "../auth/sessionEvents";
 import { readStoredUser, setSessionUserCache } from "../utils/workspaces";
@@ -128,7 +128,7 @@ let pendingAuthRedirect: string | null = null;
 function handleAuthRedirect() {
   if (typeof window === "undefined") return;
   const hadSession = Boolean(readStoredUser());
-  clearAuthStorage();
+  clearSessionClientStorage();
   setSessionUserCache(null);
   broadcastSessionEnded();
   if (deferRecoveryAuthRedirect()) return;

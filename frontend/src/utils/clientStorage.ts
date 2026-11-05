@@ -127,10 +127,6 @@ export function writeSessionJsonToKey(key: ClientStorageKey | ClientStorageRawKe
   writeSessionStorageKey(key, JSON.stringify(value));
 }
 
-export function clearAuthStorage(): void {
-  // Remove pre-cutover browser auth state without exposing those raw keys as a
-  // supported storage contract.
-  removeClientStorageKey("token");
-  removeClientStorageKey("user");
+export function clearSessionClientStorage(): void {
   removeClientStorage(CLIENT_STORAGE_KEYS.s3SessionEndpoint);
 }
