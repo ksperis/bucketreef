@@ -342,41 +342,43 @@ function AlertsCard({
   const { t } = useI18n();
   return (
     <WorkspaceDashboardCard wrapHeading title={t({ en: "Alerts & service status", fr: "Alertes et statut du service", de: "Warnungen und Dienststatus", zh: "告警与服务状态" })}>
-      <div className="rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-surface-muted)] px-3 py-2.5">
-        <div className="ui-dashboard-panel-heading">
-          <p className="flex min-w-0 items-center gap-2 ui-dashboard-label">
-            <WorkspaceStatusDot status={healthStatus} />
-            <span className="min-w-0 break-words">{workspaceHealthLabel(healthStatus, t)}</span>
-          </p>
-          <UiBadge
-            tone={healthStatus === "up" ? "success" : healthStatus === "down" ? "danger" : healthStatus === "degraded" ? "warning" : "neutral"}
-            className="ui-dashboard-badge"
-          >
-            {healthStatus === "up"
-              ? t({ en: "Operational", fr: "Opérationnel", de: "Betriebsbereit", zh: "正常" })
-              : healthStatus === "degraded"
-                ? t({ en: "Degraded", fr: "Dégradé", de: "Beeinträchtigt", zh: "性能下降" })
-                : healthStatus === "down"
-                  ? t({ en: "Issue", fr: "Incident", de: "Problem", zh: "异常" })
-                  : t({ en: "Unknown", fr: "Inconnu", de: "Unbekannt", zh: "未知" })}
-          </UiBadge>
-        </div>
+      <div className="ui-dashboard-panel-heading py-1">
+        <p className="flex min-w-0 items-center gap-2 ui-dashboard-label">
+          <WorkspaceStatusDot status={healthStatus} />
+          <span className="min-w-0 break-words">{workspaceHealthLabel(healthStatus, t)}</span>
+        </p>
+        <UiBadge
+          tone={healthStatus === "up" ? "success" : healthStatus === "down" ? "danger" : healthStatus === "degraded" ? "warning" : "neutral"}
+          className="ui-dashboard-badge"
+        >
+          {healthStatus === "up"
+            ? t({ en: "Operational", fr: "Opérationnel", de: "Betriebsbereit", zh: "正常" })
+            : healthStatus === "degraded"
+              ? t({ en: "Degraded", fr: "Dégradé", de: "Beeinträchtigt", zh: "性能下降" })
+              : healthStatus === "down"
+                ? t({ en: "Issue", fr: "Incident", de: "Problem", zh: "异常" })
+                : t({ en: "Unknown", fr: "Inconnu", de: "Unbekannt", zh: "未知" })}
+        </UiBadge>
       </div>
-      <div className="mt-3 space-y-2">
+      <div className="mt-3">
         {alerts.length === 0 ? (
-          <WorkspaceDashboardEmptyState>{t({ en: "No alerts to display.", fr: "Aucune alerte à afficher.", de: "Keine Warnungen zum Anzeigen.", zh: "没有可显示的告警。" })}</WorkspaceDashboardEmptyState>
+          <p className="py-6 text-center ui-caption text-[var(--ui-text-muted)]">
+            {t({ en: "No alerts to display.", fr: "Aucune alerte à afficher.", de: "Keine Warnungen zum Anzeigen.", zh: "没有可显示的告警。" })}
+          </p>
         ) : (
-          alerts.slice(0, 4).map((alert) => (
-            <div key={alert.id} className="flex items-center justify-between gap-3 rounded-md border border-[color:var(--ui-border-soft)] px-3 py-2">
-              <div className="min-w-0">
-                <p className="ui-dashboard-label">{alert.title}</p>
-                <p className={cx("mt-0.5 ui-dashboard-note", uiMutedTextClass)}>{alert.description}</p>
+          <div>
+            {alerts.slice(0, 4).map((alert) => (
+              <div key={alert.id} className="flex items-center justify-between gap-3 border-t border-[color:var(--ui-border-soft)] py-2 first:border-t-0 first:pt-0 last:pb-0">
+                <div className="min-w-0">
+                  <p className="ui-dashboard-label">{alert.title}</p>
+                  <p className={cx("mt-0.5 ui-dashboard-note", uiMutedTextClass)}>{alert.description}</p>
+                </div>
+                <UiBadge tone={alertTone(alert.tone)} className="ui-dashboard-badge">
+                  {alert.severityLabel ?? t({ en: "Info", fr: "Info", de: "Info", zh: "信息" })}
+                </UiBadge>
               </div>
-              <UiBadge tone={alertTone(alert.tone)} className="ui-dashboard-badge">
-                {alert.severityLabel ?? t({ en: "Info", fr: "Info", de: "Info", zh: "信息" })}
-              </UiBadge>
-            </div>
-          ))
+            ))}
+          </div>
         )}
       </div>
     </WorkspaceDashboardCard>
@@ -578,8 +580,8 @@ export default function PortalDashboard() {
       icon: <BucketCollectionIcon className="h-4 w-4" />,
     },
     {
-      label: t({ en: "Shares", fr: "Partages", de: "Freigaben", zh: "共享" }),
-      detail: t({ en: "Review shared access", fr: "Voir les accès partagés", de: "Freigegebene Zugriffe prüfen", zh: "审查共享访问权限" }),
+      label: t({ en: "Collaborators", fr: "Collaborateurs", de: "Mitwirkende", zh: "协作者" }),
+      detail: t({ en: "Review collaborator access", fr: "Voir les accès des collaborateurs", de: "Zugriffe der Mitwirkenden prüfen", zh: "查看协作者访问权限" }),
       to: "/portal/shares",
       tone: "violet",
       icon: <LinkIcon className="h-4 w-4" />,

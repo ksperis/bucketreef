@@ -224,7 +224,7 @@ describe("PortalDashboard storage workspace UX", () => {
     expect(screen.getByText("Recent activity")).toBeInTheDocument();
     expect(screen.getByText("Alerts & service status")).toBeInTheDocument();
     expect(screen.getByText("Quick links")).toBeInTheDocument();
-    expect(screen.getByText("Collaborators")).toBeInTheDocument();
+    expect(screen.getAllByText("Collaborators")).toHaveLength(2);
     expect(screen.getByText("Storage services operational")).toBeInTheDocument();
     expect(screen.getByText(/manager@example.com created public link research data/i)).toBeInTheDocument();
     expect(screen.getByText("Storage quota is getting close")).toBeInTheDocument();
@@ -397,7 +397,10 @@ describe("PortalDashboard storage workspace UX", () => {
       "href",
       "/portal/storage-spaces/research-data"
     );
-    expect(screen.getByRole("link", { name: /Shares/ })).toHaveAttribute("href", "/portal/shares");
+    expect(screen.getByRole("link", { name: /CollaboratorsReview collaborator access/ })).toHaveAttribute(
+      "href",
+      "/portal/shares"
+    );
     expect(screen.queryByRole("link", { name: /^Transfers/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Create user|Create policy|SNS|Lifecycle/i })).not.toBeInTheDocument();
   });
