@@ -189,7 +189,7 @@ export function BucketUsageStatsDataTypesCard({
 
   return (
     <section className={cx(uiCardClass, "ui-dashboard-panel ui-dashboard-data-types", className)} data-testid={dataTestId}>
-      <div className="ui-dashboard-panel-heading">
+      <div className="ui-dashboard-data-types-heading">
         <div className="min-w-0">
           <h2 className="ui-dashboard-title">{text("dataTypesTitle")}</h2>
           <div className={cx("mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 ui-caption", uiMutedTextClass)}>
