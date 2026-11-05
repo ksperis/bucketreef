@@ -14,6 +14,14 @@ changes from `oidc_browser_binding` to `external_identity_browser_binding`.
 OIDC or LDAP authentication/linking transactions already in progress across the
 deployment restart must be started again.
 
+## 2026-11 access audit response cleanup
+
+The Admin effective-access API now returns each right as its canonical `code`
+plus provenance `sources`. The redundant English `label` field was removed from
+the application response because the bundled frontend localizes the closed right
+code set itself. CSV export keeps the existing human-readable labels. Deploy the
+backend and frontend from the same release.
+
 ## 2026-11 quota-monitor result cleanup
 
 The internal quota-monitor and usage-history collection responses no longer

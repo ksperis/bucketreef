@@ -64,7 +64,7 @@ function RightsCell({ row }: { row: AccessAuditRow }) {
   const visible = row.rights.slice(0, 3);
   const entries = row.rights.map((right) => ({
     key: right.code,
-    identity: rightLabel(right.code, right.label),
+    identity: rightLabel(right.code),
     roles: right.sources.map((source) => sourceLabel(source, text)),
   }));
   return (
@@ -78,7 +78,7 @@ function RightsCell({ row }: { row: AccessAuditRow }) {
     >
       <span className="inline-flex max-w-full flex-wrap gap-1">
         {visible.map((right) => (
-          <UiBadge key={right.code} tone={rightTones[right.code]}>{rightLabel(right.code, right.label)}</UiBadge>
+          <UiBadge key={right.code} tone={rightTones[right.code]}>{rightLabel(right.code)}</UiBadge>
         ))}
         {row.rights.length > visible.length ? <UiBadge>+{row.rights.length - visible.length}</UiBadge> : null}
       </span>

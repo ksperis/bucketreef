@@ -34,17 +34,14 @@ const row = {
   rights: [
     {
       code: "ceph_admin" as const,
-      label: "Ceph Admin",
       sources: [{ kind: "direct" as const, group_id: null, group_name: null }],
     },
     {
       code: "storage_ops" as const,
-      label: "Storage Ops",
       sources: [{ kind: "group" as const, group_id: 8, group_name: "Storage admins" }],
     },
     {
       code: "manager_bucket_compare" as const,
-      label: "Manager · Bucket compare",
       sources: [
         { kind: "direct" as const, group_id: null, group_name: null },
         { kind: "group" as const, group_id: 8, group_name: "Storage admins" },
@@ -52,7 +49,6 @@ const row = {
     },
     {
       code: "manager_bucket_migration" as const,
-      label: "Manager · Bucket migration",
       sources: [{ kind: "group" as const, group_id: 9, group_name: "Migration team" }],
     },
   ],
