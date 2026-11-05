@@ -1,4 +1,5 @@
 import type { AccountUserLink } from "../../../src/api/accounts";
+import type { GeneralSettings } from "../../../src/api/appSettings";
 import {
   DEFAULT_MANAGER_FEATURE_POLICIES,
   DEFAULT_PROJECT_COLLECTION_POLICIES,
@@ -192,12 +193,17 @@ const ADMIN_STORAGE_ENDPOINTS = [
   },
 ];
 
-const GENERAL_SETTINGS = {
+export const GENERAL_SETTINGS = {
   project_feature_policies: DEFAULT_PROJECT_FEATURE_POLICIES,
   project_collection_policies: DEFAULT_PROJECT_COLLECTION_POLICIES,
   manager_feature_policies: DEFAULT_MANAGER_FEATURE_POLICIES,
+  rgw_account_id_prefix: "80",
+  allow_managed_rgw_tenant_creation: false,
+  documentation_base_url: "https://docs.bucketreef.ksperis.com",
   manager_enabled: true,
+  openstack_enabled: false,
   ceph_admin_enabled: true,
+  storage_ops_enabled: false,
   browser_enabled: true,
   browser_root_enabled: true,
   browser_manager_enabled: true,
@@ -206,16 +212,17 @@ const GENERAL_SETTINGS = {
   portal_enabled: true,
   cost_enabled: false,
   endpoint_status_enabled: true,
-  bucket_migration_enabled: true,
-  bucket_compare_enabled: true,
-  bucket_integrity_check_enabled: true,
-  bucket_usage_stats_enabled: true,
-  manager_ceph_s3_user_keys_enabled: true,
+  quota_alerts_enabled: false,
+  usage_history_enabled: true,
   allow_login_access_keys: false,
   allow_login_endpoint_list: true,
   allow_login_custom_endpoint: false,
+  require_passkey_for_admins: false,
+  require_passkey_for_users: false,
   allow_user_profile_name_edit: true,
-};
+  allow_user_external_identity_link: true,
+  allow_user_external_identity_unlink: true,
+} satisfies GeneralSettings;
 
 const LOGIN_SETTINGS = {
   allow_login_access_keys: false,
