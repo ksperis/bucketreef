@@ -19,7 +19,8 @@ from app.db import (
     UserS3User,
     UserUiGroup,
 )
-from app.models.user import UserOut, UserSummary
+from app.models.admin_listing import AdminOptionListingRequest
+from app.models.user import PaginatedUserSummariesResponse, UserOut, UserSummary
 from app.services.sqlalchemy_pagination import paginate_scalars
 from app.services.user_avatar_service import UserAvatarService
 from app.services.user_output_service import UserOutputService
@@ -49,14 +50,11 @@ class UserQueryService:
     def list_users(self) -> list[User]:
         return list(self.db.scalars(select(User)).all())
 
-    def paginate_user_summaries(
+    def list_user_options_page(
         self,
-        *,
-        page: int,
-        page_size: int,
-        search: str | None = None,
-    ) -> tuple[list[UserSummary], int]:
-        search_value = search.strip() if isinstance(search, str) else ""
+        request: AdminOptionListingRequest,
+    ) -> PaginatedUserSummariesResponse:
+        search_value = request.search.strip() if isinstance(request.search, str) else ""
         statement = select(User)
         if search_value:
             pattern = f"%{search_value}%"
@@ -70,11 +68,11 @@ class UserQueryService:
             self.db,
             statement,
             order_by=(func.lower(User.email).asc(), User.id.asc()),
-            page=page,
-            page_size=page_size,
+            page=request.page,
+            page_size=request.page_size,
         )
         avatar_service = UserAvatarService(self.db)
-        return [
+        items = [
             UserSummary(
                 id=row.id,
                 email=row.email,
@@ -83,7 +81,14 @@ class UserQueryService:
                 role=row.role,
             )
             for row in rows
-        ], total
+        ]
+        return PaginatedUserSummariesResponse(
+            items=items,
+            total=total,
+            page=request.page,
+            page_size=request.page_size,
+            has_next=request.page * request.page_size < total,
+        )
 
     @staticmethod
     def _apply_search(

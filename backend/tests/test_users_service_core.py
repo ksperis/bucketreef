@@ -24,6 +24,7 @@ from app.db import (
     UserUiGroup,
 )
 from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, StorageProvider, UserRole
+from app.models.admin_listing import AdminOptionListingRequest
 from app.models.user import (
     ManagerToolAccess,
     PASSWORD_POLICY_ERROR,
@@ -971,6 +972,8 @@ def test_assign_user_to_account_paths_and_paginated_user_summaries(db_session):
     assert link.manager_role is None
     assert link.portal_role == PortalAccountRole.PORTAL_USER.value
 
-    summaries, total = service.paginate_user_summaries(page=1, page_size=100)
-    assert total >= 1
-    assert any(entry.email == "assign@example.com" for entry in summaries)
+    summaries = service.list_user_options_page(
+        AdminOptionListingRequest(page=1, page_size=100)
+    )
+    assert summaries.total >= 1
+    assert any(entry.email == "assign@example.com" for entry in summaries.items)
