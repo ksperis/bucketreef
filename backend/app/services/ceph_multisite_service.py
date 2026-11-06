@@ -10,11 +10,16 @@ from time import monotonic, perf_counter
 from typing import Callable
 from uuid import uuid4
 
-from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.domain_errors import StorageEndpointNotFoundError, StorageEndpointProviderError
+from app.core.domain_errors import (
+    CephMultisiteConflictError,
+    CephMultisiteCredentialsMissingError,
+    CephMultisiteValidationError,
+    StorageEndpointNotFoundError,
+    StorageEndpointProviderError,
+)
 from app.db import StorageEndpoint
 from app.models.ceph_multisite import (
     BilogInfo, BucketDiagnostic, BucketIdentity, EndpointReference, Family, Flow,
@@ -59,18 +64,22 @@ class CephMultisiteService:
 
     def resolve(self, endpoint_id: int) -> StorageEndpoint:
         # Use precisely the workspace's endpoint authority for secondary targets.
-        try:
-            endpoint = self.endpoints.get_configured_endpoint(endpoint_id)
-        except StorageEndpointNotFoundError:
-            raise HTTPException(404, "Storage endpoint not found")
-        except StorageEndpointProviderError:
-            raise HTTPException(400, "Storage endpoint is not a Ceph provider")
-        except CephAdminEndpointUnavailableError:
-            raise HTTPException(403, "Ceph Admin is not active on this endpoint")
+        endpoint = self.endpoints.get_configured_endpoint(endpoint_id)
         identity = endpoint.service_identity("ceph_admin")
         if identity is None or not identity.access_key or not identity.secret_key:
-            raise HTTPException(403, "Ceph Admin credentials are not configured")
+            raise CephMultisiteCredentialsMissingError("Ceph Admin credentials are not configured")
         return endpoint
+
+    def _resolve_diagnostic_endpoint(self, endpoint_id: int) -> StorageEndpoint | None:
+        try:
+            return self.resolve(endpoint_id)
+        except (
+            StorageEndpointNotFoundError,
+            StorageEndpointProviderError,
+            CephAdminEndpointUnavailableError,
+            CephMultisiteCredentialsMissingError,
+        ):
+            return None
 
     def client(self, endpoint):
         identity = endpoint.service_identity("ceph_admin")
@@ -187,9 +196,8 @@ class CephMultisiteService:
         # The catalogue and execution share CephAdminEndpointService. Never
         # connect to the untrusted endpoint URLs published in the period.
         for ref in self.endpoints.list_endpoints():
-            try:
-                endpoint = self.resolve(ref.id)
-            except HTTPException:
+            endpoint = self._resolve_diagnostic_endpoint(ref.id)
+            if endpoint is None:
                 # A secondary endpoint may be withdrawn between catalogue and
                 # resolution. It no longer contributes a usable association.
                 continue
@@ -300,9 +308,9 @@ class CephMultisiteService:
             # known role takes precedence over the empty structure.
             status = self.missing(destination, operation, "metadata_master", availability="not_applicable", source=source_zone_id)
         elif family == "metadata" and source_zone_id != topology.period.data.master_zone:
-            raise HTTPException(422, "Metadata source must be the configured master zone")
+            raise CephMultisiteValidationError("Metadata source must be the configured master zone")
         elif family == "data" and source_zone_id == zone.id:
-            raise HTTPException(422, "Source and destination zones must differ")
+            raise CephMultisiteValidationError("Source and destination zones must differ")
         else:
             status = self.observe(destination, operation,
                                   lambda c: c.get_metadata_sync_status() if family == "metadata" else c.get_data_sync_status(source_zone_id),
@@ -327,9 +335,8 @@ class CephMultisiteService:
             if zone.diagnostic_endpoint_id is None:
                 uncollected.append(zone.id)
                 continue
-            try:
-                destination = self.resolve(zone.diagnostic_endpoint_id)
-            except HTTPException:
+            destination = self._resolve_diagnostic_endpoint(zone.diagnostic_endpoint_id)
+            if destination is None:
                 uncollected.append(zone.id)
                 continue
             if period.master_zone:
@@ -441,7 +448,9 @@ class CephMultisiteService:
         dst_zone = self.validated_zone(topology, destination_endpoint)
         if (topology.configuration_reason or src_zone is None or dst_zone is None
                 or src_zone.id != source_zone_id or src_zone.id == dst_zone.id):
-            raise HTTPException(422, "Source and destination require distinct, verified zone mappings")
+            raise CephMultisiteValidationError(
+                "Source and destination require distinct, verified zone mappings"
+            )
         source = self.bucket_identity(source_endpoint, source_bucket, source_tenant)
         destination = self.bucket_identity(destination_endpoint, bucket, tenant)
         if source.data and destination.data and not source.stale and not destination.stale:
@@ -471,22 +480,28 @@ class CephMultisiteService:
                      instance_id=instance_id, generation=generation)
         if family == "metadata":
             if shard is None or not period:
-                raise HTTPException(422, "Metadata logs require an explicit period and shard")
+                raise CephMultisiteValidationError(
+                    "Metadata logs require an explicit period and shard"
+                )
             read = lambda c: c.list_mdlog(period=period, shard_id=shard, marker=cursor, max_entries=limit)
             operation = "metadata_log"
         elif family == "data":
             if shard is None:
-                raise HTTPException(422, "Data logs require an explicit shard")
+                raise CephMultisiteValidationError("Data logs require an explicit shard")
             read = lambda c: c.list_datalog(shard_id=shard, marker=cursor, max_entries=limit)
             operation = "data_log"
         else:
             if not bucket or generation is None:
-                raise HTTPException(422, "Bucket index logs require a bucket and generation")
+                raise CephMultisiteValidationError(
+                    "Bucket index logs require a bucket and generation"
+                )
             identity = self.bucket_identity(endpoint, bucket, tenant)
             if identity.data is None or identity.stale:
                 return self.missing(endpoint, "bilog", "bucket_instance_not_observed")
             if instance_id and identity.data.instance_id != instance_id:
-                raise HTTPException(409, "Bucket instance changed; reload the diagnostic")
+                raise CephMultisiteConflictError(
+                    "Bucket instance changed; reload the diagnostic"
+                )
             scope["instance_id"] = identity.data.instance_id
             read = lambda c: c.list_bilog(bucket=bucket, tenant=tenant, instance_id=identity.data.instance_id,
                                           generation=int(generation), shard_id=shard, marker=cursor, max_entries=limit)

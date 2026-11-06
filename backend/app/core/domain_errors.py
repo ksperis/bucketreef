@@ -23,6 +23,18 @@ class BucketConfigValidationError(ValueError):
     """Raised when a bucket configuration mutation rejects its input."""
 
 
+class CephMultisiteValidationError(ValueError):
+    """Raised when a Ceph Multisite diagnostic request is semantically invalid."""
+
+
+class CephMultisiteConflictError(ResourceConflictError):
+    """Raised when a Ceph Multisite diagnostic target changed during inspection."""
+
+
+class CephMultisiteCredentialsMissingError(PermissionError):
+    """Raised when a Ceph Multisite diagnostic endpoint lacks its admin identity."""
+
+
 class StorageEndpointNotFoundError(ResourceNotFoundError):
     pass
 
