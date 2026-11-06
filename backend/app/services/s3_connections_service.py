@@ -229,7 +229,7 @@ class S3ConnectionsService:
         if "name" in fields_set:
             row.name = payload.name
         if "is_active" in fields_set:
-            row.is_active = bool(payload.is_active)
+            row.is_active = payload.is_active
         if endpoint_plan is not None:
             endpoint_plan.apply(row)
         row.access_browser = False
@@ -485,7 +485,7 @@ class S3ConnectionsService:
         if "name" in payload_data:
             row.name = payload.name
         if "is_active" in payload_data:
-            row.is_active = bool(payload.is_active)
+            row.is_active = payload.is_active
         should_probe_iam, endpoint_changed, access_key_changed = (
             self._apply_private_endpoint_credentials(
                 row,
