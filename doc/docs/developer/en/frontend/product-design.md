@@ -513,12 +513,13 @@ failure.
 
 ### Translation boundary
 
-The shared profile retains English, French and German in all six mounts. This
-pass adds those languages only to the user Portal project settings and its
-dialogs. All six Admin settings pages and provider editors stay English,
-including Admin Browser and Admin Portal settings. Shared controls accept
-explicit labels and default to English; never make a shared component translate
-unrelated consumers implicitly. Remaining global translation is out of scope.
+The shared profile and Admin surfaces support English, French, German and
+Simplified Chinese. Admin copy uses `useAdminI18n()` and the Admin translation
+catalogs; new Admin UI must extend that same localization boundary. Keep
+technical terms such as Endpoint, Bucket, Object Lock, Passkey, S3, Ceph and
+RGW stable across locales. Shared controls accept explicit labels and default
+to English; never make a shared component translate unrelated consumers
+implicitly.
 
 Delivered adoption and the remaining explicit scope are recorded in the
 [Settings UI implementation record](../records/settings-ui-follow-up.md).
