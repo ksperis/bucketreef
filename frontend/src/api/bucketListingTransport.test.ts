@@ -9,9 +9,9 @@ vi.mock("./client", () => ({
   default: clientMock,
 }));
 
-vi.mock("./sseBucketsStream", () => ({
+vi.mock("./sseApiStream", () => ({
   resolveApiBaseUrl: vi.fn(() => "/api"),
-  streamBucketsWithSse: vi.fn(),
+  streamApiResultWithSse: vi.fn(),
 }));
 
 import {

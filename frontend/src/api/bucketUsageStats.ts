@@ -12,8 +12,9 @@ import client from "./client";
 import {
   buildJsonPostRequestInit,
   resolveApiBaseUrl,
-  streamBucketsWithSse,
-} from "./sseBucketsStream";
+  streamApiResultWithSse,
+  type SseStreamOptions,
+} from "./sseApiStream";
 
 type BucketUsageStatsScopePayload = {
   parallelism?: number;
@@ -129,10 +130,7 @@ export type BucketUsageStatsResult = {
   buckets: BucketUsageStatsBucketResult[];
 };
 
-type BucketUsageStatsStreamOptions = {
-  signal?: AbortSignal;
-  onProgress?: (event: BucketUsageStatsProgress) => void;
-};
+type BucketUsageStatsStreamOptions = SseStreamOptions<BucketUsageStatsProgress>;
 
 export async function getManagerUsageStatsAggregate(
   contextId: S3ExecutionContextSelector
@@ -193,7 +191,7 @@ export function streamManagerUsageStatsAggregate(
 ): Promise<BucketUsageStatsResult> {
   const baseUrl = resolveApiBaseUrl();
   const query = new URLSearchParams({ context_id: String(contextId) });
-  return streamBucketsWithSse<BucketUsageStatsProgress, BucketUsageStatsResult>({
+  return streamApiResultWithSse<BucketUsageStatsProgress, BucketUsageStatsResult>({
     url: `${baseUrl}/manager/usage-stats/stream?${query.toString()}`,
     options,
     requestInit: buildJsonPostRequestInit(payload),
@@ -209,7 +207,7 @@ export function streamManagerBucketUsageStatsForBucket(
 ): Promise<BucketUsageStatsResult> {
   const baseUrl = resolveApiBaseUrl();
   const query = new URLSearchParams({ context_id: String(contextId) });
-  return streamBucketsWithSse<BucketUsageStatsProgress, BucketUsageStatsResult>({
+  return streamApiResultWithSse<BucketUsageStatsProgress, BucketUsageStatsResult>({
     url: `${baseUrl}/manager/buckets/${encodeURIComponent(bucketName)}/usage-stats/stream?${query.toString()}`,
     options,
     requestInit: { method: "POST" },
@@ -224,7 +222,7 @@ export function streamCephAdminBucketUsageStats(
   options?: BucketUsageStatsStreamOptions
 ): Promise<BucketUsageStatsResult> {
   const baseUrl = resolveApiBaseUrl();
-  return streamBucketsWithSse<BucketUsageStatsProgress, BucketUsageStatsResult>({
+  return streamApiResultWithSse<BucketUsageStatsProgress, BucketUsageStatsResult>({
     url: `${baseUrl}/ceph-admin/endpoints/${endpointId}/bucket-usage-stats/stream`,
     options,
     requestInit: buildJsonPostRequestInit(payload),
@@ -239,7 +237,7 @@ export function streamCephAdminUsageStatsAggregate(
   options?: BucketUsageStatsStreamOptions
 ): Promise<BucketUsageStatsResult> {
   const baseUrl = resolveApiBaseUrl();
-  return streamBucketsWithSse<BucketUsageStatsProgress, BucketUsageStatsResult>({
+  return streamApiResultWithSse<BucketUsageStatsProgress, BucketUsageStatsResult>({
     url: `${baseUrl}/ceph-admin/endpoints/${endpointId}/usage-stats/stream`,
     options,
     requestInit: buildJsonPostRequestInit(payload),
@@ -255,7 +253,7 @@ export function streamAdminUsageStatsAggregate(
 ): Promise<BucketUsageStatsResult> {
   const baseUrl = resolveApiBaseUrl();
   const query = new URLSearchParams({ endpoint_id: String(endpointId) });
-  return streamBucketsWithSse<BucketUsageStatsProgress, BucketUsageStatsResult>({
+  return streamApiResultWithSse<BucketUsageStatsProgress, BucketUsageStatsResult>({
     url: `${baseUrl}/admin/usage-stats/stream?${query.toString()}`,
     options,
     requestInit: buildJsonPostRequestInit(payload),
@@ -274,7 +272,7 @@ export function streamCephAdminBucketUsageStatsForBucket(
   const query = new URLSearchParams();
   if (tenant?.trim()) query.set("tenant", tenant.trim());
   const queryText = query.toString();
-  return streamBucketsWithSse<BucketUsageStatsProgress, BucketUsageStatsResult>({
+  return streamApiResultWithSse<BucketUsageStatsProgress, BucketUsageStatsResult>({
     url: `${baseUrl}/ceph-admin/endpoints/${endpointId}/buckets/${encodeURIComponent(bucketName)}/usage-stats/stream${queryText ? `?${queryText}` : ""}`,
     options,
     requestInit: { method: "POST" },
@@ -288,7 +286,7 @@ export function streamStorageOpsBucketUsageStats(
   options?: BucketUsageStatsStreamOptions
 ): Promise<BucketUsageStatsResult> {
   const baseUrl = resolveApiBaseUrl();
-  return streamBucketsWithSse<BucketUsageStatsProgress, BucketUsageStatsResult>({
+  return streamApiResultWithSse<BucketUsageStatsProgress, BucketUsageStatsResult>({
     url: `${baseUrl}/storage-ops/buckets/usage-stats/stream`,
     options,
     requestInit: buildJsonPostRequestInit(payload),

@@ -3,7 +3,11 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
-import { resolveApiBaseUrl, streamBucketsWithSse } from "./sseBucketsStream";
+import {
+  resolveApiBaseUrl,
+  streamApiResultWithSse,
+  type SseStreamOptions,
+} from "./sseApiStream";
 
 type CephAdminEntityResource = "accounts" | "users";
 
@@ -30,10 +34,7 @@ export type CephAdminListingStreamProgress = {
   message?: string;
 };
 
-export type CephAdminListingStreamOptions = {
-  signal?: AbortSignal;
-  onProgress?: (event: CephAdminListingStreamProgress) => void;
-};
+export type CephAdminListingStreamOptions = SseStreamOptions<CephAdminListingStreamProgress>;
 
 function buildCephAdminEntityListingQuery(
   params?: CephAdminEntityListingParams,
@@ -91,7 +92,7 @@ export async function streamCephAdminEntities<TResult>(
   const baseUrl = resolveApiBaseUrl();
   const queryText = buildCephAdminEntityListingQuery(params).toString();
   const url = `${baseUrl}/ceph-admin/endpoints/${endpointId}/${resource}/stream${queryText ? `?${queryText}` : ""}`;
-  return streamBucketsWithSse<CephAdminListingStreamProgress, TResult>({
+  return streamApiResultWithSse<CephAdminListingStreamProgress, TResult>({
     url,
     options,
     streamFailedLabel: "Advanced search stream failed",

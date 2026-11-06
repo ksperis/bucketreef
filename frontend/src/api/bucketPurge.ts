@@ -10,8 +10,9 @@ import type {
 import {
   buildJsonPostRequestInit,
   resolveApiBaseUrl,
-  streamBucketsWithSse,
-} from "./sseBucketsStream";
+  streamApiResultWithSse,
+  type SseStreamOptions,
+} from "./sseApiStream";
 
 type BucketPurgeOptionsPayload = {
   parallelism?: number;
@@ -86,10 +87,7 @@ export type BucketPurgeResult = {
   buckets: BucketPurgeBucketResult[];
 };
 
-type BucketPurgeStreamOptions = {
-  signal?: AbortSignal;
-  onProgress?: (event: BucketPurgeProgress) => void;
-};
+type BucketPurgeStreamOptions = SseStreamOptions<BucketPurgeProgress>;
 
 export function streamManagerBucketPurge(
   contextId: S3ExecutionContextSelector,
@@ -98,7 +96,7 @@ export function streamManagerBucketPurge(
 ): Promise<BucketPurgeResult> {
   const baseUrl = resolveApiBaseUrl();
   const query = new URLSearchParams({ context_id: String(contextId) });
-  return streamBucketsWithSse<BucketPurgeProgress, BucketPurgeResult>({
+  return streamApiResultWithSse<BucketPurgeProgress, BucketPurgeResult>({
     url: `${baseUrl}/manager/bucket-purge/stream?${query.toString()}`,
     options,
     requestInit: buildJsonPostRequestInit(payload),
@@ -115,7 +113,7 @@ export function streamManagerBucketDeleteWithPurge(
 ): Promise<BucketPurgeResult> {
   const baseUrl = resolveApiBaseUrl();
   const query = new URLSearchParams({ context_id: String(contextId) });
-  return streamBucketsWithSse<BucketPurgeProgress, BucketPurgeResult>({
+  return streamApiResultWithSse<BucketPurgeProgress, BucketPurgeResult>({
     url: `${baseUrl}/manager/buckets/${encodeURIComponent(bucketName)}/delete/stream?${query.toString()}`,
     options,
     requestInit: buildJsonPostRequestInit(payload),
@@ -130,7 +128,7 @@ export function streamCephAdminBucketPurge(
   options?: BucketPurgeStreamOptions
 ): Promise<BucketPurgeResult> {
   const baseUrl = resolveApiBaseUrl();
-  return streamBucketsWithSse<BucketPurgeProgress, BucketPurgeResult>({
+  return streamApiResultWithSse<BucketPurgeProgress, BucketPurgeResult>({
     url: `${baseUrl}/ceph-admin/endpoints/${endpointId}/buckets/purge/stream`,
     options,
     requestInit: buildJsonPostRequestInit(payload),
@@ -144,7 +142,7 @@ export function streamStorageOpsBucketPurge(
   options?: BucketPurgeStreamOptions
 ): Promise<BucketPurgeResult> {
   const baseUrl = resolveApiBaseUrl();
-  return streamBucketsWithSse<BucketPurgeProgress, BucketPurgeResult>({
+  return streamApiResultWithSse<BucketPurgeProgress, BucketPurgeResult>({
     url: `${baseUrl}/storage-ops/buckets/purge/stream`,
     options,
     requestInit: buildJsonPostRequestInit(payload),

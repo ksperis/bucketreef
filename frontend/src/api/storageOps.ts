@@ -53,7 +53,11 @@ import {
   buildBucketListingRequestBody,
   shouldUsePostBucketListing,
 } from "./bucketListingTransport";
-import { resolveApiBaseUrl, streamBucketsWithSse } from "./sseBucketsStream";
+import {
+  resolveApiBaseUrl,
+  streamApiResultWithSse,
+  type SseStreamOptions,
+} from "./sseApiStream";
 
 export type { CephAdminBucket };
 
@@ -93,11 +97,6 @@ type PaginatedStorageOpsBucketsResponse = Omit<PaginatedCephAdminBucketsResponse
 type StorageOpsBucketRef = {
   contextId: string;
   bucketName: string;
-};
-
-type CephAdminBucketsStreamOptions = {
-  signal?: AbortSignal;
-  onProgress?: (event: CephAdminBucketsStreamProgress) => void;
 };
 
 type ListStorageOpsBucketsOptions = {
@@ -158,13 +157,13 @@ export async function refreshStorageOpsBucketListingCache(
 export async function streamStorageOpsBuckets(
   _scopeId: number,
   params?: ListCephAdminBucketsParams,
-  options?: CephAdminBucketsStreamOptions
+  options?: SseStreamOptions<CephAdminBucketsStreamProgress>
 ): Promise<PaginatedStorageOpsBucketsResponse> {
   const baseUrl = resolveApiBaseUrl();
   const query = buildBucketListingQuery(params);
   const queryText = query.toString();
   const url = `${baseUrl}/storage-ops/buckets/stream${queryText ? `?${queryText}` : ""}`;
-  return streamBucketsWithSse<CephAdminBucketsStreamProgress, PaginatedStorageOpsBucketsResponse>({
+  return streamApiResultWithSse<CephAdminBucketsStreamProgress, PaginatedStorageOpsBucketsResponse>({
     url,
     options,
     streamFailedLabel: "Advanced search stream failed",

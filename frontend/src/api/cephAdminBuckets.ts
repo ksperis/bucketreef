@@ -11,7 +11,11 @@ import {
   buildBucketListingRequestBody,
   shouldUsePostBucketListing,
 } from "./bucketListingTransport";
-import { resolveApiBaseUrl, streamBucketsWithSse } from "./sseBucketsStream";
+import {
+  resolveApiBaseUrl,
+  streamApiResultWithSse,
+  type SseStreamOptions,
+} from "./sseApiStream";
 import type { CephAdminListingStreamProgress } from "./cephAdminEntityListing";
 import type { RgwBucketReference } from "./bucketOperation";
 import type {
@@ -59,11 +63,6 @@ export type ListCephAdminBucketsParams = {
 };
 
 export type CephAdminBucketsStreamProgress = CephAdminListingStreamProgress;
-
-type CephAdminBucketsStreamOptions = {
-  signal?: AbortSignal;
-  onProgress?: (event: CephAdminBucketsStreamProgress) => void;
-};
 
 type ListCephAdminBucketsOptions = {
   signal?: AbortSignal;
@@ -156,13 +155,13 @@ export async function backupCephAdminBucketConfigs(
 export async function streamCephAdminBuckets(
   endpointId: number,
   params?: ListCephAdminBucketsParams,
-  options?: CephAdminBucketsStreamOptions
+  options?: SseStreamOptions<CephAdminBucketsStreamProgress>
 ): Promise<PaginatedCephAdminBucketsResponse> {
   const baseUrl = resolveApiBaseUrl();
   const query = buildBucketListingQuery(params);
   const queryText = query.toString();
   const url = `${baseUrl}/ceph-admin/endpoints/${endpointId}/buckets/stream${queryText ? `?${queryText}` : ""}`;
-  return streamBucketsWithSse<CephAdminBucketsStreamProgress, PaginatedCephAdminBucketsResponse>({
+  return streamApiResultWithSse<CephAdminBucketsStreamProgress, PaginatedCephAdminBucketsResponse>({
     url,
     options,
     streamFailedLabel: "Advanced search stream failed",
