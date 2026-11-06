@@ -14,6 +14,7 @@ from app.db import BucketMigration
 from app.services.access_context_contracts import BucketMigrationAccessScope
 from app.models.bucket_migration import (
     BucketMigrationActionResponse,
+    BucketMigrationMaintenanceOperation,
     BucketMigrationStartRequest,
     BucketMigrationConfirmationRequest,
 )
@@ -281,7 +282,14 @@ def cleanup_target(
     return _queue_maintenance(migration_id, "cleanup_target", payload, db, scope, audit)
 
 
-def _queue_maintenance(migration_id, operation, payload, db, scope, audit):
+def _queue_maintenance(
+    migration_id: int,
+    operation: BucketMigrationMaintenanceOperation,
+    payload: BucketMigrationConfirmationRequest,
+    db: Session,
+    scope: BucketMigrationAccessScope,
+    audit: AuditService,
+) -> BucketMigrationActionResponse:
     service = build_bucket_migration_service(db, scope)
     try:
         migration = service.request_maintenance(

@@ -56,6 +56,25 @@ def test_bucket_migration_diagnostic_requires_complete_nullable_metadata():
     }
 
 
+def test_bucket_migration_maintenance_contract_uses_closed_values():
+    properties = BucketMigrationView.model_json_schema()["properties"]
+
+    assert properties["maintenance_status"]["enum"] == [
+        "idle",
+        "queued",
+        "running",
+        "failed",
+        "completed",
+    ]
+    operation_variants = properties["maintenance_operation"]["anyOf"]
+    assert operation_variants[0]["enum"] == [
+        "restore_access",
+        "cleanup_source",
+        "cleanup_target",
+    ]
+    assert operation_variants[1] == {"type": "null"}
+
+
 @pytest.fixture
 def prepared(db_session):
     user = _create_user(db_session)
