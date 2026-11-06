@@ -9,6 +9,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.domain_errors import BrowserStorageSpacePermissionError
 from app.services.access_context_contracts import ManagerActor
 from app.models.browser import (
     BrowserStsCredentials,
@@ -33,7 +34,7 @@ from app.routers.dependencies import (
 from app.services.auth_session_guards import current_auth_session
 from app.services.browser_service import BrowserService, get_browser_service
 from app.services.s3_execution_context import S3ExecutionContext
-from app.utils.http_errors import raise_bad_gateway_from_runtime
+from app.utils.http_errors import raise_bad_gateway_from_runtime, raise_http_exception_from_exception
 
 router = APIRouter()
 
@@ -162,6 +163,8 @@ def multipart_init(
             payload,
             sse_customer=sse_customer,
         )
+    except BrowserStorageSpacePermissionError as exc:
+        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 
@@ -208,6 +211,8 @@ def presign_part_for_upload(
         require_sse_feature(context.storage_endpoint)
     try:
         return service.presign_part(bucket_name, context, payload, sse_customer=sse_customer)
+    except BrowserStorageSpacePermissionError as exc:
+        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 
@@ -230,6 +235,8 @@ def complete_multipart_upload(
     try:
         service.complete_multipart_upload(bucket_name, context, key, upload_id, payload)
         return None
+    except BrowserStorageSpacePermissionError as exc:
+        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 
@@ -251,5 +258,7 @@ def abort_multipart_upload(
     try:
         service.abort_multipart_upload(bucket_name, context, key, upload_id)
         return None
+    except BrowserStorageSpacePermissionError as exc:
+        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)

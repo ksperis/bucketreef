@@ -7,6 +7,7 @@ from typing import Annotated, Optional, TypeVar
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
+from app.core.domain_errors import BrowserStorageSpacePermissionError
 from app.services.access_context_contracts import ManagerActor
 from app.models.browser import (
     CleanupObjectVersionsPayload,
@@ -37,7 +38,7 @@ from app.routers.dependencies import (
 )
 from app.services.browser_service import BrowserService, get_browser_service
 from app.services.s3_execution_context import S3ExecutionContext
-from app.utils.http_errors import raise_bad_gateway_from_runtime
+from app.utils.http_errors import raise_bad_gateway_from_runtime, raise_http_exception_from_exception
 
 router = APIRouter()
 
@@ -300,6 +301,8 @@ def copy_object(
     try:
         service.copy_object(bucket_name, context, payload)
         return None
+    except BrowserStorageSpacePermissionError as exc:
+        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 
