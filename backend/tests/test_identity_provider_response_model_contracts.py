@@ -1,10 +1,10 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
-from app.models.ldap import LDAPProviderAdminItem, LDAPProviderFieldLock
+from app.models.identity_provider import IdentityProviderFieldLock
+from app.models.ldap import LDAPProviderAdminItem
 from app.models.oidc import (
     OIDCProviderAdminItem,
-    OIDCProviderFieldLock,
     OIDCProviderInfo,
 )
 
@@ -15,7 +15,7 @@ def test_oidc_provider_responses_require_complete_canonical_payloads() -> None:
         "display_name",
         "icon_url",
     }
-    assert set(OIDCProviderFieldLock.model_json_schema()["required"]) == {
+    assert set(IdentityProviderFieldLock.model_json_schema()["required"]) == {
         "forced",
         "source",
     }
@@ -41,7 +41,7 @@ def test_oidc_provider_responses_require_complete_canonical_payloads() -> None:
 
 
 def test_ldap_provider_responses_require_complete_canonical_payloads() -> None:
-    assert set(LDAPProviderFieldLock.model_json_schema()["required"]) == {
+    assert set(IdentityProviderFieldLock.model_json_schema()["required"]) == {
         "forced",
         "source",
     }

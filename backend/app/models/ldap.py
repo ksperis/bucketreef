@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 from pydantic import Field, field_validator, model_validator
 
 from app.models.base import ApiModel
+from app.models.identity_provider import IdentityProviderFieldLock
 from app.utils.identity_provider_ids import normalize_identity_provider_id
 from app.utils.ldap_validation import (
     normalize_optional_ldap_string,
@@ -58,11 +59,6 @@ class LDAPLoginRequest(ApiModel):
         return normalized
 
 
-class LDAPProviderFieldLock(ApiModel):
-    forced: bool
-    source: Optional[str]
-
-
 class LDAPProviderAdminItem(ApiModel):
     provider_id: str
     display_name: str
@@ -84,7 +80,7 @@ class LDAPProviderAdminItem(ApiModel):
     linking_policy: Literal["manual", "reauthenticate"] = "manual"
     source: Literal["environment", "ui"]
     editable: bool
-    field_locks: dict[str, LDAPProviderFieldLock]
+    field_locks: dict[str, IdentityProviderFieldLock]
     has_bind_password: bool
 
 
