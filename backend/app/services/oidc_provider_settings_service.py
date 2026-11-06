@@ -119,10 +119,10 @@ def _apply_payload(provider: OidcProvider, payload: OIDCProviderAdminPayload, *,
     provider.redirect_uri = payload.redirect_uri
     provider.scopes = list(payload.scopes)
     provider.prompt = payload.prompt
-    provider.enabled = bool(payload.enabled)
+    provider.enabled = payload.enabled
     provider.icon_url = payload.icon_url
-    provider.use_pkce = bool(payload.use_pkce)
-    provider.use_nonce = bool(payload.use_nonce)
+    provider.use_pkce = payload.use_pkce
+    provider.use_nonce = payload.use_nonce
     provider.linking_policy = payload.linking_policy
     provider.trusted_email_domains = list(payload.trusted_email_domains)
     if payload.clear_client_secret:
@@ -140,10 +140,10 @@ def _ui_provider_to_settings(provider: OidcProvider) -> OIDCProviderSettings:
         redirect_uri=provider.redirect_uri,
         scopes=_stored_scopes(provider.scopes),
         prompt=provider.prompt,
-        enabled=bool(provider.enabled),
+        enabled=provider.enabled,
         icon_url=provider.icon_url,
-        use_pkce=bool(provider.use_pkce),
-        use_nonce=bool(provider.use_nonce),
+        use_pkce=provider.use_pkce,
+        use_nonce=provider.use_nonce,
         linking_policy=provider.linking_policy,
         trusted_email_domains=_stored_string_list(provider.trusted_email_domains),
     )

@@ -146,13 +146,13 @@ def _apply_payload(provider: LdapProvider, payload: LDAPProviderAdminPayload, *,
     provider.email_attribute = payload.email_attribute
     provider.name_attribute = payload.name_attribute
     provider.subject_attribute = payload.subject_attribute
-    provider.start_tls = bool(payload.start_tls)
-    provider.tls_verify = bool(payload.tls_verify)
+    provider.start_tls = payload.start_tls
+    provider.tls_verify = payload.tls_verify
     provider.tls_ca_file = payload.tls_ca_file
-    provider.allow_legacy_tls = bool(payload.allow_legacy_tls)
-    provider.timeout_seconds = float(payload.timeout_seconds)
-    provider.enabled = bool(payload.enabled)
-    provider.allow_insecure = bool(payload.allow_insecure)
+    provider.allow_legacy_tls = payload.allow_legacy_tls
+    provider.timeout_seconds = payload.timeout_seconds
+    provider.enabled = payload.enabled
+    provider.allow_insecure = payload.allow_insecure
     provider.linking_policy = payload.linking_policy
     if replace_secret or payload.bind_password is not None or payload.bind_dn is None or payload.clear_bind_password:
         provider.bind_password = candidate_secret
@@ -170,13 +170,13 @@ def _ui_provider_to_settings(provider: LdapProvider) -> LDAPProviderSettings:
         email_attribute=provider.email_attribute,
         name_attribute=provider.name_attribute,
         subject_attribute=provider.subject_attribute,
-        start_tls=bool(provider.start_tls),
-        tls_verify=bool(provider.tls_verify),
+        start_tls=provider.start_tls,
+        tls_verify=provider.tls_verify,
         tls_ca_file=provider.tls_ca_file,
-        allow_legacy_tls=bool(provider.allow_legacy_tls),
+        allow_legacy_tls=provider.allow_legacy_tls,
         timeout_seconds=provider.timeout_seconds,
-        enabled=bool(provider.enabled),
-        allow_insecure=bool(provider.allow_insecure),
+        enabled=provider.enabled,
+        allow_insecure=provider.allow_insecure,
         linking_policy=provider.linking_policy,
     )
 
