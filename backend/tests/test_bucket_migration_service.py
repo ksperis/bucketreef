@@ -521,6 +521,17 @@ def test_create_migration_uses_admin_default_parallelism(db_session):
     assert migration.auto_grant_source_read_for_copy is False
 
 
+def test_migration_runtime_limits_propagate_app_settings_errors(db_session):
+    service = BucketMigrationService(db_session)
+
+    with patch(
+        "app.services.bucket_migration.execution_context.load_app_settings_for_db",
+        side_effect=RuntimeError("settings unavailable"),
+    ):
+        with pytest.raises(RuntimeError, match="settings unavailable"):
+            service._load_runtime_limits()
+
+
 def test_create_migration_does_not_implicitly_grant_source_read(db_session):
     user = _create_user(db_session)
     endpoint = "https://same.example.test"
