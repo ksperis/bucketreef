@@ -25,6 +25,7 @@
 - Route API-token and managed private-access creation through the shared settings form instead of duplicating dialog form/action markup.
 - Route the Portal Storage Space icon editor through the shared settings form while preserving localized actions and dirty-state protection.
 - Reuse one backend cost-history point contract for subject details and aggregate analytics.
+- Reuse one bucket-usage point contract across storage and Ceph Admin metrics in backend and frontend.
 
 ### Fixed
 

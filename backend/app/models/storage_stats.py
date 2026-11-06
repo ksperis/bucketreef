@@ -7,7 +7,7 @@ from typing import Optional
 from app.models.base import ApiModel
 
 
-class StorageStatsBucketUsagePoint(ApiModel):
+class BucketUsagePoint(ApiModel):
     name: str
     used_bytes: Optional[int]
     object_count: Optional[int]
@@ -25,5 +25,5 @@ class StorageStats(ApiModel):
     total_buckets: int
     total_bytes: int
     total_objects: int
-    bucket_usage: list[StorageStatsBucketUsagePoint]
+    bucket_usage: list[BucketUsagePoint]
     bucket_overview: StorageStatsBucketOverview

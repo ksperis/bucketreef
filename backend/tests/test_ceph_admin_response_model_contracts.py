@@ -3,7 +3,6 @@
 
 from app.models.ceph_admin import (
     CephAdminAdminOpsResult,
-    CephAdminBucketUsagePoint,
     CephAdminClusterOwnerUsagePoint,
     CephAdminClusterStorageMetrics,
     CephAdminClusterStorageTotals,
@@ -15,6 +14,7 @@ from app.models.ceph_admin import (
     CephAdminRgwUserCreateResponse,
     CephAdminRgwUserDetail,
 )
+from app.models.storage_stats import BucketUsagePoint
 from app.models.ceph_admin_bucket_compare import CephAdminBucketCompareResult
 
 
@@ -99,7 +99,7 @@ def test_ceph_admin_core_responses_require_complete_canonical_payloads() -> None
 
 
 def test_ceph_admin_metric_responses_require_complete_canonical_payloads() -> None:
-    assert set(CephAdminBucketUsagePoint.model_json_schema()["required"]) == {
+    assert set(BucketUsagePoint.model_json_schema()["required"]) == {
         "name",
         "used_bytes",
         "object_count",
