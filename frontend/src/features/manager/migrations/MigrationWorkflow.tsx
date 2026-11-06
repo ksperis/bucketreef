@@ -72,7 +72,6 @@ export function migrationLabel(migration: MigrationLabelState): string {
     completed: "Copy verified",
     completed_with_errors: "Needs attention",
     failed: "Needs attention",
-    rolled_back: "Incomplete copy removed",
   }[migration.status];
 }
 

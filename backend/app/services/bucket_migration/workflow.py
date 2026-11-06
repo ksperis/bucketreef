@@ -20,7 +20,6 @@ FINAL_STATUSES = frozenset(
         "completed_with_errors",
         "failed",
         "canceled",
-        "rolled_back",
     }
 )
 _ActionRule = tuple[bool, str]

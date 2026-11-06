@@ -32,9 +32,7 @@ def _seed_migration(session_factory: sessionmaker, *, status: str) -> int:
         db.add(migration)
         db.flush()
 
-        if status == "rolled_back":
-            item_status = "rolled_back"
-        elif status in {"completed", "completed_with_errors", "failed", "canceled"}:
+        if status in {"completed", "completed_with_errors", "failed", "canceled"}:
             item_status = "completed"
         else:
             item_status = "running"

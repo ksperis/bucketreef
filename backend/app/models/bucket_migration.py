@@ -22,7 +22,6 @@ BucketMigrationStatus = Literal[
     "completed",
     "completed_with_errors",
     "failed",
-    "rolled_back",
 ]
 BucketMigrationPrecheckStatus = Literal["pending", "passed", "failed"]
 BucketMigrationPreparationStatus = Literal[
@@ -51,7 +50,6 @@ BucketMigrationItemStatus = Literal[
     "paused",
     "skipped",
     "completed",
-    "rolled_back",
     "failed",
     "canceled",
 ]

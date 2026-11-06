@@ -260,7 +260,6 @@ export default function ManagerMigrationDetailPage() {
               "completed_with_errors",
               "failed",
               "canceled",
-              "rolled_back",
             ].includes(migration.status)
           ? 4
           : 2;

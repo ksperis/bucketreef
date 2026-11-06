@@ -433,6 +433,19 @@ explicitly.
 WebAuthn registration now stores transport hints directly as structured values.
 The downgrade recreates the former text column from the structured list.
 
+## 2026-11 canonical bucket migration rollback status
+
+Migration `0239_canonical_migration_rollback_status` normalizes the retired
+bucket migration and item status `rolled_back` to the current terminal status
+`canceled`. It also recomputes the persisted migration counters for records that
+contained a retired item status. Historical item steps such as `rolled_back`
+and migration events remain unchanged so the completed rollback operation stays
+visible in the record history.
+
+The backend and bundled frontend no longer accept `rolled_back` as a current
+migration or item status. Deploy them together after applying the Alembic
+upgrade.
+
 ## 2026-10 structured bucket migration workflow state
 
 Migration `0213_structure_bucket_migration_json` replaces the bucket migration

@@ -18,8 +18,7 @@ export type BucketMigrationStatus =
   | "canceled"
   | "completed"
   | "completed_with_errors"
-  | "failed"
-  | "rolled_back";
+  | "failed";
 export type BucketMigrationPrecheckStatus = "pending" | "passed" | "failed";
 export type BucketMigrationPreparationStatus = "unverified" | "checking" | "blocked" | "ready" | "stale";
 export type BucketMigrationMaintenanceOperation = "restore_access" | "cleanup_source" | "cleanup_target";
@@ -65,7 +64,6 @@ type BucketMigrationItemStatus =
   | "paused"
   | "skipped"
   | "completed"
-  | "rolled_back"
   | "failed"
   | "canceled";
 
