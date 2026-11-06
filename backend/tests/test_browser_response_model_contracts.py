@@ -20,7 +20,6 @@ from app.models.browser import (
     ObjectTagsUpdate,
     PaginatedBrowserBucketsResponse,
     PresignedUrl,
-    PresignPartResponse,
     StsStatus,
 )
 
@@ -118,12 +117,6 @@ def test_browser_object_response_models_require_complete_canonical_payloads() ->
         "next_upload_id",
     }
     assert set(PresignedUrl.model_json_schema()["required"]) == {
-        "url",
-        "method",
-        "expires_in",
-        "headers",
-    }
-    assert set(PresignPartResponse.model_json_schema()["required"]) == {
         "url",
         "method",
         "expires_in",

@@ -17,7 +17,6 @@ from app.models.browser import (
     MultipartUploadInitResponse,
     MultipartUploadItem,
     PresignPartRequest,
-    PresignPartResponse,
     PresignRequest,
     PresignedUrl,
     SseCustomerContext,
@@ -405,7 +404,7 @@ class BrowserObjectOperationsMixin:
         context: S3ExecutionTarget,
         payload: PresignPartRequest,
         sse_customer: Optional[SseCustomerContext] = None,
-    ) -> PresignPartResponse:
+    ) -> PresignedUrl:
         if not payload.upload_id:
             raise RuntimeError("Upload id is required to presign a part")
         require_multipart_write_access(context, bucket_name)
@@ -427,7 +426,7 @@ class BrowserObjectOperationsMixin:
             )
         except (ClientError, BotoCoreError) as exc:
             raise RuntimeError(f"Unable to presign part {payload.part_number} for '{payload.key}': {exc}") from exc
-        return PresignPartResponse(url=url, method="PUT", expires_in=expires, headers=headers)
+        return PresignedUrl(url=url, method="PUT", expires_in=expires, headers=headers)
 
     def complete_multipart_upload(
         self,

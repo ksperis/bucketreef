@@ -10,6 +10,7 @@ import {
 } from "./browserRequestHeaders";
 import { buildSseCustomerBackendHeaders } from "./browserSseCustomer";
 import type { BrowserRequestOptions } from "./browserWorkspace";
+import type { PresignedUrl } from "./browserTransfers";
 import client from "./client";
 
 type MultipartUploadInitRequest = {
@@ -44,13 +45,6 @@ export type PresignPartRequest = {
   key: string;
   part_number: number;
   expires_in?: number;
-};
-
-export type PresignPartResponse = {
-  url: string;
-  method: string;
-  expires_in: number;
-  headers: Record<string, string>;
 };
 
 type CompleteMultipartUploadRequest = {
@@ -111,8 +105,8 @@ export async function presignPart(
   payload: PresignPartRequest,
   sseCustomerKeyBase64?: string | null,
   options?: BrowserRequestOptions,
-): Promise<PresignPartResponse> {
-  const { data } = await client.post<PresignPartResponse>(
+): Promise<PresignedUrl> {
+  const { data } = await client.post<PresignedUrl>(
     `/browser/buckets/${encodeURIComponent(bucketName)}/multipart/${encodeURIComponent(uploadId)}/presign`,
     payload,
     {

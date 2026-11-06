@@ -298,13 +298,6 @@ class PresignPartRequest(ApiModel):
     expires_in: int = Field(default=900, ge=60, le=43200)
 
 
-class PresignPartResponse(ApiModel):
-    url: str
-    method: str
-    expires_in: int
-    headers: dict[str, str]
-
-
 class CompletedPart(ApiModel):
     part_number: int
     etag: str

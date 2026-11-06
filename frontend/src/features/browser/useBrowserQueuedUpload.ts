@@ -15,7 +15,6 @@ import {
   completeMultipartUpload,
   initiateMultipartUpload,
   type PresignPartRequest,
-  type PresignPartResponse,
 } from "../../api/browserMultipart";
 import {
   MULTIPART_CONCURRENCY,
@@ -50,7 +49,7 @@ type UseBrowserQueuedUploadOptions = {
     bucket: string,
     uploadId: string,
     payload: PresignPartRequest,
-  ) => Promise<PresignPartResponse>;
+  ) => Promise<PresignedUrl>;
   requestOptions?: BrowserRequestOptions;
   sseCustomerKeyBase64: string | null;
   startOperation: OperationRegistry["startOperation"];
