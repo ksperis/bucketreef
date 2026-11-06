@@ -155,7 +155,7 @@ class AdminLdapUserImportService:
         return imported, identity.provider
 
     def _create_user(self, identity: LDAPIdentity, payload: LDAPImportCreatePayload) -> User:
-        email = str(payload.email).strip().lower()
+        email = payload.email.lower()
         if self.users.get_by_email_case_insensitive(email):
             raise ValueError("A UI user with this email already exists; link the LDAP identity instead")
         role = payload.role
