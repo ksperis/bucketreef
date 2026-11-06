@@ -138,14 +138,14 @@ def _ui_provider_to_settings(provider: OidcProvider) -> OIDCProviderSettings:
         client_id=provider.client_id,
         client_secret=provider.client_secret,
         redirect_uri=provider.redirect_uri,
-        scopes=_stored_scopes(provider.scopes),
+        scopes=list(provider.scopes),
         prompt=provider.prompt,
         enabled=provider.enabled,
         icon_url=provider.icon_url,
         use_pkce=provider.use_pkce,
         use_nonce=provider.use_nonce,
         linking_policy=provider.linking_policy,
-        trusted_email_domains=_stored_string_list(provider.trusted_email_domains),
+        trusted_email_domains=list(provider.trusted_email_domains),
     )
 
 
@@ -198,17 +198,3 @@ def _environment_provider_item(provider_id: str, provider: OIDCProviderSettings)
             for field in OIDC_PROVIDER_FIELDS
         },
     )
-
-
-def _stored_scopes(value: object) -> list[str]:
-    if not isinstance(value, list) or not value:
-        raise ValueError("OIDC provider scopes must be a non-empty list")
-    if any(not isinstance(item, str) or not item.strip() for item in value):
-        raise ValueError("OIDC provider scopes must contain non-empty strings")
-    return [item.strip() for item in value]
-
-
-def _stored_string_list(value: object) -> list[str]:
-    if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
-        raise ValueError("OIDC provider domains must be a list of strings")
-    return [item for item in value if item]
