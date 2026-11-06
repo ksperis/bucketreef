@@ -2839,7 +2839,7 @@ def test_sync_bucket_version_aware_cross_endpoint_replays_versions_and_delete_ma
         only_target_count=0,
         sample={"only_source_sample": [], "only_target_sample": [], "different_sample": []},
     )
-    service._purge_target_bucket = lambda *_args, **_kwargs: (2, 1)  # type: ignore[method-assign]
+    service._purge_target_bucket_for_replay = lambda *_args, **_kwargs: (2, 1)  # type: ignore[method-assign]
     service._add_event = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
 
     copied, deleted, diff = service._sync_bucket(
@@ -3053,7 +3053,7 @@ def test_sync_bucket_version_aware_same_endpoint_uses_copy_source_version_id(db_
         only_target_count=0,
         sample={"only_source_sample": [], "only_target_sample": [], "different_sample": []},
     )
-    service._purge_target_bucket = lambda *_args, **_kwargs: (0, 0)  # type: ignore[method-assign]
+    service._purge_target_bucket_for_replay = lambda *_args, **_kwargs: (0, 0)  # type: ignore[method-assign]
     service._add_event = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
 
     copied, deleted, _diff = service._sync_bucket(
@@ -3197,7 +3197,7 @@ def test_sync_bucket_version_aware_presync_stores_watermark_and_cutover_replays_
         only_target_count=0,
         sample={"only_source_sample": [], "only_target_sample": [], "different_sample": []},
     )
-    service._purge_target_bucket = lambda *_args, **_kwargs: (0, 0)  # type: ignore[method-assign]
+    service._purge_target_bucket_for_replay = lambda *_args, **_kwargs: (0, 0)  # type: ignore[method-assign]
     service._add_event = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
 
     copied_pre, deleted_pre, _ = service._sync_bucket(
@@ -3317,7 +3317,7 @@ def test_sync_bucket_version_aware_cutover_fallbacks_purge_before_full_replay(
         def add_event(*_args, **kwargs):
             event_metadata.append(kwargs["metadata"])
 
-        service._purge_target_bucket = purge_target  # type: ignore[method-assign]
+        service._purge_target_bucket_for_replay = purge_target  # type: ignore[method-assign]
         service._replay_bucket_versions = replay_versions  # type: ignore[method-assign]
         service._compare_versioned_timelines = compare_timelines  # type: ignore[method-assign]
         service._add_event = add_event  # type: ignore[method-assign]

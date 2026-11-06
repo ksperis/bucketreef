@@ -370,7 +370,7 @@ class _VersionAwareObjectSyncRunner:
     def _purge_target_if_needed(self) -> None:
         if not self.purge_before_replay:
             return
-        purged_current, purged_versions = self.service._purge_target_bucket(
+        purged_current, purged_versions = self.service._purge_target_bucket_for_replay(
             self.target_ctx,
             self.target_bucket,
         )
