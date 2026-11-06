@@ -7,6 +7,9 @@ from fastapi import HTTPException
 
 from app.core.domain_enums import StorageProvider
 from app.routers.ceph_admin import dependencies as deps
+from app.routers.dependencies_internal.ceph_admin_endpoint import (
+    resolve_ceph_admin_workspace_endpoint,
+)
 from app.services import ceph_admin_service_identity as identity_service
 from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_admin_identity import classify_rgw_credential_failure
@@ -198,13 +201,13 @@ features:
 """),
     )
 
-    resolved = deps._resolve_ceph_admin_workspace_endpoint(_FakeSession(endpoint), endpoint_id=9)
+    resolved = resolve_ceph_admin_workspace_endpoint(_FakeSession(endpoint), endpoint_id=9)
     assert resolved is endpoint
 
 
 def test_resolve_ceph_admin_workspace_endpoint_maps_missing_endpoint():
     with pytest.raises(HTTPException) as error:
-        deps._resolve_ceph_admin_workspace_endpoint(_FakeSession(None), endpoint_id=999)
+        resolve_ceph_admin_workspace_endpoint(_FakeSession(None), endpoint_id=999)
 
     assert error.value.status_code == 404
     assert error.value.detail == "Storage endpoint not found"
@@ -217,7 +220,7 @@ def test_resolve_ceph_admin_workspace_endpoint_rejects_non_ceph_provider():
     )
 
     with pytest.raises(HTTPException) as error:
-        deps._resolve_ceph_admin_workspace_endpoint(_FakeSession(endpoint), endpoint_id=7)
+        resolve_ceph_admin_workspace_endpoint(_FakeSession(endpoint), endpoint_id=7)
 
     assert error.value.status_code == 400
     assert error.value.detail == "Storage endpoint is not a Ceph provider"
@@ -233,7 +236,7 @@ def test_resolve_ceph_admin_workspace_endpoint_rejects_inactive_identity():
     )
 
     with pytest.raises(HTTPException) as error:
-        deps._resolve_ceph_admin_workspace_endpoint(_FakeSession(endpoint), endpoint_id=8)
+        resolve_ceph_admin_workspace_endpoint(_FakeSession(endpoint), endpoint_id=8)
 
     assert error.value.status_code == 403
     assert error.value.detail == "Ceph Admin is not active on this endpoint"

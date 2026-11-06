@@ -6,21 +6,19 @@ from fastapi import Depends, HTTPException, Path, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.domain_errors import StorageEndpointNotFoundError, StorageEndpointProviderError
 from app.db import StorageEndpoint, User
 from app.routers.dependencies import get_current_ceph_admin
+from app.routers.dependencies_internal.ceph_admin_endpoint import (
+    resolve_ceph_admin_workspace_endpoint,
+)
 from app.services.audit_service import AuditService
 from app.services.ceph_admin_context import CephAdminContext
-from app.services.ceph_admin_endpoint_service import (
-    CephAdminEndpointService,
-    CephAdminEndpointUnavailableError,
-)
 from app.services.rgw_admin import get_rgw_admin_client
 from app.utils.storage_endpoint_features import resolve_rgw_admin_api_endpoint
 
 
 def _resolve_storage_endpoint(db: Session, endpoint_id: int) -> StorageEndpoint:
-    endpoint = _resolve_ceph_admin_workspace_endpoint(db, endpoint_id)
+    endpoint = resolve_ceph_admin_workspace_endpoint(db, endpoint_id)
     identity = endpoint.service_identity("ceph_admin")
     access_key = identity.access_key if identity is not None else None
     secret_key = identity.secret_key if identity is not None else None
@@ -30,18 +28,6 @@ def _resolve_storage_endpoint(db: Session, endpoint_id: int) -> StorageEndpoint:
             detail="Ceph Admin credentials are not configured for this storage endpoint",
         )
     return endpoint
-
-
-def _resolve_ceph_admin_workspace_endpoint(db: Session, endpoint_id: int) -> StorageEndpoint:
-    try:
-        return CephAdminEndpointService(db).get_configured_endpoint(endpoint_id)
-    except StorageEndpointNotFoundError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage endpoint not found")
-    except StorageEndpointProviderError:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Storage endpoint is not a Ceph provider")
-    except CephAdminEndpointUnavailableError:
-        raise HTTPException(status_code=403, detail="Ceph Admin is not active on this endpoint")
-
 
 def get_ceph_admin_context(
     endpoint_id: int = Path(..., ge=1),
@@ -79,4 +65,4 @@ def get_ceph_admin_workspace_endpoint(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_ceph_admin),
 ) -> StorageEndpoint:
-    return _resolve_ceph_admin_workspace_endpoint(db, endpoint_id)
+    return resolve_ceph_admin_workspace_endpoint(db, endpoint_id)

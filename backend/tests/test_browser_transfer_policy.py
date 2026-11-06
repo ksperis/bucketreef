@@ -141,7 +141,11 @@ def test_ceph_policy_keeps_admin_authority_without_probing_credentials(db_sessio
     user.role = UserRole.UI_ADMIN.value; db_session.commit()
     endpoint = _create_endpoint(db_session, name="ceph")
     monkeypatch.setattr(ceph_admin_context.effective_access_service.EffectiveAccessService, "resolve_user", lambda *_: SimpleNamespace(can_access_ceph_admin=True))
-    monkeypatch.setattr(ceph_admin_context.CephAdminEndpointService, "get_configured_endpoint", lambda *_: endpoint)
+    monkeypatch.setattr(
+        ceph_admin_context,
+        "resolve_ceph_admin_workspace_endpoint",
+        lambda *_: endpoint,
+    )
     probe = Mock(side_effect=AssertionError("Policy must not probe storage"))
     monkeypatch.setattr(ceph_admin_context, "validate_ceph_admin_service_identity", probe)
     assert policy(db_session, user, "ceph-admin", f"ceph-admin-{endpoint.id}").connect_sources[0] == endpoint.endpoint_url

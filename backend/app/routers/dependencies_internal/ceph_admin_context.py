@@ -5,15 +5,13 @@ from __future__ import annotations
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.core.domain_errors import StorageEndpointNotFoundError, StorageEndpointProviderError
 from app.db import StorageEndpoint, User
 from app.core.domain_enums import is_admin_ui_role
+from app.routers.dependencies_internal.ceph_admin_endpoint import (
+    resolve_ceph_admin_workspace_endpoint,
+)
 from app.services.access_context_contracts import AccountCapabilities
 from app.services import app_settings_service, effective_access_service
-from app.services.ceph_admin_endpoint_service import (
-    CephAdminEndpointService,
-    CephAdminEndpointUnavailableError,
-)
 from app.services.ceph_admin_service_identity import validate_ceph_admin_service_identity
 from app.services.s3_execution_context import S3ExecutionContext
 
@@ -57,17 +55,7 @@ def resolve_ceph_admin_browser_context(
     if not is_admin_ui_role(actor.role) or not effective.can_access_ceph_admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized for Ceph Admin browser workspace")
 
-    try:
-        endpoint = CephAdminEndpointService(db).get_configured_endpoint(endpoint_id)
-    except StorageEndpointNotFoundError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage endpoint not found")
-    except StorageEndpointProviderError:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Storage endpoint is not a Ceph provider")
-    except CephAdminEndpointUnavailableError:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Ceph Admin is not active on this endpoint",
-        )
+    endpoint = resolve_ceph_admin_workspace_endpoint(db, endpoint_id)
 
     if metadata_only:
         return S3ExecutionContext.from_ceph_admin_endpoint(endpoint, access_key=None, secret_key=None)
