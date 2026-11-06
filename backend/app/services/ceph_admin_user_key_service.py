@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -15,13 +14,18 @@ from app.models.ceph_admin import (
 )
 from app.services.ceph_admin_audit import record_ceph_admin_action
 from app.services.ceph_admin_context import CephAdminContext
+from app.services.ceph_admin_errors import (
+    CephAdminConflictError,
+    CephAdminUpstreamError,
+    CephAdminValidationError,
+    upstream_error,
+)
 from app.services.ceph_admin_user_access import require_user_scope, serialize_access_keys
 from app.services.managed_private_access_query_service import (
     ManagedPrivateAccessQueryService,
 )
 from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_user_key_parser import RgwUserKeyParser
-from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.rgw_payloads import rgw_qualified_uid
 
 
@@ -49,7 +53,7 @@ class CephAdminUserKeyService:
         try:
             keys = self.ctx.rgw_admin.list_user_keys(normalized_uid, tenant=tenant)
         except RGWAdminError as exc:
-            raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+            raise upstream_error(exc) from exc
 
         serialized = serialize_access_keys(keys)
         for key in serialized:
@@ -80,14 +84,13 @@ class CephAdminUserKeyService:
         try:
             response = self.ctx.rgw_admin.create_access_key(normalized_uid, tenant=tenant)
         except RGWAdminError as exc:
-            raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+            raise upstream_error(exc) from exc
         access_key, secret_key = RgwUserKeyParser.select_complete_credentials(
             self.ctx.rgw_admin.extract_keys(response)
         )
         if not access_key or not secret_key:
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="RGW did not return access credentials for this key",
+            raise CephAdminUpstreamError(
+                "RGW did not return access credentials for this key"
             )
         record_ceph_admin_action(
             self.ctx,
@@ -117,12 +120,9 @@ class CephAdminUserKeyService:
             tenant=tenant,
             access_key=normalized_key,
         ) is not None:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=(
-                    "This key belongs to a managed private access; "
-                    "update or delete its private connection instead"
-                ),
+            raise CephAdminConflictError(
+                "This key belongs to a managed private access; "
+                "update or delete its private connection instead"
             )
         require_user_scope(
             normalized_uid,
@@ -139,7 +139,7 @@ class CephAdminUserKeyService:
             )
             keys = self.ctx.rgw_admin.list_user_keys(normalized_uid, tenant=tenant)
         except RGWAdminError as exc:
-            raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+            raise upstream_error(exc) from exc
         updated_key = next(
             (key for key in serialize_access_keys(keys) if key.access_key == normalized_key),
             CephAdminRgwAccessKey(
@@ -172,12 +172,9 @@ class CephAdminUserKeyService:
             tenant=tenant,
             access_key=normalized_key,
         ) is not None:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=(
-                    "This key belongs to a managed private access; "
-                    "delete its private connection instead"
-                ),
+            raise CephAdminConflictError(
+                "This key belongs to a managed private access; "
+                "delete its private connection instead"
             )
         require_user_scope(
             normalized_uid,
@@ -192,7 +189,7 @@ class CephAdminUserKeyService:
                 tenant=tenant,
             )
         except RGWAdminError as exc:
-            raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+            raise upstream_error(exc) from exc
         record_ceph_admin_action(
             self.ctx,
             action="rgw_user_key.delete",
@@ -228,8 +225,5 @@ class CephAdminUserKeyService:
     def _normalize_access_key(access_key: str) -> str:
         normalized_key = access_key.strip()
         if not normalized_key:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="access_key is required",
-            )
+            raise CephAdminValidationError("access_key is required")
         return normalized_key

@@ -24,9 +24,9 @@ from app.services.ceph_admin_account_payloads import (
     extract_account_bucket_list,
 )
 from app.routers.ceph_admin.dependencies import get_ceph_admin_context
-from app.routers.ceph_admin.profile_common import raise_profile_service_error
+from app.routers.ceph_admin.service_errors import raise_ceph_admin_service_error
 from app.services.ceph_admin_context import CephAdminContext
-from app.services.ceph_admin_profile_mutations import CephAdminProfileServiceError
+from app.services.ceph_admin_errors import CephAdminServiceError
 from app.services.app_settings_service import load_app_settings_for_db
 from app.services.ceph_admin_identity_listing_cache import invalidate_accounts_listing_cache
 from app.services.ceph_admin_audit import record_ceph_admin_action
@@ -62,8 +62,8 @@ def create_rgw_account(
             payload,
             account_id=account_id,
         )
-    except CephAdminProfileServiceError as exc:
-        raise_profile_service_error(exc)
+    except CephAdminServiceError as exc:
+        raise_ceph_admin_service_error(exc)
 
     invalidate_accounts_listing_cache(ctx.endpoint.id)
     account_detail = build_account_detail(
@@ -111,8 +111,8 @@ def update_rgw_account_config(
             update,
             account_id=normalized_account_id,
         )
-    except CephAdminProfileServiceError as exc:
-        raise_profile_service_error(exc)
+    except CephAdminServiceError as exc:
+        raise_ceph_admin_service_error(exc)
 
     invalidate_accounts_listing_cache(ctx.endpoint.id)
     payload = load_account_payload(normalized_account_id, ctx.rgw_admin)

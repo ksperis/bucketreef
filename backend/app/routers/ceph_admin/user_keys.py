@@ -15,7 +15,9 @@ from app.models.ceph_admin import (
     CephAdminRgwGeneratedAccessKey,
 )
 from app.routers.ceph_admin.dependencies import get_ceph_admin_context
+from app.routers.ceph_admin.service_errors import raise_ceph_admin_service_error
 from app.services.ceph_admin_context import CephAdminContext
+from app.services.ceph_admin_errors import CephAdminServiceError
 from app.services.ceph_admin_user_key_service import CephAdminUserKeyService
 
 router = APIRouter()
@@ -29,11 +31,14 @@ def list_rgw_user_keys(
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
     db: Session = Depends(get_db),
 ) -> list[CephAdminRgwAccessKey]:
-    return CephAdminUserKeyService(ctx, db).list_keys(
-        user_id,
-        tenant=tenant,
-        expected_account_id=expected_account_id,
-    )
+    try:
+        return CephAdminUserKeyService(ctx, db).list_keys(
+            user_id,
+            tenant=tenant,
+            expected_account_id=expected_account_id,
+        )
+    except CephAdminServiceError as exc:
+        raise_ceph_admin_service_error(exc)
 
 
 @router.post("/{user_id}/keys", response_model=CephAdminRgwGeneratedAccessKey, status_code=status.HTTP_201_CREATED)
@@ -44,11 +49,14 @@ def create_rgw_user_key(
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
     db: Session = Depends(get_db),
 ) -> CephAdminRgwGeneratedAccessKey:
-    return CephAdminUserKeyService(ctx, db).create_key(
-        user_id,
-        tenant=tenant,
-        expected_account_id=expected_account_id,
-    )
+    try:
+        return CephAdminUserKeyService(ctx, db).create_key(
+            user_id,
+            tenant=tenant,
+            expected_account_id=expected_account_id,
+        )
+    except CephAdminServiceError as exc:
+        raise_ceph_admin_service_error(exc)
 
 
 @router.put("/{user_id}/keys/{access_key}/status", response_model=CephAdminRgwAccessKey)
@@ -61,13 +69,16 @@ def update_rgw_user_key_status(
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
     db: Session = Depends(get_db),
 ) -> CephAdminRgwAccessKey:
-    return CephAdminUserKeyService(ctx, db).update_status(
-        user_id,
-        access_key,
-        active=update.active,
-        tenant=tenant,
-        expected_account_id=expected_account_id,
-    )
+    try:
+        return CephAdminUserKeyService(ctx, db).update_status(
+            user_id,
+            access_key,
+            active=update.active,
+            tenant=tenant,
+            expected_account_id=expected_account_id,
+        )
+    except CephAdminServiceError as exc:
+        raise_ceph_admin_service_error(exc)
 
 
 @router.delete("/{user_id}/keys/{access_key}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
@@ -79,10 +90,13 @@ def delete_rgw_user_key(
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
     db: Session = Depends(get_db),
 ) -> Response:
-    CephAdminUserKeyService(ctx, db).delete_key(
-        user_id,
-        access_key,
-        tenant=tenant,
-        expected_account_id=expected_account_id,
-    )
+    try:
+        CephAdminUserKeyService(ctx, db).delete_key(
+            user_id,
+            access_key,
+            tenant=tenant,
+            expected_account_id=expected_account_id,
+        )
+    except CephAdminServiceError as exc:
+        raise_ceph_admin_service_error(exc)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

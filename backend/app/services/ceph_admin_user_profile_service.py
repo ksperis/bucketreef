@@ -5,12 +5,14 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from app.models.ceph_admin import CephAdminRgwUserConfigUpdate, CephAdminRgwUserCreate
+from app.services.ceph_admin_errors import (
+    CephAdminConflictError,
+    CephAdminNotFoundError,
+    upstream_error,
+)
 from app.services.ceph_admin_profile_mutations import (
-    CephAdminProfileConflictError,
-    CephAdminProfileNotFoundError,
     nullable_update,
     raise_if_unsupported,
-    upstream_error,
 )
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.utils.rgw_caps import canonicalize_rgw_caps
@@ -74,7 +76,7 @@ class CephAdminUserProfileMutationService:
         except RGWAdminError as exc:
             raise upstream_error(exc) from exc
         if existing and not existing.get("not_found"):
-            raise CephAdminProfileConflictError("RGW user UID already exists")
+            raise CephAdminConflictError("RGW user UID already exists")
 
     def create_user(
         self,
@@ -109,7 +111,7 @@ class CephAdminUserProfileMutationService:
             raise upstream_error(exc) from exc
 
         if isinstance(result, dict) and result.get("conflict"):
-            raise CephAdminProfileConflictError("RGW user already exists")
+            raise CephAdminConflictError("RGW user already exists")
         raise_if_unsupported(result, "RGW user creation is not supported on this cluster")
         return result
 
@@ -186,7 +188,7 @@ class CephAdminUserProfileMutationService:
         except RGWAdminError as exc:
             raise upstream_error(exc) from exc
         if isinstance(result, dict) and result.get("conflict"):
-            raise CephAdminProfileConflictError("RGW user update conflicted")
+            raise CephAdminConflictError("RGW user update conflicted")
         raise_if_unsupported(result, "RGW user update is not supported on this cluster")
 
     def _update_quota(
@@ -221,7 +223,7 @@ class CephAdminUserProfileMutationService:
         try:
             payload = self.rgw_admin.get_user(uid, tenant=tenant, allow_not_found=True)
             if not payload or (isinstance(payload, dict) and payload.get("not_found")):
-                raise CephAdminProfileNotFoundError("RGW user not found")
+                raise CephAdminNotFoundError("RGW user not found")
             normalized_payload = payload if isinstance(payload, dict) else {"payload": payload}
             existing_caps = canonicalize_rgw_caps(extract_rgw_user_caps(normalized_payload))
             if mode == "replace":

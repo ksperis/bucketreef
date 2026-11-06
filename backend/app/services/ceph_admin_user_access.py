@@ -4,11 +4,14 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from fastapi import HTTPException, status
-
 from app.models.ceph_admin import CephAdminRgwAccessKey
+from app.services.ceph_admin_errors import (
+    CephAdminConflictError,
+    CephAdminNotFoundError,
+    CephAdminValidationError,
+    upstream_error,
+)
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
-from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.normalize import normalize_optional_scalar
 from app.utils.rgw_payloads import extract_rgw_user_account_ids, extract_rgw_user_identity
 
@@ -47,7 +50,7 @@ def load_user_payload(
 ) -> dict[str, Any]:
     normalized_uid = uid.strip()
     if not normalized_uid:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="uid is required")
+        raise CephAdminValidationError("uid is required")
     try:
         payload = rgw_admin.get_user(
             normalized_uid,
@@ -55,9 +58,9 @@ def load_user_payload(
             allow_not_found=True,
         )
     except RGWAdminError as exc:
-        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+        raise upstream_error(exc) from exc
     if not payload or (isinstance(payload, dict) and payload.get("not_found")):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="RGW user not found")
+        raise CephAdminNotFoundError("RGW user not found")
     if not isinstance(payload, dict):
         return {"payload": payload}
     return payload
@@ -81,9 +84,8 @@ def _resolved_user_scope(payload: dict[str, Any]) -> tuple[Optional[str], Option
     try:
         actual_uid, actual_tenant = extract_rgw_user_identity(payload)
     except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="RGW user identity has changed; refresh the user list",
+        raise CephAdminConflictError(
+            "RGW user identity has changed; refresh the user list"
         ) from exc
     return actual_uid, actual_tenant, extract_rgw_user_account_ids(payload)
 
@@ -95,9 +97,8 @@ def _require_matching_identity(
     actual_tenant: Optional[str],
 ) -> None:
     if actual_uid != uid or (actual_tenant or None) != (tenant or None):
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="RGW user identity has changed; refresh the user list",
+        raise CephAdminConflictError(
+            "RGW user identity has changed; refresh the user list"
         )
 
 
@@ -107,14 +108,12 @@ def _require_matching_account(
 ) -> None:
     if expected_account_id:
         if account_values != {expected_account_id}:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="RGW user account has changed; refresh the user list",
+            raise CephAdminConflictError(
+                "RGW user account has changed; refresh the user list"
             )
     elif account_values:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="expected_account_id is required for an account user",
+        raise CephAdminConflictError(
+            "expected_account_id is required for an account user"
         )
 
 
