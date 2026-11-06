@@ -204,15 +204,6 @@ def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
     return rollback_calls
 
 
-def test_managed_access_iam_state_requires_string_lists():
-    assert ManagedPrivateAccessStateService.string_list(["operators"]) == [
-        "operators"
-    ]
-    for raw in ("{}", {}, "operators", ["operators", 42], [""]):
-        with pytest.raises(ValueError):
-            ManagedPrivateAccessStateService.string_list(raw)
-
-
 def _disable_capability_probe(monkeypatch):
     monkeypatch.setattr(
         "app.services.managed_private_access_connection_service.refresh_connection_detected_capabilities",

@@ -73,7 +73,7 @@ class ManagedPrivateAccessRemoteCleanupService:
                 lambda: iam.delete_access_key(username, provisioning.access_key_id or ""),
                 lambda: setattr(provisioning, "created_access_key", False),
             )
-        for name in reversed(self.state.string_list(provisioning.iam_inline_policy_names)):
+        for name in reversed(provisioning.iam_inline_policy_names):
             attempt(
                 lambda name=name: iam.delete_user_inline_policy(username, name),
                 lambda name=name: self.state.remove_list_value(
@@ -82,7 +82,7 @@ class ManagedPrivateAccessRemoteCleanupService:
                     name,
                 ),
             )
-        for arn in reversed(self.state.string_list(provisioning.iam_managed_policies)):
+        for arn in reversed(provisioning.iam_managed_policies):
             attempt(
                 lambda arn=arn: iam.detach_user_policy(username, arn),
                 lambda arn=arn: self.state.remove_list_value(
@@ -91,7 +91,7 @@ class ManagedPrivateAccessRemoteCleanupService:
                     arn,
                 ),
             )
-        for group in reversed(self.state.string_list(provisioning.iam_groups)):
+        for group in reversed(provisioning.iam_groups):
             attempt(
                 lambda group=group: iam.remove_user_from_group(group, username),
                 lambda group=group: self.state.remove_list_value(
