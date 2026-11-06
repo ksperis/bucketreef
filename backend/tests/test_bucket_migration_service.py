@@ -742,7 +742,6 @@ def test_update_draft_migration_replaces_configuration_and_resets_precheck(db_se
     assert all(item.objects_deleted == 0 for item in by_source.values())
     assert all(item.error_message is None for item in by_source.values())
     assert all(item.source_snapshot is None for item in by_source.values())
-    assert all(item.target_snapshot is None for item in by_source.values())
     assert all(item.execution_strategy is None for item in by_source.values())
     assert any(event.message == "Migration configuration updated." for event in updated.events)
 

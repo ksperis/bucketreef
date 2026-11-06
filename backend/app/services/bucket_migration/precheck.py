@@ -233,7 +233,6 @@ class BucketMigrationPrecheckPlanner:
             item,
             checked_at=checked_at,
             source_profile=source.profile,
-            target_profile=target.profile,
             strategy=source_plan.strategy,
         )
         return build_planned_item_report(
@@ -321,11 +320,9 @@ class BucketMigrationPrecheckPlanner:
         *,
         checked_at: Any,
         source_profile: dict[str, Any] | None,
-        target_profile: dict[str, Any] | None,
         strategy: str,
     ) -> None:
         item.source_snapshot = source_profile
-        item.target_snapshot = target_profile
         item.execution_strategy = strategy
         item.updated_at = checked_at
 
