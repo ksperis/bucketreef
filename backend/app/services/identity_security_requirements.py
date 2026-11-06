@@ -13,7 +13,7 @@ PRIVILEGED_UI_ROLES = {UserRole.UI_ADMIN.value, UserRole.UI_SUPERADMIN.value}
 def passkey_required_for_role(db: Session, role: str) -> bool:
     general = load_app_settings_for_db(db).general
     if role in PRIVILEGED_UI_ROLES:
-        return bool(general.require_passkey_for_admins)
+        return general.require_passkey_for_admins
     if role in STANDARD_UI_ROLES:
-        return bool(general.require_passkey_for_users)
+        return general.require_passkey_for_users
     return False

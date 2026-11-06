@@ -93,7 +93,7 @@ class QuotaMonitoringService:
     ) -> dict[str, Any]:
         settings = load_app_settings_for_db(self.db)
         now = utcnow()
-        enabled = bool(
+        enabled = (
             settings.general.quota_alerts_enabled
             if mode == "quota_alerts"
             else settings.general.usage_history_enabled
