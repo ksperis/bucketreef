@@ -17234,7 +17234,7 @@
       "name": "cost_models",
       "schema": null,
       "x": 2520,
-      "y": 8448,
+      "y": 8418,
       "fields": [
         {
           "id": "field:cost_models.id",
@@ -19770,27 +19770,6 @@
           "check": null
         },
         {
-          "id": "field:endpoint_health_latest.availability_24h",
-          "name": "availability_24h",
-          "type": {
-            "id": "integer",
-            "name": "integer"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": true,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
           "id": "field:endpoint_health_latest.updated_at",
           "name": "updated_at",
           "type": {
@@ -19913,7 +19892,7 @@
       "name": "endpoint_health_status_segments",
       "schema": null,
       "x": 2100,
-      "y": 8448,
+      "y": 8418,
       "fields": [
         {
           "id": "field:endpoint_health_status_segments.id",
@@ -28868,7 +28847,7 @@
       "x": 2040,
       "y": 6738,
       "width": 1320,
-      "height": 2236,
+      "height": 2206,
       "color": "#059669",
       "order": 5
     }

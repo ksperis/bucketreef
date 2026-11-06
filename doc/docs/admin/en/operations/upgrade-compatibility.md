@@ -458,6 +458,18 @@ old item was not copied. The current backend and bundled frontend expose only
 the canonical `canceled` item status and `canceled_items` counter, so deploy
 them together after applying the Alembic upgrade.
 
+## 2026-11 endpoint health latest-state cleanup
+
+Migration `0241_remove_latest_availability` removes the unused
+`endpoint_health_latest.availability_24h` column. Endpoint availability shown
+by the application is derived from health rollups for the requested time
+window, so the removed value duplicated historical health data without serving
+a runtime or API consumer.
+
+The migration does not remove raw health checks or rollups. Current endpoint
+status and latency summaries continue to use `endpoint_health_latest`, while
+availability percentages continue to be calculated from rollup samples.
+
 ## 2026-10 structured bucket migration workflow state
 
 Migration `0213_structure_bucket_migration_json` replaces the bucket migration

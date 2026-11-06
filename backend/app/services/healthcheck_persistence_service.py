@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
-from typing import Optional
 
 from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
@@ -76,9 +75,6 @@ class HealthCheckPersistenceService:
                 EndpointHealthCheck.checked_at <= result.checked_at,
             )
         ).all()
-        known_statuses = [str(status) for status, _ in rows if str(status) != HealthCheckStatus.UNKNOWN.value]
-        up_checks = sum(1 for status in known_statuses if status == HealthCheckStatus.UP.value)
-        availability_24h = int(round((up_checks / len(known_statuses)) * 100.0)) if known_statuses else None
         latencies = [
             int(latency)
             for status, latency in rows
@@ -100,7 +96,7 @@ class HealthCheckPersistenceService:
                 check_type=DEFAULT_CHECK_TYPE,
                 scope=DEFAULT_SCOPE,
             )
-        self._apply_latest_entry_values(entry, result, latencies, availability_24h)
+        self._apply_latest_entry_values(entry, result, latencies)
         if created:
             try:
                 ensure_sqlite_transaction_for_savepoint(self.db)
@@ -112,7 +108,7 @@ class HealthCheckPersistenceService:
                 entry = self.db.scalars(entry_statement).first()
                 if entry is None:
                     raise
-                self._apply_latest_entry_values(entry, result, latencies, availability_24h)
+                self._apply_latest_entry_values(entry, result, latencies)
         self.db.add(entry)
 
     @staticmethod
@@ -120,7 +116,6 @@ class HealthCheckPersistenceService:
         entry: EndpointHealthLatest,
         result: HealthCheckResult,
         latencies: list[int],
-        availability_24h: Optional[int],
     ) -> None:
         entry.checked_at = result.checked_at
         entry.status = result.status.value
@@ -135,7 +130,6 @@ class HealthCheckPersistenceService:
         entry.avg_latency_ms = int(round(sum(latencies) / len(latencies))) if latencies else None
         entry.max_latency_ms = max(latencies) if latencies else None
         entry.latency_sample_count = len(latencies)
-        entry.availability_24h = availability_24h
         entry.updated_at = utcnow()
 
     def _update_status_segment(self, result: HealthCheckResult) -> None:
