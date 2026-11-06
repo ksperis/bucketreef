@@ -23,6 +23,7 @@ from app.services.ceph_admin_identity_listing_cache import (
     invalidate_accounts_listing_cache,
     invalidate_users_listing_cache,
 )
+from app.services.rgw_admin import RGWAdminError
 
 
 @pytest.fixture(autouse=True)
@@ -772,6 +773,135 @@ def test_update_rgw_user_config_preserves_null_clearing_semantics():
         "account_root": None,
         "extra_params": None,
     }
+
+
+def test_user_config_route_delegates_mutation_to_profile_service(monkeypatch):
+    fake_rgw = FakeUsersAdmin()
+    delegated: dict[str, object] = {}
+
+    class SpyMutationService:
+        def __init__(self, rgw_admin):
+            delegated["rgw_admin"] = rgw_admin
+
+        def apply_updated_configuration(self, update, *, uid, tenant):
+            delegated["update"] = update
+            delegated["uid"] = uid
+            delegated["tenant"] = tenant
+            return set(update.model_fields_set)
+
+    monkeypatch.setattr(
+        user_profiles_router,
+        "CephAdminUserProfileMutationService",
+        SpyMutationService,
+    )
+    update = CephAdminRgwUserConfigUpdate(display_name="Delegated")
+
+    user_profiles_router.update_rgw_user_config(
+        "cost-user",
+        update,
+        expected_account_id="RGW99999999999999999",
+        ctx=_ctx(902, fake_rgw),
+    )
+
+    assert delegated == {
+        "rgw_admin": fake_rgw,
+        "update": update,
+        "uid": "cost-user",
+        "tenant": None,
+    }
+    assert fake_rgw.update_user_calls == []
+
+
+def test_update_rgw_user_conflict_remains_http_409():
+    class ConflictAdmin(FakeUsersAdmin):
+        def update_user(self, uid: str, **kwargs):
+            self.update_user_calls.append({"uid": uid, **kwargs})
+            return {"conflict": True, "status_code": 409}
+
+    admin = ConflictAdmin()
+    with pytest.raises(HTTPException) as raised:
+        user_profiles_router.update_rgw_user_config(
+            "cost-user",
+            CephAdminRgwUserConfigUpdate(display_name="Conflict"),
+            expected_account_id="RGW99999999999999999",
+            ctx=_ctx(902, admin),
+        )
+
+    assert raised.value.status_code == 409
+    assert raised.value.detail == "RGW user update conflicted"
+
+
+def test_update_rgw_user_unsupported_remains_http_502():
+    class UnsupportedAdmin(FakeUsersAdmin):
+        def update_user(self, uid: str, **kwargs):
+            self.update_user_calls.append({"uid": uid, **kwargs})
+            return {"not_implemented": True}
+
+    with pytest.raises(HTTPException) as raised:
+        user_profiles_router.update_rgw_user_config(
+            "cost-user",
+            CephAdminRgwUserConfigUpdate(display_name="Unsupported"),
+            expected_account_id="RGW99999999999999999",
+            ctx=_ctx(902, UnsupportedAdmin()),
+        )
+
+    assert raised.value.status_code == 502
+    assert raised.value.detail == "RGW user update is not supported on this cluster"
+
+
+def test_update_rgw_user_upstream_failure_remains_http_502():
+    class FailingAdmin(FakeUsersAdmin):
+        def update_user(self, uid: str, **kwargs):
+            raise RGWAdminError("RGW mutation failed")
+
+    with pytest.raises(HTTPException) as raised:
+        user_profiles_router.update_rgw_user_config(
+            "cost-user",
+            CephAdminRgwUserConfigUpdate(display_name="Fail"),
+            expected_account_id="RGW99999999999999999",
+            ctx=_ctx(902, FailingAdmin()),
+        )
+
+    assert raised.value.status_code == 502
+    assert raised.value.detail == "RGW mutation failed"
+
+
+@pytest.mark.parametrize(
+    ("mode", "values", "expected_calls"),
+    [
+        (
+            "replace",
+            ["usage=read", "usage=read"],
+            [
+                {"uid": "cost-user", "caps": ["users=read"], "tenant": None, "op": "rm"},
+                {"uid": "cost-user", "caps": ["usage=read"], "tenant": None, "op": "add"},
+            ],
+        ),
+        (
+            "add",
+            ["usage=read", "usage=read"],
+            [{"uid": "cost-user", "caps": ["usage=read"], "tenant": None, "op": "add"}],
+        ),
+        (
+            "remove",
+            ["users=read", "users=read"],
+            [{"uid": "cost-user", "caps": ["users=read"], "tenant": None, "op": "rm"}],
+        ),
+    ],
+)
+def test_update_rgw_user_caps_preserves_mode_semantics(mode, values, expected_calls):
+    fake_rgw = FakeUsersAdmin()
+
+    user_profiles_router.update_rgw_user_config(
+        "cost-user",
+        CephAdminRgwUserConfigUpdate(
+            caps=CephAdminRgwUserCapsUpdate(mode=mode, values=values)
+        ),
+        expected_account_id="RGW99999999999999999",
+        ctx=_ctx(902, fake_rgw),
+    )
+
+    assert fake_rgw.set_user_caps_calls == expected_calls
 
 
 @pytest.mark.parametrize("model,fields", [
