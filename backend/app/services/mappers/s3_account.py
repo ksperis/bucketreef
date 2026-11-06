@@ -51,7 +51,7 @@ def s3_account_from_db(
         storage_endpoint_id=storage_endpoint.id,
         storage_endpoint_name=storage_endpoint.name,
         storage_endpoint_url=storage_endpoint.endpoint_url,
-        storage_endpoint_is_default=bool(storage_endpoint.is_default),
+        storage_endpoint_is_default=storage_endpoint.is_default,
         storage_endpoint_capabilities=storage_endpoint_capabilities,
         allow_bucket_quota_management=account.allow_bucket_quota_management,
         allow_access_key_metadata=account.allow_access_key_metadata,

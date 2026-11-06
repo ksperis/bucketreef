@@ -730,7 +730,7 @@ class OpenStackService:
                 })
                 endpoint_id = endpoint.id
                 endpoint_name = endpoint.name
-                endpoint_is_default = bool(endpoint.is_default)
+                endpoint_is_default = endpoint.is_default
                 endpoint_provider = endpoint.provider
                 endpoint_tags = tags_service.filter_selector_visible(tags_service.get_storage_endpoint_tags(endpoint))
             else:

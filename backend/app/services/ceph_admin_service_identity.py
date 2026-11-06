@@ -104,6 +104,6 @@ def build_ceph_admin_endpoint_payload(endpoint: StorageEndpoint) -> dict:
         "endpoint_url": endpoint.endpoint_url,
         "admin_endpoint": resolve_rgw_admin_api_endpoint(endpoint),
         "region": endpoint.region,
-        "is_default": bool(endpoint.is_default),
+        "is_default": endpoint.is_default,
         "capabilities": features_to_capabilities(features),
     }

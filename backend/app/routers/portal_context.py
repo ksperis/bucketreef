@@ -57,7 +57,7 @@ def list_portal_accounts(
             portal_role=portal_roles[account.id],
             storage_endpoint_name=account.storage_endpoint.name,
             storage_endpoint_url=account.storage_endpoint.endpoint_url,
-            storage_endpoint_is_default=bool(account.storage_endpoint.is_default),
+            storage_endpoint_is_default=account.storage_endpoint.is_default,
             storage_endpoint_capabilities=features_to_capabilities(
                 normalize_features(
                     account.storage_endpoint.provider,
