@@ -169,17 +169,12 @@ export type BrowserSettings = {
   streaming_zip_threshold_mb: number;
 };
 
-export type OnboardingSettings = {
-  dismissed: boolean;
-};
-
 export type AppSettings = {
   general: GeneralConfiguration;
   portal: PortalConfiguration;
   manager: ManagerSettings;
   quota_notifications: QuotaNotificationSettings;
   browser: BrowserSettings;
-  onboarding: OnboardingSettings;
   branding: BrandingSettings;
 };
 

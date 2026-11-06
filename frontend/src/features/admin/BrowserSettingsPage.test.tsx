@@ -92,7 +92,6 @@ function buildSettings(overrides: Partial<AppSettings["general"]> = {}): AppSett
       other_operations_parallelism: 3,
       streaming_zip_threshold_mb: 200,
     },
-    onboarding: { dismissed: false },
     branding: {
       primary_color: "#0569f8",
       login_logo_url: null,
