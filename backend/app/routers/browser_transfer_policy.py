@@ -14,7 +14,7 @@ from app.models.browser_transfer_policy import BrowserTransferPolicy, BrowserTra
 from app.routers.dependencies_internal.auth_session import get_current_actor
 from app.routers.dependencies_internal.execution_context import resolve_s3_execution_context
 from app.services import app_settings_service
-from app.services.auth_session_guards import current_auth_session
+from app.routers.dependencies_internal.auth_session import current_auth_session
 from app.services.browser_transfer_policy_service import build_transfer_policy, worker_content_security_policy
 from app.utils.http_errors import raise_http_exception_from_exception
 

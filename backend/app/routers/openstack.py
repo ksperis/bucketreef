@@ -18,7 +18,7 @@ from app.models.s3_connection import S3Connection
 from app.routers.dependencies import get_current_account_user
 from app.services.audit_service import AuditService
 from app.services.auth_rate_limit_service import AuthRateLimitService, LoginRateLimitedError
-from app.services.auth_session_guards import current_auth_session
+from app.routers.dependencies_internal.auth_session import current_auth_session
 from app.services.effective_access_service import EffectiveAccessService
 from app.services.openstack_service import OpenStackService
 from app.services.keystone_client import OpenStackError

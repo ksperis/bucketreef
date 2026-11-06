@@ -18,7 +18,7 @@ from app.models.onboarding import (
     OnboardingDraft, OnboardingPreview,
 )
 from app.routers.dependencies import get_current_ui_admin, get_current_ui_superadmin
-from app.services.identity_security_policy import require_admin_sensitive_action
+from app.routers.identity_security_policy import require_admin_sensitive_action
 from app.services.onboarding_service import OnboardingError, OnboardingService
 from app.services.rgw_admin import RGWAdminError
 

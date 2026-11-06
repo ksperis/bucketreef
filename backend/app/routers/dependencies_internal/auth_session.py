@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Optional
 
 from fastapi import Depends, Header, HTTPException, Request, status
@@ -11,22 +12,64 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.security import constant_time_equal, decode_typed_token
-from app.db import User
+from app.db import AuthSession, User
 from app.core.domain_enums import UserRole, is_admin_ui_role, is_superadmin_ui_role
 from app.services.access_context_contracts import ManagerActor, ManagerSessionPrincipal
 
 from app.services import effective_access_service
 from app.services.api_token_service import ApiTokenService
-from app.services.auth_session_guards import cache_auth_session
 from app.services.auth_session_service import AuthSessionError, AuthSessionService
 from app.services.session_service import SessionService
+from app.services.webauthn_service import WebAuthnService
 from app.utils.request_paths import path_matches_prefix
 from app.utils.request_security import require_trusted_origin
+from app.utils.time import utcnow
 
 
 settings = get_settings()
 bearer_scheme = HTTPBearer(auto_error=False)
 _UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+_REQUEST_AUTH_SESSION_ATTR = "bucketreef_auth_session"
+
+
+def cache_auth_session(request: Request, session: AuthSession) -> None:
+    setattr(request.state, _REQUEST_AUTH_SESSION_ATTR, session)
+
+
+def current_auth_session(request: Request, db: Session) -> AuthSession:
+    cached = getattr(request.state, _REQUEST_AUTH_SESSION_ATTR, None)
+    if isinstance(cached, AuthSession):
+        return cached
+    token = request.cookies.get(settings.access_token_cookie_name)
+    try:
+        row, _, _ = AuthSessionService(db).validate_access_token(token or "")
+    except AuthSessionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="UI session required",
+        ) from exc
+    cache_auth_session(request, row)
+    return row
+
+
+def require_recent_mfa(request: Request, db: Session) -> AuthSession:
+    row = current_auth_session(request, db)
+    if not WebAuthnService(db).is_recent(row):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Recent WebAuthn verification required",
+        )
+    return row
+
+
+def require_recent_primary_auth(request: Request, db: Session) -> AuthSession:
+    row = current_auth_session(request, db)
+    if row.created_at < utcnow() - timedelta(minutes=settings.mfa_recent_minutes):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Recent primary authentication required",
+        )
+    return row
 
 
 def _required_api_scope(request: Request) -> Optional[str]:

@@ -19,6 +19,7 @@ from app.models.cost import CostSettings
 from app.models.ldap import LDAP_PROVIDER_CONFIG_FIELDS, LDAPProviderAdminItem, LDAPProviderAdminPayload
 from app.models.oidc import OIDC_PROVIDER_CONFIG_FIELDS, OIDCProviderAdminItem, OIDCProviderAdminPayload
 from app.routers.dependencies import get_audit_service, get_current_ui_superadmin
+from app.routers.identity_security_policy import require_admin_sensitive_action
 from app.utils.http_errors import (
     raise_bad_gateway_from_runtime,
     raise_http_exception_from_exception,
@@ -32,7 +33,6 @@ from app.services.app_settings_service import (
     load_default_app_settings,
     save_app_settings_for_db,
 )
-from app.services.identity_security_policy import require_admin_sensitive_action
 from app.services.healthcheck_background_service import run_initial_healthchecks
 from app.services.identity_provider_repository import (
     IdentityProviderAlreadyExistsError,

@@ -18,12 +18,12 @@ from app.models.storage_endpoint import (
     StorageEndpointUpdate,
 )
 from app.routers.dependencies import get_audit_service, get_current_ui_admin, get_current_ui_superadmin
-from app.services.audit_service import AuditService
-from app.services.healthcheck_background_service import run_initial_healthchecks
-from app.services.identity_security_policy import (
+from app.routers.identity_security_policy import (
     require_admin_interactive_session,
     require_admin_sensitive_action,
 )
+from app.services.audit_service import AuditService
+from app.services.healthcheck_background_service import run_initial_healthchecks
 from app.services.storage_endpoints_service import StorageEndpointsService, get_storage_endpoints_service
 from app.services.tags_service import serialize_tag_summaries
 from app.utils.http_errors import raise_http_error_from_value_error

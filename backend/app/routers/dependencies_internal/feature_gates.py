@@ -256,7 +256,7 @@ def get_current_bucket_migration_scope(
     db: Session = Depends(get_db),
 ) -> BucketMigrationAccessScope:
     effective = ensure_manager_tool_allowed(user, "bucket_migration", db=db)
-    from app.services.auth_session_guards import current_auth_session
+    from app.routers.dependencies_internal.auth_session import current_auth_session
     auth_id = current_auth_session(request, db).id if request and request.cookies and not request.headers.get("authorization") else None
     return EffectiveAccessService(db).build_bucket_migration_scope(user, resolved=effective, auth_session_id=auth_id)
 
