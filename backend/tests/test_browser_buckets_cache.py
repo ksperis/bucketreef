@@ -5,6 +5,7 @@ from dataclasses import replace
 import pytest
 
 from app.db import S3Account, StorageEndpoint
+from app.models.browser import BrowserBucketSearchRequest
 from app.services import browser_service
 from app.services.browser import buckets as browser_buckets
 from app.services.browser import cache as browser_cache
@@ -47,8 +48,8 @@ def test_bucket_cache_reused_between_pages(monkeypatch):
     service = browser_service.BrowserService()
     monkeypatch.setattr(service, "_client", lambda _account: FakeClient())
 
-    page_one = service.search_buckets(_account(), page=1, page_size=2)
-    page_two = service.search_buckets(_account(), page=2, page_size=2)
+    page_one = service.search_buckets(_account(), BrowserBucketSearchRequest(page=1, page_size=2))
+    page_two = service.search_buckets(_account(), BrowserBucketSearchRequest(page=2, page_size=2))
 
     assert [bucket.name for bucket in page_one.items] == ["alpha", "beta"]
     assert [bucket.name for bucket in page_two.items] == ["gamma", "zeta"]
@@ -75,8 +76,14 @@ def test_bucket_cache_reused_across_search_terms(monkeypatch):
     service = browser_service.BrowserService()
     monkeypatch.setattr(service, "_client", lambda _account: FakeClient())
 
-    first = service.search_buckets(_account(), search="project", page=1, page_size=10)
-    second = service.search_buckets(_account(), search="archive", page=1, page_size=10)
+    first = service.search_buckets(
+        _account(),
+        BrowserBucketSearchRequest(search="project", page=1, page_size=10),
+    )
+    second = service.search_buckets(
+        _account(),
+        BrowserBucketSearchRequest(search="archive", page=1, page_size=10),
+    )
 
     assert [bucket.name for bucket in first.items] == ["project-a", "project-b"]
     assert [bucket.name for bucket in second.items] == ["archive"]
@@ -98,9 +105,9 @@ def test_bucket_cache_invalidated_after_bucket_mutation(monkeypatch):
     monkeypatch.setattr(browser_buckets, "s3_create_bucket", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(browser_buckets, "s3_set_bucket_versioning", lambda *_args, **_kwargs: None)
 
-    service.search_buckets(_account(), page=1, page_size=10)
+    service.search_buckets(_account(), BrowserBucketSearchRequest(page=1, page_size=10))
     service.create_bucket("new-bucket", _account(), versioning=False)
-    service.search_buckets(_account(), page=1, page_size=10)
+    service.search_buckets(_account(), BrowserBucketSearchRequest(page=1, page_size=10))
 
     assert len(calls) == 2
 

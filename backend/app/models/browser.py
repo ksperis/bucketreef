@@ -6,6 +6,7 @@ from typing import Annotated, Optional, Literal
 from pydantic import AfterValidator, Field, field_validator
 
 from app.models.base import ApiModel
+from app.models.pagination import PaginatedResponse, PaginationRequest
 from app.models.portal_storage_spaces import PortalStorageSpaceIcon
 
 
@@ -28,6 +29,12 @@ class BrowserBucket(ApiModel):
 class CreateBucketPayload(ApiModel):
     name: str
     versioning: bool
+
+
+class BrowserBucketSearchRequest(PaginationRequest):
+    page_size: int = Field(default=50, ge=1, le=200)
+    search: Optional[str] = None
+    exact: bool = False
 
 
 class CreateFolderPayload(ApiModel):
@@ -122,12 +129,8 @@ class ObjectColumnsResponse(ApiModel):
     items: list[ObjectColumnValues]
 
 
-class PaginatedBrowserBucketsResponse(ApiModel):
+class PaginatedBrowserBucketsResponse(PaginatedResponse):
     items: list[BrowserBucket]
-    total: int
-    page: int
-    page_size: int
-    has_next: bool
 
 
 class BrowserUsageSummary(ApiModel):
