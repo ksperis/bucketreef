@@ -264,8 +264,8 @@ class ConnectionIdentityService:
             )
 
         flags = resolve_feature_flags(endpoint)
-        metrics_enabled = bool(flags.metrics_enabled)
-        usage_enabled = bool(flags.usage_enabled)
+        metrics_enabled = flags.metrics_enabled
+        usage_enabled = flags.usage_enabled
         persisted = self._persisted_identity(
             connection,
             metrics_enabled=metrics_enabled,
@@ -301,8 +301,8 @@ class ConnectionIdentityService:
             )
 
         flags = resolve_feature_flags(endpoint)
-        metrics_enabled = bool(flags.metrics_enabled)
-        usage_enabled = bool(flags.usage_enabled)
+        metrics_enabled = flags.metrics_enabled
+        usage_enabled = flags.usage_enabled
         if not metrics_enabled and not usage_enabled:
             return ConnectionIdentityResolution(
                 rgw_user_uid=None,
