@@ -60,7 +60,7 @@ class BucketIndexCheckService:
                 fix=False,
                 check_objects=False,
             )
-            success = bool(upstream.success)
+            success = upstream.success
             return CephAdminBucketIndexCheckBatchBucketResult(
                 name=target.name,
                 tenant=target.tenant,
