@@ -24,11 +24,16 @@ from app.services.ceph_admin_account_access import (
     resolve_optional_account_name,
 )
 from app.services.ceph_admin_context import CephAdminContext
-from app.routers.ceph_admin.profile_common import nullable_update, raise_if_unsupported
 from app.services.ceph_admin_user_access import (
     load_user_payload,
     require_user_scope,
     serialize_access_keys,
+)
+from app.services.ceph_admin_user_profile_service import (
+    CephAdminUserProfileConflictError,
+    CephAdminUserProfileMutationService,
+    CephAdminUserProfileNotFoundError,
+    CephAdminUserProfileServiceError,
 )
 from app.services.ceph_admin_user_payloads import build_user_detail, extract_user_fields
 from app.services.ceph_admin_identity_listing_cache import invalidate_users_listing_cache
@@ -36,39 +41,14 @@ from app.services.ceph_admin_audit import record_ceph_admin_action
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.utils.http_errors import raise_http_exception_from_exception
-from app.utils.rgw_caps import canonicalize_rgw_caps
 from app.utils.rgw_payloads import (
     extract_bucket_list,
     extract_rgw_account_tenant,
-    extract_rgw_user_caps,
 )
 from app.utils.usage_stats import summarize_bucket_usage
 
 router = APIRouter(prefix="/ceph-admin/endpoints/{endpoint_id}/users", tags=["ceph-admin-users"])
 router.include_router(user_keys.router)
-
-USER_UPDATE_FIELDS = (
-    "display_name",
-    "email",
-    "suspended",
-    "max_buckets",
-    "op_mask",
-    "system",
-    "account_root",
-)
-USER_UPDATE_FIELD_SET = frozenset(USER_UPDATE_FIELDS)
-USER_UPDATE_CLEAR_VALUES: dict[str, Any] = {
-    "display_name": "",
-    "email": "",
-    "max_buckets": 0,
-    "op_mask": "",
-}
-USER_QUOTA_FIELDS = frozenset({"quota_enabled", "quota_max_size_bytes", "quota_max_objects"})
-
-
-def _extract_caps(payload: dict[str, Any]) -> list[str]:
-    return canonicalize_rgw_caps(extract_rgw_user_caps(payload))
-
 
 def _load_user_detail(uid: str, tenant: Optional[str], ctx: CephAdminContext) -> CephAdminRgwUserDetail:
     payload = load_user_payload(uid, tenant, ctx.rgw_admin)
@@ -88,69 +68,6 @@ def _load_user_detail(uid: str, tenant: Optional[str], ctx: CephAdminContext) ->
     )
 
 
-def _user_update_params(
-    update: CephAdminRgwUserCreate | CephAdminRgwUserConfigUpdate,
-    field_set: set[str],
-    *,
-    clear_nulls: bool,
-) -> dict[str, Any]:
-    if not clear_nulls:
-        return {
-            field: getattr(update, field) if field in field_set else None
-            for field in USER_UPDATE_FIELDS
-        }
-    return {
-        field: (
-            nullable_update(
-                getattr(update, field),
-                field,
-                field_set,
-                USER_UPDATE_CLEAR_VALUES[field],
-            )
-            if field in USER_UPDATE_CLEAR_VALUES
-            else getattr(update, field) if field in field_set else None
-        )
-        for field in USER_UPDATE_FIELDS
-    }
-
-
-def _apply_user_update(
-    uid: str,
-    tenant: Optional[str],
-    params: dict[str, Any],
-    ctx: CephAdminContext,
-) -> None:
-    try:
-        result = ctx.rgw_admin.update_user(uid, tenant=tenant, **params)
-    except RGWAdminError as exc:
-        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
-    if isinstance(result, dict) and result.get("conflict"):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="RGW user update conflicted")
-    raise_if_unsupported(result, "RGW user update is not supported on this cluster")
-
-
-def _apply_user_quota_update(
-    uid: str,
-    tenant: Optional[str],
-    *,
-    max_size_bytes: Optional[int],
-    max_objects: Optional[int],
-    enabled: Optional[bool],
-    ctx: CephAdminContext,
-) -> None:
-    try:
-        result = ctx.rgw_admin.set_user_quota(
-            uid,
-            tenant=tenant,
-            max_size_bytes=max_size_bytes,
-            max_objects=max_objects,
-            enabled=bool(enabled) if enabled is not None else True,
-        )
-    except RGWAdminError as exc:
-        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
-    raise_if_unsupported(result, "RGW user quota update is not supported on this cluster")
-
-
 def _extract_generated_key_from_payload(
     raw: Any,
     rgw_admin: RGWAdminClient,
@@ -164,30 +81,6 @@ def _extract_generated_key_from_payload(
         access_key=access_key,
         secret_key=secret_key,
     )
-
-
-def _apply_caps_update(
-    uid: str,
-    tenant: Optional[str],
-    mode: str,
-    values: list[str],
-    ctx: CephAdminContext,
-) -> None:
-    caps_values = list(dict.fromkeys(str(value).strip() for value in values if str(value).strip()))
-    try:
-        existing_caps = _extract_caps(load_user_payload(uid, tenant, ctx.rgw_admin))
-        if mode == "replace":
-            if existing_caps:
-                ctx.rgw_admin.set_user_caps(uid, existing_caps, tenant=tenant, op="rm")
-            if caps_values:
-                ctx.rgw_admin.set_user_caps(uid, caps_values, tenant=tenant, op="add")
-        elif mode == "add":
-            if caps_values:
-                ctx.rgw_admin.set_user_caps(uid, caps_values, tenant=tenant, op="add")
-        elif caps_values:
-            ctx.rgw_admin.set_user_caps(uid, caps_values, tenant=tenant, op="rm")
-    except RGWAdminError as exc:
-        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
 
 def _resolve_create_user_scope(
@@ -216,85 +109,14 @@ def _resolve_create_user_scope(
     return uid, account_tenant or None, account_id
 
 
-def _require_create_user_uid_available(
-    uid: str,
-    tenant: Optional[str],
-    ctx: CephAdminContext,
-) -> None:
-    # A manual create must never reuse another principal, even within the same account.
-    try:
-        existing = ctx.rgw_admin.get_user(uid, tenant=tenant, allow_not_found=True)
-    except RGWAdminError as exc:
-        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
-    if existing and not existing.get("not_found"):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="RGW user UID already exists")
-
-
-def _create_rgw_user_record(
-    payload: CephAdminRgwUserCreate,
-    *,
-    uid: str,
-    tenant: Optional[str],
-    account_id: Optional[str],
-    ctx: CephAdminContext,
-) -> Any:
-    try:
-        if account_id:
-            result = ctx.rgw_admin.create_user_with_account_id(
-                uid=uid,
-                account_id=account_id,
-                display_name=payload.display_name or uid,
-                account_root=payload.account_root if payload.account_root is not None else False,
-                email=payload.email,
-                generate_key=payload.generate_key,
-                extra_params=payload.extra_params or None,
-                tenant=tenant,
-            )
-        else:
-            result = ctx.rgw_admin.create_user(
-                uid=uid,
-                display_name=payload.display_name or uid,
-                email=payload.email,
-                tenant=tenant,
-                generate_key=payload.generate_key,
-                extra_params=payload.extra_params or None,
-            )
-    except RGWAdminError as exc:
-        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
-
-    if isinstance(result, dict) and result.get("conflict"):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="RGW user already exists")
-    raise_if_unsupported(result, "RGW user creation is not supported on this cluster")
-    return result
-
-
-def _apply_created_user_configuration(
-    payload: CephAdminRgwUserCreate,
-    *,
-    uid: str,
-    tenant: Optional[str],
-    ctx: CephAdminContext,
-) -> set[str]:
-    field_set = set(payload.model_fields_set)
-    if USER_UPDATE_FIELD_SET & field_set:
-        _apply_user_update(
-            uid,
-            tenant,
-            _user_update_params(payload, field_set, clear_nulls=False),
-            ctx,
-        )
-    if payload.caps is not None:
-        _apply_caps_update(uid, tenant, payload.caps.mode, payload.caps.values, ctx)
-    if any(getattr(payload, field) is not None for field in USER_QUOTA_FIELDS):
-        _apply_user_quota_update(
-            uid,
-            tenant,
-            max_size_bytes=payload.quota_max_size_bytes,
-            max_objects=payload.quota_max_objects,
-            enabled=payload.quota_enabled,
-            ctx=ctx,
-        )
-    return field_set
+def _raise_user_profile_service_error(exc: CephAdminUserProfileServiceError) -> None:
+    if isinstance(exc, CephAdminUserProfileConflictError):
+        status_code = status.HTTP_409_CONFLICT
+    elif isinstance(exc, CephAdminUserProfileNotFoundError):
+        status_code = status.HTTP_404_NOT_FOUND
+    else:
+        status_code = status.HTTP_502_BAD_GATEWAY
+    raise_http_exception_from_exception(status_code, exc)
 
 
 @router.post("", response_model=CephAdminRgwUserCreateResponse, status_code=status.HTTP_201_CREATED)
@@ -303,24 +125,27 @@ def create_rgw_user(
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> CephAdminRgwUserCreateResponse:
     uid, tenant, account_id = _resolve_create_user_scope(payload, ctx)
-    _require_create_user_uid_available(uid, tenant, ctx)
-    create_result = _create_rgw_user_record(
-        payload,
-        uid=uid,
-        tenant=tenant,
-        account_id=account_id,
-        ctx=ctx,
-    )
+    mutations = CephAdminUserProfileMutationService(ctx.rgw_admin)
+    try:
+        # A manual create must never reuse another principal, even within the same account.
+        mutations.ensure_uid_available(uid, tenant)
+        create_result = mutations.create_user(
+            payload,
+            uid=uid,
+            tenant=tenant,
+            account_id=account_id,
+        )
 
-    # RGW can resolve the bare UID to another account. Verify the fresh record
-    # before any profile, quota, or capability updates and before exposing a key.
-    require_user_scope(uid, tenant, account_id, ctx.rgw_admin)
-    field_set = _apply_created_user_configuration(
-        payload,
-        uid=uid,
-        tenant=tenant,
-        ctx=ctx,
-    )
+        # RGW can resolve the bare UID to another account. Verify the fresh record
+        # before any profile, quota, or capability updates and before exposing a key.
+        require_user_scope(uid, tenant, account_id, ctx.rgw_admin)
+        field_set = mutations.apply_created_configuration(
+            payload,
+            uid=uid,
+            tenant=tenant,
+        )
+    except CephAdminUserProfileServiceError as exc:
+        _raise_user_profile_service_error(exc)
 
     invalidate_users_listing_cache(ctx.endpoint.id)
     detail = _load_user_detail(uid, tenant, ctx)
@@ -378,29 +203,15 @@ def update_rgw_user_config(
     if not uid:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="uid is required")
     require_user_scope(uid, tenant, expected_account_id, ctx.rgw_admin)
-    field_set = set(update.model_fields_set)
-    if USER_UPDATE_FIELD_SET & field_set or update.extra_params:
-        params = _user_update_params(update, field_set, clear_nulls=True)
-        params["extra_params"] = update.extra_params or None
-        _apply_user_update(uid, tenant, params, ctx)
-
-    if "caps" in field_set and update.caps is not None:
-        _apply_caps_update(uid, tenant, update.caps.mode, update.caps.values, ctx)
-
-    if USER_QUOTA_FIELDS & field_set:
-        _apply_user_quota_update(
-            uid,
-            tenant,
-            max_size_bytes=nullable_update(
-                update.quota_max_size_bytes,
-                "quota_max_size_bytes",
-                field_set,
-                0,
-            ),
-            max_objects=nullable_update(update.quota_max_objects, "quota_max_objects", field_set, 0),
-            enabled=update.quota_enabled if "quota_enabled" in field_set else True,
-            ctx=ctx,
+    mutations = CephAdminUserProfileMutationService(ctx.rgw_admin)
+    try:
+        field_set = mutations.apply_updated_configuration(
+            update,
+            uid=uid,
+            tenant=tenant,
         )
+    except CephAdminUserProfileServiceError as exc:
+        _raise_user_profile_service_error(exc)
 
     invalidate_users_listing_cache(ctx.endpoint.id)
     record_ceph_admin_action(
