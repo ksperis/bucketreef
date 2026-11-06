@@ -110,7 +110,7 @@ def _enrich_static_website(
 ) -> None:
     try:
         website = reader.get_bucket_website(bucket_name, execution_context)
-        routing_rules = website.routing_rules or []
+        routing_rules = website.routing_rules
         configured = bool(
             (website.redirect_all_requests_to and (website.redirect_all_requests_to.host_name or "").strip())
             or (website.index_document or "").strip()

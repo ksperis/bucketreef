@@ -174,7 +174,7 @@ def enrich_lifecycle(
             rules = context.reader.get_lifecycle(
                 context.bucket_name,
                 context.execution_context,
-            ).rules or []
+            ).rules
         except RuntimeError:
             feature_map["lifecycle_rules"] = unavailable_feature_status()
             return
@@ -198,7 +198,7 @@ def enrich_cors(
             rules = context.reader.get_bucket_cors(
                 context.bucket_name,
                 context.execution_context,
-            ) or []
+            )
         except RuntimeError:
             feature_map["cors"] = unavailable_feature_status()
             return

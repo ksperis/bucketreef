@@ -21,7 +21,7 @@ DEFAULT_DOCUMENTATION_BASE_URL = "https://docs.bucketreef.ksperis.com"
 
 
 def _default_portal_cors_origins() -> list[str]:
-    return list(get_settings().cors_origins or [])
+    return list(get_settings().cors_origins)
 
 
 def _default_bucket_migration_parallelism_max() -> int:
