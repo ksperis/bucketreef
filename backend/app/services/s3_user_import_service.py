@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import secrets
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -18,6 +17,10 @@ from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.services.s3_user_metrics_service import S3UserMetricsService
 from app.services.s3_user_repository import S3UserRepository
 from app.services.s3_user_rgw_context_service import S3UserRgwContextService
+from app.services.s3_import_state import (
+    checkpoint_s3_import_intent,
+    new_s3_import_credentials,
+)
 from app.utils.rgw_payloads import require_rgw_user_identity, split_rgw_tenant_uid
 from app.utils.time import utcnow
 
@@ -158,14 +161,15 @@ class S3UserImportService:
             self._validate_intent(existing, item)
             return existing
 
+        access_key_id, secret_access_key = new_s3_import_credentials()
         intent = S3UserImportIntent(
             storage_endpoint_id=item.endpoint.id,
             rgw_user_uid=item.uid,
             rgw_tenant=item.tenant,
             requested_name=item.source.name,
             requested_email=item.source.email,
-            access_key_id=secrets.token_hex(10).upper(),
-            secret_access_key=secrets.token_urlsafe(32),
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
             phase="prepared",
             created_at=utcnow(),
             updated_at=utcnow(),
@@ -195,12 +199,6 @@ class S3UserImportService:
                 "S3 user import is already pending with different request metadata"
             )
 
-    def _checkpoint(self, intent: S3UserImportIntent, phase: str) -> None:
-        intent.phase = phase
-        intent.updated_at = utcnow()
-        commit_or_rollback(self.db)
-        self.db.refresh(intent)
-
     def _load_remote_user(self, item: _PreparedUserImport) -> dict:
         try:
             user_info = item.admin.get_user(
@@ -225,12 +223,11 @@ class S3UserImportService:
 
         if intent.phase == "prepared":
             while intent.access_key_id in key_ids:
-                intent.access_key_id = secrets.token_hex(10).upper()
-                intent.secret_access_key = secrets.token_urlsafe(32)
+                intent.access_key_id, intent.secret_access_key = new_s3_import_credentials()
                 intent.updated_at = utcnow()
                 commit_or_rollback(self.db)
                 self.db.refresh(intent)
-            self._checkpoint(intent, "creating")
+            checkpoint_s3_import_intent(self.db, intent, "creating")
 
         if intent.phase not in {"creating", "remote_created"}:
             raise ValueError(f"Unsupported S3 user import phase: {intent.phase}")
@@ -265,7 +262,7 @@ class S3UserImportService:
                 )
 
         if intent.phase != "remote_created":
-            self._checkpoint(intent, "remote_created")
+            checkpoint_s3_import_intent(self.db, intent, "remote_created")
 
     def _stage_local_user(
         self,
