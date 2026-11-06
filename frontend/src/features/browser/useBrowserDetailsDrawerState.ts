@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import type { BrowserItem, ObjectDetailsTabId } from "./browserTypes";
 
-type ObjectDetailsTarget = {
+export type BrowserObjectDetailsTarget = {
   item: BrowserItem;
   initialTab: ObjectDetailsTabId;
   intent?: "create-public-link";
@@ -24,7 +24,7 @@ export function useBrowserDetailsDrawerState({
   onRequestDiscardChanges,
 }: UseBrowserDetailsDrawerStateOptions) {
   const [objectTarget, setObjectTarget] =
-    useState<ObjectDetailsTarget | null>(null);
+    useState<BrowserObjectDetailsTarget | null>(null);
   const [bucketName, setBucketName] = useState<string | null>(null);
   const [objectDirty, setObjectDirty] = useState(false);
   const [bucketDirty, setBucketDirty] = useState(false);
