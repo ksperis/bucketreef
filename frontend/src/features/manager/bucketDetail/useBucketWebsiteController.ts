@@ -5,10 +5,7 @@
 import { useCallback, useState } from "react";
 import type { S3ExecutionContextSelector } from "../../../api/accountParams";
 import { useBucketDetailsApi } from "../../shared/useBucketDetailsApi";
-import type {
-  BucketWebsiteConfiguration,
-  BucketWebsiteUpdate,
-} from "../../../api/bucketContracts";
+import type { BucketWebsiteConfiguration } from "../../../api/bucketContracts";
 import {
   deleteCephAdminBucketWebsite,
   getCephAdminBucketWebsite,
@@ -179,7 +176,7 @@ export function useBucketWebsiteController({
 
     setSaving(true);
     try {
-      const payload: BucketWebsiteUpdate = {
+      const payload: BucketWebsiteConfiguration = {
         error_document:
           draft.mode === "hosting" ? errorDocument || null : null,
         index_document: draft.mode === "hosting" ? indexDocument : null,

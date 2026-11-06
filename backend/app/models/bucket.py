@@ -95,10 +95,6 @@ class BucketTags(ApiModel):
     tags: List[BucketTag]
 
 
-class BucketTagsUpdate(ApiModel):
-    tags: List[BucketTag]
-
-
 class BucketObjectLock(ApiModel):
     enabled: Optional[bool]
     mode: Optional[str]
@@ -233,13 +229,6 @@ class BucketWebsiteRedirectAllRequestsTo(ApiModel):
 
 
 class BucketWebsiteConfiguration(ApiModel):
-    index_document: Optional[str]
-    error_document: Optional[str]
-    redirect_all_requests_to: Optional[BucketWebsiteRedirectAllRequestsTo]
-    routing_rules: List[dict]
-
-
-class BucketWebsiteUpdate(ApiModel):
     index_document: Optional[str]
     error_document: Optional[str]
     redirect_all_requests_to: Optional[BucketWebsiteRedirectAllRequestsTo]

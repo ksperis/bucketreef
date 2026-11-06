@@ -37,7 +37,6 @@ from app.models.bucket import (
     BucketTag,
     BucketWebsiteConfiguration,
     BucketWebsiteRedirectAllRequestsTo,
-    BucketWebsiteUpdate,
     LifecycleRule,
 )
 
@@ -499,7 +498,7 @@ class BucketConfigurationService:
         self,
         name: str,
         execution_context: S3ExecutionTarget,
-        payload: BucketWebsiteUpdate,
+        payload: BucketWebsiteConfiguration,
     ) -> BucketWebsiteConfiguration:
         config: dict = {}
         if payload.redirect_all_requests_to:

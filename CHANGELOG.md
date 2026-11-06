@@ -28,6 +28,7 @@
 - Reuse one bucket-usage point contract across storage and Ceph Admin metrics in backend and frontend.
 - Share identity-provider field-lock metadata between OIDC and LDAP settings contracts.
 - Reuse one access-key status update contract across IAM, RGW user, Portal, and Ceph Admin routes.
+- Reuse the canonical bucket tags and website contracts for both reads and writes.
 
 ### Fixed
 

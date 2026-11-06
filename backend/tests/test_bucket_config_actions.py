@@ -12,7 +12,6 @@ from app.models.bucket import (
     BucketPublicAccessBlockUpdate,
     BucketQuotaUpdate,
     BucketWebsiteConfiguration,
-    BucketWebsiteUpdate,
     BucketVersioningUpdate,
 )
 from app.services import bucket_config_actions
@@ -41,7 +40,7 @@ def test_object_lock_read_and_write_contracts_are_explicit() -> None:
         BucketObjectLockUpdate.model_validate({"enabled": True})
 
 
-def test_website_read_and_write_contracts_are_explicit() -> None:
+def test_website_contract_is_explicit() -> None:
     expected_fields = {
         "index_document",
         "error_document",
@@ -49,10 +48,9 @@ def test_website_read_and_write_contracts_are_explicit() -> None:
         "routing_rules",
     }
     assert set(BucketWebsiteConfiguration.model_json_schema()["required"]) == expected_fields
-    assert set(BucketWebsiteUpdate.model_json_schema()["required"]) == expected_fields
 
     with pytest.raises(ValidationError):
-        BucketWebsiteUpdate.model_validate({"routing_rules": []})
+        BucketWebsiteConfiguration.model_validate({"routing_rules": []})
 
 
 def test_bucket_quota_write_contract_is_explicit() -> None:
