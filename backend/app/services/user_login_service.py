@@ -50,7 +50,3 @@ class UserLoginService:
         commit_or_rollback(self.db)
         self.db.refresh(user)
         return user
-
-
-def get_user_login_service(db: Session) -> UserLoginService:
-    return UserLoginService(db)
