@@ -250,11 +250,6 @@ class BucketMigrationPrecheckRules:
                 strategy=strategy,
                 add_check=add_check,
             )
-        self._check_rollback_safety(
-            source_profile,
-            strategy=strategy,
-            add_check=add_check,
-        )
 
     def _check_same_endpoint_copy_safety(
         self,
@@ -388,31 +383,3 @@ class BucketMigrationPrecheckRules:
                 scope="target_bucket",
                 message=f"Destination write test or temporary bucket cleanup failed: {exc}",
             )
-
-    def _check_rollback_safety(
-        self,
-        source_profile: dict[str, Any] | None,
-        *,
-        strategy: str,
-        add_check: Callable[..., None],
-    ) -> None:
-        object_lock = (source_profile or {}).get("object_lock", {})
-        object_lock_configured = any(
-            bool(object_lock.get(field))
-            for field in ("enabled", "mode", "days", "years")
-        )
-        if (
-            strategy in {"current_only", "version_aware"}
-            and not object_lock_configured
-        ):
-            return
-        add_check(
-            code="rollback_not_safe",
-            severity="error",
-            blocking=True,
-            scope="rollback",
-            message=(
-                "Rollback safety cannot be guaranteed for this bucket with the "
-                "current migration engine."
-            ),
-        )

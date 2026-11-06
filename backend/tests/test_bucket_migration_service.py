@@ -2278,6 +2278,61 @@ def test_run_precheck_passes_when_source_bucket_requires_version_aware_strategy(
     )
 
 
+def test_run_precheck_reports_object_lock_without_retired_rollback_diagnostic(db_session):
+    user = _create_user(db_session)
+    source = _create_account(db_session, name="source", endpoint_url="https://source.example.test", account_id="RGW001")
+    target = _create_account(db_session, name="target", endpoint_url="https://target.example.test", account_id="RGW002")
+    db_session.commit()
+
+    service = BucketMigrationService(db_session)
+    migration = service.create_migration(
+        BucketMigrationCreateRequest(
+            source_context_id=str(source.id),
+            target_context_id=str(target.id),
+            buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a", target_bucket="bucket-a-dst")],
+        ),
+        user,
+    )
+
+    def _resolve_context(context_id: str):
+        return SimpleNamespace(
+            context_id=context_id,
+            execution_context=source if context_id == str(source.id) else target,
+            endpoint="https://s3.example.test",
+            region="us-east-1",
+            force_path_style=False,
+            verify_tls=True,
+        )
+
+    service._resolve_context = _resolve_context  # type: ignore[method-assign]
+    service._precheck_can_list_bucket = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
+    service._count_bucket_objects = lambda *_args, **_kwargs: 5  # type: ignore[method-assign]
+    service._precheck_bucket_exists = lambda *_args, **_kwargs: False  # type: ignore[method-assign]
+    service._precheck_policy_roundtrip = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
+    service._precheck_destination = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
+    service._precheck_version_aware_source_access = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
+    service._inspector.inspect_bucket_state = (  # type: ignore[method-assign]
+        lambda *_args, **_kwargs: _bucket_profile_stub(
+            "bucket-a",
+            object_lock_enabled=True,
+            object_lock_mode="GOVERNANCE",
+            object_lock_days=30,
+        )
+    )
+
+    checked = service.run_precheck(migration.id, active_checks=True)
+
+    assert checked.precheck_status == "failed"
+    checks = (checked.precheck_report or {}).get("items", [])[0].get("checks", [])
+    codes = {
+        str(message.get("code", ""))
+        for message in checks
+        if isinstance(message, dict)
+    }
+    assert "object_lock_governance_not_supported" in codes
+    assert "rollback_not_safe" not in codes
+
+
 def test_run_precheck_fails_when_source_bucket_uses_unsupported_default_encryption(db_session):
     user = _create_user(db_session)
     source = _create_account(db_session, name="source", endpoint_url="https://source.example.test", account_id="RGW001")

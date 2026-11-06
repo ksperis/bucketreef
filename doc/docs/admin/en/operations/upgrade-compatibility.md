@@ -1409,6 +1409,12 @@ as executable. Workflow-v2 planning has produced only `current_only` or
 display `skip_existing`, but those records are not replayable by the current
 worker.
 
+Current prechecks no longer emit the retired `rollback_not_safe` diagnostic.
+Explicit rollback operations were removed in favor of `restore_access` and
+`cleanup_target`, while Object Lock remains blocked by the specific
+`object_lock_governance_not_supported` diagnostic. Historical reports and old
+Alembic reconstruction logic may still contain `rollback_not_safe`.
+
 ## 2026-10 onboarding journey state cleanup
 
 Migration `0189_remove_onboarding_journey_dead_state` removes the unused
