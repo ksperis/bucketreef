@@ -480,7 +480,7 @@ export default function ManagerMigrationDetailPage() {
         <WorkflowSection title={text("Transfer result")}>
           <p role="status" aria-live="polite" className="ui-caption">
             {migration.completed_items} {text("buckets verified,")}{" "}
-            {migration.failed_items} {text("failed,")} {migration.awaiting_items} {text("awaiting\n            cutover,")} {migration.skipped_items} {text("not copied.")}
+            {migration.failed_items} {text("failed,")} {migration.awaiting_items} {text("awaiting\n            cutover,")} {migration.canceled_items} {text("canceled.")}
           </p>
           {migration.status === "awaiting_cutover" && (
             <UiInlineMessage tone="info">

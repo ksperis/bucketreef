@@ -21409,8 +21409,8 @@
           "check": null
         },
         {
-          "id": "field:bucket_migrations.skipped_items",
-          "name": "skipped_items",
+          "id": "field:bucket_migrations.canceled_items",
+          "name": "canceled_items",
           "type": {
             "id": "integer",
             "name": "integer"

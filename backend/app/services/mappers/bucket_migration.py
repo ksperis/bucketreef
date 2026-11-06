@@ -116,7 +116,7 @@ def bucket_migration_to_view(migration: BucketMigration) -> BucketMigrationView:
         total_items=int(migration.total_items),
         completed_items=int(migration.completed_items),
         failed_items=int(migration.failed_items),
-        skipped_items=int(migration.skipped_items),
+        canceled_items=int(migration.canceled_items),
         awaiting_items=int(migration.awaiting_items),
         error_message=migration.error_message,
         updated_at=migration.updated_at,
@@ -136,7 +136,7 @@ def bucket_migration_to_list_item(migration: BucketMigration) -> BucketMigration
         total_items=int(migration.total_items),
         completed_items=int(migration.completed_items),
         failed_items=int(migration.failed_items),
-        skipped_items=int(migration.skipped_items),
+        canceled_items=int(migration.canceled_items),
         awaiting_items=int(migration.awaiting_items),
         updated_at=migration.updated_at,
     )

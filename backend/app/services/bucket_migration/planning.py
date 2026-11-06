@@ -283,7 +283,7 @@ class BucketMigrationPlanningMixin:
             total_items=len(configuration.mappings),
             completed_items=0,
             failed_items=0,
-            skipped_items=0,
+            canceled_items=0,
             awaiting_items=0,
             created_at=utcnow(),
             updated_at=utcnow(),

@@ -18,9 +18,10 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0239_canonical_migration_rollback_status"
-_CANONICAL_ROLLBACK_STATUS_REVISION = "0238_remove_retired_migration_webhooks"
-_RETIRED_WEBHOOK_REVISION = "0237_canonical_bucket_migration_retry_step"
+_EXPECTED_ALEMBIC_HEAD = "0240_retire_migration_skipped_status"
+_CANONICAL_ROLLBACK_STATUS_REVISION = "0239_canonical_migration_rollback_status"
+_RETIRED_WEBHOOK_REVISION = "0238_remove_retired_migration_webhooks"
+_CANONICAL_RETRY_STEP_REVISION = "0237_canonical_bucket_migration_retry_step"
 _PORTAL_IAM_REPAIR_REVISION = "0236_repair_portal_iam_revocation_schema"
 _REJOINED_MERGE_REVISION = "0235_reconcile_postgresql_schema_drift"
 _LEGACY_GITLAB_HEAD = "0226_reconcile_postgresql_schema_drift"
@@ -114,6 +115,10 @@ def test_alembic_exposes_single_head_after_rejoined_merge():
     )
     assert (
         script.get_revision(_RETIRED_WEBHOOK_REVISION).down_revision
+        == _CANONICAL_RETRY_STEP_REVISION
+    )
+    assert (
+        script.get_revision(_CANONICAL_RETRY_STEP_REVISION).down_revision
         == _PORTAL_IAM_REPAIR_REVISION
     )
     assert (

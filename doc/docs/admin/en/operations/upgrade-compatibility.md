@@ -446,6 +446,18 @@ The backend and bundled frontend no longer accept `rolled_back` as a current
 migration or item status. Deploy them together after applying the Alembic
 upgrade.
 
+## 2026-11 canonical bucket migration cancellation counters
+
+Migration `0240_retire_migration_skipped_status` normalizes the retired item
+status `skipped` to `canceled` and replaces the persisted `skipped_items`
+counter with `canceled_items`. The new counter is recomputed from item rows so
+it includes both historical skipped items and ordinary canceled items.
+
+Historical item steps such as `skipped` remain unchanged, preserving why an
+old item was not copied. The current backend and bundled frontend expose only
+the canonical `canceled` item status and `canceled_items` counter, so deploy
+them together after applying the Alembic upgrade.
+
 ## 2026-10 structured bucket migration workflow state
 
 Migration `0213_structure_bucket_migration_json` replaces the bucket migration

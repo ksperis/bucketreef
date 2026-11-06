@@ -120,11 +120,11 @@ export default function ManagerMigrationsListPage() {
                     <p className="ui-caption text-slate-500 dark:text-slate-400">
                       {migration.status === "draft"
                         ? text("{checked}/{total} checked", { checked: migration.preparation_completed_items, total: migration.total_items })
-                        : text("{verified} verified · {failed} failed · {awaiting} awaiting cutover · {skipped} not copied", {
+                        : text("{verified} verified · {failed} failed · {awaiting} awaiting cutover · {canceled} canceled", {
                             verified: migration.completed_items,
                             failed: migration.failed_items,
                             awaiting: migration.awaiting_items,
-                            skipped: migration.skipped_items,
+                            canceled: migration.canceled_items,
                           })}
                     </p>
                     <p className="ui-caption text-slate-500 dark:text-slate-400">{text("updated:")} {formatDateTime(migration.updated_at)}</p>

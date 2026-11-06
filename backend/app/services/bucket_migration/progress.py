@@ -340,10 +340,7 @@ class BucketMigrationProgressMixin:
     def _ready_for_cutover(self, migration: BucketMigration) -> bool:
         if migration.mode != "pre_sync" or migration.awaiting_items <= 0:
             return False
-        actionable_items = migration.total_items - migration.skipped_items
-        return (
-            migration.awaiting_items + migration.completed_items == actionable_items
-        )
+        return migration.awaiting_items + migration.completed_items == migration.total_items
 
     def _mark_awaiting_cutover(self, migration: BucketMigration) -> None:
         migration.status = "awaiting_cutover"
@@ -424,21 +421,21 @@ class BucketMigrationProgressMixin:
     def _recompute_counters(self, migration: BucketMigration) -> None:
         completed = 0
         failed = 0
-        skipped = 0
+        canceled = 0
         awaiting = 0
         for item in migration.items:
             if item.status == "completed":
                 completed += 1
             elif item.status == "failed":
                 failed += 1
-            elif item.status == "skipped":
-                skipped += 1
+            elif item.status == "canceled":
+                canceled += 1
             elif item.status == "awaiting_cutover":
                 awaiting += 1
         migration.total_items = len(migration.items)
         migration.completed_items = completed
         migration.failed_items = failed
-        migration.skipped_items = skipped
+        migration.canceled_items = canceled
         migration.awaiting_items = awaiting
 
     def _add_event(
@@ -522,7 +519,7 @@ class BucketMigrationProgressMixin:
                 "total_items": int(migration.total_items),
                 "completed_items": int(migration.completed_items),
                 "failed_items": int(migration.failed_items),
-                "skipped_items": int(migration.skipped_items),
+                "canceled_items": int(migration.canceled_items),
                 "awaiting_items": int(migration.awaiting_items),
             },
             "event": {

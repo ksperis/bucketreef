@@ -62,7 +62,6 @@ type BucketMigrationItemStatus =
   | "running"
   | "awaiting_cutover"
   | "paused"
-  | "skipped"
   | "completed"
   | "failed"
   | "canceled";
@@ -141,7 +140,7 @@ export type BucketMigrationView = {
   total_items: number;
   completed_items: number;
   failed_items: number;
-  skipped_items: number;
+  canceled_items: number;
   awaiting_items: number;
   error_message: string | null;
   updated_at: string;
@@ -164,7 +163,7 @@ export type BucketMigrationListItem = {
   total_items: number;
   completed_items: number;
   failed_items: number;
-  skipped_items: number;
+  canceled_items: number;
   awaiting_items: number;
   updated_at: string;
 };

@@ -39,7 +39,7 @@ function buildMigration(id: number, status: BucketMigrationStatus): BucketMigrat
     total_items: 2,
     completed_items: 1,
     failed_items: 0,
-    skipped_items: 0,
+    canceled_items: 0,
     awaiting_items: 0,
     updated_at: "2026-03-05T10:00:01Z",
   };

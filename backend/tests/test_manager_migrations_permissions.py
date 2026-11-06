@@ -156,7 +156,7 @@ def test_manager_migration_list_is_scoped_to_authorized_contexts(client, db_sess
             "total_items",
             "completed_items",
             "failed_items",
-            "skipped_items",
+            "canceled_items",
             "awaiting_items",
             "updated_at",
         }

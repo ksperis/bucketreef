@@ -48,7 +48,6 @@ BucketMigrationItemStatus = Literal[
     "running",
     "awaiting_cutover",
     "paused",
-    "skipped",
     "completed",
     "failed",
     "canceled",
@@ -216,7 +215,7 @@ class BucketMigrationView(ApiModel):
     total_items: int
     completed_items: int
     failed_items: int
-    skipped_items: int
+    canceled_items: int
     awaiting_items: int
 
     error_message: Optional[str]
@@ -240,7 +239,7 @@ class BucketMigrationListItem(ApiModel):
     total_items: int
     completed_items: int
     failed_items: int
-    skipped_items: int
+    canceled_items: int
     awaiting_items: int
     updated_at: datetime
 
