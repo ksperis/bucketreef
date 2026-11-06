@@ -84,8 +84,6 @@ class HealthCheckPersistenceService:
         entry_statement = select(EndpointHealthLatest).where(
             EndpointHealthLatest.storage_endpoint_id == result.endpoint_id,
             EndpointHealthLatest.check_mode == result.check_mode,
-            EndpointHealthLatest.check_type == DEFAULT_CHECK_TYPE,
-            EndpointHealthLatest.scope == DEFAULT_SCOPE,
         )
         entry = self.db.scalars(entry_statement).first()
         created = entry is None
@@ -137,8 +135,6 @@ class HealthCheckPersistenceService:
             .where(
                 EndpointHealthStatusSegment.storage_endpoint_id == result.endpoint_id,
                 EndpointHealthStatusSegment.check_mode == result.check_mode,
-                EndpointHealthStatusSegment.check_type == DEFAULT_CHECK_TYPE,
-                EndpointHealthStatusSegment.scope == DEFAULT_SCOPE,
                 EndpointHealthStatusSegment.ended_at.is_(None),
             )
             .order_by(EndpointHealthStatusSegment.started_at.desc())
@@ -221,8 +217,6 @@ class HealthCheckPersistenceService:
         entry_statement = select(EndpointHealthRollup).where(
             EndpointHealthRollup.storage_endpoint_id == result.endpoint_id,
             EndpointHealthRollup.check_mode == result.check_mode,
-            EndpointHealthRollup.check_type == DEFAULT_CHECK_TYPE,
-            EndpointHealthRollup.scope == DEFAULT_SCOPE,
             EndpointHealthRollup.resolution_seconds == resolution_seconds,
             EndpointHealthRollup.bucket_start == bucket_start,
         )

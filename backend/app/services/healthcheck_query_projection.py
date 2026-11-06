@@ -13,12 +13,7 @@ from app.db import (
     StorageEndpoint,
 )
 from app.core.domain_enums import HealthCheckStatus
-from app.services.healthcheck_common import (
-    DEFAULT_CHECK_TYPE,
-    DEFAULT_SCOPE,
-    percentile,
-    resolve_healthcheck_profile,
-)
+from app.services.healthcheck_common import percentile, resolve_healthcheck_profile
 
 
 def incident_duration_minutes(row: EndpointHealthStatusSegment) -> int | None:
