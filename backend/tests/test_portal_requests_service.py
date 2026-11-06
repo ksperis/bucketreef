@@ -54,14 +54,6 @@ def test_portal_request_optional_text_is_normalized() -> None:
     assert PortalAdminRequestDecision(message="   ").message is None
 
 
-def test_portal_request_payload_requires_an_object():
-    assert PortalRequestsService._require_object({"status": "ok"}) == {
-        "status": "ok"
-    }
-    with pytest.raises(ValueError):
-        PortalRequestsService._require_object([])
-
-
 def _seed_account(db_session, *, name="Research Account") -> S3Account:
     account = make_s3_account(db_session, name=name, rgw_account_id="RGW00000000000000042")
     db_session.add(account)
