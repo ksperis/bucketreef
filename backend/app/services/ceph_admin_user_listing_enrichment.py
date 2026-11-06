@@ -4,10 +4,9 @@ from __future__ import annotations
 
 from typing import Any, Callable, Optional
 
-from fastapi import status
-
 from app.models.ceph_admin import CephAdminRgwUserSummary
 from app.services.ceph_admin_account_access import resolve_optional_account_name
+from app.services.ceph_admin_errors import upstream_error
 from app.services.ceph_admin_user_payloads import extract_user_fields
 from app.services.listing_progress import (
     ListingProgressEmitter,
@@ -15,7 +14,6 @@ from app.services.listing_progress import (
 )
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.utils.cancellation import invoke_cancel_check
-from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.rgw_payloads import extract_bucket_list
 from app.utils.usage_stats import summarize_bucket_usage
 
@@ -78,7 +76,7 @@ class _UserDetailsEnricher:
                 allow_not_found=True,
             )
         except RGWAdminError as exc:
-            raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+            raise upstream_error(exc) from exc
         if not payload or payload.get("not_found"):
             return user
         self._apply_payload(user, payload)
@@ -120,7 +118,7 @@ class _UserDetailsEnricher:
                 with_stats=True,
             )
         except RGWAdminError as exc:
-            raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+            raise upstream_error(exc) from exc
         _usage, total_bytes, total_objects, _count = summarize_bucket_usage(
             extract_bucket_list(buckets_payload)
         )

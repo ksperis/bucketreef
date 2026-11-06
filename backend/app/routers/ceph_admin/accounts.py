@@ -13,9 +13,11 @@ from app.models.ceph_admin_identity_listing import CephAdminAccountListingReques
 from app.routers.ceph_admin.dependencies import (
     get_ceph_admin_context,
 )
+from app.routers.ceph_admin.service_errors import raise_ceph_admin_service_error
 from app.services.ceph_admin_context import CephAdminContext
 from app.routers.listing_common import require_advanced_filter_stream_payload, stream_listing_response
 from app.services.ceph_admin_account_listing import compute_accounts_listing
+from app.services.ceph_admin_errors import CephAdminServiceError
 from app.services.listing_progress import ListingProgressSnapshot
 
 router = APIRouter(
@@ -32,13 +34,16 @@ def _compute_accounts_listing(
     progress_callback: Callable[[ListingProgressSnapshot], None] | None = None,
     cancel_check: Callable[[], None] | None = None,
 ) -> PaginatedCephAdminAccountsResponse:
-    return compute_accounts_listing(
-        request=query,
-        endpoint_id=int(ctx.endpoint.id),
-        rgw_admin=ctx.rgw_admin,
-        progress_callback=progress_callback,
-        cancel_check=cancel_check,
-    )
+    try:
+        return compute_accounts_listing(
+            request=query,
+            endpoint_id=int(ctx.endpoint.id),
+            rgw_admin=ctx.rgw_admin,
+            progress_callback=progress_callback,
+            cancel_check=cancel_check,
+        )
+    except CephAdminServiceError as exc:
+        raise_ceph_admin_service_error(exc)
 
 
 @router.get("", response_model=PaginatedCephAdminAccountsResponse)

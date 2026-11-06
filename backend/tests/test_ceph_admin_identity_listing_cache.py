@@ -5,9 +5,9 @@ from threading import Event
 from types import SimpleNamespace
 
 import pytest
-from fastapi import HTTPException
 
 from app.services import ceph_admin_identity_listing_cache
+from app.services.ceph_admin_errors import CephAdminUpstreamError
 from app.services.ceph_admin_identity_listing_cache import (
     EndpointListCacheKey,
     EndpointListingCache,
@@ -170,14 +170,12 @@ def test_other_endpoint_invalidation_does_not_discard_pending_load(cache_api, la
             finish.set()
 
 
-def test_rgw_errors_keep_http_translation_and_are_not_cached(cache_api):
+def test_rgw_errors_become_service_errors_and_are_not_cached(cache_api):
     def failing_builder():
         raise RGWAdminError("upstream listing failed")
 
-    with pytest.raises(HTTPException) as error:
+    with pytest.raises(CephAdminUpstreamError, match="upstream listing failed"):
         _read(cache_api, "payload", failing_builder)
-    assert error.value.status_code == 502
-    assert error.value.detail == "upstream listing failed"
     assert _read(cache_api, "payload", lambda: ["recovered"]) == ["recovered"]
 
 
