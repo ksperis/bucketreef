@@ -78,7 +78,7 @@ class HealthCheckPersistenceService:
         latencies = [
             int(latency)
             for status, latency in rows
-            if latency is not None and str(status) != HealthCheckStatus.DOWN.value
+            if latency is not None and status != HealthCheckStatus.DOWN.value
         ]
 
         entry_statement = select(EndpointHealthLatest).where(
@@ -209,7 +209,7 @@ class HealthCheckPersistenceService:
         }
         latencies: list[int] = []
         for status, latency in rows:
-            status_value = str(status)
+            status_value = status
             counts[status_value] = counts.get(status_value, 0) + 1
             if latency is not None and status_value != HealthCheckStatus.DOWN.value:
                 latencies.append(int(latency))

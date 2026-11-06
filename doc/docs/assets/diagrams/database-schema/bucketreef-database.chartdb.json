@@ -19377,6 +19377,11 @@
           "id": "check:endpoint_health_checks:ck_endpoint_health_checks_mode",
           "expression": "check_mode IN ('http', 's3')",
           "createdAt": 0
+        },
+        {
+          "id": "check:endpoint_health_checks:ck_endpoint_health_checks_status",
+          "expression": "status IN ('up', 'degraded', 'down', 'unknown')",
+          "createdAt": 0
         }
       ],
       "color": "#059669",
@@ -19785,6 +19790,11 @@
         {
           "id": "check:endpoint_health_latest:ck_endpoint_health_latest_mode",
           "expression": "check_mode IN ('http', 's3')",
+          "createdAt": 0
+        },
+        {
+          "id": "check:endpoint_health_latest:ck_endpoint_health_latest_status",
+          "expression": "status IN ('up', 'degraded', 'down', 'unknown')",
           "createdAt": 0
         }
       ],
@@ -20195,6 +20205,11 @@
         {
           "id": "check:endpoint_health_status_segments:ck_endpoint_health_status_segments_mode",
           "expression": "check_mode IN ('http', 's3')",
+          "createdAt": 0
+        },
+        {
+          "id": "check:endpoint_health_status_segments:ck_endpoint_health_status_segments_status",
+          "expression": "status IN ('up', 'degraded', 'down', 'unknown')",
           "createdAt": 0
         }
       ],

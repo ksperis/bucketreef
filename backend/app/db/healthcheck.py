@@ -18,6 +18,10 @@ class EndpointHealthCheck(Base):
             "check_mode IN ('http', 's3')",
             name="ck_endpoint_health_checks_mode",
         ),
+        CheckConstraint(
+            "status IN ('up', 'degraded', 'down', 'unknown')",
+            name="ck_endpoint_health_checks_status",
+        ),
         Index(
             "ix_endpoint_health_checks_endpoint_mode_checked",
             "storage_endpoint_id",
@@ -48,6 +52,10 @@ class EndpointHealthLatest(Base):
         CheckConstraint(
             "check_type = 'availability' AND scope = 'endpoint'",
             name="ck_endpoint_health_latest_dimensions",
+        ),
+        CheckConstraint(
+            "status IN ('up', 'degraded', 'down', 'unknown')",
+            name="ck_endpoint_health_latest_status",
         ),
         UniqueConstraint(
             "storage_endpoint_id",
@@ -93,6 +101,10 @@ class EndpointHealthStatusSegment(Base):
         CheckConstraint(
             "check_type = 'availability' AND scope = 'endpoint'",
             name="ck_endpoint_health_status_segments_dimensions",
+        ),
+        CheckConstraint(
+            "status IN ('up', 'degraded', 'down', 'unknown')",
+            name="ck_endpoint_health_status_segments_status",
         ),
         Index(
             "ix_endpoint_health_segments_endpoint_type_scope_started",
