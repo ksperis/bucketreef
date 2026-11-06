@@ -50,7 +50,7 @@ from app.models.portal_access_keys import (
     PortalIAMUser,
 )
 from app.models.portal_access_logs import PortalServerAccessLogFilterQuery, PortalServerAccessLogFilterRule
-from app.models.portal_sharing import PortalStorageSpaceShare
+from app.models.portal_sharing import PortalShareCandidateListingRequest, PortalStorageSpaceShare
 from app.models.portal_usage import PortalUsage
 from app.models.portal_versions import (
     PortalStorageObjectRestoreRequest,
@@ -6118,26 +6118,27 @@ def test_storage_space_share_candidates_use_effective_portal_members(monkeypatch
     )
     owner_access = _portal_access(account, owner, portal_role=PortalAccountRole.PORTAL_MANAGER.value, can_manage_buckets=True)
 
-    candidates, total = service.list_storage_space_share_candidates(
+    candidates = service.list_storage_space_share_candidates(
         owner,
         owner_access,
-        "research-data",
-        include_already_shared=True,
+        PortalShareCandidateListingRequest(include_already_shared=True),
+        space_id="research-data",
     )
 
-    assert total == 1
-    assert [(candidate.email, candidate.portal_role, candidate.access_source, candidate.already_shared) for candidate in candidates] == [
+    assert candidates.total == 1
+    assert [(candidate.email, candidate.portal_role, candidate.access_source, candidate.already_shared) for candidate in candidates.items] == [
         ("direct-candidates@example.com", "portal_user", "direct", True),
     ]
-    assert all(candidate.email != outsider.email for candidate in candidates)
+    assert all(candidate.email != outsider.email for candidate in candidates.items)
 
-    available, available_total = service.list_storage_space_share_candidates(
+    available = service.list_storage_space_share_candidates(
         owner,
         owner_access,
-        "research-data",
+        PortalShareCandidateListingRequest(),
+        space_id="research-data",
     )
-    assert available_total == 0
-    assert available == []
+    assert available.total == 0
+    assert available.items == []
 
 
 def test_portal_collaborators_summarize_effective_members_and_visible_external_access(monkeypatch, db_session):
