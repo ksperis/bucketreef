@@ -40,9 +40,7 @@ def normalize_bucket_compare_scope(
     return normalized_features
 
 
-class BucketCompareRequestBase(ApiModel):
-    source_bucket: str
-    target_bucket: str
+class BucketCompareScopeRequest(ApiModel):
     include_content: bool = True
     include_config: bool = False
     config_features: Optional[list[BucketCompareConfigFeature]] = None
@@ -50,17 +48,26 @@ class BucketCompareRequestBase(ApiModel):
 
     @model_validator(mode="after")
     def validate_comparison_scope(self):
+        self.config_features = normalize_bucket_compare_scope(
+            include_content=self.include_content,
+            include_config=self.include_config,
+            config_features=self.config_features,
+        )
+        return self
+
+
+class BucketCompareRequestBase(BucketCompareScopeRequest):
+    source_bucket: str
+    target_bucket: str
+
+    @model_validator(mode="after")
+    def validate_bucket_names(self):
         self.source_bucket = (self.source_bucket or "").strip()
         self.target_bucket = (self.target_bucket or "").strip()
         if not self.source_bucket:
             raise ValueError("source_bucket is required.")
         if not self.target_bucket:
             raise ValueError("target_bucket is required.")
-        self.config_features = normalize_bucket_compare_scope(
-            include_content=self.include_content,
-            include_config=self.include_config,
-            config_features=self.config_features,
-        )
         return self
 
 
