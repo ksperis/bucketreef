@@ -122,10 +122,10 @@ class PortalStateUsageMixin:
             can_create_team_storage_spaces=can_create_team_storage_spaces,
             can_create_external_sharing=can_create_external_sharing,
             can_manage_portal_users=access.capabilities.can_manage_portal_users,
-            portal_collaborator_role_management_delegated=bool(
+            portal_collaborator_role_management_delegated=(
                 account.portal_collaborator_role_management_delegated
             ),
-            portal_collaborator_addition_delegated=bool(
+            portal_collaborator_addition_delegated=(
                 account.portal_collaborator_addition_delegated
             ),
             allow_named_bucket_create=portal_settings.allow_portal_named_bucket_create,
