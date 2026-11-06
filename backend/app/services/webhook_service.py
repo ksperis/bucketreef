@@ -182,7 +182,7 @@ class WebhookService:
         row = WebhookEndpoint(
             name=payload.name,
             url=payload.url,
-            enabled=bool(payload.enabled),
+            enabled=payload.enabled,
             signing_secret=secret,
             created_at=utcnow(),
             updated_at=utcnow(),
@@ -207,7 +207,7 @@ class WebhookService:
             raise ValueError("Rotate the signing secret before enabling this endpoint")
         row.name = payload.name
         row.url = payload.url
-        row.enabled = bool(payload.enabled)
+        row.enabled = payload.enabled
         row.updated_at = utcnow()
         try:
             self._replace_subscriptions(row, event_types)
