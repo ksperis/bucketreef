@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.models.base import ApiModel
 from app.db import S3Account, S3Connection, S3User
+from app.models.app_settings import AppSettings
 from app.models.feature_policy import (
     FeaturePolicy,
     FeatureState,
@@ -196,6 +197,30 @@ def validate_project_collection_overrides(
         PROJECT_COLLECTION_RESOURCE_FIELDS,
         current,
         error_message="This collection is disabled by the platform",
+    )
+
+
+def validate_subject_feature_overrides(
+    payload: ApiModel,
+    settings: AppSettings,
+    current: ManagerSubjectResource,
+) -> None:
+    """Validate every persisted feature override supported by Account/User updates."""
+    validate_manager_overrides(payload, settings.manager.feature_policies, current)
+    validate_multisite_endpoint_switching_override(
+        payload,
+        settings.manager.feature_policies,
+        current,
+    )
+    validate_project_overrides(
+        payload,
+        settings.general.project_feature_policies,
+        current,
+    )
+    validate_project_collection_overrides(
+        payload,
+        settings.general.project_collection_policies,
+        current,
     )
 
 

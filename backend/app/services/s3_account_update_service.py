@@ -10,10 +10,7 @@ from app.models.s3_account import S3Account as S3AccountSchema, S3AccountUpdate
 from app.services.app_settings_service import load_app_settings_for_db
 from app.services.feature_policy_service import (
     apply_resource_feature_overrides,
-    validate_manager_overrides,
-    validate_multisite_endpoint_switching_override,
-    validate_project_collection_overrides,
-    validate_project_overrides,
+    validate_subject_feature_overrides,
 )
 from app.services.mappers.s3_account import s3_account_from_db
 from app.services.portal_role_sync import (
@@ -84,22 +81,7 @@ class S3AccountUpdateService:
 
     def _apply_fields(self, account: S3Account, payload: S3AccountUpdate) -> None:
         app_settings = load_app_settings_for_db(self.db)
-        validate_manager_overrides(payload, app_settings.manager.feature_policies, account)
-        validate_multisite_endpoint_switching_override(
-            payload,
-            app_settings.manager.feature_policies,
-            account,
-        )
-        validate_project_overrides(
-            payload,
-            app_settings.general.project_feature_policies,
-            account,
-        )
-        validate_project_collection_overrides(
-            payload,
-            app_settings.general.project_collection_policies,
-            account,
-        )
+        validate_subject_feature_overrides(payload, app_settings, account)
         target_endpoint_id = account.storage_endpoint_id
         if payload.storage_endpoint_id is not None:
             endpoint = self.rgw_context.resolve_storage_endpoint(
