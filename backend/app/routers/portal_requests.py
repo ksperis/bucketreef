@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 
-from app.db import User
 from app.services.access_context_contracts import AccountAccess
 from app.models.portal_requests import PortalAdminRequestCreate, PortalAdminRequestOut, PortalAdminRequestStatus
 from app.routers.dependencies import get_portal_account_access, require_portal_manager
@@ -20,20 +19,13 @@ from app.utils.http_errors import (
 router = APIRouter(prefix="/portal/requests", tags=["portal-requests"])
 
 
-def _portal_actor(access: AccountAccess) -> User:
-    actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal requests require a UI user")
-    return actor
-
-
 @router.get("", response_model=list[PortalAdminRequestOut])
 def list_portal_requests(
     status_filter: Optional[PortalAdminRequestStatus] = Query(None, alias="status"),
     access: AccountAccess = Depends(get_portal_account_access),
     service: PortalRequestsService = Depends(get_portal_requests_service_dependency),
 ) -> list[PortalAdminRequestOut]:
-    return service.list_for_portal_user(_portal_actor(access), access, status=status_filter)
+    return service.list_for_portal_user(access.actor, access, status=status_filter)
 
 
 @router.post("", response_model=PortalAdminRequestOut, status_code=status.HTTP_201_CREATED)
@@ -43,7 +35,7 @@ def create_portal_request(
     service: PortalRequestsService = Depends(get_portal_requests_service_dependency),
 ) -> PortalAdminRequestOut:
     try:
-        return service.create_request(_portal_actor(access), access, payload)
+        return service.create_request(access.actor, access, payload)
     except ValueError as exc:
         raise_bad_request_from_value_error(exc)
     except PortalRequestExecutionError as exc:

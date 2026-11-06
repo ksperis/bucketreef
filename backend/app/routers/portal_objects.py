@@ -5,10 +5,9 @@
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 
-from app.db import User
 from app.services.access_context_contracts import AccountAccess
 from app.models.portal_objects import PortalStorageObjectDeleteResponse, PortalStorageObjectDetail
 from app.models.portal_versions import (
@@ -46,8 +45,6 @@ def portal_storage_space_version_cleanup_stream(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> StreamingResponse:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         target = service.prepare_storage_space_version_cleanup(
             actor,
@@ -78,8 +75,6 @@ def portal_storage_space_object_detail(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PortalStorageObjectDetail:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         return service.get_storage_space_object_detail(actor, access, space_id, key, **({"version_id": version_id} if version_id is not None else {}))
     except RuntimeError as exc:
@@ -100,8 +95,6 @@ def portal_storage_space_object_versions(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PortalStorageObjectVersionsResponse:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         return service.get_storage_space_object_versions(
             actor,
@@ -126,8 +119,6 @@ def portal_storage_space_trash(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PortalTrashResponse:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         return service.list_storage_space_trash(
             actor,
@@ -152,8 +143,6 @@ def portal_restore_storage_space_object(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PortalStorageObjectRestoreResponse:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         return service.restore_storage_space_object_version(
             actor,
@@ -176,11 +165,6 @@ def portal_restore_deleted_prefix_stream(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> StreamingResponse:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Portal endpoints require a UI user",
-        )
     try:
         target = service.prepare_deleted_prefix_restore(
             actor,
@@ -210,8 +194,6 @@ def portal_delete_storage_space_object(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PortalStorageObjectDeleteResponse:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         deleted_key = service.delete_storage_space_object(actor, access, space_id, key)
         return PortalStorageObjectDeleteResponse(key=deleted_key, message="Deleted")
@@ -228,8 +210,6 @@ def portal_download_storage_space_object(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> StreamingResponse:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         download = service.download_storage_space_object(actor, access, space_id, key, **({"version_id": version_id} if version_id is not None else {}))
         return S3DownloadResponse(download)

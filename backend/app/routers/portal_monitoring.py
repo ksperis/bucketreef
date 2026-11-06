@@ -7,7 +7,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.db import User
 from app.services.access_context_contracts import AccountAccess
 from app.models.healthcheck import WorkspaceEndpointHealthOverviewResponse
 from app.models.portal_monitoring import PortalAlert
@@ -69,8 +68,6 @@ def portal_alerts(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> list[PortalAlert]:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         alerts = service.list_portal_alerts(actor, access, limit=limit)
         health_alerts = _portal_endpoint_alerts(access, db)

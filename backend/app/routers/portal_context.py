@@ -69,8 +69,6 @@ def portal_state(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PortalState:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     eligible, reasons = service.check_eligibility(access)
     if not eligible:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="; ".join(reasons) or "Portal not available")
@@ -88,8 +86,6 @@ def get_portal_project_settings(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PortalProjectSettings:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     can_update = bool(
         access.portal_role == PortalAccountRole.PORTAL_MANAGER.value
         and access.account.portal_settings_delegated
@@ -105,8 +101,6 @@ def update_portal_project_settings(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PortalProjectSettings:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     if access.portal_role != PortalAccountRole.PORTAL_MANAGER.value:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal manager rights required")
     if not access.account.portal_settings_delegated:

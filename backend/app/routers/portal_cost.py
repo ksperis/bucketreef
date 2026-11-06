@@ -7,7 +7,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.db import User
 from app.services.access_context_contracts import AccountAccess
 from app.models.cost import CostSubjectDetail
 from app.routers.cost_common import raise_cost_disabled
@@ -30,8 +29,6 @@ def portal_cost_me(
     if not app_settings.general.cost_enabled:
         raise_cost_disabled()
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     account = access.account
     if not PortalService(db).get_effective_portal_settings(account).cost_estimation_enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cost estimation is disabled for this Portal project")

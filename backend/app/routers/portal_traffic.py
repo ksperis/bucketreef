@@ -7,7 +7,6 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.db import User
 from app.services.access_context_contracts import AccountAccess
 from app.models.traffic import TrafficStats
 from app.routers.dependencies import get_portal_account_access
@@ -29,8 +28,6 @@ def portal_traffic(
     portal_service: PortalService = Depends(get_portal_service_dependency),
 ) -> TrafficStats:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     account = access.account
     endpoint = account.storage_endpoint
     if not resolve_feature_flags(endpoint).usage_enabled:

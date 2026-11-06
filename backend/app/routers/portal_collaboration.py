@@ -5,9 +5,8 @@
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query
 
-from app.db import User
 from app.services.access_context_contracts import AccountAccess
 from app.models.portal_monitoring import PortalActivityItem
 from app.models.portal_sharing import (
@@ -32,8 +31,6 @@ def portal_activity(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> list[PortalActivityItem]:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         return service.list_portal_activity(actor, access, space_id=space_id, limit=limit)
     except RuntimeError as exc:
@@ -44,8 +41,6 @@ def portal_collaborators(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PortalCollaboratorsResponse:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         return service.list_portal_collaborators(actor, access)
     except RuntimeError as exc:
@@ -59,8 +54,6 @@ def portal_collaborator_access_review(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PortalCollaboratorAccessReview:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         return service.get_portal_collaborator_access_review(actor, access, user_id)
     except RuntimeError as exc:
