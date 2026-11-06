@@ -1403,6 +1403,12 @@ The runtime no longer carries a `rollback_failed` compatibility branch. Downgrad
 keeps the canonical `sync` value because the previous application already accepts
 it and a reverse conversion would be ambiguous.
 
+The current workflow also no longer treats the retired `skip_existing` strategy
+as executable. Workflow-v2 planning has produced only `current_only` or
+`version_aware` since workflow-v2 was introduced. Historical reports may still
+display `skip_existing`, but those records are not replayable by the current
+worker.
+
 ## 2026-10 onboarding journey state cleanup
 
 Migration `0189_remove_onboarding_journey_dead_state` removes the unused

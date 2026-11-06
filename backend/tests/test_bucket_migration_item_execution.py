@@ -160,6 +160,18 @@ def test_execution_strategy_requires_explicit_string_value(db_session, strategy)
         service._assert_item_execution_strategy_supported(item)
 
 
+def test_execution_strategy_rejects_retired_skip_existing(db_session):
+    service = BucketMigrationService(db_session)
+    item = _item(step="sync")
+    item.execution_strategy = "skip_existing"
+
+    with pytest.raises(
+        RuntimeError,
+        match="^Execution strategy 'skip_existing' is not implemented",
+    ):
+        service._assert_item_execution_strategy_supported(item)
+
+
 def test_verify_step_fails_non_clean_diff(db_session):
     service = BucketMigrationService(db_session)
     migration = _migration()

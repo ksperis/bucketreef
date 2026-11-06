@@ -61,12 +61,11 @@ class BucketMigrationPrecheckPlanner:
         *,
         profile: dict[str, Any] | None,
         object_count: int | None,
-        initial_strategy: str,
         add_check: Callable[..., None],
     ) -> _SourcePlan:
         if profile is None:
             return _SourcePlan(
-                strategy=initial_strategy,
+                strategy="current_only",
                 unsupported_features=frozenset(),
             )
 
@@ -75,15 +74,8 @@ class BucketMigrationPrecheckPlanner:
         unsupported_features = frozenset(
             str(setting) for setting in unsupported_settings
         )
-        if initial_strategy == "skip_existing":
-            return _SourcePlan(
-                strategy=initial_strategy,
-                unsupported_features=unsupported_features,
-            )
-
         strategy = self._rules.evaluate_source_strategy(
             profile=profile,
-            initial_strategy=initial_strategy,
             add_check=add_check,
         )
         self._rules.add_source_encryption_check(
@@ -223,7 +215,6 @@ class BucketMigrationPrecheckPlanner:
             migration,
             profile=source.profile,
             object_count=source.object_count,
-            initial_strategy=("current_only"),
             add_check=add_check,
         )
         self._rules.add_item_safety_checks(
