@@ -8,8 +8,8 @@ import {
   streamCephAdminBucketIndexChecks,
   type BucketIndexCheckProgress,
   type BucketIndexCheckResult,
-  type BucketIndexCheckTarget,
 } from "../../api/bucketIndexCheck";
+import type { RgwBucketReference } from "../../api/bucketOperation";
 import PageBanner from "../../components/PageBanner";
 import WorkflowPage from "../../components/WorkflowPage";
 import UiButton from "../../components/ui/UiButton";
@@ -25,7 +25,7 @@ import { useCephAdminI18n } from "./cephAdminI18n";
 type Props = {
   endpointId: number;
   endpointName?: string | null;
-  targets: BucketIndexCheckTarget[];
+  targets: RgwBucketReference[];
   onClose: () => void;
 };
 

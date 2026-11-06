@@ -7,7 +7,7 @@ import type {
   CephAdminBucket,
   ListCephAdminBucketsParams,
 } from "../../api/cephAdminBuckets";
-import type { BucketIndexCheckTarget } from "../../api/bucketIndexCheck";
+import type { RgwBucketReference } from "../../api/bucketOperation";
 import type { BucketUiTagDefinition } from "../../api/bucketUiTags";
 import { triggerDownload } from "../../utils/download";
 import type { ActionProgressState } from "./actionProgress";
@@ -68,7 +68,7 @@ export function useBucketOpsSelectionActions({
   setError,
 }: UseBucketOpsSelectionActionsOptions) {
   const [indexCheckTargets, setIndexCheckTargets] = useState<
-    BucketIndexCheckTarget[] | null
+    RgwBucketReference[] | null
   >(null);
   const [selectionTagActionLoading, setSelectionTagActionLoading] =
     useState<SelectionTagAction | null>(null);
