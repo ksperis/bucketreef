@@ -1015,7 +1015,6 @@ export default function BrowserPage({
       : undefined,
     prefix: normalizedPrefix,
     isMainBrowserPath,
-    workspaceSurface,
     contextId: contextIdForApi,
     lockedBucket: resolvedLockedBucketName,
     requestTransition: requestDetailsDrawerTransition,

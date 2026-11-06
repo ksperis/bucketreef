@@ -19,7 +19,7 @@ def test_retired_browser_routes_and_listing_filters_are_absent():
 
 def test_path_favorite_schema_has_no_generic_payload_or_saved_view_state():
     assert set(BrowserFavorite.__table__.columns.keys()) == {
-        "id", "user_id", "name", "surface", "workspace", "context", "bucket", "prefix",
+        "id", "user_id", "name", "context", "bucket", "prefix",
         "revision", "created_at", "updated_at",
     }
 

@@ -19,13 +19,10 @@ class BrowserFavoritesService:
     def output(row):
         return BrowserFavoriteOut.model_validate(row, from_attributes=True)
 
-    def list(self, user, surface):
+    def list(self, user):
         rows = self.db.scalars(
             select(BrowserFavorite)
-            .where(
-                BrowserFavorite.user_id == user.id,
-                BrowserFavorite.surface == surface,
-            )
+            .where(BrowserFavorite.user_id == user.id)
             .order_by(BrowserFavorite.created_at, BrowserFavorite.id)
         ).all()
         return [self.output(row) for row in rows]

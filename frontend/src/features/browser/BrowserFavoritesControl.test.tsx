@@ -8,8 +8,6 @@ const current: BrowserFavoriteInput = {
   context: "101",
   bucket: "reports",
   prefix: "études//",
-  surface: "browser",
-  workspace: "browser",
 };
 const saved: BrowserFavorite = {
   ...current,

@@ -25,8 +25,6 @@ vi.mock("../../api/browserObjects", () => ({
 
 const current: BrowserFavoriteInput = {
   name: "reports",
-  surface: "browser",
-  workspace: "browser",
   context: "101",
   bucket: "archive",
   prefix: "reports/",

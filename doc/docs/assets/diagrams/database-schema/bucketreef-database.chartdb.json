@@ -4157,27 +4157,6 @@
           "check": null
         },
         {
-          "id": "field:browser_favorites.surface",
-          "name": "surface",
-          "type": {
-            "id": "varchar(24)",
-            "name": "varchar(24)"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": false,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": "24",
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
           "id": "field:browser_favorites.name",
           "name": "name",
           "type": {
@@ -4191,27 +4170,6 @@
           "isArray": false,
           "createdAt": 0,
           "characterMaximumLength": "120",
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
-          "id": "field:browser_favorites.workspace",
-          "name": "workspace",
-          "type": {
-            "id": "varchar(24)",
-            "name": "varchar(24)"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": false,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": "24",
           "precision": null,
           "scale": null,
           "default": null,
@@ -4359,12 +4317,11 @@
           "comments": null
         },
         {
-          "id": "index:browser_favorites:ix_browser_favorites_user_surface",
-          "name": "ix_browser_favorites_user_surface",
+          "id": "index:browser_favorites:ix_browser_favorites_user_id",
+          "name": "ix_browser_favorites_user_id",
           "unique": false,
           "fieldIds": [
-            "field:browser_favorites.user_id",
-            "field:browser_favorites.surface"
+            "field:browser_favorites.user_id"
           ],
           "createdAt": 0,
           "isPrimaryKey": false,

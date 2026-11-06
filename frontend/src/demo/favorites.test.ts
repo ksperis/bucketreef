@@ -10,17 +10,16 @@ function fixture() {
     url: new URL("https://demo.test/api/users/me/browser-favorites" + suffix),
     request: new Request("https://demo.test"), persona, user: currentUser(state, persona),
   });
-  const payload = { name: "Exact path", surface: "browser", workspace: "browser", context: "conn-1", bucket: "demo", prefix: " /été// " };
+  const payload = { name: "Exact path", context: "conn-1", bucket: "demo", prefix: " /été// " };
   return { request, payload };
 }
 
 describe("demo path favorites", () => {
-  it("keeps exact paths personal and separated by surface", async () => {
+  it("keeps exact paths personal", async () => {
     const { request, payload } = fixture();
     const saved = await favorites(request("POST", payload))!.json();
     expect(saved.prefix).toBe(payload.prefix);
     expect(await favorites(request("GET", {}, "", "member"))!.json()).toEqual([]);
-    expect(await favorites(request("GET", {}, "?surface=portal"))!.json()).toEqual([]);
     expect(await favorites(request("GET"))!.json()).toHaveLength(1);
     expect(saved).not.toHaveProperty("kind");
     expect(saved).not.toHaveProperty("view");
@@ -38,6 +37,8 @@ describe("demo path favorites", () => {
   it("rejects retired fields and the old endpoint", () => {
     const { request, payload } = fixture();
     expect(() => favorites(request("POST", { ...payload, view: {} }))).toThrow(/Unknown favorite field/);
+    expect(() => favorites(request("POST", { ...payload, workspace: "manager" }))).toThrow(/Unknown favorite field/);
+    expect(() => favorites(request("POST", { ...payload, surface: "manager" }))).toThrow(/Unknown favorite field/);
     expect(favorites({ ...request("GET"), path: "/users/me/browser-presets" })).toBeUndefined();
   });
 });

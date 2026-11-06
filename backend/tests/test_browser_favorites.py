@@ -23,17 +23,16 @@ def login(db, email):
 
 
 def payload(**values):
-    return {"name": "Mes fichiers", "surface": "browser", "context": "account-101", "bucket": "archive", "prefix": " données//", **values}
+    return {"name": "Mes fichiers", "context": "account-101", "bucket": "archive", "prefix": " données//", **values}
 
 
-def test_favorites_are_personal_and_surface_scoped(client, db_session):
+def test_favorites_are_personal(client, db_session):
     first = login(db_session, "first@example.test")
     created = client.post("/api/users/me/browser-favorites", json=payload())
     assert created.status_code == 201, created.text
     saved = created.json()
     assert saved["prefix"] == " données//"
     assert "view" not in saved and "kind" not in saved
-    assert client.get("/api/users/me/browser-favorites", params={"surface": "manager"}).json() == []
     login(db_session, "second@example.test")
     assert client.get("/api/users/me/browser-favorites").json() == []
     assert client.put(f'/api/users/me/browser-favorites/{saved["id"]}?revision=1', json=payload()).status_code == 404
@@ -117,6 +116,7 @@ def test_favorites_reject_secrets_and_obsolete_view_fields(client, db_session):
     assert client.post("/api/users/me/browser-favorites", json=payload(access_key="secret")).status_code == 422
     assert client.post("/api/users/me/browser-favorites", json=payload(view={"file_filters": {"min_size": 20, "max_size": 1}})).status_code == 422
     assert client.post("/api/users/me/browser-favorites", json=payload(surface="unknown")).status_code == 422
+    assert client.post("/api/users/me/browser-favorites", json=payload(workspace="manager")).status_code == 422
     assert client.post("/api/users/me/browser-favorites", json=payload(kind="favorite")).status_code == 422
     assert "/api/users/me/browser-presets" not in app.openapi()["paths"]
 
@@ -195,6 +195,65 @@ def test_path_favorite_migration_accepts_an_empty_database(monkeypatch):
         migration.upgrade()
 
 
+def test_canonical_browser_favorites_migration_removes_retired_surface_state(monkeypatch):
+    engine = create_engine("sqlite://")
+    with engine.begin() as connection:
+        connection.execute(text("CREATE TABLE users (id INTEGER PRIMARY KEY)"))
+        connection.execute(text("INSERT INTO users (id) VALUES (1)"))
+        connection.execute(text(
+            "CREATE TABLE browser_favorites ("
+            "id VARCHAR(36) PRIMARY KEY, user_id INTEGER NOT NULL, name VARCHAR(120) NOT NULL, "
+            "surface VARCHAR(24) NOT NULL, workspace VARCHAR(24) NOT NULL, "
+            "context VARCHAR(256) NOT NULL, bucket VARCHAR(255) NOT NULL, "
+            "prefix VARCHAR(1024) NOT NULL, revision INTEGER NOT NULL, "
+            "created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL, "
+            "FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE)"
+        ))
+        connection.execute(text(
+            "CREATE INDEX ix_browser_favorites_user_surface "
+            "ON browser_favorites (user_id, surface)"
+        ))
+        connection.execute(text(
+            "INSERT INTO browser_favorites VALUES "
+            "('browser-root', 1, 'Root', 'browser', 'browser', '101', 'a', '', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP), "
+            "('browser-legacy-workspace', 1, 'Legacy', 'browser', 'manager', '101', 'b', '', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP), "
+            "('embedded', 1, 'Embedded', 'portal', 'portal', '101', 'c', '', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+        ))
+        operations = Operations(MigrationContext.configure(connection))
+        migration = load_migration("0249_canonical_browser_favorites.py", operations, monkeypatch)
+
+        migration.upgrade()
+
+        columns = {column["name"] for column in inspect(connection).get_columns("browser_favorites")}
+        assert columns == {
+            "id", "user_id", "name", "context", "bucket", "prefix",
+            "revision", "created_at", "updated_at",
+        }
+        rows = connection.execute(
+            text("SELECT id, bucket FROM browser_favorites ORDER BY id")
+        ).mappings().all()
+        assert [dict(row) for row in rows] == [
+            {"id": "browser-legacy-workspace", "bucket": "b"},
+            {"id": "browser-root", "bucket": "a"},
+        ]
+        index_names = {index["name"] for index in inspect(connection).get_indexes("browser_favorites")}
+        assert "ix_browser_favorites_user_id" in index_names
+        assert "ix_browser_favorites_user_surface" not in index_names
+
+        migration.downgrade()
+
+        restored = connection.execute(
+            text("SELECT id, surface, workspace FROM browser_favorites ORDER BY id")
+        ).mappings().all()
+        assert [dict(row) for row in restored] == [
+            {"id": "browser-legacy-workspace", "surface": "browser", "workspace": "browser"},
+            {"id": "browser-root", "surface": "browser", "workspace": "browser"},
+        ]
+        restored_indexes = {index["name"] for index in inspect(connection).get_indexes("browser_favorites")}
+        assert "ix_browser_favorites_user_surface" in restored_indexes
+        assert "ix_browser_favorites_user_id" not in restored_indexes
+
+
 def test_full_alembic_chain_upgrades_empty_database_and_round_trips(tmp_path):
     from alembic import command
     from alembic.config import Config
@@ -210,6 +269,10 @@ def test_full_alembic_chain_upgrades_empty_database_and_round_trips(tmp_path):
         command.upgrade(config, "head")
         assert "browser_favorites" in inspect(connection).get_table_names()
         assert "browser_presets" not in inspect(connection).get_table_names()
+        assert {column["name"] for column in inspect(connection).get_columns("browser_favorites")} == {
+            "id", "user_id", "name", "context", "bucket", "prefix",
+            "revision", "created_at", "updated_at",
+        }
         command.downgrade(config, "0136_merge_browser_migration_heads")
         assert "browser_presets" in inspect(connection).get_table_names()
         command.upgrade(config, "head")
