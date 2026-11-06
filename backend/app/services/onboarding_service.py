@@ -28,7 +28,6 @@ from app.services.audit_service import AuditService
 from app.services.effective_access_service import EffectiveAccessService
 from app.services.operation_lease_service import OperationLeaseService
 from app.services.onboarding_contracts import (
-    REQUIRED_FEATURES,
     OnboardingError,
     required_onboarding_feature_fields,
 )
@@ -349,14 +348,9 @@ class OnboardingService:
             .order_by(OnboardingJourney.updated_at.desc())
         ).all()
         journeys = [self.output(actor, row) for row in rows]
-        complete = (
-            bool(rows[0].configured_at)
-            if rows
-            else bool(preference and preference.initial_setup_completed_at)
-        )
         return OnboardingStatus(
             dismissed=preference.dismissed if preference else False,
-            complete=complete,
+            complete=bool(rows and rows[0].configured_at),
             source=get_settings().onboarding_source,
             journeys=journeys,
             can_configure=is_superadmin_ui_role(actor.role),

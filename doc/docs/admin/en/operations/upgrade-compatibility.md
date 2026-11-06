@@ -1,5 +1,19 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 canonical onboarding completion
+
+Migration `0255_canonical_onboarding_completion` removes the historical
+`onboarding_preferences.initial_setup_completed_at` compatibility marker. For
+an administrator who still has that marker and no current onboarding journey,
+the migration materializes an immutable configured version-2 journey with the
+same completion timestamp before dropping the column. Administrators who
+already have a current journey keep that journey as the sole completion source,
+matching the existing runtime precedence.
+
+After the migration, onboarding completion is derived only from canonical
+`onboarding_journeys` state. Downgrade restores the compatibility marker for
+the synthetic completion journeys and removes those synthetic rows.
+
 ## 2026-11 cost storage snapshot cleanup
 
 Migration `0250_remove_cost_by_bucket` removes the unused
