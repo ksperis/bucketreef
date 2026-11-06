@@ -129,7 +129,6 @@ class HealthCheckPersistenceService:
         entry.min_latency_ms = min(latencies) if latencies else None
         entry.avg_latency_ms = int(round(sum(latencies) / len(latencies))) if latencies else None
         entry.max_latency_ms = max(latencies) if latencies else None
-        entry.latency_sample_count = len(latencies)
         entry.updated_at = utcnow()
 
     def _update_status_segment(self, result: HealthCheckResult) -> None:

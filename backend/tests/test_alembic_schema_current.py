@@ -18,7 +18,8 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0241_remove_latest_availability"
+_EXPECTED_ALEMBIC_HEAD = "0242_remove_latest_sample_count"
+_RETIRED_LATEST_SAMPLE_COUNT_REVISION = "0241_remove_latest_availability"
 _RETIRED_LATEST_AVAILABILITY_REVISION = "0240_retire_migration_skipped_status"
 _CANONICAL_ROLLBACK_STATUS_REVISION = "0239_canonical_migration_rollback_status"
 _RETIRED_WEBHOOK_REVISION = "0238_remove_retired_migration_webhooks"
@@ -108,6 +109,10 @@ def test_alembic_exposes_single_head_after_rejoined_merge():
     assert script.get_heads() == [_EXPECTED_ALEMBIC_HEAD]
     assert (
         script.get_revision(_EXPECTED_ALEMBIC_HEAD).down_revision
+        == _RETIRED_LATEST_SAMPLE_COUNT_REVISION
+    )
+    assert (
+        script.get_revision(_RETIRED_LATEST_SAMPLE_COUNT_REVISION).down_revision
         == _RETIRED_LATEST_AVAILABILITY_REVISION
     )
     assert (

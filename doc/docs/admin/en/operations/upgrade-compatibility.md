@@ -470,6 +470,11 @@ The migration does not remove raw health checks or rollups. Current endpoint
 status and latency summaries continue to use `endpoint_health_latest`, while
 availability percentages continue to be calculated from rollup samples.
 
+Migration `0242_remove_latest_sample_count` also removes the write-only
+`endpoint_health_latest.latency_sample_count` column. Sample counters remain on
+health status segments and rollups, where they are used to maintain and weight
+latency aggregates.
+
 ## 2026-10 structured bucket migration workflow state
 
 Migration `0213_structure_bucket_migration_json` replaces the bucket migration
