@@ -8,8 +8,9 @@ import { filenameFromContentDisposition } from "./contentDisposition";
 import {
   buildJsonPostRequestInit,
   resolveApiBaseUrl,
-  streamBucketsWithSse,
-} from "./sseBucketsStream";
+  streamApiResultWithSse,
+  type SseStreamOptions,
+} from "./sseApiStream";
 import type { UserAvatarDescriptor } from "./users";
 import type {
   StorageSpaceIconDescriptor,
@@ -194,10 +195,7 @@ export type PortalDeletedPrefixRestoreResult = {
   finished_at: string;
 };
 
-type PortalDeletedPrefixRestoreStreamOptions = {
-  signal?: AbortSignal;
-  onProgress?: (event: PortalDeletedPrefixRestoreProgress) => void;
-};
+type PortalDeletedPrefixRestoreStreamOptions = SseStreamOptions<PortalDeletedPrefixRestoreProgress>;
 
 export type PortalStorageSpaceVersionCleanupProgress = {
   request_id: string | null;
@@ -227,10 +225,7 @@ export type PortalStorageSpaceVersionCleanupResult = {
   finished_at: string;
 };
 
-type PortalStorageSpaceVersionCleanupStreamOptions = {
-  signal?: AbortSignal;
-  onProgress?: (event: PortalStorageSpaceVersionCleanupProgress) => void;
-};
+type PortalStorageSpaceVersionCleanupStreamOptions = SseStreamOptions<PortalStorageSpaceVersionCleanupProgress>;
 
 export async function listPortalStorageSpaces(
   accountId: S3AccountSelector,
@@ -437,7 +432,7 @@ export function streamPortalDeletedPrefixRestore(
     }
   });
   const suffix = query.toString() ? `?${query.toString()}` : "";
-  return streamBucketsWithSse<
+  return streamApiResultWithSse<
     PortalDeletedPrefixRestoreProgress,
     PortalDeletedPrefixRestoreResult
   >({
@@ -480,7 +475,7 @@ export function streamPortalStorageSpaceVersionCleanup(
     }
   });
   const suffix = query.toString() ? `?${query.toString()}` : "";
-  return streamBucketsWithSse<
+  return streamApiResultWithSse<
     PortalStorageSpaceVersionCleanupProgress,
     PortalStorageSpaceVersionCleanupResult
   >({

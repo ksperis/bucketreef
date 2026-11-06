@@ -5,8 +5,9 @@
 import {
   buildJsonPostRequestInit,
   resolveApiBaseUrl,
-  streamBucketsWithSse,
-} from "./sseBucketsStream";
+  streamApiResultWithSse,
+  type SseStreamOptions,
+} from "./sseApiStream";
 import type { RgwBucketReference } from "./bucketOperation";
 
 type BucketIndexCheckPayload = {
@@ -47,17 +48,14 @@ export type BucketIndexCheckResult = {
   buckets: BucketIndexCheckBucketResult[];
 };
 
-type BucketIndexCheckStreamOptions = {
-  signal?: AbortSignal;
-  onProgress?: (event: BucketIndexCheckProgress) => void;
-};
+type BucketIndexCheckStreamOptions = SseStreamOptions<BucketIndexCheckProgress>;
 
 export async function streamCephAdminBucketIndexChecks(
   endpointId: number,
   payload: BucketIndexCheckPayload,
   options?: BucketIndexCheckStreamOptions
 ): Promise<BucketIndexCheckResult> {
-  return streamBucketsWithSse<BucketIndexCheckProgress, BucketIndexCheckResult>({
+  return streamApiResultWithSse<BucketIndexCheckProgress, BucketIndexCheckResult>({
     url: `${resolveApiBaseUrl()}/ceph-admin/endpoints/${endpointId}/bucket-index-check/stream`,
     options,
     streamFailedLabel: "Bucket index check failed",

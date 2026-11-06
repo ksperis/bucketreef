@@ -10,8 +10,9 @@ import type {
 import {
   buildJsonPostRequestInit,
   resolveApiBaseUrl,
-  streamBucketsWithSse,
-} from "./sseBucketsStream";
+  streamApiResultWithSse,
+  type SseStreamOptions,
+} from "./sseApiStream";
 
 export type BucketIntegrityCheckMode = "head" | "get";
 
@@ -76,10 +77,7 @@ export type BucketIntegrityResult = {
   buckets: BucketIntegrityBucketResult[];
 };
 
-type BucketIntegrityStreamOptions = {
-  signal?: AbortSignal;
-  onProgress?: (event: BucketIntegrityProgress) => void;
-};
+type BucketIntegrityStreamOptions = SseStreamOptions<BucketIntegrityProgress>;
 
 export function streamManagerBucketIntegrityCheck(
   contextId: S3ExecutionContextSelector,
@@ -88,7 +86,7 @@ export function streamManagerBucketIntegrityCheck(
 ): Promise<BucketIntegrityResult> {
   const baseUrl = resolveApiBaseUrl();
   const query = new URLSearchParams({ context_id: String(contextId) });
-  return streamBucketsWithSse<BucketIntegrityProgress, BucketIntegrityResult>({
+  return streamApiResultWithSse<BucketIntegrityProgress, BucketIntegrityResult>({
     url: `${baseUrl}/manager/bucket-integrity/stream?${query.toString()}`,
     options,
     requestInit: buildJsonPostRequestInit(payload),
@@ -103,7 +101,7 @@ export function streamCephAdminBucketIntegrityCheck(
   options?: BucketIntegrityStreamOptions
 ): Promise<BucketIntegrityResult> {
   const baseUrl = resolveApiBaseUrl();
-  return streamBucketsWithSse<BucketIntegrityProgress, BucketIntegrityResult>({
+  return streamApiResultWithSse<BucketIntegrityProgress, BucketIntegrityResult>({
     url: `${baseUrl}/ceph-admin/endpoints/${endpointId}/buckets/integrity-check/stream`,
     options,
     requestInit: buildJsonPostRequestInit(payload),
@@ -117,7 +115,7 @@ export function streamStorageOpsBucketIntegrityCheck(
   options?: BucketIntegrityStreamOptions
 ): Promise<BucketIntegrityResult> {
   const baseUrl = resolveApiBaseUrl();
-  return streamBucketsWithSse<BucketIntegrityProgress, BucketIntegrityResult>({
+  return streamApiResultWithSse<BucketIntegrityProgress, BucketIntegrityResult>({
     url: `${baseUrl}/storage-ops/buckets/integrity-check/stream`,
     options,
     requestInit: buildJsonPostRequestInit(payload),

@@ -2,14 +2,14 @@ import client, { buildApiRequestHeaders } from "./client";
 import { isCancelledError, sanitizeErrorMessage } from "../utils/apiError";
 import { buildSseError, consumeJsonSseStream } from "./sseStream";
 
-type StreamBucketsOptions<TProgress> = {
+export type SseStreamOptions<TProgress> = {
   signal?: AbortSignal;
   onProgress?: (event: TProgress) => void;
 };
 
-type StreamBucketsParams<TProgress> = {
+type SseResultStreamParams<TProgress> = {
   url: string;
-  options?: StreamBucketsOptions<TProgress>;
+  options?: SseStreamOptions<TProgress>;
   streamFailedLabel: string;
   missingResultMessage: string;
   requestInit?: RequestInit;
@@ -95,13 +95,13 @@ export async function openSseStream({
   return response.body;
 }
 
-export async function streamBucketsWithSse<TProgress, TResult>({
+export async function streamApiResultWithSse<TProgress, TResult>({
   url,
   options,
   streamFailedLabel,
   missingResultMessage,
   requestInit,
-}: StreamBucketsParams<TProgress>): Promise<TResult> {
+}: SseResultStreamParams<TProgress>): Promise<TResult> {
   const body = await openSseStream({
     url,
     signal: options?.signal,

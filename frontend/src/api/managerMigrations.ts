@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
-import { openSseStream, resolveApiBaseUrl } from "./sseBucketsStream";
+import { openSseStream, resolveApiBaseUrl } from "./sseApiStream";
 import { buildSseError, consumeJsonSseStream } from "./sseStream";
 
 export type BucketMigrationMode = "one_shot" | "pre_sync";
