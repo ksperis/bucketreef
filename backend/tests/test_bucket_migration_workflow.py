@@ -59,6 +59,13 @@ def test_bucket_migration_diagnostic_requires_complete_nullable_metadata():
 def test_bucket_migration_maintenance_contract_uses_closed_values():
     properties = BucketMigrationView.model_json_schema()["properties"]
 
+    assert properties["preparation_status"]["enum"] == [
+        "unverified",
+        "checking",
+        "blocked",
+        "ready",
+        "stale",
+    ]
     assert properties["maintenance_status"]["enum"] == [
         "idle",
         "queued",

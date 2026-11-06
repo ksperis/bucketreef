@@ -1373,6 +1373,8 @@ Manager bucket-migration responses now expose the existing maintenance state as
 closed values. `maintenance_operation` is limited to `restore_access`,
 `cleanup_source`, or `cleanup_target`, while `maintenance_status` is limited to
 `idle`, `queued`, `running`, `failed`, or `completed`.
+The preparation state is likewise exposed as the closed set `unverified`,
+`checking`, `blocked`, `ready`, or `stale`.
 
 Deploy the backend and bundled frontend together. Existing database rows do not
 require migration because these are the only values produced by the maintenance

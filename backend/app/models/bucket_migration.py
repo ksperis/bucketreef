@@ -25,6 +25,13 @@ BucketMigrationStatus = Literal[
     "rolled_back",
 ]
 BucketMigrationPrecheckStatus = Literal["pending", "passed", "failed"]
+BucketMigrationPreparationStatus = Literal[
+    "unverified",
+    "checking",
+    "blocked",
+    "ready",
+    "stale",
+]
 BucketMigrationMaintenanceOperation = Literal[
     "restore_access",
     "cleanup_source",
@@ -200,7 +207,7 @@ class BucketMigrationView(ApiModel):
     precheck_report: Optional[BucketMigrationPrecheckReportView]
     precheck_checked_at: Optional[datetime]
     configuration_revision: int
-    preparation_status: Literal["unverified", "checking", "blocked", "ready", "stale"]
+    preparation_status: BucketMigrationPreparationStatus
     preparation_active_checks: bool
     preparation_completed_items: int
     maintenance_operation: Optional[BucketMigrationMaintenanceOperation]
@@ -229,7 +236,7 @@ class BucketMigrationListItem(ApiModel):
     target_context_id: str
     status: BucketMigrationStatus
     precheck_checked_at: Optional[datetime]
-    preparation_status: Literal["unverified", "checking", "blocked", "ready", "stale"]
+    preparation_status: BucketMigrationPreparationStatus
     preparation_completed_items: int
     maintenance_status: BucketMigrationMaintenanceStatus
     total_items: int
