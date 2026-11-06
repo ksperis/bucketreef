@@ -25,7 +25,7 @@ from app.models.bucket import (
     BucketWebsiteConfiguration,
     BucketWebsiteRedirectAllRequestsTo,
 )
-from app.models.bucket_listing import BucketListingSummary
+from app.models.bucket_listing import BucketListingRequest, BucketListingSummary
 from app.models.ceph_admin import PaginatedCephAdminBucketsResponse
 from app.main import app
 from app.routers import dependencies
@@ -197,6 +197,50 @@ def _build_ctx(
     return ctx, rgw_admin
 
 
+def _bucket_listing_request(
+    *,
+    page: int = 1,
+    page_size: int = 25,
+    filter: str | None = None,
+    advanced_filter: str | None = None,
+    sort_by: str = "name",
+    sort_dir: str = "asc",
+    include: list[str] | None = None,
+    with_stats: bool = True,
+    ui_tag_ids: list[int] | None = None,
+    ui_tag_match: str = "any",
+) -> BucketListingRequest:
+    return BucketListingRequest(
+        page=page,
+        page_size=page_size,
+        filter=filter,
+        advanced_filter=advanced_filter,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+        include=include or [],
+        with_stats=with_stats,
+        ui_tag_ids=ui_tag_ids or [],
+        ui_tag_match=ui_tag_match,
+    )
+
+
+def _list_buckets(*, ctx, db=None, **listing_options):
+    return buckets_router.list_buckets(
+        query=_bucket_listing_request(**listing_options),
+        ctx=ctx,
+        db=db,
+    )
+
+
+async def _stream_buckets(*, request, ctx, db=None, **listing_options):
+    return await buckets_router.stream_buckets(
+        request=request,
+        query=_bucket_listing_request(**listing_options),
+        ctx=ctx,
+        db=db,
+    )
+
+
 def test_ceph_admin_bucket_listing_cache_is_reused_across_pages():
     payload = [
         {"name": "bucket-a", "owner": "owner-a"},
@@ -206,7 +250,7 @@ def test_ceph_admin_bucket_listing_cache_is_reused_across_pages():
     ]
     ctx, rgw_admin = _build_ctx(endpoint_id=17, payload=payload)
 
-    first = buckets_router.list_buckets(
+    first = _list_buckets(
         page=1,
         page_size=2,
         filter=None,
@@ -217,7 +261,7 @@ def test_ceph_admin_bucket_listing_cache_is_reused_across_pages():
         with_stats=False,
         ctx=ctx,
     )
-    second = buckets_router.list_buckets(
+    second = _list_buckets(
         page=2,
         page_size=2,
         filter=None,
@@ -246,16 +290,7 @@ def test_ceph_admin_bucket_listing_skips_owner_backfill_for_explicit_global_tena
             return {target: [] for target in targets}
 
     response = bucket_listing_service.compute_ceph_admin_bucket_listing(
-        page=1,
-        page_size=25,
-        filter=None,
-        advanced_filter=None,
-        sort_by="name",
-        sort_dir="asc",
-        include=[],
-        with_stats=True,
-        ui_tag_ids=[],
-        ui_tag_match="any",
+        request=BucketListingRequest(),
         bucket_ui_tags_service=EmptyBucketUiTagsService(),
         actor_user_id=1,
         ctx=ctx,
@@ -290,7 +325,7 @@ def test_ceph_admin_rgw_bucket_payload_cache_coalesces_parallel_misses():
     def worker() -> None:
         try:
             results.append(
-                buckets_router.list_buckets(
+                _list_buckets(
                     page=1,
                     page_size=25,
                     filter=None,
@@ -347,7 +382,7 @@ def test_ceph_admin_bucket_listing_snapshot_cache_coalesces_parallel_misses(monk
     def worker() -> None:
         try:
             results.append(
-                buckets_router.list_buckets(
+                _list_buckets(
                     page=1,
                     page_size=25,
                     filter=None,
@@ -408,7 +443,7 @@ def test_ceph_admin_rgw_bucket_payload_serializes_stats_variants_for_endpoint(mo
     def worker(with_stats: bool) -> None:
         try:
             results.append(
-                buckets_router.list_buckets(
+                _list_buckets(
                     page=1,
                     page_size=25,
                     filter=None,
@@ -451,7 +486,7 @@ def test_ceph_admin_bucket_listing_cache_expires_after_ttl(monkeypatch: pytest.M
 
     monkeypatch.setattr(bucket_listing_cache, "monotonic", lambda: now)
 
-    first = buckets_router.list_buckets(
+    first = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -466,7 +501,7 @@ def test_ceph_admin_bucket_listing_cache_expires_after_ttl(monkeypatch: pytest.M
     assert rgw_admin.get_all_buckets_calls == 1
 
     now = 2299.0
-    second = buckets_router.list_buckets(
+    second = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -481,7 +516,7 @@ def test_ceph_admin_bucket_listing_cache_expires_after_ttl(monkeypatch: pytest.M
     assert rgw_admin.get_all_buckets_calls == 1
 
     now = 2301.0
-    third = buckets_router.list_buckets(
+    third = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -641,7 +676,7 @@ def test_ceph_admin_bucket_listing_name_contains_does_not_apply_exact_prefilter(
         }
     )
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -674,7 +709,7 @@ def test_ceph_admin_bucket_listing_any_mixed_rule_does_not_apply_exact_name_pref
         }
     )
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -694,7 +729,7 @@ def test_ceph_admin_bucket_listing_cache_can_be_invalidated_per_endpoint():
     payload = [{"name": "bucket-a", "owner": "owner-a"}, {"name": "bucket-b", "owner": "owner-b"}]
     ctx, rgw_admin = _build_ctx(endpoint_id=42, payload=payload)
 
-    buckets_router.list_buckets(
+    _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -706,7 +741,7 @@ def test_ceph_admin_bucket_listing_cache_can_be_invalidated_per_endpoint():
         ctx=ctx,
     )
     bucket_listing_cache.invalidate_bucket_listing_cache(ctx.endpoint.id)
-    buckets_router.list_buckets(
+    _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -753,7 +788,7 @@ def test_ceph_admin_bucket_listing_cache_does_not_leak_owner_name_mutations():
     ]
     ctx, rgw_admin = _build_ctx(endpoint_id=73, payload=payload)
 
-    with_owner_name = buckets_router.list_buckets(
+    with_owner_name = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -764,7 +799,7 @@ def test_ceph_admin_bucket_listing_cache_does_not_leak_owner_name_mutations():
         with_stats=False,
         ctx=ctx,
     )
-    without_owner_name = buckets_router.list_buckets(
+    without_owner_name = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -798,7 +833,7 @@ def test_ceph_admin_bucket_listing_cache_does_not_leak_lifecycle_column_details(
 
     monkeypatch.setattr(BucketConfigurationService, "get_lifecycle", fake_get_lifecycle)
 
-    with_details = buckets_router.list_buckets(
+    with_details = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -809,7 +844,7 @@ def test_ceph_admin_bucket_listing_cache_does_not_leak_lifecycle_column_details(
         with_stats=False,
         ctx=ctx,
     )
-    without_details = buckets_router.list_buckets(
+    without_details = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -841,7 +876,7 @@ def test_ceph_admin_bucket_listing_cache_is_reused_for_quick_filter_changes():
     ]
     ctx, rgw_admin = _build_ctx(endpoint_id=91, payload=payload)
 
-    first = buckets_router.list_buckets(
+    first = _list_buckets(
         page=1,
         page_size=25,
         filter="a",
@@ -852,7 +887,7 @@ def test_ceph_admin_bucket_listing_cache_is_reused_for_quick_filter_changes():
         with_stats=False,
         ctx=ctx,
     )
-    second = buckets_router.list_buckets(
+    second = _list_buckets(
         page=1,
         page_size=25,
         filter="al",
@@ -894,7 +929,7 @@ def test_ceph_admin_bucket_listing_name_filter_uses_single_bulk_rgw_call():
         }
     )
 
-    first = buckets_router.list_buckets(
+    first = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -905,7 +940,7 @@ def test_ceph_admin_bucket_listing_name_filter_uses_single_bulk_rgw_call():
         with_stats=False,
         ctx=ctx,
     )
-    second = buckets_router.list_buckets(
+    second = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -937,7 +972,7 @@ def test_ceph_admin_bucket_listing_owner_filter_requires_top_level_owner():
         }
     )
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -997,7 +1032,7 @@ def test_ceph_admin_bucket_listing_any_mixed_filter_prefers_bulk_field_rules(mon
         }
     )
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -1040,7 +1075,7 @@ def test_ceph_admin_bucket_listing_notifications_include_and_filter(monkeypatch:
 
     monkeypatch.setattr(BucketConfigurationService, "get_bucket_notifications", fake_get_notifications)
 
-    included = buckets_router.list_buckets(
+    included = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -1068,7 +1103,7 @@ def test_ceph_admin_bucket_listing_notifications_include_and_filter(monkeypatch:
         }
     )
 
-    filtered = buckets_router.list_buckets(
+    filtered = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -1152,7 +1187,7 @@ def test_ceph_admin_bucket_listing_notification_detail_filters_and_topic_column(
 
     monkeypatch.setattr(BucketConfigurationService, "get_bucket_notifications", fake_get_notifications)
 
-    included = buckets_router.list_buckets(
+    included = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -1169,7 +1204,7 @@ def test_ceph_admin_bucket_listing_notification_detail_filters_and_topic_column(
     assert included.items[2].column_details == {"notification_topic_names": ["audit-topic"]}
 
     def filter_names(rules: list[dict]) -> list[str]:
-        response = buckets_router.list_buckets(
+        response = _list_buckets(
             page=1,
             page_size=25,
             filter=None,
@@ -1249,7 +1284,7 @@ def test_ceph_admin_bucket_listing_tag_filter_matches_s3_tags(monkeypatch: pytes
         }
     )
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -1303,7 +1338,7 @@ def test_ceph_admin_bucket_listing_any_tag_filter_prefers_bulk_field_rules(monke
         }
     )
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -1330,7 +1365,7 @@ def test_ceph_admin_bucket_listing_owner_name_lookup_deduplicates_same_owner():
     ]
     ctx, rgw_admin = _build_ctx(endpoint_id=173, payload=payload)
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -1446,7 +1481,7 @@ def test_ceph_admin_bucket_listing_owner_name_skips_account_lookup_when_feature_
         features=persisted_endpoint_features("features:\n  account:\n    enabled: false\n"),
     )
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -1488,7 +1523,7 @@ def test_ceph_admin_bucket_listing_owner_name_reads_nested_user_payload():
     )
     ctx = _ceph_admin_context(175, rgw_admin)
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -1542,7 +1577,7 @@ def test_ceph_admin_bucket_listing_owner_name_filter_accounts_only_limits_rgw_ca
         }
     )
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -1577,7 +1612,7 @@ def test_ceph_admin_bucket_listing_owner_name_filter_users_only_limits_rgw_calls
         }
     )
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -1622,7 +1657,7 @@ def test_ceph_admin_bucket_listing_owner_name_filter_is_strict_for_user_display_
         }
     )
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -1665,7 +1700,7 @@ def test_ceph_admin_bucket_listing_owner_name_filter_is_strict_for_account_name(
         }
     )
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -1708,7 +1743,7 @@ def test_ceph_admin_bucket_listing_owner_name_filter_is_strict_for_account_name_
         }
     )
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -1762,7 +1797,7 @@ def test_ceph_admin_bucket_listing_owner_name_reads_nested_account_name():
         }
     )
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -1816,7 +1851,7 @@ def test_ceph_admin_bucket_listing_owner_name_filter_loads_owner_metadata_when_b
         }
     )
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -1856,7 +1891,7 @@ def test_ceph_admin_bucket_listing_falls_back_without_stats_and_backfills_owner(
     rgw_admin = StatsFallbackAdmin()
     ctx = _ceph_admin_context(188, rgw_admin)
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -1892,7 +1927,7 @@ def test_ceph_admin_bucket_listing_returns_gateway_timeout_without_fallback(monk
     ctx = _ceph_admin_context(190, rgw_admin)
 
     with pytest.raises(HTTPException) as exc:
-        buckets_router.list_buckets(
+        _list_buckets(
             page=1,
             page_size=25,
             filter=None,
@@ -1920,7 +1955,7 @@ def test_ceph_admin_bucket_listing_rejects_stats_sort_when_stats_fetch_fails(mon
     ctx = _ceph_admin_context(189, rgw_admin)
 
     with pytest.raises(HTTPException) as exc:
-        buckets_router.list_buckets(
+        _list_buckets(
             page=1,
             page_size=25,
             filter=None,
@@ -1944,7 +1979,7 @@ def test_ceph_admin_bucket_listing_sort_by_usage_treats_missing_values_as_zero(m
     ]
     ctx, rgw_admin = _build_ctx(endpoint_id=187, payload=payload)
 
-    used_desc = buckets_router.list_buckets(
+    used_desc = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -1955,7 +1990,7 @@ def test_ceph_admin_bucket_listing_sort_by_usage_treats_missing_values_as_zero(m
         with_stats=True,
         ctx=ctx,
     )
-    used_asc = buckets_router.list_buckets(
+    used_asc = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -1966,7 +2001,7 @@ def test_ceph_admin_bucket_listing_sort_by_usage_treats_missing_values_as_zero(m
         with_stats=True,
         ctx=ctx,
     )
-    objects_desc = buckets_router.list_buckets(
+    objects_desc = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -1977,7 +2012,7 @@ def test_ceph_admin_bucket_listing_sort_by_usage_treats_missing_values_as_zero(m
         with_stats=True,
         ctx=ctx,
     )
-    objects_asc = buckets_router.list_buckets(
+    objects_asc = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -2011,7 +2046,7 @@ def test_ceph_admin_bucket_listing_prefers_quota_max_size_bytes_when_both_units_
     ]
     ctx, rgw_admin = _build_ctx(endpoint_id=188, payload=payload)
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -2066,7 +2101,7 @@ def test_ceph_admin_bucket_listing_lifecycle_param_filters_use_same_rule_matchin
         }
     )
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -2110,7 +2145,7 @@ def test_ceph_admin_bucket_listing_lifecycle_rule_name_can_be_negated_with_quant
         }
     )
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -2163,7 +2198,7 @@ def test_ceph_admin_bucket_listing_lifecycle_rule_status_filters_same_rule(monke
             ],
         }
     )
-    status_response = buckets_router.list_buckets(
+    status_response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -2196,7 +2231,7 @@ def test_ceph_admin_bucket_listing_lifecycle_rule_status_filters_same_rule(monke
             ],
         }
     )
-    combined_response = buckets_router.list_buckets(
+    combined_response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -2253,7 +2288,7 @@ def test_ceph_admin_bucket_listing_lifecycle_rule_type_filters(
         }
     )
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -2300,7 +2335,7 @@ def test_ceph_admin_bucket_listing_lifecycle_rule_type_and_abort_days_must_match
         }
     )
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -2355,7 +2390,7 @@ def test_ceph_admin_bucket_listing_lifecycle_abort_days_operators(
         }
     )
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -2430,7 +2465,7 @@ def test_ceph_admin_bucket_listing_lifecycle_other_days_filters(
         }
     )
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -2485,7 +2520,7 @@ def test_ceph_admin_bucket_listing_lifecycle_transition_days_operators(
         }
     )
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -2534,7 +2569,7 @@ def test_ceph_admin_bucket_listing_lifecycle_transition_days_and_rule_name_must_
         }
     )
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -2575,7 +2610,7 @@ def test_ceph_admin_bucket_listing_feature_param_filters_exclude_unavailable_buc
         }
     )
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -2699,7 +2734,7 @@ def test_ceph_admin_bucket_listing_feature_param_filters_cover_non_lifecycle_fea
         }
     )
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -2744,7 +2779,7 @@ def test_ceph_admin_bucket_listing_cors_combined_filters_match_same_rule(monkeyp
         }
     )
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -2796,7 +2831,7 @@ def test_ceph_admin_bucket_listing_sse_combined_filters_match_same_rule(monkeypa
         }
     )
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -2841,7 +2876,7 @@ def test_ceph_admin_bucket_listing_sse_filter_supports_quantifier_none(monkeypat
         }
     )
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -2909,7 +2944,7 @@ def test_ceph_admin_bucket_listing_includes_audit_feature_column_details(monkeyp
     monkeypatch.setattr(BucketConfigurationService, "get_policy", fake_get_policy)
     monkeypatch.setattr(BucketConfigurationService, "get_bucket_encryption", fake_get_bucket_encryption)
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -2975,14 +3010,10 @@ def test_ceph_admin_bucket_listing_advanced_progress_is_monotonic():
     advanced_filter = json.dumps({"match": "all", "rules": [{"field": "owner", "op": "contains", "value": "owner"}]})
 
     response = buckets_router._compute_bucket_listing(
-        page=1,
-        page_size=25,
-        filter=None,
-        advanced_filter=advanced_filter,
-        sort_by="name",
-        sort_dir="asc",
-        include=[],
-        with_stats=False,
+        query=_bucket_listing_request(
+            advanced_filter=advanced_filter,
+            with_stats=False,
+        ),
         ctx=ctx,
         progress_callback=snapshots.append,
         cancel_check=None,
@@ -3003,14 +3034,10 @@ def test_ceph_admin_bucket_listing_scan_reports_item_progress():
     advanced_filter = json.dumps({"match": "all", "rules": [{"field": "owner", "op": "contains", "value": "owner"}]})
 
     response = buckets_router._compute_bucket_listing(
-        page=1,
-        page_size=25,
-        filter=None,
-        advanced_filter=advanced_filter,
-        sort_by="name",
-        sort_dir="asc",
-        include=[],
-        with_stats=False,
+        query=_bucket_listing_request(
+            advanced_filter=advanced_filter,
+            with_stats=False,
+        ),
         ctx=ctx,
         progress_callback=snapshots.append,
         cancel_check=None,
@@ -3027,7 +3054,7 @@ def test_ceph_admin_bucket_stream_requires_advanced_filter_payload():
     async def _run() -> None:
         request = SimpleNamespace(is_disconnected=lambda: asyncio.sleep(0, result=False))
         with pytest.raises(HTTPException) as exc:
-            await buckets_router.stream_buckets(
+            await _stream_buckets(
                 request=request,
                 page=1,
                 page_size=25,
@@ -3051,16 +3078,7 @@ def test_ceph_admin_bucket_stream_emits_progress_result_and_done(monkeypatch: py
 
     def fake_compute(
         *,
-        page: int,
-        page_size: int,
-        filter: str | None,
-        advanced_filter: str | None,
-        sort_by: str,
-        sort_dir: str,
-        include: list[str],
-        with_stats: bool,
-        ui_tag_ids=None,
-        ui_tag_match="any",
+        query: BucketListingRequest,
         db=None,
         ctx,
         progress_callback=None,
@@ -3089,8 +3107,8 @@ def test_ceph_admin_bucket_stream_emits_progress_result_and_done(monkeypatch: py
         return PaginatedCephAdminBucketsResponse(
             items=[BucketListingSummary(name="bucket-a", tenant=None, owner="owner-a")],
             total=1,
-            page=page,
-            page_size=page_size,
+            page=query.page,
+            page_size=query.page_size,
             has_next=False,
             stats_available=True,
             stats_warning=None,
@@ -3100,7 +3118,7 @@ def test_ceph_admin_bucket_stream_emits_progress_result_and_done(monkeypatch: py
 
     async def _run() -> str:
         request = SimpleNamespace(is_disconnected=lambda: asyncio.sleep(0, result=False))
-        response = await buckets_router.stream_buckets(
+        response = await _stream_buckets(
             request=request,
             page=1,
             page_size=25,
@@ -3136,7 +3154,7 @@ def test_ceph_admin_bucket_stream_hides_unexpected_error_details(monkeypatch: py
 
     async def _run() -> str:
         request = SimpleNamespace(is_disconnected=lambda: asyncio.sleep(0, result=False))
-        response = await buckets_router.stream_buckets(
+        response = await _stream_buckets(
             request=request,
             page=1,
             page_size=25,
@@ -3167,16 +3185,7 @@ def test_ceph_admin_bucket_stream_cancels_work_when_client_disconnects(monkeypat
 
     def fake_compute(
         *,
-        page: int,
-        page_size: int,
-        filter: str | None,
-        advanced_filter: str | None,
-        sort_by: str,
-        sort_dir: str,
-        include: list[str],
-        with_stats: bool,
-        ui_tag_ids=None,
-        ui_tag_match="any",
+        query: BucketListingRequest,  # noqa: ARG001
         db=None,
         ctx,
         progress_callback=None,
@@ -3213,7 +3222,7 @@ def test_ceph_admin_bucket_stream_cancels_work_when_client_disconnects(monkeypat
             return state["calls"] >= 2
 
         request = SimpleNamespace(is_disconnected=is_disconnected)
-        response = await buckets_router.stream_buckets(
+        response = await _stream_buckets(
             request=request,
             page=1,
             page_size=25,
@@ -3260,7 +3269,7 @@ def test_ceph_admin_owner_quota_columns_use_cached_account_listing_across_pages(
         ],
     )
 
-    first = buckets_router.list_buckets(
+    first = _list_buckets(
         page=1,
         page_size=1,
         filter=None,
@@ -3271,7 +3280,7 @@ def test_ceph_admin_owner_quota_columns_use_cached_account_listing_across_pages(
         with_stats=False,
         ctx=ctx,
     )
-    second = buckets_router.list_buckets(
+    second = _list_buckets(
         page=2,
         page_size=1,
         filter=None,
@@ -3326,7 +3335,7 @@ def test_ceph_admin_owner_quota_filter_for_user_owner_is_deduplicated_and_cached
         }
     )
 
-    first = buckets_router.list_buckets(
+    first = _list_buckets(
         page=1,
         page_size=1,
         filter=None,
@@ -3337,7 +3346,7 @@ def test_ceph_admin_owner_quota_filter_for_user_owner_is_deduplicated_and_cached
         with_stats=False,
         ctx=ctx,
     )
-    second = buckets_router.list_buckets(
+    second = _list_buckets(
         page=2,
         page_size=1,
         filter=None,
@@ -3380,7 +3389,7 @@ def test_ceph_admin_bucket_listing_filters_by_owner_suspended_status():
         }
     )
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -3415,7 +3424,7 @@ def test_ceph_admin_bucket_listing_owner_suspended_column_treats_missing_flag_as
         },
     )
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -3457,7 +3466,7 @@ def test_ceph_admin_owner_quota_usage_percent_filter_uses_global_owner_usage(mon
         }
     )
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,
@@ -3496,7 +3505,7 @@ def test_ceph_admin_bucket_quota_usage_percent_filter_matches_bucket_usage_and_i
         }
     )
 
-    response = buckets_router.list_buckets(
+    response = _list_buckets(
         page=1,
         page_size=25,
         filter=None,

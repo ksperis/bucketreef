@@ -15,7 +15,7 @@ from app.db import S3Account, S3Connection, User
 from app.core.domain_enums import UserRole
 from app.models.bucket import Bucket, BucketEncryptionConfiguration, BucketFeatureStatus, BucketLifecycleConfig, BucketNotificationConfiguration
 from app.models.bucket_filter import BucketFilterQuery
-from app.models.bucket_listing import BucketListingSummary
+from app.models.bucket_listing import BucketListingRequest, BucketListingSummary
 from app.models.execution_context import ExecutionContextCapabilities
 from app.models.storage_ops import PaginatedStorageOpsBucketsResponse, StorageOpsBucketSummary
 from app.routers import dependencies
@@ -482,14 +482,12 @@ def test_storage_ops_listing_reports_context_progress(monkeypatch):
         db=SimpleNamespace(),
         user=_admin_user(),
         service=FakeBucketsService(),
-        page=1,
-        page_size=25,
-        filter=None,
-        advanced_filter=json.dumps({"match": "all", "rules": [{"field": "name", "op": "contains", "value": "bucket"}]}),
-        sort_by="name",
-        sort_dir="asc",
-        include=[],
-        with_stats=False,
+        query=BucketListingRequest(
+            advanced_filter=json.dumps(
+                {"match": "all", "rules": [{"field": "name", "op": "contains", "value": "bucket"}]}
+            ),
+            with_stats=False,
+        ),
         progress_callback=snapshots.append,
         cancel_check=None,
     )
