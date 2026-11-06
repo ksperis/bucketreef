@@ -150,25 +150,19 @@ export type CostSubjectDetail = {
   cost: CostBreakdown | null;
 };
 
-export type CostSubjectHistoryPoint = {
+export type CostHistoryPoint = {
   month: string;
   coverage: CostCoverage;
   cost: CostBreakdown | null;
 };
 
 export type AdminCostSubjectDetail = CostSubjectDetail & {
-  history: CostSubjectHistoryPoint[];
+  history: CostHistoryPoint[];
 };
 
 export type CostAnalyticsEndpoint = {
   storage_endpoint_id: number;
   storage_endpoint_name: string;
-  coverage: CostCoverage;
-  cost: CostBreakdown | null;
-};
-
-export type CostAnalyticsHistoryPoint = {
-  month: string;
   coverage: CostCoverage;
   cost: CostBreakdown | null;
 };
@@ -187,7 +181,7 @@ export type CostAnalyticsResponse = {
   by_endpoint: CostAnalyticsEndpoint[];
   top_subjects: CostSubjectSummary[];
   concentration: CostAnalyticsConcentration;
-  history: CostAnalyticsHistoryPoint[];
+  history: CostHistoryPoint[];
 };
 
 export async function fetchCostSettings(): Promise<CostSettings> {
