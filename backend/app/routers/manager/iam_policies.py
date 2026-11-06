@@ -1,9 +1,11 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.services.access_context_contracts import ManagerActor
-from app.models.iam import IAMPolicyPage
+from app.models.iam import IAMPageRequest, IAMPolicyPage
 from app.models.policy import Policy, PolicyCreate
 from app.routers.dependencies import (
     get_s3_execution_context,
@@ -35,18 +37,16 @@ def list_policies(
 
 @router.get("/page", response_model=IAMPolicyPage)
 def list_policies_page(
-    marker: str | None = Query(None),
-    page_size: int = Query(25, ge=1, le=100),
-    search: str | None = Query(None, max_length=200),
+    query: Annotated[IAMPageRequest, Depends()],
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> IAMPolicyPage:
     service = get_iam_service_for_context(context)
     try:
         policies, next_marker = service.list_policies_page(
-            marker=marker,
-            max_items=page_size,
-            search=search,
+            marker=query.marker,
+            max_items=query.page_size,
+            search=query.search,
         )
         return IAMPolicyPage(items=policies, next_marker=next_marker)
     except RuntimeError as exc:
