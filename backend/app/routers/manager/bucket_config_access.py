@@ -15,6 +15,7 @@ from app.models.bucket import (
     BucketPublicAccessBlockUpdate,
 )
 from app.routers.dependencies import get_s3_execution_context, get_current_account_admin
+from app.routers.bucket_config_errors import run_bucket_config_action, run_bucket_config_no_content
 from app.routers.manager.bucket_config_common import get_manager_bucket_config_mutation_service
 from app.services import bucket_config_actions
 from app.services.bucket_config_mutation_service import BucketConfigMutationService
@@ -34,7 +35,8 @@ def get_acl(
     service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketAcl:
-    return bucket_config_actions.get_bucket_acl_config(
+    return run_bucket_config_action(
+        bucket_config_actions.get_bucket_acl_config,
         service=service,
         context=context,
         bucket_name=bucket_name,
@@ -49,7 +51,8 @@ def put_acl(
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> BucketAcl:
-    return mutation.update(
+    return run_bucket_config_action(
+        mutation.update,
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
@@ -65,7 +68,8 @@ def get_public_access_block(
     service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketPublicAccessBlock:
-    return bucket_config_actions.get_bucket_public_access_block_config(
+    return run_bucket_config_action(
+        bucket_config_actions.get_bucket_public_access_block_config,
         service=service,
         context=context,
         bucket_name=bucket_name,
@@ -80,7 +84,8 @@ def put_public_access_block(
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> BucketPublicAccessBlock:
-    return mutation.update(
+    return run_bucket_config_action(
+        mutation.update,
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
@@ -97,7 +102,8 @@ def put_policy(
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> BucketPolicyOut:
-    return mutation.update(
+    return run_bucket_config_action(
+        mutation.update,
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
@@ -117,7 +123,8 @@ def delete_policy(
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> Response:
-    return mutation.delete(
+    return run_bucket_config_no_content(
+        mutation.delete,
         actor=current_user,
         context=context,
         bucket_name=bucket_name,

@@ -7,6 +7,7 @@ from typing import Any, Literal
 
 from fastapi import HTTPException, Response, status
 
+from app.routers.bucket_config_errors import run_bucket_config_action, run_bucket_config_no_content
 from app.services.ceph_admin_context import CephAdminContext
 from app.services import bucket_config_actions
 from app.services.bucket_config_mutation_registry import (
@@ -95,7 +96,8 @@ def _run_bucket_config_read(
 ) -> Any:
     target = ceph_admin_bucket_target(ctx, bucket_name, tenant)
     service, context = _ceph_admin_bucket_config_context(ctx)
-    return action(
+    return run_bucket_config_action(
+        action,
         service=service,
         context=context,
         bucket_name=target.s3_name,
@@ -113,7 +115,8 @@ def _run_bucket_config_update(
     target = ceph_admin_bucket_target(ctx, bucket_name, tenant)
     service, context = _ceph_admin_bucket_config_context(ctx)
     mutation = get_bucket_config_mutation(config_area)
-    return bucket_config_actions.apply_bucket_config_update(
+    return run_bucket_config_action(
+        bucket_config_actions.apply_bucket_config_update,
         service=service,
         context=context,
         bucket_name=target.s3_name,
@@ -141,7 +144,8 @@ def _run_bucket_config_delete(
     service, context = _ceph_admin_bucket_config_context(ctx)
     mutation = get_bucket_config_delete_mutation(config_area)
     assert mutation.delete_action is not None
-    return bucket_config_actions.apply_bucket_config_delete(
+    return run_bucket_config_no_content(
+        bucket_config_actions.apply_bucket_config_delete,
         service=service,
         context=context,
         bucket_name=target.s3_name,

@@ -75,6 +75,7 @@ from app.routers.dependencies import (
     require_bucket_purge_enabled,
     require_manager_bucket_quota,
 )
+from app.routers.bucket_config_errors import run_bucket_config_action, run_bucket_delete_action
 
 router = APIRouter(prefix="/manager/buckets", tags=["manager-buckets"])
 router.include_router(bucket_config.router)
@@ -237,7 +238,8 @@ def update_quota(
     current_user: User = Depends(get_current_user),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> Response:
-    audit_metadata = bucket_config_actions.update_bucket_quota_config(
+    audit_metadata = run_bucket_config_action(
+        bucket_config_actions.update_bucket_quota_config,
         service=service,
         context=context,
         bucket_name=bucket_name,
@@ -340,7 +342,8 @@ def create_bucket(
     current_user: ManagerActor = Depends(get_current_account_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> Response:
-    audit_metadata = bucket_config_actions.create_bucket_config(
+    audit_metadata = run_bucket_config_action(
+        bucket_config_actions.create_bucket_config,
         service=service,
         context=context,
         payload=payload,
@@ -370,7 +373,8 @@ def delete_bucket(
     current_user: ManagerActor = Depends(get_current_account_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> Response:
-    bucket_config_actions.delete_bucket_config(
+    run_bucket_delete_action(
+        bucket_config_actions.delete_bucket_config,
         service=service,
         context=context,
         bucket_name=bucket_name,

@@ -11,6 +11,7 @@ from app.services.access_context_contracts import ManagerActor, ManagerSessionPr
 from app.core.database import get_db
 from app.models.bucket import Bucket
 from app.routers import bucket_config_inspector
+from app.routers.bucket_config_errors import run_bucket_config_action
 from app.routers.dependencies import get_s3_execution_context, get_current_account_admin
 from app.routers.dependencies_internal.auth_session import get_current_actor
 from app.routers.dependencies_internal.portal_access import is_portal_browser_request
@@ -58,7 +59,8 @@ def get_bucket_config_stats(
     service: BucketsService = Depends(get_buckets_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> Bucket:
-    return bucket_config_actions.get_bucket_config_stats(
+    return run_bucket_config_action(
+        bucket_config_actions.get_bucket_config_stats,
         service=service,
         context=context,
         bucket_name=bucket_name,

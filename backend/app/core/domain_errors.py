@@ -19,6 +19,10 @@ class ResourceNameValidationError(ValueError):
         self.loc = loc
 
 
+class BucketConfigValidationError(ValueError):
+    """Raised when a bucket configuration mutation rejects its input."""
+
+
 class StorageEndpointNotFoundError(ResourceNotFoundError):
     pass
 

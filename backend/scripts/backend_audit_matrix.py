@@ -192,6 +192,30 @@ def _calls_named_function(node: ast.AST, function_name: str) -> bool:
     )
 
 
+def _calls_bucket_config_mutation(node: ast.AST) -> bool:
+    for call in ast.walk(node):
+        if not isinstance(call, ast.Call):
+            continue
+        if (
+            isinstance(call.func, ast.Attribute)
+            and isinstance(call.func.value, ast.Name)
+            and call.func.value.id == "mutation"
+            and call.func.attr in {"update", "delete"}
+        ):
+            return True
+        if (
+            isinstance(call.func, ast.Name)
+            and call.func.id in {"run_bucket_config_action", "run_bucket_config_no_content"}
+            and call.args
+            and isinstance(call.args[0], ast.Attribute)
+            and isinstance(call.args[0].value, ast.Name)
+            and call.args[0].value.id == "mutation"
+            and call.args[0].attr in {"update", "delete"}
+        ):
+            return True
+    return False
+
+
 def collect_rows(backend_root: Path) -> list[RouteAuditRow]:
     routers_root = backend_root / "app" / "routers"
     rows: list[RouteAuditRow] = []
@@ -221,7 +245,7 @@ def collect_rows(backend_root: Path) -> list[RouteAuditRow]:
             )
             signals["delegated_bucket_config_mutation_audit"] = signals[
                 "delegated_bucket_config_mutation_audit"
-            ] and ("mutation.update(" in body or "mutation.delete(" in body)
+            ] and _calls_bucket_config_mutation(node)
             signals["delegated_ceph_admin_bucket_ui_tags_audit"] = signals[
                 "delegated_ceph_admin_bucket_ui_tags_audit"
             ] and (
