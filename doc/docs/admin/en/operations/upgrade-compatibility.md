@@ -521,6 +521,18 @@ Downgrade recreates `checked_revision` and sets it to the current
 `configuration_revision` only for migrations whose preparation state is
 `ready`; all other rows remain `NULL`.
 
+## 2026-11 bucket migration heartbeat-state cleanup
+
+Migration `0247_remove_migration_last_heartbeat` removes the unused
+`bucket_migrations.last_heartbeat_at` column. Worker ownership and expiry are
+already tracked by `worker_lease_owner` and `worker_lease_until`; execution
+progress continues to refresh the canonical `updated_at` timestamps on the
+migration and active item.
+
+Downgrade recreates `last_heartbeat_at` as a nullable UTC timestamp without
+reconstructing historical values because no runtime decision or API response
+consumed the column.
+
 ## 2026-10 structured bucket migration workflow state
 
 Migration `0213_structure_bucket_migration_json` replaces the bucket migration

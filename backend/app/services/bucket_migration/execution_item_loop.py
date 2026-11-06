@@ -67,7 +67,6 @@ class _MigrationItemExecutionLoop:
         ) < ITEM_HEARTBEAT_PERSIST_INTERVAL_SECONDS:
             return
         heartbeat_at = utcnow()
-        self.migration.last_heartbeat_at = heartbeat_at
         self.migration.updated_at = heartbeat_at
         self.item.updated_at = heartbeat_at
         self.service._commit()

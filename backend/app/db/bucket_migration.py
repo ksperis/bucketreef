@@ -71,7 +71,6 @@ class BucketMigration(Base):
 
     started_at = Column(UTCDateTime(), nullable=True)
     finished_at = Column(UTCDateTime(), nullable=True)
-    last_heartbeat_at = Column(UTCDateTime(), nullable=True)
 
     created_at = Column(UTCDateTime(), default=utcnow, nullable=False, index=True)
     updated_at = Column(UTCDateTime(), default=utcnow, nullable=False, index=True)

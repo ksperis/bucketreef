@@ -2446,7 +2446,6 @@ def test_sync_bucket_uses_stream_copy_when_same_endpoint_copy_option_is_disabled
         use_same_endpoint_copy=False,
         auto_grant_source_read_for_copy=True,
         updated_at=None,
-        last_heartbeat_at=None,
     )
     item = BucketMigrationItem(
         migration_id=1,
@@ -2522,7 +2521,6 @@ def test_sync_bucket_classifies_diff_and_runs_copy_and_delete_batches(db_session
         use_same_endpoint_copy=False,
         auto_grant_source_read_for_copy=False,
         updated_at=None,
-        last_heartbeat_at=None,
     )
     item = BucketMigrationItem(
         migration_id=1,
@@ -2729,7 +2727,6 @@ def test_sync_bucket_version_aware_cross_endpoint_replays_versions_and_delete_ma
         use_same_endpoint_copy=False,
         auto_grant_source_read_for_copy=False,
         updated_at=None,
-        last_heartbeat_at=None,
     )
     item = SimpleNamespace(
         execution_strategy=_version_aware_execution_strategy(),
@@ -2852,7 +2849,6 @@ def test_sync_bucket_version_aware_cross_endpoint_replays_versions_and_delete_ma
     assert item.objects_copied == 3
     assert item.objects_deleted == 3
     assert item.updated_at is not None
-    assert migration.last_heartbeat_at is not None
     assert diff.matched_count == 1
     assert [entry[0] for entry in target_client.actions] == ["upload", "upload", "delete_marker"]
     assert target_client.actions[0][1]["body"] == b"old-version"
@@ -2990,7 +2986,6 @@ def test_sync_bucket_version_aware_same_endpoint_uses_copy_source_version_id(db_
         use_same_endpoint_copy=True,
         auto_grant_source_read_for_copy=False,
         updated_at=None,
-        last_heartbeat_at=None,
     )
     item = SimpleNamespace(
         execution_strategy=_version_aware_execution_strategy(),
@@ -3092,7 +3087,6 @@ def test_sync_bucket_version_aware_presync_stores_watermark_and_cutover_replays_
         use_same_endpoint_copy=False,
         auto_grant_source_read_for_copy=False,
         updated_at=None,
-        last_heartbeat_at=None,
     )
     item = SimpleNamespace(
         execution_strategy=_version_aware_execution_strategy(),
@@ -3264,7 +3258,6 @@ def test_sync_bucket_version_aware_cutover_fallbacks_purge_before_full_replay(
             use_same_endpoint_copy=False,
             auto_grant_source_read_for_copy=False,
             updated_at=None,
-            last_heartbeat_at=None,
         )
         item = SimpleNamespace(
             execution_strategy=_version_aware_execution_strategy(),
@@ -4191,7 +4184,6 @@ def test_sync_bucket_updates_object_counters_incrementally(db_session):
     assert copied == 30
     assert deleted == 0
     assert item.objects_copied == 30
-    assert migration.last_heartbeat_at is not None
     # With throttled progress persistence, we keep one forced progress flush and one final sync commit.
     assert commit_calls["count"] >= 2
 

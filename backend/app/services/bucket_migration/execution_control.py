@@ -63,7 +63,6 @@ class BucketMigrationExecutionControlMixin:
             if migration.started_at is None:
                 migration.started_at = now
             migration.updated_at = now
-            migration.last_heartbeat_at = now
             self._commit()
         return migration
 

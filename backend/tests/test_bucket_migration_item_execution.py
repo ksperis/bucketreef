@@ -15,7 +15,6 @@ def _migration(**overrides):
         "id": 101,
         "parallelism_max": 3,
         "strong_integrity_check": False,
-        "last_heartbeat_at": None,
         "updated_at": None,
     }
     values.update(overrides)
