@@ -2,8 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 
 from __future__ import annotations
-from app.utils.storage_endpoint_features import parse_features_config
-
 from types import SimpleNamespace
 
 import pytest
@@ -47,6 +45,7 @@ from app.services import managed_private_access_cleanup_service as cleanup_servi
 from app.services.managed_private_access_service import ManagedPrivateAccessService
 from app.services.managed_private_access_state_service import ManagedPrivateAccessStateService
 from tests.s3_connection_factory import custom_endpoint_fields
+from tests.storage_endpoint_features import persisted_endpoint_features
 from app.services.managed_resource_naming import PORTAL_MANAGED_IAM_GROUP_NAMES
 from app.services import app_settings_service
 from app.services.s3_connections_service import S3ConnectionsService
@@ -142,7 +141,7 @@ def _endpoint(db_session, *, iam=True, admin=False):
         provider=StorageProvider.CEPH.value,
         admin_access_key="ADMIN-AK" if admin else None,
         admin_secret_key="ADMIN-SK" if admin else None,
-        features=parse_features_config("\n".join(features) + "\n"),
+        features=persisted_endpoint_features("\n".join(features) + "\n"),
         force_path_style=True,
         verify_tls=True,
     )

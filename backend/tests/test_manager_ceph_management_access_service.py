@@ -2,8 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 
 from __future__ import annotations
-from app.utils.storage_endpoint_features import parse_features_config
-
 import pytest
 
 from app.db import (
@@ -23,6 +21,7 @@ from app.models.storage_endpoint import StorageEndpointAdminOpsPermissions
 from app.services import app_settings_service
 from app.services.manager_ceph_management_access_service import ManagerCephManagementAccessService
 from app.services.s3_execution_context import S3ExecutionContext
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 def _endpoint(*, name: str = "ceph-manager", admin_enabled: bool = True) -> StorageEndpoint:
@@ -32,7 +31,7 @@ def _endpoint(*, name: str = "ceph-manager", admin_enabled: bool = True) -> Stor
         provider="ceph",
         admin_access_key="ADMIN-AK",
         admin_secret_key="ADMIN-SK",
-        features=parse_features_config(f"features:\n  admin:\n    enabled: {'true' if admin_enabled else 'false'}\n"),
+        features=persisted_endpoint_features(f"features:\n  admin:\n    enabled: {'true' if admin_enabled else 'false'}\n"),
     )
 
 
@@ -226,7 +225,7 @@ def test_policy_applies_global_kill_switches(db_session, monkeypatch, operation,
     ("endpoint_field", "endpoint_value"),
         [
             ("provider", "other"),
-            ("features", parse_features_config("features:\n  admin:\n    enabled: false\n")),
+            ("features", persisted_endpoint_features("features:\n  admin:\n    enabled: false\n")),
             ("admin_access_key", None),
             ("admin_secret_key", None),
     ],
@@ -241,7 +240,7 @@ def test_policy_rejects_each_missing_ceph_admin_capability(
     monkeypatch.setattr(app_settings_service, "load_app_settings_for_db", lambda _db: _settings_with_manager_bucket_quota())
     user = _user(db_session, f"no-admin-{operation}@example.test")
     endpoint = _endpoint(name=f"no-admin-{operation}", admin_enabled=False)
-    endpoint.features = parse_features_config("features:\n  admin:\n    enabled: true\n")
+    endpoint.features = persisted_endpoint_features("features:\n  admin:\n    enabled: true\n")
     setattr(endpoint, endpoint_field, endpoint_value)
     s3_user = S3User(
         name=f"no-admin-{operation}",

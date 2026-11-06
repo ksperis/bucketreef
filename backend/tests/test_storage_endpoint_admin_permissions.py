@@ -1,6 +1,5 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from app.utils.storage_endpoint_features import parse_features_config
 import pytest
 
 from app.db import StorageEndpoint
@@ -9,6 +8,7 @@ from app.services.rgw_admin import RGWAdminError
 from app.services.storage_endpoint_admin_permissions import (
     resolve_storage_endpoint_admin_ops_permissions,
 )
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 def _endpoint(**overrides) -> StorageEndpoint:
@@ -21,7 +21,7 @@ def _endpoint(**overrides) -> StorageEndpoint:
         "admin_secret_key": "SECRET-ADMIN",
         "region": "us-east-1",
         "verify_tls": False,
-        'features': parse_features_config("features:\n  admin:\n    enabled: true\n"),
+        'features': persisted_endpoint_features("features:\n  admin:\n    enabled: true\n"),
     }
     values.update(overrides)
     return StorageEndpoint(**values)

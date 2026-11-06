@@ -1,8 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
-from app.utils.storage_endpoint_features import parse_features_config
-
 import pytest
 from fastapi import HTTPException
 
@@ -11,6 +9,7 @@ from app.routers.admin import stats as admin_stats_router
 from app.services import admin_stats_service
 from app.services.rgw_admin import RGWAdminError
 from tests.service_identity_helpers import service_identity
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 def _ceph_endpoint(name: str) -> StorageEndpoint:
@@ -19,7 +18,7 @@ def _ceph_endpoint(name: str) -> StorageEndpoint:
         endpoint_url=f"https://{name}.example.test",
         provider="ceph",
         service_identities=[service_identity("supervision", "SUP-AK", "SUP-SK")],
-        features=parse_features_config("features:\n"
+        features=persisted_endpoint_features("features:\n"
             "  metrics:\n"
             "    enabled: true\n"
             "  usage:\n"

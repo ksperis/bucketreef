@@ -1,6 +1,5 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from app.utils.storage_endpoint_features import parse_features_config
 from types import SimpleNamespace
 
 import pytest
@@ -15,6 +14,7 @@ from app.routers.ceph_admin import bucket_config_rules as ceph_admin_buckets_rou
 from app.routers.manager import bucket_config_rules as manager_bucket_config_rules
 from app.routers.manager import buckets as manager_buckets_router
 from app.services.bucket_configuration_service import BucketConfigurationService
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 class _FakeAuditService:
@@ -27,7 +27,7 @@ def _build_endpoint(endpoint_id: int = 1, *, replication_enabled: bool = True) -
         name="endpoint",
         endpoint_url="https://ceph.example.test",
         provider="ceph",
-        features=parse_features_config("features:\n"
+        features=persisted_endpoint_features("features:\n"
             "  replication:\n"
             f"    enabled: {'true' if replication_enabled else 'false'}\n"),
     )

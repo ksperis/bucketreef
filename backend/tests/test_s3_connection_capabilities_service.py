@@ -1,14 +1,13 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
-from app.utils.storage_endpoint_features import parse_features_config
-
 from types import SimpleNamespace
 
 from botocore.exceptions import ClientError
 import pytest
 
 from app.services import s3_connection_capabilities_service as svc
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 def _client_error(code: str, message: str = "boom") -> ClientError:
@@ -76,7 +75,7 @@ def test_probe_connection_can_manage_iam_uses_aws_iam_endpoint(monkeypatch):
             force_path_style=False,
             verify_tls=True,
             name="AWS",
-            features=parse_features_config(None),
+            features=persisted_endpoint_features(provider="aws"),
         )
     )
 
@@ -102,7 +101,7 @@ def test_probe_connection_can_manage_iam_signs_commercial_aws_iam_with_us_east_1
             force_path_style=False,
             verify_tls=True,
             name="AWS Europe",
-            features=parse_features_config(None),
+            features=persisted_endpoint_features(provider="aws"),
         )
     )
 
@@ -147,7 +146,7 @@ def test_probe_connection_can_manage_iam_respects_disabled_endpoint_iam(monkeypa
             force_path_style=False,
             verify_tls=True,
             name="AWS disabled IAM",
-            features=parse_features_config("features:\n  iam:\n    enabled: false\n"),
+            features=persisted_endpoint_features("features:\n  iam:\n    enabled: false\n", provider="aws"),
         )
     )
 

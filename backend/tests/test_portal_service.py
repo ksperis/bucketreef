@@ -1,6 +1,5 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from app.utils.storage_endpoint_features import parse_features_config
 import importlib.util as import_util
 import hashlib
 import json
@@ -19,6 +18,7 @@ from botocore.response import StreamingBody
 from fastapi import HTTPException
 
 from tests.feature_policy_fixtures import portal_settings_fixture
+from tests.storage_endpoint_features import persisted_endpoint_features
 from app.db import (
     AuditLog,
     AccountIAMUser,
@@ -7577,7 +7577,7 @@ def test_portal_usage_trends_exposes_scoped_account_baselines(monkeypatch, db_se
         name="portal-trends-endpoint",
         endpoint_url="https://portal-trends.example.test",
         provider="ceph",
-        features=parse_features_config("features:\n"
+        features=persisted_endpoint_features("features:\n"
             "  metrics:\n"
             "    enabled: true\n"),
     )
@@ -7646,7 +7646,7 @@ def test_portal_usage_trends_return_empty_when_history_disabled(monkeypatch, db_
         name="portal-trends-disabled-endpoint",
         endpoint_url="https://portal-trends-disabled.example.test",
         provider="ceph",
-        features=parse_features_config("features:\n"
+        features=persisted_endpoint_features("features:\n"
             "  metrics:\n"
             "    enabled: true\n"),
     )
@@ -7676,7 +7676,7 @@ def test_portal_usage_trends_return_empty_without_baseline(monkeypatch, db_sessi
         name="portal-trends-empty-endpoint",
         endpoint_url="https://portal-trends-empty.example.test",
         provider="ceph",
-        features=parse_features_config("features:\n"
+        features=persisted_endpoint_features("features:\n"
             "  metrics:\n"
             "    enabled: true\n"),
     )

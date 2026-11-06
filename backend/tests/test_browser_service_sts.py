@@ -1,6 +1,5 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from app.utils.storage_endpoint_features import parse_features_config
 import logging
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
@@ -13,6 +12,7 @@ from app.services import browser_service, sts_service
 from app.services.browser import context as browser_context
 from app.services.browser import sts as browser_sts
 from app.services.s3_execution_context import S3ExecutionContext
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 def _account_with_sts_endpoint() -> S3ExecutionContext:
@@ -23,7 +23,7 @@ def _account_with_sts_endpoint() -> S3ExecutionContext:
         region="us-east-1",
         force_path_style=False,
         verify_tls=True,
-        features=parse_features_config("features:\n"
+        features=persisted_endpoint_features("features:\n"
             "  sts:\n"
             "    enabled: true\n"),
     )
@@ -249,8 +249,8 @@ def test_browser_sts_cache_follows_the_resolved_sts_endpoint(monkeypatch):
 
     monkeypatch.setattr(browser_sts, "get_session_token", fake_get_session_token)
     browser_sts.request_browser_sts_session(account)
-    account.storage_endpoint.features = (
-        parse_features_config('features:\n  sts:\n    enabled: true\n    endpoint: https://other-sts.example.test\n')
+    account.storage_endpoint.features = persisted_endpoint_features(
+        'features:\n  sts:\n    enabled: true\n    endpoint: https://other-sts.example.test\n'
     )
     browser_sts.request_browser_sts_session(account)
 

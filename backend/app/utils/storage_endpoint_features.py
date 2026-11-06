@@ -413,10 +413,9 @@ def required_service_identity_kinds(features: dict[str, dict[str, Any]]) -> set[
 
 
 def resolve_feature_flags(endpoint: StorageEndpointLike) -> EndpointFeatureFlags:
-    features = normalize_features(
+    features = validate_persisted_features(
         endpoint.provider,
         endpoint.features,
-        endpoint.region,
     )
     healthcheck = features["healthcheck"]
     return EndpointFeatureFlags(

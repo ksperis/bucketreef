@@ -1,12 +1,12 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from app.utils.storage_endpoint_features import parse_features_config
 from typing import Optional
 
 import sqlalchemy as sa
 from fastapi.testclient import TestClient
 
 from app.db import StorageEndpoint
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 class FakeRGWAdmin:
@@ -90,7 +90,7 @@ def _seed_ceph_endpoint(db_session) -> StorageEndpoint:
         provider="ceph",
         admin_access_key="AK",
         admin_secret_key="SK",
-        features=parse_features_config("features:\n  admin:\n    enabled: true\n"),
+        features=persisted_endpoint_features("features:\n  admin:\n    enabled: true\n"),
         is_default=True,
         is_editable=True,
     )

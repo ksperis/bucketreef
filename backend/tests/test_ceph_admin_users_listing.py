@@ -1,6 +1,5 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from app.utils.storage_endpoint_features import parse_features_config
 import asyncio
 import json
 from types import SimpleNamespace
@@ -14,6 +13,7 @@ from app.routers.ceph_admin import users as users_router
 from app.services import ceph_admin_user_listing_enrichment as user_listing_enrichment
 from app.services.ceph_admin_identity_listing_cache import invalidate_users_listing_cache
 from app.services.ceph_admin_user_payloads import build_user_detail
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 class FakeRGWAdmin:
@@ -84,7 +84,7 @@ def _build_ctx(
             id=endpoint_id,
             provider="ceph",
             region=None,
-            features={},
+            features=persisted_endpoint_features(),
         ),
         rgw_admin=rgw_admin,
     )
@@ -480,7 +480,7 @@ def test_ceph_admin_users_listing_account_include_skips_lookup_when_feature_disa
         id=16,
         provider="ceph",
         region=None,
-        features=parse_features_config("features:\n  account:\n    enabled: false\n"),
+        features=persisted_endpoint_features("features:\n  account:\n    enabled: false\n"),
     )
     ctx, rgw_admin = _build_ctx(endpoint_id=16, users_payload=users_payload, user_details=user_details, endpoint=endpoint)
 
@@ -514,7 +514,7 @@ def test_ceph_admin_user_detail_preserves_payload_account_name_when_account_api_
         id=17,
         provider="ceph",
         region=None,
-        features=parse_features_config("features:\n  account:\n    enabled: false\n"),
+        features=persisted_endpoint_features("features:\n  account:\n    enabled: false\n"),
     )
     ctx, rgw_admin = _build_ctx(endpoint_id=17, users_payload=users_payload, user_details=user_details, endpoint=endpoint)
 
