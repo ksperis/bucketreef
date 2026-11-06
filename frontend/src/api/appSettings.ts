@@ -4,6 +4,7 @@
  */
 import client, { timeoutForRequestProfile } from "./client";
 import type { ManagerFeaturePolicies, PortalFeaturePolicies, ProjectCollectionPolicies, ProjectFeaturePolicies } from "./featurePolicies";
+import type { StorageEndpointPublic } from "./storageEndpoints";
 export type { FeaturePolicy, FeatureState, ManagerFeaturePolicies, PortalFeaturePolicies } from "./featurePolicies";
 
 
@@ -186,19 +187,12 @@ type QuotaNotificationTestEmailResult = {
   recipient: string;
 };
 
-export type PublicStorageEndpoint = {
-  id: number;
-  name: string;
-  endpoint_url: string;
-  is_default: boolean;
-};
-
 export type LoginSettings = {
   allow_login_access_keys: boolean;
   allow_login_endpoint_list: boolean;
   allow_login_custom_endpoint: boolean;
   default_endpoint_url: string | null;
-  endpoints: PublicStorageEndpoint[];
+  endpoints: StorageEndpointPublic[];
   login_logo_url: string | null;
 };
 

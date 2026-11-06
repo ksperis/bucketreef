@@ -21,11 +21,11 @@ import {
   deleteConnection,
   listConnections,
   listPrivateConnectionStorageEndpoints,
-  type PrivateConnectionStorageEndpoint,
   updateConnection,
   validateConnectionCredentials,
 } from "../../api/connections";
 import type { S3CredentialsValidationPayload } from "../../api/s3CredentialsValidation";
+import type { StorageEndpointPublic } from "../../api/storageEndpoints";
 import { retryManagedPrivateAccessCleanup } from "../../api/managedPrivateAccess";
 import { useLiveS3CredentialsValidation } from "./useLiveS3CredentialsValidation";
 import { extractApiError } from "../../utils/apiError";
@@ -103,7 +103,7 @@ export default function PrivateS3ConnectionsSection({
   const [createConnectionEndpointId, setCreateConnectionEndpointId] = useState("");
   const [editConnectionEndpointMode, setEditConnectionEndpointMode] = useState<S3ConnectionEndpointMode>("custom");
   const [editConnectionEndpointId, setEditConnectionEndpointId] = useState("");
-  const [availableStorageEndpoints, setAvailableStorageEndpoints] = useState<PrivateConnectionStorageEndpoint[]>([]);
+  const [availableStorageEndpoints, setAvailableStorageEndpoints] = useState<StorageEndpointPublic[]>([]);
   const [loadingStorageEndpoints, setLoadingStorageEndpoints] = useState(false);
   const [storageEndpointsError, setStorageEndpointsError] = useState<string | null>(null);
   const [connectionDrafts, setConnectionDrafts] = useState<Record<number, PrivateConnectionDraft>>({});

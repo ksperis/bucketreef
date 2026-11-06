@@ -4,7 +4,6 @@
  */
 import type {
   CreateConnectionPayload,
-  PrivateConnectionStorageEndpoint,
   S3Connection,
   UpdateConnectionPayload,
 } from "../../api/connections";
@@ -13,6 +12,7 @@ import type {
   UpdateAdminS3ConnectionPayload,
 } from "../../api/s3ConnectionsAdmin";
 import type { S3CredentialsValidationPayload } from "../../api/s3CredentialsValidation";
+import type { StorageEndpointPublic } from "../../api/storageEndpoints";
 import {
   canonicalizeUiTags,
   extractUiTagLabels,
@@ -614,7 +614,7 @@ export function buildPrivateConnectionsProjection({
 }
 
 export function buildPrivateStorageEndpointLabelById(
-  endpoints: readonly PrivateConnectionStorageEndpoint[],
+  endpoints: readonly StorageEndpointPublic[],
 ): Map<number, string> {
   return new Map(
     endpoints.map((endpoint) => [
