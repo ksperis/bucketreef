@@ -67,7 +67,6 @@ class EndpointHealthLatest(Base):
     avg_latency_ms = Column(Integer, nullable=True)
     max_latency_ms = Column(Integer, nullable=True)
     latency_sample_count = Column(Integer, nullable=False, default=0, server_default="0")
-    availability_24h = Column(Integer, nullable=True)
     updated_at = Column(UTCDateTime(), nullable=False, default=utcnow, index=True)
 
     storage_endpoint = relationship("StorageEndpoint")
