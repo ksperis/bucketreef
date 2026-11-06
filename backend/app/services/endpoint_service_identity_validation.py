@@ -3,10 +3,9 @@
 """Validate endpoint service identity credentials and RGW access contracts."""
 from __future__ import annotations
 
-from typing import Literal
-
 from sqlalchemy.orm import Session
 
+from app.core.domain_enums import ServiceIdentityKind
 from app.db import EndpointServiceIdentity, StorageEndpoint
 from app.services.key_rotation_intent_queries import pending_rotation
 from app.services.rgw_admin import RGWAdminClient
@@ -19,10 +18,6 @@ SERVICE_CAPS = {
     "runtime": "accounts=read;user-info-without-keys=read;buckets=read",
     "supervision": "usage=read;buckets=read",
 }
-
-ServiceIdentityKind = Literal["runtime", "supervision", "ceph_admin"]
-ManagedServiceIdentityKind = Literal["runtime", "supervision"]
-
 
 class ManagedIdentityKeyDriftError(ValueError):
     """Remote keys differ from the keys tracked by BucketReef."""

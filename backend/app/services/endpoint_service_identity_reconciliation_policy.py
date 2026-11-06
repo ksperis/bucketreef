@@ -3,8 +3,8 @@
 """Pure local-state policy for endpoint service identity reconciliation."""
 from __future__ import annotations
 
+from app.core.domain_enums import MANAGED_SERVICE_IDENTITY_KINDS, ManagedServiceIdentityKind
 from app.db import EndpointServiceIdentity, StorageEndpoint
-from app.services.endpoint_service_identity_validation import ManagedServiceIdentityKind
 from app.utils.storage_endpoint_features import (
     required_service_identity_kinds,
     validate_persisted_features,
@@ -33,7 +33,7 @@ def desired_service_kinds(
         validate_persisted_features(endpoint.provider, endpoint.features)
     )
     desired: list[ManagedServiceIdentityKind] = []
-    for kind in ("runtime", "supervision"):
+    for kind in MANAGED_SERVICE_IDENTITY_KINDS:
         identity = endpoint.service_identity(kind)
         tracked = identity is not None and identity.status != "disabled" and (
             any(

@@ -3,6 +3,7 @@
 """Shared domain enums independent from persistence models."""
 
 from enum import Enum
+from typing import Literal
 
 
 class UserRole(str, Enum):
@@ -46,3 +47,17 @@ class HealthCheckStatus(str, Enum):
     UP = "up"
     DEGRADED = "degraded"
     DOWN = "down"
+
+
+ServiceIdentityKind = Literal["runtime", "supervision", "ceph_admin"]
+ManagedServiceIdentityKind = Literal["runtime", "supervision"]
+
+SERVICE_IDENTITY_KINDS: tuple[ServiceIdentityKind, ...] = (
+    "runtime",
+    "supervision",
+    "ceph_admin",
+)
+MANAGED_SERVICE_IDENTITY_KINDS: tuple[ManagedServiceIdentityKind, ...] = (
+    "runtime",
+    "supervision",
+)

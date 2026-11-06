@@ -7,7 +7,11 @@ from typing import Literal, Optional
 from pydantic import SecretStr, ValidationError, field_validator, model_validator
 
 from app.db import StorageEndpoint
-from app.core.domain_enums import StorageProvider
+from app.core.domain_enums import (
+    MANAGED_SERVICE_IDENTITY_KINDS,
+    SERVICE_IDENTITY_KINDS,
+    StorageProvider,
+)
 from app.models.storage_endpoint import (
     StorageEndpointCoordinates,
     StorageEndpointCreate,
@@ -461,7 +465,7 @@ def _storage_endpoint_update_base(
 
 
 def _clear_managed_identity_credentials(merged: dict) -> None:
-    for kind in ("runtime", "supervision"):
+    for kind in MANAGED_SERVICE_IDENTITY_KINDS:
         merged[f"{kind}_access_key"] = None
         merged[f"{kind}_secret_key"] = None
 
@@ -472,7 +476,7 @@ def _merge_storage_endpoint_update_fields(
     fields_set: set[str],
 ) -> None:
     preserved_fields: set[str] = set()
-    for kind in ("runtime", "supervision", "ceph_admin"):
+    for kind in SERVICE_IDENTITY_KINDS:
         access_field = f"{kind}_access_key"
         secret_field = f"{kind}_secret_key"
         pair_fields = {access_field, secret_field}
@@ -530,7 +534,7 @@ def _validate_storage_endpoint_update_credential_pairs(
     payload: StorageEndpointUpdate,
     fields_set: set[str],
 ) -> None:
-    for kind in ("runtime", "supervision", "ceph_admin"):
+    for kind in SERVICE_IDENTITY_KINDS:
         access_field, secret_field = f"{kind}_access_key", f"{kind}_secret_key"
         if {access_field, secret_field} & fields_set:
             has_access = bool(normalize_optional_string(getattr(payload, access_field)))
