@@ -2,6 +2,8 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
@@ -18,6 +20,7 @@ from app.models.healthcheck import (
     EndpointHealthSummaryResponse,
     WorkspaceEndpointHealthOverviewResponse,
 )
+from app.models.pagination import PaginationRequest
 from app.routers.dependencies import get_current_ui_admin
 from app.services.app_settings_service import load_app_settings_for_db
 from app.services.healthcheck_common import HealthWindow
@@ -87,17 +90,18 @@ def health_incidents(
 
 @router.get("/raw-checks", response_model=EndpointHealthRawChecksResponse)
 def health_raw_checks(
+    pagination: Annotated[PaginationRequest, Depends()],
     endpoint_id: int = Query(...),
     window: HealthWindow = Query(HealthWindow.WEEK, description="Window: day, week, month, quarter, half_year, year"),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(25, ge=1, le=200),
     _: User = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> EndpointHealthRawChecksResponse:
     _ensure_endpoint_status_enabled(db)
     service = HealthCheckQueryService(db)
     try:
-        return EndpointHealthRawChecksResponse(**service.build_raw_checks(endpoint_id, window, page=page, page_size=page_size))
+        return EndpointHealthRawChecksResponse(
+            **service.build_raw_checks(endpoint_id, window, pagination)
+        )
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
 

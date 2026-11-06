@@ -6,8 +6,9 @@ from typing import Literal, Optional
 
 from pydantic import Field
 
-from app.models.admin_listing import AdminPaginationRequest, AdminSortDir
+from app.models.admin_listing import AdminSortDir
 from app.models.base import ApiModel
+from app.models.pagination import PaginationRequest
 
 
 UsageHistoryGranularity = Literal["daily", "hourly"]
@@ -16,7 +17,7 @@ UsageHistorySortBy = Literal["period", "subject", "used_bytes", "used_objects", 
 UsageHistoryTrendWindow = Literal["day", "week", "month"]
 
 
-class UsageHistoryListingRequest(AdminPaginationRequest):
+class UsageHistoryListingRequest(PaginationRequest):
     granularity: UsageHistoryGranularity = "daily"
     endpoint_id: Optional[int] = None
     subject_type: UsageHistorySubjectType = "all"

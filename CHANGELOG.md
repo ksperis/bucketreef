@@ -37,6 +37,7 @@
 - Canonicalize Admin Portal request listings on the shared pagination/search contract and pass the request object through the service layer.
 - Canonicalize Admin OpenStack cloud options on the shared pagination/search request passed through the service layer.
 - Canonicalize Admin UI User and UI Group option lists on one bounded pagination/search request with service-owned paginated responses.
+- Reuse one application pagination request across Admin listings, Ceph Admin identity and bucket listings, and endpoint raw health checks.
 
 ### Fixed
 

@@ -9,6 +9,7 @@ from pydantic import Field
 from app.models.base import ApiModel
 from app.models.bucket import BucketFeatureStatus, BucketTag
 from app.models.bucket_ui_tags import BucketUiTagDefinitionSummary
+from app.models.pagination import PaginationRequest
 
 
 class BucketListingSummary(ApiModel):
@@ -34,9 +35,7 @@ class BucketListingSummary(ApiModel):
     ui_tags: list[BucketUiTagDefinitionSummary] = Field(default_factory=list)
 
 
-class BucketListingRequest(ApiModel):
-    page: int = Field(default=1, ge=1)
-    page_size: int = Field(default=25, ge=1, le=200)
+class BucketListingRequest(PaginationRequest):
     filter: Optional[str] = None
     advanced_filter: Optional[str] = None
     sort_by: str = "name"
