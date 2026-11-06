@@ -457,23 +457,19 @@ def test_fresh_app_settings_defaults_admin_passkeys_to_optional():
     assert settings.general.allow_user_external_identity_unlink is False
 
 
-def test_persisted_app_settings_without_admin_passkey_policy_uses_current_default():
-    settings = app_settings_service._parse_settings_payload(
-        {"general": {"manager_enabled": False}}
-    )
+def test_persisted_app_settings_require_canonical_security_policy():
+    payload = AppSettings().model_dump(mode="json")
+    del payload["general"]["allow_user_external_identity_unlink"]
 
-    assert settings.general.require_passkey_for_admins is False
-    assert settings.general.require_passkey_for_users is False
-    assert settings.general.allow_user_profile_name_edit is False
-    assert settings.general.allow_user_external_identity_link is False
-    assert settings.general.allow_user_external_identity_unlink is False
+    with pytest.raises(ValueError, match="allow_user_external_identity_unlink"):
+        app_settings_service._parse_settings_payload(payload)
 
 
 @pytest.mark.parametrize("required", [True, False])
 def test_persisted_admin_passkey_policy_preserves_explicit_value(required):
-    settings = app_settings_service._parse_settings_payload(
-        {"general": {"require_passkey_for_admins": required}}
-    )
+    payload = AppSettings().model_dump(mode="json")
+    payload["general"]["require_passkey_for_admins"] = required
+    settings = app_settings_service._parse_settings_payload(payload)
 
     assert settings.general.require_passkey_for_admins is required
 
