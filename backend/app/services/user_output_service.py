@@ -277,24 +277,16 @@ class UserOutputService:
             is_active=user.is_active,
             is_admin=is_admin_ui_role(user.role),
             role=user.role,
-            can_access_ceph_admin=bool(user.can_access_ceph_admin),
-            can_access_storage_ops=bool(user.can_access_storage_ops),
-            can_create_manual_private_connections=bool(
-                user.can_create_manual_private_connections
-            ),
-            can_provision_managed_private_connections=bool(
-                user.can_provision_managed_private_connections
-            ),
-            allow_multisite_endpoint_switching=bool(
-                user.allow_multisite_endpoint_switching
-            ),
+            can_access_ceph_admin=user.can_access_ceph_admin,
+            can_access_storage_ops=user.can_access_storage_ops,
+            can_create_manual_private_connections=user.can_create_manual_private_connections,
+            can_provision_managed_private_connections=user.can_provision_managed_private_connections,
+            allow_multisite_endpoint_switching=user.allow_multisite_endpoint_switching,
             manager_tool_access=read_manager_tool_access(user),
-            browser_advanced_features_enabled=bool(
-                user.browser_advanced_features_enabled
-            ),
+            browser_advanced_features_enabled=user.browser_advanced_features_enabled,
             ui_language=user.ui_language,
-            quota_alerts_enabled=bool(user.quota_alerts_enabled),
-            quota_alerts_global_watch=bool(user.quota_alerts_global_watch),
+            quota_alerts_enabled=user.quota_alerts_enabled,
+            quota_alerts_global_watch=user.quota_alerts_global_watch,
             ui_preferences=UiPreferences.model_validate(user.ui_preferences),
             account_links=account_links,
             group_details=self._group_details(group_ids, projection.group_names),
