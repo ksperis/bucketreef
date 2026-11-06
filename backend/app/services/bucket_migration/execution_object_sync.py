@@ -230,7 +230,7 @@ class BucketMigrationObjectSyncMixin:
     ) -> bool:
         if self._item_execution_strategy(item) != "version_aware":
             return False
-        if not bool(migration.copy_bucket_settings):
+        if not migration.copy_bucket_settings:
             return False
         return str(self._source_versioning_status_from_item(item) or "").strip().lower() == "suspended"
 

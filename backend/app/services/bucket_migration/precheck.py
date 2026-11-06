@@ -85,7 +85,7 @@ class BucketMigrationPrecheckPlanner:
         )
         self._rules.add_unsupported_settings_check(
             unsupported_settings,
-            copy_bucket_settings=bool(migration.copy_bucket_settings),
+            copy_bucket_settings=migration.copy_bucket_settings,
             add_check=add_check,
         )
 
@@ -133,7 +133,7 @@ class BucketMigrationPrecheckPlanner:
             report["same_endpoint"] = bool(same_endpoint)
             report["capabilities"] = self._global_capabilities(
                 same_endpoint=same_endpoint,
-                same_endpoint_copy_requested=bool(migration.use_same_endpoint_copy),
+                same_endpoint_copy_requested=migration.use_same_endpoint_copy,
             )
         except Exception as exc:  # noqa: BLE001
             entries.append(
@@ -151,7 +151,7 @@ class BucketMigrationPrecheckPlanner:
             report["contexts_error"] = sanitized_error_log_detail(exc)
             report["capabilities"] = self._global_capabilities(
                 same_endpoint=False,
-                same_endpoint_copy_requested=bool(migration.use_same_endpoint_copy),
+                same_endpoint_copy_requested=migration.use_same_endpoint_copy,
             )
             return None, None, entries
 
@@ -244,7 +244,7 @@ class BucketMigrationPrecheckPlanner:
             strategy=source_plan.strategy,
             unsupported_features=source_plan.unsupported_features,
             checks=checks,
-            copy_bucket_settings=bool(migration.copy_bucket_settings),
+            copy_bucket_settings=migration.copy_bucket_settings,
         )
 
     def _inspect_item_buckets(
@@ -347,7 +347,7 @@ class BucketMigrationPrecheckPlanner:
         )
         aggregation = PrecheckAggregation()
         probe_policy = self._inspector.build_probe_policy(
-            copy_bucket_settings=bool(migration.copy_bucket_settings)
+            copy_bucket_settings=migration.copy_bucket_settings
         )
 
         for item in sorted(migration.items, key=lambda entry: entry.id):
