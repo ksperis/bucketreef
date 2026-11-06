@@ -295,7 +295,7 @@ class OidcService:
             issuer=login_state.issuer,
             purpose=login_state.purpose,
             link_attempt_id=login_state.link_attempt_id,
-            require_auth_time=bool(login_state.require_auth_time),
+            require_auth_time=login_state.require_auth_time,
             created_at=login_state.created_at,
         )
         # Claim the state before any network call. A concurrent callback can no
