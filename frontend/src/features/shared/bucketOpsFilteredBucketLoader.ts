@@ -4,8 +4,8 @@
  */
 import type {
   CephAdminBucket,
-  ListCephAdminBucketsParams,
 } from "../../api/cephAdminBuckets";
+import type { BucketListingParams } from "../../api/bucketListingTransport";
 
 type BucketOpsFilteredBucketPage = {
   items: CephAdminBucket[];
@@ -18,10 +18,10 @@ type BucketOpsFilteredBucketLoaderInput = {
   initialTotal?: number | null;
   listBuckets: (
     scopeId: number,
-    params: ListCephAdminBucketsParams,
+    params: BucketListingParams,
   ) => Promise<BucketOpsFilteredBucketPage>;
   onProgress?: (completed: number, total: number) => void;
-  params: Omit<ListCephAdminBucketsParams, "page" | "page_size">;
+  params: Omit<BucketListingParams, "page" | "page_size">;
   scopeId: number;
 };
 

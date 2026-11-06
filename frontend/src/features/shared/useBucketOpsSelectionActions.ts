@@ -5,8 +5,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   CephAdminBucket,
-  ListCephAdminBucketsParams,
 } from "../../api/cephAdminBuckets";
+import type { BucketListingParams } from "../../api/bucketListingTransport";
 import type { RgwBucketReference } from "../../api/bucketOperation";
 import type { BucketUiTagDefinition } from "../../api/bucketUiTags";
 import { triggerDownload } from "../../utils/download";
@@ -32,7 +32,7 @@ type UseBucketOpsSelectionActionsOptions = {
   isStorageOps: boolean;
   listBuckets: (
     scopeId: number,
-    params: ListCephAdminBucketsParams,
+    params: BucketListingParams,
   ) => Promise<{ items: CephAdminBucket[]; has_next: boolean }>;
   persistUiTagChanges: (
     targets: BucketUiTagTarget[],

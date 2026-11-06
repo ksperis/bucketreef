@@ -4,8 +4,8 @@
  */
 import type {
   CephAdminBucket,
-  ListCephAdminBucketsParams,
 } from "../../api/cephAdminBuckets";
+import type { BucketListingParams } from "../../api/bucketListingTransport";
 import type { SelectionExportFormat } from "./bucketBulkOperationsModel";
 import {
   buildBucketExportColumns,
@@ -36,7 +36,7 @@ type BucketOpsSelectionExportInput = {
   exportWithStats: boolean;
   featureColumns: readonly BucketExportFeatureColumn[];
   filteredQuery: Omit<
-    ListCephAdminBucketsParams,
+    BucketListingParams,
     "include" | "page" | "page_size" | "with_stats"
   >;
   format: SelectionExportFormat;
@@ -45,7 +45,7 @@ type BucketOpsSelectionExportInput = {
   isStorageOps: boolean;
   listBuckets: (
     scopeId: number,
-    params: ListCephAdminBucketsParams,
+    params: BucketListingParams,
   ) => Promise<BucketOpsExportPage>;
   now?: () => Date;
   onProgress?: (completed: number, total: number) => void;

@@ -5,8 +5,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   CephAdminBucket,
-  ListCephAdminBucketsParams,
 } from "../../api/cephAdminBuckets";
+import type { BucketListingParams } from "../../api/bucketListingTransport";
 import type { ActionProgressState } from "./actionProgress";
 import type { TextMatchMode } from "./bucketOpsAdvancedFilterModel";
 import { loadBucketOpsFilteredBuckets } from "./bucketOpsFilteredBucketLoader";
@@ -18,7 +18,7 @@ import {
 
 type BucketOpsSelectionListBuckets = (
   scopeId: number,
-  params: ListCephAdminBucketsParams,
+  params: BucketListingParams,
 ) => Promise<{
   items: CephAdminBucket[];
   has_next: boolean;

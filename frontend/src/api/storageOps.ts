@@ -45,13 +45,13 @@ const {
 import type {
   CephAdminBucket,
   CephAdminBucketsStreamProgress,
-  ListCephAdminBucketsParams,
   PaginatedCephAdminBucketsResponse,
 } from "./cephAdminBuckets";
 import {
   buildBucketListingQuery,
   buildBucketListingRequestBody,
   shouldUsePostBucketListing,
+  type BucketListingParams,
 } from "./bucketListingTransport";
 import {
   resolveApiBaseUrl,
@@ -128,7 +128,7 @@ function resolveBucketTarget(bucketRef: string): StorageOpsBucketRef {
 
 export async function listStorageOpsBuckets(
   _scopeId: number,
-  params?: ListCephAdminBucketsParams,
+  params?: BucketListingParams,
   options?: ListStorageOpsBucketsOptions
 ): Promise<PaginatedStorageOpsBucketsResponse> {
   const usePost = shouldUsePostBucketListing(params);
@@ -156,7 +156,7 @@ export async function refreshStorageOpsBucketListingCache(
 
 export async function streamStorageOpsBuckets(
   _scopeId: number,
-  params?: ListCephAdminBucketsParams,
+  params?: BucketListingParams,
   options?: SseStreamOptions<CephAdminBucketsStreamProgress>
 ): Promise<PaginatedStorageOpsBucketsResponse> {
   const baseUrl = resolveApiBaseUrl();

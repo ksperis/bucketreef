@@ -4,8 +4,8 @@
  */
 import type {
   CephAdminBucket,
-  ListCephAdminBucketsParams,
 } from "../../api/cephAdminBuckets";
+import type { BucketListingParams } from "../../api/bucketListingTransport";
 import { loadBucketOpsBucketsByNames } from "./bucketOpsNamedBucketLoader";
 import {
   decodeCephAdminBucketRef,
@@ -28,7 +28,7 @@ type ResolveBucketOpsSelectionTargetsInput<Target extends SelectionTarget> = {
   isStorageOps: boolean;
   listBuckets: (
     scopeId: number,
-    params: ListCephAdminBucketsParams,
+    params: BucketListingParams,
   ) => Promise<SelectionTargetPage>;
   onProgress?: (progress: {
     completed: number;

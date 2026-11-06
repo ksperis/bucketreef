@@ -3,10 +3,8 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { describe, expect, it, vi } from "vitest";
-import type {
-  CephAdminBucket,
-  ListCephAdminBucketsParams,
-} from "../../api/cephAdminBuckets";
+import type { CephAdminBucket } from "../../api/cephAdminBuckets";
+import type { BucketListingParams } from "../../api/bucketListingTransport";
 import { buildCephAdminBucket } from "../../test/cephAdmin";
 import { resolveBucketOpsSelectionTargets } from "./bucketOpsSelectionTargets";
 
@@ -33,7 +31,7 @@ describe("resolveBucketOpsSelectionTargets", () => {
     );
     bucketNames[0] = "tenant-b:bucket-1";
     const listBuckets = vi.fn(
-      async (_scopeId: number, params: ListCephAdminBucketsParams) => {
+      async (_scopeId: number, params: BucketListingParams) => {
         const filter = JSON.parse(params.advanced_filter ?? "{}") as {
           rules?: Array<{ value?: string[] }>;
         };

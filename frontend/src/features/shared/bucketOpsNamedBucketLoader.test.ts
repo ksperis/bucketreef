@@ -3,13 +3,14 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { describe, expect, it, vi } from "vitest";
-import type { CephAdminBucket, ListCephAdminBucketsParams } from "../../api/cephAdminBuckets";
+import type { CephAdminBucket } from "../../api/cephAdminBuckets";
+import type { BucketListingParams } from "../../api/bucketListingTransport";
 import { buildCephAdminBucket } from "../../test/cephAdmin";
 import { loadBucketOpsBucketsByNames } from "./bucketOpsNamedBucketLoader";
 
 const bucket = (name: string): CephAdminBucket => buildCephAdminBucket(name);
 
-const requestedNames = (params: ListCephAdminBucketsParams): string[] => {
+const requestedNames = (params: BucketListingParams): string[] => {
   const payload = JSON.parse(params.advanced_filter ?? "{}") as {
     rules?: Array<{ value?: unknown }>;
   };
@@ -22,7 +23,7 @@ describe("loadBucketOpsBucketsByNames", () => {
     const names = Array.from({ length: 55 }, (_, index) => `bucket-${index + 1}`);
     const progress: Array<{ completed: number; total: number; failed: number }> = [];
     const listBuckets = vi.fn(
-      async (_scopeId: number, params: ListCephAdminBucketsParams) => {
+      async (_scopeId: number, params: BucketListingParams) => {
         const chunk = requestedNames(params);
         if (chunk.length === 50 && params.page === 1) {
           return { items: chunk.slice(0, 49).map(bucket), has_next: true };
@@ -71,7 +72,7 @@ describe("loadBucketOpsBucketsByNames", () => {
     const names = Array.from({ length: 51 }, (_, index) => `bucket-${index + 1}`);
     const progress: Array<{ completed: number; total: number; failed: number }> = [];
     const listBuckets = vi.fn(
-      async (_scopeId: number, params: ListCephAdminBucketsParams) => {
+      async (_scopeId: number, params: BucketListingParams) => {
         const chunk = requestedNames(params);
         if (chunk.length === 50) throw failure;
         return { items: chunk.map(bucket), has_next: false };
