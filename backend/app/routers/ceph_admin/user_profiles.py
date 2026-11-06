@@ -24,17 +24,14 @@ from app.services.ceph_admin_account_access import (
     resolve_optional_account_name,
 )
 from app.services.ceph_admin_context import CephAdminContext
+from app.routers.ceph_admin.profile_common import raise_profile_service_error
 from app.services.ceph_admin_user_access import (
     load_user_payload,
     require_user_scope,
     serialize_access_keys,
 )
-from app.services.ceph_admin_user_profile_service import (
-    CephAdminUserProfileConflictError,
-    CephAdminUserProfileMutationService,
-    CephAdminUserProfileNotFoundError,
-    CephAdminUserProfileServiceError,
-)
+from app.services.ceph_admin_profile_mutations import CephAdminProfileServiceError
+from app.services.ceph_admin_user_profile_service import CephAdminUserProfileMutationService
 from app.services.ceph_admin_user_payloads import build_user_detail, extract_user_fields
 from app.services.ceph_admin_identity_listing_cache import invalidate_users_listing_cache
 from app.services.ceph_admin_audit import record_ceph_admin_action
@@ -109,16 +106,6 @@ def _resolve_create_user_scope(
     return uid, account_tenant or None, account_id
 
 
-def _raise_user_profile_service_error(exc: CephAdminUserProfileServiceError) -> None:
-    if isinstance(exc, CephAdminUserProfileConflictError):
-        status_code = status.HTTP_409_CONFLICT
-    elif isinstance(exc, CephAdminUserProfileNotFoundError):
-        status_code = status.HTTP_404_NOT_FOUND
-    else:
-        status_code = status.HTTP_502_BAD_GATEWAY
-    raise_http_exception_from_exception(status_code, exc)
-
-
 @router.post("", response_model=CephAdminRgwUserCreateResponse, status_code=status.HTTP_201_CREATED)
 def create_rgw_user(
     payload: CephAdminRgwUserCreate,
@@ -144,8 +131,8 @@ def create_rgw_user(
             uid=uid,
             tenant=tenant,
         )
-    except CephAdminUserProfileServiceError as exc:
-        _raise_user_profile_service_error(exc)
+    except CephAdminProfileServiceError as exc:
+        raise_profile_service_error(exc)
 
     invalidate_users_listing_cache(ctx.endpoint.id)
     detail = _load_user_detail(uid, tenant, ctx)
@@ -210,8 +197,8 @@ def update_rgw_user_config(
             uid=uid,
             tenant=tenant,
         )
-    except CephAdminUserProfileServiceError as exc:
-        _raise_user_profile_service_error(exc)
+    except CephAdminProfileServiceError as exc:
+        raise_profile_service_error(exc)
 
     invalidate_users_listing_cache(ctx.endpoint.id)
     record_ceph_admin_action(

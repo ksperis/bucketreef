@@ -4,8 +4,14 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from app.core.sensitive_data import sanitize_error_detail
 from app.models.ceph_admin import CephAdminRgwUserConfigUpdate, CephAdminRgwUserCreate
+from app.services.ceph_admin_profile_mutations import (
+    CephAdminProfileConflictError,
+    CephAdminProfileNotFoundError,
+    nullable_update,
+    raise_if_unsupported,
+    upstream_error,
+)
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.utils.rgw_caps import canonicalize_rgw_caps
 from app.utils.rgw_payloads import extract_rgw_user_caps
@@ -30,37 +36,6 @@ USER_UPDATE_CLEAR_VALUES: dict[str, Any] = {
 USER_QUOTA_FIELDS = frozenset({"quota_enabled", "quota_max_size_bytes", "quota_max_objects"})
 
 
-class CephAdminUserProfileServiceError(RuntimeError):
-    pass
-
-
-class CephAdminUserProfileConflictError(CephAdminUserProfileServiceError):
-    pass
-
-
-class CephAdminUserProfileNotFoundError(CephAdminUserProfileServiceError):
-    pass
-
-
-class CephAdminUserProfileUpstreamError(CephAdminUserProfileServiceError):
-    pass
-
-
-class CephAdminUserProfileUnsupportedError(CephAdminUserProfileUpstreamError):
-    pass
-
-
-def _nullable_update(value: Any, field: str, field_set: set[str], cleared_value: Any) -> Any:
-    if field not in field_set:
-        return None
-    return value if value is not None else cleared_value
-
-
-def _raise_if_unsupported(result: object, detail: str) -> None:
-    if isinstance(result, dict) and (result.get("not_found") or result.get("not_implemented")):
-        raise CephAdminUserProfileUnsupportedError(detail)
-
-
 class CephAdminUserProfileMutationService:
     """Apply Ceph Admin RGW user profile mutations without HTTP concerns."""
 
@@ -81,7 +56,7 @@ class CephAdminUserProfileMutationService:
             }
         return {
             field: (
-                _nullable_update(
+                nullable_update(
                     getattr(update, field),
                     field,
                     field_set,
@@ -93,17 +68,13 @@ class CephAdminUserProfileMutationService:
             for field in USER_UPDATE_FIELDS
         }
 
-    @staticmethod
-    def _upstream_error(exc: RGWAdminError) -> CephAdminUserProfileUpstreamError:
-        return CephAdminUserProfileUpstreamError(sanitize_error_detail(str(exc)))
-
     def ensure_uid_available(self, uid: str, tenant: Optional[str]) -> None:
         try:
             existing = self.rgw_admin.get_user(uid, tenant=tenant, allow_not_found=True)
         except RGWAdminError as exc:
-            raise self._upstream_error(exc) from exc
+            raise upstream_error(exc) from exc
         if existing and not existing.get("not_found"):
-            raise CephAdminUserProfileConflictError("RGW user UID already exists")
+            raise CephAdminProfileConflictError("RGW user UID already exists")
 
     def create_user(
         self,
@@ -135,11 +106,11 @@ class CephAdminUserProfileMutationService:
                     extra_params=payload.extra_params or None,
                 )
         except RGWAdminError as exc:
-            raise self._upstream_error(exc) from exc
+            raise upstream_error(exc) from exc
 
         if isinstance(result, dict) and result.get("conflict"):
-            raise CephAdminUserProfileConflictError("RGW user already exists")
-        _raise_if_unsupported(result, "RGW user creation is not supported on this cluster")
+            raise CephAdminProfileConflictError("RGW user already exists")
+        raise_if_unsupported(result, "RGW user creation is not supported on this cluster")
         return result
 
     def apply_created_configuration(
@@ -188,13 +159,13 @@ class CephAdminUserProfileMutationService:
             self._update_quota(
                 uid,
                 tenant,
-                max_size_bytes=_nullable_update(
+                max_size_bytes=nullable_update(
                     update.quota_max_size_bytes,
                     "quota_max_size_bytes",
                     field_set,
                     0,
                 ),
-                max_objects=_nullable_update(
+                max_objects=nullable_update(
                     update.quota_max_objects,
                     "quota_max_objects",
                     field_set,
@@ -213,10 +184,10 @@ class CephAdminUserProfileMutationService:
         try:
             result = self.rgw_admin.update_user(uid, tenant=tenant, **params)
         except RGWAdminError as exc:
-            raise self._upstream_error(exc) from exc
+            raise upstream_error(exc) from exc
         if isinstance(result, dict) and result.get("conflict"):
-            raise CephAdminUserProfileConflictError("RGW user update conflicted")
-        _raise_if_unsupported(result, "RGW user update is not supported on this cluster")
+            raise CephAdminProfileConflictError("RGW user update conflicted")
+        raise_if_unsupported(result, "RGW user update is not supported on this cluster")
 
     def _update_quota(
         self,
@@ -236,8 +207,8 @@ class CephAdminUserProfileMutationService:
                 enabled=bool(enabled) if enabled is not None else True,
             )
         except RGWAdminError as exc:
-            raise self._upstream_error(exc) from exc
-        _raise_if_unsupported(result, "RGW user quota update is not supported on this cluster")
+            raise upstream_error(exc) from exc
+        raise_if_unsupported(result, "RGW user quota update is not supported on this cluster")
 
     def _update_caps(
         self,
@@ -250,7 +221,7 @@ class CephAdminUserProfileMutationService:
         try:
             payload = self.rgw_admin.get_user(uid, tenant=tenant, allow_not_found=True)
             if not payload or (isinstance(payload, dict) and payload.get("not_found")):
-                raise CephAdminUserProfileNotFoundError("RGW user not found")
+                raise CephAdminProfileNotFoundError("RGW user not found")
             normalized_payload = payload if isinstance(payload, dict) else {"payload": payload}
             existing_caps = canonicalize_rgw_caps(extract_rgw_user_caps(normalized_payload))
             if mode == "replace":
@@ -264,4 +235,4 @@ class CephAdminUserProfileMutationService:
             elif caps_values:
                 self.rgw_admin.set_user_caps(uid, caps_values, tenant=tenant, op="rm")
         except RGWAdminError as exc:
-            raise self._upstream_error(exc) from exc
+            raise upstream_error(exc) from exc
