@@ -82,10 +82,7 @@ import {
   BrowserSseCustomerKeyModal,
 } from "./BrowserBucketDialogModals";
 import BrowserContextMenu from "./BrowserContextMenu";
-import BrowserObjectDetailsDrawer from "./BrowserObjectDetailsDrawer";
-import { resolveStorageSpaceObjectDetailsView } from "../shared/objectDetailsContract";
-import BrowserPathDetailsDrawer from "./BrowserPathDetailsDrawer";
-import BrowserStorageSpaceObjectDetailsDrawer from "./BrowserStorageSpaceObjectDetailsDrawer";
+import BrowserObjectDetailsSurface from "./BrowserObjectDetailsSurface";
 import BrowserOperationsSurface from "./BrowserOperationsSurface";
 import BrowserMultipartUploadsModal from "./BrowserMultipartUploadsModal";
 import BrowserMobileSelectionActions from "./BrowserMobileSelectionActions";
@@ -1872,77 +1869,52 @@ export default function BrowserPage({
           handleResetVisibleColumns();
         }}
       />
-      {objectDetailsTarget &&
-      objectDetailsTarget.item.type === "file" &&
-      isStorageSpaceContext ? (
-        <BrowserStorageSpaceObjectDetailsDrawer
-          navigation={previewNavigation}
-          key={`${bucketName}:${objectDetailsTarget.item.id}`}
-          portalAccountId={portalAccountIdForApi}
-          bucket={currentBucketPanelItem}
-          bucketName={bucketName}
-          canModifyObjects={
+      <BrowserObjectDetailsSurface
+        target={objectDetailsTarget}
+        navigation={previewNavigation}
+        bucketName={bucketName}
+        onClose={closeObjectDetailsDrawer}
+        isStorageSpaceContext={isStorageSpaceContext}
+        advancedProfile={resolvedFunctionalProfile === "advanced"}
+        storageSpace={{
+          portalAccountId: portalAccountIdForApi,
+          bucket: currentBucketPanelItem,
+          canModifyObjects:
             resolvedCapabilityFacts.canDeleteObjects &&
-            resolvedCapabilityFacts.canRestoreObjects
-          }
-          createPublicLinkOnOpen={
-            objectDetailsTarget.intent === "create-public-link"
-          }
-          initialView={resolveStorageSpaceObjectDetailsView({
-            initialTab: objectDetailsTarget.initialTab,
-            intent: objectDetailsTarget.intent,
-            isDeleted: objectDetailsTarget.item.isDeleted,
-          })}
-          item={objectDetailsTarget.item}
-          onClose={closeObjectDetailsDrawer}
-          onMessage={setStatusMessage}
-          onRefreshObjects={refreshCurrentListing}
-        />
-      ) : objectDetailsTarget && objectDetailsTarget.item.type === "file" ? (
-        <BrowserObjectDetailsDrawer
-          navigation={previewNavigation}
-          key={`${bucketName}:${objectDetailsTarget.item.id}`}
-          contextId={contextIdForApi}
-          bucketName={bucketName}
-          item={objectDetailsTarget.item}
-          initialTab={objectDetailsTarget.initialTab}
-          versioningEnabled={isVersioningEnabled}
-          sseCustomerKeyBase64={sseCustomerKeyBase64}
-          useProxyTransfers={useProxyTransfers}
-          sseActive={sseActive}
-          copyUrlDisabled={sseActive}
-          copyUrlDisabledReason={copyUrlDisabledReason}
-          canDelete={resolvedCapabilityFacts.canDeleteObjects}
-          presignObjectRequest={presignObjectRequest}
-          onClose={closeObjectDetailsDrawer}
-          onDownload={handleDownloadTarget}
-          onCopyUrl={(item) => handleCopyUrl(item)}
-          onDelete={(item) => handleDeleteItems([item])}
-          onRefreshBrowserObjects={refreshCurrentListing}
-          onDownloadVersion={handleDownloadVersion}
-          onRestoreVersion={handleRestoreVersion}
-          onDeleteVersion={handleDeleteVersion}
-          profile={
-            resolvedFunctionalProfile === "advanced" ? "advanced" : "standard"
-          }
-          onDirtyChange={setObjectDetailsDirty}
-          requestOptions={browserRequestOptions}
-        />
-      ) : objectDetailsTarget &&
-        objectDetailsTarget.item.type === "folder" &&
-        resolvedFunctionalProfile === "advanced" ? (
-        <BrowserPathDetailsDrawer
-          key={`${bucketName}:${objectDetailsTarget.item.id}`}
-          contextId={contextIdForApi}
-          bucketName={bucketName}
-          listAllObjectsForPrefix={listAllObjectsForPrefix}
-          prefix={objectDetailsTarget.item.key}
-          requestOptions={browserRequestOptions}
-          versioningEnabled={isVersioningEnabled}
-          onClose={closeObjectDetailsDrawer}
-          onCopyPath={(path) => void handleCopyPath(path)}
-        />
-      ) : null}
+            resolvedCapabilityFacts.canRestoreObjects,
+          onMessage: setStatusMessage,
+          onRefreshObjects: refreshCurrentListing,
+        }}
+        object={{
+          contextId: contextIdForApi,
+          versioningEnabled: isVersioningEnabled,
+          sseCustomerKeyBase64,
+          useProxyTransfers,
+          sseActive,
+          copyUrlDisabled: sseActive,
+          copyUrlDisabledReason,
+          canDelete: resolvedCapabilityFacts.canDeleteObjects,
+          presignObjectRequest,
+          onDownload: handleDownloadTarget,
+          onCopyUrl: handleCopyUrl,
+          onDelete: (item) => handleDeleteItems([item]),
+          onRefreshBrowserObjects: refreshCurrentListing,
+          onDownloadVersion: handleDownloadVersion,
+          onRestoreVersion: handleRestoreVersion,
+          onDeleteVersion: handleDeleteVersion,
+          profile:
+            resolvedFunctionalProfile === "advanced" ? "advanced" : "standard",
+          onDirtyChange: setObjectDetailsDirty,
+          requestOptions: browserRequestOptions,
+        }}
+        path={{
+          contextId: contextIdForApi,
+          listAllObjectsForPrefix,
+          requestOptions: browserRequestOptions,
+          versioningEnabled: isVersioningEnabled,
+          onCopyPath: (path) => void handleCopyPath(path),
+        }}
+      />
       {configBucketName && bucketConfigurationEnabled && (
         <BrowserBucketConfigurationDrawer
           contextId={contextIdForApi}
