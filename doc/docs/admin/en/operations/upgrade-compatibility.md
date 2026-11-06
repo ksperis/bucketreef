@@ -1,5 +1,17 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 cost storage snapshot cleanup
+
+Migration `0250_remove_cost_by_bucket` removes the unused
+`cost_storage_daily.by_bucket` column. BucketReef never reads this per-bucket
+breakdown for cost calculation, reporting, or display, so cost collection now
+persists only the aggregate byte and object totals that the Cost Explorer
+actually consumes.
+
+The unused `COST_STORE_BY_BUCKET` runtime setting is removed with the column.
+Downgrade recreates the nullable JSON column, but discarded historical
+per-bucket breakdowns cannot be reconstructed.
+
 ## 2026-11 canonical external identity browser settings
 
 External identity browser state now uses the provider-neutral runtime settings
@@ -373,18 +385,19 @@ restores canonical compact JSON text and the legacy connection column name.
 
 ## 2026-10 structured Cost measurement breakdowns
 
-Migration `0218_structure_cost_measurement_breakdowns` replaces the text JSON
-representations in `cost_usage_daily.ops_breakdown` and
+Migration `0218_structure_cost_measurement_breakdowns` replaced the text JSON
+representations in `cost_usage_daily.ops_breakdown` and the then-existing
 `cost_storage_daily.by_bucket` with structured JSON columns. Existing non-null
 operation breakdowns must map operation names to integer counts. Existing
 per-bucket breakdowns must map bucket names to objects containing integer
 `used_bytes` and `object_count` values. Malformed JSON or values with another
 shape stop the upgrade explicitly.
 
-Cost collection now stores both breakdowns directly as structured values, and
-cost aggregation no longer reparses persisted JSON text. Empty breakdowns and
-disabled per-bucket collection use SQL `NULL` as the canonical representation.
-The downgrade recreates canonical JSON text from the structured objects.
+At that revision, cost collection stored both breakdowns directly as structured
+values and cost aggregation stopped reparsing persisted JSON text. Migration
+`0250_remove_cost_by_bucket` later removes the unused per-bucket snapshot
+column. The `0218` downgrade still recreates canonical JSON text from the
+structured objects when traversing that historical schema.
 
 ## 2026-10 structured account Portal settings overrides
 

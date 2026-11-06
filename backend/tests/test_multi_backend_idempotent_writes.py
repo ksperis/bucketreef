@@ -162,7 +162,6 @@ def test_cost_daily_upserts_keep_one_row(db_session):
         s3_user_id=None,
         total_bytes=100,
         total_objects=1,
-        by_bucket=None,
     )
     collector._upsert_storage(
         day=day,
@@ -171,7 +170,6 @@ def test_cost_daily_upserts_keep_one_row(db_session):
         s3_user_id=None,
         total_bytes=200,
         total_objects=2,
-        by_bucket=None,
     )
 
     usage = db_session.scalars(sa.select(CostUsageDaily)).one()

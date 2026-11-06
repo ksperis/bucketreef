@@ -11,7 +11,6 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
 from app.core.db_transactions import commit_or_rollback
 from app.core.sqlite import ensure_sqlite_transaction_for_savepoint
 from app.db import CostStorageDaily, CostUsageDaily, S3Account, S3User, StorageEndpoint
@@ -36,7 +35,6 @@ from app.utils.usage_stats import extract_usage_stats
 
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
 
 _DailyCostRow = TypeVar("_DailyCostRow", CostUsageDaily, CostStorageDaily)
 _COST_USAGE_SOURCE = "rgw_admin_usage"
@@ -291,7 +289,7 @@ class CostCollector:
             uid,
             resolve_target_tenant(subject.principal),
         )
-        total_bytes, total_objects, by_bucket = self._collect_bucket_stats(
+        total_bytes, total_objects = self._collect_bucket_stats(
             rgw_admin,
             storage_uid,
         )
@@ -302,7 +300,6 @@ class CostCollector:
             s3_user_id=subject.s3_user_id,
             total_bytes=total_bytes,
             total_objects=total_objects,
-            by_bucket=by_bucket,
         )
 
     def _collect_usage_for_endpoint(
@@ -349,12 +346,11 @@ class CostCollector:
         self,
         rgw_admin: RGWAdminClient,
         uid: str,
-    ) -> tuple[int, int, Optional[dict[str, dict[str, int]]]]:
+    ) -> tuple[int, int]:
         payload = rgw_admin.get_all_buckets(uid=uid, with_stats=True)
         buckets = extract_bucket_list(payload)
         total_bytes = 0
         total_objects = 0
-        by_bucket: dict[str, dict[str, int]] = {}
         for bucket in buckets:
             if not isinstance(bucket, dict):
                 continue
@@ -370,16 +366,7 @@ class CostCollector:
                     raise ValueError("RGW bucket statistics are incomplete")
             total_bytes += used_bytes
             total_objects += object_count
-            if settings.cost_store_by_bucket:
-                by_bucket[str(name)] = {
-                    "used_bytes": int(used_bytes),
-                    "object_count": int(object_count),
-                }
-        return (
-            total_bytes,
-            total_objects,
-            by_bucket if settings.cost_store_by_bucket else None,
-        )
+        return total_bytes, total_objects
 
     def _upsert_usage(
         self,
@@ -435,14 +422,10 @@ class CostCollector:
         s3_user_id: Optional[int],
         total_bytes: int,
         total_objects: int,
-        by_bucket: Optional[dict[str, dict[str, int]]],
     ) -> None:
-        stored_by_bucket = by_bucket or None
-
         def update_existing(row: CostStorageDaily, collected_at: datetime) -> None:
             row.total_bytes = total_bytes
             row.total_objects = total_objects
-            row.by_bucket = stored_by_bucket
             row.collected_at = collected_at
 
         self._upsert_daily_row(
@@ -461,7 +444,6 @@ class CostCollector:
                 s3_user_id=s3_user_id,
                 total_bytes=total_bytes,
                 total_objects=total_objects,
-                by_bucket=stored_by_bucket,
                 source=_COST_STORAGE_SOURCE,
                 collected_at=collected_at,
             ),

@@ -16954,27 +16954,6 @@
           "check": null
         },
         {
-          "id": "field:cost_storage_daily.by_bucket",
-          "name": "by_bucket",
-          "type": {
-            "id": "json",
-            "name": "json"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": true,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
           "id": "field:cost_storage_daily.source",
           "name": "source",
           "type": {

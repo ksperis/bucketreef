@@ -430,10 +430,6 @@ class Settings(BaseSettings):
         None,
         description="Force Endpoint Status feature on/off (FEATURE_ENDPOINT_STATUS_ENABLED)",
     )
-    cost_store_by_bucket: bool = Field(
-        False,
-        description="Store per-bucket breakdown in cost snapshots",
-    )
     internal_cron_token: Optional[str] = Field(
         None,
         description="Shared secret for internal cron endpoints (INTERNAL_CRON_TOKEN)",
