@@ -40,7 +40,7 @@ def _storage_endpoint_projection(
     return {
         "endpoint_id": endpoint.id,
         "endpoint_name": endpoint.name,
-        "endpoint_is_default": bool(endpoint.is_default),
+        "endpoint_is_default": endpoint.is_default,
         "endpoint_provider": endpoint.provider,
         "endpoint_url": endpoint.endpoint_url if endpoint_url is None else endpoint_url,
         "storage_endpoint_capabilities": capabilities,
@@ -60,7 +60,7 @@ def execution_destination_from_db(endpoint: StorageEndpoint) -> ExecutionDestina
         realm_id=endpoint.realm_id,
         zonegroup_id=endpoint.zonegroup_id,
         zone_id=endpoint.zone_id,
-        is_default=bool(endpoint.is_default),
+        is_default=endpoint.is_default,
         storage_endpoint_capabilities=capabilities,
     )
 

@@ -602,7 +602,7 @@ def _env_endpoint_identities(
                 entry=entry,
                 name=name,
                 endpoint_url=endpoint_url,
-                is_default=bool(entry.is_default),
+                is_default=entry.is_default,
             )
         )
 
