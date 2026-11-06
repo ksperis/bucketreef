@@ -45,6 +45,10 @@ class EndpointHealthLatest(Base):
             "check_mode IN ('http', 's3')",
             name="ck_endpoint_health_latest_mode",
         ),
+        CheckConstraint(
+            "check_type = 'availability' AND scope = 'endpoint'",
+            name="ck_endpoint_health_latest_dimensions",
+        ),
         UniqueConstraint(
             "storage_endpoint_id",
             "check_mode",
@@ -86,6 +90,10 @@ class EndpointHealthStatusSegment(Base):
             "check_mode IN ('http', 's3')",
             name="ck_endpoint_health_status_segments_mode",
         ),
+        CheckConstraint(
+            "check_type = 'availability' AND scope = 'endpoint'",
+            name="ck_endpoint_health_status_segments_dimensions",
+        ),
         Index(
             "ix_endpoint_health_segments_endpoint_type_scope_started",
             "storage_endpoint_id",
@@ -125,6 +133,10 @@ class EndpointHealthRollup(Base):
         CheckConstraint(
             "check_mode IN ('http', 's3')",
             name="ck_endpoint_health_rollups_mode",
+        ),
+        CheckConstraint(
+            "check_type = 'availability' AND scope = 'endpoint'",
+            name="ck_endpoint_health_rollups_dimensions",
         ),
         UniqueConstraint(
             "storage_endpoint_id",
