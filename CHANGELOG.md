@@ -23,6 +23,7 @@
 - Reuse the backend-aligned public storage-endpoint contract for login settings and private S3 connection endpoint selection.
 - Reuse the shared settings-form action contract in Portal Storage Space identity and Manager bucket feature dialogs instead of maintaining bespoke form footers.
 - Route API-token and managed private-access creation through the shared settings form instead of duplicating dialog form/action markup.
+- Route the Portal Storage Space icon editor through the shared settings form while preserving localized actions and dirty-state protection.
 
 ### Fixed
 
