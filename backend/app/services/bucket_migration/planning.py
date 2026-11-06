@@ -94,7 +94,7 @@ class BucketMigrationPlanningMixin:
         *,
         same_endpoint: bool,
     ) -> tuple[bool, bool]:
-        use_same_endpoint_copy = bool(payload.use_same_endpoint_copy)
+        use_same_endpoint_copy = payload.use_same_endpoint_copy
         explicit_auto_grant = payload.auto_grant_source_read_for_copy
 
         if use_same_endpoint_copy and not same_endpoint:
@@ -109,7 +109,7 @@ class BucketMigrationPlanningMixin:
         if explicit_auto_grant is None:
             auto_grant_source_read_for_copy = False
         else:
-            auto_grant_source_read_for_copy = bool(explicit_auto_grant)
+            auto_grant_source_read_for_copy = explicit_auto_grant
 
         if not use_same_endpoint_copy:
             auto_grant_source_read_for_copy = False
@@ -149,7 +149,7 @@ class BucketMigrationPlanningMixin:
 
         limits = self._load_runtime_limits()
         requested_parallelism = (
-            int(payload.parallelism_max)
+            payload.parallelism_max
             if payload.parallelism_max is not None
             else int(limits.parallelism_default)
         )
@@ -169,9 +169,9 @@ class BucketMigrationPlanningMixin:
             "source_context_id": payload.source_context_id,
             "target_context_id": payload.target_context_id,
             "mode": payload.mode,
-            "copy_bucket_settings": bool(payload.copy_bucket_settings),
-            "strong_integrity_check": bool(payload.strong_integrity_check),
-            "lock_target_writes": bool(payload.lock_target_writes),
+            "copy_bucket_settings": payload.copy_bucket_settings,
+            "strong_integrity_check": payload.strong_integrity_check,
+            "lock_target_writes": payload.lock_target_writes,
             "use_same_endpoint_copy": configuration.use_same_endpoint_copy,
             "auto_grant_source_read_for_copy": configuration.auto_grant_source_read_for_copy,
             "parallelism_max": configuration.parallelism,
@@ -268,9 +268,9 @@ class BucketMigrationPlanningMixin:
             source_context_id=payload.source_context_id,
             target_context_id=payload.target_context_id,
             mode=payload.mode,
-            copy_bucket_settings=bool(payload.copy_bucket_settings),
-            strong_integrity_check=bool(payload.strong_integrity_check),
-            lock_target_writes=bool(payload.lock_target_writes),
+            copy_bucket_settings=payload.copy_bucket_settings,
+            strong_integrity_check=payload.strong_integrity_check,
+            lock_target_writes=payload.lock_target_writes,
             use_same_endpoint_copy=configuration.use_same_endpoint_copy,
             auto_grant_source_read_for_copy=configuration.auto_grant_source_read_for_copy,
             status="draft",
@@ -331,9 +331,9 @@ class BucketMigrationPlanningMixin:
         migration.source_context_id = payload.source_context_id
         migration.target_context_id = payload.target_context_id
         migration.mode = payload.mode
-        migration.copy_bucket_settings = bool(payload.copy_bucket_settings)
-        migration.strong_integrity_check = bool(payload.strong_integrity_check)
-        migration.lock_target_writes = bool(payload.lock_target_writes)
+        migration.copy_bucket_settings = payload.copy_bucket_settings
+        migration.strong_integrity_check = payload.strong_integrity_check
+        migration.lock_target_writes = payload.lock_target_writes
         migration.use_same_endpoint_copy = configuration.use_same_endpoint_copy
         migration.auto_grant_source_read_for_copy = (
             configuration.auto_grant_source_read_for_copy
