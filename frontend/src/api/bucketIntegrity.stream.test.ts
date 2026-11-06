@@ -39,7 +39,7 @@ describe("bucket integrity streams", () => {
 
     const result = await streamManagerBucketIntegrityCheck(
       "s3u-1",
-      { buckets: ["bucket-a"], parallelism: 4, all_versions: true },
+      { targets: ["bucket-a"], parallelism: 4, all_versions: true },
       {
         onProgress: (event) => progressEvents.push({ checked: event.checked_count, listed: event.listed_count }),
       }
@@ -51,7 +51,7 @@ describe("bucket integrity streams", () => {
       "/api/manager/bucket-integrity/stream?context_id=s3u-1",
       expect.objectContaining({
         method: "POST",
-        body: JSON.stringify({ buckets: ["bucket-a"], parallelism: 4, all_versions: true }),
+        body: JSON.stringify({ targets: ["bucket-a"], parallelism: 4, all_versions: true }),
       })
     );
     const headers = new Headers(fetchMock.mock.calls[0][1]?.headers);

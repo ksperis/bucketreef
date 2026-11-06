@@ -21,7 +21,8 @@ BucketIntegrityFailureStage = Literal["list", "head", "get"]
 BucketIntegrityProgressStage = Literal["prepare", "list", "verify", "completed"]
 
 
-class BucketIntegrityRequestOptions(ApiModel):
+class BucketIntegrityRequest(ApiModel):
+    targets: BucketNameList
     parallelism: int = Field(default=10, ge=1, le=64)
     all_versions: bool = False
     check_mode: BucketIntegrityCheckMode = "head"
@@ -29,15 +30,11 @@ class BucketIntegrityRequestOptions(ApiModel):
     max_mb_per_object: Optional[float] = Field(default=None, gt=0, le=10240)
 
 
-class BucketIntegrityBucketRequest(BucketIntegrityRequestOptions):
-    buckets: BucketNameList
-
-
-class BucketIntegrityTargetRequest(BucketIntegrityRequestOptions):
+class BucketIntegrityTargetRequest(BucketIntegrityRequest):
     targets: BucketTargetList
 
 
-class BucketIntegrityRgwTargetRequest(BucketIntegrityRequestOptions):
+class BucketIntegrityRgwTargetRequest(BucketIntegrityRequest):
     targets: RgwBucketReferenceList
 
 class BucketIntegrityFailure(ApiModel):

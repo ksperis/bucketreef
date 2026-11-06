@@ -12,7 +12,7 @@ from fastapi.responses import StreamingResponse
 from app.models.bucket_integrity import (
     BucketIntegrityCheckProgress,
     BucketIntegrityCheckResult,
-    BucketIntegrityRequestOptions,
+    BucketIntegrityRequest,
 )
 from app.routers.sse_worker import stream_status_operation
 from app.services.bucket_integrity_service import (
@@ -42,7 +42,7 @@ def stream_bucket_integrity_check(
 def stream_resolved_bucket_integrity_check(
     request: Request,
     *,
-    payload: BucketIntegrityRequestOptions,
+    payload: BucketIntegrityRequest,
     targets: Sequence[BucketIntegrityResolvedTarget],
     logger: logging.Logger,
     failure_message: str,

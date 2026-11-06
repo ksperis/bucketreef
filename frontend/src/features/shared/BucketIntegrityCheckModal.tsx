@@ -10,7 +10,7 @@ import {
   streamManagerBucketIntegrityCheck,
   streamStorageOpsBucketIntegrityCheck,
   type BucketIntegrityBucketResult,
-  type BucketIntegrityBucketPayload,
+  type BucketIntegrityPayload,
   type BucketIntegrityCheckMode,
   type BucketIntegrityFailure,
   type BucketIntegrityProgress,
@@ -168,7 +168,7 @@ export default function BucketIntegrityCheckModal(props: BucketIntegrityCheckMod
     });
   }, [errorFilter, result, resultSearch, statusFilter]);
 
-  const buildPayloadOptions = (): Omit<BucketIntegrityBucketPayload, "buckets"> => {
+  const buildPayloadOptions = (): Omit<BucketIntegrityPayload, "targets"> => {
     const maxMbPerObject = checkMode === "get" ? parseOptionalMaxMb(maxMb) : null;
     const sinceIso = parseOptionalSince(since);
     return {
@@ -186,7 +186,7 @@ export default function BucketIntegrityCheckModal(props: BucketIntegrityCheckMod
     setMessage(null);
     setResult(null);
     setProgress(null);
-    let payloadOptions: Omit<BucketIntegrityBucketPayload, "buckets">;
+    let payloadOptions: Omit<BucketIntegrityPayload, "targets">;
     try {
       payloadOptions = buildPayloadOptions();
     } catch (err) {
@@ -206,7 +206,7 @@ export default function BucketIntegrityCheckModal(props: BucketIntegrityCheckMod
         props.mode === "manager"
           ? await streamManagerBucketIntegrityCheck(
               props.contextId,
-              { ...payloadOptions, buckets: props.targets.map((target) => target.bucketName) },
+              { ...payloadOptions, targets: props.targets.map((target) => target.bucketName) },
               streamOptions,
             )
           : props.mode === "ceph-admin"

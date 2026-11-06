@@ -21,7 +21,6 @@ from app.main import app
 from app.models.app_settings import AppSettings
 from app.models.bucket_integrity import (
     BucketIntegrityBucketResult,
-    BucketIntegrityBucketRequest,
     BucketIntegrityFailure,
     BucketIntegrityCheckProgress,
     BucketIntegrityCheckResult,
@@ -155,7 +154,7 @@ def test_manager_integrity_route_streams_progress_and_result(monkeypatch):
         with TestClient(app) as client:
             response = client.post(
                 "/api/manager/bucket-integrity/stream?context_id=s3u-1",
-                json={"buckets": ["bucket-a"], "parallelism": 4, "check_mode": "get"},
+                json={"targets": ["bucket-a"], "parallelism": 4, "check_mode": "get"},
             )
     finally:
         app.dependency_overrides = previous_overrides
@@ -189,7 +188,7 @@ def test_manager_integrity_route_returns_403_when_flag_disabled(monkeypatch):
         with TestClient(app) as client:
             response = client.post(
                 "/api/manager/bucket-integrity/stream?context_id=s3u-1",
-                json={"buckets": ["bucket-a"]},
+                json={"targets": ["bucket-a"]},
             )
     finally:
         app.dependency_overrides = previous_overrides

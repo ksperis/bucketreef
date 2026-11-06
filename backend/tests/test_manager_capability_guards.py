@@ -242,7 +242,7 @@ def test_http_routes_reject_missing_or_denied_capabilities_before_storage_work(c
     if route in {"overview", "traffic"}:
         response = client.get(f"/api/manager/stats/{route}")
     else:
-        payload = {"buckets": ["bucket"]}
+        payload = {"targets": ["bucket"]}
         if route == "purge":
             payload["confirmation"] = bucket_purge_confirmation_phrase(1)
         response = client.post(f"/api/manager/bucket-{route}/stream", json=payload)

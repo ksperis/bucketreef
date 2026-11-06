@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 
 from app.db import User
 from app.services.access_context_contracts import ManagerActor
-from app.models.bucket_integrity import BucketIntegrityBucketRequest
+from app.models.bucket_integrity import BucketIntegrityRequest
 from app.routers.bucket_integrity_stream import stream_resolved_bucket_integrity_check
 from app.routers.dependencies import (
     get_s3_execution_context,
@@ -26,13 +26,13 @@ logger = logging.getLogger(__name__)
 
 @router.post("/stream")
 def stream_manager_bucket_integrity_check(
-    payload: BucketIntegrityBucketRequest,
+    payload: BucketIntegrityRequest,
     request: Request,
     _tool_user: User = Depends(require_bucket_integrity_check_enabled),
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> StreamingResponse:
-    bucket_names = payload.buckets
+    bucket_names = payload.targets
     require_bucket_management_context(context)
     targets = [
         BucketIntegrityResolvedTarget(
