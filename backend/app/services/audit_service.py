@@ -22,6 +22,30 @@ from app.services.webhook_service import WebhookEventPublisher
 logger = logging.getLogger(__name__)
 
 MAX_AUDIT_METADATA_LENGTH = 16384
+
+_MANAGER_ACTIVITY_SEARCH_COLUMNS = (
+    AuditLog.user_email,
+    AuditLog.action,
+    AuditLog.entity_type,
+    AuditLog.entity_id,
+    AuditLog.context_name,
+)
+_AUDIT_SEARCH_COLUMNS = (
+    *_MANAGER_ACTIVITY_SEARCH_COLUMNS,
+    AuditLog.user_role,
+    AuditLog.scope,
+    AuditLog.context_kind,
+    AuditLog.context_id,
+    AuditLog.status,
+    AuditLog.message,
+    cast(AuditLog.audit_metadata, String),
+)
+_SEARCH_COLUMNS_BY_MODE = {
+    "all": _AUDIT_SEARCH_COLUMNS,
+    "manager_activity": _MANAGER_ACTIVITY_SEARCH_COLUMNS,
+}
+
+
 class AuditAccountSource(Protocol):
     id: int
     name: str
@@ -250,33 +274,10 @@ class AuditService:
             trimmed = search.strip()
             if trimmed:
                 pattern = f"%{trimmed}%"
-                if search_mode == "manager_activity":
-                    statement = statement.where(
-                        or_(
-                            AuditLog.user_email.ilike(pattern),
-                            AuditLog.action.ilike(pattern),
-                            AuditLog.entity_type.ilike(pattern),
-                            AuditLog.entity_id.ilike(pattern),
-                            AuditLog.context_name.ilike(pattern),
-                        )
-                    )
-                else:
-                    statement = statement.where(
-                        or_(
-                            AuditLog.user_email.ilike(pattern),
-                            AuditLog.user_role.ilike(pattern),
-                            AuditLog.scope.ilike(pattern),
-                            AuditLog.action.ilike(pattern),
-                            AuditLog.entity_type.ilike(pattern),
-                            AuditLog.entity_id.ilike(pattern),
-                            AuditLog.context_kind.ilike(pattern),
-                            AuditLog.context_id.ilike(pattern),
-                            AuditLog.context_name.ilike(pattern),
-                            AuditLog.status.ilike(pattern),
-                            AuditLog.message.ilike(pattern),
-                            cast(AuditLog.audit_metadata, String).ilike(pattern),
-                        )
-                    )
+                search_columns = _SEARCH_COLUMNS_BY_MODE[search_mode]
+                statement = statement.where(
+                    or_(*(column.ilike(pattern) for column in search_columns))
+                )
         sliced_limit = min(max(limit, 1), 500)
         return self.db.scalars(
             statement.order_by(AuditLog.id.desc()).limit(sliced_limit)
