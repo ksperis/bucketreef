@@ -38,6 +38,7 @@
 - Canonicalize Admin OpenStack cloud options on the shared pagination/search request passed through the service layer.
 - Canonicalize Admin UI User and UI Group option lists on one bounded pagination/search request with service-owned paginated responses.
 - Reuse one application pagination request across Admin listings, Ceph Admin identity and bucket listings, and endpoint raw health checks.
+- Canonicalize Admin UI User listings on the frontend-supported pagination and typed sort contract, with service-owned paginated responses.
 
 ### Fixed
 
@@ -45,6 +46,7 @@
 
 ### Upgrade notes
 
+- Deploy the matching backend and frontend together because Admin UI User list sorting now rejects retired sort aliases outside the current UI contract.
 - Deploy the matching backend and frontend together because Admin S3 Account and RGW User list query validation now accepts only the supported sort fields and directions.
 - Deploy the matching backend and frontend together because Admin UI Group and S3 Connection list query validation now accepts only the supported sort fields and directions.
 - Deploy the matching backend and frontend together because Admin Usage History and Cost subject list query validation now accepts only the supported granularity, subject type, sort fields, and sort directions.

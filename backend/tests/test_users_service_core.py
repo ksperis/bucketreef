@@ -26,6 +26,7 @@ from app.db import (
 from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, StorageProvider, UserRole
 from app.models.admin_listing import AdminOptionListingRequest
 from app.models.user import (
+    AdminUserListingRequest,
     ManagerToolAccess,
     PASSWORD_POLICY_ERROR,
     S3UserMembership,
@@ -850,13 +851,16 @@ def test_paginate_users_and_detached_user_use_canonical_preload(db_session, monk
 
     with monkeypatch.context() as projection_patch:
         projection_patch.setattr(UserOutputService, "preload", track_preload)
-        rows, total = service.paginate_users(
-            page=1,
-            page_size=10,
-            search="paged",
-            sort_field="last_login",
-            sort_direction="desc",
+        page = service.list_users_page(
+            AdminUserListingRequest(
+                page=1,
+                page_size=10,
+                search="paged",
+                sort_by="last_login_at",
+                sort_dir="desc",
+            )
         )
+        rows, total = page.items, page.total
         assert preload_calls == [[user.id]]
 
         db_session.expunge(user)
@@ -884,26 +888,52 @@ def test_paginate_users_searches_and_sorts_by_canonical_name(db_session):
     zulu.full_name = "Zulu Canonical"
     db_session.commit()
 
-    rows, total = service.paginate_users(
-        page=1,
-        page_size=10,
-        search="canonical",
-        sort_field="name",
-        sort_direction="asc",
+    page = service.list_users_page(
+        AdminUserListingRequest(
+            page=1,
+            page_size=10,
+            search="canonical",
+            sort_by="name",
+            sort_dir="asc",
+        )
     )
+    rows, total = page.items, page.total
 
     assert total == 3
     assert [row.id for row in rows] == [alpha.id, email_only.id, zulu.id]
     assert all("display_name" not in row.model_dump() for row in rows)
 
-    descending, _ = service.paginate_users(
-        page=1,
-        page_size=10,
-        search="canonical",
-        sort_field="name",
-        sort_direction="desc",
+    descending = service.list_users_page(
+        AdminUserListingRequest(
+            page=1,
+            page_size=10,
+            search="canonical",
+            sort_by="name",
+            sort_dir="desc",
+        )
     )
-    assert [row.id for row in descending] == [zulu.id, email_only.id, alpha.id]
+    assert [row.id for row in descending.items] == [zulu.id, email_only.id, alpha.id]
+
+
+def test_admin_user_accounts_sort_preserves_current_email_order(db_session):
+    service = UsersService(db_session)
+    zulu_email = _seed_user(db_session, "z-association-sort@example.com")
+    zulu_email.full_name = "Alpha association sort"
+    alpha_email = _seed_user(db_session, "a-association-sort@example.com")
+    alpha_email.full_name = "Zulu association sort"
+    db_session.commit()
+
+    page = service.list_users_page(
+        AdminUserListingRequest(
+            page=1,
+            page_size=10,
+            search="association-sort",
+            sort_by="accounts",
+            sort_dir="asc",
+        )
+    )
+
+    assert [row.id for row in page.items] == [alpha_email.id, zulu_email.id]
 
 
 def test_admin_user_projection_and_search_hide_private_connection_links(db_session):
@@ -926,13 +956,15 @@ def test_admin_user_projection_and_search_hide_private_connection_links(db_sessi
     projected = service.user_to_out(user)
     assert projected.s3_connection_details == []
 
-    rows, total = service.paginate_users(
-        page=1,
-        page_size=25,
-        search="private-connection-secret-name",
+    page = service.list_users_page(
+        AdminUserListingRequest(
+            page=1,
+            page_size=25,
+            search="private-connection-secret-name",
+        )
     )
-    assert rows == []
-    assert total == 0
+    assert page.items == []
+    assert page.total == 0
 
 
 def test_assign_user_to_account_paths_and_paginated_user_summaries(db_session):

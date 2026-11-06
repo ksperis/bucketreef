@@ -95,6 +95,12 @@ def test_admin_user_api_rejects_legacy_ui_roles(
     assert update_response.status_code == 422
 
 
+def test_admin_user_list_rejects_retired_sort_alias(client: TestClient):
+    response = client.get("/api/admin/users", params={"sort_by": "created_at"})
+
+    assert response.status_code == 422
+
+
 def test_update_user_replaces_account_links_atomically(client: TestClient, db_session, seed_user_account):
     usr, first_account = seed_user_account
     second_account = make_s3_account(

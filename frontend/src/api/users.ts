@@ -11,6 +11,7 @@ import type {
 } from "./accountAccess";
 
 export type UiRole = "ui_superadmin" | "ui_admin" | "ui_user" | "ui_none";
+export type AdminUserSortBy = "name" | "role" | "accounts" | "last_login_at";
 
 export type AccountMembership = AccountAccessGrant & {
   account_id: number;
@@ -227,7 +228,7 @@ type ListUsersParams = {
   page?: number;
   page_size?: number;
   search?: string;
-  sort_by?: string;
+  sort_by?: AdminUserSortBy;
   sort_dir?: "asc" | "desc";
 };
 

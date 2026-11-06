@@ -6,6 +6,7 @@ from typing import Literal, Optional, Self
 from pydantic import EmailStr, Field, field_validator, model_validator
 
 from app.models.account_access import AccountAccessGrant
+from app.models.admin_listing import AdminPaginatedListingRequest, AdminSortDir
 from app.models.base import ApiModel, reject_explicit_null_fields
 from app.models.pagination import PaginatedResponse
 from app.models.openstack import LinkedOpenStackCloud
@@ -16,6 +17,7 @@ UiThemePreference = Literal["light", "dark"]
 UiRole = Literal["ui_superadmin", "ui_admin", "ui_user", "ui_none"]
 UserAvatarPreference = Literal["auto", "uploaded", "gravatar", "initials"]
 UserAvatarSource = Literal["uploaded", "provider", "gravatar", "initials"]
+AdminUserSortBy = Literal["name", "role", "accounts", "last_login_at"]
 MIN_PASSWORD_LENGTH = 12
 PASSWORD_POLICY_ERROR = f"Password must be at least {MIN_PASSWORD_LENGTH} characters long"
 
@@ -277,6 +279,11 @@ class UserOut(ApiModel):
 
 class PaginatedUsersResponse(PaginatedResponse):
     items: list[UserOut]
+
+
+class AdminUserListingRequest(AdminPaginatedListingRequest):
+    sort_by: AdminUserSortBy = "name"
+    sort_dir: AdminSortDir = "asc"
 
 
 class PaginatedUserSummariesResponse(PaginatedResponse):

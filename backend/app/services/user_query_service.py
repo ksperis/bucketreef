@@ -19,8 +19,14 @@ from app.db import (
     UserS3User,
     UserUiGroup,
 )
-from app.models.admin_listing import AdminOptionListingRequest
-from app.models.user import PaginatedUserSummariesResponse, UserOut, UserSummary
+from app.models.admin_listing import AdminOptionListingRequest, AdminSortDir
+from app.models.user import (
+    AdminUserListingRequest,
+    AdminUserSortBy,
+    PaginatedUserSummariesResponse,
+    PaginatedUsersResponse,
+    UserSummary,
+)
 from app.services.sqlalchemy_pagination import paginate_scalars
 from app.services.user_avatar_service import UserAvatarService
 from app.services.user_output_service import UserOutputService
@@ -132,7 +138,10 @@ class UserQueryService:
         )
 
     @staticmethod
-    def _order_columns(sort_field: str, sort_direction: str) -> list[Any]:
+    def _order_columns(
+        sort_field: AdminUserSortBy,
+        sort_direction: AdminSortDir,
+    ) -> list[Any]:
         name_sort = func.lower(
             func.coalesce(
                 func.nullif(func.trim(User.full_name), ""),
@@ -141,18 +150,15 @@ class UserQueryService:
         )
         sort_map = {
             "name": name_sort,
-            "full_name": name_sort,
-            "email": User.email,
             "role": User.role,
-            "created_at": User.created_at,
+            "accounts": User.email,
             "last_login_at": User.last_login_at,
-            "last_login": User.last_login_at,
         }
-        order_column = sort_map.get(sort_field, User.email)
-        uses_email_sort = sort_field == "email" or sort_field not in sort_map
+        order_column = sort_map[sort_field]
+        uses_email_sort = sort_field == "accounts"
         if sort_direction == "desc":
             order_column = order_column.desc()
-        if sort_field in {"last_login_at", "last_login"}:
+        if sort_field == "last_login_at":
             order_column = order_column.nulls_last()
 
         order_columns = [order_column]
@@ -163,28 +169,30 @@ class UserQueryService:
         order_columns.append(User.id.asc())
         return order_columns
 
-    def paginate_users(
+    def list_users_page(
         self,
-        page: int,
-        page_size: int,
-        search: str | None = None,
-        sort_field: str = "name",
-        sort_direction: str = "asc",
-    ) -> tuple[list[UserOut], int]:
-        search_value = search.strip() if isinstance(search, str) else ""
+        request: AdminUserListingRequest,
+    ) -> PaginatedUsersResponse:
+        search_value = request.search.strip() if isinstance(request.search, str) else ""
         statement = self._apply_search(select(User), search_value)
         rows, total = paginate_scalars(
             self.db,
             statement,
-            order_by=self._order_columns(sort_field, sort_direction),
-            page=page,
-            page_size=page_size,
+            order_by=self._order_columns(request.sort_by, request.sort_dir),
+            page=request.page,
+            page_size=request.page_size,
             unique=True,
         )
         output_service = UserOutputService(self.db)
         preloaded = output_service.preload(rows)
-        outputs = [
+        items = [
             output_service.to_out(user, preloaded=preloaded)
             for user in rows
         ]
-        return outputs, total
+        return PaginatedUsersResponse(
+            items=items,
+            total=total,
+            page=request.page,
+            page_size=request.page_size,
+            has_next=request.page * request.page_size < total,
+        )
