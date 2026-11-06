@@ -249,7 +249,7 @@ def _enrich_notification_configuration(
         _mark_details_unavailable(column_details, detail_keys)
         return
 
-    configuration = notifications.configuration or {}
+    configuration = notifications.configuration
     if wants_feature:
         configured = is_bucket_notification_configuration_configured(configuration)
         feature_map["notifications"] = (
@@ -332,7 +332,7 @@ def _enrich_lifecycle_configuration(
         raw_rules = context.reader.get_lifecycle(
             context.bucket_name,
             context.execution_context,
-        ).rules or []
+        ).rules
     except RuntimeError:
         if wants_feature:
             feature_map["lifecycle_rules"] = _feature_status_unavailable()

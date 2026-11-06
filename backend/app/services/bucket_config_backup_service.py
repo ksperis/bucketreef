@@ -113,9 +113,9 @@ class BucketConfigBackupService:
             return model_to_jsonable(self._configuration.get_public_access_block(bucket_name, execution_context))
         if feature == "lifecycle":
             lifecycle = self._configuration.get_lifecycle(bucket_name, execution_context)
-            return {"rules": lifecycle.rules or []}
+            return {"rules": lifecycle.rules}
         if feature == "cors":
-            return {"rules": self._configuration.get_bucket_cors(bucket_name, execution_context) or []}
+            return {"rules": self._configuration.get_bucket_cors(bucket_name, execution_context)}
         if feature == "policy":
             return {"policy": self._configuration.get_policy(bucket_name, execution_context)}
         if feature == "access_logging":

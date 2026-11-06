@@ -55,11 +55,11 @@ def _load_feature_param_snapshot_for_bucket(
     snapshot: dict[str, object] = {}
     source_loaders: dict[str, Callable[[], object]] = {
         "props": lambda: service.get_bucket_properties(effective_bucket_name, execution_context),
-        "lifecycle": lambda: service.get_lifecycle(effective_bucket_name, execution_context).rules or [],
+        "lifecycle": lambda: service.get_lifecycle(effective_bucket_name, execution_context).rules,
         "logging": lambda: service.get_bucket_logging(effective_bucket_name, execution_context),
         "website": lambda: service.get_bucket_website(effective_bucket_name, execution_context),
         "policy": lambda: service.get_policy(effective_bucket_name, execution_context),
-        "notifications": lambda: service.get_bucket_notifications(effective_bucket_name, execution_context).configuration or {},
+        "notifications": lambda: service.get_bucket_notifications(effective_bucket_name, execution_context).configuration,
         "encryption": lambda: service.get_bucket_encryption(effective_bucket_name, execution_context),
     }
     for source in _FEATURE_PARAM_SOURCE_ORDER:

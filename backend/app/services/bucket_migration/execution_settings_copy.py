@@ -155,7 +155,7 @@ class _BucketSettingsCopyRunner:
             self.source_bucket,
             self.source_execution_context,
         )
-        rules = list(encryption.rules or [])
+        rules = list(encryption.rules)
         if rules:
             self.service._configuration.set_bucket_encryption(
                 self.target_bucket,
@@ -189,7 +189,7 @@ class _BucketSettingsCopyRunner:
             self.source_bucket,
             self.source_execution_context,
         )
-        rules = lifecycle.rules or []
+        rules = lifecycle.rules
         if rules:
             self.service._configuration.set_lifecycle(
                 self.target_bucket,

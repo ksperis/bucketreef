@@ -477,7 +477,7 @@ class FeatureRuleInventoryService:
                     return _bucket_result(
                         bucket_name=bucket.name,
                         feature=feature,
-                        rules=_normalize_lifecycle_rules(lifecycle.rules or []),
+                        rules=_normalize_lifecycle_rules(lifecycle.rules),
                     )
                 if feature == "policy":
                     return _bucket_result(
@@ -489,19 +489,19 @@ class FeatureRuleInventoryService:
                     return _bucket_result(
                         bucket_name=bucket.name,
                         feature=feature,
-                        rules=_normalize_cors_rules(self.configuration_service.get_bucket_cors(bucket.name, context) or []),
+                        rules=_normalize_cors_rules(self.configuration_service.get_bucket_cors(bucket.name, context)),
                     )
                 if feature == "tags":
                     return _bucket_result(
                         bucket_name=bucket.name,
                         feature=feature,
-                        rules=_normalize_tag_rules(self.configuration_service.get_bucket_tags(bucket.name, context) or []),
+                        rules=_normalize_tag_rules(self.configuration_service.get_bucket_tags(bucket.name, context)),
                     )
                 notifications = self.configuration_service.get_bucket_notifications(bucket.name, context)
                 return _bucket_result(
                     bucket_name=bucket.name,
                     feature=feature,
-                    rules=_normalize_notification_rules(notifications.configuration or {}),
+                    rules=_normalize_notification_rules(notifications.configuration),
                 )
             except RuntimeError as exc:
                 return _unavailable_bucket(bucket.name, feature, _safe_bucket_feature_error(feature, exc))
