@@ -11,9 +11,19 @@ TextNormalizer = Callable[[object], str | None]
 NumberCoercer = Callable[[object], float | None]
 BooleanCoercer = Callable[[object], bool | None]
 
-_NUMERIC_COMPARATORS = {
+_TEXT_COMPARATORS = {
+    "contains": lambda left, right: right in left,
+    "starts_with": str.startswith,
+    "ends_with": str.endswith,
     "eq": eq,
     "neq": ne,
+}
+_EQUALITY_COMPARATORS = {
+    "eq": eq,
+    "neq": ne,
+}
+_NUMERIC_COMPARATORS = {
+    **_EQUALITY_COMPARATORS,
     "gt": gt,
     "gte": ge,
     "lt": lt,
@@ -41,17 +51,10 @@ def match_text_rule(
     if value is None:
         return False
     left = normalize_text(str(value))
-    if op in {"contains", "starts_with", "ends_with", "eq", "neq"}:
+    comparator = _TEXT_COMPARATORS.get(op)
+    if comparator is not None:
         right = scalar_normalizer(expected)
-        if right is None:
-            return False
-        if op == "contains":
-            return right in left
-        if op == "starts_with":
-            return left.startswith(right)
-        if op == "ends_with":
-            return left.endswith(right)
-        return left == right if op == "eq" else left != right
+        return right is not None and comparator(left, right)
     if op not in {"in", "not_in"} or not isinstance(expected, list):
         return False
     candidates = {
@@ -103,11 +106,10 @@ def match_boolean_rule(
         left = default_if_none
     if left is None:
         return False
-    if op in {"eq", "neq"}:
+    comparator = _EQUALITY_COMPARATORS.get(op)
+    if comparator is not None:
         right = coerce(expected)
-        if right is None:
-            return False
-        return left == right if op == "eq" else left != right
+        return right is not None and comparator(left, right)
     if op not in {"in", "not_in"} or not isinstance(expected, list):
         return False
     candidates = {
