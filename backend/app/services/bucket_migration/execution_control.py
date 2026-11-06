@@ -179,7 +179,7 @@ class BucketMigrationExecutionControlMixin:
             ):
                 return None
 
-            if item.status in {"completed", "rolled_back", "skipped", "failed", "canceled"}:
+            if item.status in {"completed", "skipped", "failed", "canceled"}:
                 continue
             if migration.mode == "pre_sync" and migration.status == "awaiting_cutover":
                 if self._clear_owned_worker_lease(migration, worker_id=worker_id):

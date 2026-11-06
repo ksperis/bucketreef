@@ -40,7 +40,7 @@ _MIGRATION_STREAM_KEEPALIVE_INTERVAL_SECONDS = 15.0
 
 
 def _is_final_migration_status(status_value: str) -> bool:
-    return status_value in {"completed", "completed_with_errors", "failed", "canceled", "rolled_back"}
+    return status_value in {"completed", "completed_with_errors", "failed", "canceled"}
 
 
 async def _migration_stream_events(

@@ -22,7 +22,6 @@ _MIGRATION_FINAL_STATUSES = {
     "completed_with_errors",
     "failed",
     "canceled",
-    "rolled_back",
 }
 _VERSION_OPERATION_GAP_SECONDS = 1.1
 

@@ -34,7 +34,6 @@ const SORT_PRIORITY: Record<BucketMigrationStatus, number> = {
   completed_with_errors: 8,
   canceled: 9,
   completed: 10,
-  rolled_back: 11,
 };
 
 export default function ManagerMigrationsListPage() {
