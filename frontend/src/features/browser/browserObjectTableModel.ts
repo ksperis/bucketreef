@@ -14,6 +14,7 @@ import {
   writeBrowserEmbeddedObjectColumnWidths,
 } from "./browserEmbeddedColumnsState";
 import { clampBrowserPanelWidth } from "./browserPanelLayout";
+import { storageClassOptions } from "./browserConstants";
 import {
   readBrowserRootObjectColumns,
   readBrowserRootObjectColumnWidths,
@@ -511,11 +512,15 @@ export const buildBrowserPathStats = (items: BrowserItem[]): BrowserPathStats =>
     },
   );
 
-export const collectAvailableStorageClasses = (items: BrowserItem[]) =>
-  Array.from(
-    new Set(
-      items.flatMap((item) =>
-        item.storageClass ? [item.storageClass] : [],
-      ),
-    ),
+export const buildSearchableStorageClasses = (items: BrowserItem[]) => {
+  const ordered = storageClassOptions.map((option) => option.value);
+  const known = new Set(ordered);
+  const available = new Set(
+    items.flatMap((item) => (item.storageClass ? [item.storageClass] : [])),
   );
+  const unknown = Array.from(available)
+    .filter((storageClass) => !known.has(storageClass))
+    .sort((left, right) => left.localeCompare(right));
+
+  return [...ordered, ...unknown];
+};
