@@ -6,7 +6,7 @@ from pydantic import Field
 
 from app.models.base import ApiModel
 from app.models.feature_policy import FeatureState
-from app.models.pagination import PaginatedResponse
+from app.models.pagination import OptionListingRequest, PaginatedResponse
 from app.models.tagging import TagDefinitionSummary
 from app.utils.account_roles import ManagerAccountRoleValue, PortalAccountRoleValue
 
@@ -71,6 +71,12 @@ class ExecutionContextOption(ApiModel):
     manager_role: Optional[ManagerAccountRoleValue]
     endpoint_id: Optional[int]
     endpoint_url: str
+
+
+class ExecutionContextOptionListingRequest(OptionListingRequest):
+    workspace: Optional[str] = Field(default=None, pattern="^(manager|browser)$")
+    exclude_id: Optional[str] = None
+    manager_account_admin_only: bool = False
 
 
 class PaginatedExecutionContextOptionsResponse(PaginatedResponse):

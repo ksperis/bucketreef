@@ -1,6 +1,6 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from typing import Optional
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
@@ -10,6 +10,7 @@ from app.db import User
 from app.models.execution_context import (
     ExecutionContext,
     ExecutionContextOption,
+    ExecutionContextOptionListingRequest,
     PaginatedExecutionContextOptionsResponse,
     WorkspaceAccess,
 )
@@ -29,27 +30,22 @@ router = APIRouter(prefix="/me", tags=["me"])
 
 @router.get("/execution-contexts/options", response_model=PaginatedExecutionContextOptionsResponse)
 def list_execution_context_options(
+    query: Annotated[ExecutionContextOptionListingRequest, Depends()],
     request: Request = None,
-    workspace: Optional[str] = Query(default=None, pattern="^(manager|browser)$"),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(25, ge=1, le=100),
-    search: str = Query("", max_length=256),
-    exclude_id: Optional[str] = Query(default=None),
-    manager_account_admin_only: bool = Query(False),
     user: User = Depends(get_current_account_user),
     db: Session = Depends(get_db),
 ) -> PaginatedExecutionContextOptionsResponse:
     contexts = ExecutionContextCatalogService(db, _ui_session_id(request, db)).list_contexts(
         user,
-        workspace=workspace,
+        workspace=query.workspace,
     )
-    needle = search.strip().casefold()
+    needle = query.search.strip().casefold()
     filtered = [
         context
         for context in contexts
-        if (exclude_id is None or context.id != exclude_id)
+        if (query.exclude_id is None or context.id != query.exclude_id)
         and (
-            not manager_account_admin_only
+            not query.manager_account_admin_only
             or context.kind != "account"
             or context.manager_role == "account_administrator"
         )
@@ -62,7 +58,7 @@ def list_execution_context_options(
     ]
     filtered.sort(key=lambda context: (context.display_name.casefold(), context.id.casefold()))
     total = len(filtered)
-    start = (page - 1) * page_size
+    start = (query.page - 1) * query.page_size
     items = [
         ExecutionContextOption(
             kind=context.kind,
@@ -72,14 +68,14 @@ def list_execution_context_options(
             endpoint_id=context.endpoint_id,
             endpoint_url=context.endpoint_url,
         )
-        for context in filtered[start : start + page_size]
+        for context in filtered[start : start + query.page_size]
     ]
     return PaginatedExecutionContextOptionsResponse(
         items=items,
         total=total,
-        page=page,
-        page_size=page_size,
-        has_next=page * page_size < total,
+        page=query.page,
+        page_size=query.page_size,
+        has_next=query.page * query.page_size < total,
     )
 
 
