@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.domain_errors import ResourceNameValidationError
 from app.db import User
 from app.services.access_context_contracts import ManagerActor
 from app.services.s3_execution_context import S3ExecutionContext
@@ -20,6 +21,7 @@ from app.routers.dependencies import (
     get_current_account_user,
     require_iam_capable_manager,
 )
+from app.routers.resource_name_validation import raise_resource_name_validation_error
 from app.core.sensitive_data import sanitize_error_detail
 from app.services.managed_private_access_errors import (
     ManagedPrivateAccessCleanupPending,
@@ -66,6 +68,8 @@ def create_iam_private_access(
             context=context,
             payload=payload,
         )
+    except ResourceNameValidationError as exc:
+        raise_resource_name_validation_error(exc)
     except ManagedPrivateAccessError as exc:
         raise _translate_error(exc) from exc
 

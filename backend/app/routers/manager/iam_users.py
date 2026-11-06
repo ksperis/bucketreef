@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.domain_errors import ResourceNameValidationError
 from app.services.access_context_contracts import ManagerActor
 from app.services.s3_execution_context import S3ExecutionContext
 from app.models.access_key_metadata import AccessKeyMetadata, AccessKeyMetadataInput, AccessKeyStatusChange
@@ -36,8 +37,11 @@ from app.routers.manager.iam_common import (
     run_audited_iam_mutation,
     run_iam_read,
 )
+from app.routers.resource_name_validation import (
+    raise_resource_name_validation_error,
+    validate_inline_policy_request,
+)
 from app.services.audit_service import AuditService
-from app.services.resource_name_validation import validate_inline_policy_request
 from app.services.access_key_metadata_service import AccessKeyMetadataService
 from app.services.manager_iam_support import (
     attach_iam_policy,
@@ -172,6 +176,8 @@ def create_user(
 ) -> IAMUserWithKey:
     try:
         validate_iam_user_create(payload, context)
+    except ResourceNameValidationError as exc:
+        raise_resource_name_validation_error(exc)
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
     service = get_iam_service_for_context(context)

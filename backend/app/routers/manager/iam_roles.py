@@ -39,7 +39,7 @@ from app.services.manager_iam_support import (
     load_inline_policies,
     save_inline_policy,
 )
-from app.services.resource_name_validation import validate_inline_policy_request, validate_inline_policy_requests
+from app.routers.resource_name_validation import validate_inline_policy_request, validate_inline_policy_requests
 
 router = APIRouter(prefix="/manager/iam/roles", tags=["manager-iam-roles"])
 
