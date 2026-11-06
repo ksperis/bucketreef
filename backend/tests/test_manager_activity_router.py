@@ -178,6 +178,50 @@ def test_manager_activity_rejects_limits_above_twenty(client, db_session):
     assert response.status_code == 422, response.text
 
 
+def test_manager_activity_router_delegates_flat_listing_request(client):
+    context = _context(_account("delegated-account"))
+    captured = {}
+
+    class StubManagerActivityService:
+        def list_activity(self, received_context, request):
+            captured["context"] = received_context
+            captured["request"] = request
+            return []
+
+    app.dependency_overrides[manager_activity_router.get_s3_execution_context] = lambda: context
+    app.dependency_overrides[manager_activity_router.get_manager_activity_service] = (
+        lambda: StubManagerActivityService()
+    )
+
+    response = client.get(
+        "/api/manager/activity?limit=7&cursor=42&search=policy&status=partial"
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json() == []
+    assert captured["context"] is context
+    assert captured["request"].model_dump() == {
+        "limit": 7,
+        "cursor": 42,
+        "search": "policy",
+        "status": "partial",
+    }
+
+
+def test_manager_activity_openapi_preserves_flat_query_parameters():
+    parameters = app.openapi()["paths"]["/api/manager/activity"]["get"]["parameters"]
+
+    assert {parameter["name"] for parameter in parameters} == {
+        "limit",
+        "cursor",
+        "search",
+        "status",
+        "context_id",
+        "execution_endpoint_id",
+    }
+    assert all(parameter["in"] == "query" for parameter in parameters)
+
+
 def test_manager_activity_rejects_unsaved_account_context(client):
     account = _account("transient-account")
     app.dependency_overrides[manager_activity_router.get_s3_execution_context] = lambda: _context(account)

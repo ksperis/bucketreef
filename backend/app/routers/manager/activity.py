@@ -2,59 +2,31 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from typing import Annotated
 
-from app.core.database import get_db
+from fastapi import APIRouter, Depends, HTTPException
+
+from app.models.manager_activity import ManagerActivityEntry, ManagerActivityListingRequest
+from app.routers.dependencies import get_manager_activity_service, get_s3_execution_context
+from app.services.manager_activity_service import (
+    ManagerActivityDisabledError,
+    ManagerActivityService,
+    ManagerActivityUnavailableError,
+)
 from app.services.s3_execution_context import S3ExecutionContext
-from app.models.audit import AuditStatus
-from app.models.manager_activity import ManagerActivityEntry
-from app.routers.dependencies import get_s3_execution_context, get_audit_service
-from app.services.app_settings_service import load_app_settings_for_db
-from app.services.audit_service import AuditService
-from app.services.feature_policy_service import manager_activity_resource, manager_activity_state
 
 router = APIRouter(prefix="/manager/activity", tags=["manager-activity"])
 
 
 @router.get("", response_model=list[ManagerActivityEntry])
 def list_manager_activity(
-    limit: int = Query(5, ge=1, le=20),
-    cursor: int | None = Query(None, ge=1),
-    search: str | None = Query(None, max_length=200),
-    status: AuditStatus | None = Query(None),
+    query: Annotated[ManagerActivityListingRequest, Depends()],
     context: S3ExecutionContext = Depends(get_s3_execution_context),
-    audit_service: AuditService = Depends(get_audit_service),
-    db: Session = Depends(get_db),
+    service: ManagerActivityService = Depends(get_manager_activity_service),
 ) -> list[ManagerActivityEntry]:
-    resource = manager_activity_resource(db, context)
-    if resource is None:
+    try:
+        return service.list_activity(context, query)
+    except ManagerActivityUnavailableError:
         raise HTTPException(status_code=404, detail="Activity history is unavailable for this Manager context")
-    settings = load_app_settings_for_db(db)
-    state = manager_activity_state(settings.manager.feature_policies, resource)
-    if not state.enabled:
+    except ManagerActivityDisabledError:
         raise HTTPException(status_code=403, detail="Activity history is disabled for this Manager context")
-
-    logs = audit_service.list_logs(
-        limit=limit,
-        scope="manager",
-        context_kind=context.context_kind,
-        context_id=context.context_id,
-        cursor=cursor,
-        search=search,
-        status=status,
-        search_mode="manager_activity",
-    )
-    return [
-        ManagerActivityEntry(
-            id=log.id,
-            created_at=log.created_at,
-            action=log.action,
-            entity_type=log.entity_type,
-            entity_id=log.entity_id,
-            context_name=log.context_name,
-            status=log.status,
-            user_email=log.user_email,
-        )
-        for log in logs
-    ]
