@@ -117,7 +117,7 @@ def get_general_feature_locks() -> GeneralFeatureLocks:
             setattr(
                 locks,
                 field_name,
-                GeneralFeatureLock(forced=True, value=bool(forced_value), source=env_name),
+                GeneralFeatureLock(forced=True, value=forced_value, source=env_name),
             )
 
     return locks
@@ -129,7 +129,7 @@ def _apply_general_feature_overrides(settings: AppSettings) -> AppSettings:
     for field_name in _GENERAL_FEATURE_FIELDS:
         lock = getattr(locks, field_name)
         if lock.forced and lock.value is not None:
-            setattr(effective.general, field_name, bool(lock.value))
+            setattr(effective.general, field_name, lock.value)
     return effective
 
 
