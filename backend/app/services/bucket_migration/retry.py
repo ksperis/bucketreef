@@ -9,7 +9,7 @@ from app.utils.time import utcnow
 from .workflow import ACTIVE_STATUSES, require_action
 
 
-class BucketMigrationRollbackMixin:
+class BucketMigrationRetryMixin:
     def _find_migration_item(self, migration: BucketMigration, item_id: int) -> BucketMigrationItem:
         for item in migration.items:
             if item.id == item_id:
