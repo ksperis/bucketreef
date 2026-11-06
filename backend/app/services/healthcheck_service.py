@@ -171,8 +171,8 @@ class HealthCheckService:
         check_mode: Literal["http", "s3"],
         now: datetime,
     ) -> Optional[int]:
-        baseline_window_days = max(1, int(settings.healthcheck_latency_baseline_window_days))
-        baseline_sample_size = max(5, int(settings.healthcheck_baseline_sample_size))
+        baseline_window_days = settings.healthcheck_latency_baseline_window_days
+        baseline_sample_size = settings.healthcheck_baseline_sample_size
         start = now - timedelta(days=baseline_window_days)
         latencies = [
             int(latency_ms)

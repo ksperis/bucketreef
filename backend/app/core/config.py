@@ -480,6 +480,7 @@ class Settings(BaseSettings):
     )
     healthcheck_interval_seconds: int = Field(
         300,
+        ge=1,
         description="Expected healthcheck interval in seconds (HEALTHCHECK_INTERVAL_SECONDS)",
     )
     healthcheck_retention_days: int = Field(
@@ -496,10 +497,12 @@ class Settings(BaseSettings):
     )
     healthcheck_latency_baseline_window_days: int = Field(
         7,
+        ge=1,
         description="Window (days) used to compute latency baseline per endpoint/mode (HEALTHCHECK_LATENCY_BASELINE_WINDOW_DAYS)",
     )
     healthcheck_baseline_sample_size: int = Field(
         80,
+        ge=5,
         description="Maximum number of recent UP checks used for latency baseline (HEALTHCHECK_BASELINE_SAMPLE_SIZE)",
     )
     healthcheck_relative_degraded_ratio: float = Field(
@@ -512,6 +515,7 @@ class Settings(BaseSettings):
     )
     healthcheck_incident_recent_minutes: int = Field(
         720,
+        ge=1,
         description="Minutes window to highlight recently ended incidents (HEALTHCHECK_INCIDENT_RECENT_MINUTES)",
     )
     bucket_migration_worker_enabled: bool = Field(

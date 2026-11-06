@@ -101,6 +101,20 @@ def test_settings_parse_outbound_host_allowlists(monkeypatch):
     ]
 
 
+@pytest.mark.parametrize(
+    ("setting", "value"),
+    [
+        ("healthcheck_interval_seconds", 0),
+        ("healthcheck_latency_baseline_window_days", 0),
+        ("healthcheck_baseline_sample_size", 4),
+        ("healthcheck_incident_recent_minutes", 0),
+    ],
+)
+def test_settings_reject_healthcheck_values_below_runtime_minimums(setting, value):
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, **{setting: value})
+
+
 @pytest.mark.parametrize("variable", ["UI_JWT_KEYS", "API_JWT_KEYS", "CREDENTIAL_KEYS"])
 def test_settings_reject_empty_keyrings(monkeypatch, variable):
     monkeypatch.setenv(variable, "[]")

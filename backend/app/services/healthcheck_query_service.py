@@ -340,7 +340,7 @@ class HealthCheckQueryService:
             raise StorageEndpointNotFoundError("Endpoint not found.")
 
         now = utcnow()
-        stale_after_seconds = max(1, int(settings.healthcheck_interval_seconds)) * 2
+        stale_after_seconds = settings.healthcheck_interval_seconds * 2
         endpoint_ids = [int(endpoint.id) for endpoint in endpoints]
         payload_endpoints, status_counts = self._workspace_endpoint_payloads(
             endpoints=endpoints,
