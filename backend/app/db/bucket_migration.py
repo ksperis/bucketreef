@@ -118,7 +118,6 @@ class BucketMigrationItem(Base):
     diff_sample = Column(JSON(none_as_null=True), nullable=True)
 
     source_snapshot = Column(JSON(none_as_null=True), nullable=True)
-    target_snapshot = Column(JSON(none_as_null=True), nullable=True)
     execution_strategy = Column(String, nullable=True)
     replication_state = Column(JSON(none_as_null=True), nullable=True)
 

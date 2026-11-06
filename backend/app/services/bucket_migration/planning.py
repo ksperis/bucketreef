@@ -193,7 +193,6 @@ class BucketMigrationPlanningMixin:
             status="pending",
             step="create_bucket",
             source_snapshot=None,
-            target_snapshot=None,
             execution_strategy=None,
             replication_state=None,
             created_at=timestamp,
@@ -223,7 +222,6 @@ class BucketMigrationPlanningMixin:
         item.only_target_count = None
         item.diff_sample = None
         item.source_snapshot = None
-        item.target_snapshot = None
         item.execution_strategy = None
         item.replication_state = None
         item.source_policy_backup = None

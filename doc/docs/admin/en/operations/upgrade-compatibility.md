@@ -498,6 +498,17 @@ Downgrade reconstructs `precheck_status` from `preparation_status`, mapping
 `ready` to `passed`, `blocked` to `failed`, and other preparation states to
 `pending`.
 
+## 2026-11 bucket migration target-snapshot cleanup
+
+Migration `0245_remove_migration_target_snapshot` removes the unused
+`bucket_migration_items.target_snapshot` column. Active migration execution
+retains the source snapshot because it drives source-versioning and replay
+behavior. Target state is evaluated during checks and was not consumed after
+the check completed.
+
+Downgrade recreates `target_snapshot` as a nullable JSON column without
+reconstructing historical values because no runtime workflow consumed them.
+
 ## 2026-10 structured bucket migration workflow state
 
 Migration `0213_structure_bucket_migration_json` replaces the bucket migration

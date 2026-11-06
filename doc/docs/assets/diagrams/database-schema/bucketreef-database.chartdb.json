@@ -22175,27 +22175,6 @@
           "check": null
         },
         {
-          "id": "field:bucket_migration_items.target_snapshot",
-          "name": "target_snapshot",
-          "type": {
-            "id": "json",
-            "name": "json"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": true,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
           "id": "field:bucket_migration_items.execution_strategy",
           "name": "execution_strategy",
           "type": {
@@ -22740,7 +22719,7 @@
       "name": "bucket_usage_stats_snapshots",
       "schema": null,
       "x": 480,
-      "y": 9918,
+      "y": 9888,
       "fields": [
         {
           "id": "field:bucket_usage_stats_snapshots.id",
@@ -25622,7 +25601,7 @@
       "name": "backend_operation_leases",
       "schema": null,
       "x": 60,
-      "y": 9918,
+      "y": 9888,
       "fields": [
         {
           "id": "field:backend_operation_leases.operation_name",
@@ -25770,7 +25749,7 @@
       "name": "app_settings",
       "schema": null,
       "x": 900,
-      "y": 9332,
+      "y": 9302,
       "fields": [
         {
           "id": "field:app_settings.key",
@@ -26569,7 +26548,7 @@
       "name": "webhook_endpoint_subscriptions",
       "schema": null,
       "x": 480,
-      "y": 9332,
+      "y": 9302,
       "fields": [
         {
           "id": "field:webhook_endpoint_subscriptions.id",
@@ -26710,7 +26689,7 @@
       "name": "webhook_deliveries",
       "schema": null,
       "x": 60,
-      "y": 9332,
+      "y": 9302,
       "fields": [
         {
           "id": "field:webhook_deliveries.id",
@@ -28763,7 +28742,7 @@
       "x": 0,
       "y": 6738,
       "width": 1320,
-      "height": 4036,
+      "height": 4006,
       "color": "#D97706",
       "order": 4
     },
