@@ -7,7 +7,6 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 
-from app.db import User
 from app.services.access_context_contracts import AccountAccess
 from app.models.portal_storage_spaces import (
     PortalStorageSpaceCreate,
@@ -50,8 +49,6 @@ def portal_storage_spaces(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> list[PortalStorageSpaceSummary]:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         return service.list_storage_spaces(
             actor,
@@ -74,8 +71,6 @@ def create_portal_storage_space(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PortalStorageSpaceSummary:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         storage_space = service.create_storage_space(
             actor,
@@ -119,8 +114,6 @@ def import_portal_storage_space(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PortalStorageSpaceSummary:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         storage_space = service.import_storage_space(
             actor,
@@ -164,8 +157,6 @@ def update_portal_storage_space(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PortalStorageSpaceSummary:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         storage_space = service.update_storage_space(
             actor,
@@ -209,8 +200,6 @@ def take_portal_storage_space_ownership(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PortalStorageSpaceSummary:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         previous = service.get_storage_space(actor, access, space_id)
         storage_space = service.take_private_storage_space_ownership(actor, access, space_id)
@@ -241,8 +230,6 @@ def update_portal_storage_space_icon(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PortalStorageSpaceIcon:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         icon = service.set_storage_space_icon_choice(
             actor,
@@ -280,8 +267,6 @@ async def upload_portal_storage_space_icon(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PortalStorageSpaceIcon:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     image_payload = await file.read(MAX_AVATAR_BYTES + 1)
     try:
         icon = service.store_storage_space_icon_image(
@@ -319,8 +304,6 @@ def delete_portal_storage_space_icon(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PortalStorageSpaceIcon:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         icon = service.remove_storage_space_icon_image(actor, access, space_id)
     except RuntimeError as exc:
@@ -344,8 +327,6 @@ def read_portal_storage_space_icon(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> Response:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         payload, content_type, version = service.storage_space_icon_image(actor, access, space_id)
     except RuntimeError as exc:
@@ -369,8 +350,6 @@ def delete_portal_storage_space(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> Response:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         result = service.delete_storage_space(actor, access, space_id)
     except RuntimeError as exc:
@@ -394,8 +373,6 @@ def portal_storage_space_access_summary(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PortalStorageSpaceAccessSummary:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         return service.get_storage_space_access_summary(actor, access, space_id)
     except RuntimeError as exc:
@@ -409,8 +386,6 @@ def get_portal_storage_space_settings(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PortalStorageSpaceSettings:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         return service.get_storage_space_settings(actor, access, space_id)
     except RuntimeError as exc:
@@ -426,8 +401,6 @@ def update_portal_storage_space_settings(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PortalStorageSpaceSettings:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         updated = service.update_storage_space_settings(actor, access, space_id, payload)
     except RuntimeError as exc:
@@ -457,8 +430,6 @@ def portal_storage_space_detail(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PortalStorageSpaceSummary:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         storage_space = service.get_storage_space(actor, access, space_id)
     except RuntimeError as exc:

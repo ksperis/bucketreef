@@ -5,9 +5,8 @@
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, Response, status
 
-from app.db import User
 from app.services.access_context_contracts import AccountAccess
 from app.models.access_key_metadata import AccessKeyStatusChange
 from app.models.portal_access_keys import (
@@ -29,8 +28,6 @@ def portal_access_keys(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PortalAccessKeysState:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         return service.get_access_keys_state(actor, access)
     except RuntimeError as exc:
@@ -45,8 +42,6 @@ def create_portal_access_key(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PortalAccessKey:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         key = service.create_access_key(actor, access, payload)
         audit_service.record_action(
@@ -72,8 +67,6 @@ def update_portal_access_key_status(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PortalAccessKey:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         key = service.update_access_key_status(actor, access, access_key_id, payload.active)
         audit_service.record_action(
@@ -98,8 +91,6 @@ def delete_portal_access_key(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> Response:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         key = service.delete_access_key(actor, access, access_key_id)
         audit_service.record_action(

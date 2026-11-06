@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.db import QuotaUsageDaily, User
+from app.db import QuotaUsageDaily
 from app.services.access_context_contracts import AccountAccess
 from app.models.bucket_usage_stats import BucketUsageStatsAggregateResponse
 from app.models.portal_usage import (
@@ -56,8 +56,6 @@ def portal_usage(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PortalUsage:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     endpoint = access.account.storage_endpoint
     if endpoint and not resolve_feature_flags(endpoint).metrics_enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Storage metrics are disabled for this endpoint")
@@ -73,8 +71,6 @@ def portal_usage_trends(
     db: Session = Depends(get_db),
 ) -> UsageTrendsResponse:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     endpoint = access.account.storage_endpoint
     if endpoint and not resolve_feature_flags(endpoint).metrics_enabled:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Storage metrics are disabled for this endpoint")
@@ -90,8 +86,6 @@ def portal_usage_stats_latest(
     db: Session = Depends(get_db),
 ) -> BucketUsageStatsAggregateResponse:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     _ensure_portal_bucket_usage_stats_enabled(access.account, db)
     try:
         spaces = portal_service.list_storage_spaces(actor, access)
@@ -124,8 +118,6 @@ def portal_usage_history_trends(
     db: Session = Depends(get_db),
 ) -> UsageHistoryTrendResponse:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     service = UsageHistoryService(db)
     if not load_app_settings_for_db(db).general.usage_history_enabled:
         return service.empty_trends(window=window, unavailable_reason="Usage history is disabled.")
@@ -148,8 +140,6 @@ def portal_storage_space_usage_stats(
     db: Session = Depends(get_db),
 ) -> PortalStorageSpaceUsageStatsResponse:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     _ensure_portal_bucket_usage_stats_enabled(access.account, db)
     try:
         spaces = portal_service.list_storage_spaces(actor, access, include_archived=True)

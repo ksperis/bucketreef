@@ -5,9 +5,8 @@
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, Query, Response
 
-from app.db import User
 from app.services.access_context_contracts import AccountAccess
 from app.models.portal_access_logs import (
     PortalServerAccessLogFilterQuery,
@@ -37,8 +36,6 @@ def portal_server_access_logs_page(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PortalServerAccessLogPage:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         parsed_filter = parse_filter_query(
             advanced_filter,
@@ -70,8 +67,6 @@ def portal_server_access_logs_raw(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> Response:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         content = service.get_portal_server_access_logs_raw(
             actor,

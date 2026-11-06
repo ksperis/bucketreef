@@ -16,7 +16,6 @@ from app.models.portal_sharing import (
     PortalPublicLink,
     PortalPublicLinkCreate,
     PortalStorageSpaceShare,
-    PortalStorageSpaceShareCandidate,
     PortalStorageSpaceSharePayload,
     PortalStorageSpaceShareUpdate,
 )
@@ -46,8 +45,6 @@ def portal_storage_space_public_links(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> list[PortalPublicLink]:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         return service.list_storage_space_public_links(
             actor,
@@ -69,8 +66,6 @@ def create_portal_storage_space_public_link(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PortalPublicLink:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         link = service.create_storage_space_public_link(
             actor,
@@ -107,8 +102,6 @@ def revoke_portal_storage_space_public_link(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> list[PortalPublicLink]:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         links = service.revoke_storage_space_public_link(actor, access, space_id, link_id)
         audit_service.record_action(
@@ -144,8 +137,6 @@ def portal_storage_space_shares(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> list[PortalStorageSpaceShare]:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         return service.list_storage_space_shares(actor, access, space_id)
     except RuntimeError as exc:
@@ -159,8 +150,6 @@ def portal_share_candidates(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PaginatedPortalStorageSpaceShareCandidates:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     if not access.capabilities.can_manage_portal_users:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Manager rights required for this account")
     try:
@@ -177,8 +166,6 @@ def portal_storage_space_share_candidates(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PaginatedPortalStorageSpaceShareCandidates:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     try:
         return service.list_storage_space_share_candidates(actor, access, query, space_id=space_id)
     except RuntimeError as exc:
@@ -206,8 +193,6 @@ def grant_portal_storage_space_share(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PortalStorageSpaceShare:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     target = _resolve_share_target(payload, users_service)
     try:
         share = service.set_storage_space_share(actor, access, target, space_id, payload.role)
@@ -236,8 +221,6 @@ def update_portal_storage_space_share(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PortalStorageSpaceShare:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     target = users_service.get_by_id(user_id)
     if not target:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
@@ -267,8 +250,6 @@ def revoke_portal_storage_space_share(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> list[PortalStorageSpaceShare]:
     actor = access.actor
-    if not isinstance(actor, User):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Portal endpoints require a UI user")
     target = users_service.get_by_id(user_id)
     if not target:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
