@@ -1391,6 +1391,18 @@ Deploy the backend and bundled frontend together. No database migration is
 required because this change only tightens the internal response contract around
 values already produced by the service.
 
+## 2026-11 canonical bucket migration retry step
+
+Migration `0237_canonical_bucket_migration_retry_step` rewrites the retired
+`rollback_failed` item step to `sync` for failed workflow-v2 bucket migrations.
+That step was produced by the removed rollback workflow and only survived as a
+special case in failed-item retry handling.
+
+Historical workflow-v1 rows are left unchanged because they cannot be replayed.
+The runtime no longer carries a `rollback_failed` compatibility branch. Downgrade
+keeps the canonical `sync` value because the previous application already accepts
+it and a reverse conversion would be ambiguous.
+
 ## 2026-10 onboarding journey state cleanup
 
 Migration `0189_remove_onboarding_journey_dead_state` removes the unused

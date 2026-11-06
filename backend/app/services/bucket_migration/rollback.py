@@ -24,7 +24,7 @@ class BucketMigrationRollbackMixin:
             raise ValueError("Bucket-level actions are not available while migration is active")
 
     def _retry_step_for_failed_item(self, item: BucketMigrationItem) -> str:
-        if item.step in {"verify", "rollback_failed"}:
+        if item.step == "verify":
             return "sync"
         return item.step
 

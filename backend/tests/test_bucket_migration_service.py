@@ -3932,8 +3932,8 @@ def test_retry_failed_items_queues_all_failed_bucket_items(db_session):
     migration.items[0].step = "sync"
     migration.items[0].error_message = "sync denied"
     migration.items[1].status = "failed"
-    migration.items[1].step = "rollback_failed"
-    migration.items[1].error_message = "rollback denied"
+    migration.items[1].step = "apply_read_only"
+    migration.items[1].error_message = "policy denied"
     db_session.commit()
 
     updated, retried_count = service.retry_failed_items(migration.id)
@@ -3943,7 +3943,7 @@ def test_retry_failed_items_queues_all_failed_bucket_items(db_session):
     assert updated.items[0].status == "pending"
     assert updated.items[0].step == "sync"
     assert updated.items[1].status == "pending"
-    assert updated.items[1].step == "sync"
+    assert updated.items[1].step == "apply_read_only"
 
 
 
