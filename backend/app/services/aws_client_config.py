@@ -29,15 +29,15 @@ def build_aws_config(
     settings = get_settings()
     kwargs: dict[str, Any] = {
         "signature_version": signature_version,
-        "connect_timeout": float(settings.storage_interactive_connect_timeout_seconds),
-        "read_timeout": float(
+        "connect_timeout": settings.storage_interactive_connect_timeout_seconds,
+        "read_timeout": (
             settings.storage_long_running_read_timeout_seconds
             if request_profile == "long_running"
             else settings.storage_interactive_read_timeout_seconds
         ),
         "retries": {
             "mode": "standard",
-            "total_max_attempts": int(settings.storage_interactive_max_attempts),
+            "total_max_attempts": settings.storage_interactive_max_attempts,
         },
     }
     supported_options = getattr(Config, "OPTION_DEFAULTS", {})
