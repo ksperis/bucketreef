@@ -2,7 +2,6 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import ModalActions from "../../components/ModalActions";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import type { S3ExecutionContextSelector } from "../../api/accountParams";
@@ -13,6 +12,7 @@ import {
   createManagedRGWUserPrivateAccess,
 } from "../../api/managedPrivateAccess";
 import { SettingsButton, SettingsDialog, useSettingsCloseGuard } from "../../components/settings/SettingsControls";
+import SettingsForm from "../../components/settings/SettingsForm";
 import SettingsJsonEditor from "../../components/settings/SettingsJsonEditor";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import UiInput from "../../components/ui/UiInput";
@@ -204,8 +204,15 @@ export default function CreateManagedPrivateAccessModal({
       maxWidthClass="max-w-3xl"
       initialFocusRef={connectionNameRef}
     >
-      <form ref={formRef} className="settings-form" onSubmit={submit} noValidate>
-        <fieldset disabled={busy} className="settings-stack min-w-0">
+      <SettingsForm label={title} formRef={formRef} onSubmit={submit} busy={busy}
+        submitDisabled={namingRulesPending} onCancel={closeGuard.requestClose}
+        submitLabel={text("Create my personal access")} busyLabel={text("Creating…")}
+        presentation="dialog"
+        actions={<>
+          <SettingsButton variant="secondary" onClick={closeGuard.requestClose} disabled={busy}>{text("Cancel")}</SettingsButton>
+          <SettingsButton type="submit" disabled={busy || namingRulesPending}>{text(busy ? "Creating…" : "Create my personal access")}</SettingsButton>
+        </>}>
+        <div className="settings-stack min-w-0">
           {error && <UiInlineMessage tone="error">{error}</UiInlineMessage>}
           <UiInlineMessage tone="info">
             {variant === "iam"
@@ -361,12 +368,8 @@ export default function CreateManagedPrivateAccessModal({
               />
             </div>
           </UiDetails>
-          <ModalActions>
-            <SettingsButton variant="secondary" onClick={closeGuard.requestClose}>{text("Cancel")}</SettingsButton>
-            <SettingsButton type="submit" disabled={namingRulesPending}>{text(busy ? "Creating…" : "Create my personal access")}</SettingsButton>
-          </ModalActions>
-        </fieldset>
-      </form>
+        </div>
+      </SettingsForm>
       {closeGuard.confirmationDialog}
     </SettingsDialog>
   );
