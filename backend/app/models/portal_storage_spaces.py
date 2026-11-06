@@ -14,6 +14,21 @@ from app.utils.resource_names import validate_s3_bucket_name
 
 
 PortalStorageSpaceRole = Literal["Viewer", "Editor", "Owner", "Manager"]
+PortalStorageSpaceStatus = Literal["Active", "Attention", "Archived"]
+PortalStorageSpaceSort = Literal[
+    "name",
+    "-name",
+    "created_at",
+    "-created_at",
+    "used_bytes",
+    "-used_bytes",
+    "object_count",
+    "-object_count",
+    "role",
+    "-role",
+    "status",
+    "-status",
+]
 PortalStorageSpaceGrantRole = Literal["Viewer", "Editor"]
 PortalStorageSpaceOrigin = Literal["portal_generic", "portal_named", "imported"]
 PortalStorageSpaceNamingMode = Literal["generic_uuid", "named_bucket"]
@@ -44,6 +59,20 @@ class PortalStorageSpaceIconChoice(ApiModel):
     preset: Optional[PortalStorageSpaceIconPreset] = None
 
 
+class PortalStorageSpaceListingRequest(ApiModel):
+    search: Optional[str] = Field(default=None, description="Filter storage spaces by name")
+    role: Optional[PortalStorageSpaceRole] = Field(default=None, description="Filter by simple Portal role")
+    status: Optional[PortalStorageSpaceStatus] = Field(
+        default=None,
+        description="Filter by simple Storage Space status",
+    )
+    sort: PortalStorageSpaceSort = Field(
+        default="name",
+        description="Sort by name, created_at, used_bytes, object_count, role, or status",
+    )
+    include_archived: bool = Field(default=False, description="Include archived Storage Spaces")
+
+
 class PortalStorageSpaceSummary(ApiModel):
     id: str
     name: str
@@ -51,7 +80,7 @@ class PortalStorageSpaceSummary(ApiModel):
     can_browse: bool
     can_take_ownership: bool
     can_delete: bool
-    status: str
+    status: PortalStorageSpaceStatus
     description: Optional[str]
     owner_label: Optional[str]
     owner_user_id: Optional[int]

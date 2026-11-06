@@ -1,5 +1,14 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 canonical Portal Storage Space listing filters
+
+`GET /api/portal/storage-spaces` now accepts only the canonical Portal roles,
+Storage Space statuses (`Active`, `Attention`, `Archived`), and documented sort
+keys. Invalid `role`, `status`, or `sort` values return `422` instead of being
+silently ignored or falling back to name sorting. The bundled frontend uses the
+same typed values. Deploy the backend and frontend together. No database
+migration is required.
+
 ## 2026-11 canonical static application settings
 
 Migration `0258_canonical_static_app_settings` materializes every static default

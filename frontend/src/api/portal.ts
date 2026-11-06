@@ -19,6 +19,20 @@ import type {
 } from "./storageSpaceIcons";
 
 export type PortalStorageSpaceRole = "Viewer" | "Editor" | "Owner" | "Manager";
+export type PortalStorageSpaceStatus = "Active" | "Attention" | "Archived";
+export type PortalStorageSpaceSort =
+  | "name"
+  | "-name"
+  | "created_at"
+  | "-created_at"
+  | "used_bytes"
+  | "-used_bytes"
+  | "object_count"
+  | "-object_count"
+  | "role"
+  | "-role"
+  | "status"
+  | "-status";
 export type PortalStorageSpaceGrantRole = "Viewer" | "Editor";
 export type PortalStorageSpaceVisibility = "private" | "shared";
 export type PortalStorageSpaceShareScope = "restricted" | "account";
@@ -39,7 +53,7 @@ export type PortalStorageSpaceSummary = {
   can_browse: boolean;
   can_delete: boolean;
   can_take_ownership: boolean;
-  status: string;
+  status: PortalStorageSpaceStatus;
   description: string | null;
   owner_label: string | null;
   owner_user_id: number | null;
@@ -229,7 +243,13 @@ type PortalStorageSpaceVersionCleanupStreamOptions = SseStreamOptions<PortalStor
 
 export async function listPortalStorageSpaces(
   accountId: S3AccountSelector,
-  options?: { search?: string; role?: PortalStorageSpaceRole; status?: string; sort?: string; includeArchived?: boolean }
+  options?: {
+    search?: string;
+    role?: PortalStorageSpaceRole;
+    status?: PortalStorageSpaceStatus;
+    sort?: PortalStorageSpaceSort;
+    includeArchived?: boolean;
+  }
 ): Promise<PortalStorageSpaceSummary[]> {
   const baseParams: Record<string, string | boolean> = {};
   if (options?.search) {

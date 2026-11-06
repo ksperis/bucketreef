@@ -3,9 +3,9 @@
 
 """Portal storage-space lifecycle and configuration endpoints."""
 
-from typing import Optional
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 
 from app.services.access_context_contracts import AccountAccess
 from app.models.portal_storage_spaces import (
@@ -13,6 +13,7 @@ from app.models.portal_storage_spaces import (
     PortalStorageSpaceIcon,
     PortalStorageSpaceIconChoice,
     PortalStorageSpaceImport,
+    PortalStorageSpaceListingRequest,
     PortalStorageSpaceSummary,
     PortalStorageSpaceUpdate,
 )
@@ -40,11 +41,7 @@ router = APIRouter()
 
 @router.get("/storage-spaces", response_model=list[PortalStorageSpaceSummary])
 def portal_storage_spaces(
-    search: Optional[str] = Query(None, description="Filter storage spaces by name"),
-    role: Optional[str] = Query(None, description="Filter by simple Portal role"),
-    status_filter: Optional[str] = Query(None, alias="status", description="Filter by simple Storage Space status"),
-    sort: str = Query("name", description="Sort by name, created_at, used_bytes, object_count, role, or status"),
-    include_archived: bool = Query(False, description="Include archived Storage Spaces"),
+    query: Annotated[PortalStorageSpaceListingRequest, Depends()],
     access: AccountAccess = Depends(get_portal_account_access),
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> list[PortalStorageSpaceSummary]:
@@ -53,11 +50,11 @@ def portal_storage_spaces(
         return service.list_storage_spaces(
             actor,
             access,
-            search=search,
-            role=role,
-            status=status_filter,
-            sort=sort,
-            include_archived=include_archived,
+            search=query.search,
+            role=query.role,
+            status=query.status,
+            sort=query.sort,
+            include_archived=query.include_archived,
         )
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
