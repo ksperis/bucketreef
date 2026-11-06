@@ -16,6 +16,7 @@ from app.models.portal_storage_spaces import (
     PortalStorageSpaceCreate,
     PortalStorageSpaceIcon,
     PortalStorageSpaceImport,
+    PortalStorageSpaceListingRequest,
     PortalStorageSpaceSummary,
     PortalStorageSpaceUpdate,
 )
@@ -154,6 +155,25 @@ def test_portal_storage_space_summary_requires_complete_canonical_payload() -> N
         assert set(schema["required"]) == set(schema["properties"])
 
 
+def test_portal_storage_space_listing_request_rejects_noncanonical_filters() -> None:
+    request = PortalStorageSpaceListingRequest()
+    assert request.model_dump() == {
+        "search": None,
+        "role": None,
+        "status": None,
+        "sort": "name",
+        "include_archived": False,
+    }
+
+    for field, value in (
+        ("role", "owner"),
+        ("status", "active"),
+        ("sort", "unknown"),
+    ):
+        with pytest.raises(ValidationError):
+            PortalStorageSpaceListingRequest(**{field: value})
+
+
 def test_portal_storage_space_routes_preserve_their_openapi_contracts() -> None:
     paths = app.openapi()["paths"]
 
@@ -161,6 +181,34 @@ def test_portal_storage_space_routes_preserve_their_openapi_contracts() -> None:
     list_schema = list_spaces["responses"]["200"]["content"]["application/json"]["schema"]
     assert list_schema["type"] == "array"
     assert list_schema["items"] == {"$ref": "#/components/schemas/PortalStorageSpaceSummary"}
+    list_parameters = {
+        parameter["name"]: parameter
+        for parameter in list_spaces["parameters"]
+        if parameter["in"] == "query"
+    }
+    assert set(list_parameters) == {
+        "search",
+        "role",
+        "status",
+        "sort",
+        "include_archived",
+        "account_id",
+    }
+    assert list_parameters["sort"]["schema"]["default"] == "name"
+    assert set(list_parameters["sort"]["schema"]["enum"]) == {
+        "name",
+        "-name",
+        "created_at",
+        "-created_at",
+        "used_bytes",
+        "-used_bytes",
+        "object_count",
+        "-object_count",
+        "role",
+        "-role",
+        "status",
+        "-status",
+    }
 
     create_space = paths["/api/portal/storage-spaces"]["post"]
     assert create_space["requestBody"]["content"]["application/json"]["schema"] == {

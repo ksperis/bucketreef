@@ -16,6 +16,8 @@ from app.models.portal_storage_spaces import (
     PortalStorageSpaceCollaboratorPreview,
     PortalStorageSpaceRole,
     PortalStorageSpaceShareScope,
+    PortalStorageSpaceSort,
+    PortalStorageSpaceStatus,
     PortalStorageSpaceSummary,
     PortalStorageSpaceVisibility,
 )
@@ -262,28 +264,26 @@ class PortalStorageSpaceCatalogMixin:
         spaces: list[PortalStorageSpaceSummary],
         *,
         search: str | None,
-        role: str | None,
-        status: str | None,
+        role: PortalStorageSpaceRole | None,
+        status: PortalStorageSpaceStatus | None,
     ) -> list[PortalStorageSpaceSummary]:
         search_term = (search or "").strip().lower()
-        role_term = (role or "").strip().lower()
-        status_term = (status or "").strip().lower()
         if search_term:
             spaces = [
                 space
                 for space in spaces
                 if self._storage_space_matches_search(space, search_term)
             ]
-        if role_term:
-            spaces = [space for space in spaces if space.role.lower() == role_term]
-        if status_term:
-            spaces = [space for space in spaces if space.status.lower() == status_term]
+        if role:
+            spaces = [space for space in spaces if space.role == role]
+        if status:
+            spaces = [space for space in spaces if space.status == status]
         return spaces
 
     @staticmethod
     def _sort_storage_space_summaries(
         spaces: list[PortalStorageSpaceSummary],
-        sort: str,
+        sort: PortalStorageSpaceSort,
     ) -> list[PortalStorageSpaceSummary]:
         reverse = sort.startswith("-")
         sort_key = sort[1:] if reverse else sort
@@ -297,7 +297,7 @@ class PortalStorageSpaceCatalogMixin:
         }
         return sorted(
             spaces,
-            key=sorters.get(sort_key, sorters["name"]),
+            key=sorters[sort_key],
             reverse=reverse,
         )
 
@@ -306,9 +306,9 @@ class PortalStorageSpaceCatalogMixin:
         user: User,
         access: "AccountAccess",
         search: Optional[str] = None,
-        role: Optional[str] = None,
-        status: Optional[str] = None,
-        sort: str = "name",
+        role: Optional[PortalStorageSpaceRole] = None,
+        status: Optional[PortalStorageSpaceStatus] = None,
+        sort: PortalStorageSpaceSort = "name",
         include_archived: bool = False,
     ) -> list[PortalStorageSpaceSummary]:
         role_by_bucket = self._storage_space_roles_by_bucket(
