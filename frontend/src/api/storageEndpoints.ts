@@ -7,6 +7,13 @@ import type { TagDefinitionInput, TagDefinitionSummary } from "./tags";
 
 export type StorageProvider = "ceph" | "aws" | "other";
 
+export type StorageEndpointPublic = {
+  id: number;
+  name: string;
+  endpoint_url: string;
+  is_default: boolean;
+};
+
 type StorageEndpointFeature = {
   enabled: boolean;
 };

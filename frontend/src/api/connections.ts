@@ -7,6 +7,7 @@ import type {
   S3CredentialsValidationPayload,
   S3CredentialsValidationResult,
 } from "./s3CredentialsValidation";
+import type { StorageEndpointPublic } from "./storageEndpoints";
 import type { TagDefinitionInput, TagDefinitionSummary } from "./tags";
 
 export type S3Connection = {
@@ -34,13 +35,6 @@ export type S3Connection = {
   created_at: string | null;
   updated_at: string | null;
   last_used_at: string | null;
-};
-
-export type PrivateConnectionStorageEndpoint = {
-  id: number;
-  name: string;
-  endpoint_url: string;
-  is_default: boolean;
 };
 
 export type CreateConnectionPayload = {
@@ -85,8 +79,8 @@ export async function listConnections(): Promise<S3Connection[]> {
   return data;
 }
 
-export async function listPrivateConnectionStorageEndpoints(): Promise<PrivateConnectionStorageEndpoint[]> {
-  const { data } = await client.get<PrivateConnectionStorageEndpoint[]>("/connections/storage-endpoints");
+export async function listPrivateConnectionStorageEndpoints(): Promise<StorageEndpointPublic[]> {
+  const { data } = await client.get<StorageEndpointPublic[]>("/connections/storage-endpoints");
   return data;
 }
 

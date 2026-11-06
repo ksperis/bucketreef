@@ -7,8 +7,8 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   createConnection,
   listPrivateConnectionStorageEndpoints,
-  type PrivateConnectionStorageEndpoint,
 } from "../api/connections";
+import type { StorageEndpointPublic } from "../api/storageEndpoints";
 import { notifyExecutionContextsRefresh } from "../utils/executionContextRefresh";
 import { extractApiError } from "../utils/apiError";
 import { stableSignature } from "../utils/stableSignature";
@@ -114,7 +114,7 @@ function ConnectionFromKeyForm({
   const [endpointMode, setEndpointMode] = useState<S3ConnectionEndpointMode>(defaultEndpointId != null ? "preset" : "custom");
   const [selectedEndpointId, setSelectedEndpointId] = useState(defaultEndpointId != null ? String(defaultEndpointId) : "");
 
-  const [endpoints, setEndpoints] = useState<PrivateConnectionStorageEndpoint[]>([]);
+  const [endpoints, setEndpoints] = useState<StorageEndpointPublic[]>([]);
   const [loadingEndpoints, setLoadingEndpoints] = useState(!endpointLocked);
   const [endpointLoadError, setEndpointLoadError] = useState<string | null>(null);
 
