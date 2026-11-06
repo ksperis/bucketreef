@@ -2,10 +2,13 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from typing import Optional
+from typing import Literal, Optional
 
 from app.models.base import ApiModel
 from app.core.domain_enums import HealthCheckStatus
+
+
+HealthCheckMode = Literal["http", "s3"]
 
 
 class EndpointHealthSummary(ApiModel):
@@ -17,7 +20,7 @@ class EndpointHealthSummary(ApiModel):
     latency_ms: Optional[int]
     http_status: Optional[int]
     error_message: Optional[str]
-    check_mode: str
+    check_mode: HealthCheckMode
     check_target_url: Optional[str]
 
 
@@ -32,7 +35,7 @@ class EndpointHealthRunResult(ApiModel):
     latency_ms: Optional[int]
     http_status: Optional[int]
     error_message: Optional[str]
-    check_mode: str
+    check_mode: HealthCheckMode
 
 
 class EndpointHealthRunResponse(ApiModel):
@@ -47,7 +50,7 @@ class EndpointHealthPoint(ApiModel):
     status: HealthCheckStatus
     latency_ms: Optional[int]
     http_status: Optional[int]
-    check_mode: str
+    check_mode: HealthCheckMode
     check_type: str
     scope: str
 
@@ -67,7 +70,7 @@ class EndpointHealthSeries(ApiModel):
     start: str
     end: str
     data_points: int
-    check_mode: str
+    check_mode: HealthCheckMode
     check_target_url: Optional[str]
     check_type: str
     scope: str
@@ -80,7 +83,7 @@ class EndpointHealthIncident(ApiModel):
     end: Optional[str]
     duration_minutes: Optional[int]
     status: HealthCheckStatus
-    check_mode: str
+    check_mode: HealthCheckMode
     check_type: str
     scope: str
 
@@ -88,7 +91,7 @@ class EndpointHealthIncident(ApiModel):
 class EndpointHealthIncidentsResponse(ApiModel):
     endpoint_id: int
     window: str
-    check_mode: str
+    check_mode: HealthCheckMode
     check_type: str
     scope: str
     incidents: list[EndpointHealthIncident]
@@ -100,7 +103,7 @@ class EndpointHealthRawCheck(ApiModel):
     latency_ms: Optional[int]
     http_status: Optional[int]
     error_message: Optional[str]
-    check_mode: str
+    check_mode: HealthCheckMode
 
 
 class EndpointHealthRawChecksResponse(ApiModel):
@@ -129,7 +132,7 @@ class EndpointHealthOverviewEndpoint(ApiModel):
     status: HealthCheckStatus
     checked_at: str
     latency_ms: Optional[int]
-    check_mode: str
+    check_mode: HealthCheckMode
     check_target_url: Optional[str]
     availability_pct: Optional[float]
     timeline: list[EndpointHealthTimelinePoint]
@@ -150,7 +153,7 @@ class EndpointHealthLatencyOverviewEndpoint(ApiModel):
     status: HealthCheckStatus
     checked_at: str
     latency_ms: Optional[int]
-    check_mode: str
+    check_mode: HealthCheckMode
     check_target_url: Optional[str]
     min_latency_ms: Optional[int]
     avg_latency_ms: Optional[int]
@@ -175,7 +178,7 @@ class EndpointHealthGlobalIncident(ApiModel):
     start: str
     end: Optional[str]
     duration_minutes: Optional[int]
-    check_mode: str
+    check_mode: HealthCheckMode
     check_type: str
     scope: str
 
@@ -195,7 +198,7 @@ class WorkspaceEndpointHealthEntry(ApiModel):
     status: HealthCheckStatus
     checked_at: str
     latency_ms: Optional[int]
-    check_mode: str
+    check_mode: HealthCheckMode
     check_target_url: Optional[str]
     is_stale: bool
 
@@ -208,7 +211,7 @@ class WorkspaceEndpointIncidentEntry(ApiModel):
     start: str
     end: Optional[str]
     duration_minutes: Optional[int]
-    check_mode: str
+    check_mode: HealthCheckMode
     ongoing: bool
     recent: bool
 

@@ -6,6 +6,7 @@ import client from "./client";
 import { S3AccountSelector, S3ExecutionContextSelector, withS3AccountParam, withS3ContextParam } from "./accountParams";
 
 export type HealthCheckStatus = "unknown" | "up" | "degraded" | "down";
+export type HealthCheckMode = "http" | "s3";
 export type HealthWindow = "day" | "week" | "month" | "quarter" | "half_year" | "year";
 
 export type EndpointHealthSummary = {
@@ -17,7 +18,7 @@ export type EndpointHealthSummary = {
   latency_ms: number | null;
   http_status: number | null;
   error_message: string | null;
-  check_mode: "http" | "s3";
+  check_mode: HealthCheckMode;
   check_target_url: string | null;
 };
 
@@ -31,7 +32,7 @@ export type EndpointHealthPoint = {
   status: HealthCheckStatus;
   latency_ms: number | null;
   http_status: number | null;
-  check_mode: "http" | "s3";
+  check_mode: HealthCheckMode;
   check_type: string;
   scope: string;
 };
@@ -51,7 +52,7 @@ export type EndpointHealthSeries = {
   start: string;
   end: string;
   data_points: number;
-  check_mode: "http" | "s3";
+  check_mode: HealthCheckMode;
   check_target_url: string | null;
   check_type: string;
   scope: string;
@@ -64,7 +65,7 @@ export type EndpointHealthIncident = {
   end: string | null;
   duration_minutes: number | null;
   status: HealthCheckStatus;
-  check_mode: "http" | "s3";
+  check_mode: HealthCheckMode;
   check_type: string;
   scope: string;
 };
@@ -72,7 +73,7 @@ export type EndpointHealthIncident = {
 export type EndpointHealthIncidentsResponse = {
   endpoint_id: number;
   window: string;
-  check_mode: "http" | "s3";
+  check_mode: HealthCheckMode;
   check_type: string;
   scope: string;
   incidents: EndpointHealthIncident[];
@@ -84,7 +85,7 @@ export type EndpointHealthRawCheck = {
   latency_ms: number | null;
   http_status: number | null;
   error_message: string | null;
-  check_mode: "http" | "s3";
+  check_mode: HealthCheckMode;
 };
 
 export type EndpointHealthRawChecksResponse = {
@@ -113,7 +114,7 @@ export type EndpointHealthOverviewEndpoint = {
   status: HealthCheckStatus;
   checked_at: string;
   latency_ms: number | null;
-  check_mode: "http" | "s3";
+  check_mode: HealthCheckMode;
   check_target_url: string | null;
   availability_pct: number | null;
   timeline: EndpointHealthTimelinePoint[];
@@ -134,7 +135,7 @@ export type EndpointHealthLatencyOverviewEndpoint = {
   status: HealthCheckStatus;
   checked_at: string;
   latency_ms: number | null;
-  check_mode: "http" | "s3";
+  check_mode: HealthCheckMode;
   check_target_url: string | null;
   min_latency_ms: number | null;
   avg_latency_ms: number | null;
@@ -159,7 +160,7 @@ export type EndpointHealthGlobalIncident = {
   start: string;
   end: string | null;
   duration_minutes: number | null;
-  check_mode: "http" | "s3";
+  check_mode: HealthCheckMode;
   check_type: string;
   scope: string;
 };
@@ -179,7 +180,7 @@ export type WorkspaceEndpointHealthEntry = {
   status: HealthCheckStatus;
   checked_at: string;
   latency_ms: number | null;
-  check_mode: "http" | "s3";
+  check_mode: HealthCheckMode;
   check_target_url: string | null;
   is_stale: boolean;
 };
@@ -192,7 +193,7 @@ export type WorkspaceEndpointIncidentEntry = {
   start: string;
   end: string | null;
   duration_minutes: number | null;
-  check_mode: "http" | "s3";
+  check_mode: HealthCheckMode;
   ongoing: boolean;
   recent: boolean;
 };
@@ -302,7 +303,7 @@ type EndpointHealthRunResult = {
   latency_ms: number | null;
   http_status: number | null;
   error_message: string | null;
-  check_mode: string;
+  check_mode: HealthCheckMode;
 };
 
 type EndpointHealthRunResponse = {
