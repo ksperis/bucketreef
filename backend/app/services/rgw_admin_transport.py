@@ -68,12 +68,12 @@ class RGWAdminTransport:
         self.request_timeout_seconds = (
             float(request_timeout_seconds)
             if request_timeout_seconds is not None
-            else float(settings.rgw_admin_timeout_seconds)
+            else settings.rgw_admin_timeout_seconds
         )
         self.bucket_list_stats_timeout_seconds = (
             float(bucket_list_stats_timeout_seconds)
             if bucket_list_stats_timeout_seconds is not None
-            else float(settings.rgw_admin_bucket_list_stats_timeout_seconds)
+            else settings.rgw_admin_bucket_list_stats_timeout_seconds
         )
         self._account_api_support_state = "unknown"
         self._account_api_support_lock = Lock()
