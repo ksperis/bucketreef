@@ -7,7 +7,11 @@ from typing import Optional
 
 from botocore.exceptions import BotoCoreError, ClientError
 
-from app.models.browser import BrowserBucket, PaginatedBrowserBucketsResponse
+from app.models.browser import (
+    BrowserBucket,
+    BrowserBucketSearchRequest,
+    PaginatedBrowserBucketsResponse,
+)
 from app.services.s3_client import create_bucket as s3_create_bucket
 from app.services.s3_client import set_bucket_versioning as s3_set_bucket_versioning
 from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
@@ -97,19 +101,13 @@ class BrowserBucketsMixin:
     def search_buckets(
         self,
         context: S3ExecutionTarget,
-        *,
-        search: Optional[str] = None,
-        exact: bool = False,
-        page: int = 1,
-        page_size: int = 50,
+        request: BrowserBucketSearchRequest,
     ) -> PaginatedBrowserBucketsResponse:
-        normalized_page = max(1, int(page or 1))
-        normalized_page_size = max(1, min(200, int(page_size or 50)))
         buckets = self.list_buckets(context)
-        query = (search or "").strip()
+        query = (request.search or "").strip()
         if query:
             query_normalized = query.lower()
-            if exact:
+            if request.exact:
                 filtered = [
                     bucket
                     for bucket in buckets
@@ -124,14 +122,14 @@ class BrowserBucketsMixin:
         else:
             filtered = buckets
         total = len(filtered)
-        start = (normalized_page - 1) * normalized_page_size
-        end = start + normalized_page_size
+        start = (request.page - 1) * request.page_size
+        end = start + request.page_size
         items = filtered[start:end] if start < total else []
         return PaginatedBrowserBucketsResponse(
             items=items,
             total=total,
-            page=normalized_page,
-            page_size=normalized_page_size,
+            page=request.page,
+            page_size=request.page_size,
             has_next=end < total,
         )
 

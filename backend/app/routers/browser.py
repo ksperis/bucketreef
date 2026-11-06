@@ -25,6 +25,7 @@ from app.services.access_context_contracts import ManagerActor
 from app.models.app_settings import BrowserSettings
 from app.models.bucket import BucketVersioningStatus
 from app.models.browser import (
+    BrowserBucketSearchRequest,
     BrowserObjectListingRequest,
     BrowserUsageSummary,
     BucketCorsStatus,
@@ -87,22 +88,13 @@ def get_browser_usage_service(db: Session = Depends(get_db)) -> BrowserUsageSumm
     response_model_exclude_none=True,
 )
 def search_buckets(
-    search: Optional[str] = None,
-    exact: bool = Query(default=False),
-    page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=50, ge=1, le=200),
+    query: Annotated[BrowserBucketSearchRequest, Depends()],
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> PaginatedBrowserBucketsResponse:
     try:
-        return service.search_buckets(
-            context,
-            search=search,
-            exact=exact,
-            page=page,
-            page_size=page_size,
-        )
+        return service.search_buckets(context, query)
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 

@@ -3,7 +3,11 @@
 from app.db import S3Account, S3User, StorageEndpoint
 from app.core.domain_enums import StorageProvider
 from app.main import app
-from app.models.browser import BrowserBucket, PaginatedBrowserBucketsResponse
+from app.models.browser import (
+    BrowserBucket,
+    BrowserBucketSearchRequest,
+    PaginatedBrowserBucketsResponse,
+)
 from app.routers import browser as browser_router
 from app.routers import dependencies
 from app.services import browser_usage_summary_service
@@ -33,12 +37,12 @@ def test_browser_bucket_search_endpoint_contract(client):
     captured: dict[str, object] = {}
 
     class FakeService:
-        def search_buckets(self, account, *, search=None, exact=False, page=1, page_size=50):  # noqa: ANN001
+        def search_buckets(self, account, query: BrowserBucketSearchRequest):  # noqa: ANN001
             captured["account_id"] = account.id
-            captured["search"] = search
-            captured["exact"] = exact
-            captured["page"] = page
-            captured["page_size"] = page_size
+            captured["search"] = query.search
+            captured["exact"] = query.exact
+            captured["page"] = query.page
+            captured["page_size"] = query.page_size
             return PaginatedBrowserBucketsResponse(
                 items=[BrowserBucket(name="alpha"), BrowserBucket(name="alpine")],
                 total=5,
@@ -84,12 +88,25 @@ def test_browser_bucket_openapi_excludes_removed_duplicate_collections() -> None
     assert "/api/browser/buckets/config/{bucket_name}" not in paths
 
     query_params = {
-        parameter["name"]
+        parameter["name"]: parameter["schema"]
         for parameter in paths["/api/browser/buckets/search"]["get"].get("parameters", [])
         if parameter.get("in") == "query"
     }
     assert "context_id" in query_params
     assert "account_id" not in query_params
+    assert query_params["page"] == {
+        "type": "integer",
+        "minimum": 1,
+        "default": 1,
+        "title": "Page",
+    }
+    assert query_params["page_size"] == {
+        "type": "integer",
+        "maximum": 200,
+        "minimum": 1,
+        "default": 50,
+        "title": "Page Size",
+    }
 
 
 def test_browser_bucket_search_endpoint_paginates_results(client):
@@ -101,22 +118,22 @@ def test_browser_bucket_search_endpoint_paginates_results(client):
             BrowserBucket(name="beta"),
         ]
 
-        def search_buckets(self, account, *, search=None, exact=False, page=1, page_size=50):  # noqa: ANN001
-            query = (search or "").strip().lower()
-            if exact and query:
+        def search_buckets(self, account, request: BrowserBucketSearchRequest):  # noqa: ANN001
+            query = (request.search or "").strip().lower()
+            if request.exact and query:
                 filtered = [bucket for bucket in self.buckets if bucket.name.lower() == query]
             elif query:
                 filtered = [bucket for bucket in self.buckets if query in bucket.name.lower()]
             else:
                 filtered = list(self.buckets)
-            start = (page - 1) * page_size
-            end = start + page_size
+            start = (request.page - 1) * request.page_size
+            end = start + request.page_size
             items = filtered[start:end]
             return PaginatedBrowserBucketsResponse(
                 items=items,
                 total=len(filtered),
-                page=page,
-                page_size=page_size,
+                page=request.page,
+                page_size=request.page_size,
                 has_next=end < len(filtered),
             )
 
@@ -135,7 +152,7 @@ def test_browser_bucket_search_endpoint_paginates_results(client):
 
 def test_browser_bucket_search_endpoint_returns_enriched_display_fields(client):
     class FakeService:
-        def search_buckets(self, account, *, search=None, exact=False, page=1, page_size=50):  # noqa: ANN001
+        def search_buckets(self, account, query: BrowserBucketSearchRequest):  # noqa: ANN001
             return PaginatedBrowserBucketsResponse(
                 items=[
                     BrowserBucket(
@@ -180,7 +197,7 @@ def test_browser_bucket_search_endpoint_returns_enriched_display_fields(client):
 
 def test_browser_bucket_search_endpoint_maps_service_error(client):
     class FakeService:
-        def search_buckets(self, account, *, search=None, exact=False, page=1, page_size=50):  # noqa: ANN001
+        def search_buckets(self, account, query: BrowserBucketSearchRequest):  # noqa: ANN001
             raise RuntimeError("bucket search failed")
 
     app.dependency_overrides[dependencies.get_s3_execution_context] = _account
