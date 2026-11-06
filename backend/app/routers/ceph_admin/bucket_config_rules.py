@@ -13,9 +13,7 @@ from app.models.bucket import (
     BucketNotificationConfiguration,
     BucketReplicationConfiguration,
     BucketTags,
-    BucketTagsUpdate,
     BucketWebsiteConfiguration,
-    BucketWebsiteUpdate,
 )
 from app.routers.ceph_admin.bucket_config_common import (
     _run_bucket_config_read,
@@ -272,7 +270,7 @@ def get_website(
 @router.put("/{bucket_name}/website", response_model=BucketWebsiteConfiguration)
 def put_website(
     bucket_name: str,
-    payload: BucketWebsiteUpdate,
+    payload: BucketWebsiteConfiguration,
     tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketWebsiteConfiguration:
@@ -316,7 +314,7 @@ def get_tags(
 @router.put("/{bucket_name}/tags", response_model=BucketTags)
 def put_tags(
     bucket_name: str,
-    payload: BucketTagsUpdate,
+    payload: BucketTags,
     tenant: str | None = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> BucketTags:

@@ -14,9 +14,7 @@ from app.models.bucket import (
     BucketNotificationConfiguration,
     BucketReplicationConfiguration,
     BucketTags,
-    BucketTagsUpdate,
     BucketWebsiteConfiguration,
-    BucketWebsiteUpdate,
 )
 from app.services.storage_endpoint_feature_guards import require_replication_feature
 from app.routers.dependencies import get_s3_execution_context, get_current_account_admin
@@ -274,7 +272,7 @@ def delete_logging(
 @router.put("/{bucket_name}/website", response_model=BucketWebsiteConfiguration)
 def put_website(
     bucket_name: str,
-    payload: BucketWebsiteUpdate,
+    payload: BucketWebsiteConfiguration,
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
@@ -324,7 +322,7 @@ def get_tags(
 @router.put("/{bucket_name}/tags", response_model=BucketTags)
 def put_tags(
     bucket_name: str,
-    payload: BucketTagsUpdate,
+    payload: BucketTags,
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),

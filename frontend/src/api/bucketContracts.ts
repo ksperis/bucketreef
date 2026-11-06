@@ -95,13 +95,6 @@ export type BucketWebsiteConfiguration = {
   routing_rules: Record<string, unknown>[];
 };
 
-export type BucketWebsiteUpdate = {
-  index_document: string | null;
-  error_document: string | null;
-  redirect_all_requests_to: BucketWebsiteRedirectAllRequestsTo | null;
-  routing_rules: Record<string, unknown>[];
-};
-
 type BucketAclGrantee = {
   type: string;
   id?: string | null;
