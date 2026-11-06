@@ -281,16 +281,38 @@ class S3AccountImportService:
         intent: S3AccountImportIntent,
     ) -> None:
         root = self._load_root(item)
-
         if intent.credential_action == "reuse":
-            if intent.phase not in {"prepared", "remote_created"}:
-                raise ValueError(f"Unsupported S3 account import phase: {intent.phase}")
-            if root is None or not self._intent_credentials_in_root(item, intent, root):
-                raise ValueError("RGW account root credentials changed during import")
-            if intent.phase != "remote_created":
-                checkpoint_s3_import_intent(self.db, intent, "remote_created")
+            self._ensure_reused_remote_credentials(item, intent, root)
             return
 
+        self._prepare_remote_credential_creation(item, intent, root)
+        if intent.phase not in {"creating", "remote_created"}:
+            raise ValueError(f"Unsupported S3 account import phase: {intent.phase}")
+
+        root = self._ensure_remote_root(item, intent)
+        self._ensure_remote_root_key(item, intent, root)
+        if intent.phase != "remote_created":
+            checkpoint_s3_import_intent(self.db, intent, "remote_created")
+
+    def _ensure_reused_remote_credentials(
+        self,
+        item: _PreparedAccountImport,
+        intent: S3AccountImportIntent,
+        root: dict | None,
+    ) -> None:
+        if intent.phase not in {"prepared", "remote_created"}:
+            raise ValueError(f"Unsupported S3 account import phase: {intent.phase}")
+        if root is None or not self._intent_credentials_in_root(item, intent, root):
+            raise ValueError("RGW account root credentials changed during import")
+        if intent.phase != "remote_created":
+            checkpoint_s3_import_intent(self.db, intent, "remote_created")
+
+    def _prepare_remote_credential_creation(
+        self,
+        item: _PreparedAccountImport,
+        intent: S3AccountImportIntent,
+        root: dict | None,
+    ) -> None:
         if intent.phase == "prepared":
             while (
                 root is not None
@@ -304,27 +326,37 @@ class S3AccountImportService:
                 root = self._load_root(item)
             checkpoint_s3_import_intent(self.db, intent, "creating")
 
-        if intent.phase not in {"creating", "remote_created"}:
-            raise ValueError(f"Unsupported S3 account import phase: {intent.phase}")
-
+    def _ensure_remote_root(
+        self,
+        item: _PreparedAccountImport,
+        intent: S3AccountImportIntent,
+    ) -> dict:
+        root = self._load_root(item)
+        if root is not None:
+            return root
+        if intent.credential_action != "create_root":
+            raise ValueError("RGW account root disappeared during import")
+        item.admin.create_user_with_account_id(
+            uid=item.root_uid,
+            account_id=item.source.rgw_account_id,
+            display_name=item.root_display_name,
+            account_root=True,
+            generate_key=False,
+            tenant=item.rgw_tenant or None,
+            access_key=intent.access_key_id,
+            secret_key=intent.secret_access_key,
+        )
         root = self._load_root(item)
         if root is None:
-            if intent.credential_action != "create_root":
-                raise ValueError("RGW account root disappeared during import")
-            item.admin.create_user_with_account_id(
-                uid=item.root_uid,
-                account_id=item.source.rgw_account_id,
-                display_name=item.root_display_name,
-                account_root=True,
-                generate_key=False,
-                tenant=item.rgw_tenant or None,
-                access_key=intent.access_key_id,
-                secret_key=intent.secret_access_key,
-            )
-            root = self._load_root(item)
-            if root is None:
-                raise ValueError("RGW account root could not be verified after creation")
+            raise ValueError("RGW account root could not be verified after creation")
+        return root
 
+    def _ensure_remote_root_key(
+        self,
+        item: _PreparedAccountImport,
+        intent: S3AccountImportIntent,
+        root: dict,
+    ) -> None:
         if not self._intent_credentials_in_root(item, intent, root):
             item.admin.create_access_key(
                 item.root_uid,
@@ -337,9 +369,6 @@ class S3AccountImportService:
                 raise ValueError(
                     "RGW did not persist the requested root access credential"
                 )
-
-        if intent.phase != "remote_created":
-            checkpoint_s3_import_intent(self.db, intent, "remote_created")
 
     def _validate_names(self, prepared: list[_PreparedAccountImport]) -> None:
         seen_scopes: set[tuple[int, str, str]] = set()
