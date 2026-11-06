@@ -7,8 +7,8 @@ import { S3ExecutionContextSelector, withS3ContextParam } from "./accountParams"
 
 export type BucketUsagePoint = {
   name: string;
-  used_bytes?: number | null;
-  object_count?: number | null;
+  used_bytes: number | null;
+  object_count: number | null;
 };
 
 export type BucketOverview = {

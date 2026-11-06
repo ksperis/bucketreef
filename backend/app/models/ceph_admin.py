@@ -8,6 +8,7 @@ from pydantic import Field, ValidationError, ValidationInfo, field_validator, mo
 from app.models.base import ApiModel, reject_explicit_null_fields
 from app.models.bucket_listing import BucketListingSummary
 from app.models.pagination import PaginatedResponse
+from app.models.storage_stats import BucketUsagePoint
 from app.models.tagging import TagDefinitionSummary
 from app.utils.rgw_identifiers import validate_rgw_account_name, validate_rgw_tenant, validate_rgw_user_uid
 from app.utils.rgw_account_extra_params import validate_rgw_account_extra_params
@@ -349,17 +350,11 @@ class CephAdminRgwUserConfigUpdate(ApiModel):
         return self
 
 
-class CephAdminBucketUsagePoint(ApiModel):
-    name: str
-    used_bytes: Optional[int]
-    object_count: Optional[int]
-
-
 class CephAdminEntityMetrics(ApiModel):
     total_bytes: Optional[int]
     total_objects: Optional[int]
     bucket_count: int
-    bucket_usage: list[CephAdminBucketUsagePoint]
+    bucket_usage: list[BucketUsagePoint]
     generated_at: datetime
 
 
@@ -379,7 +374,7 @@ class CephAdminClusterStorageTotals(ApiModel):
 
 class CephAdminClusterStorageMetrics(ApiModel):
     total_buckets: int
-    bucket_usage: list[CephAdminBucketUsagePoint]
+    bucket_usage: list[BucketUsagePoint]
     owner_usage: list[CephAdminClusterOwnerUsagePoint]
     storage_totals: CephAdminClusterStorageTotals
     generated_at: datetime

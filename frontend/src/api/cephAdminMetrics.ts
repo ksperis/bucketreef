@@ -3,19 +3,13 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
-import type { ManagerTrafficStats, TrafficWindow } from "./stats";
-
-export type CephAdminBucketUsagePoint = {
-  name: string;
-  used_bytes: number | null;
-  object_count: number | null;
-};
+import type { BucketUsagePoint, ManagerTrafficStats, TrafficWindow } from "./stats";
 
 export type CephAdminEntityMetrics = {
   total_bytes: number | null;
   total_objects: number | null;
   bucket_count: number;
-  bucket_usage: CephAdminBucketUsagePoint[];
+  bucket_usage: BucketUsagePoint[];
   generated_at: string;
 };
 
@@ -35,7 +29,7 @@ export type CephAdminClusterStorageTotals = {
 
 export type CephAdminClusterStorageMetrics = {
   total_buckets: number;
-  bucket_usage: CephAdminBucketUsagePoint[];
+  bucket_usage: BucketUsagePoint[];
   owner_usage: CephAdminClusterOwnerUsagePoint[];
   storage_totals: CephAdminClusterStorageTotals;
   generated_at: string;
