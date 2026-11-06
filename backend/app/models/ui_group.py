@@ -5,6 +5,7 @@ from typing import Literal, Optional, Self
 
 from pydantic import Field, model_validator
 
+from app.models.admin_listing import AdminSortableListingRequest
 from app.models.base import ApiModel, reject_explicit_null_fields
 from app.models.pagination import PaginatedResponse
 from app.models.user import (
@@ -19,6 +20,11 @@ from app.models.openstack import LinkedOpenStackCloud
 
 UiGroupAvatarSource = Literal["initials", "preset", "uploaded"]
 UiGroupAvatarIcon = Literal["users", "building", "shield", "briefcase", "academic"]
+UiGroupSortBy = Literal["name", "created_at", "updated_at"]
+
+
+class UiGroupListingRequest(AdminSortableListingRequest):
+    sort_by: UiGroupSortBy = "name"
 
 
 class UiGroupAvatar(ApiModel):

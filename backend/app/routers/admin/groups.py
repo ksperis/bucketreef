@@ -1,6 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from typing import Optional
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile, status
 from sqlalchemy.orm import Session
@@ -13,6 +13,7 @@ from app.models.ui_group import (
     PaginatedUiGroupSummariesResponse,
     PaginatedUiGroupsResponse,
     UiGroupCreate,
+    UiGroupListingRequest,
     UiGroupOut,
     UiGroupUpdate,
 )
@@ -55,23 +56,11 @@ def _require_superadmin_for_privileged_grant(
 
 @router.get("", response_model=PaginatedUiGroupsResponse)
 def list_groups(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(25, ge=1, le=200),
-    search: Optional[str] = Query(None),
-    sort_by: str = Query("name"),
-    sort_dir: str = Query("asc"),
+    query: Annotated[UiGroupListingRequest, Query()],
     groups_service: UiGroupsService = Depends(get_groups_service_dependency),
     _: User = Depends(get_current_ui_admin),
 ) -> PaginatedUiGroupsResponse:
-    items, total = groups_service.paginate_groups(
-        page=page,
-        page_size=page_size,
-        search=search,
-        sort_field=sort_by,
-        sort_direction=sort_dir,
-    )
-    has_next = page * page_size < total
-    return PaginatedUiGroupsResponse(items=items, total=total, page=page, page_size=page_size, has_next=has_next)
+    return groups_service.list_groups_page(query)
 
 
 @router.get("/options", response_model=PaginatedUiGroupSummariesResponse)

@@ -32,6 +32,7 @@
 - Canonicalize Browser object-list requests on one strict backend model and reject unsupported object-type filters instead of silently treating them as `all`.
 - Canonicalize Admin access-audit list and CSV filters on shared backend request models instead of rebuilding the same filter set in each route.
 - Canonicalize Admin S3 Account and RGW User list requests on shared pagination/search controls with typed sort fields and service-owned paginated responses.
+- Canonicalize Admin UI Group and S3 Connection list requests on shared pagination/sort controls, with typed sort fields and service-owned pagination.
 
 ### Fixed
 
@@ -40,6 +41,7 @@
 ### Upgrade notes
 
 - Deploy the matching backend and frontend together because Admin S3 Account and RGW User list query validation now accepts only the supported sort fields and directions.
+- Deploy the matching backend and frontend together because Admin UI Group and S3 Connection list query validation now accepts only the supported sort fields and directions.
 - Deploy the matching backend and frontend together because Browser object-list responses now include the optional `owner` field used by object details.
 - Deploy the matching backend and frontend together because Browser object-list query validation now enforces the frontend's supported `all`, `file`, and `folder` object-type values.
 - Deploy the matching backend and frontend together because detailed Manager IAM group-list responses now include the optional `members` field used by the inventory.

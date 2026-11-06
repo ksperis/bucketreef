@@ -99,7 +99,7 @@ type ListUiGroupsParams = {
   page?: number;
   page_size?: number;
   search?: string;
-  sort_by?: string;
+  sort_by?: "name" | "created_at" | "updated_at";
   sort_dir?: "asc" | "desc";
 };
 

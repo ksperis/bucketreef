@@ -384,6 +384,22 @@ def test_ui_group_listings_share_stable_case_insensitive_order(client: TestClien
     )
 
 
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"sort_by": "members"},
+        {"sort_dir": "sideways"},
+    ],
+)
+def test_ui_group_listing_rejects_unsupported_sort_contract(
+    client: TestClient,
+    params: dict[str, str],
+):
+    response = client.get("/api/admin/groups", params=params)
+
+    assert response.status_code == 422, response.text
+
+
 def test_ui_group_avatar_supports_presets_upload_and_initials_fallback(client: TestClient, db_session):
     created = client.post(
         "/api/admin/groups",

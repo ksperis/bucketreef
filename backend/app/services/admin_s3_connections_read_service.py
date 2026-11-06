@@ -20,6 +20,7 @@ from app.db import (
 from app.models.s3_connection_admin import (
     PaginatedS3ConnectionsResponse,
     S3ConnectionAdminItem,
+    S3ConnectionAdminListingRequest,
     S3ConnectionGroupDetail,
 )
 from app.models.user import UserAssociationDetail
@@ -186,7 +187,7 @@ class AdminS3ConnectionsReadService:
         )
 
     @staticmethod
-    def _order(query, *, sort_by: str, sort_dir: str):
+    def _order(query, request: S3ConnectionAdminListingRequest):
         sort_map = {
             "name": S3Connection.name,
             "endpoint": StorageEndpoint.endpoint_url,
@@ -194,12 +195,11 @@ class AdminS3ConnectionsReadService:
             "last_used_at": S3Connection.last_used_at,
             "created_at": S3Connection.created_at,
         }
-        requested_sort = sort_by if sort_by in sort_map else "name"
-        descending = sort_dir.lower() == "desc"
-        if requested_sort == "name":
+        descending = request.sort_dir == "desc"
+        if request.sort_by == "name":
             return query.order_by(*name_order_by(S3Connection, descending=descending))
 
-        sort_field = sort_map[requested_sort]
+        sort_field = sort_map[request.sort_by]
         if descending:
             return query.order_by(sort_field.desc(), S3Connection.id.desc())
         return query.order_by(sort_field.asc(), S3Connection.id.asc())
@@ -233,18 +233,14 @@ class AdminS3ConnectionsReadService:
 
     def list(
         self,
-        *,
-        page: int,
-        page_size: int,
-        search: Optional[str],
-        sort_by: str,
-        sort_dir: str,
-        search_exact: bool = False,
+        request: S3ConnectionAdminListingRequest,
     ) -> PaginatedS3ConnectionsResponse:
         statement = self._order(
-            self._select(search=search, search_exact=search_exact),
-            sort_by=sort_by,
-            sort_dir=sort_dir,
+            self._select(
+                search=request.search,
+                search_exact=request.search_exact,
+            ),
+            request,
         )
         total = int(
             self.db.scalar(
@@ -253,14 +249,16 @@ class AdminS3ConnectionsReadService:
             or 0
         )
         rows = self.db.execute(
-            statement.offset((page - 1) * page_size).limit(page_size)
+            statement.offset((request.page - 1) * request.page_size).limit(
+                request.page_size
+            )
         ).all()
         return PaginatedS3ConnectionsResponse(
             items=self._items(rows),
             total=total,
-            page=page,
-            page_size=page_size,
-            has_next=page * page_size < total,
+            page=request.page,
+            page_size=request.page_size,
+            has_next=request.page * request.page_size < total,
         )
 
     def item(
