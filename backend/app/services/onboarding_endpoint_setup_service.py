@@ -20,8 +20,8 @@ from app.services.storage_endpoint_admin_permissions import (
     has_account_provisioning_permissions,
 )
 from app.utils.storage_endpoint_features import (
-    normalize_features,
     resolve_feature_flags,
+    validate_persisted_features,
 )
 
 
@@ -406,10 +406,9 @@ class OnboardingEndpointSetupService:
     ) -> None:
         if not feature_fields:
             return
-        features = normalize_features(
+        features = validate_persisted_features(
             endpoint.provider,
             endpoint.features,
-            endpoint.region,
         )
         for field in feature_fields:
             features[field]["enabled"] = True
@@ -580,9 +579,7 @@ class OnboardingEndpointSetupService:
         return endpoint
 
     def enable_features(self, actor, endpoint, *fields):
-        features = normalize_features(
-            endpoint.provider, endpoint.features, endpoint.region
-        )
+        features = validate_persisted_features(endpoint.provider, endpoint.features)
         for field in fields:
             features[field]["enabled"] = True
         self.endpoints.update_endpoint(

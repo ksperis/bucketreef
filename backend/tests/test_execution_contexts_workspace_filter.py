@@ -2,8 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 
 from __future__ import annotations
-from app.utils.storage_endpoint_features import parse_features_config
-
 from datetime import timedelta
 from types import SimpleNamespace
 
@@ -32,6 +30,7 @@ from app.services.portal_service import PortalService
 from app.utils.time import utcnow
 from tests.s3_account_factory import make_s3_account
 from tests.s3_connection_factory import custom_endpoint_fields
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 def test_execution_context_api_models_require_complete_payloads() -> None:
@@ -162,14 +161,10 @@ def _create_endpoint(
     zonegroup_id: str | None = None,
     zone_id: str | None = None,
 ) -> StorageEndpoint:
-    endpoint = StorageEndpoint(
-        name=name,
-        endpoint_url=f"https://{name}.example.test",
-        provider=provider,
-        realm_id=realm_id,
-        zonegroup_id=zonegroup_id,
-        zone_id=zone_id,
-        features=parse_features_config("features:\n"
+    raw_features = "features: {}"
+    if provider == "ceph":
+        raw_features = (
+            "features:\n"
             "  iam:\n"
             "    enabled: true\n"
             "  admin:\n"
@@ -177,7 +172,19 @@ def _create_endpoint(
             "  metrics:\n"
             "    enabled: true\n"
             "  usage:\n"
-            "    enabled: true\n"),
+            "    enabled: true\n"
+        )
+    endpoint = StorageEndpoint(
+        name=name,
+        endpoint_url=f"https://{name}.example.test",
+        provider=provider,
+        realm_id=realm_id,
+        zonegroup_id=zonegroup_id,
+        zone_id=zone_id,
+        features=persisted_endpoint_features(
+            raw_features,
+            provider=provider,
+        ),
     )
     db_session.add(endpoint)
     db_session.commit()

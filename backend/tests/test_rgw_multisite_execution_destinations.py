@@ -17,6 +17,7 @@ from app.services.rgw_multisite_endpoints import (
 )
 from app.utils.s3_endpoint import resolve_s3_client_options
 from tests.s3_account_factory import make_s3_account
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 def _endpoint(
@@ -38,6 +39,7 @@ def _endpoint(
         zonegroup_id=zonegroup_id,
         zone_id=zone_id,
         region=region,
+        features=persisted_endpoint_features(provider=provider, region=region),
         force_path_style=force_path_style,
         verify_tls=verify_tls,
     )

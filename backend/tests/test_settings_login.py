@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 from app.db import StorageEndpoint
 from app.core.domain_enums import StorageProvider
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 def test_login_settings_endpoints_are_sorted_by_name_case_insensitive(client, db_session, monkeypatch):
@@ -13,6 +14,7 @@ def test_login_settings_endpoints_are_sorted_by_name_case_insensitive(client, db
                 name="Zulu",
                 endpoint_url="https://zulu.example.test",
                 provider=StorageProvider.CEPH.value,
+                features=persisted_endpoint_features(),
                 is_default=True,
                 is_editable=True,
             ),
@@ -20,6 +22,7 @@ def test_login_settings_endpoints_are_sorted_by_name_case_insensitive(client, db
                 name="alpha",
                 endpoint_url="https://alpha.example.test",
                 provider=StorageProvider.CEPH.value,
+                features=persisted_endpoint_features(),
                 is_default=False,
                 is_editable=True,
             ),
@@ -27,6 +30,7 @@ def test_login_settings_endpoints_are_sorted_by_name_case_insensitive(client, db
                 name="Beta",
                 endpoint_url="https://beta.example.test",
                 provider=StorageProvider.CEPH.value,
+                features=persisted_endpoint_features(),
                 is_default=False,
                 is_editable=True,
             ),

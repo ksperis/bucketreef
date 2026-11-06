@@ -19,6 +19,7 @@ from app.services import session_service as session_module
 from tests.auth_test_utils import trusted_origin_headers
 from tests.router_test_utils import effective_routes
 from tests.s3_account_factory import make_s3_account
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 def _enable_access_key_login(
@@ -269,6 +270,7 @@ def test_login_s3_allows_registered_endpoint_when_custom_endpoints_are_disabled(
         StorageEndpoint(
             name="Registered",
             endpoint_url="https://s3.example.test",
+            features=persisted_endpoint_features(),
             is_default=True,
         )
     )

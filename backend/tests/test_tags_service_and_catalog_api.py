@@ -21,6 +21,7 @@ from app.utils.tagging import TAG_DOMAIN_ADMIN_MANAGED, TAG_DOMAIN_ENDPOINT, TAG
 from fastapi.testclient import TestClient
 from tests.s3_connection_factory import custom_endpoint_fields
 from tests.service_identity_helpers import service_identity
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 def _ui_admin(user_id: int, email: str) -> User:
@@ -39,6 +40,7 @@ def _endpoint(db_session, name: str = "tags-endpoint") -> StorageEndpoint:
         name=name,
         endpoint_url=f"https://{name}.example.test",
         provider=StorageProvider.CEPH.value,
+        features=persisted_endpoint_features(),
         is_default=False,
         is_editable=True,
     )

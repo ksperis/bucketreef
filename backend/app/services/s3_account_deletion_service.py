@@ -26,8 +26,8 @@ from app.services.s3_account_rgw_users_service import S3AccountRgwUsersService
 from app.services.tags_service import TagsService
 from app.utils.storage_endpoint_features import (
     features_to_capabilities,
-    normalize_features,
     resolve_feature_flags,
+    validate_persisted_features,
 )
 from app.utils.rgw_payloads import extract_rgw_account_id
 from app.utils.tagging import TAG_DOMAIN_ADMIN_MANAGED
@@ -206,7 +206,7 @@ class S3AccountDeletionService:
     ) -> None:
         account_identifier = account.rgw_account_id
         endpoint_capabilities = features_to_capabilities(
-            normalize_features(endpoint.provider, endpoint.features)
+            validate_persisted_features(endpoint.provider, endpoint.features)
         )
 
         # Safety: only allow RGW deletion when we can prove the account is empty.

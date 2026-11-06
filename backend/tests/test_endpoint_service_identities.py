@@ -23,6 +23,7 @@ from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_runtime_rgw_client
 from app.services.storage_endpoints_service import StorageEndpointsService
 from tests.service_identity_helpers import service_identity, set_service_identity_credentials
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 class FakeRGW:
@@ -105,7 +106,7 @@ def identities(db_session, monkeypatch):
     monkeypatch.setattr(module, "get_endpoint_bootstrap_rgw_client", lambda endpoint: rgw)
     monkeypatch.setattr("app.services.rgw_admin.get_rgw_admin_client", lambda **kwargs: rgw.signed(kwargs["access_key"]))
     monkeypatch.setattr("app.services.storage_endpoints_service.get_rgw_admin_client", lambda **kwargs: rgw)
-    endpoint = StorageEndpoint(name="Ceph", endpoint_url="https://rgw.example.test", provider="ceph", admin_access_key="ADMIN", admin_secret_key="ADMIN-SECRET", features=parse_features_config("features:\n  admin:\n    enabled: true\n  metrics:\n    enabled: true\n"))
+    endpoint = StorageEndpoint(name="Ceph", endpoint_url="https://rgw.example.test", provider="ceph", admin_access_key="ADMIN", admin_secret_key="ADMIN-SECRET", features=persisted_endpoint_features("features:\n  admin:\n    enabled: true\n  metrics:\n    enabled: true\n"))
     db_session.add(endpoint); db_session.commit()
     return EndpointServiceIdentityService(db_session), endpoint, rgw
 
@@ -166,7 +167,7 @@ def test_partial_remote_failure_resumes_persisted_key(identities):
 
 def test_admin_failure_preserves_ready_runtime_and_supervision(identities, db_session):
     service, endpoint, rgw = identities
-    endpoint.features = parse_features_config("features:\n  admin:\n    enabled: true\n  metrics:\n    enabled: true\n")
+    endpoint.features = persisted_endpoint_features("features:\n  admin:\n    enabled: true\n  metrics:\n    enabled: true\n")
     db_session.commit()
     service.reconcile(endpoint)
     runtime = endpoint.service_identity("runtime")
@@ -386,7 +387,7 @@ def test_minimal_admin_and_external_identities_preserve_usage_without_write_caps
     rgw.users["external"] = {"user_id": "external", "caps": SERVICE_CAPS["runtime"], "keys": [{"access_key": "EXTERNAL", "secret_key": "EXTERNAL-SECRET"}]}
     endpoint.service_identities.append(service_identity("supervision", "SUPERVISION", "SUPERVISION-SECRET"))
     rgw.users["supervision"] = {"user_id": "supervision", "caps": SERVICE_CAPS["supervision"], "keys": [{"access_key": "SUPERVISION", "secret_key": "SUPERVISION-SECRET"}]}
-    endpoint.features = parse_features_config("features:\n  usage:\n    enabled: true\n")
+    endpoint.features = persisted_endpoint_features("features:\n  usage:\n    enabled: true\n")
     db_session.commit()
     service.reconcile(endpoint)
     assert endpoint.service_identity("runtime").status == "ready"
@@ -568,7 +569,7 @@ def test_env_provider_change_revokes_owned_identities_before_clearing_admin_ops(
 @pytest.mark.parametrize("key_type", ["keys", "disabled_keys", "swift_keys", "temp_url_keys"])
 def test_managed_key_drift_blocks_reconciliation_without_mutating_remote_user(identities, db_session, kind, key_type):
     service, endpoint, rgw = identities
-    endpoint.features = parse_features_config("features:\n  admin:\n    enabled: true\n  metrics:\n    enabled: true\n")
+    endpoint.features = persisted_endpoint_features("features:\n  admin:\n    enabled: true\n  metrics:\n    enabled: true\n")
     db_session.commit()
     service.reconcile(endpoint)
     identity = endpoint.service_identity(kind)
@@ -633,7 +634,7 @@ def test_managed_key_drift_recovers_only_after_operator_removes_unknown_key(iden
 @pytest.mark.parametrize("kind", ["runtime", "supervision"])
 def test_managed_key_drift_blocks_rotation_and_revocation(identities, db_session, operation, kind):
     service, endpoint, rgw = identities
-    endpoint.features = parse_features_config("features:\n  admin:\n    enabled: true\n  metrics:\n    enabled: true\n")
+    endpoint.features = persisted_endpoint_features("features:\n  admin:\n    enabled: true\n  metrics:\n    enabled: true\n")
     db_session.commit()
     service.reconcile(endpoint)
     identity = endpoint.service_identity(kind)
@@ -829,7 +830,7 @@ def test_external_env_with_complete_keys_is_validated_without_provisioning(ident
 @pytest.mark.parametrize("denied", [False, True])
 def test_revalidation_distinguishes_transient_failure_from_denied_key(identities, db_session, monkeypatch, kind, denied):
     service, endpoint, rgw = identities
-    endpoint.features = parse_features_config("features:\n  admin:\n    enabled: true\n  metrics:\n    enabled: true\n")
+    endpoint.features = persisted_endpoint_features("features:\n  admin:\n    enabled: true\n  metrics:\n    enabled: true\n")
     db_session.commit()
     service.reconcile(endpoint)
     identity = endpoint.service_identity(kind)
@@ -855,7 +856,7 @@ def test_revalidation_distinguishes_transient_failure_from_denied_key(identities
 @pytest.mark.parametrize("kind", ["runtime", "supervision"])
 def test_invalid_external_revalidation_stops_using_ready_identity(identities, db_session, kind):
     service, endpoint, rgw = identities
-    endpoint.features = parse_features_config("features:\n  admin:\n    enabled: true\n  metrics:\n    enabled: true\n")
+    endpoint.features = persisted_endpoint_features("features:\n  admin:\n    enabled: true\n  metrics:\n    enabled: true\n")
     for usage in ("runtime", "supervision"):
         access, secret = usage.upper(), usage.upper() + "-SECRET"
         endpoint.service_identities.append(service_identity(usage, access, secret))
@@ -1018,7 +1019,7 @@ def test_ready_managed_identity_survives_removing_write_permissions_and_rename(i
 
 def test_supervision_survives_disabling_all_collectors(identities, db_session):
     service, endpoint, rgw = identities
-    endpoint.features = parse_features_config("features:\n  healthcheck:\n    enabled: true\n    mode: s3\n")
+    endpoint.features = persisted_endpoint_features("features:\n  healthcheck:\n    enabled: true\n    mode: s3\n")
     db_session.commit()
     service.reconcile(endpoint)
     supervision = endpoint.service_identity("supervision")
@@ -1026,7 +1027,7 @@ def test_supervision_survives_disabling_all_collectors(identities, db_session):
     uid = supervision.rgw_uid
     service.reconcile(endpoint)
     assert uid in rgw.users and supervision.status == "ready"
-    endpoint.features = parse_features_config("features:\n  healthcheck:\n    enabled: true\n    mode: http\n")
+    endpoint.features = persisted_endpoint_features("features:\n  healthcheck:\n    enabled: true\n    mode: http\n")
     db_session.commit()
     service.reconcile(endpoint)
     assert supervision.status == "ready" and uid in rgw.users
@@ -1240,7 +1241,7 @@ def test_startup_reconciles_when_service_identity_rotation_is_pending(identities
     identity_service, endpoint, rgw = identities
     identity_service.reconcile(endpoint)
     runtime = endpoint.service_identity("runtime")
-    endpoint.features = parse_features_config("features: {}")  # Pending lifecycle work survives disabled features.
+    endpoint.features = persisted_endpoint_features("features: {}")  # Pending lifecycle work survives disabled features.
     db_session.add(
         KeyRotationIntent(
             endpoint_id=endpoint.id,
@@ -1301,7 +1302,7 @@ def test_env_disabling_features_preserves_unused_external_credentials(identities
 def test_managed_to_external_conversion_requires_supervision_before_revoking(identities, db_session):
     from app.models.storage_endpoint import StorageEndpointUpdate
     service, endpoint, rgw = identities
-    endpoint.features = parse_features_config("features:\n  admin:\n    enabled: true\n  metrics:\n    enabled: true\n")
+    endpoint.features = persisted_endpoint_features("features:\n  admin:\n    enabled: true\n  metrics:\n    enabled: true\n")
     db_session.commit()
     service.reconcile(endpoint)
     rgw.users["external"] = {"user_id": "external", "caps": SERVICE_CAPS["runtime"], "keys": [{"access_key": "EXTERNAL", "secret_key": "EXTERNAL-SECRET"}]}

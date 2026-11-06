@@ -25,6 +25,7 @@ from app.services.cost_collection_service import CostCollector
 from app.services.healthcheck_service import HealthCheckService
 from app.services.operation_lease_service import HEALTHCHECK_RUN_OPERATION, OperationLeaseService
 from tests.auth_test_utils import authenticate_ui_client
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 @pytest.fixture
@@ -43,6 +44,7 @@ def _seed_endpoint(db_session, name="probe") -> int:
         name=name,
         endpoint_url=f"https://{name}.example.test",
         provider="other",
+        features=persisted_endpoint_features(provider="other"),
         is_default=False,
         is_editable=True,
     )

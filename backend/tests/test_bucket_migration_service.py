@@ -52,6 +52,7 @@ from app.services.bucket_migration.worker import BucketMigrationWorker
 from app.services.bucket_migration_service import BucketMigrationService
 from app.services.webhook_catalog import MIGRATION_EVENT_TYPE
 from app.services.webhook_service import WebhookService
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 def _create_user(db_session) -> User:
@@ -73,6 +74,7 @@ def _create_account(db_session, *, name: str, endpoint_url: str, account_id: str
         endpoint_url=endpoint_url,
         region="us-east-1",
         provider="ceph",
+        features=persisted_endpoint_features(),
         is_default=False,
         is_editable=True,
     )
@@ -1999,8 +2001,8 @@ def test_run_precheck_skips_disabled_endpoint_website_probe_when_copy_bucket_set
     user = _create_user(db_session)
     source = _create_account(db_session, name="source", endpoint_url="https://source.example.test", account_id="RGW001")
     target = _create_account(db_session, name="target", endpoint_url="https://target.example.test", account_id="RGW002")
-    source.storage_endpoint.features = parse_features_config("features:\n  static_website:\n    enabled: false\n  sse:\n    enabled: true\n")
-    target.storage_endpoint.features = parse_features_config("features:\n  static_website:\n    enabled: false\n  sse:\n    enabled: true\n")
+    source.storage_endpoint.features = persisted_endpoint_features("features:\n  static_website:\n    enabled: false\n  sse:\n    enabled: true\n")
+    target.storage_endpoint.features = persisted_endpoint_features("features:\n  static_website:\n    enabled: false\n  sse:\n    enabled: true\n")
     db_session.commit()
 
     service = BucketMigrationService(db_session)
@@ -2057,8 +2059,8 @@ def test_run_precheck_skips_non_required_bucket_setting_probes_when_copy_bucket_
     user = _create_user(db_session)
     source = _create_account(db_session, name="source", endpoint_url="https://source.example.test", account_id="RGW001")
     target = _create_account(db_session, name="target", endpoint_url="https://target.example.test", account_id="RGW002")
-    source.storage_endpoint.features = parse_features_config("features:\n  static_website:\n    enabled: true\n  sse:\n    enabled: true\n")
-    target.storage_endpoint.features = parse_features_config("features:\n  static_website:\n    enabled: true\n  sse:\n    enabled: true\n")
+    source.storage_endpoint.features = persisted_endpoint_features("features:\n  static_website:\n    enabled: true\n  sse:\n    enabled: true\n")
+    target.storage_endpoint.features = persisted_endpoint_features("features:\n  static_website:\n    enabled: true\n  sse:\n    enabled: true\n")
     db_session.commit()
 
     service = BucketMigrationService(db_session)
@@ -2126,8 +2128,8 @@ def test_run_precheck_blocks_when_requested_website_inspection_is_unavailable(db
     user = _create_user(db_session)
     source = _create_account(db_session, name="source", endpoint_url="https://source.example.test", account_id="RGW001")
     target = _create_account(db_session, name="target", endpoint_url="https://target.example.test", account_id="RGW002")
-    source.storage_endpoint.features = parse_features_config("features:\n  static_website:\n    enabled: true\n  sse:\n    enabled: true\n")
-    target.storage_endpoint.features = parse_features_config("features:\n  static_website:\n    enabled: true\n  sse:\n    enabled: true\n")
+    source.storage_endpoint.features = persisted_endpoint_features("features:\n  static_website:\n    enabled: true\n  sse:\n    enabled: true\n")
+    target.storage_endpoint.features = persisted_endpoint_features("features:\n  static_website:\n    enabled: true\n  sse:\n    enabled: true\n")
     db_session.commit()
 
     service = BucketMigrationService(db_session)

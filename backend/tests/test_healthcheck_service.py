@@ -28,6 +28,7 @@ from app.services.healthcheck_persistence_service import HealthCheckPersistenceS
 from app.services.healthcheck_query_service import HealthCheckQueryService
 from app.services.healthcheck_service import HealthCheckService
 from app.utils.time import utcnow
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 def _build_target(
@@ -56,6 +57,7 @@ def _seed_endpoint(db_session, *, name: str, endpoint_url: str, is_default: bool
             name=name,
             endpoint_url=endpoint_url,
             provider=StorageProvider.CEPH.value,
+            features=persisted_endpoint_features(),
             is_default=is_default,
             is_editable=True,
         )

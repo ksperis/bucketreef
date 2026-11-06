@@ -5,7 +5,10 @@ from __future__ import annotations
 
 from app.db import EndpointServiceIdentity, StorageEndpoint
 from app.services.endpoint_service_identity_validation import ManagedServiceIdentityKind
-from app.utils.storage_endpoint_features import normalize_features, required_service_identity_kinds
+from app.utils.storage_endpoint_features import (
+    required_service_identity_kinds,
+    validate_persisted_features,
+)
 
 STARTUP_RECOVERY_KEY_TYPES = frozenset({"endpoint_runtime", "endpoint_supervision"})
 
@@ -27,7 +30,7 @@ def desired_service_kinds(
 ) -> list[ManagedServiceIdentityKind]:
     """Keep configured/in-flight identities, skip unused empty placeholders."""
     required = required_service_identity_kinds(
-        normalize_features(endpoint.provider, endpoint.features, endpoint.region)
+        validate_persisted_features(endpoint.provider, endpoint.features)
     )
     desired: list[ManagedServiceIdentityKind] = []
     for kind in ("runtime", "supervision"):

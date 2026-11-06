@@ -1,6 +1,5 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from app.utils.storage_endpoint_features import parse_features_config
 from datetime import UTC, date, datetime
 from typing import Optional
 
@@ -33,6 +32,7 @@ from app.db import (
 from app.core.domain_enums import StorageProvider, UserRole
 from app.models.s3_account import S3AccountCreate, S3AccountImport, S3AccountUpdate
 from app.services.app_settings_service import load_app_settings_for_db
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 def _seed_ceph_endpoint(
@@ -55,7 +55,7 @@ def _seed_ceph_endpoint(
         provider=StorageProvider.CEPH.value,
         admin_access_key="AKIA-ADMIN",
         admin_secret_key="SECRET-ADMIN",
-        features=parse_features_config("features:\n"
+        features=persisted_endpoint_features("features:\n"
             "  admin:\n"
             "    enabled: true\n"
             "  account:\n"

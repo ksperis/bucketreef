@@ -10,6 +10,7 @@ from app.routers import dependencies
 from app.routers.admin import storage_endpoints as storage_endpoints_router
 from fastapi import BackgroundTasks, Request
 from fastapi.testclient import TestClient
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 def _admin_user() -> User:
@@ -73,6 +74,7 @@ def test_admin_cannot_update_storage_endpoint_tags(client: TestClient, db_sessio
         name="endpoint-tags-admin-denied",
         endpoint_url="https://endpoint-tags-admin-denied.example.test",
         provider=StorageProvider.CEPH.value,
+        features=persisted_endpoint_features(),
         is_default=False,
         is_editable=True,
     )
@@ -93,6 +95,7 @@ def test_superadmin_can_update_storage_endpoint_tags(client: TestClient, db_sess
         name="endpoint-tags-superadmin",
         endpoint_url="https://endpoint-tags-superadmin.example.test",
         provider=StorageProvider.CEPH.value,
+        features=persisted_endpoint_features(),
         is_default=False,
         is_editable=True,
     )

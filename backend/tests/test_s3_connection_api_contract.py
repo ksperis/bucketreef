@@ -28,6 +28,7 @@ from app.services.s3_connections_service import (
 from app.services.tags_service import TagsService
 from tests.auth_test_utils import authenticate_ui_client, trusted_origin_headers
 from tests.s3_connection_factory import custom_endpoint_fields
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 @pytest.fixture
@@ -200,6 +201,7 @@ def test_connection_update_duplicate_names_return_conflict(contract_client):
         name="contract-duplicate-update-endpoint",
         endpoint_url="https://contract-duplicate-update.example.test",
         provider=StorageProvider.CEPH.value,
+        features=persisted_endpoint_features(),
         is_default=False,
         is_editable=True,
     )
@@ -428,6 +430,7 @@ def test_admin_connections_api_requires_explicit_managed_endpoint_detachment(
         name="Contract managed endpoint",
         endpoint_url="https://contract-managed.example.test",
         provider=StorageProvider.CEPH.value,
+        features=persisted_endpoint_features(),
         is_default=True,
         is_editable=True,
     )
@@ -819,6 +822,7 @@ def test_execution_contexts_api_exposes_can_manage_iam_key(contract_client):
         name="contract-endpoint",
         endpoint_url="https://contract-endpoint.example.test",
         provider=StorageProvider.CEPH.value,
+        features=persisted_endpoint_features(),
         is_default=True,
         is_editable=True,
     )
