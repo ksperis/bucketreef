@@ -19778,6 +19778,11 @@
       ],
       "checkConstraints": [
         {
+          "id": "check:endpoint_health_latest:ck_endpoint_health_latest_dimensions",
+          "expression": "check_type = 'availability' AND scope = 'endpoint'",
+          "createdAt": 0
+        },
+        {
           "id": "check:endpoint_health_latest:ck_endpoint_health_latest_mode",
           "expression": "check_mode IN ('http', 's3')",
           "createdAt": 0
@@ -20182,6 +20187,11 @@
         }
       ],
       "checkConstraints": [
+        {
+          "id": "check:endpoint_health_status_segments:ck_endpoint_health_status_segments_dimensions",
+          "expression": "check_type = 'availability' AND scope = 'endpoint'",
+          "createdAt": 0
+        },
         {
           "id": "check:endpoint_health_status_segments:ck_endpoint_health_status_segments_mode",
           "expression": "check_mode IN ('http', 's3')",
@@ -20610,6 +20620,11 @@
         }
       ],
       "checkConstraints": [
+        {
+          "id": "check:endpoint_health_rollups:ck_endpoint_health_rollups_dimensions",
+          "expression": "check_type = 'availability' AND scope = 'endpoint'",
+          "createdAt": 0
+        },
         {
           "id": "check:endpoint_health_rollups:ck_endpoint_health_rollups_mode",
           "expression": "check_mode IN ('http', 's3')",

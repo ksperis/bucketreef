@@ -34,8 +34,8 @@ def incident_payload(row: EndpointHealthStatusSegment) -> dict[str, Any]:
         "duration_minutes": incident_duration_minutes(row),
         "status": row.status,
         "check_mode": row.check_mode,
-        "check_type": row.check_type or DEFAULT_CHECK_TYPE,
-        "scope": row.scope or DEFAULT_SCOPE,
+        "check_type": row.check_type,
+        "scope": row.scope,
     }
 
 
@@ -157,8 +157,8 @@ def build_rollup_series(
                 "latency_ms": row.latency_avg_ms,
                 "http_status": None,
                 "check_mode": row.check_mode,
-                "check_type": row.check_type or DEFAULT_CHECK_TYPE,
-                "scope": row.scope or DEFAULT_SCOPE,
+                "check_type": row.check_type,
+                "scope": row.scope,
             }
         )
     return series, data_points

@@ -20,6 +20,7 @@ from app.db import Base
 
 
 _RECENT_LINEAR_REVISIONS = (
+    "0253_canonical_healthcheck_dimensions",
     "0252_canonical_healthcheck_mode",
     "0251_canonical_user_active_flag",
     "0250_remove_cost_by_bucket",
