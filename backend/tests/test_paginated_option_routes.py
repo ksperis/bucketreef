@@ -4,6 +4,7 @@
 from types import SimpleNamespace
 
 from app.db.openstack import OpenStackCloud
+from app.models.admin_listing import AdminPaginatedListingRequest
 from app.routers import execution_contexts as execution_contexts_router
 from app.routers.admin import groups as groups_router
 from app.routers.admin import openstack as openstack_router
@@ -108,17 +109,13 @@ def test_admin_openstack_cloud_options_search_and_paginate(db_session):
     db_session.commit()
 
     searched = openstack_router.list_cloud_options(
-        page=1,
-        page_size=10,
-        search="beta",
+        query=AdminPaginatedListingRequest(page=1, page_size=10, search="beta"),
         db=db_session,
         user=object(),
         session=object(),
     )
     paged = openstack_router.list_cloud_options(
-        page=2,
-        page_size=1,
-        search=None,
+        query=AdminPaginatedListingRequest(page=2, page_size=1),
         db=db_session,
         user=object(),
         session=object(),

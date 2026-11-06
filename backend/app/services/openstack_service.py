@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.db_transactions import commit_or_rollback
 from app.db import AuthSession, User
 from app.db.openstack import OpenStackCloud, OpenStackConnection, OpenStackProjectContext, OpenStackProjectCredential, OpenStackSession
-from app.services.access_context_contracts import AccountCapabilities
+from app.models.admin_listing import AdminPaginatedListingRequest
 from app.models.execution_context import (
     ExecutionContext,
     ExecutionContextCapabilities,
@@ -25,6 +25,7 @@ from app.models.openstack import (
     PaginatedOpenStackCloudsResponse,
 )
 from app.models.s3_connection import S3Connection, S3ConnectionCreate
+from app.services.access_context_contracts import AccountCapabilities
 from app.services.keystone_client import KeystoneClient, KeystoneIdentity, OpenStackError
 from app.services.openstack_access_policy import can_connect_openstack_cloud
 from app.services.s3_connections_service import S3ConnectionsService
@@ -76,14 +77,11 @@ class OpenStackService:
 
     def paginated_admin_clouds(
         self,
-        *,
-        page: int,
-        page_size: int,
-        search: str | None,
+        request: AdminPaginatedListingRequest,
     ) -> PaginatedOpenStackCloudsResponse:
         query = select(OpenStackCloud)
         count_query = select(func.count()).select_from(OpenStackCloud)
-        normalized_search = (search or "").strip()
+        normalized_search = (request.search or "").strip()
         if normalized_search:
             predicate = OpenStackCloud.name.ilike(f"%{normalized_search}%")
             query = query.where(predicate)
@@ -91,15 +89,15 @@ class OpenStackService:
         total = int(self.db.scalar(count_query) or 0)
         rows = self.db.scalars(
             query.order_by(OpenStackCloud.name, OpenStackCloud.id)
-            .offset((page - 1) * page_size)
-            .limit(page_size)
+            .offset((request.page - 1) * request.page_size)
+            .limit(request.page_size)
         ).all()
         return PaginatedOpenStackCloudsResponse(
             items=[self.cloud_read(row) for row in rows],
             total=total,
-            page=page,
-            page_size=page_size,
-            has_next=page * page_size < total,
+            page=request.page,
+            page_size=request.page_size,
+            has_next=request.page * request.page_size < total,
         )
 
     def user_connections(self, user: User, auth_id: str) -> list[dict]:

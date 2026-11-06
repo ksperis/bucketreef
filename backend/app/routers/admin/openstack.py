@@ -1,10 +1,13 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.db import User
+from app.models.admin_listing import AdminPaginatedListingRequest
 from app.models.openstack import (
     OpenStackCloudRead,
     OpenStackCloudWrite,
@@ -25,19 +28,13 @@ def list_clouds(db: Session = Depends(get_db), user: User = Depends(get_current_
 
 @router.get("/options", response_model=PaginatedOpenStackCloudsResponse)
 def list_cloud_options(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(25, ge=1, le=200),
-    search: str | None = Query(None),
+    query: Annotated[AdminPaginatedListingRequest, Query()],
     db: Session = Depends(get_db),
     user: User = Depends(get_current_ui_superadmin),
     session=Depends(ui_session),
 ) -> PaginatedOpenStackCloudsResponse:
     _ = user, session
-    return OpenStackService(db).paginated_admin_clouds(
-        page=page,
-        page_size=page_size,
-        search=search,
-    )
+    return OpenStackService(db).paginated_admin_clouds(query)
 
 
 @router.post("", response_model=OpenStackCloudRead, status_code=201)
