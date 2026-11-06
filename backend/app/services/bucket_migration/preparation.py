@@ -29,7 +29,6 @@ class BucketMigrationPreparationMixin:
         migration.preparation_active_checks = active_checks
         migration.preparation_completed_items = 0
         migration.preparation_requested_at = utcnow()
-        migration.checked_revision = None
         migration.precheck_report = None
         migration.precheck_checked_at = None
         migration.worker_lease_owner = None
@@ -130,7 +129,6 @@ class BucketMigrationPreparationMixin:
         self._preparation_active_checks = active_checks
         migration.preparation_status = "checking"
         migration.preparation_active_checks = active_checks
-        migration.checked_revision = None
         migration.preparation_completed_items = 0
         checked_at = utcnow()
         checkpoint = self._build_preparation_checkpoint(
@@ -200,9 +198,6 @@ class BucketMigrationPreparationMixin:
             if report.get("errors")
             else "ready" if active_checks else "unverified"
         )
-        migration.checked_revision = (
-            revision if migration.preparation_status == "ready" else None
-        )
         migration.precheck_checked_at = utcnow()
         migration.error_message = None
         self._add_event(
@@ -229,7 +224,6 @@ class BucketMigrationPreparationMixin:
         if worker_id and migration.worker_lease_owner != worker_id:
             raise WorkerLeaseLostError("Preparation lease lost") from exc
         migration.preparation_status = "blocked"
-        migration.checked_revision = None
         migration.error_message = sanitized_error_log_detail(exc)
         report = dict(
             migration.precheck_report or create_precheck_report(checked_at=checked_at)

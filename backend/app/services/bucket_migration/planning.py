@@ -325,7 +325,6 @@ class BucketMigrationPlanningMixin:
             configuration_revision=migration.configuration_revision + 1,
             preparation_status="stale",
         )
-        migration.checked_revision = None
         migration.preparation_status = "stale"
         migration.preparation_completed_items = 0
 
@@ -404,7 +403,6 @@ class BucketMigrationPlanningMixin:
         exc: ValueError,
     ) -> None:
         migration.preparation_status = "stale"
-        migration.checked_revision = None
         report = dict(migration.precheck_report or {})
         report["checks"] = [
             build_diagnostic(

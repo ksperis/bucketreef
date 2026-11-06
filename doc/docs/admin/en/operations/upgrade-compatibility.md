@@ -509,6 +509,18 @@ the check completed.
 Downgrade recreates `target_snapshot` as a nullable JSON column without
 reconstructing historical values because no runtime workflow consumed them.
 
+## 2026-11 bucket migration checked-revision cleanup
+
+Migration `0246_remove_migration_checked_revision` removes the duplicated
+`bucket_migrations.checked_revision` column. Preparation checkpoints already
+reject a configuration revision change while checks are running, draft updates
+mark preparation as `stale`, and start requests compare the submitted
+`configuration_revision` with the current draft.
+
+Downgrade recreates `checked_revision` and sets it to the current
+`configuration_revision` only for migrations whose preparation state is
+`ready`; all other rows remain `NULL`.
+
 ## 2026-10 structured bucket migration workflow state
 
 Migration `0213_structure_bucket_migration_json` replaces the bucket migration

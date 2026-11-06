@@ -87,7 +87,6 @@ class BucketMigrationMaintenanceMixin:
                 item.cleanup_error = None
         if migration.status == "draft":
             migration.preparation_status = "stale"
-            migration.checked_revision = None
         return errors
 
     @staticmethod
