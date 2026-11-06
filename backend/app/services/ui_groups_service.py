@@ -23,7 +23,6 @@ from app.db.ui_group import ALL_USERS_SYSTEM_KEY
 from app.models.ui_group import UiGroupCreate, UiGroupOut, UiGroupSummary, UiGroupUpdate
 from app.models.user import (
     AccountMembership,
-    ManagerToolAccess,
     S3UserMembership,
 )
 from app.services.association_sync import (
@@ -81,13 +80,13 @@ class UiGroupsService:
             user_ids=affected_user_ids,
             account_ids=affected_account_ids,
         )
-        manager_tool_access = payload.manager_tool_access or ManagerToolAccess()
+        manager_tool_access = payload.manager_tool_access
         now = utcnow()
         group = UiGroup(
             name=name,
             description=normalize_optional_string(payload.description),
             **{
-                field: bool(getattr(payload, field))
+                field: getattr(payload, field)
                 for field in _BOOLEAN_GROUP_FIELDS
             },
             **manager_tool_column_values(manager_tool_access),
@@ -169,7 +168,7 @@ class UiGroupsService:
         for field in _BOOLEAN_GROUP_FIELDS:
             value = getattr(payload, field)
             if value is not None:
-                setattr(group, field, bool(value))
+                setattr(group, field, value)
         if payload.manager_tool_access is not None:
             for column, value in manager_tool_column_values(payload.manager_tool_access).items():
                 setattr(group, column, value)
