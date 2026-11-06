@@ -17,9 +17,11 @@ import sqlalchemy as sa
 
 from app.core.config import get_settings
 from app.db import Base
+from app.models.app_settings import AppSettings
 
 
 _RECENT_LINEAR_REVISIONS = (
+    "0258_canonical_static_app_settings",
     "0257_remove_obsolete_onboarding_setting",
     "0256_canonical_app_settings_security",
     "0255_canonical_onboarding_completion",
@@ -47,6 +49,15 @@ _EXPECTED_ALEMBIC_HEAD = _RECENT_LINEAR_REVISIONS[0]
 _PORTAL_IAM_REPAIR_REVISION = _RECENT_LINEAR_REVISIONS[-1]
 _REJOINED_MERGE_REVISION = "0235_reconcile_postgresql_schema_drift"
 _LEGACY_GITLAB_HEAD = "0226_reconcile_postgresql_schema_drift"
+
+
+def _static_app_settings_payload() -> dict:
+    payload = AppSettings().model_dump(mode="json")
+    del payload["portal"]["bucket_defaults"]["cors_allowed_origins"]
+    del payload["manager"]["bucket_migration_parallelism_default"]
+    del payload["manager"]["bucket_migration_parallelism_max"]
+    del payload["manager"]["bucket_migration_max_active_per_endpoint"]
+    return payload
 
 
 def test_openstack_all_users_group_migration_preserves_global_grant(tmp_path, monkeypatch):
@@ -560,16 +571,9 @@ def test_billing_0216_restore_preserves_history_and_resets_v2_configuration(
                     )
                 )
             )
-            assert app_settings == {
-                "general": {
-                    "cost_enabled": True,
-                    "require_passkey_for_admins": False,
-                    "require_passkey_for_users": False,
-                    "allow_user_profile_name_edit": False,
-                    "allow_user_external_identity_link": False,
-                    "allow_user_external_identity_unlink": False,
-                }
-            }
+            expected_settings = _static_app_settings_payload()
+            expected_settings["general"]["cost_enabled"] = True
+            assert app_settings == expected_settings
 
         command.downgrade(config, "0166_billing_statement_estimation")
         with engine.connect() as connection:
@@ -632,16 +636,9 @@ def test_billing_0216_followup_removes_retired_settings_from_existing_0167_datab
                     )
                 )
             )
-            assert payload == {
-                "general": {
-                    "cost_enabled": True,
-                    "require_passkey_for_admins": False,
-                    "require_passkey_for_users": False,
-                    "allow_user_profile_name_edit": False,
-                    "allow_user_external_identity_link": False,
-                    "allow_user_external_identity_unlink": False,
-                }
-            }
+            expected_settings = _static_app_settings_payload()
+            expected_settings["general"]["cost_enabled"] = True
+            assert payload == expected_settings
             assert connection.scalar(
                 sa.text("SELECT version_num FROM alembic_version")
             ) == _EXPECTED_ALEMBIC_HEAD
