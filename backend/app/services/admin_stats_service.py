@@ -5,21 +5,24 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, TypeVar
 
-from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import InstrumentedAttribute, Session
 
+from app.core.domain_errors import (
+    S3AccountNotFoundError,
+    S3UserNotFoundError,
+    StorageEndpointFeatureDisabledError,
+    StorageEndpointNotFoundError,
+    StorageEndpointProviderError,
+)
 from app.db import S3Account, S3Connection, S3User, StorageEndpoint, User, UserS3Account, UserS3User
 from app.core.domain_enums import StorageProvider, UserRole
+from app.core.sensitive_data import sanitized_error_log_detail
 from app.services.admin_metrics_service import AdminMetricsService
 from app.services.auth_session_service import AuthSessionService
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_supervision import get_supervision_rgw_client
 from app.services.traffic_service import TrafficWindow
-from app.utils.http_errors import (
-    raise_bad_request_from_value_error,
-    raise_http_exception_from_exception,
-)
 from app.utils.rgw_payloads import extract_bucket_list
 from app.utils.storage_endpoint_features import resolve_feature_flags
 from app.utils.usage_stats import build_bucket_overview, summarize_bucket_usage
@@ -31,6 +34,10 @@ _StatsPrincipal = TypeVar("_StatsPrincipal", S3Account, S3User)
 class _AssignmentCounts:
     total: int
     assigned: int
+
+
+class AdminStatsUpstreamError(RuntimeError):
+    """Raised when Admin statistics cannot be collected from RGW."""
 
 
 class AdminStatsService:
@@ -144,10 +151,7 @@ class AdminStatsService:
         if endpoint_id is not None:
             endpoint = self.db.get(StorageEndpoint, endpoint_id)
             if endpoint is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Endpoint not found.",
-                )
+                raise StorageEndpointNotFoundError("Endpoint not found.")
         else:
             endpoint = self.db.scalars(
                 select(StorageEndpoint).where(
@@ -162,35 +166,24 @@ class AdminStatsService:
                     .order_by(StorageEndpoint.is_default.desc(), StorageEndpoint.id.asc())
                 ).first()
         if endpoint is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No Ceph endpoint available.",
-            )
+            raise ValueError("No Ceph endpoint available.")
         if endpoint.provider != StorageProvider.CEPH.value:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="This endpoint is not a Ceph endpoint.",
-            )
+            raise StorageEndpointProviderError("This endpoint is not a Ceph endpoint.")
 
         features = resolve_feature_flags(endpoint)
         if require_storage_metrics and not features.metrics_enabled:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Storage metrics are disabled for this endpoint",
+            raise StorageEndpointFeatureDisabledError(
+                "Storage metrics are disabled for this endpoint"
             )
         if require_usage_logs and not features.usage_enabled:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Usage logs are disabled for this endpoint",
+            raise StorageEndpointFeatureDisabledError(
+                "Usage logs are disabled for this endpoint"
             )
         return endpoint
 
     @staticmethod
     def _supervision_client(endpoint: StorageEndpoint) -> RGWAdminClient:
-        try:
-            return get_supervision_rgw_client(endpoint)
-        except ValueError as exc:
-            raise_bad_request_from_value_error(exc)
+        return get_supervision_rgw_client(endpoint)
 
     @staticmethod
     def _principal_bucket_stats(rgw_admin: RGWAdminClient, uid: str, tenant: str | None = None) -> dict:
@@ -201,11 +194,9 @@ class AdminStatsService:
                 **({"tenant": tenant} if tenant else {}),
             )
         except RGWAdminError as exc:
-            raise_http_exception_from_exception(
-                status.HTTP_502_BAD_GATEWAY,
-                exc,
-                detail_prefix="Unable to fetch buckets: ",
-            )
+            raise AdminStatsUpstreamError(
+                f"Unable to fetch buckets: {sanitized_error_log_detail(exc)}"
+            ) from exc
 
         bucket_usage, total_bytes, total_objects, total_buckets = summarize_bucket_usage(
             extract_bucket_list(payload)
@@ -222,14 +213,14 @@ class AdminStatsService:
         return self._principal_stats(
             S3Account,
             account_id,
-            not_found_detail="S3Account not found",
+            not_found_error=S3AccountNotFoundError("S3Account not found"),
         )
 
     def s3_user(self, user_id: int) -> dict:
         return self._principal_stats(
             S3User,
             user_id,
-            not_found_detail="S3 user not found",
+            not_found_error=S3UserNotFoundError("S3 user not found"),
         )
 
     def _principal_stats(
@@ -237,14 +228,11 @@ class AdminStatsService:
         model: type[_StatsPrincipal],
         principal_id: int,
         *,
-        not_found_detail: str,
+        not_found_error: S3AccountNotFoundError | S3UserNotFoundError,
     ) -> dict:
         principal = self.db.get(model, principal_id)
         if principal is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=not_found_detail,
-            )
+            raise not_found_error
         endpoint = self.resolve_endpoint(
             principal.storage_endpoint_id,
             require_storage_metrics=True,

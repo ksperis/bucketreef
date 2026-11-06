@@ -4,26 +4,48 @@ from __future__ import annotations
 import pytest
 from fastapi import HTTPException
 
+from app.core.domain_errors import S3AccountNotFoundError, S3UserNotFoundError
 from app.db import S3Account, S3Connection, S3User, StorageEndpoint, User, UserS3Account, UserS3User
 from app.core.domain_enums import StorageProvider, UserRole
+from app.routers.admin import stats as admin_stats_router
 from app.services.admin_stats_service import AdminStatsService
 from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 @pytest.mark.parametrize(
-    ("method_name", "expected_detail"),
+    ("method_name", "error_type", "expected_detail"),
     [
-        ("account", "S3Account not found"),
-        ("s3_user", "S3 user not found"),
+        ("account", S3AccountNotFoundError, "S3Account not found"),
+        ("s3_user", S3UserNotFoundError, "S3 user not found"),
     ],
 )
 def test_principal_stats_preserve_missing_resource_errors(
     db_session,
     method_name,
+    error_type,
+    expected_detail,
+):
+    with pytest.raises(error_type) as exc_info:
+        getattr(AdminStatsService(db_session), method_name)(999)
+
+    assert str(exc_info.value) == expected_detail
+
+
+@pytest.mark.parametrize(
+    ("route", "query_name", "expected_detail"),
+    [
+        (admin_stats_router.account_stats, "account_id", "S3Account not found"),
+        (admin_stats_router.s3_user_stats, "user_id", "S3 user not found"),
+    ],
+)
+def test_admin_stats_router_preserves_missing_resource_http_contract(
+    db_session,
+    route,
+    query_name,
     expected_detail,
 ):
     with pytest.raises(HTTPException) as exc_info:
-        getattr(AdminStatsService(db_session), method_name)(999)
+        route(_={}, db=db_session, **{query_name: 999})
 
     assert exc_info.value.status_code == 404
     assert exc_info.value.detail == expected_detail
@@ -145,7 +167,7 @@ def test_platform_summary_reports_global_counts(db_session):
     }
 
 
-def test_storage_reports_missing_supervision_credentials_as_bad_request(db_session):
+def test_storage_reports_missing_supervision_credentials_as_value_error(db_session):
     endpoint = StorageEndpoint(
         name="metrics-without-supervision",
         endpoint_url="https://metrics-without-supervision.test",
@@ -157,8 +179,13 @@ def test_storage_reports_missing_supervision_credentials_as_bad_request(db_sessi
     db_session.add(endpoint)
     db_session.commit()
 
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(ValueError) as exc_info:
         AdminStatsService(db_session).storage(endpoint.id)
 
-    assert exc_info.value.status_code == 400
-    assert exc_info.value.detail == "Supervision credentials are not configured for this endpoint"
+    assert str(exc_info.value) == "Supervision credentials are not configured for this endpoint"
+
+    with pytest.raises(HTTPException) as http_exc_info:
+        admin_stats_router.storage_stats(_={}, db=db_session, endpoint_id=endpoint.id)
+
+    assert http_exc_info.value.status_code == 400
+    assert http_exc_info.value.detail == "Supervision credentials are not configured for this endpoint"
