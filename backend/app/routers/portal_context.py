@@ -25,10 +25,7 @@ from app.services.audit_service import AuditService
 from app.services.effective_access_service import EffectiveAccessService
 from app.services.portal_service import PortalService
 from app.utils.http_errors import raise_bad_gateway_from_runtime
-from app.utils.storage_endpoint_features import (
-    features_to_capabilities,
-    validate_persisted_features,
-)
+from app.utils.storage_endpoint_features import resolve_endpoint_capabilities
 
 router = APIRouter()
 
@@ -58,11 +55,8 @@ def list_portal_accounts(
             storage_endpoint_name=account.storage_endpoint.name,
             storage_endpoint_url=account.storage_endpoint.endpoint_url,
             storage_endpoint_is_default=account.storage_endpoint.is_default,
-            storage_endpoint_capabilities=features_to_capabilities(
-                validate_persisted_features(
-                    account.storage_endpoint.provider,
-                    account.storage_endpoint.features,
-                )
+            storage_endpoint_capabilities=resolve_endpoint_capabilities(
+                account.storage_endpoint
             ),
         )
         for account in accounts

@@ -14,10 +14,7 @@ from app.services.tags_service import TagsService
 from app.utils.account_roles import ManagerAccountRoleValue, PortalAccountRoleValue
 from app.utils.s3_connection_capabilities import s3_connection_can_manage_iam
 from app.utils.s3_connection_endpoint import resolve_connection_details
-from app.utils.storage_endpoint_features import (
-    features_to_capabilities,
-    validate_persisted_features,
-)
+from app.utils.storage_endpoint_features import resolve_endpoint_capabilities
 
 
 class _EndpointProjection(TypedDict):
@@ -35,9 +32,7 @@ def _storage_endpoint_projection(
     endpoint_url: str | None = None,
     capability_overrides: dict[str, bool] | None = None,
 ) -> _EndpointProjection:
-    capabilities = features_to_capabilities(
-        validate_persisted_features(endpoint.provider, endpoint.features)
-    )
+    capabilities = resolve_endpoint_capabilities(endpoint)
     if capability_overrides:
         capabilities.update(capability_overrides)
     return {
@@ -51,9 +46,7 @@ def _storage_endpoint_projection(
 
 
 def execution_destination_from_db(endpoint: StorageEndpoint) -> ExecutionDestination:
-    capabilities = features_to_capabilities(
-        validate_persisted_features(endpoint.provider, endpoint.features)
-    )
+    capabilities = resolve_endpoint_capabilities(endpoint)
     return ExecutionDestination(
         endpoint_id=endpoint.id,
         name=endpoint.name,

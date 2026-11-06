@@ -25,9 +25,8 @@ from app.services.s3_account_metrics_service import S3AccountMetricsService
 from app.services.s3_account_rgw_users_service import S3AccountRgwUsersService
 from app.services.tags_service import TagsService
 from app.utils.storage_endpoint_features import (
-    features_to_capabilities,
+    resolve_endpoint_capabilities,
     resolve_feature_flags,
-    validate_persisted_features,
 )
 from app.utils.rgw_payloads import extract_rgw_account_id
 from app.utils.tagging import TAG_DOMAIN_ADMIN_MANAGED
@@ -205,9 +204,7 @@ class S3AccountDeletionService:
         admin: RGWAdminClient,
     ) -> None:
         account_identifier = account.rgw_account_id
-        endpoint_capabilities = features_to_capabilities(
-            validate_persisted_features(endpoint.provider, endpoint.features)
-        )
+        endpoint_capabilities = resolve_endpoint_capabilities(endpoint)
 
         # Safety: only allow RGW deletion when we can prove the account is empty.
         _, _, bucket_count = self.metrics.get_usage(account)
