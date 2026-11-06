@@ -50,7 +50,6 @@ class BucketMigration(Base):
     precheck_checked_at = Column(UTCDateTime(), nullable=True)
     workflow_version = Column(Integer, nullable=False, default=2, server_default="2")
     configuration_revision = Column(Integer, nullable=False, default=1, server_default="1")
-    checked_revision = Column(Integer, nullable=True)
     preparation_status = Column(String, nullable=False, default="unverified", server_default="unverified", index=True)
     preparation_active_checks = Column(Boolean, nullable=False, default=False, server_default="0")
     preparation_completed_items = Column(Integer, nullable=False, default=0, server_default="0")

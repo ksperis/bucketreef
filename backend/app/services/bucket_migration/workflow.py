@@ -70,7 +70,6 @@ class _WorkflowFacts:
 def preparation_is_current(migration) -> bool:
     return bool(
         migration.preparation_status == "ready"
-        and migration.checked_revision == migration.configuration_revision
         and migration.precheck_checked_at
         and migration.precheck_checked_at >= utcnow() - PRECHECK_MAX_AGE
     )

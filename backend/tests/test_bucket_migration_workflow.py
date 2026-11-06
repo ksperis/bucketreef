@@ -175,7 +175,6 @@ def test_active_checks_require_explicit_start_and_current_revision(prepared):
         BucketMigrationUpdateRequest(**payload.model_dump(), configuration_revision=1),
     )
     assert migration.configuration_revision == 2
-    assert migration.checked_revision is None
     assert migration.preparation_status == "stale"
     with pytest.raises(ValueError, match="active checks"):
         service.start_migration(migration.id, configuration_revision=1)
@@ -444,7 +443,6 @@ def test_available_actions_combine_item_cleanup_and_access_state():
         maintenance_status="idle",
         workflow_version=2,
         failed_items=1,
-        checked_revision=1,
         configuration_revision=1,
         precheck_checked_at=utcnow(),
     )
@@ -464,7 +462,7 @@ def test_stale_worker_cannot_publish_ready(prepared):
     service.claim_next_preparation_id(worker_id="owner", lease_seconds=60)
     with pytest.raises(RuntimeError, match="lease"):
         service.run_precheck(migration.id, worker_id="other")
-    assert service.get_migration(migration.id).checked_revision is None
+    assert service.get_migration(migration.id).preparation_status == "checking"
 
 
 def test_precheck_progress_checkpoint_persists_completed_item_count(prepared):

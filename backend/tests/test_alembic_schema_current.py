@@ -18,7 +18,8 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0245_remove_migration_target_snapshot"
+_EXPECTED_ALEMBIC_HEAD = "0246_remove_migration_checked_revision"
+_REMOVED_MIGRATION_CHECKED_REVISION_REVISION = "0245_remove_migration_target_snapshot"
 _REMOVED_MIGRATION_TARGET_SNAPSHOT_REVISION = "0244_remove_migration_precheck_status"
 _REMOVED_MIGRATION_PRECHECK_STATUS_REVISION = "0243_remove_context_service_name"
 _REMOVED_OPENSTACK_CONTEXT_SERVICE_NAME_REVISION = "0242_remove_latest_sample_count"
@@ -112,6 +113,10 @@ def test_alembic_exposes_single_head_after_rejoined_merge():
     assert script.get_heads() == [_EXPECTED_ALEMBIC_HEAD]
     assert (
         script.get_revision(_EXPECTED_ALEMBIC_HEAD).down_revision
+        == _REMOVED_MIGRATION_CHECKED_REVISION_REVISION
+    )
+    assert (
+        script.get_revision(_REMOVED_MIGRATION_CHECKED_REVISION_REVISION).down_revision
         == _REMOVED_MIGRATION_TARGET_SNAPSHOT_REVISION
     )
     assert (
