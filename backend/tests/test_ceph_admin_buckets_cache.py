@@ -1,6 +1,5 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from app.utils.storage_endpoint_features import parse_features_config
 import json
 import time
 import asyncio
@@ -45,6 +44,7 @@ from app.services.bucket_owner_enrichment import (
 from app.services.bucket_configuration_service import BucketConfigurationService
 from app.services import rgw_bucket_metadata
 from app.services.rgw_admin import RGWAdminError
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 class FakeRGWAdmin:
@@ -105,7 +105,7 @@ def _ceph_admin_context(
     *,
     features: dict | None = None,
 ) -> CephAdminContext:
-    resolved_features = features or parse_features_config(
+    resolved_features = features or persisted_endpoint_features(
         "features:\n"
         "  account:\n"
         "    enabled: true\n"
@@ -1443,7 +1443,7 @@ def test_ceph_admin_bucket_listing_owner_name_skips_account_lookup_when_feature_
     ctx = _ceph_admin_context(
         174,
         rgw_admin,
-        features=parse_features_config("features:\n  account:\n    enabled: false\n"),
+        features=persisted_endpoint_features("features:\n  account:\n    enabled: false\n"),
     )
 
     response = buckets_router.list_buckets(

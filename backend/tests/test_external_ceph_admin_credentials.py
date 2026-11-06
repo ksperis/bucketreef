@@ -22,6 +22,7 @@ from app.services.endpoint_service_identity_reconciliation_policy import (
 from app.services.rgw_admin import RGWAdminError
 from app.services.storage_endpoints_service import StorageEndpointsService
 from tests.service_identity_helpers import service_identity
+from tests.storage_endpoint_features import persisted_endpoint_features
 from tests.test_endpoint_service_identities import identities  # noqa: F401
 
 
@@ -112,7 +113,7 @@ def test_manual_pair_replacement_and_empty_update_preservation(identities, db_se
 def test_ceph_admin_rotation_uses_admin_ops_and_updates_external_pair(identities, db_session, monkeypatch):
     service, endpoint, rgw = identities
     configure(db_session, endpoint, rgw)
-    endpoint.features = parse_features_config("features:\n  admin:\n    enabled: false\n")
+    endpoint.features = persisted_endpoint_features("features:\n  admin:\n    enabled: false\n")
     db_session.commit()
     service.validate_ceph_admin(endpoint)
     monkeypatch.setattr(

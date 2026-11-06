@@ -1,6 +1,5 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from app.utils.storage_endpoint_features import parse_features_config
 from functools import partial
 from types import SimpleNamespace
 
@@ -25,6 +24,7 @@ from app.routers.manager.access import require_bucket_management_context
 from app.services.connection_identity_service import ConnectionIdentityResolution
 from app.services.s3_execution_context import S3ExecutionContext
 from tests.service_identity_helpers import service_identity
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 GATES = [
@@ -50,7 +50,7 @@ def _context(kind="account"):
         storage_endpoint=StorageEndpoint(
             id=1, name="Ceph", endpoint_url="https://ceph.example.test", provider="ceph",
             service_identities=[service_identity("supervision", "SUP-AK", "SUP-SK")],
-            features=parse_features_config("features:\n  iam:\n    enabled: true\n  sns:\n    enabled: true\n  metrics:\n    enabled: true\n  usage:\n    enabled: true\n"),
+            features=persisted_endpoint_features("features:\n  iam:\n    enabled: true\n  sns:\n    enabled: true\n  metrics:\n    enabled: true\n  usage:\n    enabled: true\n"),
         ),
     )
 
@@ -198,7 +198,7 @@ def test_direct_session_metrics_keep_both_capability_checks(gate, buckets, traff
 @pytest.mark.parametrize("gate, feature", list(zip(GATES, ["iam", "sns", "metrics", "usage"])))
 def test_endpoint_feature_flags_still_apply(gate, feature):
     context = _context()
-    context.storage_endpoint.features = parse_features_config(f"features:\n  {feature}:\n    enabled: false\n")
+    context.storage_endpoint.features = persisted_endpoint_features(f"features:\n  {feature}:\n    enabled: false\n")
 
     with pytest.raises(HTTPException) as caught:
         gate(context=context, actor=_actor())

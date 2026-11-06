@@ -1,6 +1,5 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from app.utils.storage_endpoint_features import parse_features_config
 from itertools import product
 from types import SimpleNamespace
 
@@ -22,6 +21,7 @@ from app.services.storage_endpoint_normalization import normalize_storage_endpoi
 from app.utils.time import utcnow
 from tests.s3_account_factory import make_s3_account
 from tests.service_identity_helpers import service_identity
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 @pytest.fixture(autouse=True)
@@ -41,7 +41,7 @@ def _endpoint(present):
         region="test-region",
         verify_tls=False,
         force_path_style=True,
-        features=parse_features_config("features:\n  admin:\n    enabled: true\n"),
+        features=persisted_endpoint_features("features:\n  admin:\n    enabled: true\n"),
         admin_access_key="ADMIN-AK" if admin_access else None,
         admin_secret_key="ADMIN-SK" if admin_secret else None,
         service_identities=[
@@ -205,7 +205,7 @@ def test_readers_do_not_retry_with_admin_after_service_identity_denial(
 @pytest.mark.parametrize("supervision", [(False, False), (True, False), (False, True)])
 def test_metrics_still_require_complete_supervision_credentials(monkeypatch, supervision):
     endpoint = _endpoint((*supervision, True, True))
-    endpoint.features = parse_features_config("features:\n  metrics:\n    enabled: true\n")
+    endpoint.features = persisted_endpoint_features("features:\n  metrics:\n    enabled: true\n")
 
     def unexpected_client(**kwargs):
         pytest.fail("Metrics must not use administrator credentials")

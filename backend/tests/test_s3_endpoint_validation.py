@@ -16,6 +16,7 @@ from app.utils.s3_endpoint import (
     validate_user_supplied_s3_endpoint,
 )
 from app.utils.storage_endpoint_features import AWS_IAM_ENDPOINT, AWS_S3_ENDPOINT
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 @pytest.mark.parametrize(
@@ -96,6 +97,7 @@ def test_resolve_iam_client_options_uses_aws_iam_endpoint_for_aws_storage_endpoi
         provider=StorageProvider.AWS.value,
         region="eu-west-1",
         verify_tls=True,
+        features=persisted_endpoint_features(provider=StorageProvider.AWS),
     )
     account = S3Account(storage_endpoint=endpoint)
 
@@ -188,6 +190,7 @@ def test_resolve_iam_client_options_uses_aws_iam_signing_region_for_connection_c
         provider=StorageProvider.AWS.value,
         region="eu-west-1",
         verify_tls=True,
+        features=persisted_endpoint_features(provider=StorageProvider.AWS),
     )
     account = S3ExecutionContext(
         context_id="conn-1",

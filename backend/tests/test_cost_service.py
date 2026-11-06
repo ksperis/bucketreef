@@ -1,6 +1,5 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from app.utils.storage_endpoint_features import parse_features_config
 from types import SimpleNamespace
 
 from fastapi import HTTPException
@@ -26,6 +25,7 @@ from app.services.cost_collection_service import CostCollector
 from app.services.cost_calculations import parse_cost_month, validate_ops_breakdown
 from app.services.cost_service import CostService
 from app.services.s3_execution_context import S3ExecutionContext
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 def _seed_endpoint(db_session) -> StorageEndpoint:
@@ -313,7 +313,7 @@ def test_cost_collection_returns_structured_errors_without_exception_detail(db_s
         name="cost-error-endpoint",
         endpoint_url="https://cost-error.example.test",
         provider="ceph",
-        features=parse_features_config("features:\n  admin:\n    enabled: true\n"),
+        features=persisted_endpoint_features("features:\n  admin:\n    enabled: true\n"),
         is_default=False,
     )
     db_session.add(endpoint)

@@ -1,6 +1,5 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from app.utils.storage_endpoint_features import parse_features_config
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
@@ -9,6 +8,7 @@ from fastapi import HTTPException
 
 from app.routers.ceph_admin import metrics as metrics_router
 from app.services.traffic_service import TrafficWindow
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 class FakeRGWAdmin:
@@ -39,7 +39,7 @@ def _build_endpoint(*, usage_enabled: bool = True, metrics_enabled: bool = True)
         "  metrics:\n"
         f"    enabled: {'true' if metrics_enabled else 'false'}\n"
     )
-    endpoint = SimpleNamespace(provider="ceph", region=None, features=parse_features_config(features_yaml))
+    endpoint = SimpleNamespace(provider="ceph", region=None, features=persisted_endpoint_features(features_yaml))
     return endpoint
 
 

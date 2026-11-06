@@ -1,8 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
-from app.utils.storage_endpoint_features import parse_features_config
-
 from datetime import UTC, date, datetime
 from types import SimpleNamespace
 
@@ -34,6 +32,7 @@ from app.services.s3_execution_context import S3ExecutionContext
 from app.services.traffic_service import TrafficWindow
 from tests.execution_context_factory import make_s3_execution_context
 from tests.service_identity_helpers import service_identity
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 def _request(path: str):
@@ -49,7 +48,7 @@ def _ceph_endpoint(name: str) -> StorageEndpoint:
             service_identity("runtime", "RUNTIME-AK", "RUNTIME-SK"),
             service_identity("supervision", "SUP-AK", "SUP-SK"),
         ],
-        features=parse_features_config("features:\n"
+        features=persisted_endpoint_features("features:\n"
             "  admin:\n"
             "    enabled: true\n"
             "  metrics:\n"

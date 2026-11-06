@@ -1,6 +1,5 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from app.utils.storage_endpoint_features import parse_features_config
 from types import SimpleNamespace
 
 import pytest
@@ -20,6 +19,7 @@ from app.routers.ceph_admin import user_profiles as user_profiles_router
 from app.routers.ceph_admin import users as users_router
 from app.services import ceph_admin_bucket_listing_cache
 from router_test_utils import effective_routes
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 class FakeRGWAdmin:
@@ -50,7 +50,7 @@ def _build_endpoint(*, endpoint_id: int = 1, metrics_enabled: bool = True, sse_e
         id=endpoint_id,
         provider="ceph",
         region=None,
-        features=parse_features_config(features_yaml),
+        features=persisted_endpoint_features(features_yaml),
     )
 
 

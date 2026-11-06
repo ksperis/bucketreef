@@ -1,8 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
-from app.utils.storage_endpoint_features import parse_features_config
-
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import UTC, datetime
 from threading import Event
@@ -18,6 +16,7 @@ from app.services.connection_identity_service import (
     reset_connection_identity_cache_for_tests,
 )
 from tests.service_identity_helpers import service_identity
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 @pytest.fixture(autouse=True)
@@ -43,7 +42,7 @@ def _ceph_endpoint(
             service_identity("runtime", "RUNTIME-AK", "RUNTIME-SK"),
             service_identity("supervision", "SUP-AK", "SUP-SK"),
         ],
-        features=parse_features_config("features:\n"
+        features=persisted_endpoint_features("features:\n"
             "  admin:\n"
             "    enabled: true\n"
             f"  metrics:\n    enabled: {'true' if metrics_enabled else 'false'}\n"

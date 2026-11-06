@@ -2,8 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 
 from __future__ import annotations
-from app.utils.storage_endpoint_features import parse_features_config
-
 from datetime import date, datetime, timezone
 from typing import Optional
 
@@ -11,6 +9,7 @@ import pytest
 from sqlalchemy import func, select
 
 from tests.feature_policy_fixtures import enable_manager_features
+from tests.storage_endpoint_features import persisted_endpoint_features
 from app.core.domain_errors import S3AccessKeyNotFoundError, S3UserNotFoundError
 from app.db import (
     CostStorageDaily,
@@ -650,7 +649,7 @@ def _seed_ceph_endpoint(db_session, *, metrics_enabled: bool = False) -> Storage
         provider=StorageProvider.CEPH.value,
         admin_access_key="AKIA-ADMIN",
         admin_secret_key="SECRET-ADMIN",
-        features=parse_features_config("features:\n"
+        features=persisted_endpoint_features("features:\n"
             "  admin:\n"
             "    enabled: true\n"
             f"{metrics_config}"),

@@ -1,14 +1,13 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
-from app.utils.storage_endpoint_features import parse_features_config
-
 import pytest
 from fastapi import HTTPException
 
 from app.db import S3Account, S3Connection, S3User, StorageEndpoint, User, UserS3Account, UserS3User
 from app.core.domain_enums import StorageProvider, UserRole
 from app.services.admin_stats_service import AdminStatsService
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 @pytest.mark.parametrize(
@@ -151,7 +150,7 @@ def test_storage_reports_missing_supervision_credentials_as_bad_request(db_sessi
         name="metrics-without-supervision",
         endpoint_url="https://metrics-without-supervision.test",
         provider=StorageProvider.CEPH.value,
-        features=parse_features_config("features:\n"
+        features=persisted_endpoint_features("features:\n"
             "  metrics:\n"
             "    enabled: true\n"),
     )

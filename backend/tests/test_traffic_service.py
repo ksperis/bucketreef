@@ -1,6 +1,5 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from app.utils.storage_endpoint_features import parse_features_config
 from datetime import datetime, timezone
 
 import pytest
@@ -16,6 +15,7 @@ from app.services.traffic_service import (
     flatten_usage_entries,
 )
 from tests.service_identity_helpers import service_identity
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 class FakeRGWClient:
@@ -292,7 +292,7 @@ def test_usage_client_uses_supervision_endpoint_when_admin_is_disabled(monkeypat
         endpoint_url="https://rgw.example.test",
         provider="ceph",
         service_identities=[service_identity("supervision", "SUP-AK", "SUP-SK")],
-        features=parse_features_config("features:\n"
+        features=persisted_endpoint_features("features:\n"
             "  admin:\n"
             "    enabled: false\n"
             "  usage:\n"

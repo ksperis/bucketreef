@@ -2,8 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 
 from __future__ import annotations
-from app.utils.storage_endpoint_features import parse_features_config
-
 import pytest
 
 from app.db import S3Account, S3Connection, StorageEndpoint, User, UserS3Account
@@ -16,6 +14,7 @@ from app.routers.manager import buckets as manager_buckets_router
 from app.services import app_settings_service
 from app.services.s3_execution_context import S3ExecutionContext
 from tests.s3_connection_factory import custom_endpoint_fields
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 @pytest.fixture(autouse=True)
@@ -46,7 +45,7 @@ def _quota_account(db_session, *, allow_target: bool = True) -> S3Account:
         provider="ceph",
         admin_access_key="endpoint-admin-ak",
         admin_secret_key="endpoint-admin-sk",
-        features=parse_features_config('{"features":{"admin":{"enabled":true,"endpoint":"https://admin.example.test"}}}'),
+        features=persisted_endpoint_features('{"features":{"admin":{"enabled":true,"endpoint":"https://admin.example.test"}}}'),
     )
     account = S3Account(
         name="quota-account",

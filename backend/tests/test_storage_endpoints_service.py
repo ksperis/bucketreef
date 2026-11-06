@@ -55,6 +55,7 @@ from app.utils.storage_endpoint_features import (
 )
 from app.utils.time import utcnow
 from tests.service_identity_helpers import service_identity
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 def _canonical_ceph_features(raw: str = "features: {}") -> dict[str, dict[str, object]]:
@@ -1254,6 +1255,7 @@ def test_sync_env_endpoints_updates_in_place_and_uses_first_default(db_session, 
         name="old-env-name",
         endpoint_url="https://env-a.example.test",
         provider=StorageProvider.OTHER.value,
+        features=persisted_endpoint_features(provider=StorageProvider.OTHER),
         is_default=False,
         is_editable=True,
     )
@@ -1261,6 +1263,7 @@ def test_sync_env_endpoints_updates_in_place_and_uses_first_default(db_session, 
         name="database-default",
         endpoint_url="https://database-default.example.test",
         provider=StorageProvider.OTHER.value,
+        features=persisted_endpoint_features(provider=StorageProvider.OTHER),
         is_default=True,
         is_editable=True,
     )
