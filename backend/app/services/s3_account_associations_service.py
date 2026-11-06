@@ -61,7 +61,7 @@ class S3AccountAssociationsService:
                     user_id=int(user.id),
                     manager_role=manager_role,
                     portal_role=portal_role,
-                    allow_manager_browser_data_access=bool(browser_access),
+                    allow_manager_browser_data_access=browser_access,
                     user_email=user.email,
                     user_full_name=user.full_name,
                     user_avatar=avatars.descriptor(user),
@@ -101,7 +101,7 @@ class S3AccountAssociationsService:
                     group_avatar=avatars.descriptor(group),
                     manager_role=manager_role,
                     portal_role=portal_role,
-                    allow_manager_browser_data_access=bool(browser_access),
+                    allow_manager_browser_data_access=browser_access,
                 )
             )
         return links_by_account

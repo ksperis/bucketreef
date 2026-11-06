@@ -33,9 +33,7 @@ class S3UserAssociationsService:
             None
             if user_links is None
             else {
-                int(link.user_id): bool(
-                    link.allow_manager_browser_data_access
-                )
+                int(link.user_id): link.allow_manager_browser_data_access
                 for link in user_links
             }
         )
@@ -43,9 +41,7 @@ class S3UserAssociationsService:
             None
             if group_links is None
             else {
-                int(link.group_id): bool(
-                    link.allow_manager_browser_data_access
-                )
+                int(link.group_id): link.allow_manager_browser_data_access
                 for link in group_links
             }
         )
@@ -165,7 +161,7 @@ class S3UserAssociationsService:
                     user_email=user.email,
                     user_full_name=user.full_name,
                     user_avatar=avatar_service.descriptor(user),
-                    allow_manager_browser_data_access=bool(allow_browser),
+                    allow_manager_browser_data_access=allow_browser,
                 )
             )
         return links_by_s3_user
@@ -199,7 +195,7 @@ class S3UserAssociationsService:
                     group_id=int(group.id),
                     group_name=group.name,
                     group_avatar=avatar_service.descriptor(group),
-                    allow_manager_browser_data_access=bool(allow_browser),
+                    allow_manager_browser_data_access=allow_browser,
                 )
             )
         return links_by_s3_user

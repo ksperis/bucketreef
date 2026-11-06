@@ -265,9 +265,7 @@ class UiGroupQueryService:
                 account_id=link.account_id,
                 manager_role=link.manager_role,
                 portal_role=link.portal_role,
-                allow_manager_browser_data_access=bool(
-                    link.allow_manager_browser_data_access
-                ),
+                allow_manager_browser_data_access=link.allow_manager_browser_data_access,
             )
             for link in links
         ]
@@ -279,9 +277,7 @@ class UiGroupQueryService:
         return [
             S3UserMembership(
                 s3_user_id=link.s3_user_id,
-                allow_manager_browser_data_access=bool(
-                    link.allow_manager_browser_data_access
-                ),
+                allow_manager_browser_data_access=link.allow_manager_browser_data_access,
             )
             for link in links
         ]
