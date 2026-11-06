@@ -38,9 +38,7 @@ def update_account_access_link(
 
     row.manager_role = grant.manager_role
     row.portal_role = grant.portal_role
-    row.allow_manager_browser_data_access = bool(
-        grant.allow_manager_browser_data_access
-    )
+    row.allow_manager_browser_data_access = grant.allow_manager_browser_data_access
     row.updated_at = utcnow()
 
 

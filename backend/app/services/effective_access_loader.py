@@ -220,7 +220,7 @@ class EffectiveAccessLoader:
             )
             accumulator.direct_manager_role = link.manager_role
             accumulator.direct_portal_role = link.portal_role
-            accumulator.direct_allow_manager_browser_data_access = bool(
+            accumulator.direct_allow_manager_browser_data_access = (
                 link.allow_manager_browser_data_access
             )
 
@@ -246,7 +246,7 @@ class EffectiveAccessLoader:
                         groups.group_names[group_id],
                         link.manager_role,
                         link.portal_role,
-                        bool(link.allow_manager_browser_data_access),
+                        link.allow_manager_browser_data_access,
                     )
                 )
         return accumulators
@@ -275,7 +275,7 @@ class EffectiveAccessLoader:
             source = EffectiveAccessSource(kind="direct")
             grants.ids_by_user[user_id].add(s3_user_id)
             grants.sources_by_user[user_id].setdefault(s3_user_id, []).append(source)
-            if bool(browser_allowed):
+            if browser_allowed:
                 grants.browser_ids_by_user[user_id].add(s3_user_id)
                 grants.browser_sources_by_user[user_id].setdefault(
                     s3_user_id, []
@@ -304,7 +304,7 @@ class EffectiveAccessLoader:
                 grants.sources_by_user[user_id].setdefault(s3_user_id, []).append(
                     source
                 )
-                if bool(browser_allowed):
+                if browser_allowed:
                     grants.browser_ids_by_user[user_id].add(s3_user_id)
                     grants.browser_sources_by_user[user_id].setdefault(
                         s3_user_id, []

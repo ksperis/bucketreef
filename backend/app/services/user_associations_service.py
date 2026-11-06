@@ -221,7 +221,7 @@ class UserAssociationsService:
             update_link=lambda row, link: setattr(
                 row,
                 "allow_manager_browser_data_access",
-                bool(link.allow_manager_browser_data_access),
+                link.allow_manager_browser_data_access,
             ),
             before_create=lambda new_ids: ensure_association_ids_exist(
                 self.db,

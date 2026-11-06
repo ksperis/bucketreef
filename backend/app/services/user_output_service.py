@@ -84,9 +84,7 @@ class UserOutputService:
                     account_id=link.account_id,
                     manager_role=link.manager_role,
                     portal_role=link.portal_role,
-                    allow_manager_browser_data_access=bool(
-                        link.allow_manager_browser_data_access
-                    ),
+                    allow_manager_browser_data_access=link.allow_manager_browser_data_access,
                 )
             )
         return links_by_user
@@ -128,9 +126,7 @@ class UserOutputService:
             links_by_user[int(link.user_id)].append(
                 S3UserMembership(
                     s3_user_id=s3_user_id,
-                    allow_manager_browser_data_access=bool(
-                        link.allow_manager_browser_data_access
-                    ),
+                    allow_manager_browser_data_access=link.allow_manager_browser_data_access,
                 )
             )
         return links_by_user, s3_user_ids

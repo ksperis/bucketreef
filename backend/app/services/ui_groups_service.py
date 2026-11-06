@@ -330,7 +330,7 @@ class UiGroupsService:
             update_link=lambda row, link: setattr(
                 row,
                 "allow_manager_browser_data_access",
-                bool(link.allow_manager_browser_data_access),
+                link.allow_manager_browser_data_access,
             ),
         )
 
