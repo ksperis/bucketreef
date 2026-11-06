@@ -9,12 +9,32 @@ from app.core.db_transactions import commit_or_rollback
 from app.core.domain_enums import is_admin_ui_role
 from app.core.security import get_password_hash
 from app.db import User
-from app.models.user import UserCreate, validate_password_policy
+from app.models.user import UserCreate, UserCreateAccessPayload, validate_password_policy
 from app.services.manager_tool_access import MANAGER_TOOL_ROLES, manager_tool_column_values
 from app.services.user_associations_service import UserAssociationsService
 from app.services.user_query_service import UserQueryService
 
 logger = logging.getLogger(__name__)
+
+
+def user_create_access_column_values(payload: UserCreateAccessPayload) -> dict[str, bool]:
+    role = payload.role
+    manager_role = role in MANAGER_TOOL_ROLES
+    return {
+        "can_access_ceph_admin": payload.can_access_ceph_admin if is_admin_ui_role(role) else False,
+        "can_access_storage_ops": payload.can_access_storage_ops if manager_role else False,
+        "can_create_manual_private_connections": (
+            payload.can_create_manual_private_connections if manager_role else False
+        ),
+        "can_provision_managed_private_connections": (
+            payload.can_provision_managed_private_connections if manager_role else False
+        ),
+        "allow_multisite_endpoint_switching": (
+            payload.allow_multisite_endpoint_switching if manager_role else False
+        ),
+        "browser_advanced_features_enabled": payload.browser_advanced_features_enabled,
+        **manager_tool_column_values(payload.manager_tool_access, enabled=manager_role),
+    }
 
 
 class UserProvisioningService:
@@ -32,9 +52,6 @@ class UserProvisioningService:
 
             validate_password_policy(payload.password)
             role = payload.role
-            admin_role = is_admin_ui_role(role)
-            manager_role = role in MANAGER_TOOL_ROLES
-            manager_tool_access = payload.manager_tool_access
 
             user = User(
                 email=payload.email,
@@ -42,29 +59,7 @@ class UserProvisioningService:
                 hashed_password=get_password_hash(payload.password),
                 is_active=True,
                 role=role,
-                can_access_ceph_admin=bool(payload.can_access_ceph_admin) if admin_role else False,
-                can_access_storage_ops=(
-                    bool(payload.can_access_storage_ops) if manager_role else False
-                ),
-                can_create_manual_private_connections=(
-                    bool(payload.can_create_manual_private_connections)
-                    if manager_role
-                    else False
-                ),
-                can_provision_managed_private_connections=(
-                    bool(payload.can_provision_managed_private_connections)
-                    if manager_role
-                    else False
-                ),
-                allow_multisite_endpoint_switching=(
-                    bool(payload.allow_multisite_endpoint_switching)
-                    if manager_role
-                    else False
-                ),
-                browser_advanced_features_enabled=bool(
-                    payload.browser_advanced_features_enabled
-                ),
-                **manager_tool_column_values(manager_tool_access, enabled=manager_role),
+                **user_create_access_column_values(payload),
             )
             self.db.add(user)
             self.db.flush()
