@@ -13,6 +13,7 @@
 - Canonicalize bucket-integrity application requests on `targets` and remove the retired frontend bucket-name payload wrapper.
 - Simplify bucket usage-statistics request models around the shared scope options and stop sending obsolete bodies to single-bucket stream routes.
 - Share bucket-comparison scope validation between Manager and Ceph Admin request models.
+- Reuse the Admin Browser settings contract from Browser runtime API types instead of maintaining a duplicate frontend shape.
 
 ### Fixed
 

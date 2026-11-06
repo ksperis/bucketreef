@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { StorageSpaceIconDescriptor } from "./storageSpaceIcons";
+export type { BrowserSettings } from "./appSettings";
 
 export type BrowserBucket = {
   name: string;
@@ -55,18 +56,6 @@ export type ListBrowserObjectsResponse = {
   prefixes: string[];
   is_truncated: boolean;
   next_continuation_token: string | null;
-};
-
-export type BrowserSettings = {
-  allow_direct_uploads: boolean;
-  allow_sts_uploads: boolean;
-  allow_proxy_transfers: boolean;
-  direct_upload_parallelism: number;
-  proxy_upload_parallelism: number;
-  direct_download_parallelism: number;
-  proxy_download_parallelism: number;
-  other_operations_parallelism: number;
-  streaming_zip_threshold_mb: number;
 };
 
 export type BrowserObjectsQuery = {
