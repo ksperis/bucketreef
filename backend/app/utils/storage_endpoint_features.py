@@ -327,6 +327,43 @@ def normalize_features(
     return features
 
 
+def _validate_persisted_feature_fields(key: str, value: dict[str, Any]) -> None:
+    missing_fields = _allowed_feature_fields(key).difference(value)
+    if missing_fields:
+        labels = ", ".join(sorted(missing_fields))
+        raise ValueError(
+            f"Persisted feature '{key}' is missing field(s): {labels}."
+        )
+    _validate_feature_fields(key, value)
+
+
+def _validate_canonical_optional_url(label: str, value: object) -> None:
+    if value is not None and not isinstance(value, str):
+        raise ValueError(f"Feature '{label}' must be a string.")
+    if _normalize_url(value) != value:
+        raise ValueError(f"Persisted feature '{label}' is not canonical.")
+
+
+def _validate_persisted_feature(key: str, value: object) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise ValueError(f"Feature '{key}' must be a mapping.")
+    _validate_persisted_feature_fields(key, value)
+
+    if not isinstance(value["enabled"], bool):
+        raise ValueError(f"Feature '{key}.enabled' must be a boolean.")
+
+    if key in _ENDPOINT_FEATURE_KEYS:
+        _validate_canonical_optional_url(f"{key}.endpoint", value["endpoint"])
+
+    if key == "healthcheck":
+        mode = value["mode"]
+        if not isinstance(mode, str) or mode not in {"http", "s3"}:
+            raise ValueError("Feature 'healthcheck.mode' must be 'http' or 's3'.")
+        _validate_canonical_optional_url("healthcheck.url", value["url"])
+
+    return dict(value)
+
+
 def validate_persisted_features(
     provider: object,
     raw_features: object,
@@ -344,47 +381,7 @@ def validate_persisted_features(
 
     features: dict[str, dict[str, Any]] = {}
     for key in FEATURE_KEYS:
-        value = raw_features[key]
-        if not isinstance(value, dict):
-            raise ValueError(f"Feature '{key}' must be a mapping.")
-
-        expected_fields = _allowed_feature_fields(key)
-        missing_fields = expected_fields.difference(value)
-        if missing_fields:
-            labels = ", ".join(sorted(missing_fields))
-            raise ValueError(
-                f"Persisted feature '{key}' is missing field(s): {labels}."
-            )
-        _validate_feature_fields(key, value)
-
-        enabled = value["enabled"]
-        if not isinstance(enabled, bool):
-            raise ValueError(f"Feature '{key}.enabled' must be a boolean.")
-
-        entry = dict(value)
-        if key in _ENDPOINT_FEATURE_KEYS:
-            endpoint = value["endpoint"]
-            if endpoint is not None and not isinstance(endpoint, str):
-                raise ValueError(f"Feature '{key}.endpoint' must be a string.")
-            if _normalize_url(endpoint) != endpoint:
-                raise ValueError(
-                    f"Persisted feature '{key}.endpoint' is not canonical."
-                )
-
-        if key == "healthcheck":
-            mode = value["mode"]
-            if not isinstance(mode, str) or mode not in {"http", "s3"}:
-                raise ValueError(
-                    "Feature 'healthcheck.mode' must be 'http' or 's3'."
-                )
-            url = value["url"]
-            if url is not None and not isinstance(url, str):
-                raise ValueError("Feature 'healthcheck.url' must be a string.")
-            if _normalize_url(url) != url:
-                raise ValueError(
-                    "Persisted feature 'healthcheck.url' is not canonical."
-                )
-        features[key] = entry
+        features[key] = _validate_persisted_feature(key, raw_features[key])
 
     _validate_provider_features(normalized_provider, features)
     return features

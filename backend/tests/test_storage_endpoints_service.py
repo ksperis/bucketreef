@@ -1,6 +1,5 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from app.utils.storage_endpoint_features import parse_features_config
 import json
 from datetime import UTC, date, datetime
 
@@ -48,6 +47,7 @@ from app.utils.storage_endpoint_features import (
     aws_sts_endpoint_for_region,
     normalize_features,
     normalize_seed_features_config,
+    parse_features_config,
     resolve_endpoint_capabilities,
     resolve_feature_flags,
     resolve_iam_endpoint,
@@ -145,6 +145,55 @@ def test_persisted_feature_validation_rejects_partial_mappings():
 
     with pytest.raises(ValueError, match="Persisted endpoint features are missing"):
         validate_persisted_features(StorageProvider.CEPH, partial)
+
+
+def test_persisted_feature_validation_rejects_missing_feature_fields():
+    features = persisted_endpoint_features()
+    del features["admin"]["endpoint"]
+
+    with pytest.raises(
+        ValueError,
+        match="Persisted feature 'admin' is missing field\\(s\\): endpoint",
+    ):
+        validate_persisted_features(StorageProvider.CEPH, features)
+
+
+@pytest.mark.parametrize(
+    ("feature", "field", "value", "expected_error"),
+    [
+        ("admin", "enabled", "yes", "Feature 'admin.enabled' must be a boolean"),
+        ("admin", "endpoint", 42, "Feature 'admin.endpoint' must be a string"),
+        (
+            "admin",
+            "endpoint",
+            "https://admin.example.test/",
+            "Persisted feature 'admin.endpoint' is not canonical",
+        ),
+        (
+            "healthcheck",
+            "mode",
+            "tcp",
+            "Feature 'healthcheck.mode' must be 'http' or 's3'",
+        ),
+        (
+            "healthcheck",
+            "url",
+            "https://health.example.test/",
+            "Persisted feature 'healthcheck.url' is not canonical",
+        ),
+    ],
+)
+def test_persisted_feature_validation_rejects_noncanonical_values(
+    feature,
+    field,
+    value,
+    expected_error,
+):
+    features = persisted_endpoint_features()
+    features[feature][field] = value
+
+    with pytest.raises(ValueError, match=expected_error):
+        validate_persisted_features(StorageProvider.CEPH, features)
 
 
 def test_endpoint_capabilities_validate_persisted_features():
