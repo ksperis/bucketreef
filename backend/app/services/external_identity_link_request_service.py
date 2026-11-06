@@ -212,7 +212,7 @@ class ExternalIdentityLinkRequestService:
             issuer=request.issuer,
             subject=request.subject,
             email=request.email,
-            email_verified=bool(request.email_verified),
+            email_verified=request.email_verified,
             created_at=now,
             link_source="manual_approval",
         )
@@ -309,7 +309,7 @@ class ExternalIdentityLinkRequestService:
         if request.user_id == user.id and request.provider_id == provider_id:
             request.issuer = issuer
             request.email = email
-            request.email_verified = bool(email_verified)
+            request.email_verified = email_verified
             request.request_source = request_source
             request.display_name = full_name
             request.picture_url = picture_url
@@ -344,7 +344,7 @@ class ExternalIdentityLinkRequestService:
             existing.provider_id = provider_id
             existing.issuer = issuer
             existing.email = email
-            existing.email_verified = bool(email_verified)
+            existing.email_verified = email_verified
             existing.request_source = request_source
             existing.display_name = full_name
             existing.picture_url = picture_url
@@ -357,7 +357,7 @@ class ExternalIdentityLinkRequestService:
             issuer=issuer,
             subject=subject,
             email=email,
-            email_verified=bool(email_verified),
+            email_verified=email_verified,
             request_source=request_source,
             display_name=full_name,
             picture_url=picture_url,

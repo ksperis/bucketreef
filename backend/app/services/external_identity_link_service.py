@@ -136,7 +136,7 @@ class ExternalIdentityLinkService:
                 raise ExternalIdentityLinkError("OIDC identity is revoked")
         attempt.subject = subject
         attempt.email = normalize_optional_email(email)
-        attempt.email_verified = bool(email_verified)
+        attempt.email_verified = email_verified
         attempt.display_name = full_name
         attempt.picture_url = picture_url
         self.db.add(attempt)
@@ -300,7 +300,7 @@ class ExternalIdentityLinkService:
             identity.provider_id = attempt.provider_id
             identity.issuer = attempt.issuer
             identity.email = attempt.email
-            identity.email_verified = bool(attempt.email_verified)
+            identity.email_verified = attempt.email_verified
         else:
             identity = ExternalIdentity(
                 id=str(uuid.uuid4()),
@@ -310,7 +310,7 @@ class ExternalIdentityLinkService:
                 issuer=attempt.issuer,
                 subject=attempt.subject,
                 email=attempt.email,
-                email_verified=bool(attempt.email_verified),
+                email_verified=attempt.email_verified,
                 created_at=now,
                 link_source="reauthenticated",
             )

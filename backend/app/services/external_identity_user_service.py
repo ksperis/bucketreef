@@ -221,7 +221,7 @@ class ExternalIdentityUserService:
             issuer=normalized_issuer,
             subject=normalized_subject,
             email=normalize_optional_email(email),
-            email_verified=bool(email_verified),
+            email_verified=email_verified,
             created_at=utcnow(),
             link_source=link_source,
         )
