@@ -1,7 +1,8 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from app.db import S3Account, S3User, StorageEndpoint
 from app.core.domain_enums import StorageProvider
+from app.core.domain_errors import BrowserListingCursorError
+from app.db import S3Account, S3User, StorageEndpoint
 from app.main import app
 from app.models.browser import (
     BrowserBucket,
@@ -77,6 +78,23 @@ def test_browser_bucket_search_endpoint_contract(client):
         "page": 2,
         "page_size": 2,
     }
+
+
+def test_browser_object_listing_maps_cursor_mismatch_to_unprocessable_entity(client):
+    class FakeService:
+        def list_objects(self, *_args, **_kwargs):  # noqa: ANN002, ANN003
+            raise BrowserListingCursorError("Listing filters changed; restart pagination")
+
+    app.dependency_overrides[dependencies.get_s3_execution_context] = _account
+    app.dependency_overrides[browser_router.get_browser_service] = lambda: FakeService()
+
+    response = client.get(
+        "/api/browser/buckets/my-bucket/objects",
+        params={"context_id": "conn-9", "sort_by": "size", "sort_dir": "asc"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Listing filters changed; restart pagination"
 
 
 def test_browser_bucket_openapi_excludes_removed_duplicate_collections() -> None:

@@ -6,11 +6,11 @@ import base64
 import hashlib
 import json
 import logging
-from fastapi import HTTPException
 from typing import Callable, Optional
 
 from botocore.exceptions import BotoCoreError, ClientError
 
+from app.core.domain_errors import BrowserListingCursorError
 from app.models.browser import (
     BrowserObjectListingRequest,
     BrowserObjectVersion,
@@ -269,7 +269,7 @@ class BrowserListingMixin:
         prefixes_offset = 0
         objects_offset = 0
         if cursor_payload and cursor_payload.get("sig") != snapshot_signature:
-            raise HTTPException(status_code=422, detail="Listing filters changed; restart pagination")
+            raise BrowserListingCursorError("Listing filters changed; restart pagination")
         if cursor_payload and cursor_payload.get("sig") == snapshot_signature:
             prefixes_offset = max(0, int(cursor_payload.get("po") or 0))
             objects_offset = max(0, int(cursor_payload.get("oo") or 0))

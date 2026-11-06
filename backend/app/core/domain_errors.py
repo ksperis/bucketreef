@@ -79,6 +79,10 @@ class BrowserFavoriteConflictError(ResourceConflictError):
     pass
 
 
+class BrowserListingCursorError(ValueError):
+    """Raised when a Browser listing cursor no longer matches its filters."""
+
+
 class ExternalIdentityNotFoundError(ResourceNotFoundError):
     pass
 
