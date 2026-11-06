@@ -158,10 +158,10 @@ class AccessAuditService:
     def _principal(user: User) -> AccessAuditPrincipal:
         return AccessAuditPrincipal(
             id=int(user.id),
-            email=str(user.email),
+            email=user.email,
             full_name=user.full_name,
             role=user.role,
-            is_active=bool(user.is_active),
+            is_active=user.is_active,
         )
 
     def _load_targets(

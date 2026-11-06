@@ -342,7 +342,7 @@ class S3ConnectionsService:
         *,
         commit: bool,
     ) -> None:
-        conflict_key = (row.created_by_user_id, row.name, bool(row.is_shared))
+        conflict_key = (row.created_by_user_id, row.name, row.is_shared)
         with self._write_transaction(
             commit=commit,
             name_conflict_key=(*conflict_key, None),
@@ -406,7 +406,7 @@ class S3ConnectionsService:
         return (
             row.created_by_user_id,
             requested_name,
-            bool(row.is_shared),
+            row.is_shared,
             row.id,
         )
 
@@ -541,12 +541,12 @@ class S3ConnectionsService:
             access_manager=(
                 payload.access_manager
                 if "access_manager" in payload_data
-                else bool(row.access_manager)
+                else row.access_manager
             ),
             access_browser=(
                 payload.access_browser
                 if "access_browser" in payload_data
-                else bool(row.access_browser)
+                else row.access_browser
             ),
         )
         row.access_manager = access_manager

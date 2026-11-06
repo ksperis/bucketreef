@@ -136,7 +136,7 @@ class StorageEndpointFeatureDetector:
             endpoint_url == stored_endpoint_url
             and admin_endpoint == stored_admin_endpoint
             and region == stored_region
-            and verify_tls == bool(stored_endpoint.verify_tls)
+            and verify_tls == stored_endpoint.verify_tls
         )
 
     def _stored_endpoint(self, endpoint_id: int | None) -> StorageEndpoint | None:
@@ -164,7 +164,7 @@ class StorageEndpointFeatureDetector:
         if payload.verify_tls is not None:
             verify_tls = payload.verify_tls
         elif stored_endpoint is not None:
-            verify_tls = bool(stored_endpoint.verify_tls)
+            verify_tls = stored_endpoint.verify_tls
         else:
             verify_tls = True
         return _FeatureDetectionTarget(

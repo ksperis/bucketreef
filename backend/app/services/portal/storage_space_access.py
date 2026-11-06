@@ -91,7 +91,7 @@ class PortalStorageSpaceAccessMixin:
                 PortalAccountRole.PORTAL_MANAGER.value,
             }:
                 return
-            if not bool(user.is_active):
+            if not user.is_active:
                 return
             current = rows_by_user.get(user.id)
             effective_portal_role = max_portal_account_role(

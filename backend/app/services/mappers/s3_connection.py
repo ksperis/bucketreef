@@ -32,11 +32,11 @@ def s3_connection_from_db(
         provider_hint=details.provider,
         storage_endpoint_id=row.storage_endpoint_id,
         created_by_user_id=row.created_by_user_id,
-        is_shared=bool(row.is_shared),
-        is_active=bool(row.is_active),
-        access_manager=bool(row.access_manager),
-        access_browser=bool(row.access_browser),
-        server_managed=bool(row.server_managed),
+        is_shared=row.is_shared,
+        is_active=row.is_active,
+        access_manager=row.access_manager,
+        access_browser=row.access_browser,
+        server_managed=row.server_managed,
         managed_access_state=(
             row.managed_private_access.state
             if row.managed_private_access is not None

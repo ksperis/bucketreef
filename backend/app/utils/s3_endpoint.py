@@ -138,15 +138,15 @@ def resolve_s3_client_options(
     if region is None:
         region = endpoint_obj.region if endpoint_obj is not None else None
     if session_force_path_style is not None:
-        force_path_style = bool(session_force_path_style)
+        force_path_style = session_force_path_style
     elif endpoint_obj is not None:
-        force_path_style = bool(endpoint_obj.force_path_style)
+        force_path_style = endpoint_obj.force_path_style
     else:
         force_path_style = False
     if session_verify_tls is not None:
-        verify_tls = bool(session_verify_tls)
+        verify_tls = session_verify_tls
     elif endpoint_obj is not None:
-        verify_tls = bool(endpoint_obj.verify_tls)
+        verify_tls = endpoint_obj.verify_tls
     else:
         verify_tls = True
     return endpoint, region, force_path_style, verify_tls
@@ -180,7 +180,7 @@ def resolve_iam_client_options(account: S3EndpointTarget) -> tuple[Optional[str]
             region = resolve_iam_signing_region(endpoint_obj)
         elif region is None:
             region = resolve_iam_signing_region(endpoint_obj)
-        verify_tls = bool(endpoint_obj.verify_tls)
+        verify_tls = endpoint_obj.verify_tls
         return endpoint, region, verify_tls
 
     source_connection = getattr(account, "source_connection", None)

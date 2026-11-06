@@ -119,8 +119,8 @@ class ExecutionDestinationService:
             # Connections cache their resolved target in session_* fields.
             execution_context.session_endpoint = destination.endpoint_url
             execution_context.session_region = destination.region
-            execution_context.session_force_path_style = bool(destination.force_path_style)
-            execution_context.session_verify_tls = bool(destination.verify_tls)
+            execution_context.session_force_path_style = destination.force_path_style
+            execution_context.session_verify_tls = destination.verify_tls
         return execution_context
 
     def apply_user_override(

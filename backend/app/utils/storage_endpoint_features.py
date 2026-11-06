@@ -12,10 +12,13 @@ from app.utils.normalize import normalize_storage_provider
 
 
 class StorageEndpointLike(Protocol):
+    name: str
     provider: str
     features: Any
     region: Optional[str]
     endpoint_url: Optional[str]
+    force_path_style: bool
+    verify_tls: bool
 
 
 FEATURE_KEYS: tuple[str, ...] = (
