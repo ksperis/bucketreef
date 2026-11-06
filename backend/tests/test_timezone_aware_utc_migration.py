@@ -142,6 +142,11 @@ def test_migration_covers_every_utc_datetime_column_present_at_revision() -> Non
         "preparation_requested_at",
         *bucket_migration_columns[preparation_index:],
     )
+    expected_current_columns["bucket_migrations"] = tuple(
+        column
+        for column in expected_current_columns["bucket_migrations"]
+        if column not in {"started_at", "finished_at", "last_heartbeat_at"}
+    )
 
     assert expected_current_columns == model_columns
 
