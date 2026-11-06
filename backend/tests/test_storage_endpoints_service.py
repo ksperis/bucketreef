@@ -517,6 +517,36 @@ def test_update_ceph_endpoint_requires_runtime_identity(db_session):
         )
 
 
+def test_update_endpoint_rechecks_editability_after_lease_refresh(
+    db_session,
+    monkeypatch,
+):
+    from app.services.endpoint_service_identities import EndpointServiceIdentityService
+
+    endpoint = _create_ceph_endpoint(db_session, name="ceph-concurrent-protection")
+    original_name = endpoint.name
+    original_lease = EndpointServiceIdentityService.lease
+
+    def lease_and_protect(self, target):
+        lease, handle = original_lease(self, target)
+        target.is_editable = False
+        self.db.commit()
+        self.db.refresh(target)
+        return lease, handle
+
+    monkeypatch.setattr(EndpointServiceIdentityService, "lease", lease_and_protect)
+
+    with pytest.raises(ValueError, match="protected and cannot be edited"):
+        StorageEndpointsService(db_session).update_endpoint(
+            endpoint.id,
+            StorageEndpointUpdate(name="must-not-be-applied"),
+        )
+
+    db_session.refresh(endpoint)
+    assert endpoint.name == original_name
+    assert endpoint.is_editable is False
+
+
 def test_external_mode_still_requires_runtime_for_enabled_features(db_session):
     endpoint = _create_ceph_endpoint(db_session, name="ceph-external-runtime-required")
 
