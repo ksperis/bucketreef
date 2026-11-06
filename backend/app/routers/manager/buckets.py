@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 import logging
 from functools import partial
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import Response, StreamingResponse
@@ -23,6 +24,7 @@ from app.models.manager_bucket_compare import (
     ManagerBucketCompareRequest,
     ManagerBucketCompareResult,
 )
+from app.models.pagination import OptionListingRequest
 from app.models.bucket_purge import (
     BucketDeleteWithPurgeRequest,
     BucketPurgeResult,
@@ -191,9 +193,7 @@ def list_buckets(
 
 @router.get("/options", response_model=PaginatedBucketOptionsResponse)
 def list_bucket_options(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(25, ge=1, le=100),
-    search: str = Query("", max_length=256),
+    query: Annotated[OptionListingRequest, Depends()],
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BucketsService = Depends(get_buckets_service),
     _: ManagerActor = Depends(get_current_account_admin),
@@ -208,7 +208,7 @@ def list_bucket_options(
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 
-    needle = search.strip().casefold()
+    needle = query.search.strip().casefold()
     names = sorted(
         {
             bucket.name
@@ -218,14 +218,14 @@ def list_bucket_options(
         key=str.casefold,
     )
     total = len(names)
-    start = (page - 1) * page_size
-    items = [BucketOption(name=name) for name in names[start : start + page_size]]
+    start = (query.page - 1) * query.page_size
+    items = [BucketOption(name=name) for name in names[start : start + query.page_size]]
     return PaginatedBucketOptionsResponse(
         items=items,
         total=total,
-        page=page,
-        page_size=page_size,
-        has_next=page * page_size < total,
+        page=query.page,
+        page_size=query.page_size,
+        has_next=query.page * query.page_size < total,
     )
 
 

@@ -12,6 +12,13 @@ class PaginationRequest(ApiModel):
     page_size: int = Field(default=25, ge=1, le=200)
 
 
+class OptionListingRequest(PaginationRequest):
+    """Shared controls for compact paginated option lists."""
+
+    page_size: int = Field(default=25, ge=1, le=100)
+    search: str = Field(default="", max_length=256)
+
+
 class PaginatedResponse(ApiModel):
     items: list
     total: int

@@ -4,7 +4,10 @@
 from types import SimpleNamespace
 
 from app.db.openstack import OpenStackCloud
+from app.main import app
 from app.models.admin_listing import AdminOptionListingRequest, AdminPaginatedListingRequest
+from app.models.execution_context import ExecutionContextOptionListingRequest
+from app.models.pagination import OptionListingRequest
 from app.routers import execution_contexts as execution_contexts_router
 from app.routers.admin import groups as groups_router
 from app.routers.admin import openstack as openstack_router
@@ -25,9 +28,7 @@ def test_manager_bucket_options_search_sort_and_paginate(monkeypatch):
     )
 
     response = buckets_router.list_bucket_options(
-        page=2,
-        page_size=1,
-        search="ALP",
+        query=OptionListingRequest(page=2, page_size=1, search="ALP"),
         context=object(),
         service=object(),
         _=object(),
@@ -83,12 +84,14 @@ def test_execution_context_options_filter_search_exclude_and_paginate(monkeypatc
 
     response = execution_contexts_router.list_execution_context_options(
         request=None,
-        workspace="manager",
-        page=1,
-        page_size=1,
-        search="alpha",
-        exclude_id="connection-alpha",
-        manager_account_admin_only=True,
+        query=ExecutionContextOptionListingRequest(
+            workspace="manager",
+            page=1,
+            page_size=1,
+            search="alpha",
+            exclude_id="connection-alpha",
+            manager_account_admin_only=True,
+        ),
         user=object(),
         db=object(),
     )
@@ -96,6 +99,48 @@ def test_execution_context_options_filter_search_exclude_and_paginate(monkeypatc
     assert [item.id for item in response.items] == ["account-admin"]
     assert response.total == 1
     assert response.has_next is False
+
+
+def test_manager_and_execution_context_option_queries_remain_flat_in_openapi():
+    expected_common = {
+        "page": {"type": "integer", "minimum": 1, "default": 1, "title": "Page"},
+        "page_size": {
+            "type": "integer",
+            "maximum": 100,
+            "minimum": 1,
+            "default": 25,
+            "title": "Page Size",
+        },
+        "search": {
+            "type": "string",
+            "maxLength": 256,
+            "default": "",
+            "title": "Search",
+        },
+    }
+
+    paths = app.openapi()["paths"]
+    bucket_parameters = {
+        parameter["name"]: parameter["schema"]
+        for parameter in paths["/api/manager/buckets/options"]["get"]["parameters"]
+    }
+    execution_parameters = {
+        parameter["name"]: parameter["schema"]
+        for parameter in paths["/api/me/execution-contexts/options"]["get"]["parameters"]
+    }
+
+    for name, schema in expected_common.items():
+        assert bucket_parameters[name] == schema
+        assert execution_parameters[name] == schema
+
+    assert set(execution_parameters) == {
+        "workspace",
+        "page",
+        "page_size",
+        "search",
+        "exclude_id",
+        "manager_account_admin_only",
+    }
 
 
 def test_admin_openstack_cloud_options_search_and_paginate(db_session):
