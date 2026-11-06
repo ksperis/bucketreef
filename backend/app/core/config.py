@@ -543,7 +543,7 @@ class Settings(BaseSettings):
     )
     webhook_poll_interval_seconds: float = Field(
         1.0,
-        gt=0,
+        ge=0.2,
         description="Polling interval for durable webhook deliveries (WEBHOOK_POLL_INTERVAL_SECONDS)",
     )
     webhook_worker_lease_seconds: int = Field(
@@ -553,7 +553,7 @@ class Settings(BaseSettings):
     )
     webhook_timeout_seconds: float = Field(
         5.0,
-        gt=0,
+        ge=0.1,
         description="HTTP timeout for webhook deliveries (WEBHOOK_TIMEOUT_SECONDS)",
     )
     webhook_allow_private_targets: bool = Field(

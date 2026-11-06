@@ -496,6 +496,18 @@ def test_webhook_runtime_lease_always_exceeds_http_timeout():
 
 
 @pytest.mark.parametrize(
+    ("setting", "value"),
+    [
+        ("webhook_timeout_seconds", 0.09),
+        ("webhook_poll_interval_seconds", 0.19),
+    ],
+)
+def test_webhook_runtime_minimums_are_validated_by_settings(setting, value):
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, **{setting: value})
+
+
+@pytest.mark.parametrize(
     ("profile", "admin_enabled", "worker_enabled", "expected"),
     [
         ("full", None, True, True),

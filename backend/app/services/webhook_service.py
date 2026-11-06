@@ -75,24 +75,22 @@ def webhook_dispatcher_enabled(settings: Settings | None = None) -> bool:
 
 def webhook_runtime_config(settings: Settings | None = None) -> WebhookRuntimeConfig:
     settings = settings or get_settings()
-    effective_timeout_seconds = max(0.1, float(settings.webhook_timeout_seconds or 5.0))
+    effective_timeout_seconds = settings.webhook_timeout_seconds
     return WebhookRuntimeConfig(
         timeout_seconds=effective_timeout_seconds,
-        allow_private_targets=bool(settings.webhook_allow_private_targets),
+        allow_private_targets=settings.webhook_allow_private_targets,
         allowed_hosts={
             normalize_hostname(host)
-            for host in (settings.webhook_allowed_hosts or [])
-            if str(host or "").strip()
+            for host in settings.webhook_allowed_hosts
         },
-        workers=max(1, min(int(settings.webhook_workers or 4), 16)),
-        max_attempts=max(1, min(int(settings.webhook_max_attempts or 8), 32)),
-        retry_initial_seconds=max(1, int(settings.webhook_retry_initial_seconds or 30)),
-        retry_max_seconds=max(1, int(settings.webhook_retry_max_seconds or 3600)),
-        retention_days=max(0, int(settings.webhook_retention_days or 0)),
-        poll_interval_seconds=max(0.2, float(settings.webhook_poll_interval_seconds or 1.0)),
+        workers=settings.webhook_workers,
+        max_attempts=settings.webhook_max_attempts,
+        retry_initial_seconds=settings.webhook_retry_initial_seconds,
+        retry_max_seconds=settings.webhook_retry_max_seconds,
+        retention_days=settings.webhook_retention_days,
+        poll_interval_seconds=settings.webhook_poll_interval_seconds,
         lease_seconds=max(
-            15,
-            int(settings.webhook_worker_lease_seconds or 120),
+            settings.webhook_worker_lease_seconds,
             math.ceil(effective_timeout_seconds) + 10,
         ),
     )
