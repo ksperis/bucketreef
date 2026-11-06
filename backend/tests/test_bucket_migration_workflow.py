@@ -487,7 +487,7 @@ def test_precheck_progress_checkpoint_persists_completed_item_count(prepared):
 
     assert progress_counts == [1]
     assert checked.preparation_completed_items == 1
-    assert checked.precheck_status == "passed"
+    assert checked.preparation_status == "ready"
 
 
 def test_created_destination_provenance_allows_retry_only_for_own_bucket(prepared):

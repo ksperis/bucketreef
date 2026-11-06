@@ -486,6 +486,18 @@ interface, and endpoint URL required for execution and revalidation.
 Downgrade recreates the nullable column without reconstructing its historical
 value because the persisted service name had no runtime consumer.
 
+## 2026-11 bucket migration precheck-state cleanup
+
+Migration `0244_remove_migration_precheck_status` removes the duplicated
+`bucket_migrations.precheck_status` column and its index. The canonical
+preparation state, checked configuration revision, and check timestamp already
+govern whether a migration can start, while the structured precheck report
+retains the diagnostic result shown by the Manager UI.
+
+Downgrade reconstructs `precheck_status` from `preparation_status`, mapping
+`ready` to `passed`, `blocked` to `failed`, and other preparation states to
+`pending`.
+
 ## 2026-10 structured bucket migration workflow state
 
 Migration `0213_structure_bucket_migration_json` replaces the bucket migration

@@ -90,7 +90,6 @@ function buildDraftDetail(): BucketMigrationDetail {
       edit: { enabled: true, reason: null },
       precheck: { enabled: true, reason: null },
     },
-    precheck_status: "passed",
     precheck_report: null,
     precheck_checked_at: null,
     total_items: 1,

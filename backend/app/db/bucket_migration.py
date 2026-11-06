@@ -46,7 +46,6 @@ class BucketMigration(Base):
     status = Column(String, nullable=False, default="draft", server_default="draft", index=True)
     worker_lease_owner = Column(String, nullable=True, index=True)
     worker_lease_until = Column(UTCDateTime(), nullable=True, index=True)
-    precheck_status = Column(String, nullable=False, default="pending", server_default="pending", index=True)
     precheck_report = Column(JSON(none_as_null=True), nullable=True)
     precheck_checked_at = Column(UTCDateTime(), nullable=True)
     workflow_version = Column(Integer, nullable=False, default=2, server_default="2")

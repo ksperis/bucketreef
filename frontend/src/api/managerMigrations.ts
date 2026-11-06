@@ -19,7 +19,6 @@ export type BucketMigrationStatus =
   | "completed"
   | "completed_with_errors"
   | "failed";
-export type BucketMigrationPrecheckStatus = "pending" | "passed" | "failed";
 export type BucketMigrationPreparationStatus = "unverified" | "checking" | "blocked" | "ready" | "stale";
 export type BucketMigrationMaintenanceOperation = "restore_access" | "cleanup_source" | "cleanup_target";
 export type BucketMigrationMaintenanceStatus = "idle" | "queued" | "running" | "failed" | "completed";
@@ -126,7 +125,6 @@ export type BucketMigrationView = {
   use_same_endpoint_copy: boolean;
   auto_grant_source_read_for_copy: boolean;
   status: BucketMigrationStatus;
-  precheck_status: BucketMigrationPrecheckStatus;
   precheck_report: BucketMigrationPrecheckReport | null;
   precheck_checked_at: string | null;
   configuration_revision: number;

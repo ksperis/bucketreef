@@ -23,7 +23,6 @@ BucketMigrationStatus = Literal[
     "completed_with_errors",
     "failed",
 ]
-BucketMigrationPrecheckStatus = Literal["pending", "passed", "failed"]
 BucketMigrationPreparationStatus = Literal[
     "unverified",
     "checking",
@@ -200,7 +199,6 @@ class BucketMigrationView(ApiModel):
     auto_grant_source_read_for_copy: bool
 
     status: BucketMigrationStatus
-    precheck_status: BucketMigrationPrecheckStatus
     precheck_report: Optional[BucketMigrationPrecheckReportView]
     precheck_checked_at: Optional[datetime]
     configuration_revision: int

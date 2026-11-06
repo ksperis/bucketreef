@@ -18,7 +18,7 @@ from app.utils.resource_names import validate_s3_bucket_name
 from app.utils.time import utcnow
 
 from .precheck_reporting import build_diagnostic
-from .workflow import FINAL_STATUSES, require_action
+from .workflow import FINAL_STATUSES, preparation_is_current, require_action
 
 
 @dataclass(frozen=True)
@@ -276,7 +276,6 @@ class BucketMigrationPlanningMixin:
             use_same_endpoint_copy=configuration.use_same_endpoint_copy,
             auto_grant_source_read_for_copy=configuration.auto_grant_source_read_for_copy,
             status="draft",
-            precheck_status="pending",
             precheck_report=None,
             precheck_checked_at=None,
             parallelism_max=configuration.parallelism,
@@ -346,7 +345,6 @@ class BucketMigrationPlanningMixin:
         migration.status = "draft"
         migration.worker_lease_owner = None
         migration.worker_lease_until = None
-        migration.precheck_status = "pending"
         migration.precheck_report = None
         migration.precheck_checked_at = None
         migration.error_message = None
@@ -409,7 +407,6 @@ class BucketMigrationPlanningMixin:
     ) -> None:
         migration.preparation_status = "stale"
         migration.checked_revision = None
-        migration.precheck_status = "failed"
         report = dict(migration.precheck_report or {})
         report["checks"] = [
             build_diagnostic(
@@ -435,7 +432,7 @@ class BucketMigrationPlanningMixin:
     def _validate_start_execution_plan(self, migration: BucketMigration) -> None:
         if migration.status != "draft":
             raise ValueError("Migration cannot be started from current status")
-        if migration.precheck_status != "passed":
+        if not preparation_is_current(migration):
             raise ValueError("Precheck must pass before start. Run /precheck first.")
         for item in migration.items:
             try:

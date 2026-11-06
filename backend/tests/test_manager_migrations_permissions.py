@@ -91,7 +91,6 @@ def _seed_migration(db_session, *, source_context_id: str, target_context_id: st
         use_same_endpoint_copy=False,
         auto_grant_source_read_for_copy=False,
         status=status,
-        precheck_status="passed",
         parallelism_max=4,
         total_items=1,
     )
