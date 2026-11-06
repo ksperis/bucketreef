@@ -495,3 +495,9 @@ def features_to_capabilities(features: dict[str, dict[str, Any]]) -> dict[str, b
         "sse": bool(features["sse"]["enabled"]),
         "replication": bool(features["replication"]["enabled"]),
     }
+
+
+def resolve_endpoint_capabilities(endpoint: StorageEndpointLike) -> dict[str, bool]:
+    return features_to_capabilities(
+        validate_persisted_features(endpoint.provider, endpoint.features)
+    )

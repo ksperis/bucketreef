@@ -48,6 +48,7 @@ from app.utils.storage_endpoint_features import (
     aws_sts_endpoint_for_region,
     normalize_features,
     normalize_seed_features_config,
+    resolve_endpoint_capabilities,
     resolve_feature_flags,
     resolve_iam_endpoint,
     resolve_sts_endpoint,
@@ -144,6 +145,25 @@ def test_persisted_feature_validation_rejects_partial_mappings():
 
     with pytest.raises(ValueError, match="Persisted endpoint features are missing"):
         validate_persisted_features(StorageProvider.CEPH, partial)
+
+
+def test_endpoint_capabilities_validate_persisted_features():
+    endpoint = StorageEndpoint(
+        name="capabilities",
+        endpoint_url="https://capabilities.example.test",
+        provider=StorageProvider.CEPH.value,
+        features=persisted_endpoint_features(
+            "features:\n  metrics:\n    enabled: true\n"
+        ),
+    )
+
+    assert resolve_endpoint_capabilities(endpoint)["metrics"] is True
+
+    endpoint.features = parse_features_config(
+        "features:\n  metrics:\n    enabled: true\n"
+    )
+    with pytest.raises(ValueError, match="Persisted endpoint features are missing"):
+        resolve_endpoint_capabilities(endpoint)
 
 
 def test_endpoint_serialization_rejects_partial_persisted_features(db_session):

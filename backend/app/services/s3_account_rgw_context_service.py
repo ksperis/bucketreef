@@ -14,9 +14,8 @@ from app.core.domain_enums import StorageProvider
 from app.services.rgw_admin import RGWAdminClient
 from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client
 from app.utils.storage_endpoint_features import (
-    features_to_capabilities,
+    resolve_endpoint_capabilities,
     resolve_admin_endpoint,
-    validate_persisted_features,
 )
 
 
@@ -31,8 +30,7 @@ class S3AccountRgwContextService:
 
     @staticmethod
     def endpoint_capabilities(endpoint: StorageEndpoint) -> dict[str, bool]:
-        features = validate_persisted_features(endpoint.provider, endpoint.features)
-        return features_to_capabilities(features)
+        return resolve_endpoint_capabilities(endpoint)
 
     def resolve_storage_endpoint(
         self,
