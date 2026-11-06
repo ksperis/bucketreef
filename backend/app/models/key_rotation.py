@@ -19,6 +19,11 @@ class KeyRotationType(str, Enum):
     CEPH_ADMIN = "ceph_admin"
 
 
+KeyRotationTargetType = Literal["endpoint", "account", "s3_user"]
+KeyRotationResultStatus = Literal["rotated", "failed", "skipped"]
+KeyRotationPhase = Literal["prepared", "activated"]
+
+
 class KeyRotationRequest(ApiModel):
     endpoint_ids: list[int] = Field(default_factory=list, min_length=1)
     key_types: list[KeyRotationType] = Field(default_factory=list, min_length=1)
@@ -58,13 +63,13 @@ class KeyRotationResultItem(ApiModel):
     endpoint_id: int
     endpoint_name: str
     key_type: KeyRotationType
-    target_type: str
+    target_type: KeyRotationTargetType
     target_id: Optional[str]
     target_label: Optional[str]
-    status: Literal["rotated", "failed", "skipped"]
+    status: KeyRotationResultStatus
     message: Optional[str]
     rotation_pending: bool
-    rotation_phase: Optional[Literal["prepared", "activated"]]
+    rotation_phase: Optional[KeyRotationPhase]
     old_access_key: Optional[str]
     new_access_key: Optional[str]
 

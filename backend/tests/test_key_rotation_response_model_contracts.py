@@ -36,3 +36,8 @@ def test_key_rotation_responses_require_complete_canonical_payloads() -> None:
         "summary",
         "results",
     }
+
+
+def test_key_rotation_target_type_contract_is_closed() -> None:
+    target_type = KeyRotationResultItem.model_json_schema()["properties"]["target_type"]
+    assert target_type["enum"] == ["endpoint", "account", "s3_user"]

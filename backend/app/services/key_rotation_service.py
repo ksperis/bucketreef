@@ -10,9 +10,12 @@ from sqlalchemy.orm import Session
 from app.db import EndpointServiceIdentity, S3Account, S3User, StorageEndpoint, User
 from app.models.key_rotation import (
     KeyRotationRequest,
+    KeyRotationPhase,
     KeyRotationResponse,
     KeyRotationResultItem,
+    KeyRotationResultStatus,
     KeyRotationSummary,
+    KeyRotationTargetType,
     KeyRotationType,
 )
 from app.services.key_rotation_rgw import RgwAccessKeyRotator
@@ -140,7 +143,7 @@ class KeyRotationService:
         self,
         endpoint: StorageEndpoint,
         key_type: KeyRotationType,
-    ) -> tuple[list[RotationDispatchTarget], str, Optional[str]]:
+    ) -> tuple[list[RotationDispatchTarget], KeyRotationTargetType, Optional[str]]:
         from app.services.durable_key_rotation_service import SERVICE_TYPES
 
         if key_type.value in SERVICE_TYPES:
@@ -164,15 +167,15 @@ class KeyRotationService:
         *,
         endpoint: StorageEndpoint,
         key_type: KeyRotationType,
-        target_type: str,
-        status: str,
+        target_type: KeyRotationTargetType,
+        status: KeyRotationResultStatus,
         target_id: Optional[str] = None,
         target_label: Optional[str] = None,
         message: Optional[str] = None,
         old_access_key: Optional[str] = None,
         new_access_key: Optional[str] = None,
         rotation_pending: bool = False,
-        rotation_phase: Optional[str] = None,
+        rotation_phase: Optional[KeyRotationPhase] = None,
     ) -> KeyRotationResultItem:
         return KeyRotationResultItem(
             endpoint_id=int(endpoint.id),
