@@ -240,17 +240,6 @@ class StorageEndpointsService:
         endpoint = self.get_endpoint_record(endpoint_id)
         if not endpoint.is_editable:
             raise ValueError("This endpoint is protected and cannot be edited.")
-        state = normalize_storage_endpoint_update(endpoint, payload)
-        ensure_unique_storage_endpoint_name(
-            self.db,
-            state.name,
-            exclude_id=endpoint.id,
-        )
-        ensure_unique_storage_endpoint_url(
-            self.db,
-            state.endpoint_url,
-            exclude_id=endpoint.id,
-        )
         from app.services.endpoint_service_identities import EndpointServiceIdentityService
         identities = EndpointServiceIdentityService(
             self.db,
@@ -258,7 +247,20 @@ class StorageEndpointsService:
         )
         lease, handle = identities.lease(endpoint)
         try:
+            # lease() refreshes the target; validation and mutation must use that locked state.
+            if not endpoint.is_editable:
+                raise ValueError("This endpoint is protected and cannot be edited.")
             state = normalize_storage_endpoint_update(endpoint, payload)
+            ensure_unique_storage_endpoint_name(
+                self.db,
+                state.name,
+                exclude_id=endpoint.id,
+            )
+            ensure_unique_storage_endpoint_url(
+                self.db,
+                state.endpoint_url,
+                exclude_id=endpoint.id,
+            )
             if state.service_identity_mode == "external" or state.provider != StorageProvider.CEPH:
                 for kind in ("runtime", "supervision"):
                     identity = endpoint.service_identity(kind)
