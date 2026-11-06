@@ -13,11 +13,10 @@ from app.db import CostStorageDaily, CostUsageDaily
 from app.models.cost import (
     CostAnalyticsConcentration,
     CostAnalyticsEndpoint,
-    CostAnalyticsHistoryPoint,
     CostAnalyticsResponse,
     CostDailySeriesPoint,
+    CostHistoryPoint,
     CostSubjectDetail,
-    CostSubjectHistoryPoint,
     CostSubjectSummary,
     CostSubjectsResponse,
     CostSummary,
@@ -265,14 +264,14 @@ class CostService:
         subject_type: str,
         subject_id: int,
         months: int = 12,
-    ) -> list[CostSubjectHistoryPoint]:
+    ) -> list[CostHistoryPoint]:
         period = parse_cost_month(month)
         subject_type = self._normalize_subject_type(subject_type)
         if subject_type == "all":
             raise ValueError("Invalid subject type")
 
         model = self.queries.resolve_model(endpoint_id)
-        history: list[CostSubjectHistoryPoint] = []
+        history: list[CostHistoryPoint] = []
         for history_period in _history_periods(period, months):
             usage_rows = self.queries.usage_rows_for_subject(
                 history_period,
@@ -288,7 +287,7 @@ class CostService:
             )
             totals = self._subject_totals_from_rows(usage_rows, storage_rows)
             history.append(
-                CostSubjectHistoryPoint(
+                CostHistoryPoint(
                     month=history_period.month,
                     coverage=coverage_for_period(history_period, totals),
                     cost=compute_cost(model, totals),
@@ -467,12 +466,12 @@ class CostService:
         period: CostPeriod,
         endpoint_id: Optional[int],
         subject_type: str,
-    ) -> list[CostAnalyticsHistoryPoint]:
-        history: list[CostAnalyticsHistoryPoint] = []
+    ) -> list[CostHistoryPoint]:
+        history: list[CostHistoryPoint] = []
         for history_period in _history_periods(period, 12):
             history_summary = self._summary_for_period(history_period, endpoint_id, subject_type)
             history.append(
-                CostAnalyticsHistoryPoint(
+                CostHistoryPoint(
                     month=history_period.month,
                     coverage=history_summary.coverage,
                     cost=history_summary.cost,

@@ -5,16 +5,15 @@ from app.models.cost import (
     AdminCostSubjectDetail,
     CostAnalyticsConcentration,
     CostAnalyticsEndpoint,
-    CostAnalyticsHistoryPoint,
     CostAnalyticsResponse,
     CostBreakdown,
     CostCoverage,
     CostDailySeriesPoint,
     CostGlobalModel,
+    CostHistoryPoint,
     CostSettings,
     CostStorageTotals,
     CostSubjectDetail,
-    CostSubjectHistoryPoint,
     CostSubjectSummary,
     CostSummary,
     CostUsageTotals,
@@ -89,7 +88,7 @@ def test_cost_responses_require_complete_canonical_payloads() -> None:
         "coverage",
         "cost",
     }
-    assert set(CostSubjectHistoryPoint.model_json_schema()["required"]) == {
+    assert set(CostHistoryPoint.model_json_schema()["required"]) == {
         "month",
         "coverage",
         "cost",
@@ -101,11 +100,6 @@ def test_cost_responses_require_complete_canonical_payloads() -> None:
     assert set(CostAnalyticsEndpoint.model_json_schema()["required"]) == {
         "storage_endpoint_id",
         "storage_endpoint_name",
-        "coverage",
-        "cost",
-    }
-    assert set(CostAnalyticsHistoryPoint.model_json_schema()["required"]) == {
-        "month",
         "coverage",
         "cost",
     }

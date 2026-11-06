@@ -118,25 +118,19 @@ class CostSubjectDetail(ApiModel):
     cost: Optional[CostBreakdown]
 
 
-class CostSubjectHistoryPoint(ApiModel):
+class CostHistoryPoint(ApiModel):
     month: str
     coverage: CostCoverage
     cost: Optional[CostBreakdown]
 
 
 class AdminCostSubjectDetail(CostSubjectDetail):
-    history: list[CostSubjectHistoryPoint]
+    history: list[CostHistoryPoint]
 
 
 class CostAnalyticsEndpoint(ApiModel):
     storage_endpoint_id: int
     storage_endpoint_name: str
-    coverage: CostCoverage
-    cost: Optional[CostBreakdown]
-
-
-class CostAnalyticsHistoryPoint(ApiModel):
-    month: str
     coverage: CostCoverage
     cost: Optional[CostBreakdown]
 
@@ -155,7 +149,7 @@ class CostAnalyticsResponse(ApiModel):
     by_endpoint: list[CostAnalyticsEndpoint]
     top_subjects: list[CostSubjectSummary]
     concentration: CostAnalyticsConcentration
-    history: list[CostAnalyticsHistoryPoint]
+    history: list[CostHistoryPoint]
 
 
 class CostRateValues(ApiModel):
