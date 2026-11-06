@@ -4387,7 +4387,7 @@
       "name": "audit_logs",
       "schema": null,
       "x": 900,
-      "y": 8116,
+      "y": 8056,
       "fields": [
         {
           "id": "field:audit_logs.id",
@@ -21367,48 +21367,6 @@
           "check": null
         },
         {
-          "id": "field:bucket_migrations.started_at",
-          "name": "started_at",
-          "type": {
-            "id": "datetime",
-            "name": "datetime"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": true,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
-          "id": "field:bucket_migrations.finished_at",
-          "name": "finished_at",
-          "type": {
-            "id": "datetime",
-            "name": "datetime"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": true,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
           "id": "field:bucket_migrations.created_at",
           "name": "created_at",
           "type": {
@@ -21626,7 +21584,7 @@
       "name": "bucket_migration_items",
       "schema": null,
       "x": 60,
-      "y": 8116,
+      "y": 8056,
       "fields": [
         {
           "id": "field:bucket_migration_items.id",
@@ -22677,7 +22635,7 @@
       "name": "bucket_usage_stats_snapshots",
       "schema": null,
       "x": 480,
-      "y": 9828,
+      "y": 9768,
       "fields": [
         {
           "id": "field:bucket_usage_stats_snapshots.id",
@@ -25559,7 +25517,7 @@
       "name": "backend_operation_leases",
       "schema": null,
       "x": 60,
-      "y": 9828,
+      "y": 9768,
       "fields": [
         {
           "id": "field:backend_operation_leases.operation_name",
@@ -25707,7 +25665,7 @@
       "name": "app_settings",
       "schema": null,
       "x": 900,
-      "y": 9242,
+      "y": 9182,
       "fields": [
         {
           "id": "field:app_settings.key",
@@ -26293,7 +26251,7 @@
       "name": "webhook_endpoints",
       "schema": null,
       "x": 480,
-      "y": 8116,
+      "y": 8056,
       "fields": [
         {
           "id": "field:webhook_endpoints.id",
@@ -26506,7 +26464,7 @@
       "name": "webhook_endpoint_subscriptions",
       "schema": null,
       "x": 480,
-      "y": 9242,
+      "y": 9182,
       "fields": [
         {
           "id": "field:webhook_endpoint_subscriptions.id",
@@ -26647,7 +26605,7 @@
       "name": "webhook_deliveries",
       "schema": null,
       "x": 60,
-      "y": 9242,
+      "y": 9182,
       "fields": [
         {
           "id": "field:webhook_deliveries.id",
@@ -28700,7 +28658,7 @@
       "x": 0,
       "y": 6738,
       "width": 1320,
-      "height": 3946,
+      "height": 3886,
       "color": "#D97706",
       "order": 4
     },

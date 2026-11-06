@@ -78,7 +78,6 @@ class BucketMigrationPersistenceMixin:
             raise PermissionError("Migration creator access has been revoked for context(s): " + ", ".join(missing))
         migration.status = "failed"
         migration.error_message = "Migration access revoked for context(s): " + ", ".join(missing)
-        migration.finished_at = utcnow()
         migration.updated_at = utcnow()
         self._add_event(
             migration,

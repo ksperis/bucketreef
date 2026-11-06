@@ -47,10 +47,7 @@ class BucketMigrationRetryMixin:
         migration.worker_lease_owner = None
         migration.worker_lease_until = None
         migration.error_message = None
-        migration.finished_at = None
         migration.updated_at = utcnow()
-        if migration.started_at is None:
-            migration.started_at = utcnow()
         self._recompute_counters(migration)
         self._add_event(
             migration,
