@@ -92,7 +92,7 @@ def create_first_admin_from_bootstrap(
     try:
         created = FirstAdminBootstrapService(users_service.db).create_with_token(
             token=bootstrap_token or "",
-            email=str(payload.email),
+            email=payload.email,
             full_name=payload.full_name,
             password=payload.password,
             ip_address=attempt.ip_address,
@@ -101,7 +101,7 @@ def create_first_admin_from_bootstrap(
         )
     except FirstAdminBootstrapUnavailableError as exc:
         attempt.record_failure(
-            user_email=str(payload.email).lower(),
+            user_email=payload.email.lower(),
             scope="security",
             action="first_admin_bootstrap_failure",
             entity_type="first_admin_bootstrap",
