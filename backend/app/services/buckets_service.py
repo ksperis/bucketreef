@@ -14,7 +14,8 @@ from app.services import (
 from app.services.rgw_principal_scope import resolve_target_admin_uid, resolve_target_tenant
 from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_runtime_rgw_client
-from app.models.bucket import Bucket
+from app.models.bucket import Bucket, BucketOption, PaginatedBucketOptionsResponse
+from app.models.pagination import OptionListingRequest
 from app.utils.rgw_payloads import extract_bucket_list
 from app.utils.quota_stats import extract_quota_limits
 from app.utils.usage_stats import extract_usage_stats
@@ -171,6 +172,34 @@ class BucketsService:
             enriched,
             execution_context,
             include,
+        )
+
+    @staticmethod
+    def build_bucket_options_page(
+        buckets: list[Bucket],
+        request: OptionListingRequest,
+    ) -> PaginatedBucketOptionsResponse:
+        needle = request.search.strip().casefold()
+        names = sorted(
+            {
+                bucket.name
+                for bucket in buckets
+                if bucket.name and (not needle or needle in bucket.name.casefold())
+            },
+            key=str.casefold,
+        )
+        total = len(names)
+        start = (request.page - 1) * request.page_size
+        items = [
+            BucketOption(name=name)
+            for name in names[start : start + request.page_size]
+        ]
+        return PaginatedBucketOptionsResponse(
+            items=items,
+            total=total,
+            page=request.page,
+            page_size=request.page_size,
+            has_next=request.page * request.page_size < total,
         )
 
     def get_bucket_stats(

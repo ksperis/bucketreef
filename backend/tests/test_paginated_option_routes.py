@@ -13,6 +13,7 @@ from app.routers.admin import groups as groups_router
 from app.routers.admin import openstack as openstack_router
 from app.routers.admin import users as users_router
 from app.routers.manager import buckets as buckets_router
+from app.services.buckets_service import BucketsService
 from app.services.execution_context_catalog_service import ExecutionContextCatalogService
 
 
@@ -31,7 +32,7 @@ def test_manager_bucket_options_search_sort_and_paginate(monkeypatch):
     response = buckets_router.list_bucket_options(
         query=OptionListingRequest(page=2, page_size=1, search="ALP"),
         context=object(),
-        service=object(),
+        service=BucketsService(),
         _=object(),
     )
 
