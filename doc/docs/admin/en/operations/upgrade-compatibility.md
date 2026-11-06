@@ -1415,6 +1415,13 @@ Explicit rollback operations were removed in favor of `restore_access` and
 `object_lock_governance_not_supported` diagnostic. Historical reports and old
 Alembic reconstruction logic may still contain `rollback_not_safe`.
 
+Migration `0238_remove_retired_migration_webhooks` removes persisted webhook
+subscriptions for the three retired rollback audit events. These event types
+can no longer be emitted because their Manager routes were removed. Other
+subscriptions, wildcard subscriptions, historical audit records, and historical
+webhook deliveries are preserved. Downgrade does not recreate deleted
+subscriptions because their endpoint ownership cannot be reconstructed safely.
+
 ## 2026-10 onboarding journey state cleanup
 
 Migration `0189_remove_onboarding_journey_dead_state` removes the unused

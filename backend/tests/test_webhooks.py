@@ -385,6 +385,14 @@ def test_literal_persisted_audit_actions_are_present_in_webhook_catalog():
     assert missing == []
 
 
+def test_retired_bucket_migration_rollback_events_are_absent_from_webhook_catalog():
+    assert {
+        "audit.manager.rollback_bucket_migration",
+        "audit.manager.rollback_bucket_migration_item",
+        "audit.manager.rollback_failed_bucket_migration_items",
+    }.isdisjoint(KNOWN_WEBHOOK_EVENT_TYPES)
+
+
 def test_openstack_audit_actions_are_present_in_webhook_catalog():
     expected = {
         "audit.admin.openstack.cloud.create",

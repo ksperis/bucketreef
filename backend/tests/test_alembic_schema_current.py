@@ -18,7 +18,8 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0237_canonical_bucket_migration_retry_step"
+_EXPECTED_ALEMBIC_HEAD = "0238_remove_retired_migration_webhooks"
+_RETIRED_WEBHOOK_REVISION = "0237_canonical_bucket_migration_retry_step"
 _PORTAL_IAM_REPAIR_REVISION = "0236_repair_portal_iam_revocation_schema"
 _REJOINED_MERGE_REVISION = "0235_reconcile_postgresql_schema_drift"
 _LEGACY_GITLAB_HEAD = "0226_reconcile_postgresql_schema_drift"
@@ -104,6 +105,10 @@ def test_alembic_exposes_single_head_after_rejoined_merge():
     assert script.get_heads() == [_EXPECTED_ALEMBIC_HEAD]
     assert (
         script.get_revision(_EXPECTED_ALEMBIC_HEAD).down_revision
+        == _RETIRED_WEBHOOK_REVISION
+    )
+    assert (
+        script.get_revision(_RETIRED_WEBHOOK_REVISION).down_revision
         == _PORTAL_IAM_REPAIR_REVISION
     )
     assert (
