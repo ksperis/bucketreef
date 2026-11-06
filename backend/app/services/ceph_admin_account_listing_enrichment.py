@@ -4,19 +4,17 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
-from fastapi import status
-
 from app.models.ceph_admin import CephAdminRgwAccountSummary
 from app.services.ceph_admin_account_payloads import (
     extract_account_bucket_list,
 )
+from app.services.ceph_admin_errors import upstream_error
 from app.services.listing_progress import (
     ListingProgressEmitter,
     interpolate_progress_percent,
 )
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.utils.cancellation import invoke_cancel_check
-from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.quota_stats import extract_rgw_account_limit, extract_rgw_account_quota_limits
 from app.utils.rgw_payloads import (
     extract_rgw_account_bucket_count,
@@ -70,7 +68,7 @@ def enrich_accounts(
         try:
             buckets_payload = rgw_admin.get_all_buckets(with_stats=True)
         except RGWAdminError as exc:
-            raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+            raise upstream_error(exc) from exc
     enriched: list[CephAdminRgwAccountSummary] = []
     total = len(accounts)
     for index, item in enumerate(accounts, start=1):
@@ -82,7 +80,7 @@ def enrich_accounts(
                 allow_not_found=True,
             )
         except RGWAdminError as exc:
-            raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+            raise upstream_error(exc) from exc
         if payload and not payload.get("not_found"):
             _apply_account_detail_payload(
                 account,

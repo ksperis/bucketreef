@@ -8,11 +8,9 @@ from threading import Lock
 from time import monotonic
 from typing import Any, Callable, TypeVar
 
-from fastapi import status
-
+from app.services.ceph_admin_errors import upstream_error
 from app.services.rgw_admin import RGWAdminError
 from app.utils.cache import prune_expired_lru_cache
-from app.utils.http_errors import raise_http_exception_from_exception
 
 
 _T = TypeVar("_T")
@@ -71,7 +69,7 @@ class EndpointListingCache:
             try:
                 payload = builder()
             except RGWAdminError as exc:
-                raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+                raise upstream_error(exc) from exc
             return payload or []
 
         return self.get_payload(endpoint_id, load)
