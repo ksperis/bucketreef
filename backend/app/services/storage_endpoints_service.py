@@ -52,8 +52,8 @@ from app.utils.s3_endpoint import configured_s3_endpoint
 from app.utils.name_ordering import name_order_by
 from app.utils.storage_endpoint_features import (
     features_to_capabilities,
-    normalize_features,
     normalize_seed_features_config,
+    validate_persisted_features,
 )
 
 logger = logging.getLogger(__name__)
@@ -83,10 +83,9 @@ class StorageEndpointsService:
         include_admin_ops_permissions: bool = True,
     ) -> StorageEndpointSchema:
         provider = StorageProvider(endpoint.provider)
-        features = normalize_features(
+        features = validate_persisted_features(
             provider,
             endpoint.features,
-            endpoint.region,
         )
         capabilities = features_to_capabilities(features)
         admin_ops_permissions = (
