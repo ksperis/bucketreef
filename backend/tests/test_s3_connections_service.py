@@ -641,6 +641,38 @@ def test_update_connection_updates_private_connection(db_session, monkeypatch):
     assert refreshed == [row.id]
 
 
+def test_update_connection_clears_optional_custom_endpoint_metadata(
+    db_session,
+    monkeypatch,
+):
+    owner = _user(db_session, "clear-custom-metadata@example.test")
+    row = _create_row(
+        db_session,
+        created_by_user_id=owner.id,
+        name="clear-custom-metadata",
+        custom_region="eu-west-3",
+        custom_provider="other",
+    )
+    service = S3ConnectionsService(db_session)
+    monkeypatch.setattr(
+        "app.services.s3_connection_endpoint_planner.validate_user_supplied_s3_endpoint",
+        lambda value, field_name="Endpoint URL": value.rstrip("/"),
+    )
+    monkeypatch.setattr(service, "_refresh_detected_capabilities", lambda current: None)
+
+    updated = service.update(
+        owner.id,
+        row.id,
+        S3ConnectionUpdate(region=None, provider_hint=None),
+    )
+
+    assert updated.region is None
+    assert updated.provider_hint is None
+    db_session.refresh(row)
+    assert row.custom_region is None
+    assert row.custom_provider is None
+
+
 def test_update_connection_clears_persisted_identity_when_endpoint_changes(
     db_session,
     monkeypatch,

@@ -1,7 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Optional
 
 from sqlalchemy import select
@@ -29,6 +29,15 @@ S3ConnectionEndpointPayload = (
     | S3ConnectionAdminCreate
     | S3ConnectionAdminUpdate
 )
+
+
+_CUSTOM_ENDPOINT_DETAIL_FIELDS = {
+    "endpoint_url": "endpoint_url",
+    "region": "region",
+    "force_path_style": "force_path_style",
+    "verify_tls": "verify_tls",
+    "provider_hint": "provider",
+}
 
 
 @dataclass(frozen=True)
@@ -114,53 +123,48 @@ class S3ConnectionEndpointPlanner:
         *,
         enforce_manual_endpoint_policy: bool,
     ) -> S3ConnectionEndpointPlan:
-        fields_set = payload.model_fields_set
-
-        current = (
-            resolve_connection_details(row)
-            if row is not None and row.storage_endpoint_id is None
-            else ConnectionEndpointDetails(None, None, False, True, None, None)
-        )
-        endpoint_url = (
-            payload.endpoint_url
-            if "endpoint_url" in fields_set
-            else current.endpoint_url
-        )
-        region = payload.region if "region" in fields_set else current.region
-        force_path_style = (
-            payload.force_path_style
-            if "force_path_style" in fields_set
-            else current.force_path_style
-        )
-        verify_tls = (
-            payload.verify_tls
-            if "verify_tls" in fields_set
-            else current.verify_tls
-        )
-        provider = (
-            payload.provider_hint
-            if "provider_hint" in fields_set
-            else current.provider
-        )
-        if force_path_style is None or verify_tls is None:
+        details = self._custom_endpoint_details(row, payload)
+        if details.force_path_style is None or details.verify_tls is None:
             raise ValueError(
                 "force_path_style and verify_tls cannot be null for a custom endpoint"
             )
-        normalized_endpoint_url = (endpoint_url or "").strip().rstrip("/")
+        normalized_endpoint_url = (details.endpoint_url or "").strip().rstrip("/")
         if not normalized_endpoint_url:
             raise ValueError("Endpoint URL is required for manual connections")
         if enforce_manual_endpoint_policy:
             normalized_endpoint_url = self._validate_manual_endpoint(
                 normalized_endpoint_url,
-                verify_tls,
+                details.verify_tls,
             )
         return S3ConnectionEndpointPlan.custom(
             normalized_endpoint_url,
-            region.strip() if region and region.strip() else None,
-            bool(force_path_style),
-            bool(verify_tls),
-            provider.strip() if provider and provider.strip() else None,
+            self._normalize_optional_text(details.region),
+            bool(details.force_path_style),
+            bool(details.verify_tls),
+            self._normalize_optional_text(details.provider),
         )
+
+    @staticmethod
+    def _custom_endpoint_details(
+        row: Optional[DBS3Connection],
+        payload: S3ConnectionEndpointPayload,
+    ) -> ConnectionEndpointDetails:
+        current = (
+            resolve_connection_details(row)
+            if row is not None and row.storage_endpoint_id is None
+            else ConnectionEndpointDetails(None, None, False, True, None, None)
+        )
+        updates = {
+            detail_field: getattr(payload, payload_field)
+            for payload_field, detail_field in _CUSTOM_ENDPOINT_DETAIL_FIELDS.items()
+            if payload_field in payload.model_fields_set
+        }
+        return replace(current, **updates)
+
+    @staticmethod
+    def _normalize_optional_text(value: Optional[str]) -> Optional[str]:
+        normalized = (value or "").strip()
+        return normalized or None
 
     @staticmethod
     def _desired_endpoint_id(
