@@ -476,6 +476,7 @@ class Settings(BaseSettings):
 
     healthcheck_timeout_seconds: int = Field(
         5,
+        ge=1,
         description="HTTP timeout for endpoint healthchecks in seconds (HEALTHCHECK_TIMEOUT_SECONDS)",
     )
     healthcheck_interval_seconds: int = Field(
@@ -485,10 +486,12 @@ class Settings(BaseSettings):
     )
     healthcheck_retention_days: int = Field(
         30,
-        description="Retention for raw healthcheck rows in days (HEALTHCHECK_RETENTION_DAYS)",
+        ge=0,
+        description="Retention for raw healthcheck rows in days; 0 disables purge (HEALTHCHECK_RETENTION_DAYS)",
     )
     healthcheck_degraded_latency_ms: int = Field(
         2000,
+        ge=0,
         description="Latency threshold (ms) for degraded status, 0 disables (HEALTHCHECK_DEGRADED_LATENCY_MS)",
     )
     healthcheck_verify_ssl: bool = Field(
@@ -507,10 +510,12 @@ class Settings(BaseSettings):
     )
     healthcheck_relative_degraded_ratio: float = Field(
         1.8,
+        ge=0,
         description="Relative ratio over baseline latency that marks a check degraded (HEALTHCHECK_RELATIVE_DEGRADED_RATIO)",
     )
     healthcheck_relative_degraded_min_delta_ms: int = Field(
         200,
+        ge=0,
         description="Minimum absolute latency delta over baseline to mark degraded (HEALTHCHECK_RELATIVE_DEGRADED_MIN_DELTA_MS)",
     )
     healthcheck_incident_recent_minutes: int = Field(

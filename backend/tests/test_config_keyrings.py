@@ -104,9 +104,14 @@ def test_settings_parse_outbound_host_allowlists(monkeypatch):
 @pytest.mark.parametrize(
     ("setting", "value"),
     [
+        ("healthcheck_timeout_seconds", 0),
         ("healthcheck_interval_seconds", 0),
+        ("healthcheck_retention_days", -1),
+        ("healthcheck_degraded_latency_ms", -1),
         ("healthcheck_latency_baseline_window_days", 0),
         ("healthcheck_baseline_sample_size", 4),
+        ("healthcheck_relative_degraded_ratio", -0.1),
+        ("healthcheck_relative_degraded_min_delta_ms", -1),
         ("healthcheck_incident_recent_minutes", 0),
     ],
 )

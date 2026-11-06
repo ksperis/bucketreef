@@ -269,7 +269,7 @@ class HealthCheckPersistenceService:
 
     def _prune_history(self) -> None:
         retention_days = settings.healthcheck_retention_days
-        if retention_days <= 0:
+        if retention_days == 0:
             return
         cutoff = utcnow() - timedelta(days=retention_days)
         deleted_raw = self.db.execute(
