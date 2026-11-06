@@ -6,17 +6,17 @@ from unittest.mock import Mock
 
 import pytest
 from fastapi import FastAPI
-from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
+from app.core.domain_errors import ResourceNameValidationError
 from app.models.ceph_admin import CephAdminRgwUserCreate
 from app.models.iam import IAMGroup, IAMGroupCreate, IAMRole, IAMRoleCreate, IAMUser, IAMUserCreate
 from app.models.managed_private_access import ManagedIAMPrivateAccessRequest
 from app.models.policy import InlinePolicy, PolicyCreate
 from app.models.s3_user import S3UserCreate
 from app.routers import dependencies
-from app.routers.manager import iam_groups, iam_roles, iam_users, topics
+from app.routers.manager import iam_groups, iam_roles, iam_users, private_access, topics
 from app.services.managed_private_access_service import ManagedPrivateAccessService
 from app.services.resource_name_validation import naming_validation_profile
 from app.services.s3_execution_context import S3ExecutionContext
@@ -285,7 +285,7 @@ def test_private_access_prevalidates_before_claim_or_remote_work():
     service.iam = Mock()
     service.iam.for_context = Mock()
     payload = ManagedIAMPrivateAccessRequest(connection_name="private", access_browser=True, access_manager=False, inline_policies=[{"name": "invalid_under", "document": {}}])
-    with pytest.raises(RequestValidationError):
+    with pytest.raises(ResourceNameValidationError) as exc_info:
         service.provision_iam(
             user=Mock(),
             context=S3ExecutionContext(
@@ -298,8 +298,53 @@ def test_private_access_prevalidates_before_claim_or_remote_work():
             ),
             payload=payload,
         )
+    assert exc_info.value.loc == ("body", "inline_policies", 0, "name")
     assert service.iam_sources.mock_calls == []
     service.iam.for_context.assert_not_called()
+
+
+def test_private_access_maps_resource_name_error_to_validation_response(monkeypatch):
+    application = FastAPI()
+    application.include_router(private_access.router)
+    application.dependency_overrides[private_access.get_s3_execution_context] = lambda: Mock()
+    application.dependency_overrides[private_access.require_iam_capable_manager] = lambda: Mock()
+    application.dependency_overrides[private_access.get_current_account_user] = lambda: Mock()
+    application.dependency_overrides[private_access.get_db] = lambda: Mock()
+
+    class FailingManagedPrivateAccessService:
+        def __init__(self, _db):
+            pass
+
+        def provision_iam(self, **_kwargs):
+            raise ResourceNameValidationError(
+                "Invalid inline policy name",
+                loc=("body", "inline_policies", 0, "name"),
+            )
+
+    monkeypatch.setattr(
+        private_access,
+        "ManagedPrivateAccessService",
+        FailingManagedPrivateAccessService,
+    )
+
+    with TestClient(application) as client:
+        response = client.post(
+            "/manager/private-access/iam",
+            json={
+                "connection_name": "private",
+                "access_browser": True,
+                "access_manager": False,
+                "inline_policies": [{"name": "valid-name", "document": {}}],
+            },
+        )
+
+    assert response.status_code == 422
+    assert response.json()["detail"][0]["loc"] == [
+        "body",
+        "inline_policies",
+        0,
+        "name",
+    ]
 
 
 def test_external_inline_policy_read_model_remains_unrestricted():

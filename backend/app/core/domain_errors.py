@@ -11,6 +11,14 @@ class ResourceConflictError(ValueError):
     """Raised when a requested mutation conflicts with managed resource state."""
 
 
+class ResourceNameValidationError(ValueError):
+    """Raised when a provider-aware resource name fails request validation."""
+
+    def __init__(self, message: str, *, loc: tuple[object, ...]) -> None:
+        super().__init__(message)
+        self.loc = loc
+
+
 class StorageEndpointNotFoundError(ResourceNotFoundError):
     pass
 

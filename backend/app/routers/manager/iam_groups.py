@@ -38,7 +38,7 @@ from app.services.manager_iam_support import (
     save_inline_policy,
 )
 from app.services.managed_resource_naming import PORTAL_MANAGED_IAM_GROUP_NAMES
-from app.services.resource_name_validation import validate_inline_policy_request, validate_inline_policy_requests
+from app.routers.resource_name_validation import validate_inline_policy_request, validate_inline_policy_requests
 
 router = APIRouter(prefix="/manager/iam/groups", tags=["manager-iam-groups"])
 
