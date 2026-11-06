@@ -245,7 +245,7 @@ class HealthCheckService:
 
     @staticmethod
     def _resolve_verify_ssl(target: EndpointCheckTarget) -> bool:
-        return bool(settings.healthcheck_verify_ssl) and bool(target.verify_tls)
+        return settings.healthcheck_verify_ssl and target.verify_tls
 
     def _http_probe(self, target: EndpointCheckTarget, url: str) -> tuple[Optional[int], Optional[str]]:
         try:
