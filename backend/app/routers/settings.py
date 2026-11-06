@@ -42,9 +42,9 @@ def get_general_settings(
 def get_login_settings(db: Session = Depends(get_db)) -> LoginSettings:
     settings = load_app_settings_for_db(db)
     general = settings.general
-    allow_access_keys = bool(general.allow_login_access_keys)
-    allow_list = bool(general.allow_login_endpoint_list)
-    allow_custom = bool(general.allow_login_custom_endpoint)
+    allow_access_keys = general.allow_login_access_keys
+    allow_list = general.allow_login_endpoint_list
+    allow_custom = general.allow_login_custom_endpoint
     endpoints: list[StorageEndpointPublic] = []
     default_endpoint_url = None
     if allow_list:
