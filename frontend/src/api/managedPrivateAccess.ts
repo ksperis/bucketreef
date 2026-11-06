@@ -6,11 +6,7 @@ import client from "./client";
 import type { S3ExecutionContextSelector } from "./accountParams";
 import { withS3ContextParam } from "./accountParams";
 import type { S3Connection } from "./connections";
-
-export type ManagedInlinePolicy = {
-  name: string;
-  document: Record<string, unknown>;
-};
+import type { InlinePolicy } from "./managerIamPolicies";
 
 type ManagedPrivateAccessBasePayload = {
   connection_name: string;
@@ -21,7 +17,7 @@ type ManagedPrivateAccessBasePayload = {
 type ManagedIAMPrivateAccessPayload = ManagedPrivateAccessBasePayload & {
   groups: string[];
   managed_policies: string[];
-  inline_policies: ManagedInlinePolicy[];
+  inline_policies: InlinePolicy[];
 };
 
 type ManagedPrivateAccessResult = {

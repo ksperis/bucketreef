@@ -7,11 +7,10 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import { listIamGroupsPage } from "../../api/managerIamGroups";
-import { listIamPoliciesPage } from "../../api/managerIamPolicies";
+import { listIamPoliciesPage, type InlinePolicy } from "../../api/managerIamPolicies";
 import {
   createManagedIAMPrivateAccess,
   createManagedRGWUserPrivateAccess,
-  type ManagedInlinePolicy,
 } from "../../api/managedPrivateAccess";
 import { SettingsButton, SettingsDialog, useSettingsCloseGuard } from "../../components/settings/SettingsControls";
 import SettingsJsonEditor from "../../components/settings/SettingsJsonEditor";
@@ -64,7 +63,7 @@ export default function CreateManagedPrivateAccessModal({
   const [selectedPolicies, setSelectedPolicies] = useState<string[]>(
     variant === "iam" ? [AMAZON_S3_FULL_ACCESS_POLICY_ARN] : []
   );
-  const [inlinePolicies, setInlinePolicies] = useState<ManagedInlinePolicy[]>([]);
+  const [inlinePolicies, setInlinePolicies] = useState<InlinePolicy[]>([]);
   const [inlineName, setInlineName] = useState("");
   const [inlineDocument, setInlineDocument] = useState(INLINE_POLICY_TEMPLATE);
   const [busy, setBusy] = useState(false);
