@@ -21,7 +21,10 @@ from app.models.s3_account import (
     AccountUserLink,
     PaginatedS3AccountsResponse,
     S3Account as S3AccountSchema,
+    S3AccountListingRequest,
+    S3AccountSortBy,
 )
+from app.models.admin_managed_listing import AdminManagedSortDir
 from app.services.mappers.s3_account import s3_account_from_db
 from app.services.rgw_account_root_service import RgwAccountRootService
 from app.services.rgw_account_topics_resolver import RgwAccountTopicsResolver
@@ -190,8 +193,11 @@ class S3AccountQueryService:
         )
 
     @staticmethod
-    def _account_order_columns(sort_by: str, sort_dir: str) -> list[Any]:
-        descending = sort_dir.lower() == "desc"
+    def _account_order_columns(
+        sort_by: S3AccountSortBy,
+        sort_dir: AdminManagedSortDir,
+    ) -> list[Any]:
+        descending = sort_dir == "desc"
         if sort_by == "rgw_account_id":
             account_id_order = func.lower(S3Account.rgw_account_id)
             return [
@@ -202,37 +208,33 @@ class S3AccountQueryService:
 
     def list_accounts_page(
         self,
-        *,
-        page: int,
-        page_size: int,
-        search: Optional[str],
-        sort_by: str,
-        sort_dir: str,
-        include_quota: bool,
-        include_rgw_details: bool,
-        search_exact: bool = False,
+        request: S3AccountListingRequest,
     ) -> PaginatedS3AccountsResponse:
-        search_value = search.strip() if isinstance(search, str) else ""
-        query = self._apply_account_search(select(S3Account), search_value, exact=search_exact)
+        search_value = request.search.strip() if isinstance(request.search, str) else ""
+        query = self._apply_account_search(
+            select(S3Account),
+            search_value,
+            exact=request.search_exact,
+        )
         db_accounts, total = paginate_scalars(
             self.db,
             query,
-            order_by=self._account_order_columns(sort_by, sort_dir),
-            page=page,
-            page_size=page_size,
+            order_by=self._account_order_columns(request.sort_by, request.sort_dir),
+            page=request.page,
+            page_size=request.page_size,
         )
         accounts = self._serialize_accounts(
             db_accounts,
             include_usage_stats=False,
-            include_quota=include_quota,
-            include_rgw_details=include_rgw_details,
+            include_quota=request.include_quota,
+            include_rgw_details=request.include_rgw_details,
         )
         return PaginatedS3AccountsResponse(
             items=accounts,
             total=total,
-            page=page,
-            page_size=page_size,
-            has_next=page * page_size < total,
+            page=request.page,
+            page_size=request.page_size,
+            has_next=request.page * request.page_size < total,
         )
 
     def get_account_detail(self, account_id: int, include_usage: bool = False) -> S3AccountSchema:

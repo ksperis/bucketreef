@@ -153,12 +153,14 @@ export type CreatedS3UserAccessKey = AccessKeyMetadata & {
 
 type PaginatedS3UsersResponse = PaginatedResponse<S3User>;
 
+type S3UserSortBy = "name" | "uid" | "email" | "created_at";
+
 type ListS3UsersParams = {
   page?: number;
   page_size?: number;
   search?: string;
   search_exact?: boolean;
-  sort_by?: string;
+  sort_by?: S3UserSortBy;
   sort_dir?: "asc" | "desc";
   include_quota?: boolean;
 };

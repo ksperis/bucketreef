@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from app.services.portal.exceptions import PortalForbiddenError
 import logging
-from typing import Optional
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
@@ -16,6 +16,7 @@ from app.models.s3_account import (
     S3Account,
     S3AccountCreate,
     S3AccountImport,
+    S3AccountListingRequest,
     S3AccountUpdate,
 )
 from app.routers.dependencies import (
@@ -47,27 +48,11 @@ def get_admin_account_portal_settings_service(
 
 @router.get("", response_model=PaginatedS3AccountsResponse)
 def list_accounts(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(25, ge=1, le=200),
-    search: Optional[str] = Query(None),
-    search_exact: bool = Query(False),
-    sort_by: str = Query("name"),
-    sort_dir: str = Query("asc"),
-    include_quota: bool = Query(False, description="Include RGW quota information (slower)."),
-    include_rgw_details: bool = Query(False, description="Include RGW user and topic details (slower)."),
+    query: Annotated[S3AccountListingRequest, Query()],
     service: S3AccountsService = Depends(get_admin_accounts_service),
     _: User = Depends(get_current_ui_admin),
 ) -> PaginatedS3AccountsResponse:
-    return service.list_accounts_page(
-        page=page,
-        page_size=page_size,
-        search=search,
-        search_exact=search_exact,
-        sort_by=sort_by,
-        sort_dir=sort_dir,
-        include_quota=include_quota,
-        include_rgw_details=include_rgw_details,
-    )
+    return service.list_accounts_page(query)
 
 
 @router.get("/{account_id}", response_model=S3Account)

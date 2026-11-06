@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+import pytest
 import sqlalchemy as sa
 
 from app.db import S3User, StorageEndpoint, UiGroup, UiGroupS3User, User, UserS3User
@@ -117,6 +118,21 @@ def test_admin_s3_users_non_name_sort_still_applies(client, db_session):
     names = [item["name"] for item in payload["items"]]
     assert names[0] == "bravo"
     assert ids.index(same_time_2.id) < ids.index(same_time_1.id)
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"page": 0},
+        {"page_size": 201},
+        {"sort_by": "rgw_account_id"},
+        {"sort_dir": "sideways"},
+    ],
+)
+def test_admin_s3_users_reject_invalid_listing_query(client, params):
+    response = client.get("/api/admin/s3-users", params=params)
+
+    assert response.status_code == 422, response.text
 
 
 def test_admin_s3_users_list_is_sorted_case_insensitive(client, db_session):

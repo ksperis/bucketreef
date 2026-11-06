@@ -17,10 +17,14 @@ from app.db import (
     UserS3User as UserS3UserModel,
 )
 from app.models.s3_user import (
+    PaginatedS3UsersResponse,
     S3User as S3UserSchema,
     S3UserGroupLink,
+    S3UserListingRequest,
+    S3UserSortBy,
     S3UserUserLink,
 )
+from app.models.admin_managed_listing import AdminManagedSortDir
 from app.services.mappers.s3_user import s3_user_from_db
 from app.services.rgw_admin import RGWAdminClient
 from app.services.s3_user_associations_service import S3UserAssociationsService
@@ -131,52 +135,59 @@ class S3UserQueryService:
         )
 
     @staticmethod
-    def _user_order_columns(sort_field: str, sort_direction: str) -> list[Any]:
+    def _user_order_columns(
+        sort_by: S3UserSortBy,
+        sort_dir: AdminManagedSortDir,
+    ) -> list[Any]:
         sort_map = {
             "name": S3UserModel.name,
             "uid": S3UserModel.rgw_user_uid,
             "email": S3UserModel.email,
             "created_at": S3UserModel.created_at,
         }
-        requested_sort = sort_field if sort_field in sort_map else "name"
-        descending = sort_direction.lower() == "desc"
-        if requested_sort == "name":
+        descending = sort_dir == "desc"
+        if sort_by == "name":
             return list(name_order_by(S3UserModel, descending=descending))
-        sort_column = sort_map[requested_sort]
+        sort_column = sort_map[sort_by]
         direction = sort_column.desc if descending else sort_column.asc
         id_direction = S3UserModel.id.desc if descending else S3UserModel.id.asc
         return [direction(), id_direction()]
 
-    def paginate_users(
+    def list_users_page(
         self,
-        page: int,
-        page_size: int,
-        search: Optional[str] = None,
-        sort_field: str = "name",
-        sort_direction: str = "asc",
-        include_quota: bool = False,
-        search_exact: bool = False,
-    ) -> tuple[list[S3UserSchema], int]:
-        search_value = search.strip() if isinstance(search, str) else ""
-        query = self._apply_user_search(select(S3UserModel), search_value, exact=search_exact)
+        request: S3UserListingRequest,
+    ) -> PaginatedS3UsersResponse:
+        search_value = request.search.strip() if isinstance(request.search, str) else ""
+        query = self._apply_user_search(
+            select(S3UserModel),
+            search_value,
+            exact=request.search_exact,
+        )
         rows, total = paginate_scalars(
             self.db,
             query,
-            order_by=self._user_order_columns(sort_field, sort_direction),
-            page=page,
-            page_size=page_size,
+            order_by=self._user_order_columns(request.sort_by, request.sort_dir),
+            page=request.page,
+            page_size=request.page_size,
         )
         s3_user_ids = [row.id for row in rows]
         user_links_map, group_links_map = self.associations.load_links(s3_user_ids)
-        return [
+        items = [
             self.serialize_user(
                 row,
                 user_links_map,
                 group_links_map,
-                include_quota=include_quota,
+                include_quota=request.include_quota,
             )
             for row in rows
-        ], total
+        ]
+        return PaginatedS3UsersResponse(
+            items=items,
+            total=total,
+            page=request.page,
+            page_size=request.page_size,
+            has_next=request.page * request.page_size < total,
+        )
 
     def get_user(
         self,

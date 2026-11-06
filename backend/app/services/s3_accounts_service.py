@@ -10,6 +10,7 @@ from app.models.s3_account import (
     S3Account as S3AccountSchema,
     S3AccountCreate,
     S3AccountImport,
+    S3AccountListingRequest,
     S3AccountUpdate,
 )
 from app.services.mappers.s3_account import s3_account_from_db
@@ -117,26 +118,9 @@ class S3AccountsService:
 
     def list_accounts_page(
         self,
-        *,
-        page: int,
-        page_size: int,
-        search: Optional[str],
-        sort_by: str,
-        sort_dir: str,
-        include_quota: bool,
-        include_rgw_details: bool,
-        search_exact: bool = False,
+        request: S3AccountListingRequest,
     ) -> PaginatedS3AccountsResponse:
-        return self.query.list_accounts_page(
-            page=page,
-            page_size=page_size,
-            search=search,
-            sort_by=sort_by,
-            sort_dir=sort_dir,
-            include_quota=include_quota,
-            include_rgw_details=include_rgw_details,
-            search_exact=search_exact,
-        )
+        return self.query.list_accounts_page(request)
 
     def get_account_detail(self, account_id: int, include_usage: bool = False) -> S3AccountSchema:
         return self.query.get_account_detail(account_id, include_usage=include_usage)

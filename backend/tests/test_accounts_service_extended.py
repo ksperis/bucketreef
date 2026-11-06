@@ -9,7 +9,11 @@ from tests.feature_policy_fixtures import enable_manager_features
 from app.db import S3Account, S3AccountDeletion, StorageEndpoint, User, UserS3Account
 from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, StorageProvider, UserRole
 from app.models.iam import IAMGroup, IAMRole, IAMUser
-from app.models.s3_account import AccountUserLinkInput, S3AccountUpdate
+from app.models.s3_account import (
+    AccountUserLinkInput,
+    S3AccountListingRequest,
+    S3AccountUpdate,
+)
 from app.services import s3_account_deletion_service as s3_account_deletion_service_module
 from app.services.managed_resource_naming import (
     PORTAL_MANAGER_GROUP_NAME,
@@ -878,13 +882,14 @@ def test_list_accounts_and_paginated_are_sorted_case_insensitive(db_session):
         include_rgw_details=False,
     )
     paginated = service.list_accounts_page(
-        page=1,
-        page_size=10,
-        search=None,
-        sort_by="name",
-        sort_dir="asc",
-        include_quota=False,
-        include_rgw_details=False,
+        S3AccountListingRequest(
+            page=1,
+            page_size=10,
+            sort_by="name",
+            sort_dir="asc",
+            include_quota=False,
+            include_rgw_details=False,
+        )
     )
 
     assert [entry.name for entry in listed] == ["alpha", "Beta", "Same", "same", "Zulu"]
