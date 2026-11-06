@@ -10,7 +10,6 @@ from sqlalchemy.orm import Session
 from app.core.db_transactions import commit_or_rollback
 from app.core.security import create_ldap_import_selection_token, decode_typed_token
 from app.db import AuthSession, ExternalIdentity, User
-from app.core.domain_enums import is_admin_ui_role
 from app.models.admin_ldap_import import (
     LDAPImportCreatePayload,
     LDAPImportMatchedUser,
@@ -20,8 +19,8 @@ from app.models.admin_ldap_import import (
 )
 from app.services.auth_session_service import AuthSessionService
 from app.services.ldap_service import LDAPAuthService, LDAPIdentity
-from app.services.manager_tool_access import MANAGER_TOOL_ROLES, manager_tool_column_values
 from app.services.user_associations_service import UserAssociationsService
+from app.services.user_provisioning_service import user_create_access_column_values
 from app.services.users_service import UsersService
 from app.utils.time import utcnow
 
@@ -160,27 +159,13 @@ class AdminLdapUserImportService:
         if self.users.get_by_email_case_insensitive(email):
             raise ValueError("A UI user with this email already exists; link the LDAP identity instead")
         role = payload.role
-        manager_supported = role in MANAGER_TOOL_ROLES
-        manager_access = payload.manager_tool_access
         user = User(
             email=email,
             full_name=(payload.full_name or "").strip() or None,
             hashed_password=None,
             is_active=True,
             role=role,
-            can_access_ceph_admin=bool(payload.can_access_ceph_admin) if is_admin_ui_role(role) else False,
-            can_access_storage_ops=bool(payload.can_access_storage_ops) if manager_supported else False,
-            can_create_manual_private_connections=(
-                bool(payload.can_create_manual_private_connections) if manager_supported else False
-            ),
-            can_provision_managed_private_connections=(
-                bool(payload.can_provision_managed_private_connections) if manager_supported else False
-            ),
-            allow_multisite_endpoint_switching=(
-                bool(payload.allow_multisite_endpoint_switching) if manager_supported else False
-            ),
-            browser_advanced_features_enabled=bool(payload.browser_advanced_features_enabled),
-            **manager_tool_column_values(manager_access, enabled=manager_supported),
+            **user_create_access_column_values(payload),
         )
         self.db.add(user)
         self.db.flush()

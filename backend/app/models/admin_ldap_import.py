@@ -7,7 +7,7 @@ from typing import Literal, Optional
 from pydantic import EmailStr, Field, model_validator
 
 from app.models.base import ApiModel
-from app.models.user import ManagerToolAccess, UiRole, UserCreateAssociationsPayload
+from app.models.user import UiRole, UserCreateAccessPayload
 
 
 class LDAPImportMatchedUser(ApiModel):
@@ -33,17 +33,9 @@ class LDAPImportSearchResponse(ApiModel):
     truncated: bool
 
 
-class LDAPImportCreatePayload(UserCreateAssociationsPayload):
+class LDAPImportCreatePayload(UserCreateAccessPayload):
     email: EmailStr
     full_name: Optional[str] = None
-    role: UiRole
-    can_access_ceph_admin: bool
-    can_access_storage_ops: bool
-    can_create_manual_private_connections: bool
-    can_provision_managed_private_connections: bool
-    allow_multisite_endpoint_switching: bool
-    manager_tool_access: ManagerToolAccess
-    browser_advanced_features_enabled: bool
 
 
 class LDAPImportRequest(ApiModel):

@@ -97,6 +97,17 @@ class ManagerToolAccess(ApiModel):
     bucket_purge: bool = False
 
 
+class UserCreateAccessPayload(UserCreateAssociationsPayload):
+    role: UiRole
+    can_access_ceph_admin: bool
+    can_access_storage_ops: bool
+    can_create_manual_private_connections: bool
+    can_provision_managed_private_connections: bool
+    allow_multisite_endpoint_switching: bool
+    manager_tool_access: ManagerToolAccess
+    browser_advanced_features_enabled: bool
+
+
 class UiPreferences(ApiModel):
     theme: Optional[UiThemePreference] = None
     selected_portal_account_id: Optional[str] = None
@@ -133,18 +144,10 @@ class UserAssociationDetail(ApiModel):
     avatar: Optional[UserAvatar]
 
 
-class UserCreate(UserCreateAssociationsPayload):
+class UserCreate(UserCreateAccessPayload):
     email: EmailStr
     password: str
     full_name: Optional[str] = None
-    role: UiRole
-    can_access_ceph_admin: bool
-    can_access_storage_ops: bool
-    can_create_manual_private_connections: bool
-    can_provision_managed_private_connections: bool
-    allow_multisite_endpoint_switching: bool
-    manager_tool_access: ManagerToolAccess
-    browser_advanced_features_enabled: bool
 
 
 class UserProfilePreferencesUpdate(ApiModel):
