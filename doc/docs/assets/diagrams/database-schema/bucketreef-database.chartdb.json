@@ -19749,27 +19749,6 @@
           "check": null
         },
         {
-          "id": "field:endpoint_health_latest.latency_sample_count",
-          "name": "latency_sample_count",
-          "type": {
-            "id": "integer",
-            "name": "integer"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": false,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": "0",
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
           "id": "field:endpoint_health_latest.updated_at",
           "name": "updated_at",
           "type": {
