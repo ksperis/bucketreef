@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from typing import Any, MutableMapping, Optional
 
-from fastapi import HTTPException, status
-
 from app.db import StorageEndpoint
+from app.services.ceph_admin_errors import (
+    CephAdminNotFoundError,
+    CephAdminValidationError,
+    upstream_error,
+)
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
-from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.rgw_payloads import extract_rgw_account_name
 from app.utils.storage_endpoint_features import resolve_feature_flags
 
@@ -26,19 +28,13 @@ def load_account_payload(
 ) -> dict[str, Any]:
     normalized_account_id = account_id.strip()
     if not normalized_account_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="account_id is required",
-        )
+        raise CephAdminValidationError("account_id is required")
     try:
         payload = rgw_admin.get_account(normalized_account_id, allow_not_found=True)
     except RGWAdminError as exc:
-        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+        raise upstream_error(exc) from exc
     if not payload or (isinstance(payload, dict) and payload.get("not_found")):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="RGW account not found",
-        )
+        raise CephAdminNotFoundError("RGW account not found")
     if not isinstance(payload, dict):
         return {"payload": payload}
     return payload
@@ -67,7 +63,7 @@ def resolve_optional_account_name(
                 allow_not_implemented=True,
             )
         except RGWAdminError as exc:
-            raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+            raise upstream_error(exc) from exc
         if isinstance(account_payload, dict) and not account_payload.get("not_found"):
             account_name = extract_rgw_account_name(account_payload)
 

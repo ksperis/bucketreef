@@ -37,6 +37,15 @@ from app.utils.usage_stats import summarize_bucket_usage
 
 router = APIRouter(prefix="/ceph-admin/endpoints/{endpoint_id}/accounts", tags=["ceph-admin-accounts"])
 
+
+def _load_account_detail(account_id: str, ctx: CephAdminContext) -> CephAdminRgwAccountDetail:
+    try:
+        payload = load_account_payload(account_id, ctx.rgw_admin)
+    except CephAdminServiceError as exc:
+        raise_ceph_admin_service_error(exc)
+    return build_account_detail(payload, account_id_fallback=account_id.strip())
+
+
 @router.post("", response_model=CephAdminRgwAccountCreateResponse, status_code=status.HTTP_201_CREATED)
 def create_rgw_account(
     payload: CephAdminRgwAccountCreate,
@@ -66,10 +75,7 @@ def create_rgw_account(
         raise_ceph_admin_service_error(exc)
 
     invalidate_accounts_listing_cache(ctx.endpoint.id)
-    account_detail = build_account_detail(
-        load_account_payload(account_id, ctx.rgw_admin),
-        account_id_fallback=account_id,
-    )
+    account_detail = _load_account_detail(account_id, ctx)
     record_ceph_admin_action(
         ctx,
         action="rgw_account.create",
@@ -89,10 +95,7 @@ def get_rgw_account_detail(
     account_id: str,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> CephAdminRgwAccountDetail:
-    return build_account_detail(
-        load_account_payload(account_id, ctx.rgw_admin),
-        account_id_fallback=account_id.strip(),
-    )
+    return _load_account_detail(account_id, ctx)
 
 
 @router.patch("/{account_id}/config", response_model=CephAdminRgwAccountDetail)
@@ -115,7 +118,7 @@ def update_rgw_account_config(
         raise_ceph_admin_service_error(exc)
 
     invalidate_accounts_listing_cache(ctx.endpoint.id)
-    payload = load_account_payload(normalized_account_id, ctx.rgw_admin)
+    account_detail = _load_account_detail(normalized_account_id, ctx)
     record_ceph_admin_action(
         ctx,
         action="rgw_account.update",
@@ -123,7 +126,7 @@ def update_rgw_account_config(
         entity_id=normalized_account_id,
         metadata={"fields": sorted(field_set)},
     )
-    return build_account_detail(payload, account_id_fallback=normalized_account_id)
+    return account_detail
 
 
 @router.get("/{account_id}/metrics", response_model=CephAdminEntityMetrics)
@@ -167,4 +170,7 @@ def get_rgw_account(
     account_id: str,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> dict[str, Any]:
-    return load_account_payload(account_id, ctx.rgw_admin)
+    try:
+        return load_account_payload(account_id, ctx.rgw_admin)
+    except CephAdminServiceError as exc:
+        raise_ceph_admin_service_error(exc)
