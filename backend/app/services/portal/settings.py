@@ -31,8 +31,6 @@ class PortalSettingsMixin:
         raw = account.portal_settings_override
         if raw is None:
             return PortalSettingsOverride()
-        if not isinstance(raw, dict):
-            raise ValueError("Persisted Portal settings override must be a JSON object")
         return PortalSettingsOverride.model_validate(raw, strict=True)
 
     def _persist_portal_settings_override(
