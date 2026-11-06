@@ -2,7 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-import secrets
 from dataclasses import dataclass
 
 from sqlalchemy import select
@@ -19,6 +18,10 @@ from app.services.rgw_admin import RGWAdminClient
 from app.services.rgw_user_key_parser import RgwUserKeyParser
 from app.services.s3_account_repository import S3AccountRepository
 from app.services.s3_account_rgw_context_service import S3AccountRgwContextService
+from app.services.s3_import_state import (
+    checkpoint_s3_import_intent,
+    new_s3_import_credentials,
+)
 from app.utils.rgw_payloads import extract_rgw_account_name
 from app.utils.time import utcnow
 
@@ -181,10 +184,6 @@ class S3AccountImportService:
             )
         )
 
-    @staticmethod
-    def _new_credentials() -> tuple[str, str]:
-        return secrets.token_hex(10).upper(), secrets.token_urlsafe(32)
-
     def _claim_intent(self, item: _PreparedAccountImport) -> S3AccountImportIntent:
         existing = self._pending_intent(item.source.rgw_account_id)
         if existing is not None:
@@ -204,7 +203,7 @@ class S3AccountImportService:
             credential_action = "reuse"
         else:
             credential_action = "create_key" if root is not None else "create_root"
-            access_key, secret_key = self._new_credentials()
+            access_key, secret_key = new_s3_import_credentials()
 
         intent = S3AccountImportIntent(
             storage_endpoint_id=item.endpoint.id,
@@ -250,12 +249,6 @@ class S3AccountImportService:
                 "S3 account import is already pending with different request metadata"
             )
 
-    def _checkpoint(self, intent: S3AccountImportIntent, phase: str) -> None:
-        intent.phase = phase
-        intent.updated_at = utcnow()
-        commit_or_rollback(self.db)
-        self.db.refresh(intent)
-
     def _load_root(self, item: _PreparedAccountImport) -> dict | None:
         return self.account_roots.load_existing_root_user(
             item.admin,
@@ -295,7 +288,7 @@ class S3AccountImportService:
             if root is None or not self._intent_credentials_in_root(item, intent, root):
                 raise ValueError("RGW account root credentials changed during import")
             if intent.phase != "remote_created":
-                self._checkpoint(intent, "remote_created")
+                checkpoint_s3_import_intent(self.db, intent, "remote_created")
             return
 
         if intent.phase == "prepared":
@@ -304,12 +297,12 @@ class S3AccountImportService:
                 and intent.access_key_id
                 in RgwUserKeyParser.access_key_ids(item.admin.extract_keys(root))
             ):
-                intent.access_key_id, intent.secret_access_key = self._new_credentials()
+                intent.access_key_id, intent.secret_access_key = new_s3_import_credentials()
                 intent.updated_at = utcnow()
                 commit_or_rollback(self.db)
                 self.db.refresh(intent)
                 root = self._load_root(item)
-            self._checkpoint(intent, "creating")
+            checkpoint_s3_import_intent(self.db, intent, "creating")
 
         if intent.phase not in {"creating", "remote_created"}:
             raise ValueError(f"Unsupported S3 account import phase: {intent.phase}")
@@ -346,7 +339,7 @@ class S3AccountImportService:
                 )
 
         if intent.phase != "remote_created":
-            self._checkpoint(intent, "remote_created")
+            checkpoint_s3_import_intent(self.db, intent, "remote_created")
 
     def _validate_names(self, prepared: list[_PreparedAccountImport]) -> None:
         seen_scopes: set[tuple[int, str, str]] = set()
