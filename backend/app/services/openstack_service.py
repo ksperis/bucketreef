@@ -522,7 +522,6 @@ class OpenStackService:
                 endpoint_name=target["service_name"] or target["region_id"],
                 endpoint_interface=target["interface"],
                 service_type=target["service_type"],
-                service_name=target["service_name"],
             )
             self.db.add(context)
             self.db.flush()
@@ -533,7 +532,6 @@ class OpenStackService:
             context.endpoint_name = target["service_name"] or target["region_id"]
             context.endpoint_interface = target["interface"]
             context.service_type = target["service_type"]
-            context.service_name = target["service_name"]
         self.db.execute(delete(OpenStackProjectCredential).where(
             OpenStackProjectCredential.session_id == session.id,
             OpenStackProjectCredential.context_id == context.id,

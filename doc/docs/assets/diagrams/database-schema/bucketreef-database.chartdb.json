@@ -536,7 +536,7 @@
       "name": "endpoint_service_identities",
       "schema": null,
       "x": 2100,
-      "y": 3062,
+      "y": 3032,
       "fields": [
         {
           "id": "field:endpoint_service_identities.id",
@@ -885,7 +885,7 @@
       "name": "key_rotation_intents",
       "schema": null,
       "x": 2520,
-      "y": 3062,
+      "y": 3032,
       "fields": [
         {
           "id": "field:key_rotation_intents.id",
@@ -2271,7 +2271,7 @@
       "name": "s3_account_import_intents",
       "schema": null,
       "x": 3360,
-      "y": 3062,
+      "y": 3032,
       "fields": [
         {
           "id": "field:s3_account_import_intents.id",
@@ -2630,7 +2630,7 @@
       "name": "s3_account_deletions",
       "schema": null,
       "x": 2940,
-      "y": 3062,
+      "y": 3032,
       "fields": [
         {
           "id": "field:s3_account_deletions.id",
@@ -2915,7 +2915,7 @@
       "name": "user_s3_accounts",
       "schema": null,
       "x": 2520,
-      "y": 2686,
+      "y": 2656,
       "fields": [
         {
           "id": "field:user_s3_accounts.id",
@@ -9558,27 +9558,6 @@
           "collation": null,
           "comments": null,
           "check": null
-        },
-        {
-          "id": "field:openstack_project_contexts.service_name",
-          "name": "service_name",
-          "type": {
-            "id": "varchar",
-            "name": "varchar"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": true,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
         }
       ],
       "indexes": [
@@ -10382,7 +10361,7 @@
       "name": "s3_user_import_intents",
       "schema": null,
       "x": 2520,
-      "y": 3678,
+      "y": 3648,
       "fields": [
         {
           "id": "field:s3_user_import_intents.id",
@@ -10675,7 +10654,7 @@
       "name": "s3_user_deletions",
       "schema": null,
       "x": 2100,
-      "y": 3678,
+      "y": 3648,
       "fields": [
         {
           "id": "field:s3_user_deletions.id",
@@ -10935,7 +10914,7 @@
       "name": "user_s3_users",
       "schema": null,
       "x": 3360,
-      "y": 2686,
+      "y": 2656,
       "fields": [
         {
           "id": "field:user_s3_users.id",
@@ -11768,7 +11747,7 @@
       "name": "user_s3_connections",
       "schema": null,
       "x": 2940,
-      "y": 2686,
+      "y": 2656,
       "fields": [
         {
           "id": "field:user_s3_connections.id",
@@ -13368,7 +13347,7 @@
       "name": "ui_group_s3_users",
       "schema": null,
       "x": 2100,
-      "y": 2686,
+      "y": 2656,
       "fields": [
         {
           "id": "field:ui_group_s3_users.id",
@@ -28786,7 +28765,7 @@
       "x": 2040,
       "y": 0,
       "width": 1740,
-      "height": 4144,
+      "height": 4114,
       "color": "#0F766E",
       "order": 1
     },

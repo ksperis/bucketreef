@@ -475,6 +475,17 @@ Migration `0242_remove_latest_sample_count` also removes the write-only
 health status segments and rollups, where they are used to maintain and weight
 latency aggregates.
 
+## 2026-11 OpenStack context service-name cleanup
+
+Migration `0243_remove_context_service_name` removes the unused
+`openstack_project_contexts.service_name` column. OpenStack target discovery
+continues to expose the current Keystone catalog service name directly, while
+durable project contexts retain the endpoint name, service type, region,
+interface, and endpoint URL required for execution and revalidation.
+
+Downgrade recreates the nullable column without reconstructing its historical
+value because the persisted service name had no runtime consumer.
+
 ## 2026-10 structured bucket migration workflow state
 
 Migration `0213_structure_bucket_migration_json` replaces the bucket migration
