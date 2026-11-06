@@ -13,8 +13,13 @@ from sqlalchemy.orm import Session
 from app.core.db_transactions import commit_or_rollback
 from app.core.sensitive_data import sanitize_audit_metadata
 from app.db import AuditLog, User
+from app.models.audit import (
+    AuditLogEntry,
+    AuditLogListingRequest,
+    AuditLogListResponse,
+    AuditStatus,
+)
 from app.services.access_context_contracts import ManagerActor
-from app.models.audit import AuditStatus
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.audit_policy import should_persist_audit_action
 from app.services.webhook_service import WebhookEventPublisher
@@ -282,6 +287,20 @@ class AuditService:
         return self.db.scalars(
             statement.order_by(AuditLog.id.desc()).limit(sliced_limit)
         ).all()
+
+    def list_admin_logs_page(self, request: AuditLogListingRequest) -> AuditLogListResponse:
+        logs = self.list_logs(
+            limit=request.limit,
+            scope=request.scope,
+            role=request.role,
+            context_kind=request.context_kind,
+            context_id=request.context_id,
+            cursor=request.cursor,
+            search=request.search,
+        )
+        entries = [AuditLogEntry(**self.serialize_log(item)) for item in logs]
+        next_cursor = entries[-1].id if entries and len(entries) == request.limit else None
+        return AuditLogListResponse(logs=entries, next_cursor=next_cursor)
 
     def serialize_log(self, log: AuditLog) -> dict[str, Any]:
         return {

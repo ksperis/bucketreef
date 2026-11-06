@@ -5,9 +5,10 @@ import json
 import pytest
 from sqlalchemy import func, select
 
+from app.main import app
 from app.db import AuditLog, S3Account, User
 from app.core.domain_enums import UserRole
-from app.models.audit import AuditLogEntry, AuditLogListResponse
+from app.models.audit import AuditLogEntry, AuditLogListingRequest, AuditLogListResponse
 from app.models.session import SessionCapabilities
 from app.services.access_context_contracts import ManagerSessionPrincipal
 from app.services.audit_policy import (
@@ -229,6 +230,53 @@ def test_audit_response_models_require_complete_canonical_payloads() -> None:
         "metadata",
     }
     assert set(AuditLogListResponse.model_json_schema()["required"]) == {"logs", "next_cursor"}
+
+
+def test_admin_audit_listing_request_preserves_flat_query_contract() -> None:
+    parameters = app.openapi()["paths"]["/api/admin/audit/logs"]["get"]["parameters"]
+    by_name = {parameter["name"]: parameter for parameter in parameters}
+
+    assert set(by_name) == {
+        "limit",
+        "cursor",
+        "role",
+        "scope",
+        "context_kind",
+        "context_id",
+        "search",
+    }
+    assert by_name["limit"]["schema"] == {
+        "type": "integer",
+        "maximum": 500,
+        "minimum": 1,
+        "default": 200,
+        "title": "Limit",
+    }
+    assert by_name["cursor"]["description"] == "Use the id from the last entry of the previous page"
+    assert by_name["role"]["description"] == "Filter by user role"
+    assert by_name["scope"]["description"] == "Filter by admin/manager scope"
+    assert by_name["context_kind"]["description"] == "Filter by execution-context kind"
+    assert by_name["context_id"]["description"] == "Filter by execution-context id"
+    assert by_name["search"]["description"] == "Search by actor, action, or target"
+
+
+def test_list_admin_logs_page_builds_cursor_response(db_session) -> None:
+    user = _create_user(db_session)
+    service = AuditService(db_session)
+    service.record_action(user=user, scope="admin", action="older_event")
+    service.record_action(user=user, scope="admin", action="newer_event")
+
+    first_page = service.list_admin_logs_page(AuditLogListingRequest(limit=1, scope="admin"))
+
+    assert [entry.action for entry in first_page.logs] == ["newer_event"]
+    assert first_page.next_cursor == first_page.logs[-1].id
+
+    second_page = service.list_admin_logs_page(
+        AuditLogListingRequest(limit=2, scope="admin", cursor=first_page.next_cursor)
+    )
+
+    assert [entry.action for entry in second_page.logs] == ["older_event"]
+    assert second_page.next_cursor is None
 
 
 def test_record_action_sanitizes_sensitive_metadata_before_persisting(db_session) -> None:

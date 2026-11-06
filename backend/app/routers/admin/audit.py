@@ -2,12 +2,12 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from typing import Optional
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
 
 from app.db import User
-from app.models.audit import AuditLogEntry, AuditLogListResponse
+from app.models.audit import AuditLogListingRequest, AuditLogListResponse
 from app.routers.dependencies import get_audit_service, get_current_ui_admin
 from app.services.audit_service import AuditService
 
@@ -16,26 +16,8 @@ router = APIRouter(prefix="/admin/audit", tags=["admin-audit"])
 
 @router.get("/logs", response_model=AuditLogListResponse)
 def list_audit_logs(
-    limit: int = Query(200, ge=1, le=500),
-    cursor: Optional[int] = Query(None, description="Use the id from the last entry of the previous page"),
-    role: Optional[str] = Query(None, description="Filter by user role"),
-    scope: Optional[str] = Query(None, description="Filter by admin/manager scope"),
-    context_kind: Optional[str] = Query(None, description="Filter by execution-context kind"),
-    context_id: Optional[str] = Query(None, description="Filter by execution-context id"),
-    search: Optional[str] = Query(None, description="Search by actor, action, or target"),
+    query: Annotated[AuditLogListingRequest, Query()],
     _: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> AuditLogListResponse:
-    effective_limit = min(max(limit, 1), 500)
-    logs = audit_service.list_logs(
-        limit=effective_limit,
-        scope=scope,
-        role=role,
-        context_kind=context_kind,
-        context_id=context_id,
-        cursor=cursor,
-        search=search,
-    )
-    entries = [AuditLogEntry(**audit_service.serialize_log(item)) for item in logs]
-    next_cursor = entries[-1].id if entries and len(entries) == effective_limit else None
-    return AuditLogListResponse(logs=entries, next_cursor=next_cursor)
+    return audit_service.list_admin_logs_page(query)
