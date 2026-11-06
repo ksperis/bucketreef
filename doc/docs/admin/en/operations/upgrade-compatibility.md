@@ -1,5 +1,20 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 canonical static application settings
+
+Migration `0258_canonical_static_app_settings` materializes every static default
+in the canonical `app_settings` row while preserving explicit persisted values.
+The runtime now requires those fields instead of reconstructing them through
+Pydantic defaults on each database read.
+
+Four bootstrap values remain environment-derived and are intentionally outside
+this migration: `portal.bucket_defaults.cors_allowed_origins` plus
+`manager.bucket_migration_parallelism_default`,
+`manager.bucket_migration_parallelism_max`, and
+`manager.bucket_migration_max_active_per_endpoint`. Missing values for those
+four fields still resolve from deployment configuration. Other `app_settings`
+keys are not modified.
+
 ## 2026-11 obsolete global onboarding setting removal
 
 Migration `0257_remove_obsolete_onboarding_setting` removes the retired

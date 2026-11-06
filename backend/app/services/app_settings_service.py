@@ -26,13 +26,12 @@ _GENERAL_FEATURE_FIELDS = (
     "cost_enabled",
     "endpoint_status_enabled",
 )
-_PERSISTED_SECURITY_FIELDS = (
-    "require_passkey_for_admins",
-    "require_passkey_for_users",
-    "allow_user_profile_name_edit",
-    "allow_user_external_identity_link",
-    "allow_user_external_identity_unlink",
-)
+_PERSISTED_ENV_DEFAULT_PATHS = {
+    ("portal", "bucket_defaults", "cors_allowed_origins"),
+    ("manager", "bucket_migration_parallelism_default"),
+    ("manager", "bucket_migration_parallelism_max"),
+    ("manager", "bucket_migration_max_active_per_endpoint"),
+}
 
 
 def _settings_path() -> Path | None:
@@ -49,6 +48,31 @@ def _load_persisted_settings_from_disk(settings_path: Path | None) -> AppSetting
     return AppSettings.model_validate(data)
 
 
+def _missing_canonical_paths(
+    payload: dict,
+    canonical: dict,
+    *,
+    prefix: tuple[str, ...] = (),
+) -> list[str]:
+    missing: list[str] = []
+    for key, canonical_value in canonical.items():
+        path = (*prefix, key)
+        if path in _PERSISTED_ENV_DEFAULT_PATHS:
+            continue
+        if key not in payload:
+            missing.append(".".join(path))
+            continue
+        if isinstance(canonical_value, dict) and isinstance(payload[key], dict):
+            missing.extend(
+                _missing_canonical_paths(
+                    payload[key],
+                    canonical_value,
+                    prefix=path,
+                )
+            )
+    return missing
+
+
 def _open_settings_session():
     from app.core.database import SessionLocal
 
@@ -59,13 +83,13 @@ def _parse_settings_payload(payload: object) -> AppSettings:
     settings = AppSettings.model_validate(payload)
     if not isinstance(payload, dict):
         return settings
-    general = payload.get("general")
-    if not isinstance(general, dict):
-        raise ValueError("Persisted application settings must contain general settings")
-    missing = [field for field in _PERSISTED_SECURITY_FIELDS if field not in general]
+    missing = _missing_canonical_paths(
+        payload,
+        settings.model_dump(mode="json"),
+    )
     if missing:
         raise ValueError(
-            "Persisted application settings are missing canonical security fields: "
+            "Persisted application settings are missing canonical fields: "
             + ", ".join(missing)
         )
     return settings

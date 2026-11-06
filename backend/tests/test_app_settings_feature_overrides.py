@@ -472,6 +472,49 @@ def test_persisted_app_settings_require_canonical_security_policy():
         app_settings_service._parse_settings_payload(payload)
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        ("general", "rgw_account_id_prefix"),
+        ("general", "project_collection_policies", "bucket_usage_stats"),
+        ("portal", "max_portal_user_access_keys"),
+        ("portal", "feature_policies", "storage_space_version_cleanup"),
+        ("manager", "feature_policies", "rgw_multisite_endpoint_switching"),
+        ("quota_notifications", "smtp_port"),
+        ("browser", "direct_download_parallelism"),
+        ("branding", "primary_color"),
+    ],
+)
+def test_persisted_app_settings_require_static_canonical_fields(path):
+    payload = AppSettings().model_dump(mode="json")
+    current = payload
+    for segment in path[:-1]:
+        current = current[segment]
+    del current[path[-1]]
+
+    with pytest.raises(ValueError, match="\\.".join(path)):
+        app_settings_service._parse_settings_payload(payload)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        ("portal", "bucket_defaults", "cors_allowed_origins"),
+        ("manager", "bucket_migration_parallelism_default"),
+        ("manager", "bucket_migration_parallelism_max"),
+        ("manager", "bucket_migration_max_active_per_endpoint"),
+    ],
+)
+def test_persisted_app_settings_allow_environment_derived_defaults_to_be_absent(path):
+    payload = AppSettings().model_dump(mode="json")
+    current = payload
+    for segment in path[:-1]:
+        current = current[segment]
+    del current[path[-1]]
+
+    app_settings_service._parse_settings_payload(payload)
+
+
 @pytest.mark.parametrize("required", [True, False])
 def test_persisted_admin_passkey_policy_preserves_explicit_value(required):
     payload = AppSettings().model_dump(mode="json")
