@@ -6,7 +6,7 @@ from pydantic import ValidationError
 
 from app.main import app
 from app.models.bucket_integrity import (
-    BucketIntegrityBucketRequest,
+    BucketIntegrityRequest,
     BucketIntegrityRgwTargetRequest,
     BucketIntegrityTargetRequest,
 )
@@ -46,15 +46,15 @@ def test_bucket_operation_target_requires_both_fields(payload):
 
 
 def test_bucket_name_requests_share_name_normalization():
-    integrity_request = BucketIntegrityBucketRequest(
-        buckets=[" bucket-1 ", "bucket-1", " "]
+    integrity_request = BucketIntegrityRequest(
+        targets=[" bucket-1 ", "bucket-1", " "]
     )
     purge_request = BucketPurgeRequest(
         targets=[" bucket-1 ", "bucket-1", " "],
         confirmation="PURGE 1 BUCKETS",
     )
 
-    assert integrity_request.buckets == ["bucket-1"]
+    assert integrity_request.targets == ["bucket-1"]
     assert purge_request.targets == ["bucket-1"]
 
 
@@ -93,7 +93,7 @@ def test_rgw_target_requests_share_deduplication(request_type, extra):
 @pytest.mark.parametrize(
     ("request_type", "valid_payload", "forbidden_field", "forbidden_value"),
     [
-        (BucketIntegrityBucketRequest, {"buckets": ["bucket-1"]}, "targets", [{"context_id": "account-1", "bucket_name": "bucket-1"}]),
+        (BucketIntegrityRequest, {"targets": ["bucket-1"]}, "buckets", ["bucket-1"]),
         (BucketIntegrityTargetRequest, {"targets": [{"context_id": "account-1", "bucket_name": "bucket-1"}]}, "buckets", ["bucket-1"]),
         (BucketPurgeRequest, {"targets": ["bucket-1"], "confirmation": "PURGE 1 BUCKETS"}, "buckets", ["bucket-1"]),
         (BucketPurgeTargetRequest, {"targets": [{"context_id": "account-1", "bucket_name": "bucket-1"}], "confirmation": "PURGE 1 BUCKETS"}, "buckets", ["bucket-1"]),
@@ -115,7 +115,7 @@ def test_bucket_operation_requests_expose_only_their_surface_target_shape(
 @pytest.mark.parametrize(
     "request_type",
     [
-        BucketIntegrityBucketRequest,
+        BucketIntegrityRequest,
         BucketIntegrityTargetRequest,
         BucketPurgeRequest,
         BucketPurgeTargetRequest,
@@ -156,9 +156,10 @@ def test_purge_requests_validate_confirmation_against_selected_targets():
 def test_bucket_operation_openapi_models_are_surface_specific():
     schemas = app.openapi()["components"]["schemas"]
 
-    properties = schemas["BucketIntegrityBucketRequest"]["properties"]
-    assert "buckets" in properties
-    assert "targets" not in properties
+    properties = schemas["BucketIntegrityRequest"]["properties"]
+    assert "targets" in properties
+    assert "buckets" not in properties
+    assert properties["targets"]["items"] == {"type": "string"}
 
     properties = schemas["BucketPurgeRequest"]["properties"]
     assert "targets" in properties

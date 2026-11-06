@@ -4,7 +4,6 @@
  */
 import type { S3ExecutionContextSelector } from "./accountParams";
 import type {
-  BucketNamesPayload,
   BucketTargetsPayload,
   RgwBucketTargetsPayload,
 } from "./bucketOperation";
@@ -24,7 +23,7 @@ type BucketIntegrityOptionsPayload = {
   max_mb_per_object?: number | null;
 };
 
-export type BucketIntegrityBucketPayload = BucketIntegrityOptionsPayload & BucketNamesPayload;
+export type BucketIntegrityPayload = BucketIntegrityOptionsPayload & { targets: string[] };
 type BucketIntegrityTargetPayload = BucketIntegrityOptionsPayload & BucketTargetsPayload;
 type BucketIntegrityRgwTargetPayload = BucketIntegrityOptionsPayload & RgwBucketTargetsPayload;
 
@@ -84,7 +83,7 @@ type BucketIntegrityStreamOptions = {
 
 export function streamManagerBucketIntegrityCheck(
   contextId: S3ExecutionContextSelector,
-  payload: BucketIntegrityBucketPayload,
+  payload: BucketIntegrityPayload,
   options?: BucketIntegrityStreamOptions
 ): Promise<BucketIntegrityResult> {
   const baseUrl = resolveApiBaseUrl();

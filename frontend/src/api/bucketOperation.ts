@@ -13,10 +13,6 @@ export type RgwBucketReference = {
   tenant?: string | null;
 };
 
-export type BucketNamesPayload = {
-  buckets: string[];
-};
-
 export type BucketTargetsPayload = {
   targets: BucketOperationTarget[];
 };

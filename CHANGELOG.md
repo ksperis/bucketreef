@@ -10,6 +10,7 @@
 - Simplify Admin Portal requests to the essential search/status/type controls and move request pagination into the shared table footer.
 - Rename the external-identity link TTL and browser-binding cookie settings to provider-neutral names now that the shared flow covers both OIDC and LDAP.
 - Canonicalize bucket-purge application requests on a single `targets` field across Manager, Storage Ops, and Ceph Admin.
+- Canonicalize bucket-integrity application requests on `targets` and remove the retired frontend bucket-name payload wrapper.
 
 ### Fixed
 
@@ -22,6 +23,7 @@
 - Deploy the matching backend and frontend together because Admin Portal request listings now use the standard paginated application response instead of an unpaginated list.
 - Custom deployments using `OIDC_LINK_ATTEMPT_TTL_SECONDS` or `OIDC_BROWSER_COOKIE_NAME` must rename them to `EXTERNAL_IDENTITY_LINK_ATTEMPT_TTL_SECONDS` and `EXTERNAL_IDENTITY_BROWSER_COOKIE_NAME`. In-progress external-identity browser transactions must restart after the cutover.
 - Deploy the matching backend and frontend together because Manager bucket-purge requests now send bucket names in `targets` instead of `buckets`.
+- Deploy the matching backend and frontend together because Manager bucket-integrity requests now send bucket names in `targets` instead of `buckets`.
 
 ## 0.2.18 - 2026-10-24
 

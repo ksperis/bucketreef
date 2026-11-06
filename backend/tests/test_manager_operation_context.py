@@ -108,7 +108,7 @@ def test_manager_operations_use_resolved_context(client, monkeypatch, selected_c
         monkeypatch.setattr(module, "stream_resolved_bucket_integrity_check", fake_resolved_integrity_stream)
         app.dependency_overrides[module.require_bucket_integrity_check_enabled] = lambda: actor
         path = "/api/manager/bucket-integrity/stream"
-        payload = {"buckets": ["bucket-a"]}
+        payload = {"targets": ["bucket-a"]}
     else:
         module = purge if operation == "purge" else buckets
         if operation == "purge":
@@ -126,7 +126,7 @@ def test_manager_operations_use_resolved_context(client, monkeypatch, selected_c
         app.dependency_overrides[module.require_bucket_purge_enabled] = lambda: actor
         if operation == "purge":
             path = "/api/manager/bucket-purge/stream"
-            payload = {"buckets": ["bucket-a"], "confirmation": bucket_purge_confirmation_phrase(1)}
+            payload = {"targets": ["bucket-a"], "confirmation": bucket_purge_confirmation_phrase(1)}
         else:
             path = "/api/manager/buckets/bucket-a/delete/stream"
             payload = {"confirmation": bucket_delete_with_purge_confirmation_phrase("bucket-a")}
