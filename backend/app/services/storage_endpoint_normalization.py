@@ -25,6 +25,7 @@ from app.utils.storage_endpoint_features import (
     normalize_features,
     parse_features_mapping,
     required_service_identity_kinds,
+    validate_persisted_features,
 )
 
 _EndpointCredentialValues = tuple[
@@ -452,10 +453,9 @@ def _storage_endpoint_update_base(
         ceph_admin_allowed=endpoint.ceph_admin_allowed,
         supervision_access_key=supervision.access_key if supervision is not None else None,
         supervision_secret_key=supervision.secret_key if supervision is not None else None,
-        features=normalize_features(
+        features=validate_persisted_features(
             endpoint.provider,
             endpoint.features,
-            endpoint.region,
         ),
         latitude=endpoint.latitude,
         longitude=endpoint.longitude,

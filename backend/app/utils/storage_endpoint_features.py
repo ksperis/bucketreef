@@ -327,6 +327,69 @@ def normalize_features(
     return features
 
 
+def validate_persisted_features(
+    provider: object,
+    raw_features: object,
+) -> dict[str, dict[str, Any]]:
+    """Validate the canonical feature structure stored in the database."""
+    normalized_provider = normalize_storage_provider(provider)
+    if not isinstance(raw_features, dict):
+        raise ValueError("Persisted endpoint features must be a mapping.")
+
+    _validate_feature_names(raw_features)
+    missing_features = set(FEATURE_KEYS).difference(raw_features)
+    if missing_features:
+        labels = ", ".join(sorted(missing_features))
+        raise ValueError(f"Persisted endpoint features are missing: {labels}.")
+
+    features: dict[str, dict[str, Any]] = {}
+    for key in FEATURE_KEYS:
+        value = raw_features[key]
+        if not isinstance(value, dict):
+            raise ValueError(f"Feature '{key}' must be a mapping.")
+
+        expected_fields = _allowed_feature_fields(key)
+        missing_fields = expected_fields.difference(value)
+        if missing_fields:
+            labels = ", ".join(sorted(missing_fields))
+            raise ValueError(
+                f"Persisted feature '{key}' is missing field(s): {labels}."
+            )
+        _validate_feature_fields(key, value)
+
+        enabled = value["enabled"]
+        if not isinstance(enabled, bool):
+            raise ValueError(f"Feature '{key}.enabled' must be a boolean.")
+
+        entry = dict(value)
+        if key in _ENDPOINT_FEATURE_KEYS:
+            endpoint = value["endpoint"]
+            if endpoint is not None and not isinstance(endpoint, str):
+                raise ValueError(f"Feature '{key}.endpoint' must be a string.")
+            if _normalize_url(endpoint) != endpoint:
+                raise ValueError(
+                    f"Persisted feature '{key}.endpoint' is not canonical."
+                )
+
+        if key == "healthcheck":
+            mode = value["mode"]
+            if not isinstance(mode, str) or mode not in {"http", "s3"}:
+                raise ValueError(
+                    "Feature 'healthcheck.mode' must be 'http' or 's3'."
+                )
+            url = value["url"]
+            if url is not None and not isinstance(url, str):
+                raise ValueError("Feature 'healthcheck.url' must be a string.")
+            if _normalize_url(url) != url:
+                raise ValueError(
+                    "Persisted feature 'healthcheck.url' is not canonical."
+                )
+        features[key] = entry
+
+    _validate_provider_features(normalized_provider, features)
+    return features
+
+
 def normalize_seed_features_config(
     provider: object,
     raw: Optional[str],

@@ -46,13 +46,22 @@ from app.utils.storage_endpoint_features import (
     aws_iam_endpoint_for_region,
     aws_s3_endpoint_for_region,
     aws_sts_endpoint_for_region,
+    normalize_features,
     normalize_seed_features_config,
     resolve_feature_flags,
     resolve_iam_endpoint,
     resolve_sts_endpoint,
+    validate_persisted_features,
 )
 from app.utils.time import utcnow
 from tests.service_identity_helpers import service_identity
+
+
+def _canonical_ceph_features(raw: str = "features: {}") -> dict[str, dict[str, object]]:
+    return normalize_features(
+        StorageProvider.CEPH,
+        parse_features_config(raw),
+    )
 
 
 def _create_ceph_endpoint(db_session, name: str = "ceph-main") -> StorageEndpoint:
@@ -63,7 +72,7 @@ def _create_ceph_endpoint(db_session, name: str = "ceph-main") -> StorageEndpoin
         admin_access_key="AKIA-ADMIN",
         admin_secret_key="SECRET-ADMIN",
         service_identities=[service_identity("runtime", mode="managed")],
-        features=parse_features_config("features:\n  admin:\n    enabled: true\n"),
+        features=_canonical_ceph_features("features:\n  admin:\n    enabled: true\n"),
         is_default=True,
         is_editable=True,
     )
@@ -84,7 +93,7 @@ def _create_ceph_endpoint_with_full_credentials(db_session, name: str = "ceph-fu
             service_identity("runtime", "AKIA-RUNTIME", "SECRET-RUNTIME"),
             service_identity("supervision", "AKIA-SUPERVISION", "SECRET-SUPERVISION"),
         ],
-        features=parse_features_config("features:\n"
+        features=_canonical_ceph_features("features:\n"
             "  admin:\n"
             "    enabled: true\n"
             "  usage:\n"
@@ -127,6 +136,29 @@ def test_get_endpoint_uses_typed_not_found_error(db_session):
 
     with pytest.raises(StorageEndpointNotFoundError, match="Endpoint not found"):
         service.get_endpoint(999_999)
+
+
+def test_persisted_feature_validation_rejects_partial_mappings():
+    partial = parse_features_config("features:\n  admin:\n    enabled: true\n")
+
+    with pytest.raises(ValueError, match="Persisted endpoint features are missing"):
+        validate_persisted_features(StorageProvider.CEPH, partial)
+
+
+def test_endpoint_serialization_rejects_partial_persisted_features(db_session):
+    endpoint = StorageEndpoint(
+        name="legacy-partial",
+        endpoint_url="https://legacy-partial.example.test",
+        provider=StorageProvider.CEPH.value,
+        features=parse_features_config("features:\n  admin:\n    enabled: true\n"),
+        is_default=True,
+        is_editable=True,
+    )
+    db_session.add(endpoint)
+    db_session.commit()
+
+    with pytest.raises(ValueError, match="Persisted endpoint features are missing"):
+        StorageEndpointsService(db_session).get_endpoint(endpoint.id)
 
 
 def test_get_default_endpoint_record_returns_marked_default(db_session):
@@ -296,6 +328,7 @@ def test_list_endpoints_orders_by_name_case_insensitive(db_session):
                 name="Zulu",
                 endpoint_url="https://zulu.example.test",
                 provider=StorageProvider.CEPH.value,
+                features=_canonical_ceph_features(),
                 is_default=True,
                 is_editable=True,
             ),
@@ -303,6 +336,7 @@ def test_list_endpoints_orders_by_name_case_insensitive(db_session):
                 name="alpha",
                 endpoint_url="https://alpha.example.test",
                 provider=StorageProvider.CEPH.value,
+                features=_canonical_ceph_features(),
                 is_default=False,
                 is_editable=True,
             ),
@@ -310,6 +344,7 @@ def test_list_endpoints_orders_by_name_case_insensitive(db_session):
                 name="Beta",
                 endpoint_url="https://beta.example.test",
                 provider=StorageProvider.CEPH.value,
+                features=_canonical_ceph_features(),
                 is_default=False,
                 is_editable=True,
             ),
