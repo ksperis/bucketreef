@@ -361,7 +361,7 @@ class QuotaMonitoringService:
         snapshot: _QuotaUsageSnapshot,
         run: _QuotaMonitorRun,
     ) -> None:
-        threshold_percent = int(run.settings.quota_notifications.threshold_percent)
+        threshold_percent = run.settings.quota_notifications.threshold_percent
         transition = run.alert_states.update(
             subject=subject,
             states=run.states,
@@ -463,7 +463,7 @@ class QuotaMonitoringService:
         recipients = run.recipients.email_recipients(
             subject=subject,
             index=run.recipient_index,
-            include_subject_contact=bool(
+            include_subject_contact=(
                 run.settings.quota_notifications.include_subject_contact_email
             ),
         )

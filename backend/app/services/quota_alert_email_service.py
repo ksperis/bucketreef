@@ -28,13 +28,9 @@ class QuotaAlertEmailService:
         self,
         notification_settings: QuotaNotificationSettings,
     ) -> tuple[Optional[smtp_mailer.SMTPMailer], Optional[str]]:
-        host = (notification_settings.smtp_host or "").strip()
-        from_email = (
-            notification_settings.smtp_from_email or ""
-        ).strip()
-        username = (
-            notification_settings.smtp_username or ""
-        ).strip() or None
+        host = notification_settings.smtp_host
+        from_email = notification_settings.smtp_from_email
+        username = notification_settings.smtp_username
 
         if not host or not from_email:
             return (
@@ -52,15 +48,13 @@ class QuotaAlertEmailService:
         return (
             smtp_mailer.SMTPMailer(
                 host=host,
-                port=int(notification_settings.smtp_port),
+                port=notification_settings.smtp_port,
                 username=username,
                 password=self.smtp_password,
                 from_email=from_email,
                 from_name=notification_settings.smtp_from_name,
-                starttls=bool(notification_settings.smtp_starttls),
-                timeout_seconds=int(
-                    notification_settings.smtp_timeout_seconds
-                ),
+                starttls=notification_settings.smtp_starttls,
+                timeout_seconds=notification_settings.smtp_timeout_seconds,
             ),
             None,
         )
@@ -89,10 +83,10 @@ class QuotaAlertEmailService:
             "This is a test email for quota notifications SMTP "
             "configuration.\n\n"
             f"Threshold percent: "
-            f"{int(notification_settings.threshold_percent)}\n"
+            f"{notification_settings.threshold_percent}\n"
             f"SMTP host: "
-            f"{(notification_settings.smtp_host or '').strip() or 'n/a'}\n"
-            f"SMTP port: {int(notification_settings.smtp_port)}\n"
+            f"{notification_settings.smtp_host or 'n/a'}\n"
+            f"SMTP port: {notification_settings.smtp_port}\n"
             f"STARTTLS: "
             f"{'enabled' if notification_settings.smtp_starttls else 'disabled'}\n"
             f"Sent at (UTC): {checked_at.isoformat()}\n"

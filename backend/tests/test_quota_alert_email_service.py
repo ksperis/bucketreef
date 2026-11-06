@@ -42,6 +42,20 @@ def _settings(**overrides) -> QuotaNotificationSettings:
     return QuotaNotificationSettings(**values)
 
 
+def test_quota_notification_settings_normalize_smtp_strings():
+    settings = _settings(
+        smtp_host=" smtp.example.test ",
+        smtp_username=" smtp-user ",
+        smtp_from_email=" alerts@example.test ",
+        smtp_from_name=" Quota Alerts ",
+    )
+
+    assert settings.smtp_host == "smtp.example.test"
+    assert settings.smtp_username == "smtp-user"
+    assert settings.smtp_from_email == "alerts@example.test"
+    assert settings.smtp_from_name == "Quota Alerts"
+
+
 def test_build_mailer_requires_username_for_environment_password():
     service = QuotaAlertEmailService()
     service.smtp_password = "secret"

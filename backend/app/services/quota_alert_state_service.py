@@ -144,7 +144,7 @@ class QuotaAlertStateService:
             return QUOTA_ALERT_NORMAL
         if ratio_pct >= 100.0:
             return QUOTA_ALERT_FULL
-        if ratio_pct >= float(threshold_percent):
+        if ratio_pct >= threshold_percent:
             return QUOTA_ALERT_THRESHOLD
         return QUOTA_ALERT_NORMAL
 
