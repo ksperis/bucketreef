@@ -92,6 +92,7 @@ export async function initializeDemo(): Promise<boolean> {
       const signature = `Blocked external business request: ${url.origin}${url.pathname}`;
       window.__bucketreefDemo.failures.push(signature); throw new TypeError(signature);
     }
+    const formData = init?.body instanceof FormData ? init.body : undefined;
     const request = new Request(input instanceof Request ? input : url, init);
     const method = request.method.toUpperCase(); const path = decodeURI(url.pathname.slice(4));
     const run = async () => {
@@ -102,7 +103,7 @@ export async function initializeDemo(): Promise<boolean> {
       const before = mutating ? structuredClone(active.state) : null;
       try {
         const body = request.headers.get("content-type")?.includes("application/json") ? await request.clone().json() as Record<string, unknown> : {};
-        const response = await dispatch({ state: active.state, persona, user: currentUser(active.state, persona), request, url, path, method, body });
+        const response = await dispatch({ state: active.state, persona, user: currentUser(active.state, persona), request, formData, url, path, method, body });
         window.__bucketreefDemo.responses.push({ path: signature, status: response.status });
         if (mutating && response.ok) await saveState(active.state);
         return response;
