@@ -5,12 +5,12 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db import S3Account, StorageEndpoint
 from app.core.domain_enums import StorageProvider
+from app.core.domain_errors import StorageEndpointNotFoundError, StorageEndpointProviderError
+from app.db import S3Account, StorageEndpoint
 from app.services.bucket_usage_stats_service import (
     BucketUsageStatsAggregateTarget,
     BucketUsageStatsResolvedTarget,
@@ -41,15 +41,9 @@ class AdminUsageStatsScopeService:
     def resolve_ceph_endpoint(self, endpoint_id: int) -> StorageEndpoint:
         endpoint = self.db.get(StorageEndpoint, endpoint_id)
         if endpoint is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Endpoint not found.",
-            )
+            raise StorageEndpointNotFoundError("Endpoint not found.")
         if endpoint.provider != StorageProvider.CEPH.value:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="This endpoint is not a Ceph endpoint.",
-            )
+            raise StorageEndpointProviderError("This endpoint is not a Ceph endpoint.")
         return endpoint
 
     @staticmethod

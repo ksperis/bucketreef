@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.domain_errors import StorageEndpointNotFoundError
+from app.core.domain_errors import StorageEndpointNotFoundError, StorageEndpointProviderError
 from app.db import StorageEndpoint
 from app.core.domain_enums import StorageProvider
 from app.models.ceph_admin import CephAdminEndpoint, CephAdminEndpointAccess
@@ -21,10 +21,6 @@ from app.utils.name_ordering import name_order_by
 from app.utils.rgw_payloads import extract_rgw_user_identity
 from app.utils.storage_endpoint_features import resolve_rgw_admin_api_endpoint
 from app.utils.time import utcnow
-
-
-class CephAdminEndpointProviderError(ValueError):
-    """Raised when a Ceph Admin workflow targets a non-Ceph endpoint."""
 
 
 class CephAdminEndpointUnavailableError(ValueError):
@@ -45,7 +41,7 @@ class CephAdminEndpointService:
         if endpoint is None:
             raise StorageEndpointNotFoundError("Storage endpoint not found")
         if endpoint.provider != StorageProvider.CEPH.value:
-            raise CephAdminEndpointProviderError("Storage endpoint is not a Ceph provider")
+            raise StorageEndpointProviderError("Storage endpoint is not a Ceph provider")
         configuration_error = validate_ceph_admin_service_configuration(endpoint)
         if configuration_error:
             raise CephAdminEndpointUnavailableError(configuration_error)

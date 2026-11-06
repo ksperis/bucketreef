@@ -438,6 +438,30 @@ def test_admin_usage_stats_latest_aggregates_managed_account_scopes(client: Test
     assert aggregate["total_bytes"] == 20
 
 
+def test_admin_usage_stats_latest_rejects_missing_endpoint(client: TestClient):
+    response = client.get("/api/admin/usage-stats/latest", params={"endpoint_id": 999})
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Endpoint not found."
+
+
+def test_admin_usage_stats_latest_rejects_non_ceph_endpoint(client: TestClient, db_session):
+    db_session.add(
+        StorageEndpoint(
+            id=8,
+            name="S3 other",
+            endpoint_url="https://s3.example.test",
+            provider="other",
+        )
+    )
+    db_session.commit()
+
+    response = client.get("/api/admin/usage-stats/latest", params={"endpoint_id": 8})
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "This endpoint is not a Ceph endpoint."
+
+
 def test_admin_usage_stats_latest_warns_for_unlistable_managed_accounts(client: TestClient, db_session):
     _persist_endpoint_and_accounts(db_session)
 
