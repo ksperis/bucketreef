@@ -63,8 +63,8 @@ class ManagedPrivateAccessConnectionService:
         if provisioning.state == "active" and connection is not None:
             same_request = (
                 connection.name == payload.connection_name
-                and bool(connection.access_browser) == bool(payload.access_browser)
-                and bool(connection.access_manager) == bool(payload.access_manager)
+                and connection.access_browser == payload.access_browser
+                and connection.access_manager == payload.access_manager
             )
             if isinstance(payload, ManagedIAMPrivateAccessRequest):
                 same_request = same_request and self.state.string_list(
