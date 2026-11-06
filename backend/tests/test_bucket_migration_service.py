@@ -729,7 +729,7 @@ def test_update_draft_migration_replaces_configuration_and_resets_precheck(db_se
     assert updated.total_items == 2
     assert updated.completed_items == 0
     assert updated.failed_items == 0
-    assert updated.skipped_items == 0
+    assert updated.canceled_items == 0
     assert updated.awaiting_items == 0
 
     by_source = {item.source_bucket: item for item in updated.items}

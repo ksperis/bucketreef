@@ -44,7 +44,6 @@ class _MigrationItemExecutionLoop:
             "sync": self._run_sync,
             "verify": self._run_verify,
             "completed": self._finish_terminal_step,
-            "skipped": self._finish_terminal_step,
         }
 
     def run(self) -> None:

@@ -66,7 +66,7 @@ class BucketMigration(Base):
     total_items = Column(Integer, nullable=False, default=0, server_default="0")
     completed_items = Column(Integer, nullable=False, default=0, server_default="0")
     failed_items = Column(Integer, nullable=False, default=0, server_default="0")
-    skipped_items = Column(Integer, nullable=False, default=0, server_default="0")
+    canceled_items = Column(Integer, nullable=False, default=0, server_default="0")
     awaiting_items = Column(Integer, nullable=False, default=0, server_default="0")
 
     error_message = Column(String, nullable=True)

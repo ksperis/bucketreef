@@ -141,7 +141,7 @@ function buildDetail(): BucketMigrationDetail {
     total_items: 3,
     completed_items: 1,
     failed_items: 1,
-    skipped_items: 0,
+    canceled_items: 0,
     awaiting_items: 0,
     error_message: null,
     updated_at: "2026-03-05T10:00:05Z",
@@ -263,7 +263,7 @@ describe("ManagerMigrationDetailPage", () => {
     show({ available_actions: { pause: enabled } });
     expect(
       screen.getByText(
-        "1 buckets verified, 1 failed, 0 awaiting cutover, 0 not copied.",
+        "1 buckets verified, 1 failed, 0 awaiting cutover, 0 canceled.",
       ),
     ).toBeInTheDocument();
     expect(screen.getByText("25 objects transferred")).toBeInTheDocument();
