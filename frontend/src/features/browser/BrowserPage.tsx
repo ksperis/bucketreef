@@ -69,10 +69,7 @@ import { useBrowserWorkspaceSidebarBody } from "./useBrowserWorkspaceSidebarBody
 import BrowserBulkRestoreModal from "./BrowserBulkRestoreModal";
 import BrowserArchivePreparationDialog from "./BrowserArchivePreparationDialog";
 import BrowserCleanupModal from "./BrowserCleanupModal";
-import {
-  type BrowserActionId,
-  runBrowserAction,
-} from "./browserActions";
+import { createBrowserActionExecution } from "./browserActionExecution";
 import { useBrowserActionStates } from "./useBrowserActionStates";
 import {
   BrowserConfirmModal,
@@ -926,10 +923,6 @@ export default function BrowserPage({
     });
   };
 
-  const handleOpenItem = (item: BrowserItem) => {
-    if (item.type !== "folder") return;
-    handleSelectPrefix(item.key);
-  };
   useEffect(() => {
     if (
       storageFilter !== "all" &&
@@ -1396,104 +1389,77 @@ export default function BrowserPage({
     versioningEnabled: isVersioningEnabled,
   });
 
-  const runPathAction = (actionId: BrowserActionId) => {
-    runBrowserAction(pathActionStates[actionId], {
-      uploadFiles: () => fileInputRef.current?.click(),
-      uploadFolder: () => folderInputRef.current?.click(),
-      newFolder: handleNewFolder,
-      paste: handlePasteItems,
-      versions: openPrefixVersions,
-      restoreToDate: () => openBulkRestoreModal([]),
-      cleanOldVersions: openCleanupModal,
-      multipartUploads: openMultipartUploadsModal,
-      configureBucket: () => openBucketConfigurationDrawer(bucketName),
-      details: () => {
-        if (resolvedFunctionalProfile !== "advanced" || !bucketName) return;
-        const pathItem: BrowserItem = {
-          id: `path:${bucketName}:${normalizedPrefix}`,
-          key: normalizedPrefix,
-          name: breadcrumbs.at(-1)?.label ?? "Bucket root",
-          type: "folder",
-          size: "-",
-          modified: "-",
-          owner: "-",
-        };
-        requestDetailsDrawerTransition(() => {
-          openObjectDetailsTarget(pathItem, "details");
-        });
+  const { runItemAction, runPathAction, runSelectionAction } =
+    createBrowserActionExecution({
+      pathActionStates,
+      selectionActionStates,
+      resolveItemActionStates,
+      pathHandlers: {
+        uploadFiles: () => fileInputRef.current?.click(),
+        uploadFolder: () => folderInputRef.current?.click(),
+        newFolder: handleNewFolder,
+        paste: handlePasteItems,
+        versions: openPrefixVersions,
+        restoreToDate: () => openBulkRestoreModal([]),
+        cleanOldVersions: openCleanupModal,
+        multipartUploads: openMultipartUploadsModal,
+        configureBucket: () => openBucketConfigurationDrawer(bucketName),
+        details: () => {
+          if (resolvedFunctionalProfile !== "advanced" || !bucketName) return;
+          const pathItem: BrowserItem = {
+            id: `path:${bucketName}:${normalizedPrefix}`,
+            key: normalizedPrefix,
+            name: breadcrumbs.at(-1)?.label ?? "Bucket root",
+            type: "folder",
+            size: "-",
+            modified: "-",
+            owner: "-",
+          };
+          requestDetailsDrawerTransition(() => {
+            openObjectDetailsTarget(pathItem, "details");
+          });
+        },
+        copyPath: () => handleCopyPath(currentPath),
+        refresh: handleRefresh,
+        restore: () =>
+          deletedObjectsOptions?.onRestorePrefix?.({
+            bucketName,
+            key: normalizedPrefix,
+            name: breadcrumbs.at(-1)?.label ?? normalizedPrefix,
+          }),
+        toggleShowFolders: toggleFolderItems,
+        toggleShowDeleted: toggleDeletedObjects,
       },
-      copyPath: () => handleCopyPath(currentPath),
-      refresh: handleRefresh,
-      restore: () =>
-        deletedObjectsOptions?.onRestorePrefix?.({
-          bucketName,
-          key: normalizedPrefix,
-          name: breadcrumbs.at(-1)?.label ?? normalizedPrefix,
-        }),
-      toggleShowFolders: toggleFolderItems,
-      toggleShowDeleted: toggleDeletedObjects,
+      itemHandlers: {
+        downloadArchive,
+        downloadFolder: handleDownloadFolder,
+        downloadItems: handleDownloadItems,
+        openDetails: openItemDetails,
+        openVersions: openObjectVersionsModal,
+        openProperties: openPropertiesForItem,
+        openItem: openItemPrimaryAction,
+        previewItem: handlePreviewItem,
+        downloadTarget: handleDownloadTarget,
+        createPublicLink: createPublicLinkForItem,
+        restoreDeletedItem,
+        copyUrl: handleCopyUrl,
+        copyItems: handleCopyItems,
+        cutItems: handleCutItems,
+        openBulkAttributes: openBulkAttributesModal,
+        openBulkRestore: openBulkRestoreModal,
+        deleteItems: handleDeleteItems,
+      },
+      selection: {
+        items: selectionItems,
+        files: selectionFiles,
+        primary: selectionPrimary,
+        isSearchingInWholeBucket,
+        normalizedPrefix,
+      },
+      onItemActionRejected: (reason) => {
+        setWarningMessage(text(reason));
+      },
     });
-  };
-
-  const runSelectionAction = (actionId: BrowserActionId) => {
-    runBrowserAction(selectionActionStates[actionId], {
-      downloadZip: () => downloadArchive(selectionItems, isSearchingInWholeBucket ? "" : normalizedPrefix),
-      details: () => {
-        if (selectionPrimary) openItemDetails(selectionPrimary);
-      },
-      download: () => {
-        if (
-          selectionActionStates.download.label === "Download folder" &&
-          selectionPrimary
-        ) {
-          handleDownloadFolder(selectionPrimary);
-          return;
-        }
-        return handleDownloadItems(selectionFiles);
-      },
-      open: () => {
-        if (selectionPrimary) {
-          openItemPrimaryAction(selectionPrimary);
-        }
-      },
-      copyUrl: () => handleCopyUrl(selectionPrimary),
-      copy: () => handleCopyItems(selectionItems),
-      cut: () => handleCutItems(selectionItems),
-      bulkAttributes: () => openBulkAttributesModal(selectionItems),
-      advanced: () => {
-        if (selectionPrimary) {
-          openPropertiesForItem(selectionPrimary);
-        }
-      },
-      restoreToDate: () => openBulkRestoreModal(selectionItems),
-      delete: () => handleDeleteItems(selectionItems),
-    });
-  };
-
-  const runItemAction = (item: BrowserItem, actionId: BrowserActionId) => {
-    const itemActions = resolveItemActionStates(item);
-    const result = runBrowserAction(itemActions[actionId], {
-      downloadZip: () => downloadArchive([item], isSearchingInWholeBucket ? "" : normalizedPrefix),
-      details: () => openItemDetails(item),
-      versions: () => openObjectVersionsModal(item),
-      properties: () => openPropertiesForItem(item),
-      open: () => handleOpenItem(item),
-      preview: () => handlePreviewItem(item),
-      download: () => handleDownloadTarget(item),
-      createPublicLink: () => createPublicLinkForItem(item),
-      restore: () => restoreDeletedItem(item),
-      copyUrl: () => handleCopyUrl(item),
-      copy: () => handleCopyItems([item]),
-      cut: () => handleCutItems([item]),
-      bulkAttributes: () => openBulkAttributesModal([item]),
-      restoreToDate: () => openBulkRestoreModal([item]),
-      advanced: () => openPropertiesForItem(item),
-      delete: () => handleDeleteItems([item]),
-    });
-    if (!result.executed) {
-      setWarningMessage(text(result.reason));
-    }
-  };
 
   useBrowserLeaveGuard({
     hasPendingOperations,
