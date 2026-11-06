@@ -2,7 +2,6 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import ModalActions from "../../components/ModalActions";
 import { useEffect, useRef, useState } from "react";
 import type { S3AccountSelector } from "../../api/accountParams";
 import {
@@ -14,6 +13,7 @@ import type {
   StorageSpaceIconSource,
 } from "../../api/storageSpaceIcons";
 import { SettingsDialog as Modal, SettingsButton as UiButton, useSettingsCloseGuard } from "../../components/settings/SettingsControls";
+import SettingsForm from "../../components/settings/SettingsForm";
 import { settingsLabels } from "../../components/settings/settingsLabels";
 import StorageSpaceIcon, {
   storageSpaceIconPresets,
@@ -74,6 +74,9 @@ export default function StorageSpaceIconPickerModal({
   const guard = useSettingsCloseGuard({ hasUnsavedChanges: dirty, onClose, disabled: busy,
     title: labels.discardTitle, description: labels.discardDescription,
     cancelLabel: labels.keepEditing, confirmLabel: labels.discard, closeLabel: labels.close });
+  const title = t({ en: "Storage Space icon", fr: "Icône de l’espace", de: "Speicherbereichssymbol", zh: "存储空间图标" });
+  const cancelLabel = t({ en: "Cancel", fr: "Annuler", de: "Abbrechen", zh: "取消" });
+  const saveLabel = t({ en: "Save icon", fr: "Enregistrer l’icône", de: "Symbol speichern", zh: "保存图标" });
 
   const save = async () => {
     if (pending.current || !dirty) return;
@@ -118,7 +121,7 @@ export default function StorageSpaceIconPickerModal({
   return (
     <>
     <Modal
-      title={t({ en: "Storage Space icon", fr: "Icône de l’espace", de: "Speicherbereichssymbol", zh: "存储空间图标" })}
+      title={title}
       onClose={guard.requestClose}
       initialFocusRef={initialFocus}
       closeLabel={labels.close}
@@ -127,7 +130,15 @@ export default function StorageSpaceIconPickerModal({
       closeOnBackdropClick={!busy}
       closeOnEscape={!busy}
     >
-      <div className="settings-stack" ref={(node) => { initialFocus.current = node?.querySelector('input:checked') ?? null; }}>
+      <SettingsForm label={title} busy={busy} submitDisabled={!dirty} onSubmit={() => save()}
+        onCancel={guard.requestClose} submitLabel={saveLabel} busyLabel={saveLabel}
+        presentation="dialog"
+        formRef={(node) => { initialFocus.current = node?.querySelector('input:checked') ?? null; }}
+        actions={<>
+          <UiButton variant="secondary" onClick={guard.requestClose} disabled={busy}>{cancelLabel}</UiButton>
+          <UiButton type="submit" loading={busy} disabled={!dirty || busy}>{saveLabel}</UiButton>
+        </>}>
+      <div className="settings-stack">
         {source === "uploaded" && !preview && initialSource === "uploaded" && <StorageSpaceIcon icon={space.icon} name={space.name} size="md" decorative />}
         {source === "uploaded" && preview && <img src={preview} alt={t({ en: "Icon preview", fr: "Aperçu de l’icône", de: "Symbolvorschau", zh: "图标预览" })} className="h-16 w-16 rounded object-contain" />}
         <p className={cx("settings-body", uiMutedTextClass)}>
@@ -232,16 +243,8 @@ export default function StorageSpaceIconPickerModal({
         </label>
 
         {error ? <div id="space-icon-error"><UiInlineMessage tone="error" role="alert">{error}</UiInlineMessage></div> : null}
-
-        <ModalActions>
-          <UiButton variant="secondary" onClick={guard.requestClose} disabled={busy}>
-            {t({ en: "Cancel", fr: "Annuler", de: "Abbrechen", zh: "取消" })}
-          </UiButton>
-          <UiButton onClick={save} loading={busy} disabled={!dirty || busy}>
-            {t({ en: "Save icon", fr: "Enregistrer l’icône", de: "Symbol speichern", zh: "保存图标" })}
-          </UiButton>
-        </ModalActions>
       </div>
+      </SettingsForm>
     </Modal>
     {guard.confirmationDialog}
     </>
