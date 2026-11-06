@@ -14,7 +14,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.domain_errors import StorageEndpointNotFoundError
+from app.core.domain_errors import StorageEndpointNotFoundError, StorageEndpointProviderError
 from app.db import StorageEndpoint
 from app.models.ceph_multisite import (
     BilogInfo, BucketDiagnostic, BucketIdentity, EndpointReference, Family, Flow,
@@ -22,7 +22,7 @@ from app.models.ceph_multisite import (
     Provenance, SyncStatus, Topology, Zone,
 )
 from app.services.ceph_admin_endpoint_service import (
-    CephAdminEndpointService, CephAdminEndpointProviderError, CephAdminEndpointUnavailableError,
+    CephAdminEndpointService, CephAdminEndpointUnavailableError,
 )
 from app.services.ceph_multisite_normalize import (
     MultisiteContractError, normalize_bilog_info, normalize_log, normalize_period,
@@ -63,7 +63,7 @@ class CephMultisiteService:
             endpoint = self.endpoints.get_configured_endpoint(endpoint_id)
         except StorageEndpointNotFoundError:
             raise HTTPException(404, "Storage endpoint not found")
-        except CephAdminEndpointProviderError:
+        except StorageEndpointProviderError:
             raise HTTPException(400, "Storage endpoint is not a Ceph provider")
         except CephAdminEndpointUnavailableError:
             raise HTTPException(403, "Ceph Admin is not active on this endpoint")
