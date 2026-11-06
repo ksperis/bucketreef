@@ -51,7 +51,7 @@ class TagsService:
         return [item for item in (items or []) if item.scope == TAG_SCOPE_STANDARD]
 
     def resolve_connection_domain(self, connection: S3Connection) -> tuple[str, Optional[int]]:
-        if bool(connection.is_shared):
+        if connection.is_shared:
             return (TAG_DOMAIN_ADMIN_MANAGED, None)
         return (TAG_DOMAIN_PRIVATE_CONNECTION_USER, int(connection.created_by_user_id))
 
