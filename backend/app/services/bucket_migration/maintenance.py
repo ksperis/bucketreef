@@ -7,6 +7,7 @@ import hashlib
 from typing import Callable
 
 from app.core.sensitive_data import sanitized_error_log_detail
+from app.models.bucket_migration import BucketMigrationMaintenanceOperation
 from app.utils.time import utcnow
 from app.services.browser_service import BrowserService
 from app.services.bucket_listing_cache import invalidate_bucket_listing_cache_for_context
@@ -30,7 +31,7 @@ class BucketMigrationMaintenanceMixin:
         self,
         migration_id: int,
         *,
-        operation: str,
+        operation: BucketMigrationMaintenanceOperation,
         confirmed: bool,
         requested_by_user_id: int | None = None,
     ):

@@ -1367,6 +1367,17 @@ Deploy the migration and backend together. Downgrade recreates both booleans and
 derives their values from the matching status so older code sees the historical
 mirrored representation.
 
+## 2026-11 typed bucket migration maintenance state
+
+Manager bucket-migration responses now expose the existing maintenance state as
+closed values. `maintenance_operation` is limited to `restore_access`,
+`cleanup_source`, or `cleanup_target`, while `maintenance_status` is limited to
+`idle`, `queued`, `running`, `failed`, or `completed`.
+
+Deploy the backend and bundled frontend together. Existing database rows do not
+require migration because these are the only values produced by the maintenance
+workflow since the fields were introduced.
+
 ## 2026-10 onboarding journey state cleanup
 
 Migration `0189_remove_onboarding_journey_dead_state` removes the unused

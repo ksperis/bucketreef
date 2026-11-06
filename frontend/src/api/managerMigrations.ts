@@ -21,6 +21,8 @@ export type BucketMigrationStatus =
   | "failed"
   | "rolled_back";
 export type BucketMigrationPrecheckStatus = "pending" | "passed" | "failed";
+export type BucketMigrationMaintenanceOperation = "restore_access" | "cleanup_source" | "cleanup_target";
+export type BucketMigrationMaintenanceStatus = "idle" | "queued" | "running" | "failed" | "completed";
 export type BucketMigrationPrecheckEntry = {
   code: string;
   severity: "info" | "warning" | "error";
@@ -133,8 +135,8 @@ export type BucketMigrationView = {
   preparation_status: "unverified" | "checking" | "blocked" | "ready" | "stale";
   preparation_active_checks: boolean;
   preparation_completed_items: number;
-  maintenance_operation: "restore_access" | "cleanup_source" | "cleanup_target" | null;
-  maintenance_status: string;
+  maintenance_operation: BucketMigrationMaintenanceOperation | null;
+  maintenance_status: BucketMigrationMaintenanceStatus;
   maintenance_error: string | null;
   available_actions: Record<string, { enabled: boolean; reason: string | null }>;
   total_items: number;
@@ -159,7 +161,7 @@ export type BucketMigrationListItem = {
   precheck_checked_at: string | null;
   preparation_status: "unverified" | "checking" | "blocked" | "ready" | "stale";
   preparation_completed_items: number;
-  maintenance_status: string;
+  maintenance_status: BucketMigrationMaintenanceStatus;
   total_items: number;
   completed_items: number;
   failed_items: number;
@@ -293,7 +295,10 @@ export async function retryFailedManagerMigrationItems(migrationId: number): Pro
   return data;
 }
 
-export async function runManagerMigrationMaintenance(migrationId: number, operation: "restore_access" | "cleanup_source" | "cleanup_target"): Promise<BucketMigrationActionResponse> {
+export async function runManagerMigrationMaintenance(
+  migrationId: number,
+  operation: BucketMigrationMaintenanceOperation
+): Promise<BucketMigrationActionResponse> {
   const path = operation.replaceAll("_", "-");
   const { data } = await client.post<BucketMigrationActionResponse>(`/manager/migrations/${migrationId}/${path}`, { confirmed: true });
   return data;

@@ -38,9 +38,7 @@ type Action =
   | "cutover"
   | "stop"
   | "retry"
-  | "restore_access"
-  | "cleanup_source"
-  | "cleanup_target"
+  | api.BucketMigrationMaintenanceOperation
   | "delete";
 const actionLabels: Record<Action, string> = {
   precheck: "Run read-only checks",
