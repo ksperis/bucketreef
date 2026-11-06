@@ -13,7 +13,7 @@ erDiagram
         datetime avatar_updated_at
         varchar hashed_password
         integer auth_version "NN; default=1"
-        boolean is_active
+        boolean is_active "NN"
         varchar role "NN; default=ui_user"
         boolean can_access_ceph_admin "NN; default=0"
         boolean can_access_storage_ops "NN; default=0"
