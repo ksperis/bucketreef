@@ -1,4 +1,11 @@
 import { resolvePortalSettings } from "../api/featurePolicies";
+import {
+  PORTAL_STORAGE_SPACE_ROLES,
+  PORTAL_STORAGE_SPACE_SORTS,
+  PORTAL_STORAGE_SPACE_STATUSES,
+  type PortalStorageSpaceSort,
+  type PortalStorageSpaceSummary,
+} from "../api/portal";
 import type { PortalAdminRequest } from "../api/portalRequests";
 import type { PortalStorageSpaceShare } from "../api/portalSharing";
 import { bucketView, createDemoSpace, createDemoUser, newBucket, settings, type DemoSpace } from "./state";
@@ -31,22 +38,86 @@ function portalAccessRequest(payload: Record<string, unknown>): {
   return { intent, portalRole };
 }
 
-function spaceView(c: DemoRequest, s: DemoSpace) {
+function queryChoice<T extends string>(
+  c: DemoRequest,
+  name: string,
+  values: readonly T[],
+  defaultValue?: T,
+): T | undefined {
+  const value = c.url.searchParams.get(name);
+  if (value === null) return defaultValue;
+  if (!values.includes(value as T)) {
+    throw new DemoError(422, `${name} must be one of ${values.join(", ")}`);
+  }
+  return value as T;
+}
+
+function spaceView(c: DemoRequest, s: DemoSpace): PortalStorageSpaceSummary {
   const bucket = required(c.state.buckets.find(b => b.name === s.bucketName));
+  const bucketSummary = bucketView(bucket);
   const role = required(spaceRole(c, s), "This space is not shared with the selected identity");
+  const usedBytes = bucketSummary.used_bytes ?? null;
+  const objectCount = bucketSummary.object_count ?? null;
+  const quotaBytes = bucketSummary.quota_max_size_bytes ?? null;
+  const quotaObjects = bucketSummary.quota_max_objects ?? null;
+  const status: PortalStorageSpaceSummary["status"] = s.archived_at
+    ? "Archived"
+    : usedBytes !== null && quotaBytes !== null && quotaBytes > 0 && usedBytes / quotaBytes >= 0.85
+      ? "Attention"
+      : "Active";
   const { accountId: _account, bucketName: _bucket, shares: _shares, ...view } = s;
-  return { ...view, ...Object.fromEntries(Object.entries(bucketView(bucket)).filter(([key]) => ["used_bytes", "object_count", "quota_max_size_bytes", "quota_max_objects"].includes(key))),
-    role, can_browse: true, can_delete: role === "Owner" || role === "Manager", can_take_ownership: false,
+  return { ...view,
+    used_bytes: usedBytes,
+    object_count: objectCount,
+    quota_max_size_bytes: quotaBytes,
+    quota_max_objects: quotaObjects,
+    role, status, can_browse: true, can_delete: role === "Owner" || role === "Manager", can_take_ownership: false,
     collaborator_count: s.shares.length, collaborators: s.shares.map(share => {
-      const user = c.state.users.find(candidate => candidate.id === share.user_id);
+      const userId = required(share.user_id, "Demo Storage Space share is missing a user id");
+      const user = c.state.users.find(candidate => candidate.id === userId);
       return {
-        user_id: share.user_id,
+        user_id: userId,
         email: share.email,
         display_name: user?.full_name ?? null,
         role: share.role,
         avatar: user?.avatar ?? { preference: "auto", source: "initials", url: null, initials: share.email.slice(0, 1).toUpperCase(), updated_at: null },
       };
     }) };
+}
+
+function storageSpaceMatchesSearch(space: PortalStorageSpaceSummary, term: string): boolean {
+  return [
+    space.name,
+    space.id,
+    space.description,
+    space.owner_label,
+    space.visibility,
+    space.project_key,
+    space.dataset_label,
+    space.internal_bucket_name,
+  ].some(value => (value ?? "").toLowerCase().includes(term));
+}
+
+function sortStorageSpaces(
+  spaces: PortalStorageSpaceSummary[],
+  sort: PortalStorageSpaceSort,
+): PortalStorageSpaceSummary[] {
+  const descending = sort.startsWith("-");
+  const key = descending ? sort.slice(1) : sort;
+  const value = (space: PortalStorageSpaceSummary): string | number => {
+    if (key === "name") return space.name.toLowerCase();
+    if (key === "created_at") return space.created_at ?? "";
+    if (key === "used_bytes") return space.used_bytes ?? -1;
+    if (key === "object_count") return space.object_count ?? -1;
+    if (key === "role") return space.role;
+    return space.status;
+  };
+  return [...spaces].sort((left, right) => {
+    const leftValue = value(left);
+    const rightValue = value(right);
+    const comparison = leftValue < rightValue ? -1 : leftValue > rightValue ? 1 : 0;
+    return descending ? -comparison : comparison;
+  });
 }
 
 export function portal(c: DemoRequest): Response | undefined {
@@ -170,8 +241,18 @@ export function portal(c: DemoRequest): Response | undefined {
   if (!match) return undefined;
   if (!match[1]) {
     if (method === "GET") {
-      const search = (c.url.searchParams.get("search") ?? "").toLowerCase();
-      return json(state.spaces.filter(s => s.accountId === account.id && spaceRole(c, s) && (!s.archived_at || c.url.searchParams.get("include_archived") === "true") && s.name.toLowerCase().includes(search)).map(s => spaceView(c, s)));
+      const search = (c.url.searchParams.get("search") ?? "").trim().toLowerCase();
+      const role = queryChoice(c, "role", PORTAL_STORAGE_SPACE_ROLES);
+      const status = queryChoice(c, "status", PORTAL_STORAGE_SPACE_STATUSES);
+      const sort = queryChoice(c, "sort", PORTAL_STORAGE_SPACE_SORTS, "name") ?? "name";
+      const includeArchived = c.url.searchParams.get("include_archived") === "true";
+      const spaces = state.spaces
+        .filter(s => s.accountId === account.id && spaceRole(c, s) && (!s.archived_at || includeArchived))
+        .map(s => spaceView(c, s))
+        .filter(space => !search || storageSpaceMatchesSearch(space, search))
+        .filter(space => !role || space.role === role)
+        .filter(space => !status || space.status === status);
+      return json(sortStorageSpaces(spaces, sort));
     }
     if (method === "POST") {
       const name = textField(body, "name"); const id = state.nextId++;
