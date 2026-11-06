@@ -9,9 +9,9 @@ from app.core.database import get_db
 from app.models.operation import OperationSkippedResponse
 from app.models.user_notification import UserNotificationPurgeResponse
 from app.routers.dependencies import require_internal_cron_token
+from app.routers.internal.operation_common import run_internal_leased_operation
 from app.services.data_retention_service import DataRetentionService
 from app.services.operation_lease_service import (
-    OperationLeaseService,
     USER_NOTIFICATIONS_PURGE_OPERATION,
     default_operation_lease_ttl_seconds,
 )
@@ -31,19 +31,17 @@ def purge_user_notifications(
     _: None = Depends(require_internal_cron_token),
     db: Session = Depends(get_db),
 ) -> UserNotificationPurgeResponse | OperationSkippedResponse:
-    with OperationLeaseService(db).hold(
+    return run_internal_leased_operation(
+        db,
         USER_NOTIFICATIONS_PURGE_OPERATION,
         ttl_seconds=default_operation_lease_ttl_seconds(),
-        lease_context={"source": "internal"},
-    ) as lease:
-        if lease is None:
-            return OperationSkippedResponse(
-                status="skipped",
-                reason="already_running",
-                operation=USER_NOTIFICATIONS_PURGE_OPERATION,
-            )
-        result = DataRetentionService(db).purge_user_notifications()
-        return UserNotificationPurgeResponse(
-            status="completed",
-            user_notifications=result["user_notifications"],
-        )
+        work=lambda: _purge_user_notifications(db),
+    )
+
+
+def _purge_user_notifications(db: Session) -> UserNotificationPurgeResponse:
+    result = DataRetentionService(db).purge_user_notifications()
+    return UserNotificationPurgeResponse(
+        status="completed",
+        user_notifications=result["user_notifications"],
+    )

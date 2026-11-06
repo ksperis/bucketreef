@@ -2,6 +2,8 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+from datetime import date
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
@@ -10,10 +12,10 @@ from app.models.cost import CostCollectionResult
 from app.models.operation import OperationSkippedResponse
 from app.routers.cost_common import parse_cost_day
 from app.routers.dependencies import require_internal_cron_token
+from app.routers.internal.operation_common import run_internal_leased_operation
 from app.services.app_settings_service import load_app_settings_for_db
 from app.services.cost_collection_service import CostCollector
 from app.services.operation_lease_service import (
-    OperationLeaseService,
     cost_daily_operation_name,
     cost_operation_lease_ttl_seconds,
 )
@@ -39,19 +41,17 @@ def collect_daily(
             reason="feature_disabled",
             operation=operation_name,
         )
-    with OperationLeaseService(db).hold(
+    return run_internal_leased_operation(
+        db,
         operation_name,
         ttl_seconds=cost_operation_lease_ttl_seconds(),
         lease_context={"source": "internal", "day": parsed.isoformat()},
-    ) as lease:
-        if lease is None:
-            return OperationSkippedResponse(
-                status="skipped",
-                reason="already_running",
-                operation=operation_name,
-            )
-        collector = CostCollector(db)
-        try:
-            return collector.collect_daily(parsed)
-        except ValueError as exc:
-            raise_bad_request_from_value_error(exc)
+        work=lambda: _collect_daily(db, parsed),
+    )
+
+
+def _collect_daily(db: Session, day: date) -> CostCollectionResult:
+    try:
+        return CostCollector(db).collect_daily(day)
+    except ValueError as exc:
+        raise_bad_request_from_value_error(exc)

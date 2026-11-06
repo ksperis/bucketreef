@@ -9,9 +9,9 @@ from app.core.database import get_db
 from app.models.operation import OperationSkippedResponse
 from app.models.quota_monitoring import UsageHistoryRunResult
 from app.routers.dependencies import require_internal_cron_token
+from app.routers.internal.operation_common import run_internal_leased_operation
 from app.services.quota_monitoring_service import QuotaMonitoringService
 from app.services.operation_lease_service import (
-    OperationLeaseService,
     USAGE_HISTORY_COLLECT_OPERATION,
     default_operation_lease_ttl_seconds,
 )
@@ -25,22 +25,19 @@ def collect_usage_history(
     _: None = Depends(require_internal_cron_token),
     db: Session = Depends(get_db),
 ) -> UsageHistoryRunResult | OperationSkippedResponse:
-    with OperationLeaseService(db).hold(
+    return run_internal_leased_operation(
+        db,
         USAGE_HISTORY_COLLECT_OPERATION,
         ttl_seconds=default_operation_lease_ttl_seconds(),
-        lease_context={"source": "internal"},
-    ) as lease:
-        if lease is None:
-            return OperationSkippedResponse(
-                status="skipped",
-                reason="already_running",
-                operation=USAGE_HISTORY_COLLECT_OPERATION,
-            )
-        service = QuotaMonitoringService(db)
-        try:
-            result = service.collect_usage_history()
-            return UsageHistoryRunResult.model_validate(
-                {field: result[field] for field in UsageHistoryRunResult.model_fields}
-            )
-        except ValueError as exc:
-            raise_bad_request_from_value_error(exc)
+        work=lambda: _collect_usage_history(db),
+    )
+
+
+def _collect_usage_history(db: Session) -> UsageHistoryRunResult:
+    try:
+        result = QuotaMonitoringService(db).collect_usage_history()
+        return UsageHistoryRunResult.model_validate(
+            {field: result[field] for field in UsageHistoryRunResult.model_fields}
+        )
+    except ValueError as exc:
+        raise_bad_request_from_value_error(exc)
