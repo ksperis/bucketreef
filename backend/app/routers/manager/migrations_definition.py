@@ -45,10 +45,8 @@ def _migration_definition_audit_metadata(
         "mode": payload.mode,
         "lock_target_writes": payload.lock_target_writes,
         "strong_integrity_check": payload.strong_integrity_check,
-        "use_same_endpoint_copy": bool(migration.use_same_endpoint_copy),
-        "auto_grant_source_read_for_copy": bool(
-            migration.auto_grant_source_read_for_copy
-        ),
+        "use_same_endpoint_copy": migration.use_same_endpoint_copy,
+        "auto_grant_source_read_for_copy": migration.auto_grant_source_read_for_copy,
         "items": len(payload.buckets),
     }
 

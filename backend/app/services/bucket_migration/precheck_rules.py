@@ -274,7 +274,7 @@ class BucketMigrationPrecheckRules:
                 source_context,
                 target_context,
                 item.source_bucket,
-                auto_grant=bool(migration.auto_grant_source_read_for_copy)
+                auto_grant=migration.auto_grant_source_read_for_copy
                 and self._service._preparation_active_checks,
                 strategy=strategy,
                 source_profile=source_profile,

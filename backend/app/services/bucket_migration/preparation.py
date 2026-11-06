@@ -125,7 +125,7 @@ class BucketMigrationPreparationMixin:
         self._bind_workflow_lease(migration_id, worker_id)
         revision = migration.configuration_revision
         if active_checks is None:
-            active_checks = bool(migration.preparation_active_checks)
+            active_checks = migration.preparation_active_checks
         self._preparation_active_checks = active_checks
         migration.preparation_status = "checking"
         migration.preparation_active_checks = active_checks
