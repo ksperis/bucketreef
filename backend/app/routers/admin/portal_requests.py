@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from typing import Optional
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, status
 
@@ -10,10 +10,9 @@ from app.db import User
 from app.models.portal_requests import (
     PaginatedPortalAdminRequestsResponse,
     PortalAdminRequestDecision,
+    PortalAdminRequestListingRequest,
     PortalAdminRequestMessageCreate,
     PortalAdminRequestOut,
-    PortalAdminRequestStatus,
-    PortalAdminRequestType,
 )
 from app.routers.dependencies import get_current_ui_admin
 from app.routers.portal_common import get_portal_requests_service_dependency
@@ -40,23 +39,11 @@ def _raise_portal_request_error(exc: Exception) -> None:
 
 @router.get("", response_model=PaginatedPortalAdminRequestsResponse)
 def list_admin_portal_requests(
-    status_filter: Optional[PortalAdminRequestStatus] = Query(None, alias="status"),
-    request_type: Optional[PortalAdminRequestType] = Query(None),
-    account_id: Optional[int] = Query(None),
-    search: Optional[str] = Query(None),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(25, ge=1, le=200),
+    query: Annotated[PortalAdminRequestListingRequest, Query()],
     _: User = Depends(get_current_ui_admin),
     service: PortalRequestsService = Depends(get_portal_requests_service_dependency),
 ) -> PaginatedPortalAdminRequestsResponse:
-    return service.list_for_admin(
-        status=status_filter,
-        request_type=request_type,
-        account_id=account_id,
-        search=search,
-        page=page,
-        page_size=page_size,
-    )
+    return service.list_for_admin(query)
 
 
 @router.post("/{request_id}/approve", response_model=PortalAdminRequestOut)

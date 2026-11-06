@@ -34,6 +34,7 @@
 - Canonicalize Admin S3 Account and RGW User list requests on shared pagination/search controls with typed sort fields and service-owned paginated responses.
 - Canonicalize Admin UI Group and S3 Connection list requests on shared pagination/sort controls, with typed sort fields and service-owned pagination.
 - Canonicalize Admin Usage History and Cost subject list requests on typed pagination/sort contracts instead of rebuilding query parameters across router and service layers.
+- Canonicalize Admin Portal request listings on the shared pagination/search contract and pass the request object through the service layer.
 
 ### Fixed
 

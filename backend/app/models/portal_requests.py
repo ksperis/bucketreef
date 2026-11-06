@@ -15,6 +15,7 @@ from pydantic import (
     model_validator,
 )
 
+from app.models.admin_listing import AdminPaginatedListingRequest
 from app.models.base import ApiModel
 from app.models.pagination import PaginatedResponse
 
@@ -44,6 +45,13 @@ PortalSettingKey = Literal[
     "bucket_defaults.cors_allowed_origins",
 ]
 PortalSettingValue = Union[StrictBool, StrictInt, list[StrictStr]]
+
+
+class PortalAdminRequestListingRequest(AdminPaginatedListingRequest):
+    status: Optional[PortalAdminRequestStatus] = None
+    request_type: Optional[PortalAdminRequestType] = None
+    account_id: Optional[int] = None
+
 
 _PORTAL_BOOLEAN_SETTING_KEYS = {
     "browser_access_enabled",
