@@ -9,11 +9,11 @@ from sqlalchemy.orm import Session
 
 from app.core.config import LDAPProviderSettings, Settings, get_settings
 from app.db import LdapProvider
+from app.models.identity_provider import IdentityProviderFieldLock
 from app.models.ldap import (
     LDAP_PROVIDER_CONFIG_FIELDS,
     LDAPProviderAdminItem,
     LDAPProviderAdminPayload,
-    LDAPProviderFieldLock,
 )
 from app.services.identity_provider_repository import IdentityProviderRepository
 from app.services.identity_provider_settings_service import IdentityProviderSettingsService
@@ -194,7 +194,7 @@ def _provider_item(
     provider: LDAPProviderSettings,
     *,
     source: Literal["environment", "ui"],
-    field_locks: Optional[dict[str, LDAPProviderFieldLock]] = None,
+    field_locks: Optional[dict[str, IdentityProviderFieldLock]] = None,
 ) -> LDAPProviderAdminItem:
     return LDAPProviderAdminItem(
         provider_id=provider_id,
@@ -228,7 +228,7 @@ def _environment_provider_item(provider_id: str, provider: LDAPProviderSettings)
         provider,
         source="environment",
         field_locks={
-            field: LDAPProviderFieldLock(
+            field: IdentityProviderFieldLock(
                 forced=True,
                 source=identity_provider_environment_source("LDAP_PROVIDERS", provider_id, field),
             )

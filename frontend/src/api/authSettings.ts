@@ -4,16 +4,9 @@
  */
 import client from "./client";
 
-export type OidcProviderSource = "environment" | "ui";
+export type IdentityProviderSource = "environment" | "ui";
 
-export type OidcProviderFieldLock = {
-  forced: boolean;
-  source: string | null;
-};
-
-export type LdapProviderSource = "environment" | "ui";
-
-export type LdapProviderFieldLock = {
+export type IdentityProviderFieldLock = {
   forced: boolean;
   source: string | null;
 };
@@ -32,9 +25,9 @@ export type OidcProviderAdminItem = {
   use_nonce: boolean;
   linking_policy: "manual" | "reauthenticate" | "trusted_email";
   trusted_email_domains: string[];
-  source: OidcProviderSource;
+  source: IdentityProviderSource;
   editable: boolean;
-  field_locks: Record<string, OidcProviderFieldLock>;
+  field_locks: Record<string, IdentityProviderFieldLock>;
   has_client_secret: boolean;
 };
 
@@ -75,9 +68,9 @@ export type LdapProviderAdminItem = {
   enabled: boolean;
   allow_insecure: boolean;
   linking_policy: "manual" | "reauthenticate";
-  source: LdapProviderSource;
+  source: IdentityProviderSource;
   editable: boolean;
-  field_locks: Record<string, LdapProviderFieldLock>;
+  field_locks: Record<string, IdentityProviderFieldLock>;
   has_bind_password: boolean;
 };
 

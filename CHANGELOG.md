@@ -26,6 +26,7 @@
 - Route the Portal Storage Space icon editor through the shared settings form while preserving localized actions and dirty-state protection.
 - Reuse one backend cost-history point contract for subject details and aggregate analytics.
 - Reuse one bucket-usage point contract across storage and Ceph Admin metrics in backend and frontend.
+- Share identity-provider field-lock metadata between OIDC and LDAP settings contracts.
 
 ### Fixed
 

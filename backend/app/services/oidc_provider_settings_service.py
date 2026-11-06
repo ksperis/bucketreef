@@ -9,11 +9,11 @@ from sqlalchemy.orm import Session
 
 from app.core.config import OIDCProviderSettings, Settings, get_settings
 from app.db import OidcProvider
+from app.models.identity_provider import IdentityProviderFieldLock
 from app.models.oidc import (
     OIDC_PROVIDER_CONFIG_FIELDS,
     OIDCProviderAdminItem,
     OIDCProviderAdminPayload,
-    OIDCProviderFieldLock,
 )
 from app.services.identity_provider_repository import IdentityProviderRepository
 from app.services.identity_provider_settings_service import IdentityProviderSettingsService
@@ -162,7 +162,7 @@ def _provider_item(
     provider: OIDCProviderSettings,
     *,
     source: Literal["environment", "ui"],
-    field_locks: Optional[dict[str, OIDCProviderFieldLock]] = None,
+    field_locks: Optional[dict[str, IdentityProviderFieldLock]] = None,
 ) -> OIDCProviderAdminItem:
     return OIDCProviderAdminItem(
         provider_id=provider_id,
@@ -191,7 +191,7 @@ def _environment_provider_item(provider_id: str, provider: OIDCProviderSettings)
         provider,
         source="environment",
         field_locks={
-            field: OIDCProviderFieldLock(
+            field: IdentityProviderFieldLock(
                 forced=True,
                 source=identity_provider_environment_source("OIDC_PROVIDERS", provider_id, field),
             )
