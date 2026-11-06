@@ -79,13 +79,13 @@ class UserUpdateService:
     def _apply_access_updates(user: User, payload: UserUpdate, *, role: str) -> None:
         admin_role = is_admin_ui_role(role)
         if payload.can_access_ceph_admin is not None or not admin_role:
-            user.can_access_ceph_admin = bool(payload.can_access_ceph_admin) if admin_role else False
+            user.can_access_ceph_admin = payload.can_access_ceph_admin if admin_role else False
 
         manager_role = role in MANAGER_TOOL_ROLES
         for field in MANAGER_ROLE_SCOPED_FIELDS:
             requested = getattr(payload, field)
             if requested is not None or not manager_role:
-                setattr(user, field, bool(requested) if manager_role else False)
+                setattr(user, field, requested if manager_role else False)
 
         if payload.manager_tool_access is not None or not manager_role:
             values = manager_tool_column_values(
@@ -96,7 +96,7 @@ class UserUpdateService:
                 setattr(user, column, value)
 
         if payload.browser_advanced_features_enabled is not None:
-            user.browser_advanced_features_enabled = bool(payload.browser_advanced_features_enabled)
+            user.browser_advanced_features_enabled = payload.browser_advanced_features_enabled
         if not admin_role:
             user.quota_alerts_global_watch = False
 
@@ -111,7 +111,7 @@ class UserUpdateService:
                 payload,
             )
         )
-        if payload.is_active is not None and bool(payload.is_active) != was_active:
+        if payload.is_active is not None and payload.is_active != was_active:
             affected_portal_account_ids.update(
                 effective_portal_account_ids(self.db, user)
             )
@@ -154,12 +154,12 @@ class UserUpdateService:
         if "ui_language" in fields:
             user.ui_language = payload.ui_language or None
         if payload.quota_alerts_enabled is not None:
-            user.quota_alerts_enabled = bool(payload.quota_alerts_enabled)
+            user.quota_alerts_enabled = payload.quota_alerts_enabled
         if payload.quota_alerts_global_watch is not None:
             if not is_admin_ui_role(user.role) and payload.quota_alerts_global_watch:
                 raise ValueError("Global quota watch requires admin role")
             user.quota_alerts_global_watch = (
-                bool(payload.quota_alerts_global_watch)
+                payload.quota_alerts_global_watch
                 if is_admin_ui_role(user.role)
                 else False
             )
