@@ -307,15 +307,10 @@ class BrowserSettings(ApiModel):
         return self
 
 
-class OnboardingSettings(ApiModel):
-    dismissed: bool = False
-
-
 class AppSettings(ApiModel):
     general: GeneralSettings = Field(default_factory=GeneralSettings)
     portal: PortalSettings = Field(default_factory=PortalSettings)
     manager: ManagerSettings = Field(default_factory=ManagerSettings)
     quota_notifications: QuotaNotificationSettings = Field(default_factory=QuotaNotificationSettings)
     browser: BrowserSettings = Field(default_factory=BrowserSettings)
-    onboarding: OnboardingSettings = Field(default_factory=OnboardingSettings)
     branding: BrandingSettings = Field(default_factory=BrandingSettings)

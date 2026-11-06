@@ -1,5 +1,17 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 obsolete global onboarding setting removal
+
+Migration `0257_remove_obsolete_onboarding_setting` removes the retired
+`onboarding` object from the canonical `app_settings` payload. Migration `0125`
+already transferred the historical global dismissal state to each administrator
+present at that upgrade, and current onboarding state is stored per user in
+`onboarding_preferences` and `onboarding_journeys`.
+
+The Admin settings API and bundled frontend no longer carry
+`onboarding.dismissed`. Dismissing or resuming Getting started continues to use
+the dedicated onboarding API and does not mutate application settings.
+
 ## 2026-11 canonical application security settings
 
 Migration `0256_canonical_app_settings_security` materializes the current

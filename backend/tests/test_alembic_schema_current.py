@@ -20,6 +20,7 @@ from app.db import Base
 
 
 _RECENT_LINEAR_REVISIONS = (
+    "0257_remove_obsolete_onboarding_setting",
     "0256_canonical_app_settings_security",
     "0255_canonical_onboarding_completion",
     "0254_canonical_healthcheck_status",
