@@ -68,7 +68,7 @@ def build_quota_alert_content(
             "subject_label": subject_label,
             "subject_name": subject.subject_name,
             "endpoint_name": subject.endpoint_name,
-            "threshold_percent": int(threshold_percent),
+            "threshold_percent": threshold_percent,
             "usage_ratio_pct": ratio_pct,
             "used_bytes": int(used_bytes),
             "quota_size_bytes": quota_size_bytes,
