@@ -24,6 +24,7 @@ from app.routers.dependencies import (
     get_current_ui_admin,
     get_users_service_dependency,
 )
+from app.routers.identity_security_policy import identity_security_http_errors
 from app.services.admin_identity_security_service import AdminIdentitySecurityService
 from app.services.audit_service import AuditService
 from app.services.auth_session_service import AuthSessionService
@@ -54,11 +55,12 @@ def get_user_security(
     actor: User = Depends(get_current_ui_admin),
 ) -> AdminUserSecurity:
     require_admin_interactive_session(request, db, actor)
-    return AdminIdentitySecurityService(db).user_security(
-        actor,
-        user_id,
-        include_revoked=include_revoked,
-    )
+    with identity_security_http_errors():
+        return AdminIdentitySecurityService(db).user_security(
+            actor,
+            user_id,
+            include_revoked=include_revoked,
+        )
 
 
 @router.post("/users/{user_id}/mfa/reset", response_model=AdminMfaResetResponse)
@@ -70,11 +72,12 @@ def reset_user_mfa(
     audit: AuditService = Depends(get_audit_service),
 ) -> AdminMfaResetResponse:
     require_admin_sensitive_action(request, db, actor)
-    target = AdminIdentitySecurityService(db).managed_user(
-        actor,
-        user_id,
-        allow_self=False,
-    )
+    with identity_security_http_errors():
+        target = AdminIdentitySecurityService(db).managed_user(
+            actor,
+            user_id,
+            allow_self=False,
+        )
     result = MfaResetService(db).reset(target, reason="administrator_mfa_reset")
     enrollment_required = passkey_required_for_role(db, target.role)
     audit.record_action(
@@ -110,11 +113,12 @@ def set_user_password(
     audit: AuditService = Depends(get_audit_service),
 ) -> None:
     require_admin_sensitive_action(request, db, actor)
-    target = AdminIdentitySecurityService(db).managed_user(
-        actor,
-        user_id,
-        allow_self=False,
-    )
+    with identity_security_http_errors():
+        target = AdminIdentitySecurityService(db).managed_user(
+            actor,
+            user_id,
+            allow_self=False,
+        )
     try:
         validate_password_policy(payload.password)
         users.update_user(target.id, UserUpdate(password=payload.password))
@@ -145,7 +149,8 @@ def add_user_external_identity(
 ) -> AdminExternalIdentityInfo:
     require_admin_sensitive_action(request, db, actor)
     security = AdminIdentitySecurityService(db)
-    target = security.managed_user(actor, user_id, allow_self=False)
+    with identity_security_http_errors():
+        target = security.managed_user(actor, user_id, allow_self=False)
     try:
         identity, changed = ExternalIdentityUserService(db).provision_identity(
             user=target,
@@ -181,11 +186,12 @@ def revoke_user_external_identity(
     audit: AuditService = Depends(get_audit_service),
 ) -> None:
     require_admin_sensitive_action(request, db, actor)
-    _, identity = AdminIdentitySecurityService(db).managed_identity(
-        actor,
-        user_id,
-        identity_id,
-    )
+    with identity_security_http_errors():
+        _, identity = AdminIdentitySecurityService(db).managed_identity(
+            actor,
+            user_id,
+            identity_id,
+        )
     try:
         ExternalIdentityUserService(db).revoke_identity(identity.id, reason="administrator_identity_revoked")
     except ValueError as exc:
@@ -211,7 +217,8 @@ def restore_user_external_identity(
 ) -> AdminExternalIdentityInfo:
     require_admin_sensitive_action(request, db, actor)
     security = AdminIdentitySecurityService(db)
-    _, identity = security.managed_identity(actor, user_id, identity_id)
+    with identity_security_http_errors():
+        _, identity = security.managed_identity(actor, user_id, identity_id)
     try:
         restored = ExternalIdentityUserService(db).restore_identity(identity.id)
     except ValueError as exc:
@@ -237,11 +244,12 @@ def revoke_user_session(
     audit: AuditService = Depends(get_audit_service),
 ) -> None:
     require_admin_interactive_session(request, db, actor)
-    session = AdminIdentitySecurityService(db).managed_user_session(
-        actor,
-        user_id,
-        session_id,
-    )
+    with identity_security_http_errors():
+        session = AdminIdentitySecurityService(db).managed_user_session(
+            actor,
+            user_id,
+            session_id,
+        )
     AuthSessionService(db).revoke_session(session.id, "administrator_revoked")
     audit.record_action(
         user=actor,
@@ -279,7 +287,8 @@ def decide_identity_link_request(
     audit: AuditService = Depends(get_audit_service),
 ) -> ExternalIdentityLinkDecisionResponse:
     require_admin_interactive_session(request, db, actor)
-    AdminIdentitySecurityService(db).managed_link_request(actor, request_id)
+    with identity_security_http_errors():
+        AdminIdentitySecurityService(db).managed_link_request(actor, request_id)
     if payload.approve:
         require_admin_sensitive_action(request, db, actor)
     try:
@@ -332,7 +341,8 @@ def revoke_global_session(
     audit: AuditService = Depends(get_audit_service),
 ) -> None:
     require_admin_interactive_session(request, db, actor)
-    row = AdminIdentitySecurityService(db).managed_global_session(actor, session_id)
+    with identity_security_http_errors():
+        row = AdminIdentitySecurityService(db).managed_global_session(actor, session_id)
     AuthSessionService(db).revoke_session(row.id, "administrator_revoked")
     audit.record_action(
         user=actor,

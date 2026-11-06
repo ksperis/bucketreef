@@ -2,10 +2,16 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.domain_errors import (
+    AuthSessionNotFoundError,
+    ExternalIdentityLinkRequestNotFoundError,
+    ExternalIdentityNotFoundError,
+    IdentitySecurityAuthorizationError,
+    UiUserNotFoundError,
+)
 from app.db import (
     AuthSession,
     ExternalIdentity,
@@ -66,7 +72,7 @@ class AdminIdentitySecurityService:
     ) -> User:
         target = self.users.get_by_id(user_id)
         if target is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+            raise UiUserNotFoundError("User not found")
         ensure_actor_can_manage_user(actor, target, allow_self=allow_self)
         return target
 
@@ -133,10 +139,7 @@ class AdminIdentitySecurityService:
             )
         )
         if identity is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="External identity not found",
-            )
+            raise ExternalIdentityNotFoundError("External identity not found")
         return target, identity
 
     def managed_user_session(
@@ -153,7 +156,7 @@ class AdminIdentitySecurityService:
             )
         )
         if session is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+            raise AuthSessionNotFoundError("Session not found")
         return session
 
     def list_link_requests(
@@ -206,9 +209,8 @@ class AdminIdentitySecurityService:
             )
         )
         if link_request is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="External identity request not found",
+            raise ExternalIdentityLinkRequestNotFoundError(
+                "External identity request not found"
             )
         self.managed_user(actor, link_request.user_id)
         return link_request
@@ -239,10 +241,10 @@ class AdminIdentitySecurityService:
             select(AuthSession).where(AuthSession.id == session_id)
         )
         if row is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+            raise AuthSessionNotFoundError("Session not found")
         if row.user_id is None:
             if not is_superadmin_ui_role(actor.role):
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
+                raise IdentitySecurityAuthorizationError("Not authorized")
         else:
             self.managed_user(actor, row.user_id)
         return row

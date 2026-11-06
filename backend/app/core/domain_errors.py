@@ -91,6 +91,22 @@ class ExternalIdentityNotFoundError(ResourceNotFoundError):
     pass
 
 
+class ExternalIdentityLinkRequestNotFoundError(ResourceNotFoundError):
+    pass
+
+
+class AuthSessionNotFoundError(ResourceNotFoundError):
+    pass
+
+
+class IdentitySecuritySelfActionError(ValueError):
+    """Raised when an administrator targets their own account for a forbidden action."""
+
+
+class IdentitySecurityAuthorizationError(PermissionError):
+    """Raised when an administrator cannot manage the requested identity target."""
+
+
 class ManagerIAMManagedUserConflictError(ResourceConflictError):
     pass
 
