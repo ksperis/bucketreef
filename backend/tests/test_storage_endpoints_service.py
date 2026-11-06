@@ -517,6 +517,16 @@ def test_update_ceph_endpoint_requires_runtime_identity(db_session):
         )
 
 
+def test_external_mode_still_requires_runtime_for_enabled_features(db_session):
+    endpoint = _create_ceph_endpoint(db_session, name="ceph-external-runtime-required")
+
+    with pytest.raises(ValueError, match="External service identities require Runtime"):
+        StorageEndpointsService(db_session).update_endpoint(
+            endpoint.id,
+            StorageEndpointUpdate(service_identity_mode="external"),
+        )
+
+
 def test_update_ceph_admin_credentials_uses_omission_to_preserve_and_nulls_to_clear(
     db_session,
 ):
