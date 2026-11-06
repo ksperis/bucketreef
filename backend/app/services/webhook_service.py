@@ -359,7 +359,7 @@ class WebhookService:
             id=int(row.id),
             name=row.name,
             url=row.url,
-            enabled=bool(row.enabled),
+            enabled=row.enabled,
             event_types=event_types,
             has_signing_secret=bool(row.signing_secret),
             last_delivery=(self._delivery_out(latest_delivery) if latest_delivery is not None else None),
@@ -372,7 +372,7 @@ class WebhookService:
         return WebhookDeliveryOut(
             id=int(row.id),
             event_type=row.event_type,
-            is_test=bool(row.is_test),
+            is_test=row.is_test,
             status=row.status,
             attempt_count=int(row.attempt_count),
             last_http_status=row.last_http_status,
