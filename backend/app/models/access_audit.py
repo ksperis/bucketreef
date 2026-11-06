@@ -6,12 +6,16 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
+from pydantic import Field
+
 from app.models.base import ApiModel
 from app.models.pagination import PaginatedResponse
 from app.models.user import UiRole
 
 AccessAuditScope = Literal["platform", "rgw_account", "rgw_user", "s3_connection"]
 AccessAuditSourceKind = Literal["direct", "group", "platform"]
+AccessAuditSortBy = Literal["user", "scope", "target"]
+AccessAuditSortDir = Literal["asc", "desc"]
 AccessAuditRightCode = Literal[
     "ceph_admin",
     "storage_ops",
@@ -30,6 +34,23 @@ AccessAuditRightCode = Literal[
     "rgw_user_access",
     "shared_connection_access",
 ]
+
+
+class AccessAuditFilters(ApiModel):
+    search: Optional[str] = None
+    scope: Optional[AccessAuditScope] = None
+    right: Optional[AccessAuditRightCode] = None
+    source: Optional[AccessAuditSourceKind] = None
+    user_id: Optional[int] = Field(default=None, ge=1)
+    group_id: Optional[int] = Field(default=None, ge=1)
+    target_id: Optional[int] = Field(default=None, ge=1)
+    sort_by: AccessAuditSortBy = "user"
+    sort_dir: AccessAuditSortDir = "asc"
+
+
+class AccessAuditListingRequest(AccessAuditFilters):
+    page: int = Field(default=1, ge=1)
+    page_size: int = Field(default=25, ge=1, le=200)
 
 
 class AccessAuditGrantSource(ApiModel):

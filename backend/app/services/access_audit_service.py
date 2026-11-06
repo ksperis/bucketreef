@@ -14,7 +14,9 @@ from sqlalchemy.orm import Session
 from app.db import S3Account, S3Connection, S3User, User, UserUiGroup
 from app.core.domain_enums import ManagerAccountRole
 from app.models.access_audit import (
+    AccessAuditFilters,
     AccessAuditGrantSource,
+    AccessAuditListingRequest,
     AccessAuditPrincipal,
     AccessAuditRight,
     AccessAuditRightCode,
@@ -54,19 +56,6 @@ SCOPE_ORDER: dict[AccessAuditScope, int] = {
     "rgw_user": 2,
     "s3_connection": 3,
 }
-
-
-@dataclass(frozen=True)
-class AccessAuditFilters:
-    search: str | None = None
-    scope: AccessAuditScope | None = None
-    right: AccessAuditRightCode | None = None
-    source: AccessAuditSourceKind | None = None
-    user_id: int | None = None
-    group_id: int | None = None
-    target_id: int | None = None
-    sort_by: str = "user"
-    sort_dir: str = "asc"
 
 
 @dataclass(frozen=True)
@@ -477,21 +466,18 @@ class AccessAuditService:
 
     def paginate(
         self,
-        filters: AccessAuditFilters,
-        *,
-        page: int,
-        page_size: int,
+        request: AccessAuditListingRequest,
     ) -> PaginatedAccessAuditResponse:
-        rows = self.list_rows(filters)
+        rows = self.list_rows(request)
         total = len(rows)
-        start = (page - 1) * page_size
-        items = rows[start:start + page_size]
+        start = (request.page - 1) * request.page_size
+        items = rows[start:start + request.page_size]
         return PaginatedAccessAuditResponse(
             items=items,
             total=total,
-            page=page,
-            page_size=page_size,
-            has_next=page * page_size < total,
+            page=request.page,
+            page_size=request.page_size,
+            has_next=request.page * request.page_size < total,
         )
 
     @staticmethod

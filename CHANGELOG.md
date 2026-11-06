@@ -30,6 +30,7 @@
 - Reuse one access-key status update contract across IAM, RGW user, Portal, and Ceph Admin routes.
 - Reuse the canonical bucket tags and website contracts for both reads and writes.
 - Canonicalize Browser object-list requests on one strict backend model and reject unsupported object-type filters instead of silently treating them as `all`.
+- Canonicalize Admin access-audit list and CSV filters on shared backend request models instead of rebuilding the same filter set in each route.
 
 ### Fixed
 

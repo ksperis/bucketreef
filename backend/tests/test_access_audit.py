@@ -20,13 +20,14 @@ from app.db import (
 )
 from app.core.domain_enums import ManagerAccountRole, UserRole
 from app.models.access_audit import (
+    AccessAuditFilters,
     AccessAuditGrantSource,
     AccessAuditPrincipal,
     AccessAuditRight,
     AccessAuditRow,
     AccessAuditTarget,
 )
-from app.services.access_audit_service import AccessAuditFilters, AccessAuditService
+from app.services.access_audit_service import AccessAuditService
 from tests.s3_account_factory import make_s3_account
 from tests.s3_connection_factory import custom_endpoint_fields
 
@@ -307,3 +308,17 @@ def test_access_audit_route_supports_resource_filters_and_export(client, db_sess
     assert exported.headers["content-type"].startswith("text/csv")
     assert "attachment" in exported.headers["content-disposition"]
     assert group.name in exported.text
+
+
+@pytest.mark.parametrize(
+    ("path", "params"),
+    [
+        ("/api/admin/access-audit", {"page_size": 201}),
+        ("/api/admin/access-audit", {"user_id": 0}),
+        ("/api/admin/access-audit/export.csv", {"group_id": 0}),
+    ],
+)
+def test_access_audit_routes_reject_out_of_range_query_values(client, path, params):
+    response = client.get(path, params=params)
+
+    assert response.status_code == 422
