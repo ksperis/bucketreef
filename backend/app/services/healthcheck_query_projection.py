@@ -58,7 +58,7 @@ def workspace_endpoint_snapshot(
 ) -> tuple[dict[str, Any], str]:
     profile = resolve_healthcheck_profile(endpoint)
     if latest_scope is not None:
-        status = str(latest_scope.status or HealthCheckStatus.UNKNOWN.value)
+        status = latest_scope.status
         checked_at = latest_scope.checked_at.isoformat()
         latency_ms = latest_scope.latency_ms
         check_mode = latest_scope.check_mode
@@ -174,7 +174,7 @@ def build_segment_timeline_map(
         segment_end = min((row.ended_at or now), now)
         if segment_end <= segment_start:
             continue
-        status = str(row.status or HealthCheckStatus.UNKNOWN.value)
+        status = row.status
         reason: Optional[str] = None
         if status == HealthCheckStatus.DOWN.value:
             reason = "Endpoint unavailable during this period."
