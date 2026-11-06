@@ -1888,6 +1888,23 @@ payloads are unchanged, but direct callers using the wrong collection now fail
 request validation with HTTP `422`. No database migration is required for this
 API cutover.
 
+## 2026-11 canonical bucket operation targets
+
+Manager bucket-integrity and bucket-purge requests now use `targets`, matching
+the canonical collection name used by Storage Ops and Ceph Admin. The target
+value remains surface-specific: Manager sends bucket-name strings, Storage Ops
+sends execution-context targets, and Ceph Admin sends RGW tenant-aware bucket
+references. The retired Manager `buckets` field is rejected with HTTP `422`.
+
+Bucket usage-statistics streams keep their current surface-specific target
+contract. Storage Ops sends execution-context `targets`, Ceph Admin targeted
+scans send RGW `targets`, and Manager aggregate or single-bucket scans derive
+their bucket set from the selected context or path. Single-bucket stream routes
+do not require a request body.
+
+Deploy the matching backend and bundled frontend together for the Manager
+integrity and purge request cutover. No database migration is required.
+
 ## 2026-10 Ceph Admin tenant-aware bucket identity
 
 Ceph Admin bucket operations now treat the physical bucket identity as the

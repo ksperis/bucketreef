@@ -3,7 +3,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   streamAdminUsageStatsAggregate,
   streamCephAdminBucketUsageStats,
+  streamCephAdminBucketUsageStatsForBucket,
   streamCephAdminUsageStatsAggregate,
+  streamManagerBucketUsageStatsForBucket,
   streamManagerUsageStatsAggregate,
   streamStorageOpsBucketUsageStats,
 } from "./bucketUsageStats";
@@ -98,5 +100,34 @@ describe("bucket usage stats streams", () => {
         body: JSON.stringify({ parallelism: 2 }),
       })
     );
+  });
+
+  it("posts single-bucket calculations without a request body", async () => {
+    const resultPayload =
+      'event: result\ndata: {"status":"completed","total_buckets":1,"completed_buckets":1,"failed_buckets":0,"listed_versions":1,"listed_delete_markers":0,"total_bytes":10,"started_at":"2026-01-01T00:00:00Z","finished_at":"2026-01-01T00:00:01Z","buckets":[]}\n\n';
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => {
+      return new Response(buildStream([resultPayload, 'event: done\ndata: {"request_id":"r1"}\n\n']), {
+        status: 200,
+        headers: { "content-type": "text/event-stream" },
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await streamManagerBucketUsageStatsForBucket("account-1", "bucket-a");
+    await streamCephAdminBucketUsageStatsForBucket(7, "bucket-a", "tenant-a");
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "/api/manager/buckets/bucket-a/usage-stats/stream?context_id=account-1",
+      expect.objectContaining({ method: "POST" })
+    );
+    expect(fetchMock.mock.calls[0][1]).not.toHaveProperty("body");
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "/api/ceph-admin/endpoints/7/buckets/bucket-a/usage-stats/stream?tenant=tenant-a",
+      expect.objectContaining({ method: "POST" })
+    );
+    expect(fetchMock.mock.calls[1][1]).not.toHaveProperty("body");
   });
 });

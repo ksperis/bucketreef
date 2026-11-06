@@ -11,6 +11,7 @@
 - Rename the external-identity link TTL and browser-binding cookie settings to provider-neutral names now that the shared flow covers both OIDC and LDAP.
 - Canonicalize bucket-purge application requests on a single `targets` field across Manager, Storage Ops, and Ceph Admin.
 - Canonicalize bucket-integrity application requests on `targets` and remove the retired frontend bucket-name payload wrapper.
+- Simplify bucket usage-statistics request models around the shared scope options and stop sending obsolete bodies to single-bucket stream routes.
 
 ### Fixed
 

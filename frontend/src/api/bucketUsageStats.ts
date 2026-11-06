@@ -15,16 +15,12 @@ import {
   streamBucketsWithSse,
 } from "./sseBucketsStream";
 
-type BucketUsageStatsOptionsPayload = {
-  parallelism?: number;
-};
-
-type BucketUsageStatsTargetPayload = BucketUsageStatsOptionsPayload & BucketTargetsPayload;
-type BucketUsageStatsRgwTargetPayload = BucketUsageStatsOptionsPayload & RgwBucketTargetsPayload;
-
 type BucketUsageStatsScopePayload = {
   parallelism?: number;
 };
+
+type BucketUsageStatsTargetPayload = BucketUsageStatsScopePayload & BucketTargetsPayload;
+type BucketUsageStatsRgwTargetPayload = BucketUsageStatsScopePayload & RgwBucketTargetsPayload;
 
 export type BucketUsageStatsDistributionEntry = {
   key: string;
@@ -216,7 +212,7 @@ export function streamManagerBucketUsageStatsForBucket(
   return streamBucketsWithSse<BucketUsageStatsProgress, BucketUsageStatsResult>({
     url: `${baseUrl}/manager/buckets/${encodeURIComponent(bucketName)}/usage-stats/stream?${query.toString()}`,
     options,
-    requestInit: buildJsonPostRequestInit({ buckets: [bucketName], parallelism: 1 }),
+    requestInit: { method: "POST" },
     streamFailedLabel: "Bucket usage stats stream failed",
     missingResultMessage: "Bucket usage stats stream ended without a result payload",
   });
@@ -281,7 +277,7 @@ export function streamCephAdminBucketUsageStatsForBucket(
   return streamBucketsWithSse<BucketUsageStatsProgress, BucketUsageStatsResult>({
     url: `${baseUrl}/ceph-admin/endpoints/${endpointId}/buckets/${encodeURIComponent(bucketName)}/usage-stats/stream${queryText ? `?${queryText}` : ""}`,
     options,
-    requestInit: buildJsonPostRequestInit({}),
+    requestInit: { method: "POST" },
     streamFailedLabel: "Bucket usage stats stream failed",
     missingResultMessage: "Bucket usage stats stream ended without a result payload",
   });
