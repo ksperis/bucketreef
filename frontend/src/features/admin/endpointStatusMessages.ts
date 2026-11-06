@@ -44,7 +44,6 @@ const messages = {
   hourUnit: m("h", "小时"),
   dayUnit: m("d", "天"),
   checkTypeAvailability: m("AVAILABILITY", "可用性"),
-  checkTypeLatency: m("LATENCY", "延迟"),
   checkScopeEndpoint: m("ENDPOINT", "端点"),
   endpointLatency: m("Endpoint Latency", "端点延迟"),
   latencyDescription: m("24h rolling min/avg/max latency (down checks excluded). Click a card for endpoint details.", "过去 24 小时滚动统计的最小、平均和最大延迟（不含不可用时的检查）。点击卡片查看端点详情。"),
