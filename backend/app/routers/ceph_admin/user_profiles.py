@@ -50,15 +50,15 @@ router.include_router(user_keys.router)
 def _load_user_detail(uid: str, tenant: Optional[str], ctx: CephAdminContext) -> CephAdminRgwUserDetail:
     try:
         payload = load_user_payload(uid, tenant, ctx.rgw_admin)
+        fields = extract_user_fields(payload, {"account"})
+        account_name = resolve_optional_account_name(
+            fields.account_id,
+            fields.account_name,
+            ctx.rgw_admin,
+            account_lookup_enabled=optional_account_lookup_enabled(ctx.endpoint),
+        )
     except CephAdminServiceError as exc:
         raise_ceph_admin_service_error(exc)
-    fields = extract_user_fields(payload, {"account"})
-    account_name = resolve_optional_account_name(
-        fields.account_id,
-        fields.account_name,
-        ctx.rgw_admin,
-        account_lookup_enabled=optional_account_lookup_enabled(ctx.endpoint),
-    )
     return build_user_detail(
         payload,
         uid_fallback=uid,
@@ -114,9 +114,9 @@ def create_rgw_user(
     payload: CephAdminRgwUserCreate,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> CephAdminRgwUserCreateResponse:
-    uid, tenant, account_id = _resolve_create_user_scope(payload, ctx)
     mutations = CephAdminUserProfileMutationService(ctx.rgw_admin)
     try:
+        uid, tenant, account_id = _resolve_create_user_scope(payload, ctx)
         # A manual create must never reuse another principal, even within the same account.
         mutations.ensure_uid_available(uid, tenant)
         create_result = mutations.create_user(
