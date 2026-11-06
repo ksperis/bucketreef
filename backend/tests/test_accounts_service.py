@@ -333,7 +333,7 @@ class FakeRGWAdmin:
         return {"id": account_id, "user_list": []}
 
 
-def test_get_account_usage_uses_runtime_without_monitoring_feature(db_session, monkeypatch):
+def test_account_metrics_usage_uses_runtime_without_monitoring_feature(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session, metrics_enabled=False)
     account = S3Account(
         name="Usage Account",
@@ -361,13 +361,13 @@ def test_get_account_usage_uses_runtime_without_monitoring_feature(db_session, m
 
     service = _build_service(db_session, monkeypatch, FakeAdmin())
 
-    assert service.get_account_usage(account) == (96, 5, 2)
+    assert service.metrics.get_usage(account) == (96, 5, 2)
     assert admin_calls == [
         {"account_id": None, "uid": "usage-account-admin", "with_stats": True}
     ]
 
 
-def test_get_account_usage_uses_root_bucket_count_for_explicit_tenant(
+def test_account_metrics_usage_uses_root_bucket_count_for_explicit_tenant(
     db_session,
     monkeypatch,
 ):
@@ -399,7 +399,7 @@ def test_get_account_usage_uses_root_bucket_count_for_explicit_tenant(
 
     service = _build_service(db_session, monkeypatch, FakeAdmin())
 
-    assert service.get_account_usage(account) == (128, 4, 1)
+    assert service.metrics.get_usage(account) == (128, 4, 1)
 
 def test_create_account_with_root(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)

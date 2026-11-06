@@ -90,9 +90,6 @@ class S3AccountsService:
     def find_account_by_rgw_id(self, rgw_account_id: str) -> Optional[S3Account]:
         return self.repository.find_by_rgw_id(rgw_account_id)
 
-    def get_account_usage(self, account: S3Account) -> tuple[Optional[int], Optional[int], Optional[int]]:
-        return self.metrics.get_usage(account)
-
     def get_account_quota(
         self,
         account: S3Account,
