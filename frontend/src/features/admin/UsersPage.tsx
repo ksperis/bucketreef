@@ -5,6 +5,7 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CreateUserPayload,
+  type AdminUserSortBy,
   type LdapImportSearchItem,
   UpdateUserPayload,
   User,
@@ -34,7 +35,7 @@ import WorkflowTabs from "../../components/WorkflowTabs";
 import PageHeader from "../../components/PageHeader";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
 import AdminUserPlatformAccessPanel from "./AdminUserPlatformAccessPanel";
-import AdminUsersList, { type AdminUsersSortField } from "./AdminUsersList";
+import AdminUsersList from "./AdminUsersList";
 import {
   roleSupportsOperationalAccess,
 } from "./adminAccessConfig";
@@ -222,7 +223,7 @@ export default function UsersPage() {
     handleSort: toggleSort,
     handlePageChange,
     handlePageSizeChange,
-  } = useAdminPaginatedListState<AdminUsersSortField>({
+  } = useAdminPaginatedListState<AdminUserSortBy>({
     initialFilter: principalEditRequest?.search ?? "",
     initialSort: { field: "name", direction: "asc" },
   });

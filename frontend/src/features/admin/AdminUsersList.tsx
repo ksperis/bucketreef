@@ -1,6 +1,6 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import type { S3AccountSummary } from "../../api/accounts";
-import type { User } from "../../api/users";
+import type { AdminUserSortBy, User } from "../../api/users";
 import UserAvatar from "../../components/UserAvatar";
 import ToolbarSearchInput from "../../components/ToolbarSearchInput";
 import DataTableShell, {
@@ -24,8 +24,6 @@ import { buildAccessAuditHref } from "./accessAuditLink";
 import type { UsersText } from "./usersMessage";
 import type { UiLanguage } from "../../components/language";
 
-export type AdminUsersSortField = "name" | "role" | "accounts" | "last_login_at";
-
 type Props = {
   users: User[];
   accountOptionsById: ReadonlyMap<number, S3AccountSummary>;
@@ -41,8 +39,8 @@ type Props = {
   totalUsers: number;
   filter: string;
   onFilterChange: (value: string) => void;
-  sort: { field: AdminUsersSortField; direction: "asc" | "desc" };
-  onSort: (field: AdminUsersSortField) => void;
+  sort: { field: AdminUserSortBy; direction: "asc" | "desc" };
+  onSort: (field: AdminUserSortBy) => void;
   page: number;
   pageSize: number;
   onPageChange: (page: number) => void;
@@ -114,7 +112,7 @@ export default function AdminUsersList({
     return <CompactAssociationSummary categories={categories} />;
   };
 
-  const columns: Array<DataTableColumn<User, AdminUsersSortField>> = [
+  const columns: Array<DataTableColumn<User, AdminUserSortBy>> = [
     {
       id: "user",
       label: text("user"),

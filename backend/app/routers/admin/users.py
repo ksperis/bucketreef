@@ -10,6 +10,7 @@ from app.db import User as DbUser
 from app.core.domain_enums import UserRole, is_superadmin_ui_role
 from app.models.admin_listing import AdminOptionListingRequest
 from app.models.user import (
+    AdminUserListingRequest,
     PaginatedUserSummariesResponse,
     PaginatedUsersResponse,
     UserCreate,
@@ -126,25 +127,13 @@ def _require_superadmin_for_group_privileges(
 @router.get("", response_model=PaginatedUsersResponse)
 def list_users(
     request: Request,
-    page: int = Query(1, ge=1),
-    page_size: int = Query(25, ge=1, le=200),
-    search: Optional[str] = Query(None),
-    sort_by: str = Query("name"),
-    sort_dir: str = Query("asc"),
+    query: Annotated[AdminUserListingRequest, Query()],
     users_service: UsersService = Depends(get_users_service_dependency),
     current_user: DbUser = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> PaginatedUsersResponse:
     require_admin_interactive_session(request, db, current_user)
-    items, total = users_service.paginate_users(
-        page=page,
-        page_size=page_size,
-        search=search,
-        sort_field=sort_by,
-        sort_direction=sort_dir,
-    )
-    has_next = page * page_size < total
-    return PaginatedUsersResponse(items=items, total=total, page=page, page_size=page_size, has_next=has_next)
+    return users_service.list_users_page(query)
 
 
 @router.get("/options", response_model=PaginatedUserSummariesResponse)

@@ -9,7 +9,9 @@ from app.db import User
 from app.core.domain_enums import UserRole
 from app.models.admin_listing import AdminOptionListingRequest
 from app.models.user import (
+    AdminUserListingRequest,
     PaginatedUserSummariesResponse,
+    PaginatedUsersResponse,
     UserCreate,
     UserOut,
     UserSelfUpdate,
@@ -106,21 +108,11 @@ class UsersService:
     ) -> PaginatedUserSummariesResponse:
         return self.query.list_user_options_page(request)
 
-    def paginate_users(
+    def list_users_page(
         self,
-        page: int,
-        page_size: int,
-        search: Optional[str] = None,
-        sort_field: str = "name",
-        sort_direction: str = "asc",
-    ) -> tuple[list[UserOut], int]:
-        return self.query.paginate_users(
-            page=page,
-            page_size=page_size,
-            search=search,
-            sort_field=sort_field,
-            sort_direction=sort_direction,
-        )
+        request: AdminUserListingRequest,
+    ) -> PaginatedUsersResponse:
+        return self.query.list_users_page(request)
 
     def assign_user_to_account(
         self,
