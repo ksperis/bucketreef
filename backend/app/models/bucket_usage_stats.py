@@ -19,16 +19,17 @@ BucketUsageStatsBucketStatus = Literal["completed", "completed_with_warnings", "
 BucketUsageStatsScanMode = Literal["versions", "current_only"]
 
 
-class BucketUsageStatsRequestOptions(ApiModel):
+class BucketUsageStatsScopeRequest(ApiModel):
     parallelism: int = Field(default=8, ge=1, le=32)
 
 
-class BucketUsageStatsTargetRequest(BucketUsageStatsRequestOptions):
+class BucketUsageStatsTargetRequest(BucketUsageStatsScopeRequest):
     targets: BucketTargetList
 
 
-class BucketUsageStatsRgwTargetRequest(BucketUsageStatsRequestOptions):
+class BucketUsageStatsRgwTargetRequest(BucketUsageStatsScopeRequest):
     targets: RgwBucketReferenceList
+
 
 class BucketUsageStatsDistributionEntry(ApiModel):
     key: str
@@ -97,10 +98,6 @@ class BucketUsageStatsAggregate(ApiModel):
 
 class BucketUsageStatsAggregateResponse(ApiModel):
     aggregate: BucketUsageStatsAggregate
-
-
-class BucketUsageStatsScopeRequest(ApiModel):
-    parallelism: int = Field(default=8, ge=1, le=32)
 
 
 class BucketUsageStatsBucketResult(ApiModel):
