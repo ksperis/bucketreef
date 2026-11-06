@@ -79,7 +79,3 @@ class UserProvisioningService:
             role,
         )
         return user
-
-
-def get_user_provisioning_service(db: Session) -> UserProvisioningService:
-    return UserProvisioningService(db)

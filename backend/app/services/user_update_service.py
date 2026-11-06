@@ -210,7 +210,3 @@ class UserUpdateService:
             )
         logger.debug("Updated profile for user id=%s", user.id)
         return user
-
-
-def get_user_update_service(db: Session) -> UserUpdateService:
-    return UserUpdateService(db)
