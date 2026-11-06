@@ -94,12 +94,14 @@ export type S3AccountSummary = {
 
 type PaginatedS3AccountsResponse = PaginatedResponse<S3Account>;
 
+type S3AccountSortBy = "name" | "rgw_account_id";
+
 type ListS3AccountsParams = {
   page?: number;
   page_size?: number;
   search?: string;
   search_exact?: boolean;
-  sort_by?: string;
+  sort_by?: S3AccountSortBy;
   sort_dir?: "asc" | "desc";
   include_quota?: boolean;
   include_rgw_details?: boolean;

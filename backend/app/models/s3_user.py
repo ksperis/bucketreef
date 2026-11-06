@@ -1,11 +1,12 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import Field, field_validator, model_validator
 
 from app.models.access_key_metadata import AccessKeyMetadata
+from app.models.admin_managed_listing import AdminManagedEntityListingRequest
 from app.models.base import ApiModel, reject_explicit_null_fields
 from app.utils.rgw_identifiers import validate_rgw_user_uid, validate_rgw_tenant
 from app.models.pagination import PaginatedResponse
@@ -43,6 +44,13 @@ class S3UserUserLinkInput(ApiModel):
 class S3UserGroupLinkInput(ApiModel):
     group_id: int
     allow_manager_browser_data_access: bool
+
+
+S3UserSortBy = Literal["name", "uid", "email", "created_at"]
+
+
+class S3UserListingRequest(AdminManagedEntityListingRequest):
+    sort_by: S3UserSortBy = "name"
 
 
 class S3User(ApiModel):

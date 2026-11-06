@@ -32,6 +32,7 @@ from app.models.s3_user import (
     S3UserCreate,
     S3UserGroupLinkInput,
     S3UserImport,
+    S3UserListingRequest,
     S3UserUpdate,
     S3UserUserLinkInput,
 )
@@ -2030,27 +2031,29 @@ def test_list_users_and_paginated_are_sorted_case_insensitive_and_stable(db_sess
 
     service = S3UsersService(db_session)
     listed = service.list_users(include_quota=False)
-    paginated, total = service.paginate_users(
-        page=1,
-        page_size=10,
-        sort_field="name",
-        sort_direction="asc",
-        include_quota=False,
+    paginated = service.list_users_page(
+        S3UserListingRequest(
+            page=1,
+            page_size=10,
+            sort_by="name",
+            sort_dir="asc",
+            include_quota=False,
+        )
     )
 
     listed_names = [entry.name for entry in listed]
     listed_same_ids = [entry.id for entry in listed if entry.name == "same"]
-    paginated_names = [entry.name for entry in paginated]
-    paginated_same_ids = [entry.id for entry in paginated if entry.name == "same"]
+    paginated_names = [entry.name for entry in paginated.items]
+    paginated_same_ids = [entry.id for entry in paginated.items if entry.name == "same"]
 
-    assert total == 5
+    assert paginated.total == 5
     assert listed_names == ["alpha", "Beta", "same", "same", "Zulu"]
     assert paginated_names == ["alpha", "Beta", "same", "same", "Zulu"]
     assert listed_same_ids == sorted([same_1.id, same_2.id])
     assert paginated_same_ids == sorted([same_1.id, same_2.id])
 
 
-def test_paginate_users_name_and_non_name_sorts_are_stable(db_session):
+def test_list_users_page_name_and_non_name_sorts_are_stable(db_session):
     endpoint = _seed_ceph_endpoint(db_session)
     older_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
     same_1 = _seed_local_user(db_session, name="same", uid="page-same-1", endpoint_id=endpoint.id, created_at=older_time)
@@ -2081,24 +2084,26 @@ def test_paginate_users_name_and_non_name_sorts_are_stable(db_session):
 
     service = S3UsersService(db_session)
 
-    name_desc_items, _ = service.paginate_users(
-        page=1,
-        page_size=10,
-        search=None,
-        sort_field="name",
-        sort_direction="desc",
-        include_quota=False,
-    )
+    name_desc_items = service.list_users_page(
+        S3UserListingRequest(
+            page=1,
+            page_size=10,
+            sort_by="name",
+            sort_dir="desc",
+            include_quota=False,
+        )
+    ).items
     same_desc_ids = [entry.id for entry in name_desc_items if entry.name == "same"]
 
-    created_desc_items, _ = service.paginate_users(
-        page=1,
-        page_size=10,
-        search=None,
-        sort_field="created_at",
-        sort_direction="desc",
-        include_quota=False,
-    )
+    created_desc_items = service.list_users_page(
+        S3UserListingRequest(
+            page=1,
+            page_size=10,
+            sort_by="created_at",
+            sort_dir="desc",
+            include_quota=False,
+        )
+    ).items
     created_desc_ids = [entry.id for entry in created_desc_items]
 
     assert [entry.name for entry in name_desc_items[:3]] == ["time-delta", "time-charlie", "time-bravo"]

@@ -1,7 +1,7 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 import logging
-from typing import Optional
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
@@ -15,6 +15,7 @@ from app.models.s3_user import (
     S3UserCreate,
     S3UserGeneratedKey,
     S3UserImport,
+    S3UserListingRequest,
     S3UserUpdate,
 )
 from app.models.access_key_metadata import AccessKeyStatusChange
@@ -39,33 +40,11 @@ def get_admin_s3_users_service(
 
 @router.get("", response_model=PaginatedS3UsersResponse)
 def list_s3_users(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(25, ge=1, le=200),
-    search: Optional[str] = Query(None),
-    search_exact: bool = Query(False),
-    sort_by: str = Query("name"),
-    sort_dir: str = Query("asc"),
-    include_quota: bool = Query(False, description="Include RGW quota information (slower)."),
+    query: Annotated[S3UserListingRequest, Query()],
     service: S3UsersService = Depends(get_admin_s3_users_service),
     _: User = Depends(get_current_ui_admin),
 ) -> PaginatedS3UsersResponse:
-    items, total = service.paginate_users(
-        page=page,
-        page_size=page_size,
-        search=search,
-        search_exact=search_exact,
-        sort_field=sort_by,
-        sort_direction=sort_dir,
-        include_quota=include_quota,
-    )
-    has_next = page * page_size < total
-    return PaginatedS3UsersResponse(
-        items=items,
-        total=total,
-        page=page,
-        page_size=page_size,
-        has_next=has_next,
-    )
+    return service.list_users_page(query)
 
 
 @router.post("", response_model=S3User, status_code=status.HTTP_201_CREATED)

@@ -20,11 +20,13 @@ from app.services.s3_user_rgw_context_service import S3UserRgwContextService
 from app.services.s3_user_update_service import S3UserUpdateService
 from app.services.tags_service import TagsService
 from app.models.s3_user import (
+    PaginatedS3UsersResponse,
     S3User as S3UserSchema,
     S3UserAccessKey,
     S3UserCreate,
     S3UserGeneratedKey,
     S3UserImport,
+    S3UserListingRequest,
     S3UserUpdate,
 )
 from app.services.rgw_admin import RGWAdminClient
@@ -98,25 +100,11 @@ class S3UsersService:
     def list_users(self, include_quota: bool = False) -> list[S3UserSchema]:
         return self.query.list_users(include_quota=include_quota)
 
-    def paginate_users(
+    def list_users_page(
         self,
-        page: int,
-        page_size: int,
-        search: Optional[str] = None,
-        sort_field: str = "name",
-        sort_direction: str = "asc",
-        include_quota: bool = False,
-        search_exact: bool = False,
-    ) -> tuple[list[S3UserSchema], int]:
-        return self.query.paginate_users(
-            page=page,
-            page_size=page_size,
-            search=search,
-            sort_field=sort_field,
-            sort_direction=sort_direction,
-            include_quota=include_quota,
-            search_exact=search_exact,
-        )
+        request: S3UserListingRequest,
+    ) -> PaginatedS3UsersResponse:
+        return self.query.list_users_page(request)
 
     def get_user(
         self,

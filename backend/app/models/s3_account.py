@@ -1,10 +1,11 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import Field, field_validator, model_validator
 
 from app.models.account_access import AccountAccessGrant
+from app.models.admin_managed_listing import AdminManagedEntityListingRequest
 from app.models.base import ApiModel, reject_explicit_null_fields
 from app.models.pagination import PaginatedResponse
 from app.models.tagging import (
@@ -43,6 +44,17 @@ class AccountUserLinkInput(AccountAccessGrant):
 
 class AccountGroupLinkInput(AccountAccessGrant):
     group_id: int
+
+
+S3AccountSortBy = Literal["name", "rgw_account_id"]
+
+
+class S3AccountListingRequest(AdminManagedEntityListingRequest):
+    sort_by: S3AccountSortBy = "name"
+    include_rgw_details: bool = Field(
+        default=False,
+        description="Include RGW user and topic details (slower).",
+    )
 
 
 class S3Account(ApiModel):

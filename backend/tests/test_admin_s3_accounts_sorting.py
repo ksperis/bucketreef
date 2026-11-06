@@ -100,6 +100,21 @@ def test_admin_accounts_non_name_sort_keeps_behavior_with_stable_id_tiebreak(cli
     assert ids.index(case_2.id) < ids.index(case_1.id)
 
 
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"page": 0},
+        {"page_size": 201},
+        {"sort_by": "created_at"},
+        {"sort_dir": "sideways"},
+    ],
+)
+def test_admin_accounts_reject_invalid_listing_query(client, params):
+    response = client.get("/api/admin/accounts", params=params)
+
+    assert response.status_code == 422, response.text
+
+
 def test_admin_accounts_page_enriches_only_selected_rows(client, db_session, monkeypatch):
     _seed_account(db_session, name="page-a", rgw_account_id="RGW-PAGE-A")
     _seed_account(db_session, name="page-b", rgw_account_id="RGW-PAGE-B")
