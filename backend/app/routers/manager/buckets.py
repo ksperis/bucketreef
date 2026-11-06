@@ -14,7 +14,6 @@ from app.services.access_context_contracts import ManagerActor
 from app.models.bucket import (
     Bucket,
     BucketCreate,
-    BucketOption,
     BucketQuotaUpdate,
     PaginatedBucketOptionsResponse,
 )
@@ -208,25 +207,7 @@ def list_bucket_options(
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 
-    needle = query.search.strip().casefold()
-    names = sorted(
-        {
-            bucket.name
-            for bucket in buckets
-            if bucket.name and (not needle or needle in bucket.name.casefold())
-        },
-        key=str.casefold,
-    )
-    total = len(names)
-    start = (query.page - 1) * query.page_size
-    items = [BucketOption(name=name) for name in names[start : start + query.page_size]]
-    return PaginatedBucketOptionsResponse(
-        items=items,
-        total=total,
-        page=query.page,
-        page_size=query.page_size,
-        has_next=query.page * query.page_size < total,
-    )
+    return service.build_bucket_options_page(buckets, query)
 
 
 @router.get("/{bucket_name}/stats", response_model=Bucket)
