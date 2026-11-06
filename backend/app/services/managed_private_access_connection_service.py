@@ -67,15 +67,16 @@ class ManagedPrivateAccessConnectionService:
                 and connection.access_manager == payload.access_manager
             )
             if isinstance(payload, ManagedIAMPrivateAccessRequest):
-                same_request = same_request and self.state.string_list(
-                    provisioning.iam_groups
-                ) == payload.groups
-                same_request = same_request and self.state.string_list(
-                    provisioning.iam_managed_policies
-                ) == payload.managed_policies
-                same_request = same_request and self.state.string_list(
-                    provisioning.iam_inline_policy_names
-                ) == [policy.name for policy in payload.inline_policies]
+                same_request = same_request and provisioning.iam_groups == payload.groups
+                same_request = (
+                    same_request
+                    and provisioning.iam_managed_policies == payload.managed_policies
+                )
+                same_request = (
+                    same_request
+                    and provisioning.iam_inline_policy_names
+                    == [policy.name for policy in payload.inline_policies]
+                )
             if same_request:
                 return ManagedPrivateAccessResult(
                     provisioning_id=provisioning.id,
