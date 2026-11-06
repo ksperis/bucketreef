@@ -75,7 +75,7 @@ POST_MIGRATION_UTC_COLUMNS = {
     "s3_account_deletions": ("created_at", "updated_at"),
     "s3_user_deletions": ("created_at", "updated_at"),
     "s3_user_import_intents": ("created_at", "updated_at"),
-    "onboarding_preferences": ("initial_setup_completed_at", "updated_at"),
+    "onboarding_preferences": ("updated_at",),
     "recovery_codes": ("created_at", "consumed_at"),
     "refresh_tokens": ("created_at", "expires_at", "used_at", "revoked_at"),
     "webauthn_credentials": ("created_at", "last_used_at", "revoked_at"),

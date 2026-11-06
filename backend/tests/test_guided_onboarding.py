@@ -36,7 +36,8 @@ from app.services import onboarding_setup_service as setup_service
 from app.services import portal_role_sync as portal_role_sync_module
 from app.services.managed_resource_naming import onboarding_sample_account_name
 from app.services.onboarding_endpoint_setup_service import OnboardingEndpointSetupService
-from app.services.onboarding_service import OnboardingError, OnboardingService, REQUIRED_FEATURES
+from app.services.onboarding_contracts import REQUIRED_FEATURES
+from app.services.onboarding_service import OnboardingError, OnboardingService
 from app.services.s3_connections_service import S3ConnectionsService
 from tests.service_identity_helpers import service_identity
 from app.services.storage_endpoints_service import StorageEndpointsService
@@ -254,22 +255,21 @@ def account_feature_config(*, iam=True):
     )
 
 
-def test_status_is_per_user_and_imported_completion_counts_until_new_journey_starts(guided, db_session):
+def test_status_is_per_user_and_latest_journey_controls_completion(guided, db_session):
     user = actor(db_session)
     other = actor(db_session)
-    from app.db import OnboardingPreference
-
-    db_session.add(
-        OnboardingPreference(
-            user_id=user.id,
-            dismissed=False,
-            initial_setup_completed_at=utcnow(),
-        )
+    configured = save(
+        guided,
+        user,
+        endpoint_url="https://configured.example.test",
+        private_connection=True,
     )
+    configured_row = db_session.get(OnboardingJourney, configured.id)
+    configured_row.configured_at = utcnow()
     db_session.commit()
 
     assert guided.status(user).complete is True
-    assert guided.status(user).journeys == []
+    assert guided.status(user).journeys[0].id == configured.id
     assert guided.status(other).complete is False
 
     draft = save(
