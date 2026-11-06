@@ -9,6 +9,8 @@ from app.core.domain_enums import HealthCheckStatus
 
 
 HealthCheckMode = Literal["http", "s3"]
+HealthCheckType = Literal["availability"]
+HealthCheckScope = Literal["endpoint"]
 
 
 class EndpointHealthSummary(ApiModel):
@@ -51,8 +53,8 @@ class EndpointHealthPoint(ApiModel):
     latency_ms: Optional[int]
     http_status: Optional[int]
     check_mode: HealthCheckMode
-    check_type: str
-    scope: str
+    check_type: HealthCheckType
+    scope: HealthCheckScope
 
 
 class EndpointHealthDailyPoint(ApiModel):
@@ -72,8 +74,8 @@ class EndpointHealthSeries(ApiModel):
     data_points: int
     check_mode: HealthCheckMode
     check_target_url: Optional[str]
-    check_type: str
-    scope: str
+    check_type: HealthCheckType
+    scope: HealthCheckScope
     series: list[EndpointHealthPoint]
     daily: list[EndpointHealthDailyPoint]
 
@@ -84,16 +86,16 @@ class EndpointHealthIncident(ApiModel):
     duration_minutes: Optional[int]
     status: HealthCheckStatus
     check_mode: HealthCheckMode
-    check_type: str
-    scope: str
+    check_type: HealthCheckType
+    scope: HealthCheckScope
 
 
 class EndpointHealthIncidentsResponse(ApiModel):
     endpoint_id: int
     window: str
     check_mode: HealthCheckMode
-    check_type: str
-    scope: str
+    check_type: HealthCheckType
+    scope: HealthCheckScope
     incidents: list[EndpointHealthIncident]
 
 
@@ -158,8 +160,8 @@ class EndpointHealthLatencyOverviewEndpoint(ApiModel):
     min_latency_ms: Optional[int]
     avg_latency_ms: Optional[int]
     max_latency_ms: Optional[int]
-    check_type: str
-    scope: str
+    check_type: HealthCheckType
+    scope: HealthCheckScope
 
 
 class EndpointHealthLatencyOverviewResponse(ApiModel):
@@ -179,8 +181,8 @@ class EndpointHealthGlobalIncident(ApiModel):
     end: Optional[str]
     duration_minutes: Optional[int]
     check_mode: HealthCheckMode
-    check_type: str
-    scope: str
+    check_type: HealthCheckType
+    scope: HealthCheckScope
 
 
 class EndpointHealthGlobalIncidentsResponse(ApiModel):

@@ -110,7 +110,7 @@ describe("EndpointStatusPage incidents table", () => {
           end: "2026-03-21T08:12:00Z",
           duration_minutes: 12,
           check_mode: "s3",
-          check_type: "latency",
+          check_type: "availability",
           scope: "endpoint",
         },
       ],
@@ -141,7 +141,7 @@ describe("EndpointStatusPage incidents table", () => {
     expect(endpointCell.closest("td")).toHaveAttribute("data-mobile-primary", "true");
     expect(within(table).getByText("Down").closest("td")).toHaveAttribute("data-label", "Status");
     expect(within(table).getByText("Ongoing").closest("td")).toHaveAttribute("data-label", "End");
-    expect(within(table).getByText("LATENCY · ENDPOINT · S3").closest("td")).toHaveAttribute("data-label", "Type");
+    expect(within(table).getByText("AVAILABILITY · ENDPOINT · S3").closest("td")).toHaveAttribute("data-label", "Type");
     expect(within(table).queryByRole("button", { name: "Ceph Paris" })).not.toBeInTheDocument();
     expect(within(table).getAllByRole("button", { name: "Open" })[0].closest("td")).toHaveAttribute(
       "data-mobile-actions",

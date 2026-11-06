@@ -151,9 +151,7 @@ export default function EndpointStatusPage() {
           incident.start,
           incident.end ?? "ongoing",
           incident.status,
-          incident.check_mode ?? "http",
-          incident.check_type ?? "availability",
-          incident.scope ?? "endpoint",
+          incident.check_mode,
           index,
         ].join(":"),
       })),
@@ -225,13 +223,7 @@ export default function EndpointStatusPage() {
         id: "type",
         label: text("type"),
         cellClassName: "min-w-[14rem] ui-caption text-slate-500 dark:text-slate-400",
-        render: (incident) => {
-          const checkType = incident.check_type || "availability";
-          const scope = incident.scope || "endpoint";
-          const typeLabel = checkType === "availability" ? text("checkTypeAvailability") : checkType === "latency" ? text("checkTypeLatency") : checkType.toUpperCase();
-          const scopeLabel = scope === "endpoint" ? text("checkScopeEndpoint") : scope.toUpperCase();
-          return `${typeLabel} · ${scopeLabel} · ${formatCheckMode(incident.check_mode)}`;
-        },
+        render: (incident) => `${text("checkTypeAvailability")} · ${text("checkScopeEndpoint")} · ${formatCheckMode(incident.check_mode)}`,
       },
       {
         id: "actions",

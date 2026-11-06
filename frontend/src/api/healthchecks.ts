@@ -7,6 +7,8 @@ import { S3AccountSelector, S3ExecutionContextSelector, withS3AccountParam, with
 
 export type HealthCheckStatus = "unknown" | "up" | "degraded" | "down";
 export type HealthCheckMode = "http" | "s3";
+export type HealthCheckType = "availability";
+export type HealthCheckScope = "endpoint";
 export type HealthWindow = "day" | "week" | "month" | "quarter" | "half_year" | "year";
 
 export type EndpointHealthSummary = {
@@ -33,8 +35,8 @@ export type EndpointHealthPoint = {
   latency_ms: number | null;
   http_status: number | null;
   check_mode: HealthCheckMode;
-  check_type: string;
-  scope: string;
+  check_type: HealthCheckType;
+  scope: HealthCheckScope;
 };
 
 export type EndpointHealthDailyPoint = {
@@ -54,8 +56,8 @@ export type EndpointHealthSeries = {
   data_points: number;
   check_mode: HealthCheckMode;
   check_target_url: string | null;
-  check_type: string;
-  scope: string;
+  check_type: HealthCheckType;
+  scope: HealthCheckScope;
   series: EndpointHealthPoint[];
   daily: EndpointHealthDailyPoint[];
 };
@@ -66,16 +68,16 @@ export type EndpointHealthIncident = {
   duration_minutes: number | null;
   status: HealthCheckStatus;
   check_mode: HealthCheckMode;
-  check_type: string;
-  scope: string;
+  check_type: HealthCheckType;
+  scope: HealthCheckScope;
 };
 
 export type EndpointHealthIncidentsResponse = {
   endpoint_id: number;
   window: string;
   check_mode: HealthCheckMode;
-  check_type: string;
-  scope: string;
+  check_type: HealthCheckType;
+  scope: HealthCheckScope;
   incidents: EndpointHealthIncident[];
 };
 
@@ -140,8 +142,8 @@ export type EndpointHealthLatencyOverviewEndpoint = {
   min_latency_ms: number | null;
   avg_latency_ms: number | null;
   max_latency_ms: number | null;
-  check_type: string;
-  scope: string;
+  check_type: HealthCheckType;
+  scope: HealthCheckScope;
 };
 
 type EndpointHealthLatencyOverviewResponse = {
@@ -161,8 +163,8 @@ export type EndpointHealthGlobalIncident = {
   end: string | null;
   duration_minutes: number | null;
   check_mode: HealthCheckMode;
-  check_type: string;
-  scope: string;
+  check_type: HealthCheckType;
+  scope: HealthCheckScope;
 };
 
 type EndpointHealthGlobalIncidentsResponse = {
