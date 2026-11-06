@@ -291,6 +291,71 @@ def test_update_rgw_account_rejects_wrong_identity_before_quotas():
     assert admin.set_account_quota_calls == []
 
 
+def test_account_config_route_delegates_mutation_to_profile_service(monkeypatch):
+    fake_rgw = FakeAccountsAdmin()
+    delegated: dict[str, object] = {}
+
+    class SpyMutationService:
+        def __init__(self, rgw_admin):
+            delegated["rgw_admin"] = rgw_admin
+
+        def apply_updated_configuration(self, update, *, account_id):
+            delegated["update"] = update
+            delegated["account_id"] = account_id
+            return set(update.model_fields_set)
+
+    monkeypatch.setattr(
+        account_profiles_router,
+        "CephAdminAccountProfileMutationService",
+        SpyMutationService,
+    )
+    update = CephAdminRgwAccountConfigUpdate(account_name="Delegated")
+
+    account_profiles_router.update_rgw_account_config(
+        "RGW12345678901234567",
+        update,
+        ctx=_ctx(901, fake_rgw),
+    )
+
+    assert delegated == {
+        "rgw_admin": fake_rgw,
+        "update": update,
+        "account_id": "RGW12345678901234567",
+    }
+
+
+def test_update_rgw_account_unsupported_remains_http_502():
+    class UnsupportedAdmin(FakeAccountsAdmin):
+        def update_account(self, *args, **kwargs):
+            return {"not_implemented": True}
+
+    with pytest.raises(HTTPException) as raised:
+        account_profiles_router.update_rgw_account_config(
+            "RGW12345678901234567",
+            CephAdminRgwAccountConfigUpdate(account_name="Unsupported"),
+            ctx=_ctx(901, UnsupportedAdmin()),
+        )
+
+    assert raised.value.status_code == 502
+    assert raised.value.detail == "RGW account update is not supported on this cluster"
+
+
+def test_update_rgw_account_upstream_failure_remains_http_502():
+    class FailingAdmin(FakeAccountsAdmin):
+        def update_account(self, *args, **kwargs):
+            raise RGWAdminError("RGW account mutation failed")
+
+    with pytest.raises(HTTPException) as raised:
+        account_profiles_router.update_rgw_account_config(
+            "RGW12345678901234567",
+            CephAdminRgwAccountConfigUpdate(account_name="Fail"),
+            ctx=_ctx(901, FailingAdmin()),
+        )
+
+    assert raised.value.status_code == 502
+    assert raised.value.detail == "RGW account mutation failed"
+
+
 @pytest.mark.parametrize("account_name", ["invalid:name", "invalid$name", "   ", "invalid\ud800"])
 def test_create_rgw_account_model_rejects_invalid_name(account_name: str):
     with pytest.raises(ValidationError):
