@@ -22,7 +22,6 @@ class BucketMigrationPrecheckRules:
         self,
         *,
         profile: dict[str, Any],
-        initial_strategy: str,
         add_check: Callable[..., None],
     ) -> SourceStrategyDecision:
         versioning = profile.get("versioning") or {}
@@ -43,7 +42,7 @@ class BucketMigrationPrecheckRules:
         strategy = (
             "version_aware"
             if requires_version_aware or requires_object_lock_governance
-            else initial_strategy
+            else "current_only"
         )
         self._add_source_strategy_check(
             versioning=versioning,
@@ -403,7 +402,7 @@ class BucketMigrationPrecheckRules:
             for field in ("enabled", "mode", "days", "years")
         )
         if (
-            strategy in {"current_only", "skip_existing", "version_aware"}
+            strategy in {"current_only", "version_aware"}
             and not object_lock_configured
         ):
             return

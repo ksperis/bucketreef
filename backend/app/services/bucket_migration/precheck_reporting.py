@@ -227,7 +227,6 @@ def finalize_precheck_report(
             for strategy in (
                 "current_only",
                 "version_aware",
-                "skip_existing",
             )
         },
     }

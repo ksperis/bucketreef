@@ -38,7 +38,7 @@ class BucketMigrationItemRunnerMixin:
 
     def _assert_item_execution_strategy_supported(self, item: BucketMigrationItem) -> None:
         strategy = self._item_execution_strategy(item)
-        if strategy not in {"current_only", "version_aware", "skip_existing"}:
+        if strategy not in {"current_only", "version_aware"}:
             raise RuntimeError(
                 f"Execution strategy '{strategy}' is not implemented by the migration worker."
             )

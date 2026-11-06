@@ -2270,7 +2270,7 @@ def test_run_precheck_passes_when_source_bucket_requires_version_aware_strategy(
     assert item_report.get("blocking") is False
     capabilities = report.get("capabilities") or {}
     assert capabilities.get("version_aware_available") is True
-    assert "version_aware" in list(capabilities.get("supported_strategies") or [])
+    assert capabilities.get("supported_strategies") == ["current_only", "version_aware"]
     assert any(
         str(message.get("code", "")) == "version_aware_supported"
         for message in item_report.get("checks", [])
