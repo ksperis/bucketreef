@@ -102,8 +102,6 @@ class HealthCheckQueryService:
             select(EndpointHealthRollup)
             .where(
                 EndpointHealthRollup.storage_endpoint_id == endpoint_id,
-                EndpointHealthRollup.check_type == DEFAULT_CHECK_TYPE,
-                EndpointHealthRollup.scope == DEFAULT_SCOPE,
                 EndpointHealthRollup.resolution_seconds == DEFAULT_ROLLUP_RESOLUTION_SECONDS,
                 EndpointHealthRollup.bucket_start >= start,
                 EndpointHealthRollup.bucket_start <= now,
@@ -260,8 +258,6 @@ class HealthCheckQueryService:
         segment_rows = self.db.scalars(
             select(EndpointHealthStatusSegment)
             .where(
-                EndpointHealthStatusSegment.check_type == DEFAULT_CHECK_TYPE,
-                EndpointHealthStatusSegment.scope == DEFAULT_SCOPE,
                 EndpointHealthStatusSegment.status.in_(
                     [
                         HealthCheckStatus.DEGRADED.value,
@@ -306,8 +302,6 @@ class HealthCheckQueryService:
             select(EndpointHealthStatusSegment)
             .where(
                 EndpointHealthStatusSegment.storage_endpoint_id.in_(endpoint_ids),
-                EndpointHealthStatusSegment.check_type == DEFAULT_CHECK_TYPE,
-                EndpointHealthStatusSegment.scope == DEFAULT_SCOPE,
                 EndpointHealthStatusSegment.status.in_(
                     [
                         HealthCheckStatus.DEGRADED.value,
@@ -435,8 +429,6 @@ class HealthCheckQueryService:
             select(EndpointHealthStatusSegment)
             .where(
                 EndpointHealthStatusSegment.storage_endpoint_id == endpoint_id,
-                EndpointHealthStatusSegment.check_type == DEFAULT_CHECK_TYPE,
-                EndpointHealthStatusSegment.scope == DEFAULT_SCOPE,
                 EndpointHealthStatusSegment.status.in_(
                     [HealthCheckStatus.DEGRADED.value, HealthCheckStatus.DOWN.value]
                 ),
@@ -522,8 +514,6 @@ class HealthCheckQueryService:
             select(EndpointHealthStatusSegment)
             .where(
                 EndpointHealthStatusSegment.storage_endpoint_id.in_(endpoint_ids),
-                EndpointHealthStatusSegment.check_type == DEFAULT_CHECK_TYPE,
-                EndpointHealthStatusSegment.scope == DEFAULT_SCOPE,
                 EndpointHealthStatusSegment.started_at <= now,
                 or_(
                     EndpointHealthStatusSegment.ended_at.is_(None),
@@ -555,8 +545,6 @@ class HealthCheckQueryService:
             select(EndpointHealthRollup)
             .where(
                 EndpointHealthRollup.storage_endpoint_id.in_(endpoint_ids),
-                EndpointHealthRollup.check_type == DEFAULT_CHECK_TYPE,
-                EndpointHealthRollup.scope == DEFAULT_SCOPE,
                 EndpointHealthRollup.resolution_seconds == DEFAULT_ROLLUP_RESOLUTION_SECONDS,
                 EndpointHealthRollup.bucket_start >= start,
                 EndpointHealthRollup.bucket_start <= now,
@@ -578,8 +566,6 @@ class HealthCheckQueryService:
             )
             .where(
                 EndpointHealthLatest.storage_endpoint_id.in_(endpoint_ids),
-                EndpointHealthLatest.check_type == DEFAULT_CHECK_TYPE,
-                EndpointHealthLatest.scope == DEFAULT_SCOPE,
             )
             .group_by(EndpointHealthLatest.storage_endpoint_id)
             .subquery()
@@ -593,10 +579,6 @@ class HealthCheckQueryService:
                     EndpointHealthLatest.storage_endpoint_id == latest_rows.c.endpoint_id,
                     EndpointHealthLatest.checked_at == latest_rows.c.last_checked_at,
                 ),
-            )
-            .where(
-                EndpointHealthLatest.check_type == DEFAULT_CHECK_TYPE,
-                EndpointHealthLatest.scope == DEFAULT_SCOPE,
             )
         ).all()
         latest_by_endpoint: dict[int, EndpointHealthLatest] = {}
