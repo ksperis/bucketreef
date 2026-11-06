@@ -3638,7 +3638,7 @@
           },
           "primaryKey": false,
           "unique": false,
-          "nullable": true,
+          "nullable": false,
           "increment": null,
           "isArray": false,
           "createdAt": 0,
