@@ -428,6 +428,28 @@ def test_update_admin_shared_keeps_explicit_identity_on_source_change(
     assert updated.rgw_tenant == "tenant_b"
 
 
+def test_update_admin_shared_supports_active_flag(db_session):
+    owner = _user(db_session, "admin-active-flag@example.test")
+    row = _create_row(
+        db_session,
+        created_by_user_id=owner.id,
+        name="shared-active-flag",
+        is_shared=True,
+        is_active=True,
+        access_manager=True,
+        access_browser=False,
+    )
+
+    updated = S3ConnectionsService(db_session).update_admin_shared(
+        row,
+        S3ConnectionAdminUpdate(is_active=False),
+    )
+
+    assert updated.is_active is False
+    db_session.refresh(row)
+    assert row.is_active is False
+
+
 def test_touch_usage_rolls_back_failed_commit(db_session, monkeypatch):
     user = _user(db_session, "touch-rollback@example.test")
     row = _create_row(
