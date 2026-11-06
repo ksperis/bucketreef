@@ -114,7 +114,7 @@ class AdminS3ConnectionsReadService:
             name=conn.name,
             storage_endpoint_id=conn.storage_endpoint_id,
             endpoint_url=details.endpoint_url or "",
-            is_active=bool(conn.is_active),
+            is_active=conn.is_active,
             execution_status="remediation_required" if conn.remediation_required else "ready",
             remediation_reason=conn.remediation_reason,
             rgw_user_uid=conn.rgw_user_uid,

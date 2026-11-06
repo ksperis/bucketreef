@@ -33,8 +33,8 @@ def resolve_connection_details(conn: S3ConnectionLike) -> ConnectionEndpointDeta
         return ConnectionEndpointDetails(
             endpoint.endpoint_url,
             endpoint.region,
-            bool(endpoint.force_path_style),
-            bool(endpoint.verify_tls),
+            endpoint.force_path_style,
+            endpoint.verify_tls,
             endpoint.provider,
             endpoint.name,
         )
@@ -48,8 +48,8 @@ def resolve_connection_details(conn: S3ConnectionLike) -> ConnectionEndpointDeta
     return ConnectionEndpointDetails(
         endpoint_url,
         conn.custom_region,
-        bool(force_path_style),
-        bool(verify_tls),
+        force_path_style,
+        verify_tls,
         conn.custom_provider,
         None,
     )
