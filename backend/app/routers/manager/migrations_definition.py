@@ -8,10 +8,12 @@ from fastapi import APIRouter, Body, Depends, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.db import BucketMigration
 from app.services.access_context_contracts import BucketMigrationAccessScope
 from app.models.bucket_migration import (
     BucketMigrationCreateRequest,
     BucketMigrationDetail,
+    BucketMigrationDraftRequest,
     BucketMigrationPrecheckRequest,
     BucketMigrationUpdateRequest,
 )
@@ -31,6 +33,24 @@ from app.utils.http_errors import (
 )
 
 router = APIRouter(prefix="/manager/migrations", tags=["manager-migrations"])
+
+
+def _migration_definition_audit_metadata(
+    payload: BucketMigrationDraftRequest,
+    migration: BucketMigration,
+) -> dict[str, object]:
+    return {
+        "source_context_id": payload.source_context_id,
+        "target_context_id": payload.target_context_id,
+        "mode": payload.mode,
+        "lock_target_writes": payload.lock_target_writes,
+        "strong_integrity_check": payload.strong_integrity_check,
+        "use_same_endpoint_copy": bool(migration.use_same_endpoint_copy),
+        "auto_grant_source_read_for_copy": bool(
+            migration.auto_grant_source_read_for_copy
+        ),
+        "items": len(payload.buckets),
+    }
 
 
 @router.delete(
@@ -83,18 +103,7 @@ def create_migration(
         action="create_bucket_migration",
         entity_type="bucket_migration",
         entity_id=str(migration.id),
-        metadata={
-            "source_context_id": payload.source_context_id,
-            "target_context_id": payload.target_context_id,
-            "mode": payload.mode,
-            "lock_target_writes": bool(payload.lock_target_writes),
-            "strong_integrity_check": bool(payload.strong_integrity_check),
-            "use_same_endpoint_copy": bool(migration.use_same_endpoint_copy),
-            "auto_grant_source_read_for_copy": bool(
-                migration.auto_grant_source_read_for_copy
-            ),
-            "items": len(payload.buckets),
-        },
+        metadata=_migration_definition_audit_metadata(payload, migration),
     )
     return build_bucket_migration_detail(service, migration, events_limit=200)
 
@@ -122,18 +131,7 @@ def update_migration(
         action="update_bucket_migration",
         entity_type="bucket_migration",
         entity_id=str(migration.id),
-        metadata={
-            "source_context_id": payload.source_context_id,
-            "target_context_id": payload.target_context_id,
-            "mode": payload.mode,
-            "lock_target_writes": bool(payload.lock_target_writes),
-            "strong_integrity_check": bool(payload.strong_integrity_check),
-            "use_same_endpoint_copy": bool(migration.use_same_endpoint_copy),
-            "auto_grant_source_read_for_copy": bool(
-                migration.auto_grant_source_read_for_copy
-            ),
-            "items": len(payload.buckets),
-        },
+        metadata=_migration_definition_audit_metadata(payload, migration),
     )
     return build_bucket_migration_detail(service, migration, events_limit=200)
 
