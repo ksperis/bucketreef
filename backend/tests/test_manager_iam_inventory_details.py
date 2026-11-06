@@ -1,4 +1,5 @@
-from app.models.iam import IAMGroup, IAMRole, IAMUser
+from app.main import app
+from app.models.iam import IAMDetailedPageRequest, IAMGroup, IAMRole, IAMUser
 from app.models.policy import Policy
 from app.routers.manager import iam_groups, iam_roles
 
@@ -50,10 +51,7 @@ def test_group_page_details_include_inline_policy_names(monkeypatch):
     monkeypatch.setattr(iam_groups, "get_iam_service_for_context", lambda _context: service)
 
     result = iam_groups.list_groups_page(
-        marker=None,
-        page_size=25,
-        search=None,
-        include_details=True,
+        query=IAMDetailedPageRequest(include_details=True),
         context=object(),
         _=object(),
     )
@@ -74,10 +72,7 @@ def test_group_page_without_details_keeps_policy_details_unloaded(monkeypatch):
     monkeypatch.setattr(iam_groups, "get_iam_service_for_context", lambda _context: service)
 
     result = iam_groups.list_groups_page(
-        marker=None,
-        page_size=25,
-        search=None,
-        include_details=False,
+        query=IAMDetailedPageRequest(),
         context=object(),
         _=object(),
     )
@@ -93,10 +88,7 @@ def test_role_page_details_include_inline_policy_names(monkeypatch):
     monkeypatch.setattr(iam_roles, "get_iam_service_for_context", lambda _context: service)
 
     result = iam_roles.list_roles_page(
-        marker=None,
-        page_size=25,
-        search=None,
-        include_details=True,
+        query=IAMDetailedPageRequest(include_details=True),
         context=object(),
         _=object(),
     )
@@ -115,10 +107,7 @@ def test_role_page_without_details_keeps_policy_details_unloaded(monkeypatch):
     monkeypatch.setattr(iam_roles, "get_iam_service_for_context", lambda _context: service)
 
     result = iam_roles.list_roles_page(
-        marker=None,
-        page_size=25,
-        search=None,
-        include_details=False,
+        query=IAMDetailedPageRequest(),
         context=object(),
         _=object(),
     )
@@ -126,3 +115,47 @@ def test_role_page_without_details_keeps_policy_details_unloaded(monkeypatch):
     assert result.items[0].policies is None
     assert result.items[0].inline_policies is None
     assert service.calls == [("list_roles_page", None)]
+
+
+def test_manager_iam_page_routes_share_flat_query_contract() -> None:
+    paths = app.openapi()["paths"]
+
+    detailed_paths = (
+        "/api/manager/iam/users/page",
+        "/api/manager/iam/groups/page",
+        "/api/manager/iam/roles/page",
+    )
+    for path in detailed_paths:
+        parameters = {parameter["name"]: parameter for parameter in paths[path]["get"]["parameters"]}
+        assert set(parameters) == {
+            "marker",
+            "page_size",
+            "search",
+            "include_details",
+            "context_id",
+            "execution_endpoint_id",
+        }
+        assert parameters["page_size"]["schema"] == {
+            "type": "integer",
+            "maximum": 100,
+            "minimum": 1,
+            "default": 25,
+            "title": "Page Size",
+        }
+        assert parameters["search"]["schema"]["anyOf"][0] == {
+            "type": "string",
+            "maxLength": 200,
+        }
+        assert parameters["include_details"]["schema"]["default"] is False
+
+    policy_parameters = {
+        parameter["name"]: parameter
+        for parameter in paths["/api/manager/iam/policies/page"]["get"]["parameters"]
+    }
+    assert set(policy_parameters) == {
+        "marker",
+        "page_size",
+        "search",
+        "context_id",
+        "execution_endpoint_id",
+    }

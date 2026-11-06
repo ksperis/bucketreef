@@ -1,11 +1,20 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 import json
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.services.access_context_contracts import ManagerActor
 from app.services.s3_execution_context import S3ExecutionContext
-from app.models.iam import IAMRole, IAMRoleCreate, IAMRolePage, IAMRoleUpdate, IAMTag
+from app.models.iam import (
+    IAMDetailedPageRequest,
+    IAMRole,
+    IAMRoleCreate,
+    IAMRolePage,
+    IAMRoleUpdate,
+    IAMTag,
+)
 from app.models.policy import InlinePolicy, Policy
 from app.routers.dependencies import (
     get_s3_execution_context,
@@ -60,21 +69,18 @@ def list_roles(
 
 @router.get("/page", response_model=IAMRolePage)
 def list_roles_page(
-    marker: str | None = Query(None),
-    page_size: int = Query(25, ge=1, le=100),
-    search: str | None = Query(None, max_length=200),
-    include_details: bool = Query(False),
+    query: Annotated[IAMDetailedPageRequest, Depends()],
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> IAMRolePage:
     service = get_iam_service_for_context(context)
     try:
         roles, next_marker = service.list_roles_page(
-            marker=marker,
-            max_items=page_size,
-            search=search,
+            marker=query.marker,
+            max_items=query.page_size,
+            search=query.search,
         )
-        if include_details:
+        if query.include_details:
             for role in roles:
                 role.policies = [policy.arn for policy in service.list_role_policies(role.name)]
                 inline = service.list_role_inline_policies(role.name)

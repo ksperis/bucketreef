@@ -163,6 +163,16 @@ class IAMRoleUpdate(ApiModel):
         return self
 
 
+class IAMPageRequest(ApiModel):
+    marker: Optional[str] = None
+    page_size: int = Field(default=25, ge=1, le=100)
+    search: Optional[str] = Field(default=None, max_length=200)
+
+
+class IAMDetailedPageRequest(IAMPageRequest):
+    include_details: bool = False
+
+
 class IAMUserPage(ApiModel):
     items: list[IAMUser]
     next_marker: Optional[str] = None
