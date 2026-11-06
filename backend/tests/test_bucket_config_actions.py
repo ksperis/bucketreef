@@ -1,8 +1,10 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 import pytest
+from fastapi import HTTPException
 from pydantic import ValidationError
 
+from app.core.domain_errors import BucketConfigValidationError
 from app.db import S3Account
 from app.models.bucket import (
     BucketCors,
@@ -15,6 +17,8 @@ from app.models.bucket import (
     BucketVersioningUpdate,
 )
 from app.services import bucket_config_actions
+from app.routers.bucket_config_errors import run_bucket_config_action, run_bucket_delete_action
+from app.services.s3_deletion import BucketNotEmptyError
 
 
 def test_public_access_block_read_and_write_contracts_are_explicit() -> None:
@@ -96,7 +100,7 @@ def test_get_bucket_cors_config_uses_dedicated_cors_service():
     assert calls == {"cors": 1}
 
 
-def test_update_bucket_versioning_config_returns_no_content_response():
+def test_update_bucket_versioning_config_returns_domain_result_and_metadata():
     calls: list[tuple[str, bool]] = []
 
     class FakeConfigurationService:
@@ -104,14 +108,49 @@ def test_update_bucket_versioning_config_returns_no_content_response():
             assert account.name == "account-a"
             calls.append((bucket_name, enabled))
 
-    response, metadata = bucket_config_actions.update_bucket_versioning_config(
+    result, metadata = bucket_config_actions.update_bucket_versioning_config(
         service=FakeConfigurationService(),
         context=S3Account(name="account-a"),
         bucket_name="demo-bucket",
         payload=BucketVersioningUpdate(enabled=True),
     )
 
-    assert response.status_code == 204
-    assert response.body == b""
+    assert result is None
     assert metadata == {"enabled": True}
     assert calls == [("demo-bucket", True)]
+
+
+def test_bucket_config_action_maps_domain_validation_error_to_bad_request():
+    def reject() -> None:
+        raise BucketConfigValidationError("invalid configuration")
+
+    with pytest.raises(HTTPException) as exc_info:
+        run_bucket_config_action(reject)
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "invalid configuration"
+
+
+def test_bucket_config_action_maps_runtime_error_to_bad_gateway():
+    def fail() -> None:
+        raise RuntimeError("provider unavailable")
+
+    with pytest.raises(HTTPException) as exc_info:
+        run_bucket_config_action(fail)
+
+    assert exc_info.value.status_code == 502
+    assert exc_info.value.detail == "provider unavailable"
+
+
+def test_bucket_delete_action_preserves_structured_not_empty_contract():
+    def reject(*, bucket_name: str) -> None:
+        raise BucketNotEmptyError(f"Bucket '{bucket_name}' is not empty.")
+
+    with pytest.raises(HTTPException) as exc_info:
+        run_bucket_delete_action(reject, bucket_name="demo-bucket")
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail == {
+        "code": "bucket_not_empty",
+        "message": "Bucket 'demo-bucket' is not empty. Empty it before deleting.",
+    }

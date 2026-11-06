@@ -4,7 +4,6 @@
 from typing import cast
 
 import pytest
-from fastapi import HTTPException
 
 from app.db import S3Account, User
 from app.models.bucket import BucketLifecycleConfig
@@ -98,7 +97,7 @@ def test_browser_bucket_config_delete_does_not_invalidate_or_audit_failed_action
         cache_invalidator=invalidate_cache,
     )
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(RuntimeError, match="failed"):
         service.delete(
             actor=User(email="browser-config@example.com", role="admin"),
             context=account,
@@ -106,7 +105,6 @@ def test_browser_bucket_config_delete_does_not_invalidate_or_audit_failed_action
             config_area="lifecycle",
         )
 
-    assert exc.value.status_code == 502
     assert calls == ["action"]
 
 
@@ -135,15 +133,14 @@ def test_browser_bucket_config_delete_records_no_synthetic_metadata():
         cache_invalidator=invalidate_cache,
     )
 
-    response = service.delete(
+    result = service.delete(
         actor=actor,
         context=account,
         bucket_name="demo",
         config_area="lifecycle",
     )
 
-    assert response.status_code == 204
-    assert response.body == b""
+    assert result is None
     assert calls[:3] == ["action", "bucket-cache", "object-cache"]
     audit = calls[3]
     assert isinstance(audit, tuple)

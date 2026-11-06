@@ -14,6 +14,7 @@ from app.models.bucket import (
     BucketVersioningUpdate,
 )
 from app.routers.storage_endpoint_feature_guards import require_sse_feature
+from app.routers.bucket_config_errors import run_bucket_config_action, run_bucket_config_no_content
 from app.routers.dependencies import get_s3_execution_context, get_current_account_admin
 from app.routers.manager.bucket_config_common import get_manager_bucket_config_mutation_service
 from app.services import bucket_config_actions
@@ -34,7 +35,8 @@ def get_versioning(
     service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketVersioningStatus:
-    return bucket_config_actions.get_bucket_versioning_config(
+    return run_bucket_config_action(
+        bucket_config_actions.get_bucket_versioning_config,
         service=service,
         context=context,
         bucket_name=bucket_name,
@@ -53,7 +55,8 @@ def update_versioning(
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> Response:
-    return mutation.update(
+    return run_bucket_config_no_content(
+        mutation.update,
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
@@ -69,7 +72,8 @@ def get_object_lock(
     service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketObjectLock:
-    return bucket_config_actions.get_bucket_object_lock_config(
+    return run_bucket_config_action(
+        bucket_config_actions.get_bucket_object_lock_config,
         service=service,
         context=context,
         bucket_name=bucket_name,
@@ -84,7 +88,8 @@ def put_object_lock(
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> BucketObjectLock:
-    return mutation.update(
+    return run_bucket_config_action(
+        mutation.update,
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
@@ -101,7 +106,8 @@ def get_bucket_encryption(
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketEncryptionConfiguration:
     require_sse_feature(context.storage_endpoint)
-    return bucket_config_actions.get_bucket_encryption_config(
+    return run_bucket_config_action(
+        bucket_config_actions.get_bucket_encryption_config,
         service=service,
         context=context,
         bucket_name=bucket_name,
@@ -117,7 +123,8 @@ def put_bucket_encryption(
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> BucketEncryptionConfiguration:
     require_sse_feature(context.storage_endpoint)
-    return mutation.update(
+    return run_bucket_config_action(
+        mutation.update,
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
@@ -138,7 +145,8 @@ def delete_bucket_encryption(
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> Response:
     require_sse_feature(context.storage_endpoint)
-    return mutation.delete(
+    return run_bucket_config_no_content(
+        mutation.delete,
         actor=current_user,
         context=context,
         bucket_name=bucket_name,
