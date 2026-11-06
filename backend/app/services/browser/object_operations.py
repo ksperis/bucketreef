@@ -5,9 +5,9 @@ from __future__ import annotations
 from typing import Optional
 from urllib.parse import urlencode
 
-from fastapi import HTTPException
 from botocore.exceptions import BotoCoreError, ClientError
 
+from app.core.domain_errors import BrowserStorageSpacePermissionError
 from app.models.browser import (
     CompleteMultipartUploadRequest,
     CopyObjectPayload,
@@ -32,7 +32,9 @@ def require_multipart_write_access(context: S3ExecutionTarget, bucket_name: str)
     if spaces is not None:
         space = next((space for space in spaces if (space.internal_bucket_name or space.id) == bucket_name), None)
         if space is None or space.role == "Viewer":
-            raise HTTPException(status_code=403, detail="Storage Space permissions do not allow this upload")
+            raise BrowserStorageSpacePermissionError(
+                "Storage Space permissions do not allow this upload"
+            )
 
 
 class BrowserObjectOperationsMixin:
@@ -84,7 +86,9 @@ class BrowserObjectOperationsMixin:
         source = by_bucket.get(source_bucket)
         destination = by_bucket.get(bucket_name)
         if not source or not destination or destination.role == "Viewer" or (move and source.role == "Viewer"):
-            raise HTTPException(status_code=403, detail="Storage Space permissions do not allow this transfer")
+            raise BrowserStorageSpacePermissionError(
+                "Storage Space permissions do not allow this transfer"
+            )
 
     def _copy_object_request(
         self,
