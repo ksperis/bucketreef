@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from typing import NoReturn
+from typing import Annotated, NoReturn
 
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
@@ -14,6 +14,7 @@ from app.models.cost import (
     AdminCostSubjectDetail,
     CostAnalyticsResponse,
     CostCollectionResult,
+    CostSubjectListingRequest,
     CostSubjectsResponse,
     CostSummary,
 )
@@ -60,28 +61,12 @@ def cost_collect_daily(
 
 @router.get("/subjects", response_model=CostSubjectsResponse)
 def cost_subjects(
-    month: str = Query(..., description="YYYY-MM"),
-    endpoint_id: int | None = Query(None),
-    subject_type: str = Query("all"),
-    search: str | None = Query(None),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(25, ge=1, le=200),
-    sort_by: str = Query("name"),
-    sort_dir: str = Query("asc"),
+    query: Annotated[CostSubjectListingRequest, Query()],
     _: User = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> CostSubjectsResponse:
     try:
-        return AdminCostService(db).list_subjects(
-            month,
-            endpoint_id,
-            subject_type,
-            page,
-            page_size,
-            sort_by,
-            sort_dir,
-            search,
-        )
+        return AdminCostService(db).list_subjects(query)
     except ValueError as exc:
         _raise_cost_http_error(exc)
 

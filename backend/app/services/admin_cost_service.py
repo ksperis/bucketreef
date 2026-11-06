@@ -17,6 +17,7 @@ from app.models.cost import (
     AdminCostSubjectDetail,
     CostAnalyticsResponse,
     CostCollectionResult,
+    CostSubjectListingRequest,
     CostSubjectsResponse,
     CostSummary,
 )
@@ -57,28 +58,12 @@ class AdminCostService:
 
     def list_subjects(
         self,
-        month: str,
-        endpoint_id: int | None,
-        subject_type: str,
-        page: int,
-        page_size: int,
-        sort_by: str,
-        sort_dir: str,
-        search: str | None = None,
+        query: CostSubjectListingRequest,
     ) -> CostSubjectsResponse:
         self._require_enabled()
-        if endpoint_id is not None:
-            self._require_ceph_endpoint(endpoint_id)
-        return self.cost.list_subjects(
-            month,
-            endpoint_id,
-            subject_type,
-            page,
-            page_size,
-            sort_by,
-            sort_dir,
-            search,
-        )
+        if query.endpoint_id is not None:
+            self._require_ceph_endpoint(query.endpoint_id)
+        return self.cost.list_subjects(query)
 
     def subject_detail(
         self,

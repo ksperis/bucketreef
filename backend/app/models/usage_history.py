@@ -4,12 +4,27 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
+from pydantic import Field
+
+from app.models.admin_listing import AdminPaginationRequest, AdminSortDir
 from app.models.base import ApiModel
 
 
 UsageHistoryGranularity = Literal["daily", "hourly"]
 UsageHistorySubjectType = Literal["all", "account", "s3_user"]
+UsageHistorySortBy = Literal["period", "subject", "used_bytes", "used_objects", "ratio"]
 UsageHistoryTrendWindow = Literal["day", "week", "month"]
+
+
+class UsageHistoryListingRequest(AdminPaginationRequest):
+    granularity: UsageHistoryGranularity = "daily"
+    endpoint_id: Optional[int] = None
+    subject_type: UsageHistorySubjectType = "all"
+    start: Optional[str] = None
+    end: Optional[str] = None
+    page_size: int = Field(default=50, ge=1, le=200)
+    sort_by: UsageHistorySortBy = "period"
+    sort_dir: AdminSortDir = "desc"
 
 
 class UsageHistorySummary(ApiModel):

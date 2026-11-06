@@ -52,7 +52,10 @@ import {
   downloadCostCsv,
   type CostCollectionError,
   type CostCollectionResult,
+  type CostSortDir,
+  type CostSubjectSortBy,
   type CostSubjectSummary,
+  type CostSubjectType,
 } from "../../api/cost";
 import { useAdminPageBreadcrumbs } from "./adminBreadcrumbs";
 import { useAdminI18n } from "./adminI18n";
@@ -65,10 +68,9 @@ import {
 } from "./costPresentation";
 import { useCostPageResources } from "./useCostPageResources";
 
-type SubjectType = "all" | "account" | "s3_user";
 type CostTab = "subjects" | "analytics";
 
-const SUBJECT_TYPES: ReadonlyArray<{ value: SubjectType; label: string }> = [
+const SUBJECT_TYPES: ReadonlyArray<{ value: CostSubjectType; label: string }> = [
   { value: "all", label: "All subjects" },
   { value: "account", label: "RGW Accounts" },
   { value: "s3_user", label: "RGW Users" },
@@ -82,8 +84,7 @@ const SORT_OPTIONS = [
   { value: "ingress", label: "Ingress" },
   { value: "storage", label: "Storage" },
   { value: "requests", label: "Requests" },
-] as const;
-type CostSortBy = (typeof SORT_OPTIONS)[number]["value"];
+] as const satisfies ReadonlyArray<{ value: CostSubjectSortBy; label: string }>;
 
 const COMPONENT_COLORS = ["#2563eb", "#f97316", "#14b8a6", "#8b5cf6"];
 const CONCENTRATION_COLORS = ["#2563eb", "#cbd5e1"];
@@ -100,12 +101,12 @@ function parsePositiveInt(value: string | null, fallback: number): number {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-function parseSubjectType(value: string | null): SubjectType {
+function parseSubjectType(value: string | null): CostSubjectType {
   return value === "account" || value === "s3_user" ? value : "all";
 }
 
-function parseSortBy(value: string | null): CostSortBy {
-  return SORT_OPTIONS.some((option) => option.value === value) ? (value as CostSortBy) : "name";
+function parseSortBy(value: string | null): CostSubjectSortBy {
+  return SORT_OPTIONS.some((option) => option.value === value) ? (value as CostSubjectSortBy) : "name";
 }
 
 function formatCollectionIssue(entry: CostCollectionError): string {
@@ -146,11 +147,11 @@ export default function CostPage() {
     const value = searchParams.get("endpoint_id");
     return value ? parsePositiveInt(value, 0) || null : null;
   });
-  const [subjectType, setSubjectType] = useState<SubjectType>(() => parseSubjectType(searchParams.get("type")));
+  const [subjectType, setSubjectType] = useState<CostSubjectType>(() => parseSubjectType(searchParams.get("type")));
   const [activeTab, setActiveTab] = useState<CostTab>(() => (searchParams.get("tab") === "analytics" ? "analytics" : "subjects"));
   const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
-  const [sortBy, setSortBy] = useState<CostSortBy>(() => parseSortBy(searchParams.get("sort")));
-  const [sortDir, setSortDir] = useState<"asc" | "desc">(() => (searchParams.get("direction") === "desc" ? "desc" : "asc"));
+  const [sortBy, setSortBy] = useState<CostSubjectSortBy>(() => parseSortBy(searchParams.get("sort")));
+  const [sortDir, setSortDir] = useState<CostSortDir>(() => (searchParams.get("direction") === "desc" ? "desc" : "asc"));
   const [page, setPage] = useState(() => parsePositiveInt(searchParams.get("page"), 1));
   const [pageSize, setPageSize] = useState(() => parsePositiveInt(searchParams.get("page_size"), 25));
   const [reloadToken, setReloadToken] = useState(0);
@@ -309,7 +310,7 @@ export default function CostPage() {
     return `/admin/cost/subject/${subject.subject_type}/${subject.subject_id}?${params.toString()}`;
   }
 
-  function handleTableSort(field: CostSortBy) {
+  function handleTableSort(field: CostSubjectSortBy) {
     if (field === sortBy) {
       setSortDir((current) => (current === "asc" ? "desc" : "asc"));
       return;
@@ -354,7 +355,7 @@ export default function CostPage() {
     rowCount: subjects.length,
   });
 
-  const subjectTableColumns: Array<DataTableColumn<CostSubjectSummary, CostSortBy>> = [
+  const subjectTableColumns: Array<DataTableColumn<CostSubjectSummary, CostSubjectSortBy>> = [
     {
       id: "name",
       label: "Name",
@@ -523,7 +524,7 @@ export default function CostPage() {
           <UiSelect
             label={adminText("Subject")}
             value={subjectType}
-            onChange={(event) => setSubjectType(event.target.value as SubjectType)}
+            onChange={(event) => setSubjectType(event.target.value as CostSubjectType)}
             size="compact"
             className="ui-list-control"
           >

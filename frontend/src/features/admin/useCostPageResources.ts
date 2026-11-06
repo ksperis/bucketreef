@@ -9,7 +9,10 @@ import {
   getCostSubjects,
   getCostSummary,
   type CostAnalyticsResponse,
+  type CostSortDir,
+  type CostSubjectSortBy,
   type CostSubjectSummary,
+  type CostSubjectType,
   type CostSummary,
 } from "../../api/cost";
 import { extractApiError, extractApiErrorCode } from "../../utils/apiError";
@@ -39,11 +42,11 @@ export function useCostPageResources({
 }: {
   month: string;
   selectedEndpointId: number | null;
-  subjectType: "all" | "account" | "s3_user";
+  subjectType: CostSubjectType;
   page: number;
   pageSize: number;
-  sortBy: string;
-  sortDir: "asc" | "desc";
+  sortBy: CostSubjectSortBy;
+  sortDir: CostSortDir;
   search: string;
   analyticsEnabled: boolean;
   reloadToken: number;
