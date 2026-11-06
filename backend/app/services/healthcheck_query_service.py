@@ -25,7 +25,6 @@ from app.services.healthcheck_common import (
     DEFAULT_SCOPE,
     WINDOW_DELTAS,
     HealthWindow,
-    coerce_check_mode,
     resolve_healthcheck_profile,
 )
 from app.services.healthcheck_query_projection import (
@@ -86,7 +85,7 @@ class HealthCheckQueryService:
                     "latency_ms": latest.latency_ms,
                     "http_status": latest.http_status,
                     "error_message": latest.error_message,
-                    "check_mode": coerce_check_mode(latest.check_mode or profile.mode),
+                    "check_mode": latest.check_mode,
                     "check_target_url": profile.target_url,
                 }
             )
@@ -113,9 +112,7 @@ class HealthCheckQueryService:
         ).all()
 
         latest_scope = self._load_latest_scope_by_endpoint([endpoint_id]).get(endpoint_id)
-        check_mode = coerce_check_mode(
-            (latest_scope.check_mode if latest_scope else None) or profile.mode
-        )
+        check_mode = latest_scope.check_mode if latest_scope else profile.mode
 
         series, data_points = build_rollup_series(rollup_rows)
         daily = build_daily_from_rollups(rollup_rows, start=start, end=now)
@@ -164,7 +161,7 @@ class HealthCheckQueryService:
                 status = latest_scope.status
                 checked_at = latest_scope.checked_at.isoformat()
                 latency_ms = latest_scope.latency_ms
-                check_mode = coerce_check_mode(latest_scope.check_mode)
+                check_mode = latest_scope.check_mode
             else:
                 status = HealthCheckStatus.UNKNOWN.value
                 checked_at = now.isoformat()
@@ -210,7 +207,7 @@ class HealthCheckQueryService:
                 status = latest_scope.status
                 checked_at = latest_scope.checked_at.isoformat()
                 latency_ms = latest_scope.latency_ms
-                check_mode = coerce_check_mode(latest_scope.check_mode)
+                check_mode = latest_scope.check_mode
                 min_latency_ms = latest_scope.min_latency_ms
                 avg_latency_ms = latest_scope.avg_latency_ms
                 max_latency_ms = latest_scope.max_latency_ms
@@ -431,9 +428,7 @@ class HealthCheckQueryService:
             raise StorageEndpointNotFoundError("Endpoint not found.")
         profile = resolve_healthcheck_profile(endpoint)
         latest_scope = self._load_latest_scope_by_endpoint([endpoint_id]).get(endpoint_id)
-        check_mode = coerce_check_mode(
-            (latest_scope.check_mode if latest_scope else None) or profile.mode
-        )
+        check_mode = latest_scope.check_mode if latest_scope else profile.mode
         now = utcnow()
         start = now - WINDOW_DELTAS[window]
         rows = self.db.scalars(
@@ -498,7 +493,7 @@ class HealthCheckQueryService:
                 "latency_ms": row.latency_ms,
                 "http_status": row.http_status,
                 "error_message": row.error_message,
-                "check_mode": coerce_check_mode(row.check_mode),
+                "check_mode": row.check_mode,
             }
             for row in rows
         ]
