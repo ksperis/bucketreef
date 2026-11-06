@@ -162,7 +162,7 @@ class StorageEndpointFeatureDetector:
         )
         admin_endpoint = normalize_s3_endpoint(payload.admin_endpoint) or endpoint_url
         if payload.verify_tls is not None:
-            verify_tls = bool(payload.verify_tls)
+            verify_tls = payload.verify_tls
         elif stored_endpoint is not None:
             verify_tls = bool(stored_endpoint.verify_tls)
         else:
