@@ -11,7 +11,6 @@ from app.core.domain_enums import StorageProvider
 from app.models.storage_endpoint import (
     StorageEndpointCoordinates,
     StorageEndpointCreate,
-    StorageEndpointFeatures,
     StorageEndpointUpdate,
 )
 from app.utils.normalize import (
@@ -411,7 +410,6 @@ def normalize_storage_endpoint_update(
     _merge_storage_endpoint_update_fields(merged, payload, fields_set)
     if switching_to_external:
         _validate_external_identity_replacements(
-            merged,
             payload,
             runtime=runtime,
             supervision=supervision,
@@ -499,23 +497,11 @@ def _merge_storage_endpoint_update_fields(
 
 
 def _validate_external_identity_replacements(
-    merged: dict,
     payload: StorageEndpointUpdate,
     *,
     runtime,
     supervision,
 ) -> None:
-    required = required_service_identity_kinds(
-        normalize_features(
-            merged["provider"],
-            (
-                merged["features"].model_dump(exclude_unset=True)
-                if isinstance(merged["features"], StorageEndpointFeatures)
-                else merged["features"]
-            ),
-            merged["region"],
-        )
-    )
     for kind, identity in (("runtime", runtime), ("supervision", supervision)):
         existing_managed = (
             identity is not None
@@ -529,7 +515,7 @@ def _validate_external_identity_replacements(
                 )
             )
         )
-        if (kind in required or existing_managed) and (
+        if existing_managed and (
             not normalize_optional_string(getattr(payload, f"{kind}_access_key"))
             or not normalize_optional_string(
                 _secret_value(getattr(payload, f"{kind}_secret_key"))
