@@ -69,7 +69,6 @@ function buildDetail(): BucketMigrationDetail {
     use_same_endpoint_copy: true,
     auto_grant_source_read_for_copy: true,
     status: "running",
-    precheck_status: "passed",
     precheck_report: buildPrecheckReport({
       errors: 1,
       warnings: 1,

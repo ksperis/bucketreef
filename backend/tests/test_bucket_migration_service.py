@@ -684,7 +684,7 @@ def test_update_draft_migration_replaces_configuration_and_resets_precheck(db_se
         ),
         user,
     )
-    created.precheck_status = "failed"
+    created.preparation_status = "blocked"
     created.precheck_report = '{"status":"failed"}'
     created.precheck_checked_at = created.created_at
     first_item = created.items[0]
@@ -723,7 +723,7 @@ def test_update_draft_migration_replaces_configuration_and_resets_precheck(db_se
     assert updated.use_same_endpoint_copy is False
     assert updated.auto_grant_source_read_for_copy is False
     assert updated.status == "draft"
-    assert updated.precheck_status == "pending"
+    assert updated.preparation_status == "stale"
     assert updated.precheck_report is None
     assert updated.precheck_checked_at is None
     assert updated.total_items == 2
@@ -798,7 +798,6 @@ def test_update_draft_migration_rejects_non_draft_status(db_session):
         user,
     )
     migration.status = "queued"
-    migration.precheck_status = "passed"
     db_session.commit()
 
     try:
@@ -924,7 +923,6 @@ def test_claim_next_runnable_migration_assigns_exclusive_lease(db_session):
     )
     migration = service.create_migration(payload, user)
     migration.status = "queued"
-    migration.precheck_status = "passed"
     db_session.commit()
 
     claimed_by_worker_1 = service.claim_next_runnable_migration_id(worker_id="worker-1", lease_seconds=120)
@@ -952,7 +950,6 @@ def test_claim_next_runnable_migration_reclaims_expired_lease(db_session):
     )
     migration = service.create_migration(payload, user)
     migration.status = "queued"
-    migration.precheck_status = "passed"
     db_session.commit()
 
     first_claim = service.claim_next_runnable_migration_id(worker_id="worker-1", lease_seconds=120)
@@ -1011,7 +1008,6 @@ def test_claim_next_runnable_migration_respects_max_active_per_endpoint(db_sessi
     )
     for migration in (migration_a, migration_b, migration_c):
         migration.status = "queued"
-        migration.precheck_status = "passed"
     db_session.commit()
 
     with patch(
@@ -1057,7 +1053,6 @@ def test_claim_next_runnable_migration_rechecks_endpoint_limit_after_claim(db_se
     )
     for migration in (migration_a, migration_b):
         migration.status = "queued"
-        migration.precheck_status = "passed"
     db_session.commit()
 
     test_session_factory = sessionmaker(autocommit=False, autoflush=False, bind=db_session.get_bind())
@@ -1805,7 +1800,7 @@ def test_run_precheck_interruption_persists_canonical_report(db_session):
 
     checked = service.run_precheck(migration.id, active_checks=True)
 
-    assert checked.precheck_status == "failed"
+    assert checked.preparation_status == "blocked"
     report = checked.precheck_report or {}
     assert report["status"] == "failed"
     assert report["items"] == []
@@ -1860,7 +1855,7 @@ def test_run_precheck_passed_then_start_allowed(db_session):
 
     migration = service.run_precheck(migration.id, active_checks=True)
 
-    assert migration.precheck_status == "passed"
+    assert migration.preparation_status == "ready"
     assert migration.items[0].source_count == 12
     report = migration.precheck_report or {}
     assert report.get("errors") == 0
@@ -1912,7 +1907,7 @@ def test_run_precheck_failed_blocks_start(db_session):
     service._inspector.inspect_bucket_state = lambda *_args, **_kwargs: _bucket_profile_stub("bucket-a")  # type: ignore[method-assign]
 
     migration = service.run_precheck(migration.id, active_checks=True)
-    assert migration.precheck_status == "failed"
+    assert migration.preparation_status == "blocked"
     report = migration.precheck_report or {}
     assert int(report.get("errors") or 0) > 0
 
@@ -1952,7 +1947,7 @@ def test_run_precheck_skips_same_endpoint_copy_source_access_when_option_disable
     service._precheck_same_endpoint_copy_source_access = _unexpected_same_endpoint_copy  # type: ignore[method-assign]
 
     migration = service.run_precheck(migration.id, active_checks=True)
-    assert migration.precheck_status == "passed"
+    assert migration.preparation_status == "ready"
     report = migration.precheck_report or {}
     item_checks = report.get("items", [])[0].get("checks", [])
     assert not any(
@@ -1991,7 +1986,7 @@ def test_run_precheck_fails_when_same_endpoint_copy_source_access_is_missing(db_
     service._precheck_same_endpoint_copy_source_access = _deny_same_endpoint_copy  # type: ignore[method-assign]
 
     migration = service.run_precheck(migration.id, active_checks=True)
-    assert migration.precheck_status == "failed"
+    assert migration.preparation_status == "blocked"
     report = migration.precheck_report or {}
     item_checks = report.get("items", [])[0].get("checks", [])
     assert any(
@@ -2042,7 +2037,7 @@ def test_run_precheck_skips_disabled_endpoint_website_probe_when_copy_bucket_set
 
     checked = service.run_precheck(migration.id, active_checks=True)
 
-    assert checked.precheck_status == "passed"
+    assert checked.preparation_status == "ready"
     assert website_calls["count"] == 0
     report = checked.precheck_report or {}
     checks = report.get("items", [])[0].get("checks", [])
@@ -2109,7 +2104,7 @@ def test_run_precheck_skips_non_required_bucket_setting_probes_when_copy_bucket_
 
     checked = service.run_precheck(migration.id, active_checks=True)
 
-    assert checked.precheck_status == "passed"
+    assert checked.preparation_status == "ready"
     assert website_calls["count"] == 0
     assert policy_calls["count"] == 0
     report = checked.precheck_report or {}
@@ -2181,7 +2176,7 @@ def test_run_precheck_blocks_when_requested_website_inspection_is_unavailable(db
 
     checked = service.run_precheck(migration.id, active_checks=True)
 
-    assert checked.precheck_status == "failed"
+    assert checked.preparation_status == "blocked"
     assert website_calls["count"] == 1
     report = checked.precheck_report or {}
     checks = report.get("items", [])[0].get("checks", [])
@@ -2198,7 +2193,7 @@ def test_run_precheck_blocks_when_requested_website_inspection_is_unavailable(db
     )
 
 
-def test_start_migration_requires_execution_plan_when_precheck_is_legacy(db_session):
+def test_start_migration_requires_current_preparation(db_session):
     user = _create_user(db_session)
     source = _create_account(db_session, name="source", endpoint_url="https://source.example.test", account_id="RGW001")
     target = _create_account(db_session, name="target", endpoint_url="https://target.example.test", account_id="RGW002")
@@ -2213,13 +2208,12 @@ def test_start_migration_requires_execution_plan_when_precheck_is_legacy(db_sess
         ),
         user,
     )
-    migration.precheck_status = "passed"
     migration.precheck_report = {"status": "passed", "errors": 0}
     db_session.commit()
 
     try:
         service.start_migration(migration.id, configuration_revision=1, confirm_write_interruption=True)
-        assert False, "Expected start_migration to reject legacy precheck reports without execution plans"
+        assert False, "Expected start_migration to reject a report without current preparation"
     except ValueError as exc:
         assert "Run and pass active checks" in str(exc)
 
@@ -2263,7 +2257,7 @@ def test_run_precheck_passes_when_source_bucket_requires_version_aware_strategy(
 
     checked = service.run_precheck(migration.id, active_checks=True)
 
-    assert checked.precheck_status == "passed"
+    assert checked.preparation_status == "ready"
     report = checked.precheck_report or {}
     item_report = report.get("items", [])[0]
     assert item_report.get("strategy") == "version_aware"
@@ -2322,7 +2316,7 @@ def test_run_precheck_reports_object_lock_without_retired_rollback_diagnostic(db
 
     checked = service.run_precheck(migration.id, active_checks=True)
 
-    assert checked.precheck_status == "failed"
+    assert checked.preparation_status == "blocked"
     checks = (checked.precheck_report or {}).get("items", [])[0].get("checks", [])
     codes = {
         str(message.get("code", ""))
@@ -2378,7 +2372,7 @@ def test_run_precheck_fails_when_source_bucket_uses_unsupported_default_encrypti
 
     checked = service.run_precheck(migration.id, active_checks=True)
 
-    assert checked.precheck_status == "failed"
+    assert checked.preparation_status == "blocked"
     report = checked.precheck_report or {}
     checks = report.get("items", [])[0].get("checks", [])
     assert any(
@@ -2427,7 +2421,7 @@ def test_run_precheck_fails_when_copy_bucket_settings_hits_unsupported_source_se
 
     checked = service.run_precheck(migration.id, active_checks=True)
 
-    assert checked.precheck_status == "failed"
+    assert checked.preparation_status == "blocked"
     report = checked.precheck_report or {}
     checks = report.get("items", [])[0].get("checks", [])
     assert any(
@@ -4317,7 +4311,7 @@ def test_run_precheck_executes_target_lock_probe_once_when_required(db_session):
     service._precheck_destination = _probe  # type: ignore[method-assign]
 
     checked = service.run_precheck(migration.id, active_checks=True)
-    assert checked.precheck_status == "passed"
+    assert checked.preparation_status == "ready"
     assert probe_calls["count"] == 1
 
 
@@ -4351,7 +4345,7 @@ def test_run_precheck_fails_when_target_lock_probe_fails_in_fail_closed_mode(db_
     )
 
     checked = service.run_precheck(migration.id, active_checks=True)
-    assert checked.precheck_status == "failed"
+    assert checked.preparation_status == "blocked"
     report = checked.precheck_report or {}
     assert int(report.get("errors") or 0) >= 1
     checks = report.get("items", [])[0].get("checks", [])
@@ -4392,7 +4386,7 @@ def test_run_precheck_fails_when_target_lock_probe_cleanup_fails_in_fail_closed_
     )
 
     checked = service.run_precheck(migration.id, active_checks=True)
-    assert checked.precheck_status == "failed"
+    assert checked.preparation_status == "blocked"
     report = checked.precheck_report or {}
     assert int(report.get("errors") or 0) >= 1
     checks = report.get("items", [])[0].get("checks", [])
@@ -4558,7 +4552,6 @@ def test_fail_migration_fatal_marks_failed_and_releases_lease(db_session, monkey
         use_same_endpoint_copy=False,
         auto_grant_source_read_for_copy=False,
         status="running",
-        precheck_status="passed",
         parallelism_max=4,
         total_items=1,
         worker_lease_owner="worker-1",
@@ -4611,7 +4604,6 @@ def test_fail_migration_fatal_is_idempotent_for_final_status(db_session):
         use_same_endpoint_copy=False,
         auto_grant_source_read_for_copy=False,
         status="completed",
-        precheck_status="passed",
         parallelism_max=4,
         total_items=0,
         worker_lease_owner="worker-1",
@@ -4648,7 +4640,6 @@ def test_worker_marks_migration_failed_on_fatal_exception(tmp_path, monkeypatch)
                 use_same_endpoint_copy=False,
                 auto_grant_source_read_for_copy=False,
                 status="queued",
-                precheck_status="passed",
                 parallelism_max=4,
                 total_items=1,
             )

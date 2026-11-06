@@ -26,7 +26,6 @@ const SAMPLE_DETAIL = {
   status: "running",
   pause_requested: false,
   cancel_requested: false,
-  precheck_status: "passed",
   precheck_report: null,
   precheck_checked_at: null,
   parallelism_max: 8,

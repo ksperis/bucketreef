@@ -176,7 +176,6 @@ def test_delete_user_nulls_nullable_foreign_keys(db_session):
         use_same_endpoint_copy=False,
         auto_grant_source_read_for_copy=False,
         status="draft",
-        precheck_status="pending",
         parallelism_max=1,
         total_items=0,
     )

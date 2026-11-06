@@ -102,7 +102,6 @@ def bucket_migration_to_view(migration: BucketMigration) -> BucketMigrationView:
         use_same_endpoint_copy=bool(migration.use_same_endpoint_copy),
         auto_grant_source_read_for_copy=bool(migration.auto_grant_source_read_for_copy),
         status=migration.status,
-        precheck_status=migration.precheck_status,
         precheck_report=migration_precheck_report_to_view(migration.precheck_report),
         precheck_checked_at=migration.precheck_checked_at,
         configuration_revision=migration.configuration_revision,

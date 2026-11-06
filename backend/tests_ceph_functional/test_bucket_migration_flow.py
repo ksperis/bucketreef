@@ -1171,7 +1171,7 @@ def test_bucket_migration_one_shot_current_only_same_endpoint(
         auto_grant_source_read_for_copy=True,
     )
     detail = _run_precheck(super_admin_session, int(migration["id"]))
-    assert detail["precheck_status"] == "passed"
+    assert detail["preparation_status"] == "ready"
     precheck_item = _find_precheck_item(detail, source_bucket, target_bucket)
     assert precheck_item["strategy"] == "current_only"
 
@@ -1240,7 +1240,7 @@ def test_bucket_migration_one_shot_current_only_copy_bucket_settings(
         use_same_endpoint_copy=False,
     )
     detail = _run_precheck(super_admin_session, int(migration["id"]))
-    assert detail["precheck_status"] == "passed"
+    assert detail["preparation_status"] == "ready"
     _start_migration(super_admin_session, int(migration["id"]))
     final_detail = _wait_for_migration_state(
         super_admin_session, int(migration["id"]), {"completed"}
@@ -1327,7 +1327,7 @@ def test_bucket_migration_pre_sync_current_only_replays_delta(
         copy_bucket_settings=False,
     )
     detail = _run_precheck(super_admin_session, int(migration["id"]))
-    assert detail["precheck_status"] == "passed"
+    assert detail["preparation_status"] == "ready"
     _start_migration(super_admin_session, int(migration["id"]))
     _wait_for_migration_state(
         super_admin_session, int(migration["id"]), {"awaiting_cutover"}
@@ -1409,7 +1409,7 @@ def test_bucket_migration_version_aware_retains_source_until_separate_cleanup(
         auto_grant_source_read_for_copy=True,
     )
     detail = _run_precheck(super_admin_session, int(migration["id"]))
-    assert detail["precheck_status"] == "passed"
+    assert detail["preparation_status"] == "ready"
     precheck_item = _find_precheck_item(detail, source_bucket, target_bucket)
     assert precheck_item["strategy"] == "version_aware"
 
@@ -1483,7 +1483,7 @@ def test_bucket_migration_pre_sync_version_aware_replays_delta(
         use_same_endpoint_copy=False,
     )
     detail = _run_precheck(super_admin_session, int(migration["id"]))
-    assert detail["precheck_status"] == "passed"
+    assert detail["preparation_status"] == "ready"
     precheck_item = _find_precheck_item(detail, source_bucket, target_bucket)
     assert precheck_item["strategy"] == "version_aware"
 
@@ -1598,7 +1598,7 @@ def test_bucket_migration_precheck_fails_for_unsupported_bucket_settings(
             copy_bucket_settings=True,
         )
         detail = _run_precheck(super_admin_session, int(migration["id"]))
-        assert detail["precheck_status"] == "failed"
+        assert detail["preparation_status"] == "blocked"
         precheck_item = _find_precheck_item(detail, source_bucket, target_bucket)
         assert "unsupported_bucket_settings_configured" in _precheck_codes(
             precheck_item
@@ -1651,7 +1651,7 @@ def test_bucket_migration_precheck_fails_for_object_lock_governance_when_support
         target_bucket=target_bucket,
     )
     detail = _run_precheck(super_admin_session, int(migration["id"]))
-    assert detail["precheck_status"] == "failed"
+    assert detail["preparation_status"] == "blocked"
     precheck_item = _find_precheck_item(detail, source_bucket, target_bucket)
     assert "object_lock_governance_not_supported" in _precheck_codes(precheck_item)
 
