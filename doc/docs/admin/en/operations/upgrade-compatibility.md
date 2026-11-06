@@ -1,5 +1,19 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 canonical application security settings
+
+Migration `0256_canonical_app_settings_security` materializes the current
+security-policy defaults in the persisted `app_settings` row for
+`require_passkey_for_admins`, `require_passkey_for_users`,
+`allow_user_profile_name_edit`, `allow_user_external_identity_link`, and
+`allow_user_external_identity_unlink`. Explicit persisted values are preserved.
+
+After the migration, the runtime requires these fields in the canonical
+database payload instead of silently supplying Pydantic defaults. Fresh
+settings construction and the initial `APP_SETTINGS_PATH` bootstrap input keep
+their normal defaults. Other `app_settings` keys, including the endpoint
+service-identity installation identifier, are outside this migration.
+
 ## 2026-11 canonical bucket migration runtime limits
 
 Bucket migration planning and worker scheduling now use the persisted Manager

@@ -20,6 +20,7 @@ from app.db import Base
 
 
 _RECENT_LINEAR_REVISIONS = (
+    "0256_canonical_app_settings_security",
     "0255_canonical_onboarding_completion",
     "0254_canonical_healthcheck_status",
     "0253_canonical_healthcheck_dimensions",
@@ -558,7 +559,16 @@ def test_billing_0216_restore_preserves_history_and_resets_v2_configuration(
                     )
                 )
             )
-            assert app_settings == {"general": {"cost_enabled": True}}
+            assert app_settings == {
+                "general": {
+                    "cost_enabled": True,
+                    "require_passkey_for_admins": False,
+                    "require_passkey_for_users": False,
+                    "allow_user_profile_name_edit": False,
+                    "allow_user_external_identity_link": False,
+                    "allow_user_external_identity_unlink": False,
+                }
+            }
 
         command.downgrade(config, "0166_billing_statement_estimation")
         with engine.connect() as connection:
@@ -621,7 +631,16 @@ def test_billing_0216_followup_removes_retired_settings_from_existing_0167_datab
                     )
                 )
             )
-            assert payload == {"general": {"cost_enabled": True}}
+            assert payload == {
+                "general": {
+                    "cost_enabled": True,
+                    "require_passkey_for_admins": False,
+                    "require_passkey_for_users": False,
+                    "allow_user_profile_name_edit": False,
+                    "allow_user_external_identity_link": False,
+                    "allow_user_external_identity_unlink": False,
+                }
+            }
             assert connection.scalar(
                 sa.text("SELECT version_num FROM alembic_version")
             ) == _EXPECTED_ALEMBIC_HEAD

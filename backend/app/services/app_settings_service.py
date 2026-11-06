@@ -27,6 +27,13 @@ _GENERAL_FEATURE_FIELDS = (
     "cost_enabled",
     "endpoint_status_enabled",
 )
+_PERSISTED_SECURITY_FIELDS = (
+    "require_passkey_for_admins",
+    "require_passkey_for_users",
+    "allow_user_profile_name_edit",
+    "allow_user_external_identity_link",
+    "allow_user_external_identity_unlink",
+)
 
 
 def _settings_path() -> Path:
@@ -50,7 +57,19 @@ def _open_settings_session():
 
 
 def _parse_settings_payload(payload: object) -> AppSettings:
-    return AppSettings.model_validate(payload)
+    settings = AppSettings.model_validate(payload)
+    if not isinstance(payload, dict):
+        return settings
+    general = payload.get("general")
+    if not isinstance(general, dict):
+        raise ValueError("Persisted application settings must contain general settings")
+    missing = [field for field in _PERSISTED_SECURITY_FIELDS if field not in general]
+    if missing:
+        raise ValueError(
+            "Persisted application settings are missing canonical security fields: "
+            + ", ".join(missing)
+        )
+    return settings
 
 
 def _settings_to_payload(settings: AppSettings) -> dict:
