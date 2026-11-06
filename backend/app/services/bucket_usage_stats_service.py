@@ -106,21 +106,13 @@ class _BucketUsageRunTotals:
 
 
 def _load_distribution_entries(
-    value: object,
+    value: list[dict[str, Any]],
 ) -> list[BucketUsageStatsDistributionEntry]:
-    if not isinstance(value, list):
-        raise ValueError("Bucket usage distribution must be a JSON list")
     return [BucketUsageStatsDistributionEntry.model_validate(entry) for entry in value]
 
 
-def _load_warnings(value: object | None) -> list[str]:
-    if value is None:
-        return []
-    if not isinstance(value, list) or any(
-        not isinstance(item, str) for item in value
-    ):
-        raise ValueError("Bucket usage warnings must be a JSON string list")
-    return value
+def _load_warnings(value: list[str] | None) -> list[str]:
+    return list(value or [])
 
 
 def _dedupe_bucket_names(bucket_names: Iterable[str] | None) -> list[str] | None:
