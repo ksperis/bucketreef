@@ -34,7 +34,7 @@ class User(Base):
     avatar_updated_at = Column(UTCDateTime(), nullable=True)
     hashed_password = Column(String, nullable=True)
     auth_version = Column(Integer, nullable=False, default=1, server_default="1")
-    is_active = Column(Boolean, default=True)
+    is_active = Column(Boolean, nullable=False, default=True)
     role = Column(
         String,
         nullable=False,

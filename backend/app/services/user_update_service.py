@@ -104,7 +104,7 @@ class UserUpdateService:
         user = self.query.get_by_id(user_id)
         if not user:
             raise UiUserNotFoundError("User not found")
-        was_active = bool(user.is_active)
+        was_active = user.is_active
         affected_portal_account_ids = set(
             self.associations.affected_portal_account_ids(
                 user,

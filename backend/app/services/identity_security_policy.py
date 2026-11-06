@@ -56,7 +56,7 @@ def _account_link_values(
             int(link.account_id),
             link.manager_role,
             link.portal_role,
-            bool(link.allow_manager_browser_data_access),
+            link.allow_manager_browser_data_access,
         )
         for link in links
     }
@@ -66,7 +66,7 @@ def _s3_user_link_values(
     links: Iterable[_S3UserLinkLike],
 ) -> set[tuple[int, bool]]:
     return {
-        (int(link.s3_user_id), bool(link.allow_manager_browser_data_access))
+        (int(link.s3_user_id), link.allow_manager_browser_data_access)
         for link in links
     }
 
@@ -74,13 +74,13 @@ def _s3_user_link_values(
 def _manager_tool_access_enabled(value: ManagerToolAccess | None) -> bool:
     if value is None:
         return False
-    return any(bool(enabled) for enabled in value.model_dump().values())
+    return any(value.model_dump().values())
 
 
 def _direct_access_fields_changed(entity, payload, fields=_DIRECT_ACCESS_FIELDS) -> bool:
     return any(
         (requested := getattr(payload, field)) is not None
-        and bool(requested) != bool(getattr(entity, field))
+        and requested != getattr(entity, field)
         for field in fields
     )
 
@@ -103,7 +103,7 @@ def _admin_user_scalar_security_changed(user: User, payload: UserUpdate) -> bool
             and str(payload.email).strip() != str(user.email).strip(),
             payload.role is not None and payload.role != user.role,
             payload.is_active is not None
-            and bool(payload.is_active) != bool(user.is_active),
+            and payload.is_active != user.is_active,
         )
     )
 
@@ -183,7 +183,7 @@ def admin_group_create_requires_step_up(payload: UiGroupCreate) -> bool:
     """Return whether group creation introduces access-bearing state."""
     if payload.user_ids or payload.account_links or payload.s3_user_links or payload.s3_connection_ids or payload.openstack_cloud_ids:
         return True
-    if any(bool(getattr(payload, field)) for field in _GROUP_DIRECT_ACCESS_FIELDS):
+    if any(getattr(payload, field) for field in _GROUP_DIRECT_ACCESS_FIELDS):
         return True
     return _manager_tool_access_enabled(payload.manager_tool_access)
 
@@ -274,7 +274,7 @@ def _s3_connection_target_changed(
         ("verify_tls", payload.verify_tls, details.verify_tls),
     )
     return any(
-        field in fields_set and bool(requested) != bool(current)
+        field in fields_set and requested != current
         for field, requested, current in boolean_fields
     )
 
@@ -287,7 +287,7 @@ def admin_s3_connection_update_requires_step_up(
     """Return whether a shared-connection update expands or changes sensitive access state."""
     if payload.remediation_action is not None or payload.credentials is not None:
         return True
-    if payload.is_active is True and not bool(connection.is_active):
+    if payload.is_active is True and not connection.is_active:
         return True
     return _s3_connection_assignments_changed(
         db,
