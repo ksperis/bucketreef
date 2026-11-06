@@ -80,9 +80,9 @@ def _open_settings_session():
 
 
 def _parse_settings_payload(payload: object) -> AppSettings:
-    settings = AppSettings.model_validate(payload)
     if not isinstance(payload, dict):
-        return settings
+        raise ValueError("Persisted application settings must contain a JSON object")
+    settings = AppSettings.model_validate(payload)
     missing = _missing_canonical_paths(
         payload,
         settings.model_dump(mode="json"),
