@@ -20,10 +20,7 @@ from app.models.bucket import (
 )
 from app.utils.aws_errors import aws_error_code
 from app.utils.s3_errors import is_s3_feature_unsupported
-from app.utils.storage_endpoint_features import (
-    features_to_capabilities,
-    validate_persisted_features,
-)
+from app.utils.storage_endpoint_features import resolve_endpoint_capabilities
 
 from .execution_runtime import ResolvedContext
 
@@ -347,9 +344,7 @@ class BucketMigrationInspector:
         endpoint = ctx.execution_context.storage_endpoint
         if endpoint is None:
             return {}
-        features = validate_persisted_features(endpoint.provider, endpoint.features)
-        raw = features_to_capabilities(features)
-        return {str(key): bool(value) for key, value in raw.items()}
+        return resolve_endpoint_capabilities(endpoint)
 
     @staticmethod
     def _list_object_versions_page(client, bucket_name: str, **kwargs) -> dict[str, Any]:
