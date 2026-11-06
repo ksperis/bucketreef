@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from inspect import signature
+from types import SimpleNamespace
 
 import pytest
 
+from app.models.browser import CreateBucketPayload
 from app.routers import browser, browser_objects, browser_transfers, portal_objects
 
 
@@ -45,3 +47,30 @@ def test_data_plane_endpoints_do_not_resolve_application_audit(endpoint) -> None
 )
 def test_control_plane_and_global_workflow_endpoints_keep_application_audit(endpoint) -> None:
     assert "audit_service" in signature(endpoint).parameters
+
+
+def test_browser_create_bucket_audits_validated_versioning_flag() -> None:
+    created: list[tuple[str, object, bool]] = []
+    audit_actions: list[dict[str, object]] = []
+    context = SimpleNamespace(context_id="1")
+    actor = SimpleNamespace(id=1)
+
+    class FakeBrowserService:
+        def create_bucket(self, name, current_context, *, versioning=False):  # noqa: ANN001
+            created.append((name, current_context, versioning))
+
+    class FakeAuditService:
+        def record_action(self, **kwargs):  # noqa: ANN003
+            audit_actions.append(kwargs)
+
+    response = browser.create_bucket(
+        CreateBucketPayload(name="archive", versioning=False),
+        context=context,
+        service=FakeBrowserService(),
+        actor=actor,
+        audit_service=FakeAuditService(),
+    )
+
+    assert response.status_code == 201
+    assert created == [("archive", context, False)]
+    assert audit_actions[0]["metadata"] == {"versioning": False}

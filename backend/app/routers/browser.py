@@ -140,7 +140,7 @@ def create_bucket(
             entity_type="bucket",
             entity_id=bucket_name,
             execution_context=context,
-            metadata={"versioning": bool(payload.versioning)},
+            metadata={"versioning": payload.versioning},
         )
         return Response(status_code=status.HTTP_201_CREATED)
     except RuntimeError as exc:
