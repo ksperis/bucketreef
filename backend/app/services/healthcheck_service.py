@@ -197,8 +197,8 @@ class HealthCheckService:
     def _is_latency_substantially_degraded(self, latency_ms: Optional[int], baseline_latency_ms: Optional[int]) -> bool:
         if latency_ms is None or baseline_latency_ms is None or baseline_latency_ms <= 0:
             return False
-        ratio = float(settings.healthcheck_relative_degraded_ratio)
-        min_delta = int(settings.healthcheck_relative_degraded_min_delta_ms)
+        ratio = settings.healthcheck_relative_degraded_ratio
+        min_delta = settings.healthcheck_relative_degraded_min_delta_ms
         if ratio <= 1.0:
             return False
         return latency_ms >= int(round(baseline_latency_ms * ratio)) and (latency_ms - baseline_latency_ms) >= min_delta

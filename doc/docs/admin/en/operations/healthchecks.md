@@ -68,15 +68,15 @@ Admin **Storage Backends** exposes:
 
 ## Relevant backend settings
 
-- `HEALTHCHECK_TIMEOUT_SECONDS`
+- `HEALTHCHECK_TIMEOUT_SECONDS` (minimum `1`)
 - `HEALTHCHECK_INTERVAL_SECONDS` (minimum `1`)
-- `HEALTHCHECK_RETENTION_DAYS`
-- `HEALTHCHECK_DEGRADED_LATENCY_MS`
+- `HEALTHCHECK_RETENTION_DAYS` (minimum `0`; `0` disables purge)
+- `HEALTHCHECK_DEGRADED_LATENCY_MS` (minimum `0`; `0` disables the absolute latency threshold)
 - `HEALTHCHECK_VERIFY_SSL`
 - `HEALTHCHECK_LATENCY_BASELINE_WINDOW_DAYS` (minimum `1`)
 - `HEALTHCHECK_BASELINE_SAMPLE_SIZE` (minimum `5`)
-- `HEALTHCHECK_RELATIVE_DEGRADED_RATIO`
-- `HEALTHCHECK_RELATIVE_DEGRADED_MIN_DELTA_MS`
+- `HEALTHCHECK_RELATIVE_DEGRADED_RATIO` (minimum `0`; values up to `1.0` disable the relative latency threshold)
+- `HEALTHCHECK_RELATIVE_DEGRADED_MIN_DELTA_MS` (minimum `0`)
 - `HEALTHCHECK_INCIDENT_RECENT_MINUTES` (minimum `1`)
 
 ## UI dependency
