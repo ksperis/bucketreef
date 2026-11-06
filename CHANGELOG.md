@@ -21,6 +21,7 @@
 - Reuse one cost-history point contract for subject details and aggregate analytics.
 - Reuse the canonical presigned-URL response contract for object and multipart-part signing across backend and frontend.
 - Reuse the backend-aligned public storage-endpoint contract for login settings and private S3 connection endpoint selection.
+- Reuse the shared settings-form action contract in Portal Storage Space identity and Manager bucket feature dialogs instead of maintaining bespoke form footers.
 
 ### Fixed
 
