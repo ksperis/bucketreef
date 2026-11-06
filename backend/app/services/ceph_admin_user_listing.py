@@ -8,6 +8,7 @@ from app.models.ceph_admin import (
     CephAdminRgwUserSummary,
     PaginatedCephAdminUsersResponse,
 )
+from app.models.ceph_admin_identity_listing import CephAdminUserListingRequest
 from app.models.ceph_admin_identity_filters import (
     CephAdminUserFilterQuery,
     CephAdminUserFilterRule,
@@ -166,26 +167,14 @@ class _UserListingPipeline:
     def __init__(
         self,
         *,
-        page: int,
-        page_size: int,
-        search: str | None,
-        advanced_filter: str | None,
-        sort_by: str,
-        sort_dir: str,
-        include: list[str],
+        request: CephAdminUserListingRequest,
         endpoint_id: int,
         rgw_admin: RGWAdminClient,
         account_lookup_enabled: bool | None,
         progress_callback: Callable[[ListingProgressSnapshot], None] | None,
         cancel_check: Callable[[], None] | None,
     ) -> None:
-        self.page = page
-        self.page_size = page_size
-        self.search = search
-        self.raw_advanced_filter = advanced_filter
-        self.sort_by = sort_by
-        self.sort_dir = sort_dir
-        self.include = include
+        self.request = request
         self.endpoint_id = endpoint_id
         self.rgw_admin = rgw_admin
         self.account_lookup_enabled = account_lookup_enabled
@@ -203,15 +192,15 @@ class _UserListingPipeline:
             prepare_query=self._prepare_query,
             load_results=self._load_results,
             search_results=self._search,
-            page=self.page,
-            page_size=self.page_size,
+            page=self.request.page,
+            page_size=self.request.page_size,
             clone=_clone_user_list,
             enrich_page=self._enrich_page,
             build_response=lambda items, total, has_next: PaginatedCephAdminUsersResponse(
                 items=items,
                 total=total,
-                page=self.page,
-                page_size=self.page_size,
+                page=self.request.page,
+                page_size=self.request.page_size,
                 has_next=has_next,
             ),
         )
@@ -222,7 +211,7 @@ class _UserListingPipeline:
         return get_cached_users_listing(self.cache_key, self._build_listing)
 
     def _prepare_query(self) -> None:
-        self.requested = parse_includes(self.include) & {
+        self.requested = parse_includes(self.request.include) & {
             "account",
             "profile",
             "status",
@@ -230,7 +219,7 @@ class _UserListingPipeline:
             "quota",
         }
         self.parsed_filter = parse_filter_query(
-            self.raw_advanced_filter,
+            self.request.advanced_filter,
             query_cls=CephAdminUserFilterQuery,
         )
         self.advanced_filter_active = bool(
@@ -239,8 +228,8 @@ class _UserListingPipeline:
         self.cache_key = EndpointListCacheKey(
             endpoint_id=self.endpoint_id,
             advanced_filter=serialize_filter(self.parsed_filter),
-            sort_by=self.sort_by,
-            sort_dir=self.sort_dir,
+            sort_by=self.request.sort_by,
+            sort_dir=self.request.sort_dir,
         )
 
     def _build_listing(self) -> list[CephAdminRgwUserSummary]:
@@ -270,7 +259,7 @@ class _UserListingPipeline:
         )
         invoke_cancel_check(self.cancel_check)
         requested = _includes_for_user_fields(
-            collect_filter_fields(self.parsed_filter) | {self.sort_by or "uid"}
+            collect_filter_fields(self.parsed_filter) | {self.request.sort_by or "uid"}
         )
         results = self._enrich_for_listing(results, requested)
         if self.advanced_filter_active:
@@ -285,8 +274,8 @@ class _UserListingPipeline:
             results = apply_advanced_filter(results, self.parsed_filter, _match_user_field_rule)
         invoke_cancel_check(self.cancel_check)
         results.sort(
-            key=lambda user: _user_sort_key(user, self.sort_by),
-            reverse=self.sort_dir == "desc",
+            key=lambda user: _user_sort_key(user, self.request.sort_by),
+            reverse=self.request.sort_dir == "desc",
         )
         if requested:
             for user in results:
@@ -329,7 +318,7 @@ class _UserListingPipeline:
     ) -> list[CephAdminRgwUserSummary]:
         return apply_simple_search(
             results,
-            search=self.search,
+            search=self.request.search,
             parsed_filter=self.parsed_filter,
             match_with_filter=lambda user, needle: needle in user.uid.lower(),
             match_without_filter=lambda user, needle: (
@@ -369,13 +358,7 @@ class _UserListingPipeline:
 
 def compute_users_listing(
     *,
-    page: int,
-    page_size: int,
-    search: str | None,
-    advanced_filter: str | None,
-    sort_by: str,
-    sort_dir: str,
-    include: list[str],
+    request: CephAdminUserListingRequest,
     endpoint_id: int,
     rgw_admin: RGWAdminClient,
     account_lookup_enabled: bool | None,
@@ -383,13 +366,7 @@ def compute_users_listing(
     cancel_check: Callable[[], None] | None = None,
 ) -> PaginatedCephAdminUsersResponse:
     return _UserListingPipeline(
-        page=page,
-        page_size=page_size,
-        search=search,
-        advanced_filter=advanced_filter,
-        sort_by=sort_by,
-        sort_dir=sort_dir,
-        include=include,
+        request=request,
         endpoint_id=endpoint_id,
         rgw_admin=rgw_admin,
         account_lookup_enabled=account_lookup_enabled,

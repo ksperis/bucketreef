@@ -8,6 +8,7 @@ from app.models.ceph_admin import (
     CephAdminRgwAccountSummary,
     PaginatedCephAdminAccountsResponse,
 )
+from app.models.ceph_admin_identity_listing import CephAdminAccountListingRequest
 from app.models.ceph_admin_identity_filters import (
     CephAdminAccountFilterQuery,
     CephAdminAccountFilterRule,
@@ -162,25 +163,13 @@ class _AccountListingPipeline:
     def __init__(
         self,
         *,
-        page: int,
-        page_size: int,
-        search: str | None,
-        advanced_filter: str | None,
-        sort_by: str,
-        sort_dir: str,
-        include: list[str],
+        request: CephAdminAccountListingRequest,
         endpoint_id: int,
         rgw_admin: RGWAdminClient,
         progress_callback: Callable[[ListingProgressSnapshot], None] | None,
         cancel_check: Callable[[], None] | None,
     ) -> None:
-        self.page = page
-        self.page_size = page_size
-        self.search = search
-        self.raw_advanced_filter = advanced_filter
-        self.sort_by = sort_by
-        self.sort_dir = sort_dir
-        self.include = include
+        self.request = request
         self.endpoint_id = endpoint_id
         self.rgw_admin = rgw_admin
         self.progress = ListingProgressEmitter(progress_callback)
@@ -197,15 +186,15 @@ class _AccountListingPipeline:
             prepare_query=self._prepare_query,
             load_results=self._load_results,
             search_results=self._search,
-            page=self.page,
-            page_size=self.page_size,
+            page=self.request.page,
+            page_size=self.request.page_size,
             clone=_clone_account_list,
             enrich_page=self._enrich_page,
             build_response=lambda items, total, has_next: PaginatedCephAdminAccountsResponse(
                 items=items,
                 total=total,
-                page=self.page,
-                page_size=self.page_size,
+                page=self.request.page,
+                page_size=self.request.page_size,
                 has_next=has_next,
             ),
         )
@@ -216,14 +205,14 @@ class _AccountListingPipeline:
         return get_cached_accounts_listing(self.cache_key, self._build_listing)
 
     def _prepare_query(self) -> None:
-        self.requested = parse_includes(self.include) & {
+        self.requested = parse_includes(self.request.include) & {
             "profile",
             "limits",
             "quota",
             "stats",
         }
         self.parsed_filter = parse_filter_query(
-            self.raw_advanced_filter,
+            self.request.advanced_filter,
             query_cls=CephAdminAccountFilterQuery,
         )
         self.advanced_filter_active = bool(
@@ -232,8 +221,8 @@ class _AccountListingPipeline:
         self.cache_key = EndpointListCacheKey(
             endpoint_id=self.endpoint_id,
             advanced_filter=serialize_filter(self.parsed_filter),
-            sort_by=self.sort_by,
-            sort_dir=self.sort_dir,
+            sort_by=self.request.sort_by,
+            sort_dir=self.request.sort_dir,
         )
 
     def _build_listing(self) -> list[CephAdminRgwAccountSummary]:
@@ -279,8 +268,8 @@ class _AccountListingPipeline:
         )
         invoke_cancel_check(self.cancel_check)
         results.sort(
-            key=lambda account: _account_sort_key(account, self.sort_by),
-            reverse=self.sort_dir == "desc",
+            key=lambda account: _account_sort_key(account, self.request.sort_by),
+            reverse=self.request.sort_dir == "desc",
         )
         return results
 
@@ -289,7 +278,7 @@ class _AccountListingPipeline:
         results: list[CephAdminRgwAccountSummary],
     ) -> list[CephAdminRgwAccountSummary]:
         fields = collect_filter_fields(self.parsed_filter) | {
-            self.sort_by or "account_id"
+            self.request.sort_by or "account_id"
         }
         fields_needing_enrichment = {
             field
@@ -327,7 +316,7 @@ class _AccountListingPipeline:
     ) -> list[CephAdminRgwAccountSummary]:
         return apply_simple_search(
             results,
-            search=self.search,
+            search=self.request.search,
             parsed_filter=self.parsed_filter,
             match_with_filter=lambda account, needle: (
                 needle in account.account_id.lower()
@@ -379,26 +368,14 @@ class _AccountListingPipeline:
 
 def compute_accounts_listing(
     *,
-    page: int,
-    page_size: int,
-    search: str | None,
-    advanced_filter: str | None,
-    sort_by: str,
-    sort_dir: str,
-    include: list[str],
+    request: CephAdminAccountListingRequest,
     endpoint_id: int,
     rgw_admin: RGWAdminClient,
     progress_callback: Callable[[ListingProgressSnapshot], None] | None = None,
     cancel_check: Callable[[], None] | None = None,
 ) -> PaginatedCephAdminAccountsResponse:
     return _AccountListingPipeline(
-        page=page,
-        page_size=page_size,
-        search=search,
-        advanced_filter=advanced_filter,
-        sort_by=sort_by,
-        sort_dir=sort_dir,
-        include=include,
+        request=request,
         endpoint_id=endpoint_id,
         rgw_admin=rgw_admin,
         progress_callback=progress_callback,

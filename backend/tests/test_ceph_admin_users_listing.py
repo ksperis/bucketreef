@@ -8,6 +8,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.models.ceph_admin import CephAdminRgwUserSummary
+from app.models.ceph_admin_identity_listing import CephAdminUserListingRequest
 from app.routers.ceph_admin import user_profiles as user_profiles_router
 from app.routers.ceph_admin import users as users_router
 from app.services import ceph_admin_user_listing_enrichment as user_listing_enrichment
@@ -91,6 +92,57 @@ def _build_ctx(
     return ctx, rgw_admin
 
 
+def _user_listing_request(
+    *,
+    page: int = 1,
+    page_size: int = 25,
+    search: str | None = None,
+    advanced_filter: str | None = None,
+    sort_by: str = "uid",
+    sort_dir: str = "asc",
+    include: list[str] | None = None,
+) -> CephAdminUserListingRequest:
+    return CephAdminUserListingRequest(
+        page=page,
+        page_size=page_size,
+        search=search,
+        advanced_filter=advanced_filter,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+        include=include or [],
+    )
+
+
+def _list_users(*, ctx, **listing_options):
+    return users_router.list_rgw_users(
+        query=_user_listing_request(**listing_options),
+        ctx=ctx,
+    )
+
+
+def _compute_users(
+    *,
+    ctx,
+    progress_callback=None,
+    cancel_check=None,
+    **listing_options,
+):
+    return users_router._compute_users_listing(
+        query=_user_listing_request(**listing_options),
+        ctx=ctx,
+        progress_callback=progress_callback,
+        cancel_check=cancel_check,
+    )
+
+
+async def _stream_users(*, request, ctx, **listing_options):
+    return await users_router.stream_rgw_users(
+        request=request,
+        query=_user_listing_request(**listing_options),
+        ctx=ctx,
+    )
+
+
 def _build_user_payload(
     uid: str,
     *,
@@ -135,7 +187,7 @@ def test_ceph_admin_users_listing_cache_is_reused_across_pages():
     }
     ctx, rgw_admin = _build_ctx(endpoint_id=11, users_payload=users_payload, user_details=user_details)
 
-    first = users_router.list_rgw_users(
+    first = _list_users(
         page=1,
         page_size=2,
         search=None,
@@ -145,7 +197,7 @@ def test_ceph_admin_users_listing_cache_is_reused_across_pages():
         include=[],
         ctx=ctx,
     )
-    second = users_router.list_rgw_users(
+    second = _list_users(
         page=2,
         page_size=2,
         search=None,
@@ -169,7 +221,7 @@ def test_ceph_admin_users_listing_uses_canonical_metadata_identity_fields():
     ]
     ctx, rgw_admin = _build_ctx(endpoint_id=1101, users_payload=users_payload, user_details={})
 
-    response = users_router.list_rgw_users(
+    response = _list_users(
         page=1,
         page_size=25,
         search=None,
@@ -196,7 +248,7 @@ def test_ceph_admin_users_listing_cache_is_reused_for_quick_filter_changes():
     }
     ctx, rgw_admin = _build_ctx(endpoint_id=12, users_payload=users_payload, user_details=user_details)
 
-    first = users_router.list_rgw_users(
+    first = _list_users(
         page=1,
         page_size=25,
         search="a",
@@ -206,7 +258,7 @@ def test_ceph_admin_users_listing_cache_is_reused_for_quick_filter_changes():
         include=[],
         ctx=ctx,
     )
-    second = users_router.list_rgw_users(
+    second = _list_users(
         page=1,
         page_size=25,
         search="al",
@@ -237,7 +289,7 @@ def test_ceph_admin_users_advanced_filter_uses_cached_listing_and_lazy_include()
         }
     )
 
-    filtered = users_router.list_rgw_users(
+    filtered = _list_users(
         page=1,
         page_size=25,
         search=None,
@@ -251,7 +303,7 @@ def test_ceph_admin_users_advanced_filter_uses_cached_listing_and_lazy_include()
     assert rgw_admin.list_users_calls == 1
     assert rgw_admin.get_user_calls == 3
 
-    enriched = users_router.list_rgw_users(
+    enriched = _list_users(
         page=1,
         page_size=25,
         search=None,
@@ -281,7 +333,7 @@ def test_ceph_admin_users_active_filter_includes_missing_suspended_flag():
         }
     )
 
-    response = users_router.list_rgw_users(
+    response = _list_users(
         page=1,
         page_size=25,
         search=None,
@@ -302,7 +354,7 @@ def test_ceph_admin_users_advanced_filter_rejects_invalid_json():
     ctx, _ = _build_ctx(endpoint_id=14, users_payload=users_payload, user_details=user_details)
 
     with pytest.raises(HTTPException) as exc:
-        users_router.list_rgw_users(
+        _list_users(
             page=1,
             page_size=25,
             search=None,
@@ -325,7 +377,7 @@ def test_ceph_admin_users_listing_advanced_progress_is_monotonic():
     snapshots = []
     advanced_filter = json.dumps({"match": "all", "rules": [{"field": "full_name", "op": "contains", "value": "example"}]})
 
-    response = users_router._compute_users_listing(
+    response = _compute_users(
         page=1,
         page_size=25,
         search=None,
@@ -362,7 +414,7 @@ def test_ceph_admin_users_detail_enrichment_reports_item_progress():
     snapshots = []
     advanced_filter = json.dumps({"match": "all", "rules": [{"field": "full_name", "op": "contains", "value": "user"}]})
 
-    response = users_router._compute_users_listing(
+    response = _compute_users(
         page=1,
         page_size=25,
         search=None,
@@ -419,7 +471,7 @@ def test_ceph_admin_users_stream_requires_advanced_filter_payload():
         request = SimpleNamespace(is_disconnected=lambda: asyncio.sleep(0, result=False))
         ctx, _ = _build_ctx(endpoint_id=1402, users_payload=[], user_details={})
         with pytest.raises(HTTPException) as exc:
-            await users_router.stream_rgw_users(
+            await _stream_users(
                 request=request,
                 page=1,
                 page_size=25,
@@ -442,7 +494,7 @@ def test_ceph_admin_users_stream_emits_progress_result_and_done():
 
     async def _run() -> str:
         request = SimpleNamespace(is_disconnected=lambda: asyncio.sleep(0, result=False))
-        response = await users_router.stream_rgw_users(
+        response = await _stream_users(
             request=request,
             page=1,
             page_size=25,
@@ -484,7 +536,7 @@ def test_ceph_admin_users_listing_account_include_skips_lookup_when_feature_disa
     )
     ctx, rgw_admin = _build_ctx(endpoint_id=16, users_payload=users_payload, user_details=user_details, endpoint=endpoint)
 
-    response = users_router.list_rgw_users(
+    response = _list_users(
         page=1,
         page_size=25,
         search=None,
@@ -764,7 +816,7 @@ def test_ceph_admin_users_quota_usage_percent_filter_aggregates_bucket_usage(mon
         }
     )
 
-    response = users_router.list_rgw_users(
+    response = _list_users(
         page=1,
         page_size=25,
         search=None,
@@ -800,7 +852,7 @@ def test_ceph_admin_users_do_not_fetch_usage_without_usage_percent_filter():
         }
     )
 
-    response = users_router.list_rgw_users(
+    response = _list_users(
         page=1,
         page_size=25,
         search=None,
