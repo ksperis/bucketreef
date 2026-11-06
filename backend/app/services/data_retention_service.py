@@ -26,16 +26,15 @@ class DataRetentionService:
         self.settings = get_settings()
 
     def _hourly_cutoff(self) -> datetime | None:
-        days = int(self.settings.quota_history_hourly_retention_days or 0)
+        days = self.settings.quota_history_hourly_retention_days
         if days <= 0:
             return None
         return (utcnow() - timedelta(days=days))
 
     def _daily_cutoff(self, retention_days: int) -> date | None:
-        days = int(retention_days or 0)
-        if days <= 0:
+        if retention_days <= 0:
             return None
-        return (utcnow().date() - timedelta(days=days))
+        return (utcnow().date() - timedelta(days=retention_days))
 
     def _delete_rows(self, model, *filters) -> int:
         result = self.db.execute(
@@ -56,7 +55,7 @@ class DataRetentionService:
                 QuotaUsageHourly.hour_ts < hourly_cutoff,
             )
 
-        daily_cutoff = self._daily_cutoff(int(self.settings.quota_history_daily_retention_days or 0))
+        daily_cutoff = self._daily_cutoff(self.settings.quota_history_daily_retention_days)
         if daily_cutoff is not None:
             deleted_daily = self._delete_rows(
                 QuotaUsageDaily,
@@ -65,8 +64,8 @@ class DataRetentionService:
 
         return {
             "quota_history": {
-                "hourly_retention_days": int(self.settings.quota_history_hourly_retention_days or 0),
-                "daily_retention_days": int(self.settings.quota_history_daily_retention_days or 0),
+                "hourly_retention_days": self.settings.quota_history_hourly_retention_days,
+                "daily_retention_days": self.settings.quota_history_daily_retention_days,
                 "deleted_hourly": int(deleted_hourly),
                 "deleted_daily": int(deleted_daily),
             }
@@ -76,7 +75,7 @@ class DataRetentionService:
         deleted_usage = 0
         deleted_storage = 0
 
-        daily_cutoff = self._daily_cutoff(int(self.settings.cost_daily_retention_days or 0))
+        daily_cutoff = self._daily_cutoff(self.settings.cost_daily_retention_days)
         if daily_cutoff is not None:
             deleted_usage = self._delete_rows(
                 CostUsageDaily,
@@ -89,14 +88,14 @@ class DataRetentionService:
 
         return {
             "cost_history": {
-                "daily_retention_days": int(self.settings.cost_daily_retention_days or 0),
+                "daily_retention_days": self.settings.cost_daily_retention_days,
                 "deleted_usage_daily": int(deleted_usage),
                 "deleted_storage_daily": int(deleted_storage),
             }
         }
 
     def purge_user_notifications(self) -> dict[str, Any]:
-        retention_days = int(self.settings.user_notifications_retention_days or 0)
+        retention_days = self.settings.user_notifications_retention_days
         if retention_days <= 0:
             return {
                 "user_notifications": {
