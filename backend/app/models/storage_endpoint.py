@@ -7,7 +7,7 @@ from typing import Literal, Optional, Self
 from pydantic import ConfigDict, Field, SecretStr, field_validator, model_validator
 
 from app.models.base import ApiModel, reject_explicit_null_fields
-from app.core.domain_enums import StorageProvider
+from app.core.domain_enums import ServiceIdentityKind, StorageProvider
 from app.models.tagging import RequiredTagDefinitionList, TagDefinitionSummary
 from app.utils.normalize import normalize_optional_string_field
 
@@ -64,7 +64,7 @@ class StorageEndpointAdminOpsPermissions(ApiModel):
 
 
 class EndpointServiceIdentityStatus(ApiModel):
-    kind: Literal["runtime", "supervision", "ceph_admin"]
+    kind: ServiceIdentityKind
     mode: Literal["managed", "external"]
     rgw_uid: Optional[str]
     status: Literal[

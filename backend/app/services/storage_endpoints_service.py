@@ -8,9 +8,13 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.db_transactions import commit_or_rollback
+from app.core.domain_enums import (
+    MANAGED_SERVICE_IDENTITY_KINDS,
+    SERVICE_IDENTITY_KINDS,
+    StorageProvider,
+)
 from app.core.domain_errors import StorageEndpointNotFoundError
 from app.db import S3Account, S3Connection, S3User, StorageEndpoint, User
-from app.core.domain_enums import StorageProvider
 from app.models.storage_endpoint import (
     StorageEndpointFeatureDetectionRequest,
     StorageEndpointFeatureDetectionResult,
@@ -262,7 +266,7 @@ class StorageEndpointsService:
                 exclude_id=endpoint.id,
             )
             if state.service_identity_mode == "external" or state.provider != StorageProvider.CEPH:
-                for kind in ("runtime", "supervision"):
+                for kind in MANAGED_SERVICE_IDENTITY_KINDS:
                     identity = endpoint.service_identity(kind)
                     if identity is not None and identity.mode == "managed":
                         if not identities.revoke(endpoint, kind):
@@ -324,7 +328,7 @@ class StorageEndpointsService:
                 raise ValueError(f"Unable to delete this endpoint: accounts={linked_accounts}, users={linked_users}, connections={linked_connections}.")
             if any(intent.key_type not in ("endpoint_runtime", "endpoint_supervision", "ceph_admin") for intent in endpoint.key_rotation_intents):
                 raise ValueError("Finish pending key rotations before deleting the endpoint.")
-            for kind in ("runtime", "supervision", "ceph_admin"):
+            for kind in SERVICE_IDENTITY_KINDS:
                 if not identities.revoke(endpoint, kind):
                     raise ValueError("Managed identity revocation is pending; retry before deleting the endpoint.")
             ResourceDeletionPurgeService(self.db).purge_endpoint_derived_data(endpoint.id)

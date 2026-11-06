@@ -6,6 +6,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.domain_enums import MANAGED_SERVICE_IDENTITY_KINDS
 from app.db import User
 from app.models.storage_endpoint import (
     StorageEndpoint,
@@ -224,7 +225,7 @@ def reconcile_service_identities(
     try:
         endpoint = service.get_endpoint_record(endpoint_id)
         initial_provisioning = any(
-                identity.kind in ("runtime", "supervision")
+                identity.kind in MANAGED_SERVICE_IDENTITY_KINDS
                 and identity.mode == "managed"
                 and identity.status == "not_provisioned"
                 for identity in endpoint.service_identities

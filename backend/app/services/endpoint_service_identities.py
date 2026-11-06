@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.db_transactions import commit_or_rollback
+from app.core.domain_enums import ManagedServiceIdentityKind, ServiceIdentityKind
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.core.sqlite import ensure_sqlite_transaction_for_savepoint
 from app.db import AppSetting, EndpointServiceIdentity, StorageEndpoint, User
@@ -21,8 +22,6 @@ from app.services.endpoint_service_identity_validation import (
     SERVICE_CAPS,
     EndpointServiceIdentityValidationService,
     ManagedIdentityKeyDriftError,
-    ManagedServiceIdentityKind,
-    ServiceIdentityKind,
 )
 from app.services.endpoint_service_identity_reconciliation_policy import (
     desired_service_kinds,

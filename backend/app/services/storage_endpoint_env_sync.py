@@ -13,9 +13,13 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.db_transactions import commit_or_rollback
+from app.core.domain_enums import (
+    MANAGED_SERVICE_IDENTITY_KINDS,
+    SERVICE_IDENTITY_KINDS,
+    StorageProvider,
+)
 from app.core.runtime_surfaces import endpoint_identity_management_enabled
 from app.db import StorageEndpoint, User
-from app.core.domain_enums import StorageProvider
 from app.services.endpoint_service_identities import EndpointServiceIdentityService
 from app.services.operation_lease_service import OperationLeaseService
 from app.services.storage_endpoint_normalization import (
@@ -176,7 +180,7 @@ class StorageEndpointEnvSyncService:
             return config
 
         preserved_credentials: dict[str, str | None] = {}
-        for kind in ("runtime", "supervision"):
+        for kind in MANAGED_SERVICE_IDENTITY_KINDS:
             identity = endpoint.service_identity(kind)
             if (
                 kind not in required
@@ -195,7 +199,7 @@ class StorageEndpointEnvSyncService:
     @staticmethod
     def _has_configured_service_identity(endpoint: StorageEndpoint) -> bool:
         return any(
-            identity.kind in ("runtime", "supervision")
+            identity.kind in MANAGED_SERVICE_IDENTITY_KINDS
             and any(
                 (
                     identity.rgw_uid,
@@ -276,7 +280,7 @@ class StorageEndpointEnvSyncService:
         identity_management_enabled: bool,
     ) -> bool:
         if config.provider != StorageProvider.CEPH and identity_management_enabled:
-            for kind in ("runtime", "supervision", "ceph_admin"):
+            for kind in SERVICE_IDENTITY_KINDS:
                 if not identities.revoke(endpoint, kind):
                     raise ValueError(
                         "Managed identity revocation is pending; retry before "
@@ -297,7 +301,7 @@ class StorageEndpointEnvSyncService:
         if config.service_identity_mode != "external":
             return
 
-        for kind in ("runtime", "supervision"):
+        for kind in MANAGED_SERVICE_IDENTITY_KINDS:
             identity = endpoint.service_identity(kind)
             if identity is None or identity.mode != "managed":
                 continue
