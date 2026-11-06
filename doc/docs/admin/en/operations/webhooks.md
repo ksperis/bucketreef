@@ -115,9 +115,9 @@ URLs or query strings.
 | Variable | Default | Purpose |
 |---|---:|---|
 | `WEBHOOK_WORKER_ENABLED` | `true` | Allow the durable delivery worker on an Admin-capable backend. `user` and any runtime with Admin disabled never dispatch. |
-| `WEBHOOK_POLL_INTERVAL_SECONDS` | `1.0` | Delay between durable queue scans. |
+| `WEBHOOK_POLL_INTERVAL_SECONDS` | `1.0` | Delay between durable queue scans; minimum `0.2` seconds. |
 | `WEBHOOK_WORKER_LEASE_SECONDS` | `120` | Global dispatcher lease used to coordinate backend replicas. |
-| `WEBHOOK_TIMEOUT_SECONDS` | `5.0` | HTTP delivery timeout. |
+| `WEBHOOK_TIMEOUT_SECONDS` | `5.0` | HTTP delivery timeout; minimum `0.1` seconds. |
 | `WEBHOOK_ALLOWED_HOSTS` | `[]` | Production target hostname allowlist. |
 | `WEBHOOK_ALLOW_PRIVATE_TARGETS` | `false` | Permit explicitly allowlisted private/local targets and HTTP in production. |
 | `WEBHOOK_WORKERS` | `4` | Maximum parallel delivery workers. |
