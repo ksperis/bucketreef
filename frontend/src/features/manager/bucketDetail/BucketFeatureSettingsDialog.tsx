@@ -3,12 +3,12 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { ReactNode } from "react";
-import ModalActions from "../../../components/ModalActions";
 import {
   SettingsButton,
   SettingsDialog,
   useSettingsCloseGuard,
 } from "../../../components/settings/SettingsControls";
+import SettingsForm from "../../../components/settings/SettingsForm";
 import UiInlineMessage from "../../../components/ui/UiInlineMessage";
 import { useManagerI18n } from "../managerI18n";
 
@@ -54,12 +54,16 @@ export default function BucketFeatureSettingsDialog({
         closeOnEscape={!busy}
         maxWidthClass={maxWidthClass}
       >
-        <div className="settings-stack">
-          <fieldset className="settings-fields" disabled={busy}>
-            {children}
-          </fieldset>
-          {error ? <UiInlineMessage tone="error">{text(error)}</UiInlineMessage> : null}
-          <ModalActions>
+        <SettingsForm
+          label={title}
+          busy={busy}
+          submitDisabled={saveDisabled || !dirty}
+          onSubmit={() => onSave()}
+          onCancel={closeGuard.requestClose}
+          submitLabel={text(saveLabel)}
+          busyLabel={text("Saving...")}
+          presentation="dialog"
+          actions={<>
             {dangerAction ? <div className="mr-auto">{dangerAction}</div> : null}
             <SettingsButton
               type="button"
@@ -70,15 +74,17 @@ export default function BucketFeatureSettingsDialog({
               {text("Cancel")}
             </SettingsButton>
             <SettingsButton
-              type="button"
+              type="submit"
               variant="primary"
-              onClick={() => void onSave()}
               disabled={busy || saveDisabled || !dirty}
             >
               {text(busy ? "Saving..." : saveLabel)}
             </SettingsButton>
-          </ModalActions>
-        </div>
+          </>}
+        >
+          {children}
+          {error ? <UiInlineMessage tone="error">{text(error)}</UiInlineMessage> : null}
+        </SettingsForm>
       </SettingsDialog>
       {closeGuard.confirmationDialog}
     </>

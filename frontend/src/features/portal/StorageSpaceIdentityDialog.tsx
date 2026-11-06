@@ -1,9 +1,9 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
-import ModalActions from "../../components/ModalActions";
 import { useEffect, useRef, useState } from "react";
 import type { S3AccountSelector } from "../../api/accountParams";
 import { updatePortalStorageSpace } from "../../api/portal";
 import { SettingsButton, SettingsDialog, SettingsField, useSettingsCloseGuard } from "../../components/settings/SettingsControls";
+import SettingsForm from "../../components/settings/SettingsForm";
 import { settingsLabels } from "../../components/settings/settingsLabels";
 import { useSettingsDraft } from "../../components/settings/useSettingsDraft";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
@@ -55,12 +55,20 @@ export default function StorageSpaceIdentityDialog({ accountId, space, onClose, 
       if (active.current) setErrors({ save: extractApiError(cause, t({ en: "Unable to update this space. Your changes are preserved.", fr: "Impossible de modifier cet espace. Vos saisies sont conservées.", de: "Dieser Bereich konnte nicht aktualisiert werden. Ihre Eingaben bleiben erhalten.", zh: "无法更新此空间。你的更改已保留。" })) });
     } finally { pending.current = false; if (active.current) setBusy(false); }
   };
+  const title = t({ en: "Edit space details", fr: "Modifier les détails de l’espace", de: "Bereichsdetails bearbeiten", zh: "编辑空间详情" });
+  const saveLabel = t({ en: "Save", fr: "Enregistrer", de: "Speichern", zh: "保存" });
   return <>
-    <SettingsDialog title={t({ en: "Edit space details", fr: "Modifier les détails de l’espace", de: "Bereichsdetails bearbeiten", zh: "编辑空间详情" })}
+    <SettingsDialog title={title}
       onClose={guard.requestClose} initialFocusRef={focusRef} closeLabel={labels.close} closeAriaLabel={labels.close}
       closeOnBackdropClick={!busy} closeOnEscape={!busy}>
-      <form ref={(node) => { formRef.current = node; focusRef.current = node?.querySelector('input:not([disabled])') ?? null; }}
-        noValidate onSubmit={(event) => { event.preventDefault(); void save(); }} className="settings-stack">
+      <SettingsForm label={title} busy={busy} submitDisabled={!dirty} onSubmit={() => save()}
+        onCancel={guard.requestClose} submitLabel={saveLabel} busyLabel={saveLabel}
+        formRef={(node) => { formRef.current = node; focusRef.current = node?.querySelector('input:not([disabled])') ?? null; }}
+        presentation="dialog"
+        actions={<>
+          <SettingsButton variant="secondary" disabled={busy} onClick={guard.requestClose}>{labels.cancel}</SettingsButton>
+          <SettingsButton type="submit" disabled={!dirty || busy} loading={busy}>{saveLabel}</SettingsButton>
+        </>}>
         <div className="grid gap-1">
           <span className="settings-label">{t({ en: "Space name", fr: "Nom de l’espace", de: "Name des Bereichs", zh: "空间名称" })}</span>
           {space.nameEditable ? <SettingsField label={t({ en: "Space name", fr: "Nom de l’espace", de: "Name des Bereichs", zh: "空间名称" })}
@@ -75,11 +83,7 @@ export default function StorageSpaceIdentityDialog({ accountId, space, onClose, 
             onChange={(event) => setDraft({ ...draft, description: event.target.value })} />
         </div>
         {errors.save && <UiInlineMessage tone="error" role="alert">{errors.save}</UiInlineMessage>}
-        <ModalActions>
-          <SettingsButton variant="secondary" disabled={busy} onClick={guard.requestClose}>{labels.cancel}</SettingsButton>
-          <SettingsButton type="submit" disabled={!dirty || busy} loading={busy}>{t({ en: "Save", fr: "Enregistrer", de: "Speichern", zh: "保存" })}</SettingsButton>
-        </ModalActions>
-      </form>
+      </SettingsForm>
     </SettingsDialog>
     {guard.confirmationDialog}
   </>;
