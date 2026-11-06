@@ -111,7 +111,7 @@ class S3ConnectionValidationService:
         if not endpoint_url:
             raise ValueError("Endpoint URL is required.")
         if enforce_manual_endpoint_policy:
-            if not bool(payload.verify_tls):
+            if not payload.verify_tls:
                 raise ValueError("Manual endpoint validation requires TLS verification.")
             endpoint_url = validate_user_supplied_s3_endpoint(endpoint_url, field_name="Endpoint URL")
-        return endpoint_url, payload.region, bool(payload.force_path_style), bool(payload.verify_tls)
+        return endpoint_url, payload.region, payload.force_path_style, payload.verify_tls
