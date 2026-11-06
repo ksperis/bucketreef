@@ -21,6 +21,7 @@ from app.db import (
 from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, UserRole
 from app.models.portal_requests import (
     PortalAdminRequestDecision,
+    PortalAdminRequestListingRequest,
     PortalAccountQuotaChangeRequestCreate,
     PortalSettingChangeRequestCreate,
     PortalUserAccessRequestCreate,
@@ -184,7 +185,9 @@ def test_admin_search_matches_structured_request_payload(db_session):
     service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
     created = _create_user_request(service, account, requester)
 
-    response = service.list_for_admin(search="jane.viewer@example.org")
+    response = service.list_for_admin(
+        PortalAdminRequestListingRequest(search="jane.viewer@example.org")
+    )
 
     assert [row.id for row in response.items] == [created.id]
     assert response.total == 1
@@ -198,9 +201,15 @@ def test_admin_request_listing_is_paginated_and_searches_account_name(db_session
     first = _create_user_request(service, account, first_requester)
     second = _create_user_request(service, account, second_requester)
 
-    first_page = service.list_for_admin(page=1, page_size=1)
-    second_page = service.list_for_admin(page=2, page_size=1)
-    account_search = service.list_for_admin(search="Research Account")
+    first_page = service.list_for_admin(
+        PortalAdminRequestListingRequest(page=1, page_size=1)
+    )
+    second_page = service.list_for_admin(
+        PortalAdminRequestListingRequest(page=2, page_size=1)
+    )
+    account_search = service.list_for_admin(
+        PortalAdminRequestListingRequest(search="Research Account")
+    )
 
     assert first_page.total == 2
     assert first_page.page == 1

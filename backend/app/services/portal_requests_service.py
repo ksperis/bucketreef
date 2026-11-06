@@ -19,6 +19,7 @@ from app.models.feature_policy import FeaturePolicy, PORTAL_FEATURE_FIELDS
 from app.models.portal_requests import (
     PortalAccountQuotaChangeRequestCreate,
     PortalAdminRequestCreate,
+    PortalAdminRequestListingRequest,
     PortalAdminRequestMessageOut,
     PortalAdminRequestOut,
     PortalAdminRequestType,
@@ -263,23 +264,17 @@ class PortalRequestsService:
 
     def list_for_admin(
         self,
-        *,
-        status: Optional[str] = None,
-        request_type: Optional[PortalAdminRequestType] = None,
-        account_id: Optional[int] = None,
-        search: Optional[str] = None,
-        page: int = 1,
-        page_size: int = 25,
+        query: PortalAdminRequestListingRequest,
     ) -> PaginatedPortalAdminRequestsResponse:
         stmt = select(PortalAdminRequest)
-        if status:
-            stmt = stmt.where(PortalAdminRequest.status == status)
-        if request_type:
-            stmt = stmt.where(PortalAdminRequest.request_type == request_type)
-        if account_id is not None:
-            stmt = stmt.where(PortalAdminRequest.account_id == int(account_id))
-        if search:
-            trimmed = search.strip()
+        if query.status:
+            stmt = stmt.where(PortalAdminRequest.status == query.status)
+        if query.request_type:
+            stmt = stmt.where(PortalAdminRequest.request_type == query.request_type)
+        if query.account_id is not None:
+            stmt = stmt.where(PortalAdminRequest.account_id == query.account_id)
+        if query.search:
+            trimmed = query.search.strip()
             if trimmed:
                 pattern = f"%{trimmed}%"
                 stmt = (
@@ -296,18 +291,18 @@ class PortalRequestsService:
         total = self.db.scalar(
             select(func.count()).select_from(stmt.order_by(None).subquery())
         ) or 0
-        offset = (page - 1) * page_size
+        offset = (query.page - 1) * query.page_size
         rows = self.db.scalars(
             stmt.order_by(PortalAdminRequest.created_at.desc(), PortalAdminRequest.id.desc())
             .offset(offset)
-            .limit(page_size)
+            .limit(query.page_size)
         ).all()
         return PaginatedPortalAdminRequestsResponse(
             items=[self.to_out(row) for row in rows],
             total=total,
-            page=page,
-            page_size=page_size,
-            has_next=page * page_size < total,
+            page=query.page,
+            page_size=query.page_size,
+            has_next=query.page * query.page_size < total,
         )
 
     def add_admin_message(
