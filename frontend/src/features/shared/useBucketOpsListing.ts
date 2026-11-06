@@ -5,12 +5,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 
-import { shouldUsePostBucketListing } from "../../api/bucketListingTransport";
+import {
+  shouldUsePostBucketListing,
+  type BucketListingParams,
+} from "../../api/bucketListingTransport";
 import { isCancelledError } from "../../utils/apiError";
 import type {
   CephAdminBucket,
   CephAdminBucketsStreamProgress,
-  ListCephAdminBucketsParams,
   PaginatedCephAdminBucketsResponse,
 } from "../../api/cephAdminBuckets";
 import {
@@ -42,12 +44,12 @@ type UseBucketOpsListingParams = {
   extractError: (err: unknown) => string;
   listBuckets: (
     scopeId: number,
-    params?: ListCephAdminBucketsParams,
+    params?: BucketListingParams,
     options?: { signal?: AbortSignal }
   ) => Promise<PaginatedCephAdminBucketsResponse>;
   streamBuckets: (
     scopeId: number,
-    params?: ListCephAdminBucketsParams,
+    params?: BucketListingParams,
     options?: {
       signal?: AbortSignal;
       onProgress?: (event: CephAdminBucketsStreamProgress) => void;

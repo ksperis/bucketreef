@@ -16,6 +16,7 @@
 - Reuse the Admin Browser settings contract from Browser runtime API types instead of maintaining a duplicate frontend shape.
 - Reuse the shared RGW bucket-reference contract for Ceph Admin bucket index-check targets in the frontend.
 - Generalize the frontend SSE API transport naming and reuse one stream-options contract across bucket, Ceph Admin, Storage Ops, and Portal operations.
+- Share one neutral bucket-listing parameter contract between Ceph Admin, Storage Ops, and the common bucket-operation helpers.
 
 ### Fixed
 

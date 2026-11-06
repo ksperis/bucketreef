@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 
-type BucketListingTransportParams = {
+export type BucketListingParams = {
   page?: number;
   page_size?: number;
   filter?: string;
@@ -20,7 +20,7 @@ type BucketListingTransportParams = {
 // into large exact-match bucket lists.
 export const BUCKET_LISTING_POST_QUERY_THRESHOLD = 4000;
 
-export function buildBucketListingQuery(params?: BucketListingTransportParams): URLSearchParams {
+export function buildBucketListingQuery(params?: BucketListingParams): URLSearchParams {
   const query = new URLSearchParams();
   if (!params) return query;
   if (params.page !== undefined) query.set("page", String(params.page));
@@ -38,13 +38,13 @@ export function buildBucketListingQuery(params?: BucketListingTransportParams): 
   return query;
 }
 
-export function shouldUsePostBucketListing(params?: BucketListingTransportParams): boolean {
+export function shouldUsePostBucketListing(params?: BucketListingParams): boolean {
   return buildBucketListingQuery(params).toString().length > BUCKET_LISTING_POST_QUERY_THRESHOLD;
 }
 
 export function buildBucketListingRequestBody(
-  params?: BucketListingTransportParams
-): BucketListingTransportParams | undefined {
+  params?: BucketListingParams
+): BucketListingParams | undefined {
   if (!params) return undefined;
   return {
     page: params.page,

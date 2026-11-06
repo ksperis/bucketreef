@@ -5,8 +5,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   CephAdminBucket,
-  ListCephAdminBucketsParams,
 } from "../../api/cephAdminBuckets";
+import type { BucketListingParams } from "../../api/bucketListingTransport";
 import type { ActionProgressState } from "./actionProgress";
 import {
   loadBulkConfigClipboard,
@@ -41,7 +41,7 @@ type UseBucketOpsConfigCopyOptions = BucketOpsConfigCopyApi & {
   isStorageOps: boolean;
   listBuckets: (
     scopeId: number,
-    params: ListCephAdminBucketsParams,
+    params: BucketListingParams,
   ) => Promise<{ items: CephAdminBucket[] }>;
   loadClipboard?: typeof loadBulkConfigClipboard;
   now?: () => Date;

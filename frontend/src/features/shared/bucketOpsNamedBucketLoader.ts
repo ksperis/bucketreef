@@ -4,8 +4,8 @@
  */
 import type {
   CephAdminBucket,
-  ListCephAdminBucketsParams,
 } from "../../api/cephAdminBuckets";
+import type { BucketListingParams } from "../../api/bucketListingTransport";
 import { runWithConcurrencySettled } from "../../utils/concurrency";
 import { collectPaginatedItems } from "../../utils/pagination";
 
@@ -21,7 +21,7 @@ type BucketOpsNamedBucketLoaderInput = {
   include?: string[];
   listBuckets: (
     scopeId: number,
-    params: ListCephAdminBucketsParams,
+    params: BucketListingParams,
   ) => Promise<BucketOpsNamedBucketPage>;
   onProgress?: (progress: { completed: number; total: number; failed: number }) => void;
   queryBucketName?: (bucketName: string) => string;

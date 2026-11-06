@@ -10,6 +10,7 @@ import {
   buildBucketListingQuery,
   buildBucketListingRequestBody,
   shouldUsePostBucketListing,
+  type BucketListingParams,
 } from "./bucketListingTransport";
 import {
   resolveApiBaseUrl,
@@ -47,19 +48,6 @@ export type CephAdminBucket = {
 export type PaginatedCephAdminBucketsResponse = PaginatedResponse<CephAdminBucket> & {
   stats_available: boolean;
   stats_warning: string | null;
-};
-
-export type ListCephAdminBucketsParams = {
-  page?: number;
-  page_size?: number;
-  filter?: string;
-  advanced_filter?: string;
-  sort_by?: string;
-  sort_dir?: "asc" | "desc";
-  include?: string[];
-  with_stats?: boolean;
-  ui_tag_ids?: number[];
-  ui_tag_match?: "any" | "all";
 };
 
 export type CephAdminBucketsStreamProgress = CephAdminListingStreamProgress;
@@ -111,7 +99,7 @@ type CephAdminBucketConfigBackupResponse = {
 
 export async function listCephAdminBuckets(
   endpointId: number,
-  params?: ListCephAdminBucketsParams,
+  params?: BucketListingParams,
   options?: ListCephAdminBucketsOptions
 ): Promise<PaginatedCephAdminBucketsResponse> {
   const usePost = shouldUsePostBucketListing(params);
@@ -154,7 +142,7 @@ export async function backupCephAdminBucketConfigs(
 
 export async function streamCephAdminBuckets(
   endpointId: number,
-  params?: ListCephAdminBucketsParams,
+  params?: BucketListingParams,
   options?: SseStreamOptions<CephAdminBucketsStreamProgress>
 ): Promise<PaginatedCephAdminBucketsResponse> {
   const baseUrl = resolveApiBaseUrl();

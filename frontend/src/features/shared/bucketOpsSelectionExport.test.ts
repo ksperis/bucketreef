@@ -3,9 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { describe, expect, it, vi } from "vitest";
-import type {
-  ListCephAdminBucketsParams,
-} from "../../api/cephAdminBuckets";
+import type { BucketListingParams } from "../../api/bucketListingTransport";
 import {
   buildCephAdminBucket,
   buildStorageOpsBucket,
@@ -70,7 +68,7 @@ describe("prepareBucketOpsSelectionExport", () => {
 
   it("reuses the complete filtered query for a fully resolved CSV selection", async () => {
     const listBuckets = vi.fn<ExportInput["listBuckets"]>(
-      async (_scopeId: number, _params: ListCephAdminBucketsParams) => ({
+      async (_scopeId: number, _params: BucketListingParams) => ({
         items: [
           buildCephAdminBucket("alpha", { tenant: "tenant-a" }),
           buildCephAdminBucket("beta", { tenant: "tenant-b" }),
@@ -111,7 +109,7 @@ describe("prepareBucketOpsSelectionExport", () => {
 
   it("loads exact names for partial selections and preserves visible fallbacks", async () => {
     const listBuckets = vi.fn<ExportInput["listBuckets"]>(
-      async (_scopeId: number, params: ListCephAdminBucketsParams) => {
+      async (_scopeId: number, params: BucketListingParams) => {
         const filter = JSON.parse(params.advanced_filter ?? "{}") as {
           rules?: Array<{ value?: string[] }>;
         };
