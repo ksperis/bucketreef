@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.db import User
-from app.models.browser_favorites import BrowserFavoriteInput, BrowserFavoriteOut, BrowserFavoriteSurface
+from app.models.browser_favorites import BrowserFavoriteInput, BrowserFavoriteOut
 from app.routers.dependencies import get_current_account_user
 from app.services.browser_favorites_service import BrowserFavoritesService
 
@@ -12,8 +12,8 @@ router = APIRouter(prefix="/me/browser-favorites")
 
 
 @router.get("", response_model=list[BrowserFavoriteOut])
-def list_favorites(surface: BrowserFavoriteSurface = "browser", user: User = Depends(get_current_account_user), db: Session = Depends(get_db)) -> list[BrowserFavoriteOut]:
-    return BrowserFavoritesService(db).list(user, surface)
+def list_favorites(user: User = Depends(get_current_account_user), db: Session = Depends(get_db)) -> list[BrowserFavoriteOut]:
+    return BrowserFavoritesService(db).list(user)
 
 
 @router.post("", response_model=BrowserFavoriteOut, status_code=201)

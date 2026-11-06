@@ -63,9 +63,7 @@ def test_purge_execution_context_data_removes_local_dependents(db_session):
             BrowserFavorite(
                 id="11111111-1111-1111-1111-111111111111",
                 user_id=user.id,
-                surface="browser",
                 name="Removed favorite",
-                workspace="manager",
                 context=context_id,
                 bucket="source",
                 prefix="",
@@ -74,9 +72,7 @@ def test_purge_execution_context_data_removes_local_dependents(db_session):
             BrowserFavorite(
                 id="22222222-2222-2222-2222-222222222222",
                 user_id=user.id,
-                surface="browser",
                 name="Kept favorite",
-                workspace="manager",
                 context="conn-99",
                 bucket="other",
                 prefix="",

@@ -8,12 +8,10 @@ from app.utils.time import utcnow
 
 class BrowserFavorite(Base):
     __tablename__ = "browser_favorites"
-    __table_args__ = (Index("ix_browser_favorites_user_surface", "user_id", "surface"),)
+    __table_args__ = (Index("ix_browser_favorites_user_id", "user_id"),)
     id = Column(String(36), primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    surface = Column(String(24), nullable=False)
     name = Column(String(120), nullable=False)
-    workspace = Column(String(24), nullable=False)
     context = Column(String(256), nullable=False)
     bucket = Column(String(255), nullable=False)
     prefix = Column(String(1024), nullable=False)

@@ -56,9 +56,15 @@ format for surviving favorites; it cannot reconstruct discarded views. Historica
 migrations are unchanged. No production database was migrated during validation.
 
 The only CRUD route is `/users/me/browser-favorites`, with strict dedicated
-payloads, personal ownership, surface separation, the existing 500-item limit and
-optimistic revisions. The former presets route has no alias. The demo uses the
-same path-only model and an incremented data version.
+payloads, personal ownership, the existing 500-item limit and optimistic
+revisions. The former presets route has no alias. The demo uses the same
+path-only model and an incremented data version.
+
+Migration `0249_canonical_browser_favorites` later removes the historical
+`surface` and `workspace` dimensions now that favorites are exposed only by the
+standalone Browser. Existing `browser` favorites keep their path identity and
+embedded-surface rows are discarded. The current API no longer accepts or
+returns either retired field.
 
 Session responses no longer contain recovery identifiers. The later technical-debt
 cleanup also removed the runtime `deleteDatabase` compatibility step for

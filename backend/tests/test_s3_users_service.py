@@ -1904,9 +1904,7 @@ def test_delete_user_purges_derived_database_rows(db_session, monkeypatch):
         BrowserFavorite(
             id="bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
             user_id=favorite_owner.id,
-            surface="browser",
             name="RGW User favorite",
-            workspace="manager",
             context=f"s3u-{created.id}",
             bucket="bucket-u",
             prefix="",

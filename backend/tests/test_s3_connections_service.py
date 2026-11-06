@@ -938,9 +938,7 @@ def test_delete(db_session):
             BrowserFavorite(
                 id="cccccccc-cccc-cccc-cccc-cccccccccccc",
                 user_id=owner.id,
-                surface="browser",
                 name="Connection favorite",
-                workspace="browser",
                 context=f"conn-{row.id}",
                 bucket="bucket-c",
                 prefix="",

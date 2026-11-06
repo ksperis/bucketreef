@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from itertools import pairwise
 import json
 from pathlib import Path
 
@@ -18,19 +19,24 @@ from app.core.config import get_settings
 from app.db import Base
 
 
-_EXPECTED_ALEMBIC_HEAD = "0248_remove_migration_runtime_timestamps"
-_REMOVED_MIGRATION_RUNTIME_TIMESTAMPS_REVISION = "0247_remove_migration_last_heartbeat"
-_REMOVED_MIGRATION_LAST_HEARTBEAT_REVISION = "0246_remove_migration_checked_revision"
-_REMOVED_MIGRATION_CHECKED_REVISION_REVISION = "0245_remove_migration_target_snapshot"
-_REMOVED_MIGRATION_TARGET_SNAPSHOT_REVISION = "0244_remove_migration_precheck_status"
-_REMOVED_MIGRATION_PRECHECK_STATUS_REVISION = "0243_remove_context_service_name"
-_REMOVED_OPENSTACK_CONTEXT_SERVICE_NAME_REVISION = "0242_remove_latest_sample_count"
-_RETIRED_LATEST_SAMPLE_COUNT_REVISION = "0241_remove_latest_availability"
-_RETIRED_LATEST_AVAILABILITY_REVISION = "0240_retire_migration_skipped_status"
-_CANONICAL_ROLLBACK_STATUS_REVISION = "0239_canonical_migration_rollback_status"
-_RETIRED_WEBHOOK_REVISION = "0238_remove_retired_migration_webhooks"
-_CANONICAL_RETRY_STEP_REVISION = "0237_canonical_bucket_migration_retry_step"
-_PORTAL_IAM_REPAIR_REVISION = "0236_repair_portal_iam_revocation_schema"
+_RECENT_LINEAR_REVISIONS = (
+    "0249_canonical_browser_favorites",
+    "0248_remove_migration_runtime_timestamps",
+    "0247_remove_migration_last_heartbeat",
+    "0246_remove_migration_checked_revision",
+    "0245_remove_migration_target_snapshot",
+    "0244_remove_migration_precheck_status",
+    "0243_remove_context_service_name",
+    "0242_remove_latest_sample_count",
+    "0241_remove_latest_availability",
+    "0240_retire_migration_skipped_status",
+    "0239_canonical_migration_rollback_status",
+    "0238_remove_retired_migration_webhooks",
+    "0237_canonical_bucket_migration_retry_step",
+    "0236_repair_portal_iam_revocation_schema",
+)
+_EXPECTED_ALEMBIC_HEAD = _RECENT_LINEAR_REVISIONS[0]
+_PORTAL_IAM_REPAIR_REVISION = _RECENT_LINEAR_REVISIONS[-1]
 _REJOINED_MERGE_REVISION = "0235_reconcile_postgresql_schema_drift"
 _LEGACY_GITLAB_HEAD = "0226_reconcile_postgresql_schema_drift"
 
@@ -113,54 +119,8 @@ def test_alembic_exposes_single_head_after_rejoined_merge():
     script = ScriptDirectory.from_config(_alembic_config())
 
     assert script.get_heads() == [_EXPECTED_ALEMBIC_HEAD]
-    assert (
-        script.get_revision(_EXPECTED_ALEMBIC_HEAD).down_revision
-        == _REMOVED_MIGRATION_RUNTIME_TIMESTAMPS_REVISION
-    )
-    assert (
-        script.get_revision(_REMOVED_MIGRATION_RUNTIME_TIMESTAMPS_REVISION).down_revision
-        == _REMOVED_MIGRATION_LAST_HEARTBEAT_REVISION
-    )
-    assert (
-        script.get_revision(_REMOVED_MIGRATION_LAST_HEARTBEAT_REVISION).down_revision
-        == _REMOVED_MIGRATION_CHECKED_REVISION_REVISION
-    )
-    assert (
-        script.get_revision(_REMOVED_MIGRATION_CHECKED_REVISION_REVISION).down_revision
-        == _REMOVED_MIGRATION_TARGET_SNAPSHOT_REVISION
-    )
-    assert (
-        script.get_revision(_REMOVED_MIGRATION_TARGET_SNAPSHOT_REVISION).down_revision
-        == _REMOVED_MIGRATION_PRECHECK_STATUS_REVISION
-    )
-    assert (
-        script.get_revision(_REMOVED_MIGRATION_PRECHECK_STATUS_REVISION).down_revision
-        == _REMOVED_OPENSTACK_CONTEXT_SERVICE_NAME_REVISION
-    )
-    assert (
-        script.get_revision(_REMOVED_OPENSTACK_CONTEXT_SERVICE_NAME_REVISION).down_revision
-        == _RETIRED_LATEST_SAMPLE_COUNT_REVISION
-    )
-    assert (
-        script.get_revision(_RETIRED_LATEST_SAMPLE_COUNT_REVISION).down_revision
-        == _RETIRED_LATEST_AVAILABILITY_REVISION
-    )
-    assert (
-        script.get_revision(_RETIRED_LATEST_AVAILABILITY_REVISION).down_revision
-        == _CANONICAL_ROLLBACK_STATUS_REVISION
-    )
-    assert (
-        script.get_revision(_CANONICAL_ROLLBACK_STATUS_REVISION).down_revision
-        == _RETIRED_WEBHOOK_REVISION
-    )
-    assert (
-        script.get_revision(_RETIRED_WEBHOOK_REVISION).down_revision
-        == _CANONICAL_RETRY_STEP_REVISION
-    )
-    assert (
-        script.get_revision(_CANONICAL_RETRY_STEP_REVISION).down_revision
-        == _PORTAL_IAM_REPAIR_REVISION
-    )
+    for revision, predecessor in pairwise(_RECENT_LINEAR_REVISIONS):
+        assert script.get_revision(revision).down_revision == predecessor
     assert (
         script.get_revision(_PORTAL_IAM_REPAIR_REVISION).down_revision
         == _REJOINED_MERGE_REVISION

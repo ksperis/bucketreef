@@ -3,7 +3,6 @@ import { useCallback, useMemo } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import type { BrowserFavorite } from "../../api/browserFavorites";
-import type { BrowserWorkspaceSurface } from "../../api/browserWorkspace";
 import type { SessionUser } from "../../utils/workspaces";
 import { buildBrowserLocationPath } from "./useBrowserNavigationHistory";
 import {
@@ -23,7 +22,6 @@ type UseBrowserFavoritesRuntimeOptions = {
   bucketLabel?: string;
   prefix: string;
   isMainBrowserPath: boolean;
-  workspaceSurface: BrowserWorkspaceSurface;
   contextId: string | number | null | undefined;
   lockedBucket?: string;
   requestTransition: (transition: () => void) => boolean;
@@ -40,7 +38,6 @@ export function useBrowserFavoritesRuntime({
   bucketLabel,
   prefix,
   isMainBrowserPath,
-  workspaceSurface,
   contextId,
   lockedBucket,
   requestTransition,
@@ -61,8 +58,6 @@ export function useBrowserFavoritesRuntime({
         bucketLabel,
         prefix,
       }),
-      surface: isMainBrowserPath ? ("browser" as const) : workspaceSurface,
-      workspace: workspaceSurface,
       context,
       bucket: bucketName,
       prefix,
@@ -71,9 +66,7 @@ export function useBrowserFavoritesRuntime({
       bucketLabel,
       bucketName,
       context,
-      isMainBrowserPath,
       prefix,
-      workspaceSurface,
     ],
   );
   const contextLabels = useMemo(

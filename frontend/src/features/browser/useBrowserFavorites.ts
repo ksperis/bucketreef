@@ -13,7 +13,7 @@ import { extractApiError } from "../../utils/apiError";
 import { useBrowserI18n } from "./browserI18n";
 
 const favoriteLocationKey = (favorite: BrowserFavoriteInput) =>
-  [favorite.surface, favorite.workspace, favorite.context, favorite.bucket, favorite.prefix].join("\u0000");
+  [favorite.context, favorite.bucket, favorite.prefix].join("\u0000");
 
 const sameFavoriteLocation = (left: BrowserFavoriteInput, right: BrowserFavoriteInput) =>
   favoriteLocationKey(left) === favoriteLocationKey(right);
@@ -81,7 +81,7 @@ export function useBrowserFavorites({
       return;
     }
     try {
-      const next = await listBrowserFavorites(current.surface);
+      const next = await listBrowserFavorites();
       if (!active.current) return;
       setFavorites(next);
       setError("");
@@ -91,7 +91,7 @@ export function useBrowserFavorites({
     } finally {
       if (active.current) setLoaded(true);
     }
-  }, [accountUser, current.surface, enabled]);
+  }, [accountUser, enabled]);
 
   useEffect(() => {
     if (!enabled || !accountUser) return;
@@ -185,7 +185,7 @@ export function useBrowserFavorites({
       setApplyingId(favorite.id);
       try {
         const result = await searchBrowserBuckets(favorite.context, {
-          workspaceSurface: favorite.workspace,
+          workspaceSurface: "browser",
           exact: true,
           search: favorite.bucket,
           pageSize: 1,
@@ -194,7 +194,7 @@ export function useBrowserFavorites({
           throw new Error(text("Saved location is unavailable. Its identity has been kept."));
         }
         await listBrowserObjects(favorite.context, favorite.bucket, {
-          workspaceSurface: favorite.workspace,
+          workspaceSurface: "browser",
           prefix: favorite.prefix,
           maxKeys: 1,
         });

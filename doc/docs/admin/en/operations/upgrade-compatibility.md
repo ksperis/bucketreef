@@ -544,6 +544,21 @@ per-bucket `started_at` and `finished_at` are retained on migration items.
 Downgrade recreates both top-level timestamps as nullable UTC values without
 reconstructing historical data.
 
+## 2026-11 canonical Browser favorites
+
+Migration `0249_canonical_browser_favorites` removes the retired `surface` and
+`workspace` dimensions from personal Browser favorites. Favorites are exposed
+only by the standalone `/browser` workspace, so current writes and reads now
+persist only the path identity: name, execution context, bucket, and prefix.
+
+Existing favorites whose historical `surface` is `browser` are retained. Rows
+for embedded Manager, Portal, or Ceph Admin surfaces are discarded because those
+surfaces no longer expose favorites. A retained favorite that carried another
+historical `workspace` is revalidated through the canonical Browser execution
+policy when it is opened. Downgrade reconstructs both removed fields as
+`browser`; it cannot restore discarded embedded-surface rows or historical
+workspace values.
+
 ## 2026-10 structured bucket migration workflow state
 
 Migration `0213_structure_bucket_migration_json` replaces the bucket migration

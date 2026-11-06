@@ -24,8 +24,6 @@ const favorite: BrowserFavorite = {
   id: "favorite-1",
   revision: 1,
   name: "Saved",
-  surface: "browser",
-  workspace: "browser",
   context: "101",
   bucket: "archive",
   prefix: "reports/",
@@ -77,7 +75,6 @@ const options = () => ({
   bucketLabel: "Research Data",
   prefix: "",
   isMainBrowserPath: true,
-  workspaceSurface: "browser" as const,
   contextId: "101",
   lockedBucket: undefined,
   requestTransition: vi.fn((transition: () => void) => {
@@ -107,8 +104,6 @@ describe("useBrowserFavoritesRuntime", () => {
     expect(result.current.accountUser).toBe(true);
     expect(result.current.current).toEqual({
       name: "Research Data",
-      surface: "browser",
-      workspace: "browser",
       context: "101",
       bucket: "archive",
       prefix: "",

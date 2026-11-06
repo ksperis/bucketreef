@@ -2093,9 +2093,7 @@ def test_delete_account_purges_derived_database_rows(db_session, monkeypatch):
         BrowserFavorite(
             id="aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
             user_id=favorite_owner.id,
-            surface="browser",
             name="Account favorite",
-            workspace="portal",
             context=str(account.id),
             bucket="bucket-a",
             prefix="",
