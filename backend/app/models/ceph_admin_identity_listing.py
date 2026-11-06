@@ -6,12 +6,10 @@ from typing import Literal
 
 from pydantic import Field
 
-from app.models.base import ApiModel
+from app.models.pagination import PaginationRequest
 
 
-class CephAdminIdentityListingRequest(ApiModel):
-    page: int = Field(default=1, ge=1)
-    page_size: int = Field(default=25, ge=1, le=200)
+class CephAdminIdentityListingRequest(PaginationRequest):
     search: str | None = None
     advanced_filter: str | None = None
     sort_dir: Literal["asc", "desc"] = "asc"

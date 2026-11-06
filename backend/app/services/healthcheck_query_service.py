@@ -19,6 +19,7 @@ from app.db import (
     StorageEndpoint,
 )
 from app.core.domain_enums import HealthCheckStatus
+from app.models.pagination import PaginationRequest
 from app.services.healthcheck_common import (
     DEFAULT_CHECK_TYPE,
     DEFAULT_ROLLUP_RESOLUTION_SECONDS,
@@ -450,14 +451,17 @@ class HealthCheckQueryService:
             "incidents": incidents,
         }
 
-    def build_raw_checks(self, endpoint_id: int, window: HealthWindow, page: int = 1, page_size: int = 25) -> dict:
+    def build_raw_checks(
+        self,
+        endpoint_id: int,
+        window: HealthWindow,
+        pagination: PaginationRequest,
+    ) -> dict:
         endpoint = self.db.get(StorageEndpoint, endpoint_id)
         if not endpoint:
             raise StorageEndpointNotFoundError("Endpoint not found.")
         now = utcnow()
         start = now - WINDOW_DELTAS[window]
-        safe_page = max(1, int(page))
-        safe_page_size = max(1, int(page_size))
 
         criteria = (
             EndpointHealthCheck.storage_endpoint_id == endpoint_id,
@@ -470,13 +474,13 @@ class HealthCheckQueryService:
             )
             or 0
         )
-        offset = (safe_page - 1) * safe_page_size
+        offset = (pagination.page - 1) * pagination.page_size
         rows = self.db.scalars(
             select(EndpointHealthCheck)
             .where(*criteria)
             .order_by(EndpointHealthCheck.checked_at.desc(), EndpointHealthCheck.id.desc())
             .offset(offset)
-            .limit(safe_page_size)
+            .limit(pagination.page_size)
         ).all()
         checks = [
             {
@@ -494,8 +498,8 @@ class HealthCheckQueryService:
             "window": window.value,
             "start": start.isoformat(),
             "end": now.isoformat(),
-            "page": safe_page,
-            "page_size": safe_page_size,
+            "page": pagination.page,
+            "page_size": pagination.page_size,
             "total": total,
             "checks": checks,
         }

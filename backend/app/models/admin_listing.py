@@ -4,20 +4,13 @@ from typing import Literal, Optional
 
 from pydantic import Field
 
-from app.models.base import ApiModel
+from app.models.pagination import PaginationRequest
 
 
 AdminSortDir = Literal["asc", "desc"]
 
 
-class AdminPaginationRequest(ApiModel):
-    """Shared pagination controls for Admin list routes."""
-
-    page: int = Field(default=1, ge=1)
-    page_size: int = Field(default=25, ge=1, le=200)
-
-
-class AdminPaginatedListingRequest(AdminPaginationRequest):
+class AdminPaginatedListingRequest(PaginationRequest):
     """Shared pagination and search controls for Admin listings."""
 
     search: Optional[str] = None
