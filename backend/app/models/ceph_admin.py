@@ -158,10 +158,6 @@ class CephAdminRgwGeneratedAccessKey(ApiModel):
     secret_key: str
 
 
-class CephAdminRgwAccessKeyStatusChange(ApiModel):
-    active: bool
-
-
 class CephAdminRgwAccountDetail(ApiModel):
     account_id: str
     tenant: Optional[str]

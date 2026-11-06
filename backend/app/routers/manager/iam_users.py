@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.services.access_context_contracts import ManagerActor
 from app.services.s3_execution_context import S3ExecutionContext
-from app.models.access_key_metadata import AccessKeyMetadata, AccessKeyMetadataInput
-from app.models.iam import AccessKey, AccessKeyStatusChange, IAMUser, IAMUserCreate, IAMUserPage, IAMUserUpdate, IAMUserWithKey
+from app.models.access_key_metadata import AccessKeyMetadata, AccessKeyMetadataInput, AccessKeyStatusChange
+from app.models.iam import AccessKey, IAMUser, IAMUserCreate, IAMUserPage, IAMUserUpdate, IAMUserWithKey
 from app.models.policy import InlinePolicy, Policy
 from app.routers.dependencies import (
     get_s3_execution_context,

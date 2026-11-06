@@ -9,9 +9,9 @@ from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.models.access_key_metadata import AccessKeyStatusChange
 from app.models.ceph_admin import (
     CephAdminRgwAccessKey,
-    CephAdminRgwAccessKeyStatusChange,
     CephAdminRgwGeneratedAccessKey,
 )
 from app.routers.ceph_admin.dependencies import get_ceph_admin_context
@@ -55,7 +55,7 @@ def create_rgw_user_key(
 def update_rgw_user_key_status(
     user_id: str,
     access_key: str,
-    update: CephAdminRgwAccessKeyStatusChange,
+    update: AccessKeyStatusChange,
     tenant: Optional[str] = None,
     expected_account_id: Optional[str] = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),

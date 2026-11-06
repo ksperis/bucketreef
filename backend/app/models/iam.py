@@ -72,10 +72,6 @@ class AccessKey(AccessKeyMetadata):
     managed_connection_id: Optional[int] = None
 
 
-class AccessKeyStatusChange(ApiModel):
-    active: bool
-
-
 class IAMUserCreate(ApiModel):
     name: _IAMUserName
 

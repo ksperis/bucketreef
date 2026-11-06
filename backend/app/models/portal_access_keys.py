@@ -55,10 +55,6 @@ class PortalAccessKeyCreate(ApiModel):
         return cleaned
 
 
-class PortalAccessKeyStatusChange(ApiModel):
-    active: bool
-
-
 class PortalIAMUser(ApiModel):
     iam_user_id: Optional[str]
     iam_username: Optional[str]

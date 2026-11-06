@@ -43,10 +43,10 @@ from app.models.iam import AccessKey as IAMAccessKey, IAMGroup, IAMUser
 from app.models.portal_monitoring import PortalAlert
 from app.models.portal_storage_spaces import PortalStorageSpaceInitialShare, PortalStorageSpaceUpdate
 from app.models.portal_context import PortalState
+from app.models.access_key_metadata import AccessKeyStatusChange
 from app.models.portal_access_keys import (
     PortalAccessKey,
     PortalAccessKeyCreate,
-    PortalAccessKeyStatusChange,
     PortalIAMUser,
 )
 from app.models.portal_access_logs import PortalServerAccessLogFilterQuery, PortalServerAccessLogFilterRule
@@ -9622,7 +9622,7 @@ def test_portal_access_key_routes_record_audit(db_session):
     )
     updated = portal_access_keys_router.update_portal_access_key_status(
         "AK-NEW",
-        PortalAccessKeyStatusChange(active=False),
+        AccessKeyStatusChange(active=False),
         access=access,
         audit_service=audit_service,
         service=service,
@@ -9720,7 +9720,7 @@ def test_portal_access_key_route_audits_external_metadata_without_secret(db_sess
     )
     updated = portal_access_keys_router.update_portal_access_key_status(
         "AK-EXT",
-        PortalAccessKeyStatusChange(active=False),
+        AccessKeyStatusChange(active=False),
         access=access,
         audit_service=audit_service,
         service=FakeService(),
