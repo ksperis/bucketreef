@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 
 import logging
-from typing import Optional
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.orm import Session
@@ -25,6 +25,7 @@ from app.models.s3_connection_admin import (
     PaginatedS3ConnectionsResponse,
     S3ConnectionAdminCreate,
     S3ConnectionAdminItem,
+    S3ConnectionAdminListingRequest,
     S3ConnectionAdminUpdate,
 )
 from app.routers.dependencies import get_audit_service, get_current_ui_admin
@@ -61,24 +62,12 @@ def _get_admin_shared_connection(db: Session, connection_id: int) -> S3Connectio
 
 @router.get("", response_model=PaginatedS3ConnectionsResponse)
 def list_s3_connections(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(25, ge=1, le=200),
-    search: Optional[str] = Query(None),
-    search_exact: bool = Query(False),
-    sort_by: str = Query("name"),
-    sort_dir: str = Query("asc"),
+    query: Annotated[S3ConnectionAdminListingRequest, Query()],
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_ui_admin),
 ) -> PaginatedS3ConnectionsResponse:
     _ = current_user
-    return AdminS3ConnectionsReadService(db).list(
-        page=page,
-        page_size=page_size,
-        search=search,
-        search_exact=search_exact,
-        sort_by=sort_by,
-        sort_dir=sort_dir,
-    )
+    return AdminS3ConnectionsReadService(db).list(query)
 
 
 @router.post("/validate-credentials", response_model=S3ConnectionCredentialsValidationResult)

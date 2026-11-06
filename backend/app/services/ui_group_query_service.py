@@ -21,7 +21,13 @@ from app.db import (
 )
 from app.db.openstack import OpenStackCloud, cloud_groups
 from app.models.openstack import LinkedOpenStackCloud
-from app.models.ui_group import LinkedS3Account, UiGroupOut, UiGroupSummary
+from app.models.ui_group import (
+    LinkedS3Account,
+    PaginatedUiGroupsResponse,
+    UiGroupListingRequest,
+    UiGroupOut,
+    UiGroupSummary,
+)
 from app.models.user import (
     AccountMembership,
     LinkedS3Connection,
@@ -139,38 +145,39 @@ class UiGroupQueryService:
         )
 
     @staticmethod
-    def _group_order_columns(sort_field: str, sort_direction: str):
-        descending = sort_direction == "desc"
-        if sort_field == "name" or sort_field not in {"created_at", "updated_at"}:
+    def _group_order_columns(request: UiGroupListingRequest):
+        descending = request.sort_dir == "desc"
+        if request.sort_by == "name":
             return name_order_by(UiGroup, descending=descending)
         sort_column = (
             UiGroup.created_at
-            if sort_field == "created_at"
+            if request.sort_by == "created_at"
             else UiGroup.updated_at
         )
         direction = sort_column.desc if descending else sort_column.asc
         id_direction = UiGroup.id.desc if descending else UiGroup.id.asc
         return direction(), id_direction()
 
-    def paginate_groups(
+    def list_groups_page(
         self,
-        *,
-        page: int,
-        page_size: int,
-        search: Optional[str] = None,
-        sort_field: str = "name",
-        sort_direction: str = "asc",
-    ) -> tuple[list[UiGroupOut], int]:
-        search_value = search.strip() if isinstance(search, str) else ""
+        request: UiGroupListingRequest,
+    ) -> PaginatedUiGroupsResponse:
+        search_value = request.search.strip() if isinstance(request.search, str) else ""
         statement = self._apply_group_search(select(UiGroup), search_value)
         rows, total = paginate_scalars(
             self.db,
             statement,
-            order_by=self._group_order_columns(sort_field, sort_direction),
-            page=page,
-            page_size=page_size,
+            order_by=self._group_order_columns(request),
+            page=request.page,
+            page_size=request.page_size,
         )
-        return [self.group_to_out(group) for group in rows], total
+        return PaginatedUiGroupsResponse(
+            items=[self.group_to_out(group) for group in rows],
+            total=total,
+            page=request.page,
+            page_size=request.page_size,
+            has_next=request.page * request.page_size < total,
+        )
 
     def _preload_group_output(self, group_id: int) -> _UiGroupOutputPreload:
         user_rows = self.db.scalars(

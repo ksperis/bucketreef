@@ -10,6 +10,7 @@ from typing import Any, Literal, Optional, Self
 
 from pydantic import Field, model_validator
 
+from app.models.admin_listing import AdminSortableListingRequest
 from app.models.base import ApiModel, reject_explicit_null_fields
 from app.models.tagging import (
     OptionalTagDefinitionList,
@@ -22,6 +23,20 @@ from app.models.s3_connection import (
 )
 from app.models.ui_group import UiGroupAvatar
 from app.models.user import UserAssociationDetail, UserAvatar
+
+
+S3ConnectionAdminSortBy = Literal[
+    "name",
+    "endpoint",
+    "owner",
+    "last_used_at",
+    "created_at",
+]
+
+
+class S3ConnectionAdminListingRequest(AdminSortableListingRequest):
+    sort_by: S3ConnectionAdminSortBy = "name"
+    search_exact: bool = False
 
 
 class S3ConnectionGroupDetail(ApiModel):

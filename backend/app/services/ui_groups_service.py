@@ -20,7 +20,14 @@ from app.db import (
 )
 from app.db.openstack import OpenStackCloud, cloud_groups
 from app.db.ui_group import ALL_USERS_SYSTEM_KEY
-from app.models.ui_group import UiGroupCreate, UiGroupOut, UiGroupSummary, UiGroupUpdate
+from app.models.ui_group import (
+    PaginatedUiGroupsResponse,
+    UiGroupCreate,
+    UiGroupListingRequest,
+    UiGroupOut,
+    UiGroupSummary,
+    UiGroupUpdate,
+)
 from app.models.user import (
     AccountMembership,
     S3UserMembership,
@@ -225,22 +232,11 @@ class UiGroupsService:
             search=search,
         )
 
-    def paginate_groups(
+    def list_groups_page(
         self,
-        *,
-        page: int,
-        page_size: int,
-        search: Optional[str] = None,
-        sort_field: str = "name",
-        sort_direction: str = "asc",
-    ) -> tuple[list[UiGroupOut], int]:
-        return self.queries.paginate_groups(
-            page=page,
-            page_size=page_size,
-            search=search,
-            sort_field=sort_field,
-            sort_direction=sort_direction,
-        )
+        request: UiGroupListingRequest,
+    ) -> PaginatedUiGroupsResponse:
+        return self.queries.list_groups_page(request)
 
     def group_to_out(self, group: UiGroup) -> UiGroupOut:
         return self.queries.group_to_out(group)

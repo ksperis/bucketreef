@@ -5,7 +5,7 @@ from typing import Literal, Optional
 from pydantic import Field, field_validator, model_validator
 
 from app.models.account_access import AccountAccessGrant
-from app.models.admin_managed_listing import AdminManagedEntityListingRequest
+from app.models.admin_listing import AdminManagedEntityListingRequest
 from app.models.base import ApiModel, reject_explicit_null_fields
 from app.models.pagination import PaginatedResponse
 from app.models.tagging import (

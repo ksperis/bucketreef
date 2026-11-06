@@ -97,6 +97,20 @@ def test_admin_s3_connections_non_name_sort_still_applies(client, db_session):
     assert ids.index(same_time_2.id) < ids.index(same_time_1.id)
 
 
+def test_admin_s3_connections_rejects_unsupported_sort_contract(client):
+    invalid_field = client.get(
+        "/api/admin/s3-connections",
+        params={"sort_by": "updated_at"},
+    )
+    invalid_direction = client.get(
+        "/api/admin/s3-connections",
+        params={"sort_dir": "sideways"},
+    )
+
+    assert invalid_field.status_code == 422, invalid_field.text
+    assert invalid_direction.status_code == 422, invalid_direction.text
+
+
 def test_admin_s3_connections_list_is_sorted_case_insensitive(client, db_session):
     _seed_connection(db_session, name="Zulu")
     _seed_connection(db_session, name="alpha")

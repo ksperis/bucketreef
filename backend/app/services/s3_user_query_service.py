@@ -24,7 +24,7 @@ from app.models.s3_user import (
     S3UserSortBy,
     S3UserUserLink,
 )
-from app.models.admin_managed_listing import AdminManagedSortDir
+from app.models.admin_listing import AdminSortDir
 from app.services.mappers.s3_user import s3_user_from_db
 from app.services.rgw_admin import RGWAdminClient
 from app.services.s3_user_associations_service import S3UserAssociationsService
@@ -137,7 +137,7 @@ class S3UserQueryService:
     @staticmethod
     def _user_order_columns(
         sort_by: S3UserSortBy,
-        sort_dir: AdminManagedSortDir,
+        sort_dir: AdminSortDir,
     ) -> list[Any]:
         sort_map = {
             "name": S3UserModel.name,

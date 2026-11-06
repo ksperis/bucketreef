@@ -24,7 +24,7 @@ from app.models.s3_account import (
     S3AccountListingRequest,
     S3AccountSortBy,
 )
-from app.models.admin_managed_listing import AdminManagedSortDir
+from app.models.admin_listing import AdminSortDir
 from app.services.mappers.s3_account import s3_account_from_db
 from app.services.rgw_account_root_service import RgwAccountRootService
 from app.services.rgw_account_topics_resolver import RgwAccountTopicsResolver
@@ -195,7 +195,7 @@ class S3AccountQueryService:
     @staticmethod
     def _account_order_columns(
         sort_by: S3AccountSortBy,
-        sort_dir: AdminManagedSortDir,
+        sort_dir: AdminSortDir,
     ) -> list[Any]:
         descending = sort_dir == "desc"
         if sort_by == "rgw_account_id":
