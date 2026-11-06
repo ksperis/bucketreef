@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 from typing import Callable
 
+from app.models.bucket_listing import BucketListingRequest
 from app.models.storage_ops import PaginatedStorageOpsBucketsResponse, StorageOpsBucketSummary
 from app.services.bucket_ui_tags_service import (
     BucketUiTagsService,
@@ -51,16 +52,7 @@ class _StorageOpsBucketListingPipeline:
         load_context_refs: Callable[[], list[StorageOpsContextRef]],
         resolve_context: Callable[[StorageOpsContextRef], S3ExecutionContext | None],
         service: BucketsService,
-        page: int,
-        page_size: int,
-        filter: str | None,
-        advanced_filter: str | None,
-        sort_by: str,
-        sort_dir: str,
-        include: list[str],
-        with_stats: bool,
-        ui_tag_ids: list[int] | None,
-        ui_tag_match: str,
+        request: BucketListingRequest,
         bucket_ui_tags_service: BucketUiTagsService | None,
         actor_user_id: int | None,
         progress_callback: Callable[[ListingProgressSnapshot], None] | None,
@@ -69,18 +61,11 @@ class _StorageOpsBucketListingPipeline:
         self.load_context_refs = load_context_refs
         self.resolve_context = resolve_context
         self.service = service
-        self.page = page
-        self.page_size = page_size
-        self.filter = filter
-        self.advanced_filter = advanced_filter
-        self.sort_by = sort_by
-        self.sort_dir = sort_dir
-        self.include = include
-        self.with_stats = with_stats
+        self.request = request
         self.ui_tag_ids = tuple(
-            dict.fromkeys(int(item) for item in (ui_tag_ids or []) if int(item) > 0)
+            dict.fromkeys(int(item) for item in request.ui_tag_ids if int(item) > 0)
         )
-        self.ui_tag_match = "all" if ui_tag_match == "all" else "any"
+        self.ui_tag_match = request.ui_tag_match
         self.bucket_ui_tags_service = bucket_ui_tags_service
         self.actor_user_id = actor_user_id
         self.progress = ListingProgressEmitter(progress_callback)
@@ -97,11 +82,11 @@ class _StorageOpsBucketListingPipeline:
         )
         invoke_cancel_check(self.cancel_check)
         query = prepare_storage_ops_bucket_listing_request(
-            filter=self.filter,
-            advanced_filter=self.advanced_filter,
-            include=self.include,
-            with_stats=self.with_stats,
-            sort_by=self.sort_by,
+            filter=self.request.filter,
+            advanced_filter=self.request.advanced_filter,
+            include=self.request.include,
+            with_stats=self.request.with_stats,
+            sort_by=self.request.sort_by,
         )
         contexts = self._resolve_contexts(query)
         results = self._list_contexts(contexts, query)
@@ -120,8 +105,8 @@ class _StorageOpsBucketListingPipeline:
         return PaginatedStorageOpsBucketsResponse(
             items=page_items,
             total=total,
-            page=self.page,
-            page_size=self.page_size,
+            page=self.request.page,
+            page_size=self.request.page_size,
             has_next=has_next,
             stats_available=True,
             stats_warning=None,
@@ -308,12 +293,12 @@ class _StorageOpsBucketListingPipeline:
         invoke_cancel_check(self.cancel_check)
         sorted_items = sort_storage_ops_buckets(
             results,
-            sort_by=self.sort_by,
-            sort_dir=self.sort_dir,
+            sort_by=self.request.sort_by,
+            sort_dir=self.request.sort_dir,
         )
         total = len(sorted_items)
-        start = max(self.page - 1, 0) * self.page_size
-        end = start + self.page_size
+        start = (self.request.page - 1) * self.request.page_size
+        end = start + self.request.page_size
         return sorted_items[start:end], total, end < total
 
     def _enrich_page(
@@ -356,16 +341,7 @@ def compute_storage_ops_bucket_listing(
     load_context_refs: Callable[[], list[StorageOpsContextRef]],
     resolve_context: Callable[[StorageOpsContextRef], S3ExecutionContext | None],
     service: BucketsService,
-    page: int,
-    page_size: int,
-    filter: str | None,
-    advanced_filter: str | None,
-    sort_by: str,
-    sort_dir: str,
-    include: list[str],
-    with_stats: bool,
-    ui_tag_ids: list[int] | None = None,
-    ui_tag_match: str = "any",
+    request: BucketListingRequest,
     bucket_ui_tags_service: BucketUiTagsService | None = None,
     actor_user_id: int | None = None,
     progress_callback: Callable[[ListingProgressSnapshot], None] | None = None,
@@ -375,16 +351,7 @@ def compute_storage_ops_bucket_listing(
         load_context_refs=load_context_refs,
         resolve_context=resolve_context,
         service=service,
-        page=page,
-        page_size=page_size,
-        filter=filter,
-        advanced_filter=advanced_filter,
-        sort_by=sort_by,
-        sort_dir=sort_dir,
-        include=include,
-        with_stats=with_stats,
-        ui_tag_ids=ui_tag_ids,
-        ui_tag_match=ui_tag_match,
+        request=request,
         bucket_ui_tags_service=bucket_ui_tags_service,
         actor_user_id=actor_user_id,
         progress_callback=progress_callback,

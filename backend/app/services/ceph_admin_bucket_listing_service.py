@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Callable
 
+from app.models.bucket_listing import BucketListingRequest
 from app.models.ceph_admin import PaginatedCephAdminBucketsResponse
 from app.services.bucket_ui_tags_service import BucketUiTagsService
 from app.services.ceph_admin_bucket_listing_cache import get_cached_bucket_listing
@@ -20,17 +21,8 @@ from app.utils.cancellation import invoke_cancel_check
 
 def compute_ceph_admin_bucket_listing(
     *,
-    page: int,
-    page_size: int,
-    filter: str | None,
-    advanced_filter: str | None,
-    sort_by: str,
-    sort_dir: str,
-    include: list[str],
-    with_stats: bool,
+    request: BucketListingRequest,
     ctx: CephAdminBucketListingContext,
-    ui_tag_ids: list[int] | None = None,
-    ui_tag_match: str = "any",
     bucket_ui_tags_service: BucketUiTagsService | None = None,
     actor_user_id: int | None = None,
     progress_callback: Callable[[ListingProgressSnapshot], None] | None = None,
@@ -40,14 +32,14 @@ def compute_ceph_admin_bucket_listing(
     invoke_cancel_check(cancel_check)
     progress.emit(percent=5, stage="prepare", message="Preparing advanced search", force=True)
     listing_request = CephAdminBucketListingRequest.parse(
-        raw_filter=filter,
-        raw_advanced_filter=advanced_filter,
-        sort_by=sort_by,
-        sort_dir=sort_dir,
-        include=include,
-        with_stats=with_stats,
-        ui_tag_ids=ui_tag_ids,
-        ui_tag_match=ui_tag_match,
+        raw_filter=request.filter,
+        raw_advanced_filter=request.advanced_filter,
+        sort_by=request.sort_by,
+        sort_dir=request.sort_dir,
+        include=request.include,
+        with_stats=request.with_stats,
+        ui_tag_ids=request.ui_tag_ids,
+        ui_tag_match=request.ui_tag_match,
         with_ui_tags=bucket_ui_tags_service is not None,
     )
     invoke_cancel_check(cancel_check)
@@ -71,4 +63,4 @@ def compute_ceph_admin_bucket_listing(
         cancel_check=cancel_check,
         bucket_ui_tags_service=bucket_ui_tags_service,
         actor_user_id=actor_user_id,
-    ).build(page=page, page_size=page_size)
+    ).build(page=request.page, page_size=request.page_size)

@@ -13,6 +13,7 @@ from sqlalchemy import event
 from app.db import AuditLog, BucketUiTagAssignment, S3Account, StorageEndpoint, TagDefinition, User
 from app.core.domain_enums import StorageProvider, UserRole
 from app.models.bucket import Bucket
+from app.models.bucket_listing import BucketListingRequest
 from app.models.bucket_ui_tags import StorageOpsBucketUiTagPatchRequest
 from app.services.bucket_ui_tags_service import (
     BucketUiTagDefinitionNotFoundError,
@@ -919,26 +920,28 @@ def test_storage_ops_ui_tag_filter_runs_before_pagination_and_supports_any_all(d
         "load_context_refs": lambda: [ref],
         "resolve_context": lambda _ref: account,
         "service": FakeBucketsService(),
-        "page": 1,
-        "page_size": 1,
-        "filter": None,
-        "advanced_filter": None,
-        "sort_by": "name",
-        "sort_dir": "asc",
-        "include": [],
-        "with_stats": False,
         "bucket_ui_tags_service": service,
         "actor_user_id": owner.id,
     }
     any_result = compute_storage_ops_bucket_listing(
         **common,
-        ui_tag_ids=[blue_id, gold_id],
-        ui_tag_match="any",
+        request=BucketListingRequest(
+            page=1,
+            page_size=1,
+            with_stats=False,
+            ui_tag_ids=[blue_id, gold_id],
+            ui_tag_match="any",
+        ),
     )
     all_result = compute_storage_ops_bucket_listing(
         **common,
-        ui_tag_ids=[blue_id, gold_id],
-        ui_tag_match="all",
+        request=BucketListingRequest(
+            page=1,
+            page_size=1,
+            with_stats=False,
+            ui_tag_ids=[blue_id, gold_id],
+            ui_tag_match="all",
+        ),
     )
 
     assert any_result.total == 3
@@ -996,14 +999,7 @@ def test_storage_ops_replicates_private_tags_across_contexts_for_the_same_physic
         load_context_refs=lambda: refs,
         resolve_context=lambda _ref: account,
         service=FakeBucketsService(),
-        page=1,
-        page_size=25,
-        filter=None,
-        advanced_filter=None,
-        sort_by="name",
-        sort_dir="asc",
-        include=[],
-        with_stats=False,
+        request=BucketListingRequest(with_stats=False),
         bucket_ui_tags_service=service,
         actor_user_id=owner.id,
     )
@@ -1070,32 +1066,32 @@ def test_ceph_admin_ui_tag_filter_runs_before_pagination_and_does_not_taint_shar
         secret_key="SK-UI-TAGS",
     )
     common = {
-        "page": 1,
-        "page_size": 1,
-        "filter": None,
-        "advanced_filter": None,
-        "sort_by": "name",
-        "sort_dir": "asc",
-        "include": [],
-        "with_stats": False,
         "ctx": ctx,
         "bucket_ui_tags_service": service,
     }
     any_result = compute_ceph_admin_bucket_listing(
         **common,
-        ui_tag_ids=[blue_id, gold_id],
-        ui_tag_match="any",
+        request=BucketListingRequest(
+            page_size=1,
+            with_stats=False,
+            ui_tag_ids=[blue_id, gold_id],
+            ui_tag_match="any",
+        ),
         actor_user_id=owner.id,
     )
     all_result = compute_ceph_admin_bucket_listing(
         **common,
-        ui_tag_ids=[blue_id, gold_id],
-        ui_tag_match="all",
+        request=BucketListingRequest(
+            page_size=1,
+            with_stats=False,
+            ui_tag_ids=[blue_id, gold_id],
+            ui_tag_match="all",
+        ),
         actor_user_id=owner.id,
     )
     other_result = compute_ceph_admin_bucket_listing(
         **common,
-        ui_tag_ids=[],
+        request=BucketListingRequest(page_size=1, with_stats=False),
         actor_user_id=other.id,
     )
 

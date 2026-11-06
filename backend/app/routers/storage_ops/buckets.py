@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Callable, Literal
+from typing import Annotated, Callable
 
 from fastapi import APIRouter, Depends, Query, Request, status
 from fastapi.responses import StreamingResponse
@@ -45,16 +45,7 @@ def _compute_storage_ops_listing(
     db: Session,
     user: User,
     service: BucketsService,
-    page: int,
-    page_size: int,
-    filter: str | None,
-    advanced_filter: str | None,
-    sort_by: str,
-    sort_dir: str,
-    include: list[str],
-    with_stats: bool,
-    ui_tag_ids: list[int] | None = None,
-    ui_tag_match: str = "any",
+    query: BucketListingRequest,
     progress_callback: Callable[[ListingProgressSnapshot], None] | None = None,
     cancel_check: Callable[[], None] | None = None,
 ) -> PaginatedStorageOpsBucketsResponse:
@@ -74,16 +65,7 @@ def _compute_storage_ops_listing(
                 ),
             ),
             service=service,
-            page=page,
-            page_size=page_size,
-            filter=filter,
-            advanced_filter=advanced_filter,
-            sort_by=sort_by,
-            sort_dir=sort_dir,
-            include=include,
-            with_stats=with_stats,
-            ui_tag_ids=ui_tag_ids if isinstance(ui_tag_ids, list) else [],
-            ui_tag_match=ui_tag_match if ui_tag_match in {"any", "all"} else "any",
+            request=query,
             bucket_ui_tags_service=tag_service,
             actor_user_id=int(user.id) if tag_service is not None else None,
             progress_callback=progress_callback,
@@ -130,16 +112,7 @@ def refresh_storage_ops_bucket_listing_cache(
 @router.get("", response_model=PaginatedStorageOpsBucketsResponse)
 def list_storage_ops_buckets(
     request: Request,
-    page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=25, ge=1, le=200),
-    filter: str | None = Query(default=None),
-    advanced_filter: str | None = Query(default=None),
-    sort_by: str = Query(default="name"),
-    sort_dir: Literal["asc", "desc"] = Query(default="asc"),
-    include: list[str] = Query(default=[]),
-    with_stats: bool = Query(default=True),
-    ui_tag_ids: list[int] = Query(default=[]),
-    ui_tag_match: Literal["any", "all"] = Query(default="any"),
+    query: Annotated[BucketListingRequest, Query()],
     user: User = Depends(get_current_storage_ops_admin),
     db: Session = Depends(get_db),
     service: BucketsService = Depends(get_buckets_service),
@@ -149,16 +122,7 @@ def list_storage_ops_buckets(
         db=db,
         user=user,
         service=service,
-        page=page,
-        page_size=page_size,
-        filter=filter,
-        advanced_filter=advanced_filter,
-        sort_by=sort_by,
-        sort_dir=sort_dir,
-        include=include,
-        with_stats=with_stats,
-        ui_tag_ids=ui_tag_ids,
-        ui_tag_match=ui_tag_match,
+        query=query,
     )
 
 
@@ -175,37 +139,19 @@ def query_storage_ops_buckets(
         db=db,
         user=user,
         service=service,
-        page=payload.page,
-        page_size=payload.page_size,
-        filter=payload.filter,
-        advanced_filter=payload.advanced_filter,
-        sort_by=payload.sort_by,
-        sort_dir=payload.sort_dir,
-        include=payload.include,
-        with_stats=payload.with_stats,
-        ui_tag_ids=payload.ui_tag_ids,
-        ui_tag_match=payload.ui_tag_match,
+        query=payload,
     )
 
 
 @router.get("/stream")
 async def stream_storage_ops_buckets(
     request: Request,
-    page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=25, ge=1, le=200),
-    filter: str | None = Query(default=None),
-    advanced_filter: str | None = Query(default=None),
-    sort_by: str = Query(default="name"),
-    sort_dir: Literal["asc", "desc"] = Query(default="asc"),
-    include: list[str] = Query(default=[]),
-    with_stats: bool = Query(default=True),
-    ui_tag_ids: list[int] = Query(default=[]),
-    ui_tag_match: Literal["any", "all"] = Query(default="any"),
+    query: Annotated[BucketListingRequest, Query()],
     user: User = Depends(get_current_storage_ops_admin),
     db: Session = Depends(get_db),
     service: BucketsService = Depends(get_buckets_service),
 ) -> StreamingResponse:
-    require_advanced_filter_stream_payload(advanced_filter)
+    require_advanced_filter_stream_payload(query.advanced_filter)
 
     return stream_listing_response(
         request,
@@ -214,16 +160,7 @@ async def stream_storage_ops_buckets(
             db=db,
             user=user,
             service=service,
-            page=page,
-            page_size=page_size,
-            filter=filter,
-            advanced_filter=advanced_filter,
-            sort_by=sort_by,
-            sort_dir=sort_dir,
-            include=include,
-            with_stats=with_stats,
-            ui_tag_ids=ui_tag_ids,
-            ui_tag_match=ui_tag_match,
+            query=query,
             progress_callback=progress_callback,
             cancel_check=cancel_check,
         ),

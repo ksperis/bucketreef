@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Callable, Literal
+from typing import Annotated, Callable
 
 from fastapi import APIRouter, Depends, Query, Request, status
 from fastapi.responses import StreamingResponse
@@ -35,30 +35,12 @@ logger = logging.getLogger(__name__)
 
 @router.get("", response_model=PaginatedCephAdminBucketsResponse)
 def list_buckets(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(25, ge=1, le=200),
-    filter: str | None = Query(None),
-    advanced_filter: str | None = Query(None),
-    sort_by: str = Query("name"),
-    sort_dir: str = Query("asc"),
-    include: list[str] = Query(default=[]),
-    with_stats: bool = True,
-    ui_tag_ids: list[int] = Query(default=[]),
-    ui_tag_match: Literal["any", "all"] = Query(default="any"),
+    query: Annotated[BucketListingRequest, Query()],
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
     db: Session = Depends(get_db),
 ) -> PaginatedCephAdminBucketsResponse:
     return _compute_bucket_listing(
-        page=page,
-        page_size=page_size,
-        filter=filter,
-        advanced_filter=advanced_filter,
-        sort_by=sort_by,
-        sort_dir=sort_dir,
-        include=include,
-        with_stats=with_stats,
-        ui_tag_ids=ui_tag_ids,
-        ui_tag_match=ui_tag_match,
+        query=query,
         ctx=ctx,
         db=db,
     )
@@ -71,16 +53,7 @@ def query_buckets(
     db: Session = Depends(get_db),
 ) -> PaginatedCephAdminBucketsResponse:
     return _compute_bucket_listing(
-        page=payload.page,
-        page_size=payload.page_size,
-        filter=payload.filter,
-        advanced_filter=payload.advanced_filter,
-        sort_by=payload.sort_by,
-        sort_dir=payload.sort_dir,
-        include=payload.include,
-        with_stats=payload.with_stats,
-        ui_tag_ids=payload.ui_tag_ids,
-        ui_tag_match=payload.ui_tag_match,
+        query=payload,
         ctx=ctx,
         db=db,
     )
@@ -88,16 +61,7 @@ def query_buckets(
 
 def _compute_bucket_listing(
     *,
-    page: int,
-    page_size: int,
-    filter: str | None,
-    advanced_filter: str | None,
-    sort_by: str,
-    sort_dir: str,
-    include: list[str],
-    with_stats: bool,
-    ui_tag_ids: list[int] | None = None,
-    ui_tag_match: str = "any",
+    query: BucketListingRequest,
     ctx: CephAdminContext,
     db: Session | None = None,
     progress_callback: Callable[[ListingProgressSnapshot], None] | None = None,
@@ -107,16 +71,7 @@ def _compute_bucket_listing(
         actor = ctx.actor
         tag_service = BucketUiTagsService(db) if isinstance(db, Session) and actor is not None else None
         return compute_ceph_admin_bucket_listing(
-            page=page,
-            page_size=page_size,
-            filter=filter,
-            advanced_filter=advanced_filter,
-            sort_by=sort_by,
-            sort_dir=sort_dir,
-            include=include,
-            with_stats=with_stats,
-            ui_tag_ids=ui_tag_ids if isinstance(ui_tag_ids, list) else [],
-            ui_tag_match=ui_tag_match if ui_tag_match in {"any", "all"} else "any",
+            request=query,
             bucket_ui_tags_service=tag_service,
             actor_user_id=int(actor.id) if actor is not None else None,
             ctx=ctx,
@@ -134,34 +89,16 @@ def _compute_bucket_listing(
 @router.get("/stream")
 async def stream_buckets(
     request: Request,
-    page: int = Query(1, ge=1),
-    page_size: int = Query(25, ge=1, le=200),
-    filter: str | None = Query(None),
-    advanced_filter: str | None = Query(None),
-    sort_by: str = Query("name"),
-    sort_dir: str = Query("asc"),
-    include: list[str] = Query(default=[]),
-    with_stats: bool = True,
-    ui_tag_ids: list[int] = Query(default=[]),
-    ui_tag_match: Literal["any", "all"] = Query(default="any"),
+    query: Annotated[BucketListingRequest, Query()],
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
     db: Session = Depends(get_db),
 ) -> StreamingResponse:
-    require_advanced_filter_stream_payload(advanced_filter)
+    require_advanced_filter_stream_payload(query.advanced_filter)
 
     return stream_listing_response(
         request,
         compute=lambda progress_callback, cancel_check: _compute_bucket_listing(
-            page=page,
-            page_size=page_size,
-            filter=filter,
-            advanced_filter=advanced_filter,
-            sort_by=sort_by,
-            sort_dir=sort_dir,
-            include=include,
-            with_stats=with_stats,
-            ui_tag_ids=ui_tag_ids,
-            ui_tag_match=ui_tag_match,
+            query=query,
             ctx=ctx,
             db=db,
             progress_callback=progress_callback,
