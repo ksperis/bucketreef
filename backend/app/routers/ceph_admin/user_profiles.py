@@ -244,9 +244,9 @@ def _create_rgw_user_record(
                 uid=uid,
                 account_id=account_id,
                 display_name=payload.display_name or uid,
-                account_root=bool(payload.account_root) if payload.account_root is not None else False,
+                account_root=payload.account_root if payload.account_root is not None else False,
                 email=payload.email,
-                generate_key=bool(payload.generate_key),
+                generate_key=payload.generate_key,
                 extra_params=payload.extra_params or None,
                 tenant=tenant,
             )
@@ -256,7 +256,7 @@ def _create_rgw_user_record(
                 display_name=payload.display_name or uid,
                 email=payload.email,
                 tenant=tenant,
-                generate_key=bool(payload.generate_key),
+                generate_key=payload.generate_key,
                 extra_params=payload.extra_params or None,
             )
     except RGWAdminError as exc:
@@ -333,7 +333,7 @@ def create_rgw_user(
         metadata={
             "account_id": account_id,
             "tenant": tenant,
-            "generate_key": bool(payload.generate_key),
+            "generate_key": payload.generate_key,
             "fields": sorted(field_set),
         },
     )
