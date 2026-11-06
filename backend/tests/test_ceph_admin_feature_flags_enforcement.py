@@ -6,6 +6,8 @@ import pytest
 from fastapi import HTTPException
 
 from app.models.bucket import BucketEncryptionConfiguration
+from app.models.bucket_listing import BucketListingRequest
+from app.models.browser import BrowserObjectListingRequest
 from app.routers.ceph_admin import accounts as accounts_router
 from app.routers.ceph_admin import account_profiles as account_profiles_router
 from app.routers.ceph_admin import bucket_config_access as bucket_config_access_router
@@ -72,10 +74,15 @@ def test_ceph_admin_bucket_objects_use_endpoint_credentials_without_browser_work
 
     class FakeBrowserService:
         def __init__(self) -> None:
-            self.calls: list[tuple[str, object, dict[str, object]]] = []
+            self.calls: list[tuple[str, object, BrowserObjectListingRequest]] = []
 
-        def list_objects(self, bucket_name: str, account: object, **kwargs: object):
-            self.calls.append((bucket_name, account, kwargs))
+        def list_objects(
+            self,
+            bucket_name: str,
+            account: object,
+            request: BrowserObjectListingRequest,
+        ):
+            self.calls.append((bucket_name, account, request))
             return {
                 "prefix": "reports/",
                 "objects": [],
@@ -97,25 +104,18 @@ def test_ceph_admin_bucket_objects_use_endpoint_credentials_without_browser_work
 
     assert response["prefix"] == "reports/"
     assert len(service.calls) == 1
-    bucket_name, account, kwargs = service.calls[0]
+    bucket_name, account, request = service.calls[0]
     assert bucket_name == "archive"
     assert account.name == "ceph-admin:1"
     assert account.storage_endpoint is ctx.endpoint
-    assert kwargs == {"prefix": "reports/", "continuation_token": None, "max_keys": 100}
+    assert request == BrowserObjectListingRequest(prefix="reports/", max_keys=100)
 
 
 def test_ceph_admin_bucket_listing_can_request_stats_when_metrics_feature_disabled():
     ctx, rgw_admin = _build_ctx(metrics_enabled=False)
 
     response = buckets_router.list_buckets(
-        page=1,
-        page_size=25,
-        filter=None,
-        advanced_filter=None,
-        sort_by="name",
-        sort_dir="asc",
-        include=[],
-        with_stats=True,
+        query=BucketListingRequest(with_stats=True),
         ctx=ctx,
     )
 
@@ -149,14 +149,7 @@ def test_ceph_admin_bucket_listing_returns_owner_and_usage_without_metrics_featu
     )
 
     response = buckets_router.list_buckets(
-        page=1,
-        page_size=25,
-        filter=None,
-        advanced_filter=None,
-        sort_by="name",
-        sort_dir="asc",
-        include=[],
-        with_stats=True,
+        query=BucketListingRequest(with_stats=True),
         ctx=ctx,
     )
 

@@ -15,7 +15,7 @@ The endpoints reuse the `context_id` selector and context resolution
 logic implemented in :func:`app.routers.dependencies.get_s3_execution_context`.
 """
 
-from typing import Optional
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
@@ -25,9 +25,8 @@ from app.services.access_context_contracts import ManagerActor
 from app.models.app_settings import BrowserSettings
 from app.models.bucket import BucketVersioningStatus
 from app.models.browser import (
-    BrowserObjectSortBy,
+    BrowserObjectListingRequest,
     BrowserUsageSummary,
-    BrowserObjectSortDir,
     BucketCorsStatus,
     CreateBucketPayload,
     EnsureCorsPayload,
@@ -165,19 +164,7 @@ def get_bucket_versioning(
 @router.get("/buckets/{bucket_name}/objects", response_model=ListBrowserObjectsResponse)
 def list_objects(
     bucket_name: str,
-    prefix: str = "",
-    continuation_token: Optional[str] = None,
-    max_keys: int = Query(default=1000, ge=1, le=1000),
-    query: Optional[str] = None,
-    query_exact: bool = Query(default=False),
-    query_case_sensitive: bool = Query(default=False),
-    item_type: Optional[str] = None,
-    storage_class: Optional[str] = None,
-    recursive: bool = Query(default=False),
-    include_folder_markers: bool = Query(default=False),
-    sort_by: BrowserObjectSortBy = Query(default="name"),
-    sort_dir: BrowserObjectSortDir = Query(default="asc"),
-    force_refresh: bool = Query(default=False),
+    query: Annotated[BrowserObjectListingRequest, Depends()],
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
@@ -186,19 +173,7 @@ def list_objects(
         return service.list_objects(
             bucket_name,
             context,
-            prefix=prefix,
-            continuation_token=continuation_token,
-            max_keys=max_keys,
-            query=query,
-            query_exact=query_exact,
-            query_case_sensitive=query_case_sensitive,
-            item_type=item_type,
-            storage_class=storage_class,
-            recursive=recursive,
-            **({"include_folder_markers": True} if include_folder_markers else {}),
-            sort_by=sort_by,
-            sort_dir=sort_dir,
-            force_refresh=force_refresh,
+            query,
         )
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)

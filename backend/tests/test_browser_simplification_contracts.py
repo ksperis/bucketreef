@@ -13,6 +13,16 @@ def test_retired_browser_routes_and_listing_filters_are_absent():
     names = {parameter["name"] for parameter in parameters}
     assert names.isdisjoint({"min_size", "max_size", "modified_after", "modified_before", "extensions"})
     assert {"query", "recursive", "item_type", "storage_class", "include_folder_markers"} <= names
+    item_type = next(parameter for parameter in parameters if parameter["name"] == "item_type")
+    assert item_type["schema"]["anyOf"][0]["enum"] == ["all", "file", "folder"]
+    max_keys = next(parameter for parameter in parameters if parameter["name"] == "max_keys")
+    assert max_keys["schema"] == {
+        "type": "integer",
+        "maximum": 1000,
+        "minimum": 1,
+        "default": 1000,
+        "title": "Max Keys",
+    }
     for definition in schema["components"]["schemas"].values():
         assert "local_recovery_id" not in definition.get("properties", {})
 

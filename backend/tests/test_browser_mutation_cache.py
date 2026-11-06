@@ -8,6 +8,7 @@ import pytest
 from botocore.exceptions import ClientError, EndpointConnectionError
 
 from app.models.browser import (
+    BrowserObjectListingRequest,
     CleanupObjectVersionsPayload,
     CompleteMultipartUploadRequest,
     CopyObjectPayload,
@@ -30,6 +31,14 @@ OBJECT_CACHES = (
     browser_cache.OBJECT_LAZY_HEAD_CACHE,
     browser_cache.OBJECT_LAZY_TAGS_CACHE,
 )
+
+
+def _list_objects(service: BrowserService, bucket_name: str, account, **options: object):
+    return service.list_objects(
+        bucket_name,
+        account,
+        BrowserObjectListingRequest(**options),
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -57,13 +66,13 @@ def test_partial_deletion_refreshes_real_object_listings(monkeypatch, sort_by, s
 
     client.delete_objects.side_effect = delete_objects
     monkeypatch.setattr(service, "_client", lambda *_args, **_kwargs: client)
-    before = service.list_objects("target", account, sort_by=sort_by, sort_dir=sort_dir)
+    before = _list_objects(service, "target", account, sort_by=sort_by, sort_dir=sort_dir)
     assert {item.key for item in before.objects} == {"gone", "blocked"}
 
     with pytest.raises(DeleteObjectsError):
         service.delete_objects("target", account, DeleteObjectsPayload(objects=[{"key": "gone"}, {"key": "blocked"}]))
 
-    after = service.list_objects("target", account, sort_by=sort_by, sort_dir=sort_dir)
+    after = _list_objects(service, "target", account, sort_by=sort_by, sort_dir=sort_dir)
     assert [item.key for item in after.objects] == ["blocked"]
     assert client.list_objects_v2.call_count == 2
 

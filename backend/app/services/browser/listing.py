@@ -12,8 +12,7 @@ from typing import Callable, Optional
 from botocore.exceptions import BotoCoreError, ClientError
 
 from app.models.browser import (
-    BrowserObjectSortBy,
-    BrowserObjectSortDir,
+    BrowserObjectListingRequest,
     BrowserObjectVersion,
     ListBrowserObjectsResponse,
     ListObjectVersionsResponse,
@@ -68,40 +67,62 @@ def _decode_sorted_cursor(token: Optional[str]) -> Optional[dict[str, object]]:
 
 class BrowserListingMixin:
     @staticmethod
-    def _normalize_listing_filters(
-        prefix: str,
-        query: Optional[str],
-        item_type: Optional[str],
-        storage_class: Optional[str],
-    ) -> tuple[str, str, str, Optional[str]]:
-        normalized_item_type = (item_type or "all").lower()
+    def _object_list_cache_key(
+        context_cache_key: str,
+        bucket_name: str,
+        request: BrowserObjectListingRequest,
+    ) -> tuple[object, ...]:
         return (
-            prefix or "",
-            (query or "").strip(),
-            normalized_item_type if normalized_item_type in {"all", "file", "folder"} else "all",
-            (storage_class or "").strip() or None,
+            context_cache_key,
+            bucket_name,
+            request.prefix,
+            request.continuation_token or "",
+            request.max_keys,
+            request.query or "",
+            request.query_exact,
+            request.query_case_sensitive,
+            request.resolved_item_type,
+            request.storage_class or "",
+            request.recursive,
+            request.include_folder_markers,
         )
 
-    def _build_query_matcher(
-        self,
-        *,
-        normalized_prefix: str,
-        query_value_raw: str,
-        query_exact: bool,
-        query_case_sensitive: bool,
-    ) -> Callable[[str], bool]:
-        query_value = query_value_raw if query_case_sensitive else query_value_raw.lower()
+    @staticmethod
+    def _object_sort_snapshot_cache_key(
+        context_cache_key: str,
+        bucket_name: str,
+        request: BrowserObjectListingRequest,
+    ) -> tuple[object, ...]:
+        return (
+            context_cache_key,
+            bucket_name,
+            request.prefix,
+            request.query or "",
+            request.query_exact,
+            request.query_case_sensitive,
+            request.resolved_item_type,
+            request.storage_class or "",
+            request.recursive,
+            request.include_folder_markers,
+            request.sort_by,
+            request.sort_dir,
+        )
+
+    @staticmethod
+    def _build_query_matcher(request: BrowserObjectListingRequest) -> Callable[[str], bool]:
+        query_value_raw = request.query or ""
+        query_value = query_value_raw if request.query_case_sensitive else query_value_raw.lower()
 
         def matches_query(value: str) -> bool:
             if not query_value:
                 return True
             relative = value
-            if normalized_prefix and relative.startswith(normalized_prefix):
-                relative = relative[len(normalized_prefix):]
+            if request.prefix and relative.startswith(request.prefix):
+                relative = relative[len(request.prefix):]
             if relative.endswith("/"):
                 relative = relative[:-1]
-            comparable_value = relative if query_case_sensitive else relative.lower()
-            if query_exact:
+            comparable_value = relative if request.query_case_sensitive else relative.lower()
+            if request.query_exact:
                 return comparable_value == query_value
             return query_value in comparable_value
 
@@ -111,36 +132,13 @@ class BrowserListingMixin:
         self,
         bucket_name: str,
         context: S3ExecutionTarget,
-        *,
-        prefix: str = "",
-        continuation_token: Optional[str] = None,
-        max_keys: int = 1000,
-        query: Optional[str] = None,
-        query_exact: bool = False,
-        query_case_sensitive: bool = False,
-        item_type: Optional[str] = None,
-        storage_class: Optional[str] = None,
-        recursive: bool = False,
-        include_folder_markers: bool = False,
+        request: BrowserObjectListingRequest,
     ) -> ListBrowserObjectsResponse:
-        normalized_max_keys = max(1, min(1000, int(max_keys or 1000)))
-        normalized_prefix, query_value_raw, type_filter, storage_filter = self._normalize_listing_filters(
-            prefix, query, item_type, storage_class
-        )
         context_cache_key = self._context_cache_key(context)
         object_cache_key = self._object_list_cache_key(
-            context_cache_key=context_cache_key,
-            bucket_name=bucket_name,
-            prefix=normalized_prefix,
-            continuation_token=continuation_token,
-            max_keys=normalized_max_keys,
-            query=query_value_raw,
-            query_exact=query_exact,
-            query_case_sensitive=query_case_sensitive,
-            item_type=type_filter,
-            storage_class=storage_filter,
-            recursive=recursive,
-            include_folder_markers=include_folder_markers,
+            context_cache_key,
+            bucket_name,
+            request,
         )
         cached = OBJECT_LIST_CACHE.get(object_cache_key)
         if cached is not None:
@@ -150,27 +148,22 @@ class BrowserListingMixin:
             client=self._bucket_client(context, bucket_name),
             options=DefaultObjectScanOptions(
                 bucket_name=bucket_name,
-                prefix=normalized_prefix,
-                max_keys=normalized_max_keys,
-                item_type=type_filter,
-                storage_class=storage_filter,
-                recursive=recursive,
-                include_folder_markers=include_folder_markers,
+                prefix=request.prefix,
+                max_keys=request.max_keys,
+                item_type=request.resolved_item_type,
+                storage_class=request.storage_class,
+                recursive=request.recursive,
+                include_folder_markers=request.include_folder_markers,
             ),
-            matches_query=self._build_query_matcher(
-                normalized_prefix=normalized_prefix,
-                query_value_raw=query_value_raw,
-                query_exact=query_exact,
-                query_case_sensitive=query_case_sensitive,
-            ),
+            matches_query=self._build_query_matcher(request),
             clean_etag=self._clean_etag,
         ).load(
-            continuation_token=continuation_token,
+            continuation_token=request.continuation_token,
             filtered=(
-                bool(query_value_raw)
-                or type_filter != "all"
-                or storage_filter is not None
-                or recursive
+                request.query is not None
+                or request.resolved_item_type != "all"
+                or request.storage_class is not None
+                or request.recursive
             ),
         )
         OBJECT_LIST_CACHE.set(object_cache_key, result.model_copy(deep=True))
@@ -181,35 +174,13 @@ class BrowserListingMixin:
         self,
         bucket_name: str,
         context: S3ExecutionTarget,
-        *,
-        prefix: str = "",
-        query: Optional[str] = None,
-        query_exact: bool = False,
-        query_case_sensitive: bool = False,
-        item_type: Optional[str] = None,
-        storage_class: Optional[str] = None,
-        recursive: bool = False,
-        include_folder_markers: bool = False,
-        sort_by: BrowserObjectSortBy,
-        sort_dir: BrowserObjectSortDir,
+        request: BrowserObjectListingRequest,
     ) -> SortedObjectSnapshot:
-        normalized_prefix, query_value_raw, type_filter, storage_filter = self._normalize_listing_filters(
-            prefix, query, item_type, storage_class
-        )
         context_cache_key = self._context_cache_key(context)
         snapshot_cache_key = self._object_sort_snapshot_cache_key(
-            context_cache_key=context_cache_key,
-            bucket_name=bucket_name,
-            prefix=normalized_prefix,
-            query=query_value_raw,
-            query_exact=query_exact,
-            query_case_sensitive=query_case_sensitive,
-            item_type=type_filter,
-            storage_class=storage_filter,
-            recursive=recursive,
-            include_folder_markers=include_folder_markers,
-            sort_by=sort_by,
-            sort_dir=sort_dir,
+            context_cache_key,
+            bucket_name,
+            request,
         )
         cached = OBJECT_SORT_SNAPSHOT_CACHE.get(snapshot_cache_key)
         if cached is not None:
@@ -219,20 +190,15 @@ class BrowserListingMixin:
             client=self._bucket_client(context, bucket_name),
             options=SortedObjectScanOptions(
                 bucket_name=bucket_name,
-                prefix=normalized_prefix,
-                item_type=type_filter,
-                storage_class=storage_filter,
-                recursive=recursive,
-                include_folder_markers=include_folder_markers,
-                sort_by=sort_by,
-                sort_dir=sort_dir,
+                prefix=request.prefix,
+                item_type=request.resolved_item_type,
+                storage_class=request.storage_class,
+                recursive=request.recursive,
+                include_folder_markers=request.include_folder_markers,
+                sort_by=request.sort_by,
+                sort_dir=request.sort_dir,
             ),
-            matches_query=self._build_query_matcher(
-                normalized_prefix=normalized_prefix,
-                query_value_raw=query_value_raw,
-                query_exact=query_exact,
-                query_case_sensitive=query_case_sensitive,
-            ),
+            matches_query=self._build_query_matcher(request),
             clean_etag=self._clean_etag,
             normalize_datetime=self._normalize_datetime_value,
         ).build()
@@ -243,117 +209,50 @@ class BrowserListingMixin:
         self,
         bucket_name: str,
         context: S3ExecutionTarget,
-        prefix: str = "",
-        continuation_token: Optional[str] = None,
-        max_keys: int = 1000,
-        query: Optional[str] = None,
-        query_exact: bool = False,
-        query_case_sensitive: bool = False,
-        item_type: Optional[str] = None,
-        storage_class: Optional[str] = None,
-        recursive: bool = False,
-        include_folder_markers: bool = False,
-        sort_by: BrowserObjectSortBy = "name",
-        sort_dir: BrowserObjectSortDir = "asc",
-        force_refresh: bool = False,
+        request: BrowserObjectListingRequest,
     ) -> ListBrowserObjectsResponse:
-        normalized_max_keys = max(1, min(1000, int(max_keys or 1000)))
-        if force_refresh:
+        if request.force_refresh:
             self.invalidate_object_list_cache_for_context(context, bucket_name)
-        if sort_by == "name" and sort_dir == "asc":
+        if request.sort_by == "name" and request.sort_dir == "asc":
             return self._list_objects_default_order(
                 bucket_name,
                 context,
-                prefix=prefix,
-                continuation_token=continuation_token,
-                max_keys=normalized_max_keys,
-                query=query,
-                query_exact=query_exact,
-                query_case_sensitive=query_case_sensitive,
-                item_type=item_type,
-                storage_class=storage_class,
-                recursive=recursive,
-                include_folder_markers=include_folder_markers,
+                request,
             )
 
         return self._list_objects_sorted_order(
             bucket_name,
             context,
-            prefix=prefix,
-            continuation_token=continuation_token,
-            max_keys=normalized_max_keys,
-            query=query,
-            query_exact=query_exact,
-            query_case_sensitive=query_case_sensitive,
-            item_type=item_type,
-            storage_class=storage_class,
-            recursive=recursive,
-            include_folder_markers=include_folder_markers,
-            sort_by=sort_by,
-            sort_dir=sort_dir,
+            request,
         )
 
     def _list_objects_sorted_order(
         self,
         bucket_name: str,
         context: S3ExecutionTarget,
-        *,
-        prefix: str,
-        continuation_token: Optional[str],
-        max_keys: int,
-        query: Optional[str],
-        query_exact: bool,
-        query_case_sensitive: bool,
-        item_type: Optional[str],
-        storage_class: Optional[str],
-        recursive: bool,
-        include_folder_markers: bool,
-        sort_by: BrowserObjectSortBy,
-        sort_dir: BrowserObjectSortDir,
+        request: BrowserObjectListingRequest,
     ) -> ListBrowserObjectsResponse:
         snapshot = self._scan_sorted_object_snapshot(
             bucket_name,
             context,
-            prefix=prefix,
-            query=query,
-            query_exact=query_exact,
-            query_case_sensitive=query_case_sensitive,
-            item_type=item_type,
-            storage_class=storage_class,
-            recursive=recursive,
-            include_folder_markers=include_folder_markers,
-            sort_by=sort_by,
-            sort_dir=sort_dir,
+            request,
         )
         context_cache_key = self._context_cache_key(context)
-        normalized_prefix, query_value_raw, type_filter, storage_filter = self._normalize_listing_filters(
-            prefix, query, item_type, storage_class
-        )
         snapshot_signature = _sorted_snapshot_signature(
             self._object_sort_snapshot_cache_key(
-                context_cache_key=context_cache_key,
-                bucket_name=bucket_name,
-                prefix=normalized_prefix,
-                query=query_value_raw,
-                query_exact=query_exact,
-                query_case_sensitive=query_case_sensitive,
-                item_type=type_filter,
-                storage_class=storage_filter,
-                recursive=recursive,
-                include_folder_markers=include_folder_markers,
-                sort_by=sort_by,
-                sort_dir=sort_dir,
+                context_cache_key,
+                bucket_name,
+                request,
             )
         )
         prefixes_offset, objects_offset = self._sorted_cursor_offsets(
             snapshot,
-            continuation_token=continuation_token,
+            continuation_token=request.continuation_token,
             snapshot_signature=snapshot_signature,
         )
         return self._sorted_page_response(
             snapshot,
-            prefix=prefix,
-            max_keys=max_keys,
+            request,
             prefixes_offset=prefixes_offset,
             objects_offset=objects_offset,
             snapshot_signature=snapshot_signature,
@@ -381,15 +280,14 @@ class BrowserListingMixin:
     @staticmethod
     def _sorted_page_response(
         snapshot: SortedObjectSnapshot,
+        request: BrowserObjectListingRequest,
         *,
-        prefix: str,
-        max_keys: int,
         prefixes_offset: int,
         objects_offset: int,
         snapshot_signature: str,
     ) -> ListBrowserObjectsResponse:
-        prefixes = snapshot.fetch_prefixes(prefixes_offset, max_keys)
-        remaining = max_keys - len(prefixes)
+        prefixes = snapshot.fetch_prefixes(prefixes_offset, request.max_keys)
+        remaining = request.max_keys - len(prefixes)
         objects = snapshot.fetch_objects(objects_offset, remaining)
         next_prefixes_offset = prefixes_offset + len(prefixes)
         next_objects_offset = objects_offset + len(objects)
@@ -402,7 +300,7 @@ class BrowserListingMixin:
                 signature=snapshot_signature,
             )
         return ListBrowserObjectsResponse(
-            prefix=prefix,
+            prefix=request.prefix,
             objects=objects,
             prefixes=list(prefixes),
             is_truncated=has_more,

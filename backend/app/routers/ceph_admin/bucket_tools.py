@@ -19,7 +19,7 @@ from app.models.ceph_admin_bucket_compare import (
     CephAdminBucketCompareRequest,
     CephAdminBucketCompareResult,
 )
-from app.models.browser import ListBrowserObjectsResponse
+from app.models.browser import BrowserObjectListingRequest, ListBrowserObjectsResponse
 from app.services.ceph_admin_bucket_listing_cache import invalidate_bucket_listing_cache
 from app.services.ceph_admin_service_identity import validate_ceph_admin_service_configuration
 from app.routers.ceph_admin.dependencies import (
@@ -192,9 +192,11 @@ def list_bucket_objects(
         return service.list_objects(
             target.s3_name,
             build_ceph_admin_s3_context(ctx),
-            prefix=prefix,
-            continuation_token=continuation_token,
-            max_keys=max_keys,
+            BrowserObjectListingRequest(
+                prefix=prefix,
+                continuation_token=continuation_token,
+                max_keys=max_keys,
+            ),
         )
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)

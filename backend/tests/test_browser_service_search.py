@@ -9,6 +9,7 @@ from botocore.exceptions import ClientError
 from fastapi import HTTPException
 
 from app.db import S3Account, StorageEndpoint
+from app.models.browser import BrowserObjectListingRequest
 from app.models.portal_storage_spaces import PortalStorageSpaceIcon
 from app.services.browser import cache as browser_cache
 from app.services.browser import sorted_listing
@@ -26,6 +27,19 @@ def _account() -> S3Account:
     return account
 
 
+def _list_objects(
+    service: BrowserService,
+    bucket_name: str,
+    account: S3Account | S3ExecutionContext,
+    **options: object,
+):
+    return service.list_objects(
+        bucket_name,
+        account,
+        BrowserObjectListingRequest(**options),
+    )
+
+
 @pytest.mark.parametrize("sort_by", ["name", "size"])
 def test_recursive_operation_manifests_include_empty_folder_markers_without_polluting_normal_lists(monkeypatch, sort_by):
     class Client:
@@ -35,8 +49,8 @@ def test_recursive_operation_manifests_include_empty_folder_markers_without_poll
     service = BrowserService()
     monkeypatch.setattr(service, "_client", lambda _: Client())
     account = _account()
-    normal = service.list_objects("bucket", account, prefix="docs/", recursive=True, item_type="file", sort_by=sort_by)
-    manifest = service.list_objects("bucket", account, prefix="docs/", recursive=True, item_type="file", sort_by=sort_by, include_folder_markers=True)
+    normal = _list_objects(service, "bucket", account, prefix="docs/", recursive=True, item_type="file", sort_by=sort_by)
+    manifest = _list_objects(service, "bucket", account, prefix="docs/", recursive=True, item_type="file", sort_by=sort_by, include_folder_markers=True)
     assert [item.key for item in normal.objects] == ["docs/readme.txt"]
     assert {item.key for item in manifest.objects} == {"docs/", "docs/empty/", "docs/readme.txt"}
 
@@ -172,7 +186,7 @@ def test_list_objects_recursive_folder_filter_builds_prefixes(monkeypatch):
     service = BrowserService()
     monkeypatch.setattr(service, "_client", lambda _account: FakeClient())
 
-    result = service.list_objects("bucket-a", _account(), recursive=True, item_type="folder")
+    result = _list_objects(service, "bucket-a", _account(), recursive=True, item_type="folder")
 
     assert result.objects == []
     assert result.prefixes == ["docs/", "docs/archive/", "docs/archive/2025/", "images/"]
@@ -200,7 +214,7 @@ def test_recursive_folder_listing_preserves_empty_path_segments(monkeypatch, sor
     service = BrowserService()
     monkeypatch.setattr(service, "_client", lambda _account: FakeClient())
 
-    result = service.list_objects(
+    result = _list_objects(service,
         "bucket-a",
         _account(),
         recursive=True,
@@ -234,7 +248,7 @@ def test_listing_skips_only_exact_selected_folder_marker(monkeypatch, sort_by, s
     service = BrowserService()
     monkeypatch.setattr(service, "_client", lambda _account: FakeClient())
 
-    result = service.list_objects(
+    result = _list_objects(service,
         "bucket-a",
         _account(),
         prefix="docs/",
@@ -272,7 +286,7 @@ def test_list_objects_requests_and_returns_owner(monkeypatch, sort_by):
     service = BrowserService()
     monkeypatch.setattr(service, "_client", lambda _account: FakeClient())
 
-    result = service.list_objects(
+    result = _list_objects(service,
         "bucket-a",
         _account(),
         sort_by=sort_by,
@@ -311,9 +325,9 @@ def test_list_objects_force_refresh_invalidates_cached_listing(monkeypatch):
     service = BrowserService()
     monkeypatch.setattr(service, "_client", lambda _account: FakeClient())
 
-    first = service.list_objects("bucket-a", _account(), prefix="uploads/")
-    cached = service.list_objects("bucket-a", _account(), prefix="uploads/")
-    refreshed = service.list_objects(
+    first = _list_objects(service, "bucket-a", _account(), prefix="uploads/")
+    cached = _list_objects(service, "bucket-a", _account(), prefix="uploads/")
+    refreshed = _list_objects(service,
         "bucket-a",
         _account(),
         prefix="uploads/",
@@ -345,7 +359,7 @@ def test_list_objects_recursive_skips_folder_markers_in_object_results(monkeypat
     service = BrowserService()
     monkeypatch.setattr(service, "_client", lambda _account: FakeClient())
 
-    result = service.list_objects("bucket-a", _account(), recursive=True, item_type="all")
+    result = _list_objects(service, "bucket-a", _account(), recursive=True, item_type="all")
 
     assert [obj.key for obj in result.objects] == ["docs/readme.txt", "docs/manual.pdf"]
     assert result.prefixes == ["docs/"]
@@ -367,7 +381,7 @@ def test_list_objects_recursive_folder_query_filters_prefixes(monkeypatch):
     service = BrowserService()
     monkeypatch.setattr(service, "_client", lambda _account: FakeClient())
 
-    result = service.list_objects(
+    result = _list_objects(service,
         "bucket-a",
         _account(),
         recursive=True,
@@ -393,7 +407,7 @@ def test_list_objects_exact_query_is_case_insensitive_by_default(monkeypatch):
     service = BrowserService()
     monkeypatch.setattr(service, "_client", lambda _account: FakeClient())
 
-    result = service.list_objects(
+    result = _list_objects(service,
         "bucket-a",
         _account(),
         prefix="docs/",
@@ -419,7 +433,7 @@ def test_list_objects_case_sensitive_query_filters_by_case(monkeypatch):
     service = BrowserService()
     monkeypatch.setattr(service, "_client", lambda _account: FakeClient())
 
-    result = service.list_objects(
+    result = _list_objects(service,
         "bucket-a",
         _account(),
         prefix="docs/",
@@ -467,7 +481,7 @@ def test_list_objects_filtered_pagination_keeps_token_chain_without_duplicates(m
     service = BrowserService()
     monkeypatch.setattr(service, "_client", lambda _account: FakeClient())
 
-    first_page = service.list_objects(
+    first_page = _list_objects(service,
         "bucket-a",
         _account(),
         prefix="docs/",
@@ -475,7 +489,7 @@ def test_list_objects_filtered_pagination_keeps_token_chain_without_duplicates(m
         item_type="file",
         max_keys=2,
     )
-    second_page = service.list_objects(
+    second_page = _list_objects(service,
         "bucket-a",
         _account(),
         prefix="docs/",
@@ -514,7 +528,7 @@ def test_list_objects_filtered_respects_exact_case_type_and_recursive(monkeypatc
     service = BrowserService()
     monkeypatch.setattr(service, "_client", lambda _account: FakeClient())
 
-    files = service.list_objects(
+    files = _list_objects(service,
         "bucket-a",
         _account(),
         prefix="docs/",
@@ -524,7 +538,7 @@ def test_list_objects_filtered_respects_exact_case_type_and_recursive(monkeypatc
         query_exact=True,
         query_case_sensitive=True,
     )
-    folders = service.list_objects(
+    folders = _list_objects(service,
         "bucket-a",
         _account(),
         prefix="docs/",
@@ -592,7 +606,7 @@ def test_list_objects_sorted_snapshot_orders_base_columns(
     service = BrowserService()
     monkeypatch.setattr(service, "_client", lambda _account: FakeClient())
 
-    result = service.list_objects(
+    result = _list_objects(service,
         "bucket-a",
         _account(),
         recursive=True,
@@ -640,14 +654,14 @@ def test_list_objects_sorted_paginates_prefixes_then_objects_with_cached_snapsho
     monkeypatch.setattr(service, "_client", lambda _account: FakeClient())
     account = _account()
 
-    first_page = service.list_objects(
+    first_page = _list_objects(service,
         "bucket-a",
         account,
         max_keys=2,
         sort_by="size",
         sort_dir="asc",
     )
-    second_page = service.list_objects(
+    second_page = _list_objects(service,
         "bucket-a",
         account,
         continuation_token=first_page.next_continuation_token,
@@ -682,7 +696,7 @@ def test_list_objects_sorted_rejects_cursor_when_sort_changes(monkeypatch):
     monkeypatch.setattr(service, "_client", lambda _account: FakeClient())
     account = _account()
 
-    first_page = service.list_objects(
+    first_page = _list_objects(service,
         "bucket-a",
         account,
         max_keys=1,
@@ -692,7 +706,7 @@ def test_list_objects_sorted_rejects_cursor_when_sort_changes(monkeypatch):
 
     assert first_page.next_continuation_token
     with pytest.raises(HTTPException) as exc_info:
-        service.list_objects(
+        _list_objects(service,
             "bucket-a",
             account,
             continuation_token=first_page.next_continuation_token,
@@ -725,7 +739,7 @@ def test_list_objects_sorted_snapshot_scans_all_s3_pages(monkeypatch):
     service = BrowserService()
     monkeypatch.setattr(service, "_client", lambda _account: FakeClient())
 
-    result = service.list_objects(
+    result = _list_objects(service,
         "bucket-a",
         _account(),
         recursive=True,
@@ -761,15 +775,13 @@ def test_sorted_object_snapshot_temp_store_is_closed_on_invalidation(monkeypatch
     snapshot = service._scan_sorted_object_snapshot(
         "bucket-a",
         account,
-        sort_by="size",
-        sort_dir="asc",
+        BrowserObjectListingRequest(sort_by="size", sort_dir="asc"),
     )
     snapshot_path = Path(snapshot.store.path)
     cached = service._scan_sorted_object_snapshot(
         "bucket-a",
         account,
-        sort_by="size",
-        sort_dir="asc",
+        BrowserObjectListingRequest(sort_by="size", sort_dir="asc"),
     )
 
     assert cached is snapshot
@@ -804,8 +816,7 @@ def test_sorted_object_snapshot_temp_store_is_closed_when_schema_creation_fails(
         service._scan_sorted_object_snapshot(
             "bucket-a",
             _account(),
-            sort_by="size",
-            sort_dir="asc",
+            BrowserObjectListingRequest(sort_by="size", sort_dir="asc"),
         )
 
     assert len(created_stores) == 1

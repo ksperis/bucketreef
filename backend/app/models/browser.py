@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Annotated, Optional, Literal
 
-from pydantic import AfterValidator, Field
+from pydantic import AfterValidator, Field, field_validator
 
 from app.models.base import ApiModel
 from app.models.portal_storage_spaces import PortalStorageSpaceIcon
@@ -54,6 +54,7 @@ class ObjectUploadResponse(ApiModel):
 
 BrowserObjectSortBy = Literal["name", "size", "modified", "storage_class", "etag"]
 BrowserObjectSortDir = Literal["asc", "desc"]
+BrowserObjectItemType = Literal["all", "file", "folder"]
 BrowserObjectLazyColumn = Literal[
     "content_type",
     "tags_count",
@@ -62,6 +63,34 @@ BrowserObjectLazyColumn = Literal[
     "expires",
     "restore_status",
 ]
+
+
+class BrowserObjectListingRequest(ApiModel):
+    prefix: str = ""
+    continuation_token: Optional[str] = None
+    max_keys: int = Field(default=1000, ge=1, le=1000)
+    query: Optional[str] = None
+    query_exact: bool = False
+    query_case_sensitive: bool = False
+    item_type: Optional[BrowserObjectItemType] = None
+    storage_class: Optional[str] = None
+    recursive: bool = False
+    include_folder_markers: bool = False
+    sort_by: BrowserObjectSortBy = "name"
+    sort_dir: BrowserObjectSortDir = "asc"
+    force_refresh: bool = False
+
+    @field_validator("query", "storage_class")
+    @classmethod
+    def normalize_optional_filter(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
+
+    @property
+    def resolved_item_type(self) -> BrowserObjectItemType:
+        return self.item_type or "all"
 
 
 class ListBrowserObjectsResponse(ApiModel):

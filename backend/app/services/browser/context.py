@@ -14,8 +14,6 @@ from botocore.exceptions import BotoCoreError, ClientError
 
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.models.browser import (
-    BrowserObjectSortBy,
-    BrowserObjectSortDir,
     BucketCorsRule,
     BucketCorsStatus,
     SseCustomerContext,
@@ -222,68 +220,6 @@ class BrowserContextMixin:
         if not access_key:
             raise RuntimeError("S3 credentials missing for this context")
         return s3_execution_cache_key(context)
-
-    def _object_list_cache_key(
-        self,
-        *,
-        context_cache_key: str,
-        bucket_name: str,
-        prefix: str,
-        continuation_token: Optional[str],
-        max_keys: int,
-        query: Optional[str],
-        query_exact: bool,
-        query_case_sensitive: bool,
-        item_type: str,
-        storage_class: Optional[str],
-        recursive: bool,
-        include_folder_markers: bool = False,
-    ) -> tuple:
-        return (
-            context_cache_key,
-            bucket_name,
-            prefix,
-            continuation_token or "",
-            max_keys,
-            (query or "").strip(),
-            bool(query_exact),
-            bool(query_case_sensitive),
-            item_type,
-            storage_class or "",
-            bool(recursive),
-            bool(include_folder_markers),
-        )
-
-    def _object_sort_snapshot_cache_key(
-        self,
-        *,
-        context_cache_key: str,
-        bucket_name: str,
-        prefix: str,
-        query: Optional[str],
-        query_exact: bool,
-        query_case_sensitive: bool,
-        item_type: str,
-        storage_class: Optional[str],
-        recursive: bool,
-        sort_by: BrowserObjectSortBy,
-        sort_dir: BrowserObjectSortDir,
-        include_folder_markers: bool = False,
-    ) -> tuple:
-        return (
-            context_cache_key,
-            bucket_name,
-            prefix,
-            (query or "").strip(),
-            bool(query_exact),
-            bool(query_case_sensitive),
-            item_type,
-            storage_class or "",
-            bool(recursive),
-            bool(include_folder_markers),
-            sort_by,
-            sort_dir,
-        )
 
     def _object_lazy_head_cache_key(
         self,
