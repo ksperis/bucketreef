@@ -5,8 +5,17 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
+from pydantic import Field
+
 from app.models.audit import AuditStatus
 from app.models.base import ApiModel
+
+
+class ManagerActivityListingRequest(ApiModel):
+    limit: int = Field(default=5, ge=1, le=20)
+    cursor: Optional[int] = Field(default=None, ge=1)
+    search: Optional[str] = Field(default=None, max_length=200)
+    status: Optional[AuditStatus] = None
 
 
 class ManagerActivityEntry(ApiModel):
