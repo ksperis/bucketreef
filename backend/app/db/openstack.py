@@ -86,7 +86,6 @@ class OpenStackProjectContext(Base):
     endpoint_name = Column(String, nullable=False)
     endpoint_interface = Column(String, nullable=False)
     service_type = Column(String, nullable=False)
-    service_name = Column(String, nullable=True)
     connection = relationship("OpenStackConnection")
     credentials = relationship("OpenStackProjectCredential", cascade="all, delete-orphan", back_populates="context")
 
