@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import InstrumentedAttribute, Session
 
 from app.db import S3Account, S3Connection, S3User, StorageEndpoint, User, UserS3Account, UserS3User
 from app.core.domain_enums import StorageProvider, UserRole
@@ -49,26 +49,18 @@ class AdminStatsService:
         }
         return payload
 
-    def _account_assignment_counts(self) -> _AssignmentCounts:
-        total = int(self.db.scalar(select(func.count(S3Account.id))) or 0)
+    def _assignment_counts(
+        self,
+        principal_id: InstrumentedAttribute[int],
+        link_model: type[Any],
+        link_principal_id: InstrumentedAttribute[int],
+    ) -> _AssignmentCounts:
+        total = int(self.db.scalar(select(func.count(principal_id))) or 0)
         assigned = int(
             self.db.scalar(
-                select(func.count(func.distinct(S3Account.id))).join(
-                    UserS3Account,
-                    UserS3Account.account_id == S3Account.id,
-                )
-            )
-            or 0
-        )
-        return _AssignmentCounts(total=total, assigned=assigned)
-
-    def _s3_user_assignment_counts(self) -> _AssignmentCounts:
-        total = int(self.db.scalar(select(func.count(S3User.id))) or 0)
-        assigned = int(
-            self.db.scalar(
-                select(func.count(func.distinct(S3User.id))).join(
-                    UserS3User,
-                    UserS3User.s3_user_id == S3User.id,
+                select(func.count(func.distinct(principal_id))).join(
+                    link_model,
+                    link_principal_id == principal_id,
                 )
             )
             or 0
@@ -113,8 +105,16 @@ class AdminStatsService:
         return int(total), int(shared), int(private)
 
     def platform_summary(self) -> dict:
-        accounts = self._account_assignment_counts()
-        s3_users = self._s3_user_assignment_counts()
+        accounts = self._assignment_counts(
+            S3Account.id,
+            UserS3Account,
+            UserS3Account.account_id,
+        )
+        s3_users = self._assignment_counts(
+            S3User.id,
+            UserS3User,
+            UserS3User.s3_user_id,
+        )
         total_admins, total_managers, total_none_users = self._ui_user_counts()
         total_ceph_endpoints, total_other_endpoints = self._endpoint_counts()
         total_connections, total_shared_connections, total_private_connections = self._connection_counts()
