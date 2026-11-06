@@ -19372,7 +19372,13 @@
           "comments": null
         }
       ],
-      "checkConstraints": [],
+      "checkConstraints": [
+        {
+          "id": "check:endpoint_health_checks:ck_endpoint_health_checks_mode",
+          "expression": "check_mode IN ('http', 's3')",
+          "createdAt": 0
+        }
+      ],
       "color": "#059669",
       "isView": false,
       "isMaterializedView": false,
@@ -19770,7 +19776,13 @@
           "comments": "SQLAlchemy UniqueConstraint"
         }
       ],
-      "checkConstraints": [],
+      "checkConstraints": [
+        {
+          "id": "check:endpoint_health_latest:ck_endpoint_health_latest_mode",
+          "expression": "check_mode IN ('http', 's3')",
+          "createdAt": 0
+        }
+      ],
       "color": "#059669",
       "isView": false,
       "isMaterializedView": false,
@@ -20169,7 +20181,13 @@
           "comments": null
         }
       ],
-      "checkConstraints": [],
+      "checkConstraints": [
+        {
+          "id": "check:endpoint_health_status_segments:ck_endpoint_health_status_segments_mode",
+          "expression": "check_mode IN ('http', 's3')",
+          "createdAt": 0
+        }
+      ],
       "color": "#059669",
       "isView": false,
       "isMaterializedView": false,
@@ -20591,7 +20609,13 @@
           "comments": "SQLAlchemy UniqueConstraint"
         }
       ],
-      "checkConstraints": [],
+      "checkConstraints": [
+        {
+          "id": "check:endpoint_health_rollups:ck_endpoint_health_rollups_mode",
+          "expression": "check_mode IN ('http', 's3')",
+          "createdAt": 0
+        }
+      ],
       "color": "#059669",
       "isView": false,
       "isMaterializedView": false,

@@ -5,7 +5,7 @@ from __future__ import annotations
 from app.db.utc_datetime import UTCDateTime
 from app.utils.time import utcnow
 
-from sqlalchemy import Column, ForeignKey, Index, Integer, String, UniqueConstraint
+from sqlalchemy import CheckConstraint, Column, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from .base import Base
@@ -14,6 +14,10 @@ from .base import Base
 class EndpointHealthCheck(Base):
     __tablename__ = "endpoint_health_checks"
     __table_args__ = (
+        CheckConstraint(
+            "check_mode IN ('http', 's3')",
+            name="ck_endpoint_health_checks_mode",
+        ),
         Index(
             "ix_endpoint_health_checks_endpoint_mode_checked",
             "storage_endpoint_id",
@@ -37,6 +41,10 @@ class EndpointHealthCheck(Base):
 class EndpointHealthLatest(Base):
     __tablename__ = "endpoint_health_latest"
     __table_args__ = (
+        CheckConstraint(
+            "check_mode IN ('http', 's3')",
+            name="ck_endpoint_health_latest_mode",
+        ),
         UniqueConstraint(
             "storage_endpoint_id",
             "check_mode",
@@ -74,6 +82,10 @@ class EndpointHealthLatest(Base):
 class EndpointHealthStatusSegment(Base):
     __tablename__ = "endpoint_health_status_segments"
     __table_args__ = (
+        CheckConstraint(
+            "check_mode IN ('http', 's3')",
+            name="ck_endpoint_health_status_segments_mode",
+        ),
         Index(
             "ix_endpoint_health_segments_endpoint_type_scope_started",
             "storage_endpoint_id",
@@ -110,6 +122,10 @@ class EndpointHealthStatusSegment(Base):
 class EndpointHealthRollup(Base):
     __tablename__ = "endpoint_health_rollups"
     __table_args__ = (
+        CheckConstraint(
+            "check_mode IN ('http', 's3')",
+            name="ck_endpoint_health_rollups_mode",
+        ),
         UniqueConstraint(
             "storage_endpoint_id",
             "check_mode",

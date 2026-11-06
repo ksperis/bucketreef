@@ -103,13 +103,9 @@ def compute_status(
     return HealthCheckStatus.UP
 
 
-def coerce_check_mode(value: object) -> Literal["http", "s3"]:
-    return "s3" if str(value or "").strip().lower() == "s3" else "http"
-
-
 def resolve_healthcheck_profile(endpoint: StorageEndpoint) -> HealthCheckProfile:
     features = validate_persisted_features(endpoint.provider, endpoint.features)
     healthcheck_cfg = features["healthcheck"]
-    mode = coerce_check_mode(healthcheck_cfg["mode"])
+    mode = healthcheck_cfg["mode"]
     target_url = str(healthcheck_cfg["url"] or endpoint.endpoint_url or "").strip()
     return HealthCheckProfile(mode=mode, target_url=target_url)

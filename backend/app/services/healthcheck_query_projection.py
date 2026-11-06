@@ -16,7 +16,6 @@ from app.core.domain_enums import HealthCheckStatus
 from app.services.healthcheck_common import (
     DEFAULT_CHECK_TYPE,
     DEFAULT_SCOPE,
-    coerce_check_mode,
     percentile,
     resolve_healthcheck_profile,
 )
@@ -34,7 +33,7 @@ def incident_payload(row: EndpointHealthStatusSegment) -> dict[str, Any]:
         "end": row.ended_at.isoformat() if row.ended_at else None,
         "duration_minutes": incident_duration_minutes(row),
         "status": row.status,
-        "check_mode": coerce_check_mode(row.check_mode),
+        "check_mode": row.check_mode,
         "check_type": row.check_type or DEFAULT_CHECK_TYPE,
         "scope": row.scope or DEFAULT_SCOPE,
     }
@@ -67,7 +66,7 @@ def workspace_endpoint_snapshot(
         status = str(latest_scope.status or HealthCheckStatus.UNKNOWN.value)
         checked_at = latest_scope.checked_at.isoformat()
         latency_ms = latest_scope.latency_ms
-        check_mode = coerce_check_mode(latest_scope.check_mode)
+        check_mode = latest_scope.check_mode
     else:
         status = HealthCheckStatus.UNKNOWN.value
         checked_at = now.isoformat()
@@ -120,7 +119,7 @@ def workspace_incident_payload(
         "start": row.started_at.isoformat(),
         "end": end_time.isoformat() if end_time else None,
         "duration_minutes": incident_duration_minutes(row),
-        "check_mode": coerce_check_mode(row.check_mode),
+        "check_mode": row.check_mode,
         "ongoing": end_time is None,
         "recent": end_time is not None and end_time >= incident_cutoff,
     }
@@ -157,7 +156,7 @@ def build_rollup_series(
                 ),
                 "latency_ms": row.latency_avg_ms,
                 "http_status": None,
-                "check_mode": coerce_check_mode(row.check_mode),
+                "check_mode": row.check_mode,
                 "check_type": row.check_type or DEFAULT_CHECK_TYPE,
                 "scope": row.scope or DEFAULT_SCOPE,
             }
