@@ -493,7 +493,7 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
             db.add(row)
         row.scope_name = snapshot.scope_name
         row.scan_mode = snapshot.scan_mode
-        row.version_listing_available = bool(snapshot.version_listing_available)
+        row.version_listing_available = snapshot.version_listing_available
         row.object_version_count = snapshot.object_version_count
         row.current_version_count = snapshot.current_version_count
         row.noncurrent_version_count = snapshot.noncurrent_version_count
@@ -682,7 +682,7 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
             bucket_name=row.bucket_name,
             bucket_tenant=row.bucket_tenant,
             scan_mode=row.scan_mode,
-            version_listing_available=bool(row.version_listing_available),
+            version_listing_available=row.version_listing_available,
             object_version_count=int(row.object_version_count),
             current_version_count=int(row.current_version_count),
             noncurrent_version_count=int(row.noncurrent_version_count),
