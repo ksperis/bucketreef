@@ -53,10 +53,10 @@ class PortalCollaboratorRequestsService:
 
         if payload.target_user_id is None:
             raise ValueError("Target user is required")
-        if int(actor.id) == int(payload.target_user_id):
+        if int(actor.id) == payload.target_user_id:
             raise ValueError("Portal managers cannot change their own project role")
         target = self.db.scalar(
-            select(User).where(User.id == int(payload.target_user_id))
+            select(User).where(User.id == payload.target_user_id)
         )
         if not target or not target.is_active:
             raise ValueError("Target user was not found or is inactive")
