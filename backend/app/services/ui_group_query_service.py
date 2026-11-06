@@ -20,9 +20,11 @@ from app.db import (
     UserUiGroup,
 )
 from app.db.openstack import OpenStackCloud, cloud_groups
+from app.models.admin_listing import AdminOptionListingRequest
 from app.models.openstack import LinkedOpenStackCloud
 from app.models.ui_group import (
     LinkedS3Account,
+    PaginatedUiGroupSummariesResponse,
     PaginatedUiGroupsResponse,
     UiGroupListingRequest,
     UiGroupOut,
@@ -66,14 +68,11 @@ class UiGroupQueryService:
     def get_group(self, group_id: int) -> Optional[UiGroup]:
         return self.db.get(UiGroup, group_id)
 
-    def paginate_group_summaries(
+    def list_group_options_page(
         self,
-        *,
-        page: int,
-        page_size: int,
-        search: Optional[str] = None,
-    ) -> tuple[list[UiGroupSummary], int]:
-        search_value = search.strip() if isinstance(search, str) else ""
+        request: AdminOptionListingRequest,
+    ) -> PaginatedUiGroupSummariesResponse:
+        search_value = request.search.strip() if isinstance(request.search, str) else ""
         statement = select(UiGroup)
         if search_value:
             statement = statement.where(UiGroup.name.ilike(f"%{search_value}%"))
@@ -81,11 +80,11 @@ class UiGroupQueryService:
             self.db,
             statement,
             order_by=name_order_by(UiGroup),
-            page=page,
-            page_size=page_size,
+            page=request.page,
+            page_size=request.page_size,
         )
         avatar_service = UiGroupAvatarService(self.db)
-        return [
+        items = [
             UiGroupSummary(
                 id=row.id,
                 name=row.name,
@@ -93,7 +92,14 @@ class UiGroupQueryService:
                 avatar=avatar_service.descriptor(row),
             )
             for row in rows
-        ], total
+        ]
+        return PaginatedUiGroupSummariesResponse(
+            items=items,
+            total=total,
+            page=request.page,
+            page_size=request.page_size,
+            has_next=request.page * request.page_size < total,
+        )
 
     @staticmethod
     def _apply_group_search(statement, search_value: str):

@@ -7,11 +7,12 @@ from sqlalchemy.orm import Session
 
 from app.db import User
 from app.core.domain_enums import UserRole
+from app.models.admin_listing import AdminOptionListingRequest
 from app.models.user import (
+    PaginatedUserSummariesResponse,
     UserCreate,
     UserOut,
     UserSelfUpdate,
-    UserSummary,
     UserUpdate,
 )
 from app.services.external_identity_user_service import ExternalIdentityUserService
@@ -99,18 +100,11 @@ class UsersService:
     def list_users(self) -> list[User]:
         return self.query.list_users()
 
-    def paginate_user_summaries(
+    def list_user_options_page(
         self,
-        *,
-        page: int,
-        page_size: int,
-        search: Optional[str] = None,
-    ) -> tuple[list[UserSummary], int]:
-        return self.query.paginate_user_summaries(
-            page=page,
-            page_size=page_size,
-            search=search,
-        )
+        request: AdminOptionListingRequest,
+    ) -> PaginatedUserSummariesResponse:
+        return self.query.list_user_options_page(request)
 
     def paginate_users(
         self,

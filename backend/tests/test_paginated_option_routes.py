@@ -4,7 +4,7 @@
 from types import SimpleNamespace
 
 from app.db.openstack import OpenStackCloud
-from app.models.admin_listing import AdminPaginatedListingRequest
+from app.models.admin_listing import AdminOptionListingRequest, AdminPaginatedListingRequest
 from app.routers import execution_contexts as execution_contexts_router
 from app.routers.admin import groups as groups_router
 from app.routers.admin import openstack as openstack_router
@@ -132,23 +132,21 @@ def test_admin_user_options_forward_search_and_pagination(monkeypatch):
     calls = []
 
     class FakeUsersService:
-        def paginate_user_summaries(self, **kwargs):
-            calls.append(kwargs)
-            return [], 3
+        def list_user_options_page(self, query):
+            calls.append(query)
+            return SimpleNamespace(total=3, page=query.page, has_next=True)
 
     monkeypatch.setattr(users_router, "require_admin_interactive_session", lambda *_args: None)
 
     response = users_router.list_user_options(
         request=object(),
-        page=2,
-        page_size=1,
-        search="alice",
+        query=AdminOptionListingRequest(page=2, page_size=1, search="alice"),
         users_service=FakeUsersService(),
         current_user=object(),
         db=object(),
     )
 
-    assert calls == [{"page": 2, "page_size": 1, "search": "alice"}]
+    assert calls == [AdminOptionListingRequest(page=2, page_size=1, search="alice")]
     assert response.total == 3
     assert response.page == 2
     assert response.has_next is True
@@ -158,19 +156,17 @@ def test_admin_group_options_forward_search_and_pagination():
     calls = []
 
     class FakeGroupsService:
-        def paginate_group_summaries(self, **kwargs):
-            calls.append(kwargs)
-            return [], 2
+        def list_group_options_page(self, query):
+            calls.append(query)
+            return SimpleNamespace(total=2, page=query.page, has_next=False)
 
     response = groups_router.list_group_options(
-        page=2,
-        page_size=1,
-        search="ops",
+        query=AdminOptionListingRequest(page=2, page_size=1, search="ops"),
         groups_service=FakeGroupsService(),
         _=object(),
     )
 
-    assert calls == [{"page": 2, "page_size": 1, "search": "ops"}]
+    assert calls == [AdminOptionListingRequest(page=2, page_size=1, search="ops")]
     assert response.total == 2
     assert response.page == 2
     assert response.has_next is False

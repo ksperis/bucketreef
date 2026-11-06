@@ -20,12 +20,13 @@ from app.db import (
 )
 from app.db.openstack import OpenStackCloud, cloud_groups
 from app.db.ui_group import ALL_USERS_SYSTEM_KEY
+from app.models.admin_listing import AdminOptionListingRequest
 from app.models.ui_group import (
+    PaginatedUiGroupSummariesResponse,
     PaginatedUiGroupsResponse,
     UiGroupCreate,
     UiGroupListingRequest,
     UiGroupOut,
-    UiGroupSummary,
     UiGroupUpdate,
 )
 from app.models.user import (
@@ -219,18 +220,11 @@ class UiGroupsService:
     def get_group(self, group_id: int) -> Optional[UiGroup]:
         return self.queries.get_group(group_id)
 
-    def paginate_group_summaries(
+    def list_group_options_page(
         self,
-        *,
-        page: int,
-        page_size: int,
-        search: Optional[str] = None,
-    ) -> tuple[list[UiGroupSummary], int]:
-        return self.queries.paginate_group_summaries(
-            page=page,
-            page_size=page_size,
-            search=search,
-        )
+        request: AdminOptionListingRequest,
+    ) -> PaginatedUiGroupSummariesResponse:
+        return self.queries.list_group_options_page(request)
 
     def list_groups_page(
         self,
