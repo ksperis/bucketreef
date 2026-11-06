@@ -2,7 +2,6 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import ModalActions from "../../components/ModalActions";
 import { ListBadge, ListActionButton } from "../../components/list/ListControls";
 import { FormEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
@@ -18,6 +17,7 @@ import {
 } from "../../auth/useRecentWebAuthnStepUp";
 import ListPageSection from "../../components/list/ListPageSection";
 import { SettingsButton, SettingsDialog } from "../../components/settings/SettingsControls";
+import SettingsForm from "../../components/settings/SettingsForm";
 import { useSettingsBaseline } from "../../components/settings/useSettingsDraft";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiInput from "../../components/ui/UiInput";
@@ -399,54 +399,10 @@ export default function ApiTokensPage({ onUnsavedChangesChange }: ApiTokensPageP
 
       {showCreateModal && (
         <SettingsDialog title={adminText("Create API token")} onClose={createCloseGuard.requestClose} closeDisabled={creating} initialFocusRef={nameRef} maxWidthClass="max-w-xl">
-          <form aria-label={adminText("Create API token")} className="settings-stack" onSubmit={handleCreate} noValidate>
-            <p className="settings-description">
-              {adminText("Create a token for automation (Ansible, CI, scripts). Its secret will be shown once.")}</p>
-            <fieldset disabled={isDemo || creating} className="settings-fields">
-              <div className="settings-fields sm:grid-cols-2">
-                <UiInput
-                  ref={nameRef}
-                  label={adminText("Token name")}
-                  type="text"
-                  value={tokenName}
-                  onChange={(event) => setTokenName(event.target.value)}
-                  placeholder="ansible-production"
-                  maxLength={128}
-                  required
-                  error={createAttempted ? nameError : undefined}
-                />
-                <UiInput
-                  ref={expiryRef}
-                  label={adminText("Expiry (days)")}
-                  type="number"
-                  min={1}
-                  step={1}
-                  value={expiresInDays}
-                  onChange={(event) => setExpiresInDays(event.target.value)}
-                  onInput={(event) => setInvalidExpiryInput(event.currentTarget.validity.badInput)}
-                  hint={adminText("Leave blank to use the server default.")}
-                  error={createAttempted ? expiryError : undefined}
-                />
-              </div>
-              <fieldset ref={scopesRef} aria-invalid={createAttempted && Boolean(scopesError)} aria-describedby={createAttempted && scopesError ? scopesErrorId : undefined} className="min-w-0">
-                <legend className="settings-label mb-1">{adminText("Scopes")}</legend>
-                <div className="grid grid-cols-2 gap-x-2">
-                  {API_SCOPES.map((scope) => (
-                    <UiCheckboxField key={scope} className="settings-choice settings-description [overflow-wrap:anywhere]"
-                      checked={scopes.includes(scope)}
-                      onChange={(event) => setScopes((current) => event.target.checked
-                        ? [...current, scope]
-                        : current.filter((entry) => entry !== scope))}
-                    >
-                      {scope}
-                    </UiCheckboxField>
-                  ))}
-                </div>
-                {createAttempted && scopesError && <p id={scopesErrorId} role="alert" className="settings-description text-rose-700 dark:text-rose-300">{scopesError}</p>}
-              </fieldset>
-            </fieldset>
-            {formError && <PageBanner tone="error">{formError}</PageBanner>}
-            <ModalActions>
+          <SettingsForm label={adminText("Create API token")} busy={creating} disabled={isDemo}
+            onSubmit={handleCreate} onCancel={createCloseGuard.requestClose}
+            submitLabel="Create token" busyLabel="Creating..." presentation="dialog"
+            actions={<>
               <SettingsButton
                 type="button"
                 onClick={createCloseGuard.requestClose}
@@ -460,8 +416,52 @@ export default function ApiTokensPage({ onUnsavedChangesChange }: ApiTokensPageP
               >
                 {creating ? "Creating..." : "Create token"}
               </SettingsButton>
-            </ModalActions>
-          </form>
+            </>}>
+            <p className="settings-description">
+              {adminText("Create a token for automation (Ansible, CI, scripts). Its secret will be shown once.")}</p>
+            <div className="settings-fields sm:grid-cols-2">
+              <UiInput
+                ref={nameRef}
+                label={adminText("Token name")}
+                type="text"
+                value={tokenName}
+                onChange={(event) => setTokenName(event.target.value)}
+                placeholder="ansible-production"
+                maxLength={128}
+                required
+                error={createAttempted ? nameError : undefined}
+              />
+              <UiInput
+                ref={expiryRef}
+                label={adminText("Expiry (days)")}
+                type="number"
+                min={1}
+                step={1}
+                value={expiresInDays}
+                onChange={(event) => setExpiresInDays(event.target.value)}
+                onInput={(event) => setInvalidExpiryInput(event.currentTarget.validity.badInput)}
+                hint={adminText("Leave blank to use the server default.")}
+                error={createAttempted ? expiryError : undefined}
+              />
+            </div>
+            <fieldset ref={scopesRef} aria-invalid={createAttempted && Boolean(scopesError)} aria-describedby={createAttempted && scopesError ? scopesErrorId : undefined} className="min-w-0">
+              <legend className="settings-label mb-1">{adminText("Scopes")}</legend>
+              <div className="grid grid-cols-2 gap-x-2">
+                {API_SCOPES.map((scope) => (
+                  <UiCheckboxField key={scope} className="settings-choice settings-description [overflow-wrap:anywhere]"
+                    checked={scopes.includes(scope)}
+                    onChange={(event) => setScopes((current) => event.target.checked
+                      ? [...current, scope]
+                      : current.filter((entry) => entry !== scope))}
+                  >
+                    {scope}
+                  </UiCheckboxField>
+                ))}
+              </div>
+              {createAttempted && scopesError && <p id={scopesErrorId} role="alert" className="settings-description text-rose-700 dark:text-rose-300">{scopesError}</p>}
+            </fieldset>
+            {formError && <PageBanner tone="error">{formError}</PageBanner>}
+          </SettingsForm>
           {createCloseGuard.confirmationDialog}
         </SettingsDialog>
       )}
