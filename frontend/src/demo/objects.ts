@@ -108,7 +108,7 @@ export async function objects(c: DemoRequest): Promise<Response | undefined> {
     return portal ? done() : json({ deleted: targets.length });
   }
   if ((action === "proxy-upload" && method === "POST") || (action === "local-upload" && method === "PUT")) {
-    const form = action === "proxy-upload" ? await c.request.formData() : null;
+    const form = action === "proxy-upload" ? c.formData ?? await c.request.formData() : null;
     const blob = form ? form.get("file") : await c.request.blob();
     if (!(blob instanceof Blob)) throw new DemoError(422, "A file is required");
     const destinationKey = form ? String(form.get("key")) : key;

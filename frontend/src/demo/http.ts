@@ -3,7 +3,7 @@ import { personaIds, type Persona } from "./state";
 import type { S3Account } from "../api/accounts";
 import type { DemoSpace } from "./state";
 
-export type DemoRequest = { state: DemoState; url: URL; path: string; method: string; body: Record<string, unknown>; request: Request; persona: Persona; user: DemoUser };
+export type DemoRequest = { state: DemoState; url: URL; path: string; method: string; body: Record<string, unknown>; request: Request; formData?: FormData; persona: Persona; user: DemoUser };
 export class DemoError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
