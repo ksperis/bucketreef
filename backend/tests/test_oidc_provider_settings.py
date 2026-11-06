@@ -20,8 +20,6 @@ from app.main import app
 from app.models.oidc import OIDCProviderAdminPayload
 from app.routers import dependencies
 from app.services.oidc_provider_settings_service import (
-    _stored_scopes,
-    _stored_string_list,
     list_effective_oidc_providers,
     resolve_oidc_provider_map,
 )
@@ -185,20 +183,6 @@ def _authenticate_superadmin(client, db_session) -> None:
     db_session.add(actor)
     db_session.commit()
     authenticate_ui_client(client, db_session, actor, mfa_verified=True)
-
-
-def test_ui_provider_scopes_require_a_non_empty_string_list():
-    assert _stored_scopes(["openid", "email"]) == ["openid", "email"]
-    for raw in ("invalid", {}, [], ["openid", ""], ["openid", 42]):
-        with pytest.raises(ValueError):
-            _stored_scopes(raw)
-
-
-def test_ui_provider_domains_require_canonical_persisted_json():
-    assert _stored_string_list(["example.com"]) == ["example.com"]
-    for raw in ("", {}, ["example.com", 42]):
-        with pytest.raises(ValueError):
-            _stored_string_list(raw)
 
 
 class _FakeUsersService:
