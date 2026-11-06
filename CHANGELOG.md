@@ -29,6 +29,7 @@
 - Share identity-provider field-lock metadata between OIDC and LDAP settings contracts.
 - Reuse one access-key status update contract across IAM, RGW user, Portal, and Ceph Admin routes.
 - Reuse the canonical bucket tags and website contracts for both reads and writes.
+- Canonicalize Browser object-list requests on one strict backend model and reject unsupported object-type filters instead of silently treating them as `all`.
 
 ### Fixed
 
@@ -37,6 +38,7 @@
 ### Upgrade notes
 
 - Deploy the matching backend and frontend together because Browser object-list responses now include the optional `owner` field used by object details.
+- Deploy the matching backend and frontend together because Browser object-list query validation now enforces the frontend's supported `all`, `file`, and `folder` object-type values.
 - Deploy the matching backend and frontend together because detailed Manager IAM group-list responses now include the optional `members` field used by the inventory.
 - Deploy the matching backend and frontend together because Admin Portal request listings now use the standard paginated application response instead of an unpaginated list.
 - Custom deployments using `OIDC_LINK_ATTEMPT_TTL_SECONDS` or `OIDC_BROWSER_COOKIE_NAME` must rename them to `EXTERNAL_IDENTITY_LINK_ATTEMPT_TTL_SECONDS` and `EXTERNAL_IDENTITY_BROWSER_COOKIE_NAME`. In-progress external-identity browser transactions must restart after the cutover.
