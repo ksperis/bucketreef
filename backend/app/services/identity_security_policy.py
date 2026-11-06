@@ -9,6 +9,10 @@ from fastapi import HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.domain_errors import (
+    IdentitySecurityAuthorizationError,
+    IdentitySecuritySelfActionError,
+)
 from app.db import AuthSession, S3Connection, UiGroup, UiGroupS3Connection, User
 from app.core.domain_enums import UserRole, is_admin_ui_role, is_superadmin_ui_role
 from app.models.s3_connection_admin import S3ConnectionAdminUpdate
@@ -311,22 +315,19 @@ def require_self_service_security_action(
 
 def ensure_actor_can_manage_user(actor: User, target: User, *, allow_self: bool = False) -> None:
     if actor.id == target.id and not allow_self:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="You cannot perform this administrative action on your own account",
+        raise IdentitySecuritySelfActionError(
+            "You cannot perform this administrative action on your own account"
         )
     if is_superadmin_ui_role(actor.role):
         return
     if target.role not in STANDARD_UI_ROLES:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Administrators can manage only standard users",
+        raise IdentitySecurityAuthorizationError(
+            "Administrators can manage only standard users"
         )
 
 
 def ensure_actor_can_assign_role(actor: User, role: str) -> None:
     if not is_superadmin_ui_role(actor.role) and role not in STANDARD_UI_ROLES:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Administrators can assign only standard user roles",
+        raise IdentitySecurityAuthorizationError(
+            "Administrators can assign only standard user roles"
         )

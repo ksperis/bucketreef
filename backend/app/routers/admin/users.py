@@ -40,10 +40,12 @@ from app.services.avatar_image_service import MAX_AVATAR_BYTES
 from app.services.user_avatar_service import UserAvatarService
 from app.services.identity_security_policy import (
     admin_user_update_requires_step_up,
-    ensure_actor_can_assign_role,
-    ensure_actor_can_manage_user,
     require_admin_interactive_session,
     require_admin_sensitive_action,
+)
+from app.routers.identity_security_policy import (
+    ensure_actor_can_assign_role,
+    ensure_actor_can_manage_user,
 )
 from app.utils.http_errors import (
     raise_bad_request_from_value_error,
