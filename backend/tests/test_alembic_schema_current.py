@@ -20,6 +20,7 @@ from app.db import Base
 
 
 _RECENT_LINEAR_REVISIONS = (
+    "0251_canonical_user_active_flag",
     "0250_remove_cost_by_bucket",
     "0249_canonical_browser_favorites",
     "0248_remove_migration_runtime_timestamps",
@@ -130,6 +131,48 @@ def test_alembic_exposes_single_head_after_rejoined_merge():
         "0234_remove_first_admin_created_user_id",
         _LEGACY_GITLAB_HEAD,
     )
+
+
+def test_user_active_flag_migration_backfills_null_and_enforces_not_null(
+    tmp_path,
+    monkeypatch,
+):
+    database_path = tmp_path / "user-active-flag.sqlite"
+    database_url = f"sqlite:///{database_path}"
+    monkeypatch.setenv("DATABASE_URL", database_url)
+    monkeypatch.delenv("BUCKETREEF_DB_BACKUP_VERIFIED", raising=False)
+    get_settings.cache_clear()
+
+    config = _alembic_config()
+    engine = sa.create_engine(database_url)
+    try:
+        command.upgrade(config, "0250_remove_cost_by_bucket")
+        with engine.begin() as connection:
+            connection.execute(
+                sa.text(
+                    "INSERT INTO users (email, is_active) "
+                    "VALUES ('legacy-null-active@example.test', NULL)"
+                )
+            )
+
+        command.upgrade(config, "head")
+
+        with engine.connect() as connection:
+            is_active_column = next(
+                column
+                for column in sa.inspect(connection).get_columns("users")
+                if column["name"] == "is_active"
+            )
+            assert is_active_column["nullable"] is False
+            assert not connection.scalar(
+                sa.text(
+                    "SELECT is_active FROM users "
+                    "WHERE email = 'legacy-null-active@example.test'"
+                )
+            )
+    finally:
+        engine.dispose()
+        get_settings.cache_clear()
 
 
 def test_rejoined_head_repairs_missing_portal_iam_revocation_table(tmp_path, monkeypatch):
