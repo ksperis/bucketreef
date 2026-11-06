@@ -82,7 +82,7 @@ class BucketMigrationSchedulingMixin:
         lease_duration = max(15, int(lease_seconds))
         lease_until = now + timedelta(seconds=lease_duration)
         limits = self._load_runtime_limits()
-        max_active_per_endpoint = max(1, int(limits.max_active_per_endpoint))
+        max_active_per_endpoint = limits.max_active_per_endpoint
         endpoint_usage = self._active_endpoint_usage(now=now)
         endpoint_cache: dict[str, str] = {}
         for row in self._runnable_candidate_rows(now=now):
@@ -157,7 +157,6 @@ class BucketMigrationSchedulingMixin:
     ) -> bool:
         if not endpoint_keys:
             return True
-        allowed_per_endpoint = max(1, int(max_active_per_endpoint))
         rows = self.db.execute(
             select(
                 BucketMigration.id,
@@ -184,7 +183,7 @@ class BucketMigrationSchedulingMixin:
             ranked_ids = ranked_by_endpoint.get(key, [])
             if migration_id not in ranked_ids:
                 return False
-            if ranked_ids.index(migration_id) >= allowed_per_endpoint:
+            if ranked_ids.index(migration_id) >= max_active_per_endpoint:
                 return False
         return True
 
