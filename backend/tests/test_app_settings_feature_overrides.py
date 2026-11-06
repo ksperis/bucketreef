@@ -137,6 +137,13 @@ def test_documentation_base_url_defaults_normalizes_and_validates():
             AppSettings(general={"documentation_base_url": value})
 
 
+def test_app_settings_path_is_absent_without_explicit_bootstrap_configuration(monkeypatch):
+    monkeypatch.setattr(app_settings_service, "get_settings", lambda: _runtime_settings())
+
+    assert app_settings_service._settings_path() is None
+    assert app_settings_service._load_persisted_settings_from_disk(None) == AppSettings()
+
+
 def test_load_app_settings_applies_feature_env_overrides(monkeypatch, tmp_path, db_session):
     settings_path = tmp_path / "app_settings.json"
     persisted = AppSettings()

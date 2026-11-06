@@ -15,7 +15,6 @@ from app.db import AppSetting
 from app.models.app_settings import AppSettings, GeneralFeatureLock, GeneralFeatureLocks
 from app.utils.time import utcnow
 
-DEFAULT_SETTINGS_PATH = Path(__file__).resolve().parents[1] / "data" / "app_settings.json"
 APP_SETTINGS_DB_KEY = "default"
 _GENERAL_FEATURE_FIELDS = (
     "manager_enabled",
@@ -36,15 +35,15 @@ _PERSISTED_SECURITY_FIELDS = (
 )
 
 
-def _settings_path() -> Path:
+def _settings_path() -> Path | None:
     settings = get_settings()
     if settings.app_settings_path:
         return Path(settings.app_settings_path)
-    return DEFAULT_SETTINGS_PATH
+    return None
 
 
-def _load_persisted_settings_from_disk(settings_path: Path) -> AppSettings:
-    if not settings_path.exists():
+def _load_persisted_settings_from_disk(settings_path: Path | None) -> AppSettings:
+    if settings_path is None or not settings_path.exists():
         return AppSettings()
     data = json.loads(settings_path.read_text(encoding="utf-8"))
     return AppSettings.model_validate(data)

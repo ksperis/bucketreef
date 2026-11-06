@@ -282,7 +282,7 @@ class Settings(BaseSettings):
     )
     app_settings_path: Optional[str] = Field(
         None,
-        description="Path to app_settings.json (defaults to backend/app/data/app_settings.json)",
+        description="Optional path to an app_settings.json bootstrap import",
     )
 
     seed_s3_endpoint: str = Field(
