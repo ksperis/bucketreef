@@ -1,6 +1,5 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from app.utils.storage_endpoint_features import parse_features_config
 from contextlib import nullcontext
 import json
 from types import SimpleNamespace
@@ -44,6 +43,7 @@ from app.services.storage_endpoints_service import StorageEndpointsService
 from app.utils.storage_endpoint_features import resolve_feature_flags
 from app.utils.time import utcnow
 from tests.s3_account_factory import make_s3_account
+from tests.storage_endpoint_features import persisted_endpoint_features
 from tests.test_endpoint_service_identities import FakeRGW, SERVICE_CAPS
 
 
@@ -84,6 +84,7 @@ def actor(db, *, role=UserRole.UI_SUPERADMIN.value, **values):
 
 def endpoint(db, **values):
     provider = values.pop("provider", "ceph")
+    raw_features = values.pop("features", None)
     service_identities = values.pop(
         "service_identities",
         [service_identity("runtime", mode="managed")] if provider == "ceph" else [],
@@ -95,6 +96,14 @@ def endpoint(db, **values):
         verify_tls=True,
         is_editable=True,
         service_identities=service_identities,
+        features=(
+            persisted_endpoint_features(
+                provider=provider,
+                raw=raw_features,
+            )
+            if raw_features is not None
+            else persisted_endpoint_features(provider=provider)
+        ),
         **values,
     )
     db.add(row)
@@ -332,7 +341,7 @@ def test_preview_blocks_locked_ceph_account_when_credentials_and_features_are_mi
     user = actor(db_session)
     ep = endpoint(
         db_session,
-        features=parse_features_config("features:\n"
+        features=("features:\n"
             "  admin:\n    enabled: false\n"
             "  account:\n    enabled: false\n"
             "  iam:\n    enabled: false\n"),
@@ -501,7 +510,7 @@ def test_manager_and_portal_share_one_sample_account_with_independent_roles(
     user = actor(db_session)
     ep = endpoint(
         db_session,
-        features=parse_features_config(account_feature_config(iam=True)),
+        features=account_feature_config(iam=True),
     )
     monkeypatch.setattr(guided.endpoints, "detect_features", lambda *_args, **_kwargs: detection())
     monkeypatch.setattr(
@@ -575,7 +584,7 @@ def test_onboarding_rejects_admin_ops_without_required_provisioning_caps(
         db_session,
         admin_access_key="admin-ak",
         admin_secret_key="admin-sk",
-        features=parse_features_config(account_feature_config(iam=True)),
+        features=account_feature_config(iam=True),
     )
     monkeypatch.setattr(
         guided.endpoints,
@@ -620,7 +629,7 @@ def test_manager_and_portal_role_axes_remain_independent(
         db_session,
         admin_access_key="admin-ak",
         admin_secret_key="admin-sk",
-        features=parse_features_config(account_feature_config(iam=True)),
+        features=account_feature_config(iam=True),
     )
     monkeypatch.setattr(guided.endpoints, "detect_features", lambda *_args, **_kwargs: detection())
     monkeypatch.setattr(
@@ -994,7 +1003,7 @@ def test_external_onboarding_reuses_stored_pairs_on_env_endpoint_already_supervi
     user = actor(db_session)
     ep = endpoint(db_session, admin_access_key="admin-ak", admin_secret_key="admin-sk",
                   service_identities=[service_identity("runtime", "runtime-ak", "runtime-sk"), service_identity("supervision", "supervision-ak", "supervision-sk")],
-                  features=parse_features_config(f"features:\n  metrics:\n    enabled: true\n  usage:\n    enabled: {str(usage).lower()}\n"))
+                  features=f"features:\n  metrics:\n    enabled: true\n  usage:\n    enabled: {str(usage).lower()}\n")
     ep.is_editable = False
     db_session.commit()
     monkeypatch.setattr(guided.endpoints, "detect_features", lambda *_: detection())

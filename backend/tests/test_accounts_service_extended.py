@@ -2,8 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 
 from __future__ import annotations
-from app.utils.storage_endpoint_features import parse_features_config
-
 import pytest
 from sqlalchemy import select
 
@@ -24,6 +22,7 @@ from app.services.rgw_account_root_service import RgwAccountRootService
 from app.services.rgw_account_topics_resolver import RgwAccountTopicsResolver, normalize_account_key
 from app.services.s3_account_iam_cleanup_service import S3AccountIamCleanupService
 from app.services.s3_accounts_service import S3AccountsService
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 class _FakeRGWAdmin:
@@ -98,16 +97,24 @@ def _seed_endpoint(
     admin_enabled: bool = True,
     iam_enabled: bool = False,
 ) -> StorageEndpoint:
+    raw_features = "features: {}"
+    if provider == StorageProvider.CEPH:
+        raw_features = (
+            "features:\n"
+            f"  admin:\n    enabled: {'true' if admin_enabled else 'false'}\n"
+            f"  account:\n    enabled: {'true' if account_enabled else 'false'}\n"
+            f"  iam:\n    enabled: {'true' if iam_enabled else 'false'}\n"
+        )
     endpoint = StorageEndpoint(
         name=name,
         endpoint_url=f"https://{name}.example.test",
         provider=provider.value,
         admin_access_key="AKIA-ADMIN",
         admin_secret_key="SECRET-ADMIN",
-        features=parse_features_config("features:\n"
-            f"  admin:\n    enabled: {'true' if admin_enabled else 'false'}\n"
-            f"  account:\n    enabled: {'true' if account_enabled else 'false'}\n"
-            f"  iam:\n    enabled: {'true' if iam_enabled else 'false'}\n"),
+        features=persisted_endpoint_features(
+            raw_features,
+            provider=provider,
+        ),
         is_default=is_default,
         is_editable=True,
     )

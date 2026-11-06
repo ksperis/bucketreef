@@ -1,6 +1,5 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from app.utils.storage_endpoint_features import parse_features_config
 from types import SimpleNamespace
 
 import pytest
@@ -8,6 +7,7 @@ import pytest
 from app.core.domain_enums import StorageProvider
 from app.routers.ceph_admin import endpoints as endpoints_router
 from app.services import ceph_admin_endpoint_service
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 class _FakeScalarResult:
@@ -70,7 +70,7 @@ def _build_endpoint(
         region="",
         verify_tls=True,
         is_default=False,
-        features=parse_features_config(features_yaml),
+        features=persisted_endpoint_features(features_yaml),
         ceph_admin_allowed=True,
         service_identity=lambda kind: ceph_admin if kind == "ceph_admin" else supervision,
         tag_links=[

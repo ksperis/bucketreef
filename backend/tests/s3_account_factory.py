@@ -1,7 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
-from app.utils.storage_endpoint_features import parse_features_config
 from typing import Any
 
 import sqlalchemy as sa
@@ -9,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.db import S3Account, StorageEndpoint
 from app.core.domain_enums import StorageProvider
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 def make_s3_account(db: Session, **values: Any) -> S3Account:
@@ -31,7 +31,7 @@ def make_s3_account(db: Session, **values: Any) -> S3Account:
                 provider=StorageProvider.CEPH.value,
                 admin_access_key="TEST-ADMIN-AK",
                 admin_secret_key="TEST-ADMIN-SK",
-                features=parse_features_config("features:\n"
+                features=persisted_endpoint_features("features:\n"
                     "  admin:\n    enabled: true\n"
                     "  account:\n    enabled: true\n"
                     "  usage:\n    enabled: true\n"

@@ -20,7 +20,10 @@ from app.models.bucket import (
 )
 from app.utils.aws_errors import aws_error_code
 from app.utils.s3_errors import is_s3_feature_unsupported
-from app.utils.storage_endpoint_features import features_to_capabilities, normalize_features
+from app.utils.storage_endpoint_features import (
+    features_to_capabilities,
+    validate_persisted_features,
+)
 
 from .execution_runtime import ResolvedContext
 
@@ -344,7 +347,7 @@ class BucketMigrationInspector:
         endpoint = ctx.execution_context.storage_endpoint
         if endpoint is None:
             return {}
-        features = normalize_features(endpoint.provider, endpoint.features)
+        features = validate_persisted_features(endpoint.provider, endpoint.features)
         raw = features_to_capabilities(features)
         return {str(key): bool(value) for key, value in raw.items()}
 

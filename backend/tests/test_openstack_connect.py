@@ -29,6 +29,7 @@ from app.services.s3_execution_client import s3_execution_cache_key
 from app.services.browser.sts import browser_sts_enabled
 from app.utils.time import utcnow
 from tests.auth_test_utils import authenticate_ui_client, trusted_origin_headers
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 @pytest.fixture(autouse=True)
@@ -250,7 +251,7 @@ def test_managed_endpoint_is_associated_by_catalog_url_and_reused_by_execution(d
         endpoint_url="https://s3.example.test",
         region="managed-region",
         provider="ceph",
-        features=parse_features_config("features:\n  usage:\n    enabled: true\n  metrics:\n    enabled: true\n"),
+        features=persisted_endpoint_features("features:\n  usage:\n    enabled: true\n  metrics:\n    enabled: true\n"),
     )
     db_session.add(endpoint)
     db_session.commit()
@@ -294,6 +295,7 @@ def test_managed_endpoint_association_is_dynamic_for_existing_openstack_context(
         endpoint_url="https://s3.example.test",
         region="region-a",
         provider="ceph",
+        features=persisted_endpoint_features(),
     )
     db_session.add(endpoint)
     db_session.commit()
@@ -309,6 +311,7 @@ def test_private_connection_import_preserves_managed_endpoint_association(db_ses
         endpoint_url="https://s3.example.test",
         region="region-a",
         provider="ceph",
+        features=persisted_endpoint_features(),
     )
     db_session.add(endpoint)
     db_session.commit()
@@ -480,6 +483,7 @@ def test_endpoint_service_identities_never_enrich_or_administer_openstack_contex
         endpoint_url="https://s3.example.test",
         region="region-a",
         provider="ceph",
+        features=persisted_endpoint_features(),
     )
     db_session.add(endpoint)
     db_session.commit()

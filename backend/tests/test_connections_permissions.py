@@ -16,6 +16,7 @@ from app.routers.connections import _ensure_manual_private_connection_creation_a
 from app.routers.dependencies_internal.execution_context import _resolve_connection_context
 from app.services.effective_access_service import EffectiveAccessService
 from tests.s3_connection_factory import custom_endpoint_fields
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 def _user(db_session, role: str = UserRole.UI_USER.value, **permissions) -> User:
@@ -114,6 +115,7 @@ def test_revocation_keeps_owned_connection_lifecycle_but_rejects_sensitive_forge
         name="registered",
         endpoint_url="https://s3.example.test",
         provider="other",
+        features=persisted_endpoint_features(provider="other"),
         is_default=True,
     )
     db_session.add(endpoint)
@@ -203,6 +205,7 @@ def test_registered_endpoint_catalog_accepts_group_inherited_manual_permission(d
         name="public catalog endpoint",
         endpoint_url="https://catalog.example.test",
         provider="other",
+        features=persisted_endpoint_features(provider="other"),
         is_default=True,
         admin_access_key="MUST-NOT-LEAK",
         admin_secret_key="MUST-NOT-LEAK",
@@ -264,6 +267,7 @@ def test_registered_admin_endpoint_is_exempt_from_user_endpoint_allowlist(db_ses
         name="operator managed",
         endpoint_url="https://private.operator.example.test",
         provider="other",
+        features=persisted_endpoint_features(provider="other"),
     )
     db_session.add(endpoint)
     db_session.flush()
@@ -329,6 +333,7 @@ def test_manual_connection_creation_supports_direct_free_url_and_group_registere
         name="registered create endpoint",
         endpoint_url="https://registered.example.test",
         provider="other",
+        features=persisted_endpoint_features(provider="other"),
     )
     db_session.add_all([group, endpoint])
     db_session.flush()

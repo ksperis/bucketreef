@@ -11,7 +11,7 @@ from typing import Literal, Optional
 from app.core.config import get_settings
 from app.db import StorageEndpoint
 from app.core.domain_enums import HealthCheckStatus
-from app.utils.storage_endpoint_features import normalize_features
+from app.utils.storage_endpoint_features import validate_persisted_features
 
 settings = get_settings()
 
@@ -108,7 +108,7 @@ def coerce_check_mode(value: object) -> Literal["http", "s3"]:
 
 
 def resolve_healthcheck_profile(endpoint: StorageEndpoint) -> HealthCheckProfile:
-    features = normalize_features(endpoint.provider, endpoint.features)
+    features = validate_persisted_features(endpoint.provider, endpoint.features)
     healthcheck_cfg = features["healthcheck"]
     mode = coerce_check_mode(healthcheck_cfg["mode"])
     target_url = str(healthcheck_cfg["url"] or endpoint.endpoint_url or "").strip()

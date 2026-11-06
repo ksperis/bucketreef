@@ -33,6 +33,7 @@ from app.services.users_service import UsersService
 from tests.auth_test_utils import authenticate_ui_client, trusted_origin_headers
 from tests.s3_account_factory import make_s3_account
 from tests.s3_connection_factory import custom_endpoint_fields
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 PNG_1X1 = base64.b64decode(
@@ -88,6 +89,7 @@ def _s3_user(db_session, *, name: str = "group-s3-user") -> S3User:
         name=f"{name}-endpoint",
         endpoint_url=f"https://{name}-endpoint.example.test",
         provider=StorageProvider.CEPH.value,
+        features=persisted_endpoint_features(),
         is_default=True,
     )
     s3_user = S3User(

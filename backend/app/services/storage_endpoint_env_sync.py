@@ -29,7 +29,6 @@ from app.services.storage_endpoint_uniqueness import (
     ensure_unique_storage_endpoint_url,
 )
 from app.utils.storage_endpoint_features import (
-    normalize_features,
     required_service_identity_kinds,
 )
 
@@ -114,13 +113,7 @@ class StorageEndpointEnvSyncService:
             else (None, None)
         )
         try:
-            required = required_service_identity_kinds(
-                normalize_features(
-                    config.provider,
-                    config.features,
-                    config.region,
-                )
-            )
+            required = required_service_identity_kinds(config.features)
             config = self._preserve_unused_external_credentials(
                 endpoint,
                 config,
