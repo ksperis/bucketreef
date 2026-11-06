@@ -60,8 +60,6 @@ class BucketMigrationExecutionControlMixin:
                 )
                 self._commit()
                 self.db.refresh(migration)
-            if migration.started_at is None:
-                migration.started_at = now
             migration.updated_at = now
             self._commit()
         return migration

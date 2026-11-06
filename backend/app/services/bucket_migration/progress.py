@@ -108,7 +108,6 @@ class BucketMigrationProgressMixin:
                 f"Fatal migration worker error: {error_text}",
                 max_chars=DB_ERROR_MESSAGE_MAX_CHARS,
             )
-            migration.finished_at = now
             migration.updated_at = now
             for item in migration.items:
                 if item.status == "running":
@@ -316,7 +315,6 @@ class BucketMigrationProgressMixin:
         migration.status = "canceled"
         migration.worker_lease_owner = None
         migration.worker_lease_until = None
-        migration.finished_at = utcnow()
         migration.updated_at = utcnow()
         for item in migration.items:
             if item.status in {"pending", "running", "paused", "awaiting_cutover"}:
@@ -370,7 +368,6 @@ class BucketMigrationProgressMixin:
         )
         migration.worker_lease_owner = None
         migration.worker_lease_until = None
-        migration.finished_at = utcnow()
         migration.updated_at = utcnow()
         release_errors = self._release_target_write_locks(
             migration,

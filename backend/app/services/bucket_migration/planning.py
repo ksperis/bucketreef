@@ -345,8 +345,6 @@ class BucketMigrationPlanningMixin:
         migration.precheck_report = None
         migration.precheck_checked_at = None
         migration.error_message = None
-        migration.started_at = None
-        migration.finished_at = None
         migration.updated_at = utcnow()
 
         self._synchronize_draft_items(migration, configuration.mappings)
@@ -444,8 +442,6 @@ class BucketMigrationPlanningMixin:
         migration.worker_lease_until = None
         migration.error_message = None
         migration.updated_at = utcnow()
-        if migration.started_at is None:
-            migration.started_at = utcnow()
         for item in migration.items:
             if item.status == "paused":
                 item.status = "pending"

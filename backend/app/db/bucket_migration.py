@@ -69,9 +69,6 @@ class BucketMigration(Base):
 
     error_message = Column(String, nullable=True)
 
-    started_at = Column(UTCDateTime(), nullable=True)
-    finished_at = Column(UTCDateTime(), nullable=True)
-
     created_at = Column(UTCDateTime(), default=utcnow, nullable=False, index=True)
     updated_at = Column(UTCDateTime(), default=utcnow, nullable=False, index=True)
 

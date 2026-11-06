@@ -533,6 +533,17 @@ Downgrade recreates `last_heartbeat_at` as a nullable UTC timestamp without
 reconstructing historical values because no runtime decision or API response
 consumed the column.
 
+## 2026-11 bucket migration runtime-timestamp cleanup
+
+Migration `0248_remove_migration_runtime_timestamps` removes the unused
+top-level `bucket_migrations.started_at` and `bucket_migrations.finished_at`
+columns. Neither timestamp is consumed by workflow decisions or the Manager
+API; `updated_at` remains the canonical migration activity timestamp, while
+per-bucket `started_at` and `finished_at` are retained on migration items.
+
+Downgrade recreates both top-level timestamps as nullable UTC values without
+reconstructing historical data.
+
 ## 2026-10 structured bucket migration workflow state
 
 Migration `0213_structure_bucket_migration_json` replaces the bucket migration
