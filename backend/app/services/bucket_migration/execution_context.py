@@ -39,28 +39,16 @@ class BucketMigrationExecutionContextMixin:
         ))
 
     def _load_runtime_limits(self) -> MigrationRuntimeLimits:
-        env_parallelism_max = max(1, min(int(settings.bucket_migration_parallelism_max or 1), 128))
+        env_parallelism_max = settings.bucket_migration_parallelism_max
         env_parallelism_default = env_parallelism_max
-        env_max_active = max(1, min(int(settings.bucket_migration_max_active_per_endpoint or 1), 64))
+        env_max_active = settings.bucket_migration_max_active_per_endpoint
 
         try:
             manager = load_app_settings_for_db(self.db).manager
-            parallelism_max = max(
-                1,
-                min(int(manager.bucket_migration_parallelism_max or env_parallelism_max), 128),
-            )
-            parallelism_default = max(
-                1,
-                min(int(manager.bucket_migration_parallelism_default or parallelism_max), parallelism_max),
-            )
-            max_active = max(
-                1,
-                min(int(manager.bucket_migration_max_active_per_endpoint or env_max_active), 64),
-            )
             return MigrationRuntimeLimits(
-                parallelism_default=parallelism_default,
-                parallelism_max=parallelism_max,
-                max_active_per_endpoint=max_active,
+                parallelism_default=manager.bucket_migration_parallelism_default,
+                parallelism_max=manager.bucket_migration_parallelism_max,
+                max_active_per_endpoint=manager.bucket_migration_max_active_per_endpoint,
             )
         except Exception:  # noqa: BLE001
             logger.exception(
