@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 Laurent Barbe. Licensed under the Apache License, Version 2.0. */
 import { describe, expect, it } from "vitest";
 
+import type { PortalStorageSpaceSummary } from "../api/portal";
 import { currentUser, type DemoRequest } from "./http";
 import { portal } from "./portal";
 import { createSeed, type Persona } from "./state";
@@ -101,5 +102,42 @@ describe("demo Portal request contract", () => {
       page_size: 25,
       has_next: false,
     });
+  });
+
+  it("mirrors canonical Storage Space filtering, derived status, and sorting", async () => {
+    const state = createSeed();
+    const accountId = state.accounts[0].id;
+    const accountSpaces = state.spaces.filter(space => space.accountId === accountId);
+    expect(accountSpaces.length).toBeGreaterThan(2);
+
+    const archivedSpace = accountSpaces[0];
+    archivedSpace.archived_at = "2026-11-01T00:00:00Z";
+    const archivedRequest = request(state, "/portal/storage-spaces", "GET");
+    archivedRequest.url.searchParams.set("include_archived", "true");
+    archivedRequest.url.searchParams.set("status", "Archived");
+    const archived = await portal(archivedRequest)!.json() as PortalStorageSpaceSummary[];
+    expect(archived).toEqual([expect.objectContaining({ id: archivedSpace.id, status: "Archived" })]);
+
+    const ownerRequest = request(state, "/portal/storage-spaces", "GET");
+    ownerRequest.url.searchParams.set("role", "Owner");
+    expect(await portal(ownerRequest)!.json()).toEqual([]);
+
+    const sortedRequest = request(state, "/portal/storage-spaces", "GET");
+    sortedRequest.url.searchParams.set("sort", "-name");
+    const sorted = await portal(sortedRequest)!.json() as PortalStorageSpaceSummary[];
+    const expectedNames = sorted.map(space => space.name).toSorted().reverse();
+    expect(sorted.map(space => space.name)).toEqual(expectedNames);
+  });
+
+  it.each([
+    ["role", "owner"],
+    ["status", "active"],
+    ["sort", "unknown"],
+  ])("rejects noncanonical Storage Space %s query values", (field, value) => {
+    const state = createSeed();
+    const invalid = request(state, "/portal/storage-spaces", "GET");
+    invalid.url.searchParams.set(field, value);
+
+    expect(() => portal(invalid)).toThrow(`${field} must be one of`);
   });
 });

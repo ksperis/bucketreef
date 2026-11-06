@@ -18,21 +18,26 @@ import type {
   StorageSpaceIconSource,
 } from "./storageSpaceIcons";
 
-export type PortalStorageSpaceRole = "Viewer" | "Editor" | "Owner" | "Manager";
-export type PortalStorageSpaceStatus = "Active" | "Attention" | "Archived";
-export type PortalStorageSpaceSort =
-  | "name"
-  | "-name"
-  | "created_at"
-  | "-created_at"
-  | "used_bytes"
-  | "-used_bytes"
-  | "object_count"
-  | "-object_count"
-  | "role"
-  | "-role"
-  | "status"
-  | "-status";
+export const PORTAL_STORAGE_SPACE_ROLES = ["Viewer", "Editor", "Owner", "Manager"] as const;
+export const PORTAL_STORAGE_SPACE_STATUSES = ["Active", "Attention", "Archived"] as const;
+export const PORTAL_STORAGE_SPACE_SORTS = [
+  "name",
+  "-name",
+  "created_at",
+  "-created_at",
+  "used_bytes",
+  "-used_bytes",
+  "object_count",
+  "-object_count",
+  "role",
+  "-role",
+  "status",
+  "-status",
+] as const;
+
+export type PortalStorageSpaceRole = (typeof PORTAL_STORAGE_SPACE_ROLES)[number];
+export type PortalStorageSpaceStatus = (typeof PORTAL_STORAGE_SPACE_STATUSES)[number];
+export type PortalStorageSpaceSort = (typeof PORTAL_STORAGE_SPACE_SORTS)[number];
 export type PortalStorageSpaceGrantRole = "Viewer" | "Editor";
 export type PortalStorageSpaceVisibility = "private" | "shared";
 export type PortalStorageSpaceShareScope = "restricted" | "account";
