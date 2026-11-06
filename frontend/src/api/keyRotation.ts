@@ -11,6 +11,7 @@ export type KeyRotationType =
   | "account"
   | "s3_user"
   | "ceph_admin";
+export type KeyRotationTargetType = "endpoint" | "account" | "s3_user";
 
 type KeyRotationRequestPayload = {
   endpoint_ids: number[];
@@ -22,7 +23,7 @@ export type KeyRotationResultItem = {
   endpoint_id: number;
   endpoint_name: string;
   key_type: KeyRotationType;
-  target_type: string;
+  target_type: KeyRotationTargetType;
   target_id: string | null;
   target_label: string | null;
   status: "rotated" | "failed" | "skipped";

@@ -1378,6 +1378,17 @@ Deploy the backend and bundled frontend together. Existing database rows do not
 require migration because these are the only values produced by the maintenance
 workflow since the fields were introduced.
 
+## 2026-11 typed key-rotation result targets
+
+Admin key-rotation results now expose `target_type` as the closed set `endpoint`,
+`account`, or `s3_user`, matching the only target categories emitted by the
+rotation service. Result status and durable rotation phase use the same canonical
+closed types internally.
+
+Deploy the backend and bundled frontend together. No database migration is
+required because this change only tightens the internal response contract around
+values already produced by the service.
+
 ## 2026-10 onboarding journey state cleanup
 
 Migration `0189_remove_onboarding_journey_dead_state` removes the unused
