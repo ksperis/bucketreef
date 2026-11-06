@@ -12,7 +12,7 @@ from app.models.bucket_integrity import (
 )
 from app.models.bucket_operation import BucketOperationTarget
 from app.models.bucket_purge import (
-    BucketPurgeBucketRequest,
+    BucketPurgeRequest,
     BucketPurgeRgwTargetRequest,
     BucketPurgeTargetRequest,
 )
@@ -45,17 +45,17 @@ def test_bucket_operation_target_requires_both_fields(payload):
         BucketOperationTarget.model_validate(payload)
 
 
-@pytest.mark.parametrize(
-    ("request_type", "extra"),
-    [
-        (BucketIntegrityBucketRequest, {}),
-        (BucketPurgeBucketRequest, {"confirmation": "PURGE 1 BUCKETS"}),
-    ],
-)
-def test_bucket_requests_share_name_normalization(request_type, extra):
-    request = request_type(buckets=[" bucket-1 ", "bucket-1", " "], **extra)
+def test_bucket_name_requests_share_name_normalization():
+    integrity_request = BucketIntegrityBucketRequest(
+        buckets=[" bucket-1 ", "bucket-1", " "]
+    )
+    purge_request = BucketPurgeRequest(
+        targets=[" bucket-1 ", "bucket-1", " "],
+        confirmation="PURGE 1 BUCKETS",
+    )
 
-    assert request.buckets == ["bucket-1"]
+    assert integrity_request.buckets == ["bucket-1"]
+    assert purge_request.targets == ["bucket-1"]
 
 
 @pytest.mark.parametrize(
@@ -95,7 +95,7 @@ def test_rgw_target_requests_share_deduplication(request_type, extra):
     [
         (BucketIntegrityBucketRequest, {"buckets": ["bucket-1"]}, "targets", [{"context_id": "account-1", "bucket_name": "bucket-1"}]),
         (BucketIntegrityTargetRequest, {"targets": [{"context_id": "account-1", "bucket_name": "bucket-1"}]}, "buckets", ["bucket-1"]),
-        (BucketPurgeBucketRequest, {"buckets": ["bucket-1"], "confirmation": "PURGE 1 BUCKETS"}, "targets", [{"context_id": "account-1", "bucket_name": "bucket-1"}]),
+        (BucketPurgeRequest, {"targets": ["bucket-1"], "confirmation": "PURGE 1 BUCKETS"}, "buckets", ["bucket-1"]),
         (BucketPurgeTargetRequest, {"targets": [{"context_id": "account-1", "bucket_name": "bucket-1"}], "confirmation": "PURGE 1 BUCKETS"}, "buckets", ["bucket-1"]),
         (BucketUsageStatsTargetRequest, {"targets": [{"context_id": "account-1", "bucket_name": "bucket-1"}]}, "buckets", ["bucket-1"]),
     ],
@@ -117,7 +117,7 @@ def test_bucket_operation_requests_expose_only_their_surface_target_shape(
     [
         BucketIntegrityBucketRequest,
         BucketIntegrityTargetRequest,
-        BucketPurgeBucketRequest,
+        BucketPurgeRequest,
         BucketPurgeTargetRequest,
         BucketUsageStatsTargetRequest,
     ],
@@ -129,8 +129,8 @@ def test_bucket_operation_requests_require_a_target_collection(request_type):
 
 def test_purge_requests_validate_confirmation_against_selected_targets():
     with pytest.raises(ValidationError, match="PURGE 2 BUCKETS"):
-        BucketPurgeBucketRequest(
-            buckets=["bucket-1", "bucket-2"],
+        BucketPurgeRequest(
+            targets=["bucket-1", "bucket-2"],
             confirmation="PURGE 1 BUCKETS",
         )
 
@@ -156,13 +156,14 @@ def test_purge_requests_validate_confirmation_against_selected_targets():
 def test_bucket_operation_openapi_models_are_surface_specific():
     schemas = app.openapi()["components"]["schemas"]
 
-    for request_name in (
-        "BucketIntegrityBucketRequest",
-        "BucketPurgeBucketRequest",
-    ):
-        properties = schemas[request_name]["properties"]
-        assert "buckets" in properties
-        assert "targets" not in properties
+    properties = schemas["BucketIntegrityBucketRequest"]["properties"]
+    assert "buckets" in properties
+    assert "targets" not in properties
+
+    properties = schemas["BucketPurgeRequest"]["properties"]
+    assert "targets" in properties
+    assert "buckets" not in properties
+    assert properties["targets"]["items"] == {"type": "string"}
 
     for request_name in (
         "BucketIntegrityTargetRequest",

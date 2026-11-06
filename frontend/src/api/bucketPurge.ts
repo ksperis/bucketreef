@@ -4,7 +4,6 @@
  */
 import type { S3ExecutionContextSelector } from "./accountParams";
 import type {
-  BucketNamesPayload,
   BucketTargetsPayload,
   RgwBucketTargetsPayload,
 } from "./bucketOperation";
@@ -20,7 +19,7 @@ type BucketPurgeOptionsPayload = {
   confirmation: string;
 };
 
-export type BucketPurgeBucketPayload = BucketPurgeOptionsPayload & BucketNamesPayload;
+export type BucketPurgePayload = BucketPurgeOptionsPayload & { targets: string[] };
 type BucketPurgeTargetPayload = BucketPurgeOptionsPayload & BucketTargetsPayload;
 type BucketPurgeRgwTargetPayload = BucketPurgeOptionsPayload & RgwBucketTargetsPayload;
 
@@ -94,7 +93,7 @@ type BucketPurgeStreamOptions = {
 
 export function streamManagerBucketPurge(
   contextId: S3ExecutionContextSelector,
-  payload: BucketPurgeBucketPayload,
+  payload: BucketPurgePayload,
   options?: BucketPurgeStreamOptions
 ): Promise<BucketPurgeResult> {
   const baseUrl = resolveApiBaseUrl();

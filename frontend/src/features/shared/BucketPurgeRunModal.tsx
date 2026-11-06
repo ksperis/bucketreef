@@ -195,7 +195,7 @@ export default function BucketPurgeRunModal(props: BucketPurgeRunModalProps) {
         : props.mode === "manager"
           ? await streamManagerBucketPurge(
               props.contextId,
-              { ...basePayload, include_versions: true, buckets: props.targets.map((target) => target.bucketName) },
+              { ...basePayload, include_versions: true, targets: props.targets.map((target) => target.bucketName) },
               streamOptions,
             )
           : props.mode === "ceph-admin"
