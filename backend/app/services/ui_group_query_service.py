@@ -321,21 +321,13 @@ class UiGroupQueryService:
             system_key=group.system_key,
             description=group.description,
             avatar=UiGroupAvatarService(self.db).descriptor(group),
-            can_access_ceph_admin=bool(group.can_access_ceph_admin),
-            can_access_storage_ops=bool(group.can_access_storage_ops),
-            can_create_manual_private_connections=bool(
-                group.can_create_manual_private_connections
-            ),
-            can_provision_managed_private_connections=bool(
-                group.can_provision_managed_private_connections
-            ),
-            allow_multisite_endpoint_switching=bool(
-                group.allow_multisite_endpoint_switching
-            ),
+            can_access_ceph_admin=group.can_access_ceph_admin,
+            can_access_storage_ops=group.can_access_storage_ops,
+            can_create_manual_private_connections=group.can_create_manual_private_connections,
+            can_provision_managed_private_connections=group.can_provision_managed_private_connections,
+            allow_multisite_endpoint_switching=group.allow_multisite_endpoint_switching,
             manager_tool_access=read_manager_tool_access(group),
-            browser_advanced_features_enabled=bool(
-                group.browser_advanced_features_enabled
-            ),
+            browser_advanced_features_enabled=group.browser_advanced_features_enabled,
             user_details=self._group_user_details(preload.users),
             account_details=self._group_account_details(
                 preload.account_links,

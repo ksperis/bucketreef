@@ -275,8 +275,8 @@ class OnboardingService:
             actor.id,
             actor.role,
             actor.is_active,
-            bool(actor.can_access_ceph_admin),
-            bool(actor.can_create_manual_private_connections),
+            actor.can_access_ceph_admin,
+            actor.can_create_manual_private_connections,
         )
         endpoint_state = None
         if endpoint is not None:
