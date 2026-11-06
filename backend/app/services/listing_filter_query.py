@@ -5,13 +5,14 @@ from __future__ import annotations
 import json
 from typing import TypeVar
 
-from fastapi import HTTPException, status
 from pydantic import BaseModel, ValidationError
-
-from app.utils.http_errors import raise_http_exception_from_exception
 
 
 _ModelT = TypeVar("_ModelT", bound=BaseModel)
+
+
+class ListingFilterQueryError(ValueError):
+    """Raised when an advanced listing filter cannot be parsed or validated."""
 
 
 def parse_filter_query(
@@ -27,10 +28,10 @@ def parse_filter_query(
     try:
         parsed = json.loads(text)
     except json.JSONDecodeError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid advanced_filter JSON") from exc
+        raise ListingFilterQueryError("Invalid advanced_filter JSON") from exc
     if not isinstance(parsed, dict):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="advanced_filter must be a JSON object")
+        raise ListingFilterQueryError("advanced_filter must be a JSON object")
     try:
         return query_cls.model_validate(parsed)
     except ValidationError as exc:
-        raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
+        raise ListingFilterQueryError(str(exc)) from exc

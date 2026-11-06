@@ -19,7 +19,9 @@ from app.routers.listing_common import require_advanced_filter_stream_payload, s
 from app.services.ceph_admin_account_access import optional_account_lookup_enabled
 from app.services.ceph_admin_errors import CephAdminServiceError
 from app.services.ceph_admin_user_listing import compute_users_listing
+from app.services.listing_filter_query import ListingFilterQueryError
 from app.services.listing_progress import ListingProgressSnapshot
+from app.utils.http_errors import raise_bad_request_from_value_error
 
 router = APIRouter(
     prefix="/ceph-admin/endpoints/{endpoint_id}/users",
@@ -44,6 +46,8 @@ def _compute_users_listing(
             progress_callback=progress_callback,
             cancel_check=cancel_check,
         )
+    except ListingFilterQueryError as exc:
+        raise_bad_request_from_value_error(exc)
     except CephAdminServiceError as exc:
         raise_ceph_admin_service_error(exc)
 
