@@ -47,13 +47,13 @@ class PortalSettingsMixin:
         payload = override.model_dump(exclude_unset=True, exclude_none=True)
         account.portal_settings_override = payload or None
         if delegated_to_portal_managers is not None:
-            account.portal_settings_delegated = bool(delegated_to_portal_managers)
+            account.portal_settings_delegated = delegated_to_portal_managers
         if portal_collaborator_role_management_delegated is not None:
-            account.portal_collaborator_role_management_delegated = bool(
+            account.portal_collaborator_role_management_delegated = (
                 portal_collaborator_role_management_delegated
             )
         if portal_collaborator_addition_delegated is not None:
-            account.portal_collaborator_addition_delegated = bool(
+            account.portal_collaborator_addition_delegated = (
                 portal_collaborator_addition_delegated
             )
         self.db.add(account)
@@ -114,11 +114,11 @@ class PortalSettingsMixin:
             feature_states={field: resolve_feature_policy(getattr(base.feature_policies, feature), getattr(admin_override, field))
                             for field, feature in PORTAL_FEATURE_FIELDS.items()},
             admin_override=admin_override,
-            delegated_to_portal_managers=bool(account.portal_settings_delegated),
-            portal_collaborator_role_management_delegated=bool(
+            delegated_to_portal_managers=account.portal_settings_delegated,
+            portal_collaborator_role_management_delegated=(
                 account.portal_collaborator_role_management_delegated
             ),
-            portal_collaborator_addition_delegated=bool(
+            portal_collaborator_addition_delegated=(
                 account.portal_collaborator_addition_delegated
             ),
         )
