@@ -21,6 +21,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.domain_errors import BrowserListingCursorError
 from app.services.access_context_contracts import ManagerActor
 from app.models.app_settings import BrowserSettings
 from app.models.bucket import BucketVersioningStatus
@@ -54,7 +55,7 @@ from app.services.browser_usage_summary_service import (
     get_browser_usage_summary_service,
 )
 from app.services.s3_execution_context import S3ExecutionContext
-from app.utils.http_errors import raise_bad_gateway_from_runtime
+from app.utils.http_errors import raise_bad_gateway_from_runtime, raise_http_exception_from_exception
 
 router = APIRouter(
     prefix="/browser",
@@ -167,6 +168,8 @@ def list_objects(
             context,
             query,
         )
+    except BrowserListingCursorError as exc:
+        raise_http_exception_from_exception(status.HTTP_422_UNPROCESSABLE_CONTENT, exc)
     except RuntimeError as exc:
         raise_bad_gateway_from_runtime(exc)
 

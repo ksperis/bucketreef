@@ -6,8 +6,8 @@ from types import SimpleNamespace
 
 import pytest
 from botocore.exceptions import ClientError
-from fastapi import HTTPException
 
+from app.core.domain_errors import BrowserListingCursorError
 from app.db import S3Account, StorageEndpoint
 from app.models.browser import BrowserObjectListingRequest
 from app.models.portal_storage_spaces import PortalStorageSpaceIcon
@@ -705,7 +705,7 @@ def test_list_objects_sorted_rejects_cursor_when_sort_changes(monkeypatch):
     )
 
     assert first_page.next_continuation_token
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(BrowserListingCursorError) as exc_info:
         _list_objects(service,
             "bucket-a",
             account,
@@ -715,8 +715,7 @@ def test_list_objects_sorted_rejects_cursor_when_sort_changes(monkeypatch):
             sort_dir="desc",
         )
 
-    assert exc_info.value.status_code == 422
-    assert exc_info.value.detail == "Listing filters changed; restart pagination"
+    assert str(exc_info.value) == "Listing filters changed; restart pagination"
 
 
 def test_list_objects_sorted_snapshot_scans_all_s3_pages(monkeypatch):
