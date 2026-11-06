@@ -26,6 +26,8 @@ from app.models.portal_storage_spaces import (
     PortalStorageSpaceVisibility,
 )
 from app.models.portal_sharing import (
+    PaginatedPortalStorageSpaceShareCandidates,
+    PortalShareCandidateListingRequest,
     PortalStorageSpaceAccessPerson,
     PortalStorageSpaceAccessSummary,
     PortalStorageSpaceShare,
@@ -388,13 +390,10 @@ class PortalSharingMixin:
         self,
         user: User,
         access: "AccountAccess",
-        space_id: Optional[str] = None,
+        request: PortalShareCandidateListingRequest,
         *,
-        page: int = 1,
-        page_size: int = 25,
-        search: str | None = None,
-        include_already_shared: bool = False,
-    ) -> tuple[list[PortalStorageSpaceShareCandidate], int]:
+        space_id: Optional[str] = None,
+    ) -> PaginatedPortalStorageSpaceShareCandidates:
         excluded_user_ids, shared_user_ids = self._storage_space_share_candidate_scope(
             user,
             access,
@@ -404,21 +403,21 @@ class PortalSharingMixin:
             account_id=access.account.id,
             excluded_user_ids=excluded_user_ids,
             shared_user_ids=shared_user_ids,
-            include_already_shared=include_already_shared,
-            search=search,
+            include_already_shared=request.include_already_shared,
+            search=request.search,
         )
         targets, total = paginate_scalars(
             self.db,
             statement,
             order_by=(func.lower(User.email).asc(), User.id.asc()),
-            page=page,
-            page_size=page_size,
+            page=request.page,
+            page_size=request.page_size,
         )
         direct_ids, group_ids = self._storage_space_share_candidate_access_sources(
             access.account.id,
             targets,
         )
-        return [
+        items = [
             PortalStorageSpaceShareCandidate(
                 user_id=target.id,
                 email=target.email,
@@ -433,7 +432,14 @@ class PortalSharingMixin:
                 avatar=None,
             )
             for target in targets
-        ], total
+        ]
+        return PaginatedPortalStorageSpaceShareCandidates(
+            items=items,
+            total=total,
+            page=request.page,
+            page_size=request.page_size,
+            has_next=request.page * request.page_size < total,
+        )
 
     def _storage_space_share_candidate_scope(
         self,

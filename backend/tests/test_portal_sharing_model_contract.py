@@ -3,6 +3,7 @@
 
 from app.main import app
 from app.models.portal_sharing import (
+    PortalShareCandidateListingRequest,
     PortalCollaborator,
     PortalCollaboratorAccessReview,
     PortalCollaboratorsResponse,
@@ -42,6 +43,43 @@ def test_portal_sharing_routes_preserve_their_openapi_contracts() -> None:
     assert create_link["responses"]["201"]["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/PortalPublicLink"
     }
+
+    for path in (
+        "/api/portal/share-candidates",
+        "/api/portal/storage-spaces/{space_id}/share-candidates",
+    ):
+        parameters = {
+            parameter["name"]: parameter
+            for parameter in paths[path]["get"]["parameters"]
+            if parameter["in"] == "query"
+        }
+        assert set(parameters) == {
+            "page",
+            "page_size",
+            "search",
+            "include_already_shared",
+            "account_id",
+        }
+        assert parameters["page_size"]["schema"] == {
+            "type": "integer",
+            "maximum": 100,
+            "minimum": 1,
+            "default": 25,
+            "title": "Page Size",
+        }
+
+
+def test_portal_share_candidate_request_preserves_listing_bounds() -> None:
+    schema = PortalShareCandidateListingRequest.model_json_schema()["properties"]
+    assert schema["page"] == {"default": 1, "minimum": 1, "title": "Page", "type": "integer"}
+    assert schema["page_size"] == {
+        "default": 25,
+        "maximum": 100,
+        "minimum": 1,
+        "title": "Page Size",
+        "type": "integer",
+    }
+    assert schema["search"]["anyOf"][0] == {"maxLength": 200, "type": "string"}
 
 
 def test_portal_sharing_responses_require_complete_canonical_payloads() -> None:
