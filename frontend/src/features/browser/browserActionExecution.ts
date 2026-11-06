@@ -14,11 +14,11 @@ type BrowserActionHandler = () => BrowserActionResult;
 type BrowserItemHandler = (item: BrowserItem) => BrowserActionResult;
 type BrowserItemsHandler = (items: BrowserItem[]) => BrowserActionResult;
 
-export type BrowserPathActionHandlers = Partial<
+type BrowserPathActionHandlers = Partial<
   Record<BrowserActionId, BrowserActionHandler>
 >;
 
-export type BrowserItemActionHandlers = {
+type BrowserItemActionHandlers = {
   downloadArchive: (items: BrowserItem[], basePrefix: string) => BrowserActionResult;
   downloadFolder: BrowserItemHandler;
   downloadItems: BrowserItemsHandler;
