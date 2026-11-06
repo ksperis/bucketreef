@@ -77,16 +77,39 @@ class S3AccountDeletionService:
         if admin is None or endpoint is None:
             raise ValueError("RGW account deletion context is unavailable.")
 
+        deletion = self._prepare_remote_deletion(account, deletion, admin, endpoint)
         if deletion is None:
-            remote = self._load_remote_account(account, admin)
-            if remote is None:
-                self._delete_local_account(account)
-                return
-            self._require_remote_account_empty(account, endpoint, admin)
-            deletion = self._claim_deletion(account, endpoint)
-        else:
-            self._validate_pending_deletion(deletion, account, endpoint)
+            return
 
+        self._resume_remote_deletion(account, deletion, admin, endpoint)
+        self._delete_local_account(account, deletion=deletion)
+
+    def _prepare_remote_deletion(
+        self,
+        account: S3Account,
+        deletion: S3AccountDeletion | None,
+        admin: RGWAdminClient,
+        endpoint: StorageEndpoint,
+    ) -> S3AccountDeletion | None:
+        if deletion is not None:
+            self._validate_pending_deletion(deletion, account, endpoint)
+            return deletion
+
+        remote = self._load_remote_account(account, admin)
+        if remote is None:
+            self._delete_local_account(account)
+            return None
+
+        self._require_remote_account_empty(account, endpoint, admin)
+        return self._claim_deletion(account, endpoint)
+
+    def _resume_remote_deletion(
+        self,
+        account: S3Account,
+        deletion: S3AccountDeletion,
+        admin: RGWAdminClient,
+        endpoint: StorageEndpoint,
+    ) -> None:
         if not deletion.iam_cleanup_completed:
             self._require_remote_account_empty(account, endpoint, admin)
             self.iam_cleanup.prepare(account, endpoint)
@@ -102,8 +125,6 @@ class S3AccountDeletionService:
             if self._load_remote_account(account, admin) is not None:
                 self._delete_remote_account(account, admin)
             self._checkpoint(deletion, "remote_account_deleted")
-
-        self._delete_local_account(account, deletion=deletion)
 
     def _pending_deletion(self, account_id: int) -> S3AccountDeletion | None:
         return self.db.scalar(
