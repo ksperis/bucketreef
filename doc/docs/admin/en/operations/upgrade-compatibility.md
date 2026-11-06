@@ -1,5 +1,17 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 canonical bucket migration runtime limits
+
+Bucket migration planning and worker scheduling now use the persisted Manager
+settings as their single runtime source for parallelism and per-endpoint
+concurrency limits. A failure to load those settings is surfaced to the caller
+instead of silently switching to the environment-derived bootstrap defaults.
+
+`BUCKET_MIGRATION_PARALLELISM_MAX` and
+`BUCKET_MIGRATION_MAX_ACTIVE_PER_ENDPOINT` still define the initial defaults
+used when application settings are first bootstrapped. After bootstrap, change
+the corresponding Manager settings through the application settings contract.
+
 ## 2026-11 canonical onboarding completion
 
 Migration `0255_canonical_onboarding_completion` removes the historical

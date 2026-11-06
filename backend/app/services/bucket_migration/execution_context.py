@@ -2,11 +2,8 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-import logging
-
 from sqlalchemy import select
 
-from app.core.config import get_settings
 from app.core.domain_errors import S3AccountNotFoundError, S3ConnectionNotFoundError, S3UserNotFoundError
 from app.db import S3Account, S3Connection, S3User
 from app.services.app_settings_service import load_app_settings_for_db
@@ -14,10 +11,6 @@ from app.services.s3_client import get_s3_client
 from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
 from app.utils.s3_endpoint import normalize_s3_endpoint, resolve_s3_client_options
 from .execution_runtime import MIGRATION_USER_AGENT_MARKER, MigrationRuntimeLimits, ResolvedContext
-
-logger = logging.getLogger(__name__)
-settings = get_settings()
-
 
 class BucketMigrationExecutionContextMixin:
     def _context_client(self, ctx: ResolvedContext):
@@ -39,26 +32,12 @@ class BucketMigrationExecutionContextMixin:
         ))
 
     def _load_runtime_limits(self) -> MigrationRuntimeLimits:
-        env_parallelism_max = settings.bucket_migration_parallelism_max
-        env_parallelism_default = env_parallelism_max
-        env_max_active = settings.bucket_migration_max_active_per_endpoint
-
-        try:
-            manager = load_app_settings_for_db(self.db).manager
-            return MigrationRuntimeLimits(
-                parallelism_default=manager.bucket_migration_parallelism_default,
-                parallelism_max=manager.bucket_migration_parallelism_max,
-                max_active_per_endpoint=manager.bucket_migration_max_active_per_endpoint,
-            )
-        except Exception:  # noqa: BLE001
-            logger.exception(
-                "Unable to load app settings for bucket migration runtime limits, falling back to environment values."
-            )
-            return MigrationRuntimeLimits(
-                parallelism_default=env_parallelism_default,
-                parallelism_max=env_parallelism_max,
-                max_active_per_endpoint=env_max_active,
-            )
+        manager = load_app_settings_for_db(self.db).manager
+        return MigrationRuntimeLimits(
+            parallelism_default=manager.bucket_migration_parallelism_default,
+            parallelism_max=manager.bucket_migration_parallelism_max,
+            max_active_per_endpoint=manager.bucket_migration_max_active_per_endpoint,
+        )
 
     def _resolve_context(self, context_id: str) -> ResolvedContext:
         execution_context = self._context_to_execution_target(context_id)
