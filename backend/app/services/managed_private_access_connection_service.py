@@ -141,16 +141,16 @@ class ManagedPrivateAccessConnectionService:
         if provisioning.remote_principal_type == "iam_user":
             if provisioning.source_context_type == "account":
                 source_account = self.db.get(S3Account, provisioning.source_context_id)
-                account_id = (
-                    source_account.rgw_account_id if source_account is not None else None
-                )
+                if source_account is not None:
+                    user_uid = source_account.rgw_user_uid
+                    tenant = source_account.rgw_tenant
+                    account_id = source_account.rgw_account_id
             elif provisioning.source_context_type == "connection":
                 source_connection = self.db.get(S3Connection, provisioning.source_context_id)
-                account_id = (
-                    source_connection.rgw_account_id
-                    if source_connection is not None
-                    else None
-                )
+                if source_connection is not None:
+                    user_uid = source_connection.rgw_user_uid
+                    tenant = source_connection.rgw_tenant
+                    account_id = source_connection.rgw_account_id
         elif provisioning.remote_principal_type == "rgw_user":
             user_uid, tenant = extract_rgw_user_identity(
                 {"uid": provisioning.remote_principal_identifier}

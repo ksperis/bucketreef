@@ -5,9 +5,10 @@ from datetime import datetime, timezone
 
 import pytest
 
-from app.db import S3Account, StorageEndpoint
+from app.db import S3Account, S3Connection, StorageEndpoint
 from app.services import traffic_service as traffic_service_module
 from app.services.rgw_admin import RGWAdminError
+from app.services.s3_execution_context import S3ExecutionContext
 from app.services.traffic_service import (
     TrafficService,
     TrafficWindow,
@@ -216,6 +217,34 @@ def test_traffic_service_preserves_explicit_account_tenant():
 
     assert fake_client.requests[0]["uid"] == account.rgw_account_id
     assert fake_client.requests[0]["tenant"] == "team_a"
+
+
+def test_traffic_service_uses_persisted_account_identity_from_private_connection():
+    connection = S3Connection(
+        id=7,
+        created_by_user_id=1,
+        name="private-account-access",
+        custom_endpoint_url="https://s3.example.test",
+        custom_region="us-east-1",
+        custom_force_path_style=True,
+        custom_verify_tls=True,
+        custom_provider="ceph",
+        access_key_id="PRIVATE-AK",
+        secret_access_key="PRIVATE-SK",
+        rgw_account_id="RGW12345678901234567",
+        rgw_user_uid="account-root",
+        rgw_tenant="customer01",
+    )
+    context = S3ExecutionContext.from_connection(connection)
+    fake_client = FakeRGWClient([{"entries": []}])
+
+    TrafficService(context, admin_client=fake_client).get_traffic(
+        TrafficWindow.DAY,
+        now=datetime(2024, 3, 10, 12, 0, tzinfo=timezone.utc),
+    )
+
+    assert fake_client.requests[0]["uid"] == "RGW12345678901234567"
+    assert fake_client.requests[0]["tenant"] == "customer01"
 
 
 def test_traffic_service_aggregates_multiple_bucket_filters():
