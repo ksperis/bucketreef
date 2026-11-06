@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 
+import pytest
 import sqlalchemy as sa
 from fastapi.testclient import TestClient
 
@@ -106,6 +107,33 @@ def test_list_usage_history_requires_enabled_feature(client: TestClient, monkeyp
 
     assert response.status_code == 403
     assert response.json()["detail"] == "Usage history is disabled"
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"sort_by": "unknown"},
+        {"sort_dir": "sideways"},
+        {"subject_type": "unknown"},
+        {"granularity": "weekly"},
+    ],
+)
+def test_list_usage_history_rejects_invalid_listing_contract(client: TestClient, params):
+    response = client.get("/api/admin/usage-history", params=params)
+
+    assert response.status_code == 422, response.text
+
+
+def test_list_usage_history_preserves_bad_request_for_invalid_date_boundary(
+    client: TestClient,
+    monkeypatch,
+):
+    monkeypatch.setattr(usage_history_router, "load_app_settings_for_db", lambda _db: _settings(usage_history_enabled=True))
+
+    response = client.get("/api/admin/usage-history", params={"start": "not-a-date"})
+
+    assert response.status_code == 400, response.text
+    assert response.json()["detail"] == "Invalid date boundary, expected YYYY-MM-DD"
 
 
 def test_usage_history_trends_aggregate_endpoint_subjects(client: TestClient, db_session, monkeypatch):

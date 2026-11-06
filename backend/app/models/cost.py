@@ -7,8 +7,28 @@ from typing import Literal, Optional
 
 from pydantic import Field, field_validator, model_validator
 
+from app.models.admin_listing import AdminSortableListingRequest
 from app.models.base import ApiModel
 from app.models.retention import DataRetentionResult
+
+
+CostSubjectType = Literal["all", "account", "s3_user"]
+CostSubjectSortBy = Literal[
+    "name",
+    "endpoint",
+    "cost",
+    "egress",
+    "ingress",
+    "storage",
+    "requests",
+]
+
+
+class CostSubjectListingRequest(AdminSortableListingRequest):
+    month: str = Field(..., description="YYYY-MM")
+    endpoint_id: Optional[int] = None
+    subject_type: CostSubjectType = "all"
+    sort_by: CostSubjectSortBy = "name"
 
 
 class CostEndpointCollectionError(ApiModel):

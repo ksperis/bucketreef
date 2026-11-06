@@ -16,6 +16,8 @@ from app.models.cost import (
     CostAnalyticsResponse,
     CostDailySeriesPoint,
     CostHistoryPoint,
+    CostSubjectListingRequest,
+    CostSubjectSortBy,
     CostSubjectDetail,
     CostSubjectSummary,
     CostSubjectsResponse,
@@ -95,11 +97,8 @@ class CostService:
         )
 
     @staticmethod
-    def _subject_sort_value(entry: CostSubjectSummary, sort_by: str):
-        getter = _COST_SUBJECT_SORT_VALUE_GETTERS.get(
-            sort_by,
-            _COST_SUBJECT_SORT_VALUE_GETTERS["name"],
-        )
+    def _subject_sort_value(entry: CostSubjectSummary, sort_by: CostSubjectSortBy):
+        getter = _COST_SUBJECT_SORT_VALUE_GETTERS[sort_by]
         return getter(entry)
 
     def _summary_for_period(
@@ -152,20 +151,12 @@ class CostService:
 
     def list_subjects(
         self,
-        month: str,
-        endpoint_id: Optional[int],
-        subject_type: str,
-        page: int,
-        page_size: int,
-        sort_by: str,
-        sort_dir: str,
-        search: Optional[str] = None,
+        query: CostSubjectListingRequest,
     ) -> CostSubjectsResponse:
-        period = parse_cost_month(month)
-        subject_type = self._normalize_subject_type(subject_type)
-        items = self._all_subject_summaries(period, endpoint_id, subject_type)
+        period = parse_cost_month(query.month)
+        items = self._all_subject_summaries(period, query.endpoint_id, query.subject_type)
 
-        search_value = (search or "").strip().casefold()
+        search_value = (query.search or "").strip().casefold()
         if search_value:
             items = [
                 entry
@@ -173,17 +164,17 @@ class CostService:
                 if self._subject_matches_search(entry, search_value)
             ]
         items.sort(
-            key=lambda entry: self._subject_sort_value(entry, sort_by),
-            reverse=sort_dir == "desc",
+            key=lambda entry: self._subject_sort_value(entry, query.sort_by),
+            reverse=query.sort_dir == "desc",
         )
         total = len(items)
-        start = max(page - 1, 0) * page_size
-        end = start + page_size
+        start = (query.page - 1) * query.page_size
+        end = start + query.page_size
         return CostSubjectsResponse(
             items=items[start:end],
             total=total,
-            page=page,
-            page_size=page_size,
+            page=query.page,
+            page_size=query.page_size,
             has_next=end < total,
         )
 

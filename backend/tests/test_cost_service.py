@@ -15,7 +15,7 @@ from app.db import CostEndpointOverride, CostModel, CostStorageDaily, CostUsageD
 from app.services.access_context_contracts import AccountAccess, AccountCapabilities
 
 from app.models.app_settings import AppSettings
-from app.models.cost import CostEndpointCollectionError
+from app.models.cost import CostEndpointCollectionError, CostSubjectListingRequest
 from app.main import app
 from app.routers.manager.cost import manager_cost_me
 from app.routers.portal_cost import portal_cost_me
@@ -650,7 +650,14 @@ def test_cost_subject_detail_and_export(db_session):
     db_session.commit()
 
     service = CostService(db_session)
-    subjects = service.list_subjects("2026-01", endpoint.id, "account", 1, 50, "name", "asc")
+    subjects = service.list_subjects(
+        CostSubjectListingRequest(
+            month="2026-01",
+            endpoint_id=endpoint.id,
+            subject_type="account",
+            page_size=50,
+        )
+    )
     detail = service.subject_detail("2026-01", endpoint.id, "account", account.id)
 
     assert subjects.items[0].rgw_identifier == account.rgw_user_uid
@@ -902,6 +909,23 @@ def test_admin_cost_openapi_uses_canonical_subject_type_query_parameter():
         assert "type" not in parameter_names
 
 
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"sort_by": "unknown"},
+        {"sort_dir": "sideways"},
+        {"subject_type": "unknown"},
+    ],
+)
+def test_admin_cost_subjects_reject_invalid_listing_contract(client, params):
+    response = client.get(
+        "/api/admin/cost/subjects",
+        params={"month": "2026-01", **params},
+    )
+
+    assert response.status_code == 422, response.text
+
+
 def test_cost_coverage_tracks_storage_and_usage_days_separately(db_session):
     endpoint = _seed_endpoint(db_session)
     account = _seed_account(db_session, endpoint.id)
@@ -1011,7 +1035,7 @@ def test_cost_subjects_merge_endpoints_and_types_with_global_search_pagination_a
 
     service = CostService(db_session)
 
-    merged = service.list_subjects("2026-01", None, "all", 1, 10, "name", "asc")
+    merged = service.list_subjects(CostSubjectListingRequest(month="2026-01", page_size=10))
     assert merged.total == 4
     assert [item.name for item in merged.items] == ["acme", "alpha-user", "cost-user", "zeta-account"]
     assert {
@@ -1024,40 +1048,50 @@ def test_cost_subjects_merge_endpoints_and_types_with_global_search_pagination_a
         (endpoint_b.id, endpoint_b.name, "s3_user"),
     }
 
-    second_page = service.list_subjects("2026-01", None, "all", 2, 2, "name", "asc")
+    second_page = service.list_subjects(
+        CostSubjectListingRequest(month="2026-01", page=2, page_size=2)
+    )
     assert second_page.total == 4
     assert [item.name for item in second_page.items] == ["cost-user", "zeta-account"]
     assert second_page.has_next is False
 
     endpoint_search = service.list_subjects(
-        "2026-01",
-        None,
-        "all",
-        1,
-        10,
-        "name",
-        "asc",
-        "SECONDARY",
+        CostSubjectListingRequest(
+            month="2026-01",
+            page_size=10,
+            search="SECONDARY",
+        )
     )
     assert {item.name for item in endpoint_search.items} == {"alpha-user", "zeta-account"}
 
     identifier_search = service.list_subjects(
-        "2026-01",
-        None,
-        "all",
-        1,
-        10,
-        "name",
-        "asc",
-        account_a.rgw_user_uid,
+        CostSubjectListingRequest(
+            month="2026-01",
+            page_size=10,
+            search=account_a.rgw_user_uid,
+        )
     )
     assert [item.name for item in identifier_search.items] == [account_a.name]
 
-    users_only = service.list_subjects("2026-01", None, "s3_user", 1, 10, "endpoint", "asc")
+    users_only = service.list_subjects(
+        CostSubjectListingRequest(
+            month="2026-01",
+            subject_type="s3_user",
+            page_size=10,
+            sort_by="endpoint",
+        )
+    )
     assert users_only.total == 2
     assert {item.subject_id for item in users_only.items} == {user_a.id, user_b.id}
 
-    ingress_desc = service.list_subjects("2026-01", None, "all", 1, 10, "ingress", "desc")
+    ingress_desc = service.list_subjects(
+        CostSubjectListingRequest(
+            month="2026-01",
+            page_size=10,
+            sort_by="ingress",
+            sort_dir="desc",
+        )
+    )
     assert [item.name for item in ingress_desc.items[:2]] == [user_b.name, account_b.name]
 
     filename, payload = service.export_csv("2026-01", None, "all")

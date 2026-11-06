@@ -10,11 +10,16 @@ from app.models.base import ApiModel
 AdminSortDir = Literal["asc", "desc"]
 
 
-class AdminPaginatedListingRequest(ApiModel):
-    """Shared query contract for paginated Admin listings."""
+class AdminPaginationRequest(ApiModel):
+    """Shared pagination controls for Admin list routes."""
 
     page: int = Field(default=1, ge=1)
     page_size: int = Field(default=25, ge=1, le=200)
+
+
+class AdminPaginatedListingRequest(AdminPaginationRequest):
+    """Shared pagination and search controls for Admin listings."""
+
     search: Optional[str] = None
 
 

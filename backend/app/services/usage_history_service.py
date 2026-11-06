@@ -10,21 +10,22 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db import QuotaUsageDaily, QuotaUsageHourly, S3Account, S3User, StorageEndpoint
+from app.models.admin_listing import AdminSortDir
 from app.models.usage_history import (
+    UsageHistoryGranularity,
+    UsageHistoryListingRequest,
     UsageHistoryRecord,
     UsageHistoryResponse,
+    UsageHistorySortBy,
     UsageHistorySummary,
+    UsageHistorySubjectType,
     UsageHistoryTrendPoint,
     UsageHistoryTrendResponse,
     UsageHistoryTrendSummary,
+    UsageHistoryTrendWindow,
 )
 from app.utils.time import utcnow
 
-Granularity = Literal["daily", "hourly"]
-SubjectType = Literal["all", "account", "s3_user"]
-SortBy = Literal["period", "subject", "used_bytes", "used_objects", "ratio"]
-SortDir = Literal["asc", "desc"]
-TrendWindow = Literal["day", "week", "month"]
 TrendFilterBuilder = Callable[[Any], list]
 
 
@@ -68,7 +69,7 @@ class UsageHistoryService:
     def empty_trends(
         self,
         *,
-        window: TrendWindow,
+        window: UsageHistoryTrendWindow,
         unavailable_reason: Optional[str] = None,
     ) -> UsageHistoryTrendResponse:
         return UsageHistoryTrendResponse(
@@ -92,9 +93,9 @@ class UsageHistoryService:
     def aggregate_trends(
         self,
         *,
-        window: TrendWindow,
+        window: UsageHistoryTrendWindow,
         endpoint_id: Optional[int] = None,
-        subject_type: SubjectType = "all",
+        subject_type: UsageHistorySubjectType = "all",
         extra_filter_builder: Optional[TrendFilterBuilder] = None,
     ) -> UsageHistoryTrendResponse:
         granularity = self._trend_granularity(window)
@@ -181,22 +182,16 @@ class UsageHistoryService:
 
     def list_records(
         self,
+        query: UsageHistoryListingRequest,
         *,
-        granularity: Granularity,
-        endpoint_id: Optional[int],
-        subject_type: SubjectType,
         start: date | datetime | None,
         end: date | datetime | None,
-        page: int,
-        page_size: int,
-        sort_by: SortBy,
-        sort_dir: SortDir,
     ) -> UsageHistoryResponse:
-        columns = self._history_columns(granularity)
+        columns = self._history_columns(query.granularity)
         filters = self._history_filters(
             columns,
-            endpoint_id=endpoint_id,
-            subject_type=subject_type,
+            endpoint_id=query.endpoint_id,
+            subject_type=query.subject_type,
             start=start,
             end=end,
         )
@@ -209,23 +204,23 @@ class UsageHistoryService:
         rows = self._history_rows(
             columns,
             filters,
-            page=page,
-            page_size=page_size,
-            sort_by=sort_by,
-            sort_dir=sort_dir,
+            page=query.page,
+            page_size=query.page_size,
+            sort_by=query.sort_by,
+            sort_dir=query.sort_dir,
         )
         summary = self._history_summary(columns, filters, total=total)
         return UsageHistoryResponse(
-            items=self._history_items(granularity, rows),
+            items=self._history_items(query.granularity, rows),
             total=total,
-            page=page,
-            page_size=page_size,
-            has_next=page * page_size < total,
+            page=query.page,
+            page_size=query.page_size,
+            has_next=query.page * query.page_size < total,
             summary=summary,
         )
 
     @staticmethod
-    def _history_columns(granularity: Granularity) -> _HistoryColumns:
+    def _history_columns(granularity: UsageHistoryGranularity) -> _HistoryColumns:
         if granularity == "daily":
             return _HistoryColumns(
                 model=QuotaUsageDaily,
@@ -253,7 +248,7 @@ class UsageHistoryService:
         columns: _HistoryColumns,
         *,
         endpoint_id: Optional[int],
-        subject_type: SubjectType,
+        subject_type: UsageHistorySubjectType,
         start: date | datetime | None,
         end: date | datetime | None,
     ) -> list:
@@ -278,8 +273,8 @@ class UsageHistoryService:
         *,
         page: int,
         page_size: int,
-        sort_by: SortBy,
-        sort_dir: SortDir,
+        sort_by: UsageHistorySortBy,
+        sort_dir: AdminSortDir,
     ) -> list:
         model = columns.model
         order_col = {
@@ -332,7 +327,7 @@ class UsageHistoryService:
 
     def _history_items(
         self,
-        granularity: Granularity,
+        granularity: UsageHistoryGranularity,
         rows: list,
     ) -> list[UsageHistoryRecord]:
         return [
@@ -367,11 +362,11 @@ class UsageHistoryService:
         return int(counts.accounts or 0) + int(counts.users or 0)
 
     @staticmethod
-    def _trend_granularity(window: TrendWindow) -> Granularity:
+    def _trend_granularity(window: UsageHistoryTrendWindow) -> UsageHistoryGranularity:
         return "hourly" if window == "day" else "daily"
 
     @staticmethod
-    def _trend_boundaries(window: TrendWindow) -> tuple[date | datetime, date | datetime]:
+    def _trend_boundaries(window: UsageHistoryTrendWindow) -> tuple[date | datetime, date | datetime]:
         now = utcnow()
         if window == "day":
             return now - timedelta(days=1), now
@@ -382,7 +377,7 @@ class UsageHistoryService:
     def _serialize_row(
         self,
         *,
-        granularity: Granularity,
+        granularity: UsageHistoryGranularity,
         row,
         endpoint_name: str,
         account_name: Optional[str],
@@ -445,7 +440,7 @@ class UsageHistoryService:
         )
 
     @staticmethod
-    def _row_values(granularity: Granularity, row) -> _UsageRowValues:
+    def _row_values(granularity: UsageHistoryGranularity, row) -> _UsageRowValues:
         if granularity == "daily":
             return _UsageRowValues(
                 period_start=row.day.isoformat(),

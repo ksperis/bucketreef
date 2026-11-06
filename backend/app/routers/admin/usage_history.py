@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, time, timezone
-from typing import Literal, Optional
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -11,7 +11,14 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.db import User
 from app.models.quota_monitoring import UsageHistoryCollectionResult
-from app.models.usage_history import UsageHistoryResponse, UsageHistoryTrendResponse
+from app.models.usage_history import (
+    UsageHistoryGranularity,
+    UsageHistoryListingRequest,
+    UsageHistoryResponse,
+    UsageHistorySubjectType,
+    UsageHistoryTrendResponse,
+    UsageHistoryTrendWindow,
+)
 from app.routers.dependencies import get_current_ui_admin
 from app.services.app_settings_service import load_app_settings_for_db
 from app.services.operation_lease_service import (
@@ -35,7 +42,7 @@ def _ensure_usage_history_enabled(db: Session) -> None:
 def _parse_boundary(
     value: Optional[str],
     *,
-    granularity: Literal["daily", "hourly"],
+    granularity: UsageHistoryGranularity,
     is_end: bool,
 ) -> date | datetime | None:
     if not value:
@@ -62,38 +69,24 @@ def _parse_boundary(
 
 @router.get("", response_model=UsageHistoryResponse)
 def list_usage_history(
-    granularity: Literal["daily", "hourly"] = Query("daily"),
-    endpoint_id: Optional[int] = Query(None),
-    subject_type: Literal["all", "account", "s3_user"] = Query("all"),
-    start: Optional[str] = Query(None),
-    end: Optional[str] = Query(None),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(50, ge=1, le=200),
-    sort_by: Literal["period", "subject", "used_bytes", "used_objects", "ratio"] = Query("period"),
-    sort_dir: Literal["asc", "desc"] = Query("desc"),
+    query: Annotated[UsageHistoryListingRequest, Query()],
     _: User = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> UsageHistoryResponse:
     _ensure_usage_history_enabled(db)
     service = UsageHistoryService(db)
     return service.list_records(
-        granularity=granularity,
-        endpoint_id=endpoint_id,
-        subject_type=subject_type,
-        start=_parse_boundary(start, granularity=granularity, is_end=False),
-        end=_parse_boundary(end, granularity=granularity, is_end=True),
-        page=page,
-        page_size=page_size,
-        sort_by=sort_by,
-        sort_dir=sort_dir,
+        query,
+        start=_parse_boundary(query.start, granularity=query.granularity, is_end=False),
+        end=_parse_boundary(query.end, granularity=query.granularity, is_end=True),
     )
 
 
 @router.get("/trends", response_model=UsageHistoryTrendResponse)
 def usage_history_trends(
-    window: Literal["day", "week", "month"] = Query("month"),
+    window: UsageHistoryTrendWindow = Query("month"),
     endpoint_id: Optional[int] = Query(None),
-    subject_type: Literal["all", "account", "s3_user"] = Query("all"),
+    subject_type: UsageHistorySubjectType = Query("all"),
     _: User = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> UsageHistoryTrendResponse:

@@ -10,6 +10,17 @@ import {
   withS3ContextParam,
 } from "./accountParams";
 
+export type CostSubjectType = "all" | "account" | "s3_user";
+export type CostSubjectSortBy =
+  | "name"
+  | "endpoint"
+  | "cost"
+  | "egress"
+  | "ingress"
+  | "storage"
+  | "requests";
+export type CostSortDir = "asc" | "desc";
+
 export type CostCoverage = {
   days_collected: number;
   days_in_month: number;
@@ -176,7 +187,7 @@ export type CostAnalyticsConcentration = {
 export type CostAnalyticsResponse = {
   month: string;
   storage_endpoint_id: number | null;
-  subject_type: "all" | "account" | "s3_user";
+  subject_type: CostSubjectType;
   summary: CostSummary;
   by_endpoint: CostAnalyticsEndpoint[];
   top_subjects: CostSubjectSummary[];
@@ -206,11 +217,11 @@ export async function getCostSummary(month: string, endpointId?: number | null):
 export async function getCostSubjects(
   month: string,
   endpointId: number | null,
-  subjectType: "all" | "account" | "s3_user",
+  subjectType: CostSubjectType,
   page = 1,
   pageSize = 25,
-  sortBy = "name",
-  sortDir: "asc" | "desc" = "asc",
+  sortBy: CostSubjectSortBy = "name",
+  sortDir: CostSortDir = "asc",
   search?: string,
 ): Promise<CostSubjectsResponse> {
   const params: Record<string, string | number> = {
@@ -230,7 +241,7 @@ export async function getCostSubjects(
 export async function getCostAnalytics(
   month: string,
   endpointId: number | null,
-  subjectType: "all" | "account" | "s3_user",
+  subjectType: CostSubjectType,
 ): Promise<CostAnalyticsResponse> {
   const params: Record<string, string | number> = { month, subject_type: subjectType };
   if (endpointId != null) params.endpoint_id = endpointId;
@@ -254,7 +265,7 @@ export async function getCostSubjectDetail(
 export async function downloadCostCsv(
   month: string,
   endpointId: number | null,
-  subjectType: "all" | "account" | "s3_user" = "all",
+  subjectType: CostSubjectType = "all",
 ): Promise<Blob> {
   const params: Record<string, string | number> = { month, subject_type: subjectType };
   if (endpointId != null) params.endpoint_id = endpointId;
