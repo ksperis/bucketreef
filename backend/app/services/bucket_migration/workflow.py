@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 
 from app.db import BucketMigration
+from app.models.bucket_migration import BucketMigrationPreparationStatus
 from app.utils.time import utcnow
 
 PRECHECK_MAX_AGE = timedelta(minutes=15)
@@ -76,7 +77,7 @@ def preparation_is_current(migration) -> bool:
     )
 
 
-def preparation_state(migration) -> str:
+def preparation_state(migration) -> BucketMigrationPreparationStatus:
     if migration.preparation_status == "ready" and not preparation_is_current(
         migration
     ):

@@ -21,6 +21,7 @@ export type BucketMigrationStatus =
   | "failed"
   | "rolled_back";
 export type BucketMigrationPrecheckStatus = "pending" | "passed" | "failed";
+export type BucketMigrationPreparationStatus = "unverified" | "checking" | "blocked" | "ready" | "stale";
 export type BucketMigrationMaintenanceOperation = "restore_access" | "cleanup_source" | "cleanup_target";
 export type BucketMigrationMaintenanceStatus = "idle" | "queued" | "running" | "failed" | "completed";
 export type BucketMigrationPrecheckEntry = {
@@ -132,7 +133,7 @@ export type BucketMigrationView = {
   precheck_report: BucketMigrationPrecheckReport | null;
   precheck_checked_at: string | null;
   configuration_revision: number;
-  preparation_status: "unverified" | "checking" | "blocked" | "ready" | "stale";
+  preparation_status: BucketMigrationPreparationStatus;
   preparation_active_checks: boolean;
   preparation_completed_items: number;
   maintenance_operation: BucketMigrationMaintenanceOperation | null;
@@ -159,7 +160,7 @@ export type BucketMigrationListItem = {
   target_context_id: string;
   status: BucketMigrationStatus;
   precheck_checked_at: string | null;
-  preparation_status: "unverified" | "checking" | "blocked" | "ready" | "stale";
+  preparation_status: BucketMigrationPreparationStatus;
   preparation_completed_items: number;
   maintenance_status: BucketMigrationMaintenanceStatus;
   total_items: number;
