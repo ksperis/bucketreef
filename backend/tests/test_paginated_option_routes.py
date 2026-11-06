@@ -13,6 +13,7 @@ from app.routers.admin import groups as groups_router
 from app.routers.admin import openstack as openstack_router
 from app.routers.admin import users as users_router
 from app.routers.manager import buckets as buckets_router
+from app.services.execution_context_catalog_service import ExecutionContextCatalogService
 
 
 def test_manager_bucket_options_search_sort_and_paginate(monkeypatch):
@@ -72,33 +73,53 @@ def test_execution_context_options_filter_search_exclude_and_paginate(monkeypatc
         ),
     ]
 
-    class FakeCatalog:
-        def __init__(self, _db, _session_id):
-            pass
-
-        def list_contexts(self, _user, *, workspace=None):
-            assert workspace == "manager"
-            return contexts
-
-    monkeypatch.setattr(execution_contexts_router, "ExecutionContextCatalogService", FakeCatalog)
-
-    response = execution_contexts_router.list_execution_context_options(
-        request=None,
-        query=ExecutionContextOptionListingRequest(
-            workspace="manager",
-            page=1,
-            page_size=1,
-            search="alpha",
-            exclude_id="connection-alpha",
-            manager_account_admin_only=True,
-        ),
-        user=object(),
-        db=object(),
+    service = ExecutionContextCatalogService.__new__(ExecutionContextCatalogService)
+    monkeypatch.setattr(
+        service,
+        "list_contexts",
+        lambda _user, *, workspace=None: contexts if workspace == "manager" else [],
     )
+    query = ExecutionContextOptionListingRequest(
+        workspace="manager",
+        page=1,
+        page_size=1,
+        search="alpha",
+        exclude_id="connection-alpha",
+        manager_account_admin_only=True,
+    )
+
+    response = service.list_context_options(object(), query)
 
     assert [item.id for item in response.items] == ["account-admin"]
     assert response.total == 1
     assert response.has_next is False
+
+
+def test_execution_context_options_route_forwards_request(monkeypatch):
+    calls = []
+    expected = SimpleNamespace(total=1)
+
+    class FakeCatalog:
+        def __init__(self, _db, _session_id):
+            pass
+
+        def list_context_options(self, user, query):
+            calls.append((user, query))
+            return expected
+
+    monkeypatch.setattr(execution_contexts_router, "ExecutionContextCatalogService", FakeCatalog)
+    query = ExecutionContextOptionListingRequest(search="alpha")
+    user = object()
+
+    response = execution_contexts_router.list_execution_context_options(
+        query=query,
+        request=None,
+        user=user,
+        db=object(),
+    )
+
+    assert response is expected
+    assert calls == [(user, query)]
 
 
 def test_manager_and_execution_context_option_queries_remain_flat_in_openapi():

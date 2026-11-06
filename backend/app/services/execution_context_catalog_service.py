@@ -11,6 +11,9 @@ from app.db import S3Account, S3User, User
 from app.core.domain_enums import is_admin_ui_role
 from app.models.execution_context import (
     ExecutionContext,
+    ExecutionContextOption,
+    ExecutionContextOptionListingRequest,
+    PaginatedExecutionContextOptionsResponse,
     WorkspaceAccess,
     WorkspaceAvailability,
 )
@@ -212,6 +215,51 @@ class ExecutionContextCatalogService:
         from app.services.openstack_service import OpenStackService
         results.extend(OpenStackService(self.db).catalogue(user, self.auth_session_id))
         return results
+
+    def list_context_options(
+        self,
+        user: User,
+        request: ExecutionContextOptionListingRequest,
+    ) -> PaginatedExecutionContextOptionsResponse:
+        contexts = self.list_contexts(user, workspace=request.workspace)
+        needle = request.search.strip().casefold()
+        filtered = [
+            context
+            for context in contexts
+            if (request.exclude_id is None or context.id != request.exclude_id)
+            and (
+                not request.manager_account_admin_only
+                or context.kind != "account"
+                or context.manager_role == "account_administrator"
+            )
+            and (
+                not needle
+                or needle in context.id.casefold()
+                or needle in context.display_name.casefold()
+                or needle in context.endpoint_name.casefold()
+            )
+        ]
+        filtered.sort(key=lambda context: (context.display_name.casefold(), context.id.casefold()))
+        total = len(filtered)
+        start = (request.page - 1) * request.page_size
+        items = [
+            ExecutionContextOption(
+                kind=context.kind,
+                id=context.id,
+                display_name=context.display_name,
+                manager_role=context.manager_role,
+                endpoint_id=context.endpoint_id,
+                endpoint_url=context.endpoint_url,
+            )
+            for context in filtered[start : start + request.page_size]
+        ]
+        return PaginatedExecutionContextOptionsResponse(
+            items=items,
+            total=total,
+            page=request.page,
+            page_size=request.page_size,
+            has_next=request.page * request.page_size < total,
+        )
 
     def _workspace_context_counts(self, user: User, effective) -> dict[str, int]:
         manager_count = (
