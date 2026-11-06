@@ -11,6 +11,13 @@ from fastapi.testclient import TestClient
 
 from app.db import StorageEndpoint, User
 from app.core.domain_enums import StorageProvider, UserRole
+from app.core.domain_errors import (
+    CephMultisiteConflictError,
+    CephMultisiteCredentialsMissingError,
+    CephMultisiteValidationError,
+    StorageEndpointNotFoundError,
+    StorageEndpointProviderError,
+)
 from app.models.ceph_multisite import (
     Flow,
     LocalZoneConfiguration,
@@ -26,6 +33,7 @@ from app.services.access_context_contracts import ManagerSessionPrincipal
 from app.routers import dependencies
 from app.routers.ceph_admin import multisite as multisite_router
 from app.services import ceph_multisite_service as multisite_service_module
+from app.services.ceph_admin_endpoint_service import CephAdminEndpointUnavailableError
 from app.services.ceph_multisite_normalize import (
     MultisiteContractError,
     normalize_bilog_info,
@@ -756,7 +764,7 @@ def test_bucket_diagnostic_reauthorizes_source_before_cached_reads(db_session, m
     source.ceph_admin_allowed = False
     db_session.flush()
 
-    with pytest.raises(HTTPException) as raised:
+    with pytest.raises(CephAdminEndpointUnavailableError):
         service.bucket(
             source_endpoint_id=source.id,
             destination_endpoint_id=destination.id,
@@ -765,7 +773,6 @@ def test_bucket_diagnostic_reauthorizes_source_before_cached_reads(db_session, m
             source_bucket="bucket-source",
         )
 
-    assert raised.value.status_code == 403
     assert calls == calls_before_revoke
 
 
@@ -809,7 +816,7 @@ def test_topology_and_overview_tolerate_secondary_revoked_after_listing(db_sessi
     def resolve(endpoint_id: int):
         if endpoint_id == local.id:
             return local
-        raise HTTPException(403, "Ceph Admin is not active on this endpoint")
+        raise CephAdminEndpointUnavailableError("Ceph Admin is not active on this endpoint")
 
     monkeypatch.setattr(service, "resolve", resolve)
 
@@ -887,6 +894,87 @@ def test_multisite_routes_reject_portal_s3_session(db_session) -> None:
 
     assert response.status_code == 403
     assert response.json()["detail"] == "S3 session not allowed for this endpoint"
+
+
+def test_multisite_route_translates_service_construction_not_found(db_session) -> None:
+    app = _auth_app(db_session)
+    app.dependency_overrides[multisite_router.get_current_ceph_admin] = lambda: SimpleNamespace(id=10)
+
+    with TestClient(app) as client:
+        response = client.get("/ceph-admin/endpoints/999/multisite/topology")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Storage endpoint not found"
+
+
+def test_multisite_flow_route_translates_service_validation(db_session) -> None:
+    app = _auth_app(db_session)
+
+    class Service:
+        @staticmethod
+        def resolve(_endpoint_id):
+            return object()
+
+        @staticmethod
+        def topology():
+            return object()
+
+        @staticmethod
+        def flow(*_args):
+            raise CephMultisiteValidationError("Source and destination zones must differ")
+
+    app.dependency_overrides[multisite_router.service] = Service
+
+    with TestClient(app) as client:
+        response = client.get(
+            "/ceph-admin/endpoints/1/multisite/flows/status",
+            params={
+                "destination_endpoint_id": 2,
+                "source_zone_id": "zone-a",
+                "family": "data",
+            },
+        )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Source and destination zones must differ"
+
+
+@pytest.mark.parametrize(
+    ("error", "status_code", "detail"),
+    [
+        (StorageEndpointNotFoundError("missing"), 404, "Storage endpoint not found"),
+        (StorageEndpointProviderError("wrong provider"), 400, "Storage endpoint is not a Ceph provider"),
+        (
+            CephAdminEndpointUnavailableError("configuration changed"),
+            403,
+            "Ceph Admin is not active on this endpoint",
+        ),
+        (
+            CephMultisiteCredentialsMissingError("Ceph Admin credentials are not configured"),
+            403,
+            "Ceph Admin credentials are not configured",
+        ),
+        (
+            CephMultisiteValidationError("Source and destination zones must differ"),
+            422,
+            "Source and destination zones must differ",
+        ),
+        (
+            CephMultisiteConflictError("Bucket instance changed; reload the diagnostic"),
+            409,
+            "Bucket instance changed; reload the diagnostic",
+        ),
+    ],
+)
+def test_multisite_router_translates_service_errors(error, status_code, detail) -> None:
+    def fail():
+        raise error
+
+    with pytest.raises(HTTPException) as raised:
+        multisite_router._run_multisite_action(fail)
+
+    assert raised.value.status_code == status_code
+    assert raised.value.detail == detail
 
 
 class _FakeFuture:
