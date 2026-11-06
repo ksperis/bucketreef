@@ -78,8 +78,6 @@ class OnboardingService:
 
     @staticmethod
     def draft(row) -> OnboardingDraft:
-        if not isinstance(row.draft, dict) or not isinstance(row.resources, dict):
-            raise ValueError("Onboarding journey payload is invalid")
         data = dict(row.draft)
         resources = row.resources
         if resources.get("endpoint_id"):
@@ -414,8 +412,6 @@ class OnboardingService:
             return self.output(actor, row)
 
     def checkpoint(self, row, **resources):
-        if not isinstance(row.resources, dict):
-            raise ValueError("Onboarding journey resources are invalid")
         row.resources = {**row.resources, **resources}
         row.pending_step = None
         row.updated_at = utcnow()
