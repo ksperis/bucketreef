@@ -2,9 +2,9 @@
 # Licensed under the Apache License, Version 2.0
 from uuid import uuid4
 
-from fastapi import HTTPException
 from sqlalchemy import delete, func, select, update
 
+from app.core.domain_errors import BrowserFavoriteConflictError, BrowserFavoriteNotFoundError
 from app.core.db_transactions import commit_or_rollback
 from app.db.browser_favorite import BrowserFavorite
 from app.models.browser_favorites import BrowserFavoriteInput, BrowserFavoriteOut
@@ -34,7 +34,7 @@ class BrowserFavoritesService:
             )
         )
         if favorite_count >= 500:
-            raise HTTPException(status_code=409, detail="The 500 favorites limit has been reached")
+            raise BrowserFavoriteConflictError("The 500 favorites limit has been reached")
         row = BrowserFavorite(
             id=str(uuid4()),
             user_id=user.id,
@@ -54,7 +54,7 @@ class BrowserFavoritesService:
             )
         )
         if owned is None:
-            raise HTTPException(status_code=404, detail="Favorite not found")
+            raise BrowserFavoriteNotFoundError("Favorite not found")
         predicate = (
             BrowserFavorite.id == favorite_id,
             BrowserFavorite.user_id == user.id,
@@ -74,9 +74,8 @@ class BrowserFavoritesService:
         result = self.db.execute(statement.execution_options(synchronize_session=False))
         if result.rowcount != 1:
             self.db.rollback()
-            raise HTTPException(
-                status_code=409,
-                detail="This favorite changed in another browser. Refresh before editing it.",
+            raise BrowserFavoriteConflictError(
+                "This favorite changed in another browser. Refresh before editing it."
             )
         commit_or_rollback(self.db)
         if payload is None:

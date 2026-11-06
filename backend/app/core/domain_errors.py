@@ -63,6 +63,14 @@ class AvatarNotFoundError(ResourceNotFoundError):
     pass
 
 
+class BrowserFavoriteNotFoundError(ResourceNotFoundError):
+    pass
+
+
+class BrowserFavoriteConflictError(ResourceConflictError):
+    pass
+
+
 class ExternalIdentityNotFoundError(ResourceNotFoundError):
     pass
 
