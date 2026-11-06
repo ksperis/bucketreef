@@ -9,11 +9,11 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from app.db import User
 from app.services.access_context_contracts import AccountAccess
+from app.models.access_key_metadata import AccessKeyStatusChange
 from app.models.portal_access_keys import (
     PortalAccessKey,
     PortalAccessKeyCreate,
     PortalAccessKeysState,
-    PortalAccessKeyStatusChange,
 )
 from app.routers.dependencies import get_audit_service, get_portal_account_access
 from app.routers.portal_common import get_portal_service_dependency, raise_portal_error
@@ -66,7 +66,7 @@ def create_portal_access_key(
 @router.put("/access-keys/{access_key_id}/status", response_model=PortalAccessKey)
 def update_portal_access_key_status(
     access_key_id: str,
-    payload: PortalAccessKeyStatusChange,
+    payload: AccessKeyStatusChange,
     access: AccountAccess = Depends(get_portal_account_access),
     audit_service: AuditService = Depends(get_audit_service),
     service: PortalService = Depends(get_portal_service_dependency),

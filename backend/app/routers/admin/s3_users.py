@@ -15,9 +15,9 @@ from app.models.s3_user import (
     S3UserCreate,
     S3UserGeneratedKey,
     S3UserImport,
-    S3UserAccessKeyStatusChange,
     S3UserUpdate,
 )
+from app.models.access_key_metadata import AccessKeyStatusChange
 from app.routers.dependencies import (
     get_audit_service,
     get_current_ui_admin,
@@ -209,7 +209,7 @@ def create_s3_user_access_key(
 def update_s3_user_access_key_status(
     user_id: int,
     access_key: str,
-    payload: S3UserAccessKeyStatusChange,
+    payload: AccessKeyStatusChange,
     service: S3UsersService = Depends(get_admin_s3_users_service),
     current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),

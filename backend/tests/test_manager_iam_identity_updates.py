@@ -10,10 +10,10 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.models.iam import (
-    AccessKey, AccessKeyStatusChange, IAMGroup, IAMGroupCreate, IAMGroupUpdate, IAMRole,
+    AccessKey, IAMGroup, IAMGroupCreate, IAMGroupUpdate, IAMRole,
     IAMRoleCreate, IAMRoleUpdate, IAMTag, IAMUser, IAMUserCreate, IAMUserUpdate,
 )
-from app.models.access_key_metadata import AccessKeyMetadataInput
+from app.models.access_key_metadata import AccessKeyMetadataInput, AccessKeyStatusChange
 from app.models.policy import InlinePolicy, Policy
 from app.routers.manager import iam_common, iam_groups, iam_roles, iam_users
 from app.services import manager_iam_support

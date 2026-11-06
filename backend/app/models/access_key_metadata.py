@@ -35,6 +35,10 @@ class AccessKeyMetadata(AccessKeyMetadataInput):
     expiration_last_error: Optional[str] = None
 
 
+class AccessKeyStatusChange(ApiModel):
+    active: bool
+
+
 class AccessKeyExpirationRunResult(ApiModel):
     status: Literal["ok"]
     processed: int

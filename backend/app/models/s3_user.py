@@ -150,10 +150,6 @@ class S3UserGeneratedKey(AccessKeyMetadata):
     created_at: Optional[datetime] = None
 
 
-class S3UserAccessKeyStatusChange(ApiModel):
-    active: bool
-
-
 class S3UserSummary(ApiModel):
     id: int
     name: str
