@@ -6,7 +6,7 @@ import {
   buildBrowserObjectTableLayout,
   buildBrowserItems,
   buildBrowserPathStats,
-  collectAvailableStorageClasses,
+  buildSearchableStorageClasses,
   createLazyColumnCacheEntry,
   loadColumnWidthsForSurface,
   loadVisibleColumnsForSurface,
@@ -202,6 +202,40 @@ describe("browserObjectTableModel", () => {
       deletedFolders: 1,
       storageCounts: { GLACIER: 2, STANDARD: 1 },
     });
-    expect(collectAvailableStorageClasses(items)).toEqual(["GLACIER"]);
+    expect(buildSearchableStorageClasses(items)).toEqual([
+      "STANDARD",
+      "STANDARD_IA",
+      "ONEZONE_IA",
+      "INTELLIGENT_TIERING",
+      "GLACIER",
+      "GLACIER_IR",
+      "DEEP_ARCHIVE",
+    ]);
+  });
+
+  it("appends unknown storage classes after the canonical options", () => {
+    const items = buildBrowserItems(
+      [],
+      [],
+      [
+        { key: "first", size: 1, storage_class: "Z_CUSTOM" },
+        { key: "second", size: 1, storage_class: "STANDARD_IA" },
+        { key: "third", size: 1, storage_class: "A_CUSTOM" },
+      ],
+      [],
+      "",
+    );
+
+    expect(buildSearchableStorageClasses(items)).toEqual([
+      "STANDARD",
+      "STANDARD_IA",
+      "ONEZONE_IA",
+      "INTELLIGENT_TIERING",
+      "GLACIER",
+      "GLACIER_IR",
+      "DEEP_ARCHIVE",
+      "A_CUSTOM",
+      "Z_CUSTOM",
+    ]);
   });
 });

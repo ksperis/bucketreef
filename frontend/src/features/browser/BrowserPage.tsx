@@ -90,14 +90,13 @@ import BrowserPrefixVersionsModal from "./BrowserPrefixVersionsModal";
 import {
   DEFAULT_FOLDERS_PANEL_WIDTH_PX,
 } from "./browserRootUiState";
-import { storageClassOptions } from "./browserConstants";
 import type { BrowserPageProps } from "./browserPageContract";
 import { getSelectionInfo, normalizePrefix } from "./browserUtils";
 import {
   COLUMN_DEFINITIONS,
   SELECTION_COLUMN_WIDTH_PX,
   buildBrowserItems,
-  collectAvailableStorageClasses,
+  buildSearchableStorageClasses,
   type BrowserColumnId,
 } from "./browserObjectTableModel";
 import {
@@ -766,18 +765,10 @@ export default function BrowserPage({
     isPortalBrowserSurface,
   });
 
-  const availableStorageClasses = useMemo(
-    () => collectAvailableStorageClasses(items),
+  const searchableStorageClasses = useMemo(
+    () => buildSearchableStorageClasses(items),
     [items],
   );
-  const searchableStorageClasses = useMemo(() => {
-    const ordered = storageClassOptions.map((option) => option.value);
-    const known = new Set(ordered);
-    const unknown = availableStorageClasses
-      .filter((value) => !known.has(value))
-      .sort((a, b) => a.localeCompare(b));
-    return [...ordered, ...unknown];
-  }, [availableStorageClasses]);
 
   const {
     canLoadMore: canLoadMorePrefixVersions,
@@ -799,8 +790,7 @@ export default function BrowserPage({
     requestOptions: browserRequestOptions,
     versioningEnabled: isVersioningEnabled,
   });
-  const selectionItems = selectedItems;
-  const selectionInfo = getSelectionInfo(selectionItems);
+  const selectionInfo = getSelectionInfo(selectedItems);
   const selectionFiles = selectionInfo.files;
   const selectionPrimary = selectionInfo.primary;
 
@@ -896,7 +886,7 @@ export default function BrowserPage({
     capabilityFacts: resolvedCapabilityFacts,
     bucketConfigurationAvailable: bucketConfigurationEnabled,
     bucketConfigurationReadOnly: workspaceSurface === "portal",
-    selectionItems,
+    selectionItems: selectedItems,
     copyUrlDisabled: sseActive,
     copyUrlDisabledReason,
     publicLinkAvailable:
@@ -1447,7 +1437,7 @@ export default function BrowserPage({
         deleteItems: handleDeleteItems,
       },
       selection: {
-        items: selectionItems,
+        items: selectedItems,
         files: selectionFiles,
         primary: selectionPrimary,
         isSearchingInWholeBucket,
