@@ -312,14 +312,16 @@ def test_app_settings_global_load_propagates_db_errors(monkeypatch):
 
 
 def test_app_settings_db_payload_is_parsed_strictly():
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValueError, match="must contain a JSON object"):
         app_settings_service._parse_settings_payload("{")
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValueError, match="must contain a JSON object"):
         app_settings_service._parse_settings_payload("[]")
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValueError, match="must contain a JSON object"):
         app_settings_service._parse_settings_payload(
             '{"branding":{"primary_color":"blue"}}'
         )
+    with pytest.raises(ValueError, match="must contain a JSON object"):
+        app_settings_service._parse_settings_payload(AppSettings())
 
 
 @pytest.mark.parametrize(
