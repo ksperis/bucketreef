@@ -82,6 +82,10 @@ Key areas:
   See [Dedicated Ceph Admin instance](../security/ceph-admin.md) for an isolated
   `full` configuration and migration from removed profiles.
 - Cost, quota monitoring, usage history collection, and healthcheck behavior.
+- Bucket migration worker tuning: `BUCKET_MIGRATION_POLL_INTERVAL_SECONDS`
+  (minimum `0.2`), `BUCKET_MIGRATION_PARALLELISM_MAX` (`1` to `128`),
+  `BUCKET_MIGRATION_MAX_ACTIVE_PER_ENDPOINT` (`1` to `64`), and
+  `BUCKET_MIGRATION_WORKER_LEASE_SECONDS` (minimum `15`).
 - Backend replica and lease coordination: `BACKEND_REPLICAS`, `OPERATION_LEASE_TTL_SECONDS`, and `COST_OPERATION_LEASE_TTL_SECONDS`.
 - Shared history retention: `COST_DAILY_RETENTION_DAYS`, `QUOTA_HISTORY_HOURLY_RETENTION_DAYS`, `QUOTA_HISTORY_DAILY_RETENTION_DAYS`.
 - User notification retention: `USER_NOTIFICATIONS_RETENTION_DAYS` (default `90`; `0` disables purge) and the daily `NOTIFICATION_RETENTION_CRON_SCHEDULE` Compose job or `notificationRetentionCronJob` Helm job.

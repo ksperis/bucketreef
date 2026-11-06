@@ -524,14 +524,19 @@ class Settings(BaseSettings):
     )
     bucket_migration_poll_interval_seconds: float = Field(
         2.0,
+        ge=0.2,
         description="Polling interval for bucket migration worker (BUCKET_MIGRATION_POLL_INTERVAL_SECONDS)",
     )
     bucket_migration_parallelism_max: int = Field(
         16,
+        ge=1,
+        le=128,
         description="Global maximum parallel copy/delete workers for bucket migration (BUCKET_MIGRATION_PARALLELISM_MAX)",
     )
     bucket_migration_max_active_per_endpoint: int = Field(
         2,
+        ge=1,
+        le=64,
         description=(
             "Maximum number of concurrently claimed bucket migrations that can use the same source or target endpoint "
             "(BUCKET_MIGRATION_MAX_ACTIVE_PER_ENDPOINT)"
@@ -539,6 +544,7 @@ class Settings(BaseSettings):
     )
     bucket_migration_worker_lease_seconds: int = Field(
         120,
+        ge=15,
         description="Duration of worker lease on a migration before takeover is allowed (BUCKET_MIGRATION_WORKER_LEASE_SECONDS)",
     )
     webhook_worker_enabled: bool = Field(

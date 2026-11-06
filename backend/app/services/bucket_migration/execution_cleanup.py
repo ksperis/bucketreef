@@ -20,7 +20,7 @@ class BucketMigrationCleanupMixin:
             result = purge_bucket_contents(
                 client,
                 target_bucket,
-                parallelism=max(1, min(int(manager_settings.bucket_migration_parallelism_max or 10), 64)),
+                parallelism=manager_settings.bucket_migration_parallelism_max,
                 include_versions=True,
                 tolerate_missing_bucket=True,
             )

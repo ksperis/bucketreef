@@ -115,6 +115,22 @@ def test_settings_reject_healthcheck_values_below_runtime_minimums(setting, valu
         Settings(_env_file=None, **{setting: value})
 
 
+@pytest.mark.parametrize(
+    ("setting", "value"),
+    [
+        ("bucket_migration_poll_interval_seconds", 0.19),
+        ("bucket_migration_parallelism_max", 0),
+        ("bucket_migration_parallelism_max", 129),
+        ("bucket_migration_max_active_per_endpoint", 0),
+        ("bucket_migration_max_active_per_endpoint", 65),
+        ("bucket_migration_worker_lease_seconds", 14),
+    ],
+)
+def test_settings_reject_bucket_migration_values_outside_runtime_limits(setting, value):
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, **{setting: value})
+
+
 @pytest.mark.parametrize("variable", ["UI_JWT_KEYS", "API_JWT_KEYS", "CREDENTIAL_KEYS"])
 def test_settings_reject_empty_keyrings(monkeypatch, variable):
     monkeypatch.setenv(variable, "[]")
