@@ -7,14 +7,10 @@ import {
   resolveApiBaseUrl,
   streamBucketsWithSse,
 } from "./sseBucketsStream";
-
-export type BucketIndexCheckTarget = {
-  name: string;
-  tenant?: string | null;
-};
+import type { RgwBucketReference } from "./bucketOperation";
 
 type BucketIndexCheckPayload = {
-  targets: BucketIndexCheckTarget[];
+  targets: RgwBucketReference[];
   parallelism?: number;
 };
 
