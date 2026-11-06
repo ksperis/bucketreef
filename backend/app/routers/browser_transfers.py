@@ -18,7 +18,6 @@ from app.models.browser import (
     MultipartUploadInitResponse,
     ObjectUploadResponse,
     PresignPartRequest,
-    PresignPartResponse,
     PresignRequest,
     PresignedUrl,
     SseCustomerContext,
@@ -192,7 +191,7 @@ def list_multipart_uploads(
 
 
 
-@router.post("/buckets/{bucket_name}/multipart/{upload_id}/presign", response_model=PresignPartResponse)
+@router.post("/buckets/{bucket_name}/multipart/{upload_id}/presign", response_model=PresignedUrl)
 def presign_part_for_upload(
     bucket_name: str,
     upload_id: str,
@@ -201,7 +200,7 @@ def presign_part_for_upload(
     service: BrowserService = Depends(get_browser_service),
     sse_customer: Optional[SseCustomerContext] = Depends(get_optional_sse_customer_context),
     _: ManagerActor = Depends(get_current_account_admin),
-) -> PresignPartResponse:
+) -> PresignedUrl:
     if not payload.key:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing key")
     payload.upload_id = upload_id

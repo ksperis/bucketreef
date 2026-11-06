@@ -15,7 +15,6 @@ import type {
 } from "../../api/browserContracts";
 import type {
   PresignPartRequest,
-  PresignPartResponse,
 } from "../../api/browserMultipart";
 import type {
   PresignRequest,
@@ -94,7 +93,7 @@ export const presignPartWithSts = async (
   bucketName: string,
   uploadId: string,
   payload: PresignPartRequest
-): Promise<PresignPartResponse> => {
+): Promise<PresignedUrl> => {
   const client = buildClient(credentials);
   const expiresIn = resolveExpires(payload.expires_in);
   const command = new UploadPartCommand({

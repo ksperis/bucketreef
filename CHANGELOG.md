@@ -19,6 +19,7 @@
 - Share one neutral bucket-listing parameter contract between Ceph Admin, Storage Ops, and the common bucket-operation helpers.
 - Reuse the canonical IAM inline-policy contract for managed private-access provisioning instead of maintaining a duplicate frontend shape.
 - Reuse one cost-history point contract for subject details and aggregate analytics.
+- Reuse the canonical presigned-URL response contract for object and multipart-part signing across backend and frontend.
 
 ### Fixed
 

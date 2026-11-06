@@ -8,7 +8,6 @@ import type { StsCredentials } from "../../api/browserContracts";
 import {
   presignPart,
   type PresignPartRequest,
-  type PresignPartResponse,
 } from "../../api/browserMultipart";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
 import {
@@ -116,7 +115,7 @@ export function useBrowserPresignRequests({
       bucketName: string,
       uploadId: string,
       payload: PresignPartRequest,
-    ): Promise<PresignPartResponse> => {
+    ): Promise<PresignedUrl> => {
       if (uploadMode === "sts") {
         const stsResponse = await tryStsPresign(
           ensureStsCredentials,
