@@ -19,6 +19,10 @@ class StorageEndpointProviderError(ValueError):
     """Raised when an endpoint does not provide the storage backend a workflow requires."""
 
 
+class StorageEndpointFeatureDisabledError(ValueError):
+    """Raised when a storage endpoint disables a feature required by a workflow."""
+
+
 class S3UserNotFoundError(ResourceNotFoundError):
     pass
 

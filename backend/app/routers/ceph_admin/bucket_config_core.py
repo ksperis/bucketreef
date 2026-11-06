@@ -21,7 +21,7 @@ from app.routers.ceph_admin.bucket_config_common import (
     _run_bucket_config_update,
     ceph_admin_bucket_target,
 )
-from app.services.storage_endpoint_feature_guards import require_sse_feature
+from app.routers.storage_endpoint_feature_guards import require_sse_feature
 from app.routers.ceph_admin.dependencies import (
     get_ceph_admin_context,
 )

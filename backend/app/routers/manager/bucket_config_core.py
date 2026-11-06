@@ -13,7 +13,7 @@ from app.models.bucket import (
     BucketVersioningStatus,
     BucketVersioningUpdate,
 )
-from app.services.storage_endpoint_feature_guards import require_sse_feature
+from app.routers.storage_endpoint_feature_guards import require_sse_feature
 from app.routers.dependencies import get_s3_execution_context, get_current_account_admin
 from app.routers.manager.bucket_config_common import get_manager_bucket_config_mutation_service
 from app.services import bucket_config_actions

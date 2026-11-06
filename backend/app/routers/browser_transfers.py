@@ -23,7 +23,7 @@ from app.models.browser import (
     SseCustomerContext,
     StsStatus,
 )
-from app.services.storage_endpoint_feature_guards import require_sse_feature
+from app.routers.storage_endpoint_feature_guards import require_sse_feature
 from app.routers.s3_download_response import S3DownloadResponse
 from app.routers.dependencies import (
     get_s3_execution_context,
