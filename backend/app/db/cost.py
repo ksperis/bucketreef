@@ -138,7 +138,6 @@ class CostStorageDaily(Base):
     s3_user_id = Column(Integer, ForeignKey("s3_users.id"), nullable=True, index=True)
     total_bytes = Column(BigInteger, nullable=False, default=0, server_default="0")
     total_objects = Column(BigInteger, nullable=False, default=0, server_default="0")
-    by_bucket = Column(JSON(none_as_null=True), nullable=True)
     source = Column(String, nullable=False, default="rgw_admin_bucket_stats")
     collected_at = Column(UTCDateTime(), nullable=False, default=utcnow)
 

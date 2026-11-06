@@ -20,6 +20,7 @@ from app.db import Base
 
 
 _RECENT_LINEAR_REVISIONS = (
+    "0250_remove_cost_by_bucket",
     "0249_canonical_browser_favorites",
     "0248_remove_migration_runtime_timestamps",
     "0247_remove_migration_last_heartbeat",

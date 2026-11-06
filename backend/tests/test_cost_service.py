@@ -422,7 +422,7 @@ def test_cost_bucket_stats_accept_explicit_empty_usage_map(db_session):
         def get_all_buckets(self, **_kwargs):
             return [{"bucket": "empty", "usage": {}}]
 
-    total_bytes, total_objects, _by_bucket = collector._collect_bucket_stats(
+    total_bytes, total_objects = collector._collect_bucket_stats(
         FakeRgwAdmin(), "empty-user"
     )
 
