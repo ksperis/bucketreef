@@ -19,19 +19,15 @@ BucketPurgeStatus = Literal["completed", "completed_with_errors", "failed", "can
 BucketPurgeStage = Literal["prepare", "list", "delete", "versions", "delete_bucket", "completed"]
 
 
-class BucketPurgeRequestOptions(ApiModel):
+class BucketPurgeRequest(ApiModel):
+    targets: BucketNameList
     parallelism: int = Field(default=10, ge=1, le=64)
     include_versions: bool = True
     confirmation: str = ""
 
     @model_validator(mode="after")
     def validate_confirmation(self):
-        selected = getattr(self, "buckets", None)
-        if selected is None:
-            selected = getattr(self, "targets", None)
-        if selected is None:
-            raise ValueError("Purge request must define buckets or targets.")
-        _validate_purge_confirmation(self.confirmation, len(selected))
+        _validate_purge_confirmation(self.confirmation, len(self.targets))
         return self
 
 
@@ -45,15 +41,11 @@ def _validate_purge_confirmation(confirmation: str, target_count: int) -> None:
         raise ValueError(f"Confirmation must be exactly '{expected}'.")
 
 
-class BucketPurgeBucketRequest(BucketPurgeRequestOptions):
-    buckets: BucketNameList
-
-
-class BucketPurgeTargetRequest(BucketPurgeRequestOptions):
+class BucketPurgeTargetRequest(BucketPurgeRequest):
     targets: BucketTargetList
 
 
-class BucketPurgeRgwTargetRequest(BucketPurgeRequestOptions):
+class BucketPurgeRgwTargetRequest(BucketPurgeRequest):
     targets: RgwBucketReferenceList
 
 

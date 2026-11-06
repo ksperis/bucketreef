@@ -25,7 +25,7 @@ describe("bucket purge streams", () => {
   it("posts manager payload and parses progress/result events", async () => {
     const progressEvents: Array<{ deleted: number; listed: number }> = [];
     const payload = {
-      buckets: ["bucket-a"],
+      targets: ["bucket-a"],
       parallelism: 4,
       include_versions: true,
       confirmation: "PURGE 1 BUCKETS",

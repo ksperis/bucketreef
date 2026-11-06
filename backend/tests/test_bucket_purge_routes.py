@@ -17,7 +17,6 @@ from app.main import app
 from app.models.app_settings import AppSettings
 from app.models.bucket_purge import (
     BucketPurgeBucketResult,
-    BucketPurgeBucketRequest,
     BucketPurgeFailure,
     BucketPurgeProgress,
     BucketPurgeRgwTargetRequest,
@@ -113,7 +112,7 @@ def test_manager_purge_route_rejects_wrong_confirmation_during_request_validatio
         with TestClient(app) as client:
             response = client.post(
                 "/api/manager/bucket-purge/stream?context_id=s3u-1",
-                json={"buckets": ["bucket-a", "bucket-b"], "confirmation": "PURGE 1 BUCKETS"},
+                json={"targets": ["bucket-a", "bucket-b"], "confirmation": "PURGE 1 BUCKETS"},
             )
     finally:
         app.dependency_overrides = previous_overrides
@@ -192,7 +191,7 @@ def test_manager_purge_route_streams_progress_and_result(monkeypatch):
             response = client.post(
                 "/api/manager/bucket-purge/stream?context_id=s3u-1",
                 json={
-                    "buckets": ["bucket-a"],
+                    "targets": ["bucket-a"],
                     "parallelism": 4,
                     "include_versions": True,
                     "confirmation": "PURGE 1 BUCKETS",
