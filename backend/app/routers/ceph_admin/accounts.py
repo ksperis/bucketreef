@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import logging
-from typing import Callable
+from typing import Annotated, Callable
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 
 from app.models.ceph_admin import PaginatedCephAdminAccountsResponse
+from app.models.ceph_admin_identity_listing import CephAdminAccountListingRequest
 from app.routers.ceph_admin.dependencies import (
     get_ceph_admin_context,
 )
@@ -26,25 +27,13 @@ logger = logging.getLogger(__name__)
 
 def _compute_accounts_listing(
     *,
-    page: int = Query(1, ge=1),
-    page_size: int = Query(25, ge=1, le=200),
-    search: str | None = Query(None),
-    advanced_filter: str | None = Query(None),
-    sort_by: str = Query("account_id"),
-    sort_dir: str = Query("asc"),
-    include: list[str] = Query(default=[]),
+    query: CephAdminAccountListingRequest,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
     progress_callback: Callable[[ListingProgressSnapshot], None] | None = None,
     cancel_check: Callable[[], None] | None = None,
 ) -> PaginatedCephAdminAccountsResponse:
     return compute_accounts_listing(
-        page=page,
-        page_size=page_size,
-        search=search,
-        advanced_filter=advanced_filter,
-        sort_by=sort_by,
-        sort_dir=sort_dir,
-        include=include,
+        request=query,
         endpoint_id=int(ctx.endpoint.id),
         rgw_admin=ctx.rgw_admin,
         progress_callback=progress_callback,
@@ -54,23 +43,11 @@ def _compute_accounts_listing(
 
 @router.get("", response_model=PaginatedCephAdminAccountsResponse)
 def list_rgw_accounts(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(25, ge=1, le=200),
-    search: str | None = Query(None),
-    advanced_filter: str | None = Query(None),
-    sort_by: str = Query("account_id"),
-    sort_dir: str = Query("asc"),
-    include: list[str] = Query(default=[]),
+    query: Annotated[CephAdminAccountListingRequest, Query()],
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> PaginatedCephAdminAccountsResponse:
     return _compute_accounts_listing(
-        page=page,
-        page_size=page_size,
-        search=search,
-        advanced_filter=advanced_filter,
-        sort_by=sort_by,
-        sort_dir=sort_dir,
-        include=include,
+        query=query,
         ctx=ctx,
     )
 
@@ -78,27 +55,15 @@ def list_rgw_accounts(
 @router.get("/stream")
 async def stream_rgw_accounts(
     request: Request,
-    page: int = Query(1, ge=1),
-    page_size: int = Query(25, ge=1, le=200),
-    search: str | None = Query(None),
-    advanced_filter: str | None = Query(None),
-    sort_by: str = Query("account_id"),
-    sort_dir: str = Query("asc"),
-    include: list[str] = Query(default=[]),
+    query: Annotated[CephAdminAccountListingRequest, Query()],
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> StreamingResponse:
-    require_advanced_filter_stream_payload(advanced_filter)
+    require_advanced_filter_stream_payload(query.advanced_filter)
 
     return stream_listing_response(
         request,
         compute=lambda progress_callback, cancel_check: _compute_accounts_listing(
-            page=page,
-            page_size=page_size,
-            search=search,
-            advanced_filter=advanced_filter,
-            sort_by=sort_by,
-            sort_dir=sort_dir,
-            include=include,
+            query=query,
             ctx=ctx,
             progress_callback=progress_callback,
             cancel_check=cancel_check,

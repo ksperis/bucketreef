@@ -8,6 +8,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.models.ceph_admin import CephAdminRgwAccountSummary
+from app.models.ceph_admin_identity_listing import CephAdminAccountListingRequest
 from app.routers.ceph_admin import accounts as accounts_router
 from app.services import ceph_admin_account_listing_enrichment as account_listing_enrichment
 from app.services.ceph_admin_account_payloads import build_account_detail
@@ -88,6 +89,57 @@ def _build_ctx(
     return ctx, rgw_admin
 
 
+def _account_listing_request(
+    *,
+    page: int = 1,
+    page_size: int = 25,
+    search: str | None = None,
+    advanced_filter: str | None = None,
+    sort_by: str = "account_id",
+    sort_dir: str = "asc",
+    include: list[str] | None = None,
+) -> CephAdminAccountListingRequest:
+    return CephAdminAccountListingRequest(
+        page=page,
+        page_size=page_size,
+        search=search,
+        advanced_filter=advanced_filter,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+        include=include or [],
+    )
+
+
+def _list_accounts(*, ctx, **listing_options):
+    return accounts_router.list_rgw_accounts(
+        query=_account_listing_request(**listing_options),
+        ctx=ctx,
+    )
+
+
+def _compute_accounts(
+    *,
+    ctx,
+    progress_callback=None,
+    cancel_check=None,
+    **listing_options,
+):
+    return accounts_router._compute_accounts_listing(
+        query=_account_listing_request(**listing_options),
+        ctx=ctx,
+        progress_callback=progress_callback,
+        cancel_check=cancel_check,
+    )
+
+
+async def _stream_accounts(*, request, ctx, **listing_options):
+    return await accounts_router.stream_rgw_accounts(
+        request=request,
+        query=_account_listing_request(**listing_options),
+        ctx=ctx,
+    )
+
+
 def _build_account_payload(
     account_id: str,
     *,
@@ -126,7 +178,7 @@ def test_ceph_admin_accounts_listing_cache_is_reused_across_pages():
     }
     ctx, rgw_admin = _build_ctx(endpoint_id=21, accounts_payload=accounts_payload, account_details=account_details)
 
-    first = accounts_router.list_rgw_accounts(
+    first = _list_accounts(
         page=1,
         page_size=2,
         search=None,
@@ -136,7 +188,7 @@ def test_ceph_admin_accounts_listing_cache_is_reused_across_pages():
         include=[],
         ctx=ctx,
     )
-    second = accounts_router.list_rgw_accounts(
+    second = _list_accounts(
         page=2,
         page_size=2,
         search=None,
@@ -162,7 +214,7 @@ def test_ceph_admin_accounts_listing_enriches_page_profile_when_metadata_has_onl
     rgw_admin = FakeRGWAdminMetadataIds(accounts_payload=accounts_payload, account_details=account_details)
     ctx = SimpleNamespace(endpoint=SimpleNamespace(id=2101), rgw_admin=rgw_admin)
 
-    response = accounts_router.list_rgw_accounts(
+    response = _list_accounts(
         page=1,
         page_size=25,
         search=None,
@@ -199,7 +251,7 @@ def test_ceph_admin_accounts_listing_reads_nested_optional_tenant_without_enrich
         account_details={},
     )
 
-    response = accounts_router.list_rgw_accounts(
+    response = _list_accounts(
         page=1,
         page_size=25,
         search=None,
@@ -230,7 +282,7 @@ def test_ceph_admin_accounts_listing_cache_is_reused_for_quick_filter_changes():
     }
     ctx, rgw_admin = _build_ctx(endpoint_id=22, accounts_payload=accounts_payload, account_details=account_details)
 
-    first = accounts_router.list_rgw_accounts(
+    first = _list_accounts(
         page=1,
         page_size=25,
         search="rgw",
@@ -240,7 +292,7 @@ def test_ceph_admin_accounts_listing_cache_is_reused_for_quick_filter_changes():
         include=[],
         ctx=ctx,
     )
-    second = accounts_router.list_rgw_accounts(
+    second = _list_accounts(
         page=1,
         page_size=25,
         search="01",
@@ -265,7 +317,7 @@ def test_ceph_admin_accounts_search_miss_does_not_enrich_account_profiles():
         account_details={},
     )
 
-    result = accounts_router.list_rgw_accounts(
+    result = _list_accounts(
         page=1,
         page_size=25,
         search="missing-account",
@@ -295,7 +347,7 @@ def test_ceph_admin_accounts_search_by_compact_name_avoids_detail_fetch():
         account_details={},
     )
 
-    result = accounts_router.list_rgw_accounts(
+    result = _list_accounts(
         page=1,
         page_size=25,
         search="beta",
@@ -332,7 +384,7 @@ def test_ceph_admin_accounts_advanced_filter_uses_cached_listing_and_lazy_includ
         }
     )
 
-    filtered = accounts_router.list_rgw_accounts(
+    filtered = _list_accounts(
         page=1,
         page_size=25,
         search=None,
@@ -347,7 +399,7 @@ def test_ceph_admin_accounts_advanced_filter_uses_cached_listing_and_lazy_includ
     assert rgw_admin.list_accounts_calls == 1
     assert rgw_admin.get_account_calls == 0
 
-    enriched = accounts_router.list_rgw_accounts(
+    enriched = _list_accounts(
         page=1,
         page_size=25,
         search=None,
@@ -369,7 +421,7 @@ def test_ceph_admin_accounts_advanced_filter_rejects_invalid_json():
     ctx, _ = _build_ctx(endpoint_id=24, accounts_payload=accounts_payload, account_details=account_details)
 
     with pytest.raises(HTTPException) as exc:
-        accounts_router.list_rgw_accounts(
+        _list_accounts(
             page=1,
             page_size=25,
             search=None,
@@ -392,7 +444,7 @@ def test_ceph_admin_accounts_listing_advanced_progress_is_monotonic():
     snapshots = []
     advanced_filter = json.dumps({"match": "all", "rules": [{"field": "email", "op": "contains", "value": "example"}]})
 
-    response = accounts_router._compute_accounts_listing(
+    response = _compute_accounts(
         page=1,
         page_size=25,
         search=None,
@@ -433,7 +485,7 @@ def test_ceph_admin_accounts_detail_enrichment_reports_item_progress():
     snapshots = []
     advanced_filter = json.dumps({"match": "all", "rules": [{"field": "email", "op": "contains", "value": "example"}]})
 
-    response = accounts_router._compute_accounts_listing(
+    response = _compute_accounts(
         page=1,
         page_size=25,
         search=None,
@@ -489,7 +541,7 @@ def test_ceph_admin_accounts_stream_requires_advanced_filter_payload():
         request = SimpleNamespace(is_disconnected=lambda: asyncio.sleep(0, result=False))
         ctx, _ = _build_ctx(endpoint_id=2402, accounts_payload=[], account_details={})
         with pytest.raises(HTTPException) as exc:
-            await accounts_router.stream_rgw_accounts(
+            await _stream_accounts(
                 request=request,
                 page=1,
                 page_size=25,
@@ -514,7 +566,7 @@ def test_ceph_admin_accounts_stream_emits_progress_result_and_done():
 
     async def _run() -> str:
         request = SimpleNamespace(is_disconnected=lambda: asyncio.sleep(0, result=False))
-        response = await accounts_router.stream_rgw_accounts(
+        response = await _stream_accounts(
             request=request,
             page=1,
             page_size=25,
@@ -551,7 +603,7 @@ def test_ceph_admin_accounts_sort_by_name_uses_metadata_without_detail_fetch():
     }
     ctx, rgw_admin = _build_ctx(endpoint_id=25, accounts_payload=accounts_payload, account_details=account_details)
 
-    result = accounts_router.list_rgw_accounts(
+    result = _list_accounts(
         page=1,
         page_size=25,
         search=None,
@@ -608,7 +660,7 @@ def test_ceph_admin_accounts_search_with_includes_enriches_only_current_page():
     }
     ctx, rgw_admin = _build_ctx(endpoint_id=2501, accounts_payload=accounts_payload, account_details=account_details)
 
-    result = accounts_router.list_rgw_accounts(
+    result = _list_accounts(
         page=1,
         page_size=50,
         search="RGW02",
@@ -767,7 +819,7 @@ def test_ceph_admin_accounts_listing_preserves_zero_top_level_limits():
         account_details={},
     )
 
-    result = accounts_router.list_rgw_accounts(
+    result = _list_accounts(
         page=1,
         page_size=25,
         search=None,
@@ -850,7 +902,7 @@ def test_ceph_admin_accounts_quota_usage_percent_filter_aggregates_bucket_usage(
         }
     )
 
-    response = accounts_router.list_rgw_accounts(
+    response = _list_accounts(
         page=1,
         page_size=25,
         search=None,
@@ -886,7 +938,7 @@ def test_ceph_admin_accounts_do_not_fetch_usage_without_usage_percent_filter():
         }
     )
 
-    response = accounts_router.list_rgw_accounts(
+    response = _list_accounts(
         page=1,
         page_size=25,
         search=None,
