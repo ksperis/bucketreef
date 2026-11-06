@@ -28,10 +28,10 @@ from app.routers.auth_cookies import (
 )
 from app.routers.auth_request_context import request_context
 from app.routers.dependencies import get_audit_service, get_current_user
+from app.routers.identity_security_policy import require_self_service_security_action
 from app.services.audit_service import AuditService
 from app.services.app_settings_service import load_app_settings_for_db
-from app.services.auth_session_guards import current_auth_session
-from app.services.identity_security_policy import require_self_service_security_action
+from app.routers.dependencies_internal.auth_session import current_auth_session
 from app.services.ldap_service import LDAPAuthenticationError, LDAPConfigurationError, LDAPProviderNotFoundError
 from app.services.external_identity_link_contracts import ExternalIdentityLinkError
 from app.services.external_identity_link_service import ExternalIdentityLinkService

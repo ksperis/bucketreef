@@ -454,7 +454,7 @@ def _resolve_openstack_execution_context(
     if requested_execution_endpoint_id is not None:
         raise HTTPException(403, "Execution endpoint override is not available for OpenStack contexts")
 
-    from app.services.auth_session_guards import current_auth_session
+    from app.routers.dependencies_internal.auth_session import current_auth_session
     from app.services.openstack_service import OpenStackService
 
     if not isinstance(actor, User) or not request or request.headers.get("authorization"):

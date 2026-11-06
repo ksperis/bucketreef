@@ -19,12 +19,12 @@ from app.models.ui_group import (
     UiGroupUpdate,
 )
 from app.routers.dependencies import get_audit_service, get_current_ui_admin
+from app.routers.identity_security_policy import require_admin_sensitive_action
 from app.services.audit_service import AuditService
 from app.services.avatar_image_service import MAX_AVATAR_BYTES
 from app.services.identity_security_policy import (
     admin_group_create_requires_step_up,
     admin_group_update_requires_step_up,
-    require_admin_sensitive_action,
 )
 from app.services.ui_group_avatar_service import UiGroupAvatarService
 from app.services.ui_groups_service import UiGroupsService, get_ui_groups_service

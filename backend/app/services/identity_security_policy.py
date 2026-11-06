@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Protocol
 
-from fastapi import HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -13,19 +12,13 @@ from app.core.domain_errors import (
     IdentitySecurityAuthorizationError,
     IdentitySecuritySelfActionError,
 )
-from app.db import AuthSession, S3Connection, UiGroup, UiGroupS3Connection, User
-from app.core.domain_enums import UserRole, is_admin_ui_role, is_superadmin_ui_role
+from app.db import S3Connection, UiGroup, UiGroupS3Connection, User
+from app.core.domain_enums import UserRole, is_superadmin_ui_role
 from app.models.s3_connection_admin import S3ConnectionAdminUpdate
 from app.models.ui_group import UiGroupCreate, UiGroupUpdate
 from app.models.user import ManagerToolAccess, UserUpdate
-from app.services.app_settings_service import load_app_settings_for_db
-from app.services.auth_session_guards import current_auth_session, require_recent_mfa, require_recent_primary_auth
-from app.services.identity_security_requirements import (
-    STANDARD_UI_ROLES,
-    passkey_required_for_role,
-)
+from app.services.identity_security_requirements import STANDARD_UI_ROLES
 from app.services.manager_tool_access import read_manager_tool_access
-from app.services.webauthn_service import WebAuthnService
 from app.utils.normalize import normalize_optional_string
 from app.utils.s3_connection_endpoint import resolve_connection_details
 
@@ -120,32 +113,6 @@ def _admin_user_memberships_changed(user: User, payload: UserUpdate) -> bool:
         payload.group_ids,
         (link.group_id for link in user.ui_group_links),
     )
-
-
-def require_admin_interactive_session(
-    request: Request,
-    db: Session,
-    actor: User,
-) -> AuthSession:
-    """Require an authorized administrator using a browser-backed UI session."""
-    if not is_admin_ui_role(actor.role):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
-    return current_auth_session(request, db)
-
-
-def require_admin_sensitive_action(
-    request: Request,
-    db: Session,
-    actor: User,
-) -> None:
-    """Require an interactive admin session and, when enabled, recent WebAuthn."""
-    session = require_admin_interactive_session(request, db, actor)
-    if load_app_settings_for_db(db).general.require_passkey_for_admins:
-        if not WebAuthnService(db).is_recent(session):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Recent WebAuthn verification required",
-            )
 
 
 def _account_links_changed(user: User, payload: UserUpdate) -> bool:
@@ -298,19 +265,6 @@ def admin_s3_connection_update_requires_step_up(
         connection,
         payload,
     ) or _s3_connection_target_changed(connection, payload)
-
-
-def require_self_service_security_action(
-    request: Request,
-    db: Session,
-    user: User,
-) -> None:
-    """Use WebAuthn when enrolled/required, otherwise recent primary auth."""
-    service = WebAuthnService(db)
-    if service.has_credentials(user.id) or passkey_required_for_role(db, user.role):
-        require_recent_mfa(request, db)
-    else:
-        require_recent_primary_auth(request, db)
 
 
 def ensure_actor_can_manage_user(actor: User, target: User, *, allow_self: bool = False) -> None:

@@ -45,7 +45,7 @@ from app.routers import auth_oidc as auth_router
 from app.services.api_token_service import ApiTokenService
 from app.services.app_settings_service import bootstrap_app_settings_for_db
 from app.services.auth_session_service import AuthSessionError, AuthSessionService, RefreshReplayError
-from app.services.auth_session_guards import current_auth_session
+from app.routers.dependencies_internal.auth_session import current_auth_session
 from app.core.domain_errors import ExternalIdentityNotFoundError
 from app.services.external_identity_user_service import (
     ExternalIdentityLinkRequiredError,

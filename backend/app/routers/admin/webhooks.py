@@ -17,8 +17,8 @@ from app.models.webhook import (
     WebhookTestResponse,
 )
 from app.routers.dependencies import get_audit_service, get_current_ui_superadmin
+from app.routers.identity_security_policy import require_admin_sensitive_action
 from app.services.audit_service import AuditService
-from app.services.identity_security_policy import require_admin_sensitive_action
 from app.services.webhook_catalog import get_webhook_event_definitions
 from app.services.webhook_service import WebhookService
 from app.utils.http_errors import http_exception_from_exception

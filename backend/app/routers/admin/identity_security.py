@@ -24,15 +24,15 @@ from app.routers.dependencies import (
     get_current_ui_admin,
     get_users_service_dependency,
 )
-from app.routers.identity_security_policy import identity_security_http_errors
+from app.routers.identity_security_policy import (
+    identity_security_http_errors,
+    require_admin_interactive_session,
+    require_admin_sensitive_action,
+)
 from app.services.admin_identity_security_service import AdminIdentitySecurityService
 from app.services.audit_service import AuditService
 from app.services.auth_session_service import AuthSessionService
 from app.services.external_identity_user_service import ExternalIdentityUserService
-from app.services.identity_security_policy import (
-    require_admin_interactive_session,
-    require_admin_sensitive_action,
-)
 from app.services.identity_security_requirements import passkey_required_for_role
 from app.services.mfa_reset_service import MfaResetService
 from app.services.users_service import UsersService

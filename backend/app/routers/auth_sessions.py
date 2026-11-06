@@ -26,7 +26,7 @@ from app.models.auth import (
 from app.models.session import SessionDescriptor
 from app.services.access_context_contracts import ManagerSessionPrincipal
 from app.routers.auth_cookies import clear_auth_cookies, set_auth_cookies
-from app.services.auth_session_guards import (
+from app.routers.dependencies_internal.auth_session import (
     current_auth_session,
     require_recent_mfa,
     require_recent_primary_auth,
@@ -36,15 +36,13 @@ from app.routers.dependencies import (
     get_current_actor,
     get_current_user,
 )
+from app.routers.identity_security_policy import require_self_service_security_action
 from app.services.audit_service import AuditService
 from app.services.auth_session_service import AuthSessionError, AuthSessionService, RefreshReplayError
 from app.services.external_identity_user_service import ExternalIdentityUserService
 from app.services.users_service import get_users_service
 from app.services.webauthn_service import LastRequiredPasskeyError, WebAuthnSecurityError, WebAuthnService
 from app.services.app_settings_service import load_app_settings_for_db
-from app.services.identity_security_policy import (
-    require_self_service_security_action,
-)
 from app.services.mappers.auth_session import auth_session_info
 from app.utils.http_errors import (
     raise_http_error_from_value_error,

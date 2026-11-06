@@ -14,8 +14,8 @@ from app.models.openstack import (
     PaginatedOpenStackCloudsResponse,
 )
 from app.routers.dependencies import get_current_ui_superadmin
+from app.routers.identity_security_policy import require_admin_sensitive_action
 from app.routers.openstack import ui_session, _record_action
-from app.services.identity_security_policy import require_admin_sensitive_action
 from app.services.openstack_service import OpenStackService
 
 router = APIRouter(prefix="/admin/openstack-clouds", tags=["openstack-admin"])

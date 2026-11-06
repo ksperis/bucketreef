@@ -16,7 +16,7 @@ from app.models.execution_context import (
 from app.routers.dependencies import get_current_account_user
 from app.services.execution_context_catalog_service import ExecutionContextCatalogService
 
-from app.services.auth_session_guards import current_auth_session
+from app.routers.dependencies_internal.auth_session import current_auth_session
 
 def _ui_session_id(request, db):
     if request and request.cookies and not request.headers.get("authorization"):

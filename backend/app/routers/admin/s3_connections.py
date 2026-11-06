@@ -29,11 +29,11 @@ from app.models.s3_connection_admin import (
     S3ConnectionAdminUpdate,
 )
 from app.routers.dependencies import get_audit_service, get_current_ui_admin
+from app.routers.identity_security_policy import require_admin_sensitive_action
 from app.services.audit_service import AuditService
 from app.services.admin_s3_connections_read_service import AdminS3ConnectionsReadService
 from app.services.identity_security_policy import (
     admin_s3_connection_update_requires_step_up,
-    require_admin_sensitive_action,
 )
 from app.services.mappers.s3_connection import mask_access_key_id
 from app.services.s3_connections_service import (

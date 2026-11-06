@@ -9,12 +9,12 @@ from app.core.database import get_db
 from app.db import ApiToken, User
 from app.models.api_token import ApiTokenCreateRequest, ApiTokenCreateResponse, ApiTokenInfo
 from app.routers.dependencies import get_audit_service, get_current_ui_admin
-from app.services.api_token_service import ApiTokenError, ApiTokenNotFoundError, ApiTokenService
-from app.services.audit_service import AuditService
-from app.services.identity_security_policy import (
+from app.routers.identity_security_policy import (
     require_admin_interactive_session,
     require_admin_sensitive_action,
 )
+from app.services.api_token_service import ApiTokenError, ApiTokenNotFoundError, ApiTokenService
+from app.services.audit_service import AuditService
 from app.utils.http_errors import raise_http_exception_from_exception
 
 
