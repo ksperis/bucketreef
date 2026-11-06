@@ -474,8 +474,8 @@ class PortalRequestsService:
             account_name=row.account.name if row.account else None,
             request_type=row.request_type,
             status=row.status,
-            payload=self._require_object(row.payload),
-            result=self._require_object(row.result) if row.result is not None else None,
+            payload=row.payload,
+            result=row.result,
             error_message=row.error_message,
             requester_user_id=row.requester_user_id,
             requester_email=row.requester_email,
@@ -501,12 +501,12 @@ class PortalRequestsService:
         if row.request_type == "portal_user_access":
             return self.collaborator_requests.execute_user_access(
                 row,
-                self._require_object(row.payload),
+                row.payload,
             )
         if row.request_type == "portal_user_removal":
             return self.collaborator_requests.execute_user_removal(
                 row,
-                self._require_object(row.payload),
+                row.payload,
             )
         if row.request_type == "account_quota_change":
             return self._execute_quota_change(row)
@@ -518,7 +518,7 @@ class PortalRequestsService:
         payload = PortalAccountQuotaChangeRequestCreate.model_validate(
             {
                 "request_type": "account_quota_change",
-                **self._require_object(row.payload),
+                **row.payload,
             },
             strict=True,
         )
@@ -553,7 +553,7 @@ class PortalRequestsService:
         payload = PortalSettingChangeRequestCreate.model_validate(
             {
                 "request_type": "portal_setting_change",
-                **self._require_object(row.payload),
+                **row.payload,
             },
             strict=True,
         )
@@ -663,13 +663,6 @@ class PortalRequestsService:
         if isinstance(payload, PortalSettingChangeRequestCreate):
             return payload.request_type, payload.model_dump(mode="json", exclude={"request_type"}, exclude_none=True)
         raise ValueError("Unsupported Portal request payload")
-
-    @staticmethod
-    def _require_object(value: object) -> dict[str, Any]:
-        if not isinstance(value, dict):
-            raise ValueError("Portal request payload must be a JSON object")
-        return value
-
 
 def get_portal_requests_service(db: Session) -> PortalRequestsService:
     return PortalRequestsService(db)
