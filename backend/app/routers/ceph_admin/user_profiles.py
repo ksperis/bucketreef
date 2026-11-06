@@ -18,19 +18,19 @@ from app.models.ceph_admin import (
 )
 from app.routers.ceph_admin import user_keys
 from app.routers.ceph_admin.dependencies import get_ceph_admin_context
+from app.routers.ceph_admin.service_errors import raise_ceph_admin_service_error
 from app.services.ceph_admin_account_access import (
     load_account_payload,
     optional_account_lookup_enabled,
     resolve_optional_account_name,
 )
 from app.services.ceph_admin_context import CephAdminContext
-from app.routers.ceph_admin.profile_common import raise_profile_service_error
 from app.services.ceph_admin_user_access import (
     load_user_payload,
     require_user_scope,
     serialize_access_keys,
 )
-from app.services.ceph_admin_profile_mutations import CephAdminProfileServiceError
+from app.services.ceph_admin_errors import CephAdminServiceError
 from app.services.ceph_admin_user_profile_service import CephAdminUserProfileMutationService
 from app.services.ceph_admin_user_payloads import build_user_detail, extract_user_fields
 from app.services.ceph_admin_identity_listing_cache import invalidate_users_listing_cache
@@ -48,7 +48,10 @@ router = APIRouter(prefix="/ceph-admin/endpoints/{endpoint_id}/users", tags=["ce
 router.include_router(user_keys.router)
 
 def _load_user_detail(uid: str, tenant: Optional[str], ctx: CephAdminContext) -> CephAdminRgwUserDetail:
-    payload = load_user_payload(uid, tenant, ctx.rgw_admin)
+    try:
+        payload = load_user_payload(uid, tenant, ctx.rgw_admin)
+    except CephAdminServiceError as exc:
+        raise_ceph_admin_service_error(exc)
     fields = extract_user_fields(payload, {"account"})
     account_name = resolve_optional_account_name(
         fields.account_id,
@@ -131,8 +134,8 @@ def create_rgw_user(
             uid=uid,
             tenant=tenant,
         )
-    except CephAdminProfileServiceError as exc:
-        raise_profile_service_error(exc)
+    except CephAdminServiceError as exc:
+        raise_ceph_admin_service_error(exc)
 
     invalidate_users_listing_cache(ctx.endpoint.id)
     detail = _load_user_detail(uid, tenant, ctx)
@@ -158,7 +161,10 @@ def get_rgw_user(
     tenant: Optional[str] = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> dict[str, Any]:
-    return load_user_payload(user_id, tenant, ctx.rgw_admin)
+    try:
+        return load_user_payload(user_id, tenant, ctx.rgw_admin)
+    except CephAdminServiceError as exc:
+        raise_ceph_admin_service_error(exc)
 
 
 @router.get("/{user_id}/detail", response_model=CephAdminRgwUserDetail)
@@ -168,13 +174,16 @@ def get_rgw_user_detail(
     expected_account_id: Optional[str] = None,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> CephAdminRgwUserDetail:
-    if expected_account_id is not None:
-        require_user_scope(
-            user_id.strip(),
-            tenant,
-            expected_account_id,
-            ctx.rgw_admin,
-        )
+    try:
+        if expected_account_id is not None:
+            require_user_scope(
+                user_id.strip(),
+                tenant,
+                expected_account_id,
+                ctx.rgw_admin,
+            )
+    except CephAdminServiceError as exc:
+        raise_ceph_admin_service_error(exc)
     return _load_user_detail(user_id.strip(), tenant, ctx)
 
 
@@ -189,16 +198,16 @@ def update_rgw_user_config(
     uid = user_id.strip()
     if not uid:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="uid is required")
-    require_user_scope(uid, tenant, expected_account_id, ctx.rgw_admin)
     mutations = CephAdminUserProfileMutationService(ctx.rgw_admin)
     try:
+        require_user_scope(uid, tenant, expected_account_id, ctx.rgw_admin)
         field_set = mutations.apply_updated_configuration(
             update,
             uid=uid,
             tenant=tenant,
         )
-    except CephAdminProfileServiceError as exc:
-        raise_profile_service_error(exc)
+    except CephAdminServiceError as exc:
+        raise_ceph_admin_service_error(exc)
 
     invalidate_users_listing_cache(ctx.endpoint.id)
     record_ceph_admin_action(

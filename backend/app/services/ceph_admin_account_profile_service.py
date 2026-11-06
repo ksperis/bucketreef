@@ -5,12 +5,14 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from app.models.ceph_admin import CephAdminRgwAccountConfigUpdate, CephAdminRgwAccountCreate
+from app.services.ceph_admin_errors import (
+    CephAdminConflictError,
+    CephAdminUpstreamError,
+    upstream_error,
+)
 from app.services.ceph_admin_profile_mutations import (
-    CephAdminProfileConflictError,
-    CephAdminProfileUpstreamError,
     nullable_update,
     raise_if_unsupported,
-    upstream_error,
 )
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.utils.rgw_payloads import extract_rgw_account_ids
@@ -85,12 +87,12 @@ class CephAdminAccountProfileMutationService:
         except RGWAdminError as exc:
             raise upstream_error(exc) from exc
         if isinstance(result, dict) and result.get("conflict"):
-            raise CephAdminProfileConflictError("RGW account already exists")
+            raise CephAdminConflictError("RGW account already exists")
         raise_if_unsupported(result, "RGW account creation is not supported on this cluster")
 
         returned_ids = extract_rgw_account_ids(result) if isinstance(result, dict) else set()
         if returned_ids != {account_id}:
-            raise CephAdminProfileUpstreamError(
+            raise CephAdminUpstreamError(
                 "RGW did not confirm the requested account identity"
             )
 
@@ -182,12 +184,12 @@ class CephAdminAccountProfileMutationService:
         except RGWAdminError as exc:
             raise upstream_error(exc) from exc
         if isinstance(result, dict) and result.get("conflict"):
-            raise CephAdminProfileConflictError("RGW account update conflicted")
+            raise CephAdminConflictError("RGW account update conflicted")
         raise_if_unsupported(result, "RGW account update is not supported on this cluster")
         if isinstance(result, dict):
             returned_ids = extract_rgw_account_ids(result)
             if returned_ids and returned_ids != {account_id}:
-                raise CephAdminProfileUpstreamError(
+                raise CephAdminUpstreamError(
                     "RGW returned a different account identity"
                 )
 

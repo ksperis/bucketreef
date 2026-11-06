@@ -3,10 +3,10 @@
 from types import SimpleNamespace
 
 import pytest
-from fastapi import HTTPException
 
 from app.services import ceph_admin_user_key_service as module
 from app.services.ceph_admin_account_access import optional_account_lookup_enabled
+from app.services.ceph_admin_errors import CephAdminConflictError
 from app.services.ceph_admin_user_access import (
     require_user_scope,
     serialize_access_keys,
@@ -130,10 +130,8 @@ def test_require_user_scope_rejects_conflicting_user_identity_fields():
         def get_user(uid, tenant=None, allow_not_found=True):  # noqa: ARG004
             return {"uid": uid, "user": {"uid": "other-user"}}
 
-    with pytest.raises(HTTPException, match="RGW user identity has changed") as raised:
+    with pytest.raises(CephAdminConflictError, match="RGW user identity has changed"):
         require_user_scope("cost-user", None, None, _ScopeRgwAdmin())
-
-    assert raised.value.status_code == 409
 
 
 def test_require_user_scope_rejects_account_drift():
@@ -142,10 +140,8 @@ def test_require_user_scope_rejects_account_drift():
         def get_user(uid, tenant=None, allow_not_found=True):  # noqa: ARG004
             return {"user": {"uid": uid, "tenant": tenant, "account_id": "acc-2"}}
 
-    with pytest.raises(HTTPException, match="RGW user account has changed") as raised:
+    with pytest.raises(CephAdminConflictError, match="RGW user account has changed"):
         require_user_scope("cost-user", None, "acc-1", _ScopeRgwAdmin())
-
-    assert raised.value.status_code == 409
 
 
 def test_require_user_scope_requires_account_context_for_account_user():
@@ -154,10 +150,8 @@ def test_require_user_scope_requires_account_context_for_account_user():
         def get_user(uid, tenant=None, allow_not_found=True):  # noqa: ARG004
             return {"user": {"uid": uid, "tenant": tenant, "account_id": "acc-1"}}
 
-    with pytest.raises(HTTPException, match="expected_account_id is required") as raised:
+    with pytest.raises(CephAdminConflictError, match="expected_account_id is required"):
         require_user_scope("cost-user", None, None, _ScopeRgwAdmin())
-
-    assert raised.value.status_code == 409
 
 
 def test_list_keys_marks_managed_private_access(monkeypatch):
@@ -213,12 +207,11 @@ def test_managed_private_key_blocks_mutation_before_rgw_call(monkeypatch, operat
     monkeypatch.setattr(module, "ManagedPrivateAccessQueryService", _ManagedPrivateAccess)
     service = CephAdminUserKeyService(_ctx(rgw_admin), _FakeSession([source]))
 
-    with pytest.raises(HTTPException) as raised:
+    with pytest.raises(CephAdminConflictError):
         if operation == "update":
             service.update_status("cost-user", "AKIA-LISTED", active=False)
         else:
             service.delete_key("cost-user", "AKIA-LISTED")
 
-    assert raised.value.status_code == 409
     assert rgw_admin.status_calls == []
     assert rgw_admin.delete_calls == []
