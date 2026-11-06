@@ -347,7 +347,6 @@ class BucketMigrationPlanningMixin:
         migration.error_message = None
         migration.started_at = None
         migration.finished_at = None
-        migration.last_heartbeat_at = None
         migration.updated_at = utcnow()
 
         self._synchronize_draft_items(migration, configuration.mappings)

@@ -66,7 +66,6 @@ class _SyncProgressTracker:
         heartbeat_at = utcnow()
         self.item.updated_at = heartbeat_at
         self.migration.updated_at = heartbeat_at
-        self.migration.last_heartbeat_at = heartbeat_at
         self.commit()
         self.pending_copied = 0
         self.pending_deleted = 0
