@@ -152,11 +152,12 @@ def _endpoint(db_session, *, iam=True, admin=False):
     return endpoint
 
 
-def _account(db_session, user, endpoint):
+def _account(db_session, user, endpoint, *, tenant="", user_uid="tenant-a-admin"):
     account = S3Account(
         name="managed-account",
         rgw_account_id="RGW00000000000000001",
-        rgw_user_uid="tenant-a-admin",
+        rgw_user_uid=user_uid,
+        rgw_tenant=tenant,
         rgw_access_key="ROOT-AK",
         rgw_secret_key="ROOT-SK",
         storage_endpoint_id=endpoint.id,
@@ -244,9 +245,13 @@ def test_iam_provisioning_never_serializes_or_audits_secret_and_is_idempotent(db
     ).one()
     assert connection.secret_access_key == "NEVER-IN-RESPONSE"
     assert connection.storage_endpoint_id == account.storage_endpoint_id
-    assert connection.rgw_user_uid is None
-    assert connection.rgw_tenant is None
+    assert connection.rgw_user_uid == account.rgw_user_uid
+    assert connection.rgw_tenant == account.rgw_tenant
     assert connection.rgw_account_id == account.rgw_account_id
+    execution_context = S3ExecutionContext.from_connection(connection)
+    assert execution_context.rgw_user_uid == account.rgw_user_uid
+    assert execution_context.rgw_tenant == account.rgw_tenant
+    assert execution_context.rgw_account_id == account.rgw_account_id
     audits = db_session.scalars(sa.select(AuditLog)).all()
     assert audits
     assert all("NEVER-IN-RESPONSE" not in str(audit.audit_metadata or {}) for audit in audits)
@@ -259,6 +264,38 @@ def test_iam_provisioning_never_serializes_or_audits_secret_and_is_idempotent(db
     assert repeated.connection.id == result.connection.id
     assert fake.created_users == [f"bkr-private-u{user.id}-acc{account.id}"]
     assert fake.created_keys == [f"bkr-private-u{user.id}-acc{account.id}"]
+
+
+def test_iam_provisioning_preserves_tenant_account_identity(db_session, monkeypatch):
+    user = _user(db_session, email="tenant-account@example.test")
+    account = _account(
+        db_session,
+        user,
+        _endpoint(db_session),
+        tenant="customer01",
+        user_uid="account-root",
+    )
+    fake = FakeIAM()
+    service = ManagedPrivateAccessService(db_session)
+    monkeypatch.setattr(service.iam, "for_context", lambda _context: fake)
+    _disable_capability_probe(monkeypatch)
+
+    result = service.provision_iam(
+        user=user,
+        context=account,
+        payload=_payload("Tenant private access"),
+    )
+
+    connection = db_session.scalars(
+        sa.select(S3Connection).where(S3Connection.id == result.connection.id)
+    ).one()
+    assert connection.rgw_account_id == account.rgw_account_id
+    assert connection.rgw_user_uid == "account-root"
+    assert connection.rgw_tenant == "customer01"
+    context = S3ExecutionContext.from_connection(connection)
+    assert context.rgw_account_id == account.rgw_account_id
+    assert context.rgw_user_uid == "account-root"
+    assert context.rgw_tenant == "customer01"
 
 
 def test_iam_provisioning_accepts_builtin_full_access_when_catalog_omits_it(db_session, monkeypatch):
@@ -327,6 +364,9 @@ def test_iam_provisioning_accepts_authorized_private_or_shared_connection_source
         ),
         access_key_id="SOURCE-AK",
         secret_access_key="SOURCE-SECRET",
+        rgw_account_id="RGW00000000000000002",
+        rgw_user_uid="source-root",
+        rgw_tenant="source_tenant",
         capabilities={"can_manage_iam": True},
     )
     db_session.add(source)
@@ -352,6 +392,9 @@ def test_iam_provisioning_accepts_authorized_private_or_shared_connection_source
     assert created.is_shared is False
     assert created.access_key_id == "AK-MANAGED"
     assert created.access_key_id != source.access_key_id
+    assert created.rgw_account_id == source.rgw_account_id
+    assert created.rgw_user_uid == source.rgw_user_uid
+    assert created.rgw_tenant == source.rgw_tenant
     assert (
         created.custom_endpoint_url,
         created.custom_region,

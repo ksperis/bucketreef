@@ -38,6 +38,7 @@ from app.services.manager_ceph_management_access_service import (
 )
 from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
 from app.services.rgw_supervision import has_supervision_credentials
+from app.utils.normalize import normalize_optional_string
 from app.utils.storage_endpoint_features import resolve_feature_flags
 
 from .execution_context import get_s3_execution_context
@@ -148,10 +149,17 @@ def _resolve_connection_supervision_identity(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Usage logs are disabled for this endpoint",
         )
-    context.rgw_tenant = resolution.rgw_tenant
-    if resolution.rgw_account_id:
+    has_persisted_identity = any(
+        normalize_optional_string(value)
+        for value in (
+            source_connection.rgw_user_uid,
+            source_connection.rgw_tenant,
+            source_connection.rgw_account_id,
+        )
+    )
+    if not has_persisted_identity:
+        context.rgw_tenant = resolution.rgw_tenant
         context.rgw_account_id = resolution.rgw_account_id
-    if resolution.rgw_user_uid:
         context.rgw_user_uid = resolution.rgw_user_uid
 
 

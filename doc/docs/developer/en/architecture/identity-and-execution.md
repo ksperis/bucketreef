@@ -74,13 +74,20 @@ stores an unqualified RGW user UID and `rgw_tenant` stores its Ceph tenant
 (`''` for the default tenant); `rgw_account_id` independently stores an RGW
 Account ID when one is known. A connection may carry user identity, Account
 identity, or both. User-scoped Admin Ops use `tenant$uid`; an Account-only
-identity uses the Account ID for account-scoped IAM and metrics. When persisted
-identity is absent, Runtime Read Ops may resolve it from the connection access
-key. Supervision collectors never acquire Admin Ops credentials for this
-discovery. Administrative mutations verify the exact principal and stored key
-before changing it. Rotation journals preserve the tenant and reject a changed
-tenant on resume. Physical bucket identities and metric aggregation keys
-include the tenant instead of dropping UID prefixes.
+identity uses the Account ID for account-scoped IAM and metrics. The persisted
+identity is copied into every `S3ExecutionContext` created from the connection
+and is the authoritative RGW execution identity for that context. Managed
+private access created from an RGW Account or another S3 Connection persists
+the source Account ID, root UID, and tenant together. When persisted identity
+is entirely absent, Runtime Read Ops may resolve it dynamically from the
+connection access key. `ConnectionIdentityService.resolve_metrics_identity()`
+still validates metrics eligibility for every connection context, but dynamic
+resolution only populates contexts that have no persisted RGW identity.
+Supervision collectors never acquire Admin Ops credentials for this discovery.
+Administrative mutations verify the exact principal and stored key before
+changing it. Rotation journals preserve the tenant and reject a changed tenant
+on resume. Physical bucket identities and metric aggregation keys include the
+tenant instead of dropping UID prefixes.
 
 For RGW buckets, the canonical physical identity is `(endpoint_id, tenant,
 name)`. The stored bucket name is always unqualified. Ceph Admin converts that

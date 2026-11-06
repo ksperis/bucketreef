@@ -232,7 +232,10 @@ def test_manager_rgw_metrics_ignore_bucket_composition_kill_switch(monkeypatch, 
     )
 
 
-def test_manager_stats_overview_allows_connection_with_resolved_identity(db_session):
+def test_manager_stats_overview_uses_persisted_connection_identity_without_gate_mutation(
+    db_session,
+    monkeypatch,
+):
     user = User(
         email="manager-stats-conn@example.com",
         hashed_password="x",
@@ -246,6 +249,7 @@ def test_manager_stats_overview_allows_connection_with_resolved_identity(db_sess
         access_manager=True,
         access_browser=True,
         storage_endpoint=endpoint,
+        rgw_account_id="RGW00000000000000011",
         rgw_user_uid="reporting",
         rgw_tenant="rgw_account",
         capabilities={"can_manage_iam": False},
@@ -263,20 +267,98 @@ def test_manager_stats_overview_allows_connection_with_resolved_identity(db_sess
         actor=user,
         db=db_session,
     )
+    assert account.rgw_account_id == "RGW00000000000000011"
+    assert account.rgw_user_uid == "reporting"
+    assert account.rgw_tenant == "rgw_account"
+
+    monkeypatch.setattr(
+        feature_gates.ConnectionIdentityService,
+        "resolve_metrics_identity",
+        lambda _service, _connection: SimpleNamespace(
+            eligible=True,
+            reason=None,
+            metrics_enabled=True,
+            usage_enabled=True,
+            rgw_account_id="RGW00000000000000999",
+            rgw_user_uid="different-user",
+            rgw_tenant="different-tenant",
+        ),
+    )
     dependencies.require_storage_metrics_capable_manager(context=account, actor=user, db=db_session)
+    assert account.rgw_account_id == "RGW00000000000000011"
     assert account.rgw_user_uid == "reporting"
     assert account.rgw_tenant == "rgw_account"
 
     class _FakeBucketsService:
         def list_buckets(self, target_account):
+            assert target_account.rgw_account_id == "RGW00000000000000011"
             assert target_account.rgw_user_uid == "reporting"
             assert target_account.rgw_tenant == "rgw_account"
-            return []
+            return [SimpleNamespace(name="bucket-a", used_bytes=2048, object_count=5)]
 
     payload = manager_stats_router.account_stats(context=account, bucket_service=_FakeBucketsService(), _={})
-    assert payload.total_buckets == 0
-    assert payload.total_bytes == 0
-    assert payload.total_objects == 0
+    assert payload.total_buckets == 1
+    assert payload.total_bytes == 2048
+    assert payload.total_objects == 5
+
+
+def test_manager_metrics_gate_dynamically_populates_connection_without_persisted_identity(
+    db_session,
+    monkeypatch,
+):
+    user = User(
+        email="manager-stats-dynamic@example.com",
+        hashed_password="x",
+        is_active=True,
+        role=UserRole.UI_USER.value,
+    )
+    endpoint = _ceph_endpoint("ceph-stats-dynamic")
+    connection = S3Connection(
+        created_by=user,
+        name="dynamic-metrics-connection",
+        access_manager=True,
+        access_browser=True,
+        storage_endpoint=endpoint,
+        capabilities={"can_manage_iam": False},
+        access_key_id="AK-CONN-DYNAMIC",
+        secret_access_key="SK-CONN-DYNAMIC",
+    )
+    db_session.add_all([user, endpoint, connection])
+    db_session.commit()
+    db_session.refresh(connection)
+    context = S3ExecutionContext.from_connection(
+        connection,
+        manager_capabilities=AccountCapabilities(can_manage_buckets=True),
+    )
+    assert context.rgw_account_id is None
+    assert context.rgw_user_uid is None
+    assert context.rgw_tenant is None
+
+    monkeypatch.setattr(
+        feature_gates.ConnectionIdentityService,
+        "resolve_metrics_identity",
+        lambda _service, _connection: SimpleNamespace(
+            eligible=True,
+            reason=None,
+            metrics_enabled=True,
+            usage_enabled=True,
+            rgw_account_id="RGW00000000000000012",
+            rgw_user_uid="dynamic-root",
+            rgw_tenant="dynamic_tenant",
+        ),
+    )
+
+    assert (
+        dependencies.require_storage_metrics_capable_manager(
+            context=context,
+            actor=user,
+            db=db_session,
+        )
+        is user
+    )
+    assert context.rgw_account_id == "RGW00000000000000012"
+    assert context.rgw_user_uid == "dynamic-root"
+    assert context.rgw_tenant == "dynamic_tenant"
 
 
 def test_manager_stats_overview_sanitizes_bucket_error_details():

@@ -1,13 +1,14 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from app.utils.storage_endpoint_features import parse_features_config
-from app.db import S3Account, StorageEndpoint
+from app.db import S3Account, S3Connection, StorageEndpoint
 from app.models.bucket import BucketNotificationConfiguration, BucketProperties, BucketQuotaUpdate
 from app.services import s3_client
 from app.services import buckets_service as buckets_service_module
 from app.services.buckets_service import BucketsService
 from app.services.bucket_configuration_service import BucketConfigurationService
 from app.services.bucket_quota_service import BucketQuotaService
+from app.services.s3_execution_context import S3ExecutionContext
 from tests.service_identity_helpers import service_identity
 
 
@@ -139,6 +140,60 @@ def test_list_buckets_fetches_admin_stats_when_enabled(monkeypatch):
     assert buckets[0].object_count == 5
     assert buckets[0].quota_max_size_bytes == 4096
     assert buckets[0].quota_max_objects == 10
+
+
+def test_list_buckets_uses_persisted_tenant_connection_identity_for_admin_stats(monkeypatch):
+    service = BucketsService()
+    connection = S3Connection(
+        id=21,
+        created_by_user_id=1,
+        name="tenant-private-access",
+        storage_endpoint=StorageEndpoint(
+            id=21,
+            name="tenant-private-endpoint",
+            endpoint_url="https://s3.example.test",
+            provider="ceph",
+            region="us-east-1",
+            force_path_style=True,
+            verify_tls=True,
+        ),
+        access_key_id="AK-CONNECTION",
+        secret_access_key="SK-CONNECTION",
+        rgw_account_id="RGW00000000000000021",
+        rgw_user_uid="account-root",
+        rgw_tenant="customer01",
+    )
+    context = S3ExecutionContext.from_connection(connection)
+    monkeypatch.setattr(s3_client, "list_buckets", lambda **kwargs: [{"name": "bucket-a"}])
+
+    calls: list[dict] = []
+
+    class FakeAdmin:
+        def get_all_buckets(self, **kwargs):  # noqa: ANN001
+            calls.append(kwargs)
+            return [
+                {
+                    "bucket": "bucket-a",
+                    "usage": {"rgw.main": {"size_actual": 4096, "num_objects": 7}},
+                }
+            ]
+
+    monkeypatch.setattr(service, "_rgw_runtime_for_context", lambda *_args: FakeAdmin())
+
+    buckets = service.list_buckets(context, with_stats=True)
+
+    assert calls == [
+        {
+            "uid": "account-root",
+            "with_stats": True,
+            "tenant": "customer01",
+        }
+    ]
+    assert len(buckets) == 1
+    assert buckets[0].name == "bucket-a"
+    assert buckets[0].tenant == "customer01"
+    assert buckets[0].used_bytes == 4096
+    assert buckets[0].object_count == 7
 
 
 def test_list_buckets_indexes_admin_stats_by_name_alias(monkeypatch):

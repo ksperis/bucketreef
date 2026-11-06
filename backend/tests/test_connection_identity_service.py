@@ -328,13 +328,20 @@ def test_cache_reset_detaches_old_lookups_without_displacing_new_results(monkeyp
     assert identity_service._INFLIGHT == {}
 
 
-def test_resolve_metrics_identity_uses_persisted_rgw_identity_first():
+def test_resolve_metrics_identity_uses_persisted_rgw_identity_first(monkeypatch):
     endpoint = _ceph_endpoint()
     connection = _connection(
         endpoint,
         rgw_user_uid="portal-user",
         rgw_tenant="team_a",
         rgw_account_id="RGW12345678901234567",
+    )
+    monkeypatch.setattr(
+        identity_service,
+        "get_rgw_admin_client",
+        lambda **_kwargs: (_ for _ in ()).throw(
+            AssertionError("persisted identity must not trigger a dynamic RGW lookup")
+        ),
     )
 
     resolved = ConnectionIdentityService().resolve_metrics_identity(connection)
