@@ -21,6 +21,7 @@ from app.services.endpoint_service_identity_reconciliation_policy import (
 from app.services.operation_lease_service import OperationLeaseService
 from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_runtime_rgw_client
+from app.services.storage_endpoint_query_service import StorageEndpointQueryService
 from app.services.storage_endpoints_service import StorageEndpointsService
 from tests.service_identity_helpers import service_identity, set_service_identity_credentials
 from tests.storage_endpoint_features import persisted_endpoint_features
@@ -142,7 +143,10 @@ def test_managed_runtime_is_idempotent_encrypted_and_scoped(identities, db_sessi
     assert ("list", identity.access_key, {"uid": identity.rgw_uid, "with_stats": True}) in rgw.calls
     stored = db_session.execute(text("SELECT secret_key FROM endpoint_service_identities WHERE kind = 'runtime'")).scalar_one()
     assert identity.secret_key not in stored
-    response = StorageEndpointsService(db_session).get_endpoint(endpoint.id, include_admin_ops_permissions=False).model_dump_json()
+    response = StorageEndpointQueryService(db_session).get_endpoint(
+        endpoint.id,
+        include_admin_ops_permissions=False,
+    ).model_dump_json()
     assert identity.secret_key not in response and "secret_key" not in response
     first_key = identity.access_key
     service.reconcile(endpoint)
@@ -392,7 +396,12 @@ def test_minimal_admin_and_external_identities_preserve_usage_without_write_caps
     service.reconcile(endpoint)
     assert endpoint.service_identity("runtime").status == "ready"
     assert endpoint.service_identity("supervision").status == "ready"
-    assert json.loads(StorageEndpointsService(db_session).get_endpoint(endpoint.id, include_admin_ops_permissions=False).model_dump_json())["features"]["usage"]["enabled"]
+    assert json.loads(
+        StorageEndpointQueryService(db_session).get_endpoint(
+            endpoint.id,
+            include_admin_ops_permissions=False,
+        ).model_dump_json()
+    )["features"]["usage"]["enabled"]
     assert not any(call[0] in ("create", "caps", "delete") for call in rgw.calls)
     assert service.revoke(endpoint, "runtime")
     assert "external" in rgw.users
@@ -592,7 +601,10 @@ def test_managed_key_drift_blocks_reconciliation_without_mutating_remote_user(id
     assert identity.status == "error" and "key drift" in identity.last_error
     assert rgw.users[identity.rgw_uid] == original
     assert not any(call[0] in ("create", "caps", "delete", "key_create", "key_delete") and call[1] == identity.rgw_uid for call in rgw.calls)
-    serialized = StorageEndpointsService(db_session).get_endpoint(endpoint.id, include_admin_ops_permissions=False).model_dump_json()
+    serialized = StorageEndpointQueryService(db_session).get_endpoint(
+        endpoint.id,
+        include_admin_ops_permissions=False,
+    ).model_dump_json()
     audits = db_session.scalars(
         select(AuditLog).where(
             AuditLog.action == "endpoint_service_identity.key_drift_detected"
@@ -1193,7 +1205,7 @@ def test_pending_rotation_api_metadata_never_exposes_candidate_credentials(ident
     assert result.summary.failed == 1
     assert result.results[0].rotation_pending
     assert result.results[0].rotation_phase == "activated"
-    endpoint_response = StorageEndpointsService(db_session).get_endpoint(
+    endpoint_response = StorageEndpointQueryService(db_session).get_endpoint(
         endpoint.id, include_admin_ops_permissions=False,
     )
     status = next(row for row in endpoint_response.service_identities if row.kind == "runtime")

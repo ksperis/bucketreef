@@ -20,6 +20,7 @@ from app.services.endpoint_service_identity_reconciliation_policy import (
     needs_startup_reconciliation,
 )
 from app.services.rgw_admin import RGWAdminError
+from app.services.storage_endpoint_query_service import StorageEndpointQueryService
 from app.services.storage_endpoints_service import StorageEndpointsService
 from tests.service_identity_helpers import service_identity
 from tests.storage_endpoint_features import persisted_endpoint_features
@@ -52,7 +53,7 @@ def test_manual_validation_is_independent_of_admin_ops_and_global_flag(identitie
     assert identity.secret_key == "CEPH-SK" and not rgw.calls
     ciphertext = db_session.execute(text("SELECT secret_key FROM endpoint_service_identities WHERE kind='ceph_admin'")).scalar_one()
     assert "CEPH-SK" not in ciphertext
-    response = StorageEndpointsService(db_session).get_endpoint(endpoint.id).model_dump_json()
+    response = StorageEndpointQueryService(db_session).get_endpoint(endpoint.id).model_dump_json()
     assert "CEPH-SK" not in response and "CEPH-AK" not in response
     audits = db_session.scalars(sa.select(AuditLog)).all()
     assert all("CEPH-SK" not in str(row.audit_metadata) for row in audits)

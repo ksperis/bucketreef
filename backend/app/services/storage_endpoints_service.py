@@ -17,21 +17,17 @@ from app.db import S3Account, S3Connection, S3User, StorageEndpoint, User
 from app.models.storage_endpoint import (
     StorageEndpointFeatureDetectionRequest,
     StorageEndpointFeatureDetectionResult,
-    StorageEndpointAdminOpsPermissions,
     StorageEndpoint as StorageEndpointSchema,
     StorageEndpointCreate,
     StorageEndpointTagsUpdate,
     StorageEndpointUpdate,
 )
-from app.services.mappers.storage_endpoint import storage_endpoint_from_db
 from app.services.resource_deletion_purge_service import ResourceDeletionPurgeService
 from app.services.rgw_admin import get_rgw_admin_client
-from app.services.storage_endpoint_admin_permissions import (
-    resolve_storage_endpoint_admin_ops_permissions,
-)
 from app.services.storage_endpoint_feature_detection import (
     StorageEndpointFeatureDetector,
 )
+from app.services.storage_endpoint_query_service import StorageEndpointQueryService
 from app.services.storage_endpoint_repository import StorageEndpointRepository
 from app.services.endpoint_service_identity_reconciliation_policy import (
     needs_startup_reconciliation,
@@ -54,9 +50,7 @@ from app.utils.tagging import (
 )
 from app.utils.s3_endpoint import configured_s3_endpoint
 from app.utils.storage_endpoint_features import (
-    features_to_capabilities,
     normalize_seed_features_config,
-    validate_persisted_features,
 )
 
 logger = logging.getLogger(__name__)
@@ -68,6 +62,12 @@ class StorageEndpointsService:
         self.actor = actor
         self.repository = StorageEndpointRepository(db)
         self.tags = TagsService(db)
+        self.query = StorageEndpointQueryService(
+            db,
+            repository=self.repository,
+            tags=self.tags,
+            admin_client_factory=get_rgw_admin_client,
+        )
 
     def env_endpoints_locked(self) -> bool:
         raw = settings.env_storage_endpoints
@@ -79,41 +79,6 @@ class StorageEndpointsService:
 
     def _resolve_actor(self, actor: User | None) -> User | None:
         return actor if actor is not None else self.actor
-
-    def _serialize(
-        self,
-        endpoint: StorageEndpoint,
-        *,
-        include_admin_ops_permissions: bool = True,
-    ) -> StorageEndpointSchema:
-        provider = StorageProvider(endpoint.provider)
-        features = validate_persisted_features(
-            provider,
-            endpoint.features,
-        )
-        capabilities = features_to_capabilities(features)
-        admin_ops_permissions = (
-            resolve_storage_endpoint_admin_ops_permissions(
-                endpoint,
-                provider=provider,
-                client_factory=get_rgw_admin_client,
-            )
-            if include_admin_ops_permissions
-            else StorageEndpointAdminOpsPermissions.empty()
-        )
-        return storage_endpoint_from_db(
-            endpoint,
-            provider=provider,
-            features=features,
-            capabilities=capabilities,
-            admin_ops_permissions=admin_ops_permissions,
-            tags=self.tags.get_storage_endpoint_tags(endpoint),
-            ceph_admin_enabled=self._ceph_admin_enabled(),
-        )
-
-    def _ceph_admin_enabled(self) -> bool:
-        from app.services.app_settings_service import load_app_settings_for_db
-        return load_app_settings_for_db(self.db).general.ceph_admin_enabled
 
     def detect_features(
         self,
@@ -130,9 +95,9 @@ class StorageEndpointsService:
             actor=self.actor,
         ).sync()
         if synced is None:
-            return self.list_endpoints()
+            return self.query.list_endpoints()
         return [
-            self._serialize(endpoint, include_admin_ops_permissions=False)
+            self.query.serialize_endpoint(endpoint, include_admin_ops_permissions=False)
             for endpoint in synced
         ]
 
@@ -153,23 +118,15 @@ class StorageEndpointsService:
                 self.db.rollback()
                 logger.info("Endpoint %s identity reconciliation deferred; retry from endpoint settings.", endpoint.id)
 
-    def list_endpoints(self, *, include_admin_ops_permissions: bool = False) -> list[StorageEndpointSchema]:
-        endpoints = self.repository.list_ordered()
-        return [self._serialize(ep, include_admin_ops_permissions=include_admin_ops_permissions) for ep in endpoints]
-
     def get_endpoint_record(self, endpoint_id: int) -> StorageEndpoint:
         return self.repository.get(endpoint_id)
-
-    def get_endpoint(self, endpoint_id: int, *, include_admin_ops_permissions: bool = True) -> StorageEndpointSchema:
-        endpoint = self.get_endpoint_record(endpoint_id)
-        return self._serialize(endpoint, include_admin_ops_permissions=include_admin_ops_permissions)
 
     def update_endpoint_tags(self, endpoint_id: int, payload: StorageEndpointTagsUpdate) -> StorageEndpointSchema:
         endpoint = self.get_endpoint_record(endpoint_id)
         self.tags.replace_storage_endpoint_tags(endpoint, payload.tags)
         commit_or_rollback(self.db)
         self.db.refresh(endpoint)
-        return self._serialize(endpoint)
+        return self.query.serialize_endpoint(endpoint)
 
     def _commit_endpoint(self, endpoint: StorageEndpoint) -> None:
         self.db.add(endpoint)
@@ -201,7 +158,7 @@ class StorageEndpointsService:
                 endpoint,
                 provision_unprovisioned=False,
             )
-        return self._serialize(endpoint)
+        return self.query.serialize_endpoint(endpoint)
 
     def update_endpoint(
         self,
@@ -254,7 +211,7 @@ class StorageEndpointsService:
                 )
         finally:
             lease.release(handle)
-        return self._serialize(endpoint)
+        return self.query.serialize_endpoint(endpoint)
 
     def reconcile_identities(
         self,
@@ -271,7 +228,7 @@ class StorageEndpointsService:
             endpoint,
             provision_unprovisioned=True,
         )
-        return self._serialize(endpoint)
+        return self.query.serialize_endpoint(endpoint)
 
     def delete_endpoint(self, endpoint_id: int) -> None:
         self._ensure_env_editable()
@@ -314,7 +271,7 @@ class StorageEndpointsService:
         self._ensure_env_editable()
         endpoint = self.get_endpoint_record(endpoint_id)
         if endpoint.is_default:
-            return self._serialize(endpoint)
+            return self.query.serialize_endpoint(endpoint)
         self.db.execute(
             update(StorageEndpoint)
             .where(StorageEndpoint.is_default.is_(True), StorageEndpoint.id != endpoint.id)
@@ -325,7 +282,7 @@ class StorageEndpointsService:
         self.db.add(endpoint)
         commit_or_rollback(self.db)
         self.db.refresh(endpoint)
-        return self._serialize(endpoint)
+        return self.query.serialize_endpoint(endpoint)
 
     def _env_endpoint_name(self) -> str:
         candidate = "Default"
@@ -391,7 +348,7 @@ class StorageEndpointsService:
         from app.core.runtime_surfaces import endpoint_identity_management_enabled
         if endpoint_identity_management_enabled(settings) and entry.admin_access_key and entry.admin_secret_key:
             self.reconcile_identities(entry.id)
-        return self._serialize(entry)
+        return self.query.serialize_endpoint(entry)
 
 
 def get_storage_endpoints_service(

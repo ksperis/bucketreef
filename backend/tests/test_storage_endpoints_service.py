@@ -36,6 +36,7 @@ from app.models.storage_endpoint import (
 )
 from app.services.rgw_admin import RGWAdminError
 from app.services.storage_endpoint_normalization import normalize_storage_endpoint_state
+from app.services.storage_endpoint_query_service import StorageEndpointQueryService
 from app.services.storage_endpoints_service import StorageEndpointsService
 from app.utils.storage_endpoint_features import (
     AWS_DEFAULT_REGION,
@@ -134,7 +135,7 @@ def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
 
 
 def test_get_endpoint_uses_typed_not_found_error(db_session):
-    service = StorageEndpointsService(db_session)
+    service = StorageEndpointQueryService(db_session)
 
     with pytest.raises(StorageEndpointNotFoundError, match="Endpoint not found"):
         service.get_endpoint(999_999)
@@ -228,7 +229,7 @@ def test_endpoint_serialization_rejects_partial_persisted_features(db_session):
     db_session.commit()
 
     with pytest.raises(ValueError, match="Persisted endpoint features are missing"):
-        StorageEndpointsService(db_session).get_endpoint(endpoint.id)
+        StorageEndpointQueryService(db_session).get_endpoint(endpoint.id)
 
 
 @pytest.mark.parametrize(
@@ -355,11 +356,11 @@ def test_list_endpoints_skips_admin_ops_permissions_by_default(db_session, monke
             }
 
     monkeypatch.setattr(
-        "app.services.storage_endpoints_service.get_rgw_admin_client",
+        "app.services.storage_endpoint_query_service.get_rgw_admin_client",
         lambda **kwargs: FakeRGWClient(),
     )
 
-    service = StorageEndpointsService(db_session)
+    service = StorageEndpointQueryService(db_session)
     endpoints = service.list_endpoints()
     target = next((endpoint for endpoint in endpoints if endpoint.name == "ceph-main"), None)
     assert target is not None
@@ -404,7 +405,7 @@ def test_list_endpoints_orders_by_name_case_insensitive(db_session):
     )
     db_session.commit()
 
-    service = StorageEndpointsService(db_session)
+    service = StorageEndpointQueryService(db_session)
     endpoints = service.list_endpoints()
 
     assert [endpoint.name for endpoint in endpoints] == ["alpha", "Beta", "Zulu"]
@@ -976,11 +977,11 @@ def test_get_endpoint_exposes_admin_ops_permissions_from_caps(db_session, monkey
             }
 
     monkeypatch.setattr(
-        "app.services.storage_endpoints_service.get_rgw_admin_client",
+        "app.services.storage_endpoint_query_service.get_rgw_admin_client",
         lambda **kwargs: FakeRGWClient(),
     )
 
-    service = StorageEndpointsService(db_session)
+    service = StorageEndpointQueryService(db_session)
     target = service.get_endpoint(endpoint.id)
     perms = target.admin_ops_permissions
     assert perms.users_read is True
@@ -999,11 +1000,11 @@ def test_get_endpoint_falls_back_to_no_admin_ops_permissions_on_rgw_error(db_ses
             raise RGWAdminError("boom")
 
     monkeypatch.setattr(
-        "app.services.storage_endpoints_service.get_rgw_admin_client",
+        "app.services.storage_endpoint_query_service.get_rgw_admin_client",
         lambda **kwargs: FailingRGWClient(),
     )
 
-    service = StorageEndpointsService(db_session)
+    service = StorageEndpointQueryService(db_session)
     endpoints = service.list_endpoints(include_admin_ops_permissions=True)
     target = next((endpoint for endpoint in endpoints if endpoint.name == "ceph-failsafe"), None)
     assert target is not None

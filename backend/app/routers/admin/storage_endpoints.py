@@ -24,6 +24,7 @@ from app.routers.identity_security_policy import (
 )
 from app.services.audit_service import AuditService
 from app.services.healthcheck_background_service import run_initial_healthchecks
+from app.services.storage_endpoint_query_service import StorageEndpointQueryService
 from app.services.storage_endpoints_service import StorageEndpointsService, get_storage_endpoints_service
 from app.services.tags_service import serialize_tag_summaries
 from app.utils.http_errors import raise_http_error_from_value_error
@@ -39,10 +40,16 @@ def get_service(
     return get_storage_endpoints_service(db, actor=current_user)
 
 
+def get_query_service(
+    db: Session = Depends(get_db),
+) -> StorageEndpointQueryService:
+    return StorageEndpointQueryService(db)
+
+
 @router.get("", response_model=list[StorageEndpoint])
 def list_storage_endpoints(
     include_admin_ops_permissions: bool = Query(False),
-    service: StorageEndpointsService = Depends(get_service),
+    service: StorageEndpointQueryService = Depends(get_query_service),
     _: User = Depends(get_current_ui_admin),
 ) -> list[StorageEndpoint]:
     return service.list_endpoints(include_admin_ops_permissions=include_admin_ops_permissions)
@@ -75,7 +82,7 @@ def detect_storage_endpoint_features(
 def get_storage_endpoint(
     endpoint_id: int,
     include_admin_ops_permissions: bool = Query(True),
-    service: StorageEndpointsService = Depends(get_service),
+    service: StorageEndpointQueryService = Depends(get_query_service),
     _: User = Depends(get_current_ui_admin),
 ) -> StorageEndpoint:
     try:
