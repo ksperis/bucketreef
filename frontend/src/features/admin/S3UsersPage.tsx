@@ -56,6 +56,7 @@ import AdminRgwUserAccessAssociationsPanel, {
   type AdminRgwUserAccessAssociationsState,
 } from "./AdminRgwUserAccessAssociationsPanel";
 import AdminQuotaFields from "./AdminQuotaFields";
+import AdminManagerFeatureOverrides from "./AdminManagerFeatureOverrides";
 import { buildAdminQuotaSizeEditorValue } from "./adminQuotaForm";
 import { useAdminS3UserStats } from "./useAdminS3UserStats";
 import { useAdminI18n } from "./adminI18n";
@@ -981,59 +982,13 @@ export default function S3UsersPage() {
             )}
 
             {showEditManagerTab && (
-              <div className="settings-stack">
-                <SettingsSection presentation="compact" title={adminText("Usage and metrics")}>
-                  <FeatureOverrideField title={adminText("RGW traffic and usage metrics")} value={editForm.allow_rgw_usage_metrics}
-                    policy={generalSettings.manager_feature_policies.rgw_usage_metrics} disabled={editBusy}
-                    triState
-                    description={adminText("Controls traffic and usage metrics for this RGW User. Endpoint capabilities and supervision credentials still apply.")}
-                    onChange={value => setEditForm(prev => ({ ...prev, allow_rgw_usage_metrics: value }))} />
-                  <FeatureOverrideField title={adminText("Cost estimation")} value={editForm.allow_cost_estimation}
-                    policy={generalSettings.manager_feature_policies.cost_estimation} disabled={editBusy}
-                    triState
-                    description={adminText("Controls the Cost tab for this RGW User in Manager Usage & Metrics.")}
-                    onChange={value => setEditForm(prev => ({ ...prev, allow_cost_estimation: value }))} />
-                </SettingsSection>
-                <SettingsSection presentation="compact" title={adminText("Access-key extensions")}>
-                  <FeatureOverrideField title={adminText("Access-key names and notes")} value={editForm.allow_access_key_metadata}
-                    policy={generalSettings.manager_feature_policies.access_key_metadata} disabled={editBusy}
-                    triState
-                    description={adminText("Name and notes are stored in BucketReef.")} onChange={value => setEditForm(prev => ({ ...prev, allow_access_key_metadata: value }))} />
-                  <FeatureOverrideField title={adminText("Access-key expiration")} value={editForm.allow_access_key_expiration}
-                    policy={generalSettings.manager_feature_policies.access_key_expiration} disabled={editBusy}
-                    triState
-                    help={adminText("Requires Ceph, key management and scheduled jobs. Existing expirations remain scheduled.")} onChange={value => setEditForm(prev => ({ ...prev, allow_access_key_expiration: value }))} />
-                </SettingsSection>
-                <SettingsSection presentation="compact" title={adminText("Activity history")}>
-                  <FeatureOverrideField title={adminText("Manager activity history")} value={editForm.allow_activity_history}
-                    policy={generalSettings.manager_feature_policies.activity_history} disabled={editBusy}
-                    triState
-                    description={adminText("Shows RGW User Manager control and configuration actions. It does not include S3 object access logs.")}
-                    onChange={value => setEditForm(prev => ({ ...prev, allow_activity_history: value }))} />
-                </SettingsSection>
-                <SettingsSection presentation="compact" title={adminText("RGW multisite")}>
-                  <FeatureOverrideField title={adminText("Endpoint switching")} value={editForm.allow_multisite_endpoint_switching}
-                    policy={generalSettings.manager_feature_policies.rgw_multisite_endpoint_switching} disabled={editBusy}
-                    triState
-                    help={adminText("Grants endpoint switching for this RGW User when the destination is in the same realm and zonegroup. UI User and UI Group grants remain additive.")}
-                    onChange={value => setEditForm(prev => ({ ...prev, allow_multisite_endpoint_switching: value }))} />
-                </SettingsSection>
-                <SettingsSection presentation="compact" title={adminText("Privileged Ceph operations")}>
-                  <FeatureOverrideField title={adminText("Bucket quota management")} value={editForm.allow_bucket_quota_management}
-                    policy={generalSettings.manager_feature_policies.bucket_quota_management} disabled={editBusy}
-                    triState
-                    unavailable={!editingEndpointCanWriteBuckets ? adminText("Endpoint permission required") : undefined}
-                    description={adminText("Requires buckets=write on the endpoint Admin Ops identity.")} onChange={value => setEditForm(prev => ({ ...prev, allow_bucket_quota_management: value }))} />
-                  <FeatureOverrideField title={adminText("Ceph S3 User keys")} value={editForm.allow_access_key_management}
-                    policy={generalSettings.manager_feature_policies.ceph_s3_user_keys} disabled={editBusy}
-                    triState
-                    description={adminText("Manages RGW User keys in Manager; storage and endpoint permissions remain required.")} onChange={value => setEditForm(prev => ({ ...prev, allow_access_key_management: value }))} />
-                  <FeatureOverrideField title={adminText("Managed private connection provisioning")} value={editForm.allow_managed_private_connection_provisioning}
-                    policy={generalSettings.manager_feature_policies.managed_private_connection_provisioning} disabled={editBusy}
-                    triState
-                    help={adminText("Requires an eligible UI user and compatible endpoint. Generated secrets remain managed by BucketReef.")} onChange={value => setEditForm(prev => ({ ...prev, allow_managed_private_connection_provisioning: value }))} />
-                </SettingsSection>
-              </div>
+              <AdminManagerFeatureOverrides
+                resource="user"
+                value={editForm}
+                disabled={editBusy}
+                bucketQuotaAvailable={editingEndpointCanWriteBuckets}
+                onChange={(key, value) => setEditForm((current) => ({ ...current, [key]: value }))}
+              />
             )}
               </SettingsForm>
           </WorkflowTabs>
