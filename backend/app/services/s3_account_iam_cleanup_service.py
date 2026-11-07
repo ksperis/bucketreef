@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from botocore.exceptions import BotoCoreError
 from sqlalchemy.orm import Session
 
 from app.core.sensitive_data import sanitized_error_log_detail
@@ -59,7 +60,7 @@ class S3AccountIamCleanupService:
                 region=region,
                 verify_tls=verify_tls,
             )
-        except Exception as exc:
+        except (BotoCoreError, RuntimeError, ValueError) as exc:
             raise ValueError(
                 f"Unable to initialize RGW IAM cleanup: {sanitized_error_log_detail(exc)}"
             ) from exc
