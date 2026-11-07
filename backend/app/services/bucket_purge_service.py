@@ -10,7 +10,7 @@ from typing import Any, Callable
 
 from botocore.exceptions import BotoCoreError, ClientError
 
-from app.services.s3_execution_context import ResolvedS3BucketNameMixin, S3ExecutionTarget
+from app.services.s3_execution_context import ResolvedS3BucketTarget
 from app.models.bucket_purge import (
     BucketPurgeBucketResult,
     BucketPurgeFailure,
@@ -53,15 +53,6 @@ class BucketPurgeCancelled(RuntimeError):
 
 
 @dataclass(frozen=True)
-class BucketPurgeResolvedTarget(ResolvedS3BucketNameMixin):
-    context: S3ExecutionTarget
-    bucket_name: str
-    request_bucket_name: str | None = None
-    context_id: str | None = None
-    context_name: str | None = None
-
-
-@dataclass(frozen=True)
 class BucketPurgeOptions:
     parallelism: int = 10
     include_versions: bool = True
@@ -98,7 +89,7 @@ class _BucketPurgeTotals:
 
 @dataclass
 class _BucketDeletePurgeState:
-    target: BucketPurgeResolvedTarget
+    target: ResolvedS3BucketTarget
     options: BucketPurgeOptions
     total_entries_estimate: int | None
     progress_callback: ProgressCallback
@@ -113,7 +104,7 @@ class _BucketDeletePurgeState:
 class BucketPurgeService(LongRunningS3ClientMixin):
     s3_user_agent_extra = "bucketreef-bucket-purge"
 
-    def _resolve_initial_entry_estimates(self, targets: list[BucketPurgeResolvedTarget]) -> list[int | None]:
+    def _resolve_initial_entry_estimates(self, targets: list[ResolvedS3BucketTarget]) -> list[int | None]:
         estimates: list[int | None] = [None for _ in targets]
         if not targets:
             return estimates
@@ -178,7 +169,7 @@ class BucketPurgeService(LongRunningS3ClientMixin):
         self,
         *,
         stage: BucketPurgeStage,
-        target: BucketPurgeResolvedTarget | None,
+        target: ResolvedS3BucketTarget | None,
         total_buckets: int,
         completed_buckets: int,
         totals: _BucketPurgeTotals,
@@ -215,7 +206,7 @@ class BucketPurgeService(LongRunningS3ClientMixin):
 
     def run(
         self,
-        targets: list[BucketPurgeResolvedTarget],
+        targets: list[ResolvedS3BucketTarget],
         options: BucketPurgeOptions,
         *,
         progress_callback: ProgressCallback | None = None,
@@ -269,7 +260,7 @@ class BucketPurgeService(LongRunningS3ClientMixin):
 
     def _run_targets(
         self,
-        targets: list[BucketPurgeResolvedTarget],
+        targets: list[ResolvedS3BucketTarget],
         options: BucketPurgeOptions,
         *,
         totals: _BucketPurgeTotals,
@@ -326,7 +317,7 @@ class BucketPurgeService(LongRunningS3ClientMixin):
 
     def run_delete_bucket_with_purge(
         self,
-        target: BucketPurgeResolvedTarget,
+        target: ResolvedS3BucketTarget,
         options: BucketPurgeOptions,
         *,
         progress_callback: ProgressCallback | None = None,
@@ -378,7 +369,7 @@ class BucketPurgeService(LongRunningS3ClientMixin):
 
     def _run_bucket(
         self,
-        target: BucketPurgeResolvedTarget,
+        target: ResolvedS3BucketTarget,
         options: BucketPurgeOptions,
         *,
         total_buckets: int,
@@ -423,7 +414,7 @@ class BucketPurgeService(LongRunningS3ClientMixin):
 
     def _build_content_purge_result(
         self,
-        target: BucketPurgeResolvedTarget,
+        target: ResolvedS3BucketTarget,
         result: s3_deletion.BucketContentPurgeResult,
         *,
         started_at: float,
@@ -448,7 +439,7 @@ class BucketPurgeService(LongRunningS3ClientMixin):
 
     @staticmethod
     def _build_content_purge_failure_result(
-        target: BucketPurgeResolvedTarget,
+        target: ResolvedS3BucketTarget,
         exc: Exception,
         *,
         started_at: float,
@@ -480,7 +471,7 @@ class BucketPurgeService(LongRunningS3ClientMixin):
     def _emit_bucket_purge_progress(
         self,
         *,
-        target: BucketPurgeResolvedTarget,
+        target: ResolvedS3BucketTarget,
         total_buckets: int,
         completed_buckets: int,
         base_totals: _BucketPurgeTotals,
@@ -507,7 +498,7 @@ class BucketPurgeService(LongRunningS3ClientMixin):
 
     def _run_bucket_delete_with_purge(
         self,
-        target: BucketPurgeResolvedTarget,
+        target: ResolvedS3BucketTarget,
         options: BucketPurgeOptions,
         *,
         total_entries_estimate: int | None,

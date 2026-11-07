@@ -45,11 +45,10 @@ from app.services.bucket_quota_service import (
     get_bucket_quota_service,
 )
 from app.services.buckets_service import BucketsService, get_buckets_service
-from app.services.s3_execution_context import S3ExecutionContext
+from app.services.s3_execution_context import ResolvedS3BucketTarget, S3ExecutionContext
 from app.services import bucket_config_actions
 from app.services.bucket_purge_service import (
     BucketPurgeOptions,
-    BucketPurgeResolvedTarget,
     BucketPurgeService,
 )
 from app.services.bucket_listing_cache import (
@@ -409,7 +408,7 @@ def stream_delete_bucket_with_purge(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Confirmation must be exactly '{expected}'.")
     require_bucket_management_context(context)
     options = BucketPurgeOptions(parallelism=payload.parallelism, include_versions=True)
-    target = BucketPurgeResolvedTarget(
+    target = ResolvedS3BucketTarget(
         context=context,
         bucket_name=bucket_name,
         context_id=context.context_id,

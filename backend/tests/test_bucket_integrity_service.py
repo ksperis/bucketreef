@@ -14,9 +14,9 @@ from app.services.bucket_integrity_service import (
     BucketIntegrityCheckCancelled,
     BucketIntegrityCheckService,
     BucketIntegrityOptions,
-    BucketIntegrityResolvedTarget,
     _ObjectRef,
 )
+from app.services.s3_execution_context import ResolvedS3BucketTarget
 
 
 class FakeBody:
@@ -105,8 +105,8 @@ class FakeIntegrityService(BucketIntegrityCheckService):
         return self.client
 
 
-def _target(bucket_name: str = "bucket-a") -> BucketIntegrityResolvedTarget:
-    return BucketIntegrityResolvedTarget(
+def _target(bucket_name: str = "bucket-a") -> ResolvedS3BucketTarget:
+    return ResolvedS3BucketTarget(
         context=SimpleNamespace(),
         bucket_name=bucket_name,
         context_id="ctx-1",

@@ -13,7 +13,8 @@ from app.db import User
 from app.models.bucket_purge import BucketPurgeTargetRequest
 from app.routers.bucket_purge_stream import stream_audited_resolved_bucket_purge
 from app.routers.dependencies import get_s3_execution_context, get_current_storage_ops_admin, require_bucket_purge_global_enabled
-from app.services.bucket_purge_service import BucketPurgeOptions, BucketPurgeResolvedTarget
+from app.services.bucket_purge_service import BucketPurgeOptions
+from app.services.s3_execution_context import ResolvedS3BucketTarget
 from app.services.storage_ops_context_service import storage_ops_context_names
 
 router = APIRouter(prefix="/storage-ops/buckets/purge", tags=["storage-ops-bucket-purge"])
@@ -32,7 +33,7 @@ def stream_storage_ops_bucket_purge(
     context_names = storage_ops_context_names(user, db)
     options = BucketPurgeOptions(parallelism=payload.parallelism, include_versions=payload.include_versions)
     targets = [
-        BucketPurgeResolvedTarget(
+        ResolvedS3BucketTarget(
             context=get_s3_execution_context(
                 request=request,
                 context_ref=target.context_id,

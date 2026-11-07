@@ -10,7 +10,7 @@ from typing import Any, Callable, Protocol
 
 from botocore.exceptions import BotoCoreError, ClientError
 
-from app.services.s3_execution_context import ResolvedS3BucketNameMixin, S3ExecutionTarget
+from app.services.s3_execution_context import ResolvedS3BucketTarget
 from app.models.bucket_integrity import (
     BucketIntegrityBucketResult,
     BucketIntegrityCheckMode,
@@ -51,15 +51,6 @@ class _BucketProgressEmitter(Protocol):
         force: bool = False,
         message: str | None = None,
     ) -> None: ...
-
-
-@dataclass(frozen=True)
-class BucketIntegrityResolvedTarget(ResolvedS3BucketNameMixin):
-    context: S3ExecutionTarget
-    bucket_name: str
-    request_bucket_name: str | None = None
-    context_id: str | None = None
-    context_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -173,7 +164,7 @@ class BucketIntegrityCheckService(LongRunningS3ClientMixin):
     def _build_progress(
         *,
         stage: BucketIntegrityProgressStage,
-        target: BucketIntegrityResolvedTarget | None,
+        target: ResolvedS3BucketTarget | None,
         total_buckets: int,
         completed_buckets: int,
         counts: _BucketCheckState | _IntegrityTotals,
@@ -333,7 +324,7 @@ class BucketIntegrityCheckService(LongRunningS3ClientMixin):
     @staticmethod
     def _emit_bucket_progress(
         state: _BucketCheckState,
-        target: BucketIntegrityResolvedTarget,
+        target: ResolvedS3BucketTarget,
         *,
         stage: BucketIntegrityProgressStage,
         total_buckets: int,
@@ -363,7 +354,7 @@ class BucketIntegrityCheckService(LongRunningS3ClientMixin):
 
     def run(
         self,
-        targets: list[BucketIntegrityResolvedTarget],
+        targets: list[ResolvedS3BucketTarget],
         options: BucketIntegrityOptions,
         *,
         progress_callback: ProgressCallback | None = None,
@@ -410,7 +401,7 @@ class BucketIntegrityCheckService(LongRunningS3ClientMixin):
 
     def _run_targets(
         self,
-        targets: list[BucketIntegrityResolvedTarget],
+        targets: list[ResolvedS3BucketTarget],
         options: BucketIntegrityOptions,
         *,
         totals: _IntegrityTotals,
@@ -459,7 +450,7 @@ class BucketIntegrityCheckService(LongRunningS3ClientMixin):
 
     def _run_bucket(
         self,
-        target: BucketIntegrityResolvedTarget,
+        target: ResolvedS3BucketTarget,
         options: BucketIntegrityOptions,
         *,
         max_bytes: int | None,
@@ -529,7 +520,7 @@ class BucketIntegrityCheckService(LongRunningS3ClientMixin):
 
     def _execute_bucket_checks(
         self,
-        target: BucketIntegrityResolvedTarget,
+        target: ResolvedS3BucketTarget,
         options: BucketIntegrityOptions,
         *,
         state: _BucketCheckState,

@@ -17,8 +17,7 @@ from app.routers.dependencies import (
     require_bucket_integrity_check_enabled,
 )
 from app.routers.manager.access import require_bucket_management_context
-from app.services.bucket_integrity_service import BucketIntegrityResolvedTarget
-from app.services.s3_execution_context import S3ExecutionContext
+from app.services.s3_execution_context import ResolvedS3BucketTarget, S3ExecutionContext
 
 router = APIRouter(prefix="/manager/bucket-integrity", tags=["manager-bucket-integrity"])
 logger = logging.getLogger(__name__)
@@ -35,7 +34,7 @@ def stream_manager_bucket_integrity_check(
     bucket_names = payload.targets
     require_bucket_management_context(context)
     targets = [
-        BucketIntegrityResolvedTarget(
+        ResolvedS3BucketTarget(
             context=context,
             bucket_name=bucket_name,
             context_id=context.context_id,

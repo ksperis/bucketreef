@@ -17,8 +17,8 @@ from app.routers.dependencies import (
     require_bucket_purge_enabled,
 )
 from app.routers.manager.access import require_bucket_management_context
-from app.services.bucket_purge_service import BucketPurgeOptions, BucketPurgeResolvedTarget
-from app.services.s3_execution_context import S3ExecutionContext
+from app.services.bucket_purge_service import BucketPurgeOptions
+from app.services.s3_execution_context import ResolvedS3BucketTarget, S3ExecutionContext
 
 router = APIRouter(prefix="/manager/bucket-purge", tags=["manager-bucket-purge"])
 logger = logging.getLogger(__name__)
@@ -36,7 +36,7 @@ def stream_manager_bucket_purge(
     require_bucket_management_context(context)
     options = BucketPurgeOptions(parallelism=payload.parallelism, include_versions=payload.include_versions)
     targets = [
-        BucketPurgeResolvedTarget(
+        ResolvedS3BucketTarget(
             context=context,
             bucket_name=bucket_name,
             context_id=context.context_id,
