@@ -284,6 +284,39 @@ def test_integrity_service_reports_get_object_errors_as_object_failures():
     assert "AccessDenied" in bucket.failures_sample[0].message
 
 
+def test_integrity_service_reports_missing_get_body_as_object_failure():
+    class MissingBodyClient(FakeS3Client):
+        def get_object(self, **kwargs):
+            self.get_calls.append(kwargs)
+            return {"Body": None}
+
+    client = MissingBodyClient(
+        {"list_objects_v2": FakePaginator([{"Contents": [{"Key": "broken.txt"}]}])},
+        {},
+    )
+    service = FakeIntegrityService(client)
+
+    result = service.run([_target()], BucketIntegrityOptions(check_mode="get"))
+
+    bucket = result.buckets[0]
+    assert result.status == "completed_with_errors"
+    assert bucket.failed_count == 1
+    assert bucket.failures_sample[0].stage == "get"
+    assert bucket.failures_sample[0].message == "S3 response body is empty"
+
+
+def test_integrity_service_propagates_unexpected_get_worker_errors():
+    client = FakeS3Client(
+        {"list_objects_v2": FakePaginator([{"Contents": [{"Key": "broken.txt"}]}])},
+        {("broken.txt", None): b""},
+    )
+    client.get_errors[("broken.txt", None)] = RuntimeError("broken get worker")
+    service = FakeIntegrityService(client)
+
+    with pytest.raises(RuntimeError, match="broken get worker"):
+        service.run([_target()], BucketIntegrityOptions(check_mode="get"))
+
+
 def test_integrity_service_reports_head_object_errors_as_object_failures():
     client = FakeS3Client(
         {"list_objects_v2": FakePaginator([{"Contents": [{"Key": "missing-meta.txt"}]}])},
@@ -302,6 +335,18 @@ def test_integrity_service_reports_head_object_errors_as_object_failures():
     assert bucket.failures_sample[0].key == "missing-meta.txt"
     assert "AccessDenied" in bucket.failures_sample[0].message
     assert client.get_calls == []
+
+
+def test_integrity_service_propagates_unexpected_head_worker_errors():
+    client = FakeS3Client(
+        {"list_objects_v2": FakePaginator([{"Contents": [{"Key": "broken.txt"}]}])},
+        {("broken.txt", None): b""},
+    )
+    client.head_errors[("broken.txt", None)] = RuntimeError("broken head worker")
+    service = FakeIntegrityService(client)
+
+    with pytest.raises(RuntimeError, match="broken head worker"):
+        service.run([_target()], BucketIntegrityOptions())
 
 
 def test_integrity_service_keeps_large_failure_sample_bounded():
@@ -336,6 +381,17 @@ def test_integrity_service_reports_listing_errors_as_bucket_failures():
     assert bucket.checked_count == 0
     assert bucket.failures_sample[0].stage == "list"
     assert "NoSuchBucket" in bucket.failures_sample[0].message
+
+
+def test_integrity_service_propagates_unexpected_listing_errors():
+    client = FakeS3Client(
+        {"list_objects_v2": FakePaginator(error=RuntimeError("broken paginator"))},
+        {},
+    )
+    service = FakeIntegrityService(client)
+
+    with pytest.raises(RuntimeError, match="broken paginator"):
+        service.run([_target()], BucketIntegrityOptions())
 
 
 def test_integrity_service_uses_bounded_parallel_object_reads():
