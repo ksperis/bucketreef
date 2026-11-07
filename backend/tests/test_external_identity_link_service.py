@@ -96,6 +96,26 @@ def test_link_attempt_is_browser_bound_and_expires(db_session):
         service.status(attempt.id, BROWSER_HASH)
 
 
+def test_link_attempt_normalizes_provider_type(db_session):
+    user = _user(db_session, email="provider-normalization@example.test")
+
+    attempt = ExternalIdentityLinkService(db_session).create_login_collision_attempt(
+        user=user,
+        provider_type=" OIDC ",
+        provider_id="company",
+        issuer=OIDC_ISSUER,
+        subject="provider-normalization-subject",
+        email=user.email,
+        email_verified=True,
+        display_name=user.full_name,
+        picture_url=None,
+        browser_secret_hash=BROWSER_HASH,
+        redirect_path="/",
+    )
+
+    assert attempt.provider_type == "oidc"
+
+
 def test_profile_oidc_link_redirect_path_is_limited_to_internal_profile_routes():
     payload = ExternalIdentityProfileOidcStartRequest(
         redirect_path="/browser/profile?tab=security",
@@ -702,6 +722,21 @@ def test_provision_identity_types_subject_owner_conflict(db_session):
             provider_id="corp",
             subject="uid=shared,dc=example,dc=test",
         )
+
+
+def test_provision_identity_normalizes_provider_type_and_subject(db_session):
+    user = _user(db_session, email="identity-normalization@example.test")
+
+    identity, created = ExternalIdentityUserService(db_session).provision_identity(
+        user=user,
+        provider_type=" LDAP ",
+        provider_id="corp",
+        subject=" uid=normalized,dc=example,dc=test ",
+    )
+
+    assert created is True
+    assert identity.provider_type == "ldap"
+    assert identity.subject == "uid=normalized,dc=example,dc=test"
 
 
 def test_provision_identity_types_explicit_restore_conflict(db_session):

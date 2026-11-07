@@ -20,7 +20,7 @@ from app.services.external_identity_link_attempt_service import ExternalIdentity
 from app.services.external_identity_query_service import ExternalIdentityQueryService
 from app.services.user_notifications_service import UserNotificationsService
 from app.utils.identity_provider_ids import normalize_identity_provider_id, normalize_oidc_issuer
-from app.utils.normalize import normalize_optional_email
+from app.utils.normalize import normalize_optional_email, normalize_optional_string, normalize_text
 from app.utils.time import utcnow
 
 
@@ -189,8 +189,8 @@ class ExternalIdentityUserService:
         restore: bool = False,
         link_source: str = "administrator",
     ) -> tuple[ExternalIdentity, bool]:
-        provider_kind = str(provider_type or "").strip().lower()
-        normalized_subject = str(subject or "").strip()
+        provider_kind = normalize_text(provider_type)
+        normalized_subject = normalize_optional_string(subject)
         if provider_kind not in {"oidc", "ldap"}:
             raise ValueError("provider_type must be oidc or ldap")
         provider_key = normalize_identity_provider_id(provider_id)
@@ -270,7 +270,7 @@ class ExternalIdentityUserService:
     ) -> tuple[User, bool]:
         provider_key = normalize_identity_provider_id(provider_id)
         normalized_issuer = normalize_oidc_issuer(issuer) if provider_type == "oidc" else None
-        normalized_subject = str(subject or "").strip()
+        normalized_subject = normalize_optional_string(subject)
         if not normalized_subject:
             raise ValueError("External subject is required")
         normalized_email = normalize_optional_email(email)
