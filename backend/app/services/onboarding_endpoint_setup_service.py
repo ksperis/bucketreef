@@ -192,11 +192,10 @@ class OnboardingEndpointSetupService:
 
     def _resolve_endpoint(
         self,
-        resources,
         draft,
         requirements: _EndpointRequirements,
     ) -> StorageEndpoint | None:
-        endpoint_id = resources.get("endpoint_id") or draft.endpoint_id
+        endpoint_id = draft.endpoint_id
         endpoint = self.db.get(StorageEndpoint, endpoint_id) if endpoint_id else None
         if endpoint_id and endpoint is None:
             raise OnboardingError("endpoint_unavailable")
@@ -330,7 +329,7 @@ class OnboardingEndpointSetupService:
             detection=detection,
         )
         created = self.endpoints.create_endpoint(endpoint_payload, actor=actor)
-        self.progress.checkpoint(row, endpoint_id=created.id)
+        self.progress.checkpoint_endpoint(row, created.id)
         endpoint = self.db.get(StorageEndpoint, created.id)
         self.progress.audit(actor, "endpoint_created", row.id, endpoint_id=endpoint.id)
         return endpoint
@@ -521,7 +520,7 @@ class OnboardingEndpointSetupService:
     def prepare(self, actor, row, draft, payload):
         resources = row.resources
         requirements = self._endpoint_requirements(draft, payload)
-        endpoint = self._resolve_endpoint(resources, draft, requirements)
+        endpoint = self._resolve_endpoint(draft, requirements)
 
         credentials = self._endpoint_credentials(
             payload,

@@ -480,6 +480,8 @@ def test_private_only_new_endpoint_does_not_configure_admin_credentials(
     assert user.can_create_manual_private_connections
 
     progress = db_session.get(OnboardingJourney, journey.id)
+    assert progress.draft["endpoint_id"] == ep.id
+    assert progress.draft["endpoint_url"] == ""
     serialized = " ".join(
         [
             result.model_dump_json(),
