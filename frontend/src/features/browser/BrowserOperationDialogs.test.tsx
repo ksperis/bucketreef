@@ -5,6 +5,7 @@ import { act, cleanup, fireEvent, render, screen, within } from "@testing-librar
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
+import { buildExecutionContext } from "../../test/executionContexts";
 import { setSessionUserCache } from "../../utils/workspaces";
 import BrowserLayout from "./BrowserLayout";
 import { useBrowserContext } from "./BrowserContext";
@@ -15,10 +16,10 @@ import { createBrowserBulkAttributesDraft } from "./useBrowserBulkAttributes";
 import { createBrowserBulkRestoreDraft } from "./useBrowserBulkRestore";
 import { createBrowserVersionCleanupDraft } from "./useBrowserVersionCleanup";
 
-vi.mock("../../api/executionContexts", () => ({ listExecutionContexts: async () => [
-  { id: "conn-one", kind: "connection", display_name: "One" },
-  { id: "conn-two", kind: "connection", display_name: "Two" },
-] }));
+const listExecutionContextsMock = vi.fn();
+vi.mock("../../api/executionContexts", () => ({
+  listExecutionContexts: (...args: unknown[]) => listExecutionContextsMock(...args),
+}));
 vi.mock("../../api/managerContext", () => ({ fetchManagerContext: async () => ({}) }));
 vi.mock("../../components/Layout", () => ({ default: ({ children, topbarControlDescriptors }: {
   children: ReactNode; topbarControlDescriptors: { id: string; renderControl: (mode: "icon_label") => ReactNode }[];
@@ -29,6 +30,10 @@ vi.mock("../../components/TopbarContextAccountSelector", () => ({ default: ({ on
 
 beforeEach(() => {
   vi.stubGlobal("AbortController", function () { return transferableAbortController(); });
+  listExecutionContextsMock.mockResolvedValue([
+    buildExecutionContext("conn-one", { kind: "connection", display_name: "One" }),
+    buildExecutionContext("conn-two", { kind: "connection", display_name: "Two" }),
+  ]);
   setSessionUserCache({ role: "ui_user", authType: "password" });
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); setSessionUserCache(null); localStorage.clear(); });
