@@ -4,6 +4,7 @@ from io import BytesIO
 from unittest.mock import Mock
 
 import pytest
+from botocore.exceptions import ClientError
 from pydantic import ValidationError
 
 from app.main import app
@@ -193,3 +194,37 @@ def test_delete_remediation_accepts_responses_without_errors(response):
     assert result.succeeded_count == len(EXACT_KEYS)
     assert result.failed_count == 0
     assert result.failed_keys_sample == []
+
+
+def test_copy_remediation_keeps_expected_s3_failures_per_object():
+    class TargetClient:
+        def copy_object(self, **_kwargs):
+            raise ClientError(
+                {"Error": {"Code": "InternalError", "Message": "provider failure"}},
+                "CopyObject",
+            )
+
+    result = remediate_bucket_content(
+        source_client=object(), target_client=TargetClient(),
+        source_bucket="source", target_bucket="target",
+        action="sync_source_only", object_keys=["report.txt"], same_endpoint=True,
+        parallelism=1,
+    )
+
+    assert result.succeeded_count == 0
+    assert result.failed_count == 1
+    assert result.failed_keys_sample == ["report.txt"]
+
+
+def test_copy_remediation_propagates_unexpected_worker_errors():
+    class TargetClient:
+        def copy_object(self, **_kwargs):
+            raise RuntimeError("copy worker regression")
+
+    with pytest.raises(RuntimeError, match="copy worker regression"):
+        remediate_bucket_content(
+            source_client=object(), target_client=TargetClient(),
+            source_bucket="source", target_bucket="target",
+            action="sync_source_only", object_keys=["report.txt"], same_endpoint=True,
+            parallelism=1,
+        )
