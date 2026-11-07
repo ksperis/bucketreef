@@ -7,6 +7,7 @@ from typing import Any, Literal, Optional
 
 from pydantic import Field
 
+from app.core.domain_enums import ExternalIdentityProviderType
 from app.models.base import ApiModel
 from app.models.session import SessionDescriptor
 from app.models.user import UserOut
@@ -97,7 +98,7 @@ class RecoveryCodesResponse(ApiModel):
 
 class ExternalIdentityInfo(ApiModel):
     id: str
-    provider_type: Literal["oidc", "ldap"]
+    provider_type: ExternalIdentityProviderType
     provider_id: str
     issuer: Optional[str]
     email: Optional[str]
