@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.db_transactions import commit_or_rollback
 from app.db import BackendOperationLease
+from app.utils.normalize import normalize_optional_string
 from app.utils.time import utcnow
 
 
@@ -39,9 +40,9 @@ def bucket_usage_stats_bucket_operation_name(
     *,
     bucket_tenant: str = "",
 ) -> str:
-    normalized_scope = str(scope or "").strip()
-    normalized_bucket = str(bucket_name or "").strip()
-    normalized_tenant = str(bucket_tenant or "").strip()
+    normalized_scope = normalize_optional_string(scope)
+    normalized_bucket = normalize_optional_string(bucket_name)
+    normalized_tenant = normalize_optional_string(bucket_tenant)
     if not normalized_scope or not normalized_bucket:
         raise ValueError("Bucket usage statistics lease scope and bucket are required")
     bucket_identity = (
@@ -206,7 +207,7 @@ class OperationLeaseService:
 
     @staticmethod
     def _normalize_operation_name(operation_name: str) -> str:
-        normalized = str(operation_name or "").strip()
+        normalized = normalize_optional_string(operation_name)
         if not normalized:
             raise ValueError("operation_name is required")
         return normalized

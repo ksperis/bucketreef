@@ -9,7 +9,10 @@ import sqlalchemy as sa
 from sqlalchemy.exc import IntegrityError
 
 from app.db import BackendOperationLease
-from app.services.operation_lease_service import OperationLeaseService
+from app.services.operation_lease_service import (
+    OperationLeaseService,
+    bucket_usage_stats_bucket_operation_name,
+)
 from app.utils.time import utcnow
 
 
@@ -44,6 +47,54 @@ def test_operation_lease_acquire_conflict_release_and_reacquire(db_session):
     second = service.acquire("healthchecks:run", ttl_seconds=60, owner="backend-b")
     assert second is not None
     assert service.current_owner("healthchecks:run") == "backend-b"
+
+
+def test_operation_lease_normalizes_operation_name(db_session):
+    service = OperationLeaseService(db_session)
+
+    handle = service.acquire("  healthchecks:run  ", ttl_seconds=60, owner="backend-a")
+
+    assert handle is not None
+    assert handle.operation_name == "healthchecks:run"
+    assert service.current_owner(" healthchecks:run ") == "backend-a"
+
+
+def test_operation_lease_rejects_blank_operation_name(db_session):
+    service = OperationLeaseService(db_session)
+
+    with pytest.raises(ValueError, match="operation_name is required"):
+        service.acquire("   ", ttl_seconds=60, owner="backend-a")
+
+
+def test_bucket_usage_stats_bucket_operation_name_normalizes_parts():
+    assert (
+        bucket_usage_stats_bucket_operation_name(
+            " endpoint:7 ",
+            " bucket-a ",
+            bucket_tenant=" tenant-a ",
+        )
+        == "bucket-usage-stats:bucket:endpoint:7:tenant-a:bucket-a"
+    )
+
+
+@pytest.mark.parametrize(
+    ("scope", "bucket_name"),
+    [
+        ("", "bucket-a"),
+        ("   ", "bucket-a"),
+        ("endpoint:7", ""),
+        ("endpoint:7", "   "),
+    ],
+)
+def test_bucket_usage_stats_bucket_operation_name_requires_scope_and_bucket(
+    scope: str,
+    bucket_name: str,
+):
+    with pytest.raises(
+        ValueError,
+        match="Bucket usage statistics lease scope and bucket are required",
+    ):
+        bucket_usage_stats_bucket_operation_name(scope, bucket_name)
 
 
 def test_operation_lease_same_owner_renews(db_session):
