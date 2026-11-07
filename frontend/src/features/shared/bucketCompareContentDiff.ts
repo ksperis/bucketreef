@@ -4,20 +4,13 @@
  */
 import { useCallback, useState } from "react";
 
-import type { BucketCompareContentDiff } from "../../api/bucketCompareContracts";
+import type {
+  BucketCompareContentDiff,
+  BucketCompareObjectDiffEntry,
+} from "../../api/bucketCompareContracts";
 import type { CompareObjectDetailLike } from "./BucketCompareObjectDetails";
 
-type CompareObjectDiffLike = {
-  key: string;
-  source_size: number | null;
-  target_size: number | null;
-  source_etag: string | null;
-  target_etag: string | null;
-  source_last_modified: string | null;
-  target_last_modified: string | null;
-  source_storage_class: string | null;
-  target_storage_class: string | null;
-};
+type CompareObjectDiffLike = Omit<BucketCompareObjectDiffEntry, "compare_by">;
 
 export type CompareVisibleKeysCopyFeedback = {
   tone: "success" | "danger";
