@@ -17,14 +17,13 @@ from app.db import (
     EndpointHealthStatusSegment,
     StorageEndpoint,
 )
-from app.core.domain_enums import HealthCheckStatus
+from app.core.domain_enums import HealthCheckStatus, HealthWindow
 from app.models.pagination import PaginationRequest
 from app.services.healthcheck_common import (
     DEFAULT_CHECK_TYPE,
     DEFAULT_ROLLUP_RESOLUTION_SECONDS,
     DEFAULT_SCOPE,
     WINDOW_DELTAS,
-    HealthWindow,
     resolve_healthcheck_profile,
 )
 from app.services.healthcheck_query_projection import (

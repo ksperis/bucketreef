@@ -5,24 +5,14 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from enum import Enum
 from typing import Literal, Optional
 
 from app.core.config import get_settings
+from app.core.domain_enums import HealthCheckStatus, HealthWindow
 from app.db import StorageEndpoint
-from app.core.domain_enums import HealthCheckStatus
 from app.utils.storage_endpoint_features import validate_persisted_features
 
 settings = get_settings()
-
-
-class HealthWindow(str, Enum):
-    DAY = "day"
-    WEEK = "week"
-    MONTH = "month"
-    QUARTER = "quarter"
-    HALF_YEAR = "half_year"
-    YEAR = "year"
 
 
 WINDOW_DELTAS: dict[HealthWindow, timedelta] = {

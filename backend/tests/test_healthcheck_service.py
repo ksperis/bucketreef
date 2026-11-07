@@ -13,7 +13,7 @@ from app.db import (
     EndpointHealthStatusSegment,
     StorageEndpoint,
 )
-from app.core.domain_enums import HealthCheckStatus, StorageProvider
+from app.core.domain_enums import HealthCheckStatus, HealthWindow, StorageProvider
 from app.models.pagination import PaginationRequest
 from app.services import healthcheck_persistence_service, healthcheck_query_service, healthcheck_service
 from app.services.healthcheck_common import (
@@ -23,7 +23,6 @@ from app.services.healthcheck_common import (
     EndpointCheckTarget,
     HealthCheckProfile,
     HealthCheckResult,
-    HealthWindow,
 )
 from app.services.healthcheck_persistence_service import HealthCheckPersistenceService
 from app.services.healthcheck_query_service import HealthCheckQueryService
