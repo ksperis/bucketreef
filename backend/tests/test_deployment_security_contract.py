@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+import json
 from pathlib import Path
 import re
 
@@ -11,6 +12,16 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def _read(path: str) -> str:
     return ROOT.joinpath(path).read_text(encoding="utf-8")
+
+
+def test_backend_python_runtime_matches_ci_toolchain_lock():
+    tools = json.loads(_read("ops/ci/tools.json"))
+    python_version = tools["python"]
+    python_image = tools["images"]["python:3.12-slim"]
+
+    assert _read("backend/Dockerfile").splitlines()[0] == f"FROM {python_image}"
+    assert f"pyenv install {python_version}" in _read("backend/README.md")
+    assert f"pyenv local {python_version}" in _read("backend/README.md")
 
 
 def test_runtime_images_are_fixed_non_root_and_read_only_compatible():
