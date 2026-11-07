@@ -17,6 +17,7 @@ from app.models.bucket_migration import (
 from app.utils.resource_names import validate_s3_bucket_name
 from app.utils.time import utcnow
 
+from .diagnostics import MigrationExecutionStrategyError
 from .precheck_reporting import build_diagnostic
 from .workflow import FINAL_STATUSES, preparation_is_current, require_action
 
@@ -430,7 +431,7 @@ class BucketMigrationPlanningMixin:
         for item in migration.items:
             try:
                 self._assert_item_execution_strategy_supported(item)
-            except RuntimeError as exc:
+            except MigrationExecutionStrategyError as exc:
                 raise ValueError(
                     "Precheck must be re-run before start. "
                     f"Item '{item.source_bucket}' -> '{item.target_bucket}' is not runnable: {exc}"

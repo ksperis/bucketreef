@@ -9,3 +9,7 @@ class MigrationPermissionCheckError(RuntimeError):
         super().__init__(message)
         self.permission = permission
         self.details = {"technical_error": sanitized_error_log_detail(cause)}
+
+
+class MigrationExecutionStrategyError(RuntimeError):
+    """Persisted migration execution strategy cannot be executed by this worker."""

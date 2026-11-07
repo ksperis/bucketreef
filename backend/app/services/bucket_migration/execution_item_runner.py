@@ -17,14 +17,14 @@ from .execution_signals import check_control_state
 from .execution_runtime import ResolvedContext
 from .execution_item_loop import _MigrationItemExecutionLoop
 from .execution_settings_copy import _BucketSettingsCopyRunner
-from .diagnostics import MigrationPermissionCheckError
+from .diagnostics import MigrationExecutionStrategyError, MigrationPermissionCheckError
 
 
 class BucketMigrationItemRunnerMixin:
     def _item_execution_strategy(self, item: BucketMigrationItem) -> str:
         strategy = item.execution_strategy
         if not isinstance(strategy, str) or not strategy:
-            raise RuntimeError(
+            raise MigrationExecutionStrategyError(
                 "Migration item is missing a valid execution strategy. Re-run precheck before starting the migration."
             )
         return strategy
@@ -39,7 +39,7 @@ class BucketMigrationItemRunnerMixin:
     def _assert_item_execution_strategy_supported(self, item: BucketMigrationItem) -> None:
         strategy = self._item_execution_strategy(item)
         if strategy not in {"current_only", "version_aware"}:
-            raise RuntimeError(
+            raise MigrationExecutionStrategyError(
                 f"Execution strategy '{strategy}' is not implemented by the migration worker."
             )
 
