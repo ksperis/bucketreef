@@ -436,11 +436,14 @@ class BucketMigrationPolicyGrantsMixin:
         except S3OperationError as exc:
             if self._is_access_denied_error(exc):
                 mode = "read-only" if deny_delete else "write-block"
-                raise RuntimeError(
+                raise MigrationPolicyApplyError(
                     f"Unable to set source bucket to {mode}: access denied on bucket policy update. "
                     f"Required permissions on '{source_bucket}': s3:GetBucketPolicy and s3:PutBucketPolicy."
                 ) from exc
-            raise
+            raise MigrationPolicyApplyError(
+                "Unable to update source bucket protection policy: "
+                f"{sanitized_error_log_detail(exc)}"
+            ) from exc
 
     def _precheck_policy_roundtrip(
         self,
@@ -509,10 +512,16 @@ class BucketMigrationPolicyGrantsMixin:
                 deny_delete=True,
             )
             return
-        existing_policy = self._configuration.get_policy(
-            source_bucket,
-            source_execution_context,
-        )
+        try:
+            existing_policy = self._configuration.get_policy(
+                source_bucket,
+                source_execution_context,
+            )
+        except S3OperationError as exc:
+            raise MigrationPolicyApplyError(
+                "Unable to read source bucket policy before applying read-only protection: "
+                f"{sanitized_error_log_detail(exc)}"
+            ) from exc
         item.source_policy_backup = existing_policy if isinstance(existing_policy, dict) else None
         item.read_only_applied = True
         self._commit()
@@ -528,11 +537,14 @@ class BucketMigrationPolicyGrantsMixin:
             )
         except S3OperationError as exc:
             if self._is_access_denied_error(exc):
-                raise RuntimeError(
+                raise MigrationPolicyApplyError(
                     "Unable to set source bucket to read-only: access denied on PutBucketPolicy. "
                     f"Required permissions on '{source_bucket}': s3:GetBucketPolicy and s3:PutBucketPolicy."
                 ) from exc
-            raise
+            raise MigrationPolicyApplyError(
+                "Unable to set source bucket to read-only: "
+                f"{sanitized_error_log_detail(exc)}"
+            ) from exc
 
     def _apply_target_write_lock_policy(self, target_ctx: ResolvedContext, target_bucket: str, item: BucketMigrationItem) -> None:
         self._assert_workflow_lease()
