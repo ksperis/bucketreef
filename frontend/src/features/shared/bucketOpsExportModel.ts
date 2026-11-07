@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { CephAdminBucket } from "../../api/cephAdminBuckets";
+import { escapeCsvCell } from "../../utils/csv";
 import { formatBytes, formatNumber } from "../../utils/format";
 import type { FeatureKey } from "./bucketOpsAdvancedFilterModel";
 import {
@@ -11,7 +12,6 @@ import {
   type ColumnId,
 } from "./bucketOpsListState";
 import {
-  csvEscape,
   formatBucketColumnDetail,
   formatOwnerSuspended,
   formatQuotaBytes,
@@ -213,9 +213,9 @@ const buildBucketExportRows = ({
 
 export function serializeBucketSelectionCsv(input: BucketSelectionExportInput): string {
   const lines = [
-    input.columns.map((column) => csvEscape(column.label)).join(","),
+    input.columns.map((column) => escapeCsvCell(column.label)).join(","),
     ...buildBucketExportRows(input).map((values) =>
-      values.map((value) => csvEscape(String(value ?? "-"))).join(","),
+      values.map((value) => escapeCsvCell(String(value ?? "-"))).join(","),
     ),
   ];
   return lines.join("\n");

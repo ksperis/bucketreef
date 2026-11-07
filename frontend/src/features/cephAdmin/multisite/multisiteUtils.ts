@@ -3,6 +3,7 @@ import type {
   MultisiteObservation,
   MultisiteTopology,
 } from "../../../api/cephMultisite";
+import { escapeCsvCell } from "../../../utils/csv";
 
 export type MultisiteText = (message: string, values?: Record<string, string | number>) => string;
 
@@ -152,8 +153,7 @@ function neutralizeSpreadsheetFormula(value: string): string {
 }
 
 function csvCell(value: string): string {
-  const safe = neutralizeSpreadsheetFormula(value);
-  return `"${safe.replace(/"/g, '""')}"`;
+  return escapeCsvCell(neutralizeSpreadsheetFormula(value));
 }
 
 export function recordsToCsv(records: Record<string, unknown>[]): string {

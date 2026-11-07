@@ -5,6 +5,7 @@
 import { ListActionButton, ListActions, ListBadge } from "../../components/list/ListControls";
 import ListDialog from "../../components/list/ListDialog";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
+import { escapeCsvCell } from "../../utils/csv";
 import {
   formatDownloadTimestamp,
   sanitizeDownloadFilename,
@@ -93,13 +94,10 @@ export default function BrowserPrefixVersionsModal({
       "etag",
       "storage_class",
     ];
-    const escapeCsv = (value: string | number | boolean) => {
-      const text = `${value ?? ""}`;
-      const escaped = text.replace(/"/g, "\"\"");
-      return `"${escaped}"`;
-    };
     const rows = buildExportRows().map((entry) =>
-      headers.map((header) => escapeCsv(entry[header as keyof typeof entry] ?? "")).join(",")
+      headers
+        .map((header) => escapeCsvCell(String(entry[header as keyof typeof entry] ?? "")))
+        .join(",")
     );
     const csv = [headers.join(","), ...rows].join("\n");
     triggerDownload(`${baseName}-${timestamp}.csv`, csv, "text/csv;charset=utf-8");
