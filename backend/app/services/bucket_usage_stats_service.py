@@ -38,7 +38,6 @@ from app.services.operation_lease_service import (
     bucket_usage_stats_bucket_operation_name,
 )
 from app.services.s3_client import S3OperationError
-from app.services.s3_execution_client import S3ExecutionCredentialsError
 from app.services.s3_execution_context import ResolvedS3BucketNameMixin, S3ExecutionTarget
 from app.utils.s3_errors import format_s3_error, is_s3_feature_unsupported
 from app.utils.time import utcnow
@@ -133,17 +132,6 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
 
     def __init__(self, session_factory: sessionmaker[Session] | Callable[[], Session] | None = None) -> None:
         self.session_factory = session_factory
-
-    def _client_kwargs(
-        self,
-        execution_context: S3ExecutionTarget,
-        *,
-        bucket_name: str | None = None,
-    ) -> dict[str, Any]:
-        try:
-            return super()._client_kwargs(execution_context, bucket_name=bucket_name)
-        except S3ExecutionCredentialsError as exc:
-            raise S3OperationError(str(exc)) from exc
 
     @staticmethod
     def _bucket_lease_scope(target: BucketUsageStatsResolvedTarget) -> str:

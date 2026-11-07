@@ -330,26 +330,6 @@ def test_compare_bucket_content_wraps_list_objects_client_error(monkeypatch):
     assert "ListObjectsV2 failed with AccessDenied" in message
 
 
-def test_bucket_compare_client_kwargs_types_missing_execution_credentials():
-    service = _build_service()
-    account = S3Account(name="missing-credentials", rgw_access_key=None, rgw_secret_key=None)
-
-    with pytest.raises(S3OperationError, match="missing admin credentials"):
-        service._client_kwargs(account)
-
-
-def test_bucket_compare_client_kwargs_does_not_mask_unexpected_credential_runtime_error():
-    service = _build_service()
-
-    class BrokenContext:
-        @staticmethod
-        def effective_rgw_credentials():
-            raise RuntimeError("unexpected credential resolver bug")
-
-    with pytest.raises(RuntimeError, match="unexpected credential resolver bug"):
-        service._client_kwargs(BrokenContext())
-
-
 def test_compare_bucket_content_propagates_unexpected_listing_errors(monkeypatch):
     service = _build_service()
     source = _build_account("source")

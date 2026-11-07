@@ -14,11 +14,39 @@ from app.services.bucket_usage_stats_service import BucketUsageStatsService
 from tests.execution_context_factory import make_s3_execution_context
 
 
-def test_comparison_preserves_specific_missing_credentials_error():
+@pytest.mark.parametrize(
+    ("service", "message"),
+    [
+        (BucketComparisonService(), "S3ExecutionTarget is missing admin credentials"),
+        (BucketPurgeService(), "S3 execution context is missing credentials"),
+        (BucketIntegrityCheckService(), "S3 execution context is missing credentials"),
+        (BucketUsageStatsService(), "S3 execution context is missing credentials"),
+    ],
+)
+def test_long_running_services_type_missing_credentials_as_s3_failures(service, message):
     account = SimpleNamespace(effective_rgw_credentials=lambda: (None, None))
 
-    with pytest.raises(RuntimeError, match="S3ExecutionTarget is missing admin credentials"):
-        BucketComparisonService()._build_client(account)
+    with pytest.raises(s3_client.S3OperationError, match=message):
+        service._build_client(account)
+
+
+@pytest.mark.parametrize(
+    "service",
+    [
+        BucketComparisonService(),
+        BucketPurgeService(),
+        BucketIntegrityCheckService(),
+        BucketUsageStatsService(),
+    ],
+)
+def test_long_running_services_do_not_mask_unexpected_credential_errors(service):
+    class BrokenContext:
+        @staticmethod
+        def effective_rgw_credentials():
+            raise RuntimeError("unexpected credential resolver bug")
+
+    with pytest.raises(RuntimeError, match="unexpected credential resolver bug"):
+        service._build_client(BrokenContext())
 
 
 def test_compare_migration_purge_integrity_and_usage_select_long_running_profile(monkeypatch):
