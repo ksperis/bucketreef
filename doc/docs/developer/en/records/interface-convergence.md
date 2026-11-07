@@ -45,6 +45,11 @@ linked/unknown-resource safeguards and wrap complete resource identifiers.
 Account creation reuses `AdminQuotaFields`, including the explicit size unit;
 tenant import uses a labeled `UiTextarea`.
 
+The remaining `SettingsDialog` call sites without `ModalActions` are structural
+wrappers, read-only collection/detail dialogs, or page-level settings workflows
+whose actions are owned by `SettingsActions`; there is no remaining short-dialog
+action footer to converge.
+
 `Modal.closeDisabled` disables the header Close action, Escape and backdrop
 dismissal while these requests are pending. Their final Cancel action uses the
 same busy state. A failed request restores dismissal and preserves the existing
@@ -916,7 +921,6 @@ against a Ceph RGW cluster.
 
 ## Remaining passes
 
-- Continue adopting the shared action area in remaining short dialogs.
 - Adopt canonical field labels/help in remaining legacy forms.
 - Review remaining operational form sections beyond Ceph Admin RGW identity
   create/edit workflows.
