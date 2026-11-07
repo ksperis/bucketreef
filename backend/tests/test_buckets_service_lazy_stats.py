@@ -1,10 +1,12 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+import pytest
+
 from app.db import S3Account, S3Connection, StorageEndpoint
 from app.models.bucket import BucketNotificationConfiguration, BucketProperties, BucketQuotaUpdate
 from app.services import s3_client
 from app.services import buckets_service as buckets_service_module
-from app.services.buckets_service import BucketsService
+from app.services.buckets_service import BucketStatsUnavailableError, BucketsService
 from app.services.bucket_configuration_service import BucketConfigurationService
 from app.services.bucket_quota_service import BucketQuotaService
 from app.services.s3_execution_context import S3ExecutionContext
@@ -228,7 +230,7 @@ def test_list_buckets_keeps_s3_results_when_admin_stats_fail(monkeypatch):
     monkeypatch.setattr(
         service,
         "_admin_bucket_list",
-        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("admin unavailable")),
+        lambda *args, **kwargs: (_ for _ in ()).throw(BucketStatsUnavailableError("admin unavailable")),
     )
 
     buckets = service.list_buckets(account)
@@ -236,6 +238,20 @@ def test_list_buckets_keeps_s3_results_when_admin_stats_fail(monkeypatch):
     assert [bucket.name for bucket in buckets] == ["bucket-a"]
     assert buckets[0].used_bytes is None
     assert buckets[0].object_count is None
+
+
+def test_list_buckets_propagates_unexpected_admin_stats_runtime_errors(monkeypatch):
+    service = BucketsService()
+    account = _build_account()
+    monkeypatch.setattr(s3_client, "list_buckets", lambda **kwargs: [{"name": "bucket-a"}])
+    monkeypatch.setattr(
+        service,
+        "_admin_bucket_list",
+        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("admin stats regression")),
+    )
+
+    with pytest.raises(RuntimeError, match="admin stats regression"):
+        service.list_buckets(account)
 
 
 def test_get_bucket_stats_skips_admin_for_bucket_outside_s3_scope(monkeypatch):
@@ -281,6 +297,21 @@ def test_get_bucket_stats_uses_single_scoped_admin_lookup(monkeypatch):
             },
         )
     ]
+
+
+def test_get_bucket_stats_propagates_unexpected_admin_runtime_errors(monkeypatch):
+    service = BucketsService()
+    account = _build_account()
+    monkeypatch.setattr(s3_client, "list_buckets", lambda **kwargs: [{"name": "bucket-a"}])
+
+    class BrokenAdmin:
+        def get_bucket_info(self, *_args, **_kwargs):
+            raise RuntimeError("bucket stats regression")
+
+    monkeypatch.setattr(service, "_rgw_runtime_for_context", lambda *_args: BrokenAdmin())
+
+    with pytest.raises(RuntimeError, match="bucket stats regression"):
+        service.get_bucket_stats("bucket-a", account, with_stats=True)
 
 
 def test_list_buckets_prefers_quota_max_size_bytes_when_both_units_are_present(monkeypatch):
