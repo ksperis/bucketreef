@@ -9,9 +9,11 @@ import type {
   StorageEndpoint,
   StorageEndpointFeatureDetectionPayload,
   StorageEndpointFeatureDetectionResult,
+  StorageEndpointServiceIdentityKind,
+  StorageEndpointServiceIdentityMode,
 } from "../../api/storageEndpoints";
 
-export type OnboardingIdentityMode = "managed" | "external";
+export type OnboardingIdentityMode = StorageEndpointServiceIdentityMode;
 
 export type OnboardingCredentialDraft = {
   adminAccessKey: string;
@@ -73,11 +75,9 @@ export function countOnboardingSelections(draft: OnboardingDraft): number {
   ].filter(Boolean).length;
 }
 
-type ServiceIdentityKind = "runtime" | "supervision" | "ceph_admin";
-
 export function serviceIdentity(
   endpoint: StorageEndpoint | null,
-  kind: ServiceIdentityKind,
+  kind: StorageEndpointServiceIdentityKind,
 ) {
   return endpoint?.service_identities.find((identity) => identity.kind === kind);
 }
@@ -88,7 +88,7 @@ function hasStoredAdminCredentials(endpoint: StorageEndpoint | null): boolean {
 
 function hasStoredServiceCredentials(
   endpoint: StorageEndpoint | null,
-  kind: ServiceIdentityKind,
+  kind: StorageEndpointServiceIdentityKind,
 ): boolean {
   return Boolean(serviceIdentity(endpoint, kind)?.credentials_configured);
 }

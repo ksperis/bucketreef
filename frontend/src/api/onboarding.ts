@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client, { LONG_RUNNING_REQUEST_TIMEOUT_MS } from "./client";
+import type { StorageEndpointServiceIdentityMode } from "./storageEndpoints";
 
 export type OnboardingStatus = {
   dismissed: boolean;
@@ -52,7 +53,7 @@ export type OnboardingJourney = {
 };
 
 export type OnboardingApplyCredentials = {
-  service_identity_mode: "managed" | "external";
+  service_identity_mode: StorageEndpointServiceIdentityMode;
   runtime_access_key?: string;
   runtime_secret_key?: string;
   admin_access_key?: string;
