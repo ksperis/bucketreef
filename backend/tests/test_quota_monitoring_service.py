@@ -34,6 +34,7 @@ from app.services.quota_alert_recipients_service import (
     QuotaAlertRecipientsService,
 )
 from app.services.quota_monitoring_service import QuotaMonitoringService
+from app.services.rgw_admin import RGWAdminError
 from app.services.quota_subject import SubjectContext
 from app.services.webhook_catalog import QUOTA_THRESHOLD_EVENT_TYPE
 from app.services.webhook_service import WebhookService
@@ -443,6 +444,45 @@ def test_quota_client_uses_runtime_and_does_not_fallback_to_admin_ops(db_session
     service = QuotaMonitoringService(db_session)
     assert service._resolve_runtime_client(endpoint, {}) is None
     assert admin_calls == 0
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        ValueError("service identity missing"),
+        RGWAdminError("RGW admin endpoint missing"),
+    ],
+)
+def test_cached_quota_client_treats_expected_factory_errors_as_unavailable(
+    db_session,
+    error,
+):
+    endpoint = _seed_endpoint(db_session, name="expected-client-error")
+    cache = {}
+
+    def failing_factory(_endpoint):
+        raise error
+
+    assert QuotaMonitoringService._resolve_cached_client(
+        endpoint,
+        cache,
+        failing_factory,
+    ) is None
+    assert cache == {endpoint.id: None}
+
+
+def test_cached_quota_client_propagates_unexpected_factory_errors(db_session):
+    endpoint = _seed_endpoint(db_session, name="unexpected-client-error")
+
+    def failing_factory(_endpoint):
+        raise TypeError("programming error")
+
+    with pytest.raises(TypeError, match="programming error"):
+        QuotaMonitoringService._resolve_cached_client(
+            endpoint,
+            {},
+            failing_factory,
+        )
 
 
 def test_usage_collection_failure_does_not_block_remaining_subjects(

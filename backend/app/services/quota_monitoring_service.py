@@ -30,7 +30,7 @@ from app.services.quota_alert_state_service import (
     QuotaAlertStateService,
     QuotaAlertTransition,
 )
-from app.services.rgw_admin import RGWAdminClient
+from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_runtime_rgw_client
 from app.services.rgw_supervision import get_supervision_rgw_client
 from app.services.quota_subject import SubjectContext
@@ -585,7 +585,7 @@ class QuotaMonitoringService:
             return None
         try:
             client = factory(endpoint)
-        except Exception:
+        except (RGWAdminError, ValueError):
             client = None
         cache[endpoint.id] = client
         return client
