@@ -22,7 +22,6 @@ from app.models.user import UserUpdate, validate_password_policy
 from app.routers.dependencies import (
     get_audit_service,
     get_current_ui_admin,
-    get_users_service_dependency,
 )
 from app.routers.identity_security_policy import (
     identity_security_http_errors,
@@ -35,7 +34,7 @@ from app.services.auth_session_service import AuthSessionService
 from app.services.external_identity_user_service import ExternalIdentityUserService
 from app.services.identity_security_requirements import passkey_required_for_role
 from app.services.mfa_reset_service import MfaResetService
-from app.services.users_service import UsersService
+from app.services.user_update_service import UserUpdateService
 from app.utils.http_errors import (
     raise_bad_request_from_value_error,
     raise_http_error_from_value_error,
@@ -109,7 +108,6 @@ def set_user_password(
     payload: AdminSetPasswordRequest,
     db: Session = Depends(get_db),
     actor: User = Depends(get_current_ui_admin),
-    users: UsersService = Depends(get_users_service_dependency),
     audit: AuditService = Depends(get_audit_service),
 ) -> None:
     require_admin_sensitive_action(request, db, actor)
@@ -121,7 +119,7 @@ def set_user_password(
         )
     try:
         validate_password_policy(payload.password)
-        users.update_user(target.id, UserUpdate(password=payload.password))
+        UserUpdateService(db).update_user(target.id, UserUpdate(password=payload.password))
     except ValueError as exc:
         raise_bad_request_from_value_error(exc)
     audit.record_action(
