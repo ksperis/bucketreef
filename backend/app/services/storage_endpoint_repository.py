@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.domain_errors import StorageEndpointNotFoundError
 from app.db import StorageEndpoint
+from app.utils.name_ordering import name_order_by
 
 
 class StorageEndpointRepository:
@@ -29,6 +30,20 @@ class StorageEndpointRepository:
             .where(StorageEndpoint.is_default.is_(True))
             .order_by(StorageEndpoint.id.asc())
             .limit(1)
+        )
+
+    def get_default_or_first(self) -> Optional[StorageEndpoint]:
+        return self.db.scalar(
+            select(StorageEndpoint)
+            .order_by(StorageEndpoint.is_default.desc(), StorageEndpoint.name.asc())
+            .limit(1)
+        )
+
+    def list_ordered(self) -> list[StorageEndpoint]:
+        return list(
+            self.db.scalars(
+                select(StorageEndpoint).order_by(*name_order_by(StorageEndpoint))
+            )
         )
 
     def find_by_url(self, endpoint_url: str) -> Optional[StorageEndpoint]:

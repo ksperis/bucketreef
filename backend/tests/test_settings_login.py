@@ -56,3 +56,26 @@ def test_login_settings_endpoints_are_sorted_by_name_case_insensitive(client, db
 
     assert [endpoint["name"] for endpoint in payload["endpoints"]] == ["alpha", "Beta", "Zulu"]
     assert payload["endpoints"][0]["is_default"] is False
+
+
+def test_login_settings_uses_configured_endpoint_when_catalog_is_empty(client, monkeypatch):
+    monkeypatch.setattr(
+        "app.routers.settings.load_app_settings_for_db",
+        lambda _db: SimpleNamespace(
+            general=SimpleNamespace(
+                allow_login_access_keys=True,
+                allow_login_endpoint_list=False,
+                allow_login_custom_endpoint=True,
+            ),
+            branding=SimpleNamespace(login_logo_url=None),
+        ),
+    )
+    monkeypatch.setattr(
+        "app.routers.settings.configured_s3_endpoint",
+        lambda: "https://configured.example.test",
+    )
+
+    response = client.get("/api/settings/login")
+
+    assert response.status_code == 200, response.text
+    assert response.json()["default_endpoint_url"] == "https://configured.example.test"

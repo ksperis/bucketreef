@@ -299,6 +299,35 @@ def test_login_s3_allows_registered_endpoint_when_custom_endpoints_are_disabled(
     assert response.json()["session"]["capabilities"]["endpoint_url"] == "https://s3.example.test"
 
 
+def test_resolve_login_endpoint_uses_registered_default(db_session):
+    db_session.add_all(
+        [
+            StorageEndpoint(
+                name="Alpha",
+                endpoint_url="https://alpha.example.test",
+                features=persisted_endpoint_features(),
+                is_default=False,
+            ),
+            StorageEndpoint(
+                name="Zulu",
+                endpoint_url="https://zulu.example.test",
+                features=persisted_endpoint_features(),
+                is_default=True,
+            ),
+        ]
+    )
+    db_session.commit()
+
+    endpoint_url, custom_endpoint = auth_s3._resolve_login_endpoint(
+        db_session,
+        None,
+        allow_custom_endpoint=False,
+    )
+
+    assert endpoint_url == "https://zulu.example.test"
+    assert custom_endpoint is False
+
+
 def test_login_s3_records_custom_endpoint_audit_event(monkeypatch, client, db_session):
     _enable_access_key_login(monkeypatch, allow_custom_endpoint=True)
     _mock_external(monkeypatch, iam_allowed=True)
