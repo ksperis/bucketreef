@@ -43,11 +43,12 @@ import {
   BROWSER_QUERY_DEBOUNCE_MS,
   isStaleRequest,
   prepareLatestRequest,
+  type BrowserObjectTypeFilter,
+  type BrowserSearchScope,
 } from "./browserSearchHelpers";
 import { isAbortError, normalizePrefix } from "./browserUtils";
 import { useBrowserI18n } from "./browserI18n";
 
-type BrowserObjectSearchScope = "prefix" | "bucket";
 type BrowserObjectSortBy =
   | "name"
   | "size"
@@ -68,13 +69,13 @@ type UseBrowserObjectListingOptions = {
   prefix: string;
   recursive: boolean;
   requestOptions?: BrowserRequestOptions;
-  searchScope: BrowserObjectSearchScope;
+  searchScope: BrowserSearchScope;
   showDeletedObjects: boolean;
   sortBy: BrowserObjectSortBy;
   sortDirection: "asc" | "desc";
   sortId: string;
   storageFilter: string;
-  typeFilter: "all" | "file" | "folder";
+  typeFilter: BrowserObjectTypeFilter;
   updateBucketAccessEntry: (
     bucketName: string,
     entry: BucketAccessEntry,

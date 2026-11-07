@@ -4,11 +4,10 @@
  */
 import type { KeyboardEventHandler, ReactNode, TextareaHTMLAttributes } from "react";
 import { useI18n } from "../i18n";
+import type { TextMatchMode } from "../utils/textMatch";
 import { ToolbarMatchModeButton } from "./ToolbarFilterControls";
 import UiField from "./ui/UiField";
 import { cx, uiInputClass } from "./ui/styles";
-
-type ToolbarSearchMatchMode = "contains" | "exact";
 
 type ToolbarSearchInputProps = {
   value: string;
@@ -21,7 +20,7 @@ type ToolbarSearchInputProps = {
   inputClassName?: string;
   inputWrapperClassName?: string;
   leadingControl?: ReactNode;
-  matchMode?: ToolbarSearchMatchMode;
+  matchMode?: TextMatchMode;
   onToggleMatchMode?: () => void;
   matchModeAriaLabel?: string;
   trailingControl?: ReactNode;

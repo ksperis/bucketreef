@@ -3,13 +3,12 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { TextMatchMode } from "../utils/textMatch";
 import { ListActionButton } from "./list/ListControls";
 import { cx } from "./ui/styles";
 
-type ToolbarMatchMode = "contains" | "exact";
-
 type ToolbarMatchModeButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> & {
-  mode: ToolbarMatchMode;
+  mode: TextMatchMode;
   pending?: boolean;
   locked?: boolean;
 };

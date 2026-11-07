@@ -5,6 +5,8 @@
 import type { BrowserBucket } from "../../api/browserContracts";
 
 export const BROWSER_QUERY_DEBOUNCE_MS = 250;
+export type BrowserSearchScope = "prefix" | "bucket";
+export type BrowserObjectTypeFilter = "all" | "file" | "folder";
 
 export const mergeBucketSearchItems = (
   previous: BrowserBucket[],
