@@ -8,7 +8,7 @@ import UiSelect from "./ui/UiSelect";
 import { cx, uiDividerClass, uiLabelClass, uiMutedTextClass } from "./ui/styles";
 import { usePaginationControlsI18n } from "./paginationControlsMessage";
 
-type PaginationControlsProps = {
+export type PaginationControlsProps = {
   page: number;
   pageSize: number;
   total: number;
