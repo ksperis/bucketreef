@@ -46,7 +46,10 @@ from app.services.bucket_migration.execution_object_models import (
     VersionedObjectDetails,
     VersionTimelineDiffKey,
 )
-from app.services.bucket_migration.diagnostics import MigrationPrecheckError
+from app.services.bucket_migration.diagnostics import (
+    MigrationPrecheckError,
+    MigrationRecoveryError,
+)
 from app.services.bucket_migration.precheck_item_inspection import BucketMigrationItemInspector
 from app.services.bucket_migration.precheck_rules import BucketMigrationPrecheckRules
 from app.services.bucket_migration.execution_runtime import ResolvedContext
@@ -2032,6 +2035,49 @@ def test_precheck_rules_do_not_mask_unexpected_same_endpoint_copy_failure():
         )
 
 
+def test_precheck_rules_do_not_mask_unexpected_cutover_probe_failures():
+    source_context = SimpleNamespace(execution_context=object())
+    target_context = SimpleNamespace()
+    item = SimpleNamespace(source_bucket="bucket-a")
+    migration = SimpleNamespace()
+
+    policy_service = SimpleNamespace(
+        _preparation_active_checks=True,
+        _precheck_policy_roundtrip=lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            RuntimeError("unexpected policy probe regression")
+        ),
+        _precheck_destination=lambda *_args, **_kwargs: None,
+    )
+    with pytest.raises(RuntimeError, match="unexpected policy probe regression"):
+        BucketMigrationPrecheckRules(policy_service)._check_cutover_policies(
+            source_context,
+            target_context,
+            item,
+            migration,
+            source_profile={},
+            strategy="current_only",
+            add_check=lambda **_payload: None,
+        )
+
+    destination_service = SimpleNamespace(
+        _preparation_active_checks=True,
+        _precheck_policy_roundtrip=lambda *_args, **_kwargs: None,
+        _precheck_destination=lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            RuntimeError("unexpected destination probe regression")
+        ),
+    )
+    with pytest.raises(RuntimeError, match="unexpected destination probe regression"):
+        BucketMigrationPrecheckRules(destination_service)._check_cutover_policies(
+            source_context,
+            target_context,
+            item,
+            migration,
+            source_profile={},
+            strategy="current_only",
+            add_check=lambda **_payload: None,
+        )
+
+
 def test_run_precheck_passed_then_start_allowed(db_session):
     user = _create_user(db_session)
     source = _create_account(db_session, name="source", endpoint_url="https://source.example.test", account_id="RGW001")
@@ -2109,7 +2155,7 @@ def test_run_precheck_failed_blocks_start(db_session):
         )
 
     def _fail_policy(*_args, **_kwargs):
-        raise RuntimeError("Access denied")
+        raise MigrationPrecheckError("Access denied")
 
     service._resolve_context = _resolve_context  # type: ignore[method-assign]
     service._precheck_can_list_bucket = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
@@ -4546,7 +4592,9 @@ def test_run_precheck_fails_when_target_lock_probe_fails_in_fail_closed_mode(db_
     service._precheck_destination = lambda *_args, **_kwargs: None
     service._inspector.inspect_bucket_state = lambda *_args, **_kwargs: _bucket_profile_stub("bucket-a")  # type: ignore[method-assign]
     service._precheck_destination = (  # type: ignore[method-assign]
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("lock probe denied"))
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            MigrationPrecheckError("lock probe denied")
+        )
     )
 
     checked = service.run_precheck(migration.id, active_checks=True)
@@ -4587,7 +4635,9 @@ def test_run_precheck_fails_when_target_lock_probe_cleanup_fails_in_fail_closed_
     service._precheck_destination = lambda *_args, **_kwargs: None
     service._inspector.inspect_bucket_state = lambda *_args, **_kwargs: _bucket_profile_stub("bucket-a")  # type: ignore[method-assign]
     service._precheck_destination = (  # type: ignore[method-assign]
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("Target write-lock precheck cleanup failed"))
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            MigrationRecoveryError("Target write-lock precheck cleanup failed")
+        )
     )
 
     checked = service.run_precheck(migration.id, active_checks=True)

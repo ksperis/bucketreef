@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from .diagnostics import MigrationPrecheckError
+from .diagnostics import MigrationPrecheckError, MigrationRecoveryError
 
 
 @dataclass(frozen=True)
@@ -353,7 +353,7 @@ class BucketMigrationPrecheckRules:
                 scope="source_policy",
                 message="Source protection applied and restoration verified.",
             )
-        except Exception as exc:
+        except (MigrationPrecheckError, MigrationRecoveryError) as exc:
             add_check(
                 code="source_read_only_policy_failed",
                 severity="error",
@@ -377,7 +377,7 @@ class BucketMigrationPrecheckRules:
                 scope="target_bucket",
                 message="Destination creation, content, tags, requested settings and protection tests passed; temporary bucket removed.",
             )
-        except Exception as exc:
+        except (MigrationPrecheckError, MigrationRecoveryError) as exc:
             add_check(
                 code="target_write_failed",
                 severity="error",
