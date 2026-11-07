@@ -19,7 +19,6 @@ from app.routers.auth_request_context import request_context
 from app.services.audit_service import AuditService
 from app.services.auth_rate_limit_service import AuthRateLimitService, LoginRateLimitedError
 from app.services.primary_authentication_service import PrimaryAuthenticationService
-from app.services.users_service import UsersService
 
 settings = get_settings()
 
@@ -189,11 +188,11 @@ def _finish_user_primary_auth(
     request: Request,
     response: Response,
     user: User,
-    users_service: UsersService,
+    db: Session,
     auth_type: str,
     redirect_path: Optional[str] = None,
 ) -> AuthenticationResponse:
-    service = PrimaryAuthenticationService(users_service)
+    service = PrimaryAuthenticationService(db)
     completion = service.pre_auth_completion(
         user,
         redirect_path=redirect_path,
