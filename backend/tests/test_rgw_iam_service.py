@@ -690,6 +690,22 @@ def test_user_group_role_policy_crud_smoke(monkeypatch):
     service.delete_role("missing")
 
 
+def test_user_and_group_updates_share_noop_and_error_behavior(monkeypatch):
+    service, fake = _service(monkeypatch)
+
+    service.update_user("alice")
+    service.update_group("grp-a")
+    assert not [call for call in fake.calls if call[0] in {"update_user", "update_group"}]
+
+    fake.raise_on["update_user"] = _client_error("ValidationError", "UpdateUser")
+    with pytest.raises(rgw_iam.RGWIAMError, match="Unable to update IAM user"):
+        service.update_user("alice", new_path="/users/")
+
+    fake.raise_on["update_group"] = _client_error("ValidationError", "UpdateGroup")
+    with pytest.raises(rgw_iam.RGWIAMError, match="Unable to update IAM group"):
+        service.update_group("grp-a", new_path="/groups/")
+
+
 @pytest.mark.parametrize(
     ("method_name", "identity_name", "operation", "identity_param"),
     [
