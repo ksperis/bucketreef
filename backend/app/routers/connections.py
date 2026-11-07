@@ -31,7 +31,7 @@ from app.services.managed_private_access_cleanup_service import (
     ManagedPrivateAccessCleanupService,
 )
 from app.services.s3_connection_validation_service import S3ConnectionValidationService
-from app.services.storage_endpoints_service import get_storage_endpoints_service
+from app.services.storage_endpoint_repository import StorageEndpointRepository
 from app.services.tags_service import TagsService, serialize_tag_summaries
 from app.utils.tagging import TAG_DOMAIN_PRIVATE_CONNECTION_USER
 from app.core.sensitive_data import sanitize_error_detail
@@ -91,7 +91,7 @@ def list_private_connection_storage_endpoints(
             endpoint_url=endpoint.endpoint_url,
             is_default=endpoint.is_default,
         )
-        for endpoint in get_storage_endpoints_service(db).list_endpoints()
+        for endpoint in StorageEndpointRepository(db).list_ordered()
     ]
 
 
