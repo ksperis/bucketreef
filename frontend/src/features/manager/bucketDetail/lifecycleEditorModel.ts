@@ -4,6 +4,7 @@
  */
 import type { LifecycleRuleRecord } from "../bucketLifecycle";
 import { hasOnlyKeys, isRecord } from "../../../utils/record";
+import { parseJsonObjectArray } from "./jsonObjectArrayEditor";
 
 export type LifecycleVisualRuleDraft = {
   id: string;
@@ -338,21 +339,10 @@ export function createVisualLifecycleRule(): LifecycleRuleRecord {
 export function parseLifecycleRulesJson(
   text: string,
 ): { rules: LifecycleRuleRecord[] | null; error: string | null } {
-  let parsed: unknown;
-  try {
-    parsed = text.trim() ? JSON.parse(text) : [];
-  } catch {
-    return { rules: null, error: "Lifecycle rules JSON is invalid." };
-  }
-  if (!Array.isArray(parsed)) {
-    return { rules: null, error: "JSON must be an array of rules." };
-  }
-  if (
-    parsed.some(
-      (rule) => rule === null || typeof rule !== "object" || Array.isArray(rule),
-    )
-  ) {
-    return { rules: null, error: "Each lifecycle rule must be a JSON object." };
-  }
-  return { rules: parsed as LifecycleRuleRecord[], error: null };
+  const parsed = parseJsonObjectArray<LifecycleRuleRecord>(text, {
+    invalidJson: "Lifecycle rules JSON is invalid.",
+    notArray: "JSON must be an array of rules.",
+    invalidEntry: "Each lifecycle rule must be a JSON object.",
+  });
+  return { rules: parsed.items, error: parsed.error };
 }
