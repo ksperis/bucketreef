@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { S3AccountSelector } from "../../api/accountParams";
 import { fetchPortalStorageSpaceSettings, updatePortalStorageSpaceSettings, type PortalStorageSpaceSettings as SpaceSettings } from "../../api/portal";
+import ModalActions from "../../components/ModalActions";
 import StorageSpaceIcon from "../../components/StorageSpaceIcon";
 import { SettingsItem, SettingsSection, SettingsSwitch } from "../../components/settings/SettingsLayout";
 import { SettingsActions, SettingsButton, SettingsDialog, SettingsField, useSettingsCloseGuard } from "../../components/settings/SettingsControls";
@@ -178,9 +179,11 @@ export default function PortalStorageSpaceSettings({ accountId, space, canConfig
       <p className="settings-body">{t({ en: "Use this name only when an external application asks for a storage or bucket name.", fr: "Utilisez ce nom uniquement lorsqu’une application externe demande un nom de stockage ou de bucket.", de: "Verwenden Sie diesen Namen nur, wenn eine externe Anwendung nach einem Speicher- oder Bucket-Namen fragt.", zh: "仅在外部应用要求输入存储或存储桶名称时使用此名称。" })}</p>
       <p className="my-4 break-all font-mono settings-body">{space.internalName ?? space.id}</p>
       {canCreateExternalAccess ? (
-        <Link className="settings-control settings-button inline-flex items-center rounded border border-[var(--ui-border)] px-3 text-primary" to={`/portal/access-keys?space_id=${encodeURIComponent(space.internalName ?? space.id)}&create=external`}>
-          {t({ en: "Configure access", fr: "Configurer l’accès", de: "Zugriff konfigurieren", zh: "配置访问权限" })}
-        </Link>
+        <ModalActions>
+          <Link className="settings-control settings-button inline-flex items-center rounded border border-[var(--ui-border)] px-3 text-primary" to={`/portal/access-keys?space_id=${encodeURIComponent(space.internalName ?? space.id)}&create=external`}>
+            {t({ en: "Configure access", fr: "Configurer l’accès", de: "Zugriff konfigurieren", zh: "配置访问权限" })}
+          </Link>
+        </ModalActions>
       ) : (
         <span className="settings-readonly">{t({
           en: "External sharing is disabled for your role in this project.",

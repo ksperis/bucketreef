@@ -1363,6 +1363,7 @@ describe("PortalStorageSpaceDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Connection details" }));
     const dialog = screen.getByRole("dialog", { name: "Connection details" });
     expect(within(dialog).getByText("research-data-internal")).toBeInTheDocument();
+    expect(dialog.querySelector(".modal-actions")).toBeInTheDocument();
     expect(within(dialog).getByRole("link", { name: "Configure access" })).toHaveAttribute("href", "/portal/access-keys?space_id=research-data-internal&create=external");
   });
 
