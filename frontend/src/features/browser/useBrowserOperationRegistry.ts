@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useEffect, useRef, useState } from "react";
+import { isCancelledError } from "../../utils/apiError";
 import { createRuntimeId } from "../../utils/runtimeId";
 
 import { COMPLETED_OPERATIONS_LIMIT } from "./browserConstants";
@@ -19,7 +20,6 @@ import type {
   OperationCompletionStatus,
   OperationItem,
 } from "./browserTypes";
-import { isAbortError } from "./browserUtils";
 
 type RunningOperationKind = Exclude<
   NonNullable<OperationItem["kind"]>,
@@ -53,7 +53,7 @@ function operationWasAborted(
   error: unknown,
   controller?: AbortController | null,
 ): boolean {
-  return isAbortError(error) || Boolean(controller?.signal.aborted);
+  return isCancelledError(error) || Boolean(controller?.signal.aborted);
 }
 
 export function useBrowserOperationRegistry() {

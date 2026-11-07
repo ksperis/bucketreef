@@ -6,12 +6,12 @@ import { ZipWriter } from "@zip.js/zip.js";
 import JSZip from "jszip";
 
 import type { BrowserObject } from "../../api/browserContracts";
+import { isCancelledError } from "../../utils/apiError";
 import { runWithConcurrency } from "../../utils/concurrency";
 import { triggerBlobDownload } from "../../utils/download";
 import { formatBrowserOperationError } from "./browserOperationErrors";
 import { defaultBrowserText, type BrowserTextFn } from "./browserI18n";
 import type { DownloadDetailStatus } from "./browserTypes";
-import { isAbortError } from "./browserUtils";
 
 export type BrowserFolderDownloadTarget = {
   detailId: string;
@@ -152,7 +152,7 @@ export const chooseBrowserArchiveFile = async (
       ],
     });
   } catch (error) {
-    if (isAbortError(error)) return null;
+    if (isCancelledError(error)) return null;
     throw error;
   }
 };
@@ -243,7 +243,7 @@ export const downloadBrowserFolderArchive = async ({
     try {
       fileStream = await output.fileHandle.createWritable();
     } catch (error) {
-      if (isAbortError(error)) return { cancelled: true, failedKeys };
+      if (isCancelledError(error)) return { cancelled: true, failedKeys };
       throw error;
     }
     const zipWriter = new ZipWriter<Uint8Array>(fileStream);
@@ -269,7 +269,7 @@ export const downloadBrowserFolderArchive = async ({
           succeeded += 1;
           onDetailChange(target.detailId, "done");
         } catch (error) {
-          if (isAbortError(error) || controller.signal.aborted) {
+          if (isCancelledError(error) || controller.signal.aborted) {
             onDetailChange(target.detailId, "cancelled");
             aborted = true;
             controller.abort();
@@ -345,7 +345,7 @@ export const downloadBrowserFolderArchive = async ({
         succeeded += 1;
         onDetailChange(target.detailId, "done");
       } catch (error) {
-        if (isAbortError(error) || controller.signal.aborted) {
+        if (isCancelledError(error) || controller.signal.aborted) {
           onDetailChange(target.detailId, "cancelled");
           aborted = true;
           controller.abort();

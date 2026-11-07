@@ -106,13 +106,6 @@ export const isLikelyCorsError = (error: unknown) => {
   return error.code === "ERR_NETWORK" || error.message === "Network Error";
 };
 
-export const isAbortError = (error: unknown) => {
-  if (isApiError(error)) {
-    return error.code === "ERR_CANCELED" || error.name === "CanceledError";
-  }
-  return error instanceof DOMException && error.name === "AbortError";
-};
-
 export const normalizeEtag = (raw?: string | string[] | null): string | undefined => {
   if (!raw) return undefined;
   const value = Array.isArray(raw) ? raw[0] : raw;

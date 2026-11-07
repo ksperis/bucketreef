@@ -39,6 +39,7 @@ import {
   mergeDeletedObjectsWithLimit,
   mergeUniqueStringsWithLimit,
 } from "./browserListingState";
+import { isCancelledError } from "../../utils/apiError";
 import {
   BROWSER_QUERY_DEBOUNCE_MS,
   isStaleRequest,
@@ -46,7 +47,7 @@ import {
   type BrowserObjectTypeFilter,
   type BrowserSearchScope,
 } from "./browserSearchHelpers";
-import { isAbortError, normalizePrefix } from "./browserUtils";
+import { normalizePrefix } from "./browserUtils";
 import { useBrowserI18n } from "./browserI18n";
 
 type BrowserObjectSortBy =
@@ -597,7 +598,7 @@ export function useBrowserObjectListing({
           );
         }
       } catch (error) {
-        if (isAbortError(error)) return;
+        if (isCancelledError(error)) return;
         if (isStaleRequest(requestSeq, objectsRequestSeqRef.current)) return;
         const issue = normalizeBrowserListingIssue(
           error,

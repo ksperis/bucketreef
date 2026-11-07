@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useEffect, useRef, useState } from "react";
+import { isCancelledError } from "../../utils/apiError";
 import { createRuntimeId } from "../../utils/runtimeId";
 import { buildBrowserSelectionManifest } from "./browserSelectionManifest";
 import {
@@ -20,7 +21,6 @@ import type {
   DownloadDetailStatus,
   OperationCompletionStatus,
 } from "./browserTypes";
-import { isAbortError } from "./browserUtils";
 import type { useBrowserOperationRegistry } from "./useBrowserOperationRegistry";
 import type { ListAllBrowserObjectsForPrefix } from "./useBrowserRecursiveObjectListing";
 import { useBrowserI18n } from "./browserI18n";
@@ -196,7 +196,7 @@ export function useBrowserArchiveDownload({
           );
         }
       } catch (caughtError) {
-        if (isAbortError(caughtError) || controller.signal.aborted) {
+        if (isCancelledError(caughtError) || controller.signal.aborted) {
           completionStatus = "cancelled";
           onStatus(text("Download cancelled for {label}", { label: folderLabel }));
           cancelDownloadDetails(operationId);
@@ -320,7 +320,7 @@ export function useBrowserArchiveDownload({
         await executeArchive(basePrefix, folderLabel, plan, { kind: "memory" });
       } catch (caughtError) {
         const ownsPreparation = archiveInventoryControllerRef.current === controller;
-        if (isAbortError(caughtError) || controller.signal.aborted) {
+        if (isCancelledError(caughtError) || controller.signal.aborted) {
           if (ownsPreparation) {
             setArchivePreparation(null);
             onStatus(

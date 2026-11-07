@@ -6,6 +6,7 @@ import { useCallback } from "react";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
 import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import { deleteObjects } from "../../api/browserObjects";
+import { isCancelledError } from "../../utils/apiError";
 import { runWithConcurrency } from "../../utils/concurrency";
 import { roundedClampedPercentageOf } from "../../utils/numbers";
 import { createRuntimeId } from "../../utils/runtimeId";
@@ -18,7 +19,6 @@ import type {
 } from "./browserTypes";
 import {
   chunkItems,
-  isAbortError,
   normalizePrefix,
 } from "./browserUtils";
 import type { useBrowserOperationRegistry } from "./useBrowserOperationRegistry";
@@ -153,7 +153,7 @@ export function useBrowserDeleteItems({
             deletedCount += chunk.length;
             onProgress?.(deletedCount, total);
           } catch (caughtError) {
-            if (isAbortError(caughtError) || signal?.aborted) {
+            if (isCancelledError(caughtError) || signal?.aborted) {
               if (detailOperationId) {
                 updateDeleteDetailsStatus(
                   detailOperationId,

@@ -15,6 +15,7 @@ import {
   triggerBlobDownload,
   triggerUrlDownload,
 } from "../../utils/download";
+import { isCancelledError } from "../../utils/apiError";
 import { clampPercentage } from "../../utils/numbers";
 import { createRuntimeId } from "../../utils/runtimeId";
 import { buildAttachmentDownloadDisposition } from "./browserObjectDetailsModel";
@@ -30,7 +31,6 @@ import type {
   DownloadDetailStatus,
   OperationCompletionStatus,
 } from "./browserTypes";
-import { isAbortError } from "./browserUtils";
 import type { useBrowserOperationRegistry } from "./useBrowserOperationRegistry";
 import type { ListAllBrowserObjectsForPrefix } from "./useBrowserRecursiveObjectListing";
 import { useBrowserI18n } from "./browserI18n";
@@ -276,7 +276,7 @@ export function useBrowserDownloads({
                 );
               }
             } catch (caughtError) {
-              if (isAbortError(caughtError) || controller.signal.aborted) {
+              if (isCancelledError(caughtError) || controller.signal.aborted) {
                 updateDownloadDetail(
                   operationId,
                   target.detailId,
@@ -327,7 +327,7 @@ export function useBrowserDownloads({
           onStatus(completionError);
         }
       } catch (caughtError) {
-        if (isAbortError(caughtError) || controller.signal.aborted) {
+        if (isCancelledError(caughtError) || controller.signal.aborted) {
           completionStatus = "cancelled";
           onStatus(text("Download cancelled."));
         } else {

@@ -16,7 +16,7 @@ import UiButton from "../../components/ui/UiButton";
 import UiInput from "../../components/ui/UiInput";
 import UiProgressBar from "../../components/ui/UiProgressBar";
 import { cx, uiMutedTextClass, uiTitleTextClass } from "../../components/ui/styles";
-import { extractApiError } from "../../utils/apiError";
+import { extractApiError, isCancelledError } from "../../utils/apiError";
 import { formatNumber } from "../../utils/format";
 import { roundedClampedPercentageOf } from "../../utils/numbers";
 import { cephAdminPageBreadcrumbs } from "./cephAdminBreadcrumbs";
@@ -28,10 +28,6 @@ type Props = {
   targets: RgwBucketReference[];
   onClose: () => void;
 };
-
-function isAbortError(error: unknown): boolean {
-  return error instanceof DOMException && error.name === "AbortError";
-}
 
 export default function CephAdminBucketIndexCheckPage({ endpointId, endpointName, targets, onClose }: Props) {
   const { text: surfaceText } = useCephAdminI18n();
@@ -75,7 +71,7 @@ export default function CephAdminBucketIndexCheckPage({ endpointId, endpointName
             )
       );
     } catch (runError) {
-      if (isAbortError(runError)) {
+      if (isCancelledError(runError)) {
         setMessage(surfaceText("Bucket index checks canceled."));
       } else {
         setError(extractApiError(runError, surfaceText("Bucket index checks failed.")));
