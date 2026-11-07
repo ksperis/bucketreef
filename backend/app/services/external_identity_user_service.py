@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.db_transactions import commit_or_rollback
 from app.core.domain_errors import ExternalIdentityConflictError, ExternalIdentityNotFoundError
-from app.db import ExternalIdentity, ExternalIdentityLinkRequest, User
+from app.db import ExternalIdentity, User
 from app.core.domain_enums import UserRole
 from app.services.auth_session_service import AuthSessionService
 from app.services.audit_service import AuditService
@@ -98,21 +98,6 @@ class ExternalIdentityUserService:
             trusted_email_domains=[],
             browser_secret_hash=browser_secret_hash,
             redirect_path=redirect_path,
-        )
-
-    def decide_link_request(
-        self,
-        request_id: str,
-        *,
-        superadmin: User,
-        approve: bool,
-        reason: Optional[str] = None,
-    ) -> ExternalIdentityLinkRequest:
-        return self.link_requests.decide(
-            request_id,
-            superadmin=superadmin,
-            approve=approve,
-            reason=reason,
         )
 
     def revoke_identity(self, identity_id: str, *, reason: str = "identity_revoked") -> ExternalIdentity:
@@ -451,7 +436,7 @@ class ExternalIdentityUserService:
         if linking_policy == "reauthenticate":
             raise ValueError("External identity account linking browser binding is unavailable")
 
-        request = self.request_link_approval(
+        request = self.link_requests.request(
             user=user,
             provider_type=provider_type,
             provider_id=provider_id,
@@ -505,33 +490,6 @@ class ExternalIdentityUserService:
         commit_or_rollback(self.db)
         self.db.refresh(user)
         return user
-
-    def request_link_approval(
-        self,
-        *,
-        user: User,
-        provider_type: str,
-        provider_id: str,
-        issuer: Optional[str],
-        subject: str,
-        email: str,
-        email_verified: bool = False,
-        request_source: Optional[str] = None,
-        full_name: Optional[str],
-        picture_url: Optional[str],
-    ) -> ExternalIdentityLinkRequest:
-        return self.link_requests.request(
-            user=user,
-            provider_type=provider_type,
-            provider_id=provider_id,
-            issuer=issuer,
-            subject=subject,
-            email=email,
-            email_verified=email_verified,
-            request_source=request_source,
-            full_name=full_name,
-            picture_url=picture_url,
-        )
 
     def _can_trust_email_link(
         self,
