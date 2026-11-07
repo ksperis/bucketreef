@@ -25938,27 +25938,6 @@
           "check": null
         },
         {
-          "id": "field:onboarding_preferences.initial_setup_completed_at",
-          "name": "initial_setup_completed_at",
-          "type": {
-            "id": "datetime",
-            "name": "datetime"
-          },
-          "primaryKey": false,
-          "unique": false,
-          "nullable": true,
-          "increment": null,
-          "isArray": false,
-          "createdAt": 0,
-          "characterMaximumLength": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "collation": null,
-          "comments": null,
-          "check": null
-        },
-        {
           "id": "field:onboarding_preferences.updated_at",
           "name": "updated_at",
           "type": {
