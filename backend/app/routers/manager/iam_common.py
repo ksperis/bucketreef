@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TypeVar
 
-from fastapi import status
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import (
@@ -18,7 +18,6 @@ from app.services.audit_service import AuditService
 from app.services.manager_iam_support import (
     build_iam_service_for_context,
     ensure_unmanaged_iam_user as ensure_unmanaged_iam_user_service,
-    validate_inline_policy_name,
 )
 from app.services.rgw_iam import RGWIAMService
 from app.services.s3_execution_context import S3ExecutionContext
@@ -47,10 +46,11 @@ def get_iam_service_for_context(context: S3ExecutionContext) -> RGWIAMService:
 
 
 def ensure_inline_policy_name(payload: InlinePolicy, policy_name: str) -> None:
-    try:
-        validate_inline_policy_name(payload, policy_name)
-    except ValueError as exc:
-        raise_bad_request_from_value_error(exc)
+    if payload.name and payload.name != policy_name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Inline policy name in payload does not match the URL.",
+        )
 
 
 def run_iam_read(read: Callable[[], _T]) -> _T:
