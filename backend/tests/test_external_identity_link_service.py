@@ -26,6 +26,7 @@ from app.services.api_token_service import ApiTokenService
 from app.services.auth_session_service import AuthSessionService
 from app.services.ldap_service import LDAPIdentity
 from app.services.external_identity_link_attempt_service import ExternalIdentityLinkAttemptService
+from app.services.external_identity_link_request_service import ExternalIdentityLinkRequestService
 from app.services.external_identity_user_service import ExternalIdentityUserService
 from app.services.external_identity_link_contracts import ExternalIdentityLinkError
 from app.services.external_identity_link_service import ExternalIdentityLinkService
@@ -251,7 +252,7 @@ def test_admin_fallback_creates_review_request_and_stops_local_flow(db_session):
         email="fallback-superadmin@example.test",
         role=UserRole.UI_SUPERADMIN.value,
     )
-    ExternalIdentityUserService(db_session).decide_link_request(
+    ExternalIdentityLinkRequestService(db_session).decide(
         request.id,
         superadmin=superadmin,
         approve=True,
@@ -330,7 +331,7 @@ def test_admin_fallback_rejection_reaches_terminal_link_state(db_session):
         role=UserRole.UI_SUPERADMIN.value,
     )
 
-    ExternalIdentityUserService(db_session).decide_link_request(
+    ExternalIdentityLinkRequestService(db_session).decide(
         request.id,
         superadmin=superadmin,
         approve=False,
@@ -390,7 +391,7 @@ def test_admin_link_approval_rolls_back_identity_and_credentials_on_commit_failu
     monkeypatch.setattr(db_session, "rollback", recording_rollback)
 
     with pytest.raises(RuntimeError, match="commit failed"):
-        ExternalIdentityUserService(db_session).decide_link_request(
+        ExternalIdentityLinkRequestService(db_session).decide(
             request.id,
             superadmin=superadmin,
             approve=True,
@@ -596,7 +597,7 @@ def test_ldap_admin_fallback_updates_bound_attempt(
         role=UserRole.UI_SUPERADMIN.value,
     )
 
-    ExternalIdentityUserService(db_session).decide_link_request(
+    ExternalIdentityLinkRequestService(db_session).decide(
         request.id,
         superadmin=superadmin,
         approve=approve,
