@@ -3,6 +3,7 @@ import {
   clampNumber,
   clampPercentage,
   clampedPercentageOf,
+  parsePositiveInteger,
   roundedClampedPercentageOf,
 } from "./numbers";
 
@@ -11,6 +12,18 @@ describe("clampNumber", () => {
     expect(clampNumber(5, 0, 10)).toBe(5);
     expect(clampNumber(-1, 0, 10)).toBe(0);
     expect(clampNumber(11, 0, 10)).toBe(10);
+  });
+});
+
+describe("parsePositiveInteger", () => {
+  it("accepts positive integers and rejects missing or non-integer values", () => {
+    expect(parsePositiveInteger("7")).toBe(7);
+    expect(parsePositiveInteger(null)).toBeNull();
+    expect(parsePositiveInteger("")).toBeNull();
+    expect(parsePositiveInteger("0")).toBeNull();
+    expect(parsePositiveInteger("-1")).toBeNull();
+    expect(parsePositiveInteger("1.5")).toBeNull();
+    expect(parsePositiveInteger("invalid")).toBeNull();
   });
 });
 

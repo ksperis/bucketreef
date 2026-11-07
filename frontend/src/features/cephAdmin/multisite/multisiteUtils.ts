@@ -195,12 +195,6 @@ export function buildMultisiteHref(path: string, currentSearch: URLSearchParams,
   return query ? `${path}?${query}` : path;
 }
 
-export function parsePositiveInteger(value: string | null): number | null {
-  if (!value) return null;
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
-}
-
 export function parseNonNegativeInteger(value: string): number | null {
   if (!value.trim()) return null;
   const parsed = Number(value);

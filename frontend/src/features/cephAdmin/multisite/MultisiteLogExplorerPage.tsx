@@ -13,12 +13,13 @@ import UiInput from "../../../components/ui/UiInput";
 import UiSelect from "../../../components/ui/UiSelect";
 import { extractApiError, isCancelledError } from "../../../utils/apiError";
 import { triggerDownload } from "../../../utils/download";
+import { parsePositiveInteger } from "../../../utils/numbers";
 import { useCephAdminEndpoint } from "../CephAdminEndpointContext";
 import { useCephAdminI18n } from "../cephAdminI18n";
 import { JsonDetails, MultisiteDetailDrawer, ObservationNotice, ProvenanceSummary } from "./MultisiteCommon";
 import MultisitePage from "./MultisitePage";
 import { advanceLogCursor, canAdvanceToNextLog, retreatLogCursor, type LogCursorHistory } from "./multisiteLogState";
-import { displayRecordValue, formatTimestamp, getDeclaredEndpointOptions, lookupRecordValue, matchesLoadedEntry, parseNonNegativeInteger, parsePositiveInteger, recordsToCsv, safeJson } from "./multisiteUtils";
+import { displayRecordValue, formatTimestamp, getDeclaredEndpointOptions, lookupRecordValue, matchesLoadedEntry, parseNonNegativeInteger, recordsToCsv, safeJson } from "./multisiteUtils";
 import { useMultisiteTopology } from "./useMultisiteTopology";
 
 type LogForm = {
