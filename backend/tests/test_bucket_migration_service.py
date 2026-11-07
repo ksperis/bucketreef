@@ -1237,7 +1237,8 @@ def test_source_copy_grant_candidates_use_canonical_account_root_uid(db_session)
         endpoint_url="https://target.example.test",
         account_id="RGW002",
     )
-    target.rgw_user_uid = "custom-target-root"
+    target.rgw_account_id = " RGW002 "
+    target.rgw_user_uid = " custom-target-root "
     service = BucketMigrationService(db_session)
     target_ctx = ResolvedContext(
         context_id=str(target.id),
@@ -1254,6 +1255,19 @@ def test_source_copy_grant_candidates_use_canonical_account_root_uid(db_session)
     assert "arn:aws:iam:::user/custom-target-root" in candidates
     assert "arn:aws:iam::RGW002:user/custom-target-root" in candidates
     assert "RGW002-admin" not in candidates
+
+
+def test_source_copy_grant_candidates_reject_trimmed_connection_context(db_session):
+    service = BucketMigrationService(db_session)
+    target_ctx = SimpleNamespace(
+        context_id=" conn-7 ",
+        execution_context=SimpleNamespace(
+            rgw_account_id="RGW002",
+            rgw_user_uid="target-root",
+        ),
+    )
+
+    assert service._source_copy_grant_principal_candidates(target_ctx) == []
 
 
 def test_endpoint_capabilities_reject_invalid_persisted_features(db_session):

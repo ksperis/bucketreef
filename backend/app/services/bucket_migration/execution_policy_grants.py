@@ -13,6 +13,7 @@ from app.db import BucketMigrationItem
 from app.services.rgw_principal_scope import resolve_target_admin_uid
 from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionTarget
+from app.utils.normalize import normalize_optional_string
 
 from .diagnostics import (
     MigrationCopyGrantError,
@@ -28,20 +29,20 @@ _SOURCE_COPY_GRANT_POLICY_SID = "BucketReefMigrationSourceCopyGrantAllow"
 
 class BucketMigrationPolicyGrantsMixin:
     def _source_copy_grant_principal_candidates(self, target_ctx: ResolvedContext) -> list[str]:
-        context_id = (target_ctx.context_id or "").strip()
+        context_id = normalize_optional_string(target_ctx.context_id) or ""
         if context_id.startswith("conn-"):
             return []
 
         execution_context = target_ctx.execution_context
-        account_id = (execution_context.rgw_account_id or "").strip()
-        explicit_uid = (execution_context.rgw_user_uid or "").strip()
-        resolved_uid = (resolve_target_admin_uid(execution_context) or "").strip()
+        account_id = normalize_optional_string(execution_context.rgw_account_id)
+        explicit_uid = normalize_optional_string(execution_context.rgw_user_uid)
+        resolved_uid = normalize_optional_string(resolve_target_admin_uid(execution_context))
 
         candidates: list[str] = []
         seen: set[str] = set()
 
         def push(value: Optional[str]) -> None:
-            normalized = (value or "").strip()
+            normalized = normalize_optional_string(value)
             if not normalized or normalized in seen:
                 return
             seen.add(normalized)
