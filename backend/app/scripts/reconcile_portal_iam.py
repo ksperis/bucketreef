@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
 from app.core.logging_security import configure_secure_logging
+from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import AccountIAMUser, PortalIAMRevocation, S3Account, User
 from app.services.effective_access_contracts import ResolvedUserAccess
 from app.services.effective_access_service import EffectiveAccessService
@@ -138,7 +139,7 @@ def _reconcile_account(
                     except Exception as exc:  # noqa: BLE001 - reconcile remaining users independently
                         db.rollback()
                         summary["errors"].append(
-                            {"user_id": user_id, "error": str(exc)}
+                            {"user_id": user_id, "error": sanitized_error_log_detail(exc)}
                         )
                 continue
             summary["errors"].append(
@@ -158,7 +159,9 @@ def _reconcile_account(
             summary[outcome] += 1
         except Exception as exc:  # noqa: BLE001 - reconcile remaining users independently
             db.rollback()
-            summary["errors"].append({"user_id": user_id, "error": str(exc)})
+            summary["errors"].append(
+                {"user_id": user_id, "error": sanitized_error_log_detail(exc)}
+            )
     return summary
 
 
