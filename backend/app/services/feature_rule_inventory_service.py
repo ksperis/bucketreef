@@ -19,6 +19,7 @@ from app.services.bucket_configuration_service import BucketConfigurationService
 from app.services.buckets_service import BucketsService
 from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.concurrency import bounded_ordered_map
+from app.utils.s3_errors import matches_s3_error
 
 MANAGER_FEATURE_RULE_INVENTORY_MAX_WORKERS = 8
 SENSITIVE_RAW_KEY_PARTS = (
@@ -31,7 +32,7 @@ SENSITIVE_RAW_KEY_PARTS = (
     "session_token",
     "token",
 )
-SAFE_RUNTIME_ERROR_CODES = (
+SAFE_BUCKET_FEATURE_ERROR_CODES = (
     "AccessDenied",
     "Forbidden",
     "NoSuchBucket",
@@ -100,10 +101,8 @@ def _sanitize_raw_payload(value: Any) -> Any:
 
 
 def _safe_bucket_feature_error(feature: FeatureRuleInventoryFeature, exc: RuntimeError) -> str:
-    detail = str(exc)
-    message_lower = detail.lower()
-    for code in SAFE_RUNTIME_ERROR_CODES:
-        if code.lower() in message_lower:
+    for code in SAFE_BUCKET_FEATURE_ERROR_CODES:
+        if matches_s3_error(exc, codes={code}):
             return code
     return "Unable to read tags" if feature == "tags" else "Unable to read rules"
 
