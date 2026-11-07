@@ -16,6 +16,10 @@ settings = get_settings()
 logger = logging.getLogger(__name__)
 
 
+class SNSOperationError(RuntimeError):
+    """Expected SNS provider or configuration failure."""
+
+
 def _xml_local_name(tag: str) -> str:
     return tag.rsplit("}", 1)[-1] if "}" in tag else tag
 
@@ -77,7 +81,7 @@ def get_sns_client(
     verify_tls: bool = True,
 ):
     if not endpoint:
-        raise RuntimeError("SNS endpoint is not configured")
+        raise SNSOperationError("SNS endpoint is not configured")
     return boto3.client(
         "sns",
         endpoint_url=endpoint,
@@ -110,7 +114,7 @@ def list_topics(
             if not token:
                 break
     except (BotoCoreError, ClientError) as exc:
-        raise RuntimeError(f"Unable to list SNS topics: {exc}") from exc
+        raise SNSOperationError(f"Unable to list SNS topics: {exc}") from exc
     return topics
 
 
@@ -147,9 +151,9 @@ def list_topics_raw(
             if not token:
                 break
     except ElementTree.ParseError as exc:
-        raise RuntimeError(f"Unable to parse raw SNS ListTopics response: {exc}") from exc
+        raise SNSOperationError(f"Unable to parse raw SNS ListTopics response: {exc}") from exc
     except (BotoCoreError, ClientError) as exc:
-        raise RuntimeError(f"Unable to list raw SNS topics: {exc}") from exc
+        raise SNSOperationError(f"Unable to list raw SNS topics: {exc}") from exc
     finally:
         client.meta.events.unregister("after-call.sns.ListTopics", capture_raw_response)
     return topics
@@ -172,7 +176,7 @@ def create_topic(
             params["Attributes"] = attrs
         resp = client.create_topic(**params)
     except (BotoCoreError, ClientError) as exc:
-        raise RuntimeError(f"Unable to create SNS topic '{name}': {exc}") from exc
+        raise SNSOperationError(f"Unable to create SNS topic '{name}': {exc}") from exc
     return resp or {}
 
 
@@ -191,9 +195,9 @@ def delete_topic(
         code = aws_error_code(exc)
         if code in {"NotFound", "NotFoundException"}:
             return
-        raise RuntimeError(f"Unable to delete SNS topic '{topic_arn}': {exc}") from exc
+        raise SNSOperationError(f"Unable to delete SNS topic '{topic_arn}': {exc}") from exc
     except BotoCoreError as exc:
-        raise RuntimeError(f"Unable to delete SNS topic '{topic_arn}': {exc}") from exc
+        raise SNSOperationError(f"Unable to delete SNS topic '{topic_arn}': {exc}") from exc
 
 
 def get_topic_attributes(
@@ -211,9 +215,9 @@ def get_topic_attributes(
         code = aws_error_code(exc)
         if code in {"NotFound", "NotFoundException"}:
             return {}
-        raise RuntimeError(f"Unable to fetch SNS topic attributes '{topic_arn}': {exc}") from exc
+        raise SNSOperationError(f"Unable to fetch SNS topic attributes '{topic_arn}': {exc}") from exc
     except BotoCoreError as exc:
-        raise RuntimeError(f"Unable to fetch SNS topic attributes '{topic_arn}': {exc}") from exc
+        raise SNSOperationError(f"Unable to fetch SNS topic attributes '{topic_arn}': {exc}") from exc
     return resp.get("Attributes", {}) or {}
 
 
@@ -255,7 +259,7 @@ def set_topic_policy(
             AttributeValue=json.dumps(policy),
         )
     except (BotoCoreError, ClientError) as exc:
-        raise RuntimeError(f"Unable to update SNS topic policy for '{topic_arn}': {exc}") from exc
+        raise SNSOperationError(f"Unable to update SNS topic policy for '{topic_arn}': {exc}") from exc
 
 
 def set_topic_attributes(
@@ -278,4 +282,4 @@ def set_topic_attributes(
                 AttributeValue=value,
             )
         except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to update SNS topic attribute '{name}' for '{topic_arn}': {exc}") from exc
+            raise SNSOperationError(f"Unable to update SNS topic attribute '{name}' for '{topic_arn}': {exc}") from exc

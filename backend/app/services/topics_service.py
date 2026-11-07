@@ -8,10 +8,11 @@ from typing import Any, Optional
 from urllib.parse import parse_qsl
 
 from app.core.domain_enums import StorageProvider
-from app.services.s3_execution_context import S3ExecutionTarget
-from app.services.s3_execution_client import require_s3_execution_credentials
 from app.models.topic import Topic
 from app.services import sns_client
+from app.services.s3_execution_client import S3ExecutionCredentialsError, require_s3_execution_credentials
+from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.sns_client import SNSOperationError
 from app.utils.s3_endpoint import resolve_s3_client_options
 
 logger = logging.getLogger(__name__)
@@ -54,15 +55,18 @@ class TopicsService:
     _CEPH_NOTIFICATION_ENDPOINT_KEYS = {"EndpointAddress", "EndpointArgs", "EndpointTopic"}
 
     def _context_credentials(self, context: S3ExecutionTarget) -> tuple[str, str]:
-        return require_s3_execution_credentials(
-            context,
-            error_message="S3ExecutionTarget is missing SNS credentials",
-        )
+        try:
+            return require_s3_execution_credentials(
+                context,
+                error_message="S3ExecutionTarget is missing SNS credentials",
+            )
+        except S3ExecutionCredentialsError as exc:
+            raise SNSOperationError(str(exc)) from exc
 
     def _client_kwargs(self, context: S3ExecutionTarget) -> dict:
         endpoint, region, _, verify_tls = resolve_s3_client_options(context)
         if not endpoint:
-            raise RuntimeError("S3 endpoint is not configured for this context")
+            raise SNSOperationError("S3 endpoint is not configured for this context")
         return {
             "endpoint": endpoint,
             "region": region,
@@ -276,7 +280,7 @@ class TopicsService:
         )
         arn = resp.get("TopicArn") or ""
         if not arn:
-            raise RuntimeError("SNS topic was created but ARN was not returned by the gateway")
+            raise SNSOperationError("SNS topic was created but ARN was not returned by the gateway")
         attrs = sns_client.get_topic_attributes(
             arn, access_key=access_key, secret_key=secret_key, **self._client_kwargs(context)
         )
