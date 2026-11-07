@@ -6,9 +6,9 @@ import { useCallback, useState } from "react";
 
 import type {
   BucketCompareContentDiff,
+  BucketCompareObjectDetail,
   BucketCompareObjectDiffEntry,
 } from "../../api/bucketCompareContracts";
-import type { CompareObjectDetailLike } from "./BucketCompareObjectDetails";
 
 type CompareObjectDiffLike = Omit<BucketCompareObjectDiffEntry, "compare_by">;
 
@@ -24,8 +24,8 @@ export type BucketCompareContentSection = {
   visibleCount: number;
   hiddenCount: number;
   copyKeys: string[];
-  sourceDetails: CompareObjectDetailLike[];
-  targetDetails: CompareObjectDetailLike[];
+  sourceDetails: BucketCompareObjectDetail[];
+  targetDetails: BucketCompareObjectDetail[];
 };
 
 export const getObjectParentPrefix = (key: string): string => {
@@ -36,7 +36,7 @@ export const getObjectParentPrefix = (key: string): string => {
 
 export const sourceCompareObjectDetailFromDiff = (
   diff: CompareObjectDiffLike,
-): CompareObjectDetailLike => ({
+): BucketCompareObjectDetail => ({
   key: diff.key,
   size: diff.source_size,
   etag: diff.source_etag,
@@ -46,7 +46,7 @@ export const sourceCompareObjectDetailFromDiff = (
 
 export const targetCompareObjectDetailFromDiff = (
   diff: CompareObjectDiffLike,
-): CompareObjectDetailLike => ({
+): BucketCompareObjectDetail => ({
   key: diff.key,
   size: diff.target_size,
   etag: diff.target_etag,
@@ -54,7 +54,7 @@ export const targetCompareObjectDetailFromDiff = (
   storage_class: diff.target_storage_class,
 });
 
-const getVisibleCompareObjectKeys = (rows: CompareObjectDetailLike[]): string[] => {
+const getVisibleCompareObjectKeys = (rows: BucketCompareObjectDetail[]): string[] => {
   const keys: string[] = [];
   const seen = new Set<string>();
   rows.forEach((row) => {

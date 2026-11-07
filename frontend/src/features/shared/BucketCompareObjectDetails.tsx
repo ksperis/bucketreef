@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import type { BucketCompareObjectDetail } from "../../api/bucketCompareContracts";
 import { ListActionAnchor, ListActionButton } from "../../components/list/ListControls";
 import AnchoredPortalMenu from "../../components/ui/AnchoredPortalMenu";
 import { cx, uiMenuClass, uiMutedTextClass } from "../../components/ui/styles";
@@ -12,23 +13,15 @@ import { formatBytes } from "../../utils/format";
 import "./bucketCompareObjectDetails.css";
 import { useSharedI18n } from "./sharedI18n";
 
-export type CompareObjectDetailLike = {
-  key: string;
-  size: number | null;
-  etag: string | null;
-  last_modified: string | null;
-  storage_class: string | null;
-};
-
 export type CompareObjectOptions = {
-  buildBrowserHref?: (detail: CompareObjectDetailLike) => string | null;
+  buildBrowserHref?: (detail: BucketCompareObjectDetail) => string | null;
   browserDisabledReason?: string | null;
-  onExplore?: (href: string, detail: CompareObjectDetailLike, index: number) => void;
-  renderAction?: (detail: CompareObjectDetailLike, closeMetadata: () => void) => ReactNode;
+  onExplore?: (href: string, detail: BucketCompareObjectDetail, index: number) => void;
+  renderAction?: (detail: BucketCompareObjectDetail, closeMetadata: () => void) => ReactNode;
 };
 
 function CompareObjectRow({ detail, index, options, open, onOpenChange }: {
-  detail: CompareObjectDetailLike;
+  detail: BucketCompareObjectDetail;
   index: number;
   options?: CompareObjectOptions;
   open: boolean;
@@ -133,7 +126,7 @@ function CompareObjectRow({ detail, index, options, open, onOpenChange }: {
 }
 
 export default function BucketCompareObjectDetails({ rows, options }: {
-  rows: CompareObjectDetailLike[];
+  rows: BucketCompareObjectDetail[];
   options?: CompareObjectOptions;
 }) {
   const { text: surfaceText } = useSharedI18n();
