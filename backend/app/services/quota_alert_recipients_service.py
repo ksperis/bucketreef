@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -99,15 +100,7 @@ class QuotaAlertRecipientsService:
                 ),
             )
         ).all()
-        for account_id, user_id, email, email_enabled in rows:
-            self._add_scoped_recipient(
-                email_map=index.account_emails,
-                user_id_map=index.account_user_ids,
-                subject_id=account_id,
-                user_id=user_id,
-                email=email,
-                email_enabled=email_enabled,
-            )
+        self._add_scoped_recipients(rows, index.account_emails, index.account_user_ids)
 
     def _load_account_group_users(
         self,
@@ -135,15 +128,7 @@ class QuotaAlertRecipientsService:
                 ),
             )
         ).all()
-        for account_id, user_id, email, email_enabled in rows:
-            self._add_scoped_recipient(
-                email_map=index.account_emails,
-                user_id_map=index.account_user_ids,
-                subject_id=account_id,
-                user_id=user_id,
-                email=email,
-                email_enabled=email_enabled,
-            )
+        self._add_scoped_recipients(rows, index.account_emails, index.account_user_ids)
 
     def _load_s3_users(self, index: QuotaAlertRecipientIndex) -> None:
         rows = self.db.execute(
@@ -156,15 +141,7 @@ class QuotaAlertRecipientsService:
             .join(User, User.id == UserS3User.user_id)
             .where(User.is_active.is_(True))
         ).all()
-        for s3_user_id, user_id, email, email_enabled in rows:
-            self._add_scoped_recipient(
-                email_map=index.s3_user_emails,
-                user_id_map=index.s3_user_member_ids,
-                subject_id=s3_user_id,
-                user_id=user_id,
-                email=email,
-                email_enabled=email_enabled,
-            )
+        self._add_scoped_recipients(rows, index.s3_user_emails, index.s3_user_member_ids)
 
     def _load_s3_group_users(
         self,
@@ -184,15 +161,7 @@ class QuotaAlertRecipientsService:
             .join(User, User.id == UserUiGroup.user_id)
             .where(User.is_active.is_(True))
         ).all()
-        for s3_user_id, user_id, email, email_enabled in rows:
-            self._add_scoped_recipient(
-                email_map=index.s3_user_emails,
-                user_id_map=index.s3_user_member_ids,
-                subject_id=s3_user_id,
-                user_id=user_id,
-                email=email,
-                email_enabled=email_enabled,
-            )
+        self._add_scoped_recipients(rows, index.s3_user_emails, index.s3_user_member_ids)
 
     def _load_global_users(
         self,
@@ -242,4 +211,21 @@ class QuotaAlertRecipientsService:
         if normalized:
             email_map.setdefault(canonical_subject_id, set()).add(
                 normalized
+            )
+
+    @classmethod
+    def _add_scoped_recipients(
+        cls,
+        rows: Iterable[tuple[int, int, Optional[str], bool]],
+        email_map: dict[int, set[str]],
+        user_id_map: dict[int, set[int]],
+    ) -> None:
+        for subject_id, user_id, email, email_enabled in rows:
+            cls._add_scoped_recipient(
+                email_map=email_map,
+                user_id_map=user_id_map,
+                subject_id=subject_id,
+                user_id=user_id,
+                email=email,
+                email_enabled=email_enabled,
             )
