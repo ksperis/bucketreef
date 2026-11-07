@@ -15,6 +15,7 @@ from app.services.object_diff_common import compare_object_entries
 
 
 BUCKET_COMPARE_DISPLAY_LIMIT = 200
+BucketComparisonSide = Literal["source", "target"]
 
 
 @dataclass(frozen=True)
@@ -44,7 +45,7 @@ class BucketCompareObjectIndex:
             """
         )
 
-    def add_objects(self, side: Literal["source", "target"], entries: Iterable[BucketCompareObjectEntry]) -> int:
+    def add_objects(self, side: BucketComparisonSide, entries: Iterable[BucketCompareObjectEntry]) -> int:
         count = 0
         batch: list[tuple[str, str, int, Optional[str], Optional[float], Optional[str], Optional[str]]] = []
         for entry in entries:
@@ -112,8 +113,8 @@ class BucketCompareObjectIndex:
 
     def _only_side_summary(
         self,
-        side: Literal["source", "target"],
-        other_side: Literal["source", "target"],
+        side: BucketComparisonSide,
+        other_side: BucketComparisonSide,
     ) -> tuple[int, list[str], list[BucketObjectDetail]]:
         count = self._count_only(side, other_side)
         rows = list(self._iter_only_rows(side, other_side, BUCKET_COMPARE_DISPLAY_LIMIT))
@@ -208,14 +209,14 @@ class BucketCompareObjectIndex:
         commit_or_rollback(self._conn)
         return ignored_count
 
-    def _count_side(self, side: Literal["source", "target"]) -> int:
+    def _count_side(self, side: BucketComparisonSide) -> int:
         row = self._conn.execute(
             "SELECT COUNT(*) AS count FROM compare_objects WHERE side = ?",
             (side,),
         ).fetchone()
         return int(row["count"] or 0) if row else 0
 
-    def _count_only(self, side: Literal["source", "target"], other_side: Literal["source", "target"]) -> int:
+    def _count_only(self, side: BucketComparisonSide, other_side: BucketComparisonSide) -> int:
         row = self._conn.execute(
             """
             SELECT COUNT(*) AS count
@@ -229,8 +230,8 @@ class BucketCompareObjectIndex:
 
     def _iter_only_rows(
         self,
-        side: Literal["source", "target"],
-        other_side: Literal["source", "target"],
+        side: BucketComparisonSide,
+        other_side: BucketComparisonSide,
         limit: int,
     ):
         return self._conn.execute(
