@@ -184,16 +184,13 @@ def get_object_columns(
     sse_customer: Optional[SseCustomerContext] = Depends(get_optional_sse_customer_context),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ObjectColumnsResponse:
-    try:
-        return service.get_object_columns(
-            bucket_name,
-            context,
-            keys=payload.keys,
-            columns=set(payload.columns),
-            sse_customer=sse_customer,
-        )
-    except RuntimeError as exc:
-        raise_bad_gateway_from_runtime(exc)
+    return service.get_object_columns(
+        bucket_name,
+        context,
+        keys=payload.keys,
+        columns=set(payload.columns),
+        sse_customer=sse_customer,
+    )
 
 
 @router.get("/buckets/{bucket_name}/cors", response_model=BucketCorsStatus)

@@ -129,6 +129,45 @@ def _assert_invalidated(entries, affected):
                 assert value.close.call_count == int(label in affected)
 
 
+@pytest.mark.parametrize(
+    "invalidate",
+    [
+        lambda service, context: service.invalidate_bucket_list_cache_for_context(context),
+        lambda service, context: service.invalidate_object_list_cache_for_context(context, "target"),
+    ],
+)
+def test_context_cache_invalidation_ignores_expected_s3_context_failure(monkeypatch, invalidate):
+    service = BrowserService()
+    context = make_s3_execution_context()
+    monkeypatch.setattr(
+        service,
+        "_context_cache_key",
+        Mock(side_effect=S3OperationError("S3 credentials missing for this context")),
+    )
+
+    invalidate(service, context)
+
+
+@pytest.mark.parametrize(
+    "invalidate",
+    [
+        lambda service, context: service.invalidate_bucket_list_cache_for_context(context),
+        lambda service, context: service.invalidate_object_list_cache_for_context(context, "target"),
+    ],
+)
+def test_context_cache_invalidation_propagates_unexpected_runtime_error(monkeypatch, invalidate):
+    service = BrowserService()
+    context = make_s3_execution_context()
+    monkeypatch.setattr(
+        service,
+        "_context_cache_key",
+        Mock(side_effect=RuntimeError("unexpected cache-key regression")),
+    )
+
+    with pytest.raises(RuntimeError, match="unexpected cache-key regression"):
+        invalidate(service, context)
+
+
 def _mutation_client(service, monkeypatch):
     client = Mock()
     client.delete_objects.return_value = {}

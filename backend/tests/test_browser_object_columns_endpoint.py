@@ -1,6 +1,8 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
+import pytest
+
 from app.db import S3Account
 from app.main import app
 from app.models.browser import ObjectColumnValues, ObjectColumnsResponse
@@ -82,24 +84,22 @@ def test_browser_get_object_columns_passes_keys_and_columns(client):
     app.dependency_overrides.pop(browser_router.get_browser_service, None)
 
 
-def test_browser_get_object_columns_maps_runtime_error_to_bad_gateway(client):
+def test_browser_get_object_columns_propagates_unexpected_runtime_error(client):
     class FakeService:
         def get_object_columns(self, *args, **kwargs):  # noqa: ANN002, ANN003
-            raise RuntimeError("S3 head_object failed")
+            raise RuntimeError("unexpected object columns regression")
 
     app.dependency_overrides[dependencies.get_s3_execution_context] = _account
     app.dependency_overrides[browser_router.get_browser_service] = lambda: FakeService()
 
-    response = client.post(
-        "/api/browser/buckets/my-bucket/objects/columns?context_id=s3u-1",
-        json={
-            "keys": ["folder/demo.txt"],
-            "columns": ["content_type"],
-        },
-    )
-
-    assert response.status_code == 502
-    assert "S3 head_object failed" in response.json()["detail"]
+    with pytest.raises(RuntimeError, match="unexpected object columns regression"):
+        client.post(
+            "/api/browser/buckets/my-bucket/objects/columns?context_id=s3u-1",
+            json={
+                "keys": ["folder/demo.txt"],
+                "columns": ["content_type"],
+            },
+        )
 
     app.dependency_overrides.pop(dependencies.get_s3_execution_context, None)
     app.dependency_overrides.pop(browser_router.get_browser_service, None)
