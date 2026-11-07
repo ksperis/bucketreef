@@ -17,7 +17,7 @@ from app.routers.dependencies import (
 )
 from app.services.audit_service import AuditService
 from app.services.access_key_metadata_service import AccessKeyMetadataService
-from app.services.s3_users_service import S3UsersService, get_s3_users_service
+from app.services.s3_user_key_management_service import S3UserKeyManagementService
 from app.services.managed_private_access_query_service import (
     ManagedPrivateAccessQueryService,
 )
@@ -26,10 +26,10 @@ from app.utils.http_errors import raise_http_error_from_value_error, raise_http_
 router = APIRouter(prefix="/manager/ceph/keys", tags=["manager-ceph-keys"])
 
 
-def get_manager_ceph_s3_users_service(
+def get_manager_ceph_key_service(
     db: Session = Depends(get_db),
-) -> S3UsersService:
-    return get_s3_users_service(db)
+) -> S3UserKeyManagementService:
+    return S3UserKeyManagementService(db)
 
 
 def _resolve_s3_user_id(context: S3ExecutionContext) -> int:
@@ -45,7 +45,7 @@ def _resolve_s3_user_id(context: S3ExecutionContext) -> int:
 @router.get("", response_model=list[S3UserAccessKey])
 def list_ceph_access_keys(
     context: S3ExecutionContext = Depends(require_manager_rgw_access_key_management),
-    service: S3UsersService = Depends(get_manager_ceph_s3_users_service),
+    service: S3UserKeyManagementService = Depends(get_manager_ceph_key_service),
     _: User = Depends(get_current_account_user),
     db: Session = Depends(get_db),
 ) -> list[S3UserAccessKey]:
@@ -80,7 +80,7 @@ def list_ceph_access_keys(
 def create_ceph_access_key(
     payload: AccessKeyMetadataInput | None = None,
     context: S3ExecutionContext = Depends(require_manager_rgw_access_key_management),
-    service: S3UsersService = Depends(get_manager_ceph_s3_users_service),
+    service: S3UserKeyManagementService = Depends(get_manager_ceph_key_service),
     current_user: User = Depends(get_current_account_user),
     audit_service: AuditService = Depends(get_audit_service),
     db: Session = Depends(get_db),
@@ -119,7 +119,7 @@ def update_ceph_access_key_metadata(
     access_key: str,
     payload: AccessKeyMetadataInput,
     context: S3ExecutionContext = Depends(require_manager_rgw_access_key_management),
-    service: S3UsersService = Depends(get_manager_ceph_s3_users_service),
+    service: S3UserKeyManagementService = Depends(get_manager_ceph_key_service),
     current_user: User = Depends(get_current_account_user),
     audit_service: AuditService = Depends(get_audit_service),
     db: Session = Depends(get_db),
@@ -171,7 +171,7 @@ def update_ceph_access_key_status(
     access_key: str,
     payload: AccessKeyStatusChange,
     context: S3ExecutionContext = Depends(require_manager_rgw_access_key_management),
-    service: S3UsersService = Depends(get_manager_ceph_s3_users_service),
+    service: S3UserKeyManagementService = Depends(get_manager_ceph_key_service),
     current_user: User = Depends(get_current_account_user),
     audit_service: AuditService = Depends(get_audit_service),
     db: Session = Depends(get_db),
@@ -219,7 +219,7 @@ def update_ceph_access_key_status(
 def delete_ceph_access_key(
     access_key: str,
     context: S3ExecutionContext = Depends(require_manager_rgw_access_key_management),
-    service: S3UsersService = Depends(get_manager_ceph_s3_users_service),
+    service: S3UserKeyManagementService = Depends(get_manager_ceph_key_service),
     current_user: User = Depends(get_current_account_user),
     audit_service: AuditService = Depends(get_audit_service),
     db: Session = Depends(get_db),
