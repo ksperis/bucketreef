@@ -65,7 +65,9 @@ def _ldap_import_service(db: Session, users_service: UsersService) -> AdminLdapU
     return AdminLdapUserImportService(db, get_ldap_auth_service(db), users_service)
 
 
-def _raise_ldap_import_error(exc: Exception) -> None:
+def _raise_ldap_import_error(
+    exc: LDAPProviderNotFoundError | LDAPConfigurationError | LDAPAuthenticationError | ValueError,
+) -> None:
     if isinstance(exc, LDAPProviderNotFoundError):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="LDAP provider not found") from exc
     if isinstance(exc, LDAPConfigurationError):
@@ -78,9 +80,7 @@ def _raise_ldap_import_error(exc: Exception) -> None:
             status_code=status.HTTP_409_CONFLICT,
             detail="LDAP import selection is no longer valid; search again",
         ) from exc
-    if isinstance(exc, ValueError):
-        raise_http_error_from_value_error(exc)
-    raise exc
+    raise_http_error_from_value_error(exc)
 
 
 def _require_user(users_service: UsersService, user_id: int) -> DbUser:
@@ -174,7 +174,12 @@ def search_ldap_users_for_import(
             provider_id=provider_id,
             query=q,
         )
-    except Exception as exc:
+    except (
+        LDAPProviderNotFoundError,
+        LDAPConfigurationError,
+        LDAPAuthenticationError,
+        ValueError,
+    ) as exc:
         _raise_ldap_import_error(exc)
 
 
@@ -218,17 +223,23 @@ def import_ldap_user(
             actor=current_user,
             session=session,
         )
-        audit_service.record_action(
-            user=current_user,
-            scope="admin",
-            action=f"{payload.action}_ldap_ui_user",
-            entity_type="ui_user",
-            entity_id=str(user.id),
-            metadata={"provider_id": provider_id, "mode": payload.action},
-        )
-        return users_service.user_to_out(user)
-    except Exception as exc:
+    except (
+        LDAPProviderNotFoundError,
+        LDAPConfigurationError,
+        LDAPAuthenticationError,
+        ValueError,
+    ) as exc:
         _raise_ldap_import_error(exc)
+
+    audit_service.record_action(
+        user=current_user,
+        scope="admin",
+        action=f"{payload.action}_ldap_ui_user",
+        entity_type="ui_user",
+        entity_id=str(user.id),
+        metadata={"provider_id": provider_id, "mode": payload.action},
+    )
+    return users_service.user_to_out(user)
 
 
 @router.post("", response_model=UserOut, status_code=status.HTTP_201_CREATED)
