@@ -7,6 +7,7 @@ from typing import Any, Literal
 
 from botocore.exceptions import BotoCoreError, ClientError
 
+from app.services.s3_client import S3OperationError
 from app.services.s3_delete_response import parse_delete_objects_failures
 from app.utils.s3_errors import is_s3_access_denied
 
@@ -184,7 +185,7 @@ def _delete_objects(client: Any, *, target_bucket: str, keys: list[str]) -> tupl
         try:
             response = client.delete_objects(Bucket=target_bucket, Delete={"Objects": chunk_objects})
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(f"Unable to delete objects in bucket '{target_bucket}': {exc}") from exc
+            raise S3OperationError(f"Unable to delete objects in bucket '{target_bucket}': {exc}") from exc
 
         failures = parse_delete_objects_failures(response, bucket_name=target_bucket, items=chunk_objects)
         succeeded += len(chunk) - len(failures)

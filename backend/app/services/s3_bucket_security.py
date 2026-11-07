@@ -8,7 +8,7 @@ from typing import Optional, Unpack
 from botocore.exceptions import BotoCoreError, ClientError
 
 from app.services.s3_bucket_config_delete import delete_bucket_configuration
-from app.services.s3_client import S3BucketClientKwargs, get_s3_bucket_client
+from app.services.s3_client import S3BucketClientKwargs, S3OperationError, get_s3_bucket_client
 from app.utils.aws_errors import aws_error_code
 
 logger = logging.getLogger(__name__)
@@ -88,9 +88,9 @@ def get_bucket_public_access_block(
         code = aws_error_code(exc, lowercase=True)
         if code in {"nosuchpublicaccessblockconfiguration", "nosuchpublicaccessblock"}:
             return None
-        raise RuntimeError(f"Unable to fetch public access block for bucket '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to fetch public access block for bucket '{bucket_name}': {exc}") from exc
     except BotoCoreError as exc:
-        raise RuntimeError(f"Unable to fetch public access block for bucket '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to fetch public access block for bucket '{bucket_name}': {exc}") from exc
 
 
 def get_bucket_object_lock(
@@ -117,9 +117,9 @@ def get_bucket_object_lock(
         code = aws_error_code(exc, lowercase=True)
         if code in {"objectlockconfigurationnotfounderror", "invalidbucketstate", "nosuchbucket"}:
             return None
-        raise RuntimeError(f"Unable to fetch object lock config for bucket '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to fetch object lock config for bucket '{bucket_name}': {exc}") from exc
     except BotoCoreError as exc:
-        raise RuntimeError(f"Unable to fetch object lock config for bucket '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to fetch object lock config for bucket '{bucket_name}': {exc}") from exc
 
 
 def get_bucket_acl(

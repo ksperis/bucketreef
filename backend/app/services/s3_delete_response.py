@@ -4,9 +4,10 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.core.sensitive_data import sanitized_error_log_detail
+from app.services.s3_client import S3OperationError
 
 
-class InvalidDeleteObjectsResponseError(RuntimeError):
+class InvalidDeleteObjectsResponseError(S3OperationError):
     """The provider returned a DeleteObjects response that cannot be attributed safely."""
 
 

@@ -284,7 +284,7 @@ def compare_bucket_pair(
         )
     except InvalidManagerBucketComparisonError as exc:
         raise_bad_request_from_value_error(exc)
-    except RuntimeError as exc:
+    except S3OperationError as exc:
         raise_bad_gateway_from_runtime(exc)
 
 
@@ -315,7 +315,7 @@ def run_compare_bucket_action(
         )
     except InvalidManagerBucketComparisonError as exc:
         raise_bad_request_from_value_error(exc)
-    except RuntimeError as exc:
+    except S3OperationError as exc:
         raise_bad_gateway_from_runtime(exc)
 
     _invalidate_bucket_listing_for_context(source_context)

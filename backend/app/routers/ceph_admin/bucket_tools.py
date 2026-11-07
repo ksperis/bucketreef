@@ -38,6 +38,7 @@ from app.services.rgw_bucket_target import RgwBucketTarget
 from app.services.bucket_owner_enrichment import invalidate_bucket_owner_metadata_cache
 from app.services.browser_service import BrowserService, get_browser_service
 from app.services.rgw_admin import RGWAdminError
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionContext, build_ceph_admin_s3_context
 from app.utils.http_errors import raise_bad_gateway_from_runtime
 from app.routers.ceph_admin.bucket_config_common import (
@@ -162,7 +163,7 @@ def compare_bucket_pair(
                 else None
             ),
         )
-    except RuntimeError as exc:
+    except S3OperationError as exc:
         raise_bad_gateway_from_runtime(exc)
     return CephAdminBucketCompareResult(
         source_endpoint_id=endpoint_id,

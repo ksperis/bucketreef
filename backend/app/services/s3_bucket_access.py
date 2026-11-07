@@ -9,7 +9,7 @@ from typing import Optional, Unpack
 from botocore.exceptions import BotoCoreError, ClientError
 
 from app.services.s3_bucket_config_delete import delete_bucket_configuration
-from app.services.s3_client import S3BucketClientKwargs, get_s3_bucket_client
+from app.services.s3_client import S3BucketClientKwargs, S3OperationError, get_s3_bucket_client
 from app.utils.aws_errors import aws_error_code
 
 logger = logging.getLogger(__name__)
@@ -27,9 +27,9 @@ def get_bucket_cors(
         code = aws_error_code(exc, lowercase=True)
         if code in {"nosuchcorsconfiguration", "nosuchbucket"}:
             return []
-        raise RuntimeError(f"Unable to fetch bucket CORS for '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to fetch bucket CORS for '{bucket_name}': {exc}") from exc
     except BotoCoreError as exc:
-        raise RuntimeError(f"Unable to fetch bucket CORS for '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to fetch bucket CORS for '{bucket_name}': {exc}") from exc
 
 
 def put_bucket_cors(
@@ -118,9 +118,9 @@ def get_bucket_policy(
         code = aws_error_code(exc, lowercase=True)
         if code in {"nosuchbucketpolicy", "nosuchbucket"}:
             return None
-        raise RuntimeError(f"Unable to fetch bucket policy for '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to fetch bucket policy for '{bucket_name}': {exc}") from exc
     except BotoCoreError as exc:
-        raise RuntimeError(f"Unable to fetch bucket policy for '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to fetch bucket policy for '{bucket_name}': {exc}") from exc
     policy_str = resp.get("Policy")
     if not policy_str:
         return None

@@ -16,6 +16,7 @@ from app.models.ceph_admin_bucket_compare import CephAdminBucketCompareRequest
 from app.models.bucket_operation import RgwBucketReference
 from app.routers.ceph_admin import bucket_tools as buckets_router
 from app.services.bucket_comparison_service import BucketComparisonService
+from app.services.s3_client import S3OperationError
 
 
 def _build_ctx(endpoint_id: int = 1):
@@ -152,7 +153,7 @@ def test_compare_bucket_pair_returns_no_diff(monkeypatch):
     assert response.config_diff is None
 
 
-def test_compare_bucket_pair_translates_service_runtime_errors(monkeypatch):
+def test_compare_bucket_pair_maps_expected_s3_errors(monkeypatch):
     payload = CephAdminBucketCompareRequest(
         target_endpoint_id=2,
         source=RgwBucketReference(name="bucket-a"),
@@ -161,7 +162,7 @@ def test_compare_bucket_pair_translates_service_runtime_errors(monkeypatch):
     monkeypatch.setattr(buckets_router, "_resolve_storage_endpoint", lambda _db, _endpoint_id: _build_target_endpoint(2))
 
     def failing_compare(*_args, **_kwargs):
-        raise RuntimeError("target bucket not found")
+        raise S3OperationError("target bucket not found")
 
     monkeypatch.setattr(BucketComparisonService, "compare_bucket_content", failing_compare)
 
@@ -170,6 +171,23 @@ def test_compare_bucket_pair_translates_service_runtime_errors(monkeypatch):
 
     assert exc.value.status_code == 502
     assert "target bucket not found" in str(exc.value.detail)
+
+
+def test_compare_bucket_pair_does_not_mask_unexpected_runtime_errors(monkeypatch):
+    payload = CephAdminBucketCompareRequest(
+        target_endpoint_id=2,
+        source=RgwBucketReference(name="bucket-a"),
+        target=RgwBucketReference(name="bucket-b"),
+    )
+    monkeypatch.setattr(buckets_router, "_resolve_storage_endpoint", lambda _db, _endpoint_id: _build_target_endpoint(2))
+    monkeypatch.setattr(
+        BucketComparisonService,
+        "compare_bucket_content",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("unexpected comparison bug")),
+    )
+
+    with pytest.raises(RuntimeError, match="unexpected comparison bug"):
+        buckets_router.compare_bucket_pair(endpoint_id=1, payload=payload, db=SimpleNamespace(), ctx=_build_ctx(1))
 
 
 def test_compare_bucket_pair_supports_config_only(monkeypatch):

@@ -8,7 +8,7 @@ from typing import Optional, Unpack
 from botocore.exceptions import BotoCoreError, ClientError
 
 from app.services.s3_bucket_config_delete import delete_bucket_configuration
-from app.services.s3_client import S3BucketClientKwargs, get_s3_bucket_client
+from app.services.s3_client import S3BucketClientKwargs, S3OperationError, get_s3_bucket_client
 from app.utils.aws_errors import aws_error_code
 
 logger = logging.getLogger(__name__)
@@ -59,9 +59,9 @@ def get_bucket_tags(
         code = aws_error_code(exc, lowercase=True)
         if code in {"nosuchtags", "nosuchtagset", "nosuchtagseterror", "nosuchbucket"}:
             return []
-        raise RuntimeError(f"Unable to fetch bucket tags for '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to fetch bucket tags for '{bucket_name}': {exc}") from exc
     except BotoCoreError as exc:
-        raise RuntimeError(f"Unable to fetch bucket tags for '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to fetch bucket tags for '{bucket_name}': {exc}") from exc
 
 
 def delete_bucket_tags(
@@ -83,7 +83,7 @@ def get_bucket_logging_configuration(
     try:
         resp = client.get_bucket_logging(Bucket=bucket_name)
     except (BotoCoreError, ClientError) as exc:
-        raise RuntimeError(f"Unable to fetch bucket logging for '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to fetch bucket logging for '{bucket_name}': {exc}") from exc
     config = resp.get("LoggingEnabled") or {}
     if not config:
         return None
@@ -160,9 +160,9 @@ def get_bucket_lifecycle(
         code = aws_error_code(exc, lowercase=True)
         if code in {"nosuchlifecycleconfiguration", "nosuchbucket"}:
             return []
-        raise RuntimeError(f"Unable to fetch lifecycle for bucket '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to fetch lifecycle for bucket '{bucket_name}': {exc}") from exc
     except BotoCoreError as exc:
-        raise RuntimeError(f"Unable to fetch lifecycle for bucket '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to fetch lifecycle for bucket '{bucket_name}': {exc}") from exc
     return resp.get("Rules", []) or []
 
 

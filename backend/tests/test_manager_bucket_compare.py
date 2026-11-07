@@ -28,6 +28,7 @@ from app.routers import dependencies as dependencies_router
 from app.services import app_settings_service
 from app.routers.manager import buckets as buckets_router
 from app.services.bucket_comparison_service import BucketComparisonService
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionContext
 
 
@@ -211,7 +212,7 @@ def test_compare_bucket_pair_returns_no_diff(monkeypatch):
     assert response.config_diff is None
 
 
-def test_compare_bucket_pair_translates_runtime_errors(monkeypatch):
+def test_compare_bucket_pair_maps_expected_s3_errors(monkeypatch):
     payload = ManagerBucketCompareRequest(
         target_context_id="2",
         source_bucket="bucket-a",
@@ -222,7 +223,7 @@ def test_compare_bucket_pair_translates_runtime_errors(monkeypatch):
     monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_context)
 
     def failing_compare(*_args, **_kwargs):
-        raise RuntimeError("target bucket not found")
+        raise S3OperationError("target bucket not found")
 
     monkeypatch.setattr(BucketComparisonService, "compare_bucket_content", failing_compare)
 
@@ -238,6 +239,33 @@ def test_compare_bucket_pair_translates_runtime_errors(monkeypatch):
 
     assert exc.value.status_code == 502
     assert "target bucket not found" in str(exc.value.detail)
+
+
+def test_compare_bucket_pair_does_not_mask_unexpected_runtime_errors(monkeypatch):
+    payload = ManagerBucketCompareRequest(
+        target_context_id="2",
+        source_bucket="bucket-a",
+        target_bucket="bucket-b",
+    )
+    source_context = _build_context(1)
+    target_context = _build_context(2)
+    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_context)
+
+    monkeypatch.setattr(
+        BucketComparisonService,
+        "compare_bucket_content",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("unexpected comparison bug")),
+    )
+
+    with pytest.raises(RuntimeError, match="unexpected comparison bug"):
+        buckets_router.compare_bucket_pair(
+            payload=payload,
+            request=_build_request(context_id="1"),
+            db=SimpleNamespace(),
+            source_context=source_context,
+            actor=SimpleNamespace(),
+            service=BucketComparisonService(),
+        )
 
 
 def test_compare_bucket_pair_supports_config_only(monkeypatch):
@@ -599,7 +627,7 @@ def test_compare_bucket_action_rejects_source_equals_target_for_same_context(mon
     assert "must differ" in str(exc.value.detail).lower()
 
 
-def test_compare_bucket_action_translates_runtime_error(monkeypatch):
+def test_compare_bucket_action_maps_expected_s3_error(monkeypatch):
     payload = ManagerBucketCompareActionRequest(
         target_context_id="2",
         source_bucket="bucket-a",
@@ -612,7 +640,7 @@ def test_compare_bucket_action_translates_runtime_error(monkeypatch):
     monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_context)
 
     def failing_action(*_args, **_kwargs):
-        raise RuntimeError("copy failed")
+        raise S3OperationError("copy failed")
 
     monkeypatch.setattr(BucketComparisonService, "run_compare_content_remediation", failing_action)
 
@@ -628,6 +656,35 @@ def test_compare_bucket_action_translates_runtime_error(monkeypatch):
 
     assert exc.value.status_code == 502
     assert "copy failed" in str(exc.value.detail)
+
+
+def test_compare_bucket_action_does_not_mask_unexpected_runtime_error(monkeypatch):
+    payload = ManagerBucketCompareActionRequest(
+        target_context_id="2",
+        source_bucket="bucket-a",
+        target_bucket="bucket-b",
+        action="sync_source_only",
+        object_keys=["logs/a.txt"],
+    )
+    source_context = _build_context(1)
+    target_context = _build_context(2)
+    monkeypatch.setattr(buckets_router, "get_s3_execution_context", lambda **_kwargs: target_context)
+
+    monkeypatch.setattr(
+        BucketComparisonService,
+        "run_compare_content_remediation",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("unexpected remediation bug")),
+    )
+
+    with pytest.raises(RuntimeError, match="unexpected remediation bug"):
+        buckets_router.run_compare_bucket_action(
+            payload=payload,
+            request=_build_request(context_id="1", path="/api/manager/buckets/compare/action"),
+            db=SimpleNamespace(),
+            source_context=source_context,
+            actor=SimpleNamespace(),
+            service=BucketComparisonService(),
+        )
 
 
 def test_compare_bucket_action_rejects_unauthorized_target_context(monkeypatch):
