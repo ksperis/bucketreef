@@ -16,6 +16,7 @@ from app.models.portal_storage_spaces import PortalStorageSpaceSummary
 from app.services.access_context_contracts import AccountAccess, EffectiveAccountLink, AccountCapabilities
 
 from app.services import app_settings_service
+from app.routers.portal_common import PORTAL_EXPECTED_ERRORS
 from app.services.portal_access_service import portal_membership_capabilities
 from app.services.portal_service import PortalService
 from app.services.s3_execution_context import S3ExecutionContext
@@ -171,7 +172,7 @@ def _portal_browser_credentials(
             access.account,
             access.portal_role,
         )
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
     if not access_key or not secret_key:
         raise HTTPException(
@@ -189,7 +190,7 @@ def _portal_browser_storage_spaces(
 ) -> tuple[set[str], list[PortalStorageSpaceSummary]]:
     try:
         visible_spaces = portal_service.list_storage_spaces(user, access)
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
     browse_spaces = [space for space in visible_spaces if space.can_browse]
     allowed_buckets = {

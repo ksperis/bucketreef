@@ -15,6 +15,7 @@ from app.models.portal_sharing import (
 )
 from app.routers.dependencies import get_portal_account_access
 from app.routers.portal_common import (
+    PORTAL_EXPECTED_ERRORS,
     get_portal_service_dependency,
     raise_portal_error,
 )
@@ -33,7 +34,7 @@ def portal_activity(
     actor = access.actor
     try:
         return service.list_portal_activity(actor, access, space_id=space_id, limit=limit)
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
 @router.get("/collaborators", response_model=PortalCollaboratorsResponse)
 def portal_collaborators(
@@ -43,7 +44,7 @@ def portal_collaborators(
     actor = access.actor
     try:
         return service.list_portal_collaborators(actor, access)
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
 
 
@@ -56,5 +57,5 @@ def portal_collaborator_access_review(
     actor = access.actor
     try:
         return service.get_portal_collaborator_access_review(actor, access, user_id)
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)

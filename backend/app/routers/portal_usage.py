@@ -19,6 +19,7 @@ from app.models.usage_history import UsageHistoryTrendResponse
 from app.models.usage_trends import UsageTrendsResponse
 from app.routers.dependencies import get_portal_account_access
 from app.routers.portal_common import (
+    PORTAL_EXPECTED_ERRORS,
     get_portal_service_dependency,
     raise_portal_error,
 )
@@ -62,7 +63,7 @@ def portal_usage(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Storage metrics are disabled for this endpoint")
     try:
         return service.get_usage(actor, access)
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_bad_gateway_from_runtime(exc)
 
 
@@ -90,7 +91,7 @@ def portal_usage_stats_latest(
     _ensure_portal_bucket_usage_stats_enabled(access.account, db)
     try:
         spaces = portal_service.list_storage_spaces(actor, access)
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
     account_scope_id = str(access.account.id)
     targets = [
@@ -144,7 +145,7 @@ def portal_storage_space_usage_stats(
     _ensure_portal_bucket_usage_stats_enabled(access.account, db)
     try:
         spaces = portal_service.list_storage_spaces(actor, access, include_archived=True)
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
     storage_space = next((space for space in spaces if space.id == space_id), None)
     if storage_space is None or not storage_space.internal_bucket_name:

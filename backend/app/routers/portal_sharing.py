@@ -25,6 +25,7 @@ from app.routers.dependencies import (
     get_users_service_dependency,
 )
 from app.routers.portal_common import (
+    PORTAL_EXPECTED_ERRORS,
     get_portal_service_dependency,
     raise_portal_error,
 )
@@ -53,7 +54,7 @@ def portal_storage_space_public_links(
             object_key=object_key,
             include_revoked=include_revoked,
         )
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
 
 
@@ -89,7 +90,7 @@ def create_portal_storage_space_public_link(
             },
         )
         return link
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
 
 
@@ -114,7 +115,7 @@ def revoke_portal_storage_space_public_link(
             metadata={"storage_space_id": space_id, "public_link_id": link_id},
         )
         return links
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
 
 
@@ -125,7 +126,7 @@ def download_portal_public_link(
 ) -> StreamingResponse:
     try:
         download = service.download_public_link(token)
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
     return S3DownloadResponse(download)
 
@@ -139,7 +140,7 @@ def portal_storage_space_shares(
     actor = access.actor
     try:
         return service.list_storage_space_shares(actor, access, space_id)
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
 
 
@@ -154,7 +155,7 @@ def portal_share_candidates(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Manager rights required for this account")
     try:
         return service.list_storage_space_share_candidates(actor, access, query)
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
 
 
@@ -168,7 +169,7 @@ def portal_storage_space_share_candidates(
     actor = access.actor
     try:
         return service.list_storage_space_share_candidates(actor, access, query, space_id=space_id)
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
 
 
@@ -206,7 +207,7 @@ def grant_portal_storage_space_share(
             metadata={"target_user_id": target.id, "role": payload.role},
         )
         return share
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
 
 
@@ -236,7 +237,7 @@ def update_portal_storage_space_share(
             metadata={"target_user_id": target.id, "role": payload.role},
         )
         return share
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
 
 
@@ -265,5 +266,5 @@ def revoke_portal_storage_space_share(
             metadata={"target_user_id": target.id},
         )
         return shares
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
