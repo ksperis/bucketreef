@@ -21,6 +21,7 @@ from app.models.admin_ldap_import import LDAPImportRequest, LDAPImportSearchResp
 from app.routers.dependencies import (
     get_audit_service,
     get_current_ui_admin,
+    get_user_query_service_dependency,
     get_users_service_dependency,
 )
 from app.routers.identity_security_policy import (
@@ -44,6 +45,7 @@ from app.services.ldap_service import (
 )
 from app.services.avatar_image_service import MAX_AVATAR_BYTES
 from app.services.user_avatar_service import UserAvatarService
+from app.services.user_query_service import UserQueryService
 from app.services.identity_security_policy import (
     admin_user_update_requires_step_up,
 )
@@ -137,24 +139,24 @@ def _require_superadmin_for_group_privileges(
 def list_users(
     request: Request,
     query: Annotated[AdminUserListingRequest, Query()],
-    users_service: UsersService = Depends(get_users_service_dependency),
+    user_query_service: UserQueryService = Depends(get_user_query_service_dependency),
     current_user: DbUser = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> PaginatedUsersResponse:
     require_admin_interactive_session(request, db, current_user)
-    return users_service.list_users_page(query)
+    return user_query_service.list_users_page(query)
 
 
 @router.get("/options", response_model=PaginatedUserSummariesResponse)
 def list_user_options(
     request: Request,
     query: Annotated[AdminOptionListingRequest, Query()],
-    users_service: UsersService = Depends(get_users_service_dependency),
+    user_query_service: UserQueryService = Depends(get_user_query_service_dependency),
     current_user: DbUser = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> PaginatedUserSummariesResponse:
     require_admin_interactive_session(request, db, current_user)
-    return users_service.list_user_options_page(query)
+    return user_query_service.list_user_options_page(query)
 
 
 @router.get("/ldap/search", response_model=LDAPImportSearchResponse)

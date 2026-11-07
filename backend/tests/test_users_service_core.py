@@ -36,6 +36,7 @@ from app.models.user import (
     UserUpdate,
 )
 from app.services.user_output_service import UserOutputService
+from app.services.user_query_service import UserQueryService
 from app.services.auth_session_service import AuthSessionService
 from app.services.users_service import UsersService
 from tests.portal_iam_test_support import (
@@ -861,7 +862,7 @@ def test_paginate_users_and_detached_user_use_canonical_preload(db_session, monk
 
     with monkeypatch.context() as projection_patch:
         projection_patch.setattr(UserOutputService, "preload", track_preload)
-        page = service.list_users_page(
+        page = UserQueryService(db_session).list_users_page(
             AdminUserListingRequest(
                 page=1,
                 page_size=10,
@@ -889,7 +890,6 @@ def test_paginate_users_and_detached_user_use_canonical_preload(db_session, monk
 
 
 def test_paginate_users_searches_and_sorts_by_canonical_name(db_session):
-    service = UsersService(db_session)
     alpha = _seed_user(db_session, "z-email-canonical@example.com")
     alpha.full_name = "Alpha Canonical"
     email_only = _seed_user(db_session, "middle-canonical@example.com")
@@ -898,7 +898,8 @@ def test_paginate_users_searches_and_sorts_by_canonical_name(db_session):
     zulu.full_name = "Zulu Canonical"
     db_session.commit()
 
-    page = service.list_users_page(
+    query_service = UserQueryService(db_session)
+    page = query_service.list_users_page(
         AdminUserListingRequest(
             page=1,
             page_size=10,
@@ -913,7 +914,7 @@ def test_paginate_users_searches_and_sorts_by_canonical_name(db_session):
     assert [row.id for row in rows] == [alpha.id, email_only.id, zulu.id]
     assert all("display_name" not in row.model_dump() for row in rows)
 
-    descending = service.list_users_page(
+    descending = query_service.list_users_page(
         AdminUserListingRequest(
             page=1,
             page_size=10,
@@ -926,14 +927,13 @@ def test_paginate_users_searches_and_sorts_by_canonical_name(db_session):
 
 
 def test_admin_user_accounts_sort_preserves_current_email_order(db_session):
-    service = UsersService(db_session)
     zulu_email = _seed_user(db_session, "z-association-sort@example.com")
     zulu_email.full_name = "Alpha association sort"
     alpha_email = _seed_user(db_session, "a-association-sort@example.com")
     alpha_email.full_name = "Zulu association sort"
     db_session.commit()
 
-    page = service.list_users_page(
+    page = UserQueryService(db_session).list_users_page(
         AdminUserListingRequest(
             page=1,
             page_size=10,
@@ -966,7 +966,7 @@ def test_admin_user_projection_and_search_hide_private_connection_links(db_sessi
     projected = service.user_to_out(user)
     assert projected.s3_connection_details == []
 
-    page = service.list_users_page(
+    page = UserQueryService(db_session).list_users_page(
         AdminUserListingRequest(
             page=1,
             page_size=25,
@@ -1014,7 +1014,7 @@ def test_assign_user_to_account_paths_and_paginated_user_summaries(db_session):
     assert link.manager_role is None
     assert link.portal_role == PortalAccountRole.PORTAL_USER.value
 
-    summaries = service.list_user_options_page(
+    summaries = UserQueryService(db_session).list_user_options_page(
         AdminOptionListingRequest(page=1, page_size=100)
     )
     assert summaries.total >= 1

@@ -236,7 +236,7 @@ def test_admin_openstack_cloud_options_search_and_paginate(db_session):
 def test_admin_user_options_forward_search_and_pagination(monkeypatch):
     calls = []
 
-    class FakeUsersService:
+    class FakeUserQueryService:
         def list_user_options_page(self, query):
             calls.append(query)
             return SimpleNamespace(total=3, page=query.page, has_next=True)
@@ -246,7 +246,7 @@ def test_admin_user_options_forward_search_and_pagination(monkeypatch):
     response = users_router.list_user_options(
         request=object(),
         query=AdminOptionListingRequest(page=2, page_size=1, search="alice"),
-        users_service=FakeUsersService(),
+        user_query_service=FakeUserQueryService(),
         current_user=object(),
         db=object(),
     )
