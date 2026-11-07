@@ -34,6 +34,7 @@ import {
 import { RefreshIcon } from "../browser/browserIcons";
 import FeatureDisabledPage from "../shared/FeatureDisabledPage";
 import { extractApiError } from "../../utils/apiError";
+import { utcDateInputValue } from "../../utils/dateInputValues";
 import { formatBytes, formatCompactNumber, formatPercentage } from "../../utils/format";
 import { useUsageHistoryI18n, type UsageHistoryText } from "../../components/usageHistoryMessage";
 import type { UiLanguage } from "../../components/language";
@@ -43,18 +44,6 @@ import useAdminResourceController from "./useAdminResourceController";
 
 function formatUsageHistoryApiError(error: unknown): string {
   return extractApiError(error, "");
-}
-
-function dateDaysAgo(days: number): string {
-  const now = new Date();
-  const value = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  value.setUTCDate(value.getUTCDate() - days);
-  return value.toISOString().slice(0, 10);
-}
-
-function todayDate(): string {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString().slice(0, 10);
 }
 
 function formatDateTime(value: string | null | undefined, locale: UiLanguage): string {
@@ -199,8 +188,8 @@ export default function UsageHistoryPage() {
   const [subjectType, setSubjectType] = useState<UsageHistorySubjectType>("all");
   const [sortBy, setSortBy] = useState<UsageHistorySortBy>("period");
   const [sortDir, setSortDir] = useState<UsageHistorySortDir>("desc");
-  const [startDate, setStartDate] = useState<string>(dateDaysAgo(14));
-  const [endDate, setEndDate] = useState<string>(todayDate());
+  const [startDate, setStartDate] = useState<string>(() => utcDateInputValue(14));
+  const [endDate, setEndDate] = useState<string>(() => utcDateInputValue());
   const [selectedEndpointId, setSelectedEndpointId] = useState<number | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
 
