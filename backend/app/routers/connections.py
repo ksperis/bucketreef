@@ -30,6 +30,7 @@ from app.services.managed_private_access_errors import (
 from app.services.managed_private_access_cleanup_service import (
     ManagedPrivateAccessCleanupService,
 )
+from app.services.s3_connection_query_service import S3ConnectionQueryService
 from app.services.s3_connection_validation_service import S3ConnectionValidationService
 from app.services.storage_endpoint_repository import StorageEndpointRepository
 from app.services.tags_service import TagsService, serialize_tag_summaries
@@ -74,8 +75,7 @@ def list_connections(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_account_user),
 ) -> list[S3Connection]:
-    service = S3ConnectionsService(db)
-    return service.list_owned_private(user.id)
+    return S3ConnectionQueryService(db).list_owned_private(user.id)
 
 
 @router.get("/storage-endpoints", response_model=list[StorageEndpointPublic])

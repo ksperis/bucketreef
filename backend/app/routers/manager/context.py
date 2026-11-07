@@ -35,7 +35,7 @@ from app.services.access_key_metadata_service import AccessKeyMetadataService
 from app.services.connection_identity_service import ConnectionIdentityService
 from app.services.s3_account_metrics_service import S3AccountMetricsService
 from app.services.s3_account_repository import S3AccountRepository
-from app.services.s3_connections_service import S3ConnectionsService
+from app.services.s3_connection_query_service import S3ConnectionQueryService
 from app.services.s3_user_metrics_service import S3UserMetricsService
 from app.services.s3_user_query_service import S3UserQueryService
 from app.services.effective_access_contracts import ResolvedUserAccess
@@ -162,7 +162,7 @@ def _manager_connection_browser_state(
     connection = context.source_connection
     if connection is None and context.s3_connection_id is not None:
         try:
-            connection = S3ConnectionsService(db).get_record(context.s3_connection_id)
+            connection = S3ConnectionQueryService(db).get_record(context.s3_connection_id)
         except S3ConnectionNotFoundError:
             connection = None
     enabled = bool(

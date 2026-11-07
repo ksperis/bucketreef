@@ -114,22 +114,6 @@ class S3ConnectionsService:
                 self.db.rollback()
             raise
 
-    def list_for_user(self, user_id: int) -> list[S3Connection]:
-        return self.queries.list_for_user(user_id)
-
-    def list_owned_private(self, user_id: int) -> list[S3Connection]:
-        return self.queries.list_owned_private(user_id)
-
-    @staticmethod
-    def admin_shared_predicates():
-        return S3ConnectionQueryService.admin_shared_predicates()
-
-    def get_admin_shared(self, connection_id: int) -> DBS3Connection:
-        return self.queries.get_admin_shared(connection_id)
-
-    def get_record(self, connection_id: int) -> DBS3Connection:
-        return self.queries.get_record(connection_id)
-
     def create_admin_shared(
         self,
         created_by_user_id: int,
