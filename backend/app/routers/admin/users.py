@@ -45,6 +45,7 @@ from app.services.ldap_service import (
 )
 from app.services.avatar_image_service import MAX_AVATAR_BYTES
 from app.services.user_avatar_service import UserAvatarService
+from app.services.user_output_service import UserOutputService
 from app.services.user_query_service import UserQueryService
 from app.services.user_update_service import UserUpdateService
 from app.services.identity_security_policy import (
@@ -68,6 +69,12 @@ def get_user_update_service_dependency(
     db: Session = Depends(get_db),
 ) -> UserUpdateService:
     return UserUpdateService(db)
+
+
+def get_user_output_service_dependency(
+    db: Session = Depends(get_db),
+) -> UserOutputService:
+    return UserOutputService(db)
 
 
 def _ldap_import_service(db: Session) -> AdminLdapUserImportService:
@@ -195,7 +202,7 @@ def search_ldap_users_for_import(
 def import_ldap_user(
     request: Request,
     payload: LDAPImportRequest,
-    users_service: UsersService = Depends(get_users_service_dependency),
+    output_service: UserOutputService = Depends(get_user_output_service_dependency),
     user_query_service: UserQueryService = Depends(get_user_query_service_dependency),
     associations_service: UserAssociationsService = Depends(get_user_associations_service_dependency),
     current_user: DbUser = Depends(get_current_ui_admin),
@@ -248,7 +255,7 @@ def import_ldap_user(
         entity_id=str(user.id),
         metadata={"provider_id": provider_id, "mode": payload.action},
     )
-    return users_service.user_to_out(user)
+    return output_service.to_out(user)
 
 
 @router.post("", response_model=UserOut, status_code=status.HTTP_201_CREATED)
@@ -256,6 +263,7 @@ def create_user(
     request: Request,
     payload: UserCreate,
     users_service: UsersService = Depends(get_users_service_dependency),
+    output_service: UserOutputService = Depends(get_user_output_service_dependency),
     associations_service: UserAssociationsService = Depends(get_user_associations_service_dependency),
     current_user: DbUser = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
@@ -294,7 +302,7 @@ def create_user(
                 "openstack_cloud_ids": payload.openstack_cloud_ids,
             },
         )
-        return users_service.user_to_out(user)
+        return output_service.to_out(user)
     except ValueError as exc:
         raise_bad_request_from_value_error(exc)
 
@@ -306,6 +314,7 @@ def update_user(
     payload: UserUpdate,
     users_service: UsersService = Depends(get_users_service_dependency),
     update_service: UserUpdateService = Depends(get_user_update_service_dependency),
+    output_service: UserOutputService = Depends(get_user_output_service_dependency),
     user_query_service: UserQueryService = Depends(get_user_query_service_dependency),
     associations_service: UserAssociationsService = Depends(get_user_associations_service_dependency),
     current_user: DbUser = Depends(get_current_ui_admin),
@@ -343,7 +352,7 @@ def update_user(
             entity_id=str(user_id),
             metadata=_safe_update_audit_metadata(payload),
         )
-        return users_service.user_to_out(user)
+        return output_service.to_out(user)
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
 
@@ -366,7 +375,7 @@ async def upload_user_avatar(
     request: Request,
     user_id: int,
     file: UploadFile = File(...),
-    users_service: UsersService = Depends(get_users_service_dependency),
+    output_service: UserOutputService = Depends(get_user_output_service_dependency),
     user_query_service: UserQueryService = Depends(get_user_query_service_dependency),
     current_user: DbUser = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
@@ -382,14 +391,14 @@ async def upload_user_avatar(
         user=current_user, scope="admin", action="upload_avatar", entity_type="ui_user", entity_id=str(target.id),
         metadata={"content_type": target.avatar_content_type, "size_bytes": len(payload)},
     )
-    return users_service.user_to_out(target)
+    return output_service.to_out(target)
 
 
 @router.delete("/{user_id}/avatar", response_model=UserOut)
 def delete_user_avatar(
     request: Request,
     user_id: int,
-    users_service: UsersService = Depends(get_users_service_dependency),
+    output_service: UserOutputService = Depends(get_user_output_service_dependency),
     user_query_service: UserQueryService = Depends(get_user_query_service_dependency),
     current_user: DbUser = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
@@ -400,7 +409,7 @@ def delete_user_avatar(
     audit_service.record_action(
         user=current_user, scope="admin", action="delete_avatar", entity_type="ui_user", entity_id=str(target.id),
     )
-    return users_service.user_to_out(target)
+    return output_service.to_out(target)
 
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

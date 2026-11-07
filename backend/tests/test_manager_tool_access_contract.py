@@ -14,6 +14,7 @@ from app.services.identity_security_policy import admin_user_update_requires_ste
 from app.services.manager_tool_access import MANAGER_TOOL_COLUMNS
 from app.services.ui_groups_service import UiGroupsService
 from app.services.ui_group_query_service import UiGroupQueryService
+from app.services.user_output_service import UserOutputService
 from app.services.user_update_service import UserUpdateService
 from app.services.users_service import UsersService
 
@@ -76,7 +77,7 @@ def test_manager_tool_grants_round_trip_create_update_and_output(db_session, ent
     if entity == "user":
         service = UsersService(db_session)
         subject = service.create_user(_user_create(manager_tool_access=initial))
-        to_out = service.user_to_out
+        to_out = UserOutputService(db_session).to_out
         update = UserUpdateService(db_session).update_user
         payload_type = UserUpdate
     else:
@@ -113,15 +114,16 @@ def test_user_role_controls_persisted_and_effective_manager_tools(db_session, ro
     user = service.create_user(_user_create(
         email="role-tools@example.com", role=role, manager_tool_access=requested,
     ))
+    output = UserOutputService(db_session)
     expected = _access(()) if role == UserRole.UI_NONE.value else requested
-    assert service.user_to_out(user).manager_tool_access == expected
+    assert output.to_out(user).manager_tool_access == expected
     assert EffectiveAccessService(db_session).resolve_user(user).manager_tool_access == expected
 
     UserUpdateService(db_session).update_user(user.id, UserUpdate(role=UserRole.UI_NONE.value))
-    assert service.user_to_out(user).manager_tool_access == _access(())
+    assert output.to_out(user).manager_tool_access == _access(())
     # Promotion does not restore direct grants cleared during demotion.
     UserUpdateService(db_session).update_user(user.id, UserUpdate(role=UserRole.UI_USER.value))
-    assert service.user_to_out(user).manager_tool_access == _access(())
+    assert output.to_out(user).manager_tool_access == _access(())
 
 
 def test_role_masking_does_not_rewrite_group_grants(db_session):
@@ -132,24 +134,26 @@ def test_role_masking_does_not_rewrite_group_grants(db_session):
         email="role-mask@example.com", password="valid-test-password",
         role=UserRole.UI_NONE.value, group_ids=[group.id], manager_tool_access=_access(_TOOLS),
     ))
-    assert service.user_to_out(user).manager_tool_access == _access(())
-    assert service.user_to_out(user).effective_access.manager_tool_access == _access(())
+    output = UserOutputService(db_session)
+    assert output.to_out(user).manager_tool_access == _access(())
+    assert output.to_out(user).effective_access.manager_tool_access == _access(())
     assert UiGroupQueryService(db_session).group_to_out(group).manager_tool_access == _access(_TOOLS)
 
     UserUpdateService(db_session).update_user(user.id, UserUpdate(role=UserRole.UI_USER.value))
-    assert service.user_to_out(user).manager_tool_access == _access(())
-    assert service.user_to_out(user).effective_access.manager_tool_access == _access(_TOOLS)
+    assert output.to_out(user).manager_tool_access == _access(())
+    assert output.to_out(user).effective_access.manager_tool_access == _access(_TOOLS)
 
 
 @pytest.mark.parametrize("tool", _TOOLS)
 def test_effective_tools_preserve_direct_and_group_provenance(db_session, tool):
     service = UsersService(db_session)
     user = service.create_user(_user_create(email="group-tools@example.com"))
+    output = UserOutputService(db_session)
     group_service = UiGroupsService(db_session)
     group = group_service.create_group(_group_create(
         name="Tool group", user_ids=[user.id], manager_tool_access=_access((tool,)),
     ))
-    inherited = service.user_to_out(user)
+    inherited = output.to_out(user)
     assert inherited.manager_tool_access == _access(())
     assert inherited.effective_access.manager_tool_access == _access((tool,))
     assert inherited.effective_access.group_manager_tool_access == _access((tool,))
@@ -161,12 +165,12 @@ def test_effective_tools_preserve_direct_and_group_provenance(db_session, tool):
     assert admin_user_update_requires_step_up(user, grant) is False
 
     group_service.update_group(group.id, UiGroupUpdate(manager_tool_access={}))
-    direct = service.user_to_out(user)
+    direct = output.to_out(user)
     assert direct.manager_tool_access == _access((tool,))
     assert direct.effective_access.manager_tool_access == _access((tool,))
     assert direct.effective_access.group_manager_tool_access == _access(())
     UserUpdateService(db_session).update_user(user.id, UserUpdate(manager_tool_access={}))
-    assert service.user_to_out(user).effective_access.manager_tool_access == _access(())
+    assert output.to_out(user).effective_access.manager_tool_access == _access(())
 
 
 @pytest.mark.parametrize("tool", _TOOLS)
