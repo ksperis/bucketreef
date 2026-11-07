@@ -3,6 +3,8 @@
 from collections.abc import Callable
 from typing import Any
 
+from app.services.rgw_iam_errors import RGWIAMPaginationError
+
 
 IAMPageMatcher = Callable[[dict, str], bool]
 
@@ -21,7 +23,7 @@ def list_iam_all(client: Any, operation_name: str, result_key: str, **kwargs) ->
             return items
         next_marker = response.get("Marker")
         if not isinstance(next_marker, str) or not next_marker or next_marker in seen_markers:
-            raise RuntimeError(
+            raise RGWIAMPaginationError(
                 f"IAM pagination for {operation_name} returned IsTruncated without a usable Marker"
             )
         seen_markers.add(next_marker)
@@ -61,7 +63,7 @@ def list_iam_page(
             return items[:max_items], None
         next_marker = response.get("Marker")
         if not isinstance(next_marker, str) or not next_marker or next_marker in seen_markers:
-            raise RuntimeError(
+            raise RGWIAMPaginationError(
                 f"IAM pagination for {operation_name} returned IsTruncated without a usable Marker"
             )
         seen_markers.add(next_marker)

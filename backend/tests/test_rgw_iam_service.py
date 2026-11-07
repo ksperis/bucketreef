@@ -332,7 +332,7 @@ def _service(monkeypatch, client: _FakeIAMClient | None = None) -> tuple[rgw_iam
 
 
 def test_get_iam_client_requires_endpoint_and_passes_verify(monkeypatch):
-    with pytest.raises(RuntimeError, match="IAM endpoint is not configured"):
+    with pytest.raises(rgw_iam.RGWIAMError, match="IAM endpoint is not configured"):
         rgw_iam.get_iam_client("AK", "SK", endpoint=None)
 
     captured: dict[str, object] = {}
@@ -562,8 +562,20 @@ def test_iam_pagination_rejects_truncated_page_without_next_marker(monkeypatch):
         lambda **kwargs: {"AccessKeyMetadata": [], "IsTruncated": True},
     )
 
-    with pytest.raises(RuntimeError, match="without a usable Marker"):
+    with pytest.raises(rgw_iam.RGWIAMError, match="without a usable Marker"):
         service.list_access_keys("alice")
+
+
+def test_unexpected_runtime_error_from_iam_client_propagates_unchanged(monkeypatch):
+    service, fake = _service(monkeypatch)
+    regression = RuntimeError("unexpected IAM client regression")
+    fake.raise_on["list_access_keys"] = regression
+
+    with pytest.raises(RuntimeError) as exc_info:
+        service.list_access_keys("alice")
+
+    assert exc_info.value is regression
+    assert not isinstance(exc_info.value, rgw_iam.RGWIAMError)
 
 
 def test_create_get_delete_user_error_paths(monkeypatch):
@@ -595,7 +607,7 @@ def test_access_key_methods_and_no_such_entity_handling(monkeypatch):
     service.delete_access_key("alice", "AKIA2")
 
     fake.raise_on["update_access_key"] = _client_error("NoSuchEntity", "UpdateAccessKey")
-    with pytest.raises(RuntimeError, match="Access key not found"):
+    with pytest.raises(rgw_iam.RGWIAMError, match="Access key not found"):
         service.update_access_key_status("alice", "AKIA2", "Inactive")
 
 
@@ -798,7 +810,7 @@ def test_policy_document_normalization_and_factory(monkeypatch):
 def test_user_methods_wrap_underlying_client_errors(monkeypatch, operation, raise_on, call, message):
     service, fake = _service(monkeypatch)
     fake.raise_on[operation] = raise_on
-    with pytest.raises(RuntimeError, match=message):
+    with pytest.raises(rgw_iam.RGWIAMError, match=message):
         call(service)
 
 
@@ -808,83 +820,83 @@ def test_user_group_and_role_policy_error_paths(monkeypatch):
     fake.raise_on["get_user_policy"] = _client_error("NoSuchEntity", "GetUserPolicy")
     assert service.get_user_inline_policy("alice", "p1") is None
     fake.raise_on["get_user_policy"] = _client_error("AccessDenied", "GetUserPolicy")
-    with pytest.raises(RuntimeError, match="Unable to fetch inline policy for user"):
+    with pytest.raises(rgw_iam.RGWIAMError, match="Unable to fetch inline policy for user"):
         service.get_user_inline_policy("alice", "p1")
 
     fake.raise_on["delete_user_policy"] = _client_error("NoSuchEntity", "DeleteUserPolicy")
     service.delete_user_inline_policy("alice", "p1")
     fake.raise_on["delete_user_policy"] = _client_error("AccessDenied", "DeleteUserPolicy")
-    with pytest.raises(RuntimeError, match="Unable to delete inline policy from user"):
+    with pytest.raises(rgw_iam.RGWIAMError, match="Unable to delete inline policy from user"):
         service.delete_user_inline_policy("alice", "p1")
 
     fake.raise_on["detach_user_policy"] = _client_error("AccessDenied", "DetachUserPolicy")
-    with pytest.raises(RuntimeError, match="Unable to detach policy from user"):
+    with pytest.raises(rgw_iam.RGWIAMError, match="Unable to detach policy from user"):
         service.detach_user_policy("alice", "arn:policy:user")
 
     fake.raise_on["list_groups_for_user"] = _client_error("AccessDenied", "ListGroupsForUser")
-    with pytest.raises(RuntimeError, match="Unable to list groups for user"):
+    with pytest.raises(rgw_iam.RGWIAMError, match="Unable to list groups for user"):
         service.list_groups_for_user("alice")
 
     fake.raise_on["list_groups"] = _client_error("AccessDenied", "ListGroups")
-    with pytest.raises(RuntimeError, match="Unable to list IAM groups"):
+    with pytest.raises(rgw_iam.RGWIAMError, match="Unable to list IAM groups"):
         service.list_groups()
     fake.raise_on["create_group"] = BotoCoreError()
-    with pytest.raises(RuntimeError, match="Unable to create IAM group"):
+    with pytest.raises(rgw_iam.RGWIAMError, match="Unable to create IAM group"):
         service.create_group("grp-x")
     fake.raise_on["delete_group"] = _client_error("AccessDenied", "DeleteGroup")
-    with pytest.raises(RuntimeError, match="Unable to delete IAM group"):
+    with pytest.raises(rgw_iam.RGWIAMError, match="Unable to delete IAM group"):
         service.delete_group("grp-x")
     fake.raise_on["add_user_to_group"] = _client_error("AccessDenied", "AddUserToGroup")
-    with pytest.raises(RuntimeError, match="Unable to add user to group"):
+    with pytest.raises(rgw_iam.RGWIAMError, match="Unable to add user to group"):
         service.add_user_to_group("grp-x", "alice")
     fake.raise_on["remove_user_from_group"] = _client_error("AccessDenied", "RemoveUserFromGroup")
-    with pytest.raises(RuntimeError, match="Unable to remove user from group"):
+    with pytest.raises(rgw_iam.RGWIAMError, match="Unable to remove user from group"):
         service.remove_user_from_group("grp-x", "alice")
 
     fake.raise_on["get_group_policy"] = _client_error("NoSuchEntity", "GetGroupPolicy")
     assert service.get_group_inline_policy("grp-x", "p1") is None
     fake.raise_on["get_group_policy"] = _client_error("AccessDenied", "GetGroupPolicy")
-    with pytest.raises(RuntimeError, match="Unable to fetch inline policy for group"):
+    with pytest.raises(rgw_iam.RGWIAMError, match="Unable to fetch inline policy for group"):
         service.get_group_inline_policy("grp-x", "p1")
     fake.raise_on["delete_group_policy"] = _client_error("NoSuchEntity", "DeleteGroupPolicy")
     service.delete_group_inline_policy("grp-x", "p1")
     fake.raise_on["delete_group_policy"] = _client_error("AccessDenied", "DeleteGroupPolicy")
-    with pytest.raises(RuntimeError, match="Unable to delete inline policy from group"):
+    with pytest.raises(rgw_iam.RGWIAMError, match="Unable to delete inline policy from group"):
         service.delete_group_inline_policy("grp-x", "p1")
     fake.raise_on["detach_group_policy"] = _client_error("AccessDenied", "DetachGroupPolicy")
-    with pytest.raises(RuntimeError, match="Unable to detach policy from group"):
+    with pytest.raises(rgw_iam.RGWIAMError, match="Unable to detach policy from group"):
         service.detach_group_policy("grp-x", "arn:policy:group")
 
     fake.raise_on["list_roles"] = BotoCoreError()
-    with pytest.raises(RuntimeError, match="Unable to list IAM roles"):
+    with pytest.raises(rgw_iam.RGWIAMError, match="Unable to list IAM roles"):
         service.list_roles()
     fake.raise_on["create_role"] = _client_error("AccessDenied", "CreateRole")
-    with pytest.raises(RuntimeError, match="Unable to create IAM role"):
+    with pytest.raises(rgw_iam.RGWIAMError, match="Unable to create IAM role"):
         service.create_role("role-x", {"Statement": []})
     fake.raise_on["get_role"] = _client_error("NoSuchEntity", "GetRole")
     assert service.get_role("missing") is None
     fake.raise_on["get_role"] = _client_error("AccessDenied", "GetRole")
-    with pytest.raises(RuntimeError, match="Unable to fetch IAM role"):
+    with pytest.raises(rgw_iam.RGWIAMError, match="Unable to fetch IAM role"):
         service.get_role("role-x")
     fake.raise_on["delete_role"] = _client_error("AccessDenied", "DeleteRole")
-    with pytest.raises(RuntimeError, match="Unable to delete IAM role"):
+    with pytest.raises(rgw_iam.RGWIAMError, match="Unable to delete IAM role"):
         service.delete_role("role-x")
     fake.raise_on["update_assume_role_policy"] = BotoCoreError()
-    with pytest.raises(RuntimeError, match="Unable to update role trust policy"):
+    with pytest.raises(rgw_iam.RGWIAMError, match="Unable to update role trust policy"):
         service.update_role_assume_policy("role-x", {"Statement": []})
 
     fake.raise_on["get_role_policy"] = _client_error("NoSuchEntity", "GetRolePolicy")
     assert service.get_role_inline_policy("role-x", "p1") is None
     fake.raise_on["get_role_policy"] = _client_error("AccessDenied", "GetRolePolicy")
-    with pytest.raises(RuntimeError, match="Unable to fetch inline policy for role"):
+    with pytest.raises(rgw_iam.RGWIAMError, match="Unable to fetch inline policy for role"):
         service.get_role_inline_policy("role-x", "p1")
     fake.raise_on["delete_role_policy"] = _client_error("NoSuchEntity", "DeleteRolePolicy")
     service.delete_role_inline_policy("role-x", "p1")
     fake.raise_on["delete_role_policy"] = _client_error("AccessDenied", "DeleteRolePolicy")
-    with pytest.raises(RuntimeError, match="Unable to delete inline policy from role"):
+    with pytest.raises(rgw_iam.RGWIAMError, match="Unable to delete inline policy from role"):
         service.delete_role_inline_policy("role-x", "p1")
     fake.raise_on["detach_role_policy"] = _client_error("AccessDenied", "DetachRolePolicy")
-    with pytest.raises(RuntimeError, match="Unable to detach policy from role"):
+    with pytest.raises(rgw_iam.RGWIAMError, match="Unable to detach policy from role"):
         service.detach_role_policy("role-x", "arn:policy:role")
 
 
@@ -897,24 +909,24 @@ def test_policy_get_create_delete_runtime_error_paths(monkeypatch):
     assert policy.document is None
 
     fake.raise_on["get_policy"] = _client_error("AccessDenied", "GetPolicy")
-    with pytest.raises(RuntimeError, match="Unable to fetch IAM policy"):
+    with pytest.raises(rgw_iam.RGWIAMError, match="Unable to fetch IAM policy"):
         service.get_policy("arn:custom")
     fake.raise_on["get_policy"] = BotoCoreError()
-    with pytest.raises(RuntimeError, match="Unable to fetch IAM policy"):
+    with pytest.raises(rgw_iam.RGWIAMError, match="Unable to fetch IAM policy"):
         service.get_policy("arn:custom")
 
     fake.raise_on["create_policy"] = _client_error("AccessDenied", "CreatePolicy")
-    with pytest.raises(RuntimeError, match="Unable to create IAM policy"):
+    with pytest.raises(rgw_iam.RGWIAMError, match="Unable to create IAM policy"):
         service.create_policy("p-new", {"Statement": []})
     fake.raise_on["create_policy"] = BotoCoreError()
-    with pytest.raises(RuntimeError, match="Unable to create IAM policy"):
+    with pytest.raises(rgw_iam.RGWIAMError, match="Unable to create IAM policy"):
         service.create_policy("p-new", {"Statement": []})
 
     fake.raise_on["delete_policy"] = _client_error("AccessDenied", "DeletePolicy")
-    with pytest.raises(RuntimeError, match="Unable to delete IAM policy"):
+    with pytest.raises(rgw_iam.RGWIAMError, match="Unable to delete IAM policy"):
         service.delete_policy("arn:missing")
     fake.raise_on["delete_policy"] = BotoCoreError()
-    with pytest.raises(RuntimeError, match="Unable to delete IAM policy"):
+    with pytest.raises(rgw_iam.RGWIAMError, match="Unable to delete IAM policy"):
         service.delete_policy("arn:missing")
 
 
@@ -928,7 +940,7 @@ def test_create_user_create_key_success_and_existing_without_lookup_match(monkey
 
     fake.raise_on["create_user"] = _client_error("EntityAlreadyExists", "CreateUser")
     monkeypatch.setattr(service, "get_user", lambda *args, **kwargs: None)
-    with pytest.raises(RuntimeError, match="Unable to create IAM user"):
+    with pytest.raises(rgw_iam.RGWIAMError, match="Unable to create IAM user"):
         service.create_user("alice", allow_existing=True)
 
 
@@ -936,7 +948,7 @@ def test_create_user_rolls_back_user_when_access_key_creation_fails(monkeypatch)
     service, fake = _service(monkeypatch)
     fake.raise_on["create_access_key"] = _client_error("AccessDenied", "CreateAccessKey")
 
-    with pytest.raises(RuntimeError, match="Unable to create IAM access key"):
+    with pytest.raises(rgw_iam.RGWIAMError, match="Unable to create IAM access key"):
         service.create_user("alice", create_key=True)
 
     assert [call[0] for call in fake.calls] == [
@@ -951,7 +963,7 @@ def test_create_user_reports_access_key_and_rollback_failures(monkeypatch):
     fake.raise_on["create_access_key"] = _client_error("AccessDenied", "CreateAccessKey")
     fake.raise_on["delete_user"] = _client_error("AccessDenied", "DeleteUser")
 
-    with pytest.raises(RuntimeError) as exc_info:
+    with pytest.raises(rgw_iam.RGWIAMError) as exc_info:
         service.create_user("alice", create_key=True)
 
     message = str(exc_info.value)
@@ -967,11 +979,11 @@ def test_get_user_and_delete_user_non_no_such_entity_paths(monkeypatch):
 
     service2, fake2 = _service(monkeypatch)
     fake2.raise_on["get_user"] = _client_error("AccessDenied", "GetUser")
-    with pytest.raises(RuntimeError, match="Unable to fetch IAM user"):
+    with pytest.raises(rgw_iam.RGWIAMError, match="Unable to fetch IAM user"):
         service2.get_user("alice")
 
     fake2.raise_on["delete_user"] = _client_error("AccessDenied", "DeleteUser")
-    with pytest.raises(RuntimeError, match="Unable to delete IAM user"):
+    with pytest.raises(rgw_iam.RGWIAMError, match="Unable to delete IAM user"):
         service2.delete_user("alice")
 
 
@@ -1118,7 +1130,7 @@ def test_get_user_and_delete_user_non_no_such_entity_paths(monkeypatch):
 def test_remaining_botocore_error_wrapping(monkeypatch, operation, call, message):
     service, fake = _service(monkeypatch)
     fake.raise_on[operation] = BotoCoreError()
-    with pytest.raises(RuntimeError, match=message):
+    with pytest.raises(rgw_iam.RGWIAMError, match=message):
         call(service)
 
 
@@ -1133,7 +1145,7 @@ def test_remaining_tolerant_detach_paths_and_group_users_error(monkeypatch):
     service.untag_role("role-a", ["owner"])
 
     monkeypatch.setattr(fake, "get_paginator", lambda operation_name: (_ for _ in ()).throw(BotoCoreError()))
-    with pytest.raises(RuntimeError, match="Unable to list IAM group members"):
+    with pytest.raises(rgw_iam.RGWIAMError, match="Unable to list IAM group members"):
         service.list_group_users("grp-a")
 
 
