@@ -8,7 +8,6 @@ from app.core.database import get_db
 from app.core.domain_errors import (
     S3ConnectionConflictError,
     S3ConnectionNotFoundError,
-    StorageEndpointNotFoundError,
 )
 from app.db import User
 from app.models.s3_connection import (
@@ -155,11 +154,6 @@ def create_connection(
             },
         )
         return created
-    except StorageEndpointNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Storage endpoint not found",
-        ) from exc
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
 
