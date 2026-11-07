@@ -155,12 +155,7 @@ class CephAdminBucketPageBuilder:
         return backfill_bucket_owner_metadata(
             self.ctx,
             page_items,
-            include_tenant=(
-                self.request.wants_owner_name
-                or self.request.wants_owner_suspended
-                or self.request.wants_owner_quota
-                or self.request.wants_owner_quota_usage
-            ),
+            include_tenant=self.request.requested_owner_metadata.required,
             progress=self.progress,
             cancel_check=self.cancel_check,
             progress_stage="page_enrichment",
@@ -199,7 +194,7 @@ class CephAdminBucketPageBuilder:
         )
 
     def _enrich_owner_names(self, page_items: list[BucketListingSummary]) -> None:
-        if not self.request.wants_owner_name or not page_items:
+        if not self.request.requested_owner_metadata.name or not page_items:
             return
         owner_name_by_key = resolve_owner_names_for_buckets(self.ctx, page_items, owner_scope="any")
         for bucket in page_items:
@@ -213,17 +208,14 @@ class CephAdminBucketPageBuilder:
         self,
         page_items: list[BucketListingSummary],
     ) -> list[BucketListingSummary]:
-        if not page_items or not (
-            self.request.wants_owner_suspended
-            or self.request.wants_owner_quota
-            or self.request.wants_owner_quota_usage
-        ):
+        requirements = self.request.requested_owner_metadata
+        if not page_items or not (requirements.suspended or requirements.quota or requirements.usage):
             return page_items
         return apply_owner_enrichment(
             self.ctx,
             page_items,
-            include_suspended=self.request.wants_owner_suspended,
-            include_quota=self.request.wants_owner_quota or self.request.wants_owner_quota_usage,
-            include_usage=self.request.wants_owner_quota_usage,
+            include_suspended=requirements.suspended,
+            include_quota=requirements.quota,
+            include_usage=requirements.usage,
             usage_by_key=self.listing.owner_usage_by_key,
         )

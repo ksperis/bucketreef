@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
 from typing import Any, Callable, Literal, Protocol
 
 from app.db import StorageEndpoint
@@ -34,6 +35,50 @@ OWNER_USAGE_PERCENT_FIELDS = {"owner_quota_usage_size_percent", "owner_quota_usa
 OWNER_ENRICHED_FIELDS = OWNER_STATUS_FIELDS | OWNER_QUOTA_FIELDS | OWNER_USAGE_FIELDS | OWNER_USAGE_PERCENT_FIELDS
 OWNER_DETAIL_FIELDS = {"owner_name"} | OWNER_ENRICHED_FIELDS
 BucketOwnerLookupScope = Literal["any", "account", "user"]
+
+
+@dataclass(frozen=True)
+class BucketOwnerMetadataRequirements:
+    name: bool = False
+    suspended: bool = False
+    quota: bool = False
+    usage: bool = False
+
+    @property
+    def required(self) -> bool:
+        return self.name or self.suspended or self.quota or self.usage
+
+
+def owner_metadata_requirements_for_fields(
+    fields: set[str],
+) -> BucketOwnerMetadataRequirements:
+    return BucketOwnerMetadataRequirements(
+        name="owner_name" in fields,
+        suspended=bool(fields & OWNER_STATUS_FIELDS),
+        quota=bool(fields & (OWNER_QUOTA_FIELDS | OWNER_USAGE_PERCENT_FIELDS)),
+        usage=bool(fields & (OWNER_USAGE_FIELDS | OWNER_USAGE_PERCENT_FIELDS)),
+    )
+
+
+def filter_owner_metadata_requirements(
+    query: BucketFilterQuery | None,
+) -> BucketOwnerMetadataRequirements:
+    if not query or not query.rules:
+        return BucketOwnerMetadataRequirements()
+    fields = {rule.field for rule in query.rules if rule.field}
+    return owner_metadata_requirements_for_fields(fields)
+
+
+def requested_owner_metadata_requirements(
+    include_set: set[str],
+) -> BucketOwnerMetadataRequirements:
+    wants_quota_usage = "owner_quota_usage" in include_set
+    return BucketOwnerMetadataRequirements(
+        name="owner_name" in include_set,
+        suspended="owner_suspended" in include_set,
+        quota="owner_quota" in include_set or wants_quota_usage,
+        usage=wants_quota_usage,
+    )
 
 
 class BucketListingAdminContext(Protocol):
@@ -256,10 +301,7 @@ def _filter_requires_tenant_metadata(query: BucketFilterQuery | None) -> bool:
 
 
 def filter_requires_owner_usage(query: BucketFilterQuery | None) -> bool:
-    if not query:
-        return False
-    owner_usage_fields = OWNER_USAGE_FIELDS | OWNER_USAGE_PERCENT_FIELDS
-    return any(rule.field in owner_usage_fields for rule in query.rules)
+    return filter_owner_metadata_requirements(query).usage
 
 
 def request_requires_owner_metadata(
