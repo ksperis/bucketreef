@@ -8,7 +8,7 @@ from pydantic import Field
 
 from app.models.admin_listing import AdminSortDir
 from app.models.base import ApiModel
-from app.models.pagination import PaginationRequest
+from app.models.pagination import PaginatedResponse, PaginationRequest
 
 
 UsageHistoryGranularity = Literal["daily", "hourly"]
@@ -55,12 +55,8 @@ class UsageHistoryRecord(ApiModel):
     collected_at: str
 
 
-class UsageHistoryResponse(ApiModel):
+class UsageHistoryResponse(PaginatedResponse):
     items: list[UsageHistoryRecord]
-    total: int
-    page: int
-    page_size: int
-    has_next: bool
     summary: UsageHistorySummary
 
 
