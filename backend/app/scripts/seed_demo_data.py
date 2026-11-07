@@ -18,10 +18,10 @@ from app.core.database import SessionLocal, engine
 from app.services.database_initialization import init_db
 from app.db import S3Account, StorageEndpoint
 from app.core.domain_enums import ManagerAccountRole, StorageProvider, UserRole
-from app.models.s3_account import S3AccountCreate, S3AccountUpdate
+from app.models.s3_account import S3AccountCreate
 from app.models.user import ManagerToolAccess, UserCreate
 from app.services.buckets_service import BucketsService
-from app.services.s3_accounts_service import get_s3_accounts_service
+from app.services.s3_account_provisioning_service import S3AccountProvisioningService
 from app.services.s3_execution_client import s3_execution_request_kwargs
 from app.services.users_service import UsersService
 from app.services.rgw_iam import RGWIAMError, get_iam_service
@@ -457,23 +457,21 @@ def build_account_plans(args: argparse.Namespace, config: Optional[dict]) -> lis
 
 
 def ensure_account(
-    accounts_service,
+    account_provisioning: S3AccountProvisioningService,
     name: str,
     email: str,
     quota_gb: Optional[int],
     storage_endpoint_id: int,
 ) -> S3Account:
-    db = accounts_service.db
+    db = account_provisioning.db
     existing = db.scalar(select(S3Account).where(S3Account.name == name).limit(1))
     if existing:
         if quota_gb is not None:
             try:
-                accounts_service.update_account(
-                    existing.id,
-                    S3AccountUpdate(
-                        quota_max_size_gb=quota_gb,
-                        quota_max_objects=None,
-                    ),
+                account_provisioning.quota.update(
+                    existing,
+                    quota_gb,
+                    None,
                 )
             except Exception as exc:
                 logger.debug("Unable to update quota for %s: %s", existing.name, exc)
@@ -486,13 +484,7 @@ def ensure_account(
         quota_max_objects=None,
         storage_endpoint_id=storage_endpoint_id,
     )
-    created = accounts_service.create_account_with_manager(payload)
-    account = db.get(S3Account, created.id)
-    if account is None:
-        account = db.scalar(select(S3Account).where(S3Account.name == name).limit(1))
-    if account is None:
-        raise RuntimeError(f"Failed to create or load account {name}")
-    return account
+    return account_provisioning.create_account_with_manager(payload).account
 
 
 def ensure_iam_user_with_key(account: S3Account, iam_username: str) -> IAMAccessKey:
@@ -658,14 +650,14 @@ def _link_seed_users(users_service: UsersService, account: S3Account, user_plans
 
 
 def create_account_data(
-    accounts_service,
+    account_provisioning: S3AccountProvisioningService,
     buckets_service: BucketsService,
     users_service: UsersService,
     plan: AccountPlan,
     storage_endpoint_id: int,
 ) -> None:
     account = ensure_account(
-        accounts_service,
+        account_provisioning,
         plan.name,
         plan.email,
         plan.quota_gb,
@@ -758,14 +750,14 @@ def main() -> None:
         )
         if storage_endpoint is None:
             raise SystemExit("A default Ceph storage endpoint is required to seed demo data.")
-        accounts_service = get_s3_accounts_service(db)
+        account_provisioning = S3AccountProvisioningService(db)
         buckets_service = BucketsService()
         users_service = UsersService(db)
         plans = build_account_plans(args, config)
         logger.info("Planned %s accounts (%s from YAML).", len(plans), len(config.get('accounts', [])) if config else 0)
         for plan in plans:
             create_account_data(
-                accounts_service,
+                account_provisioning,
                 buckets_service,
                 users_service,
                 plan,
