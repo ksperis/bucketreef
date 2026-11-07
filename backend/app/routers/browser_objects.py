@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Annotated, Optional, TypeVar
+from typing import Annotated, Any, Optional, TypeVar
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
@@ -42,7 +42,19 @@ from app.utils.http_errors import raise_bad_gateway_from_runtime, raise_http_exc
 
 router = APIRouter()
 
-_ObjectReadResult = TypeVar("_ObjectReadResult")
+_ObjectActionResult = TypeVar("_ObjectActionResult")
+
+
+def _run_object_action(
+    action: Callable[..., _ObjectActionResult],
+    /,
+    *args: Any,
+    **kwargs: Any,
+) -> _ObjectActionResult:
+    try:
+        return action(*args, **kwargs)
+    except RuntimeError as exc:
+        raise_bad_gateway_from_runtime(exc)
 
 
 def _read_object_detail(
@@ -51,14 +63,11 @@ def _read_object_detail(
     key: str,
     version_id: Optional[str],
     context: S3ExecutionContext,
-    getter: Callable[..., _ObjectReadResult],
-) -> _ObjectReadResult:
+    getter: Callable[..., _ObjectActionResult],
+) -> _ObjectActionResult:
     if not key:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing key")
-    try:
-        return getter(bucket_name, context, key, version_id=version_id)
-    except RuntimeError as exc:
-        raise_bad_gateway_from_runtime(exc)
+    return _run_object_action(getter, bucket_name, context, key, version_id=version_id)
 
 
 @router.get("/buckets/{bucket_name}/versions", response_model=ListObjectVersionsResponse)
@@ -74,19 +83,17 @@ def list_versions(
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ListObjectVersionsResponse:
-    try:
-        return service.list_object_versions(
-            bucket_name,
-            context,
-            prefix=prefix,
-            delimiter=delimiter,
-            key=key,
-            key_marker=key_marker,
-            version_id_marker=version_id_marker,
-            max_keys=max_keys,
-        )
-    except RuntimeError as exc:
-        raise_bad_gateway_from_runtime(exc)
+    return _run_object_action(
+        service.list_object_versions,
+        bucket_name,
+        context,
+        prefix=prefix,
+        delimiter=delimiter,
+        key=key,
+        key_marker=key_marker,
+        version_id_marker=version_id_marker,
+        max_keys=max_keys,
+    )
 
 
 @router.get("/buckets/{bucket_name}/object-meta", response_model=ObjectMetadata)
@@ -103,16 +110,14 @@ def head_object(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing key")
     if sse_customer:
         require_sse_feature(context.storage_endpoint)
-    try:
-        return service.head_object(
-            bucket_name,
-            context,
-            key,
-            version_id=version_id,
-            sse_customer=sse_customer,
-        )
-    except RuntimeError as exc:
-        raise_bad_gateway_from_runtime(exc)
+    return _run_object_action(
+        service.head_object,
+        bucket_name,
+        context,
+        key,
+        version_id=version_id,
+        sse_customer=sse_customer,
+    )
 
 
 @router.put("/buckets/{bucket_name}/object-meta", response_model=ObjectMetadata)
@@ -123,10 +128,7 @@ def update_object_metadata(
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ObjectMetadata:
-    try:
-        return service.update_object_metadata(bucket_name, context, payload)
-    except RuntimeError as exc:
-        raise_bad_gateway_from_runtime(exc)
+    return _run_object_action(service.update_object_metadata, bucket_name, context, payload)
 
 
 @router.get("/buckets/{bucket_name}/object-tags", response_model=ObjectTags)
@@ -157,16 +159,14 @@ def put_object_tags(
 ) -> ObjectTags:
     if not payload.key:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing key")
-    try:
-        return service.put_object_tags(
-            bucket_name,
-            context,
-            payload.key,
-            payload.tags,
-            version_id=payload.version_id,
-        )
-    except RuntimeError as exc:
-        raise_bad_gateway_from_runtime(exc)
+    return _run_object_action(
+        service.put_object_tags,
+        bucket_name,
+        context,
+        payload.key,
+        payload.tags,
+        version_id=payload.version_id,
+    )
 
 
 @router.get("/buckets/{bucket_name}/object-acl", response_model=ObjectAcl)
@@ -195,10 +195,7 @@ def put_object_acl(
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ObjectAcl:
-    try:
-        return service.put_object_acl(bucket_name, context, payload)
-    except RuntimeError as exc:
-        raise_bad_gateway_from_runtime(exc)
+    return _run_object_action(service.put_object_acl, bucket_name, context, payload)
 
 
 @router.get("/buckets/{bucket_name}/object-legal-hold", response_model=ObjectLegalHold)
@@ -227,10 +224,7 @@ def put_object_legal_hold(
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ObjectLegalHold:
-    try:
-        return service.put_object_legal_hold(bucket_name, context, payload)
-    except RuntimeError as exc:
-        raise_bad_gateway_from_runtime(exc)
+    return _run_object_action(service.put_object_legal_hold, bucket_name, context, payload)
 
 
 @router.get("/buckets/{bucket_name}/object-retention", response_model=ObjectRetention)
@@ -259,10 +253,7 @@ def put_object_retention(
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ObjectRetention:
-    try:
-        return service.put_object_retention(bucket_name, context, payload)
-    except RuntimeError as exc:
-        raise_bad_gateway_from_runtime(exc)
+    return _run_object_action(service.put_object_retention, bucket_name, context, payload)
 
 
 @router.post("/buckets/{bucket_name}/delete", response_model=DeleteObjectsResponse)
@@ -275,11 +266,8 @@ def delete_objects(
 ) -> DeleteObjectsResponse:
     if not payload.objects:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing objects")
-    try:
-        deleted = service.delete_objects(bucket_name, context, payload)
-        return DeleteObjectsResponse(deleted=deleted)
-    except RuntimeError as exc:
-        raise_bad_gateway_from_runtime(exc)
+    deleted = _run_object_action(service.delete_objects, bucket_name, context, payload)
+    return DeleteObjectsResponse(deleted=deleted)
 
 
 @router.post(
@@ -320,11 +308,8 @@ def create_folder(
 ) -> None:
     if not payload.prefix:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing prefix")
-    try:
-        service.create_folder(bucket_name, context, payload.prefix)
-        return None
-    except RuntimeError as exc:
-        raise_bad_gateway_from_runtime(exc)
+    _run_object_action(service.create_folder, bucket_name, context, payload.prefix)
+    return None
 
 
 @router.post(
@@ -338,11 +323,8 @@ def restore_object(
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> None:
-    try:
-        service.restore_object(bucket_name, context, payload)
-        return None
-    except RuntimeError as exc:
-        raise_bad_gateway_from_runtime(exc)
+    _run_object_action(service.restore_object, bucket_name, context, payload)
+    return None
 
 
 @router.post("/buckets/{bucket_name}/versions/cleanup", response_model=CleanupObjectVersionsResponse)
@@ -353,7 +335,4 @@ def cleanup_object_versions(
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> CleanupObjectVersionsResponse:
-    try:
-        return service.cleanup_object_versions(bucket_name, context, payload)
-    except RuntimeError as exc:
-        raise_bad_gateway_from_runtime(exc)
+    return _run_object_action(service.cleanup_object_versions, bucket_name, context, payload)
