@@ -14,7 +14,7 @@ def feature_param_quantifier(rule: BucketFilterRule) -> str:
 def match_text_value(left: str | None, op: str, right_raw: object) -> bool:
     if left is None:
         return False
-    right = normalize_text(str(right_raw or ""))
+    right = normalize_text(right_raw)
     if not right:
         return False
     left_norm = normalize_text(left)
