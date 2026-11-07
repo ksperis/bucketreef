@@ -35,7 +35,6 @@ import CephAdminAdminOpsModal from "./CephAdminAdminOpsModal";
 import { cephAdminPageBreadcrumbs } from "./cephAdminBreadcrumbs";
 import { useCephAdminEndpoint } from "./CephAdminEndpointContext";
 import AdvancedFilterDrawerShell from "../shared/AdvancedFilterDrawerShell";
-import AdvancedFilterNumberRangeField from "../shared/AdvancedFilterNumberRangeField";
 import AdvancedFilterTextMatchField from "../shared/AdvancedFilterTextMatchField";
 import {
   advancedFilterSectionClass,
@@ -52,11 +51,10 @@ import {
 } from "../shared/advancedFilterShared";
 import {
   buildNumericFilterFields,
-  buildNumericFilterFieldStates,
   buildNumericFilterSummaryItems,
-  numericFilterRangeFieldHighlight,
   type NumericFilterRangeField,
 } from "./filtering/advancedFilterModel";
+import AdvancedFilterNumericRangesSection from "./filtering/AdvancedFilterNumericRangesSection";
 import {
   buildAccountAdvancedFilterPayload,
   defaultAccountAdvancedFilter,
@@ -266,13 +264,6 @@ export default function CephAdminAccountsPage() {
     () => buildNumericFilterFields(usageNumericRangeFields, "percent"),
     [usageNumericRangeFields],
   );
-
-  const numericFieldStates = useMemo(
-    () => buildNumericFilterFieldStates(advancedDraft, advancedApplied, [...numericFields, ...usageNumericFields]),
-    [advancedDraft, advancedApplied, numericFields, usageNumericFields],
-  );
-  const numericRangeFieldState = (minKey: AccountAdvancedNumericField, maxKey: AccountAdvancedNumericField) =>
-    numericFilterRangeFieldHighlight(advancedDraft, advancedApplied, minKey, maxKey);
 
   const updateAdvancedMatchMode = (field: "accountNameMatchMode" | "emailMatchMode", value: TextMatchMode) => {
     updateAdvancedField(field, value);
@@ -675,51 +666,15 @@ export default function CephAdminAccountsPage() {
                             </div>
                           </section>
 
-                          <section className={advancedFilterSectionClass}>
-                            <p className="mb-3 ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                              {surfaceText("Limits and Quotas")}</p>
-                            <div className="grid gap-3 sm:grid-cols-2">
-                              {numericRangeFields.map((field) => (
-                                <AdvancedFilterNumberRangeField
-                                  key={`${field.minKey}:${field.maxKey}`}
-                                  label={field.label}
-                                  costLevel="medium"
-                                  costTooltip={surfaceText("Medium cost: numeric filters rely on counters/stats.")}
-                                  fieldState={numericRangeFieldState(field.minKey, field.maxKey)}
-                                  minFieldState={numericFieldStates[field.minKey]}
-                                  maxFieldState={numericFieldStates[field.maxKey]}
-                                  minValue={advancedDraft[field.minKey]}
-                                  maxValue={advancedDraft[field.maxKey]}
-                                  onMinChange={(value) => updateAdvancedField(field.minKey, value)}
-                                  onMaxChange={(value) => updateAdvancedField(field.maxKey, value)}
-                                />
-                              ))}
-                            </div>
-                            {canViewMetrics && (
-                              <div className="mt-4">
-                                <p className="mb-3 ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                  {surfaceText("Quota usage %")}</p>
-                                <div className="grid gap-3 sm:grid-cols-2">
-                                  {usageNumericRangeFields.map((field) => (
-                                    <AdvancedFilterNumberRangeField
-                                      key={`${field.minKey}:${field.maxKey}`}
-                                      label={field.label}
-                                      costLevel="medium"
-                                      costTooltip={surfaceText("Medium cost: usage percentage filters require bucket metrics aggregation.")}
-                                      fieldState={numericRangeFieldState(field.minKey, field.maxKey)}
-                                      minFieldState={numericFieldStates[field.minKey]}
-                                      maxFieldState={numericFieldStates[field.maxKey]}
-                                      minValue={advancedDraft[field.minKey]}
-                                      maxValue={advancedDraft[field.maxKey]}
-                                      inputMin={0}
-                                      onMinChange={(value) => updateAdvancedField(field.minKey, value)}
-                                      onMaxChange={(value) => updateAdvancedField(field.maxKey, value)}
-                                    />
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </section>
+                          <AdvancedFilterNumericRangesSection
+                            applied={advancedApplied}
+                            canViewUsage={canViewMetrics}
+                            draft={advancedDraft}
+                            onChange={updateAdvancedField}
+                            rangeCostTooltip={surfaceText("Medium cost: numeric filters rely on counters/stats.")}
+                            ranges={numericRangeFields}
+                            usageRanges={usageNumericRangeFields}
+                          />
                     </div>
                   </AdvancedFilterDrawerShell>
                 )}
