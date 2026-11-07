@@ -1,10 +1,10 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from typing import Literal, Optional
+from typing import Optional
 
 from pydantic import field_validator
 
-from app.core.domain_enums import IdentityProviderSource
+from app.core.domain_enums import IdentityProviderSource, OIDCLinkingPolicy
 from app.models.base import ApiModel
 from app.models.identity_provider import IdentityProviderFieldLock
 from app.utils.identity_provider_ids import normalize_identity_provider_id
@@ -61,7 +61,7 @@ class OIDCProviderAdminItem(ApiModel):
     icon_url: Optional[str]
     use_pkce: bool
     use_nonce: bool
-    linking_policy: Literal["manual", "reauthenticate", "trusted_email"]
+    linking_policy: OIDCLinkingPolicy
     trusted_email_domains: list[str]
     source: IdentityProviderSource
     editable: bool
@@ -81,7 +81,7 @@ class OIDCProviderAdminPayload(ApiModel):
     icon_url: Optional[str]
     use_pkce: bool
     use_nonce: bool
-    linking_policy: Literal["manual", "reauthenticate", "trusted_email"]
+    linking_policy: OIDCLinkingPolicy
     trusted_email_domains: list[str]
     client_secret: Optional[str] = None
     clear_client_secret: bool = False
