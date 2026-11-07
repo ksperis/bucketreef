@@ -33,9 +33,11 @@ from app.routers.dependencies import (
 from app.services.resource_name_validation import naming_validation_profile
 from app.services.access_key_metadata_service import AccessKeyMetadataService
 from app.services.connection_identity_service import ConnectionIdentityService
-from app.services.s3_accounts_service import get_s3_accounts_service
+from app.services.s3_account_metrics_service import S3AccountMetricsService
+from app.services.s3_account_repository import S3AccountRepository
 from app.services.s3_connections_service import S3ConnectionsService
-from app.services.s3_users_service import get_s3_users_service
+from app.services.s3_user_metrics_service import S3UserMetricsService
+from app.services.s3_user_query_service import S3UserQueryService
 from app.services.effective_access_contracts import ResolvedUserAccess
 from app.services.effective_access_service import EffectiveAccessService
 from app.services.managed_private_access_policy_service import (
@@ -307,12 +309,12 @@ def _manager_limits(
         s3_user = context.source_s3_user
         if s3_user is None and context.s3_user_id is not None:
             try:
-                s3_user = get_s3_users_service(db).get_user_record(context.s3_user_id)
+                s3_user = S3UserQueryService(db).get_user_record(context.s3_user_id)
             except S3UserNotFoundError:
                 s3_user = None
         if s3_user is None:
             return _ManagerLimits()
-        quota_max_size_gb, quota_max_objects, max_buckets = get_s3_users_service(db).get_user_limits(s3_user)
+        quota_max_size_gb, quota_max_objects, max_buckets = S3UserMetricsService().get_limits(s3_user)
         return _ManagerLimits(
             quota_max_size_gb=quota_max_size_gb,
             quota_max_objects=quota_max_objects,
@@ -322,7 +324,7 @@ def _manager_limits(
     s3_account = context.source_account
     if s3_account is None and context.id is not None:
         try:
-            s3_account = get_s3_accounts_service(db).get_account_record(context.id)
+            s3_account = S3AccountRepository(db).get(context.id)
         except S3AccountNotFoundError:
             s3_account = None
     if s3_account is None:
@@ -334,7 +336,7 @@ def _manager_limits(
         max_users,
         max_roles,
         max_groups,
-    ) = get_s3_accounts_service(db).get_account_limits(s3_account)
+    ) = S3AccountMetricsService().get_limits(s3_account)
     return _ManagerLimits(
         quota_max_size_gb=quota_max_size_gb,
         quota_max_objects=quota_max_objects,

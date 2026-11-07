@@ -73,8 +73,8 @@ def test_manager_context_keeps_limits_deferred_by_default(db_session, monkeypatc
     account, actor = _prepare_context(db_session, monkeypatch)
     monkeypatch.setattr(
         context_router,
-        "get_s3_accounts_service",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("limits must stay deferred")),
+        "S3AccountMetricsService",
+        lambda: (_ for _ in ()).throw(AssertionError("limits must stay deferred")),
     )
 
     payload = context_router.get_manager_context(
@@ -89,8 +89,8 @@ def test_manager_context_keeps_limits_deferred_by_default(db_session, monkeypatc
 
 def test_manager_context_loads_limits_on_explicit_request(db_session, monkeypatch):
     account, actor = _prepare_context(db_session, monkeypatch)
-    service = SimpleNamespace(get_account_limits=lambda _account: (10.5, 2_000, 8, 20, 12, 6))
-    monkeypatch.setattr(context_router, "get_s3_accounts_service", lambda *_args, **_kwargs: service)
+    service = SimpleNamespace(get_limits=lambda _account: (10.5, 2_000, 8, 20, 12, 6))
+    monkeypatch.setattr(context_router, "S3AccountMetricsService", lambda: service)
 
     payload = context_router.get_manager_context(
         context=account,
@@ -105,6 +105,30 @@ def test_manager_context_loads_limits_on_explicit_request(db_session, monkeypatc
     assert payload.max_users == 20
     assert payload.max_roles == 12
     assert payload.max_groups == 6
+
+
+def test_manager_context_loads_s3_user_limits_through_focused_services(db_session, monkeypatch):
+    s3_user = SimpleNamespace(id=17)
+    context = S3ExecutionContext(
+        context_id="s3u-17",
+        context_kind="s3_user",
+        name="limits-user",
+        access_key="AK-USER",
+        secret_key="SK-USER",
+        s3_user_id=17,
+    )
+    query = SimpleNamespace(get_user_record=lambda user_id: s3_user if user_id == 17 else None)
+    metrics = SimpleNamespace(
+        get_limits=lambda source: (4.5, 900, 5) if source is s3_user else (None, None, None)
+    )
+    monkeypatch.setattr(context_router, "S3UserQueryService", lambda _db: query)
+    monkeypatch.setattr(context_router, "S3UserMetricsService", lambda: metrics)
+
+    limits = context_router._manager_limits(context, db_session, include_limits=True)
+
+    assert limits.quota_max_size_gb == 4.5
+    assert limits.quota_max_objects == 900
+    assert limits.max_buckets == 5
 
 
 def test_manager_context_resolves_user_access_once(db_session, monkeypatch):
@@ -142,8 +166,9 @@ def test_manager_context_limits_http_contract(db_session, monkeypatch, params, s
         return (10.5, 2_000, 8, 20, 12, 6)
 
     monkeypatch.setattr(
-        context_router, "get_s3_accounts_service",
-        lambda _db: SimpleNamespace(get_account_limits=get_limits),
+        context_router,
+        "S3AccountMetricsService",
+        lambda: SimpleNamespace(get_limits=get_limits),
     )
     application = FastAPI()
     application.include_router(context_router.router)
