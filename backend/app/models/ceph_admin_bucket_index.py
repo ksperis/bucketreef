@@ -6,6 +6,7 @@ from typing import Any, Literal, Optional
 from pydantic import Field, model_validator
 
 from app.models.base import ApiModel
+from app.utils.normalize import normalize_optional_string
 
 
 class CephAdminBucketIndexCheckRequest(ApiModel):
@@ -29,7 +30,7 @@ class CephAdminBucketIndexCheckTarget(ApiModel):
     @model_validator(mode="after")
     def normalize_target(self):
         self.name = self.name.strip()
-        self.tenant = (self.tenant or "").strip() or None
+        self.tenant = normalize_optional_string(self.tenant)
         if not self.name:
             raise ValueError("name is required.")
         return self

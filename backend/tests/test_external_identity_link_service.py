@@ -234,7 +234,10 @@ def test_admin_fallback_creates_review_request_and_stops_local_flow(db_session):
         request.id,
         superadmin=superadmin,
         approve=True,
+        reason="  approved by administrator  ",
     )
+    db_session.refresh(request)
+    assert request.decision_reason == "approved by administrator"
     assert service.status(attempt.id, BROWSER_HASH).stage == "admin_approved"
     identity = db_session.scalars(
         select(ExternalIdentity).where(

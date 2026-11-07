@@ -22,6 +22,7 @@ from app.services.ldap_service import LDAPAuthService, LDAPIdentity
 from app.services.user_associations_service import UserAssociationsService
 from app.services.user_provisioning_service import user_create_access_column_values
 from app.services.users_service import UsersService
+from app.utils.normalize import normalize_optional_string
 from app.utils.time import utcnow
 
 
@@ -157,7 +158,7 @@ class AdminLdapUserImportService:
         role = payload.role
         user = User(
             email=email,
-            full_name=(payload.full_name or "").strip() or None,
+            full_name=normalize_optional_string(payload.full_name),
             hashed_password=None,
             is_active=True,
             role=role,
