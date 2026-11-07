@@ -238,7 +238,9 @@ describe("ExternalIdentityLinkPage", () => {
     const confirm = screen.getByRole("button", { name: "Link account" });
     expect(confirm).toBeDisabled();
 
-    await user.click(screen.getByRole("checkbox"));
+    const acknowledgement = screen.getByRole("checkbox");
+    expect(acknowledgement).toHaveClass("h-4", "w-4");
+    await user.click(acknowledgement);
     expect(confirm).toBeEnabled();
   });
 
