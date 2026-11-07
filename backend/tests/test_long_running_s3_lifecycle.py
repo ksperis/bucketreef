@@ -15,11 +15,12 @@ from app.services import bucket_compare_remediation, bucket_content_comparison, 
 from app.services.bucket_comparison_service import BucketComparisonService
 from app.services.bucket_integrity_service import (
     BucketIntegrityCheckCancelled, BucketIntegrityCheckService,
-    BucketIntegrityOptions, BucketIntegrityResolvedTarget,
+    BucketIntegrityOptions,
 )
 from app.services.bucket_purge_service import (
-    BucketPurgeCancelled, BucketPurgeOptions, BucketPurgeResolvedTarget, BucketPurgeService,
+    BucketPurgeCancelled, BucketPurgeOptions, BucketPurgeService,
 )
+from app.services.s3_execution_context import ResolvedS3BucketTarget
 from app.services.bucket_usage_stats_service import (
     BucketUsageStatsCancelled, BucketUsageStatsOptions, BucketUsageStatsResolvedTarget, BucketUsageStatsService,
 )
@@ -96,11 +97,11 @@ def test_bucket_operations_close_their_client_on_every_exit(monkeypatch, operati
         run = lambda: service.calculate_bucket(target)
     elif operation == "integrity":
         service = BucketIntegrityCheckService()
-        target = BucketIntegrityResolvedTarget(context=account, bucket_name="bucket")
+        target = ResolvedS3BucketTarget(context=account, bucket_name="bucket")
         run = lambda: service.run([target], BucketIntegrityOptions())
     else:
         service = BucketPurgeService()
-        target = BucketPurgeResolvedTarget(context=account, bucket_name="bucket")
+        target = ResolvedS3BucketTarget(context=account, bucket_name="bucket")
         monkeypatch.setattr(service, "_resolve_initial_entry_estimates", lambda targets: [None] * len(targets))
 
         def purge(client, bucket_name, **_kwargs):
@@ -263,7 +264,7 @@ def test_integrity_closes_client_only_after_in_flight_worker_finishes(monkeypatc
     client = ConcurrentClient()
     service = BucketIntegrityCheckService()
     monkeypatch.setattr(service, "_build_client", lambda _account: client)
-    target = BucketIntegrityResolvedTarget(context=make_s3_execution_context(), bucket_name="bucket")
+    target = ResolvedS3BucketTarget(context=make_s3_execution_context(), bucket_name="bucket")
     with ThreadPoolExecutor(max_workers=1) as executor:
         future = executor.submit(service.run, [target], BucketIntegrityOptions())
         try:

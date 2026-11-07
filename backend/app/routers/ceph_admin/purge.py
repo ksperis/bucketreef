@@ -15,9 +15,9 @@ from app.routers.ceph_admin.dependencies import (
 )
 from app.services.ceph_admin_context import CephAdminContext
 from app.routers.dependencies import get_current_ceph_admin, require_bucket_purge_global_enabled
-from app.services.s3_execution_context import build_ceph_admin_s3_context
+from app.services.s3_execution_context import ResolvedS3BucketTarget, build_ceph_admin_s3_context
 from app.services.rgw_bucket_target import RgwBucketTarget
-from app.services.bucket_purge_service import BucketPurgeOptions, BucketPurgeResolvedTarget
+from app.services.bucket_purge_service import BucketPurgeOptions
 
 router = APIRouter(prefix="/ceph-admin/endpoints/{endpoint_id}/buckets/purge", tags=["ceph-admin-bucket-purge"])
 logger = logging.getLogger(__name__)
@@ -42,7 +42,7 @@ def stream_ceph_admin_bucket_purge(
     for reference in payload.targets:
         target = RgwBucketTarget.create(ctx.endpoint.id, reference.tenant, reference.name)
         targets.append(
-            BucketPurgeResolvedTarget(
+            ResolvedS3BucketTarget(
                 context=context,
                 bucket_name=target.name,
                 request_bucket_name=target.s3_name,

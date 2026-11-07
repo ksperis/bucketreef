@@ -195,6 +195,15 @@ class ResolvedS3BucketNameMixin:
         return self.request_bucket_name or self.bucket_name
 
 
+@dataclass(frozen=True)
+class ResolvedS3BucketTarget(ResolvedS3BucketNameMixin):
+    context: S3ExecutionTarget
+    bucket_name: str
+    request_bucket_name: str | None = None
+    context_id: str | None = None
+    context_name: str | None = None
+
+
 def is_ceph_admin_execution_context(
     execution_context: S3ExecutionTarget,
 ) -> TypeGuard[S3ExecutionContext]:

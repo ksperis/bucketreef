@@ -19,8 +19,8 @@ from app.services.bucket_integrity_service import (
     BucketIntegrityCheckCancelled,
     BucketIntegrityCheckService,
     BucketIntegrityOptions,
-    BucketIntegrityResolvedTarget,
 )
+from app.services.s3_execution_context import ResolvedS3BucketTarget
 
 def stream_bucket_integrity_check(
     request: Request,
@@ -43,7 +43,7 @@ def stream_resolved_bucket_integrity_check(
     request: Request,
     *,
     payload: BucketIntegrityRequest,
-    targets: Sequence[BucketIntegrityResolvedTarget],
+    targets: Sequence[ResolvedS3BucketTarget],
     logger: logging.Logger,
     failure_message: str,
 ) -> StreamingResponse:

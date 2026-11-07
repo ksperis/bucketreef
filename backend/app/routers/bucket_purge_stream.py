@@ -17,10 +17,9 @@ from app.services.bucket_purge_audit import BucketPurgeAuditLifecycle, record_bu
 from app.services.bucket_purge_service import (
     BucketPurgeCancelled,
     BucketPurgeOptions,
-    BucketPurgeResolvedTarget,
     BucketPurgeService,
 )
-from app.services.s3_execution_context import S3ExecutionContext
+from app.services.s3_execution_context import ResolvedS3BucketTarget, S3ExecutionContext
 
 
 def stream_bucket_purge(
@@ -88,7 +87,7 @@ def stream_audited_resolved_bucket_purge(
     user: User,
     scope: str,
     base_metadata: Mapping[str, Any],
-    targets: Sequence[BucketPurgeResolvedTarget],
+    targets: Sequence[ResolvedS3BucketTarget],
     options: BucketPurgeOptions,
     logger: logging.Logger,
     failure_message: str,
