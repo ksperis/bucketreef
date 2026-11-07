@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -19,6 +19,7 @@ from app.services.bucket_usage_stats_service import (
     BucketUsageStatsService,
 )
 from app.services.buckets_service import BucketsService, get_buckets_service
+from app.utils.http_errors import raise_http_error_from_value_error
 
 router = APIRouter(tags=["admin-bucket-usage-stats"])
 logger = logging.getLogger(__name__)
@@ -30,10 +31,8 @@ def _resolve_ceph_endpoint(
 ):
     try:
         return scope_service.resolve_ceph_endpoint(endpoint_id)
-    except StorageEndpointNotFoundError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
-    except StorageEndpointProviderError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except (StorageEndpointNotFoundError, StorageEndpointProviderError) as exc:
+        raise_http_error_from_value_error(exc)
 
 
 @router.get("/admin/usage-stats/latest", response_model=BucketUsageStatsAggregateResponse)

@@ -4,14 +4,13 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.domain_errors import (
     S3ConnectionConflictError,
     S3ConnectionNotFoundError,
-    StorageEndpointNotFoundError,
 )
 from app.db import (
     S3Connection,
@@ -96,11 +95,6 @@ def create_s3_connection(
     require_admin_sensitive_action(request, db, current_user)
     try:
         conn = service.create_admin_shared(current_user.id, payload)
-    except StorageEndpointNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Storage endpoint not found",
-        ) from exc
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
     details = resolve_connection_details(conn)
@@ -145,11 +139,6 @@ def update_s3_connection(
         require_admin_sensitive_action(request, db, current_user)
     try:
         conn = service.update_admin_shared(conn, payload)
-    except StorageEndpointNotFoundError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Storage endpoint not found",
-        ) from exc
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
     audit_metadata = payload.model_dump(
