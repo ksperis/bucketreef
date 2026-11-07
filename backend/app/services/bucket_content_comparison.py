@@ -132,8 +132,8 @@ class BucketCompareObjectIndex:
         different_count = 0
         different_sample: list[BucketObjectDiffEntry] = []
         for row in self._iter_common_rows():
-            source_entry = self._source_entry_from_joined_row(row)
-            target_entry = self._target_entry_from_joined_row(row)
+            source_entry = self._joined_entry_from_row(row, "source")
+            target_entry = self._joined_entry_from_row(row, "target")
             comparison = compare_object_entries(
                 source_entry,
                 target_entry,
@@ -276,20 +276,21 @@ class BucketCompareObjectIndex:
             storage_class=storage_class if isinstance(storage_class, str) else None,
         )
 
-    def _source_entry_from_joined_row(self, row: sqlite3.Row) -> dict[str, Any]:
+    def _joined_entry_from_row(
+        self,
+        row: sqlite3.Row,
+        side: BucketComparisonSide,
+    ) -> dict[str, Any]:
+        prefix = f"{side}_"
         return {
-            "size": int(row["source_size"] or 0),
-            "etag": row["source_etag"] if isinstance(row["source_etag"], str) else None,
-            "last_modified": self._datetime_from_iso(row["source_last_modified_iso"]),
-            "storage_class": row["source_storage_class"] if isinstance(row["source_storage_class"], str) else None,
-        }
-
-    def _target_entry_from_joined_row(self, row: sqlite3.Row) -> dict[str, Any]:
-        return {
-            "size": int(row["target_size"] or 0),
-            "etag": row["target_etag"] if isinstance(row["target_etag"], str) else None,
-            "last_modified": self._datetime_from_iso(row["target_last_modified_iso"]),
-            "storage_class": row["target_storage_class"] if isinstance(row["target_storage_class"], str) else None,
+            "size": int(row[f"{prefix}size"] or 0),
+            "etag": row[f"{prefix}etag"] if isinstance(row[f"{prefix}etag"], str) else None,
+            "last_modified": self._datetime_from_iso(row[f"{prefix}last_modified_iso"]),
+            "storage_class": (
+                row[f"{prefix}storage_class"]
+                if isinstance(row[f"{prefix}storage_class"], str)
+                else None
+            ),
         }
 
     def _datetime_from_iso(self, value: Any) -> Optional[datetime]:
