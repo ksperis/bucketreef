@@ -3,9 +3,14 @@
  * Licensed under the Apache License, Version 2.0
  */
 
-const normalizeConcurrencyLimit = (limit: number): number => {
-  if (!Number.isFinite(limit)) return 1;
-  return Math.max(1, Math.floor(limit));
+export const normalizeConcurrencyLimit = (
+  limit: number,
+  fallback = 1,
+  maximum?: number,
+): number => {
+  if (!Number.isFinite(limit)) return fallback;
+  const normalized = Math.max(1, Math.floor(limit));
+  return maximum == null ? normalized : Math.min(maximum, normalized);
 };
 
 export const runWithConcurrency = async <T>(
