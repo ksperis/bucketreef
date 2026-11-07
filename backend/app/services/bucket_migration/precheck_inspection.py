@@ -20,6 +20,7 @@ from app.models.bucket import (
 )
 from app.services.s3_client import S3OperationError
 from app.utils.aws_errors import aws_error_code
+from app.utils.normalize import normalize_optional_string, normalize_text
 from app.utils.s3_errors import is_s3_feature_unsupported
 from app.utils.storage_endpoint_features import resolve_endpoint_capabilities
 
@@ -126,16 +127,16 @@ def _normalized_sse_rule(rule: Any) -> tuple[str | None, str | None]:
 
 def _bucket_acl_is_default_private(acl: BucketAcl) -> bool:
     grants = acl.grants
-    owner = str(acl.owner or "").strip() or None
+    owner = normalize_optional_string(acl.owner)
     if not grants:
         return True
     if len(grants) != 1:
         return False
     grant = grants[0]
-    permission = str(grant.permission or "").strip().upper()
+    permission = grant.permission.strip().upper()
     grantee = grant.grantee
-    grantee_uri = str(grantee.uri or "").strip() or None
-    grantee_name = str(grantee.display_name or "").strip() or None
+    grantee_uri = normalize_optional_string(grantee.uri)
+    grantee_name = normalize_optional_string(grantee.display_name)
     return permission == "FULL_CONTROL" and grantee_uri is None and (
         owner is None or grantee_name is None or grantee_name == owner
     )
@@ -144,10 +145,10 @@ def _bucket_acl_is_default_private(acl: BucketAcl) -> bool:
 def _website_is_configured(website: BucketWebsiteConfiguration | None) -> bool:
     if website is None:
         return False
-    index_document = str(website.index_document or "").strip()
-    error_document = str(website.error_document or "").strip()
+    index_document = normalize_optional_string(website.index_document)
+    error_document = normalize_optional_string(website.error_document)
     redirect = website.redirect_all_requests_to
-    redirect_host = str(redirect.host_name or "").strip() if redirect is not None else ""
+    redirect_host = normalize_optional_string(redirect.host_name) if redirect is not None else None
     routing_rules = website.routing_rules
     return bool(index_document or error_document or redirect_host or routing_rules)
 
@@ -156,7 +157,7 @@ def _logging_is_configured(logging_cfg: BucketLoggingConfiguration | None) -> bo
     if logging_cfg is None:
         return False
     enabled = bool(logging_cfg.enabled)
-    target_bucket = str(logging_cfg.target_bucket or "").strip()
+    target_bucket = normalize_optional_string(logging_cfg.target_bucket)
     return bool(enabled and target_bucket)
 
 
@@ -407,7 +408,7 @@ class BucketMigrationInspector:
         )
         values = self._collect_bucket_state(ctx, bucket_name, probe, scan_versions=scan_versions)
         encryption = _encryption_profile(values.encryption)
-        normalized_versioning = str(values.versioning_status or "").strip().lower()
+        normalized_versioning = normalize_text(values.versioning_status)
         return {
             "bucket_name": bucket_name,
             "versioning": {
@@ -441,9 +442,7 @@ class BucketMigrationInspector:
         configuration = self._service._configuration
         properties = configuration.get_bucket_properties(bucket_name, execution_context)
         probe.mark("versioning", state="available")
-        versioning_status = (
-            str(properties.versioning_status or "").strip() or None
-        )
+        versioning_status = normalize_optional_string(properties.versioning_status)
         object_lock = configuration.get_bucket_object_lock(bucket_name, execution_context)
         probe.mark("object_lock", state="available")
 
