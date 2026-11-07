@@ -190,6 +190,20 @@ def test_s3_bucket_client_forwards_all_connection_options(monkeypatch):
     }
 
 
+def test_list_buckets_uses_typed_operation_error_for_provider_failures(monkeypatch):
+    class FailedListClient:
+        def list_buckets(self):
+            raise ClientError(
+                {"Error": {"Code": "AccessDenied", "Message": "denied"}},
+                "ListBuckets",
+            )
+
+    monkeypatch.setattr(s3_client, "get_s3_bucket_client", lambda *args, **kwargs: FailedListClient())
+
+    with pytest.raises(s3_client.S3OperationError, match="Unable to list buckets"):
+        s3_client.list_buckets(endpoint="https://s3.example.test")
+
+
 def test_s3_bucket_access_owns_access_contracts_without_legacy_exports():
     assert s3_bucket_access.get_bucket_cors.__module__ == "app.services.s3_bucket_access"
     assert s3_bucket_access.get_bucket_website.__module__ == "app.services.s3_bucket_access"
