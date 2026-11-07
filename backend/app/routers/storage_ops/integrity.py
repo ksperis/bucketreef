@@ -13,7 +13,7 @@ from app.db import User
 from app.models.bucket_integrity import BucketIntegrityTargetRequest
 from app.routers.bucket_integrity_stream import stream_resolved_bucket_integrity_check
 from app.routers.dependencies import get_s3_execution_context, get_current_storage_ops_admin
-from app.services.s3_execution_context import ResolvedS3BucketTarget
+from app.routers.storage_ops.context import resolve_storage_ops_bucket_targets
 
 router = APIRouter(prefix="/storage-ops/buckets/integrity-check", tags=["storage-ops-bucket-integrity"])
 logger = logging.getLogger(__name__)
@@ -27,22 +27,15 @@ def stream_storage_ops_bucket_integrity_check(
     db: Session = Depends(get_db),
 ) -> StreamingResponse:
     requested_targets = payload.targets
-    targets: list[ResolvedS3BucketTarget] = []
-    for target in requested_targets:
-        context = get_s3_execution_context(
+    targets = resolve_storage_ops_bucket_targets(
+        requested_targets,
+        resolver=lambda context_id: get_s3_execution_context(
             request=request,
-            context_ref=target.context_id,
+            context_ref=context_id,
             actor=user,
             db=db,
-        )
-        targets.append(
-            ResolvedS3BucketTarget(
-                context=context,
-                bucket_name=target.bucket_name,
-                context_id=target.context_id,
-                context_name=context.name,
-            )
-        )
+        ),
+    )
     return stream_resolved_bucket_integrity_check(
         request,
         payload=payload,
