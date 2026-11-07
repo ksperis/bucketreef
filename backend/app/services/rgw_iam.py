@@ -36,6 +36,7 @@ def _role_name_from_data(data: dict, fallback: Optional[str] = None) -> Optional
 
 
 _IAMPolicyTarget = Literal["user", "group", "role"]
+_IAMMutableIdentityTarget = Literal["user", "group"]
 
 
 def get_iam_client(
@@ -109,6 +110,26 @@ class RGWIAMService:
             raise RGWIAMError(f"{error_message}: {exc}") from exc
         except BotoCoreError as exc:
             raise RGWIAMError(f"{error_message}: {exc}") from exc
+
+    def _update_identity(
+        self,
+        target: _IAMMutableIdentityTarget,
+        name: str,
+        *,
+        new_name: Optional[str],
+        new_path: Optional[str],
+    ) -> None:
+        kwargs = self._policy_target_kwargs(target, name)
+        if new_name is not None:
+            kwargs[f"New{target.title()}Name"] = new_name
+        if new_path is not None:
+            kwargs["NewPath"] = new_path
+        if len(kwargs) == 1:
+            return
+        try:
+            getattr(self.client, f"update_{target}")(**kwargs)
+        except (BotoCoreError, ClientError) as exc:
+            raise RGWIAMError(f"Unable to update IAM {target}: {exc}") from exc
 
     def _list_attached_policies(self, target: _IAMPolicyTarget, identity_name: str) -> List[Policy]:
         try:
@@ -323,17 +344,7 @@ class RGWIAMService:
             raise RGWIAMError(f"Unable to fetch IAM user: {exc}") from exc
 
     def update_user(self, name: str, *, new_name: Optional[str] = None, new_path: Optional[str] = None) -> None:
-        kwargs: dict = {"UserName": name}
-        if new_name is not None:
-            kwargs["NewUserName"] = new_name
-        if new_path is not None:
-            kwargs["NewPath"] = new_path
-        if len(kwargs) == 1:
-            return
-        try:
-            self.client.update_user(**kwargs)
-        except (BotoCoreError, ClientError) as exc:
-            raise RGWIAMError(f"Unable to update IAM user: {exc}") from exc
+        self._update_identity("user", name, new_name=new_name, new_path=new_path)
 
     def delete_user(self, name: str) -> None:
         self._call_tolerating_missing_entity(
@@ -492,17 +503,7 @@ class RGWIAMService:
             raise RGWIAMError(f"Unable to fetch IAM group: {exc}") from exc
 
     def update_group(self, name: str, *, new_name: Optional[str] = None, new_path: Optional[str] = None) -> None:
-        kwargs: dict = {"GroupName": name}
-        if new_name is not None:
-            kwargs["NewGroupName"] = new_name
-        if new_path is not None:
-            kwargs["NewPath"] = new_path
-        if len(kwargs) == 1:
-            return
-        try:
-            self.client.update_group(**kwargs)
-        except (BotoCoreError, ClientError) as exc:
-            raise RGWIAMError(f"Unable to update IAM group: {exc}") from exc
+        self._update_identity("group", name, new_name=new_name, new_path=new_path)
 
     def list_group_users(self, group_name: str) -> List[IAMUser]:
         try:
