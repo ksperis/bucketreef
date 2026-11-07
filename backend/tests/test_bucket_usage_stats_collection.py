@@ -24,6 +24,7 @@ from app.services.operation_lease_service import (
     OperationLeaseService,
     bucket_usage_stats_bucket_operation_name,
 )
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.time import utcnow
 
@@ -186,17 +187,17 @@ def test_collection_only_skips_operational_bucket_listing_failures(db_session, m
     result = BucketUsageStatsCollectionService(
         db_session,
         factory,
-        buckets_service=FailingBucketsService(RuntimeError("provider unavailable")),
+        buckets_service=FailingBucketsService(S3OperationError("provider unavailable")),
     ).collect()
 
     assert result.skipped_accounts == 1
     assert result.due_buckets == 0
 
-    with pytest.raises(TypeError, match="unexpected listing bug"):
+    with pytest.raises(RuntimeError, match="unexpected listing bug"):
         BucketUsageStatsCollectionService(
             db_session,
             factory,
-            buckets_service=FailingBucketsService(TypeError("unexpected listing bug")),
+            buckets_service=FailingBucketsService(RuntimeError("unexpected listing bug")),
         ).collect()
 
 

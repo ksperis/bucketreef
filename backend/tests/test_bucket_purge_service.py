@@ -14,6 +14,7 @@ from app.services.bucket_purge_service import (
     BucketPurgeOptions,
     BucketPurgeService,
 )
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import ResolvedS3BucketTarget
 from tests.execution_context_factory import make_s3_execution_context
 
@@ -469,7 +470,7 @@ def test_purge_progress_uses_rgw_stats_entry_estimate_before_listing(monkeypatch
 def test_purge_progress_continues_when_rgw_stats_are_unavailable(monkeypatch):
     class BrokenBucketsService:
         def list_buckets(self, account, *, with_stats=True):
-            raise RuntimeError("stats unavailable")
+            raise S3OperationError("stats unavailable")
 
     class PurgeClient:
         def close(self):
@@ -506,7 +507,7 @@ def test_purge_progress_continues_when_rgw_stats_are_unavailable(monkeypatch):
 def test_purge_progress_propagates_unexpected_stats_failures(monkeypatch):
     class BrokenBucketsService:
         def list_buckets(self, account, *, with_stats=True):
-            raise TypeError("programming error")
+            raise RuntimeError("programming error")
 
     monkeypatch.setattr(bucket_purge_service, "BucketsService", BrokenBucketsService)
     target = ResolvedS3BucketTarget(
@@ -515,7 +516,7 @@ def test_purge_progress_propagates_unexpected_stats_failures(monkeypatch):
         context_id="s3u-1",
     )
 
-    with pytest.raises(TypeError, match="programming error"):
+    with pytest.raises(RuntimeError, match="programming error"):
         BucketPurgeService()._resolve_initial_entry_estimates([target])
 
 
