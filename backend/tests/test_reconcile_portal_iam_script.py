@@ -13,13 +13,19 @@ from tests.s3_account_factory import make_s3_account
 
 
 class _FakePortalService:
-    def __init__(self, *, failing_user_id: int | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        failing_user_id: int | None = None,
+        failure_message: str = "simulated IAM failure",
+    ) -> None:
         self.failing_user_id = failing_user_id
+        self.failure_message = failure_message
         self.calls: list[tuple[int, int, str]] = []
 
     def provision_portal_user(self, user, account, role):
         if user.id == self.failing_user_id:
-            raise RuntimeError("simulated IAM failure")
+            raise RuntimeError(self.failure_message)
         self.calls.append((int(user.id), int(account.id), str(role)))
 
     def sync_existing_portal_user_access(self, user, account, role):
@@ -109,6 +115,28 @@ def test_reconcile_portal_iam_reports_partial_errors_and_continues(monkeypatch, 
         {"user_id": viewer_id, "error": "simulated IAM failure"}
     ]
     assert portal.calls == []
+
+
+def test_reconcile_portal_iam_redacts_sensitive_error_details(monkeypatch, db_session):
+    account, _administrator, viewer = _seed_access(db_session)
+    viewer_id = int(viewer.id)
+    portal = _FakePortalService(
+        failing_user_id=viewer_id,
+        failure_message="secret_access_key=abc123",
+    )
+    monkeypatch.setattr(script, "SessionLocal", lambda: db_session)
+    monkeypatch.setattr(script, "PortalService", lambda _db: portal)
+    monkeypatch.setattr(
+        script.EffectiveAccessService,
+        "portal_account_is_compatible",
+        lambda _account: True,
+    )
+
+    summaries = script.reconcile_portal_iam(dry_run=False, account_id=account.id)
+
+    assert summaries[0]["errors"] == [
+        {"user_id": viewer_id, "error": "secret_access_key=<redacted>"}
+    ]
 
 
 def test_reconcile_portal_iam_finishes_orphaned_pending_revocation(
