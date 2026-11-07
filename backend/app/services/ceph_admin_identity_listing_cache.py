@@ -10,7 +10,7 @@ from typing import Any, Callable, TypeVar
 
 from app.services.ceph_admin_errors import upstream_error
 from app.services.rgw_admin import RGWAdminError
-from app.utils.cache import prune_expired_lru_cache
+from app.utils.cache import TtlCacheEntry, prune_expired_lru_cache
 
 
 _T = TypeVar("_T")
@@ -32,12 +32,6 @@ class _EndpointPayloadCacheKey:
 _K = TypeVar("_K", EndpointListCacheKey, _EndpointPayloadCacheKey)
 
 
-@dataclass
-class _EndpointCacheEntry:
-    expires_at: float
-    value: Any
-
-
 class EndpointListingCache:
     """Own both identity-listing cache layers and invalidate their loads together."""
 
@@ -51,8 +45,8 @@ class EndpointListingCache:
         self._ttl_seconds = ttl_seconds
         self._payload_max_entries = payload_max_entries
         self._listing_max_entries = listing_max_entries
-        self._payloads: OrderedDict[_EndpointPayloadCacheKey, _EndpointCacheEntry] = OrderedDict()
-        self._listings: OrderedDict[EndpointListCacheKey, _EndpointCacheEntry] = OrderedDict()
+        self._payloads: OrderedDict[_EndpointPayloadCacheKey, TtlCacheEntry[Any]] = OrderedDict()
+        self._listings: OrderedDict[EndpointListCacheKey, TtlCacheEntry[Any]] = OrderedDict()
         self._pending: dict[_EndpointPayloadCacheKey | EndpointListCacheKey, set[object]] = {}
         self._lock = Lock()
 
@@ -79,7 +73,7 @@ class EndpointListingCache:
 
     def _get_or_set(
         self,
-        cache: OrderedDict[_K, _EndpointCacheEntry],
+        cache: OrderedDict[_K, TtlCacheEntry[Any]],
         key: _K,
         max_entries: int,
         builder: Callable[[], _T],
@@ -100,7 +94,7 @@ class EndpointListingCache:
             expires_at = monotonic() + self._ttl_seconds
             with self._lock:
                 if load in self._pending.get(key, ()):
-                    cache[key] = _EndpointCacheEntry(expires_at=expires_at, value=value)
+                    cache[key] = TtlCacheEntry(expires_at=expires_at, value=value)
                     cache.move_to_end(key)
                     prune_expired_lru_cache(cache, now=monotonic(), max_entries=max_entries)
             return value

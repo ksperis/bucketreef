@@ -11,6 +11,7 @@ from time import monotonic
 from typing import Callable, Generic, Optional, TypeVar
 
 from app.models.browser import BrowserBucket, ListBrowserObjectsResponse
+from app.utils.cache import TtlCacheEntry
 
 from .sorted_listing import SortedObjectSnapshot
 
@@ -28,12 +29,6 @@ _CacheKey = TypeVar("_CacheKey")
 _CacheValue = TypeVar("_CacheValue")
 
 
-@dataclass
-class _TtlLruCacheEntry(Generic[_CacheValue]):
-    value: _CacheValue
-    expires_at: float
-
-
 class _TtlLruCache(Generic[_CacheKey, _CacheValue]):
     def __init__(
         self,
@@ -44,11 +39,11 @@ class _TtlLruCache(Generic[_CacheKey, _CacheValue]):
     ) -> None:
         self._max_entries = max_entries
         self._ttl_seconds = float(ttl_seconds)
-        self._store: OrderedDict[_CacheKey, _TtlLruCacheEntry[_CacheValue]] = OrderedDict()
+        self._store: OrderedDict[_CacheKey, TtlCacheEntry[_CacheValue]] = OrderedDict()
         self._lock = Lock()
         self._on_evict = on_evict
 
-    def _evict_entry(self, entry: _TtlLruCacheEntry[_CacheValue]) -> None:
+    def _evict_entry(self, entry: TtlCacheEntry[_CacheValue]) -> None:
         if self._on_evict is None:
             return
         try:
@@ -75,7 +70,7 @@ class _TtlLruCache(Generic[_CacheKey, _CacheValue]):
             previous = self._store.get(key)
             if previous is not None:
                 self._evict_entry(previous)
-            self._store[key] = _TtlLruCacheEntry(value=value, expires_at=expires_at)
+            self._store[key] = TtlCacheEntry(value=value, expires_at=expires_at)
             self._store.move_to_end(key)
             while len(self._store) > self._max_entries:
                 _, evicted = self._store.popitem(last=False)
