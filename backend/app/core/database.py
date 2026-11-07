@@ -13,7 +13,11 @@ from sqlalchemy.pool import ConnectionPoolEntry
 
 from .config import get_settings
 from .sensitive_data import sanitized_error_log_detail
-from .sqlite import configure_sqlite_adapters
+from .sqlite import (
+    begin_sqlite_transaction,
+    configure_sqlite_adapters,
+    configure_sqlite_transaction_control,
+)
 
 settings = get_settings()
 _SQLITE_BUSY_TIMEOUT_MS = 30_000
@@ -43,8 +47,9 @@ def is_sqlite_malformed_database_error(exc: BaseException) -> bool:
 
 def configure_sqlite_connection(
     dbapi_connection: DBAPIConnection,
-    _connection_record: ConnectionPoolEntry,
+    connection_record: ConnectionPoolEntry,
 ) -> None:
+    configure_sqlite_transaction_control(dbapi_connection, connection_record)
     cursor = dbapi_connection.cursor()
     try:
         cursor.execute("PRAGMA foreign_keys = ON")
@@ -91,6 +96,7 @@ def _create_engine() -> Engine:
     )
     if is_sqlite_url(settings.database_url):
         event.listen(engine, "connect", configure_sqlite_connection)
+        event.listen(engine, "begin", begin_sqlite_transaction)
     return engine
 
 

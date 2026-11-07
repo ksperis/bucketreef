@@ -5,13 +5,17 @@ from logging.config import fileConfig
 from pathlib import Path
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import engine_from_config, event, pool
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BASE_DIR))
 
 from app.core.config import get_settings
-from app.core.sqlite import configure_sqlite_adapters
+from app.core.sqlite import (
+    begin_sqlite_transaction,
+    configure_sqlite_adapters,
+    configure_sqlite_transaction_control,
+)
 from app.db import Base
 
 config = context.config
@@ -76,6 +80,9 @@ def run_migrations_online() -> None:
         poolclass=pool.NullPool,
         connect_args=connect_args,
     )
+    if configuration["sqlalchemy.url"].startswith("sqlite"):
+        event.listen(connectable, "connect", configure_sqlite_transaction_control)
+        event.listen(connectable, "begin", begin_sqlite_transaction)
 
     with connectable.connect() as connection:
         _run_migrations_with_connection(connection)

@@ -9,8 +9,7 @@ from sqlalchemy import delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback
-from app.core.sqlite import add_and_flush_in_savepoint
+from app.core.db_transactions import add_and_flush_in_savepoint, commit_or_rollback
 from app.db import User, UserNotification
 from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, UserRole
 from app.models.user_notification import UserNotificationOut, UserNotificationsResponse

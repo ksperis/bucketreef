@@ -139,6 +139,7 @@ def test_initial_check_only_probes_the_created_endpoint(db_session, monkeypatch,
     background.run_initial_healthchecks(endpoint_id=endpoint_id)
 
     assert urls == ["https://probe.example.test"]
+    db_session.rollback()
     latest = db_session.scalars(sa.select(EndpointHealthLatest)).one()
     assert latest.storage_endpoint_id == endpoint_id
     assert latest.status == "up"

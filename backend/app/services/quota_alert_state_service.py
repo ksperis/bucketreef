@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.sqlite import add_and_flush_in_savepoint
+from app.core.db_transactions import add_and_flush_in_savepoint
 from app.db import QuotaAlertState
 from app.services.quota_subject import SubjectContext, quota_subject_ids
 

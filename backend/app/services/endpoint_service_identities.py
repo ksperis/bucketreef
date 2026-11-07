@@ -11,10 +11,9 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import add_and_flush_in_savepoint, commit_or_rollback
 from app.core.domain_enums import ManagedServiceIdentityKind, ServiceIdentityKind
 from app.core.sensitive_data import sanitized_error_log_detail
-from app.core.sqlite import add_and_flush_in_savepoint
 from app.db import AppSetting, EndpointServiceIdentity, StorageEndpoint, User
 from app.models.storage_endpoint import StorageEndpointAdminOpsPermissions
 from app.services.audit_service import AuditService

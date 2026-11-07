@@ -688,7 +688,7 @@ def test_worker_signs_exact_body_and_marks_success(db_session, monkeypatch):
     assert headers["X-BucketReef-Event"] == delivery.event_type
     assert kwargs["allow_redirects"] is False
 
-    db_session.expire_all()
+    db_session.rollback()
     delivered = db_session.get(WebhookDelivery, delivery.id)
     assert delivered.status == "delivered"
     assert delivered.attempt_count == 1
@@ -742,15 +742,16 @@ def test_worker_commit_failure_rolls_back_and_leaves_delivery_retriable(
             worker._deliver_one(delivery.id)
 
         assert rollback_calls == [None]
-        db_session.expire_all()
+        db_session.rollback()
         pending = db_session.get(WebhookDelivery, delivery.id)
         assert pending.status == "pending"
         assert pending.attempt_count == 0
 
+        db_session.rollback()
         failure_state["enabled"] = False
         worker._deliver_one(delivery.id)
 
-    db_session.expire_all()
+    db_session.rollback()
     delivered = db_session.get(WebhookDelivery, delivery.id)
     assert delivered.status == "delivered"
     assert delivered.attempt_count == 1
@@ -795,7 +796,7 @@ def test_worker_centralizes_error_sanitization(db_session, monkeypatch, failure_
         ):
             worker._deliver_one(delivery.id)
 
-    db_session.expire_all()
+    db_session.rollback()
     persisted = db_session.get(WebhookDelivery, delivery.id)
     assert persisted.last_error == "secret_key=<redacted> endpoint=<redacted-url>"
 
@@ -828,7 +829,7 @@ def test_worker_propagates_unexpected_request_runtime_error(db_session, monkeypa
         with pytest.raises(RuntimeError, match="unexpected request wrapper failure"):
             worker._deliver_one(delivery.id)
 
-    db_session.expire_all()
+    db_session.rollback()
     persisted = db_session.get(WebhookDelivery, delivery.id)
     assert persisted.status == "pending"
     assert persisted.attempt_count == 0
@@ -860,7 +861,7 @@ def test_worker_retries_429_with_retry_after_then_fails_at_attempt_limit(db_sess
         post.return_value = SimpleNamespace(status_code=429, headers={"Retry-After": "120"})
         worker._deliver_one(delivery.id)
 
-    db_session.expire_all()
+    db_session.rollback()
     retrying = db_session.get(WebhookDelivery, delivery.id)
     assert retrying.status == "retrying"
     assert retrying.attempt_count == 1
@@ -868,9 +869,10 @@ def test_worker_retries_429_with_retry_after_then_fails_at_attempt_limit(db_sess
 
     with patch("app.services.webhook_worker.requests.post") as post:
         post.return_value = SimpleNamespace(status_code=503, headers={})
+        db_session.rollback()
         worker._deliver_one(delivery.id)
 
-    db_session.expire_all()
+    db_session.rollback()
     failed = db_session.get(WebhookDelivery, delivery.id)
     assert failed.status == "failed"
     assert failed.attempt_count == 2
@@ -892,7 +894,7 @@ def test_worker_dispatches_delivery_persisted_before_worker_creation(db_session,
         post.return_value = SimpleNamespace(status_code=200, headers={})
         assert worker._dispatch_due() is True
 
-    db_session.expire_all()
+    db_session.rollback()
     delivery = db_session.scalars(
         select(WebhookDelivery).where(WebhookDelivery.delivery_id == delivery_ids[0])
     ).one()
@@ -954,7 +956,7 @@ def test_worker_retention_purges_terminal_deliveries_only(db_session, monkeypatc
 
     worker._purge_if_due()
 
-    db_session.expire_all()
+    db_session.rollback()
     assert db_session.scalar(
         select(func.count())
         .select_from(WebhookDelivery)

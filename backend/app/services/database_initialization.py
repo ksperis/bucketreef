@@ -51,6 +51,17 @@ def _sqlite_foreign_key_violations(connection) -> list[tuple]:
     return list(connection.exec_driver_sql("PRAGMA foreign_key_check").all())
 
 
+def _set_sqlite_foreign_keys(dbapi_connection, *, enabled: bool) -> None:
+    dbapi_connection.execute(f"PRAGMA foreign_keys = {'ON' if enabled else 'OFF'}")
+    actual = dbapi_connection.execute("PRAGMA foreign_keys").fetchone()[0]
+
+    if actual != int(enabled):
+        action = "restore" if enabled else "disable"
+        raise RuntimeError(
+            f"Could not {action} SQLite foreign key checks for schema migration"
+        )
+
+
 def _upgrade_sqlite_schema(connection, config: Config) -> None:
     if connection.in_transaction():
         connection.rollback()
@@ -60,9 +71,7 @@ def _upgrade_sqlite_schema(connection, config: Config) -> None:
         dbapi_connection.execute("PRAGMA foreign_keys").fetchone()[0]
     )
     if foreign_keys_enabled:
-        dbapi_connection.execute("PRAGMA foreign_keys = OFF")
-        if dbapi_connection.execute("PRAGMA foreign_keys").fetchone()[0] != 0:
-            raise RuntimeError("Could not disable SQLite foreign key checks for schema migration")
+        _set_sqlite_foreign_keys(dbapi_connection, enabled=False)
 
     try:
         config.attributes["connection"] = connection
@@ -87,9 +96,7 @@ def _upgrade_sqlite_schema(connection, config: Config) -> None:
         if connection.in_transaction():
             connection.rollback()
         if foreign_keys_enabled:
-            dbapi_connection.execute("PRAGMA foreign_keys = ON")
-            if dbapi_connection.execute("PRAGMA foreign_keys").fetchone()[0] != 1:
-                raise RuntimeError("Could not restore SQLite foreign key checks after schema migration")
+            _set_sqlite_foreign_keys(dbapi_connection, enabled=True)
 
 
 def _initialize_or_upgrade_schema(engine) -> None:

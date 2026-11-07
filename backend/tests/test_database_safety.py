@@ -22,7 +22,7 @@ from app.core.database import (
     is_sqlite_malformed_database_error,
     sqlite_integrity_status,
 )
-from app.core.sqlite import configure_sqlite_adapters, ensure_sqlite_transaction_for_savepoint
+from app.core.sqlite import begin_sqlite_transaction, configure_sqlite_adapters
 
 
 def _request(path: str = "/api/migrations/retry") -> Request:
@@ -104,6 +104,8 @@ def test_configure_sqlite_connection_applies_safe_pragmas():
     connection = sqlite3.connect(":memory:")
     try:
         configure_sqlite_connection(connection, None)
+        assert connection.isolation_level is None
+        assert connection.in_transaction is False
         cursor = connection.cursor()
         try:
             cursor.execute("PRAGMA foreign_keys")
@@ -120,6 +122,8 @@ def test_configure_sqlite_connection_applies_safe_pragmas():
 
 def test_sqlite_savepoint_rolls_back_with_outer_transaction():
     engine = create_engine("sqlite:///:memory:", future=True)
+    event.listen(engine, "connect", configure_sqlite_connection)
+    event.listen(engine, "begin", begin_sqlite_transaction)
     try:
         with engine.begin() as connection:
             connection.exec_driver_sql("CREATE TABLE nested_tx_test (id INTEGER PRIMARY KEY)")
@@ -128,9 +132,6 @@ def test_sqlite_savepoint_rolls_back_with_outer_transaction():
         with SessionLocal() as db:
             db.execute(text("SELECT 1"))
             driver_connection = db.connection().connection.driver_connection
-            assert driver_connection.in_transaction is False
-
-            ensure_sqlite_transaction_for_savepoint(db)
             assert driver_connection.in_transaction is True
             with db.begin_nested():
                 db.execute(text("INSERT INTO nested_tx_test (id) VALUES (1)"))
