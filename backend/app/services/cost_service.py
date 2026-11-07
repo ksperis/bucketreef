@@ -509,6 +509,7 @@ class CostService:
             endpoint_id,
             subject_type,
         )
+        model = self.queries.resolve_model(endpoint_id)
         items: list[CostSubjectSummary] = []
         for subject in self.queries.load_subjects(endpoint_id, subject_type):
             subject_id = int(subject.id)
@@ -534,10 +535,7 @@ class CostService:
                     rgw_identifier=subject.rgw_user_uid,
                     storage=build_storage_totals(totals),
                     usage=build_usage_totals(totals),
-                    cost=compute_cost(
-                        self.queries.resolve_model(endpoint_id),
-                        totals,
-                    ),
+                    cost=compute_cost(model, totals),
                 )
             )
         return items
