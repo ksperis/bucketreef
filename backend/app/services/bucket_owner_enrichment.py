@@ -14,7 +14,7 @@ from app.core.domain_enums import StorageProvider
 from app.services.s3_execution_context import S3ExecutionTarget
 from app.models.bucket_listing import BucketListingSummary
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
-from app.services.rgw_bucket_metadata import BucketOwnerKind
+from app.services.rgw_bucket_metadata import BucketOwnerKind, split_tenant_uid
 from app.services.rgw_endpoint_clients import get_endpoint_runtime_rgw_client
 from app.utils.cache import (
     TtlCacheEntry,
@@ -101,9 +101,7 @@ def _normalize_owner_identity(tenant: str | None, owner: str | None) -> BucketOw
         return None
     cleaned_tenant = normalize_optional_string(tenant)
     if "$" in cleaned_owner:
-        embedded_tenant, embedded_uid = cleaned_owner.split("$", 1)
-        embedded_tenant = embedded_tenant.strip() or None
-        embedded_uid = embedded_uid.strip()
+        embedded_tenant, embedded_uid = split_tenant_uid(cleaned_owner)
         if embedded_tenant:
             cleaned_tenant = embedded_tenant
         cleaned_owner = embedded_uid

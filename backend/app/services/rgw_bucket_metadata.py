@@ -3,7 +3,7 @@
 from typing import Literal
 
 from app.models.bucket_listing import BucketListingSummary
-from app.utils.normalize import normalize_optional_scalar
+from app.utils.normalize import normalize_optional_scalar, normalize_optional_string
 from app.utils.quota_stats import extract_quota_limits
 from app.utils.rgw_identifiers import is_rgw_account_id
 from app.utils.usage_stats import extract_usage_stats
@@ -15,7 +15,7 @@ BucketOwnerKind = Literal["account", "user"]
 def split_tenant_uid(value: str) -> tuple[str | None, str]:
     if "$" in value:
         tenant, uid = value.split("$", 1)
-        return (tenant.strip() or None), uid.strip()
+        return normalize_optional_string(tenant), uid.strip()
     return None, value.strip()
 
 

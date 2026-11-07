@@ -40,6 +40,7 @@ from app.services import bucket_listing_enrichment
 from app.services.bucket_owner_enrichment import (
     BucketOwnerMetadataService,
     invalidate_bucket_owner_metadata_cache,
+    owner_identity_key,
 )
 from app.services.bucket_configuration_service import BucketConfigurationService
 from app.services import rgw_bucket_metadata
@@ -151,6 +152,12 @@ def test_rgw_bucket_metadata_splits_admin_qualified_bucket_name():
     assert summary.tenant == "tenant_a"
     assert summary.tenant_metadata_resolved is True
     assert rgw_bucket_metadata.extract_bucket_name(entry) == "bucket-a"
+
+
+def test_rgw_bucket_metadata_reuses_qualified_owner_parsing():
+    assert rgw_bucket_metadata.split_tenant_uid(" tenant-a $ user-a ") == ("tenant-a", "user-a")
+    assert rgw_bucket_metadata.split_tenant_uid("   $ user-a ") == (None, "user-a")
+    assert owner_identity_key("fallback", "   $ user-a ") == "fallback:user-a"
 
 
 def test_rgw_bucket_metadata_ignores_disabled_bucket_quota():
