@@ -7,7 +7,7 @@ from urllib.parse import urlencode
 
 from botocore.exceptions import BotoCoreError, ClientError
 
-from app.core.domain_errors import BrowserStorageSpacePermissionError
+from app.core.domain_errors import BrowserObjectValidationError, BrowserStorageSpacePermissionError
 from app.models.browser import (
     CompleteMultipartUploadRequest,
     CopyObjectPayload,
@@ -117,7 +117,7 @@ class BrowserObjectOperationsMixin:
             try:
                 source_head = client.head_object(**source_head_kwargs)
             except (ClientError, BotoCoreError) as exc:
-                raise RuntimeError(
+                raise S3OperationError(
                     f"Unable to fetch metadata for '{payload.source_key}' before copy: {exc}"
                 ) from exc
             kwargs["MetadataDirective"] = "REPLACE"
@@ -194,11 +194,11 @@ class BrowserObjectOperationsMixin:
         source_size = int(source_head.get("ContentLength") or 0)
         destination_size = int(destination_head.get("ContentLength") or 0)
         if source_size != destination_size:
-            raise RuntimeError("Copy verification failed (size mismatch).")
+            raise S3OperationError("Copy verification failed (size mismatch).")
         if not source_etag or not destination_etag:
-            raise RuntimeError("Copy verification failed (missing ETag).")
+            raise S3OperationError("Copy verification failed (missing ETag).")
         if source_etag != destination_etag:
-            raise RuntimeError("Copy verification failed (ETag mismatch).")
+            raise S3OperationError("Copy verification failed (ETag mismatch).")
         client.delete_object(
             **self._object_identity_kwargs(
                 source_bucket,
@@ -265,7 +265,7 @@ class BrowserObjectOperationsMixin:
             move=payload.move,
         )
         if payload.move and source_bucket == bucket_name and payload.source_key == payload.destination_key:
-            raise RuntimeError("Cannot move an object onto itself")
+            raise BrowserObjectValidationError("Cannot move an object onto itself")
         client = self._client(context, request_profile="long_running")
         kwargs = self._copy_object_request(
             client,
@@ -292,7 +292,9 @@ class BrowserObjectOperationsMixin:
                     destination_version_id=destination_version_id,
                 )
             except (ClientError, BotoCoreError) as exc:
-                raise RuntimeError(f"Unable to copy object '{payload.source_key}' -> '{payload.destination_key}': {exc}") from exc
+                raise S3OperationError(
+                    f"Unable to copy object '{payload.source_key}' -> '{payload.destination_key}': {exc}"
+                ) from exc
 
     def delete_objects(
         self,

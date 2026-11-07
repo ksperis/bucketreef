@@ -1,7 +1,7 @@
 import pytest
 from fastapi import HTTPException
 
-from app.core.domain_errors import BrowserStorageSpacePermissionError
+from app.core.domain_errors import BrowserObjectValidationError, BrowserStorageSpacePermissionError
 from app.main import app
 from app.models.browser import CopyObjectPayload, MultipartUploadInitRequest
 from app.models.portal_storage_spaces import PortalStorageSpaceSummary
@@ -11,6 +11,7 @@ from app.services.browser.object_operations import (
     require_multipart_write_access,
 )
 from app.services.s3_execution_context import S3ExecutionContext
+from app.services.s3_client import S3OperationError
 from tests.portal_storage_space_factory import portal_storage_space_summary
 
 
@@ -85,6 +86,70 @@ def test_copy_route_preserves_storage_space_permission_response():
 
     assert error.value.status_code == 403
     assert error.value.detail == "Storage Space permissions do not allow this transfer"
+
+
+def test_copy_route_maps_validation_error_to_bad_request():
+    class FakeService:
+        def copy_object(self, *_args, **_kwargs):  # noqa: ANN002, ANN003
+            raise BrowserObjectValidationError("Cannot move an object onto itself")
+
+    with pytest.raises(HTTPException) as error:
+        browser_objects.copy_object(
+            bucket_name="target",
+            payload=CopyObjectPayload(
+                source_key="file",
+                destination_key="file-copy",
+            ),
+            context=_context(),
+            service=FakeService(),
+            _=object(),
+        )
+
+    assert error.value.status_code == 400
+    assert error.value.detail == "Cannot move an object onto itself"
+
+
+def test_copy_route_maps_s3_operation_error_to_bad_gateway():
+    class FakeService:
+        def copy_object(self, *_args, **_kwargs):  # noqa: ANN002, ANN003
+            raise S3OperationError("copy failed")
+
+    with pytest.raises(HTTPException) as error:
+        browser_objects.copy_object(
+            bucket_name="target",
+            payload=CopyObjectPayload(
+                source_key="file",
+                destination_key="file-copy",
+            ),
+            context=_context(),
+            service=FakeService(),
+            _=object(),
+        )
+
+    assert error.value.status_code == 502
+    assert error.value.detail == "copy failed"
+
+
+def test_copy_route_propagates_unexpected_runtime_error():
+    failure = RuntimeError("unexpected copy regression")
+
+    class FakeService:
+        def copy_object(self, *_args, **_kwargs):  # noqa: ANN002, ANN003
+            raise failure
+
+    with pytest.raises(RuntimeError) as error:
+        browser_objects.copy_object(
+            bucket_name="target",
+            payload=CopyObjectPayload(
+                source_key="file",
+                destination_key="file-copy",
+            ),
+            context=_context(),
+            service=FakeService(),
+            _=object(),
+        )
+
+    assert error.value is failure
 
 
 def test_multipart_route_preserves_storage_space_permission_response():
