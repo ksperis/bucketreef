@@ -231,7 +231,7 @@ def test_root_discovery_accepts_native_ceph_type_and_rejects_a_regular_account_u
 def test_account_import_upstream_failure_is_actionable_and_secret_safe(client, monkeypatch):
     def fail_import(self, items):
         raise RGWAdminError("secret_key=DO-NOT-RETURN invalid root tenant", status_code=400, error_code="InvalidArgument")
-    monkeypatch.setattr("app.services.s3_accounts_service.S3AccountsService.import_accounts", fail_import)
+    monkeypatch.setattr("app.services.s3_account_import_service.S3AccountImportService.import_accounts", fail_import)
     response = client.post("/api/admin/accounts/import", json=[{
         "rgw_account_id": "RGW12345678901234567", "storage_endpoint_id": 1,
     }])

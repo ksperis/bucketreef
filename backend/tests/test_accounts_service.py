@@ -11,6 +11,7 @@ from app.core.domain_errors import CompensationFailureError, S3AccountNotFoundEr
 from app.services import s3_account_deletion_service as s3_account_deletion_service_module
 from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_account_root_service import RgwAccountRootService
+from app.services.s3_account_import_service import S3AccountImportService
 from app.services.s3_account_metrics_service import S3AccountMetricsService
 from app.services.s3_account_provisioning_service import S3AccountProvisioningService
 from app.services.s3_account_rgw_context_service import S3AccountRgwContextService
@@ -73,7 +74,7 @@ def _seed_ceph_endpoint(
     return endpoint
 
 
-def _build_service(db_session, monkeypatch, fake_admin) -> S3AccountsService:
+def _patch_rgw_clients(monkeypatch, fake_admin) -> None:
     monkeypatch.setattr(
         "app.services.s3_account_rgw_context_service.get_endpoint_admin_rgw_client",
         lambda _endpoint: fake_admin,
@@ -83,7 +84,16 @@ def _build_service(db_session, monkeypatch, fake_admin) -> S3AccountsService:
         lambda endpoint: fake_admin,
     )
     monkeypatch.setattr("app.services.rgw_endpoint_clients.get_endpoint_admin_rgw_client", lambda endpoint: fake_admin)
+
+
+def _build_service(db_session, monkeypatch, fake_admin) -> S3AccountsService:
+    _patch_rgw_clients(monkeypatch, fake_admin)
     return S3AccountsService(db_session)
+
+
+def _build_import_service(db_session, monkeypatch, fake_admin) -> S3AccountImportService:
+    _patch_rgw_clients(monkeypatch, fake_admin)
+    return S3AccountImportService(db_session)
 
 
 def test_account_rgw_context_only_suppresses_expected_client_errors(db_session, monkeypatch):
@@ -1134,7 +1144,7 @@ class FakeRGWAdminImportTenanted(FakeRGWAdminImport):
 def test_import_account_reuses_existing_root_user_keys(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
     fake_admin = FakeRGWAdminImport()
-    svc = _build_service(db_session, monkeypatch, fake_admin)
+    svc = _build_import_service(db_session, monkeypatch, fake_admin)
 
     imports = [S3AccountImport(rgw_account_id="RGW12345678901234567", name=None, email=None, storage_endpoint_id=endpoint.id)]
     created = svc.import_accounts(imports)
@@ -1160,7 +1170,7 @@ def test_import_account_discovers_custom_tenant_root(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session)
     account_id = "RGW12345678901234567"
     admin = FakeRGWAdminImportTenanted(account_id)
-    service = _build_service(db_session, monkeypatch, admin)
+    service = _build_import_service(db_session, monkeypatch, admin)
     settings = load_app_settings_for_db(db_session)
     settings.general.allow_managed_rgw_tenant_creation = True
     monkeypatch.setattr(
@@ -1193,7 +1203,7 @@ def test_import_account_allows_same_name_in_different_tenant(db_session, monkeyp
     db_session.commit()
     account_id = "RGW20000000000000002"
     admin = FakeRGWAdminImportTenanted(account_id)
-    service = _build_service(db_session, monkeypatch, admin)
+    service = _build_import_service(db_session, monkeypatch, admin)
     settings = load_app_settings_for_db(db_session)
     settings.general.allow_managed_rgw_tenant_creation = True
     monkeypatch.setattr(
@@ -1224,7 +1234,7 @@ def test_import_tenanted_account_rejects_when_managed_tenant_creation_disabled(d
     endpoint = _seed_ceph_endpoint(db_session)
     account_id = "RGW12345678901234567"
     admin = FakeRGWAdminImportTenanted(account_id)
-    service = _build_service(db_session, monkeypatch, admin)
+    service = _build_import_service(db_session, monkeypatch, admin)
 
     with pytest.raises(ValueError, match="Managed RGW tenant creation is disabled"):
         service.import_accounts(
@@ -1238,7 +1248,7 @@ def test_import_tenanted_account_rejects_mismatched_tenant_assertion(db_session,
     endpoint = _seed_ceph_endpoint(db_session)
     account_id = "RGW12345678901234567"
     admin = FakeRGWAdminImportTenanted(account_id)
-    service = _build_service(db_session, monkeypatch, admin)
+    service = _build_import_service(db_session, monkeypatch, admin)
     settings = load_app_settings_for_db(db_session)
     settings.general.allow_managed_rgw_tenant_creation = True
     monkeypatch.setattr(
@@ -1263,7 +1273,7 @@ def test_import_account_rejects_other_tenant_root_response(db_session, monkeypat
                     "keys": [{"access_key": "FOREIGN", "secret_key": "SECRET"}]}
 
     admin = WrongTenantRoot()
-    service = _build_service(db_session, monkeypatch, admin)
+    service = _build_import_service(db_session, monkeypatch, admin)
     settings = load_app_settings_for_db(db_session)
     settings.general.allow_managed_rgw_tenant_creation = True
     monkeypatch.setattr(
@@ -1383,7 +1393,7 @@ class FakeRGWAdminImportCreatesTenantedRoot(FakeRGWAdminImportCreatesRoot):
 def test_import_account_creates_root_user_when_missing(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
     fake_admin = FakeRGWAdminImportCreatesRoot()
-    svc = _build_service(db_session, monkeypatch, fake_admin)
+    svc = _build_import_service(db_session, monkeypatch, fake_admin)
 
     account_id = "RGW98765432109876543"
     imports = [S3AccountImport(rgw_account_id=account_id, name="Legacy", email="legacy@example.com", storage_endpoint_id=endpoint.id)]
@@ -1413,7 +1423,7 @@ def test_import_account_recovers_after_commit_failure_without_recreating_root(
 ):
     endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
     fake_admin = FakeRGWAdminImportCreatesRoot()
-    svc = _build_service(db_session, monkeypatch, fake_admin)
+    svc = _build_import_service(db_session, monkeypatch, fake_admin)
     account_id = "RGW98765432109876544"
     real_commit = db_session.commit
     commit_calls = 0
@@ -1480,7 +1490,7 @@ def test_import_account_rejects_pending_access_key_secret_collision(
 ):
     endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
     fake_admin = FakeRGWAdminImportCreatesRoot()
-    svc = _build_service(db_session, monkeypatch, fake_admin)
+    svc = _build_import_service(db_session, monkeypatch, fake_admin)
     account_id = "RGW98765432109876547"
     root_uid = f"{account_id}-admin"
     fake_admin.roots[("", root_uid)] = {
@@ -1538,7 +1548,7 @@ def test_import_account_does_not_recreate_missing_reused_credential(
 ):
     endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
     fake_admin = FakeRGWAdminImportCreatesRoot()
-    svc = _build_service(db_session, monkeypatch, fake_admin)
+    svc = _build_import_service(db_session, monkeypatch, fake_admin)
     account_id = "RGW98765432109876548"
     root_uid = f"{account_id}-admin"
     fake_admin.roots[("", root_uid)] = {
@@ -1591,7 +1601,7 @@ def test_pending_tenanted_account_import_finishes_after_tenant_creation_is_disab
 ):
     endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
     fake_admin = FakeRGWAdminImportCreatesTenantedRoot()
-    svc = _build_service(db_session, monkeypatch, fake_admin)
+    svc = _build_import_service(db_session, monkeypatch, fake_admin)
     account_id = "RGW98765432109876546"
     settings = load_app_settings_for_db(db_session)
     settings.general.allow_managed_rgw_tenant_creation = True
@@ -1693,7 +1703,7 @@ class FakeRGWAdminImportSplitKeys(FakeRGWAdminImportCreatesRoot):
 def test_import_account_never_combines_credentials_from_different_keys(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
     fake_admin = FakeRGWAdminImportSplitKeys()
-    svc = _build_service(db_session, monkeypatch, fake_admin)
+    svc = _build_import_service(db_session, monkeypatch, fake_admin)
 
     account_id = "RGW11111111111111111"
     created = svc.import_accounts(
@@ -1729,7 +1739,7 @@ def test_import_account_key_creation_recovers_after_commit_failure(
 ):
     endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
     fake_admin = FakeRGWAdminImportSplitKeys()
-    svc = _build_service(db_session, monkeypatch, fake_admin)
+    svc = _build_import_service(db_session, monkeypatch, fake_admin)
     account_id = "RGW11111111111111111"
 
     real_commit = db_session.commit
@@ -1815,7 +1825,7 @@ def test_import_accounts_validates_entire_batch_before_mutating_rgw(db_session, 
     endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
     missing_account_id = "RGW22222222222222222"
     fake_admin = FakeRGWAdminImportBatch(missing_account_id)
-    svc = _build_service(db_session, monkeypatch, fake_admin)
+    svc = _build_import_service(db_session, monkeypatch, fake_admin)
     first_account_id = "RGW33333333333333333"
 
     with pytest.raises(ValueError, match=f"S3Account {missing_account_id} not found in RGW"):
@@ -1840,7 +1850,7 @@ def test_import_accounts_mid_batch_failure_preserves_durable_intents_for_retry(
     first_account_id = "RGW33333333333333333"
     second_account_id = "RGW33333333333333334"
     fake_admin = FakeRGWAdminImportSecondRootFails(second_account_id)
-    svc = _build_service(db_session, monkeypatch, fake_admin)
+    svc = _build_import_service(db_session, monkeypatch, fake_admin)
 
     with pytest.raises(RuntimeError, match="simulated second root creation failure"):
         svc.import_accounts(
@@ -1904,7 +1914,7 @@ def test_import_accounts_rejects_name_collisions_before_mutating_rgw(db_session,
     db_session.add(existing)
     db_session.commit()
     fake_admin = FakeRGWAdminImportCreatesRoot(account_name=existing.name)
-    svc = _build_service(db_session, monkeypatch, fake_admin)
+    svc = _build_import_service(db_session, monkeypatch, fake_admin)
 
     with pytest.raises(ValueError, match="S3Account name already exists: Existing account"):
         svc.import_accounts(
@@ -1922,7 +1932,7 @@ def test_import_accounts_rejects_name_collisions_before_mutating_rgw(db_session,
 def test_import_accounts_rejects_batch_name_collision_in_same_scope(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
     fake_admin = FakeRGWAdminImportCreatesRoot(account_name="Batch duplicate")
-    svc = _build_service(db_session, monkeypatch, fake_admin)
+    svc = _build_import_service(db_session, monkeypatch, fake_admin)
 
     with pytest.raises(ValueError, match="S3Account name already exists: Batch duplicate"):
         svc.import_accounts(
