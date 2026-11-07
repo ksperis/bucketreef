@@ -32,6 +32,7 @@ from app.routers.manager import usage_stats as manager_usage_stats_router
 from app.routers.storage_ops import usage_stats as storage_ops_usage_stats_router
 from app.services.bucket_usage_stats_service import BucketUsageStatsService
 from app.services.rgw_admin import RGWAdminError
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionContext
 
 
@@ -90,6 +91,40 @@ def _tool_user() -> User:
         is_active=True,
         role=UserRole.UI_USER.value,
     )
+
+
+def test_manager_usage_stats_bucket_listing_maps_expected_s3_errors(monkeypatch):
+    monkeypatch.setattr(
+        manager_usage_stats_router,
+        "get_cached_bucket_listing_for_context",
+        lambda **kwargs: kwargs["builder"](),
+    )
+
+    class FailedBucketService:
+        @staticmethod
+        def list_buckets(*_args, **_kwargs):
+            raise S3OperationError("S3 listing unavailable")
+
+    with pytest.raises(HTTPException) as exc_info:
+        manager_usage_stats_router._list_manager_bucket_names(object(), FailedBucketService())
+
+    assert exc_info.value.status_code == 502
+
+
+def test_manager_usage_stats_bucket_listing_does_not_mask_unexpected_runtime_errors(monkeypatch):
+    monkeypatch.setattr(
+        manager_usage_stats_router,
+        "get_cached_bucket_listing_for_context",
+        lambda **kwargs: kwargs["builder"](),
+    )
+
+    class BrokenBucketService:
+        @staticmethod
+        def list_buckets(*_args, **_kwargs):
+            raise RuntimeError("unexpected usage bucket listing bug")
+
+    with pytest.raises(RuntimeError, match="unexpected usage bucket listing bug"):
+        manager_usage_stats_router._list_manager_bucket_names(object(), BrokenBucketService())
 
 
 def test_manager_usage_stats_latest_aggregates_snapshots_and_coverage(client: TestClient, db_session, monkeypatch):

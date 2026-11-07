@@ -28,6 +28,7 @@ from app.routers.dependencies_internal import feature_gates
 from app.routers.manager import stats as manager_stats_router
 from app.services.rgw_admin import RGWAdminError
 from app.services import app_settings_service, usage_history_service
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.traffic_service import TrafficWindow
 from tests.execution_context_factory import make_s3_execution_context
@@ -370,7 +371,7 @@ def test_manager_stats_overview_sanitizes_bucket_error_details():
 
     class _LeakyBucketsService:
         def list_buckets(self, target_account):
-            raise RuntimeError(
+            raise S3OperationError(
                 "GET https://rgw.internal.local/admin?X-Amz-Signature=abcdef "
                 "failed with access_key=AKIAIOSFODNN7EXAMPLE and secret_key=top-secret"
             )
@@ -402,6 +403,22 @@ def test_manager_stats_overview_does_not_translate_unexpected_value_errors():
             raise ValueError("unexpected bucket projection error")
 
     with pytest.raises(ValueError, match="unexpected bucket projection error"):
+        manager_stats_router.account_stats(context=account, bucket_service=_BrokenBucketsService(), _={})
+
+
+def test_manager_stats_overview_does_not_mask_unexpected_runtime_errors():
+    account = make_s3_execution_context(
+        can_manage_buckets=True,
+        name="stats-runtime-error-account",
+        rgw_account_id="rgw-stats-runtime-error",
+        rgw_user_uid="rgw-stats-runtime-error-admin",
+    )
+
+    class _BrokenBucketsService:
+        def list_buckets(self, target_account):
+            raise RuntimeError("unexpected bucket listing regression")
+
+    with pytest.raises(RuntimeError, match="unexpected bucket listing regression"):
         manager_stats_router.account_stats(context=account, bucket_service=_BrokenBucketsService(), _={})
 
 

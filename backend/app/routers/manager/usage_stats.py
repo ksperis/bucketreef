@@ -30,6 +30,7 @@ from app.services.bucket_usage_stats_service import (
     BucketUsageStatsService,
 )
 from app.services.buckets_service import BucketsService, get_buckets_service
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionContext
 
 router = APIRouter(tags=["manager-bucket-usage-stats"])
@@ -55,7 +56,7 @@ def _list_manager_bucket_names(context: S3ExecutionContext, service: BucketsServ
             with_stats=False,
             builder=lambda: service.list_buckets(context, include=set(), with_stats=False),
         )
-    except RuntimeError as exc:
+    except S3OperationError as exc:
         raise_bad_gateway_from_runtime(exc)
     return [bucket.name for bucket in buckets if bucket.name]
 
