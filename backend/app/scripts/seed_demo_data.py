@@ -23,6 +23,7 @@ from app.models.user import ManagerToolAccess, UserCreate
 from app.services.buckets_service import BucketsService
 from app.services.s3_account_provisioning_service import S3AccountProvisioningService
 from app.services.s3_execution_client import s3_execution_request_kwargs
+from app.services.user_query_service import UserQueryService
 from app.services.users_service import UsersService
 from app.services.rgw_iam import RGWIAMError, get_iam_service
 from app.services import s3_client
@@ -615,9 +616,14 @@ def _populate_seed_bucket(
     return account_client
 
 
-def _link_seed_users(users_service: UsersService, account: S3Account, user_plans: list[UserPlan]) -> None:
+def _link_seed_users(
+    users_service: UsersService,
+    user_query_service: UserQueryService,
+    account: S3Account,
+    user_plans: list[UserPlan],
+) -> None:
     for user_plan in user_plans:
-        user = users_service.get_by_email(user_plan.email)
+        user = user_query_service.get_by_email(user_plan.email)
         if user is None:
             try:
                 user = users_service.create_user(
@@ -653,6 +659,7 @@ def create_account_data(
     account_provisioning: S3AccountProvisioningService,
     buckets_service: BucketsService,
     users_service: UsersService,
+    user_query_service: UserQueryService,
     plan: AccountPlan,
     storage_endpoint_id: int,
 ) -> None:
@@ -690,7 +697,7 @@ def create_account_data(
             account_client,
             bucket_ready=bucket_ready,
         )
-    _link_seed_users(users_service, account, plan.users)
+    _link_seed_users(users_service, user_query_service, account, plan.users)
 
 
 def parse_args() -> argparse.Namespace:
@@ -753,6 +760,7 @@ def main() -> None:
         account_provisioning = S3AccountProvisioningService(db)
         buckets_service = BucketsService()
         users_service = UsersService(db)
+        user_query_service = UserQueryService(db)
         plans = build_account_plans(args, config)
         logger.info("Planned %s accounts (%s from YAML).", len(plans), len(config.get('accounts', [])) if config else 0)
         for plan in plans:
@@ -760,6 +768,7 @@ def main() -> None:
                 account_provisioning,
                 buckets_service,
                 users_service,
+                user_query_service,
                 plan,
                 storage_endpoint.id,
             )

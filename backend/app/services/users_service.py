@@ -18,7 +18,6 @@ from app.services.user_deletion_service import UserDeletionService
 from app.services.user_login_service import UserLoginService
 from app.services.user_output_service import UserOutputService
 from app.services.user_provisioning_service import UserProvisioningService
-from app.services.user_query_service import UserQueryService
 from app.services.user_update_service import UserUpdateService
 from app.utils.account_roles import ManagerAccountRoleValue, PortalAccountRoleValue
 
@@ -26,17 +25,10 @@ class UsersService:
     def __init__(self, db: Session) -> None:
         self.db = db
         self.deletion = UserDeletionService(db)
-        self.query = UserQueryService(db)
         self.updates = UserUpdateService(db)
         self.associations = UserAssociationsService(db)
         self.login = UserLoginService(db)
         self.provisioning = UserProvisioningService(db)
-
-    def get_by_email(self, email: str) -> Optional[User]:
-        return self.query.get_by_email(email)
-
-    def require_by_id(self, user_id: int) -> User:
-        return self.query.require_by_id(user_id)
 
     def _active_superadmin_count(self, actor: User) -> int:
         count = self.db.scalar(
