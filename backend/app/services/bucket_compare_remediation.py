@@ -114,7 +114,7 @@ def _copy_objects(
             try:
                 future.result()
                 succeeded_count += 1
-            except Exception:  # noqa: BLE001
+            except (ClientError, BotoCoreError):
                 failed_keys.append(key)
     return succeeded_count, failed_keys
 
@@ -135,7 +135,7 @@ def _copy_single_object(
             return
         except (ClientError, BotoCoreError) as exc:
             if not is_s3_access_denied(exc):
-                raise RuntimeError(f"Unable to copy object '{key}': {exc}") from exc
+                raise
             logger.warning(
                 "CopyObject denied for '%s' (%s), falling back to stream copy.",
                 key,
@@ -164,8 +164,6 @@ def _stream_copy_single_object(
         response = source_client.get_object(Bucket=source_bucket, Key=key)
         body = response.get("Body")
         target_client.upload_fileobj(body, target_bucket, key)
-    except (ClientError, BotoCoreError) as exc:
-        raise RuntimeError(f"Unable to copy object '{key}': {exc}") from exc
     finally:
         if body is not None:
             try:
