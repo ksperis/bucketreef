@@ -56,7 +56,7 @@ class FakeBucketsService:
         return self.tags.get(bucket_name, [])
 
 
-def _s3_runtime_error(code: str) -> RuntimeError:
+def _s3_operation_error(code: str) -> S3OperationError:
     cause = ClientError(
         {
             "Error": {"Code": code, "Message": "upstream failure"},
@@ -64,7 +64,7 @@ def _s3_runtime_error(code: str) -> RuntimeError:
         },
         "GetBucketConfiguration",
     )
-    error = RuntimeError("Unable to read bucket configuration")
+    error = S3OperationError("Unable to read bucket configuration")
     error.__cause__ = cause
     return error
 
@@ -243,7 +243,7 @@ def test_feature_rules_lists_notifications_and_bucket_errors(feature_rule_client
         ],
         "EventBridgeConfiguration": {},
     }
-    service.failures[("notifications", "beta")] = _s3_runtime_error("AccessDenied")
+    service.failures[("notifications", "beta")] = _s3_operation_error("AccessDenied")
 
     response = client.get("/api/manager/feature-rules", params={"feature": "notifications"})
 
@@ -279,9 +279,9 @@ def test_feature_rules_redacts_sensitive_raw_payload_values(feature_rule_client)
     assert raw["Nested"]["sessionToken"] == "[redacted]"
 
 
-def test_feature_rules_redacts_unexpected_bucket_error_details(feature_rule_client):
+def test_feature_rules_redacts_expected_s3_error_details(feature_rule_client):
     client, service = feature_rule_client
-    service.failures[("policy", "alpha")] = "upstream secret leaked from transport"
+    service.failures[("policy", "alpha")] = S3OperationError("upstream secret leaked from transport")
 
     response = client.get("/api/manager/feature-rules", params={"feature": "policy"})
 
@@ -297,7 +297,7 @@ def test_feature_rules_lists_bucket_tags(feature_rule_client):
         BucketTag(key="environment", value="prod"),
         BucketTag(key="owner", value="data-platform"),
     ]
-    service.failures[("tags", "beta")] = _s3_runtime_error("AccessDenied")
+    service.failures[("tags", "beta")] = _s3_operation_error("AccessDenied")
 
     response = client.get("/api/manager/feature-rules", params={"feature": "tags"})
 
@@ -317,9 +317,9 @@ def test_feature_rules_lists_bucket_tags(feature_rule_client):
     assert body[1]["error"] == "AccessDenied"
 
 
-def test_feature_rules_do_not_infer_safe_codes_from_runtime_error_text(feature_rule_client):
+def test_feature_rules_do_not_infer_safe_codes_from_s3_error_text(feature_rule_client):
     client, service = feature_rule_client
-    service.failures[("policy", "alpha")] = "AccessDenied secret_access_key=abc123"
+    service.failures[("policy", "alpha")] = S3OperationError("AccessDenied secret_access_key=abc123")
 
     response = client.get("/api/manager/feature-rules", params={"feature": "policy"})
 
@@ -327,6 +327,14 @@ def test_feature_rules_do_not_infer_safe_codes_from_runtime_error_text(feature_r
     body = response.json()
     assert body[0]["status"] == "unavailable"
     assert body[0]["error"] == "Unable to read rules"
+
+
+def test_feature_rules_does_not_mask_unexpected_bucket_runtime_errors(feature_rule_client):
+    client, service = feature_rule_client
+    service.failures[("policy", "alpha")] = RuntimeError("unexpected feature rule regression")
+
+    with pytest.raises(RuntimeError, match="unexpected feature rule regression"):
+        client.get("/api/manager/feature-rules", params={"feature": "policy"})
 
 
 def test_feature_rules_marks_notifications_unavailable_when_sns_is_disabled(feature_rule_client, monkeypatch):
