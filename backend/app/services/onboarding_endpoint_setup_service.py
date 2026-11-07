@@ -315,10 +315,10 @@ class OnboardingEndpointSetupService:
         credentials: _EndpointCredentials,
         detection,
     ) -> StorageEndpoint:
-        endpoint_name = resources.get("endpoint_name") or self._unique_endpoint_name(
+        endpoint_name = resources.endpoint_name or self._unique_endpoint_name(
             draft.endpoint_url
         )
-        if not resources.get("endpoint_name"):
+        if not resources.endpoint_name:
             self.progress.checkpoint(row, endpoint_name=endpoint_name)
         endpoint_payload = self._new_endpoint_payload(
             endpoint_name=endpoint_name,
@@ -518,7 +518,7 @@ class OnboardingEndpointSetupService:
                 )
 
     def prepare(self, actor, row, draft, payload):
-        resources = row.resources
+        resources = self.progress.resources(row)
         requirements = self._endpoint_requirements(draft, payload)
         endpoint = self._resolve_endpoint(draft, requirements)
 

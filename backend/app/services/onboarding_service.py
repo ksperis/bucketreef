@@ -18,6 +18,7 @@ from app.models.onboarding import (
     OnboardingDraft,
     OnboardingJourneyOut,
     OnboardingPreview,
+    OnboardingResources,
     OnboardingStatus,
 )
 from app.services.app_settings_service import (
@@ -78,6 +79,10 @@ class OnboardingService:
     @staticmethod
     def draft(row) -> OnboardingDraft:
         return OnboardingDraft.model_validate(row.draft)
+
+    @staticmethod
+    def resources(row) -> OnboardingResources:
+        return OnboardingResources.model_validate(row.resources)
 
     def preview(self, actor, row):
         self._require_admin(actor)
@@ -242,10 +247,10 @@ class OnboardingService:
         result: OnboardingPreview,
     ) -> None:
         if draft.manager or draft.portal:
-            resources = row.resources
+            resources = self.resources(row)
             result.changes.append(
                 "resume_sample_account"
-                if resources.get("rgw_account_id")
+                if resources.account_id or resources.rgw_account_id
                 else "create_sample_account"
             )
         if draft.manager:
@@ -304,10 +309,10 @@ class OnboardingService:
         return (draft.model_dump(), actor_state, endpoint_state)
 
     def _links(self, row, draft: OnboardingDraft) -> dict[str, str]:
-        resources = row.resources
+        resources = self.resources(row)
         links: dict[str, str] = {}
-        account_id = resources.get("account_id")
-        connection_id = resources.get("connection_id")
+        account_id = resources.account_id
+        connection_id = resources.connection_id
         if draft.manager and account_id:
             links["manager"] = f"/manager/buckets?ctx={account_id}"
         if draft.portal and account_id:
@@ -325,7 +330,6 @@ class OnboardingService:
             id=row.id,
             revision=row.revision,
             draft=draft,
-            resources=row.resources,
             configured=bool(row.configured_at),
             preview=self.preview(actor, row) if not row.configured_at else OnboardingPreview(),
             links=self._links(row, draft),
@@ -385,14 +389,14 @@ class OnboardingService:
                     raise OnboardingError("stale_revision", 409)
                 if row.configured_at:
                     raise OnboardingError("configured_journey_immutable", 409)
-                resources = row.resources
+                resources = self.resources(row)
                 if row.pending_step or any(
-                    resources.get(key)
-                    for key in (
-                        "endpoint_created",
-                        "account_id",
-                        "connection_id",
-                        "rgw_account_id",
+                    (
+                        resources.endpoint_created,
+                        resources.endpoint_name,
+                        resources.account_id,
+                        resources.connection_id,
+                        resources.rgw_account_id,
                     )
                 ):
                     raise OnboardingError("configuration_reconciliation_required", 409)
@@ -405,7 +409,19 @@ class OnboardingService:
             return self.output(actor, row)
 
     def checkpoint(self, row, **resources):
-        row.resources = {**row.resources, **resources}
+        canonical = {
+            **self.resources(row).model_dump(mode="json", exclude_none=True),
+            **resources,
+        }
+        if canonical.get("endpoint_created") is True:
+            canonical.pop("endpoint_name", None)
+        if canonical.get("account_id") is not None:
+            canonical.pop("rgw_account_id", None)
+            canonical.pop("account_name", None)
+        row.resources = OnboardingResources.model_validate(canonical).model_dump(
+            mode="json",
+            exclude_none=True,
+        )
         row.pending_step = None
         row.updated_at = utcnow()
         commit_or_rollback(self.db)

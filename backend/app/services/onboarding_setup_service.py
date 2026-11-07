@@ -118,21 +118,21 @@ class OnboardingSetupService:
         return candidate
 
     def _account(self, actor, row, endpoint):
-        resources = row.resources
-        if resources.get("account_id"):
-            account = self.db.get(S3Account, resources["account_id"])
+        resources = self.progress.resources(row)
+        if resources.account_id:
+            account = self.db.get(S3Account, resources.account_id)
             if account is None:
                 raise OnboardingError("account_unavailable")
             return account
 
-        identifier = resources.get("rgw_account_id")
+        identifier = resources.rgw_account_id
         if not identifier:
             prefix = load_app_settings_for_db(self.db).general.rgw_account_id_prefix
             identifier = generate_rgw_account_id(prefix)
             self.progress.checkpoint(row, rgw_account_id=identifier)
-            resources = row.resources
+            resources = self.progress.resources(row)
 
-        account_name = resources.get("account_name")
+        account_name = resources.account_name
         if not account_name:
             account_name = self._unique_account_name(identifier)
             self.progress.checkpoint(row, account_name=account_name)
@@ -229,9 +229,9 @@ class OnboardingSetupService:
         return candidate
 
     def _private_connection(self, actor, row, endpoint, payload):
-        resources = row.resources
-        if resources.get("connection_id"):
-            if self.db.get(S3Connection, resources["connection_id"]) is None:
+        resources = self.progress.resources(row)
+        if resources.connection_id:
+            if self.db.get(S3Connection, resources.connection_id) is None:
                 raise OnboardingError("connection_unavailable")
             return
 

@@ -37,14 +37,6 @@ export type OnboardingJourney = {
   id: string;
   revision: number;
   draft: OnboardingDraft;
-  resources: {
-    endpoint_created?: boolean;
-    endpoint_name?: string;
-    account_id?: number;
-    account_name?: string;
-    connection_id?: number;
-    rgw_account_id?: string;
-  };
   configured: boolean;
   preview: OnboardingPreview;
   links: Partial<Record<"manager" | "portal" | "browser" | "private_manager" | "ceph_admin", string>>;
