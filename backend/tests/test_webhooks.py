@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from pydantic import ValidationError
 
 from app.core.config import Settings
+from app.core.domain_errors import WebhookEndpointNotFoundError
 from app.db import User, WebhookDelivery, WebhookEndpoint, WebhookEndpointSubscription
 from app.core.domain_enums import UserRole
 from app.models.webhook import WebhookEndpointPayload
@@ -110,6 +111,11 @@ def test_webhook_secret_is_one_time_and_encrypted_at_rest(db_session, monkeypatc
     assert listed[0].has_signing_secret is True
     assert not hasattr(listed[0], "signing_secret")
     assert not hasattr(loaded, "signing_secret")
+
+
+def test_webhook_service_raises_typed_error_for_missing_endpoint(db_session):
+    with pytest.raises(WebhookEndpointNotFoundError, match=r"^Webhook endpoint not found$"):
+        WebhookService(db_session).get_endpoint(999999)
 
 
 def test_webhook_list_endpoints_loads_subscriptions_in_one_query(db_session, monkeypatch):

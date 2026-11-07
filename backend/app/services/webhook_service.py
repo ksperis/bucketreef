@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.core.db_transactions import commit_or_rollback
+from app.core.domain_errors import WebhookEndpointNotFoundError
 from app.core.runtime_surfaces import runtime_surface_enabled
 from app.core.sensitive_data import sanitize_audit_metadata
 from app.core.sqlite import ensure_sqlite_transaction_for_savepoint
@@ -264,7 +265,7 @@ class WebhookService:
     def _require_endpoint(self, endpoint_id: int) -> WebhookEndpoint:
         row = self.db.get(WebhookEndpoint, int(endpoint_id))
         if row is None:
-            raise LookupError("Webhook endpoint not found")
+            raise WebhookEndpointNotFoundError("Webhook endpoint not found")
         return row
 
     def _commit_endpoint_change(self) -> None:
