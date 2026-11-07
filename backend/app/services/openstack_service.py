@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import timedelta
 from uuid import UUID
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -30,6 +30,7 @@ from app.services.keystone_client import KeystoneClient, KeystoneIdentity, OpenS
 from app.services.openstack_access_policy import can_connect_openstack_cloud
 from app.services.s3_connections_service import S3ConnectionsService
 from app.services.s3_execution_context import S3ExecutionContext
+from app.services.sqlalchemy_pagination import paginate_scalars
 from app.services.storage_endpoints_service import StorageEndpointsService
 from app.services.tags_service import TagsService
 from app.utils.s3_endpoint import validate_openstack_catalog_s3_endpoint
@@ -80,18 +81,16 @@ class OpenStackService:
         request: AdminPaginatedListingRequest,
     ) -> PaginatedOpenStackCloudsResponse:
         query = select(OpenStackCloud)
-        count_query = select(func.count()).select_from(OpenStackCloud)
         normalized_search = (request.search or "").strip()
         if normalized_search:
-            predicate = OpenStackCloud.name.ilike(f"%{normalized_search}%")
-            query = query.where(predicate)
-            count_query = count_query.where(predicate)
-        total = int(self.db.scalar(count_query) or 0)
-        rows = self.db.scalars(
-            query.order_by(OpenStackCloud.name, OpenStackCloud.id)
-            .offset((request.page - 1) * request.page_size)
-            .limit(request.page_size)
-        ).all()
+            query = query.where(OpenStackCloud.name.ilike(f"%{normalized_search}%"))
+        rows, total = paginate_scalars(
+            self.db,
+            query,
+            order_by=(OpenStackCloud.name, OpenStackCloud.id),
+            page=request.page,
+            page_size=request.page_size,
+        )
         return PaginatedOpenStackCloudsResponse(
             items=[self.cloud_read(row) for row in rows],
             total=total,
