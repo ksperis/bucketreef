@@ -64,15 +64,16 @@ def test_admin_s3_user_error_status_does_not_depend_on_message_text(client):
         def get_user(self, user_id, *, include_buckets=False, include_quota=False):
             raise ValueError("Upstream metadata was not found in a valid format")
 
-    previous_service = app.dependency_overrides.get(s3_users_router.get_admin_s3_users_service)
-    app.dependency_overrides[s3_users_router.get_admin_s3_users_service] = FakeService
+    dependency = s3_users_router.get_admin_s3_user_query_service
+    previous_service = app.dependency_overrides.get(dependency)
+    app.dependency_overrides[dependency] = FakeService
     try:
         response = client.get("/api/admin/s3-users/999999")
     finally:
         if previous_service is None:
-            app.dependency_overrides.pop(s3_users_router.get_admin_s3_users_service, None)
+            app.dependency_overrides.pop(dependency, None)
         else:
-            app.dependency_overrides[s3_users_router.get_admin_s3_users_service] = previous_service
+            app.dependency_overrides[dependency] = previous_service
 
     assert response.status_code == 400, response.text
 

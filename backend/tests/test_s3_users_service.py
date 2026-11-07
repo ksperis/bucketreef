@@ -48,6 +48,7 @@ from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.app_settings_service import load_app_settings_for_db
 from app.services.s3_user_key_management_service import S3UserKeyManagementService
 from app.services.s3_user_metrics_service import S3UserMetricsService
+from app.services.s3_user_query_service import S3UserQueryService
 from app.services.s3_user_rgw_context_service import S3UserRgwContextService
 from app.services.s3_users_service import S3UsersService
 
@@ -718,7 +719,7 @@ def test_user_rgw_context_only_wraps_expected_client_errors(db_session, monkeypa
 
 
 def test_get_user_uses_typed_not_found_error(db_session):
-    service = S3UsersService(db_session)
+    service = S3UserQueryService(db_session)
 
     with pytest.raises(S3UserNotFoundError, match="S3 user not found"):
         service.get_user(999_999)
@@ -806,7 +807,7 @@ def test_interface_bucket_count_only_suppresses_s3_operation_errors(db_session, 
         uid="bucket-count-user",
         endpoint_id=endpoint.id,
     )
-    service = S3UsersService(db_session)
+    service = S3UserQueryService(db_session)
 
     monkeypatch.setattr(
         s3_client,
@@ -2108,7 +2109,7 @@ def test_list_users_and_paginated_are_sorted_case_insensitive_and_stable(db_sess
     same_1 = _seed_local_user(db_session, name="same", uid="sort-same-1", endpoint_id=endpoint.id)
     same_2 = _seed_local_user(db_session, name="same", uid="sort-same-2", endpoint_id=endpoint.id)
 
-    service = S3UsersService(db_session)
+    service = S3UserQueryService(db_session)
     listed = service.list_users(include_quota=False)
     paginated = service.list_users_page(
         S3UserListingRequest(
@@ -2161,7 +2162,7 @@ def test_list_users_page_name_and_non_name_sorts_are_stable(db_session):
         created_at=datetime(2026, 1, 2, 12, 0, 0, tzinfo=timezone.utc),
     )
 
-    service = S3UsersService(db_session)
+    service = S3UserQueryService(db_session)
 
     name_desc_items = service.list_users_page(
         S3UserListingRequest(

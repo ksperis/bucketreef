@@ -24,6 +24,7 @@ from app.routers.dependencies import (
     get_current_ui_admin,
 )
 from app.services.s3_users_service import S3UsersService, get_s3_users_service
+from app.services.s3_user_query_service import S3UserQueryService
 from app.services.audit_service import AuditService
 from app.services.tags_service import serialize_tag_summaries
 from app.utils.http_errors import raise_http_error_from_value_error
@@ -38,10 +39,16 @@ def get_admin_s3_users_service(
     return get_s3_users_service(db)
 
 
+def get_admin_s3_user_query_service(
+    db: Session = Depends(get_db),
+) -> S3UserQueryService:
+    return S3UserQueryService(db)
+
+
 @router.get("", response_model=PaginatedS3UsersResponse)
 def list_s3_users(
     query: Annotated[S3UserListingRequest, Query()],
-    service: S3UsersService = Depends(get_admin_s3_users_service),
+    service: S3UserQueryService = Depends(get_admin_s3_user_query_service),
     _: User = Depends(get_current_ui_admin),
 ) -> PaginatedS3UsersResponse:
     return service.list_users_page(query)
@@ -74,7 +81,7 @@ def get_s3_user(
     user_id: int,
     include_buckets: bool = Query(False, description="Include bucket count computed from the user's interface key"),
     include_quota: bool = Query(False, description="Include RGW quota information (slower)."),
-    service: S3UsersService = Depends(get_admin_s3_users_service),
+    service: S3UserQueryService = Depends(get_admin_s3_user_query_service),
     _: User = Depends(get_current_ui_admin),
 ) -> S3User:
     try:
