@@ -17,12 +17,13 @@ from app.routers.ceph_admin.dependencies import get_ceph_admin_context
 from app.services.ceph_admin_context import CephAdminContext
 from app.services.bucket_ui_tags_service import BucketUiTagsService
 from app.services.ceph_admin_bucket_ui_tags_service import (
-    CephAdminBucketUiTagConflictError,
-    CephAdminBucketUiTagNotFoundError,
     CephAdminBucketUiTagUpstreamError,
     CephAdminBucketUiTagsWorkflow,
 )
-from app.utils.http_errors import raise_http_exception_from_exception
+from app.utils.http_errors import (
+    raise_http_error_from_value_error,
+    raise_http_exception_from_exception,
+)
 
 
 router = APIRouter(
@@ -80,12 +81,10 @@ def patch_bucket_ui_tags(
 ) -> BucketUiTagCatalogResponse:
     try:
         return workflow.mutate(payload)
-    except CephAdminBucketUiTagConflictError as exc:
-        raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
     except CephAdminBucketUiTagUpstreamError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
     except ValueError as exc:
-        raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
+        raise_http_error_from_value_error(exc)
 
 
 @router.patch("/{tag_id}", response_model=BucketUiTagDefinitionSummary)
@@ -98,7 +97,5 @@ def patch_bucket_ui_tag_definition(
 ) -> BucketUiTagDefinitionSummary:
     try:
         return workflow.update_definition(tag_id, payload)
-    except CephAdminBucketUiTagNotFoundError as exc:
-        raise_http_exception_from_exception(status.HTTP_404_NOT_FOUND, exc)
-    except CephAdminBucketUiTagConflictError as exc:
-        raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
+    except ValueError as exc:
+        raise_http_error_from_value_error(exc)

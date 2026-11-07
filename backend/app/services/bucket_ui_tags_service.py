@@ -9,6 +9,7 @@ from typing import Iterable, Iterator, Literal, Sequence
 from sqlalchemy import delete, or_, select, tuple_
 from sqlalchemy.orm import Session
 
+from app.core.domain_errors import ResourceConflictError, ResourceNotFoundError
 from app.db import BucketUiTagAssignment, TagDefinition
 from app.models.bucket_ui_tags import (
     BucketUiTagCatalogResponse,
@@ -64,11 +65,11 @@ class BucketUiTagDefinitionUpdate:
         )
 
 
-class BucketUiTagDefinitionNotFoundError(LookupError):
+class BucketUiTagDefinitionNotFoundError(ResourceNotFoundError):
     pass
 
 
-class BucketUiTagNameConflictError(RuntimeError):
+class BucketUiTagNameConflictError(ResourceConflictError):
     pass
 
 

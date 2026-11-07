@@ -6,6 +6,7 @@ from collections.abc import Callable, Sequence
 
 from sqlalchemy.exc import IntegrityError
 
+from app.core.domain_errors import ResourceConflictError
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.models.bucket_ui_tags import (
     BucketUiTagCatalogResponse,
@@ -14,7 +15,6 @@ from app.models.bucket_ui_tags import (
     StorageOpsBucketUiTagPatchRequest,
 )
 from app.services.bucket_ui_tags_service import (
-    BucketUiTagDefinitionNotFoundError,
     BucketUiTagsService,
     PhysicalBucketTarget,
 )
@@ -28,14 +28,6 @@ from app.utils.tagging import TAG_DOMAIN_BUCKET_UI_STORAGE_OPS
 
 
 class StorageOpsBucketUiTagAuthorizationError(RuntimeError):
-    pass
-
-
-class StorageOpsBucketUiTagConflictError(RuntimeError):
-    pass
-
-
-class StorageOpsBucketUiTagNotFoundError(LookupError):
     pass
 
 
@@ -123,7 +115,7 @@ class StorageOpsBucketUiTagsWorkflow:
                 buckets,
             )
             if has_additions and not exists:
-                raise StorageOpsBucketUiTagConflictError(
+                raise ResourceConflictError(
                     "Bucket not found in this Storage Ops context."
                 )
             targets.append(target)
@@ -155,7 +147,7 @@ class StorageOpsBucketUiTagsWorkflow:
                     remove_all=payload.remove_all,
                 )
         except IntegrityError as exc:
-            raise StorageOpsBucketUiTagConflictError(
+            raise ResourceConflictError(
                 "A Storage Ops UI tag already reserves this name."
             ) from exc
         return self.catalog()
@@ -165,14 +157,11 @@ class StorageOpsBucketUiTagsWorkflow:
         tag_id: int,
         payload: StorageOpsBucketUiTagDefinitionPatch,
     ) -> BucketUiTagDefinitionSummary:
-        try:
-            with self.tags.transaction():
-                result = self.tags.update_definition(
-                    domain_kind=TAG_DOMAIN_BUCKET_UI_STORAGE_OPS,
-                    actor_user_id=self.actor_user_id,
-                    tag_id=tag_id,
-                    color_key=payload.color_key,
-                )
-        except BucketUiTagDefinitionNotFoundError as exc:
-            raise StorageOpsBucketUiTagNotFoundError(sanitized_error_log_detail(exc)) from exc
+        with self.tags.transaction():
+            result = self.tags.update_definition(
+                domain_kind=TAG_DOMAIN_BUCKET_UI_STORAGE_OPS,
+                actor_user_id=self.actor_user_id,
+                tag_id=tag_id,
+                color_key=payload.color_key,
+            )
         return result.definition

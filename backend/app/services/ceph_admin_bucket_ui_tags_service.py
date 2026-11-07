@@ -7,6 +7,7 @@ from typing import Protocol
 
 from sqlalchemy.exc import IntegrityError
 
+from app.core.domain_errors import ResourceConflictError
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.models.bucket_ui_tags import (
     BucketUiTagCatalogResponse,
@@ -15,9 +16,7 @@ from app.models.bucket_ui_tags import (
     CephAdminBucketUiTagPatchRequest,
 )
 from app.services.bucket_ui_tags_service import (
-    BucketUiTagDefinitionNotFoundError,
     BucketUiTagDefinitionUpdate,
-    BucketUiTagNameConflictError,
     BucketUiTagsService,
     PhysicalBucketTarget,
 )
@@ -34,14 +33,6 @@ class CephAdminBucketInfoReader(Protocol):
         stats: bool,
         allow_not_found: bool,
     ) -> object: ...
-
-
-class CephAdminBucketUiTagConflictError(RuntimeError):
-    pass
-
-
-class CephAdminBucketUiTagNotFoundError(LookupError):
-    pass
 
 
 class CephAdminBucketUiTagUpstreamError(RuntimeError):
@@ -110,7 +101,7 @@ class CephAdminBucketUiTagsWorkflow:
         for target in targets:
             exists = self._bucket_exists(target)
             if has_additions and not exists:
-                raise CephAdminBucketUiTagConflictError("Bucket not found.")
+                raise ResourceConflictError("Bucket not found.")
 
     def _has_shared_mutation(
         self,
@@ -168,10 +159,8 @@ class CephAdminBucketUiTagsWorkflow:
             # Persist the tag mutation before recording the best-effort audit event.
             if shared_mutation:
                 self.record_shared_mutation(len(set(targets)))
-        except BucketUiTagNameConflictError as exc:
-            raise CephAdminBucketUiTagConflictError(sanitized_error_log_detail(exc)) from exc
         except IntegrityError as exc:
-            raise CephAdminBucketUiTagConflictError(
+            raise ResourceConflictError(
                 "A Ceph Admin UI tag already reserves this name."
             ) from exc
         return self.catalog()
@@ -190,10 +179,8 @@ class CephAdminBucketUiTagsWorkflow:
                     color_key=payload.color_key,
                     visibility=payload.visibility,
                 )
-        except BucketUiTagDefinitionNotFoundError as exc:
-            raise CephAdminBucketUiTagNotFoundError(sanitized_error_log_detail(exc)) from exc
         except IntegrityError as exc:
-            raise CephAdminBucketUiTagConflictError(
+            raise ResourceConflictError(
                 "A Ceph Admin UI tag already reserves this name."
             ) from exc
         if result.changed_fields and result.involves_shared:
