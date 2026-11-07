@@ -11,6 +11,7 @@ import ManagerDashboard from "./ManagerDashboard";
 import { setSessionUserCache } from "../../utils/workspaces";
 import { DEFAULT_MANAGER_FEATURE_POLICIES } from "../../api/featurePolicies";
 import { buildEffectiveUserAccess } from "../../test/effectiveAccess";
+import { buildExecutionContext } from "../../test/executionContexts";
 
 const useExecutionContextMock = vi.fn();
 const useManagerStatsMock = vi.fn();
@@ -220,13 +221,11 @@ function setManagerUser({ bucketPurge = false }: { bucketPurge?: boolean } = {})
 function setSelectedManagerAccountContext() {
   useExecutionContextMock.mockReturnValue({
     contexts: [
-      {
-        id: "account-1",
-        name: "Account Alpha",
-        type: "account",
+      buildExecutionContext("account-1", {
+        display_name: "Account Alpha",
         endpoint_provider: "ceph",
         storage_endpoint_capabilities: { iam: true, metrics: true, usage: true, sns: true },
-      },
+      }),
     ],
     selectedContextId: "account-1",
     requiresContextSelection: false,
@@ -352,12 +351,12 @@ describe("manager shell pages", () => {
   it("keeps manager dashboard cards visible without fallback values when metrics are unavailable", async () => {
     useExecutionContextMock.mockReturnValue({
       contexts: [
-        {
-          id: "conn-1",
-          name: "User9001",
-          type: "connection",
+        buildExecutionContext("conn-1", {
+          kind: "connection",
+          display_name: "User9001",
           storage_endpoint_capabilities: { iam: false, metrics: true, usage: true },
-        },
+          capabilities: { can_manage_iam: false, sts_capable: false, admin_api_capable: false },
+        }),
       ],
       selectedContextId: "conn-1",
       requiresContextSelection: false,
@@ -397,13 +396,12 @@ describe("manager shell pages", () => {
   it("shows IAM resource actions in quota status for IAM-capable connection contexts", async () => {
     useExecutionContextMock.mockReturnValue({
       contexts: [
-        {
-          id: "conn-1",
-          name: "AWS/tests3",
-          type: "connection",
+        buildExecutionContext("conn-1", {
+          kind: "connection",
+          display_name: "AWS/tests3",
           storage_endpoint_capabilities: { iam: true, metrics: false, usage: false },
           capabilities: { can_manage_iam: true, sts_capable: false, admin_api_capable: false },
-        },
+        }),
       ],
       selectedContextId: "conn-1",
       requiresContextSelection: false,
@@ -441,12 +439,10 @@ describe("manager shell pages", () => {
   it("keeps the redesigned dashboard structure stable when storage metrics are disabled", async () => {
     useExecutionContextMock.mockReturnValue({
       contexts: [
-        {
-          id: "account-1",
-          name: "Account Alpha",
-          type: "account",
+        buildExecutionContext("account-1", {
+          display_name: "Account Alpha",
           storage_endpoint_capabilities: { iam: true, metrics: true, usage: true },
-        },
+        }),
       ],
       selectedContextId: "account-1",
       requiresContextSelection: false,
@@ -487,12 +483,10 @@ describe("manager shell pages", () => {
     setManagerUser();
     useExecutionContextMock.mockReturnValue({
       contexts: [
-        {
-          id: "account-1",
-          name: "Account Alpha",
-          type: "account",
+        buildExecutionContext("account-1", {
+          display_name: "Account Alpha",
           storage_endpoint_capabilities: { iam: true, metrics: true, usage: true },
-        },
+        }),
       ],
       selectedContextId: "account-1",
       requiresContextSelection: true,
@@ -548,12 +542,10 @@ describe("manager shell pages", () => {
     setManagerUser();
     useExecutionContextMock.mockReturnValue({
       contexts: [
-        {
-          id: "account-1",
-          name: "Account Alpha",
-          type: "account",
+        buildExecutionContext("account-1", {
+          display_name: "Account Alpha",
           storage_endpoint_capabilities: { iam: true, metrics: true, usage: true },
-        },
+        }),
       ],
       selectedContextId: "account-1",
       requiresContextSelection: true,
@@ -586,12 +578,10 @@ describe("manager shell pages", () => {
     setManagerUser();
     useExecutionContextMock.mockReturnValue({
       contexts: [
-        {
-          id: "account-1",
-          name: "Account Alpha",
-          type: "account",
+        buildExecutionContext("account-1", {
+          display_name: "Account Alpha",
           storage_endpoint_capabilities: { iam: true, metrics: true, usage: true },
-        },
+        }),
       ],
       selectedContextId: "account-1",
       requiresContextSelection: true,
@@ -625,12 +615,10 @@ describe("manager shell pages", () => {
     fetchManagerTrafficMock.mockResolvedValue(managerTrafficResponse(2048, 4096));
     useExecutionContextMock.mockReturnValue({
       contexts: [
-        {
-          id: "account-1",
-          name: "Account Alpha",
-          type: "account",
+        buildExecutionContext("account-1", {
+          display_name: "Account Alpha",
           storage_endpoint_capabilities: { iam: true, metrics: true, usage: true },
-        },
+        }),
       ],
       selectedContextId: "account-1",
       requiresContextSelection: false,
@@ -683,12 +671,10 @@ describe("manager shell pages", () => {
     });
     useExecutionContextMock.mockReturnValue({
       contexts: [
-        {
-          id: "account-1",
-          name: "Account Alpha",
-          type: "account",
+        buildExecutionContext("account-1", {
+          display_name: "Account Alpha",
           storage_endpoint_capabilities: { iam: true, metrics: true, usage: true },
-        },
+        }),
       ],
       selectedContextId: "account-1",
       requiresContextSelection: false,
@@ -740,12 +726,10 @@ describe("manager shell pages", () => {
     });
     useExecutionContextMock.mockReturnValue({
       contexts: [
-        {
-          id: "account-1",
-          name: "Account Alpha",
-          type: "account",
+        buildExecutionContext("account-1", {
+          display_name: "Account Alpha",
           storage_endpoint_capabilities: { iam: true, metrics: true, usage: true },
-        },
+        }),
       ],
       selectedContextId: "account-1",
       requiresContextSelection: false,
@@ -776,12 +760,10 @@ describe("manager shell pages", () => {
     fetchManagerTrafficMock.mockResolvedValue(managerTrafficResponse(0, 0));
     useExecutionContextMock.mockReturnValue({
       contexts: [
-        {
-          id: "account-1",
-          name: "Account Alpha",
-          type: "account",
+        buildExecutionContext("account-1", {
+          display_name: "Account Alpha",
           storage_endpoint_capabilities: { iam: true, metrics: true, usage: true },
-        },
+        }),
       ],
       selectedContextId: "account-1",
       requiresContextSelection: false,
@@ -810,12 +792,10 @@ describe("manager shell pages", () => {
     fetchManagerTrafficMock.mockRejectedValue(new Error("traffic unavailable"));
     useExecutionContextMock.mockReturnValue({
       contexts: [
-        {
-          id: "account-1",
-          name: "Account Alpha",
-          type: "account",
+        buildExecutionContext("account-1", {
+          display_name: "Account Alpha",
           storage_endpoint_capabilities: { iam: true, metrics: true, usage: true },
-        },
+        }),
       ],
       selectedContextId: "account-1",
       requiresContextSelection: false,
@@ -858,12 +838,10 @@ describe("manager shell pages", () => {
     ]);
     useExecutionContextMock.mockReturnValue({
       contexts: [
-        {
-          id: "account-1",
-          name: "Account Alpha",
-          type: "account",
+        buildExecutionContext("account-1", {
+          display_name: "Account Alpha",
           storage_endpoint_capabilities: { iam: true, metrics: true, usage: true },
-        },
+        }),
       ],
       selectedContextId: "account-1",
       requiresContextSelection: false,
@@ -918,12 +896,10 @@ describe("manager shell pages", () => {
     ]);
     useExecutionContextMock.mockReturnValue({
       contexts: [
-        {
-          id: "account-1",
-          name: "Account Alpha",
-          type: "account",
+        buildExecutionContext("account-1", {
+          display_name: "Account Alpha",
           storage_endpoint_capabilities: { iam: true, metrics: true, usage: true },
-        },
+        }),
       ],
       selectedContextId: "account-1",
       requiresContextSelection: false,
@@ -956,12 +932,10 @@ describe("manager shell pages", () => {
   it("shows an empty recent activity state only after an empty successful response", async () => {
     useExecutionContextMock.mockReturnValue({
       contexts: [
-        {
-          id: "account-1",
-          name: "Account Alpha",
-          type: "account",
+        buildExecutionContext("account-1", {
+          display_name: "Account Alpha",
           storage_endpoint_capabilities: { iam: true, metrics: true, usage: true },
-        },
+        }),
       ],
       selectedContextId: "account-1",
       requiresContextSelection: false,
@@ -990,12 +964,10 @@ describe("manager shell pages", () => {
     listManagerActivityMock.mockRejectedValue(new Error("activity unavailable"));
     useExecutionContextMock.mockReturnValue({
       contexts: [
-        {
-          id: "account-1",
-          name: "Account Alpha",
-          type: "account",
+        buildExecutionContext("account-1", {
+          display_name: "Account Alpha",
           storage_endpoint_capabilities: { iam: true, metrics: true, usage: true },
-        },
+        }),
       ],
       selectedContextId: "account-1",
       requiresContextSelection: false,
@@ -1058,13 +1030,10 @@ describe("manager shell pages", () => {
     });
     useExecutionContextMock.mockReturnValue({
       contexts: [
-        {
-          id: "account-1",
-          name: "User9001",
-          type: "account",
+        buildExecutionContext("account-1", {
+          display_name: "User9001",
           storage_endpoint_capabilities: { iam: true, metrics: true, usage: true },
-          capabilities: { can_manage_iam: true },
-        },
+        }),
       ],
       selectedContextId: "account-1",
       requiresContextSelection: false,
@@ -1149,12 +1118,10 @@ describe("manager shell pages", () => {
     });
     useExecutionContextMock.mockReturnValue({
       contexts: [
-        {
-          id: "account-1",
-          name: "Account Alpha",
-          type: "account",
+        buildExecutionContext("account-1", {
+          display_name: "Account Alpha",
           storage_endpoint_capabilities: { iam: true, metrics: true, usage: true },
-        },
+        }),
       ],
       selectedContextId: "account-1",
       requiresContextSelection: false,
@@ -1198,12 +1165,10 @@ describe("manager shell pages", () => {
   it("adds the selected bucket to the manager browser breadcrumb", async () => {
     useExecutionContextMock.mockReturnValue({
       contexts: [
-        {
-          id: "account-1",
-          name: "Account Alpha",
-          type: "account",
+        buildExecutionContext("account-1", {
+          display_name: "Account Alpha",
           storage_endpoint_capabilities: { iam: true },
-        },
+        }),
       ],
       selectedContextId: "account-1",
       requiresContextSelection: false,
@@ -1243,7 +1208,7 @@ describe("manager shell pages", () => {
 
   it("does not mount the data plane while Manager Browser access is loading or denied", () => {
     useExecutionContextMock.mockReturnValue({
-      contexts: [{ id: "account-1", name: "Account Alpha", type: "account" }],
+      contexts: [buildExecutionContext("account-1", { display_name: "Account Alpha" })],
       selectedContextId: "account-1",
       hasExecutionContext: true,
       contextIdForApi: "account-1",
@@ -1264,7 +1229,7 @@ describe("manager shell pages", () => {
     expect(screen.queryByTestId("browser-embed")).not.toBeInTheDocument();
 
     useExecutionContextMock.mockReturnValue({
-      contexts: [{ id: "account-1", name: "Account Alpha", type: "account" }],
+      contexts: [buildExecutionContext("account-1", { display_name: "Account Alpha" })],
       selectedContextId: "account-1",
       hasExecutionContext: true,
       contextIdForApi: "account-1",
@@ -1387,13 +1352,11 @@ describe("manager shell pages", () => {
     ]);
     useExecutionContextMock.mockReturnValue({
       contexts: [
-        {
-          id: "account-1",
-          name: "Account Alpha",
-          type: "account",
+        buildExecutionContext("account-1", {
+          display_name: "Account Alpha",
           endpoint_provider: "ceph",
           storage_endpoint_capabilities: { iam: true, metrics: true, usage: true, sns: true },
-        },
+        }),
       ],
       selectedContextId: "account-1",
       requiresContextSelection: false,
@@ -1769,13 +1732,11 @@ describe("manager shell pages", () => {
     });
     useExecutionContextMock.mockReturnValue({
       contexts: [
-        {
-          id: "account-1",
-          name: "Account Alpha",
-          type: "account",
+        buildExecutionContext("account-1", {
+          display_name: "Account Alpha",
           endpoint_provider: "ceph",
           storage_endpoint_capabilities: { iam: true, metrics: true, usage: true, sns: true },
-        },
+        }),
       ],
       selectedContextId: "account-1",
       requiresContextSelection: false,
