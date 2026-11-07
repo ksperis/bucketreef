@@ -45,6 +45,7 @@ from app.services import managed_private_access_cleanup_service as cleanup_servi
 from app.services.managed_private_access_policy_service import ManagedPrivateAccessPolicyService
 from app.services.managed_private_access_service import ManagedPrivateAccessService
 from app.services.managed_private_access_state_service import ManagedPrivateAccessStateService
+from app.services.rgw_iam import RGWIAMError
 from tests.s3_connection_factory import custom_endpoint_fields
 from tests.storage_endpoint_features import persisted_endpoint_features
 from app.services.managed_resource_naming import PORTAL_MANAGED_IAM_GROUP_NAMES
@@ -188,21 +189,21 @@ def _payload(name="Private account access"):
     )
 
 
-def test_managed_private_access_policy_only_wraps_iam_runtime_errors(db_session):
+def test_managed_private_access_policy_only_wraps_expected_iam_errors(db_session):
     service = ManagedPrivateAccessPolicyService(db_session)
 
     class FailingIAM(FakeIAM):
         def list_groups(self):
-            raise RuntimeError("provider unavailable")
+            raise RGWIAMError("provider unavailable")
 
     with pytest.raises(ManagedPrivateAccessError, match="Unable to validate IAM groups and policies"):
         service.validate_iam_provisioning_request(FailingIAM(), _payload())
 
     class BrokenIAM(FakeIAM):
         def list_groups(self):
-            raise TypeError("unexpected IAM validation bug")
+            raise RuntimeError("unexpected IAM validation bug")
 
-    with pytest.raises(TypeError, match="unexpected IAM validation bug"):
+    with pytest.raises(RuntimeError, match="unexpected IAM validation bug"):
         service.validate_iam_provisioning_request(BrokenIAM(), _payload())
 
 
