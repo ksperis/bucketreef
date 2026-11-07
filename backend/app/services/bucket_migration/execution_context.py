@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from sqlalchemy import select
 
-from app.core.domain_errors import S3AccountNotFoundError, S3UserNotFoundError
-from app.db import S3Account, S3User
+from app.core.domain_errors import S3AccountNotFoundError
+from app.db import S3Account
 from app.services.app_settings_service import load_app_settings_for_db
 from app.services.s3_client import get_s3_client
 from app.services.s3_connection_query_service import S3ConnectionQueryService
 from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
+from app.services.s3_user_repository import S3UserRepository
 from app.utils.s3_endpoint import normalize_s3_endpoint, resolve_s3_client_options
 from .execution_runtime import MIGRATION_USER_AGENT_MARKER, MigrationRuntimeLimits, ResolvedContext
 
@@ -78,11 +79,7 @@ class BucketMigrationExecutionContextMixin:
             suffix = value.split("s3u-", 1)[1]
             if not suffix.isdigit():
                 raise ValueError("Invalid S3 user context id")
-            s3_user = self.db.scalars(
-                select(S3User).where(S3User.id == int(suffix))
-            ).first()
-            if not s3_user:
-                raise S3UserNotFoundError("S3 user not found")
+            s3_user = S3UserRepository(self.db).get(int(suffix))
             return S3ExecutionContext.from_s3_user(s3_user)
 
         if not value.isdigit():
