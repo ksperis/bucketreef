@@ -5,6 +5,7 @@ from typing import Annotated, Optional, Literal
 
 from pydantic import AfterValidator, Field, field_validator
 
+from app.core.domain_enums import SortDirection
 from app.models.base import ApiModel
 from app.models.pagination import PaginatedResponse, PaginationRequest
 from app.models.portal_storage_spaces import PortalStorageSpaceIcon
@@ -60,7 +61,7 @@ class ObjectUploadResponse(ApiModel):
 
 
 BrowserObjectSortBy = Literal["name", "size", "modified", "storage_class", "etag"]
-BrowserObjectSortDir = Literal["asc", "desc"]
+BrowserObjectSortDir = SortDirection
 BrowserObjectItemType = Literal["all", "file", "folder"]
 BrowserObjectLazyColumn = Literal[
     "content_type",
