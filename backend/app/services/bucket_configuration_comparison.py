@@ -1,7 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 import json
-from dataclasses import dataclass
 from typing import Any, Optional, Protocol
 
 from app.models.bucket import BucketLoggingConfiguration, BucketProperties, BucketTag
@@ -20,33 +19,20 @@ class BucketConfigurationReader(Protocol):
     def get_bucket_tags(self, name: str, execution_context: S3ExecutionTarget) -> list[BucketTag]: ...
 
 
-_ALLOWED_SECTION_KEYS = frozenset(
-    {
-        "versioning_status",
-        "object_lock",
-        "public_access_block",
-        "lifecycle_rules",
-        "cors_rules",
-        "bucket_policy",
-        "access_logging",
-        "tags",
-    }
+_SECTION_SPECS = (
+    ("versioning_status", "Versioning"),
+    ("object_lock", "Object lock"),
+    ("public_access_block", "Public access block"),
+    ("lifecycle_rules", "Lifecycle rules"),
+    ("cors_rules", "CORS rules"),
+    ("bucket_policy", "Bucket policy"),
+    ("access_logging", "Access logging"),
+    ("tags", "Tags"),
 )
+_ALLOWED_SECTION_KEYS = frozenset(key for key, _label in _SECTION_SPECS)
 _PROPERTY_SECTION_KEYS = frozenset(
     {"versioning_status", "object_lock", "public_access_block", "lifecycle_rules", "cors_rules"}
 )
-
-
-@dataclass(frozen=True)
-class _ConfigurationValues:
-    source_properties: Optional[BucketProperties] = None
-    target_properties: Optional[BucketProperties] = None
-    source_policy: Optional[dict] = None
-    target_policy: Optional[dict] = None
-    source_logging: Any = None
-    target_logging: Any = None
-    source_tags: tuple[dict[str, str], ...] = ()
-    target_tags: tuple[dict[str, str], ...] = ()
 
 
 def _selected_sections(include_sections: Optional[set[str]]) -> set[str]:
@@ -62,100 +48,66 @@ def _read_configuration_values(
     target_bucket: str,
     target_context: S3ExecutionTarget,
     selected_sections: set[str],
-) -> _ConfigurationValues:
-    source_properties: Optional[BucketProperties] = None
-    target_properties: Optional[BucketProperties] = None
+) -> dict[str, tuple[Any, Any]]:
+    values: dict[str, tuple[Any, Any]] = {}
     if selected_sections & _PROPERTY_SECTION_KEYS:
         source_properties = reader.get_bucket_properties(source_bucket, source_context)
         target_properties = reader.get_bucket_properties(target_bucket, target_context)
+        values.update(
+            {
+                "versioning_status": (
+                    source_properties.versioning_status,
+                    target_properties.versioning_status,
+                ),
+                "object_lock": (
+                    model_to_jsonable(source_properties.object_lock),
+                    model_to_jsonable(target_properties.object_lock),
+                ),
+                "public_access_block": (
+                    model_to_jsonable(source_properties.public_access_block),
+                    model_to_jsonable(target_properties.public_access_block),
+                ),
+                "lifecycle_rules": (
+                    [model_to_jsonable(rule) for rule in source_properties.lifecycle_rules],
+                    [model_to_jsonable(rule) for rule in target_properties.lifecycle_rules],
+                ),
+                "cors_rules": (
+                    source_properties.cors_rules or [],
+                    target_properties.cors_rules or [],
+                ),
+            }
+        )
 
-    source_policy: Optional[dict] = None
-    target_policy: Optional[dict] = None
     if "bucket_policy" in selected_sections:
-        source_policy = reader.get_policy(source_bucket, source_context)
-        target_policy = reader.get_policy(target_bucket, target_context)
+        values["bucket_policy"] = (
+            reader.get_policy(source_bucket, source_context),
+            reader.get_policy(target_bucket, target_context),
+        )
 
-    source_logging: Any = None
-    target_logging: Any = None
     if "access_logging" in selected_sections:
-        source_logging = model_to_jsonable(reader.get_bucket_logging(source_bucket, source_context))
-        target_logging = model_to_jsonable(reader.get_bucket_logging(target_bucket, target_context))
+        values["access_logging"] = (
+            model_to_jsonable(reader.get_bucket_logging(source_bucket, source_context)),
+            model_to_jsonable(reader.get_bucket_logging(target_bucket, target_context)),
+        )
 
-    source_tags: tuple[dict[str, str], ...] = ()
-    target_tags: tuple[dict[str, str], ...] = ()
     if "tags" in selected_sections:
-        source_tags = tuple(_normalize_tags(reader.get_bucket_tags(source_bucket, source_context)))
-        target_tags = tuple(_normalize_tags(reader.get_bucket_tags(target_bucket, target_context)))
+        values["tags"] = (
+            _normalize_tags(reader.get_bucket_tags(source_bucket, source_context)),
+            _normalize_tags(reader.get_bucket_tags(target_bucket, target_context)),
+        )
 
-    return _ConfigurationValues(
-        source_properties=source_properties,
-        target_properties=target_properties,
-        source_policy=source_policy,
-        target_policy=target_policy,
-        source_logging=source_logging,
-        target_logging=target_logging,
-        source_tags=source_tags,
-        target_tags=target_tags,
-    )
+    return values
 
 
-def _configuration_sections(
+def _build_configuration_diff(
     selected_sections: set[str],
-    values: _ConfigurationValues,
-) -> list[tuple[str, str, Any, Any]]:
-    source_properties = values.source_properties
-    target_properties = values.target_properties
-    sections: list[tuple[str, str, Any, Any]] = []
-    if selected_sections & _PROPERTY_SECTION_KEYS:
-        assert source_properties is not None
-        assert target_properties is not None
-    if "versioning_status" in selected_sections:
-        sections.append(
-            ("versioning_status", "Versioning", source_properties.versioning_status, target_properties.versioning_status)
-        )
-    if "object_lock" in selected_sections:
-        sections.append(
-            (
-                "object_lock",
-                "Object lock",
-                model_to_jsonable(source_properties.object_lock),
-                model_to_jsonable(target_properties.object_lock),
-            )
-        )
-    if "public_access_block" in selected_sections:
-        sections.append(
-            (
-                "public_access_block",
-                "Public access block",
-                model_to_jsonable(source_properties.public_access_block),
-                model_to_jsonable(target_properties.public_access_block),
-            )
-        )
-    if "lifecycle_rules" in selected_sections:
-        sections.append(
-            (
-                "lifecycle_rules",
-                "Lifecycle rules",
-                [model_to_jsonable(rule) for rule in source_properties.lifecycle_rules],
-                [model_to_jsonable(rule) for rule in target_properties.lifecycle_rules],
-            )
-        )
-    if "cors_rules" in selected_sections:
-        sections.append(
-            ("cors_rules", "CORS rules", source_properties.cors_rules or [], target_properties.cors_rules or [])
-        )
-    if "bucket_policy" in selected_sections:
-        sections.append(("bucket_policy", "Bucket policy", values.source_policy, values.target_policy))
-    if "access_logging" in selected_sections:
-        sections.append(("access_logging", "Access logging", values.source_logging, values.target_logging))
-    if "tags" in selected_sections:
-        sections.append(("tags", "Tags", list(values.source_tags), list(values.target_tags)))
-    return sections
-
-
-def _build_configuration_diff(sections_data: list[tuple[str, str, Any, Any]]) -> BucketConfigDiff:
+    values: dict[str, tuple[Any, Any]],
+) -> BucketConfigDiff:
     sections: list[BucketConfigDiffSection] = []
-    for key, label, source_value, target_value in sections_data:
+    for key, label in _SECTION_SPECS:
+        if key not in selected_sections:
+            continue
+        source_value, target_value = values[key]
         section_changed = _stable_value(source_value) != _stable_value(target_value)
         sections.append(
             BucketConfigDiffSection(
@@ -192,7 +144,7 @@ def compare_bucket_configuration(
         target_context,
         selected_sections,
     )
-    return _build_configuration_diff(_configuration_sections(selected_sections, values))
+    return _build_configuration_diff(selected_sections, values)
 
 
 def _normalize_tags(tags: list[BucketTag]) -> list[dict[str, str]]:

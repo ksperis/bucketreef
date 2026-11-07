@@ -507,6 +507,16 @@ def test_compare_bucket_configuration_detects_changes(monkeypatch):
     diff = service.compare_bucket_configuration("source-bucket", source, "target-bucket", target)
 
     assert diff.changed is True
+    assert [section.key for section in diff.sections] == [
+        "versioning_status",
+        "object_lock",
+        "public_access_block",
+        "lifecycle_rules",
+        "cors_rules",
+        "bucket_policy",
+        "access_logging",
+        "tags",
+    ]
     section_by_key = {section.key: section for section in diff.sections}
     assert section_by_key["versioning_status"].changed is True
     assert section_by_key["bucket_policy"].changed is True
