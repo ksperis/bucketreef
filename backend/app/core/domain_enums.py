@@ -59,6 +59,7 @@ class HealthWindow(str, Enum):
 
 
 HealthCheckMode = Literal["http", "s3"]
+KeyRotationPhase = Literal["prepared", "activated"]
 S3SubjectType = Literal["account", "s3_user"]
 S3SubjectFilter = Literal["all", "account", "s3_user"]
 SortDirection = Literal["asc", "desc"]
@@ -67,6 +68,15 @@ SortDirection = Literal["asc", "desc"]
 ServiceIdentityMode = Literal["managed", "external"]
 ServiceIdentityKind = Literal["runtime", "supervision", "ceph_admin"]
 ManagedServiceIdentityKind = Literal["runtime", "supervision"]
+ServiceIdentityStatus = Literal[
+    "not_provisioned",
+    "missing",
+    "provisioning",
+    "ready",
+    "error",
+    "revocation_pending",
+    "disabled",
+]
 
 SERVICE_IDENTITY_KINDS: tuple[ServiceIdentityKind, ...] = (
     "runtime",

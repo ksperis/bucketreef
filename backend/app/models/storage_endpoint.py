@@ -9,8 +9,10 @@ from pydantic import ConfigDict, Field, SecretStr, field_validator, model_valida
 from app.models.base import ApiModel, reject_explicit_null_fields
 from app.core.domain_enums import (
     HealthCheckMode,
+    KeyRotationPhase,
     ServiceIdentityKind,
     ServiceIdentityMode,
+    ServiceIdentityStatus,
     StorageProvider,
 )
 from app.models.tagging import RequiredTagDefinitionList, TagDefinitionSummary
@@ -72,18 +74,10 @@ class EndpointServiceIdentityStatus(ApiModel):
     kind: ServiceIdentityKind
     mode: ServiceIdentityMode
     rgw_uid: Optional[str]
-    status: Literal[
-        "not_provisioned",
-        "missing",
-        "provisioning",
-        "ready",
-        "error",
-        "revocation_pending",
-        "disabled",
-    ]
+    status: ServiceIdentityStatus
     credentials_configured: bool
     rotation_pending: bool
-    rotation_phase: Optional[Literal["prepared", "activated"]]
+    rotation_phase: Optional[KeyRotationPhase]
     last_error: Optional[str]
     last_reconciled_at: Optional[datetime]
 

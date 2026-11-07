@@ -7,6 +7,7 @@ from typing import Literal, Optional
 
 from pydantic import Field, field_validator, model_validator
 
+from app.core.domain_enums import KeyRotationPhase
 from app.models.base import ApiModel
 
 
@@ -21,7 +22,6 @@ class KeyRotationType(str, Enum):
 
 KeyRotationTargetType = Literal["endpoint", "account", "s3_user"]
 KeyRotationResultStatus = Literal["rotated", "failed", "skipped"]
-KeyRotationPhase = Literal["prepared", "activated"]
 
 
 class KeyRotationRequest(ApiModel):
