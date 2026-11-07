@@ -32,6 +32,21 @@ def require_s3_execution_credentials(
     return access_key, secret_key
 
 
+def require_s3_execution_credentials_with_error(
+    execution_context: S3ExecutionTarget,
+    *,
+    error_message: str,
+    error_type: type[Exception],
+) -> tuple[str, str]:
+    try:
+        return require_s3_execution_credentials(
+            execution_context,
+            error_message=error_message,
+        )
+    except S3ExecutionCredentialsError as exc:
+        raise error_type(str(exc)) from exc
+
+
 def s3_execution_client_kwargs(execution_context: S3ExecutionTarget) -> dict[str, Any]:
     return {
         **resolve_s3_client_kwargs(execution_context),
@@ -44,13 +59,11 @@ def s3_execution_request_kwargs(
     *,
     error_message: str = DEFAULT_S3_EXECUTION_CREDENTIALS_ERROR,
 ) -> dict[str, Any]:
-    try:
-        access_key, secret_key = require_s3_execution_credentials(
-            execution_context,
-            error_message=error_message,
-        )
-    except S3ExecutionCredentialsError as exc:
-        raise S3OperationError(str(exc)) from exc
+    access_key, secret_key = require_s3_execution_credentials_with_error(
+        execution_context,
+        error_message=error_message,
+        error_type=S3OperationError,
+    )
     return {
         "access_key": access_key,
         "secret_key": secret_key,

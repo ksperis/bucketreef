@@ -10,8 +10,7 @@ from typing import Optional
 
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.services.s3_execution_client import (
-    S3ExecutionCredentialsError,
-    require_s3_execution_credentials,
+    require_s3_execution_credentials_with_error,
     s3_execution_cache_key,
 )
 from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
@@ -101,12 +100,11 @@ def request_browser_sts_session(
     if not browser_sts_enabled(context):
         raise BrowserStsUnavailableError("STS is disabled for this endpoint")
 
-    try:
-        access_key, secret_key = require_s3_execution_credentials(
-            context, error_message="S3 credentials missing for this context",
-        )
-    except S3ExecutionCredentialsError as exc:
-        raise BrowserStsUnavailableError(str(exc)) from exc
+    access_key, secret_key = require_s3_execution_credentials_with_error(
+        context,
+        error_message="S3 credentials missing for this context",
+        error_type=BrowserStsUnavailableError,
+    )
 
     endpoint = resolve_sts_endpoint(context.storage_endpoint) if context.storage_endpoint else None
     if not endpoint:

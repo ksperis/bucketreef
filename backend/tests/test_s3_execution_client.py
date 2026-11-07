@@ -10,6 +10,7 @@ from app.services.s3_client import S3OperationError
 from app.services.s3_execution_client import (
     S3ExecutionCredentialsError,
     require_s3_execution_credentials,
+    require_s3_execution_credentials_with_error,
     s3_execution_cache_key,
     s3_execution_client_kwargs,
     s3_execution_request_kwargs,
@@ -24,6 +25,33 @@ def test_require_s3_execution_credentials_preserves_requested_error() -> None:
         require_s3_execution_credentials(
             account,
             error_message="custom credentials error",
+        )
+
+
+def test_require_s3_execution_credentials_with_error_preserves_cause() -> None:
+    account = SimpleNamespace(effective_rgw_credentials=lambda: (None, None))
+
+    with pytest.raises(S3OperationError, match="custom credentials error") as raised:
+        require_s3_execution_credentials_with_error(
+            account,
+            error_message="custom credentials error",
+            error_type=S3OperationError,
+        )
+
+    assert isinstance(raised.value.__cause__, S3ExecutionCredentialsError)
+
+
+def test_require_s3_execution_credentials_with_error_preserves_unexpected_failure() -> None:
+    class BrokenContext:
+        @staticmethod
+        def effective_rgw_credentials():
+            raise RuntimeError("unexpected credential resolver bug")
+
+    with pytest.raises(RuntimeError, match="unexpected credential resolver bug"):
+        require_s3_execution_credentials_with_error(
+            BrokenContext(),
+            error_message="custom credentials error",
+            error_type=S3OperationError,
         )
 
 
