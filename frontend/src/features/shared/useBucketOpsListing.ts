@@ -12,9 +12,9 @@ import {
 import { isCancelledError } from "../../utils/apiError";
 import type {
   CephAdminBucket,
-  CephAdminBucketsStreamProgress,
   PaginatedCephAdminBucketsResponse,
 } from "../../api/cephAdminBuckets";
+import type { CephAdminListingStreamProgress } from "../../api/cephAdminEntityListing";
 import {
   FALLBACK_ADVANCED_PROGRESS,
   INACTIVE_ADVANCED_PROGRESS,
@@ -52,7 +52,7 @@ type UseBucketOpsListingParams = {
     params?: BucketListingParams,
     options?: {
       signal?: AbortSignal;
-      onProgress?: (event: CephAdminBucketsStreamProgress) => void;
+      onProgress?: (event: CephAdminListingStreamProgress) => void;
     }
   ) => Promise<PaginatedCephAdminBucketsResponse>;
 };
@@ -166,7 +166,7 @@ export function useBucketOpsListing({
         try {
           baseResponse = await streamBuckets(selectedScopeId, baseParams, {
             signal: requestAbort.signal,
-            onProgress: (event: CephAdminBucketsStreamProgress) => {
+            onProgress: (event: CephAdminListingStreamProgress) => {
               if (requestId !== requestSeqRef.current || requestAbort.signal.aborted) return;
               setAdvancedProgress(progressFromAdvancedSearchEvent(event));
             },

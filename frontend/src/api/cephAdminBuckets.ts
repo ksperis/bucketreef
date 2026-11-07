@@ -50,8 +50,6 @@ export type PaginatedCephAdminBucketsResponse = PaginatedResponse<CephAdminBucke
   stats_warning: string | null;
 };
 
-export type CephAdminBucketsStreamProgress = CephAdminListingStreamProgress;
-
 type ListCephAdminBucketsOptions = {
   signal?: AbortSignal;
 };
@@ -143,13 +141,13 @@ export async function backupCephAdminBucketConfigs(
 export async function streamCephAdminBuckets(
   endpointId: number,
   params?: BucketListingParams,
-  options?: SseStreamOptions<CephAdminBucketsStreamProgress>
+  options?: SseStreamOptions<CephAdminListingStreamProgress>
 ): Promise<PaginatedCephAdminBucketsResponse> {
   const baseUrl = resolveApiBaseUrl();
   const query = buildBucketListingQuery(params);
   const queryText = query.toString();
   const url = `${baseUrl}/ceph-admin/endpoints/${endpointId}/buckets/stream${queryText ? `?${queryText}` : ""}`;
-  return streamApiResultWithSse<CephAdminBucketsStreamProgress, PaginatedCephAdminBucketsResponse>({
+  return streamApiResultWithSse<CephAdminListingStreamProgress, PaginatedCephAdminBucketsResponse>({
     url,
     options,
     streamFailedLabel: "Advanced search stream failed",

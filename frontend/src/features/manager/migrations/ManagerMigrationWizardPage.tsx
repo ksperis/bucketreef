@@ -7,7 +7,7 @@ import {
   getManagerMigration,
   runManagerMigrationPrecheck,
   updateManagerMigration,
-  type BucketMigrationCreateRequest,
+  type BucketMigrationDraftRequest,
 } from "../../../api/managerMigrations";
 import DataTableShell from "../../../components/list/DataTableShell";
 import { ListActionButton } from "../../../components/list/ListControls";
@@ -194,7 +194,7 @@ export default function ManagerMigrationWizardPage() {
     }
     setBusy(true);
     try {
-      const payload: BucketMigrationCreateRequest = {
+      const payload: BucketMigrationDraftRequest = {
         source_context_id: sourceId,
         target_context_id: targetId,
         buckets: mappings,
