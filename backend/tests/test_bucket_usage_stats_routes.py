@@ -208,10 +208,6 @@ def test_storage_ops_usage_stats_stream_uses_authorized_user_for_context_resolut
     )
     captured: dict[str, object] = {}
 
-    def fake_context_names(actor, _db):
-        captured["catalog_actor"] = actor
-        return {"1": "Managed Account"}
-
     def fake_execution_context(*, request, context_ref, actor, db):
         captured["execution_actor"] = actor
         captured["context_ref"] = context_ref
@@ -222,7 +218,6 @@ def test_storage_ops_usage_stats_stream_uses_authorized_user_for_context_resolut
         captured["parallelism"] = parallelism
         return JSONResponse({"ok": True})
 
-    monkeypatch.setattr(storage_ops_usage_stats_router, "storage_ops_context_names", fake_context_names)
     monkeypatch.setattr(storage_ops_usage_stats_router, "get_s3_execution_context", fake_execution_context)
     monkeypatch.setattr(storage_ops_usage_stats_router, "stream_resolved_bucket_usage_stats", fake_stream)
     app.dependency_overrides[dependencies.require_storage_ops_enabled] = lambda: None
@@ -241,7 +236,6 @@ def test_storage_ops_usage_stats_stream_uses_authorized_user_for_context_resolut
         app.dependency_overrides.pop(storage_ops_usage_stats_router.get_current_storage_ops_admin, None)
 
     assert response.status_code == 200, response.text
-    assert captured["catalog_actor"] is user
     assert captured["execution_actor"] is user
     assert captured["context_ref"] == "1"
     targets = captured["targets"]
