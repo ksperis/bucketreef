@@ -220,15 +220,16 @@ def test_create_account_data_falls_back_to_account_client_when_iam_provisioning_
             object_puts.append(kwargs)
 
     class _UsersService:
-        def get_by_email(self, _email):  # noqa: ANN001
-            return None
-
         def create_user(self, payload):  # noqa: ANN001
             assert payload.email == "admin@example.com"
             return SimpleNamespace(id=11)
 
         def assign_user_to_account(self, user_id, account_id, *, manager_role, portal_role):  # noqa: ANN001
             user_links.append((user_id, account_id, manager_role, portal_role))
+
+    class _UserQueryService:
+        def get_by_email(self, _email):  # noqa: ANN001
+            return None
 
     def fail_iam_provisioning(*_args, **_kwargs):
         raise RuntimeError("IAM unavailable")
@@ -249,6 +250,7 @@ def test_create_account_data_falls_back_to_account_client_when_iam_provisioning_
         object(),
         _BucketsService(),
         _UsersService(),
+        _UserQueryService(),
         seed.AccountPlan(
             name="Demo",
             email="demo@example.com",

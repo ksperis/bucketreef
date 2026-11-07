@@ -51,6 +51,7 @@ def _call_import_route(monkeypatch, *, service: _ImportService, audit_service: _
             target_user_id=2,
         ),
         users_service=users_service,
+        user_query_service=SimpleNamespace(),
         associations_service=SimpleNamespace(),
         current_user=current_user,
         audit_service=audit_service,
