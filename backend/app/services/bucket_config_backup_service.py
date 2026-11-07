@@ -18,9 +18,14 @@ from app.models.bucket_config_backup import (
 )
 from app.services.bucket_configuration_service import BucketConfigurationService
 from app.services.buckets_service import BucketsService
+from app.services.s3_client import S3OperationError
 from app.utils.jsonable import model_to_jsonable
 
 QuotaSnapshotLoader = Callable[[str], dict[str, int | None]]
+
+
+class BucketConfigBackupFeatureError(RuntimeError):
+    """Expected provider failure while collecting one backup feature."""
 
 
 @dataclass(frozen=True)
@@ -85,7 +90,7 @@ class BucketConfigBackupService:
                     feature,
                     quota_loader,
                 )
-            except Exception as exc:  # noqa: BLE001 - backup files should carry per-feature failures.
+            except (S3OperationError, BucketConfigBackupFeatureError) as exc:
                 errors[feature] = sanitized_error_log_detail(exc)
 
         return BucketConfigBackupBucket(
