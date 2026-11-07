@@ -2,8 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from typing import Optional
-
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -217,8 +215,11 @@ class UiGroupsService:
             sync_promotions=False,
         )
 
-    def get_group(self, group_id: int) -> Optional[UiGroup]:
-        return self.queries.get_group(group_id)
+    def get_group(self, group_id: int) -> UiGroup:
+        group = self.queries.get_group(group_id)
+        if group is None:
+            raise UiGroupNotFoundError("UI group not found")
+        return group
 
     def list_group_options_page(
         self,
