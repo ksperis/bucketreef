@@ -39,18 +39,7 @@ import WorkflowTabs from "../../components/WorkflowTabs";
 import PageBanner from "../../components/PageBanner";
 import PageHeader, { type PageBreadcrumb } from "../../components/PageHeader";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
-import {
-  AdminAccessToggleSection,
-  BrowserAccessSection,
-  ManagerToolAccessSection,
-  WorkspaceAccessSection,
-} from "./AdminAccessSections";
 import { AdminAssociationTabs, adminAssociationPanelClass } from "./AdminAssociationPicker";
-import {
-  buildManagerToolDefinitions,
-  normalizeManagerToolAccess,
-  type ManagerToolKey,
-} from "./adminAccessConfig";
 import SettingsForm from "../../components/settings/SettingsForm";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import { SettingsButton, SettingsPersistentEditActions, useSettingsCloseGuard } from "../../components/settings/SettingsControls";
@@ -59,7 +48,6 @@ import { useSettingsDraft } from "../../components/settings/useSettingsDraft";
 import UiInput from "../../components/ui/UiInput";
 import UiTextarea from "../../components/ui/UiTextarea";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
-import { isFeaturePolicyAvailable } from "../../api/featurePolicies";
 import { extractApiError } from "../../utils/apiError";
 import {
   clearAdminPrincipalEditRequest,
@@ -70,6 +58,7 @@ import {
 } from "./useAdminPrincipalEditRequest";
 import { useGroupsI18n, type GroupsMessageKey } from "./groupsMessage";
 import AdminGroupsList, { type GroupSortField } from "./AdminGroupsList";
+import AdminGroupAccessTab from "./AdminGroupAccessTab";
 import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
 import useAdminGroupAssociationOptions from "./useAdminGroupAssociationOptions";
 import useAdminPaginatedListState from "./useAdminPaginatedListState";
@@ -272,11 +261,6 @@ export default function GroupsPage() {
     openStackClouds.forEach((cloud) => map.set(cloud.id, cloud.name));
     return map;
   }, [editingGroup, openStackClouds]);
-
-  const managerToolDefinitions = useMemo(
-    () => buildManagerToolDefinitions(generalSettings),
-    [generalSettings]
-  );
 
   const resetForm = () => {
     const draft = emptyAdminGroupForm();
@@ -966,99 +950,7 @@ export default function GroupsPage() {
             )}
 
             {modalTab === "access" && (
-              <>
-                <WorkspaceAccessSection
-                  description={text("workspaceAccessDescription")}
-                  cephAdmin={{
-                    title: text("cephAdminAccess"),
-                    description: text("cephAdminAccessDescription"),
-                    checked: Boolean(form.can_access_ceph_admin),
-                    onChange: (value) => setForm((current) => ({ ...current, can_access_ceph_admin: value })),
-                    ariaLabel: text("allowCephAdminAccess"),
-                  }}
-                  storageOps={{
-                    title: text("storageOpsAccess"),
-                    description: text("storageOpsAccessDescription"),
-                    checked: Boolean(form.can_access_storage_ops),
-                    onChange: (value) => setForm((current) => ({ ...current, can_access_storage_ops: value })),
-                    ariaLabel: text("allowStorageOpsAccess"),
-                  }}
-                />
-                <ManagerToolAccessSection
-                  title={text("manager")}
-                  additionalItems={[
-                    {
-                      title: text("provisionManagedPrivateConnections"),
-                      description: text("managedProvisioningDescription"),
-                      checked: Boolean(form.can_provision_managed_private_connections),
-                      platformDefault: generalSettings.manager_feature_policies?.managed_private_connection_provisioning === "default_on",
-                      blocked: !isFeaturePolicyAvailable(generalSettings.manager_feature_policies.managed_private_connection_provisioning),
-                      onChange: (value) =>
-                        setForm((current) => ({
-                          ...current,
-                          can_provision_managed_private_connections: value,
-                        })),
-                      ariaLabel: text("allowManagedProvisioning"),
-                    },
-                  ]}
-                  description={text("managerAccessDescription")}
-                  tools={managerToolDefinitions}
-                  access={form.manager_tool_access}
-                  onChange={(key: ManagerToolKey, value) =>
-                    setForm((current) => ({
-                      ...current,
-                      manager_tool_access: {
-                        ...normalizeManagerToolAccess(current.manager_tool_access),
-                        [key]: value,
-                      },
-                    }))
-                  }
-                />
-                <AdminAccessToggleSection
-                  title={text("rgwMultisite")}
-                  description={text("rgwMultisiteAccessDescription")}
-                  items={[
-                    {
-                      title: text("switchRgwMultisiteEndpoints"),
-                      description: text("switchRgwMultisiteEndpointsDescription"),
-                      checked: Boolean(form.allow_multisite_endpoint_switching),
-                      onChange: (value) =>
-                        setForm((current) => ({
-                          ...current,
-                          allow_multisite_endpoint_switching: value,
-                        })),
-                      ariaLabel: text("allowRgwMultisiteEndpointSwitching"),
-                    },
-                  ]}
-                />
-                <BrowserAccessSection
-                  description={text("browserAccessDescription")}
-                  checked={Boolean(form.browser_advanced_features_enabled)}
-                  onChange={(value) =>
-                    setForm((current) => ({
-                      ...current,
-                      browser_advanced_features_enabled: value,
-                    }))
-                  }
-                />
-                <AdminAccessToggleSection
-                  title={text("connections")}
-                  description={text("connectionAccessDescription")}
-                  items={[
-                    {
-                      title: text("createManualPrivateConnections"),
-                      description: text("manualConnectionsDescription"),
-                      checked: Boolean(form.can_create_manual_private_connections),
-                      onChange: (value) =>
-                        setForm((current) => ({
-                          ...current,
-                          can_create_manual_private_connections: value,
-                        })),
-                      ariaLabel: text("allowManualConnections"),
-                    },
-                  ]}
-                />
-              </>
+              <AdminGroupAccessTab form={form} setForm={setForm} />
             )}
 
             </WorkflowTabs>
