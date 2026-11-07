@@ -4,12 +4,11 @@
  */
 import { isApiError } from "../../api/client";
 import type { BrowserObjectVersion } from "../../api/browserContracts";
+import { normalizeConcurrencyLimit } from "../../utils/concurrency";
 import type { BrowserItem, TreeNode, UploadCandidate, WebkitEntry } from "./browserTypes";
 
-export const clampParallelism = (value: number, fallback: number) => {
-  if (!Number.isFinite(value)) return fallback;
-  return Math.min(20, Math.max(1, Math.floor(value)));
-};
+export const clampParallelism = (value: number, fallback: number) =>
+  normalizeConcurrencyLimit(value, fallback, 20);
 
 export const formatDateTime = (value?: string | number | null, locale?: string): string => {
   if (value == null || value === "") return "-";

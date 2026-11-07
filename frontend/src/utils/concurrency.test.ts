@@ -1,6 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { runWithConcurrency, runWithConcurrencySettled } from "./concurrency";
+import {
+  normalizeConcurrencyLimit,
+  runWithConcurrency,
+  runWithConcurrencySettled,
+} from "./concurrency";
+
+describe("normalizeConcurrencyLimit", () => {
+  it("normalizes finite limits and preserves the requested fallback", () => {
+    expect(normalizeConcurrencyLimit(Number.NaN, 4, 20)).toBe(4);
+    expect(normalizeConcurrencyLimit(0, 4, 20)).toBe(1);
+    expect(normalizeConcurrencyLimit(8.9, 4, 20)).toBe(8);
+    expect(normalizeConcurrencyLimit(99, 4, 20)).toBe(20);
+  });
+});
 
 describe("runWithConcurrency", () => {
   it("bounds workers and stops dequeuing when requested", async () => {

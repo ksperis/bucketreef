@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { UiTone } from "../../components/ui/styles";
 import { extractApiError, isCancelledError } from "../../utils/apiError";
+import { normalizeConcurrencyLimit } from "../../utils/concurrency";
 import { roundedClampedPercentageOf } from "../../utils/numbers";
 import { diffToneClasses, type DiffTone } from "./diffPresentation";
 import { useCompareVisibleKeysClipboard } from "./bucketCompareContentDiff";
@@ -163,7 +164,7 @@ export function parseOptionalIsoDateTime(value: string): string | null {
 }
 
 export const normalizeBucketCompareParallelism = (value: number): number =>
-  Number.isFinite(value) ? Math.max(1, Math.min(20, Math.floor(value))) : 4;
+  normalizeConcurrencyLimit(value, 4, 20);
 
 export const resolveBucketCompareRunError = ({
   targetSelected,
