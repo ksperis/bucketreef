@@ -10,6 +10,9 @@ from pydantic import Field, field_validator
 
 from app.models.base import ApiModel
 
+PortalAccessKeyTargetType = Literal["self", "external"]
+PortalAccessKeyPermission = Literal["read_only", "read_write"]
+
 
 class PortalAccessKey(ApiModel):
     access_key_id: str
@@ -21,18 +24,18 @@ class PortalAccessKey(ApiModel):
     secret_access_key: Optional[str]
     expires_at: Optional[datetime]
     session_token: Optional[str]
-    target_type: Literal["self", "external"]
+    target_type: PortalAccessKeyTargetType
     external_email: Optional[str]
     storage_space_name: Optional[str]
     bucket_name: Optional[str]
-    permission: Optional[Literal["read_only", "read_write"]]
+    permission: Optional[PortalAccessKeyPermission]
 
 
 class PortalAccessKeyCreate(ApiModel):
-    target_type: Literal["self", "external"]
+    target_type: PortalAccessKeyTargetType
     storage_space_id: Optional[str] = Field(default=None, min_length=1, max_length=1024)
     external_email: Optional[str] = Field(default=None, max_length=254)
-    permission: Optional[Literal["read_only", "read_write"]] = None
+    permission: Optional[PortalAccessKeyPermission] = None
 
     @field_validator("storage_space_id")
     @classmethod

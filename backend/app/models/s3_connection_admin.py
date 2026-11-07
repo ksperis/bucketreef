@@ -33,6 +33,7 @@ S3ConnectionAdminSortBy = Literal[
     "last_used_at",
     "created_at",
 ]
+S3ConnectionExecutionStatus = Literal["ready", "remediation_required"]
 
 
 class S3ConnectionAdminListingRequest(AdminSortableListingRequest):
@@ -52,7 +53,7 @@ class S3ConnectionAdminItem(ApiModel):
     storage_endpoint_id: Optional[int]
     endpoint_url: str
     is_active: bool
-    execution_status: Literal["ready", "remediation_required"]
+    execution_status: S3ConnectionExecutionStatus
     remediation_reason: Optional[str]
     rgw_user_uid: Optional[str]
     rgw_tenant: Optional[str]
@@ -81,7 +82,7 @@ class S3ConnectionSummary(ApiModel):
     name: str
     created_by_user_id: int
     is_active: bool
-    execution_status: Literal["ready", "remediation_required"]
+    execution_status: S3ConnectionExecutionStatus
 
 
 class S3ConnectionAdminCreate(S3ConnectionCreationPayload):
