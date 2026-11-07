@@ -8,6 +8,7 @@ import {
   readClientStorage,
   readClientStorageKey,
   readSessionJsonFromKey,
+  readSessionStorageKey,
   removeClientStorage,
   removeClientStorageKey,
   removeSessionStorageKey,
@@ -16,6 +17,7 @@ import {
   writeClientStorage,
   writeClientStorageKey,
   writeSessionJsonToKey,
+  writeSessionStorageKey,
 } from "./clientStorage";
 
 describe("clientStorage", () => {
@@ -65,10 +67,12 @@ describe("clientStorage", () => {
   it("supports dynamic local and session storage keys", () => {
     writeClientStorageKey("dynamic-text", "value");
     writeClientJsonToKey("dynamic-json", { page: 2 });
+    writeSessionStorageKey(CLIENT_STORAGE_KEYS.demoPersona, "project-manager");
     writeSessionJsonToKey("dynamic-session", ["used_bytes"]);
 
     expect(readClientStorageKey("dynamic-text")).toBe("value");
     expect(readClientJsonFromKey<{ page: number }>("dynamic-json")).toEqual({ page: 2 });
+    expect(readSessionStorageKey(CLIENT_STORAGE_KEYS.demoPersona)).toBe("project-manager");
     expect(readSessionJsonFromKey<string[]>("dynamic-session")).toEqual(["used_bytes"]);
 
     removeClientStorageKey("dynamic-text");
