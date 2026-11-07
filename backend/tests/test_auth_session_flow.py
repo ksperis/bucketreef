@@ -167,6 +167,18 @@ def test_login_s3_disables_iam_capability_when_iam_client_denied(monkeypatch, cl
     ) is None
 
 
+def test_session_iam_probe_propagates_unexpected_runtime_errors(monkeypatch, db_session):
+    service = session_module.SessionService(db_session)
+    monkeypatch.setattr(
+        session_module,
+        "get_iam_client",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("session IAM probe regression")),
+    )
+
+    with pytest.raises(RuntimeError, match="session IAM probe regression"):
+        service._probe_iam_manage("AKIA", "SECRET", endpoint="https://s3.example.test")
+
+
 def test_session_identity_uses_canonical_nested_rgw_identity():
     resolved = session_module.SessionService._resolve_session_identity(
         "RGW00000000000000001",
