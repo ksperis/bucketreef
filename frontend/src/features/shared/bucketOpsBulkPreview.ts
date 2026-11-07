@@ -4,10 +4,6 @@
  */
 import { formatBytes, formatNumber } from "../../utils/format";
 import {
-  deleteNotificationConfigurations,
-  mergeNotificationConfigurations,
-} from "../cephAdmin/bucketJsonParsers";
-import {
   PUBLIC_ACCESS_BLOCK_OPTIONS,
   formatPublicAccessBlockFlag,
   formatPublicAccessBlockState,
@@ -21,19 +17,19 @@ import {
   formatLifecycleRule,
   formatNotificationConfiguration,
   formatPolicyRule,
-  getCorsRuleTypes,
-  getLifecycleRuleId,
-  getLifecycleRuleTypes,
-  getPolicyStatementSid,
-  getPolicyStatementTypes,
-  mergeCorsRules,
-  mergeLifecycleRules,
-  mergePolicyStatements,
 } from "./bucketConfigMerge";
 import type { BucketOpsApi } from "./bucketOpsApi";
 import type { PreparedBucketOpsBulkInput } from "./bucketOpsBulkInput";
 import { runBucketPreviewBatch } from "./bucketOpsBulkPreviewExecution";
 import {
+  resolveBulkCorsDeleteTarget,
+  resolveBulkCorsMergeTarget,
+  resolveBulkLifecycleDeleteTarget,
+  resolveBulkLifecycleMergeTarget,
+  resolveBulkNotificationDeleteTarget,
+  resolveBulkNotificationMergeTarget,
+  resolveBulkPolicyDeleteTarget,
+  resolveBulkPolicyMergeTarget,
   resolveBulkPublicAccessBlockTarget,
   resolveBulkQuotaTarget,
   resolveBulkVersioningTarget,
@@ -92,6 +88,7 @@ export async function previewBucketOpsBulkUpdate({
     deleteTypes,
     parsedCorsRules,
     parsedNotificationConfiguration,
+    parsedPolicy,
     parsedPolicyStatements,
     parsedQuota,
     parsedRules,
@@ -230,21 +227,22 @@ export async function previewBucketOpsBulkUpdate({
       : (await getBucketCors(endpointId, bucketName)).rules;
     const incomingRules = kind === "lifecycle" ? parsedRules : parsedCorsRules;
     const formatRule = kind === "lifecycle" ? formatLifecycleRule : formatCorsRule;
-    const { nextRules, changes } = kind === "lifecycle"
-      ? mergeLifecycleRules(
+    const target = kind === "lifecycle"
+      ? resolveBulkLifecycleMergeTarget(
           existingRules as Record<string, unknown>[],
           incomingRules ?? [],
-          { onlyUpdateExisting: lifecycleUpdateOnlyExisting },
+          lifecycleUpdateOnlyExisting,
         )
-      : mergeCorsRules(
+      : resolveBulkCorsMergeTarget(
           existingRules as Record<string, unknown>[],
           incomingRules ?? [],
-          { onlyUpdateExisting: corsUpdateOnlyExisting },
+          corsUpdateOnlyExisting,
         );
+    const { nextRules, changes } = target;
     const emptyText = "(no rules)";
     return {
       bucket: bucketName,
-      changed: changes.length > 0,
+      changed: target.changed,
       before:
         existingRules.length === 0
           ? [{ text: emptyText }]
@@ -279,24 +277,22 @@ export async function previewBucketOpsBulkUpdate({
     const existingRules = kind === "lifecycle"
       ? (await getBucketLifecycle(endpointId, bucketName)).rules
       : (await getBucketCors(endpointId, bucketName)).rules;
-    const ids = kind === "lifecycle" ? deleteIds : deleteCorsIds;
-    const types = kind === "lifecycle" ? deleteTypes : deleteCorsTypes;
     const formatRule = kind === "lifecycle" ? formatLifecycleRule : formatCorsRule;
-    const removedIndices = new Set<number>();
-    existingRules.forEach((rule, index) => {
-      const record = rule as Record<string, unknown>;
-      const ruleId = getLifecycleRuleId(record);
-      const typeMatch = kind === "lifecycle"
-        ? getLifecycleRuleTypes(record).some((type) => deleteTypes?.has(type))
-        : getCorsRuleTypes(record).some((type) => deleteCorsTypes?.has(type));
-      if ((ruleId && ids?.has(ruleId)) || ((types?.size ?? 0) > 0 && typeMatch)) {
-        removedIndices.add(index);
-      }
-    });
-    const nextRules = existingRules.filter((_, index) => !removedIndices.has(index));
+    const target = kind === "lifecycle"
+      ? resolveBulkLifecycleDeleteTarget(
+          existingRules as Record<string, unknown>[],
+          deleteIds ?? new Set(),
+          deleteTypes ?? new Set(),
+        )
+      : resolveBulkCorsDeleteTarget(
+          existingRules as Record<string, unknown>[],
+          deleteCorsIds ?? new Set(),
+          deleteCorsTypes ?? new Set(),
+        );
+    const { nextRules, removedIndices } = target;
     return {
       bucket: bucketName,
-      changed: removedIndices.size > 0,
+      changed: target.changed,
       before:
         existingRules.length === 0
           ? [{ text: "(no rules)" }]
@@ -319,30 +315,29 @@ export async function previewBucketOpsBulkUpdate({
   ): Promise<BulkPreviewItem> => {
     const notifications = await getBucketNotifications(endpointId, bucketName);
     const currentConfiguration = notifications.configuration;
-    const result = deleting
-      ? deleteNotificationConfigurations(
+    const target = deleting
+      ? resolveBulkNotificationDeleteTarget(
           currentConfiguration,
           deleteNotificationIds ?? new Set(),
           deleteNotificationTypes ?? new Set(),
         )
-      : mergeNotificationConfigurations(
+      : resolveBulkNotificationMergeTarget(
           currentConfiguration,
           parsedNotificationConfiguration ?? {},
         );
-    const changed = result.changes.length > 0;
     return {
       bucket: bucketName,
-      changed,
+      changed: target.changed,
       before: [
         {
           text: formatNotificationConfiguration(currentConfiguration),
-          tone: changed ? "removed" : undefined,
+          tone: target.changed ? "removed" : undefined,
         },
       ],
       after: [
         {
-          text: formatNotificationConfiguration(result.configuration),
-          tone: changed ? "added" : undefined,
+          text: formatNotificationConfiguration(target.configuration),
+          tone: target.changed ? "added" : undefined,
         },
       ],
     };
@@ -353,20 +348,16 @@ export async function previewBucketOpsBulkUpdate({
   ): Promise<BulkPreviewItem> => {
     const policy = await getBucketPolicy(endpointId, bucketName);
     const existingPolicy = policy.policy ?? {};
-    const existingStatements = Array.isArray(
-      (existingPolicy as Record<string, unknown>).Statement,
-    )
-      ? ((existingPolicy as Record<string, unknown>)
-          .Statement as Record<string, unknown>[])
-      : [];
-    const { nextStatements, changes } = mergePolicyStatements(
-      existingStatements,
+    const target = resolveBulkPolicyMergeTarget(
+      existingPolicy as Record<string, unknown>,
+      parsedPolicy ?? {},
       parsedPolicyStatements ?? [],
-      { onlyUpdateExisting: policyUpdateOnlyExisting },
+      policyUpdateOnlyExisting,
     );
+    const { existingStatements, nextStatements, changes } = target;
     return {
       bucket: bucketName,
-      changed: changes.length > 0,
+      changed: target.changed,
       before:
         existingStatements.length === 0
           ? [{ text: "(no statements)" }]
@@ -399,31 +390,15 @@ export async function previewBucketOpsBulkUpdate({
   ): Promise<BulkPreviewItem> => {
     const policy = await getBucketPolicy(endpointId, bucketName);
     const existingPolicy = policy.policy ?? {};
-    const existingStatements = Array.isArray(
-      (existingPolicy as Record<string, unknown>).Statement,
-    )
-      ? ((existingPolicy as Record<string, unknown>)
-          .Statement as Record<string, unknown>[])
-      : [];
-    const removedIndices = new Set<number>();
-    existingStatements.forEach((statement, index) => {
-      const sid = getPolicyStatementSid(statement);
-      const typeMatch = getPolicyStatementTypes(statement).some((type) =>
-        deletePolicyTypes?.has(type),
-      );
-      if (
-        (sid && deletePolicyIds?.has(sid)) ||
-        ((deletePolicyTypes?.size ?? 0) > 0 && typeMatch)
-      ) {
-        removedIndices.add(index);
-      }
-    });
-    const nextStatements = existingStatements.filter(
-      (_, index) => !removedIndices.has(index),
+    const target = resolveBulkPolicyDeleteTarget(
+      existingPolicy as Record<string, unknown>,
+      deletePolicyIds ?? new Set(),
+      deletePolicyTypes ?? new Set(),
     );
+    const { existingStatements, nextStatements, removedIndices } = target;
     return {
       bucket: bucketName,
-      changed: removedIndices.size > 0,
+      changed: target.changed,
       before:
         existingStatements.length === 0
           ? [{ text: "(no statements)" }]
