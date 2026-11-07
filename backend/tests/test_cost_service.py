@@ -732,6 +732,42 @@ def test_cost_subject_detail_and_export(db_session):
     assert account.rgw_user_uid in payload
 
 
+def test_cost_subject_listing_resolves_pricing_once_per_endpoint(db_session, monkeypatch):
+    endpoint = _seed_endpoint(db_session)
+    _seed_account(db_session, endpoint.id)
+    db_session.add(
+        S3Account(
+            name="secondary-account",
+            rgw_account_id="RGW12345678901234568",
+            rgw_user_uid="rgw12345678901234568-admin",
+            storage_endpoint_id=endpoint.id,
+        )
+    )
+    db_session.commit()
+
+    service = CostService(db_session)
+    original_resolve_model = service.queries.resolve_model
+    resolved_endpoint_ids: list[int | None] = []
+
+    def resolve_model(endpoint_id: int | None):
+        resolved_endpoint_ids.append(endpoint_id)
+        return original_resolve_model(endpoint_id)
+
+    monkeypatch.setattr(service.queries, "resolve_model", resolve_model)
+
+    subjects = service.list_subjects(
+        CostSubjectListingRequest(
+            month="2026-01",
+            endpoint_id=endpoint.id,
+            subject_type="account",
+            page_size=50,
+        )
+    )
+
+    assert subjects.total == 2
+    assert resolved_endpoint_ids == [endpoint.id]
+
+
 def test_cost_s3_user_subject_detail_uses_user_scoped_daily_rows(db_session):
     endpoint = _seed_endpoint(db_session)
     user = _seed_s3_user(db_session, endpoint.id)
