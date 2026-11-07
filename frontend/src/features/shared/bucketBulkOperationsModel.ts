@@ -3,6 +3,10 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { CephAdminBucketConfigBackupFeature } from "../../api/cephAdminBuckets";
+import type {
+  BucketLoggingConfiguration,
+  BucketPublicAccessBlockUpdate,
+} from "../../api/bucketContracts";
 import {
   readSessionJsonFromKey,
   removeSessionStorageKey,
@@ -64,11 +68,7 @@ export type BulkObjectLockSnapshot = {
   years: number | null;
 };
 
-export type BulkAccessLoggingSnapshot = {
-  enabled: boolean;
-  target_bucket: string | null;
-  target_prefix: string | null;
-};
+export type BulkAccessLoggingSnapshot = BucketLoggingConfiguration;
 
 export type BulkConfigClipboardBucket = {
   name: string;
@@ -175,12 +175,7 @@ export const parseQuotaInput = (
   };
 };
 
-export type PublicAccessBlockState = {
-  block_public_acls: boolean;
-  ignore_public_acls: boolean;
-  block_public_policy: boolean;
-  restrict_public_buckets: boolean;
-};
+export type PublicAccessBlockState = BucketPublicAccessBlockUpdate;
 
 export type PublicAccessBlockOptionKey = keyof PublicAccessBlockState;
 type NullablePublicAccessBlockState = Partial<
