@@ -27,6 +27,7 @@ import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import { useI18n } from "../../i18n";
 import { adminAssociationPanelClass } from "./AdminAssociationPicker";
 import AdminQuotaFields from "./AdminQuotaFields";
+import AdminManagerFeatureOverrides from "./AdminManagerFeatureOverrides";
 import { adminQuotaErrors } from "./useAdminRgwFormValidation";
 import { adminAccountForm, adminAccountPayload, accountQuotaChanged, type AdminAccountForm } from "./adminAccountForm";
 import AdminAccountAssociations, { accountUserAssociations, accountGroupAssociations } from "./AdminAccountAssociations";
@@ -255,53 +256,15 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
               <AdminAccountAssociations adapter={accountGroupAssociations} links={form.draft.group_links} onChange={value => update("group_links", value)}
                 portalEnabled={portalEnabled} disabled={controller.locked} onPendingChange={setGroupPending} />
             </div>
-            {canManageManagerFeatures && <div hidden={tab !== "manager"}><div className="settings-stack">
-              <SettingsSection presentation="compact" title={adminText("Usage and metrics")}>
-                <FeatureOverrideField title={adminText("RGW traffic and usage metrics")} value={form.draft.allow_rgw_usage_metrics}
-                  policy={generalSettings.manager_feature_policies.rgw_usage_metrics} disabled={controller.locked}
-                  triState
-                  help={adminText("Controls traffic and usage metrics for this RGW Account. Endpoint capabilities and supervision credentials still apply.")}
-                  onChange={value => update("allow_rgw_usage_metrics", value)} />
-                <FeatureOverrideField title={adminText("Cost estimation")} value={form.draft.allow_cost_estimation}
-                  policy={generalSettings.manager_feature_policies.cost_estimation} disabled={controller.locked}
-                  triState
-                  description={adminText("Controls the Cost tab for this RGW Account in Manager Usage & Metrics.")}
-                  onChange={value => update("allow_cost_estimation", value)} />
-              </SettingsSection>
-              <SettingsSection presentation="compact" title={adminText("Access-key extensions")}>
-                <FeatureOverrideField title={adminText("Access-key names and notes")} value={form.draft.allow_access_key_metadata}
-                  policy={generalSettings.manager_feature_policies.access_key_metadata} disabled={controller.locked}
-                  triState
-                  description={adminText("Optional. Name and notes are stored in BucketReef.")} onChange={value => update("allow_access_key_metadata", value)} />
-                <FeatureOverrideField title={adminText("Access-key expiration")} value={form.draft.allow_access_key_expiration}
-                  policy={generalSettings.manager_feature_policies.access_key_expiration} disabled={controller.locked}
-                  triState
-                  help={adminText("Schedules provider-side key disabling. Requires scheduled jobs; recorded expirations remain scheduled after opt-out.")}
-                  onChange={value => update("allow_access_key_expiration", value)} />
-              </SettingsSection>
-              <SettingsSection presentation="compact" title={adminText("Activity history")}>
-                <FeatureOverrideField title={adminText("Manager activity history")} value={form.draft.allow_activity_history}
-                  policy={generalSettings.manager_feature_policies.activity_history} disabled={controller.locked}
-                  triState
-                  description={adminText("Shows account-scoped Manager control and configuration actions. It does not include S3 object access logs.")}
-                  onChange={value => update("allow_activity_history", value)} />
-              </SettingsSection>
-              <SettingsSection presentation="compact" title={adminText("RGW multisite")}>
-                <FeatureOverrideField title={adminText("Endpoint switching")} value={form.draft.allow_multisite_endpoint_switching}
-                  policy={generalSettings.manager_feature_policies.rgw_multisite_endpoint_switching} disabled={controller.locked}
-                  triState
-                  help={adminText("Grants endpoint switching for this RGW Account when the destination is in the same realm and zonegroup. UI User and UI Group grants remain additive.")}
-                  onChange={value => update("allow_multisite_endpoint_switching", value)} />
-              </SettingsSection>
-              <SettingsSection presentation="compact" title={adminText("Privileged Ceph operations")}>
-                <FeatureOverrideField title={adminText("Bucket quota management")} value={form.draft.allow_bucket_quota_management}
-                  policy={generalSettings.manager_feature_policies.bucket_quota_management} disabled={controller.locked}
-                  triState
-                  unavailable={!allowBucketQuotas ? adminText("Endpoint permission required") : undefined}
-                  description={adminText("Requires buckets=write on the endpoint Admin Ops identity. Storage authorization remains required.")}
-                  onChange={value => update("allow_bucket_quota_management", value)} />
-              </SettingsSection>
-            </div></div>}
+            {canManageManagerFeatures && <div hidden={tab !== "manager"}>
+              <AdminManagerFeatureOverrides
+                resource="account"
+                value={form.draft}
+                disabled={controller.locked}
+                bucketQuotaAvailable={allowBucketQuotas}
+                onChange={update}
+              />
+            </div>}
           </SettingsForm>
         </div>
         {portalEnabled && <div hidden={tab !== "portal"}>
