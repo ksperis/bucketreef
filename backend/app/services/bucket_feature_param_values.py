@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from app.models.bucket import BucketEncryptionConfiguration
 from app.services.bucket_listing_shared import coerce_filter_number
+from app.utils.normalize import normalize_optional_scalar
 
 _NOTIFICATION_CONFIGURATION_SPECS = (
     ("topic", "TopicConfigurations", "TopicArn"),
@@ -72,13 +73,6 @@ def dedupe_sorted_day_values(values: list[float]) -> list[int]:
     return normalized
 
 
-def _string_or_none(value: object) -> str | None:
-    if value is None:
-        return None
-    text = str(value).strip()
-    return text or None
-
-
 def notification_rule_entries(configuration: object) -> list[tuple[str, dict]]:
     if not isinstance(configuration, dict):
         return []
@@ -93,7 +87,7 @@ def notification_rule_entries(configuration: object) -> list[tuple[str, dict]]:
 
 def extract_notification_rule_id(entry: dict) -> str | None:
     for key in ("Id", "ID", "id"):
-        if (value := _string_or_none(entry.get(key))) is not None:
+        if (value := normalize_optional_scalar(entry.get(key))) is not None:
             return value
     return None
 
@@ -105,9 +99,9 @@ def _last_notification_identifier(value: str) -> str:
 
 def _extract_notification_topic_display_name(entry: dict) -> str | None:
     for key in ("Topic", "TopicName", "topic", "topic_name", "EndpointTopic"):
-        if (value := _string_or_none(entry.get(key))) is not None:
+        if (value := normalize_optional_scalar(entry.get(key))) is not None:
             return value
-    topic_arn = _string_or_none(entry.get("TopicArn"))
+    topic_arn = normalize_optional_scalar(entry.get("TopicArn"))
     if not topic_arn:
         return None
     return _last_notification_identifier(topic_arn)
@@ -116,9 +110,9 @@ def _extract_notification_topic_display_name(entry: dict) -> str | None:
 def extract_notification_topic_match_values(entry: dict) -> list[str]:
     values: list[str] = []
     for key in ("Topic", "TopicName", "topic", "topic_name", "EndpointTopic"):
-        if (value := _string_or_none(entry.get(key))) is not None:
+        if (value := normalize_optional_scalar(entry.get(key))) is not None:
             values.append(value)
-    topic_arn = _string_or_none(entry.get("TopicArn"))
+    topic_arn = normalize_optional_scalar(entry.get("TopicArn"))
     if topic_arn:
         values.append(topic_arn)
         values.append(_last_notification_identifier(topic_arn))
@@ -130,8 +124,8 @@ def extract_notification_events(entry: dict) -> list[str]:
     if not isinstance(raw_events, list):
         raw_events = entry.get("events")
     if isinstance(raw_events, list):
-        return [value for item in raw_events if (value := _string_or_none(item)) is not None]
-    value = _string_or_none(raw_events)
+        return [value for item in raw_events if (value := normalize_optional_scalar(item)) is not None]
+    value = normalize_optional_scalar(raw_events)
     return [value] if value else []
 
 
@@ -163,10 +157,10 @@ def _notification_filter_rules(entry: dict) -> list[dict]:
 def extract_notification_filter_values(entry: dict, filter_name: str) -> list[str]:
     values: list[str] = []
     for item in _notification_filter_rules(entry):
-        name = _string_or_none(item.get("Name") or item.get("name"))
+        name = normalize_optional_scalar(item.get("Name") or item.get("name"))
         if name is None or name.lower() != filter_name:
             continue
-        if (value := _string_or_none(item.get("Value") or item.get("value"))) is not None:
+        if (value := normalize_optional_scalar(item.get("Value") or item.get("value"))) is not None:
             values.append(value)
     return _dedupe_sorted_text_values(values)
 
@@ -187,8 +181,8 @@ def _text_list_from_keys(entry: dict, keys: tuple[str, ...]) -> list[str]:
         if raw is None:
             continue
         if isinstance(raw, list):
-            return [value for item in raw if (value := _string_or_none(item)) is not None]
-        if (value := _string_or_none(raw)) is not None:
+            return [value for item in raw if (value := normalize_optional_scalar(item)) is not None]
+        if (value := normalize_optional_scalar(raw)) is not None:
             return [value]
     return []
 
