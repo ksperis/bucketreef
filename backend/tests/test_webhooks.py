@@ -33,6 +33,7 @@ from app.services.webhook_catalog import (
     KNOWN_WEBHOOK_EVENT_TYPES,
     MIGRATION_EVENT_TYPE,
 )
+from app.services.webhook_query_service import WebhookQueryService
 from app.services.webhook_service import (
     WebhookEventPublisher,
     WebhookQueueError,
@@ -109,16 +110,16 @@ def test_webhook_secret_is_one_time_and_encrypted_at_rest(db_session, monkeypatc
     assert raw_secret != created.signing_secret
     assert created.signing_secret not in raw_secret
 
-    listed = WebhookService(db_session).list_endpoints()
-    loaded = WebhookService(db_session).get_endpoint(created.id)
+    listed = WebhookQueryService(db_session).list_endpoints()
+    loaded = WebhookQueryService(db_session).get_endpoint(created.id)
     assert listed[0].has_signing_secret is True
     assert not hasattr(listed[0], "signing_secret")
     assert not hasattr(loaded, "signing_secret")
 
 
-def test_webhook_service_raises_typed_error_for_missing_endpoint(db_session):
+def test_webhook_query_service_raises_typed_error_for_missing_endpoint(db_session):
     with pytest.raises(WebhookEndpointNotFoundError, match=r"^Webhook endpoint not found$"):
-        WebhookService(db_session).get_endpoint(999999)
+        WebhookQueryService(db_session).get_endpoint(999999)
 
 
 def test_webhook_list_endpoints_loads_subscriptions_in_one_query(db_session, monkeypatch):
@@ -143,7 +144,7 @@ def test_webhook_list_endpoints_loads_subscriptions_in_one_query(db_session, mon
 
     event.listen(bind, "before_cursor_execute", track_subscription_selects)
     try:
-        listed = WebhookService(db_session).list_endpoints()
+        listed = WebhookQueryService(db_session).list_endpoints()
     finally:
         event.remove(bind, "before_cursor_execute", track_subscription_selects)
 

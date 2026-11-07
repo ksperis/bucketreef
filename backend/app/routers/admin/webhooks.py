@@ -20,6 +20,7 @@ from app.routers.dependencies import get_audit_service, get_current_ui_superadmi
 from app.routers.identity_security_policy import require_admin_sensitive_action
 from app.services.audit_service import AuditService
 from app.services.webhook_catalog import get_webhook_event_definitions
+from app.services.webhook_query_service import WebhookQueryService
 from app.services.webhook_service import WebhookService
 from app.utils.http_errors import raise_http_error_from_value_error
 from app.utils.network_targets import url_hostname
@@ -31,12 +32,16 @@ def _service(db: Session) -> WebhookService:
     return WebhookService(db)
 
 
+def _query(db: Session) -> WebhookQueryService:
+    return WebhookQueryService(db)
+
+
 @router.get("", response_model=list[WebhookEndpointOut])
 def list_webhook_endpoints(
     _: User = Depends(get_current_ui_superadmin),
     db: Session = Depends(get_db),
 ) -> list[WebhookEndpointOut]:
-    return _service(db).list_endpoints()
+    return _query(db).list_endpoints()
 
 
 @router.get("/events", response_model=list[WebhookEventDefinition])
@@ -53,7 +58,7 @@ def get_webhook_endpoint(
     db: Session = Depends(get_db),
 ) -> WebhookEndpointOut:
     try:
-        return _service(db).get_endpoint(endpoint_id)
+        return _query(db).get_endpoint(endpoint_id)
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
 
@@ -128,7 +133,7 @@ def delete_webhook_endpoint(
     require_admin_sensitive_action(request, db, current_user)
     service = _service(db)
     try:
-        previous = service.get_endpoint(endpoint_id)
+        previous = _query(db).get_endpoint(endpoint_id)
         service.delete_endpoint(endpoint_id)
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
@@ -201,6 +206,6 @@ def list_webhook_deliveries(
     db: Session = Depends(get_db),
 ) -> list[WebhookDeliveryOut]:
     try:
-        return _service(db).list_deliveries(endpoint_id, limit=limit)
+        return _query(db).list_deliveries(endpoint_id, limit=limit)
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
