@@ -5,9 +5,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDismissibleLayer } from "../../components/ui/useDismissibleLayer";
 import { useBrowserI18n } from "./browserI18n";
-
-type BrowserSearchScope = "prefix" | "bucket";
-type BrowserSearchTypeFilter = "all" | "file" | "folder";
+import type {
+  BrowserObjectTypeFilter,
+  BrowserSearchScope,
+} from "./browserSearchHelpers";
 
 type UseBrowserSearchOptions = {
   isPortalProfile: boolean;
@@ -27,7 +28,7 @@ export function useBrowserSearch({
   const [searchExactMatch, setSearchExactMatch] = useState(false);
   const [searchCaseSensitive, setSearchCaseSensitive] = useState(false);
   const [typeFilter, setTypeFilter] =
-    useState<BrowserSearchTypeFilter>("all");
+    useState<BrowserObjectTypeFilter>("all");
   const [storageFilter, setStorageFilter] = useState("all");
   const searchControlRef = useRef<HTMLDivElement | null>(null);
   const searchOptionsButtonRef = useRef<HTMLButtonElement | null>(null);

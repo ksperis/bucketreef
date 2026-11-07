@@ -13,13 +13,14 @@ import {
 
 import { ChevronDownIcon, SearchIcon, SlidersIcon } from "./browserIcons";
 import { useBrowserI18n } from "./browserI18n";
+import type {
+  BrowserObjectTypeFilter,
+  BrowserSearchScope,
+} from "./browserSearchHelpers";
 
 const optionCardClasses =
   "inline-flex items-center gap-2 rounded-md border border-[color:var(--ui-border)] bg-[var(--ui-surface)] px-2.5 py-1.5 ui-caption font-medium text-[var(--ui-text)] shadow-[var(--ui-shadow-soft)]";
 const menuClasses = cx(uiMenuClass, "overflow-hidden p-1.5");
-
-type BrowserSearchScope = "prefix" | "bucket";
-type BrowserObjectTypeFilter = "all" | "file" | "folder";
 
 type BrowserObjectSearchHeaderProps = {
   rootRef: RefObject<HTMLDivElement>;
