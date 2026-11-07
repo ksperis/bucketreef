@@ -61,7 +61,7 @@ def test_delete_empty_bucket_calls_delete_without_listing(monkeypatch):
     [
         ("NoSuchBucket", False),
         ("BucketNotEmpty", s3_deletion.BucketNotEmptyError),
-        ("AccessDenied", RuntimeError),
+        ("AccessDenied", s3_client.S3OperationError),
     ],
 )
 def test_delete_empty_bucket_maps_provider_errors(monkeypatch, error_code, expected):
