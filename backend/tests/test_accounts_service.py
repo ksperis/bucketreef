@@ -12,6 +12,7 @@ from app.services import s3_account_deletion_service as s3_account_deletion_serv
 from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_account_root_service import RgwAccountRootService
 from app.services.s3_account_provisioning_service import S3AccountProvisioningService
+from app.services.s3_account_rgw_context_service import S3AccountRgwContextService
 from app.services.s3_accounts_service import S3AccountsService
 from app.db import (
     CostStorageDaily,
@@ -81,6 +82,29 @@ def _build_service(db_session, monkeypatch, fake_admin) -> S3AccountsService:
     )
     monkeypatch.setattr("app.services.rgw_endpoint_clients.get_endpoint_admin_rgw_client", lambda endpoint: fake_admin)
     return S3AccountsService(db_session)
+
+
+def test_account_rgw_context_only_suppresses_expected_client_errors(db_session, monkeypatch):
+    endpoint = _seed_ceph_endpoint(db_session)
+
+    def unavailable_client(_endpoint):
+        raise RGWAdminError("credentials unavailable")
+
+    monkeypatch.setattr(
+        "app.services.s3_account_rgw_context_service.get_endpoint_admin_rgw_client",
+        unavailable_client,
+    )
+    assert S3AccountRgwContextService.admin_for_endpoint(endpoint, allow_missing=True) is None
+
+    def broken_client(_endpoint):
+        raise TypeError("unexpected client factory bug")
+
+    monkeypatch.setattr(
+        "app.services.s3_account_rgw_context_service.get_endpoint_admin_rgw_client",
+        broken_client,
+    )
+    with pytest.raises(TypeError, match="unexpected client factory bug"):
+        S3AccountRgwContextService.admin_for_endpoint(endpoint, allow_missing=True)
 
 
 def test_get_account_detail_uses_typed_not_found_error(db_session):

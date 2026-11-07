@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.domain_errors import StorageEndpointNotFoundError
 from app.db import S3Account, StorageEndpoint
 from app.core.domain_enums import StorageProvider
-from app.services.rgw_admin import RGWAdminClient
+from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client
 from app.utils.storage_endpoint_features import (
     resolve_endpoint_capabilities,
@@ -59,7 +59,7 @@ class S3AccountRgwContextService:
             raise ValueError("Admin operations are disabled for this endpoint.")
         try:
             return get_endpoint_admin_rgw_client(endpoint)
-        except Exception as exc:
+        except (RGWAdminError, ValueError) as exc:
             if allow_missing:
                 logger.warning(
                     "Unable to build RGW admin client for endpoint %s: %s",
