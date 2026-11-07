@@ -34,11 +34,6 @@ from app.services.app_settings_service import (
     save_app_settings_for_db,
 )
 from app.services.healthcheck_background_service import run_initial_healthchecks
-from app.services.identity_provider_repository import (
-    IdentityProviderAlreadyExistsError,
-    IdentityProviderManagedByEnvironmentError,
-    IdentityProviderNotFoundError,
-)
 from app.services.ldap_provider_settings_service import (
     create_ldap_provider,
     delete_ldap_provider,
@@ -107,12 +102,8 @@ def _delete_identity_provider_settings(
     require_admin_sensitive_action(request, db, current_user)
     try:
         delete_provider(db, provider_id)
-    except IdentityProviderManagedByEnvironmentError as exc:
-        raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
-    except IdentityProviderNotFoundError as exc:
-        raise_http_exception_from_exception(status.HTTP_404_NOT_FOUND, exc)
     except ValueError as exc:
-        raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
+        raise_http_error_from_value_error(exc)
 
     normalized_provider_id = normalize_identity_provider_id(provider_id)
     audit.record_action(
@@ -133,8 +124,6 @@ def _mutate_identity_provider_settings(
     db: Session,
     audit: AuditService,
     mutate_provider: Callable[[], _IdentityProviderAdminItemT],
-    operation_error: type[Exception],
-    operation_error_status: int,
     provider_type: str,
     action: str,
     metadata: dict[str, object],
@@ -142,12 +131,8 @@ def _mutate_identity_provider_settings(
     require_admin_sensitive_action(request, db, current_user)
     try:
         item = mutate_provider()
-    except IdentityProviderManagedByEnvironmentError as exc:
-        raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
-    except operation_error as exc:
-        raise_http_exception_from_exception(operation_error_status, exc)
     except ValueError as exc:
-        raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
+        raise_http_error_from_value_error(exc)
 
     audit.record_action(
         user=current_user,
@@ -272,8 +257,6 @@ def create_oidc_provider_settings(
         db=db,
         audit=audit,
         mutate_provider=lambda: create_oidc_provider(db, payload),
-        operation_error=IdentityProviderAlreadyExistsError,
-        operation_error_status=status.HTTP_409_CONFLICT,
         provider_type="oidc",
         action="create",
         metadata=_provider_audit_metadata(
@@ -300,8 +283,6 @@ def update_oidc_provider_settings(
         db=db,
         audit=audit,
         mutate_provider=lambda: update_oidc_provider(db, provider_id, payload),
-        operation_error=IdentityProviderNotFoundError,
-        operation_error_status=status.HTTP_404_NOT_FOUND,
         provider_type="oidc",
         action="update",
         metadata=_provider_audit_metadata(
@@ -360,8 +341,6 @@ def create_ldap_provider_settings(
         db=db,
         audit=audit,
         mutate_provider=lambda: create_ldap_provider(db, payload),
-        operation_error=IdentityProviderAlreadyExistsError,
-        operation_error_status=status.HTTP_409_CONFLICT,
         provider_type="ldap",
         action="create",
         metadata=_provider_audit_metadata(
@@ -388,8 +367,6 @@ def update_ldap_provider_settings(
         db=db,
         audit=audit,
         mutate_provider=lambda: update_ldap_provider(db, provider_id, payload),
-        operation_error=IdentityProviderNotFoundError,
-        operation_error_status=status.HTTP_404_NOT_FOUND,
         provider_type="ldap",
         action="update",
         metadata=_provider_audit_metadata(
