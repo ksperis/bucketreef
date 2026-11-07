@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
+import type { HealthCheckMode } from "./healthchecks";
 import type { TagDefinitionInput, TagDefinitionSummary } from "./tags";
 
 export type StorageProvider = "ceph" | "aws" | "other";
@@ -24,7 +25,7 @@ type StorageEndpointAddressableFeature = StorageEndpointFeature & {
 
 type StorageEndpointHealthcheckFeature = {
   enabled: boolean;
-  mode: "http" | "s3";
+  mode: HealthCheckMode;
   url?: string | null;
 };
 
