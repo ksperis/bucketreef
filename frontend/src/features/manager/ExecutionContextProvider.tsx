@@ -96,17 +96,7 @@ const ExecutionContextStateContext = createContext<ExecutionContextState>(
   defaultExecutionContextState,
 );
 
-type ExecutionContextProviderScope = "manager" | "browser";
-
-type ExecutionContextProviderProps = {
-  children: ReactNode;
-  scope?: ExecutionContextProviderScope;
-};
-
-export function ExecutionContextProvider({ children, scope = "manager" }: ExecutionContextProviderProps) {
-  const executionContextStorageKey = scope === "browser"
-    ? CLIENT_STORAGE_KEYS.selectedBrowserExecutionContext
-    : CLIENT_STORAGE_KEYS.selectedManagerExecutionContext;
+export function ExecutionContextProvider({ children }: { children: ReactNode }) {
   const {
     contexts,
     contextsLoaded,
@@ -117,12 +107,9 @@ export function ExecutionContextProvider({ children, scope = "manager" }: Execut
     accessError,
     sessionAccountName,
   } = useExecutionContextCatalog({
-    scope,
-    storageKey: executionContextStorageKey,
-    accessDeniedMessage:
-      scope === "browser"
-        ? "Access to browser contexts is denied for this user."
-        : "Access to manager is denied for this user.",
+    scope: "manager",
+    storageKey: CLIENT_STORAGE_KEYS.selectedManagerExecutionContext,
+    accessDeniedMessage: "Access to manager is denied for this user.",
   });
   const [managerContextState, setManagerContextState] = useState<ManagerContextSnapshot>(
     EMPTY_MANAGER_CONTEXT_SNAPSHOT,
@@ -149,11 +136,10 @@ export function ExecutionContextProvider({ children, scope = "manager" }: Execut
     ? managerContextState.data?.naming_validation_profile ?? null : null;
 
   useEffect(() => {
-    if (scope !== "manager") return;
     const handleRefresh = () => setManagerContextRefreshToken((value) => value + 1);
     window.addEventListener(EXECUTION_CONTEXTS_REFRESH_EVENT, handleRefresh);
     return () => window.removeEventListener(EXECUTION_CONTEXTS_REFRESH_EVENT, handleRefresh);
-  }, [scope]);
+  }, []);
 
   useEffect(() => {
     setManagerContextState(EMPTY_MANAGER_CONTEXT_SNAPSHOT);
