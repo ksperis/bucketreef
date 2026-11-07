@@ -40,7 +40,7 @@ from app.routers.identity_security_policy import require_self_service_security_a
 from app.services.audit_service import AuditService
 from app.services.auth_session_service import AuthSessionError, AuthSessionService, RefreshReplayError
 from app.services.external_identity_user_service import ExternalIdentityUserService
-from app.services.users_service import get_users_service
+from app.services.user_output_service import UserOutputService
 from app.services.webauthn_service import LastRequiredPasskeyError, WebAuthnSecurityError, WebAuthnService
 from app.services.app_settings_service import load_app_settings_for_db
 from app.services.mappers.auth_session import auth_session_info
@@ -101,7 +101,7 @@ def current_session(
         )
     return CurrentSessionResponse(
         authenticated=True,
-        user=get_users_service(db).user_to_out(actor),
+        user=UserOutputService(db).to_out(actor),
         session=None,
         auth_session=auth_session_info(row, current_id=row.id),
     )
