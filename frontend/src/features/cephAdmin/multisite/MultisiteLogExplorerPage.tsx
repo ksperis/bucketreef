@@ -12,12 +12,13 @@ import UiInlineMessage from "../../../components/ui/UiInlineMessage";
 import UiInput from "../../../components/ui/UiInput";
 import UiSelect from "../../../components/ui/UiSelect";
 import { extractApiError, isCancelledError } from "../../../utils/apiError";
+import { triggerDownload } from "../../../utils/download";
 import { useCephAdminEndpoint } from "../CephAdminEndpointContext";
 import { useCephAdminI18n } from "../cephAdminI18n";
 import { JsonDetails, MultisiteDetailDrawer, ObservationNotice, ProvenanceSummary } from "./MultisiteCommon";
 import MultisitePage from "./MultisitePage";
 import { advanceLogCursor, canAdvanceToNextLog, retreatLogCursor, type LogCursorHistory } from "./multisiteLogState";
-import { displayRecordValue, downloadTextFile, formatTimestamp, getDeclaredEndpointOptions, lookupRecordValue, matchesLoadedEntry, parseNonNegativeInteger, parsePositiveInteger, recordsToCsv, safeJson } from "./multisiteUtils";
+import { displayRecordValue, formatTimestamp, getDeclaredEndpointOptions, lookupRecordValue, matchesLoadedEntry, parseNonNegativeInteger, parsePositiveInteger, recordsToCsv, safeJson } from "./multisiteUtils";
 import { useMultisiteTopology } from "./useMultisiteTopology";
 
 type LogForm = {
@@ -287,8 +288,8 @@ export default function MultisiteLogExplorerPage() {
               description={text("Search and export only the entries currently loaded on this page.")}
               search={<UiInput aria-label={text("Search loaded log entries")} type="search" size="compact" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={text("Search loaded entries")} />}
               actions={<>
-                <ListActionButton onClick={() => downloadTextFile("multisite-log.json", `${safeJson({ family: page.family, scope: page.scope, collected_at: visibleObservation.collected_at, provenance: visibleObservation.provenance, entries: filteredEntries })}\n`, "application/json")}>{text("Export JSON")}</ListActionButton>
-                <ListActionButton onClick={() => downloadTextFile("multisite-log.csv", recordsToCsv(filteredEntries.map((entry) => ({ ...entry, _endpoint_id: visibleObservation.provenance.endpoint_id, _scope: page.scope, _collected_at: visibleObservation.collected_at }))), "text/csv;charset=utf-8")}>{text("Export CSV")}</ListActionButton>
+                <ListActionButton onClick={() => triggerDownload("multisite-log.json", `${safeJson({ family: page.family, scope: page.scope, collected_at: visibleObservation.collected_at, provenance: visibleObservation.provenance, entries: filteredEntries })}\n`, "application/json")}>{text("Export JSON")}</ListActionButton>
+                <ListActionButton onClick={() => triggerDownload("multisite-log.csv", recordsToCsv(filteredEntries.map((entry) => ({ ...entry, _endpoint_id: visibleObservation.provenance.endpoint_id, _scope: page.scope, _collected_at: visibleObservation.collected_at }))), "text/csv;charset=utf-8")}>{text("Export CSV")}</ListActionButton>
               </>}
               countLabel={text("{filtered} of {loaded} loaded entries", { filtered: filteredEntries.length, loaded: page.entries.length })}
             >
