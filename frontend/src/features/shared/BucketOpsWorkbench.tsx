@@ -418,6 +418,7 @@ export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchPr
     setActiveOwnerTooltipKey,
   } = useBucketOpsTooltips({
     extractError,
+    getBucketCors,
     getBucketEncryption,
     getBucketLogging,
     getBucketNotifications,

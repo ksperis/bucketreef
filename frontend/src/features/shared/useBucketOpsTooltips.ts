@@ -4,30 +4,11 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { BucketProperties } from "../../api/bucketContracts";
 import type { CephAdminBucket } from "../../api/cephAdminBuckets";
-import {
-  PUBLIC_ACCESS_BLOCK_OPTIONS,
-  formatPublicAccessBlockFlag,
-  formatPublicAccessBlockState,
-  normalizePublicAccessBlockState,
-} from "./bucketBulkOperationsModel";
-import {
-  buildBucketPolicySummaryLines,
-  buildCorsRuleSummaryLines,
-  buildEncryptionSummaryLines,
-  buildLifecycleRuleSummaryLines,
-  buildLoggingSummaryLines,
-  buildNotificationSummaryLines,
-  buildObjectLockSummaryLines,
-  buildVersioningSummaryLines,
-  buildWebsiteSummaryLines,
-} from "./bucketFeatureSummaries";
 import type { BucketOpsApi } from "./bucketOpsApi";
-import type { FeatureKey } from "./bucketOpsAdvancedFilterModel";
-import type { BucketFeatureTooltipState } from "./BucketFeatureSummaryTooltip";
 import { encodeCephAdminBucketRef } from "./bucketOpsPresentation";
 import { serializeAdvancedFilterRules } from "./advancedFilterShared";
+import { useBucketFeatureTooltips } from "./useBucketFeatureTooltips";
 
 type OwnerTooltipState =
   | { status: "loading" }
@@ -36,6 +17,7 @@ type OwnerTooltipState =
 
 type BucketOpsTooltipApi = Pick<
   BucketOpsApi,
+  | "getBucketCors"
   | "getBucketEncryption"
   | "getBucketLogging"
   | "getBucketNotifications"
@@ -54,6 +36,7 @@ type UseBucketOpsTooltipsInput = BucketOpsTooltipApi & {
 
 export function useBucketOpsTooltips({
   extractError,
+  getBucketCors,
   getBucketEncryption,
   getBucketLogging,
   getBucketNotifications,
@@ -69,11 +52,6 @@ export function useBucketOpsTooltips({
   const [ownerTooltipState, setOwnerTooltipState] = useState<Record<string, OwnerTooltipState>>({});
   const ownerTooltipInflightRef = useRef<Partial<Record<string, Promise<void>>>>({});
   const ownerNameCacheRef = useRef<Record<string, string | null>>({});
-  const [activeFeatureTooltipKey, setActiveFeatureTooltipKey] = useState<string | null>(null);
-  const [featureTooltipState, setFeatureTooltipState] = useState<Record<string, BucketFeatureTooltipState>>({});
-  const featureTooltipInflightRef = useRef<Partial<Record<string, Promise<void>>>>({});
-  const bucketPropertiesCacheRef = useRef<Record<string, BucketProperties>>({});
-  const bucketPropertiesInflightRef = useRef<Record<string, Promise<BucketProperties>>>({});
   const generationRef = useRef(0);
 
   const bucketTooltipCacheKey = useCallback(
@@ -93,11 +71,46 @@ export function useBucketOpsTooltips({
       `${bucketTooltipCacheKey(bucket)}:${bucket.owner ?? ""}:owner`,
     [bucketTooltipCacheKey],
   );
-  const featureTooltipCacheKey = useCallback(
-    (bucket: CephAdminBucket, featureKey: FeatureKey) =>
-      `${bucketTooltipCacheKey(bucket)}:${featureKey}`,
-    [bucketTooltipCacheKey],
-  );
+  const {
+    activeFeatureTooltipKey,
+    featureTooltipCacheKey,
+    featureTooltipState,
+    loadFeatureTooltip,
+    resetFeatureTooltipState,
+    setActiveFeatureTooltipKey,
+  } = useBucketFeatureTooltips<CephAdminBucket>({
+    bucketCacheKey: bucketTooltipCacheKey,
+    enabled: Boolean(selectedScopeId),
+    extractError,
+    getBucketCors: async (bucket) => {
+      if (!selectedScopeId) throw new Error(missingScopeError);
+      return getBucketCors(selectedScopeId, bucketRequestName(bucket));
+    },
+    getBucketEncryption: async (bucket) => {
+      if (!selectedScopeId) throw new Error(missingScopeError);
+      return getBucketEncryption(selectedScopeId, bucketRequestName(bucket));
+    },
+    getBucketLogging: async (bucket) => {
+      if (!selectedScopeId) throw new Error(missingScopeError);
+      return getBucketLogging(selectedScopeId, bucketRequestName(bucket));
+    },
+    getBucketNotifications: async (bucket) => {
+      if (!selectedScopeId) throw new Error(missingScopeError);
+      return getBucketNotifications(selectedScopeId, bucketRequestName(bucket));
+    },
+    getBucketPolicy: async (bucket) => {
+      if (!selectedScopeId) throw new Error(missingScopeError);
+      return getBucketPolicy(selectedScopeId, bucketRequestName(bucket));
+    },
+    getBucketProperties: async (bucket) => {
+      if (!selectedScopeId) throw new Error(missingScopeError);
+      return getBucketProperties(selectedScopeId, bucketRequestName(bucket));
+    },
+    getBucketWebsite: async (bucket) => {
+      if (!selectedScopeId) throw new Error(missingScopeError);
+      return getBucketWebsite(selectedScopeId, bucketRequestName(bucket));
+    },
+  });
 
   const resetBucketTooltipState = useCallback(() => {
     generationRef.current += 1;
@@ -105,12 +118,8 @@ export function useBucketOpsTooltips({
     setOwnerTooltipState({});
     ownerTooltipInflightRef.current = {};
     ownerNameCacheRef.current = {};
-    setActiveFeatureTooltipKey(null);
-    setFeatureTooltipState({});
-    featureTooltipInflightRef.current = {};
-    bucketPropertiesCacheRef.current = {};
-    bucketPropertiesInflightRef.current = {};
-  }, []);
+    resetFeatureTooltipState();
+  }, [resetFeatureTooltipState]);
 
   useEffect(() => {
     resetBucketTooltipState();
@@ -198,163 +207,6 @@ export function useBucketOpsTooltips({
       ownerTooltipInflightRef.current[key] = work;
     },
     [extractError, ownerTooltipCacheKey, ownerTooltipState, resolveOwnerNameForBucket, selectedScopeId],
-  );
-
-  const getBucketPropertiesCached = useCallback(
-    async (bucket: CephAdminBucket): Promise<BucketProperties> => {
-      if (!selectedScopeId) throw new Error(missingScopeError);
-      const bucketKey = bucketTooltipCacheKey(bucket);
-      const cached = bucketPropertiesCacheRef.current[bucketKey];
-      if (cached) return cached;
-      const inflight = bucketPropertiesInflightRef.current[bucketKey];
-      if (inflight) return inflight;
-
-      const generation = generationRef.current;
-      const promise = getBucketProperties(
-        selectedScopeId,
-        bucketRequestName(bucket),
-      )
-        .then((properties) => {
-          if (generation === generationRef.current) {
-            bucketPropertiesCacheRef.current[bucketKey] = properties;
-          }
-          return properties;
-        })
-        .finally(() => {
-          if (bucketPropertiesInflightRef.current[bucketKey] === promise) {
-            delete bucketPropertiesInflightRef.current[bucketKey];
-          }
-        });
-      bucketPropertiesInflightRef.current[bucketKey] = promise;
-      return promise;
-    },
-    [
-      bucketRequestName,
-      bucketTooltipCacheKey,
-      getBucketProperties,
-      missingScopeError,
-      selectedScopeId,
-    ],
-  );
-
-  const buildFeatureTooltipLines = useCallback(
-    async (bucket: CephAdminBucket, featureKey: FeatureKey): Promise<string[]> => {
-      if (!selectedScopeId) return [missingScopeError];
-
-      if (featureKey === "versioning") {
-        const properties = await getBucketPropertiesCached(bucket);
-        return buildVersioningSummaryLines(properties.versioning_status);
-      }
-      if (featureKey === "object_lock") {
-        const properties = await getBucketPropertiesCached(bucket);
-        return buildObjectLockSummaryLines(properties.object_lock);
-      }
-      if (featureKey === "block_public_access") {
-        const properties = await getBucketPropertiesCached(bucket);
-        const configuration = normalizePublicAccessBlockState(properties.public_access_block);
-        return [
-          `State: ${formatPublicAccessBlockState(configuration)}`,
-          ...PUBLIC_ACCESS_BLOCK_OPTIONS.map(
-            (option) => `${option.label}: ${formatPublicAccessBlockFlag(configuration[option.key])}`,
-          ),
-        ];
-      }
-      if (featureKey === "lifecycle_rules") {
-        const properties = await getBucketPropertiesCached(bucket);
-        return buildLifecycleRuleSummaryLines(properties.lifecycle_rules as unknown[]);
-      }
-      if (featureKey === "cors") {
-        const properties = await getBucketPropertiesCached(bucket);
-        return buildCorsRuleSummaryLines(
-          Array.isArray(properties.cors_rules) ? properties.cors_rules : [],
-        );
-      }
-      if (featureKey === "static_website") {
-        const website = await getBucketWebsite(
-          selectedScopeId,
-          bucketRequestName(bucket),
-        );
-        return buildWebsiteSummaryLines(website as Record<string, unknown>);
-      }
-      if (featureKey === "bucket_policy") {
-        const payload = await getBucketPolicy(
-          selectedScopeId,
-          bucketRequestName(bucket),
-        );
-        return buildBucketPolicySummaryLines(payload.policy);
-      }
-      if (featureKey === "access_logging") {
-        const logging = await getBucketLogging(
-          selectedScopeId,
-          bucketRequestName(bucket),
-        );
-        return buildLoggingSummaryLines(logging as Record<string, unknown>);
-      }
-      if (featureKey === "notifications") {
-        const notifications = await getBucketNotifications(
-          selectedScopeId,
-          bucketRequestName(bucket),
-        );
-        return buildNotificationSummaryLines(notifications.configuration);
-      }
-      if (featureKey === "server_side_encryption") {
-        const encryption = await getBucketEncryption(
-          selectedScopeId,
-          bucketRequestName(bucket),
-        );
-        return buildEncryptionSummaryLines(encryption.rules);
-      }
-      return ["No additional details available."];
-    },
-    [
-      bucketRequestName,
-      getBucketEncryption,
-      getBucketLogging,
-      getBucketNotifications,
-      getBucketPolicy,
-      getBucketPropertiesCached,
-      getBucketWebsite,
-      missingScopeError,
-      selectedScopeId,
-    ],
-  );
-
-  const loadFeatureTooltip = useCallback(
-    (bucket: CephAdminBucket, featureKey: FeatureKey) => {
-      if (!selectedScopeId) return;
-      const key = featureTooltipCacheKey(bucket, featureKey);
-      const current = featureTooltipState[key];
-      if (current?.status === "ready" || current?.status === "loading") return;
-      if (featureTooltipInflightRef.current[key]) return;
-
-      const generation = generationRef.current;
-      const work = (async () => {
-        setFeatureTooltipState((previous) => ({
-          ...previous,
-          [key]: { status: "loading" },
-        }));
-        try {
-          const lines = await buildFeatureTooltipLines(bucket, featureKey);
-          if (generation !== generationRef.current) return;
-          setFeatureTooltipState((previous) => ({
-            ...previous,
-            [key]: { status: "ready", lines },
-          }));
-        } catch (error) {
-          if (generation !== generationRef.current) return;
-          setFeatureTooltipState((previous) => ({
-            ...previous,
-            [key]: { status: "error", message: extractError(error) },
-          }));
-        } finally {
-          if (generation === generationRef.current) {
-            delete featureTooltipInflightRef.current[key];
-          }
-        }
-      })();
-      featureTooltipInflightRef.current[key] = work;
-    },
-    [buildFeatureTooltipLines, extractError, featureTooltipCacheKey, featureTooltipState, selectedScopeId],
   );
 
   return {
