@@ -191,7 +191,7 @@ class ExternalIdentityUserService:
         normalized_issuer = normalize_oidc_issuer(issuer) if provider_kind == "oidc" else None
         if not normalized_subject:
             raise ValueError("External subject is required")
-        existing = self._find_mapping(
+        existing = self.queries.find_mapping(
             provider_kind,
             provider_key,
             normalized_subject,
@@ -262,7 +262,7 @@ class ExternalIdentityUserService:
         if not normalized_subject:
             raise ValueError("External subject is required")
         normalized_email = normalize_optional_email(email)
-        identity = self._find_mapping(
+        identity = self.queries.find_mapping(
             provider_type,
             provider_key,
             normalized_subject,
@@ -343,7 +343,7 @@ class ExternalIdentityUserService:
         browser_secret_hash: Optional[str],
         redirect_path: Optional[str],
     ) -> User | None:
-        candidates = self._find_email_candidates(email)
+        candidates = self.queries.find_email_candidates(email)
         if len(candidates) > 1:
             raise ValueError("External identity email matches multiple users")
         if not candidates:
@@ -532,26 +532,6 @@ class ExternalIdentityUserService:
             full_name=full_name,
             picture_url=picture_url,
         )
-
-    def _find_mapping(
-        self,
-        provider_type: str,
-        provider_id: str,
-        subject: str,
-        *,
-        issuer: Optional[str] = None,
-        include_revoked: bool = False,
-    ) -> ExternalIdentity | None:
-        return self.queries.find_mapping(
-            provider_type,
-            provider_id,
-            subject,
-            issuer=issuer,
-            include_revoked=include_revoked,
-        )
-
-    def _find_email_candidates(self, email: str) -> list[User]:
-        return self.queries.find_email_candidates(email)
 
     def _can_trust_email_link(
         self,
