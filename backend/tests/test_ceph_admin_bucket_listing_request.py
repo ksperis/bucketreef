@@ -57,10 +57,10 @@ def test_bucket_listing_request_derives_stats_and_include_requirements():
 
     assert request.stats_required is True
     assert request.with_stats is True
-    assert request.wants_owner_name is True
-    assert request.wants_owner_suspended is True
-    assert request.wants_owner_quota is True
-    assert request.wants_owner_quota_usage is True
+    assert request.requested_owner_metadata.name is True
+    assert request.requested_owner_metadata.suspended is True
+    assert request.requested_owner_metadata.quota is True
+    assert request.requested_owner_metadata.usage is True
     assert request.owner_usage_required is True
     assert request.include_tags is True
     assert request.requested_features == frozenset({"versioning"})
@@ -118,8 +118,8 @@ def test_advanced_filter_plan_partitions_rules_and_lookup_requirements():
     assert len(plan.feature_param_rules) == 1
     assert plan.filter_features == {"versioning"}
     assert plan.requires_tag_lookup is True
-    assert plan.requires_owner_name_lookup is True
-    assert plan.requires_owner_suspended_lookup is True
-    assert plan.requires_owner_quota_lookup is True
-    assert plan.requires_owner_usage_lookup is True
+    assert plan.owner_metadata.name is True
+    assert plan.owner_metadata.suspended is True
+    assert plan.owner_metadata.quota is True
+    assert plan.owner_metadata.usage is True
     assert plan.has_expensive_rules is True

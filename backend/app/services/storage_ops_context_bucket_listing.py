@@ -134,12 +134,8 @@ def _enrich_storage_ops_context_owner_details(
     execution_context: S3ExecutionContext,
     query: StorageOpsBucketListingRequest,
 ) -> list[StorageOpsBucketSummary]:
-    if not buckets or not (
-        query.filter_requires_owner_name
-        or query.filter_requires_owner_suspended
-        or query.filter_requires_owner_quota
-        or query.owner_usage_required
-    ):
+    requirements = query.filter_owner_metadata
+    if not buckets or not (requirements.required or query.owner_usage_required):
         return buckets
 
     BucketOwnerMetadataService(
@@ -147,9 +143,9 @@ def _enrich_storage_ops_context_owner_details(
         execution_context=execution_context,
     ).enrich_buckets(
         buckets,
-        include_name=query.filter_requires_owner_name,
-        include_suspended=query.filter_requires_owner_suspended,
-        include_quota=query.filter_requires_owner_quota,
+        include_name=requirements.name,
+        include_suspended=requirements.suspended,
+        include_quota=requirements.quota,
         include_usage=query.owner_usage_required,
     )
     return buckets

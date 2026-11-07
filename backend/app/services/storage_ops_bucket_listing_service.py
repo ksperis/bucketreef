@@ -302,13 +302,8 @@ class _StorageOpsBucketListingPipeline:
         contexts: list[StorageOpsResolvedContext],
         query: StorageOpsBucketListingRequest,
     ) -> list[StorageOpsBucketSummary]:
-        wants_owner_metadata = bool(
-            query.wants_owner_name
-            or query.wants_owner_suspended
-            or query.wants_owner_quota
-            or query.wants_owner_quota_usage
-        )
-        if not page_items or not wants_owner_metadata:
+        requirements = query.requested_owner_metadata
+        if not page_items or not requirements.required:
             return page_items
         self.progress.emit(
             percent=92,
@@ -323,9 +318,9 @@ class _StorageOpsBucketListingPipeline:
             resolved_contexts_by_id={
                 context.ref.context_id: context for context in contexts
             },
-            include_name=query.wants_owner_name,
-            include_suspended=query.wants_owner_suspended,
-            include_quota=query.wants_owner_quota or query.wants_owner_quota_usage,
+            include_name=requirements.name,
+            include_suspended=requirements.suspended,
+            include_quota=requirements.quota,
             progress=self.progress,
             cancel_check=self.cancel_check,
         )

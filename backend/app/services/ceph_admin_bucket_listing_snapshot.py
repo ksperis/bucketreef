@@ -338,19 +338,20 @@ class CephAdminBucketSnapshotBuilder:
         service: BucketConfigurationService,
         execution_context: S3ExecutionContext,
     ) -> list[BucketListingSummary]:
-        if plan.requires_owner_name_lookup and candidates:
+        owner_requirements = plan.owner_metadata
+        if owner_requirements.name and candidates:
             self._enrich_owner_names(candidates)
         if (
-            plan.requires_owner_suspended_lookup
-            or plan.requires_owner_quota_lookup
-            or plan.requires_owner_usage_lookup
+            owner_requirements.suspended
+            or owner_requirements.quota
+            or owner_requirements.usage
         ) and candidates:
             candidates = apply_owner_enrichment(
                 self.ctx,
                 candidates,
-                include_suspended=plan.requires_owner_suspended_lookup,
-                include_quota=plan.requires_owner_quota_lookup,
-                include_usage=plan.requires_owner_usage_lookup,
+                include_suspended=owner_requirements.suspended,
+                include_quota=owner_requirements.quota,
+                include_usage=owner_requirements.usage,
                 usage_by_key=owner_usage_by_key,
             )
         if not candidates or not (plan.filter_features or plan.requires_tag_lookup):

@@ -7,13 +7,12 @@ from dataclasses import dataclass
 from app.models.bucket_filter import BucketFilterQuery, BucketFilterRule
 from app.services.bucket_listing_enrichment import BUCKET_FEATURE_INCLUDES, COLUMN_DETAIL_KEYS
 from app.services.bucket_listing_owner_metadata import (
-    OWNER_QUOTA_FIELDS,
-    OWNER_STATUS_FIELDS,
-    OWNER_USAGE_FIELDS,
-    OWNER_USAGE_PERCENT_FIELDS,
+    BucketOwnerMetadataRequirements,
     filter_requires_owner_usage,
+    owner_metadata_requirements_for_fields,
     request_requires_owner_metadata,
     request_requires_tenant_metadata,
+    requested_owner_metadata_requirements,
 )
 from app.services.bucket_listing_rule_matching import (
     EXPENSIVE_FIELD_RULES,
@@ -90,10 +89,7 @@ class CephAdminBucketListingRequest:
     sort_dir: str
     with_stats: bool
     stats_required: bool
-    wants_owner_name: bool
-    wants_owner_suspended: bool
-    wants_owner_quota: bool
-    wants_owner_quota_usage: bool
+    requested_owner_metadata: BucketOwnerMetadataRequirements
     owner_usage_required: bool
     needs_owner_metadata: bool
     needs_tenant_metadata: bool
@@ -123,11 +119,10 @@ class CephAdminBucketListingRequest:
         )
         stats_required = request_requires_bucket_stats(advanced_filter, sort_by)
         include_set = parse_includes(include)
-        wants_owner_name = "owner_name" in include_set
-        wants_owner_suspended = "owner_suspended" in include_set
-        wants_owner_quota = "owner_quota" in include_set
-        wants_owner_quota_usage = "owner_quota_usage" in include_set
-        owner_usage_required = wants_owner_quota_usage or filter_requires_owner_usage(advanced_filter)
+        requested_owner_metadata = requested_owner_metadata_requirements(include_set)
+        owner_usage_required = requested_owner_metadata.usage or filter_requires_owner_usage(
+            advanced_filter
+        )
         needs_owner_metadata, needs_tenant_metadata = _metadata_requirements(
             advanced_filter,
             sort_by,
@@ -141,10 +136,7 @@ class CephAdminBucketListingRequest:
             sort_dir=sort_dir,
             with_stats=with_stats or stats_required,
             stats_required=stats_required,
-            wants_owner_name=wants_owner_name,
-            wants_owner_suspended=wants_owner_suspended,
-            wants_owner_quota=wants_owner_quota,
-            wants_owner_quota_usage=wants_owner_quota_usage,
+            requested_owner_metadata=requested_owner_metadata,
             owner_usage_required=owner_usage_required,
             needs_owner_metadata=needs_owner_metadata,
             needs_tenant_metadata=needs_tenant_metadata,
@@ -177,10 +169,7 @@ class CephAdminAdvancedFilterPlan:
     cheap_field_rules: list[BucketFilterRule]
     filter_features: set[str]
     requires_tag_lookup: bool
-    requires_owner_name_lookup: bool
-    requires_owner_suspended_lookup: bool
-    requires_owner_quota_lookup: bool
-    requires_owner_usage_lookup: bool
+    owner_metadata: BucketOwnerMetadataRequirements
 
     @classmethod
     def from_query(cls, query: BucketFilterQuery) -> CephAdminAdvancedFilterPlan:
@@ -196,14 +185,7 @@ class CephAdminAdvancedFilterPlan:
             cheap_field_rules=cheap_field_rules,
             filter_features={rule.feature for rule in feature_state_rules if rule.feature},
             requires_tag_lookup="tag" in expensive_fields,
-            requires_owner_name_lookup="owner_name" in expensive_fields,
-            requires_owner_suspended_lookup=bool(expensive_fields & OWNER_STATUS_FIELDS),
-            requires_owner_quota_lookup=bool(
-                expensive_fields & (OWNER_QUOTA_FIELDS | OWNER_USAGE_PERCENT_FIELDS)
-            ),
-            requires_owner_usage_lookup=bool(
-                expensive_fields & (OWNER_USAGE_FIELDS | OWNER_USAGE_PERCENT_FIELDS)
-            ),
+            owner_metadata=owner_metadata_requirements_for_fields(expensive_fields),
         )
 
     @property
