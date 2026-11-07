@@ -12,6 +12,14 @@ from app.models.cost import CostGlobalModel, CostSettings
 from app.utils.time import utcnow
 
 
+def _apply_cost_payload(
+    target: CostModel | CostEndpointOverride,
+    payload: CostGlobalModel | CostEndpointOverrideModel,
+) -> None:
+    for field, value in payload.model_dump(exclude={"storage_endpoint_id"}).items():
+        setattr(target, field, value)
+
+
 class CostSettingsService:
     def __init__(self, db: Session) -> None:
         self.db = db
@@ -23,30 +31,19 @@ class CostSettingsService:
         ).all()
         return CostSettings(
             model=(
-                CostGlobalModel(
-                    currency=model.currency,
-                    storage_gb_month_price=model.storage_gb_month_price,
-                    egress_gb_price=model.egress_gb_price,
-                    ingress_gb_price=model.ingress_gb_price,
-                    requests_per_1000_price=model.requests_per_1000_price,
-                )
+                CostGlobalModel.model_validate(model, from_attributes=True)
                 if model is not None
                 else None
             ),
             endpoint_overrides=[
-                CostEndpointOverrideModel(
-                    storage_endpoint_id=row.storage_endpoint_id,
-                    storage_gb_month_price=row.storage_gb_month_price,
-                    egress_gb_price=row.egress_gb_price,
-                    ingress_gb_price=row.ingress_gb_price,
-                    requests_per_1000_price=row.requests_per_1000_price,
-                )
+                CostEndpointOverrideModel.model_validate(row, from_attributes=True)
                 for row in overrides
             ],
         )
 
     def save_settings(self, payload: CostSettings) -> CostSettings:
-        requested_endpoint_ids = {item.storage_endpoint_id for item in payload.endpoint_overrides}
+        requested = {item.storage_endpoint_id: item for item in payload.endpoint_overrides}
+        requested_endpoint_ids = set(requested)
         if requested_endpoint_ids:
             existing_endpoint_ids = set(
                 self.db.scalars(
@@ -70,18 +67,13 @@ class CostSettingsService:
         if model is None:
             model = CostModel(id=COST_MODEL_SINGLETON_ID, created_at=now, updated_at=now)
             self.db.add(model)
-        model.currency = payload.model.currency
-        model.storage_gb_month_price = payload.model.storage_gb_month_price
-        model.egress_gb_price = payload.model.egress_gb_price
-        model.ingress_gb_price = payload.model.ingress_gb_price
-        model.requests_per_1000_price = payload.model.requests_per_1000_price
+        _apply_cost_payload(model, payload.model)
         model.updated_at = now
 
         existing_overrides = {
             row.storage_endpoint_id: row
             for row in self.db.scalars(select(CostEndpointOverride)).all()
         }
-        requested = {item.storage_endpoint_id: item for item in payload.endpoint_overrides}
         for endpoint_id, row in existing_overrides.items():
             if endpoint_id not in requested:
                 self.db.delete(row)
@@ -94,10 +86,7 @@ class CostSettingsService:
                     updated_at=now,
                 )
                 self.db.add(row)
-            row.storage_gb_month_price = item.storage_gb_month_price
-            row.egress_gb_price = item.egress_gb_price
-            row.ingress_gb_price = item.ingress_gb_price
-            row.requests_per_1000_price = item.requests_per_1000_price
+            _apply_cost_payload(row, item)
             row.updated_at = now
 
         commit_or_rollback(self.db)
