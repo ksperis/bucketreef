@@ -18,6 +18,7 @@ from ldap3.utils.conv import escape_filter_chars
 from sqlalchemy.orm import Session
 
 from app.core.config import LDAPProviderSettings, Settings, get_settings
+from app.core.domain_errors import ResourceNotFoundError
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import User
 from app.models.ldap import LDAPProviderInfo
@@ -38,7 +39,7 @@ class LDAPError(Exception):
     """Base class for LDAP authentication exceptions."""
 
 
-class LDAPProviderNotFoundError(LDAPError):
+class LDAPProviderNotFoundError(ResourceNotFoundError, LDAPError):
     """Raised when a configured LDAP provider is missing or disabled."""
 
 
