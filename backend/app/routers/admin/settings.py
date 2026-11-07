@@ -47,6 +47,7 @@ from app.services.oidc_provider_settings_service import (
     update_oidc_provider,
 )
 from app.services.quota_alert_email_service import QuotaAlertEmailService
+from app.services.portal.server_access_logging import PortalServerAccessLoggingReconcileError
 from app.services.portal_service import get_portal_service
 from app.utils.identity_provider_ids import normalize_identity_provider_id
 
@@ -213,7 +214,7 @@ def update_settings(
     if _portal_server_access_logging_changed(current_settings, payload):
         try:
             server_access_logging_summary = get_portal_service(db).reconcile_all_portal_server_access_logging(payload.portal)
-        except RuntimeError as exc:
+        except PortalServerAccessLoggingReconcileError as exc:
             raise_bad_gateway_from_runtime(exc)
     saved = save_app_settings_for_db(db, payload)
     audit.record_action(

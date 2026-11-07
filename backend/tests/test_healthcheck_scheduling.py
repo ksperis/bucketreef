@@ -24,6 +24,7 @@ from app.services import healthcheck_service
 from app.services.cost_collection_service import CostCollector
 from app.services.healthcheck_service import HealthCheckService
 from app.services.operation_lease_service import HEALTHCHECK_RUN_OPERATION, OperationLeaseService
+from app.services.portal.server_access_logging import PortalServerAccessLoggingReconcileError
 from tests.auth_test_utils import authenticate_ui_client
 from tests.storage_endpoint_features import persisted_endpoint_features
 
@@ -282,8 +283,9 @@ def test_settings_portal_logging_reconcile_maps_endpoint_failure_to_service_unav
     current = AppSettings()
     requested = current.model_copy(deep=True)
     requested.portal.feature_policies.server_access_logging = "disabled"
-    failure = RuntimeError("Unable to reconcile Portal Server Access Logging for 1 account: demo")
-    failure.__cause__ = EndpointConnectionError(endpoint_url="https://storage.invalid")
+    endpoint_failure = EndpointConnectionError(endpoint_url="https://storage.invalid")
+    failure = PortalServerAccessLoggingReconcileError([("demo", endpoint_failure)])
+    failure.__cause__ = endpoint_failure
     monkeypatch.setattr(admin_settings, "load_app_settings_for_db", lambda db: current)
     monkeypatch.setattr(
         admin_settings,
@@ -296,7 +298,31 @@ def test_settings_portal_logging_reconcile_maps_endpoint_failure_to_service_unav
     response = client.put("/api/admin/settings", json=requested.model_dump(mode="json"))
 
     assert response.status_code == 503, response.text
-    assert response.json()["detail"] == "Unable to reconcile Portal Server Access Logging for 1 account: demo"
+    assert response.json()["detail"] == (
+        "Unable to reconcile Portal Server Access Logging for 1 account: demo. "
+        "Check S3 endpoint availability and permissions, then retry."
+    )
+
+
+def test_settings_portal_logging_reconcile_propagates_unexpected_runtime_error(
+    client, db_session, monkeypatch, scheduled_settings,
+):
+    _allow_superadmin(client, db_session)
+    current = AppSettings()
+    requested = current.model_copy(deep=True)
+    requested.portal.feature_policies.server_access_logging = "disabled"
+    failure = RuntimeError("unexpected settings reconcile regression")
+    monkeypatch.setattr(admin_settings, "load_app_settings_for_db", lambda db: current)
+    monkeypatch.setattr(
+        admin_settings,
+        "get_portal_service",
+        lambda db: SimpleNamespace(
+            reconcile_all_portal_server_access_logging=Mock(side_effect=failure),
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="unexpected settings reconcile regression"):
+        client.put("/api/admin/settings", json=requested.model_dump(mode="json"))
 
 
 def test_environment_lock_prevents_initial_check_on_requested_activation(

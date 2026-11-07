@@ -1,9 +1,12 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+import pytest
+
 from app.db import S3Account
 from app.main import app
 from app.models.app_settings import AppSettings
 from app.routers.admin import s3_accounts as admin_accounts_router
+from app.services.portal.exceptions import PortalOperationError
 from app.services.portal import settings as portal_settings_module
 from tests.s3_account_factory import make_s3_account
 
@@ -236,3 +239,41 @@ def test_admin_account_portal_settings_returns_404_for_unknown_account(client):
     response = client.get("/api/admin/accounts/999999/portal-settings")
 
     assert response.status_code == 404
+
+
+def test_admin_patch_account_portal_settings_maps_expected_operation_error(client, monkeypatch):
+    class FakeService:
+        def update(self, *_args, **_kwargs):
+            raise PortalOperationError("Portal logging update failed")
+
+    monkeypatch.setitem(
+        app.dependency_overrides,
+        admin_accounts_router.get_admin_account_portal_settings_service,
+        lambda: FakeService(),
+    )
+
+    response = client.patch(
+        "/api/admin/accounts/1/portal-settings",
+        json={"override": {}},
+    )
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == "Portal logging update failed"
+
+
+def test_admin_patch_account_portal_settings_propagates_unexpected_runtime_error(client, monkeypatch):
+    class FakeService:
+        def update(self, *_args, **_kwargs):
+            raise RuntimeError("unexpected portal settings regression")
+
+    monkeypatch.setitem(
+        app.dependency_overrides,
+        admin_accounts_router.get_admin_account_portal_settings_service,
+        lambda: FakeService(),
+    )
+
+    with pytest.raises(RuntimeError, match="unexpected portal settings regression"):
+        client.patch(
+            "/api/admin/accounts/1/portal-settings",
+            json={"override": {}},
+        )
