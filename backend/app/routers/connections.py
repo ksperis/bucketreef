@@ -166,9 +166,10 @@ def update_connection(
     user: User = Depends(get_current_account_user),
 ) -> S3Connection:
     service = S3ConnectionsService(db)
+    queries = S3ConnectionQueryService(db)
     audit = AuditService(db)
     try:
-        service.get_owned(user.id, connection_id)
+        queries.get_owned(user.id, connection_id)
         if _SENSITIVE_UPDATE_FIELDS.intersection(payload.model_fields_set):
             _ensure_manual_private_connection_creation_allowed(db, user)
         updated = service.update(user.id, connection_id, payload)
@@ -207,6 +208,7 @@ def delete_connection(
     user: User = Depends(get_current_account_user),
 ) -> Response:
     service = S3ConnectionsService(db)
+    queries = S3ConnectionQueryService(db)
     audit = AuditService(db)
     try:
         if ManagedPrivateAccessCleanupService(db).delete_owned_connection(
@@ -215,7 +217,7 @@ def delete_connection(
         ):
             return Response(status_code=status.HTTP_204_NO_CONTENT)
         # Read minimal metadata for audit before deletion
-        row = service.get_owned(user.id, connection_id)
+        row = queries.get_owned(user.id, connection_id)
         from app.utils.s3_connection_endpoint import resolve_connection_details
 
         details = resolve_connection_details(row)

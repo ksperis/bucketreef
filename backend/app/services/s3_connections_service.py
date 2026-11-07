@@ -233,9 +233,6 @@ class S3ConnectionsService:
         row.rgw_tenant = None
         row.rgw_account_id = None
 
-    def get_owned(self, user_id: int, connection_id: int) -> DBS3Connection:
-        return self.queries.get_owned(user_id, connection_id)
-
     def create(self, user_id: int, payload: S3ConnectionCreate, *, commit: bool = True) -> S3Connection:
         return self._create(
             user_id,
@@ -395,7 +392,7 @@ class S3ConnectionsService:
         )
 
     def update(self, user_id: int, connection_id: int, payload: S3ConnectionUpdate) -> S3Connection:
-        row = self.get_owned(user_id, connection_id)
+        row = self.queries.get_owned(user_id, connection_id)
         payload_data = payload.model_dump(exclude_unset=True)
         self._validate_private_update_mutability(row, payload_data)
         endpoint_plan = self._plan_private_endpoint_update(row, payload, payload_data)
@@ -537,7 +534,7 @@ class S3ConnectionsService:
         row.access_browser = access_browser
 
     def delete(self, user_id: int, connection_id: int) -> None:
-        row = self.get_owned(user_id, connection_id)
+        row = self.queries.get_owned(user_id, connection_id)
         if row.server_managed:
             raise S3ConnectionConflictError(
                 "Server-managed connections must be deleted by the provisioning service"
