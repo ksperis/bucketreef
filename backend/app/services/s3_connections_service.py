@@ -15,6 +15,7 @@ from app.models.s3_connection import (
     S3_CONNECTION_ENDPOINT_FIELDS,
     S3Connection,
     S3ConnectionCreate,
+    S3ConnectionCreationPayload,
     S3ConnectionUpdate,
 )
 from app.models.s3_connection_admin import (
@@ -134,33 +135,13 @@ class S3ConnectionsService:
         created_by_user_id: int,
         payload: S3ConnectionAdminCreate,
     ) -> DBS3Connection:
-        endpoint_plan = self.endpoint_planner.plan(
-            None,
+        row = self._new_connection_row(
+            created_by_user_id,
             payload,
             enforce_manual_endpoint_policy=False,
-        )
-        rgw_user_uid, rgw_tenant, rgw_account_id = normalize_connection_rgw_identity(
-            payload.rgw_user_uid,
-            payload.rgw_tenant,
-            payload.rgw_account_id,
-        )
-        row = DBS3Connection(
-            created_by_user_id=created_by_user_id,
-            name=payload.name,
-            **endpoint_plan.persistence_values(),
             is_shared=True,
-            is_active=True,
             access_manager=True,
             access_browser=False,
-            remediation_required=False,
-            remediation_reason=None,
-            rgw_user_uid=rgw_user_uid,
-            rgw_tenant=rgw_tenant,
-            rgw_account_id=rgw_account_id,
-            access_key_id=payload.access_key_id,
-            secret_access_key=payload.secret_access_key,
-            created_at=utcnow(),
-            updated_at=utcnow(),
         )
         self._persist_created_connection(row, payload.tags, commit=True)
         return row
@@ -302,25 +283,46 @@ class S3ConnectionsService:
         commit: bool,
         enforce_manual_endpoint_policy: bool,
     ) -> S3Connection:
+        access_manager, access_browser = self._resolve_access_flags(
+            access_manager=payload.access_manager,
+            access_browser=payload.access_browser,
+        )
+        row = self._new_connection_row(
+            user_id,
+            payload,
+            enforce_manual_endpoint_policy=enforce_manual_endpoint_policy,
+            is_shared=False,
+            access_manager=access_manager,
+            access_browser=access_browser,
+        )
+        self._persist_created_connection(row, payload.tags, commit=commit)
+        return self.serialize(row)
+
+    def _new_connection_row(
+        self,
+        created_by_user_id: int,
+        payload: S3ConnectionCreationPayload,
+        *,
+        enforce_manual_endpoint_policy: bool,
+        is_shared: bool,
+        access_manager: bool,
+        access_browser: bool,
+    ) -> DBS3Connection:
         endpoint_plan = self.endpoint_planner.plan(
             None,
             payload,
             enforce_manual_endpoint_policy=enforce_manual_endpoint_policy,
-        )
-        access_manager, access_browser = self._resolve_access_flags(
-            access_manager=payload.access_manager,
-            access_browser=payload.access_browser,
         )
         rgw_user_uid, rgw_tenant, rgw_account_id = normalize_connection_rgw_identity(
             payload.rgw_user_uid,
             payload.rgw_tenant,
             payload.rgw_account_id,
         )
-        row = DBS3Connection(
-            created_by_user_id=user_id,
+        return DBS3Connection(
+            created_by_user_id=created_by_user_id,
             name=payload.name,
             **endpoint_plan.persistence_values(),
-            is_shared=False,
+            is_shared=is_shared,
             is_active=True,
             access_manager=access_manager,
             access_browser=access_browser,
@@ -332,8 +334,6 @@ class S3ConnectionsService:
             created_at=utcnow(),
             updated_at=utcnow(),
         )
-        self._persist_created_connection(row, payload.tags, commit=commit)
-        return self.serialize(row)
 
     def _persist_created_connection(
         self,
