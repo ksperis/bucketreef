@@ -3,6 +3,10 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { ReactNode } from "react";
+import type {
+  BucketCompareConfigDiff as BucketCompareConfigDiffContract,
+  BucketCompareContentDiff as BucketCompareContentDiffContract,
+} from "../../api/bucketCompareContracts";
 import InlineSummary from "../../components/InlineSummary";
 import ListToolbar from "../../components/ListToolbar";
 import ToolbarSearchInput from "../../components/ToolbarSearchInput";
@@ -16,14 +20,17 @@ import BucketCompareObjectDetails, {
   type CompareObjectOptions,
 } from "./BucketCompareObjectDetails";
 import {
+  buildBucketCompareContentSections,
   formatCompareDisplayLimitMessage,
   type BucketCompareContentSection,
   type CompareVisibleKeysCopyFeedback,
 } from "./bucketCompareContentDiff";
 import {
+  formatUnknown,
   getChangedTone,
   getRunStatusLabel,
   getRunStatusTone,
+  renderDiffLines,
   type BucketCompareRunFilters,
   type BucketCompareRunPresentationItem,
 } from "./bucketCompareShared";
@@ -58,7 +65,7 @@ type BucketCompareContentSectionView = BucketCompareContentSection & {
 
 export function BucketCompareContentDiff({
   sectionIdPrefix,
-  sections,
+  content,
   copyFeedback,
   onCopyVisibleKeys,
   getSourceOptions,
@@ -67,7 +74,7 @@ export function BucketCompareContentDiff({
   renderSectionFeedback,
 }: {
   sectionIdPrefix: string;
-  sections: BucketCompareContentSectionView[];
+  content: BucketCompareContentDiffContract;
   copyFeedback: (CompareVisibleKeysCopyFeedback & { id: string }) | null;
   onCopyVisibleKeys: (id: string, keys: string[]) => void | Promise<void>;
   getSourceOptions?: (
@@ -88,6 +95,15 @@ export function BucketCompareContentDiff({
   ) => ReactNode;
 }) {
   const { text: surfaceText } = useSharedI18n();
+  const sections: BucketCompareContentSectionView[] = buildBucketCompareContentSections(content).map((section) => ({
+    ...section,
+    label:
+      section.key === "source_only"
+        ? surfaceText("Source only ({count})", { count: section.objectCount })
+        : section.key === "target_only"
+          ? surfaceText("Target only ({count})", { count: section.objectCount })
+          : surfaceText("Different objects ({count})", { count: section.objectCount }),
+  }));
   const contentHasDifferences = sections.some((section) => section.changed);
 
   return (
@@ -186,6 +202,68 @@ export function BucketCompareContentDiff({
             </BucketCompareSection>
           );
         })}
+      </div>
+    </BucketCompareSection>
+  );
+}
+
+export function BucketCompareConfigDiff({ configDiff }: { configDiff: BucketCompareConfigDiffContract }) {
+  const { text: surfaceText } = useSharedI18n();
+
+  return (
+    <BucketCompareSection
+      summary={
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="ui-caption font-semibold text-slate-700 dark:text-slate-200">
+            {surfaceText("Config diff")}
+          </span>
+          <ListBadge tone={getChangedTone(configDiff.changed)}>
+            {surfaceText(configDiff.changed ? "Different" : "Identical")}
+          </ListBadge>
+        </div>
+      }
+    >
+      <div className="mt-2 space-y-3">
+        {configDiff.sections.map((section) => (
+          <BucketCompareSection
+            key={section.key}
+            summary={
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="ui-caption font-semibold text-slate-700 dark:text-slate-200">
+                  {surfaceText(section.label)}
+                </span>
+                <ListBadge tone={getChangedTone(section.changed)}>
+                  {surfaceText(section.changed ? "Different" : "Identical")}
+                </ListBadge>
+              </div>
+            }
+          >
+            <div className="mt-1 grid gap-2 pb-2 lg:grid-cols-2">
+              <div className="space-y-1">
+                <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  {surfaceText("Source")}
+                </p>
+                {renderDiffLines([
+                  {
+                    text: formatUnknown(section.source),
+                    tone: section.changed ? "removed" : undefined,
+                  },
+                ])}
+              </div>
+              <div className="space-y-1">
+                <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  {surfaceText("Target")}
+                </p>
+                {renderDiffLines([
+                  {
+                    text: formatUnknown(section.target),
+                    tone: section.changed ? "added" : undefined,
+                  },
+                ])}
+              </div>
+            </div>
+          </BucketCompareSection>
+        ))}
       </div>
     </BucketCompareSection>
   );
@@ -310,7 +388,7 @@ export function BucketCompareResult({ item, content, children }: {
   );
 }
 
-export function BucketCompareSection({ summary, children }: { summary: ReactNode; children: ReactNode }) {
+function BucketCompareSection({ summary, children }: { summary: ReactNode; children: ReactNode }) {
   return (
     <UiDetails className="bucket-compare-section">
       <summary>
