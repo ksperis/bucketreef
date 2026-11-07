@@ -26,6 +26,7 @@ from app.services.rgw_iam import RGWIAMError
 from app.services.rgw_account_root_service import RgwAccountRootService
 from app.services.rgw_account_topics_resolver import RgwAccountTopicsResolver, normalize_account_key
 from app.services.s3_account_iam_cleanup_service import S3AccountIamCleanupService
+from app.services.s3_account_update_service import S3AccountUpdateService
 from app.services.s3_accounts_service import S3AccountsService
 from app.services.s3_account_query_service import S3AccountQueryService
 from tests.storage_endpoint_features import persisted_endpoint_features
@@ -156,6 +157,10 @@ def _seed_account(
 def _service(db_session, fake_admin: _FakeRGWAdmin | None = None) -> tuple[S3AccountsService, _FakeRGWAdmin]:
     admin = fake_admin or _FakeRGWAdmin()
     return S3AccountsService(db_session), admin
+
+
+def _update_service(db_session) -> S3AccountUpdateService:
+    return S3AccountUpdateService(db_session)
 
 
 def test_resolve_storage_endpoint_errors_and_success(db_session):
@@ -320,7 +325,7 @@ def test_update_account_user_links_missing_user(db_session, monkeypatch):
     )
     db_session.commit()
 
-    service, _ = _service(db_session)
+    service = _update_service(db_session)
     monkeypatch.setattr(service.metrics, "get_quota", lambda *args, **kwargs: (None, None))
 
     with pytest.raises(ValueError, match="User not found"):
@@ -377,7 +382,7 @@ def test_update_account_adds_and_removes_links_with_quota_request(db_session, mo
     )
     db_session.commit()
 
-    service, _ = _service(db_session)
+    service = _update_service(db_session)
 
     quota_calls: list[tuple] = []
     monkeypatch.setattr(service.quota, "update", lambda *args, **kwargs: quota_calls.append(args))
@@ -439,7 +444,7 @@ def test_update_account_rejects_name_collision_in_final_scope(db_session, monkey
         rgw_account_id="RGW-U-SCOPE-2",
         rgw_tenant="team_a",
     )
-    service, _ = _service(db_session)
+    service = _update_service(db_session)
 
     with pytest.raises(ValueError, match="S3Account already exists"):
         service.update_account(
@@ -468,7 +473,7 @@ def test_update_account_rejects_endpoint_move_into_name_collision(db_session):
         rgw_account_id="RGW-U-MOVE-2",
         rgw_tenant="team_a",
     )
-    service, _ = _service(db_session)
+    service = _update_service(db_session)
 
     with pytest.raises(ValueError, match="S3Account already exists"):
         service.update_account(
@@ -485,7 +490,7 @@ def test_update_account_persists_privileged_bucket_quota_grant(db_session, monke
     account = _seed_account(db_session, endpoint.id, name="target-grant-acc", rgw_account_id="RGW-TARGET-GRANT")
     assert account.allow_bucket_quota_management is None
 
-    service, _ = _service(db_session)
+    service = _update_service(db_session)
     monkeypatch.setattr(service.metrics, "get_quota", lambda *args, **kwargs: (None, None))
 
     updated = service.update_account(
@@ -501,7 +506,7 @@ def test_update_account_persists_privileged_bucket_quota_grant(db_session, monke
 def test_update_account_persists_project_usage_feature_overrides(db_session, monkeypatch):
     endpoint = _seed_endpoint(db_session, name="ceph-usage-overrides", is_default=True)
     account = _seed_account(db_session, endpoint.id, name="usage-overrides", rgw_account_id="RGW-USAGE-OVERRIDES")
-    service, _ = _service(db_session)
+    service = _update_service(db_session)
     monkeypatch.setattr(service.metrics, "get_quota", lambda *args, **kwargs: (None, None))
 
     updated = service.update_account(
@@ -533,7 +538,7 @@ def test_update_account_explicit_null_clears_email(db_session, monkeypatch):
     account.email = "owner@example.test"
     db_session.commit()
 
-    service, _ = _service(db_session)
+    service = _update_service(db_session)
     monkeypatch.setattr(service.metrics, "get_quota", lambda *args, **kwargs: (None, None))
 
     updated = service.update_account(account.id, S3AccountUpdate(email=None))
