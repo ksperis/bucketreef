@@ -154,12 +154,43 @@ def test_probe_connection_can_manage_iam_respects_disabled_endpoint_iam(monkeypa
     assert calls["count"] == 0
 
 
-def test_probe_connection_can_manage_iam_handles_errors(monkeypatch):
+def test_probe_connection_can_manage_iam_handles_provider_errors(monkeypatch):
     monkeypatch.setattr(svc, "get_iam_client", lambda **kwargs: _FakeIAMClient(error=_client_error("AccessDenied")))
     assert svc.probe_connection_can_manage_iam(_conn()) is False
 
-    monkeypatch.setattr(svc, "get_iam_client", lambda **kwargs: _FakeIAMClient(error=RuntimeError("broken")))
-    assert svc.probe_connection_can_manage_iam(_conn()) is False
+
+def test_probe_connection_can_manage_iam_propagates_unexpected_runtime_errors(monkeypatch):
+    monkeypatch.setattr(
+        svc,
+        "get_iam_client",
+        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("capability probe regression")),
+    )
+
+    with pytest.raises(RuntimeError, match="capability probe regression"):
+        svc.probe_connection_can_manage_iam(_conn())
+
+
+def test_probe_execution_can_manage_iam_propagates_unexpected_runtime_errors(monkeypatch):
+    endpoint = SimpleNamespace()
+    context = SimpleNamespace(
+        storage_endpoint=endpoint,
+        access_key="AKIA-EXECUTION",
+        secret_key="SECRET-EXECUTION",
+    )
+    monkeypatch.setattr(svc, "resolve_iam_endpoint", lambda _endpoint: "https://iam.example.test")
+    monkeypatch.setattr(svc, "resolve_iam_signing_region", lambda _endpoint: "us-east-1")
+    monkeypatch.setattr(
+        "app.utils.s3_endpoint.resolve_s3_client_options",
+        lambda _context: ("https://s3.example.test", "us-east-1", False, True),
+    )
+    monkeypatch.setattr(
+        svc,
+        "get_iam_client",
+        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("execution probe regression")),
+    )
+
+    with pytest.raises(RuntimeError, match="execution probe regression"):
+        svc.probe_execution_can_manage_iam(context)
 
 
 def test_refresh_connection_detected_capabilities_updates_structured_profile(monkeypatch):
