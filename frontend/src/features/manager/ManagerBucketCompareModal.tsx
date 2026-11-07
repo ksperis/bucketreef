@@ -58,6 +58,7 @@ import {
   triggerBlobDownload,
   triggerJsonDownload,
 } from "../../utils/download";
+import { lastNonEmptyPathSegment } from "../../utils/pathSegments";
 import { useManagerI18n } from "./managerI18n";
 import usePaginatedOptions from "../../hooks/usePaginatedOptions";
 
@@ -100,11 +101,6 @@ type ManagerBucketCompareModalProps = {
   contexts: ExecutionContext[];
   managerBrowserEnabled?: boolean;
   onClose: () => void;
-};
-
-const downloadFilenameFromKey = (key: string) => {
-  const filename = key.split("/").filter(Boolean).pop();
-  return filename || "download";
 };
 
 const remediationActionLabel: Record<ManagerBucketCompareAction, string> = {
@@ -586,7 +582,7 @@ export default function ManagerBucketCompareModal({
       setDownloadFeedback(null);
       try {
         const blob = await proxyDownload(params.contextId, params.bucket, params.key);
-        triggerBlobDownload(downloadFilenameFromKey(params.key), blob);
+        triggerBlobDownload(lastNonEmptyPathSegment(params.key, "download"), blob);
         setDownloadFeedback({
           id: params.feedbackId,
           tone: "success",
