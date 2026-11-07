@@ -9,6 +9,7 @@ import pytest
 from pydantic import ValidationError
 from sqlalchemy import select
 
+from app.core.domain_errors import UiUserNotFoundError
 from app.core.security import create_ldap_import_selection_token
 from app.db import ApiToken, AuthSession, ExternalIdentity, UiGroup, User, UserUiGroup
 from app.core.domain_enums import UserRole
@@ -299,6 +300,24 @@ def test_link_ldap_identity_rolls_back_credentials_when_commit_fails(db_session,
     assert db_session.scalar(
         select(ExternalIdentity).where(ExternalIdentity.subject == identity.subject)
     ) is None
+
+
+def test_link_ldap_identity_uses_typed_missing_target_error(db_session):
+    actor = _actor(db_session)
+    identity = _identity()
+    session = SimpleNamespace(id="admin-session")
+    request = LDAPImportRequest(
+        selection_token=_selection(actor, session.id, identity),
+        action="link",
+        target_user_id=987654321,
+    )
+
+    with pytest.raises(UiUserNotFoundError, match="User not found"):
+        _service(db_session, identity).import_user(
+            request,
+            actor=actor,
+            session=session,
+        )
 
 
 def test_restore_requires_original_owner_and_revokes_credentials(db_session):
