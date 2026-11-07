@@ -25,6 +25,7 @@ import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
 import { extractApiError } from "../../utils/apiError";
 import { triggerBlobDownload } from "../../utils/download";
+import { parsePositiveInteger } from "../../utils/numbers";
 import AccessAuditTable from "./AccessAuditTable";
 import { useAccessAuditI18n } from "./accessAuditMessage";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
@@ -32,12 +33,6 @@ import useAdminPaginationState from "./useAdminPaginationState";
 import useAdminPaginatedResourceController from "./useAdminPaginatedResourceController";
 
 type AllOr<T extends string> = "all" | T;
-
-function positiveInt(value: string | null) {
-  if (!value) return undefined;
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
-}
 
 export default function AccessAuditPage() {
   const { text, scopeLabel, rightLabel } = useAccessAuditI18n();
@@ -60,9 +55,15 @@ export default function AccessAuditPage() {
   const [source, setSource] = useState<AllOr<AccessAuditSourceKind>>(
     initialSource && ACCESS_AUDIT_SOURCES.includes(initialSource) ? initialSource : "all",
   );
-  const [userId, setUserId] = useState<number | undefined>(() => positiveInt(searchParams.get("user_id")));
-  const [groupId, setGroupId] = useState<number | undefined>(() => positiveInt(searchParams.get("group_id")));
-  const [targetId, setTargetId] = useState<number | undefined>(() => positiveInt(searchParams.get("target_id")));
+  const [userId, setUserId] = useState<number | undefined>(
+    () => parsePositiveInteger(searchParams.get("user_id")) ?? undefined,
+  );
+  const [groupId, setGroupId] = useState<number | undefined>(
+    () => parsePositiveInteger(searchParams.get("group_id")) ?? undefined,
+  );
+  const [targetId, setTargetId] = useState<number | undefined>(
+    () => parsePositiveInteger(searchParams.get("target_id")) ?? undefined,
+  );
   const [sortBy, setSortBy] = useState<AccessAuditSortBy>("user");
   const [sortDir, setSortDir] = useState<AccessAuditSortDir>("asc");
   const [exporting, setExporting] = useState(false);

@@ -13,6 +13,7 @@ import type {
 } from "../../api/s3ConnectionsAdmin";
 import type { S3CredentialsValidationPayload } from "../../api/s3CredentialsValidation";
 import type { StorageEndpointPublic } from "../../api/storageEndpoints";
+import { parsePositiveInteger } from "../../utils/numbers";
 import {
   canonicalizeUiTags,
   extractUiTagLabels,
@@ -260,7 +261,7 @@ export function buildS3CredentialsValidationPayload(
   const secretAccessKey = form.secret_access_key.trim();
   if (!accessKeyId || !secretAccessKey) return null;
   if (endpointMode === "preset") {
-    const parsedEndpointId = parseS3ConnectionEndpointId(endpointId);
+    const parsedEndpointId = parsePositiveInteger(endpointId);
     if (parsedEndpointId === null) return null;
     return {
       storage_endpoint_id: parsedEndpointId,
@@ -286,11 +287,6 @@ export function preferredS3ConnectionEndpointId(currentId: string, endpoints: re
   return preferred ? String(preferred.id) : "";
 }
 
-function parseS3ConnectionEndpointId(endpointId: string): number | null {
-  const parsed = Number(endpointId);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
-}
-
 function invalidConnectionPayload<T>(
   error: string,
   field: S3ConnectionValidationField,
@@ -314,7 +310,7 @@ function prepareConnectionTarget(
     return invalidConnectionPayload("Connection name is required.", "name");
   }
   const parsedEndpointId =
-    endpointMode === "preset" ? parseS3ConnectionEndpointId(endpointId) : null;
+    endpointMode === "preset" ? parsePositiveInteger(endpointId) : null;
   if (validateEndpoint && endpointMode === "preset" && parsedEndpointId === null) {
     return invalidConnectionPayload("Select a configured endpoint.", "endpointId");
   }

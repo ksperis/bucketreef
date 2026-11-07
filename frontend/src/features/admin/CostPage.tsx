@@ -45,6 +45,7 @@ import { extractApiError } from "../../utils/apiError";
 import { triggerBlobDownload } from "../../utils/download";
 import { currentUtcMonthInputValue } from "../../utils/dateInputValues";
 import { formatBytes, formatCompactNumber } from "../../utils/format";
+import { parsePositiveInteger } from "../../utils/numbers";
 import { listStorageEndpoints, type StorageEndpoint } from "../../api/storageEndpoints";
 import { DownloadIcon, RefreshIcon } from "../browser/browserIcons";
 import {
@@ -96,11 +97,6 @@ function defaultCollectDay(): string {
   return utc.toISOString().slice(0, 10);
 }
 
-function parsePositiveInt(value: string | null, fallback: number): number {
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
-}
-
 function parseSubjectType(value: string | null): CostSubjectType {
   return value === "account" || value === "s3_user" ? value : "all";
 }
@@ -143,17 +139,16 @@ export default function CostPage() {
   const [collectDay, setCollectDay] = useState(defaultCollectDay);
   const [endpoints, setEndpoints] = useState<StorageEndpoint[]>([]);
   const [endpointsLoaded, setEndpointsLoaded] = useState(false);
-  const [selectedEndpointId, setSelectedEndpointId] = useState<number | null>(() => {
-    const value = searchParams.get("endpoint_id");
-    return value ? parsePositiveInt(value, 0) || null : null;
-  });
+  const [selectedEndpointId, setSelectedEndpointId] = useState<number | null>(
+    () => parsePositiveInteger(searchParams.get("endpoint_id")),
+  );
   const [subjectType, setSubjectType] = useState<CostSubjectType>(() => parseSubjectType(searchParams.get("type")));
   const [activeTab, setActiveTab] = useState<CostTab>(() => (searchParams.get("tab") === "analytics" ? "analytics" : "subjects"));
   const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
   const [sortBy, setSortBy] = useState<CostSubjectSortBy>(() => parseSortBy(searchParams.get("sort")));
   const [sortDir, setSortDir] = useState<CostSortDir>(() => (searchParams.get("direction") === "desc" ? "desc" : "asc"));
-  const [page, setPage] = useState(() => parsePositiveInt(searchParams.get("page"), 1));
-  const [pageSize, setPageSize] = useState(() => parsePositiveInt(searchParams.get("page_size"), 25));
+  const [page, setPage] = useState(() => parsePositiveInteger(searchParams.get("page")) ?? 1);
+  const [pageSize, setPageSize] = useState(() => parsePositiveInteger(searchParams.get("page_size")) ?? 25);
   const [reloadToken, setReloadToken] = useState(0);
 
   const [pageError, setPageError] = useState<string | null>(null);

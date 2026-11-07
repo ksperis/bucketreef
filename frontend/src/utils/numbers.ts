@@ -2,6 +2,14 @@ export function clampNumber(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
+export function parsePositiveInteger(
+  value: string | null | undefined,
+): number | null {
+  if (!value) return null;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
 export function clampPercentage(value: number): number {
   return clampNumber(value, 0, 100);
 }
