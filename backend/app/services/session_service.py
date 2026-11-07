@@ -207,5 +207,5 @@ class SessionService:
             client = get_iam_client(access_key, secret_key, endpoint=endpoint)
             client.list_users(MaxItems=1)
             return True
-        except (ClientError, BotoCoreError, RuntimeError):
+        except (ClientError, BotoCoreError):
             return False
