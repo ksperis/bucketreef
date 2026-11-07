@@ -4,7 +4,6 @@ import {
   areStringMapEqual,
   buildBucketUiTagKey,
   computeQuotaUsagePercent,
-  csvEscape,
   formatBucketColumnDetail,
   formatBucketNamesPreview,
   formatOwnerSuspended,
@@ -23,11 +22,10 @@ import {
 const bucket = (value: Record<string, unknown>) => value as CephAdminBucket;
 
 describe("bucketOpsPresentation", () => {
-  it("normalizes export filenames and CSV fields", () => {
+  it("normalizes export filenames", () => {
     expect(sanitizeExportFilenamePart(" Primary / RGW ")).toBe("Primary_RGW");
     expect(sanitizeExportFilenamePart("---")).toBe("---");
     expect(sanitizeExportFilenamePart("***")).toBe("buckets");
-    expect(csvEscape('a"b')).toBe('"a""b"');
   });
 
   it("normalizes and formats versioning states", () => {

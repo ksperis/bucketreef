@@ -17,9 +17,6 @@ export const isStatsSortField = (field: SortField) =>
 export const sanitizeExportFilenamePart = (value?: string | null) =>
   sanitizeDownloadFilename(value ?? "", "buckets");
 
-export const csvEscape = (value: string) =>
-  `"${value.replace(/"/g, "\"\"")}"`;
-
 export const normalizeVersioningStatus = (
   status?: string | null,
 ): boolean | null => {
