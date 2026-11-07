@@ -42,6 +42,7 @@ from app.services.managed_private_access_cleanup_service import (
     ManagedPrivateAccessCleanupService,
 )
 from app.services import managed_private_access_cleanup_service as cleanup_service_module
+from app.services.managed_private_access_policy_service import ManagedPrivateAccessPolicyService
 from app.services.managed_private_access_service import ManagedPrivateAccessService
 from app.services.managed_private_access_state_service import ManagedPrivateAccessStateService
 from tests.s3_connection_factory import custom_endpoint_fields
@@ -185,6 +186,24 @@ def _payload(name="Private account access"):
         managed_policies=["arn:test:readonly"],
         inline_policies=[{"name": "inline-read", "document": {"Statement": []}}],
     )
+
+
+def test_managed_private_access_policy_only_wraps_iam_runtime_errors(db_session):
+    service = ManagedPrivateAccessPolicyService(db_session)
+
+    class FailingIAM(FakeIAM):
+        def list_groups(self):
+            raise RuntimeError("provider unavailable")
+
+    with pytest.raises(ManagedPrivateAccessError, match="Unable to validate IAM groups and policies"):
+        service.validate_iam_provisioning_request(FailingIAM(), _payload())
+
+    class BrokenIAM(FakeIAM):
+        def list_groups(self):
+            raise TypeError("unexpected IAM validation bug")
+
+    with pytest.raises(TypeError, match="unexpected IAM validation bug"):
+        service.validate_iam_provisioning_request(BrokenIAM(), _payload())
 
 
 def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:

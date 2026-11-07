@@ -96,7 +96,7 @@ class ManagedPrivateAccessPolicyService:
             self._validate_iam_selections(iam, payload)
         except ManagedPrivateAccessError:
             raise
-        except Exception as exc:
+        except RuntimeError as exc:
             raise ManagedPrivateAccessError("Unable to validate IAM groups and policies") from exc
 
     @staticmethod
