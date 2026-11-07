@@ -141,7 +141,7 @@ describe("useBrowserMultipartUploads", () => {
 
     let abortPromise!: Promise<void>;
     act(() => {
-      abortPromise = confirmation!.onConfirm();
+      abortPromise = Promise.resolve(confirmation!.onConfirm());
     });
     await waitFor(() => expect(apiMocks.abortMultipartUpload).toHaveBeenCalled());
 

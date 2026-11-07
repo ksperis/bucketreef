@@ -12,18 +12,11 @@ import {
 import type { BrowserObjectVersion } from "../../api/browserContracts";
 import { formatBrowserOperationError } from "./browserOperationErrors";
 import type { OperationCompletionStatus } from "./browserTypes";
+import type { BrowserConfirmDialogRequest } from "./useBrowserConfirmDialog";
 import type { useBrowserOperationRegistry } from "./useBrowserOperationRegistry";
 import { useBrowserI18n } from "./browserI18n";
 
 type OperationRegistry = ReturnType<typeof useBrowserOperationRegistry>;
-
-type DeleteConfirmation = {
-  title: string;
-  message: string;
-  confirmLabel: string;
-  tone: "danger";
-  onConfirm: () => Promise<void> | void;
-};
 
 type UseBrowserVersionActionsOptions = {
   contextId: S3ExecutionContextSelector;
@@ -33,7 +26,7 @@ type UseBrowserVersionActionsOptions = {
   createOperationController: OperationRegistry["createOperationController"];
   enabled: boolean;
   isOperationAborted: OperationRegistry["isOperationAborted"];
-  onConfirm: (confirmation: DeleteConfirmation) => void;
+  onConfirm: (confirmation: BrowserConfirmDialogRequest) => void;
   onRefreshListing: (key: string) => Promise<void>;
   onRefreshVersions: (key: string) => Promise<void>;
   onStatus: (message: string) => void;

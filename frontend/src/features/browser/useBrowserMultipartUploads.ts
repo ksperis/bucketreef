@@ -17,19 +17,14 @@ import {
 } from "./browserConstants";
 import { getMultipartUploadEntryId } from "./browserListingState";
 import { useBrowserI18n } from "./browserI18n";
+import type { BrowserConfirmDialogRequest } from "./useBrowserConfirmDialog";
 
 type UseBrowserMultipartUploadsOptions = {
   contextIdForApi: S3ExecutionContextSelector;
   bucketName: string;
   hasContext: boolean;
   requestOptions?: BrowserRequestOptions;
-  requestConfirmation: (confirmation: {
-    title: string;
-    message: string;
-    confirmLabel: string;
-    tone: "danger";
-    onConfirm: () => Promise<void>;
-  }) => void;
+  requestConfirmation: (confirmation: BrowserConfirmDialogRequest) => void;
   setStatusMessage: (message: string) => void;
   setWarningMessage: (message: string) => void;
 };
