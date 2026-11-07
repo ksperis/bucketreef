@@ -276,17 +276,24 @@ def test_run_aggregates_multiple_bucket_results_and_completed_progress(monkeypat
     assert completed[-1].total_entries_final is True
 
 
-def test_run_records_client_open_failure_as_list_failure(monkeypatch):
+def test_run_records_s3_listing_failure_as_bucket_failure(monkeypatch):
     monkeypatch.setattr(
         bucket_purge_service.BucketsService,
         "list_buckets",
         lambda *_args, **_kwargs: [],
     )
 
-    def fail_client(*_args, **_kwargs):
-        raise RuntimeError("client setup failed")
+    class FailingClient:
+        def close(self):
+            pass
 
-    monkeypatch.setattr(BucketPurgeService, "_build_client", fail_client)
+        def list_objects_v2(self, **kwargs):
+            raise ClientError(
+                {"Error": {"Code": "AccessDenied", "Message": "denied"}},
+                "ListObjectsV2",
+            )
+
+    monkeypatch.setattr(BucketPurgeService, "_build_client", lambda *_args, **_kwargs: FailingClient())
 
     result = BucketPurgeService().run(
         [
@@ -303,11 +310,63 @@ def test_run_records_client_open_failure_as_list_failure(monkeypatch):
     assert result.failed_count == 1
     assert result.buckets[0].status == "failed"
     failure = result.buckets[0].failures_sample[0]
-    assert (failure.stage, failure.message, failure.count) == (
-        "list",
-        "client setup failed",
-        1,
+    assert failure.stage == "list"
+    assert "AccessDenied" in failure.message
+    assert failure.count == 1
+
+
+def test_run_propagates_unexpected_client_open_failure(monkeypatch):
+    monkeypatch.setattr(
+        bucket_purge_service.BucketsService,
+        "list_buckets",
+        lambda *_args, **_kwargs: [],
     )
+
+    def fail_client(*_args, **_kwargs):
+        raise RuntimeError("client setup failed")
+
+    monkeypatch.setattr(BucketPurgeService, "_build_client", fail_client)
+
+    with pytest.raises(RuntimeError, match="client setup failed"):
+        BucketPurgeService().run(
+            [
+                ResolvedS3BucketTarget(
+                    context=SimpleNamespace(),
+                    bucket_name="bucket-failed",
+                    context_id="account-1",
+                )
+            ],
+            BucketPurgeOptions(),
+        )
+
+
+def test_delete_bucket_with_purge_propagates_unexpected_purge_failure(monkeypatch):
+    client = SimpleNamespace(close=Mock())
+    monkeypatch.setattr(BucketPurgeService, "_build_client", lambda *_args, **_kwargs: client)
+    monkeypatch.setattr(
+        BucketPurgeService,
+        "_resolve_initial_entry_estimates",
+        lambda self, targets: [None] * len(targets),
+    )
+
+    def fail_purge(*_args, **_kwargs):
+        raise RuntimeError("broken purge worker")
+
+    monkeypatch.setattr(
+        bucket_purge_service.s3_deletion,
+        "purge_bucket_contents",
+        fail_purge,
+    )
+
+    with pytest.raises(RuntimeError, match="broken purge worker"):
+        BucketPurgeService().run_delete_bucket_with_purge(
+            ResolvedS3BucketTarget(
+                context=SimpleNamespace(),
+                bucket_name="bucket-failed",
+                context_id="account-1",
+            ),
+            BucketPurgeOptions(),
+        )
 
 
 def test_delete_bucket_with_purge_reports_bucket_not_empty_race(monkeypatch):

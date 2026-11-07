@@ -405,7 +405,7 @@ class BucketPurgeService(LongRunningS3ClientMixin):
             return self._build_content_purge_result(target, result, started_at=started)
         except BucketPurgeCancelled:
             raise
-        except Exception as exc:  # noqa: BLE001
+        except (ClientError, BotoCoreError) as exc:
             return self._build_content_purge_failure_result(
                 target,
                 exc,
@@ -556,7 +556,7 @@ class BucketPurgeService(LongRunningS3ClientMixin):
                 )
         except BucketPurgeCancelled:
             raise
-        except Exception as exc:  # noqa: BLE001
+        except (ClientError, BotoCoreError) as exc:
             return self._bucket_delete_failure_result(
                 state,
                 stage="list",
