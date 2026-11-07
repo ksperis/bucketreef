@@ -48,6 +48,7 @@ from app.services.bucket_migration.execution_object_models import (
 )
 from app.services.bucket_migration.diagnostics import (
     MigrationCopyGrantError,
+    MigrationObjectTransferError,
     MigrationPolicyApplyError,
     MigrationPrecheckError,
     MigrationRecoveryError,
@@ -1475,6 +1476,117 @@ def test_copy_object_falls_back_to_stream_copy_on_copy_source_access_denied(db_s
     )
 
     assert copied == [("bucket-dst", "object-key")]
+
+
+def test_copy_object_types_non_access_provider_failure(db_session):
+    service = BucketMigrationService(db_session)
+    source_ctx = SimpleNamespace()
+    target_ctx = SimpleNamespace()
+    source_client = SimpleNamespace(head_object=lambda **_kwargs: {})
+
+    class _TargetClient:
+        def copy_object(self, **_kwargs):
+            raise ClientError(
+                {
+                    "Error": {
+                        "Code": "SlowDown",
+                        "Message": "secret_key=COPYSECRET endpoint=https://copy.private.example.test/admin",
+                    }
+                },
+                "CopyObject",
+            )
+
+    target_client = _TargetClient()
+    service._context_client = (  # type: ignore[method-assign]
+        lambda ctx: source_client if ctx is source_ctx else target_client
+    )
+
+    with pytest.raises(MigrationObjectTransferError) as error:
+        service._copy_object(
+            source_ctx,
+            target_ctx,
+            source_bucket="bucket-src",
+            target_bucket="bucket-dst",
+            key="object-key",
+            same_endpoint=True,
+        )
+
+    message = str(error.value)
+    assert "Unable to copy object 'object-key'" in message
+    assert "COPYSECRET" not in message
+    assert "copy.private.example.test" not in message
+
+
+def test_stream_copy_rejects_missing_object_body(db_session):
+    service = BucketMigrationService(db_session)
+    source_ctx = SimpleNamespace()
+    target_ctx = SimpleNamespace()
+    source_client = SimpleNamespace(
+        head_object=lambda **_kwargs: {},
+        get_object_tagging=lambda **_kwargs: {"TagSet": []},
+        get_object=lambda **_kwargs: {},
+    )
+    target_client = Mock()
+    service._context_client = (  # type: ignore[method-assign]
+        lambda ctx: source_client if ctx is source_ctx else target_client
+    )
+
+    with pytest.raises(MigrationObjectTransferError, match="has no readable body"):
+        service._stream_copy_object(
+            source_ctx,
+            target_ctx,
+            source_bucket="bucket-src",
+            target_bucket="bucket-dst",
+            key="object-key",
+        )
+
+    target_client.upload_fileobj.assert_not_called()
+
+
+def test_stream_copy_does_not_mask_unexpected_upload_runtime_failure(db_session):
+    service = BucketMigrationService(db_session)
+    source_ctx = SimpleNamespace()
+    target_ctx = SimpleNamespace()
+    body = io.BytesIO(b"payload")
+    source_client = SimpleNamespace(
+        head_object=lambda **_kwargs: {},
+        get_object_tagging=lambda **_kwargs: {"TagSet": []},
+        get_object=lambda **_kwargs: {"Body": body},
+    )
+    target_client = Mock()
+    target_client.upload_fileobj.side_effect = RuntimeError("unexpected upload regression")
+    service._context_client = (  # type: ignore[method-assign]
+        lambda ctx: source_client if ctx is source_ctx else target_client
+    )
+
+    with pytest.raises(RuntimeError, match="^unexpected upload regression$"):
+        service._stream_copy_object(
+            source_ctx,
+            target_ctx,
+            source_bucket="bucket-src",
+            target_bucket="bucket-dst",
+            key="object-key",
+        )
+
+    assert body.closed
+
+
+def test_delete_single_object_types_provider_failure(db_session):
+    service = BucketMigrationService(db_session)
+    target_ctx = SimpleNamespace()
+    target_client = Mock()
+    target_client.delete_object.side_effect = ClientError(
+        {"Error": {"Code": "SlowDown", "Message": "retry later"}},
+        "DeleteObject",
+    )
+
+    with pytest.raises(MigrationObjectTransferError, match="Unable to delete target object"):
+        service._delete_single_object(
+            target_ctx,
+            "bucket-dst",
+            "object-key",
+            target_client=target_client,
+        )
 
 
 def test_copy_object_version_falls_back_to_versioned_stream_copy_on_access_denied(db_session):

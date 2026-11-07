@@ -10,6 +10,9 @@ from urllib.parse import urlencode
 
 from botocore.exceptions import BotoCoreError, ClientError
 
+from app.core.sensitive_data import sanitized_error_log_detail
+
+from .diagnostics import MigrationObjectTransferError
 from .execution_runtime import ResolvedContext
 from .execution_signals import WorkerLeaseLostError
 from .execution_tuning import (
@@ -67,14 +70,15 @@ class BucketMigrationObjectTransferMixin:
                         if version_id
                         else f"object '{key}'"
                     )
-                    raise RuntimeError(
-                        f"Unable to copy {object_label} with x-amz-copy-source: {exc}"
+                    raise MigrationObjectTransferError(
+                        f"Unable to copy {object_label} with x-amz-copy-source: "
+                        f"{sanitized_error_log_detail(exc)}"
                     ) from exc
                 copy_label = f"version '{version_id}' of '{key}'" if version_id else f"'{key}'"
                 logger.warning(
                     "CopyObject with x-amz-copy-source denied for %s (%s), falling back to stream-copy.",
                     copy_label,
-                    exc,
+                    sanitized_error_log_detail(exc),
                 )
 
         self._stream_copy_object(
@@ -150,7 +154,15 @@ class BucketMigrationObjectTransferMixin:
             if version_id:
                 get_kwargs["VersionId"] = version_id
             response = resolved_source_client.get_object(**get_kwargs)
+            if not isinstance(response, dict):
+                raise MigrationObjectTransferError(
+                    f"Invalid object content response for '{key}' in bucket '{source_bucket}'"
+                )
             body = response.get("Body")
+            if body is None:
+                raise MigrationObjectTransferError(
+                    f"Object content response has no readable body for '{key}' in bucket '{source_bucket}'"
+                )
             extra_args = self._build_upload_extra_args(head=head, tags=tags)
             if extra_args:
                 resolved_target_client.upload_fileobj(body, target_bucket, key, ExtraArgs=extra_args)
@@ -162,7 +174,9 @@ class BucketMigrationObjectTransferMixin:
                 if version_id
                 else f"object '{key}'"
             )
-            raise RuntimeError(f"Unable to stream-copy {object_label}: {exc}") from exc
+            raise MigrationObjectTransferError(
+                f"Unable to stream-copy {object_label}: {sanitized_error_log_detail(exc)}"
+            ) from exc
         finally:
             if body is not None:
                 try:
@@ -182,7 +196,9 @@ class BucketMigrationObjectTransferMixin:
         try:
             client.delete_object(Bucket=target_bucket, Key=key)
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(f"Unable to delete target object '{key}': {exc}") from exc
+            raise MigrationObjectTransferError(
+                f"Unable to delete target object '{key}': {sanitized_error_log_detail(exc)}"
+            ) from exc
 
     def _run_parallel_actions(
         self,

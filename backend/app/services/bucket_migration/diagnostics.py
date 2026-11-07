@@ -31,6 +31,10 @@ class MigrationObjectInspectionError(RuntimeError):
     """Expected operational failure while inspecting migration object state."""
 
 
+class MigrationObjectTransferError(RuntimeError):
+    """Expected operational failure while copying or deleting migration objects."""
+
+
 class MigrationPolicyApplyError(RuntimeError):
     """Expected operational failure while applying migration bucket policies."""
 
