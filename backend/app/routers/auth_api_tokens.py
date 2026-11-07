@@ -15,7 +15,10 @@ from app.routers.identity_security_policy import (
 )
 from app.services.api_token_service import ApiTokenError, ApiTokenNotFoundError, ApiTokenService
 from app.services.audit_service import AuditService
-from app.utils.http_errors import raise_http_exception_from_exception
+from app.utils.http_errors import (
+    raise_http_error_from_value_error,
+    raise_http_exception_from_exception,
+)
 
 
 router = APIRouter()
@@ -91,7 +94,7 @@ def revoke_api_token(
     try:
         row = ApiTokenService(db).revoke_for_user(user_id=current_user.id, token_id=token_id)
     except ApiTokenNotFoundError as exc:
-        raise_http_exception_from_exception(status.HTTP_404_NOT_FOUND, exc)
+        raise_http_error_from_value_error(exc)
     audit_service.record_action(
         user=current_user,
         scope="auth",
