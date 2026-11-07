@@ -9,6 +9,7 @@ from typing import Optional
 from sqlalchemy import or_, select, update
 
 from app.db import BucketMigration
+from app.utils.normalize import normalize_optional_string
 from app.utils.s3_endpoint import normalize_s3_endpoint
 from app.utils.time import utcnow
 
@@ -205,7 +206,7 @@ class BucketMigrationSchedulingMixin:
         *,
         cache: dict[str, str],
     ) -> str:
-        normalized_context_id = (context_id or "").strip()
+        normalized_context_id = normalize_optional_string(context_id)
         if not normalized_context_id:
             return "context:unknown"
         cached = cache.get(normalized_context_id)
