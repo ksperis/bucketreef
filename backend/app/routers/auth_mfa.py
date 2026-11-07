@@ -30,7 +30,8 @@ from app.routers.auth_request_context import request_context
 from app.routers.dependencies import get_audit_service
 from app.services.audit_service import AuditService
 from app.services.auth_session_service import AuthSessionService, SessionCredentials
-from app.services.users_service import get_users_service
+from app.services.user_output_service import UserOutputService
+from app.services.user_query_service import UserQueryService
 from app.services.webauthn_service import WebAuthnSecurityError, WebAuthnService
 from app.utils.request_security import require_trusted_origin
 
@@ -50,7 +51,7 @@ def _pre_auth_user(
     if claims is None or claims.get("purpose") not in purposes:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid pre-authentication")
     user_id = claims.get("uid")
-    user = get_users_service(db).get_by_id(user_id) if isinstance(user_id, int) else None
+    user = UserQueryService(db).get_by_id(user_id) if isinstance(user_id, int) else None
     if not user or not user.is_active or user.auth_version != claims.get("auth_version"):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Pre-authentication expired")
     return user, claims
@@ -109,7 +110,7 @@ def webauthn_registration_verify(
         )
     except WebAuthnSecurityError as exc:
         raise HTTPException(status_code=400, detail="Invalid WebAuthn registration response") from exc
-    user = get_users_service(db).get_by_id(user.id)
+    user = UserQueryService(db).get_by_id(user.id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User is unavailable")
     codes = service.issue_recovery_codes(user)
@@ -130,7 +131,7 @@ def webauthn_registration_verify(
     )
     return AuthenticationResponse(
         status="authenticated",
-        user=get_users_service(db).user_to_out(user),
+        user=UserOutputService(db).to_out(user),
         session=None,
         redirect_path=None,
         recovery_codes=codes,
@@ -186,7 +187,7 @@ def webauthn_authentication_verify(
     )
     return AuthenticationResponse(
         status="authenticated",
-        user=get_users_service(db).user_to_out(user),
+        user=UserOutputService(db).to_out(user),
         session=None,
         redirect_path=None,
         recovery_codes=None,
@@ -222,7 +223,7 @@ def verify_recovery_code(
     )
     return AuthenticationResponse(
         status="authenticated",
-        user=get_users_service(db).user_to_out(user),
+        user=UserOutputService(db).to_out(user),
         session=None,
         redirect_path=None,
         recovery_codes=None,
