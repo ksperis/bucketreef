@@ -34,7 +34,7 @@ from app.services.identity_security_requirements import (
     passkey_required_for_role,
 )
 from app.services.mappers.auth_session import auth_session_info
-from app.services.users_service import UsersService
+from app.services.user_query_service import UserQueryService
 
 
 class AdminIdentitySecurityService:
@@ -42,7 +42,7 @@ class AdminIdentitySecurityService:
 
     def __init__(self, db: Session) -> None:
         self.db = db
-        self.users = UsersService(db)
+        self.users = UserQueryService(db)
         self.sessions = AuthSessionService(db)
         self.identities = ExternalIdentityUserService(db)
 
