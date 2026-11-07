@@ -372,6 +372,7 @@ def delete_bucket(
     service: BucketsService = Depends(get_buckets_service),
     current_user: ManagerActor = Depends(get_current_account_admin),
     audit_service: AuditService = Depends(get_audit_service),
+    db: Session = Depends(get_db),
 ) -> Response:
     run_bucket_delete_action(
         bucket_config_actions.delete_bucket_config,
@@ -390,7 +391,7 @@ def delete_bucket(
     )
     deleted_bucket_target = _bucket_ui_target(context, bucket_name)
     if deleted_bucket_target is not None:
-        BucketUiTagsService(audit_service.db).cleanup_deleted_bucket(deleted_bucket_target)
+        BucketUiTagsService(db).cleanup_deleted_bucket(deleted_bucket_target)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
