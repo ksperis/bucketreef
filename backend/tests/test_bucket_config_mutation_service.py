@@ -8,6 +8,7 @@ import pytest
 from app.db import S3Account, User
 from app.models.bucket import BucketLifecycleConfig
 from app.services.audit_service import AuditService
+from app.services.bucket_config_mutation_registry import manager_bucket_config_audit_action
 from app.services.bucket_config_mutation_service import BucketConfigMutationService
 from app.services.bucket_configuration_service import BucketConfigurationService
 from app.services.s3_execution_context import S3ExecutionContext
@@ -17,6 +18,19 @@ def _context() -> S3ExecutionContext:
     account = S3Account(name="browser-config-mutation")
     account.id = 77
     return S3ExecutionContext.from_account(account)
+
+
+@pytest.mark.parametrize(
+    ("config_area", "operation", "expected"),
+    [
+        ("lifecycle", "update", "update_bucket_lifecycle"),
+        ("lifecycle", "delete", "delete_bucket_lifecycle"),
+        ("policy", "update", "put_bucket_policy"),
+        ("public_access_block", "update", "update_public_access_block"),
+    ],
+)
+def test_manager_bucket_config_audit_action_contract(config_area, operation, expected):
+    assert manager_bucket_config_audit_action(config_area, operation=operation) == expected
 
 
 def test_browser_bucket_config_update_runs_action_before_cache_and_audit():
