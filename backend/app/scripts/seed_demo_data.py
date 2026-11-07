@@ -24,7 +24,7 @@ from app.services.buckets_service import BucketsService
 from app.services.s3_accounts_service import get_s3_accounts_service
 from app.services.s3_execution_client import s3_execution_request_kwargs
 from app.services.users_service import UsersService
-from app.services.rgw_iam import get_iam_service
+from app.services.rgw_iam import RGWIAMError, get_iam_service
 from app.services import s3_client
 from app.models.iam import AccessKey as IAMAccessKey
 from app.utils.s3_endpoint import configured_s3_endpoint, resolve_s3_endpoint
@@ -506,19 +506,19 @@ def ensure_iam_user_with_key(account: S3Account, iam_username: str) -> IAMAccess
     key: Optional[IAMAccessKey] = None
     try:
         _, key = iam_service.create_user(iam_username, create_key=True)
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         logger.warning("Unable to create IAM user %s in %s (may exist): %s", iam_username, account.name, exc)
         try:
             keys = iam_service.list_access_keys(iam_username)
             key = keys[0] if keys else None
-        except RuntimeError as list_exc:
+        except RGWIAMError as list_exc:
             logger.debug("Unable to list keys for %s: %s", iam_username, list_exc)
     if key is None:
         key = iam_service.create_access_key(iam_username)
     # Attach broad S3 access to mirror UI bucket actions
     try:
         iam_service.attach_user_policy(iam_username, DEFAULT_IAM_BUCKET_POLICY)
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         logger.warning("Unable to attach policy %s to %s: %s", DEFAULT_IAM_BUCKET_POLICY, iam_username, exc)
     if not key.access_key_id or not key.secret_access_key:
         raise RuntimeError(f"Access key for {iam_username} missing secrets")
