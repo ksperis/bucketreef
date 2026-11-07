@@ -17,6 +17,7 @@ from app.services.bucket_notification_state import (
 )
 from app.services.bucket_configuration_service import BucketConfigurationService
 from app.services.buckets_service import BucketsService
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.concurrency import bounded_ordered_map
 from app.utils.s3_errors import matches_s3_error
@@ -100,7 +101,7 @@ def _sanitize_raw_payload(value: Any) -> Any:
     return value
 
 
-def _safe_bucket_feature_error(feature: FeatureRuleInventoryFeature, exc: RuntimeError) -> str:
+def _safe_bucket_feature_error(feature: FeatureRuleInventoryFeature, exc: S3OperationError) -> str:
     for code in SAFE_BUCKET_FEATURE_ERROR_CODES:
         if matches_s3_error(exc, codes={code}):
             return code
@@ -502,7 +503,7 @@ class FeatureRuleInventoryService:
                     feature=feature,
                     rules=_normalize_notification_rules(notifications.configuration),
                 )
-            except RuntimeError as exc:
+            except S3OperationError as exc:
                 return _unavailable_bucket(bucket.name, feature, _safe_bucket_feature_error(feature, exc))
 
         return bounded_ordered_map(
