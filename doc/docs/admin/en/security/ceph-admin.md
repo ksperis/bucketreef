@@ -141,15 +141,7 @@ On the main `admin` release set
 `backend.env.FEATURE_CEPH_ADMIN_ENABLED: "false"`; other profile-controlled
 switches remain fixed. Configure switches in `backend.env`, not `extraEnv`.
 
-## Verification and migration
-
-Migration `0143_external_ceph_admin_credentials` preserves complete Ceph Admin pairs
-from `0.2.13`, removes pending managed rotations and managed-only metadata, then
-revalidates the preserved external pair. Supply credentials again only when the
-stored pair is incomplete or invalid. Migration intentionally resets per-endpoint
-Ceph Admin authorization to disabled, so explicitly re-enable it after validating the
-preserved credentials. Existing RGW users are left untouched; inspect and remove
-obsolete users manually without purging data.
+## Verification
 
 Issue the normal bootstrap token against the empty isolated database. After
 login, the only workspace should be Ceph Admin. Enroll a passkey from **Profile
@@ -178,4 +170,5 @@ The removed profiles and overlays have no compatibility aliases. Before upgrade:
 - [Deploy with Docker Compose](../install/docker-compose.md)
 - [Deploy with Helm](../install/helm.md)
 - [Configuration](../configuration/index.md)
+- [Upgrade compatibility](../operations/upgrade-compatibility.md#ceph-admin-external-credential-cutover)
 - [Production readiness](../operations/production-readiness.md)

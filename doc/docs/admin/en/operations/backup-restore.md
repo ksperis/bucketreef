@@ -19,14 +19,10 @@ Use this page to define the minimum backup contract for BucketReef deployments.
 3. Back up Helm values or Compose environment files without placing secrets in Git.
 4. Keep at least one recent backup outside the cluster or host that runs BucketReef.
 5. Test restore before user onboarding and before major upgrades.
-6. Back up the application database immediately before migration `0091`; it
-   irreversibly purges historical data-plane and operational-noise audit rows.
+6. Before an upgrade, follow any migration-specific backup gate documented in
+   [Upgrade compatibility](upgrade-compatibility.md).
 7. Protect provider access-log buckets or the equivalent centralized log store
    according to the required object-audit retention period.
-8. Before migration `0109`, verify a restorable backup and set
-   `BUCKETREEF_DB_BACKUP_VERIFIED=true` only for that migration run. Its erased
-   S3 session secrets and revoked authenticators cannot be reconstructed by a
-   downgrade.
 
 ## Restore checklist
 
@@ -49,6 +45,7 @@ When using PostgreSQL, use your platform backup tooling and keep migration execu
 ## Related pages
 
 - [Production readiness](production-readiness.md)
+- [Upgrade compatibility](upgrade-compatibility.md)
 - [Configuration](../configuration/index.md)
 - [Deploy with Docker Compose](../install/docker-compose.md)
 - [Deploy with Helm](../install/helm.md)

@@ -2355,11 +2355,33 @@ scoped API tokens. The cutover revokes every existing UI session and API token,
 deletes every S3 session and its credential material, and purges OIDC states.
 
 This is a backend/frontend/configuration big-bang boundary; there is no legacy
-Bearer compatibility. Verify a restorable backup and complete credential
-re-encryption before deployment, then set
-`BUCKETREEF_DB_BACKUP_VERIFIED=true` for the migration run. The `0109`
-downgrade deliberately fails because it cannot reconstruct erased secrets.
-Follow [Authentication security and cutover](../security/authentication.md).
+Bearer compatibility. Apply the cutover as one maintenance operation:
+
+1. Stop the frontend, backend replicas, schedulers, and CronJobs.
+2. Create and verify a restorable database backup. Keep the old credential
+   encryption key with it.
+3. Before changing `CREDENTIAL_KEYS`, use the existing Admin key-rotation
+   workflow to re-encrypt every persisted credential with a strong new primary
+   key. Validate reads while the old key remains second in the ring, then
+   retire it.
+4. Generate strong, mutually distinct `UI_JWT_KEYS`, `API_JWT_KEYS`, and
+   `CREDENTIAL_KEYS`, plus a strong scheduler token. Configure TLS, exact
+   origins and hosts, WebAuthn, trusted proxy CIDRs, and registered S3
+   endpoints.
+5. Set `BUCKETREEF_DB_BACKUP_VERIFIED=true` only for the verified migration
+   run. Deploy backend, frontend, migrations, and configuration together.
+6. Create the first superadmin interactively if the database has no users.
+   Otherwise notify every user that reauthentication is required and every
+   automation owner that API tokens must be recreated with explicit scopes.
+7. Verify passkey enrollment and login, refresh rotation, session inventory and
+   revocation, API scopes, OIDC reauthenticated linking and administrator
+   fallback, LDAP linking, S3 expiry, security headers, schedulers, and audit
+   redaction.
+
+Migration `0109` erases S3 session secrets and has no data-restoring downgrade.
+If rollback is required after `0109`, stop all writers and restore the
+pre-deployment database and matching credential keys. Do not run Alembic
+downgrade through the cutover.
 
 ## 2026-08 strict API object contracts
 
@@ -3174,3 +3196,24 @@ credential encryption ring together. Resume pending operations through
 [Key Rotation](../platform/key-rotation.md); finish them before downgrading.
 Administration and dedicated Ceph Admin instances reconcile persisted endpoints on
 startup. User instances never perform those remote mutations.
+
+### Ceph Admin external credential cutover
+
+Migration `0143_external_ceph_admin_credentials` moves Ceph Admin identities
+back to operator-owned external credentials while preserving complete stored
+access-key and secret-key pairs from `0.2.13`. It removes pending Ceph Admin
+managed-rotation intents and managed-only UID, provenance, and validation
+state. The preserved pair is revalidated after upgrade. Supply credentials
+again only when the stored pair is incomplete or invalid.
+
+Migration `0138_endpoint_service_identities`, which introduces the explicit
+per-endpoint `ceph_admin_allowed` flag earlier in the same migration chain,
+initializes that authorization to disabled. Explicitly re-enable Ceph Admin
+after the preserved credentials validate. Existing RGW users and their data are
+left untouched. Inspect obsolete users and keys manually and remove only those
+that are no longer required.
+
+Downgrade cannot preserve the operator-owned Ceph Admin credential contract.
+It resets Ceph Admin identities to managed mode and clears their stored
+credential pair, so preserve a restorable database backup and the matching
+credential encryption ring before crossing this boundary.

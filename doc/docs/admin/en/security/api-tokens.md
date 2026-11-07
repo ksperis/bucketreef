@@ -38,8 +38,8 @@ browser-backed Admin session.
 - Create dedicated tokens per automation scope.
 - Store in secret manager.
 - Rotate regularly and revoke on decommission.
-- Recreate all API tokens after the authentication cutover migrations `0107`–`0110`.
 
 ## Related pages
 
 - [Operations: security](index.md)
+- [Upgrade compatibility](../operations/upgrade-compatibility.md)

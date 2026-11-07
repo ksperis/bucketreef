@@ -195,14 +195,6 @@ metric requests. Usage composition remains available through Ceph Admin. Enablin
 Metrics or Usage in the endpoint form still requires successful Supervision
 detection. HTTP healthchecks do not require Supervision; signed S3 healthchecks do.
 
-Migration `0143_external_ceph_admin_credentials` preserves complete Ceph Admin pairs
-from `0.2.13` while removing managed-only UIDs, provenance, validation state and
-pending rotations. The preserved pair is revalidated after upgrade; re-enter it only
-when it is incomplete or invalid. Migration intentionally resets per-endpoint Ceph
-Admin authorization to disabled, so explicitly re-enable it after validating the
-preserved credentials. Existing RGW users remain untouched; inspect and clean up
-obsolete users and keys manually, without purging buckets or data.
-
 ## Revalidation and recovery
 
 An unavailable Admin Ops bootstrap preserves previously ready technical identities.
@@ -267,6 +259,7 @@ for the durable phases and recovery rules.
 
 ## Related pages
 
+- [Upgrade compatibility](../../operations/upgrade-compatibility.md#ceph-admin-external-credential-cutover)
 - [Backends: compatibility matrix](compatibility.md)
 - [Workspace: Ceph Admin](../ceph-admin/index.md)
 - [Feature: Ceph access keys in Manager](/manager/en/iam/access-keys/)
