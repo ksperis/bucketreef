@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -21,7 +21,7 @@ from app.routers.identity_security_policy import require_admin_sensitive_action
 from app.services.audit_service import AuditService
 from app.services.webhook_catalog import get_webhook_event_definitions
 from app.services.webhook_service import WebhookService
-from app.utils.http_errors import http_exception_from_exception
+from app.utils.http_errors import raise_http_error_from_value_error
 from app.utils.network_targets import url_hostname
 
 router = APIRouter(prefix="/admin/settings/webhooks", tags=["admin-webhooks"])
@@ -29,14 +29,6 @@ router = APIRouter(prefix="/admin/settings/webhooks", tags=["admin-webhooks"])
 
 def _service(db: Session) -> WebhookService:
     return WebhookService(db)
-
-
-def _not_found(exc: LookupError) -> HTTPException:
-    return http_exception_from_exception(status.HTTP_404_NOT_FOUND, exc)
-
-
-def _bad_request(exc: ValueError) -> HTTPException:
-    return http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
 
 
 @router.get("", response_model=list[WebhookEndpointOut])
@@ -62,8 +54,8 @@ def get_webhook_endpoint(
 ) -> WebhookEndpointOut:
     try:
         return _service(db).get_endpoint(endpoint_id)
-    except LookupError as exc:
-        raise _not_found(exc) from exc
+    except ValueError as exc:
+        raise_http_error_from_value_error(exc)
 
 
 @router.post("", response_model=WebhookEndpointCreated, status_code=status.HTTP_201_CREATED)
@@ -78,7 +70,7 @@ def create_webhook_endpoint(
     try:
         created = _service(db).create_endpoint(payload)
     except ValueError as exc:
-        raise _bad_request(exc) from exc
+        raise_http_error_from_value_error(exc)
     audit.record_action(
         user=current_user,
         scope="admin",
@@ -107,10 +99,8 @@ def update_webhook_endpoint(
     require_admin_sensitive_action(request, db, current_user)
     try:
         updated = _service(db).update_endpoint(endpoint_id, payload)
-    except LookupError as exc:
-        raise _not_found(exc) from exc
     except ValueError as exc:
-        raise _bad_request(exc) from exc
+        raise_http_error_from_value_error(exc)
     audit.record_action(
         user=current_user,
         scope="admin",
@@ -140,8 +130,8 @@ def delete_webhook_endpoint(
     try:
         previous = service.get_endpoint(endpoint_id)
         service.delete_endpoint(endpoint_id)
-    except LookupError as exc:
-        raise _not_found(exc) from exc
+    except ValueError as exc:
+        raise_http_error_from_value_error(exc)
     audit.record_action(
         user=current_user,
         scope="admin",
@@ -166,8 +156,8 @@ def rotate_webhook_secret(
     require_admin_sensitive_action(request, db, current_user)
     try:
         result = _service(db).rotate_secret(endpoint_id)
-    except LookupError as exc:
-        raise _not_found(exc) from exc
+    except ValueError as exc:
+        raise_http_error_from_value_error(exc)
     audit.record_action(
         user=current_user,
         scope="admin",
@@ -190,10 +180,8 @@ def test_webhook_endpoint(
     require_admin_sensitive_action(request, db, current_user)
     try:
         result = _service(db).enqueue_test(endpoint_id)
-    except LookupError as exc:
-        raise _not_found(exc) from exc
     except ValueError as exc:
-        raise _bad_request(exc) from exc
+        raise_http_error_from_value_error(exc)
     audit.record_action(
         user=current_user,
         scope="admin",
@@ -214,5 +202,5 @@ def list_webhook_deliveries(
 ) -> list[WebhookDeliveryOut]:
     try:
         return _service(db).list_deliveries(endpoint_id, limit=limit)
-    except LookupError as exc:
-        raise _not_found(exc) from exc
+    except ValueError as exc:
+        raise_http_error_from_value_error(exc)

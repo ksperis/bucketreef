@@ -138,7 +138,9 @@ def test_webhook_admin_api_lifecycle_keeps_secret_one_shot_and_audit_safe(webhoo
 
     deleted = webhook_client.delete(f"/api/admin/settings/webhooks/{endpoint_id}", headers=headers)
     assert deleted.status_code == 204, deleted.text
-    assert webhook_client.get(f"/api/admin/settings/webhooks/{endpoint_id}").status_code == 404
+    missing = webhook_client.get(f"/api/admin/settings/webhooks/{endpoint_id}")
+    assert missing.status_code == 404
+    assert missing.json()["detail"] == "Webhook endpoint not found"
 
 
 def test_webhook_admin_api_requires_superadmin(webhook_client, db_session):
