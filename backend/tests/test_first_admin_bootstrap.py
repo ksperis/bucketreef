@@ -18,6 +18,7 @@ from app.core.domain_enums import UserRole
 from app.models.app_settings import AppSettings
 from app.routers import auth_common
 from app.scripts import create_first_admin as create_first_admin_script
+from app.services.app_settings_service import bootstrap_app_settings_for_db
 from app.services.first_admin_bootstrap_service import (
     FIRST_ADMIN_BOOTSTRAP_ID,
     FirstAdminBootstrapService,
@@ -276,6 +277,7 @@ def test_concurrent_consumption_creates_exactly_one_user(tmp_path):
     Base.metadata.create_all(engine)
     session_factory = sessionmaker(bind=engine, autocommit=False, autoflush=False)
     with session_factory() as db:
+        bootstrap_app_settings_for_db(db)
         issued = FirstAdminBootstrapService(db).issue_token()
 
     def create(email: str) -> str:
@@ -398,7 +400,9 @@ def test_bootstrap_api_authenticates_admin_without_passkey_by_default(client, db
 def test_bootstrap_api_requires_passkey_when_admin_policy_is_enabled(client, db_session):
     settings = AppSettings()
     settings.general.require_passkey_for_admins = True
-    db_session.add(AppSetting(key="default", payload=settings.model_dump(mode="json")))
+    app_settings = db_session.get(AppSetting, "default")
+    assert app_settings is not None
+    app_settings.payload = settings.model_dump(mode="json")
     db_session.commit()
     runtime = get_settings()
     issued = FirstAdminBootstrapService(db_session).issue_token()

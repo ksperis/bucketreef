@@ -133,14 +133,16 @@ def _save_persisted_settings_to_db(db, settings: AppSettings) -> None:
     commit_or_rollback(db)
 
 
-def _load_or_import_persisted_settings_from_db(db) -> AppSettings:
-    row = _get_persisted_settings_row(db)
-    if row is not None:
+def _load_persisted_settings_from_db(db) -> AppSettings:
+    try:
+        row = _get_persisted_settings_row(db)
+        if row is None:
+            raise AppSettingsLoadError("Application settings have not been initialized")
         return _parse_settings_payload(row.payload)
-
-    imported = _load_persisted_settings_from_disk(_settings_path())
-    _save_persisted_settings_to_db(db, imported)
-    return imported
+    except AppSettingsLoadError:
+        raise
+    except (SQLAlchemyError, ValueError) as exc:
+        raise AppSettingsLoadError("Application settings could not be loaded") from exc
 
 
 def get_general_feature_locks() -> GeneralFeatureLocks:
@@ -180,22 +182,18 @@ def _apply_general_feature_overrides(settings: AppSettings) -> AppSettings:
 
 
 def load_app_settings_for_db(db) -> AppSettings:
-    """Load effective settings without importing defaults into the database."""
-    try:
-        row = _get_persisted_settings_row(db)
-        persisted = (
-            _parse_settings_payload(row.payload)
-            if row is not None
-            else _load_persisted_settings_from_disk(_settings_path())
-        )
-        return _apply_general_feature_overrides(persisted)
-    except (OSError, SQLAlchemyError, ValueError) as exc:
-        raise AppSettingsLoadError("Application settings could not be loaded") from exc
+    """Load effective settings from the initialized database state."""
+    return _apply_general_feature_overrides(_load_persisted_settings_from_db(db))
 
 
 def bootstrap_app_settings_for_db(db) -> AppSettings:
     """Import bootstrap settings once when the database has no settings row."""
-    persisted = _load_or_import_persisted_settings_from_db(db)
+    row = _get_persisted_settings_row(db)
+    if row is None:
+        persisted = _load_persisted_settings_from_disk(_settings_path())
+        _save_persisted_settings_to_db(db, persisted)
+    else:
+        persisted = _parse_settings_payload(row.payload)
     return _apply_general_feature_overrides(persisted)
 
 
@@ -209,7 +207,7 @@ def load_app_settings() -> AppSettings:
 
 
 def save_app_settings_for_db(db, settings: AppSettings) -> AppSettings:
-    persisted = _load_or_import_persisted_settings_from_db(db)
+    persisted = _load_persisted_settings_from_db(db)
     to_save = settings.model_copy(deep=True)
     locks = get_general_feature_locks()
     for field_name in _GENERAL_FEATURE_FIELDS:
@@ -238,7 +236,7 @@ def enable_onboarding_features(db, fields: tuple[str, ...]) -> list[str]:
             lock = getattr(locks, field, None)
             if lock and lock.forced and lock.value is False:
                 raise ValueError(f"Feature locked by {lock.source}")
-        _load_or_import_persisted_settings_from_db(db)
+        _load_persisted_settings_from_db(db)
         row = db.scalars(
             select(AppSetting)
             .where(AppSetting.key == APP_SETTINGS_DB_KEY)

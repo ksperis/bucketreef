@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from contextlib import contextmanager
 
 from sqlalchemy import select
 
@@ -26,37 +25,23 @@ def _superadmin_user() -> User:
     )
 
 
-def _use_settings_db(monkeypatch, db_session) -> None:
-    @contextmanager
-    def _session():
-        yield db_session
-
-    monkeypatch.setattr(app_settings_service, "_open_settings_session", _session)
-
-
 def _raw_db_settings(db_session) -> dict:
     row = db_session.get(AppSetting, app_settings_service.APP_SETTINGS_DB_KEY)
     assert row is not None
     return row.payload
 
 
-def test_get_public_branding_settings_preserves_legacy_color_without_auth(client, monkeypatch, tmp_path, db_session):
-    settings_path = tmp_path / "app_settings.json"
+def test_get_public_branding_settings_reads_db_color_without_auth(client, db_session):
     persisted = AppSettings()
     persisted.branding.primary_color = "#0ea5e9"
-    settings_path.write_text(persisted.model_dump_json(indent=2), encoding="utf-8")
-    monkeypatch.setattr(app_settings_service, "_settings_path", lambda: settings_path)
-    _use_settings_db(monkeypatch, db_session)
+    app_settings_service.save_app_settings_for_db(db_session, persisted)
 
     response = client.get("/api/settings/branding")
     assert response.status_code == 200, response.text
     assert response.json() == {"primary_color": "#0ea5e9", "login_logo_url": None}
 
 
-def test_put_admin_settings_rejects_invalid_branding_color(client, monkeypatch, tmp_path):
-    settings_path = tmp_path / "app_settings.json"
-    settings_path.write_text(AppSettings().model_dump_json(indent=2), encoding="utf-8")
-    monkeypatch.setattr(app_settings_service, "_settings_path", lambda: settings_path)
+def test_put_admin_settings_rejects_invalid_branding_color(client):
     app.dependency_overrides[dependencies.get_current_user] = _superadmin_user
     app.dependency_overrides.pop(dependencies.get_current_ui_superadmin, None)
 
@@ -66,10 +51,7 @@ def test_put_admin_settings_rejects_invalid_branding_color(client, monkeypatch, 
     assert response.status_code == 422, response.text
 
 
-def test_put_admin_settings_rejects_invalid_branding_logo_url(client, monkeypatch, tmp_path):
-    settings_path = tmp_path / "app_settings.json"
-    settings_path.write_text(AppSettings().model_dump_json(indent=2), encoding="utf-8")
-    monkeypatch.setattr(app_settings_service, "_settings_path", lambda: settings_path)
+def test_put_admin_settings_rejects_invalid_branding_logo_url(client):
     app.dependency_overrides[dependencies.get_current_user] = _superadmin_user
     app.dependency_overrides.pop(dependencies.get_current_ui_superadmin, None)
 
@@ -79,11 +61,7 @@ def test_put_admin_settings_rejects_invalid_branding_logo_url(client, monkeypatc
     assert response.status_code == 422, response.text
 
 
-def test_put_admin_settings_persists_branding_color(client, monkeypatch, tmp_path, db_session):
-    settings_path = tmp_path / "app_settings.json"
-    settings_path.write_text(AppSettings().model_dump_json(indent=2), encoding="utf-8")
-    monkeypatch.setattr(app_settings_service, "_settings_path", lambda: settings_path)
-    _use_settings_db(monkeypatch, db_session)
+def test_put_admin_settings_persists_branding_color(client, db_session):
     app.dependency_overrides[dependencies.get_current_user] = _superadmin_user
     app.dependency_overrides.pop(dependencies.get_current_ui_superadmin, None)
 

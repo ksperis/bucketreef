@@ -50,7 +50,9 @@ from tests.test_endpoint_service_identities import FakeRGW, SERVICE_CAPS
 
 @pytest.fixture
 def guided(db_session, monkeypatch):
-    db_session.add(AppSetting(key="default", payload=AppSettings().model_dump(mode="json")))
+    app_settings = db_session.get(AppSetting, "default")
+    assert app_settings is not None
+    app_settings.payload = AppSettings().model_dump(mode="json")
     db_session.commit()
     monkeypatch.setattr(
         settings_service,

@@ -184,8 +184,9 @@ def test_project_usage_capabilities_share_account_override_precedence(
 def test_platform_tool_grant_uses_existing_role_boundary_and_provenance(db_session):
     settings = AppSettings()
     settings.manager.feature_policies.bucket_compare = FeaturePolicy.DEFAULT_ON
-    row = AppSetting(key="default", payload=settings.model_dump(mode="json"))
-    db_session.add(row)
+    row = db_session.get(AppSetting, "default")
+    assert row is not None
+    row.payload = settings.model_dump(mode="json")
     user = User(email="policies@example.test", full_name="Policies", hashed_password="x", role=UserRole.UI_USER.value)
     db_session.add(user)
     db_session.commit()
