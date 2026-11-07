@@ -98,6 +98,19 @@ class PortalRequestsService:
         self._commit()
         self.db.refresh(row)
 
+    @staticmethod
+    def _apply_request_decision(
+        row: PortalAdminRequest,
+        actor: User,
+        status: str,
+    ) -> None:
+        now = utcnow()
+        row.status = status
+        row.decided_by_user_id = int(actor.id)
+        row.decided_by_email = actor.email
+        row.decided_at = now
+        row.updated_at = now
+
     def create_request(
         self,
         actor: User,
@@ -343,12 +356,7 @@ class PortalRequestsService:
     ) -> PortalAdminRequestOut:
         row = self._load_request(request_id)
         self._ensure_pending(row)
-        now = utcnow()
-        row.status = "rejected"
-        row.decided_by_user_id = int(actor.id)
-        row.decided_by_email = actor.email
-        row.decided_at = now
-        row.updated_at = now
+        self._apply_request_decision(row, actor, "rejected")
         if message:
             self._add_message(row, actor, message)
         self.db.add(row)
@@ -428,13 +436,8 @@ class PortalRequestsService:
         detail: str,
     ) -> PortalAdminRequest:
         row = self._load_request(request_id)
-        now = utcnow()
-        row.status = "failed"
+        self._apply_request_decision(row, actor, "failed")
         row.error_message = detail
-        row.decided_by_user_id = int(actor.id)
-        row.decided_by_email = actor.email
-        row.decided_at = now
-        row.updated_at = now
         self.db.add(row)
         self._commit()
         return row
@@ -448,14 +451,9 @@ class PortalRequestsService:
         message: Optional[str] = None,
     ) -> PortalAdminRequest:
         row = self._load_request(request_id)
-        now = utcnow()
-        row.status = "approved"
+        self._apply_request_decision(row, actor, "approved")
         row.result = dict(result)
         row.error_message = None
-        row.decided_by_user_id = int(actor.id)
-        row.decided_by_email = actor.email
-        row.decided_at = now
-        row.updated_at = now
         if message:
             self._add_message(row, actor, message)
         self.db.add(row)
