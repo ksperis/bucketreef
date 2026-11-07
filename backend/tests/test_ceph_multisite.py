@@ -977,6 +977,25 @@ def test_multisite_router_translates_service_errors(error, status_code, detail) 
     assert raised.value.detail == detail
 
 
+@pytest.mark.parametrize(
+    ("error", "status_code"),
+    [
+        (CephMultisiteCredentialsMissingError("secret_access_key=abc123"), 403),
+        (CephMultisiteValidationError("secret_access_key=abc123"), 422),
+        (CephMultisiteConflictError("secret_access_key=abc123"), 409),
+    ],
+)
+def test_multisite_router_redacts_sensitive_service_error_details(error, status_code) -> None:
+    def fail():
+        raise error
+
+    with pytest.raises(HTTPException) as raised:
+        multisite_router._run_multisite_action(fail)
+
+    assert raised.value.status_code == status_code
+    assert raised.value.detail == "secret_access_key=<redacted>"
+
+
 class _FakeFuture:
     def __init__(self, value=None) -> None:
         self.value = value
