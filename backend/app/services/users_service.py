@@ -7,11 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.db import User
 from app.core.domain_enums import UserRole
-from app.models.admin_listing import AdminOptionListingRequest
 from app.models.user import (
-    AdminUserListingRequest,
-    PaginatedUserSummariesResponse,
-    PaginatedUsersResponse,
     UserCreate,
     UserOut,
     UserSelfUpdate,
@@ -100,21 +96,6 @@ class UsersService:
 
     def delete_user(self, user_id: int) -> None:
         self.deletion.delete_user(user_id)
-
-    def list_users(self) -> list[User]:
-        return self.query.list_users()
-
-    def list_user_options_page(
-        self,
-        request: AdminOptionListingRequest,
-    ) -> PaginatedUserSummariesResponse:
-        return self.query.list_user_options_page(request)
-
-    def list_users_page(
-        self,
-        request: AdminUserListingRequest,
-    ) -> PaginatedUsersResponse:
-        return self.query.list_users_page(request)
 
     def assign_user_to_account(
         self,
