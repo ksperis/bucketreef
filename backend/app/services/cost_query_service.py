@@ -18,6 +18,7 @@ from app.db import (
     StorageEndpoint,
 )
 from app.core.domain_enums import StorageProvider
+from app.models.cost import CostRateValues
 from app.services.cost_calculations import (
     CostPeriod,
     CostTotals,
@@ -68,11 +69,8 @@ class CostQueryService:
         rates = override or global_model
         return EffectiveCostModel(
             currency=global_model.currency,
-            storage_gb_month_price=rates.storage_gb_month_price,
-            egress_gb_price=rates.egress_gb_price,
-            ingress_gb_price=rates.ingress_gb_price,
-            requests_per_1000_price=rates.requests_per_1000_price,
             pricing_source="endpoint_override" if override is not None else "global",
+            **CostRateValues.model_validate(rates, from_attributes=True).model_dump(),
         )
 
     def subject(

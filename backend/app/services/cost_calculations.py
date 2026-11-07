@@ -5,13 +5,13 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime
-from decimal import Decimal
 from typing import Iterable, Optional
 
 from app.db import CostUsageDaily
 from app.models.cost import (
     CostBreakdown,
     CostCoverage,
+    CostRateValues,
     CostStorageTotals,
     CostUsageTotals,
 )
@@ -39,13 +39,8 @@ class CostTotals:
     usage_days_with_data: int = 0
 
 
-@dataclass(frozen=True)
-class EffectiveCostModel:
+class EffectiveCostModel(CostRateValues):
     currency: str
-    storage_gb_month_price: Decimal
-    egress_gb_price: Decimal
-    ingress_gb_price: Decimal
-    requests_per_1000_price: Decimal
     pricing_source: str
 
 
