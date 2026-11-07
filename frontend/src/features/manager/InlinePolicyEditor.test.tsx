@@ -79,6 +79,7 @@ describe("InlinePolicyEditor", () => {
     renderEditor();
     const { dialog } = await openEditDialog();
 
+    expect(dialog.querySelector(".modal-actions")).toBeInTheDocument();
     const name = within(dialog).getByLabelText("Inline policy name");
     expect(name).toHaveValue("readonly-inline");
     expect(name).toHaveAttribute("readonly");

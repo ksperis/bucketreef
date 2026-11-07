@@ -6,6 +6,7 @@ import { inlinePolicyNameFormatError, type IAMEntity, type NamingValidationProfi
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { InlinePolicy } from "../../api/managerIamPolicies";
 import { extractApiError } from "../../utils/apiError";
+import ModalActions from "../../components/ModalActions";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { useConfirmActionDialog } from "../../components/useConfirmActionDialog";
 import { DEFAULT_INLINE_POLICY_TEXT } from "./inlinePolicyTemplate";
@@ -311,7 +312,7 @@ export default function InlinePolicyEditor({
                 <SettingsButton type="button" variant="secondary" onClick={handleInsertTemplate}>{text("Insert template")}</SettingsButton>
               </div>
             </fieldset>
-            <div className="settings-actions">
+            <ModalActions>
               {canDelete && <SettingsButton type="button" variant="danger" className="mr-auto" onClick={handleDelete} disabled={saving || deleting}>
                 {text(deleting ? "Deleting..." : "Delete inline policy")}
               </SettingsButton>}
@@ -319,7 +320,7 @@ export default function InlinePolicyEditor({
               <SettingsButton type="submit" disabled={saving || deleting}>
                 {text(saving ? "Saving..." : editorMode === "edit" ? "Save changes" : "Create inline policy")}
               </SettingsButton>
-            </div>
+            </ModalActions>
           </form>
         </SettingsDialog>
       )}
