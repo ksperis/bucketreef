@@ -77,6 +77,11 @@ class BucketUsageStatsOptions:
     parallelism: int = 8
 
 
+@dataclass(frozen=True)
+class _DeleteMarkerEntry:
+    pass
+
+
 @dataclass
 class _BucketUsageRunTotals:
     completed_buckets: int = 0
@@ -173,7 +178,7 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
         bucket_name: str,
         *,
         cancel_check: CancelCheck | None,
-    ):
+    ) -> Iterable[ObjectVersionEntry | _DeleteMarkerEntry]:
         paginator = client.get_paginator("list_object_versions")
         for page in paginator.paginate(Bucket=bucket_name):
             if cancel_check:
@@ -192,7 +197,7 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
             for entry in page.get("DeleteMarkers", []) or []:
                 key = entry.get("Key")
                 if isinstance(key, str) and key:
-                    yield {"delete_marker": True}
+                    yield _DeleteMarkerEntry()
 
     def _iter_current_entries(
         self,
@@ -200,7 +205,7 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
         bucket_name: str,
         *,
         cancel_check: CancelCheck | None,
-    ):
+    ) -> Iterable[ObjectVersionEntry]:
         paginator = client.get_paginator("list_objects_v2")
         for page in paginator.paginate(Bucket=bucket_name):
             if cancel_check:
@@ -231,10 +236,15 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
             version_listing_available = True
             scan = BucketUsageScan(calculated_at)
             try:
-                self._scan_version_entries(
-                    client,
+                self._scan_entries(
                     target,
                     scan,
+                    self._iter_version_entries(
+                        client,
+                        target.s3_bucket_name,
+                        cancel_check=cancel_check,
+                    ),
+                    message="Listing object versions",
                     progress_callback=progress_callback,
                     cancel_check=cancel_check,
                 )
@@ -253,10 +263,15 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
                 version_listing_available = False
                 scan = BucketUsageScan(calculated_at)
                 try:
-                    self._scan_current_entries(
-                        client,
+                    self._scan_entries(
                         target,
                         scan,
+                        self._iter_current_entries(
+                            client,
+                            target.s3_bucket_name,
+                            cancel_check=cancel_check,
+                        ),
+                        message="Listing current objects",
                         progress_callback=progress_callback,
                         cancel_check=cancel_check,
                     )
@@ -273,56 +288,27 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
                 warnings=warnings,
             )
 
-    def _scan_version_entries(
+    def _scan_entries(
         self,
-        client: Any,
         target: BucketUsageStatsResolvedTarget,
         scan: BucketUsageScan,
+        entries: Iterable[ObjectVersionEntry | _DeleteMarkerEntry],
         *,
+        message: str,
         progress_callback: ProgressCallback | None,
         cancel_check: CancelCheck | None,
     ) -> None:
         scan.emit_progress(
             target,
             progress_callback,
-            "Listing object versions",
-        )
-        entries = self._iter_version_entries(
-            client,
-            target.s3_bucket_name,
-            cancel_check=cancel_check,
+            message,
         )
         for entry in entries:
             if cancel_check:
                 cancel_check()
-            if isinstance(entry, dict) and entry.get("delete_marker"):
+            if isinstance(entry, _DeleteMarkerEntry):
                 scan.add_delete_marker()
                 continue
-            scan.add_entry(entry)
-            scan.emit_progress(target, progress_callback)
-
-    def _scan_current_entries(
-        self,
-        client: Any,
-        target: BucketUsageStatsResolvedTarget,
-        scan: BucketUsageScan,
-        *,
-        progress_callback: ProgressCallback | None,
-        cancel_check: CancelCheck | None,
-    ) -> None:
-        scan.emit_progress(
-            target,
-            progress_callback,
-            "Listing current objects",
-        )
-        entries = self._iter_current_entries(
-            client,
-            target.s3_bucket_name,
-            cancel_check=cancel_check,
-        )
-        for entry in entries:
-            if cancel_check:
-                cancel_check()
             scan.add_entry(entry)
             scan.emit_progress(target, progress_callback)
 
