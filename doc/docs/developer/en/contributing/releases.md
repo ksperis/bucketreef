@@ -101,11 +101,11 @@ before advertising the installer.
 
 ## Database schema baselines
 
-Fresh databases already use the installed release's SQLAlchemy metadata followed
-by `alembic stamp head`. Versioned databases run `alembic upgrade head`; non-empty
-unversioned databases are rejected. Keep that distinction and all historical
-migrations. A baseline is a reference snapshot, not a second migration branch
-or a replacement for the current models at startup.
+Fresh and versioned databases both run `alembic upgrade head`; non-empty
+unversioned databases are rejected. Keep all historical migrations replayable,
+including migrations that initialize data required by a fresh installation. A
+baseline is a reference snapshot, not a second migration branch or a replacement
+for the Alembic startup path.
 
 For each new `0.X.1`, preparation writes deterministic `sqlite.sql`,
 `postgresql.sql`, and `manifest.json` under `backend/schema-baselines/X.Y.Z`.
@@ -114,8 +114,8 @@ Snapshots contain DDL only, never database rows or credentials. Existing snapsho
 cannot be overwritten with different content. Main tests and release metadata checks
 reject a required snapshot that is missing or differs from the current schema.
 Patch releases do not regenerate previous snapshots. `0.2.5` creates none, and
-`0.2.1` is not backfilled. Fresh patch installations still create their current
-target schema directly without replaying an earlier snapshot.
+`0.2.1` is not backfilled. Fresh patch installations still migrate to the current
+target schema through Alembic and do not consume an earlier snapshot.
 
 Use `backend/.venv/bin/python ops/release/schema_baseline.py X.Y.Z --check` to
 verify a required snapshot. Keep schema-parity and upgrade tests for SQLite and
