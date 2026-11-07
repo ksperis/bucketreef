@@ -15,12 +15,15 @@ from app.models.bucket import (
 )
 from app.routers.storage_endpoint_feature_guards import require_sse_feature
 from app.routers.bucket_config_errors import (
-    run_bucket_config_action,
     run_bucket_config_no_content,
     run_bucket_config_read,
 )
 from app.routers.dependencies import get_s3_execution_context, get_current_account_admin
-from app.routers.manager.bucket_config_common import get_manager_bucket_config_mutation_service
+from app.routers.manager.bucket_config_common import (
+    get_manager_bucket_config_mutation_service,
+    run_manager_bucket_config_delete,
+    run_manager_bucket_config_update,
+)
 from app.services import bucket_config_actions
 from app.services.bucket_config_mutation_service import BucketConfigMutationService
 from app.services.bucket_configuration_service import (
@@ -86,13 +89,8 @@ def put_object_lock(
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> BucketObjectLock:
-    return run_bucket_config_action(
-        mutation.update,
-        actor=current_user,
-        context=context,
-        bucket_name=bucket_name,
-        config_area="object_lock",
-        payload=payload,
+    return run_manager_bucket_config_update(
+        mutation, current_user, context, bucket_name, "object_lock", payload
     )
 
 
@@ -118,13 +116,8 @@ def put_bucket_encryption(
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> BucketEncryptionConfiguration:
     require_sse_feature(context.storage_endpoint)
-    return run_bucket_config_action(
-        mutation.update,
-        actor=current_user,
-        context=context,
-        bucket_name=bucket_name,
-        config_area="encryption",
-        payload=payload,
+    return run_manager_bucket_config_update(
+        mutation, current_user, context, bucket_name, "encryption", payload
     )
 
 
@@ -140,14 +133,4 @@ def delete_bucket_encryption(
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> Response:
     require_sse_feature(context.storage_endpoint)
-    return run_bucket_config_no_content(
-        mutation.delete,
-        actor=current_user,
-        context=context,
-        bucket_name=bucket_name,
-        config_area="encryption",
-    )
-# Copyright (c) 2026 Laurent Barbe
-# Licensed under the Apache License, Version 2.0
-
-"""Core bucket configuration endpoints for the Manager workspace."""
+    return run_manager_bucket_config_delete(mutation, current_user, context, bucket_name, "encryption")
