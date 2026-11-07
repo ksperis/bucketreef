@@ -8,13 +8,13 @@ from typing import Literal, Optional
 
 from pydantic import Field
 
-from app.core.domain_enums import SortDirection
+from app.core.domain_enums import EffectiveAccessSourceKind, SortDirection
 from app.models.base import ApiModel
 from app.models.pagination import PaginatedResponse
 from app.models.user import UiRole
 
 AccessAuditScope = Literal["platform", "rgw_account", "rgw_user", "s3_connection"]
-AccessAuditSourceKind = Literal["direct", "group", "platform"]
+AccessAuditSourceKind = EffectiveAccessSourceKind
 AccessAuditSortBy = Literal["user", "scope", "target"]
 AccessAuditSortDir = SortDirection
 AccessAuditRightCode = Literal[
