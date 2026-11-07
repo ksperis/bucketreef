@@ -14,7 +14,11 @@ from app.models.bucket import (
     BucketVersioningUpdate,
 )
 from app.routers.storage_endpoint_feature_guards import require_sse_feature
-from app.routers.bucket_config_errors import run_bucket_config_action, run_bucket_config_no_content
+from app.routers.bucket_config_errors import (
+    run_bucket_config_action,
+    run_bucket_config_no_content,
+    run_bucket_config_read,
+)
 from app.routers.dependencies import get_s3_execution_context, get_current_account_admin
 from app.routers.manager.bucket_config_common import get_manager_bucket_config_mutation_service
 from app.services import bucket_config_actions
@@ -35,11 +39,8 @@ def get_versioning(
     service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketVersioningStatus:
-    return run_bucket_config_action(
-        bucket_config_actions.get_bucket_versioning_config,
-        service=service,
-        context=context,
-        bucket_name=bucket_name,
+    return run_bucket_config_read(
+        bucket_config_actions.get_bucket_versioning_config, service, context, bucket_name
     )
 
 
@@ -72,11 +73,8 @@ def get_object_lock(
     service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketObjectLock:
-    return run_bucket_config_action(
-        bucket_config_actions.get_bucket_object_lock_config,
-        service=service,
-        context=context,
-        bucket_name=bucket_name,
+    return run_bucket_config_read(
+        bucket_config_actions.get_bucket_object_lock_config, service, context, bucket_name
     )
 
 
@@ -106,11 +104,8 @@ def get_bucket_encryption(
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketEncryptionConfiguration:
     require_sse_feature(context.storage_endpoint)
-    return run_bucket_config_action(
-        bucket_config_actions.get_bucket_encryption_config,
-        service=service,
-        context=context,
-        bucket_name=bucket_name,
+    return run_bucket_config_read(
+        bucket_config_actions.get_bucket_encryption_config, service, context, bucket_name
     )
 
 

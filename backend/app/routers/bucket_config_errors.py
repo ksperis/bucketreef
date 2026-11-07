@@ -22,6 +22,21 @@ def run_bucket_config_action(action: Callable[..., _T], /, **kwargs: Any) -> _T:
         raise_bad_gateway_from_runtime(exc)
 
 
+def run_bucket_config_read(
+    action: Callable[..., _T],
+    service: Any,
+    context: Any,
+    bucket_name: str,
+    /,
+) -> _T:
+    return run_bucket_config_action(
+        action,
+        service=service,
+        context=context,
+        bucket_name=bucket_name,
+    )
+
+
 def run_bucket_config_no_content(action: Callable[..., Any], /, **kwargs: Any) -> Response:
     run_bucket_config_action(action, **kwargs)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
