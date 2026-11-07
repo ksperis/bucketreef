@@ -128,7 +128,7 @@ def create_first_admin_from_bootstrap(
         request=request,
         response=response,
         user=user,
-        users_service=users_service,
+        db=db,
         auth_type="bootstrap",
     )
 
@@ -171,7 +171,7 @@ def login(
         request=request,
         response=response,
         user=user,
-        users_service=users_service,
+        db=db,
         auth_type="password",
     )
     attempt.audit(

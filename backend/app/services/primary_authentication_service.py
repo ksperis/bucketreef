@@ -5,11 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal, Optional
 
+from sqlalchemy.orm import Session
+
 from app.db import User
 from app.models.auth import AuthenticationResponse
 from app.services.auth_session_service import AuthSessionService, SessionCredentials
 from app.services.identity_security_requirements import passkey_required_for_role
-from app.services.users_service import UsersService
+from app.services.user_output_service import UserOutputService
 from app.services.webauthn_service import WebAuthnService
 
 
@@ -24,8 +26,11 @@ class PrimaryAuthenticationCompletion:
 
 
 class PrimaryAuthenticationService:
-    def __init__(self, users_service: UsersService) -> None:
-        self.users_service = users_service
+    def __init__(self, db: Session) -> None:
+        self.db = db
+        self.sessions = AuthSessionService(db)
+        self.user_output = UserOutputService(db)
+        self.webauthn = WebAuthnService(db)
 
     def pre_auth_completion(
         self,
@@ -33,15 +38,15 @@ class PrimaryAuthenticationService:
         *,
         redirect_path: Optional[str] = None,
     ) -> PrimaryAuthenticationCompletion | None:
-        has_passkey = WebAuthnService(self.users_service.db).has_credentials(user.id)
-        if has_passkey or passkey_required_for_role(self.users_service.db, user.role):
+        has_passkey = self.webauthn.has_credentials(user.id)
+        if has_passkey or passkey_required_for_role(self.db, user.role):
             pre_auth_purpose: PreAuthPurpose = (
                 "mfa_authentication" if has_passkey else "mfa_enrollment"
             )
             return PrimaryAuthenticationCompletion(
                 response=AuthenticationResponse(
                     status="mfa_required" if has_passkey else "mfa_enrollment_required",
-                    user=self.users_service.user_to_out(user),
+                    user=self.user_output.to_out(user),
                     session=None,
                     redirect_path=redirect_path,
                     recovery_codes=None,
@@ -59,7 +64,7 @@ class PrimaryAuthenticationService:
         user_agent: Optional[str],
         redirect_path: Optional[str] = None,
     ) -> PrimaryAuthenticationCompletion:
-        credentials = AuthSessionService(self.users_service.db).create_for_user(
+        credentials = self.sessions.create_for_user(
             user,
             auth_type=auth_type,
             ip_address=ip_address,
@@ -69,7 +74,7 @@ class PrimaryAuthenticationService:
         return PrimaryAuthenticationCompletion(
             response=AuthenticationResponse(
                 status="authenticated",
-                user=self.users_service.user_to_out(user),
+                user=self.user_output.to_out(user),
                 session=None,
                 redirect_path=redirect_path,
                 recovery_codes=None,

@@ -19,10 +19,7 @@ from app.routers.auth_common import (
     external_identity_reauthentication_response,
 )
 from app.routers.auth_cookies import ensure_external_identity_browser_binding
-from app.routers.dependencies import (
-    get_audit_service,
-    get_users_service_dependency,
-)
+from app.routers.dependencies import get_audit_service
 from app.services.audit_service import AuditService
 from app.services.external_identity_user_service import (
     ExternalIdentityLinkRequiredError,
@@ -36,7 +33,6 @@ from app.services.ldap_service import (
     LDAPUserConflictError,
     get_ldap_auth_service,
 )
-from app.services.users_service import UsersService
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.identity_provider_ids import normalize_identity_provider_id
 from app.utils.request_security import require_trusted_origin
@@ -109,7 +105,6 @@ def login_with_ldap(
     response: Response,
     provider_id: str,
     payload: LDAPLoginRequest,
-    users_service: UsersService = Depends(get_users_service_dependency),
     ldap_service: LDAPAuthService = Depends(get_ldap_auth_service_dependency),
     audit_service: AuditService = Depends(get_audit_service),
     db: Session = Depends(get_db),
@@ -171,7 +166,7 @@ def login_with_ldap(
         request=request,
         response=response,
         user=user,
-        users_service=users_service,
+        db=db,
         auth_type="ldap",
     )
     attempt.audit(
