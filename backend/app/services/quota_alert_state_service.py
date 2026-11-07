@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.sqlite import ensure_sqlite_transaction_for_savepoint
+from app.core.sqlite import add_and_flush_in_savepoint
 from app.db import QuotaAlertState
 from app.services.quota_subject import SubjectContext, quota_subject_ids
 
@@ -75,10 +75,7 @@ class QuotaAlertStateService:
                 now=now,
             )
             try:
-                ensure_sqlite_transaction_for_savepoint(self.db)
-                with self.db.begin_nested():
-                    self.db.add(state)
-                    self.db.flush()
+                add_and_flush_in_savepoint(self.db, state)
             except IntegrityError:
                 state = self._find_state(subject)
                 if state is None:

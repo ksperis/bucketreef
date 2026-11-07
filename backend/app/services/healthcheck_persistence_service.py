@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.db_transactions import commit_or_rollback
 from app.core.sensitive_data import sanitize_persisted_error
-from app.core.sqlite import ensure_sqlite_transaction_for_savepoint
+from app.core.sqlite import add_and_flush_in_savepoint
 from app.db import (
     EndpointHealthCheck,
     EndpointHealthLatest,
@@ -97,10 +97,7 @@ class HealthCheckPersistenceService:
         self._apply_latest_entry_values(entry, result, latencies)
         if created:
             try:
-                ensure_sqlite_transaction_for_savepoint(self.db)
-                with self.db.begin_nested():
-                    self.db.add(entry)
-                    self.db.flush()
+                add_and_flush_in_savepoint(self.db, entry)
                 return
             except IntegrityError:
                 entry = self.db.scalars(entry_statement).first()
@@ -234,10 +231,7 @@ class HealthCheckPersistenceService:
         self._apply_rollup_values(entry, counts, latencies)
         if created:
             try:
-                ensure_sqlite_transaction_for_savepoint(self.db)
-                with self.db.begin_nested():
-                    self.db.add(entry)
-                    self.db.flush()
+                add_and_flush_in_savepoint(self.db, entry)
                 return
             except IntegrityError:
                 entry = self.db.scalars(entry_statement).first()

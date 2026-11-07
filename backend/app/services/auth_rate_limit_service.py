@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.core.db_transactions import commit_or_rollback
-from app.core.sqlite import ensure_sqlite_transaction_for_savepoint
+from app.core.sqlite import add_and_flush_in_savepoint
 from app.db import AuthRateLimit
 from app.utils.time import utcnow
 
@@ -60,18 +60,16 @@ class AuthRateLimitService:
             )
             if changed.rowcount == 0:
                 try:
-                    ensure_sqlite_transaction_for_savepoint(self.db)
-                    with self.db.begin_nested():
-                        self.db.add(
-                            AuthRateLimit(
-                                id=str(uuid.uuid4()),
-                                bucket_key=key,
-                                window_started_at=window,
-                                attempts=1,
-                                updated_at=now,
-                            )
+                    add_and_flush_in_savepoint(
+                        self.db,
+                        AuthRateLimit(
+                            id=str(uuid.uuid4()),
+                            bucket_key=key,
+                            window_started_at=window,
+                            attempts=1,
+                            updated_at=now,
                         )
-                        self.db.flush()
+                    )
                 except IntegrityError:
                     self.db.execute(
                         update(AuthRateLimit)
