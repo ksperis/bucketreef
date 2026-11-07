@@ -267,7 +267,7 @@ def test_admin_group_options_forward_search_and_pagination():
 
     response = groups_router.list_group_options(
         query=AdminOptionListingRequest(page=2, page_size=1, search="ops"),
-        groups_service=FakeGroupsService(),
+        group_queries=FakeGroupsService(),
         _=object(),
     )
 
