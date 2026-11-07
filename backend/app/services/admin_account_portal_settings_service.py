@@ -28,18 +28,15 @@ class AdminAccountPortalSettingsService:
         self.accounts = S3AccountRepository(db)
         self.portal = portal if portal is not None else get_portal_service(db)
 
-    def _account(self, account_id: int) -> S3Account:
-        return self.accounts.get(account_id)
-
     def get(self, account_id: int) -> PortalAccountSettings:
-        return self.portal.get_portal_account_settings(self._account(account_id))
+        return self.portal.get_portal_account_settings(self.accounts.get(account_id))
 
     def update(
         self,
         account_id: int,
         payload: PortalSettingsAdminUpdate,
     ) -> AdminAccountPortalSettingsUpdateResult:
-        account = self._account(account_id)
+        account = self.accounts.get(account_id)
         if "override" not in payload.model_fields_set:
             override = self.portal.get_portal_account_settings(account).admin_override
         else:
