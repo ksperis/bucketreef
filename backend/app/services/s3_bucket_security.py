@@ -61,9 +61,9 @@ def set_bucket_public_access_block(
         code = aws_error_code(exc, lowercase=True)
         if not block and code in {"nosuchpublicaccessblockconfiguration", "nosuchpublicaccessblock"}:
             return
-        raise RuntimeError(f"Unable to update public access block for bucket '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to update public access block for bucket '{bucket_name}': {exc}") from exc
     except BotoCoreError as exc:
-        raise RuntimeError(f"Unable to update public access block for bucket '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to update public access block for bucket '{bucket_name}': {exc}") from exc
     logger.debug("Set public access block for bucket %s to %s", bucket_name, block_state)
 
 
@@ -130,7 +130,7 @@ def get_bucket_acl(
     try:
         return client.get_bucket_acl(Bucket=bucket_name)
     except (BotoCoreError, ClientError) as exc:
-        raise RuntimeError(f"Unable to fetch ACL for bucket '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to fetch ACL for bucket '{bucket_name}': {exc}") from exc
 
 
 def put_bucket_acl(
@@ -142,7 +142,7 @@ def put_bucket_acl(
     try:
         client.put_bucket_acl(Bucket=bucket_name, ACL=acl)
     except (BotoCoreError, ClientError) as exc:
-        raise RuntimeError(f"Unable to update ACL for bucket '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to update ACL for bucket '{bucket_name}': {exc}") from exc
     logger.debug("Updated ACL for bucket %s", bucket_name)
 
 
@@ -168,11 +168,11 @@ def put_bucket_object_lock(
     if retention:
         config["Rule"] = {"DefaultRetention": retention}
     if not config:
-        raise RuntimeError("No object lock configuration supplied.")
+        raise ValueError("No object lock configuration supplied.")
     try:
         client.put_object_lock_configuration(Bucket=bucket_name, ObjectLockConfiguration=config)
     except (BotoCoreError, ClientError) as exc:
-        raise RuntimeError(f"Unable to set object lock config for bucket '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to set object lock config for bucket '{bucket_name}': {exc}") from exc
     logger.debug("Updated object lock configuration for bucket %s", bucket_name)
 
 
@@ -189,9 +189,9 @@ def get_bucket_encryption(
         code = aws_error_code(exc, lowercase=True)
         if code in {"serversideencryptionconfigurationnotfounderror", "nosuchbucket"}:
             return []
-        raise RuntimeError(f"Unable to fetch bucket encryption for '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to fetch bucket encryption for '{bucket_name}': {exc}") from exc
     except BotoCoreError as exc:
-        raise RuntimeError(f"Unable to fetch bucket encryption for '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to fetch bucket encryption for '{bucket_name}': {exc}") from exc
 
 
 def put_bucket_encryption(
@@ -206,7 +206,7 @@ def put_bucket_encryption(
             ServerSideEncryptionConfiguration={"Rules": rules},
         )
     except (BotoCoreError, ClientError) as exc:
-        raise RuntimeError(f"Unable to set bucket encryption for '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to set bucket encryption for '{bucket_name}': {exc}") from exc
     logger.debug("Updated bucket encryption for bucket %s", bucket_name)
 
 

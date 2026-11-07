@@ -18,6 +18,8 @@ from app.models.bucket import (
 )
 from app.services import bucket_config_actions
 from app.routers.bucket_config_errors import run_bucket_config_action, run_bucket_delete_action
+from app.services.bucket_quota_service import BucketQuotaOperationError
+from app.services.s3_client import S3OperationError
 from app.services.s3_deletion import BucketNotEmptyError
 
 
@@ -131,15 +133,30 @@ def test_bucket_config_action_maps_domain_validation_error_to_bad_request():
     assert exc_info.value.detail == "invalid configuration"
 
 
-def test_bucket_config_action_maps_runtime_error_to_bad_gateway():
+@pytest.mark.parametrize(
+    "error",
+    [
+        S3OperationError("provider unavailable"),
+        BucketQuotaOperationError("provider unavailable"),
+    ],
+)
+def test_bucket_config_action_maps_expected_operation_error_to_bad_gateway(error):
     def fail() -> None:
-        raise RuntimeError("provider unavailable")
+        raise error
 
     with pytest.raises(HTTPException) as exc_info:
         run_bucket_config_action(fail)
 
     assert exc_info.value.status_code == 502
     assert exc_info.value.detail == "provider unavailable"
+
+
+def test_bucket_config_action_propagates_unexpected_runtime_error():
+    def fail() -> None:
+        raise RuntimeError("unexpected config regression")
+
+    with pytest.raises(RuntimeError, match="unexpected config regression"):
+        run_bucket_config_action(fail)
 
 
 def test_bucket_delete_action_preserves_structured_not_empty_contract():

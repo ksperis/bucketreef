@@ -31,9 +31,9 @@ def put_bucket_tags(
         else:
             client.delete_bucket_tagging(Bucket=bucket_name)
     except ClientError as exc:
-        raise RuntimeError(f"Unable to update bucket tags for '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to update bucket tags for '{bucket_name}': {exc}") from exc
     except BotoCoreError as exc:
-        raise RuntimeError(f"Unable to update bucket tags for '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to update bucket tags for '{bucket_name}': {exc}") from exc
 
 
 def get_bucket_tags(
@@ -72,7 +72,7 @@ def delete_bucket_tags(
     try:
         client.delete_bucket_tagging(Bucket=bucket_name)
     except (ClientError, BotoCoreError) as exc:
-        raise RuntimeError(f"Unable to delete bucket tags for '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to delete bucket tags for '{bucket_name}': {exc}") from exc
 
 
 def get_bucket_logging_configuration(
@@ -116,7 +116,7 @@ def put_bucket_logging(
     try:
         client.put_bucket_logging(Bucket=bucket_name, BucketLoggingStatus=status)
     except (BotoCoreError, ClientError) as exc:
-        raise RuntimeError(f"Unable to update bucket logging for '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to update bucket logging for '{bucket_name}': {exc}") from exc
     logger.debug("Updated bucket logging for %s", bucket_name)
 
 
@@ -130,7 +130,7 @@ def get_bucket_notifications(
         resp.pop("ResponseMetadata", None)
         return resp or {}
     except (BotoCoreError, ClientError) as exc:
-        raise RuntimeError(f"Unable to fetch bucket notifications for '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to fetch bucket notifications for '{bucket_name}': {exc}") from exc
 
 
 def put_bucket_notifications(
@@ -145,7 +145,7 @@ def put_bucket_notifications(
             NotificationConfiguration=config,
         )
     except (BotoCoreError, ClientError) as exc:
-        raise RuntimeError(f"Unable to update bucket notifications for '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to update bucket notifications for '{bucket_name}': {exc}") from exc
     logger.debug("Updated notifications for bucket %s", bucket_name)
 
 
@@ -175,7 +175,7 @@ def put_bucket_lifecycle(
     try:
         client.put_bucket_lifecycle_configuration(Bucket=bucket_name, LifecycleConfiguration={"Rules": rules})
     except (BotoCoreError, ClientError) as exc:
-        raise RuntimeError(f"Unable to set lifecycle for bucket '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to set lifecycle for bucket '{bucket_name}': {exc}") from exc
     logger.debug("Updated lifecycle for bucket %s", bucket_name)
 
 

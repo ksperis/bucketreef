@@ -7,6 +7,8 @@ from typing import Any, Callable, TypeVar
 from fastapi import HTTPException, Response, status
 
 from app.core.domain_errors import BucketConfigValidationError
+from app.services.bucket_quota_service import BucketQuotaOperationError
+from app.services.s3_client import S3OperationError
 from app.services.s3_deletion import BucketNotEmptyError
 from app.utils.http_errors import raise_bad_gateway_from_runtime, raise_bad_request_from_value_error
 
@@ -18,7 +20,7 @@ def run_bucket_config_action(action: Callable[..., _T], /, **kwargs: Any) -> _T:
         return action(**kwargs)
     except BucketConfigValidationError as exc:
         raise_bad_request_from_value_error(exc)
-    except RuntimeError as exc:
+    except (S3OperationError, BucketQuotaOperationError) as exc:
         raise_bad_gateway_from_runtime(exc)
 
 
