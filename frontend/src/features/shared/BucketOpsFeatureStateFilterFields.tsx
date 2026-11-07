@@ -12,7 +12,7 @@ import {
 import { buildAdvancedFilterFieldState } from "./bucketOpsAdvancedFilterUiProjection";
 import { useSharedI18n } from "./sharedI18n";
 
-type FeatureStateOption = {
+export type FeatureStateOption = {
   id: FeatureKey;
   label: string;
   supported: boolean;

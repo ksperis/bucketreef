@@ -21,10 +21,11 @@ import {
 import {
   type AdvancedFilterSecondarySectionId,
   type AdvancedFilterState,
-  type FeatureKey,
 } from "./bucketOpsAdvancedFilterModel";
 import BucketOpsFeatureDetailFilterFields from "./BucketOpsFeatureDetailFilterFields";
-import BucketOpsFeatureStateFilterFields from "./BucketOpsFeatureStateFilterFields";
+import BucketOpsFeatureStateFilterFields, {
+  type FeatureStateOption,
+} from "./BucketOpsFeatureStateFilterFields";
 import BucketOpsIdentityFilterFields from "./BucketOpsIdentityFilterFields";
 import BucketOpsMetricFilterFields from "./BucketOpsMetricFilterFields";
 import BucketOpsStorageScopeFilterFields from "./BucketOpsStorageScopeFilterFields";
@@ -36,12 +37,6 @@ type FilterController = ReturnType<typeof useBucketOpsFilterController>;
 type StorageScopeFilterController = ReturnType<
   typeof useBucketOpsStorageScopeFilters
 >;
-
-type FeatureStateOption = {
-  id: FeatureKey;
-  label: string;
-  supported: boolean;
-};
 
 type BucketOpsAdvancedFilterDrawerProps = {
   advancedApplied: AdvancedFilterState | null;
