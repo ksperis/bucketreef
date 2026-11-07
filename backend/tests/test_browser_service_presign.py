@@ -3,10 +3,13 @@
 from urllib.parse import parse_qs, urlsplit
 
 import boto3
+import pytest
 from botocore.config import Config
+from botocore.exceptions import ClientError
 
 from app.models.browser import PresignRequest
 from app.services.browser_service import BrowserService
+from app.services.s3_client import S3OperationError
 
 
 def test_put_presign_keeps_content_type_out_of_signature(monkeypatch):
@@ -41,3 +44,22 @@ def test_put_presign_keeps_content_type_out_of_signature(monkeypatch):
     assert "X-Amz-Security-Token" in query
     assert result.method == "PUT"
     assert result.headers == {"Content-Type": "image/jpeg"}
+
+
+def test_presign_provider_failure_is_typed(monkeypatch):
+    class FakeClient:
+        def generate_presigned_url(self, *_args, **_kwargs):  # noqa: ANN002, ANN003
+            raise ClientError(
+                {"Error": {"Code": "AccessDenied", "Message": "denied"}},
+                "GeneratePresignedUrl",
+            )
+
+    service = BrowserService()
+    monkeypatch.setattr(service, "_client", lambda *_args, **_kwargs: FakeClient())
+
+    with pytest.raises(S3OperationError, match="Unable to generate presigned URL"):
+        service.presign(
+            "bucket-a",
+            object(),
+            PresignRequest(key="demo.txt", operation="get_object"),
+        )

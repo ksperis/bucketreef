@@ -5,11 +5,14 @@ import hashlib
 from io import BytesIO
 
 import pytest
+from botocore.exceptions import ClientError
 from botocore.response import StreamingBody
 from pydantic import ValidationError
 
+from app.core.domain_errors import BrowserObjectValidationError
 from app.db import S3Account, StorageEndpoint
 from app.models.browser import (
+    CompleteMultipartUploadRequest,
     MultipartUploadInitRequest,
     ObjectTag,
     PresignPartRequest,
@@ -17,6 +20,7 @@ from app.models.browser import (
     SseCustomerContext,
 )
 from app.services.browser_service import BrowserService
+from app.services.s3_client import S3OperationError
 
 
 def _account() -> S3Account:
@@ -34,6 +38,13 @@ def _sse_context() -> SseCustomerContext:
         algorithm="AES256",
         key=base64.b64encode(raw_key).decode("ascii"),
         key_md5=base64.b64encode(hashlib.md5(raw_key).digest()).decode("ascii"),
+    )
+
+
+def _client_error(operation: str) -> ClientError:
+    return ClientError(
+        {"Error": {"Code": "AccessDenied", "Message": "denied"}},
+        operation,
     )
 
 
@@ -142,6 +153,75 @@ def test_initiate_multipart_upload_preserves_literal_tag_pairs(monkeypatch):
     kwargs = captured["kwargs"]
     assert isinstance(kwargs, dict)
     assert kwargs["Tagging"] == "+tag+=+value+&+=literal-space-key"
+
+
+def test_multipart_provider_failures_are_typed(monkeypatch):
+    class FakeClient:
+        def create_multipart_upload(self, **_kwargs):  # noqa: ANN001
+            raise _client_error("CreateMultipartUpload")
+
+        def list_multipart_uploads(self, **_kwargs):  # noqa: ANN001
+            raise _client_error("ListMultipartUploads")
+
+        def generate_presigned_url(self, *_args, **_kwargs):  # noqa: ANN002, ANN003
+            raise _client_error("UploadPart")
+
+    service = BrowserService()
+    monkeypatch.setattr(
+        service,
+        "_client",
+        lambda *_args, **_kwargs: FakeClient(),
+    )
+
+    with pytest.raises(S3OperationError, match="Unable to initiate multipart upload"):
+        service.initiate_multipart_upload(
+            "bucket-a",
+            _account(),
+            MultipartUploadInitRequest(key="large.bin"),
+        )
+    with pytest.raises(S3OperationError, match="Unable to list multipart uploads"):
+        service.list_multipart_uploads("bucket-a", _account())
+    with pytest.raises(S3OperationError, match="Unable to presign part 3"):
+        service.presign_part(
+            "bucket-a",
+            _account(),
+            PresignPartRequest(key="large.bin", upload_id="upload-1", part_number=3),
+        )
+
+
+def test_multipart_validation_failures_are_typed():
+    service = BrowserService()
+
+    with pytest.raises(BrowserObjectValidationError, match="Upload id is required"):
+        service.presign_part(
+            "bucket-a",
+            _account(),
+            PresignPartRequest(key="large.bin", part_number=1),
+        )
+    with pytest.raises(BrowserObjectValidationError, match="No parts provided"):
+        service.complete_multipart_upload(
+            "bucket-a",
+            _account(),
+            "large.bin",
+            "upload-1",
+            CompleteMultipartUploadRequest(parts=[]),
+        )
+
+
+def test_multipart_missing_upload_id_response_is_s3_failure(monkeypatch):
+    class FakeClient:
+        def create_multipart_upload(self, **_kwargs):  # noqa: ANN001
+            return {}
+
+    service = BrowserService()
+    monkeypatch.setattr(service, "_client", lambda *_args, **_kwargs: FakeClient())
+
+    with pytest.raises(S3OperationError, match="failed to return an upload id"):
+        service.initiate_multipart_upload(
+            "bucket-a",
+            _account(),
+            MultipartUploadInitRequest(key="large.bin"),
+        )
 
 
 def test_presign_part_passes_sse_customer_and_returns_required_headers(monkeypatch):

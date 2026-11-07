@@ -248,8 +248,10 @@ class BrowserObjectOperationsMixin:
                 )
                 return PresignedUrl(url=url, method="PUT", expires_in=expires, headers=headers)
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(f"Unable to generate presigned URL for '{payload.operation}': {exc}") from exc
-        raise RuntimeError("Unsupported presign operation")
+            raise S3OperationError(
+                f"Unable to generate presigned URL for '{payload.operation}': {exc}"
+            ) from exc
+        raise BrowserObjectValidationError("Unsupported presign operation")
 
     def copy_object(
         self,
@@ -360,10 +362,12 @@ class BrowserObjectOperationsMixin:
         try:
             resp = client.create_multipart_upload(**kwargs)
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(f"Unable to initiate multipart upload for '{payload.key}': {exc}") from exc
+            raise S3OperationError(
+                f"Unable to initiate multipart upload for '{payload.key}': {exc}"
+            ) from exc
         upload_id = resp.get("UploadId")
         if not upload_id:
-            raise RuntimeError("Multipart upload failed to return an upload id")
+            raise S3OperationError("Multipart upload failed to return an upload id")
         return MultipartUploadInitResponse(key=payload.key, upload_id=upload_id)
 
     def list_multipart_uploads(
@@ -386,7 +390,9 @@ class BrowserObjectOperationsMixin:
         try:
             resp = client.list_multipart_uploads(**kwargs)
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(f"Unable to list multipart uploads for '{bucket_name}': {exc}") from exc
+            raise S3OperationError(
+                f"Unable to list multipart uploads for '{bucket_name}': {exc}"
+            ) from exc
         uploads: list[MultipartUploadItem] = []
         for upload in resp.get("Uploads", []) or []:
             uploads.append(
@@ -413,7 +419,7 @@ class BrowserObjectOperationsMixin:
         sse_customer: Optional[SseCustomerContext] = None,
     ) -> PresignedUrl:
         if not payload.upload_id:
-            raise RuntimeError("Upload id is required to presign a part")
+            raise BrowserObjectValidationError("Upload id is required to presign a part")
         require_multipart_write_access(context, bucket_name)
         client = self._client(context)
         expires = self._presign_expiration(context, payload.expires_in)
@@ -432,7 +438,9 @@ class BrowserObjectOperationsMixin:
                 ExpiresIn=expires,
             )
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(f"Unable to presign part {payload.part_number} for '{payload.key}': {exc}") from exc
+            raise S3OperationError(
+                f"Unable to presign part {payload.part_number} for '{payload.key}': {exc}"
+            ) from exc
         return PresignedUrl(url=url, method="PUT", expires_in=expires, headers=headers)
 
     def complete_multipart_upload(
@@ -444,7 +452,7 @@ class BrowserObjectOperationsMixin:
         payload: CompleteMultipartUploadRequest,
     ) -> None:
         if not payload.parts:
-            raise RuntimeError("No parts provided to complete multipart upload")
+            raise BrowserObjectValidationError("No parts provided to complete multipart upload")
         require_multipart_write_access(context, bucket_name)
         client = self._client(context, request_profile="long_running")
         sorted_parts = sorted(payload.parts, key=lambda part: part.part_number)
@@ -458,7 +466,9 @@ class BrowserObjectOperationsMixin:
                     MultipartUpload={"Parts": completed},
                 )
             except (ClientError, BotoCoreError) as exc:
-                raise RuntimeError(f"Unable to complete multipart upload for '{key}': {exc}") from exc
+                raise S3OperationError(
+                    f"Unable to complete multipart upload for '{key}': {exc}"
+                ) from exc
 
     def abort_multipart_upload(
         self,
@@ -473,4 +483,6 @@ class BrowserObjectOperationsMixin:
             try:
                 client.abort_multipart_upload(Bucket=bucket_name, Key=key, UploadId=upload_id)
             except (ClientError, BotoCoreError) as exc:
-                raise RuntimeError(f"Unable to abort multipart upload for '{key}': {exc}") from exc
+                raise S3OperationError(
+                    f"Unable to abort multipart upload for '{key}': {exc}"
+                ) from exc
