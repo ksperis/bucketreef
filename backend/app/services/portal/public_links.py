@@ -26,6 +26,7 @@ from app.services.portal.exceptions import (
     PortalForbiddenError,
     PortalGoneError,
     PortalNotFoundError,
+    PortalOperationError,
 )
 from app.services.s3_client import get_s3_client
 from app.services.s3_object_download import S3ObjectDownload
@@ -229,9 +230,9 @@ class PortalPublicLinksMixin:
         try:
             resp = client.get_object(Bucket=link.bucket_name, Key=link.object_key)
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError("Unable to download this public link.") from exc
+            raise PortalOperationError("Unable to download this public link.") from exc
         body = resp.get("Body")
         if not body:
-            raise RuntimeError("Unable to download this public link.")
+            raise PortalOperationError("Unable to download this public link.")
         filename = self._object_name(link.object_key) or "download"
         return S3ObjectDownload(body=body, content_type=resp.get("ContentType"), filename=filename)

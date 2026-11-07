@@ -15,7 +15,7 @@ from app.models.app_settings import (
     PortalSettingsOverride,
 )
 from app.models.feature_policy import FeaturePolicy, PORTAL_FEATURE_FIELDS, resolve_feature_policy
-from app.services.portal.exceptions import PortalForbiddenError
+from app.services.portal.exceptions import PortalForbiddenError, PortalOperationError
 from app.models.portal_settings import PortalAccountSettings, PortalProjectSettings
 from app.services.app_settings_service import load_app_settings_for_db
 
@@ -194,7 +194,7 @@ class PortalSettingsMixin:
                 try:
                     self._restore_portal_server_access_logging_state(account, logging_snapshot)
                 except Exception as rollback_exc:  # pragma: no cover - defensive remote failure
-                    raise RuntimeError(
+                    raise PortalOperationError(
                         "Unable to update Portal settings. "
                         "Server Access Logging rollback also failed."
                     ) from exc

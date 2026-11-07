@@ -38,6 +38,7 @@ from app.services.portal.exceptions import (
     PortalConflictError,
     PortalForbiddenError,
     PortalNotFoundError,
+    PortalOperationError,
 )
 from app.services.user_avatar_service import UserAvatarService
 from app.services.sqlalchemy_pagination import paginate_scalars
@@ -159,7 +160,7 @@ class PortalSharingMixin:
                 select(User).where(User.id == metadata.owner_user_id)
             )
         if owner is None:
-            raise RuntimeError("Private Storage Space owner is missing.")
+            raise PortalOperationError("Private Storage Space owner is missing.")
         member = self._portal_account_member_map(account).get(owner.id)
         return PortalStorageSpaceAccessPerson(
             user_id=owner.id,
@@ -274,7 +275,7 @@ class PortalSharingMixin:
         bucket_name = storage_space.internal_bucket_name
         metadata = self._storage_space_metadata(access.account, bucket_name)
         if metadata is None:
-            raise RuntimeError("Storage space metadata is missing.")
+            raise PortalOperationError("Storage space metadata is missing.")
         actor_role = self._user_storage_space_role(user, access, bucket_name, include_archived=True)
         can_manage_access = (
             actor_role == "Manager"
@@ -457,7 +458,7 @@ class PortalSharingMixin:
         self._require_storage_space_manager(user, access, bucket_name)
         metadata = self._require_storage_space_active(access.account, bucket_name)
         if metadata is None:
-            raise RuntimeError("Storage space metadata is missing.")
+            raise PortalOperationError("Storage space metadata is missing.")
         if metadata.owner_user_id is not None:
             excluded_user_ids.add(metadata.owner_user_id)
         shared_user_ids = set(
@@ -580,7 +581,7 @@ class PortalSharingMixin:
         self._require_storage_space_manager(user, access, bucket_name)
         metadata = self._require_storage_space_shared(access.account, bucket_name)
         if metadata is None:
-            raise RuntimeError("Storage space metadata is missing.")
+            raise PortalOperationError("Storage space metadata is missing.")
         portal_role = self._user_s3_account_portal_role(
             target.id,
             access.account.id,
@@ -620,7 +621,7 @@ class PortalSharingMixin:
                     extra_user_ids={target.id},
                 )
             if rollback_error is not None or projection_rollback_failed:
-                raise RuntimeError(
+                raise PortalOperationError(
                     "Unable to update Storage Space share. Local or remote rollback also failed."
                 ) from exc
             raise
@@ -649,7 +650,7 @@ class PortalSharingMixin:
         self._require_storage_space_manager(user, access, bucket_name)
         metadata = self._require_storage_space_active(access.account, bucket_name)
         if metadata is None:
-            raise RuntimeError("Storage space metadata is missing.")
+            raise PortalOperationError("Storage space metadata is missing.")
         grant = self._storage_space_grant(metadata.id, target.id)
         projection_attempted = False
         try:
@@ -675,7 +676,7 @@ class PortalSharingMixin:
                     extra_user_ids={target.id},
                 )
             if rollback_error is not None or projection_rollback_failed:
-                raise RuntimeError(
+                raise PortalOperationError(
                     "Unable to revoke Storage Space share. Local or remote rollback also failed."
                 ) from exc
             raise

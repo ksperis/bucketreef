@@ -19,7 +19,7 @@ from app.models.portal_versions import (
 )
 from app.services.bucket_purge_service import BucketPurgeCancelled
 from app.services.object_listing_temp_store import TemporarySqliteStore
-from app.services.portal.exceptions import PortalForbiddenError, PortalNotFoundError
+from app.services.portal.exceptions import PortalForbiddenError, PortalNotFoundError, PortalOperationError
 from app.services.object_restore_store import (
     ObjectRestoreScanCounts,
     ObjectRestoreStore,
@@ -220,7 +220,7 @@ class PortalDeletedPrefixRestoreMixin:
             request_profile="long_running",
         )
         if self._storage_space_versioning_status(client, bucket_name, space_id) == "Disabled":
-            raise RuntimeError("File history is not enabled for this storage space.")
+            raise PortalOperationError("File history is not enabled for this storage space.")
         metadata = self._storage_space_metadata(access.account, bucket_name)
         return PortalDeletedPrefixRestoreTarget(
             client=client,
@@ -247,7 +247,7 @@ class PortalDeletedPrefixRestoreMixin:
         except BucketPurgeCancelled:
             raise
         except (ClientError, BotoCoreError, RuntimeError) as exc:
-            raise RuntimeError(
+            raise PortalOperationError(
                 f"Unable to restore deleted files from '{target.prefix}' "
                 f"in Storage Space '{target.storage_space_name}': {exc}"
             ) from exc

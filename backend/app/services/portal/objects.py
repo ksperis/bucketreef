@@ -21,7 +21,7 @@ from app.models.portal_versions import (
     PortalTrashResponse,
 )
 from app.services.aws_client_config import StorageRequestProfile
-from app.services.portal.exceptions import PortalBadRequestError, PortalForbiddenError, PortalNotFoundError
+from app.services.portal.exceptions import PortalBadRequestError, PortalForbiddenError, PortalNotFoundError, PortalOperationError
 from app.services.s3_client import get_s3_client
 from app.services.s3_object_download import S3ObjectDownload
 from app.utils.s3_endpoint import resolve_s3_client_options
@@ -101,7 +101,7 @@ class PortalObjectsMixin:
         try:
             response = client.get_bucket_versioning(Bucket=bucket_name)
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(
+            raise PortalOperationError(
                 f"Unable to load versioning status for storage space '{space_id}': {exc}"
             ) from exc
         status = response.get("Status")
@@ -130,7 +130,7 @@ class PortalObjectsMixin:
         try:
             return client.list_object_versions(**kwargs)
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(
+            raise PortalOperationError(
                 f"Unable to load file history for storage space bucket '{bucket_name}': {exc}"
             ) from exc
 
@@ -403,7 +403,7 @@ class PortalObjectsMixin:
                 },
             )
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(
+            raise PortalOperationError(
                 f"Unable to restore object '{target_key}' in storage space '{space_id}': {exc}"
             ) from exc
 
@@ -416,9 +416,9 @@ class PortalObjectsMixin:
             status_code = exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
             if code in {"404", "nosuchkey", "notfound"} or status_code == 404:
                 raise PortalNotFoundError(f"Object '{target_key}' not found in storage space '{space_id}'.") from exc
-            raise RuntimeError(f"Unable to load object '{target_key}' in storage space '{space_id}': {exc}") from exc
+            raise PortalOperationError(f"Unable to load object '{target_key}' in storage space '{space_id}': {exc}") from exc
         except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to load object '{target_key}' in storage space '{space_id}': {exc}") from exc
+            raise PortalOperationError(f"Unable to load object '{target_key}' in storage space '{space_id}': {exc}") from exc
 
     def download_storage_space_object(
         self,
@@ -439,10 +439,10 @@ class PortalObjectsMixin:
         try:
             resp = client.get_object(Bucket=bucket_name, Key=key, **({"VersionId": version_id} if version_id is not None else {}))
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(f"Unable to download object '{key}' in storage space '{space_id}': {exc}") from exc
+            raise PortalOperationError(f"Unable to download object '{key}' in storage space '{space_id}': {exc}") from exc
         body = resp.get("Body")
         if not body:
-            raise RuntimeError(f"Unable to download object '{key}': empty response body")
+            raise PortalOperationError(f"Unable to download object '{key}': empty response body")
         content_type = resp.get("ContentType")
         filename = self._object_name(key) or "download"
         return S3ObjectDownload(body=body, content_type=content_type, filename=filename)
@@ -528,5 +528,5 @@ class PortalObjectsMixin:
         try:
             client.delete_object(Bucket=bucket_name, Key=key)
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(f"Unable to delete object '{key}' in storage space '{space_id}': {exc}") from exc
+            raise PortalOperationError(f"Unable to delete object '{key}' in storage space '{space_id}': {exc}") from exc
         return key

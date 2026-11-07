@@ -20,7 +20,7 @@ from app.models.portal_access_logs import (
 )
 from app.models.portal_storage_spaces import PortalStorageSpaceSummary
 from app.services.endpoint_read_credentials import resolve_endpoint_read_credentials
-from app.services.portal.exceptions import PortalForbiddenError, PortalNotFoundError
+from app.services.portal.exceptions import PortalForbiddenError, PortalNotFoundError, PortalOperationError
 from app.services.portal.server_access_log_records import (
     apply_server_access_log_filter,
     dash_to_none,
@@ -109,9 +109,9 @@ class PortalServerAccessLogQueriesMixin:
                     code = aws_error_code(exc, lowercase=True)
                     if code in {"nosuchbucket", "404", "notfound"}:
                         return []
-                    raise RuntimeError(f"Unable to list Portal Server Access Logging objects: {exc}") from exc
+                    raise PortalOperationError(f"Unable to list Portal Server Access Logging objects: {exc}") from exc
                 except BotoCoreError as exc:
-                    raise RuntimeError(f"Unable to list Portal Server Access Logging objects: {exc}") from exc
+                    raise PortalOperationError(f"Unable to list Portal Server Access Logging objects: {exc}") from exc
                 for item in page.get("Contents", []) or []:
                     key = item.get("Key")
                     if key:
@@ -128,16 +128,16 @@ class PortalServerAccessLogQueriesMixin:
             response = client.get_object(Bucket=log_bucket, Key=object_key)
             body = response.get("Body")
             if body is None:
-                raise RuntimeError(f"Unable to read Portal Server Access Logging object '{object_key}': missing response body")
+                raise PortalOperationError(f"Unable to read Portal Server Access Logging object '{object_key}': missing response body")
             with closing(body):
                 return body.read()
         except ClientError as exc:
             code = aws_error_code(exc, lowercase=True)
             if code in {"nosuchkey", "404", "notfound"}:
                 return b""
-            raise RuntimeError(f"Unable to read Portal Server Access Logging object '{object_key}': {exc}") from exc
+            raise PortalOperationError(f"Unable to read Portal Server Access Logging object '{object_key}': {exc}") from exc
         except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to read Portal Server Access Logging object '{object_key}': {exc}") from exc
+            raise PortalOperationError(f"Unable to read Portal Server Access Logging object '{object_key}': {exc}") from exc
 
     def _portal_server_access_space_by_bucket(
         self,

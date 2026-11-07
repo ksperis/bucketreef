@@ -14,7 +14,7 @@ from app.models.app_settings import PortalEffectiveSettings
 from app.models.bucket import Bucket
 from app.services import s3_bucket_access, s3_bucket_metadata, s3_client, s3_deletion
 from app.services.bucket_ui_tags_service import BucketUiTagsService, PhysicalBucketTarget
-from app.services.portal.exceptions import PortalConflictError, PortalForbiddenError
+from app.services.portal.exceptions import PortalConflictError, PortalForbiddenError, PortalOperationError
 from app.services.portal.iam_revocation import PortalIAMRevocationPreparation
 from app.services.rgw_iam import RGWIAMService
 from app.services.storage_ops_context_resolution import resolve_storage_ops_context_tenant
@@ -103,7 +103,7 @@ class PortalBucketsUsersMixin:
                         context="after revocation preparation failed",
                     )
                     if rollback_failed:
-                        raise RuntimeError(
+                        raise PortalOperationError(
                             "Unable to prepare Portal IAM revocation. Remote rollback also failed."
                         ) from exc
                     raise
@@ -129,7 +129,7 @@ class PortalBucketsUsersMixin:
                     context="after local revocation preparation failed",
                 )
             if remote_rollback_failed:
-                raise RuntimeError(
+                raise PortalOperationError(
                     "Unable to prepare Portal IAM revocation. Remote rollback also failed."
                 ) from exc
             raise
@@ -177,7 +177,7 @@ class PortalBucketsUsersMixin:
             return False
         account = self.db.get(S3Account, account_id)
         if account is None:
-            raise RuntimeError("Portal IAM revocation account no longer exists")
+            raise PortalOperationError("Portal IAM revocation account no longer exists")
         try:
             if pending.iam_username:
                 self._delete_portal_iam_user(
@@ -190,7 +190,7 @@ class PortalBucketsUsersMixin:
             self.db.commit()
         except Exception as exc:
             self.db.rollback()
-            raise RuntimeError(
+            raise PortalOperationError(
                 "Portal IAM revocation is pending because cleanup failed. Retry reconciliation."
             ) from exc
         return True
@@ -446,7 +446,7 @@ class PortalBucketsUsersMixin:
         except Exception as exc:
             self.db.rollback()
             if self._rollback_portal_iam_revocation(preparation):
-                raise RuntimeError(
+                raise PortalOperationError(
                     "Unable to persist Portal IAM revocation. Remote rollback also failed."
                 ) from exc
             raise
