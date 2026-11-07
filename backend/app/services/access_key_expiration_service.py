@@ -19,7 +19,7 @@ from app.services.managed_private_access_query_service import (
 )
 from app.services.rgw_iam import RGWIAMService, get_iam_service
 from app.services.s3_execution_context import S3ExecutionContext
-from app.services.s3_users_service import S3UsersService
+from app.services.s3_user_key_management_service import S3UserKeyManagementService
 from app.utils.s3_endpoint import resolve_iam_client_options
 from app.utils.time import utcnow
 
@@ -206,7 +206,7 @@ class AccessKeyExpirationService:
             row.access_key_id,
         ) is not None:
             raise PermanentExpirationError("Managed private-access keys cannot be expired from the generic key inventory")
-        service = S3UsersService(self.db)
+        service = S3UserKeyManagementService(self.db)
         remote = next((key for key in service.list_keys(s3_user.id) if key.access_key_id == row.access_key_id), None)
         if remote is None:
             return self._remove_missing(row)

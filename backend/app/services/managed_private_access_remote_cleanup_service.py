@@ -18,7 +18,7 @@ from app.services.managed_private_access_state_service import (
     ManagedPrivateAccessStateService,
 )
 from app.services.rgw_iam import RGWIAMService
-from app.services.s3_users_service import S3UsersService
+from app.services.s3_user_key_management_service import S3UserKeyManagementService
 
 
 class ManagedPrivateAccessRemoteCleanupService:
@@ -45,7 +45,7 @@ class ManagedPrivateAccessRemoteCleanupService:
 
     def cleanup_rgw_user_resources(self, provisioning: ManagedPrivateAccess) -> None:
         if provisioning.created_access_key and provisioning.access_key_id:
-            S3UsersService(self.db).delete_key(
+            S3UserKeyManagementService(self.db).delete_key(
                 provisioning.source_context_id,
                 provisioning.access_key_id,
             )
