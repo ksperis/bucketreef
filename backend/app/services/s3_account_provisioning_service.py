@@ -9,6 +9,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.core.db_transactions import rollback_safely
+from app.core.domain_errors import CompensationFailureError
 from app.db import S3Account, StorageEndpoint
 from app.models.s3_account import S3AccountCreate
 from app.services.app_settings_service import load_app_settings_for_db
@@ -162,7 +163,7 @@ class S3AccountProvisioningService:
                 tenant=payload.rgw_tenant,
             )
             if rollback_error is not None or remote_rollback_failed:
-                raise RuntimeError(
+                raise CompensationFailureError(
                     "Unable to create S3 account. Local or RGW rollback also failed."
                 ) from exc
             raise

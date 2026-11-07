@@ -36,6 +36,7 @@ from app.db import (
     UserS3Account,
 )
 from app.core.domain_enums import PortalAccountRole
+from app.core.domain_errors import CompensationFailureError
 from app.models.app_settings import AppSettings, PortalSettings, PortalSettingsOverride
 from app.models.bucket import Bucket
 from app.models.bucket_usage_stats import BucketUsageStatsDistributionEntry, BucketUsageStatsSnapshot
@@ -89,6 +90,7 @@ from app.services.rgw_iam import RGWIAMError, RGWIAMGroupAlreadyExistsError
 from app.services.portal_service import PortalService
 from app.services.portal.version_cleanup import PortalStorageSpaceVersionCleanupTarget
 from app.services.portal.trash_restore import PortalDeletedPrefixRestoreTarget
+from app.services import portal_role_sync as portal_role_sync_module
 from app.services.portal_role_sync import commit_portal_role_changes
 from app.services.bucket_usage_stats_service import BucketUsageStatsService
 from app.services.bucket_purge_service import BucketPurgeCancelled
@@ -1999,6 +2001,33 @@ def test_private_owner_cannot_lose_final_portal_role(db_session):
     )
     assert restored is not None
     assert restored.portal_role == PortalAccountRole.PORTAL_USER.value
+
+
+def test_portal_role_sync_types_failed_compensation(db_session, monkeypatch):
+    failure = RuntimeError("simulated Portal role sync failure")
+    monkeypatch.setattr(
+        portal_role_sync_module,
+        "_reject_pending_portal_iam_promotions",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(failure),
+    )
+    monkeypatch.setattr(
+        portal_role_sync_module,
+        "_restore_portal_role_downgrades",
+        lambda *_args, **_kwargs: True,
+    )
+
+    with pytest.raises(
+        CompensationFailureError,
+        match="Unable to commit Portal role changes",
+    ) as raised:
+        commit_portal_role_changes(
+            db_session,
+            before={},
+            user_ids=[],
+            account_ids=[],
+        )
+
+    assert raised.value.__cause__ is failure
 
 
 def test_delete_storage_space_removes_empty_imported_bucket_and_access_state(monkeypatch, db_session):

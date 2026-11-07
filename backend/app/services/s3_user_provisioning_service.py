@@ -8,6 +8,7 @@ import logging
 from sqlalchemy.orm import Session
 
 from app.core.db_transactions import rollback_safely
+from app.core.domain_errors import CompensationFailureError
 from app.db import S3User, StorageEndpoint
 from app.models.s3_user import S3UserCreate
 from app.services.app_settings_service import load_app_settings_for_db
@@ -179,7 +180,7 @@ class S3UserProvisioningService:
                 tenant=tenant,
             )
         if rollback_error is not None or remote_rollback_failed:
-            raise RuntimeError(
+            raise CompensationFailureError(
                 "Unable to create S3 user. Local or RGW rollback also failed."
             ) from exc
 

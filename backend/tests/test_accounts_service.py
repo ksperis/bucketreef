@@ -7,7 +7,7 @@ import pytest
 from pydantic import ValidationError
 from sqlalchemy import func, select
 
-from app.core.domain_errors import S3AccountNotFoundError
+from app.core.domain_errors import CompensationFailureError, S3AccountNotFoundError
 from app.services import s3_account_deletion_service as s3_account_deletion_service_module
 from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_account_root_service import RgwAccountRootService
@@ -531,7 +531,7 @@ def test_create_account_reports_remote_compensation_failure(db_session, monkeypa
     )
 
     with pytest.raises(
-        RuntimeError,
+        CompensationFailureError,
         match="Local or RGW rollback also failed",
     ) as raised:
         svc.create_account_with_manager(

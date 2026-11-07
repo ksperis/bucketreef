@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 import pytest
 from sqlalchemy import select
 
+from app.core.domain_errors import CompensationFailureError
 from app.db import (
     AccountIAMUser,
     ApiToken,
@@ -21,6 +22,7 @@ from app.db import (
 )
 from app.core.domain_enums import UserRole
 from app.services.users_service import UsersService
+from app.services.user_deletion_service import UserDeletionService
 from app.db.tag_definition import TagDefinition
 from app.services.portal_service import PortalService
 from tests.portal_iam_test_support import (
@@ -350,6 +352,74 @@ def test_delete_user_prepare_failure_restores_earlier_portal_iam_identity(
     ) is None
     assert first_iam.key_status == "Active"
     assert second_iam.key_status == "Active"
+
+
+def test_delete_user_prepare_failure_types_failed_compensation(
+    db_session,
+    monkeypatch,
+):
+    user, _account, _link = _seed_portal_identity_for_user_deletion(
+        db_session,
+        suffix="prepare-compensation-failure",
+    )
+    service = UserDeletionService(db_session)
+    monkeypatch.setattr(
+        PortalService,
+        "_prepare_portal_iam_revocation",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            RuntimeError("simulated Portal preparation failure")
+        ),
+    )
+    monkeypatch.setattr(
+        service,
+        "_rollback_portal_revocation_transaction",
+        lambda _preparations: True,
+    )
+
+    with pytest.raises(
+        CompensationFailureError,
+        match="Unable to prepare Portal IAM revocations",
+    ) as raised:
+        service.delete_user(int(user.id))
+
+    assert isinstance(raised.value.__cause__, RuntimeError)
+    assert str(raised.value.__cause__) == "simulated Portal preparation failure"
+
+
+def test_delete_user_failure_types_failed_compensation(
+    db_session,
+    monkeypatch,
+):
+    user = User(
+        email="delete-compensation-failure@example.com",
+        hashed_password="x",
+        role=UserRole.UI_USER.value,
+    )
+    db_session.add(user)
+    db_session.commit()
+    service = UserDeletionService(db_session)
+    monkeypatch.setattr(service, "_prepare_portal_revocations", lambda _user: [])
+    monkeypatch.setattr(
+        service,
+        "_delete_links_and_private_connections",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            RuntimeError("simulated local deletion failure")
+        ),
+    )
+    monkeypatch.setattr(
+        service,
+        "_rollback_portal_revocation_transaction",
+        lambda _preparations: True,
+    )
+
+    with pytest.raises(
+        CompensationFailureError,
+        match="Unable to delete user",
+    ) as raised:
+        service.delete_user(int(user.id))
+
+    assert isinstance(raised.value.__cause__, RuntimeError)
+    assert str(raised.value.__cause__) == "simulated local deletion failure"
 
 
 def test_delete_user_keeps_failed_portal_iam_cleanup_reconcilable(

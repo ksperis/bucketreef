@@ -11,6 +11,10 @@ class ResourceConflictError(ValueError):
     """Raised when a requested mutation conflicts with managed resource state."""
 
 
+class CompensationFailureError(RuntimeError):
+    """Raised when a failed workflow cannot complete its required compensation."""
+
+
 class ResourceNameValidationError(ValueError):
     """Raised when a provider-aware resource name fails request validation."""
 

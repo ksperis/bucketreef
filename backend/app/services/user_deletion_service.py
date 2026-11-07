@@ -7,7 +7,7 @@ import logging
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
-from app.core.domain_errors import UiUserNotFoundError
+from app.core.domain_errors import CompensationFailureError, UiUserNotFoundError
 from app.db import (
     AccountIAMUser,
     ApiToken,
@@ -97,7 +97,7 @@ class UserDeletionService:
                     preparations.append(preparation)
         except Exception as exc:
             if self._rollback_portal_revocation_transaction(preparations):
-                raise RuntimeError(
+                raise CompensationFailureError(
                     "Unable to prepare Portal IAM revocations. Local or IAM rollback also failed."
                 ) from exc
             raise
@@ -260,7 +260,7 @@ class UserDeletionService:
             self.db.commit()
         except Exception as exc:
             if self._rollback_portal_revocation_transaction(portal_revocations):
-                raise RuntimeError(
+                raise CompensationFailureError(
                     "Unable to delete user. Portal IAM rollback also failed."
                 ) from exc
             raise

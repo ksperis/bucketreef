@@ -10,7 +10,11 @@ from sqlalchemy import func, select
 
 from tests.feature_policy_fixtures import enable_manager_features
 from tests.storage_endpoint_features import persisted_endpoint_features
-from app.core.domain_errors import S3AccessKeyNotFoundError, S3UserNotFoundError
+from app.core.domain_errors import (
+    CompensationFailureError,
+    S3AccessKeyNotFoundError,
+    S3UserNotFoundError,
+)
 from app.db import (
     CostStorageDaily,
     CostUsageDaily,
@@ -1010,7 +1014,7 @@ def test_create_user_reports_remote_compensation_failure(db_session, monkeypatch
     )
 
     with pytest.raises(
-        RuntimeError,
+        CompensationFailureError,
         match="Local or RGW rollback also failed",
     ) as raised:
         service.create_user(
@@ -1400,7 +1404,7 @@ def test_update_user_reports_quota_compensation_failure(db_session, monkeypatch)
     monkeypatch.setattr(db_session, "commit", fail_commit)
 
     with pytest.raises(
-        RuntimeError,
+        CompensationFailureError,
         match="Local or RGW rollback also failed",
     ) as raised:
         service.update_user(
