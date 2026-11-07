@@ -25,6 +25,7 @@ from app.models.portal_storage_spaces import (
     PortalStorageSpaceShareScope,
     PortalStorageSpaceVisibility,
 )
+from app.services.portal.exceptions import PortalOperationError
 from app.services.rgw_iam import RGWIAMService
 from app.utils.account_roles import PortalAccountRoleValue, max_portal_account_role
 
@@ -240,7 +241,7 @@ class PortalStorageSpaceAccessMixin:
         account: Optional[S3Account] = None,
     ) -> None:
         if not iam_username:
-            raise RuntimeError("IAM username missing for this portal user")
+            raise PortalOperationError("IAM username missing for this portal user")
         policy = iam_service.get_user_inline_policy(iam_username, self._bucket_access_policy_name) or {}
         statements = policy.get("Statement") or []
         if not isinstance(statements, list):

@@ -17,9 +17,13 @@ from app.models.portal_access_keys import (
 from app.routers.dependencies import get_audit_service, get_portal_account_access
 from app.routers.portal_common import get_portal_service_dependency, raise_portal_error
 from app.services.audit_service import AuditService
+from app.services.portal.exceptions import PortalClientError, PortalOperationError
 from app.services.portal_service import PortalService
+from app.services.rgw_iam import RGWIAMError
 
 router = APIRouter()
+
+_PORTAL_ACCESS_KEY_ERRORS = (PortalClientError, PortalOperationError, RGWIAMError)
 
 
 @router.get("/access-keys", response_model=PortalAccessKeysState)
@@ -30,7 +34,7 @@ def portal_access_keys(
     actor = access.actor
     try:
         return service.get_access_keys_state(actor, access)
-    except RuntimeError as exc:
+    except _PORTAL_ACCESS_KEY_ERRORS as exc:
         raise_portal_error(exc)
 
 
@@ -54,7 +58,7 @@ def create_portal_access_key(
             metadata=_access_key_audit_metadata(key.access_key_id, key=key),
         )
         return key
-    except RuntimeError as exc:
+    except _PORTAL_ACCESS_KEY_ERRORS as exc:
         raise_portal_error(exc)
 
 
@@ -79,7 +83,7 @@ def update_portal_access_key_status(
             metadata=_access_key_audit_metadata(access_key_id, key=key, active=payload.active),
         )
         return key
-    except RuntimeError as exc:
+    except _PORTAL_ACCESS_KEY_ERRORS as exc:
         raise_portal_error(exc)
 
 
@@ -102,7 +106,7 @@ def delete_portal_access_key(
             account=access.account,
             metadata=_access_key_audit_metadata(access_key_id, key=key),
         )
-    except RuntimeError as exc:
+    except _PORTAL_ACCESS_KEY_ERRORS as exc:
         raise_portal_error(exc)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

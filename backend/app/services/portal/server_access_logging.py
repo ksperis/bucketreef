@@ -16,6 +16,7 @@ from app.db import (
 )
 from app.models.app_settings import PortalSettings
 from app.services import s3_bucket_access, s3_bucket_metadata, s3_client, s3_deletion
+from app.services.portal.exceptions import PortalOperationError
 from app.services.managed_resource_naming import (
     PORTAL_SERVER_ACCESS_LOGGING_MANAGER_DENY_SID,
     PORTAL_SERVER_ACCESS_LOGGING_RETENTION_RULE_ID,
@@ -40,7 +41,7 @@ class _PortalServerAccessLoggingSnapshot:
     log_bucket_lifecycle: list[dict]
 
 
-class PortalServerAccessLoggingReconcileError(RuntimeError):
+class PortalServerAccessLoggingReconcileError(PortalOperationError):
     def __init__(self, failures: list[tuple[str, Exception]]) -> None:
         self.failures = failures
         count = len(failures)
@@ -113,7 +114,7 @@ class PortalServerAccessLoggingMixin:
         except ClientError as exc:
             code = aws_error_code(exc, lowercase=True)
             if code not in {"404", "notfound", "nosuchbucket"}:
-                raise RuntimeError(
+                raise PortalOperationError(
                     f"Unable to inspect Portal access log bucket '{log_bucket}': {exc}"
                 ) from exc
             return _PortalServerAccessLoggingSnapshot(
@@ -124,7 +125,7 @@ class PortalServerAccessLoggingMixin:
                 log_bucket_lifecycle=[],
             )
         except BotoCoreError as exc:
-            raise RuntimeError(
+            raise PortalOperationError(
                 f"Unable to inspect Portal access log bucket '{log_bucket}': {exc}"
             ) from exc
         return _PortalServerAccessLoggingSnapshot(
@@ -221,7 +222,7 @@ class PortalServerAccessLoggingMixin:
                 failures.append(f"bucket:{snapshot.log_bucket}")
 
         if failures:
-            raise RuntimeError(
+            raise PortalOperationError(
                 "Unable to restore Portal Server Access Logging resources: "
                 + ", ".join(failures)
             )
@@ -344,7 +345,7 @@ class PortalServerAccessLoggingMixin:
         except ClientError as exc:
             code = aws_error_code(exc, lowercase=True)
             if code not in {"404", "notfound", "nosuchbucket"}:
-                raise RuntimeError(f"Unable to inspect Portal access log bucket '{log_bucket}': {exc}") from exc
+                raise PortalOperationError(f"Unable to inspect Portal access log bucket '{log_bucket}': {exc}") from exc
             access_key, secret_key = self._account_credentials(account)
             s3_client.create_bucket(
                 log_bucket,
@@ -354,7 +355,7 @@ class PortalServerAccessLoggingMixin:
             )
             created = True
         except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to inspect Portal access log bucket '{log_bucket}': {exc}") from exc
+            raise PortalOperationError(f"Unable to inspect Portal access log bucket '{log_bucket}': {exc}") from exc
         if created:
             self._put_portal_server_access_log_lifecycle(
                 account,
@@ -365,7 +366,7 @@ class PortalServerAccessLoggingMixin:
 
     def _portal_server_access_log_policy(self, account: S3Account, log_bucket: str, existing_policy: Optional[dict]) -> dict:
         if isinstance(existing_policy, dict) and "raw" in existing_policy:
-            raise RuntimeError(f"Unable to merge unreadable bucket policy on Portal access log bucket '{log_bucket}'.")
+            raise PortalOperationError(f"Unable to merge unreadable bucket policy on Portal access log bucket '{log_bucket}'.")
         policy = copy.deepcopy(existing_policy) if isinstance(existing_policy, dict) else None
         if policy is None:
             policy = {"Version": "2012-10-17", "Statement": []}
@@ -440,9 +441,9 @@ class PortalServerAccessLoggingMixin:
             code = aws_error_code(exc, lowercase=True)
             if code in {"404", "notfound", "nosuchbucket"}:
                 return
-            raise RuntimeError(f"Unable to inspect Portal access log bucket '{log_bucket}': {exc}") from exc
+            raise PortalOperationError(f"Unable to inspect Portal access log bucket '{log_bucket}': {exc}") from exc
         except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to inspect Portal access log bucket '{log_bucket}': {exc}") from exc
+            raise PortalOperationError(f"Unable to inspect Portal access log bucket '{log_bucket}': {exc}") from exc
         self._ensure_portal_server_access_log_bucket_policy(account, log_bucket)
 
     def _put_portal_server_access_logging(self, account: S3Account, source_bucket: str, log_bucket: str) -> None:
@@ -555,7 +556,7 @@ class PortalServerAccessLoggingMixin:
             try:
                 self._restore_portal_server_access_logging_state(account, snapshot)
             except Exception as rollback_exc:  # pragma: no cover - defensive remote failure
-                raise RuntimeError(
+                raise PortalOperationError(
                     "Unable to reconcile Portal Server Access Logging. "
                     "Remote rollback also failed."
                 ) from exc

@@ -83,7 +83,7 @@ from app.services.portal.exceptions import (
     PortalForbiddenError,
     PortalStorageSpaceNotEmpty,
 )
-from app.services.rgw_iam import RGWIAMGroupAlreadyExistsError
+from app.services.rgw_iam import RGWIAMError, RGWIAMGroupAlreadyExistsError
 from app.services.portal_service import PortalService
 from app.services.portal.version_cleanup import PortalStorageSpaceVersionCleanupTarget
 from app.services.portal.trash_restore import PortalDeletedPrefixRestoreTarget
@@ -9809,6 +9809,52 @@ def test_portal_access_key_routes_translate_disabled_management(db_session):
         )
 
     assert exc.value.status_code == 403
+
+
+def test_portal_access_key_routes_translate_expected_iam_failures(db_session):
+    account = make_s3_account(
+        db_session,
+        name="portal-account-key-route-iam-failure",
+        rgw_access_key="ROOT-AK",
+        rgw_secret_key="ROOT-SK",
+    )
+    user = User(email="portal-user-key-route-iam-failure@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([account, user])
+    db_session.commit()
+
+    class FakeService:
+        def get_access_keys_state(self, user_obj, access_obj):  # noqa: ANN001, ARG002
+            raise RGWIAMError("provider unavailable")
+
+    with pytest.raises(HTTPException) as exc:
+        portal_access_keys_router.portal_access_keys(
+            access=_portal_access(account, user),
+            service=FakeService(),
+        )
+
+    assert exc.value.status_code == 502
+
+
+def test_portal_access_key_routes_do_not_mask_unexpected_runtime_errors(db_session):
+    account = make_s3_account(
+        db_session,
+        name="portal-account-key-route-runtime-failure",
+        rgw_access_key="ROOT-AK",
+        rgw_secret_key="ROOT-SK",
+    )
+    user = User(email="portal-user-key-route-runtime-failure@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([account, user])
+    db_session.commit()
+
+    class FakeService:
+        def get_access_keys_state(self, user_obj, access_obj):  # noqa: ANN001, ARG002
+            raise RuntimeError("unexpected portal bug")
+
+    with pytest.raises(RuntimeError, match="unexpected portal bug"):
+        portal_access_keys_router.portal_access_keys(
+            access=_portal_access(account, user),
+            service=FakeService(),
+        )
 
 
 def test_portal_router_no_longer_exposes_legacy_backend_surfaces():
