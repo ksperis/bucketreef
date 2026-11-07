@@ -67,7 +67,7 @@ class PortalAccountRuntimeMixin:
             return None
         try:
             return get_endpoint_runtime_rgw_client(endpoint)
-        except Exception as exc:
+        except (RGWAdminError, ValueError) as exc:
             logger.warning("Unable to build admin client for quota lookup: %s", exc)
             return None
 

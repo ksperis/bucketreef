@@ -1,10 +1,14 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
+from types import SimpleNamespace
+
 import pytest
 
 from app.db import PortalStorageSpaceMetadata
+from app.services.portal import account_runtime as account_runtime_module
 from app.services.portal_service import PortalService
+from app.services.rgw_admin import RGWAdminError
 from tests.s3_account_factory import make_s3_account
 
 
@@ -32,6 +36,40 @@ class _AccountLimitsAdmin:
 
     def get_account_quota(self, account_id: str) -> tuple[int, int]:
         pytest.fail(f"account payload must not be loaded twice for {account_id}")
+
+
+def _runtime_account():
+    identity = SimpleNamespace(
+        status="ready",
+        access_key="runtime-access",
+        secret_key="runtime-secret",
+    )
+    endpoint = SimpleNamespace(service_identity=lambda kind: identity if kind == "runtime" else None)
+    return SimpleNamespace(storage_endpoint=endpoint)
+
+
+@pytest.mark.parametrize("error", [RGWAdminError("invalid runtime client"), ValueError("invalid runtime identity")])
+def test_runtime_for_account_treats_expected_client_configuration_errors_as_unavailable(monkeypatch, error) -> None:
+    service = PortalService(SimpleNamespace())
+    account = _runtime_account()
+    monkeypatch.setattr(account_runtime_module, "resolve_rgw_admin_api_endpoint", lambda _endpoint: "https://rgw.test")
+    monkeypatch.setattr(account_runtime_module, "get_endpoint_runtime_rgw_client", lambda _endpoint: (_ for _ in ()).throw(error))
+
+    assert service._runtime_for_account(account) is None
+
+
+def test_runtime_for_account_does_not_hide_unexpected_client_factory_errors(monkeypatch) -> None:
+    service = PortalService(SimpleNamespace())
+    account = _runtime_account()
+    monkeypatch.setattr(account_runtime_module, "resolve_rgw_admin_api_endpoint", lambda _endpoint: "https://rgw.test")
+    monkeypatch.setattr(
+        account_runtime_module,
+        "get_endpoint_runtime_rgw_client",
+        lambda _endpoint: (_ for _ in ()).throw(TypeError("unexpected factory bug")),
+    )
+
+    with pytest.raises(TypeError, match="unexpected factory bug"):
+        service._runtime_for_account(account)
 
 
 def test_account_limits_do_not_repeat_lookup_without_embedded_quota(db_session, monkeypatch) -> None:
