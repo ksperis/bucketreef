@@ -280,7 +280,7 @@ class S3ConnectionsService:
             access_browser=access_browser,
         )
         self._persist_created_connection(row, payload.tags, commit=commit)
-        return self.serialize(row)
+        return self.queries.serialize(row)
 
     def _new_connection_row(
         self,
@@ -419,7 +419,7 @@ class S3ConnectionsService:
                 self._refresh_detected_capabilities(row)
             row.updated_at = utcnow()
         self.db.refresh(row)
-        return self.serialize(row)
+        return self.queries.serialize(row)
 
     def _validate_private_update_mutability(
         self,
@@ -627,9 +627,6 @@ class S3ConnectionsService:
         row.rgw_user_uid = user_uid
         row.rgw_tenant = tenant
         row.rgw_account_id = account_id
-
-    def serialize(self, row: DBS3Connection) -> S3Connection:
-        return self.queries.serialize(row)
 
     def touch_usage(self, row: DBS3Connection) -> None:
         now = utcnow()

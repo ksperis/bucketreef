@@ -29,7 +29,7 @@ from app.services.managed_private_access_state_service import (
 from app.services.s3_connection_capabilities_service import (
     refresh_connection_detected_capabilities,
 )
-from app.services.s3_connections_service import S3ConnectionsService
+from app.services.s3_connection_query_service import S3ConnectionQueryService
 from app.utils.connection_rgw_identity import normalize_connection_rgw_identity
 from app.utils.rgw_payloads import extract_rgw_user_identity
 from app.utils.time import utcnow
@@ -47,12 +47,12 @@ class ManagedPrivateAccessConnectionService:
         *,
         audit: ManagedPrivateAccessAuditService | None = None,
         state: ManagedPrivateAccessStateService | None = None,
-        connections: S3ConnectionsService | None = None,
+        connection_queries: S3ConnectionQueryService | None = None,
     ) -> None:
         self.db = db
         self.audit = audit or ManagedPrivateAccessAuditService(db)
         self.state = state or ManagedPrivateAccessStateService(db)
-        self.connections = connections or S3ConnectionsService(db)
+        self.connection_queries = connection_queries or S3ConnectionQueryService(db)
 
     def resolve_existing(
         self,
@@ -81,7 +81,7 @@ class ManagedPrivateAccessConnectionService:
                 return ManagedPrivateAccessResult(
                     provisioning_id=provisioning.id,
                     status="active",
-                    connection=self.connections.serialize(connection),
+                    connection=self.connection_queries.serialize(connection),
                 )
         raise ManagedPrivateAccessConflict(
             "A managed private access already exists or requires cleanup for this execution context"
@@ -127,7 +127,7 @@ class ManagedPrivateAccessConnectionService:
         result = ManagedPrivateAccessResult(
             provisioning_id=provisioning.id,
             status="active",
-            connection=self.connections.serialize(connection),
+            connection=self.connection_queries.serialize(connection),
         )
         self.audit.record(user, provisioning, "managed_private_access.provision.success")
         return result

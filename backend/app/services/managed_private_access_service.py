@@ -56,7 +56,6 @@ from app.services.managed_private_access_rgw_user_source_service import (
 from app.services.managed_private_access_state_service import (
     ManagedPrivateAccessStateService,
 )
-from app.services.s3_connections_service import S3ConnectionsService
 from app.services.s3_execution_context import S3ExecutionTarget
 
 
@@ -73,7 +72,6 @@ class ManagedPrivateAccessService:
             access=self.access,
             rgw_user_sources=self.rgw_user_sources,
         )
-        connections = S3ConnectionsService(db)
         self.audit = ManagedPrivateAccessAuditService(db)
         state = ManagedPrivateAccessStateService(db)
         self.iam = ManagedPrivateAccessIAMService(db, access=self.access)
@@ -82,7 +80,6 @@ class ManagedPrivateAccessService:
             db,
             audit=self.audit,
             state=state,
-            connections=connections,
         )
         remote_cleanup = ManagedPrivateAccessRemoteCleanupService(
             db,
@@ -100,7 +97,6 @@ class ManagedPrivateAccessService:
             iam=self.iam,
             audit=self.audit,
             state=state,
-            connections=connections,
             remote=remote_cleanup,
         )
         self.compensation = ManagedPrivateAccessCompensationService(
