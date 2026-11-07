@@ -2,6 +2,8 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+from app.core.domain_errors import ResourceConflictError, ResourceNotFoundError
+
 
 class PortalClientError(RuntimeError):
     """Base class for Portal business errors caused by the current request."""
@@ -15,11 +17,11 @@ class PortalForbiddenError(PortalClientError):
     pass
 
 
-class PortalNotFoundError(PortalClientError):
+class PortalNotFoundError(ResourceNotFoundError, PortalClientError):
     pass
 
 
-class PortalConflictError(PortalClientError):
+class PortalConflictError(ResourceConflictError, PortalClientError):
     pass
 
 
