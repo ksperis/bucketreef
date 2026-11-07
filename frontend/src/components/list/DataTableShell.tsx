@@ -4,7 +4,7 @@
  */
 import { Fragment, type HTMLAttributes, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 
-import PaginationControls from "../PaginationControls";
+import PaginationControls, { type PaginationControlsProps } from "../PaginationControls";
 import SortableHeader from "../SortableHeader";
 import TableEmptyState from "../TableEmptyState";
 import { tableActionColumnClasses } from "../tableActionClasses";
@@ -88,16 +88,6 @@ type DataTableSort<SortField extends string> = {
   onSort: (field: SortField) => void;
 };
 
-type DataTablePagination = {
-  page: number;
-  pageSize: number;
-  total: number;
-  onPageChange: (page: number) => void;
-  onPageSizeChange?: (size: number) => void;
-  pageSizeOptions?: number[];
-  disabled?: boolean;
-};
-
 type DataTableRowAttributes = Omit<HTMLAttributes<HTMLTableRowElement>, "children" | "className"> & {
   [key: `data-${string}`]: string | number | boolean | undefined;
 };
@@ -111,7 +101,7 @@ type DataTableShellProps<Row, SortField extends string = string> = {
   errorMessage: string;
   emptyMessage: string;
   sort?: DataTableSort<SortField>;
-  pagination?: DataTablePagination;
+  pagination?: PaginationControlsProps;
   primaryColumnId?: string;
   tableLayout?: "auto" | "fixed";
   tableClassName?: string;
