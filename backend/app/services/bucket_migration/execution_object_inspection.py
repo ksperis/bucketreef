@@ -7,8 +7,10 @@ from typing import Any, Optional
 
 from botocore.exceptions import BotoCoreError, ClientError
 
+from app.core.sensitive_data import sanitized_error_log_detail
 from app.utils.s3_etag import etag_md5
 
+from .diagnostics import MigrationObjectInspectionError
 from .execution_object_models import (
     VERSION_CHECKSUM_FIELDS,
     BucketObjectEntry,
@@ -36,7 +38,14 @@ class BucketMigrationObjectInspectionMixin:
             try:
                 page = resolved_client.list_objects_v2(**kwargs)
             except (ClientError, BotoCoreError) as exc:
-                raise RuntimeError(f"Unable to list objects in bucket '{bucket_name}': {exc}") from exc
+                raise MigrationObjectInspectionError(
+                    f"Unable to list objects in bucket '{bucket_name}': "
+                    f"{sanitized_error_log_detail(exc)}"
+                ) from exc
+            if not isinstance(page, dict):
+                raise MigrationObjectInspectionError(
+                    f"Invalid object listing response for bucket '{bucket_name}'"
+                )
             for entry in page.get("Contents", []) or []:
                 key = entry.get("Key")
                 if not isinstance(key, str) or not key:
@@ -153,7 +162,14 @@ class BucketMigrationObjectInspectionMixin:
             try:
                 page = resolved_client.list_object_versions(**kwargs)
             except (ClientError, BotoCoreError) as exc:
-                raise RuntimeError(f"Unable to list object versions in bucket '{bucket_name}': {exc}") from exc
+                raise MigrationObjectInspectionError(
+                    f"Unable to list object versions in bucket '{bucket_name}': "
+                    f"{sanitized_error_log_detail(exc)}"
+                ) from exc
+            if not isinstance(page, dict):
+                raise MigrationObjectInspectionError(
+                    f"Invalid object version listing response for bucket '{bucket_name}'"
+                )
 
             page_entries, order_index = self._page_version_entries(page, order_index)
 
@@ -301,10 +317,15 @@ class BucketMigrationObjectInspectionMixin:
         try:
             response = client.head_object(**kwargs)
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(
-                f"Unable to read metadata for '{key}' in bucket '{bucket_name}': {exc}"
+            raise MigrationObjectInspectionError(
+                f"Unable to read metadata for '{key}' in bucket '{bucket_name}': "
+                f"{sanitized_error_log_detail(exc)}"
             ) from exc
-        return response if isinstance(response, dict) else {}
+        if not isinstance(response, dict):
+            raise MigrationObjectInspectionError(
+                f"Invalid object metadata response for '{key}' in bucket '{bucket_name}'"
+            )
+        return response
 
     def _get_object_tags_with_version(
         self,
@@ -320,23 +341,26 @@ class BucketMigrationObjectInspectionMixin:
         try:
             response = client.get_object_tagging(**kwargs)
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(f"Unable to fetch tags for '{key}' in bucket '{bucket_name}': {exc}") from exc
+            raise MigrationObjectInspectionError(
+                f"Unable to fetch tags for '{key}' in bucket '{bucket_name}': "
+                f"{sanitized_error_log_detail(exc)}"
+            ) from exc
         tagset = response.get("TagSet") if isinstance(response, dict) else None
         invalid_response = f"Invalid object tags response for '{key}' in bucket '{bucket_name}'"
         if not isinstance(tagset, list):
-            raise RuntimeError(invalid_response)
+            raise MigrationObjectInspectionError(invalid_response)
         tags: list[tuple[str, str]] = []
         seen: set[str] = set()
         for raw in tagset:
             if not isinstance(raw, dict):
-                raise RuntimeError(invalid_response)
+                raise MigrationObjectInspectionError(invalid_response)
             tag_key = raw.get("Key")
             tag_value = raw.get("Value")
             if (
                 not isinstance(tag_key, str) or not tag_key
                 or not isinstance(tag_value, str) or tag_key in seen
             ):
-                raise RuntimeError(invalid_response)
+                raise MigrationObjectInspectionError(invalid_response)
             seen.add(tag_key)
             tags.append((tag_key, tag_value))
         return tuple(sorted(tags))
