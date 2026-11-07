@@ -1,4 +1,4 @@
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ExecutionContext } from "../../api/executionContexts";
@@ -302,6 +302,34 @@ describe("useOpenStackProjectSelector", () => {
     expect(result.current.dialog).toBeNull();
     expect(result.current.region.visible).toBe(false);
     expect(apiMocks.activateOpenStackContext).not.toHaveBeenCalled();
+  });
+
+  it("uses the shared modal action area when an access key must be selected", async () => {
+    apiMocks.getOpenStackProjectAccess.mockResolvedValue({
+      ...projectAccess,
+      access_keys: ["ACCESS-1", "ACCESS-2"],
+    });
+
+    const { result } = renderHook(() => useOpenStackProjectSelector({
+      enabled: true,
+      refreshContexts: vi.fn(async () => []),
+      onActivated: vi.fn(),
+    }));
+
+    await waitFor(() => expect(result.current.candidateCount).toBe(1));
+    act(() => {
+      result.current.handleContextChange(
+        "openstack-project-option:conn-1:project-a",
+        vi.fn(),
+      );
+    });
+    await waitFor(() => expect(result.current.dialog).not.toBeNull());
+
+    const { container } = render(result.current.dialog);
+
+    expect(container.querySelector(".modal-actions")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "cancel" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "useProject" })).toBeDisabled();
   });
 
   it("keeps the activated OpenStack project selected when switching regions", async () => {
