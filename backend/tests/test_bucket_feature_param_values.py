@@ -1,7 +1,52 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
-from app.services.bucket_feature_param_values import extract_notification_filter_values
+import pytest
+
+from app.services.bucket_feature_param_values import (
+    extract_lifecycle_abort_days,
+    extract_lifecycle_expiration_days,
+    extract_lifecycle_noncurrent_expiration_days,
+    extract_notification_filter_values,
+)
+
+
+@pytest.mark.parametrize(
+    ("extractor", "container_key", "value_key"),
+    [
+        (extract_lifecycle_abort_days, "AbortIncompleteMultipartUpload", "DaysAfterInitiation"),
+        (extract_lifecycle_expiration_days, "Expiration", "Days"),
+        (
+            extract_lifecycle_noncurrent_expiration_days,
+            "NoncurrentVersionExpiration",
+            "NoncurrentDays",
+        ),
+    ],
+)
+def test_lifecycle_nested_day_extractors_coerce_numeric_values(extractor, container_key, value_key):
+    assert extractor({container_key: {value_key: "12.5"}}) == 12.5
+
+
+@pytest.mark.parametrize(
+    ("extractor", "container_key", "value_key"),
+    [
+        (extract_lifecycle_abort_days, "AbortIncompleteMultipartUpload", "DaysAfterInitiation"),
+        (extract_lifecycle_expiration_days, "Expiration", "Days"),
+        (
+            extract_lifecycle_noncurrent_expiration_days,
+            "NoncurrentVersionExpiration",
+            "NoncurrentDays",
+        ),
+    ],
+)
+def test_lifecycle_nested_day_extractors_ignore_absent_or_malformed_values(
+    extractor,
+    container_key,
+    value_key,
+):
+    assert extractor({}) is None
+    assert extractor({container_key: "invalid"}) is None
+    assert extractor({container_key: {value_key: "invalid"}}) is None
 
 
 def test_notification_filter_values_merge_nested_and_direct_rules():

@@ -12,25 +12,31 @@ _NOTIFICATION_CONFIGURATION_SPECS = (
 )
 
 
-def extract_lifecycle_abort_days(rule_entry: dict) -> float | None:
-    raw = rule_entry.get("AbortIncompleteMultipartUpload")
-    if not isinstance(raw, dict):
+def _extract_nested_numeric_value(entry: dict, container_key: str, value_key: str) -> float | None:
+    container = entry.get(container_key)
+    if not isinstance(container, dict):
         return None
-    return coerce_filter_number(raw.get("DaysAfterInitiation"))
+    return coerce_filter_number(container.get(value_key))
+
+
+def extract_lifecycle_abort_days(rule_entry: dict) -> float | None:
+    return _extract_nested_numeric_value(
+        rule_entry,
+        "AbortIncompleteMultipartUpload",
+        "DaysAfterInitiation",
+    )
 
 
 def extract_lifecycle_expiration_days(rule_entry: dict) -> float | None:
-    expiration = rule_entry.get("Expiration")
-    if not isinstance(expiration, dict):
-        return None
-    return coerce_filter_number(expiration.get("Days"))
+    return _extract_nested_numeric_value(rule_entry, "Expiration", "Days")
 
 
 def extract_lifecycle_noncurrent_expiration_days(rule_entry: dict) -> float | None:
-    noncurrent_expiration = rule_entry.get("NoncurrentVersionExpiration")
-    if not isinstance(noncurrent_expiration, dict):
-        return None
-    return coerce_filter_number(noncurrent_expiration.get("NoncurrentDays"))
+    return _extract_nested_numeric_value(
+        rule_entry,
+        "NoncurrentVersionExpiration",
+        "NoncurrentDays",
+    )
 
 
 def extract_lifecycle_transition_days(rule_entry: dict) -> list[float]:
