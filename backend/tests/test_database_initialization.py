@@ -13,7 +13,6 @@ import sqlalchemy as sa
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
 
-from app.core.config import get_settings
 from app.core.database import configure_sqlite_connection
 from app.core.sqlite import begin_sqlite_transaction
 from app.db import AppSetting, Base
@@ -23,12 +22,9 @@ from app.utils.time import utcnow
 
 
 @pytest.fixture
-def sqlite_database(tmp_path, monkeypatch) -> Iterator[Engine]:
+def sqlite_database(tmp_path) -> Iterator[Engine]:
     database_path = tmp_path / "database-initialization.sqlite"
     database_url = f"sqlite:///{database_path}"
-    monkeypatch.setenv("DATABASE_URL", database_url)
-    get_settings.cache_clear()
-    monkeypatch.setattr(database_initialization, "settings", get_settings())
     engine = sa.create_engine(database_url)
     sa.event.listen(engine, "connect", configure_sqlite_connection)
     sa.event.listen(engine, "begin", begin_sqlite_transaction)
@@ -36,11 +32,16 @@ def sqlite_database(tmp_path, monkeypatch) -> Iterator[Engine]:
         yield engine
     finally:
         engine.dispose()
-        get_settings.cache_clear()
 
 
-def _alembic_head() -> str:
-    head = ScriptDirectory.from_config(database_initialization._alembic_config()).get_current_head()
+def _database_url(engine: Engine) -> str:
+    return engine.url.render_as_string(hide_password=False)
+
+
+def _alembic_head(engine: Engine) -> str:
+    head = ScriptDirectory.from_config(
+        database_initialization._alembic_config(_database_url(engine))
+    ).get_current_head()
     assert head is not None
     return head
 
@@ -68,7 +69,7 @@ def test_empty_database_runs_migrations_then_regular_upgrade(
     with sqlite_database.connect() as connection:
         table_names = set(sa.inspect(connection).get_table_names())
         assert set(Base.metadata.tables).issubset(table_names)
-        assert _database_revision(connection) == _alembic_head()
+        assert _database_revision(connection) == _alembic_head(sqlite_database)
         all_users = connection.execute(
             sa.text(
                 """
@@ -90,7 +91,7 @@ def test_empty_database_runs_migrations_then_regular_upgrade(
 
     assert upgrade_targets == ["head", "head"]
     with sqlite_database.connect() as connection:
-        assert _database_revision(connection) == _alembic_head()
+        assert _database_revision(connection) == _alembic_head(sqlite_database)
 
 
 def test_startup_bootstraps_app_settings_once(
@@ -153,7 +154,7 @@ def test_non_empty_unversioned_database_is_rejected(sqlite_database: Engine) -> 
 
 def test_versioned_database_upgrades_from_initial_revision(sqlite_database: Engine) -> None:
     database_initialization.command.upgrade(
-        database_initialization._alembic_config(),
+        database_initialization._alembic_config(_database_url(sqlite_database)),
         "0001_initial_schema",
     )
     with sqlite_database.connect() as connection:
@@ -162,14 +163,14 @@ def test_versioned_database_upgrades_from_initial_revision(sqlite_database: Engi
     database_initialization._initialize_or_upgrade_schema(sqlite_database)
 
     with sqlite_database.connect() as connection:
-        assert _database_revision(connection) == _alembic_head()
+        assert _database_revision(connection) == _alembic_head(sqlite_database)
         context = MigrationContext.configure(connection, opts={"compare_type": True})
         assert compare_metadata(context, Base.metadata) == []
 
 
 def test_versioned_database_upgrades_from_0118_and_preserves_data(sqlite_database: Engine) -> None:
     database_initialization.command.upgrade(
-        database_initialization._alembic_config(),
+        database_initialization._alembic_config(_database_url(sqlite_database)),
         "0118_canonical_storage_endpoint_urls",
     )
     now = utcnow()
@@ -190,7 +191,7 @@ def test_versioned_database_upgrades_from_0118_and_preserves_data(sqlite_databas
     database_initialization._initialize_or_upgrade_schema(sqlite_database)
 
     with sqlite_database.connect() as connection:
-        assert _database_revision(connection) == _alembic_head()
+        assert _database_revision(connection) == _alembic_head(sqlite_database)
         assert "first_admin_bootstrap" in sa.inspect(connection).get_table_names()
         payload = connection.scalar(
             sa.select(AppSetting.payload).where(AppSetting.key == "bootstrap-test")
@@ -203,7 +204,7 @@ def test_versioned_sqlite_upgrade_preserves_referencing_rows_with_foreign_keys_e
     sqlite_database: Engine,
 ) -> None:
     database_initialization.command.upgrade(
-        database_initialization._alembic_config(),
+        database_initialization._alembic_config(_database_url(sqlite_database)),
         "0125_guided_onboarding",
     )
     with sqlite_database.begin() as connection:
@@ -322,4 +323,4 @@ def test_versioned_sqlite_upgrade_preserves_referencing_rows_with_foreign_keys_e
             )
         ).one()
         assert account_identity == ("RGW00000000000000001", "migration-account-root")
-        assert _database_revision(connection) == _alembic_head()
+        assert _database_revision(connection) == _alembic_head(sqlite_database)

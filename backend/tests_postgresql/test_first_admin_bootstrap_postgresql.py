@@ -35,18 +35,21 @@ def _postgresql_url() -> str:
     return url
 
 
-def _expected_alembic_head() -> str:
-    head = ScriptDirectory.from_config(database_initialization._alembic_config()).get_current_head()
+def _expected_alembic_head(database_url: str) -> str:
+    head = ScriptDirectory.from_config(
+        database_initialization._alembic_config(database_url)
+    ).get_current_head()
     assert head is not None
     return head
 
 
 def test_postgresql_migration_rotation_rollback_and_concurrent_consumption(monkeypatch):
-    engine = create_engine(_postgresql_url(), pool_pre_ping=True)
+    database_url = _postgresql_url()
+    engine = create_engine(database_url, pool_pre_ping=True)
     session_factory = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
     with engine.begin() as connection:
-        expected_head = _expected_alembic_head()
+        expected_head = _expected_alembic_head(database_url)
         revision = connection.scalar(sa.text("SELECT version_num FROM alembic_version"))
         assert revision == expected_head
         version_column = sa.inspect(connection).get_columns("alembic_version")[0]

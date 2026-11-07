@@ -11,30 +11,29 @@ from alembic.config import Config
 from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
-from app.core.database import is_postgresql_url, is_sqlite_url, sqlite_integrity_status
+from app.core.database import sqlite_integrity_status
 from app.services.app_settings_service import bootstrap_app_settings_for_db
 from app.services.storage_endpoints_service import StorageEndpointsService
 
 
-settings = get_settings()
 logger = logging.getLogger(__name__)
 _POSTGRES_STARTUP_LOCK_ID = 2_026_070_300_001
 _ALEMBIC_VERSION_TABLE = "alembic_version"
 
 
-def _alembic_config() -> Config:
+def _alembic_config(database_url: str) -> Config:
     base_dir = Path(__file__).resolve().parents[2]
     config = Config(str(base_dir / "alembic.ini"))
     config.set_main_option("script_location", str(base_dir / "alembic"))
-    config.set_main_option("sqlalchemy.url", settings.database_url)
+    config.set_main_option("sqlalchemy.url", database_url)
+    config.attributes["database_url_override"] = database_url
     config.attributes["configure_logger"] = False
     return config
 
 
 @contextmanager
 def _postgres_startup_lock(engine):
-    if not is_postgresql_url(str(engine.url)):
+    if engine.dialect.name != "postgresql":
         yield
         return
     with engine.connect() as connection:
@@ -100,7 +99,8 @@ def _upgrade_sqlite_schema(connection, config: Config) -> None:
 
 
 def _initialize_or_upgrade_schema(engine) -> None:
-    config = _alembic_config()
+    database_url = engine.url.render_as_string(hide_password=False)
+    config = _alembic_config(database_url)
     connection_context = engine.connect() if engine.dialect.name == "sqlite" else engine.begin()
     with connection_context as connection:
         inspector = inspect(connection)
@@ -126,7 +126,7 @@ def _initialize_or_upgrade_schema(engine) -> None:
 
 def _init_db_locked(engine, session_factory) -> None:
     integrity_ok, integrity_details = sqlite_integrity_status(engine)
-    if is_sqlite_url(settings.database_url) and not integrity_ok:
+    if engine.dialect.name == "sqlite" and not integrity_ok:
         raise RuntimeError(
             "SQLite database integrity check failed before startup. "
             "Stop the backend, back up the database files, run `sqlite3 <db> 'PRAGMA integrity_check;'`, "
@@ -134,7 +134,7 @@ def _init_db_locked(engine, session_factory) -> None:
         )
     _initialize_or_upgrade_schema(engine)
     integrity_ok, integrity_details = sqlite_integrity_status(engine)
-    if is_sqlite_url(settings.database_url) and not integrity_ok:
+    if engine.dialect.name == "sqlite" and not integrity_ok:
         raise RuntimeError(
             "SQLite database integrity check failed after migrations. "
             "Stop the backend, back up the database files, run `sqlite3 <db> 'PRAGMA integrity_check;'`, "

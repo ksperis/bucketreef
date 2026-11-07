@@ -28,6 +28,9 @@ settings = get_settings()
 
 
 def _database_url() -> str:
+    override = config.attributes.get("database_url_override")
+    if override is not None:
+        return str(override)
     return settings.database_url
 
 
