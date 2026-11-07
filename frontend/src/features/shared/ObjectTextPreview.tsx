@@ -4,6 +4,7 @@
  */
 import { Fragment, useMemo, useState } from "react";
 import UiButton from "../../components/ui/UiButton";
+import UiInput from "../../components/ui/UiInput";
 import { useI18n } from "../../i18n";
 import { parsePreviewCsv, parsePreviewJson } from "./objectTextParsers";
 
@@ -48,7 +49,7 @@ export default function ObjectTextPreview({ name, contentType, content, truncate
   const structured = structure && structure.kind !== "fallback";
   return <div className="space-y-2">
     <div className="flex flex-wrap items-center gap-2">
-      <input type="search" className="ui-input min-w-0 flex-1" value={query} onChange={(event) => setQuery(event.target.value)}
+      <UiInput type="search" size="compact" fieldClassName="min-w-0 flex-1" value={query} onChange={(event) => setQuery(event.target.value)}
         aria-label={t({ en: "Find in displayed text", fr: "Rechercher dans le texte affiché", de: "Im angezeigten Text suchen", zh: "在显示的文本中搜索" })}
         placeholder={t({ en: "Find in displayed text", fr: "Rechercher dans le texte affiché", de: "Im angezeigten Text suchen", zh: "在显示的文本中搜索" })} />
       {structured ? <UiButton size="sm" variant="secondary" onClick={() => setRaw(!raw)} disabled={Boolean(query)}>

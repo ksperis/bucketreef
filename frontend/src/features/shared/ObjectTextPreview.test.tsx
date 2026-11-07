@@ -24,6 +24,7 @@ describe("bounded structured previews", () => {
     expect(screen.getByRole("table")).toBeInTheDocument();
     expect(screen.getByRole("cell", { name: "<script>" })).toBeInTheDocument();
     expect(container.querySelector("script")).toBeNull();
+    expect(screen.getByRole("searchbox").closest(".ui-field")).toBeInTheDocument();
     fireEvent.change(screen.getByRole("searchbox"), { target: { value: "[x]" } });
     expect(screen.getByRole("status")).toHaveTextContent("2 matches");
     expect(container.querySelectorAll("mark")).toHaveLength(2);
