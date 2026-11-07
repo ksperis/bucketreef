@@ -10,7 +10,7 @@ from app.db import S3User as S3UserModel
 from app.models.browser import BrowserUsageSummary
 from app.services.s3_account_metrics_service import S3AccountMetricsService
 from app.services.s3_execution_context import S3ExecutionContext
-from app.services.s3_users_service import S3UsersService
+from app.services.s3_user_metrics_service import S3UserMetricsService
 from app.utils.size_units import size_to_bytes
 
 BrowserUsageSource = Literal["account", "s3_user", "portal", "connection", "openstack_project"]
@@ -109,11 +109,11 @@ class BrowserUsageSummaryService:
         s3_user = self.db.get(S3UserModel, s3_user_id)
         if not s3_user:
             return self._unavailable(source=source, label=label)
-        service = S3UsersService(self.db)
-        used_bytes, object_count, _bucket_count = service.get_user_usage(s3_user)
+        service = S3UserMetricsService()
+        used_bytes, object_count, _bucket_count = service.get_usage(s3_user)
         if used_bytes is None:
             return self._unavailable(source=source, label=label)
-        quota_max_size_gb, quota_max_objects = service.get_user_quota(s3_user)
+        quota_max_size_gb, quota_max_objects = service.get_quota(s3_user)
         return self._available(
             source=source,
             label=label,

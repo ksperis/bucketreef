@@ -345,19 +345,20 @@ def test_browser_usage_summary_uses_live_s3_user_usage(client, db_session, monke
     db_session.flush()
     account = S3ExecutionContext.from_s3_user(s3_user)
 
-    class FakeS3UsersService:
-        def __init__(self, db):  # noqa: ANN001
-            assert db is db_session
-
-        def get_user_usage(self, received):  # noqa: ANN001
+    class FakeS3UserMetricsService:
+        def get_usage(self, received):  # noqa: ANN001
             assert received.id == s3_user.id
             return 40, 4, 1
 
-        def get_user_quota(self, received):  # noqa: ANN001
+        def get_quota(self, received):  # noqa: ANN001
             assert received.id == s3_user.id
             return 1.0, 100
 
-    monkeypatch.setattr(browser_usage_summary_service, "S3UsersService", FakeS3UsersService)
+    monkeypatch.setattr(
+        browser_usage_summary_service,
+        "S3UserMetricsService",
+        FakeS3UserMetricsService,
+    )
     app.dependency_overrides[dependencies.get_s3_execution_context] = lambda: account
 
     response = client.get("/api/browser/usage-summary")
@@ -387,18 +388,19 @@ def test_browser_usage_summary_hides_s3_user_when_live_usage_is_unavailable(clie
     db_session.flush()
     account = S3ExecutionContext.from_s3_user(s3_user)
 
-    class FakeS3UsersService:
-        def __init__(self, db):  # noqa: ANN001
-            assert db is db_session
-
-        def get_user_usage(self, received):  # noqa: ANN001
+    class FakeS3UserMetricsService:
+        def get_usage(self, received):  # noqa: ANN001
             assert received.id == s3_user.id
             return None, None, None
 
-        def get_user_quota(self, received):  # noqa: ANN001
+        def get_quota(self, received):  # noqa: ANN001
             raise AssertionError("quota should not be fetched when live usage is unavailable")
 
-    monkeypatch.setattr(browser_usage_summary_service, "S3UsersService", FakeS3UsersService)
+    monkeypatch.setattr(
+        browser_usage_summary_service,
+        "S3UserMetricsService",
+        FakeS3UserMetricsService,
+    )
     app.dependency_overrides[dependencies.get_s3_execution_context] = lambda: account
 
     response = client.get("/api/browser/usage-summary")
