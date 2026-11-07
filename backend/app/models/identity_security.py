@@ -67,6 +67,16 @@ class AdminExternalIdentityRequest(ApiModel):
 
     normalize_provider_id = field_validator("provider_id", mode="before")(normalize_identity_provider_id)
 
+    @field_validator("subject", mode="before")
+    @classmethod
+    def normalize_subject(cls, value: str) -> str:
+        if not isinstance(value, str):
+            raise ValueError("External identity subject must be a string")
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("External identity subject is required")
+        return normalized
+
     @model_validator(mode="after")
     def validate_provider_identity(self):
         if self.provider_type == "oidc":

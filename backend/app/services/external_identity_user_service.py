@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.db_transactions import commit_or_rollback
-from app.core.domain_errors import ExternalIdentityNotFoundError
+from app.core.domain_errors import ExternalIdentityConflictError, ExternalIdentityNotFoundError
 from app.db import ExternalIdentity, ExternalIdentityLinkRequest, User
 from app.core.domain_enums import UserRole
 from app.services.auth_session_service import AuthSessionService
@@ -206,11 +206,13 @@ class ExternalIdentityUserService:
         )
         if existing:
             if existing.user_id != user.id:
-                raise ValueError("External identity subject belongs to another user")
+                raise ExternalIdentityConflictError("External identity subject belongs to another user")
             if existing.revoked_at is None:
                 return existing, False
             if not restore:
-                raise ValueError("External identity is revoked; explicit restoration is required")
+                raise ExternalIdentityConflictError(
+                    "External identity is revoked; explicit restoration is required"
+                )
             return self.restore_identity(existing.id, reason="external_identity_restored"), True
 
         identity = ExternalIdentity(

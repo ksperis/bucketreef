@@ -13,11 +13,12 @@ def test_admin_external_identity_request_canonicalizes_oidc_provider_and_issuer(
         provider_type="oidc",
         provider_id=" Company ",
         issuer=" https://issuer.example.test/// ",
-        subject="subject-1",
+        subject=" subject-1 ",
     )
 
     assert payload.provider_id == "company"
     assert payload.issuer == "https://issuer.example.test"
+    assert payload.subject == "subject-1"
 
 
 @pytest.mark.parametrize("provider_id", ["", "bad provider", "company!", 42])
@@ -47,6 +48,16 @@ def test_admin_external_identity_request_rejects_ldap_issuer() -> None:
             provider_id="company",
             issuer="https://issuer.example.test",
             subject="subject-1",
+        )
+
+
+@pytest.mark.parametrize("subject", ["", "   ", 42])
+def test_admin_external_identity_request_rejects_invalid_subject(subject: object) -> None:
+    with pytest.raises(ValidationError, match="subject"):
+        AdminExternalIdentityRequest(
+            provider_type="ldap",
+            provider_id="company",
+            subject=subject,
         )
 
 

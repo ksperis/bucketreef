@@ -164,7 +164,7 @@ def add_user_external_identity(
             link_source="administrator",
         )
     except ValueError as exc:
-        raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
+        raise_http_error_from_value_error(exc)
     audit.record_action(
         user=actor,
         scope="security",
