@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import timedelta
 from types import SimpleNamespace
 
+import pytest
 from sqlalchemy.orm import sessionmaker
 
 from app.db import S3Account, S3User, StorageEndpoint
@@ -150,6 +151,53 @@ def test_collection_selects_only_opted_in_due_buckets_oldest_first(db_session, m
     assert captured["parallelism"] == 2
     assert result.eligible_accounts == 2
     assert result.due_buckets == 3
+
+
+def test_collection_only_skips_operational_bucket_listing_failures(db_session, monkeypatch):
+    endpoint = StorageEndpoint(
+        id=7,
+        name="Ceph main",
+        endpoint_url="https://ceph.example.test",
+        provider="ceph",
+    )
+    account = S3Account(
+        id=1,
+        name="Opted in",
+        rgw_account_id="RGW00000000000000001",
+        rgw_user_uid="RGW00000000000000001-root",
+        rgw_access_key="ak-1",
+        rgw_secret_key="sk-1",
+        storage_endpoint_id=7,
+        allow_bucket_usage_stats_collection=True,
+    )
+    db_session.add_all([endpoint, account])
+    db_session.commit()
+
+    monkeypatch.setattr(collection_module, "load_app_settings_for_db", lambda _db: AppSettings())
+
+    class FailingBucketsService:
+        def __init__(self, error):
+            self.error = error
+
+        def list_buckets(self, _context, **_kwargs):
+            raise self.error
+
+    factory = sessionmaker(bind=db_session.get_bind())
+    result = BucketUsageStatsCollectionService(
+        db_session,
+        factory,
+        buckets_service=FailingBucketsService(RuntimeError("provider unavailable")),
+    ).collect()
+
+    assert result.skipped_accounts == 1
+    assert result.due_buckets == 0
+
+    with pytest.raises(TypeError, match="unexpected listing bug"):
+        BucketUsageStatsCollectionService(
+            db_session,
+            factory,
+            buckets_service=FailingBucketsService(TypeError("unexpected listing bug")),
+        ).collect()
 
 
 def test_bucket_scan_is_skipped_when_bucket_lease_is_already_held(db_session, monkeypatch):
