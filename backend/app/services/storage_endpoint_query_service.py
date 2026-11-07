@@ -87,6 +87,9 @@ class StorageEndpointQueryService:
             for endpoint in self.repository.list_ordered()
         ]
 
+    def get_endpoint_record(self, endpoint_id: int) -> StorageEndpoint:
+        return self.repository.get(endpoint_id)
+
     def get_endpoint(
         self,
         endpoint_id: int,
@@ -94,6 +97,6 @@ class StorageEndpointQueryService:
         include_admin_ops_permissions: bool = True,
     ) -> StorageEndpointSchema:
         return self.serialize_endpoint(
-            self.repository.get(endpoint_id),
+            self.get_endpoint_record(endpoint_id),
             include_admin_ops_permissions=include_admin_ops_permissions,
         )

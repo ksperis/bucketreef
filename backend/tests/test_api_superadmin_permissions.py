@@ -159,13 +159,14 @@ def test_reconcile_managed_identities_schedules_healthcheck_and_audits_provision
             self.db = object()
             self.calls = []
 
-        def get_endpoint_record(self, endpoint_id):
-            assert endpoint_id == 7
-            return endpoint
-
         def reconcile_identities(self, endpoint_id):
             self.calls.append(endpoint_id)
             return reconciled
+
+    class FakeQueryService:
+        def get_endpoint_record(self, endpoint_id):
+            assert endpoint_id == 7
+            return endpoint
 
     class FakeAuditService:
         def __init__(self):
@@ -180,6 +181,7 @@ def test_reconcile_managed_identities_schedules_healthcheck_and_audits_provision
     monkeypatch.setattr(storage_endpoints_router, "require_admin_sensitive_action", lambda *_args: None)
     monkeypatch.setattr(storage_endpoints_router, "run_initial_healthchecks", fake_healthcheck)
     service = FakeService()
+    query_service = FakeQueryService()
     audit = FakeAuditService()
     user = _superadmin_user()
     background_tasks = BackgroundTasks()
@@ -190,6 +192,7 @@ def test_reconcile_managed_identities_schedules_healthcheck_and_audits_provision
         request,
         background_tasks,
         service,
+        query_service,
         user,
         audit,
     )

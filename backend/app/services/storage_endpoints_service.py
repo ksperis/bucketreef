@@ -118,11 +118,8 @@ class StorageEndpointsService:
                 self.db.rollback()
                 logger.info("Endpoint %s identity reconciliation deferred; retry from endpoint settings.", endpoint.id)
 
-    def get_endpoint_record(self, endpoint_id: int) -> StorageEndpoint:
-        return self.repository.get(endpoint_id)
-
     def update_endpoint_tags(self, endpoint_id: int, payload: StorageEndpointTagsUpdate) -> StorageEndpointSchema:
-        endpoint = self.get_endpoint_record(endpoint_id)
+        endpoint = self.repository.get(endpoint_id)
         self.tags.replace_storage_endpoint_tags(endpoint, payload.tags)
         commit_or_rollback(self.db)
         self.db.refresh(endpoint)
@@ -168,7 +165,7 @@ class StorageEndpointsService:
         actor: User | None = None,
     ) -> StorageEndpointSchema:
         self._ensure_env_editable()
-        endpoint = self.get_endpoint_record(endpoint_id)
+        endpoint = self.repository.get(endpoint_id)
         if not endpoint.is_editable:
             raise ValueError("This endpoint is protected and cannot be edited.")
         from app.services.endpoint_service_identities import EndpointServiceIdentityService
@@ -220,7 +217,7 @@ class StorageEndpointsService:
         actor: User | None = None,
     ) -> StorageEndpointSchema:
         from app.services.endpoint_service_identities import EndpointServiceIdentityService
-        endpoint = self.get_endpoint_record(endpoint_id)
+        endpoint = self.repository.get(endpoint_id)
         EndpointServiceIdentityService(
             self.db,
             actor=self._resolve_actor(actor),
@@ -232,7 +229,7 @@ class StorageEndpointsService:
 
     def delete_endpoint(self, endpoint_id: int) -> None:
         self._ensure_env_editable()
-        endpoint = self.get_endpoint_record(endpoint_id)
+        endpoint = self.repository.get(endpoint_id)
         if not endpoint.is_editable:
             raise ValueError("This endpoint is protected and cannot be deleted.")
         from app.services.endpoint_service_identities import EndpointServiceIdentityService
@@ -269,7 +266,7 @@ class StorageEndpointsService:
 
     def set_default_endpoint(self, endpoint_id: int) -> StorageEndpointSchema:
         self._ensure_env_editable()
-        endpoint = self.get_endpoint_record(endpoint_id)
+        endpoint = self.repository.get(endpoint_id)
         if endpoint.is_default:
             return self.query.serialize_endpoint(endpoint)
         self.db.execute(
