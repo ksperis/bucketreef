@@ -12,7 +12,7 @@ from app.core.sensitive_data import sanitize_error_detail, sanitized_error_log_d
 from app.db import BucketMigration, BucketMigrationEvent, BucketMigrationItem
 from app.services.s3_execution_context import S3ExecutionTarget
 from app.services.webhook_catalog import MIGRATION_EVENT_TYPE
-from app.services.webhook_service import WebhookEventPublisher
+from app.services.webhook_service import WebhookEventPublisher, WebhookQueueError
 from app.utils.time import utcnow
 
 from .persistence_safety import (
@@ -475,7 +475,7 @@ class BucketMigrationProgressMixin:
                 data=payload,
                 occurred_at=created_at,
             )
-        except Exception as exc:  # noqa: BLE001
+        except WebhookQueueError as exc:
             logger.warning(
                 "Failed to queue webhook for bucket migration event: migration=%s item=%s error=%s",
                 migration.id,

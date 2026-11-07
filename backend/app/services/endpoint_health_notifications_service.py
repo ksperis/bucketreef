@@ -14,7 +14,7 @@ from app.core.domain_enums import HealthCheckStatus, UserRole
 from app.services.healthcheck_common import HealthCheckResult
 from app.services.user_notifications_service import UserNotificationsService
 from app.services.webhook_catalog import ENDPOINT_HEALTH_EVENT_TYPE
-from app.services.webhook_service import WebhookEventPublisher
+from app.services.webhook_service import WebhookEventPublisher, WebhookQueueError
 
 
 logger = logging.getLogger(__name__)
@@ -156,7 +156,7 @@ class EndpointHealthNotificationsService:
                 data=payload,
                 occurred_at=result.checked_at,
             )
-        except Exception as exc:  # noqa: BLE001
+        except WebhookQueueError as exc:
             logger.warning(
                 "Failed to queue endpoint health webhook endpoint=%s: %s",
                 endpoint.id,

@@ -37,7 +37,7 @@ from app.services.quota_subject import SubjectContext
 from app.services.quota_usage_history_service import QuotaUsageHistoryService
 from app.services.user_notifications_service import UserNotificationsService
 from app.services.webhook_catalog import QUOTA_THRESHOLD_EVENT_TYPE
-from app.services.webhook_service import WebhookEventPublisher
+from app.services.webhook_service import WebhookEventPublisher, WebhookQueueError
 from app.utils.rgw_payloads import extract_bucket_list, rgw_qualified_uid
 from app.utils.time import utcnow
 from app.utils.usage_stats import extract_usage_stats
@@ -444,7 +444,7 @@ class QuotaMonitoringService:
                 },
                 occurred_at=run.now,
             )
-        except Exception as exc:  # noqa: BLE001
+        except WebhookQueueError as exc:
             logger.warning(
                 "Failed to queue quota webhook for %s:%s: %s",
                 subject.subject_type,

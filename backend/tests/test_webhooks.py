@@ -15,6 +15,7 @@ from unittest.mock import patch
 import pytest
 import requests
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.schema import CreateTable
 from sqlalchemy import event, func, select, text
 from sqlalchemy.orm import Session, sessionmaker
@@ -22,7 +23,7 @@ from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.core.domain_errors import WebhookEndpointNotFoundError
-from app.db import User, WebhookDelivery, WebhookEndpoint, WebhookEndpointSubscription
+from app.db import AuditLog, User, WebhookDelivery, WebhookEndpoint, WebhookEndpointSubscription
 from app.core.domain_enums import UserRole
 from app.models.webhook import WebhookEndpointPayload
 from app.services.audit_policy import should_persist_audit_action
@@ -34,6 +35,7 @@ from app.services.webhook_catalog import (
 )
 from app.services.webhook_service import (
     WebhookEventPublisher,
+    WebhookQueueError,
     WebhookService,
     serialize_webhook_payload,
     validate_webhook_target_url,
@@ -257,6 +259,24 @@ def test_webhook_event_publish_rolls_back_when_commit_fails(db_session, monkeypa
     assert db_session.scalar(select(func.count()).select_from(WebhookDelivery)) == 0
 
 
+def test_webhook_event_publisher_types_database_queue_failures(db_session, monkeypatch):
+    publisher = WebhookEventPublisher(db_session)
+
+    def fail_endpoint_lookup(*_args, **_kwargs):
+        raise SQLAlchemyError("database unavailable")
+
+    monkeypatch.setattr(publisher, "_event_endpoints", fail_endpoint_lookup)
+
+    with pytest.raises(WebhookQueueError) as exc_info:
+        publisher.publish_event(
+            event_type="audit.admin.update_ui_user",
+            data={"entity_id": "42"},
+            commit=True,
+        )
+
+    assert isinstance(exc_info.value.__cause__, SQLAlchemyError)
+
+
 def test_webhook_event_publisher_matches_wildcard_and_exact_subscriptions(db_session, monkeypatch):
     wildcard = _create_endpoint(db_session, monkeypatch, name="all", event_types=["*"])
     exact = _create_endpoint(
@@ -354,6 +374,48 @@ def test_audit_service_queues_control_plane_event_but_excludes_object_data_plane
         .select_from(WebhookDelivery)
         .where(WebhookDelivery.endpoint_id == endpoint.id)
     ) == 1
+
+
+def test_audit_webhook_queue_failure_does_not_discard_persisted_audit_log(
+    db_session,
+    monkeypatch,
+):
+    def fail_publish(*_args, **_kwargs):
+        raise WebhookQueueError("queue unavailable")
+
+    monkeypatch.setattr(WebhookEventPublisher, "publish_audit_event", fail_publish)
+
+    AuditService(db_session).record_action(
+        user=None,
+        user_email="admin@example.test",
+        user_role="ui_superadmin",
+        scope="admin",
+        action="update_ui_user",
+        entity_type="user",
+        entity_id="7",
+    )
+
+    assert db_session.scalar(select(func.count()).select_from(AuditLog)) == 1
+
+
+def test_audit_webhook_does_not_mask_unexpected_publisher_failure(db_session, monkeypatch):
+    def fail_publish(*_args, **_kwargs):
+        raise RuntimeError("unexpected publisher regression")
+
+    monkeypatch.setattr(WebhookEventPublisher, "publish_audit_event", fail_publish)
+
+    with pytest.raises(RuntimeError, match="unexpected publisher regression"):
+        AuditService(db_session).record_action(
+            user=None,
+            user_email="admin@example.test",
+            user_role="ui_superadmin",
+            scope="admin",
+            action="update_ui_user",
+            entity_type="user",
+            entity_id="7",
+        )
+
+    assert db_session.scalar(select(func.count()).select_from(AuditLog)) == 1
 
 
 def test_literal_persisted_audit_actions_are_present_in_webhook_catalog():
@@ -463,6 +525,24 @@ def test_transactional_webhook_failure_rolls_back_only_webhook_savepoint(db_sess
         .select_from(WebhookDelivery)
         .where(WebhookDelivery.delivery_id == "savepoint-rollback-delivery")
     ) == 0
+
+
+def test_transactional_webhook_does_not_classify_business_flush_failure_as_queue_failure(
+    db_session,
+    monkeypatch,
+):
+    publisher = WebhookEventPublisher(db_session)
+
+    def fail_flush(*_args, **_kwargs):
+        raise SQLAlchemyError("business flush failed")
+
+    monkeypatch.setattr(db_session, "flush", fail_flush)
+
+    with pytest.raises(SQLAlchemyError, match="business flush failed"):
+        publisher.publish_event_in_current_transaction(
+            event_type="system.endpoint_health.changed",
+            data={"endpoint_id": 1},
+        )
 
 
 def test_production_webhook_target_requires_https_and_explicit_allowlist(monkeypatch):
