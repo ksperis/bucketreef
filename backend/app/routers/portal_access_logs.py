@@ -14,6 +14,7 @@ from app.models.portal_access_logs import (
 )
 from app.routers.dependencies import require_portal_manager
 from app.routers.portal_common import (
+    PORTAL_EXPECTED_ERRORS,
     get_portal_service_dependency,
     raise_portal_error,
 )
@@ -53,7 +54,7 @@ def portal_server_access_logs_page(
         )
     except ValueError as exc:
         raise_bad_request_from_value_error(exc)
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
 
 
@@ -78,7 +79,7 @@ def portal_server_access_logs_raw(
         )
     except ValueError as exc:
         raise_bad_request_from_value_error(exc)
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
     filename = (
         f"portal-server-access-logs-{date_from}.log"

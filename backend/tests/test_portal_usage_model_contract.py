@@ -10,6 +10,7 @@ from app.db import S3Account, User
 from app.core.domain_enums import PortalAccountRole, UserRole
 from app.main import app
 from app.services.access_context_contracts import AccountAccess, AccountCapabilities
+from app.services.portal.exceptions import PortalOperationError
 
 from app.models.portal_usage import (
     PortalStorageSpaceUsageStatsResponse,
@@ -121,7 +122,9 @@ def test_portal_usage_translates_structured_upstream_failures_without_exposing_s
         def get_usage(self, actor, resolved_access):
             assert actor is user
             assert resolved_access is access
-            failure = RuntimeError("upstream request failed secret_access_key=test-secret token=test-token")
+            failure = PortalOperationError(
+                "upstream request failed secret_access_key=test-secret token=test-token"
+            )
             failure.__cause__ = cause
             raise failure
 

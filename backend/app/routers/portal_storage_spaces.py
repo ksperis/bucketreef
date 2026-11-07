@@ -25,6 +25,7 @@ from app.routers.dependencies import (
     require_portal_manager,
 )
 from app.routers.portal_common import (
+    PORTAL_EXPECTED_ERRORS,
     get_portal_service_dependency,
     raise_portal_error,
 )
@@ -56,7 +57,7 @@ def portal_storage_spaces(
             sort=query.sort,
             include_archived=query.include_archived,
         )
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_bad_gateway_from_runtime(exc)
 
 
@@ -99,7 +100,7 @@ def create_portal_storage_space(
             },
         )
         return storage_space
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
 
 
@@ -141,7 +142,7 @@ def import_portal_storage_space(
             },
         )
         return storage_space
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
 
 
@@ -185,7 +186,7 @@ def update_portal_storage_space(
             },
         )
         return storage_space
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
 
 
@@ -214,7 +215,7 @@ def take_portal_storage_space_ownership(
             },
         )
         return storage_space
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
 
 
@@ -237,7 +238,7 @@ def update_portal_storage_space_icon(
         )
     except ValueError as exc:
         raise_bad_request_from_value_error(exc)
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
     audit_service.record_action(
         user=actor,
@@ -275,7 +276,7 @@ async def upload_portal_storage_space_icon(
         )
     except ValueError as exc:
         raise_bad_request_from_value_error(exc)
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
     audit_service.record_action(
         user=actor,
@@ -303,7 +304,7 @@ def delete_portal_storage_space_icon(
     actor = access.actor
     try:
         icon = service.remove_storage_space_icon_image(actor, access, space_id)
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
     audit_service.record_action(
         user=actor,
@@ -326,7 +327,7 @@ def read_portal_storage_space_icon(
     actor = access.actor
     try:
         payload, content_type, version = service.storage_space_icon_image(actor, access, space_id)
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
     return Response(
         content=payload,
@@ -349,7 +350,7 @@ def delete_portal_storage_space(
     actor = access.actor
     try:
         result = service.delete_storage_space(actor, access, space_id)
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
     audit_service.record_action(
         user=actor,
@@ -372,7 +373,7 @@ def portal_storage_space_access_summary(
     actor = access.actor
     try:
         return service.get_storage_space_access_summary(actor, access, space_id)
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
 
 
@@ -385,7 +386,7 @@ def get_portal_storage_space_settings(
     actor = access.actor
     try:
         return service.get_storage_space_settings(actor, access, space_id)
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
 
 
@@ -400,7 +401,7 @@ def update_portal_storage_space_settings(
     actor = access.actor
     try:
         updated = service.update_storage_space_settings(actor, access, space_id, payload)
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
     audit_service.record_action(
         user=actor,
@@ -429,7 +430,7 @@ def portal_storage_space_detail(
     actor = access.actor
     try:
         storage_space = service.get_storage_space(actor, access, space_id)
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
     if storage_space is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Storage space not found")

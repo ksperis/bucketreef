@@ -62,6 +62,7 @@ from app.services.access_context_contracts import AccountAccess, AccountCapabili
 from app.services.s3_object_download import S3ObjectDownload
 from app.routers import portal as portal_router
 from app.routers import portal_access_keys as portal_access_keys_router
+from app.routers import portal_context as portal_context_router
 from app.routers import portal_traffic as portal_traffic_router
 from app.routers import portal_monitoring as portal_monitoring_router
 from app.routers import portal_objects as portal_objects_router
@@ -2531,6 +2532,47 @@ def test_delete_storage_space_route_maps_non_empty_to_conflict(db_session):
 
     assert exc_info.value.status_code == 409
     assert "not empty" in exc_info.value.detail
+
+
+def test_delete_storage_space_route_does_not_mask_unexpected_runtime_errors(db_session):
+    account = make_s3_account(db_session, name="portal-delete-route-runtime")
+    owner = User(email="owner-delete-route-runtime@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([account, owner])
+    db_session.commit()
+
+    class FakePortalService:
+        def delete_storage_space(self, *_args):
+            raise RuntimeError("unexpected portal storage-space bug")
+
+    with pytest.raises(RuntimeError, match="unexpected portal storage-space bug"):
+        portal_storage_spaces_router.delete_portal_storage_space(
+            "route-data",
+            access=_portal_access(account, owner),
+            audit_service=None,
+            service=FakePortalService(),
+        )
+
+
+def test_portal_state_does_not_mask_unexpected_runtime_errors(db_session):
+    account = make_s3_account(db_session, name="portal-state-runtime")
+    user = User(email="portal-state-runtime@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([account, user])
+    db_session.commit()
+
+    class FakePortalService:
+        @staticmethod
+        def check_eligibility(_access):
+            return True, []
+
+        @staticmethod
+        def get_state(_access):
+            raise RuntimeError("unexpected portal state bug")
+
+    with pytest.raises(RuntimeError, match="unexpected portal state bug"):
+        portal_context_router.portal_state(
+            access=_portal_access(account, user),
+            service=FakePortalService(),
+        )
 
 
 def test_storage_space_list_includes_collaborator_avatar_previews(db_session):

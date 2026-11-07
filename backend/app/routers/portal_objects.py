@@ -20,6 +20,7 @@ from app.models.portal_versions import (
 )
 from app.routers.dependencies import get_audit_service, get_portal_account_access
 from app.routers.portal_common import (
+    PORTAL_EXPECTED_ERRORS,
     get_portal_service_dependency,
     raise_portal_error,
 )
@@ -54,7 +55,7 @@ def portal_storage_space_version_cleanup_stream(
         )
     except ValueError as exc:
         raise_bad_request_from_value_error(exc)
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
     return stream_portal_storage_space_version_cleanup(
         request,
@@ -77,7 +78,7 @@ def portal_storage_space_object_detail(
     actor = access.actor
     try:
         return service.get_storage_space_object_detail(actor, access, space_id, key, **({"version_id": version_id} if version_id is not None else {}))
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
 
 
@@ -105,7 +106,7 @@ def portal_storage_space_object_versions(
             version_id_marker=version_id_marker,
             max_keys=max_keys,
         )
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
 
 
@@ -128,7 +129,7 @@ def portal_storage_space_trash(
             version_id_marker=version_id_marker,
             max_keys=max_keys,
         )
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
 
 
@@ -151,7 +152,7 @@ def portal_restore_storage_space_object(
             payload.key,
             version_id=payload.version_id,
         )
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
 
 
@@ -174,7 +175,7 @@ def portal_restore_deleted_prefix_stream(
         )
     except ValueError as exc:
         raise_bad_request_from_value_error(exc)
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
     return stream_portal_deleted_prefix_restore(
         request,
@@ -197,7 +198,7 @@ def portal_delete_storage_space_object(
     try:
         deleted_key = service.delete_storage_space_object(actor, access, space_id, key)
         return PortalStorageObjectDeleteResponse(key=deleted_key, message="Deleted")
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)
 
 
@@ -213,5 +214,5 @@ def portal_download_storage_space_object(
     try:
         download = service.download_storage_space_object(actor, access, space_id, key, **({"version_id": version_id} if version_id is not None else {}))
         return S3DownloadResponse(download)
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)

@@ -12,6 +12,7 @@ from app.models.healthcheck import WorkspaceEndpointHealthOverviewResponse
 from app.models.portal_monitoring import PortalAlert
 from app.routers.dependencies import get_portal_account_access
 from app.routers.portal_common import (
+    PORTAL_EXPECTED_ERRORS,
     get_portal_service_dependency,
     raise_portal_error,
 )
@@ -72,5 +73,5 @@ def portal_alerts(
         alerts = service.list_portal_alerts(actor, access, limit=limit)
         health_alerts = _portal_endpoint_alerts(access, db)
         return service.dedupe_portal_alerts([*health_alerts, *alerts])[:limit]
-    except RuntimeError as exc:
+    except PORTAL_EXPECTED_ERRORS as exc:
         raise_portal_error(exc)

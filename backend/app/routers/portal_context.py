@@ -1,6 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from app.services.portal.exceptions import PortalForbiddenError
+from app.services.portal.exceptions import PortalForbiddenError, PortalOperationError
 from app.utils.http_errors import raise_http_exception_from_exception
 
 """Portal workspace context and project-settings endpoints."""
@@ -76,7 +76,7 @@ def portal_state(
         return service.get_state(access)
     except PortalForbiddenError as exc:
         raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
-    except RuntimeError as exc:
+    except PortalOperationError as exc:
         raise_bad_gateway_from_runtime(exc)
 
 
@@ -109,7 +109,7 @@ def update_portal_project_settings(
         updated = service.update_admin_portal_settings_override(access.account, payload)
     except PortalForbiddenError as exc:
         raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
-    except RuntimeError as exc:
+    except PortalOperationError as exc:
         raise_bad_gateway_from_runtime(exc)
     audit_service.record_action(
         user=actor,
