@@ -5,7 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional, Protocol, Tuple
 
-from app.utils.storage_endpoint_features import StorageEndpointLike
+from app.utils.storage_endpoint_features import (
+    StorageEndpointLike,
+    aws_iam_client_options_for_region,
+    resolve_iam_endpoint,
+    resolve_iam_signing_region,
+)
 
 
 class S3ConnectionLike(Protocol):
@@ -58,3 +63,20 @@ def resolve_connection_details(conn: S3ConnectionLike) -> ConnectionEndpointDeta
 def resolve_connection_endpoint(conn: S3ConnectionLike) -> Tuple[Optional[str], Optional[str], bool, bool]:
     details = resolve_connection_details(conn)
     return details.endpoint_url, details.region, details.force_path_style, details.verify_tls
+
+
+def resolve_connection_iam_options(
+    conn: S3ConnectionLike,
+) -> tuple[Optional[str], Optional[str], bool]:
+    details = resolve_connection_details(conn)
+    endpoint = conn.storage_endpoint
+    if endpoint is not None:
+        return (
+            resolve_iam_endpoint(endpoint),
+            resolve_iam_signing_region(endpoint),
+            details.verify_tls,
+        )
+    if (details.provider or "").strip().lower() == "aws":
+        iam_endpoint, iam_region = aws_iam_client_options_for_region(details.region)
+        return iam_endpoint, iam_region, details.verify_tls
+    return details.endpoint_url, details.region, details.verify_tls
