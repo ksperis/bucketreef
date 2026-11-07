@@ -70,7 +70,7 @@ type BucketMigrationBucketMapping = {
   target_bucket: string;
 };
 
-type BucketMigrationDraftRequest = {
+export type BucketMigrationDraftRequest = {
   source_context_id: string;
   target_context_id: string;
   buckets: BucketMigrationBucketMapping[];
@@ -82,8 +82,6 @@ type BucketMigrationDraftRequest = {
   auto_grant_source_read_for_copy?: boolean;
   parallelism_max?: number;
 };
-
-export type BucketMigrationCreateRequest = BucketMigrationDraftRequest;
 
 type BucketMigrationUpdateRequest = BucketMigrationDraftRequest & {
   configuration_revision: number;
@@ -243,7 +241,7 @@ export async function deleteManagerMigration(migrationId: number): Promise<void>
   await client.delete(`/manager/migrations/${migrationId}`);
 }
 
-export async function createManagerMigration(payload: BucketMigrationCreateRequest): Promise<BucketMigrationDetail> {
+export async function createManagerMigration(payload: BucketMigrationDraftRequest): Promise<BucketMigrationDetail> {
   const { data } = await client.post<BucketMigrationDetail>("/manager/migrations", payload);
   return data;
 }

@@ -44,9 +44,9 @@ const {
 } = managerBucketDetails;
 import type {
   CephAdminBucket,
-  CephAdminBucketsStreamProgress,
   PaginatedCephAdminBucketsResponse,
 } from "./cephAdminBuckets";
+import type { CephAdminListingStreamProgress } from "./cephAdminEntityListing";
 import {
   buildBucketListingQuery,
   buildBucketListingRequestBody,
@@ -157,13 +157,13 @@ export async function refreshStorageOpsBucketListingCache(
 export async function streamStorageOpsBuckets(
   _scopeId: number,
   params?: BucketListingParams,
-  options?: SseStreamOptions<CephAdminBucketsStreamProgress>
+  options?: SseStreamOptions<CephAdminListingStreamProgress>
 ): Promise<PaginatedStorageOpsBucketsResponse> {
   const baseUrl = resolveApiBaseUrl();
   const query = buildBucketListingQuery(params);
   const queryText = query.toString();
   const url = `${baseUrl}/storage-ops/buckets/stream${queryText ? `?${queryText}` : ""}`;
-  return streamApiResultWithSse<CephAdminBucketsStreamProgress, PaginatedStorageOpsBucketsResponse>({
+  return streamApiResultWithSse<CephAdminListingStreamProgress, PaginatedStorageOpsBucketsResponse>({
     url,
     options,
     streamFailedLabel: "Advanced search stream failed",
