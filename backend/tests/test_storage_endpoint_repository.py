@@ -47,3 +47,54 @@ def test_optional_endpoint_lookups_return_default_and_match_url(db_session):
     assert repository.get_default() is default_endpoint
     assert repository.find_by_url(other_endpoint.endpoint_url) is other_endpoint
     assert repository.find_by_url("https://missing.example.test") is None
+
+
+def test_ordered_and_preferred_endpoint_queries_preserve_catalog_semantics(db_session):
+    endpoints = [
+        StorageEndpoint(
+            name="Zulu",
+            endpoint_url="https://zulu.example.test",
+            provider="other",
+            is_default=True,
+        ),
+        StorageEndpoint(
+            name="alpha",
+            endpoint_url="https://alpha.example.test",
+            provider="other",
+            is_default=False,
+        ),
+        StorageEndpoint(
+            name="Beta",
+            endpoint_url="https://beta.example.test",
+            provider="other",
+            is_default=False,
+        ),
+    ]
+    db_session.add_all(endpoints)
+    db_session.commit()
+
+    repository = StorageEndpointRepository(db_session)
+
+    assert [endpoint.name for endpoint in repository.list_ordered()] == ["alpha", "Beta", "Zulu"]
+    assert repository.get_default_or_first() is endpoints[0]
+
+
+def test_preferred_endpoint_falls_back_to_first_name_when_no_default_exists(db_session):
+    beta = StorageEndpoint(
+        name="beta",
+        endpoint_url="https://beta.example.test",
+        provider="other",
+        is_default=False,
+    )
+    alpha = StorageEndpoint(
+        name="Alpha",
+        endpoint_url="https://alpha.example.test",
+        provider="other",
+        is_default=False,
+    )
+    db_session.add_all([beta, alpha])
+    db_session.commit()
+
+    repository = StorageEndpointRepository(db_session)
+
+    assert repository.get_default_or_first() is alpha

@@ -20,9 +20,9 @@ from app.services.app_settings_service import load_app_settings_for_db
 from app.services.audit_service import AuditService
 from app.services.auth_session_service import AuthSessionService
 from app.services.session_service import SessionIntrospectionError, SessionService
-from app.services.storage_endpoints_service import get_storage_endpoints_service
+from app.services.storage_endpoint_repository import StorageEndpointRepository
 from app.utils.request_security import require_trusted_origin
-from app.utils.s3_endpoint import validate_custom_login_s3_endpoint
+from app.utils.s3_endpoint import configured_s3_endpoint, validate_custom_login_s3_endpoint
 
 
 router = APIRouter()
@@ -34,10 +34,16 @@ def _resolve_login_endpoint(
     *,
     allow_custom_endpoint: bool,
 ) -> tuple[str, bool]:
-    service = get_storage_endpoints_service(db)
-    registered = {endpoint.endpoint_url for endpoint in service.list_endpoints()}
-    endpoint_url = requested_endpoint or service.get_default_endpoint_url()
-    custom_endpoint = endpoint_url not in registered
+    repository = StorageEndpointRepository(db)
+    if requested_endpoint:
+        endpoint_url = requested_endpoint
+        custom_endpoint = repository.find_by_url(endpoint_url) is None
+    else:
+        default_endpoint = repository.get_default_or_first()
+        if default_endpoint is not None:
+            return default_endpoint.endpoint_url, False
+        endpoint_url = configured_s3_endpoint()
+        custom_endpoint = True
     if not custom_endpoint:
         return endpoint_url, False
 

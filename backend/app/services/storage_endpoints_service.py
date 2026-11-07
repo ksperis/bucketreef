@@ -53,7 +53,6 @@ from app.utils.tagging import (
     TAG_DOMAIN_ENDPOINT,
 )
 from app.utils.s3_endpoint import configured_s3_endpoint
-from app.utils.name_ordering import name_order_by
 from app.utils.storage_endpoint_features import (
     features_to_capabilities,
     normalize_seed_features_config,
@@ -155,20 +154,8 @@ class StorageEndpointsService:
                 logger.info("Endpoint %s identity reconciliation deferred; retry from endpoint settings.", endpoint.id)
 
     def list_endpoints(self, *, include_admin_ops_permissions: bool = False) -> list[StorageEndpointSchema]:
-        endpoints = self.db.scalars(
-            select(StorageEndpoint).order_by(*name_order_by(StorageEndpoint))
-        )
+        endpoints = self.repository.list_ordered()
         return [self._serialize(ep, include_admin_ops_permissions=include_admin_ops_permissions) for ep in endpoints]
-
-    def get_default_endpoint_url(self) -> Optional[str]:
-        endpoint = self.db.scalar(
-            select(StorageEndpoint)
-            .order_by(StorageEndpoint.is_default.desc(), StorageEndpoint.name.asc())
-            .limit(1)
-        )
-        if endpoint:
-            return endpoint.endpoint_url
-        return configured_s3_endpoint()
 
     def get_endpoint_record(self, endpoint_id: int) -> StorageEndpoint:
         return self.repository.get(endpoint_id)
