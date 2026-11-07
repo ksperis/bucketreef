@@ -13,6 +13,7 @@ from app.services.access_context_contracts import AccountCapabilities, ManagerSe
 from app.services import app_settings_service
 from app.services.s3_account_repository import S3AccountRepository
 from app.services.s3_execution_context import S3ExecutionContext
+from app.services.storage_endpoint_repository import StorageEndpointRepository
 from app.services.storage_endpoints_service import get_storage_endpoints_service
 from app.utils.s3_endpoint import normalize_s3_endpoint, resolve_s3_endpoint
 
@@ -22,7 +23,7 @@ from .workspace_context import resolve_account_by_id
 def _resolve_default_endpoint(db: Session) -> StorageEndpoint:
     service = get_storage_endpoints_service(db)
     service.ensure_default_endpoint()
-    endpoint = service.get_default_endpoint_record()
+    endpoint = StorageEndpointRepository(db).get_default()
     if endpoint is None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -59,9 +60,10 @@ def _resolve_session_storage_endpoint(
     *,
     metadata_only: bool,
 ) -> tuple[Optional[str], Optional[StorageEndpoint]]:
+    endpoints = StorageEndpointRepository(db)
     if not requested_endpoint and (account is None or not resolve_s3_endpoint(account)):
         endpoint = (
-            get_storage_endpoints_service(db).get_default_endpoint_record()
+            endpoints.get_default()
             if metadata_only
             else _resolve_default_endpoint(db)
         )
@@ -72,9 +74,7 @@ def _resolve_session_storage_endpoint(
             )
         return endpoint.endpoint_url, endpoint
     if requested_endpoint:
-        resolved = get_storage_endpoints_service(db).find_endpoint_record_by_url(
-            requested_endpoint
-        )
+        resolved = endpoints.find_by_url(requested_endpoint)
         return requested_endpoint, resolved
     return None, None
 
@@ -145,8 +145,7 @@ def resolve_requested_session_endpoint(
     if general.allow_login_custom_endpoint:
         return requested_endpoint
     if general.allow_login_endpoint_list:
-        service = get_storage_endpoints_service(db)
-        if any(endpoint.endpoint_url == requested_endpoint for endpoint in service.list_endpoints()):
+        if StorageEndpointRepository(db).find_by_url(requested_endpoint) is not None:
             return requested_endpoint
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,

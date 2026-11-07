@@ -31,7 +31,7 @@ from app.services.openstack_access_policy import can_connect_openstack_cloud
 from app.services.s3_connections_service import S3ConnectionsService
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.sqlalchemy_pagination import paginate_scalars
-from app.services.storage_endpoints_service import StorageEndpointsService
+from app.services.storage_endpoint_repository import StorageEndpointRepository
 from app.services.tags_service import TagsService
 from app.utils.s3_endpoint import validate_openstack_catalog_s3_endpoint
 from app.utils.storage_endpoint_features import resolve_endpoint_capabilities
@@ -245,7 +245,7 @@ class OpenStackService:
             canonical_url = validate_openstack_catalog_s3_endpoint(endpoint_url)
         except ValueError:
             return None
-        return StorageEndpointsService(self.db).find_endpoint_record_by_url(canonical_url)
+        return StorageEndpointRepository(self.db).find_by_url(canonical_url)
 
     def _annotate_targets(self, cloud: OpenStackCloud, targets: list[dict]) -> list[dict]:
         annotated = []

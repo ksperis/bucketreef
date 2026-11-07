@@ -2,6 +2,9 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+from typing import Optional
+
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import StorageEndpointNotFoundError
@@ -19,3 +22,18 @@ class StorageEndpointRepository:
         if endpoint is None:
             raise StorageEndpointNotFoundError("Endpoint not found.")
         return endpoint
+
+    def get_default(self) -> Optional[StorageEndpoint]:
+        return self.db.scalar(
+            select(StorageEndpoint)
+            .where(StorageEndpoint.is_default.is_(True))
+            .order_by(StorageEndpoint.id.asc())
+            .limit(1)
+        )
+
+    def find_by_url(self, endpoint_url: str) -> Optional[StorageEndpoint]:
+        return self.db.scalar(
+            select(StorageEndpoint)
+            .where(StorageEndpoint.endpoint_url == endpoint_url)
+            .limit(1)
+        )
