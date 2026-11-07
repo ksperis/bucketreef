@@ -6,7 +6,6 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Res
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.domain_errors import UiGroupNotFoundError
 from app.db import User
 from app.core.domain_enums import is_superadmin_ui_role
 from app.models.admin_listing import AdminOptionListingRequest
@@ -125,8 +124,6 @@ def update_group(
     )
     try:
         existing_group = groups_service.get_group(group_id)
-        if existing_group is None:
-            raise UiGroupNotFoundError("UI group not found")
         if admin_group_update_requires_step_up(existing_group, payload):
             require_admin_sensitive_action(request, groups_service.db, current_user)
         group = groups_service.update_group(group_id, payload)
@@ -152,14 +149,12 @@ async def upload_group_avatar(
     audit_service: AuditService = Depends(get_audit_service),
     db: Session = Depends(get_db),
 ) -> UiGroupOut:
-    group = groups_service.get_group(group_id)
-    if group is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="UI group not found")
     payload = await file.read(MAX_AVATAR_BYTES + 1)
     try:
+        group = groups_service.get_group(group_id)
         UiGroupAvatarService(db).store_uploaded_image(group, payload, file.content_type)
     except ValueError as exc:
-        raise_bad_request_from_value_error(exc)
+        raise_http_error_from_value_error(exc)
     audit_service.record_action(
         user=current_user,
         scope="admin",
@@ -179,10 +174,11 @@ def delete_group_avatar(
     audit_service: AuditService = Depends(get_audit_service),
     db: Session = Depends(get_db),
 ) -> UiGroupOut:
-    group = groups_service.get_group(group_id)
-    if group is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="UI group not found")
-    UiGroupAvatarService(db).remove_uploaded_image(group)
+    try:
+        group = groups_service.get_group(group_id)
+        UiGroupAvatarService(db).remove_uploaded_image(group)
+    except ValueError as exc:
+        raise_http_error_from_value_error(exc)
     audit_service.record_action(
         user=current_user,
         scope="admin",
@@ -223,7 +219,7 @@ def delete_group(
 ) -> None:
     try:
         group = groups_service.get_group(group_id)
-        group_name = group.name if group else None
+        group_name = group.name
         groups_service.delete_group(group_id)
         audit_service.record_action(
             user=current_user,
@@ -231,7 +227,7 @@ def delete_group(
             action="delete_ui_group",
             entity_type="ui_group",
             entity_id=str(group_id),
-            metadata={"name": group_name} if group_name else None,
+            metadata={"name": group_name},
         )
     except ValueError as exc:
         raise_http_error_from_value_error(exc)

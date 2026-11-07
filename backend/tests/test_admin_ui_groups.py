@@ -23,6 +23,7 @@ from app.db import (
     UiGroupS3Connection,
 )
 from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, StorageProvider, UserRole
+from app.core.domain_errors import UiGroupNotFoundError
 from app.main import app
 from app.models.ui_group import UiGroupCreate
 from app.routers import dependencies, execution_contexts
@@ -272,6 +273,31 @@ def test_ui_group_create_rolls_back_when_commit_fails(db_session, monkeypatch):
     assert db_session.scalar(
         select(func.count()).select_from(UiGroup).where(UiGroup.name == "Rollback group")
     ) == 0
+
+
+def test_ui_groups_service_get_group_raises_typed_not_found(db_session):
+    with pytest.raises(UiGroupNotFoundError, match="UI group not found"):
+        UiGroupsService(db_session).get_group(987654321)
+
+
+def test_ui_group_mutations_share_typed_not_found_contract(client: TestClient):
+    group_id = 987654321
+    responses = [
+        client.patch(
+            f"/api/admin/groups/{group_id}",
+            json={"description": "missing"},
+        ),
+        client.put(
+            f"/api/admin/groups/{group_id}/avatar",
+            files={"file": ("group.png", PNG_1X1, "image/png")},
+        ),
+        client.delete(f"/api/admin/groups/{group_id}/avatar"),
+        client.delete(f"/api/admin/groups/{group_id}"),
+    ]
+
+    for response in responses:
+        assert response.status_code == 404, response.text
+        assert response.json()["detail"] == "UI group not found"
 
 
 def test_system_ui_group_cannot_be_renamed_or_deleted(client: TestClient, db_session):
