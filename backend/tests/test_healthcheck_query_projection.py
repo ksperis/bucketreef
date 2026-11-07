@@ -2,17 +2,78 @@
 # Licensed under the Apache License, Version 2.0
 from datetime import UTC, datetime, timedelta
 
-from app.db import EndpointHealthRollup, EndpointHealthStatusSegment
-from app.core.domain_enums import HealthCheckStatus
+from app.db import EndpointHealthLatest, EndpointHealthRollup, EndpointHealthStatusSegment, StorageEndpoint
+from app.core.domain_enums import HealthCheckStatus, StorageProvider
 from app.services.healthcheck_query_projection import (
     build_daily_from_rollups,
     build_rollup_availability_map,
     build_rollup_series,
     build_segment_timeline_map,
+    endpoint_health_snapshot,
     global_incident_payload,
     incident_payload,
     status_from_rollup_counts,
+    workspace_endpoint_snapshot,
 )
+from tests.storage_endpoint_features import persisted_endpoint_features
+
+
+def test_endpoint_health_snapshot_centralizes_latest_and_default_projection():
+    now = datetime(2026, 9, 1, 10, tzinfo=UTC)
+    endpoint = StorageEndpoint(
+        id=7,
+        name="RGW",
+        endpoint_url="https://rgw.example.test",
+        provider=StorageProvider.CEPH.value,
+        features=persisted_endpoint_features(
+            "features:\n"
+            "  healthcheck:\n"
+            "    enabled: true\n"
+            "    mode: http\n"
+            "    healthcheck_url: https://health.example.test\n"
+        ),
+    )
+
+    assert endpoint_health_snapshot(endpoint=endpoint, latest_scope=None, now=now) == {
+        "endpoint_id": 7,
+        "name": "RGW",
+        "endpoint_url": "https://rgw.example.test",
+        "status": HealthCheckStatus.UNKNOWN.value,
+        "checked_at": now.isoformat(),
+        "latency_ms": None,
+        "check_mode": "http",
+        "check_target_url": "https://health.example.test",
+    }
+
+    latest = EndpointHealthLatest(
+        storage_endpoint_id=7,
+        checked_at=now - timedelta(seconds=30),
+        check_mode="s3",
+        check_type="availability",
+        scope="endpoint",
+        status=HealthCheckStatus.DEGRADED.value,
+        latency_ms=42,
+    )
+    latest_payload = endpoint_health_snapshot(endpoint=endpoint, latest_scope=latest, now=now)
+
+    assert latest_payload == {
+        "endpoint_id": 7,
+        "name": "RGW",
+        "endpoint_url": "https://rgw.example.test",
+        "status": HealthCheckStatus.DEGRADED.value,
+        "checked_at": latest.checked_at.isoformat(),
+        "latency_ms": 42,
+        "check_mode": "s3",
+        "check_target_url": "https://health.example.test",
+    }
+    workspace_payload, effective_status = workspace_endpoint_snapshot(
+        endpoint=endpoint,
+        latest_scope=latest,
+        now=now,
+        stale_after_seconds=60,
+    )
+    assert workspace_payload == {**latest_payload, "is_stale": False}
+    assert effective_status == HealthCheckStatus.DEGRADED.value
 
 
 def test_status_from_rollup_counts_uses_worst_known_status():

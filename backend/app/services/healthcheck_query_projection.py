@@ -49,13 +49,12 @@ def global_incident_payload(
     }
 
 
-def workspace_endpoint_snapshot(
+def endpoint_health_snapshot(
     *,
     endpoint: StorageEndpoint,
     latest_scope: EndpointHealthLatest | None,
     now: datetime,
-    stale_after_seconds: int,
-) -> tuple[dict[str, Any], str]:
+) -> dict[str, Any]:
     profile = resolve_healthcheck_profile(endpoint)
     if latest_scope is not None:
         status = latest_scope.status
@@ -67,6 +66,32 @@ def workspace_endpoint_snapshot(
         checked_at = now.isoformat()
         latency_ms = None
         check_mode = profile.mode
+
+    return {
+        "endpoint_id": endpoint.id,
+        "name": endpoint.name,
+        "endpoint_url": endpoint.endpoint_url,
+        "status": status,
+        "checked_at": checked_at,
+        "latency_ms": latency_ms,
+        "check_mode": check_mode,
+        "check_target_url": profile.target_url,
+    }
+
+
+def workspace_endpoint_snapshot(
+    *,
+    endpoint: StorageEndpoint,
+    latest_scope: EndpointHealthLatest | None,
+    now: datetime,
+    stale_after_seconds: int,
+) -> tuple[dict[str, Any], str]:
+    payload = endpoint_health_snapshot(
+        endpoint=endpoint,
+        latest_scope=latest_scope,
+        now=now,
+    )
+    status = payload["status"]
 
     is_stale = latest_scope is None or (
         now - latest_scope.checked_at > timedelta(seconds=stale_after_seconds)
@@ -82,17 +107,7 @@ def workspace_endpoint_snapshot(
         else HealthCheckStatus.UNKNOWN.value
     )
     return (
-        {
-            "endpoint_id": endpoint.id,
-            "name": endpoint.name,
-            "endpoint_url": endpoint.endpoint_url,
-            "status": status,
-            "checked_at": checked_at,
-            "latency_ms": latency_ms,
-            "check_mode": check_mode,
-            "check_target_url": profile.target_url,
-            "is_stale": is_stale,
-        },
+        {**payload, "is_stale": is_stale},
         effective_status,
     )
 
