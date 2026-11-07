@@ -471,7 +471,10 @@ def test_private_only_new_endpoint_does_not_configure_admin_credentials(
     )
 
     assert result.configured
-    ep = db_session.get(StorageEndpoint, result.resources["endpoint_id"])
+    assert result.draft.endpoint_id is not None
+    ep = db_session.get(StorageEndpoint, result.draft.endpoint_id)
+    assert result.resources["endpoint_created"] is True
+    assert "endpoint_id" not in result.resources
     assert ep.admin_access_key is None and ep.admin_secret_key is None
     connection = db_session.get(S3Connection, result.resources["connection_id"])
     assert connection.created_by_user_id == user.id
@@ -740,7 +743,8 @@ def test_new_endpoint_keeps_ceph_admin_credentials_separate_from_admin_ops(
         ceph_admin_access_key="ceph-ak", ceph_admin_secret_key="ceph-sk",
     )
 
-    ep = db_session.get(StorageEndpoint, result.resources["endpoint_id"])
+    assert result.draft.endpoint_id is not None
+    ep = db_session.get(StorageEndpoint, result.draft.endpoint_id)
     assert result.configured
     assert ep.admin_access_key == "admin-ak"
     assert ep.admin_secret_key == "admin-sk"
@@ -1032,7 +1036,8 @@ def test_managed_onboarding_detects_usage_after_provisioning_without_admin_usage
                    service_identity_mode="managed", admin_access_key="ADMIN", admin_secret_key="ADMIN-SECRET")
 
     assert result.configured
-    ep = db_session.get(StorageEndpoint, result.resources["endpoint_id"])
+    assert result.draft.endpoint_id is not None
+    ep = db_session.get(StorageEndpoint, result.draft.endpoint_id)
     assert {identity.kind for identity in ep.service_identities} == {"runtime", "supervision"}
     assert ep.service_identity("supervision").status == "ready"
     assert ep.service_identity("runtime").status == "not_provisioned"
@@ -1048,7 +1053,8 @@ def test_ceph_admin_only_setup_needs_only_its_dedicated_pair(guided, db_session,
     monkeypatch.setattr(guided.endpoints, "detect_features", lambda *_: detection())
     result = apply(guided, user, save(guided, user, endpoint_url="https://ceph-only.example.test", ceph_admin=True),
                    service_identity_mode=mode, ceph_admin_access_key="ceph-ak", ceph_admin_secret_key="ceph-sk")
-    ep = db_session.get(StorageEndpoint, result.resources["endpoint_id"])
+    assert result.draft.endpoint_id is not None
+    ep = db_session.get(StorageEndpoint, result.draft.endpoint_id)
     assert result.configured and user.can_access_ceph_admin
     assert ep.admin_access_key is None and ep.admin_secret_key is None
     assert ep.service_identity("ceph_admin").status == "ready"

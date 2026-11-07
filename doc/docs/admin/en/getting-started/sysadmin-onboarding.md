@@ -121,8 +121,9 @@ service to users.
 
 ### Interrupted configuration
 
-Progress records contain the selected options and resource identifiers, not
-submitted keys. Keys are retained only in the existing credential stores;
+Progress records contain the selected options and identifiers for resources
+created during setup, not submitted keys. The selected endpoint is stored once
+in the journey draft. Keys are retained only in the existing credential stores;
 re-enter unsubmitted keys after leaving the guide. Local connection/endpoint
 creation and their checkpoint commit together. Account provisioning records a
 durable RGW account identifier before the remote call and reuses it on retry.

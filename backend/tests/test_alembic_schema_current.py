@@ -21,6 +21,7 @@ from app.models.app_settings import AppSettings
 
 
 _RECENT_LINEAR_REVISIONS = (
+    "0260_onboarding_endpoint_checkpoint",
     "0259_onboarding_endpoint_draft",
     "0258_canonical_static_app_settings",
     "0257_remove_obsolete_onboarding_setting",

@@ -38,7 +38,7 @@ export type OnboardingJourney = {
   revision: number;
   draft: OnboardingDraft;
   resources: {
-    endpoint_id?: number;
+    endpoint_created?: boolean;
     endpoint_name?: string;
     account_id?: number;
     account_name?: string;

@@ -223,11 +223,17 @@ beforeEach(() => {
     return lastJourney;
   });
   mocks.applyOnboardingJourney.mockImplementation(async (current: OnboardingJourney) => {
+    const endpointId = current.draft.endpoint_id ?? 9;
     const result: OnboardingJourney = {
       ...current,
       configured: true,
+      draft: {
+        ...current.draft,
+        endpoint_id: endpointId,
+        endpoint_url: "",
+      },
       resources: {
-        endpoint_id: current.draft.endpoint_id ?? 9,
+        ...(current.draft.endpoint_id ? {} : { endpoint_created: true }),
         ...(current.draft.manager || current.draft.portal ? { account_id: 11 } : {}),
         ...(current.draft.private_connection ? { connection_id: 12 } : {}),
       },
@@ -718,7 +724,11 @@ describe("simplified onboarding", () => {
   it("reloads a newly created endpoint after partial apply before rebuilding validation", async () => {
     mocks.listStorageEndpoints.mockResolvedValueOnce([]).mockResolvedValue([{ ...awsEndpoint, id: 9, name: "Created private endpoint", service_identities: [] }]);
     mocks.applyOnboardingJourney.mockImplementationOnce(async (current: OnboardingJourney) => {
-      const resumed = { ...current, resources: { endpoint_id: 9 }, draft: { ...current.draft, endpoint_id: 9 } };
+      const resumed = {
+        ...current,
+        resources: { endpoint_created: true },
+        draft: { ...current.draft, endpoint_id: 9 },
+      };
       status = { ...status, journeys: [resumed] };
       throw new Error("partial failure");
     });

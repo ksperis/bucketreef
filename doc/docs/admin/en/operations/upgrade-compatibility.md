@@ -1,5 +1,16 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 canonical onboarding endpoint checkpoints
+
+Migration `0260_onboarding_endpoint_checkpoint` removes the duplicated endpoint
+identifier from onboarding journey resources. The selected or newly created
+endpoint is now identified only by `draft.endpoint_id`. A partial apply that
+created an endpoint keeps the boolean `resources.endpoint_created` checkpoint so
+the backend still requires reconciliation before the draft can be edited.
+
+The Admin onboarding API and bundled frontend use this canonical shape together.
+Deploy the backend and frontend from the same release.
+
 ## 2026-11 canonical execution-context payloads
 
 The internal execution-context catalogue now treats

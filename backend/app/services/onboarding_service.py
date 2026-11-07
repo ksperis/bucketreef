@@ -388,7 +388,12 @@ class OnboardingService:
                 resources = row.resources
                 if row.pending_step or any(
                     resources.get(key)
-                    for key in ("endpoint_id", "account_id", "connection_id", "rgw_account_id")
+                    for key in (
+                        "endpoint_created",
+                        "account_id",
+                        "connection_id",
+                        "rgw_account_id",
+                    )
                 ):
                     raise OnboardingError("configuration_reconciliation_required", 409)
                 row.draft = payload.draft.model_dump(mode="json")
@@ -410,7 +415,7 @@ class OnboardingService:
             update={"endpoint_id": endpoint_id, "endpoint_url": ""}
         )
         row.draft = draft.model_dump(mode="json")
-        self.checkpoint(row, endpoint_id=endpoint_id)
+        self.checkpoint(row, endpoint_created=True)
 
     def audit(self, actor, action, identifier, *, status="success", **metadata):
         account_id = metadata.get("account_id")
