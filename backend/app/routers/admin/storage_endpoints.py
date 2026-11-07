@@ -62,8 +62,9 @@ def detect_storage_endpoint_features(
     payload: StorageEndpointFeatureDetectionRequest,
     service: StorageEndpointsService = Depends(get_service),
     current_user: User = Depends(get_current_ui_superadmin),
+    db: Session = Depends(get_db),
 ) -> StorageEndpointFeatureDetectionResult:
-    require_admin_interactive_session(request, service.db, current_user)
+    require_admin_interactive_session(request, db, current_user)
     try:
         return service.detect_features(payload)
     except ValueError as exc:
@@ -91,8 +92,9 @@ def create_storage_endpoint(
     service: StorageEndpointsService = Depends(get_service),
     audit_service: AuditService = Depends(get_audit_service),
     current_user: User = Depends(get_current_ui_superadmin),
+    db: Session = Depends(get_db),
 ) -> StorageEndpoint:
-    require_admin_sensitive_action(request, service.db, current_user)
+    require_admin_sensitive_action(request, db, current_user)
     try:
         created = service.create_endpoint(payload)
         audit_service.record_action(
@@ -123,8 +125,9 @@ def update_storage_endpoint(
     service: StorageEndpointsService = Depends(get_service),
     audit_service: AuditService = Depends(get_audit_service),
     current_user: User = Depends(get_current_ui_superadmin),
+    db: Session = Depends(get_db),
 ) -> StorageEndpoint:
-    require_admin_sensitive_action(request, service.db, current_user)
+    require_admin_sensitive_action(request, db, current_user)
     try:
         updated = service.update_endpoint(endpoint_id, payload)
         audit_service.record_action(
@@ -220,8 +223,9 @@ def reconcile_service_identities(
     service: StorageEndpointsService = Depends(get_service),
     current_user: User = Depends(get_current_ui_superadmin),
     audit_service: AuditService = Depends(get_audit_service),
+    db: Session = Depends(get_db),
 ) -> StorageEndpoint:
-    require_admin_sensitive_action(request, service.db, current_user)
+    require_admin_sensitive_action(request, db, current_user)
     try:
         endpoint = service.get_endpoint_record(endpoint_id)
         initial_provisioning = any(
