@@ -36,3 +36,21 @@ def paginate_scalars(
     if unique:
         rows = rows.unique()
     return rows.all(), total
+
+
+def paginate_rows(
+    db: Session,
+    statement: Select[Any],
+    *,
+    page: int,
+    page_size: int,
+) -> tuple[list[Any], int]:
+    total = int(
+        db.scalar(
+            select(func.count()).select_from(statement.order_by(None).subquery())
+        )
+        or 0
+    )
+    offset = max(page - 1, 0) * page_size
+    rows = db.execute(statement.offset(offset).limit(page_size))
+    return list(rows.all()), total
