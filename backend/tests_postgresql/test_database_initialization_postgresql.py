@@ -71,7 +71,7 @@ def test_postgresql_concurrent_startup_bootstraps_isolated_empty_schema(monkeypa
         with scoped_engine.connect() as connection:
             table_names = set(sa.inspect(connection).get_table_names())
             assert set(Base.metadata.tables).issubset(table_names)
-            config = database_initialization._alembic_config()
+            config = database_initialization._alembic_config(database_url)
             expected_head = ScriptDirectory.from_config(config).get_current_head()
             assert connection.scalar(sa.text("SELECT version_num FROM alembic_version")) == expected_head
             version_column = sa.inspect(connection).get_columns("alembic_version")[0]
@@ -119,7 +119,7 @@ def test_postgresql_legacy_gitlab_head_upgrades_to_rejoined_head() -> None:
             connect_args={"options": f"-csearch_path={schema_name}"},
             pool_pre_ping=True,
         )
-        config = database_initialization._alembic_config()
+        config = database_initialization._alembic_config(database_url)
         with scoped_engine.connect() as connection:
             config.attributes["connection"] = connection
             command.upgrade(config, _LEGACY_GITLAB_HEAD)

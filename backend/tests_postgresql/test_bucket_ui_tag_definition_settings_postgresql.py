@@ -29,8 +29,10 @@ def _postgresql_url() -> str:
     return url
 
 
-def _expected_alembic_head() -> str:
-    head = ScriptDirectory.from_config(database_initialization._alembic_config()).get_current_head()
+def _expected_alembic_head(database_url: str) -> str:
+    head = ScriptDirectory.from_config(
+        database_initialization._alembic_config(database_url)
+    ).get_current_head()
     assert head is not None
     return head
 
@@ -53,14 +55,15 @@ def _load_migration():
 
 
 def test_postgresql_bucket_ui_tag_definition_settings_migration():
-    engine = sa.create_engine(_postgresql_url(), pool_pre_ping=True)
+    database_url = _postgresql_url()
+    engine = sa.create_engine(database_url, pool_pre_ping=True)
     marker = "postgres-0120-collision"
     inserted: list[int] = []
     storage_id: int | None = None
     with engine.begin() as connection:
         assert (
             connection.scalar(sa.text("SELECT version_num FROM alembic_version"))
-            == _expected_alembic_head()
+            == _expected_alembic_head(database_url)
         )
         migration = _load_migration()
         migration.op = Operations(MigrationContext.configure(connection))

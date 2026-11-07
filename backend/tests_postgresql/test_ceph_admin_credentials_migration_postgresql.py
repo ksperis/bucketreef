@@ -43,7 +43,7 @@ def test_postgresql_upgrade_from_0_2_13_preserves_ceph_admin_credentials() -> No
             connect_args={"options": f"-csearch_path={schema_name}"},
             pool_pre_ping=True,
         )
-        config = database_initialization._alembic_config()
+        config = database_initialization._alembic_config(database_url)
         config.attributes["configure_logger"] = False
         expected_head = ScriptDirectory.from_config(config).get_current_head()
 
