@@ -95,6 +95,23 @@ def test_validate_credentials_success_admin_custom_endpoint(db_session, monkeypa
     assert payload["message"] == "Credentials validated."
 
 
+def test_validation_target_normalizes_manual_endpoint(db_session):
+    payload = S3ConnectionCredentialsValidationRequest(
+        endpoint_url="  https://s3.example.test///  ",
+        access_key_id="AKIA-NORMALIZED",
+        secret_access_key="SECRET-NORMALIZED",
+    )
+
+    endpoint_url, region, force_path_style, verify_tls = S3ConnectionValidationService(
+        db_session
+    )._resolve_target(payload, enforce_manual_endpoint_policy=False)
+
+    assert endpoint_url == "https://s3.example.test"
+    assert region is None
+    assert force_path_style is False
+    assert verify_tls is True
+
+
 def test_validate_credentials_access_denied_is_warning_user_route(db_session, monkeypatch):
     with _build_client(db_session) as (client, _):
         endpoint = StorageEndpoint(

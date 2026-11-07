@@ -15,7 +15,7 @@ from app.models.s3_connection import (
 )
 from app.services import s3_client
 from app.utils.aws_errors import aws_error_code
-from app.utils.s3_endpoint import validate_user_supplied_s3_endpoint
+from app.utils.s3_endpoint import normalize_s3_endpoint, validate_user_supplied_s3_endpoint
 
 AUTH_ERROR_CODES = {
     "InvalidAccessKeyId",
@@ -107,7 +107,7 @@ class S3ConnectionValidationService:
                 raise StorageEndpointNotFoundError("Storage endpoint not found")
             return endpoint.endpoint_url, endpoint.region, endpoint.force_path_style, True
 
-        endpoint_url = (payload.endpoint_url or "").strip().rstrip("/")
+        endpoint_url = normalize_s3_endpoint(payload.endpoint_url)
         if not endpoint_url:
             raise ValueError("Endpoint URL is required.")
         if enforce_manual_endpoint_policy:
