@@ -2,16 +2,14 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from typing import Literal, Optional
+from typing import Optional
 
+from app.core.domain_enums import TrendWindow
 from app.models.base import ApiModel
 
 
-UsageTrendWindow = Literal["month", "week", "day"]
-
-
 class UsageTrendBaseline(ApiModel):
-    window: UsageTrendWindow
+    window: TrendWindow
     label: str
     period_start: str
     used_bytes: Optional[int] = None

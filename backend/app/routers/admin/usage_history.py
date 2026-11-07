@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.domain_enums import TrendWindow
 from app.db import User
 from app.models.quota_monitoring import UsageHistoryCollectionResult
 from app.models.usage_history import (
@@ -17,7 +18,6 @@ from app.models.usage_history import (
     UsageHistoryResponse,
     UsageHistorySubjectType,
     UsageHistoryTrendResponse,
-    UsageHistoryTrendWindow,
 )
 from app.routers.dependencies import get_current_ui_admin
 from app.services.app_settings_service import load_app_settings_for_db
@@ -84,7 +84,7 @@ def list_usage_history(
 
 @router.get("/trends", response_model=UsageHistoryTrendResponse)
 def usage_history_trends(
-    window: UsageHistoryTrendWindow = Query("month"),
+    window: TrendWindow = Query("month"),
     endpoint_id: Optional[int] = Query(None),
     subject_type: UsageHistorySubjectType = Query("all"),
     _: User = Depends(get_current_ui_admin),

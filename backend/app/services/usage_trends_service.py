@@ -8,11 +8,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import QuotaUsageDaily
-from app.models.usage_trends import UsageTrendBaseline, UsageTrendsResponse, UsageTrendWindow
+from app.core.domain_enums import TrendWindow
+from app.models.usage_trends import UsageTrendBaseline, UsageTrendsResponse
 from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
 from app.utils.time import utcnow
 
-USAGE_TREND_WINDOWS: tuple[tuple[UsageTrendWindow, str, int], ...] = (
+USAGE_TREND_WINDOWS: tuple[tuple[TrendWindow, str, int], ...] = (
     ("month", "last 30 days", 28),
     ("week", "last week", 6),
     ("day", "yesterday", 1),
@@ -51,7 +52,7 @@ def execution_context_usage_trend_filters(
 def _serialize_usage_trend_baseline(
     row: QuotaUsageDaily,
     *,
-    window: UsageTrendWindow,
+    window: TrendWindow,
     label: str,
 ) -> UsageTrendBaseline:
     return UsageTrendBaseline(

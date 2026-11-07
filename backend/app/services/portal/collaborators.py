@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy import func, select
 
+from app.core.domain_enums import PortalAccountRole, TrendWindow
 from app.db import (
     PortalExternalAccessCredential,
     PortalStorageSpaceGrant,
@@ -17,7 +18,6 @@ from app.db import (
     UserS3Account,
     UserUiGroup,
 )
-from app.core.domain_enums import PortalAccountRole
 from app.models.portal_storage_spaces import (
     PortalStorageSpaceCollaboratorPreview,
     PortalStorageSpaceGrantRole,
@@ -40,7 +40,7 @@ if TYPE_CHECKING:
     from app.services.access_context_contracts import AccountAccess
 
 
-COLLABORATOR_TREND_WINDOWS: tuple[tuple[str, str, int], ...] = (
+COLLABORATOR_TREND_WINDOWS: tuple[tuple[TrendWindow, str, int], ...] = (
     ("month", "last 30 days", 28),
     ("week", "last week", 6),
     ("day", "yesterday", 1),

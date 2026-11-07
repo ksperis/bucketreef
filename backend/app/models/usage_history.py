@@ -6,7 +6,7 @@ from typing import Literal, Optional
 
 from pydantic import Field
 
-from app.core.domain_enums import S3SubjectFilter, S3SubjectType
+from app.core.domain_enums import S3SubjectFilter, S3SubjectType, TrendWindow
 from app.models.admin_listing import AdminSortDir
 from app.models.base import ApiModel
 from app.models.pagination import PaginatedResponse, PaginationRequest
@@ -15,7 +15,6 @@ from app.models.pagination import PaginatedResponse, PaginationRequest
 UsageHistoryGranularity = Literal["daily", "hourly"]
 UsageHistorySubjectType = S3SubjectFilter
 UsageHistorySortBy = Literal["period", "subject", "used_bytes", "used_objects", "ratio"]
-UsageHistoryTrendWindow = Literal["day", "week", "month"]
 
 
 class UsageHistoryListingRequest(PaginationRequest):
@@ -84,7 +83,7 @@ class UsageHistoryTrendSummary(ApiModel):
 
 
 class UsageHistoryTrendResponse(ApiModel):
-    window: UsageHistoryTrendWindow
+    window: TrendWindow
     granularity: UsageHistoryGranularity
     available: bool
     unavailable_reason: Optional[str]
