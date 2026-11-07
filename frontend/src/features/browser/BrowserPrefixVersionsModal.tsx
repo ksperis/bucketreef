@@ -7,6 +7,7 @@ import ListDialog from "../../components/list/ListDialog";
 import DataTableShell, { type DataTableColumn } from "../../components/list/DataTableShell";
 import {
   formatDownloadTimestamp,
+  sanitizeDownloadFilename,
   triggerDownload,
   triggerJsonDownload,
 } from "../../utils/download";
@@ -46,10 +47,6 @@ export default function BrowserPrefixVersionsModal({
   onDeleteVersion,
 }: BrowserPrefixVersionsModalProps) {
   const { text, intlLocale } = useBrowserI18n();
-  const sanitizeFilename = (value: string) => {
-    const cleaned = value.replace(/[^a-zA-Z0-9-_]+/g, "_").replace(/^_+|_+$/g, "");
-    return cleaned || "prefix-versions";
-  };
 
   const buildExportRows = () =>
     prefixVersionRows.map((ver) => ({
@@ -66,7 +63,10 @@ export default function BrowserPrefixVersionsModal({
   const handleExportJson = () => {
     const exportedAt = new Date().toISOString();
     const timestamp = formatDownloadTimestamp(exportedAt);
-    const baseName = sanitizeFilename(`prefix-versions-${bucketName}-${normalizedPrefix || "root"}`);
+    const baseName = sanitizeDownloadFilename(
+      `prefix-versions-${bucketName}-${normalizedPrefix || "root"}`,
+      "prefix-versions",
+    );
     const payload = {
       exportedAt,
       bucket: bucketName,
@@ -79,7 +79,10 @@ export default function BrowserPrefixVersionsModal({
   const handleExportCsv = () => {
     const exportedAt = new Date().toISOString();
     const timestamp = formatDownloadTimestamp(exportedAt);
-    const baseName = sanitizeFilename(`prefix-versions-${bucketName}-${normalizedPrefix || "root"}`);
+    const baseName = sanitizeDownloadFilename(
+      `prefix-versions-${bucketName}-${normalizedPrefix || "root"}`,
+      "prefix-versions",
+    );
     const headers = [
       "key",
       "version_id",

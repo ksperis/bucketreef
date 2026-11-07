@@ -10,7 +10,10 @@ import type {
   OperationItem,
   UploadOperationGroup,
 } from "./browserTypes";
-import { formatDownloadTimestamp } from "../../utils/download";
+import {
+  formatDownloadTimestamp,
+  sanitizeDownloadFilename,
+} from "../../utils/download";
 
 type BrowserOperationDetailsExportInput = {
   kind: OperationDetailsKind;
@@ -134,13 +137,6 @@ function buildUploadPayload(
   };
 }
 
-function sanitizeFilename(value: string): string {
-  const cleaned = value
-    .replace(/[^a-zA-Z0-9-_]+/g, "_")
-    .replace(/^_+|_+$/g, "");
-  return cleaned || "operation";
-}
-
 export function buildBrowserOperationDetailsExport({
   kind,
   operationId,
@@ -173,7 +169,7 @@ export function buildBrowserOperationDetailsExport({
   if (!payload) return null;
   const timestamp = formatDownloadTimestamp(exportedAt);
   return {
-    filename: `${sanitizeFilename(`operation-${kind}-${operationId}`)}-${timestamp}.json`,
+    filename: `${sanitizeDownloadFilename(`operation-${kind}-${operationId}`, "operation")}-${timestamp}.json`,
     payload,
   };
 }

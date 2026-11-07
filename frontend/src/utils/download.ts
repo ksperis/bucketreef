@@ -37,5 +37,12 @@ export const triggerDownload = (
 export const formatDownloadTimestamp = (value: Date | string) =>
   (typeof value === "string" ? value : value.toISOString()).replace(/[:.]/g, "-");
 
+export const sanitizeDownloadFilename = (value: string, fallback: string) => {
+  const cleaned = value
+    .replace(/[^a-zA-Z0-9-_]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  return cleaned || fallback;
+};
+
 export const triggerJsonDownload = (filename: string, payload: unknown) =>
   triggerDownload(filename, JSON.stringify(payload, null, 2), "application/json");

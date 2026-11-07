@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   formatDownloadTimestamp,
+  sanitizeDownloadFilename,
   triggerDownload,
   triggerJsonDownload,
   triggerUrlDownload,
@@ -37,6 +38,16 @@ describe("triggerDownload", () => {
     expect(formatDownloadTimestamp(date.toISOString())).toBe(
       "2026-08-28T12-34-56-789Z",
     );
+  });
+
+  it("sanitizes download filenames while preserving caller-specific fallbacks", () => {
+    expect(sanitizeDownloadFilename(" report / 2026.csv ", "download")).toBe(
+      "report_2026_csv",
+    );
+    expect(sanitizeDownloadFilename("__already-safe__", "download")).toBe(
+      "already-safe",
+    );
+    expect(sanitizeDownloadFilename("///", "operation")).toBe("operation");
   });
 
   it("downloads text through a temporary object URL and cleans it up", () => {
