@@ -48,6 +48,7 @@ from app.services.bucket_migration.execution_object_models import (
 )
 from app.services.bucket_migration.diagnostics import MigrationPrecheckError
 from app.services.bucket_migration.precheck_item_inspection import BucketMigrationItemInspector
+from app.services.bucket_migration.precheck_rules import BucketMigrationPrecheckRules
 from app.services.bucket_migration.execution_runtime import ResolvedContext
 from app.services.bucket_migration.execution_signals import MigrationControlRequested
 from app.services.bucket_migration.worker import BucketMigrationWorker
@@ -1973,6 +1974,64 @@ def test_precheck_item_inspection_does_not_mask_unexpected_count_failure():
         )
 
 
+def test_precheck_rules_record_typed_version_access_failure():
+    service = SimpleNamespace(
+        _precheck_version_aware_source_access=lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            MigrationPrecheckError("version access unavailable")
+        )
+    )
+    checks: list[dict] = []
+
+    BucketMigrationPrecheckRules(service).validate_version_aware_source_access(
+        SimpleNamespace(),
+        SimpleNamespace(source_bucket="bucket-a"),
+        {},
+        add_check=lambda **payload: checks.append(payload),
+    )
+
+    assert checks[0]["code"] == "version_aware_source_access_failed"
+    assert "version access unavailable" in checks[0]["message"]
+
+
+def test_precheck_rules_do_not_mask_unexpected_version_access_failure():
+    service = SimpleNamespace(
+        _precheck_version_aware_source_access=lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            RuntimeError("unexpected version access regression")
+        )
+    )
+
+    with pytest.raises(RuntimeError, match="unexpected version access regression"):
+        BucketMigrationPrecheckRules(service).validate_version_aware_source_access(
+            SimpleNamespace(),
+            SimpleNamespace(source_bucket="bucket-a"),
+            {},
+            add_check=lambda **_payload: None,
+        )
+
+
+def test_precheck_rules_do_not_mask_unexpected_same_endpoint_copy_failure():
+    service = SimpleNamespace(
+        _precheck_same_endpoint_copy_source_access=lambda *_args, **_kwargs: (
+            _ for _ in ()
+        ).throw(RuntimeError("unexpected same-endpoint copy regression")),
+        _preparation_active_checks=True,
+    )
+
+    with pytest.raises(RuntimeError, match="unexpected same-endpoint copy regression"):
+        BucketMigrationPrecheckRules(service)._check_same_endpoint_copy_safety(
+            SimpleNamespace(),
+            SimpleNamespace(),
+            SimpleNamespace(source_bucket="bucket-a"),
+            SimpleNamespace(auto_grant_source_read_for_copy=False),
+            source_access_ok=True,
+            source_profile={},
+            target_exists=False,
+            strategy="current_only",
+            enabled=True,
+            add_check=lambda **_payload: None,
+        )
+
+
 def test_run_precheck_passed_then_start_allowed(db_session):
     user = _create_user(db_session)
     source = _create_account(db_session, name="source", endpoint_url="https://source.example.test", account_id="RGW001")
@@ -2135,7 +2194,7 @@ def test_run_precheck_fails_when_same_endpoint_copy_source_access_is_missing(db_
     service._inspector.inspect_bucket_state = lambda *_args, **_kwargs: _bucket_profile_stub("bucket-a")  # type: ignore[method-assign]
 
     def _deny_same_endpoint_copy(*_args, **_kwargs):
-        raise RuntimeError("missing s3:GetObject on source")
+        raise MigrationPrecheckError("missing s3:GetObject on source")
 
     service._precheck_same_endpoint_copy_source_access = _deny_same_endpoint_copy  # type: ignore[method-assign]
 
