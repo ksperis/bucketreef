@@ -20,6 +20,7 @@ from app.services.listing_progress import (
     interpolate_progress_percent,
 )
 from app.services.s3_execution_context import S3ExecutionContext
+from app.services.sequence_pagination import paginate_sequence
 from app.services.storage_ops_bucket_filtering import sort_storage_ops_buckets
 from app.services.storage_ops_bucket_listing_request import (
     StorageOpsBucketListingRequest,
@@ -296,10 +297,11 @@ class _StorageOpsBucketListingPipeline:
             sort_by=self.request.sort_by,
             sort_dir=self.request.sort_dir,
         )
-        total = len(sorted_items)
-        start = (self.request.page - 1) * self.request.page_size
-        end = start + self.request.page_size
-        return sorted_items[start:end], total, end < total
+        return paginate_sequence(
+            sorted_items,
+            page=self.request.page,
+            page_size=self.request.page_size,
+        )
 
     def _enrich_page(
         self,

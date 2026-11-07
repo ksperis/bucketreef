@@ -14,6 +14,7 @@ from app.services import (
 from app.services.rgw_principal_scope import resolve_target_admin_uid, resolve_target_tenant
 from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_runtime_rgw_client
+from app.services.sequence_pagination import paginate_sequence
 from app.models.bucket import Bucket, BucketOption, PaginatedBucketOptionsResponse
 from app.models.pagination import OptionListingRequest
 from app.utils.rgw_payloads import extract_bucket_list
@@ -188,18 +189,21 @@ class BucketsService:
             },
             key=str.casefold,
         )
-        total = len(names)
-        start = (request.page - 1) * request.page_size
+        page_names, total, has_next = paginate_sequence(
+            names,
+            page=request.page,
+            page_size=request.page_size,
+        )
         items = [
             BucketOption(name=name)
-            for name in names[start : start + request.page_size]
+            for name in page_names
         ]
         return PaginatedBucketOptionsResponse(
             items=items,
             total=total,
             page=request.page,
             page_size=request.page_size,
-            has_next=request.page * request.page_size < total,
+            has_next=has_next,
         )
 
     def get_bucket_stats(

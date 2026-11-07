@@ -29,6 +29,7 @@ from app.models.access_audit import (
 from app.services.access_context_contracts import EffectiveAccountLink
 from app.services.effective_access_contracts import EffectiveAccessSource, ResolvedUserAccess
 from app.services.effective_access_service import EffectiveAccessService
+from app.services.sequence_pagination import paginate_sequence
 
 
 RIGHT_LABELS: dict[AccessAuditRightCode, str] = {
@@ -469,15 +470,17 @@ class AccessAuditService:
         request: AccessAuditListingRequest,
     ) -> PaginatedAccessAuditResponse:
         rows = self.list_rows(request)
-        total = len(rows)
-        start = (request.page - 1) * request.page_size
-        items = rows[start:start + request.page_size]
+        items, total, has_next = paginate_sequence(
+            rows,
+            page=request.page,
+            page_size=request.page_size,
+        )
         return PaginatedAccessAuditResponse(
             items=items,
             total=total,
             page=request.page,
             page_size=request.page_size,
-            has_next=request.page * request.page_size < total,
+            has_next=has_next,
         )
 
     @staticmethod

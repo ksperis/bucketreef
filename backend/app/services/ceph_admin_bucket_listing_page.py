@@ -26,6 +26,7 @@ from app.services.ceph_admin_bucket_listing_context import CephAdminBucketListin
 from app.services.ceph_admin_bucket_listing_request import CephAdminBucketListingRequest
 from app.services.listing_progress import ListingProgressEmitter
 from app.services.s3_execution_context import build_ceph_admin_s3_context
+from app.services.sequence_pagination import paginate_sequence
 from app.utils.cancellation import invoke_cancel_check
 from app.utils.tagging import TAG_DOMAIN_BUCKET_UI_CEPH_ADMIN
 
@@ -62,10 +63,12 @@ class CephAdminBucketPageBuilder:
         filtered_results = self._apply_simple_filter(self.listing.items)
         filtered_results = self._apply_ui_tags(filtered_results)
         invoke_cancel_check(self.cancel_check)
-        total = len(filtered_results)
-        start = max(page - 1, 0) * page_size
-        end = start + page_size
-        page_items = clone_ceph_admin_bucket_list(filtered_results[start:end])
+        page_items, total, has_next = paginate_sequence(
+            filtered_results,
+            page=page,
+            page_size=page_size,
+        )
+        page_items = clone_ceph_admin_bucket_list(page_items)
         page_items = self._backfill_owner_metadata(page_items)
         page_items = self._enrich_bucket_details(page_items)
         self._enrich_owner_names(page_items)
@@ -76,7 +79,7 @@ class CephAdminBucketPageBuilder:
             total=total,
             page=page,
             page_size=page_size,
-            has_next=end < total,
+            has_next=has_next,
             stats_available=self.listing.stats_available,
             stats_warning=self.listing.stats_warning,
         )
