@@ -371,7 +371,11 @@ describe("PortalAccessKeysPage", () => {
     expect(within(setupDialog).getByText("Bucket")).toBeInTheDocument();
     expect(within(setupDialog).getByText("Access ID")).toBeInTheDocument();
     expect(within(setupDialog).getByText("Addressing mode")).toBeInTheDocument();
-    expect(within(setupDialog).getByRole("button", { name: "Copy Access ID: AK-USER" })).toBeInTheDocument();
+    const copyAccessId = within(setupDialog).getByRole("button", { name: "Copy Access ID: AK-USER" });
+    const writeText = vi.spyOn(navigator.clipboard, "writeText");
+    await user.click(copyAccessId);
+    expect(writeText).toHaveBeenCalledWith("AK-USER");
+    expect(await within(setupDialog).findByRole("status")).toHaveTextContent("Value copied.");
 
     await user.click(within(setupDialog).getByRole("button", { name: /Download connection details.*Research Data/i }));
     const details = await readDownloadedBlobText(downloadedBlobs.at(-1));

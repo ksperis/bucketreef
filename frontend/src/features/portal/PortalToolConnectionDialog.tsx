@@ -10,6 +10,7 @@ import UiSelect from "../../components/ui/UiSelect";
 import { cx, uiLabelClass, uiMutedTextClass, uiPanelMutedClass, uiTitleTextClass } from "../../components/ui/styles";
 import { useI18n } from "../../i18n";
 import { extractApiError } from "../../utils/apiError";
+import { copyTextToClipboard } from "../../utils/clipboard";
 import { keyConnectionLabel } from "./portalAccessKeyLabels";
 import {
   buildCyberduckBookmark, buildGenericConnectionSheet, buildWinScpProfile,
@@ -112,7 +113,7 @@ export default function PortalToolConnectionDialog({ accountId, activeKeys, endp
 
   const handleCopyConnectionValue = async (value: string) => {
     try {
-      await navigator.clipboard.writeText(value);
+      await copyTextToClipboard(value);
       setMessage(t({ en: "Value copied.", fr: "Valeur copiée.", de: "Wert kopiert.", zh: "已复制。" }));
     } catch {
       setMessage(t({ en: "Unable to copy this value.", fr: "Impossible de copier cette valeur.", de: "Dieser Wert kann nicht kopiert werden.", zh: "无法复制此值。" }));
