@@ -10,6 +10,7 @@ from app.db import BucketMigration, BucketMigrationItem
 from app.models.bucket import BucketObjectLockUpdate, BucketPublicAccessBlockUpdate
 from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionTarget
+from app.utils.normalize import normalize_text
 
 from .diagnostics import MigrationSettingsCopyError
 
@@ -128,7 +129,7 @@ class _BucketSettingsCopyRunner:
                 self.source_bucket,
                 self.source_execution_context,
             )
-            enabled = str(properties.versioning_status or "").strip().lower() == "enabled"
+            enabled = normalize_text(properties.versioning_status) == "enabled"
         self.service._configuration.set_versioning(
             self.target_bucket,
             self.target_execution_context,

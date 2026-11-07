@@ -13,8 +13,14 @@ from app.services.s3_client import S3OperationError
 
 
 class _SettingsStub:
-    def __init__(self, *, fail_write: str | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        fail_write: str | None = None,
+        versioning_status: str | None = "Enabled",
+    ) -> None:
         self.fail_write = fail_write
+        self.versioning_status = versioning_status
         self.calls: list[tuple[str, object]] = []
 
     def _read(self, name: str, value):
@@ -29,7 +35,7 @@ class _SettingsStub:
     def get_bucket_properties(self, *_args):
         return self._read(
             "get_bucket_properties",
-            SimpleNamespace(versioning_status="Enabled"),
+            SimpleNamespace(versioning_status=self.versioning_status),
         )
 
     def set_versioning(self, *_args, enabled: bool):
@@ -178,6 +184,17 @@ def test_copy_bucket_settings_forces_versioning_for_version_aware_strategy(
     assert settings.calls[0] == ("set_versioning", True)
     assert all(name != "get_bucket_properties" for name, _value in settings.calls)
     assert events[-1]["message"] == "Bucket settings copied."
+
+
+def test_copy_bucket_settings_normalizes_versioning_status(db_session):
+    settings = _SettingsStub(versioning_status=" ENABLED ")
+
+    _run_copy(db_session, strategy="current_only", settings=settings)
+
+    assert settings.calls[:2] == [
+        ("get_bucket_properties", None),
+        ("set_versioning", True),
+    ]
 
 
 def test_copy_bucket_settings_continues_after_failure_and_aggregates(db_session):
