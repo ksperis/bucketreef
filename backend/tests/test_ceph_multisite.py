@@ -1135,6 +1135,19 @@ def test_overview_deadline_returns_pending_destinations_as_uncollected(db_sessio
     assert all(future.cancelled for future in executor.futures)
 
 
+def test_overview_propagates_unexpected_flow_failures(db_session, monkeypatch) -> None:
+    service = _overview_fixture(db_session, monkeypatch)
+    monkeypatch.setattr(service.settings, "ceph_multisite_call_budget", 1)
+
+    def fail_flow(*_args, **_kwargs):
+        raise RuntimeError("unexpected flow bug")
+
+    monkeypatch.setattr(service, "flow", fail_flow)
+
+    with pytest.raises(RuntimeError, match="unexpected flow bug"):
+        service.overview()
+
+
 def test_overview_job_planning_respects_explicit_sync_sources(db_session, monkeypatch) -> None:
     service = _overview_fixture(db_session, monkeypatch)
     topology = service.topology()
