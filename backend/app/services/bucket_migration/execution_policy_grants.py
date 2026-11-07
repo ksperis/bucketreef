@@ -9,11 +9,13 @@ from typing import Any, Optional
 
 from botocore.exceptions import BotoCoreError, ClientError
 
+from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import BucketMigrationItem
 from app.services.rgw_principal_scope import resolve_target_admin_uid
 from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionTarget
 
+from .diagnostics import MigrationPrecheckError
 from .execution_runtime import MIGRATION_USER_AGENT_MARKER, ResolvedContext
 
 logger = logging.getLogger(__name__)
@@ -491,11 +493,14 @@ class BucketMigrationPolicyGrantsMixin:
             )
         except S3OperationError as exc:
             if self._is_access_denied_error(exc):
-                raise RuntimeError(
+                raise MigrationPrecheckError(
                     "Unable to read source bucket policy during precheck. "
                     f"Required permissions on '{source_bucket}': s3:GetBucketPolicy and s3:PutBucketPolicy."
                 ) from exc
-            raise
+            raise MigrationPrecheckError(
+                "Unable to read source bucket policy during precheck: "
+                f"{sanitized_error_log_detail(exc)}"
+            ) from exc
 
         policy_doc = self._build_read_only_policy(
             source_bucket,
@@ -510,11 +515,17 @@ class BucketMigrationPolicyGrantsMixin:
             "context_id": migration.source_context_id, "bucket": source_bucket, "policy": existing_policy,
         })
         try:
-            self._configuration.put_policy(
-                source_bucket,
-                source_execution_context,
-                policy_doc,
-            )
+            try:
+                self._configuration.put_policy(
+                    source_bucket,
+                    source_execution_context,
+                    policy_doc,
+                )
+            except S3OperationError as exc:
+                raise MigrationPrecheckError(
+                    "Unable to apply source protection during precheck: "
+                    f"{sanitized_error_log_detail(exc)}"
+                ) from exc
         finally:
             self._restore_checked_policy(
                 source_execution_context,

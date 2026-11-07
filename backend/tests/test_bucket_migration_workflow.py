@@ -26,7 +26,10 @@ from app.models.bucket_migration import (
     BucketMigrationView,
 )
 from app.services.bucket_migration import maintenance as bucket_migration_maintenance
-from app.services.bucket_migration.diagnostics import MigrationPrecheckError
+from app.services.bucket_migration.diagnostics import (
+    MigrationPrecheckError,
+    MigrationRecoveryError,
+)
 from app.services.bucket_migration.execution_object_models import BucketVersionEntry
 from app.services.bucket_migration_service import BucketMigrationService
 from app.services.s3_client import S3OperationError
@@ -399,6 +402,29 @@ def test_policy_intent_precedes_mutation_and_survives_interruption(
         service._resolve_context(migration.source_context_id).execution_context,
         policy,
     )
+
+
+def test_policy_roundtrip_types_provider_failure_after_restoration(prepared):
+    service, migration, _ = prepared
+    item = migration.items[0]
+    service._preparation_item = item
+    configuration = Mock()
+    configuration.get_policy.side_effect = [None, None]
+    configuration.put_policy.side_effect = S3OperationError("policy provider unavailable")
+    service._configuration = configuration
+
+    with pytest.raises(
+        MigrationPrecheckError,
+        match="Unable to apply source protection during precheck",
+    ):
+        BucketMigrationService._precheck_policy_roundtrip(
+            service,
+            service._resolve_context(migration.source_context_id).execution_context,
+            item.source_bucket,
+        )
+
+    assert item.preparation_effects is None
+    configuration.delete_policy.assert_called_once()
 
 
 def test_failed_restoration_blocks_checks_edits_and_start(prepared):
@@ -955,6 +981,61 @@ def test_active_destination_probe_exercises_multipart_tags_and_cleanup(prepared)
     service._buckets.delete_bucket.assert_called_once()
 
 
+def test_destination_probe_types_provider_failure_after_cleanup(prepared):
+    service, migration, _ = prepared
+    item = migration.items[0]
+    source = service._resolve_context(migration.source_context_id)
+    target = service._resolve_context(migration.target_context_id)
+    service._journal_preparation_effect = Mock()
+    service._run_destination_probe = Mock(
+        side_effect=S3OperationError("destination provider unavailable")
+    )
+    service._cleanup_destination_probe_bucket = Mock()
+    service._clear_preparation_effect = Mock()
+
+    with pytest.raises(
+        MigrationPrecheckError,
+        match="destination provider unavailable",
+    ):
+        BucketMigrationService._precheck_destination(
+            service,
+            migration,
+            item,
+            source,
+            target,
+            strategy="current_only",
+        )
+
+    service._cleanup_destination_probe_bucket.assert_called_once()
+    service._clear_preparation_effect.assert_called_once()
+
+
+def test_destination_probe_does_not_retype_unexpected_runtime_failure(prepared):
+    service, migration, _ = prepared
+    item = migration.items[0]
+    source = service._resolve_context(migration.source_context_id)
+    target = service._resolve_context(migration.target_context_id)
+    service._journal_preparation_effect = Mock()
+    service._run_destination_probe = Mock(
+        side_effect=RuntimeError("unexpected destination regression")
+    )
+    service._cleanup_destination_probe_bucket = Mock()
+    service._clear_preparation_effect = Mock()
+
+    with pytest.raises(RuntimeError, match="unexpected destination regression"):
+        BucketMigrationService._precheck_destination(
+            service,
+            migration,
+            item,
+            source,
+            target,
+            strategy="current_only",
+        )
+
+    service._cleanup_destination_probe_bucket.assert_called_once()
+    service._clear_preparation_effect.assert_called_once()
+
+
 def test_same_endpoint_probe_uses_in_memory_source_profile(prepared):
     service, migration, _ = prepared
     item = migration.items[0]
@@ -1024,7 +1105,7 @@ def test_probe_cleanup_unknown_state_keeps_recovery_record(prepared):
     }
     service._precheck_bucket_exists = Mock(side_effect=[True, True])
     service._buckets.delete_bucket = Mock()
-    with pytest.raises(RuntimeError, match="removal could not be verified"):
+    with pytest.raises(MigrationRecoveryError, match="removal could not be verified"):
         service._recover_preparation_effects(migration)
     assert item.preparation_effects is not None
 

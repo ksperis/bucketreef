@@ -6,6 +6,8 @@ from __future__ import annotations
 from datetime import timedelta
 from contextlib import nullcontext
 from typing import Callable
+
+from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy import or_, select, update
 
 from app.core.sensitive_data import sanitized_error_log_detail
@@ -15,8 +17,13 @@ from app.services.managed_resource_naming import (
     migration_probe_bucket_name,
 )
 from app.services.s3_client import S3OperationError
+from app.services.s3_deletion import BucketNotEmptyError
 from app.utils.time import utcnow
-from .diagnostics import MigrationPrecheckError
+from .diagnostics import (
+    MigrationPrecheckError,
+    MigrationRecoveryError,
+    MigrationSettingsCopyError,
+)
 from .execution_signals import WorkerLeaseLostError
 from .precheck_reporting import create_precheck_report
 from .workflow import require_action
@@ -297,13 +304,19 @@ class BucketMigrationPreparationMixin:
 
     def _restore_checked_policy(self, account, bucket: str, policy) -> None:
         self._assert_workflow_lease()
-        if isinstance(policy, dict):
-            self._configuration.put_policy(bucket, account, policy)
-        else:
-            self._configuration.delete_policy(bucket, account)
-        restored = self._configuration.get_policy(bucket, account)
+        try:
+            if isinstance(policy, dict):
+                self._configuration.put_policy(bucket, account, policy)
+            else:
+                self._configuration.delete_policy(bucket, account)
+            restored = self._configuration.get_policy(bucket, account)
+        except S3OperationError as exc:
+            raise MigrationRecoveryError(
+                f"Unable to restore bucket policy for '{bucket}': "
+                f"{sanitized_error_log_detail(exc)}"
+            ) from exc
         if (restored or None) != (policy or None):
-            raise RuntimeError(
+            raise MigrationRecoveryError(
                 f"Policy restoration could not be verified for bucket '{bucket}'"
             )
 
@@ -315,21 +328,31 @@ class BucketMigrationPreparationMixin:
         policy_tested: bool,
     ) -> None:
         self._assert_workflow_lease()
-        exists = self._precheck_bucket_exists(target_ctx, probe)
-        if exists is None:
-            raise RuntimeError(
-                "Unable to establish whether the temporary probe bucket still exists"
-            )
-        if exists:
-            if policy_tested:
-                self._configuration.delete_policy(
-                    probe, target_ctx.execution_context
+        try:
+            exists = self._precheck_bucket_exists(target_ctx, probe)
+            if exists is None:
+                raise MigrationRecoveryError(
+                    "Unable to establish whether the temporary probe bucket still exists"
                 )
-            self._buckets.delete_bucket(
-                probe, target_ctx.execution_context, force=True
-            )
-        if self._precheck_bucket_exists(target_ctx, probe) is not False:
-            raise RuntimeError("Temporary bucket removal could not be verified")
+            if exists:
+                if policy_tested:
+                    self._configuration.delete_policy(
+                        probe, target_ctx.execution_context
+                    )
+                self._buckets.delete_bucket(
+                    probe, target_ctx.execution_context, force=True
+                )
+            if self._precheck_bucket_exists(target_ctx, probe) is not False:
+                raise MigrationRecoveryError(
+                    "Temporary bucket removal could not be verified"
+                )
+        except MigrationRecoveryError:
+            raise
+        except (MigrationPrecheckError, S3OperationError, BucketNotEmptyError) as exc:
+            raise MigrationRecoveryError(
+                f"Unable to clean temporary destination bucket '{probe}': "
+                f"{sanitized_error_log_detail(exc)}"
+            ) from exc
 
     def _probe_destination_object_access(self, client, probe: str) -> dict[str, str]:
         key = MIGRATION_PROBE_OBJECT_KEY
@@ -346,7 +369,9 @@ class BucketMigrationPreparationMixin:
         client.get_object_tagging(**identity)
         body = client.get_object(**identity).get("Body")
         if body is None:
-            raise RuntimeError("Destination content could not be read for verification")
+            raise MigrationPrecheckError(
+                "Destination content could not be read for verification"
+            )
         try:
             body.read(1)
         finally:
@@ -410,7 +435,7 @@ class BucketMigrationPreparationMixin:
         elif contents:
             copy_source["Key"] = contents[0]["Key"]
         else:
-            raise RuntimeError(
+            raise MigrationPrecheckError(
                 "No source object is available to validate storage-side copy. Use Copy via BucketReef."
             )
         grant = (
@@ -461,7 +486,7 @@ class BucketMigrationPreparationMixin:
                 source_profile=source_profile,
                 strategy=strategy,
             )
-        except Exception as exc:
+        except Exception as exc:  # Cleanup must run for any probe failure.
             error = exc
         try:
             self._cleanup_destination_probe_bucket(
@@ -470,11 +495,25 @@ class BucketMigrationPreparationMixin:
                 policy_tested=policy_tested,
             )
             self._clear_preparation_effect(item, "probe_bucket")
-        except Exception as cleanup_error:
-            raise RuntimeError(
+        except MigrationRecoveryError as cleanup_error:
+            raise MigrationRecoveryError(
                 f"Temporary destination cleanup requires recovery: {cleanup_error}"
             ) from error
         if error:
+            if isinstance(error, MigrationPrecheckError):
+                raise error
+            if isinstance(
+                error,
+                (
+                    MigrationSettingsCopyError,
+                    S3OperationError,
+                    ClientError,
+                    BotoCoreError,
+                ),
+            ):
+                raise MigrationPrecheckError(
+                    sanitized_error_log_detail(error)
+                ) from error
             raise error
 
     def _run_destination_probe(
@@ -549,7 +588,7 @@ class BucketMigrationPreparationMixin:
             return
         marker = client.delete_object(Bucket=probe, Key=MIGRATION_PROBE_OBJECT_KEY)
         if not marker.get("VersionId"):
-            raise RuntimeError(
+            raise MigrationPrecheckError(
                 "Destination did not create the expected versioned delete marker"
             )
         client.delete_object(
