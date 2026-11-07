@@ -20,12 +20,13 @@ from app.services.buckets_service import BucketsService, get_buckets_service
 from app.services.storage_ops_context_service import list_storage_ops_context_refs
 from app.services.storage_ops_bucket_ui_tags_service import (
     StorageOpsBucketUiTagAuthorizationError,
-    StorageOpsBucketUiTagConflictError,
-    StorageOpsBucketUiTagNotFoundError,
     StorageOpsBucketUiTagUpstreamError,
     StorageOpsBucketUiTagsWorkflow,
 )
-from app.utils.http_errors import raise_http_exception_from_exception
+from app.utils.http_errors import (
+    raise_http_error_from_value_error,
+    raise_http_exception_from_exception,
+)
 
 
 router = APIRouter(prefix="/storage-ops/bucket-ui-tags", tags=["storage-ops-bucket-ui-tags"])
@@ -77,12 +78,10 @@ def patch_bucket_ui_tags(
         )
     except StorageOpsBucketUiTagAuthorizationError as exc:
         raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
-    except StorageOpsBucketUiTagConflictError as exc:
-        raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
     except StorageOpsBucketUiTagUpstreamError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
     except ValueError as exc:
-        raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
+        raise_http_error_from_value_error(exc)
 
 
 @router.patch("/{tag_id}", response_model=BucketUiTagDefinitionSummary)
@@ -98,5 +97,5 @@ def patch_bucket_ui_tag_definition(
             tag_id,
             payload,
         )
-    except StorageOpsBucketUiTagNotFoundError as exc:
-        raise_http_exception_from_exception(status.HTTP_404_NOT_FOUND, exc)
+    except ValueError as exc:
+        raise_http_error_from_value_error(exc)
