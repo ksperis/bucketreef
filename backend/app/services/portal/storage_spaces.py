@@ -103,11 +103,11 @@ class PortalStorageSpacesMixin:
                 bucket_name,
                 portal_settings=portal_settings,
             )
-            metadata = self._created_storage_space_metadata(
+            metadata = self._new_storage_space_metadata(
                 user,
                 access,
                 bucket_name=bucket_name,
-                name=name,
+                display_name=name,
                 description=description,
                 visibility=visibility,
                 share_scope=share_scope,
@@ -138,12 +138,12 @@ class PortalStorageSpacesMixin:
         return storage_space
 
     @staticmethod
-    def _created_storage_space_metadata(
+    def _new_storage_space_metadata(
         user: User,
         access: "AccountAccess",
         *,
         bucket_name: str,
-        name: str,
+        display_name: str,
         description: str | None,
         visibility: PortalStorageSpaceVisibility,
         share_scope: PortalStorageSpaceShareScope,
@@ -156,7 +156,7 @@ class PortalStorageSpacesMixin:
         return PortalStorageSpaceMetadata(
             account_id=access.account.id,
             bucket_name=bucket_name,
-            display_name=name,
+            display_name=display_name,
             description=description,
             owner_user_id=user.id if visibility == "private" else None,
             visibility=visibility,
@@ -264,16 +264,19 @@ class PortalStorageSpacesMixin:
             cleaned_bucket_name,
         )
         self._prepare_storage_space_import_identity(user, access)
-        metadata = self._imported_storage_space_metadata(
+        metadata = self._new_storage_space_metadata(
             user,
             access,
             bucket_name=cleaned_bucket_name,
+            display_name=cleaned_bucket_name,
             description=description,
             visibility=visibility,
             share_scope=share_scope,
             account_member_role=account_member_role,
             project_key=project_key,
             dataset_label=dataset_label,
+            origin="imported",
+            name_editable=False,
         )
         try:
             self._register_storage_space_metadata(
@@ -334,35 +337,6 @@ class PortalStorageSpacesMixin:
             account=access.account,
         )
         self._ensure_active_key(link, iam_service)
-
-    @staticmethod
-    def _imported_storage_space_metadata(
-        user: User,
-        access: "AccountAccess",
-        *,
-        bucket_name: str,
-        description: str | None,
-        visibility: PortalStorageSpaceVisibility,
-        share_scope: PortalStorageSpaceShareScope,
-        account_member_role: PortalStorageSpaceAccountMemberRole | None,
-        project_key: str | None,
-        dataset_label: str | None,
-    ) -> PortalStorageSpaceMetadata:
-        return PortalStorageSpaceMetadata(
-            account_id=access.account.id,
-            bucket_name=bucket_name,
-            display_name=bucket_name,
-            description=description,
-            owner_user_id=user.id if visibility == "private" else None,
-            visibility=visibility,
-            share_scope=share_scope,
-            account_member_role=account_member_role,
-            project_key=project_key,
-            dataset_label=dataset_label,
-            origin="imported",
-            name_editable=False,
-            updated_at=utcnow(),
-        )
 
     def update_storage_space(
         self,
