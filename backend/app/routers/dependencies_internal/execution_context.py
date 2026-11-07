@@ -27,7 +27,7 @@ from app.services.execution_destination_service import (
 )
 from app.services.s3_connections_service import S3ConnectionsService
 from app.services.s3_execution_context import S3ExecutionContext
-from app.services.s3_users_service import get_s3_users_service
+from app.services.s3_user_query_service import S3UserQueryService
 from app.services.storage_endpoints_service import get_storage_endpoints_service
 from app.utils.http_errors import raise_http_error_from_value_error
 from app.utils.request_paths import path_matches_prefix
@@ -121,7 +121,7 @@ def _resolve_s3_user_context(
         )
 
     try:
-        s3_user = get_s3_users_service(db).get_user_record(s3_user_id)
+        s3_user = S3UserQueryService(db).get_user_record(s3_user_id)
     except S3UserNotFoundError as exc:
         raise_http_error_from_value_error(exc)
 
