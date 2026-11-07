@@ -1541,6 +1541,58 @@ def test_strong_verify_single_object_falls_back_to_stream_sha256(db_session):
     assert method == "stream_sha256"
 
 
+def test_strong_verify_batch_keeps_expected_s3_failures_per_object(db_session):
+    service = BucketMigrationService(db_session)
+    source_ctx = SimpleNamespace()
+    target_ctx = SimpleNamespace()
+
+    class _SourceClient:
+        def head_object(self, **_kwargs):
+            raise ClientError(
+                {"Error": {"Code": "InternalError", "Message": "provider failure"}},
+                "HeadObject",
+            )
+
+    verified_count, failed_keys, method_counts = service._strong_verify_size_only_objects(
+        source_ctx,
+        target_ctx,
+        source_bucket="bucket-src",
+        target_bucket="bucket-dst",
+        keys=["object-key"],
+        parallelism_max=1,
+        control_check=lambda: "run",
+        source_client=_SourceClient(),
+        target_client=object(),
+    )
+
+    assert verified_count == 0
+    assert failed_keys == ["object-key"]
+    assert method_counts == {"head_checksum": 0, "stream_sha256": 0}
+
+
+def test_strong_verify_batch_propagates_unexpected_worker_errors(db_session):
+    service = BucketMigrationService(db_session)
+    source_ctx = SimpleNamespace()
+    target_ctx = SimpleNamespace()
+
+    class _SourceClient:
+        def head_object(self, **_kwargs):
+            raise RuntimeError("verification worker regression")
+
+    with pytest.raises(RuntimeError, match="verification worker regression"):
+        service._strong_verify_size_only_objects(
+            source_ctx,
+            target_ctx,
+            source_bucket="bucket-src",
+            target_bucket="bucket-dst",
+            keys=["object-key"],
+            parallelism_max=1,
+            control_check=lambda: "run",
+            source_client=_SourceClient(),
+            target_client=object(),
+        )
+
+
 def test_failed_strong_transfer_verification_retains_source(db_session):
     user = _create_user(db_session)
     source = _create_account(db_session, name="source", endpoint_url="https://source.example.test", account_id="RGW001")
