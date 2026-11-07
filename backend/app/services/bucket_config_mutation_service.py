@@ -11,6 +11,7 @@ from app.services.bucket_config_mutation_registry import (
     BucketConfigArea,
     get_bucket_config_delete_mutation,
     get_bucket_config_mutation,
+    manager_bucket_config_audit_action,
 )
 from app.services.bucket_configuration_service import BucketConfigurationService
 from app.services.s3_execution_context import S3ExecutionContext
@@ -73,7 +74,7 @@ class BucketConfigMutationService:
                 actor=actor,
                 context=context,
                 bucket_name=bucket_name,
-                audit_action=mutation.manager_update_audit_action,
+                audit_action=manager_bucket_config_audit_action(config_area, operation="update"),
                 metadata=metadata,
             ),
             **kwargs,
@@ -90,7 +91,6 @@ class BucketConfigMutationService:
     ) -> None:
         mutation = get_bucket_config_delete_mutation(config_area)
         assert mutation.delete_action is not None
-        assert mutation.manager_delete_audit_action is not None
         bucket_config_actions.apply_bucket_config_delete(
             service=self.configuration_service,
             context=context,
@@ -100,7 +100,7 @@ class BucketConfigMutationService:
                 actor=actor,
                 context=context,
                 bucket_name=bucket_name,
-                audit_action=mutation.manager_delete_audit_action,
+                audit_action=manager_bucket_config_audit_action(config_area, operation="delete"),
                 metadata=None,
             ),
             **kwargs,

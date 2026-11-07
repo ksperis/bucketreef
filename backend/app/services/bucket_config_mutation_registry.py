@@ -29,81 +29,73 @@ BucketConfigDeleteAction = Callable[..., None]
 @dataclass(frozen=True)
 class BucketConfigMutationDefinition:
     update_action: BucketConfigUpdateAction
-    manager_update_audit_action: str
     delete_action: BucketConfigDeleteAction | None = None
-    manager_delete_audit_action: str | None = None
+
+
+_MANAGER_UPDATE_AUDIT_OVERRIDES: dict[BucketConfigArea, str] = {
+    "policy": "put_bucket_policy",
+    "public_access_block": "update_public_access_block",
+}
+
+
+def manager_bucket_config_audit_action(
+    config_area: BucketConfigArea,
+    *,
+    operation: Literal["update", "delete"],
+) -> str:
+    if operation == "delete":
+        return f"delete_bucket_{config_area}"
+    return _MANAGER_UPDATE_AUDIT_OVERRIDES.get(config_area, f"update_bucket_{config_area}")
 
 
 _MUTATIONS: dict[BucketConfigArea, BucketConfigMutationDefinition] = {
     "versioning": BucketConfigMutationDefinition(
-        update_action=bucket_config_actions.update_bucket_versioning_config,
-        manager_update_audit_action="update_bucket_versioning",
+        bucket_config_actions.update_bucket_versioning_config,
     ),
     "object_lock": BucketConfigMutationDefinition(
-        update_action=bucket_config_actions.put_bucket_object_lock_config,
-        manager_update_audit_action="update_bucket_object_lock",
+        bucket_config_actions.put_bucket_object_lock_config,
     ),
     "encryption": BucketConfigMutationDefinition(
-        update_action=bucket_config_actions.put_bucket_encryption_config,
-        manager_update_audit_action="update_bucket_encryption",
+        bucket_config_actions.put_bucket_encryption_config,
         delete_action=bucket_config_actions.delete_bucket_encryption_config,
-        manager_delete_audit_action="delete_bucket_encryption",
     ),
     "policy": BucketConfigMutationDefinition(
-        update_action=bucket_config_actions.put_bucket_policy_config,
-        manager_update_audit_action="put_bucket_policy",
+        bucket_config_actions.put_bucket_policy_config,
         delete_action=bucket_config_actions.delete_bucket_policy_config,
-        manager_delete_audit_action="delete_bucket_policy",
     ),
     "acl": BucketConfigMutationDefinition(
-        update_action=bucket_config_actions.put_bucket_acl_config,
-        manager_update_audit_action="update_bucket_acl",
+        bucket_config_actions.put_bucket_acl_config,
     ),
     "public_access_block": BucketConfigMutationDefinition(
-        update_action=bucket_config_actions.put_bucket_public_access_block_config,
-        manager_update_audit_action="update_public_access_block",
+        bucket_config_actions.put_bucket_public_access_block_config,
     ),
     "lifecycle": BucketConfigMutationDefinition(
-        update_action=bucket_config_actions.put_bucket_lifecycle_config,
-        manager_update_audit_action="update_bucket_lifecycle",
+        bucket_config_actions.put_bucket_lifecycle_config,
         delete_action=bucket_config_actions.delete_bucket_lifecycle_config,
-        manager_delete_audit_action="delete_bucket_lifecycle",
     ),
     "cors": BucketConfigMutationDefinition(
-        update_action=bucket_config_actions.put_bucket_cors_config,
-        manager_update_audit_action="update_bucket_cors",
+        bucket_config_actions.put_bucket_cors_config,
         delete_action=bucket_config_actions.delete_bucket_cors_config,
-        manager_delete_audit_action="delete_bucket_cors",
     ),
     "notifications": BucketConfigMutationDefinition(
-        update_action=bucket_config_actions.put_bucket_notifications_config,
-        manager_update_audit_action="update_bucket_notifications",
+        bucket_config_actions.put_bucket_notifications_config,
         delete_action=bucket_config_actions.delete_bucket_notifications_config,
-        manager_delete_audit_action="delete_bucket_notifications",
     ),
     "replication": BucketConfigMutationDefinition(
-        update_action=bucket_config_actions.put_bucket_replication_config,
-        manager_update_audit_action="update_bucket_replication",
+        bucket_config_actions.put_bucket_replication_config,
         delete_action=bucket_config_actions.delete_bucket_replication_config,
-        manager_delete_audit_action="delete_bucket_replication",
     ),
     "logging": BucketConfigMutationDefinition(
-        update_action=bucket_config_actions.put_bucket_logging_config,
-        manager_update_audit_action="update_bucket_logging",
+        bucket_config_actions.put_bucket_logging_config,
         delete_action=bucket_config_actions.delete_bucket_logging_config,
-        manager_delete_audit_action="delete_bucket_logging",
     ),
     "website": BucketConfigMutationDefinition(
-        update_action=bucket_config_actions.put_bucket_website_config,
-        manager_update_audit_action="update_bucket_website",
+        bucket_config_actions.put_bucket_website_config,
         delete_action=bucket_config_actions.delete_bucket_website_config,
-        manager_delete_audit_action="delete_bucket_website",
     ),
     "tags": BucketConfigMutationDefinition(
-        update_action=bucket_config_actions.put_bucket_tags_config,
-        manager_update_audit_action="update_bucket_tags",
+        bucket_config_actions.put_bucket_tags_config,
         delete_action=bucket_config_actions.delete_bucket_tags_config,
-        manager_delete_audit_action="delete_bucket_tags",
     ),
 }
 
@@ -114,6 +106,6 @@ def get_bucket_config_mutation(config_area: BucketConfigArea) -> BucketConfigMut
 
 def get_bucket_config_delete_mutation(config_area: BucketConfigArea) -> BucketConfigMutationDefinition:
     mutation = get_bucket_config_mutation(config_area)
-    if mutation.delete_action is None or mutation.manager_delete_audit_action is None:
+    if mutation.delete_action is None:
         raise ValueError(f"Bucket config area does not support delete: {config_area}")
     return mutation
