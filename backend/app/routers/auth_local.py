@@ -25,17 +25,15 @@ from app.models.first_admin_bootstrap import (
     FirstAdminBootstrapStatus,
 )
 from app.routers.auth_common import AuthAttemptContext, _finish_user_primary_auth
-from app.routers.dependencies import (
-    get_audit_service,
-    get_users_service_dependency,
-)
+from app.routers.dependencies import get_audit_service
 from app.services.audit_service import AuditService
 from app.services.first_admin_bootstrap_service import (
     FirstAdminBootstrapError,
     FirstAdminBootstrapService,
     FirstAdminBootstrapUnavailableError,
 )
-from app.services.users_service import UsersService
+from app.services.user_login_service import UserLoginService
+from app.services.user_query_service import UserQueryService
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.request_security import require_trusted_origin
 
@@ -69,7 +67,6 @@ def create_first_admin_from_bootstrap(
         None,
         alias="X-BucketReef-Bootstrap-Token",
     ),
-    users_service: UsersService = Depends(get_users_service_dependency),
     audit_service: AuditService = Depends(get_audit_service),
     db: Session = Depends(get_db),
 ) -> AuthenticationResponse:
@@ -118,7 +115,7 @@ def create_first_admin_from_bootstrap(
         raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
 
     attempt.clear_rate_limit()
-    user = users_service.get_by_id(created.user_id)
+    user = UserQueryService(db).get_by_id(created.user_id)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -139,7 +136,6 @@ def login(
     request: Request,
     response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
-    users_service: UsersService = Depends(get_users_service_dependency),
     audit_service: AuditService = Depends(get_audit_service),
     db: Session = Depends(get_db),
 ) -> AuthenticationResponse:
@@ -157,7 +153,7 @@ def login(
         audit_message="Login rate limit exceeded",
         public_detail="Too many failed login attempts. Please try again later.",
     )
-    user = users_service.authenticate(username, form_data.password)
+    user = UserLoginService(db).authenticate_password(username, form_data.password)
     if not user:
         attempt.record_failure(
             user_email=username.lower(),
