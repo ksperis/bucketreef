@@ -42,6 +42,7 @@ from app.services import (
 )
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.app_settings_service import load_app_settings_for_db
+from app.services.s3_user_rgw_context_service import S3UserRgwContextService
 from app.services.s3_users_service import S3UsersService
 
 
@@ -671,6 +672,30 @@ def _build_service(db_session, monkeypatch, fake_admin: FakeRGWAdmin) -> S3Users
     monkeypatch.setattr("app.services.s3_user_metrics_service.get_endpoint_runtime_rgw_client", lambda endpoint: fake_admin)
     monkeypatch.setattr("app.services.rgw_endpoint_clients.get_endpoint_admin_rgw_client", lambda endpoint: fake_admin)
     return S3UsersService(db_session)
+
+
+def test_user_rgw_context_only_wraps_expected_client_errors(db_session, monkeypatch):
+    endpoint = _seed_ceph_endpoint(db_session)
+
+    def unavailable_client(_endpoint):
+        raise RGWAdminError("credentials unavailable")
+
+    monkeypatch.setattr(
+        "app.services.s3_user_rgw_context_service.get_endpoint_admin_rgw_client",
+        unavailable_client,
+    )
+    with pytest.raises(ValueError, match="Unable to build admin client for ceph-users"):
+        S3UserRgwContextService.admin_for_endpoint(endpoint)
+
+    def broken_client(_endpoint):
+        raise TypeError("unexpected client factory bug")
+
+    monkeypatch.setattr(
+        "app.services.s3_user_rgw_context_service.get_endpoint_admin_rgw_client",
+        broken_client,
+    )
+    with pytest.raises(TypeError, match="unexpected client factory bug"):
+        S3UserRgwContextService.admin_for_endpoint(endpoint)
 
 
 def test_get_user_uses_typed_not_found_error(db_session):
