@@ -28,7 +28,7 @@ from app.services.managed_private_access_state_service import (
     ManagedPrivateAccessStateService,
 )
 from app.services.resource_deletion_purge_service import ResourceDeletionPurgeService
-from app.services.s3_connections_service import S3ConnectionsService
+from app.services.tags_service import TagsService
 
 
 class ManagedPrivateAccessCleanupService:
@@ -41,12 +41,12 @@ class ManagedPrivateAccessCleanupService:
         iam: ManagedPrivateAccessIAMService | None = None,
         audit: ManagedPrivateAccessAuditService | None = None,
         state: ManagedPrivateAccessStateService | None = None,
-        connections: S3ConnectionsService | None = None,
+        tags: TagsService | None = None,
         remote: ManagedPrivateAccessRemoteCleanupService | None = None,
     ) -> None:
         self.db = db
         self.audit = audit or ManagedPrivateAccessAuditService(db)
-        self.connections = connections or S3ConnectionsService(db)
+        self.tags = tags or TagsService(db)
         state_store = state or ManagedPrivateAccessStateService(db)
         self.state = state_store
         self.remote = remote or ManagedPrivateAccessRemoteCleanupService(
@@ -85,11 +85,11 @@ class ManagedPrivateAccessCleanupService:
         )
 
         self.db.delete(provisioning)
-        domain_kind, _owner_user_id = self.connections.tags.resolve_connection_domain(connection)
+        domain_kind, _owner_user_id = self.tags.resolve_connection_domain(connection)
         purge.purge_execution_context_data(context_id)
         self.db.delete(connection)
         self.db.flush()
-        self.connections.tags.cleanup_orphan_definitions(domain_kinds=[domain_kind])
+        self.tags.cleanup_orphan_definitions(domain_kinds=[domain_kind])
         commit_or_rollback(self.db)
         self.audit.record(
             user,
