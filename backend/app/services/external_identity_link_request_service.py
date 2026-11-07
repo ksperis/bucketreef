@@ -26,9 +26,6 @@ class ExternalIdentityLinkRequestService:
         self.db = db
         self.queries = ExternalIdentityQueryService(db)
 
-    def list(self, *, include_decided: bool = False) -> list[ExternalIdentityLinkRequest]:
-        return self.queries.list_link_requests(include_decided=include_decided)
-
     def decide(
         self,
         request_id: str,

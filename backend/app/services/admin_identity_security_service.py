@@ -27,7 +27,7 @@ from app.models.identity_security import (
     ExternalIdentityLinkRequestInfo,
 )
 from app.services.auth_session_service import AuthSessionService
-from app.services.external_identity_user_service import ExternalIdentityUserService
+from app.services.external_identity_query_service import ExternalIdentityQueryService
 from app.services.identity_security_policy import ensure_actor_can_manage_user
 from app.services.identity_security_requirements import (
     STANDARD_UI_ROLES,
@@ -44,7 +44,7 @@ class AdminIdentitySecurityService:
         self.db = db
         self.users = UserQueryService(db)
         self.sessions = AuthSessionService(db)
-        self.identities = ExternalIdentityUserService(db)
+        self.identity_queries = ExternalIdentityQueryService(db)
 
     @staticmethod
     def external_identity_info(row: ExternalIdentity) -> AdminExternalIdentityInfo:
@@ -97,7 +97,7 @@ class AdminIdentitySecurityService:
         passkey_rows = self.db.scalars(
             passkeys.order_by(WebAuthnCredential.created_at.asc())
         ).all()
-        identities = self.identities.list_for_user(
+        identities = self.identity_queries.list_for_user(
             target.id,
             include_revoked=include_revoked,
         )
@@ -162,7 +162,7 @@ class AdminIdentitySecurityService:
         *,
         include_decided: bool,
     ) -> list[ExternalIdentityLinkRequestInfo]:
-        rows = self.identities.list_link_requests(include_decided=include_decided)
+        rows = self.identity_queries.list_link_requests(include_decided=include_decided)
         user_ids = {row.user_id for row in rows}
         users = self._users_by_id(user_ids)
         result: list[ExternalIdentityLinkRequestInfo] = []
