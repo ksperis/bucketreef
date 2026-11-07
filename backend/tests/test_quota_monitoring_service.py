@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
 import pytest
 import sqlalchemy as sa
@@ -37,7 +38,7 @@ from app.services.quota_monitoring_service import QuotaMonitoringService
 from app.services.rgw_admin import RGWAdminError
 from app.services.quota_subject import SubjectContext
 from app.services.webhook_catalog import QUOTA_THRESHOLD_EVENT_TYPE
-from app.services.webhook_service import WebhookService
+from app.services.webhook_service import WebhookQueueError, WebhookService
 
 
 class _FakeAdminClient:
@@ -1030,7 +1031,7 @@ def test_webhook_failure_is_non_blocking_for_other_alert_channels(db_session, mo
     )
 
     def fail_webhook(*args, **kwargs):
-        raise RuntimeError("queue failed")
+        raise WebhookQueueError("queue failed")
 
     monkeypatch.setattr(
         quota_monitoring_service.WebhookEventPublisher,
@@ -1045,6 +1046,33 @@ def test_webhook_failure_is_non_blocking_for_other_alert_channels(db_session, mo
     assert result["alerts_sent"] == 1
     assert result["email_errors"] == 0
     assert len(fake_mailer.calls) == 1
+
+
+def test_quota_webhook_does_not_mask_unexpected_publisher_failure(
+    db_session,
+    monkeypatch,
+):
+    def fail_webhook(*_args, **_kwargs):
+        raise RuntimeError("unexpected publisher regression")
+
+    monkeypatch.setattr(
+        quota_monitoring_service.WebhookEventPublisher,
+        "publish_event_in_current_transaction",
+        fail_webhook,
+    )
+
+    with pytest.raises(RuntimeError, match="unexpected publisher regression"):
+        QuotaMonitoringService(db_session)._publish_quota_webhook(
+            SimpleNamespace(subject_type="account", subject_id=1, endpoint_id=2),
+            SimpleNamespace(previous_level="ok"),
+            SimpleNamespace(
+                payload={"usage": 90},
+                title="Quota threshold",
+                message="Quota threshold reached",
+                severity="warning",
+            ),
+            SimpleNamespace(now=datetime(2026, 1, 12, 8, 0, 0, tzinfo=UTC)),
+        )
 
 
 def test_quota_history_constraints_prevent_duplicate_subject_rows(db_session):

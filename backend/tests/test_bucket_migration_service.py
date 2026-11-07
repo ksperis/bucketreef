@@ -61,7 +61,7 @@ from app.services.bucket_migration.worker import BucketMigrationWorker
 from app.services.bucket_migration_service import BucketMigrationService
 from app.services.s3_client import S3OperationError
 from app.services.webhook_catalog import MIGRATION_EVENT_TYPE
-from app.services.webhook_service import WebhookService
+from app.services.webhook_service import WebhookQueueError, WebhookService
 from tests.storage_endpoint_features import persisted_endpoint_features
 
 
@@ -1433,6 +1433,53 @@ def test_temporary_copy_grant_keeps_recovery_record_when_restoration_fails(db_se
 
     assert item.preparation_effects is not None
     assert item.preparation_effects["source_copy_grant"]["bucket"] == "bucket-a"
+
+
+def test_migration_event_webhook_queue_failure_is_non_blocking(db_session, monkeypatch):
+    migration = BucketMigration(source_context_id="1", target_context_id="2")
+    db_session.add(migration)
+    db_session.flush()
+
+    def fail_webhook(*_args, **_kwargs):
+        raise WebhookQueueError("queue unavailable")
+
+    monkeypatch.setattr(
+        "app.services.bucket_migration.progress."
+        "WebhookEventPublisher.publish_event_in_current_transaction",
+        fail_webhook,
+    )
+
+    service = BucketMigrationService(db_session)
+    service._add_event(migration, level="info", message="Migration event")
+
+    db_session.flush()
+    event = db_session.scalar(
+        sa.select(BucketMigrationEvent).where(BucketMigrationEvent.migration_id == migration.id)
+    )
+    assert event is not None
+    assert event.message == "Migration event"
+
+
+def test_migration_event_webhook_does_not_mask_unexpected_publisher_failure(
+    db_session,
+    monkeypatch,
+):
+    migration = BucketMigration(source_context_id="1", target_context_id="2")
+    db_session.add(migration)
+    db_session.flush()
+
+    def fail_webhook(*_args, **_kwargs):
+        raise RuntimeError("unexpected publisher regression")
+
+    monkeypatch.setattr(
+        "app.services.bucket_migration.progress."
+        "WebhookEventPublisher.publish_event_in_current_transaction",
+        fail_webhook,
+    )
+
+    service = BucketMigrationService(db_session)
+    with pytest.raises(RuntimeError, match="unexpected publisher regression"):
+        service._add_event(migration, level="info", message="Migration event")
 
 
 def test_copy_object_falls_back_to_stream_copy_on_copy_source_access_denied(db_session):

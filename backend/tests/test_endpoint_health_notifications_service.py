@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from types import SimpleNamespace
 
 import pytest
 import sqlalchemy as sa
@@ -15,7 +16,7 @@ from app.services.endpoint_health_notifications_service import (
 )
 from app.services.healthcheck_common import HealthCheckResult
 from app.services.webhook_catalog import ENDPOINT_HEALTH_EVENT_TYPE
-from app.services.webhook_service import WebhookService
+from app.services.webhook_service import WebhookQueueError, WebhookService
 from app.utils.time import utcnow
 
 
@@ -215,7 +216,7 @@ def test_endpoint_health_webhook_failure_does_not_block_ui_notification(
     db_session.commit()
 
     def fail_webhook(*_args, **_kwargs):
-        raise RuntimeError("webhook unavailable")
+        raise WebhookQueueError("webhook unavailable")
 
     monkeypatch.setattr(
         "app.services.endpoint_health_notifications_service."
@@ -239,6 +240,21 @@ def test_endpoint_health_webhook_failure_does_not_block_ui_notification(
     )
     assert notification is not None
     assert notification.payload["current_status"] == "degraded"
+
+
+def test_endpoint_health_webhook_does_not_mask_unexpected_publisher_failure():
+    def fail_webhook(*_args, **_kwargs):
+        raise RuntimeError("unexpected publisher regression")
+
+    publisher = SimpleNamespace(publish_event_in_current_transaction=fail_webhook)
+
+    with pytest.raises(RuntimeError, match="unexpected publisher regression"):
+        EndpointHealthNotificationsService._publish_webhook(
+            publisher=publisher,
+            endpoint=SimpleNamespace(id=1),
+            result=SimpleNamespace(checked_at=utcnow()),
+            payload={"endpoint_id": 1},
+        )
 
 
 def test_previous_endpoint_status_uses_latest_raw_check(db_session):

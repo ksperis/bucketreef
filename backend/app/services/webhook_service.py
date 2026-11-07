@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Any, Iterable
 
 from sqlalchemy import delete, func, or_, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
@@ -40,6 +40,10 @@ from app.utils.time import utcnow
 
 logger = logging.getLogger(__name__)
 _WEBHOOK_DISPATCH_PROFILES = {"full", "admin"}
+
+
+class WebhookQueueError(RuntimeError):
+    """Expected database failure while queueing a webhook delivery."""
 
 
 @dataclass(frozen=True)
@@ -504,19 +508,22 @@ class WebhookEventPublisher:
             data=data,
         )
         forced_ids = sorted({int(item) for item in endpoint_ids or [] if int(item) > 0})
-        delivery_ids = [
-            self._queue_delivery(
-                endpoint=endpoint,
-                event_id=event_id,
-                event_type=event_type,
-                payload=payload,
-                occurred_at=occurred_at,
-                is_test=is_test,
-            )
-            for endpoint in self._event_endpoints(event_type, forced_ids)
-        ]
-        if commit and delivery_ids:
-            commit_or_rollback(self.db)
+        try:
+            delivery_ids = [
+                self._queue_delivery(
+                    endpoint=endpoint,
+                    event_id=event_id,
+                    event_type=event_type,
+                    payload=payload,
+                    occurred_at=occurred_at,
+                    is_test=is_test,
+                )
+                for endpoint in self._event_endpoints(event_type, forced_ids)
+            ]
+            if commit and delivery_ids:
+                commit_or_rollback(self.db)
+        except SQLAlchemyError as exc:
+            raise WebhookQueueError("Unable to queue webhook event") from exc
         return delivery_ids
 
     def publish_event_in_current_transaction(
@@ -535,11 +542,17 @@ class WebhookEventPublisher:
         not discard the mutation that triggered the notification.
         """
 
-        ensure_sqlite_transaction_for_savepoint(self.db)
-        with self.db.begin_nested():
-            return self.publish_event(
-                event_type=event_type,
-                data=data,
-                occurred_at=occurred_at,
-                commit=False,
-            )
+        self.db.flush()
+        try:
+            ensure_sqlite_transaction_for_savepoint(self.db)
+            with self.db.begin_nested():
+                return self.publish_event(
+                    event_type=event_type,
+                    data=data,
+                    occurred_at=occurred_at,
+                    commit=False,
+                )
+        except WebhookQueueError:
+            raise
+        except SQLAlchemyError as exc:
+            raise WebhookQueueError("Unable to queue webhook event") from exc

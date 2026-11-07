@@ -10,7 +10,7 @@ from sqlalchemy import String, cast, inspect, or_, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import commit_or_rollback, rollback_on_error
 from app.core.sensitive_data import sanitize_audit_metadata
 from app.db import AuditLog, User
 from app.models.audit import (
@@ -22,7 +22,7 @@ from app.models.audit import (
 from app.services.access_context_contracts import ManagerActor
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.audit_policy import should_persist_audit_action
-from app.services.webhook_service import WebhookEventPublisher
+from app.services.webhook_service import WebhookEventPublisher, WebhookQueueError
 
 logger = logging.getLogger(__name__)
 
@@ -160,23 +160,23 @@ class AuditService:
         account_name: Optional[str],
     ) -> None:
         try:
-            WebhookEventPublisher(self.db).publish_audit_event(
-                scope=payload.scope,
-                action=payload.action,
-                user_email=payload.user_email,
-                user_role=payload.user_role,
-                entity_type=payload.entity_type,
-                entity_id=payload.entity_id,
-                account_id=account_id,
-                account_name=account_name,
-                status=payload.status,
-                message=payload.message,
-                metadata=audit_metadata_object(payload.audit_metadata),
-                occurred_at=payload.created_at,
-                commit=True,
-            )
-        except Exception as exc:  # noqa: BLE001
-            self.db.rollback()
+            with rollback_on_error(self.db):
+                WebhookEventPublisher(self.db).publish_audit_event(
+                    scope=payload.scope,
+                    action=payload.action,
+                    user_email=payload.user_email,
+                    user_role=payload.user_role,
+                    entity_type=payload.entity_type,
+                    entity_id=payload.entity_id,
+                    account_id=account_id,
+                    account_name=account_name,
+                    status=payload.status,
+                    message=payload.message,
+                    metadata=audit_metadata_object(payload.audit_metadata),
+                    occurred_at=payload.created_at,
+                    commit=True,
+                )
+        except WebhookQueueError as exc:
             logger.warning(
                 "Failed to queue webhook for audit action %s: %s",
                 payload.action,
