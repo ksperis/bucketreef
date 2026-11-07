@@ -71,13 +71,22 @@ def test_iam_read_preserves_structured_upstream_status() -> None:
                 "ListPolicies",
             )
         except ClientError as exc:
-            raise RuntimeError("Unable to list IAM policies") from exc
+            raise RGWIAMError("Unable to list IAM policies") from exc
 
     with pytest.raises(HTTPException) as exc_info:
         iam_common.run_iam_read(denied_read)
 
     assert exc_info.value.status_code == 403
     assert exc_info.value.detail == "Unable to list IAM policies"
+
+
+def test_iam_read_propagates_unexpected_runtime_error() -> None:
+    regression = RuntimeError("unexpected IAM read regression")
+
+    with pytest.raises(RuntimeError) as exc_info:
+        iam_common.run_iam_read(lambda: (_ for _ in ()).throw(regression))
+
+    assert exc_info.value is regression
 
 
 def test_inline_policy_name_mismatch_maps_to_http_400() -> None:
@@ -212,7 +221,7 @@ class _RoleService:
     def update_role_assume_policy(self, _name: str, value) -> None:
         self.policy_calls.append(value)
         if self.fail_policy_update:
-            raise RuntimeError("trust update failed")
+            raise RGWIAMError("trust update failed")
         self.role.assume_role_policy_document = value
 
     def list_role_tags(self, _name: str):
@@ -574,7 +583,7 @@ def test_update_user_maps_provider_name_conflict_to_http_409(monkeypatch):
             {"Error": {"Code": "EntityAlreadyExists", "Message": "exists"}, "ResponseMetadata": {"HTTPStatusCode": 409}},
             "UpdateUser",
         )
-        raise RuntimeError("Unable to update IAM user") from error
+        raise RGWIAMError("Unable to update IAM user") from error
 
     service.update_user = conflict
     monkeypatch.setattr(iam_users, "get_iam_service_for_context", lambda _account: service)

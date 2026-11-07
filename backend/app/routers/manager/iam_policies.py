@@ -12,8 +12,9 @@ from app.routers.dependencies import (
     get_audit_service,
     require_iam_capable_manager,
 )
-from app.routers.manager.iam_common import get_iam_service_for_context
+from app.routers.manager.iam_common import get_iam_service_for_context, run_iam_read
 from app.services.audit_service import AuditService
+from app.services.rgw_iam import RGWIAMError
 from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.http_errors import (
     raise_bad_request_from_value_error,
@@ -31,7 +32,7 @@ def list_policies(
     service = get_iam_service_for_context(context)
     try:
         return service.list_policies()
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
 
@@ -49,7 +50,7 @@ def list_policies_page(
             search=query.search,
         )
         return IAMPolicyPage(items=policies, next_marker=next_marker)
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
 
@@ -60,7 +61,7 @@ def get_policy(
     _: ManagerActor = Depends(require_iam_capable_manager),
 ) -> Policy:
     service = get_iam_service_for_context(context)
-    policy = service.get_policy(policy_arn, include_document=True)
+    policy = run_iam_read(lambda: service.get_policy(policy_arn, include_document=True))
     if not policy:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Policy not found")
     return policy
@@ -88,7 +89,7 @@ def create_policy(
         return result
     except ValueError as exc:
         raise_bad_request_from_value_error(exc)
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
 
@@ -110,5 +111,5 @@ def delete_policy(
             entity_id=policy_arn,
             execution_context=context,
         )
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)

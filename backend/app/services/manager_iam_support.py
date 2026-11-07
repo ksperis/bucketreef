@@ -127,7 +127,7 @@ def update_iam_user(
         )
     updated = service.get_user(effective_name)
     if updated is None:
-        raise RuntimeError("Updated IAM user could not be reloaded")
+        raise RGWIAMError("Updated IAM user could not be reloaded")
     return ManagerIAMUserUpdateResult(
         user=load_iam_user_details(service, updated),
         previous_name=user_name if new_name is not None else None,

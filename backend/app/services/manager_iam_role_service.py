@@ -8,7 +8,7 @@ from app.core.domain_errors import ManagerIAMRoleNotFoundError
 from app.services.access_context_contracts import ManagerActor
 from app.models.iam import IAMRole, IAMRoleUpdate
 from app.services.audit_service import AuditService
-from app.services.rgw_iam import RGWIAMService
+from app.services.rgw_iam import RGWIAMError, RGWIAMService
 from app.services.s3_execution_context import S3ExecutionContext
 
 
@@ -79,5 +79,5 @@ def update_iam_role(
 
     updated = service.get_role(role_name)
     if updated is None:
-        raise RuntimeError("Updated IAM role could not be reloaded")
+        raise RGWIAMError("Updated IAM role could not be reloaded")
     return updated
