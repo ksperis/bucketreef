@@ -6,8 +6,11 @@ import { describe, expect, it, vi } from "vitest";
 import { triggerDownload, triggerJsonDownload } from "../../utils/download";
 import BrowserPrefixVersionsModal from "./BrowserPrefixVersionsModal";
 
-vi.mock("../../utils/download", () => ({
-  triggerDownload: vi.fn(), triggerJsonDownload: vi.fn(), formatDownloadTimestamp: () => "fixture",
+vi.mock("../../utils/download", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../utils/download")>()),
+  triggerDownload: vi.fn(),
+  triggerJsonDownload: vi.fn(),
+  formatDownloadTimestamp: () => "fixture",
 }));
 const oldVersion = { key: ' spaced//a,"b".csv ', version_id: "old-v", is_delete_marker: false, is_latest: false,
   last_modified: "2026-03-08T07:15:00Z", size: 12, etag: '"etag"', storage_class: "STANDARD" };
