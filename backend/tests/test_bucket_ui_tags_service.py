@@ -24,6 +24,7 @@ from app.services.bucket_ui_tags_service import (
 from app.services.ceph_admin_bucket_listing_service import compute_ceph_admin_bucket_listing
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.rgw_admin import RGWAdminError
+from app.services.s3_client import S3OperationError
 from app.services.storage_ops_bucket_listing_service import compute_storage_ops_bucket_listing
 from app.services.storage_ops_context_resolution import StorageOpsContextRef
 from app.services.users_service import UsersService
@@ -668,7 +669,7 @@ def test_storage_ops_target_validation_returns_sanitized_bad_gateway(
 
     class FailingBucketsService:
         def list_buckets(self, _account, include=None, with_stats=False):  # noqa: ARG002
-            raise RuntimeError("storage unavailable token=leaked")
+            raise S3OperationError("storage unavailable token=leaked")
 
     app.dependency_overrides[dependencies.get_current_storage_ops_admin] = lambda: owner
     app.dependency_overrides[dependencies.require_storage_ops_enabled] = lambda: None
@@ -694,6 +695,60 @@ def test_storage_ops_target_validation_returns_sanitized_bad_gateway(
 
     assert response.status_code == 502, response.text
     assert response.json()["detail"] == "storage unavailable token=<redacted>"
+
+
+def test_storage_ops_target_validation_does_not_mask_unexpected_runtime_errors(
+    client,
+    db_session,
+    monkeypatch,
+):
+    owner = _user(8246, "storage-runtime-owner@example.test")
+    endpoint = _endpoint(db_session, "ui-tags-storage-runtime")
+    account_row = S3Account(
+        name="storage-runtime-account",
+        rgw_account_id="RGW-RUNTIME",
+        rgw_user_uid="storage-runtime-user",
+        rgw_access_key="AK-RUNTIME",
+        rgw_secret_key="SK-RUNTIME",
+        storage_endpoint_id=endpoint.id,
+    )
+    db_session.add_all([owner, account_row])
+    db_session.commit()
+    account = S3ExecutionContext.from_account(account_row)
+    ref = StorageOpsContextRef(
+        context_id=str(account_row.id),
+        context_name=account_row.name,
+        context_kind="account",
+        endpoint_id=endpoint.id,
+        endpoint_name=endpoint.name,
+    )
+
+    class FailingBucketsService:
+        def list_buckets(self, _account, include=None, with_stats=False):  # noqa: ARG002
+            raise RuntimeError("unexpected storage target regression")
+
+    app.dependency_overrides[dependencies.get_current_storage_ops_admin] = lambda: owner
+    app.dependency_overrides[dependencies.require_storage_ops_enabled] = lambda: None
+    app.dependency_overrides[get_buckets_service] = FailingBucketsService
+    monkeypatch.setattr(
+        storage_bucket_ui_tags_router,
+        "list_storage_ops_context_refs",
+        lambda _user, _db: [ref],
+    )
+    monkeypatch.setattr(
+        storage_bucket_ui_tags_router,
+        "resolve_storage_ops_context",
+        lambda _ref, **_kwargs: account,
+    )
+
+    with pytest.raises(RuntimeError, match="unexpected storage target regression"):
+        client.patch(
+            "/api/storage-ops/bucket-ui-tags",
+            json={
+                "targets": [{"context_id": ref.context_id, "name": "bucket-a"}],
+                "create_tags": [{"label": "Private"}],
+            },
+        )
 
 
 def test_deleting_user_removes_private_bucket_definitions_without_promoting_them(db_session):
