@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import type { UserAvatarDescriptor, UserAvatarPreference } from "../../api/users";
+import ModalActions from "../../components/ModalActions";
 import UserAvatar from "../../components/UserAvatar";
 import { SettingsButton, SettingsDialog, useSettingsCloseGuard } from "../../components/settings/SettingsControls";
 import { SettingsItem } from "../../components/settings/SettingsLayout";
@@ -83,10 +84,10 @@ export default function UserAvatarEditor({ avatar, name, email, text, disabled, 
           onClick={() => setDraft({ preference: "auto", file: null, remove: true })}>{text("removeImage")}</SettingsButton>}
         {draft.remove && <p role="status" className="settings-body">{text("imageRemovedDraft")}</p>}
         {error && <UiInlineMessage tone="error" role="alert">{error}</UiInlineMessage>}
-        <div className="flex flex-wrap justify-end gap-2">
+        <ModalActions>
           <SettingsButton variant="secondary" disabled={busy} onClick={guard.requestClose}>{text("cancel")}</SettingsButton>
           <SettingsButton type="submit" disabled={busy || !dirty}>{text(busy ? "saving" : "save")}</SettingsButton>
-        </div>
+        </ModalActions>
       </form>
     </SettingsDialog>, document.body)}
     {guard.confirmationDialog}

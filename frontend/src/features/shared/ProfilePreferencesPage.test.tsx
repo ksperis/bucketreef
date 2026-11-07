@@ -114,6 +114,7 @@ describe("compact profile preferences", () => {
     renderPage();
     await screen.findByText("Test Person");
     await user.click(screen.getByRole("button", { name: "Edit profile image" }));
+    expect(screen.getByRole("dialog", { name: "Edit profile image" }).querySelector(".modal-actions")).toBeInTheDocument();
     const file = new File(["image"], "photo.png", { type: "image/png" });
     await user.upload(screen.getByLabelText("Choose image"), file);
     expect(mocks.upload).not.toHaveBeenCalled();
