@@ -9,7 +9,7 @@ import logging
 from time import monotonic
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -30,7 +30,7 @@ from app.services.bucket_migration.runtime import (
 from app.services.mappers.bucket_migration import (
     bucket_migration_to_list_item as _migration_to_list_item,
 )
-from app.utils.http_errors import raise_http_exception_from_exception
+from app.utils.http_errors import raise_http_error_from_value_error
 
 router = APIRouter(prefix="/manager/migrations", tags=["manager-migrations"])
 logger = logging.getLogger(__name__)
@@ -143,7 +143,7 @@ def get_migration(
     try:
         migration = service.get_migration(migration_id)
     except BucketMigrationNotFoundError as exc:
-        raise_http_exception_from_exception(status.HTTP_404_NOT_FOUND, exc)
+        raise_http_error_from_value_error(exc)
     return build_bucket_migration_detail(
         service,
         migration,
@@ -163,7 +163,7 @@ async def stream_migration(
         try:
             service.get_migration(migration_id)
         except BucketMigrationNotFoundError as exc:
-            raise_http_exception_from_exception(status.HTTP_404_NOT_FOUND, exc)
+            raise_http_error_from_value_error(exc)
 
     return StreamingResponse(
         _migration_stream_events(
