@@ -6,7 +6,7 @@ from __future__ import annotations
 import logging
 from typing import Any, NoReturn, Optional
 
-from sqlalchemy import String, cast, func, or_, select
+from sqlalchemy import String, cast, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.db_transactions import commit_or_rollback
@@ -33,8 +33,9 @@ from app.models.s3_account import S3AccountUpdate
 from app.services.audit_service import AuditService
 from app.services.portal_collaborator_requests_service import PortalCollaboratorRequestsService
 from app.services.portal_request_notification_service import PortalRequestNotificationService
-from app.services.s3_accounts_service import S3AccountsService, get_s3_accounts_service
 from app.services.portal_service import PortalService
+from app.services.s3_accounts_service import S3AccountsService, get_s3_accounts_service
+from app.services.sqlalchemy_pagination import paginate_scalars
 from app.services.users_service import UsersService, get_users_service
 from app.utils.size_units import size_to_bytes
 from app.utils.time import utcnow
@@ -289,15 +290,13 @@ class PortalRequestsService:
                     )
                 )
 
-        total = self.db.scalar(
-            select(func.count()).select_from(stmt.order_by(None).subquery())
-        ) or 0
-        offset = (query.page - 1) * query.page_size
-        rows = self.db.scalars(
-            stmt.order_by(PortalAdminRequest.created_at.desc(), PortalAdminRequest.id.desc())
-            .offset(offset)
-            .limit(query.page_size)
-        ).all()
+        rows, total = paginate_scalars(
+            self.db,
+            stmt,
+            order_by=(PortalAdminRequest.created_at.desc(), PortalAdminRequest.id.desc()),
+            page=query.page,
+            page_size=query.page_size,
+        )
         return PaginatedPortalAdminRequestsResponse(
             items=[self.to_out(row) for row in rows],
             total=total,
