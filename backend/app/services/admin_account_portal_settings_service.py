@@ -6,11 +6,11 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
-from app.core.domain_errors import S3AccountNotFoundError
 from app.db import S3Account
 from app.models.app_settings import PortalSettingsAdminUpdate, PortalSettingsOverride
 from app.models.portal_settings import PortalAccountSettings
 from app.services.portal_service import PortalService, get_portal_service
+from app.services.s3_account_repository import S3AccountRepository
 
 
 @dataclass(frozen=True)
@@ -25,13 +25,11 @@ class AdminAccountPortalSettingsService:
 
     def __init__(self, db: Session, portal: PortalService | None = None) -> None:
         self.db = db
+        self.accounts = S3AccountRepository(db)
         self.portal = portal if portal is not None else get_portal_service(db)
 
     def _account(self, account_id: int) -> S3Account:
-        account = self.db.get(S3Account, account_id)
-        if account is None:
-            raise S3AccountNotFoundError("S3Account not found")
-        return account
+        return self.accounts.get(account_id)
 
     def get(self, account_id: int) -> PortalAccountSettings:
         return self.portal.get_portal_account_settings(self._account(account_id))

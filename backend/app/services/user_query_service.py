@@ -8,6 +8,7 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy.sql import Select
 
+from app.core.domain_errors import UiUserNotFoundError
 from app.db import (
     S3Account,
     S3Connection,
@@ -52,6 +53,12 @@ class UserQueryService:
 
     def get_by_id(self, user_id: int) -> User | None:
         return self.db.get(User, user_id)
+
+    def require_by_id(self, user_id: int) -> User:
+        user = self.get_by_id(user_id)
+        if user is None:
+            raise UiUserNotFoundError("User not found")
+        return user
 
     def list_users(self) -> list[User]:
         return list(self.db.scalars(select(User)).all())
