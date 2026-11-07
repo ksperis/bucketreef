@@ -5,7 +5,7 @@
 import { runWithConcurrencySettled } from "../../utils/concurrency";
 import { BULK_CONCURRENCY_LIMIT } from "./bucketBulkOperationsModel";
 
-type BucketMutationProgress = {
+export type BucketMutationProgress = {
   completed: number;
   total: number;
   failed: number;

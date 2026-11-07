@@ -18,6 +18,7 @@ import {
 import {
   runBucketMutationBatch,
   type BucketMutationBatchResult,
+  type BucketMutationProgress,
 } from "./bucketOpsBulkExecution";
 import type { BucketOpsApi } from "./bucketOpsApi";
 import { normalizeVersioningStatus } from "./bucketOpsPresentation";
@@ -44,18 +45,12 @@ type BucketOpsConfigPasteApi = Pick<
   | "updateBucketQuota"
 >;
 
-type BucketOpsConfigPasteProgress = {
-  completed: number;
-  total: number;
-  failed: number;
-};
-
 type BucketOpsConfigPasteInput = BucketOpsConfigPasteApi & {
   clipboard: BulkConfigClipboard | null;
   fetchBucketQuota: (bucketName: string) => Promise<BulkQuotaSnapshot>;
   isStorageOps: boolean;
   mappings: readonly BulkPastePlanItem[];
-  onProgress?: (progress: BucketOpsConfigPasteProgress) => void;
+  onProgress?: (progress: BucketMutationProgress) => void;
   targetEndpointId: number;
 };
 
