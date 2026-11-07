@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings
 
+from app.core.domain_enums import LDAPLinkingPolicy, OIDCLinkingPolicy
 from app.utils.identity_provider_ids import normalize_identity_provider_map
 from app.utils.ldap_validation import (
     LDAP_PROVIDER_DEFAULT_USER_FILTER,
@@ -39,7 +40,7 @@ class OIDCProviderSettings(BaseModel):
     icon_url: Optional[str] = None
     use_pkce: bool = True
     use_nonce: bool = True
-    linking_policy: Literal["manual", "reauthenticate", "trusted_email"] = "manual"
+    linking_policy: OIDCLinkingPolicy = "manual"
     trusted_email_domains: list[str] = Field(default_factory=list)
     allowed_algorithms: list[str] = Field(default_factory=lambda: ["RS256"])
     allowed_hosts: list[str] = Field(default_factory=list)
@@ -109,7 +110,7 @@ class LDAPProviderSettings(BaseModel):
     timeout_seconds: float = Field(5.0, gt=0, le=60)
     enabled: bool = True
     allow_insecure: bool = False
-    linking_policy: Literal["manual", "reauthenticate"] = "manual"
+    linking_policy: LDAPLinkingPolicy = "manual"
 
     normalize_required_strings = field_validator(
         "display_name",

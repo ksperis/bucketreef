@@ -1,11 +1,11 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from typing import Literal, Optional
+from typing import Optional
 from urllib.parse import urlparse
 
 from pydantic import Field, field_validator, model_validator
 
-from app.core.domain_enums import IdentityProviderSource
+from app.core.domain_enums import IdentityProviderSource, LDAPLinkingPolicy
 from app.models.base import ApiModel
 from app.models.identity_provider import IdentityProviderFieldLock
 from app.utils.identity_provider_ids import normalize_identity_provider_id
@@ -78,7 +78,7 @@ class LDAPProviderAdminItem(ApiModel):
     timeout_seconds: float
     enabled: bool
     allow_insecure: bool
-    linking_policy: Literal["manual", "reauthenticate"] = "manual"
+    linking_policy: LDAPLinkingPolicy = "manual"
     source: IdentityProviderSource
     editable: bool
     field_locks: dict[str, IdentityProviderFieldLock]
@@ -104,7 +104,7 @@ class LDAPProviderAdminPayload(ApiModel):
     timeout_seconds: float = Field(..., gt=0, le=60)
     enabled: bool
     allow_insecure: bool
-    linking_policy: Literal["manual", "reauthenticate"] = "manual"
+    linking_policy: LDAPLinkingPolicy = "manual"
     clear_bind_password: bool = False
 
     normalize_provider_id = field_validator("provider_id", mode="before")(normalize_identity_provider_id)
