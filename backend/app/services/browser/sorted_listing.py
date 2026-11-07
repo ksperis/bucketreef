@@ -17,6 +17,7 @@ from app.services.object_listing_identity import (
     recursive_prefixes_for_key,
 )
 from app.services.object_listing_temp_store import TemporarySqliteStore
+from app.services.s3_client import S3OperationError
 
 
 @dataclass(frozen=True)
@@ -181,7 +182,7 @@ class SortedObjectSnapshotBuilder:
             try:
                 response = self.client.list_objects_v2(**kwargs)
             except (ClientError, BotoCoreError) as exc:
-                raise RuntimeError(
+                raise S3OperationError(
                     f"Unable to list objects for '{self.options.bucket_name}': {exc}"
                 ) from exc
 

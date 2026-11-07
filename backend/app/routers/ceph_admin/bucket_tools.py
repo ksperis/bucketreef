@@ -199,5 +199,5 @@ def list_bucket_objects(
                 max_keys=max_keys,
             ),
         )
-    except RuntimeError as exc:
+    except S3OperationError as exc:
         raise_bad_gateway_from_runtime(exc)

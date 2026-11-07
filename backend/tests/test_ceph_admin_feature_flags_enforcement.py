@@ -20,6 +20,7 @@ from app.routers.ceph_admin import user_keys as user_keys_router
 from app.routers.ceph_admin import user_profiles as user_profiles_router
 from app.routers.ceph_admin import users as users_router
 from app.services import ceph_admin_bucket_listing_cache
+from app.services.s3_client import S3OperationError
 from router_test_utils import effective_routes
 from tests.storage_endpoint_features import persisted_endpoint_features
 
@@ -109,6 +110,45 @@ def test_ceph_admin_bucket_objects_use_endpoint_credentials_without_browser_work
     assert account.name == "ceph-admin:1"
     assert account.storage_endpoint is ctx.endpoint
     assert request == BrowserObjectListingRequest(prefix="reports/", max_keys=100)
+
+
+def test_ceph_admin_bucket_objects_maps_expected_s3_failure_to_bad_gateway():
+    ctx, _ = _build_ctx(metrics_enabled=True)
+
+    class FakeBrowserService:
+        def list_objects(self, *_args, **_kwargs):
+            raise S3OperationError("S3 listing unavailable")
+
+    with pytest.raises(HTTPException) as exc_info:
+        bucket_tools_router.list_bucket_objects(
+            bucket_name="archive",
+            prefix="",
+            continuation_token=None,
+            max_keys=1000,
+            ctx=ctx,
+            service=FakeBrowserService(),
+        )
+
+    assert exc_info.value.status_code == 502
+    assert exc_info.value.detail == "S3 listing unavailable"
+
+
+def test_ceph_admin_bucket_objects_propagates_unexpected_runtime_failure():
+    ctx, _ = _build_ctx(metrics_enabled=True)
+
+    class FakeBrowserService:
+        def list_objects(self, *_args, **_kwargs):
+            raise RuntimeError("unexpected listing bug")
+
+    with pytest.raises(RuntimeError, match="unexpected listing bug"):
+        bucket_tools_router.list_bucket_objects(
+            bucket_name="archive",
+            prefix="",
+            continuation_token=None,
+            max_keys=1000,
+            ctx=ctx,
+            service=FakeBrowserService(),
+        )
 
 
 def test_ceph_admin_bucket_listing_can_request_stats_when_metrics_feature_disabled():

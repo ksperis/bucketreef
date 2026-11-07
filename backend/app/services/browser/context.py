@@ -19,8 +19,12 @@ from app.models.browser import (
     SseCustomerContext,
 )
 from app.services.aws_client_config import StorageRequestProfile
-from app.services.s3_client import get_s3_client
-from app.services.s3_execution_client import require_s3_execution_credentials, s3_execution_cache_key
+from app.services.s3_client import S3OperationError, get_s3_client
+from app.services.s3_execution_client import (
+    S3ExecutionCredentialsError,
+    require_s3_execution_credentials,
+    s3_execution_cache_key,
+)
 from app.services.s3_execution_context import (
     S3ExecutionContext,
     S3ExecutionTarget,
@@ -125,10 +129,18 @@ def _repair_browser_cors_rule(rule: dict, origin: str) -> bool:
 
 
 class BrowserContextMixin:
+    @staticmethod
+    def _require_s3_credentials(context: S3ExecutionTarget) -> tuple[str, str]:
+        try:
+            return require_s3_execution_credentials(
+                context,
+                error_message="S3 credentials missing for this context",
+            )
+        except S3ExecutionCredentialsError as exc:
+            raise S3OperationError(str(exc)) from exc
+
     def _resolve_s3_credentials(self, context: S3ExecutionTarget) -> tuple[str, str, Optional[str]]:
-        access_key, secret_key = require_s3_execution_credentials(
-            context, error_message="S3 credentials missing for this context",
-        )
+        access_key, secret_key = self._require_s3_credentials(context)
         session_token = context.session_token()
         if not browser_sts_enabled(context):
             return access_key, secret_key, session_token
@@ -216,9 +228,7 @@ class BrowserContextMixin:
         return etag.strip('"')
 
     def _context_cache_key(self, context: S3ExecutionTarget) -> str:
-        access_key, _ = context.effective_rgw_credentials()
-        if not access_key:
-            raise RuntimeError("S3 credentials missing for this context")
+        self._require_s3_credentials(context)
         return s3_execution_cache_key(context)
 
     def _object_lazy_head_cache_key(

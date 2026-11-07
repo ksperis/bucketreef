@@ -15,6 +15,7 @@ from app.services.object_listing_identity import (
     object_owner_label,
     recursive_prefixes_for_key,
 )
+from app.services.s3_client import S3OperationError
 
 
 _OBJECT_LIST_SCAN_PAGE_BUDGET = 20
@@ -202,7 +203,7 @@ class DefaultObjectListingLoader:
         try:
             return self.client.list_objects_v2(**kwargs)
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(
+            raise S3OperationError(
                 f"Unable to list objects for '{self.options.bucket_name}': {exc}"
             ) from exc
 
