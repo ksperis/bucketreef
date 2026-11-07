@@ -5,7 +5,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import rollback_on_error
 from app.core.domain_enums import is_admin_ui_role
 from app.core.security import get_password_hash
 from app.db import User
@@ -46,7 +46,7 @@ class UserProvisioningService:
         self.associations = UserAssociationsService(db)
 
     def create_user(self, payload: UserCreate) -> User:
-        try:
+        with rollback_on_error(self.db):
             if self.query.get_by_email(payload.email):
                 raise ValueError("User already exists")
 
@@ -66,11 +66,7 @@ class UserProvisioningService:
 
             self.associations.apply_updates(user, payload)
             self.db.add(user)
-        except Exception:
-            self.db.rollback()
-            raise
-
-        commit_or_rollback(self.db)
+            self.db.commit()
         self.db.refresh(user)
         logger.debug(
             "Created user id=%s email=%s role=%s",

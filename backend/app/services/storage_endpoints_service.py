@@ -7,7 +7,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import commit_or_rollback, rollback_on_error
 from app.core.domain_enums import (
     MANAGED_SERVICE_IDENTITY_KINDS,
     SERVICE_IDENTITY_KINDS,
@@ -310,33 +310,31 @@ class StorageEndpointsService:
         identities = EndpointServiceIdentityService(self.db, actor=self.actor)
         lease, handle = identities.lease(endpoint)
         try:
-            # lease() refreshes the target; all checks and the deletion commit stay locked.
-            if not endpoint.is_editable:
-                raise ValueError("This endpoint is protected and cannot be deleted.")
-            linked_accounts = self.db.scalar(
-                select(func.count()).select_from(S3Account).where(S3Account.storage_endpoint_id == endpoint.id)
-            )
-            linked_users = self.db.scalar(
-                select(func.count()).select_from(S3User).where(S3User.storage_endpoint_id == endpoint.id)
-            )
-            linked_connections = self.db.scalar(
-                select(func.count()).select_from(S3Connection).where(S3Connection.storage_endpoint_id == endpoint.id)
-            )
-            if any((linked_accounts, linked_users, linked_connections)):
-                raise ValueError(f"Unable to delete this endpoint: accounts={linked_accounts}, users={linked_users}, connections={linked_connections}.")
-            if any(intent.key_type not in ("endpoint_runtime", "endpoint_supervision", "ceph_admin") for intent in endpoint.key_rotation_intents):
-                raise ValueError("Finish pending key rotations before deleting the endpoint.")
-            for kind in SERVICE_IDENTITY_KINDS:
-                if not identities.revoke(endpoint, kind):
-                    raise ValueError("Managed identity revocation is pending; retry before deleting the endpoint.")
-            ResourceDeletionPurgeService(self.db).purge_endpoint_derived_data(endpoint.id)
-            self.db.delete(endpoint)
-            self.db.flush()
-            self.tags.cleanup_orphan_definitions(domain_kinds=[TAG_DOMAIN_ENDPOINT, TAG_DOMAIN_BUCKET_UI_CEPH_ADMIN, TAG_DOMAIN_BUCKET_UI_STORAGE_OPS])
-            self.db.commit()
-        except Exception:
-            self.db.rollback()
-            raise
+            with rollback_on_error(self.db):
+                # lease() refreshes the target; all checks and the deletion commit stay locked.
+                if not endpoint.is_editable:
+                    raise ValueError("This endpoint is protected and cannot be deleted.")
+                linked_accounts = self.db.scalar(
+                    select(func.count()).select_from(S3Account).where(S3Account.storage_endpoint_id == endpoint.id)
+                )
+                linked_users = self.db.scalar(
+                    select(func.count()).select_from(S3User).where(S3User.storage_endpoint_id == endpoint.id)
+                )
+                linked_connections = self.db.scalar(
+                    select(func.count()).select_from(S3Connection).where(S3Connection.storage_endpoint_id == endpoint.id)
+                )
+                if any((linked_accounts, linked_users, linked_connections)):
+                    raise ValueError(f"Unable to delete this endpoint: accounts={linked_accounts}, users={linked_users}, connections={linked_connections}.")
+                if any(intent.key_type not in ("endpoint_runtime", "endpoint_supervision", "ceph_admin") for intent in endpoint.key_rotation_intents):
+                    raise ValueError("Finish pending key rotations before deleting the endpoint.")
+                for kind in SERVICE_IDENTITY_KINDS:
+                    if not identities.revoke(endpoint, kind):
+                        raise ValueError("Managed identity revocation is pending; retry before deleting the endpoint.")
+                ResourceDeletionPurgeService(self.db).purge_endpoint_derived_data(endpoint.id)
+                self.db.delete(endpoint)
+                self.db.flush()
+                self.tags.cleanup_orphan_definitions(domain_kinds=[TAG_DOMAIN_ENDPOINT, TAG_DOMAIN_BUCKET_UI_CEPH_ADMIN, TAG_DOMAIN_BUCKET_UI_STORAGE_OPS])
+                self.db.commit()
         finally:
             lease.release(handle)
 
