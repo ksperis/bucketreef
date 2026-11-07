@@ -17,7 +17,7 @@ from app.services.access_context_contracts import (
     ManagerSessionPrincipal,
 )
 
-from app.db import S3Connection, S3User, User, UserS3Account
+from app.db import S3Connection, User, UserS3Account
 
 from app.services import effective_access_service
 from app.services.effective_access_service import EffectiveAccessService
@@ -97,30 +97,8 @@ def _parse_execution_context_selector(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid account identifier")
 
 
-def _build_s3_connection_context(
-    connection: S3Connection,
-    *,
-    capabilities: Optional[AccountCapabilities] = None,
-) -> S3ExecutionContext:
-    return S3ExecutionContext.from_connection(
-        connection,
-        manager_capabilities=capabilities,
-    )
-
-
 def _connection_iam_capable(conn: S3Connection) -> bool:
     return s3_connection_can_manage_iam(conn.capabilities)
-
-
-def _build_s3_user_context(
-    s3_user: S3User,
-    *,
-    capabilities: Optional[AccountCapabilities] = None,
-) -> S3ExecutionContext:
-    return S3ExecutionContext.from_s3_user(
-        s3_user,
-        manager_capabilities=capabilities,
-    )
 
 
 def _resolve_s3_user_context(
@@ -148,14 +126,10 @@ def _resolve_s3_user_context(
         raise_http_error_from_value_error(exc)
 
     if metadata_only:
-        return S3ExecutionContext(
-            context_id=f"s3u-{s3_user.id}", context_kind="s3_user", name=s3_user.name,
-            access_key=None, secret_key=None, storage_endpoint=s3_user.storage_endpoint,
-            storage_endpoint_id=s3_user.storage_endpoint_id,
-        )
-    return _build_s3_user_context(
+        return S3ExecutionContext.from_s3_user(s3_user, metadata_only=True)
+    return S3ExecutionContext.from_s3_user(
         s3_user,
-        capabilities=AccountCapabilities(
+        manager_capabilities=AccountCapabilities(
             can_manage_buckets=True,
             can_manage_iam=False,
             can_view_root_key=False,
@@ -205,20 +179,13 @@ def _resolve_connection_context(
 
     # Keep a minimal usage signal for UX (recently used sorting / hints).
     if metadata_only:
-        details = resolve_connection_details(conn)
-        return S3ExecutionContext(
-            context_id=f"conn-{conn.id}", context_kind="connection", name=conn.name,
-            access_key=None, secret_key=None, storage_endpoint=conn.storage_endpoint,
-            storage_endpoint_id=conn.storage_endpoint_id, session_endpoint=details.endpoint_url,
-            session_region=details.region, session_force_path_style=details.force_path_style,
-            session_verify_tls=details.verify_tls, s3_connection_id=conn.id,
-        )
+        return S3ExecutionContext.from_connection(conn, metadata_only=True)
     if touch_usage:
         connections.touch_usage_best_effort(conn)
     can_manage_iam = _connection_iam_capable(conn)
-    return _build_s3_connection_context(
+    return S3ExecutionContext.from_connection(
         conn,
-        capabilities=AccountCapabilities(
+        manager_capabilities=AccountCapabilities(
             can_manage_buckets=True,
             can_manage_iam=can_manage_iam,
             can_view_root_key=False,
