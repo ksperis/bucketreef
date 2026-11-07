@@ -14,7 +14,7 @@ from app.models.production_readiness import (
     ProductionReadinessResponse,
 )
 from app.routers.dependencies import get_current_ui_superadmin
-from app.services.app_settings_service import load_app_settings_for_db
+from app.services.app_settings_service import AppSettingsLoadError, load_app_settings_for_db
 from app.services.deployment_checks import (
     readiness_counts,
     readiness_status,
@@ -47,7 +47,7 @@ def get_production_readiness(
 ) -> ProductionReadinessResponse:
     try:
         app_settings = load_app_settings_for_db(db)
-    except Exception:
+    except AppSettingsLoadError:
         app_settings = None
     findings = run_deployment_checks(settings, app_settings=app_settings, db=db)
     return ProductionReadinessResponse(
