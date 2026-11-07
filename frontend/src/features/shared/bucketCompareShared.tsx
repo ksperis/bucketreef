@@ -459,6 +459,19 @@ export const useBucketCompareWorkflowState = <
   );
   const ignoreModifiedAfterInvalid =
     Boolean(ignoreModifiedAfter.trim()) && !ignoreModifiedAfterIso;
+  const resultFilters = useMemo<BucketCompareRunFilters>(
+    () => ({
+      search: resultSearch,
+      status: statusFilter,
+      differences: diffFilter,
+    }),
+    [diffFilter, resultSearch, statusFilter],
+  );
+  const resetResultFilters = useCallback(() => {
+    setResultSearch("");
+    setStatusFilter("all");
+    setDiffFilter("all");
+  }, []);
 
   return {
     mappingMode,
@@ -483,6 +496,8 @@ export const useBucketCompareWorkflowState = <
     setStatusFilter,
     diffFilter,
     setDiffFilter,
+    resultFilters,
+    resetResultFilters,
     requestControllersRef,
     ...mappingModel,
     progressPercent,

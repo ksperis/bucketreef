@@ -169,6 +169,8 @@ export default function CephAdminBucketCompareModal({
     setStatusFilter,
     diffFilter,
     setDiffFilter,
+    resultFilters,
+    resetResultFilters,
     manualMapping,
     parsedRawMapping,
     rawMappingText,
@@ -306,20 +308,8 @@ export default function CephAdminBucketCompareModal({
   const resultSummary = useMemo(() => summarizeBucketCompareRun(items), [items]);
 
   const filteredItems = useMemo(() => {
-    return items.filter((item) =>
-      matchesBucketCompareRunFilters(item, {
-        search: resultSearch,
-        status: statusFilter,
-        differences: diffFilter,
-      })
-    );
-  }, [diffFilter, items, resultSearch, statusFilter]);
-
-  const resetResultFilters = () => {
-    setResultSearch("");
-    setStatusFilter("all");
-    setDiffFilter("all");
-  };
+    return items.filter((item) => matchesBucketCompareRunFilters(item, resultFilters));
+  }, [items, resultFilters]);
 
   const stopComparison = useCallback(() => {
     stopRun();

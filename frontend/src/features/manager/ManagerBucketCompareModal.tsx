@@ -214,6 +214,8 @@ export default function ManagerBucketCompareModal({
     setStatusFilter,
     diffFilter,
     setDiffFilter,
+    resultFilters,
+    resetResultFilters,
     manualMapping,
     parsedRawMapping,
     rawMappingText,
@@ -367,19 +369,9 @@ export default function ManagerBucketCompareModal({
     return items
       .map((item, index) => ({ item, index }))
       .filter(({ item }) =>
-        matchesBucketCompareRunFilters(item, {
-          search: resultSearch,
-          status: statusFilter,
-          differences: diffFilter,
-        })
+        matchesBucketCompareRunFilters(item, resultFilters)
       );
-  }, [diffFilter, items, resultSearch, statusFilter]);
-
-  const resetResultFilters = () => {
-    setResultSearch("");
-    setStatusFilter("all");
-    setDiffFilter("all");
-  };
+  }, [items, resultFilters]);
 
   const stopComparison = useCallback(() => {
     if (!stopRun()) return;

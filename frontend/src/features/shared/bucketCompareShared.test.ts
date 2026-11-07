@@ -110,6 +110,11 @@ describe("bucket comparison configuration state", () => {
     expect(result.current.hasConfigFeatureSelected).toBe(true);
     expect(result.current.ignoreModifiedAfterIso).toBeNull();
     expect(result.current.ignoreModifiedAfterInvalid).toBe(false);
+    expect(result.current.resultFilters).toEqual({
+      search: "",
+      status: "all",
+      differences: "all",
+    });
 
     act(() => result.current.setIncludeContent(false));
     expect(result.current.hasScopeSelected).toBe(false);
@@ -117,6 +122,23 @@ describe("bucket comparison configuration state", () => {
     act(() => result.current.setIgnoreModifiedAfter("invalid-date"));
     expect(result.current.ignoreModifiedAfterIso).toBeNull();
     expect(result.current.ignoreModifiedAfterInvalid).toBe(true);
+
+    act(() => {
+      result.current.setResultSearch("archive");
+      result.current.setStatusFilter("success");
+      result.current.setDiffFilter("with_diff");
+    });
+    expect(result.current.resultFilters).toEqual({
+      search: "archive",
+      status: "success",
+      differences: "with_diff",
+    });
+    act(() => result.current.resetResultFilters());
+    expect(result.current.resultFilters).toEqual({
+      search: "",
+      status: "all",
+      differences: "all",
+    });
 
     act(() =>
       result.current.setProgress({
