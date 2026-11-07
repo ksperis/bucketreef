@@ -9,7 +9,6 @@ from pydantic import SecretStr
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.domain_errors import StorageEndpointNotFoundError
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import StorageEndpoint
 from app.models.storage_endpoint import (
@@ -28,6 +27,7 @@ from app.services.rgw_admin_identity import (
 from app.services.storage_endpoint_admin_permissions import (
     admin_ops_permissions_from_caps,
 )
+from app.services.storage_endpoint_repository import StorageEndpointRepository
 from app.utils.normalize import normalize_optional_string
 from app.utils.rgw_payloads import extract_rgw_user_caps, extract_rgw_user_identity
 from app.utils.s3_endpoint import normalize_s3_endpoint
@@ -78,6 +78,7 @@ class StorageEndpointFeatureDetector:
         client_factory: RGWAdminClientFactory,
     ) -> None:
         self.db = db
+        self.endpoints = StorageEndpointRepository(db)
         self.client_factory = client_factory
 
     @staticmethod
@@ -142,10 +143,7 @@ class StorageEndpointFeatureDetector:
     def _stored_endpoint(self, endpoint_id: int | None) -> StorageEndpoint | None:
         if endpoint_id is None:
             return None
-        endpoint = self.db.get(StorageEndpoint, endpoint_id)
-        if endpoint is None:
-            raise StorageEndpointNotFoundError("Endpoint not found.")
-        return endpoint
+        return self.endpoints.get(endpoint_id)
 
     @staticmethod
     def _target(

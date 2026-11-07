@@ -9,13 +9,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.domain_enums import StorageProvider
-from app.core.domain_errors import StorageEndpointNotFoundError, StorageEndpointProviderError
+from app.core.domain_errors import StorageEndpointProviderError
 from app.db import S3Account, StorageEndpoint
 from app.services.bucket_usage_stats_service import (
     BucketUsageStatsAggregateTarget,
     BucketUsageStatsResolvedTarget,
 )
 from app.services.buckets_service import BucketsService
+from app.services.storage_endpoint_repository import StorageEndpointRepository
 
 
 logger = logging.getLogger(__name__)
@@ -36,12 +37,11 @@ class AdminUsageStatsScopeService:
 
     def __init__(self, db: Session, bucket_service: BucketsService) -> None:
         self.db = db
+        self.endpoints = StorageEndpointRepository(db)
         self.bucket_service = bucket_service
 
     def resolve_ceph_endpoint(self, endpoint_id: int) -> StorageEndpoint:
-        endpoint = self.db.get(StorageEndpoint, endpoint_id)
-        if endpoint is None:
-            raise StorageEndpointNotFoundError("Endpoint not found.")
+        endpoint = self.endpoints.get(endpoint_id)
         if endpoint.provider != StorageProvider.CEPH.value:
             raise StorageEndpointProviderError("This endpoint is not a Ceph endpoint.")
         return endpoint
