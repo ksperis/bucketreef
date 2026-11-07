@@ -3244,6 +3244,43 @@ def test_storage_space_version_cleanup_deletes_noncurrent_versions_and_orphan_ma
     assert progress[-1].bytes_freed == 50
 
 
+def test_storage_space_version_cleanup_wraps_expected_s3_errors(db_session):
+    class _DeniedVersionClient:
+        def list_object_versions(self, **_kwargs):
+            raise ClientError(
+                {"Error": {"Code": "AccessDenied", "Message": "denied"}},
+                "ListObjectVersions",
+            )
+
+    service = PortalService(db_session)
+    target = PortalStorageSpaceVersionCleanupTarget(
+        client=_DeniedVersionClient(),
+        bucket_name="research-data",
+        storage_space_id="research-data",
+        storage_space_name="Research Data",
+    )
+
+    with pytest.raises(RuntimeError, match="Unable to clean historical versions for Storage Space 'Research Data'"):
+        service.run_storage_space_version_cleanup(target)
+
+
+def test_storage_space_version_cleanup_propagates_unexpected_runtime_errors(db_session):
+    class _BrokenVersionClient:
+        def list_object_versions(self, **_kwargs):
+            raise RuntimeError("version cleanup regression")
+
+    service = PortalService(db_session)
+    target = PortalStorageSpaceVersionCleanupTarget(
+        client=_BrokenVersionClient(),
+        bucket_name="research-data",
+        storage_space_id="research-data",
+        storage_space_name="Research Data",
+    )
+
+    with pytest.raises(RuntimeError, match="^version cleanup regression$"):
+        service.run_storage_space_version_cleanup(target)
+
+
 def test_storage_space_version_cleanup_confirmation_phrase_uses_displayed_uppercase():
     assert portal_storage_space_version_cleanup_confirmation_phrase("Test1") == "CLEAN HISTORY TEST1"
     assert portal_storage_space_version_cleanup_confirmation_phrase("Research Data") == "CLEAN HISTORY RESEARCH DATA"
