@@ -41,7 +41,7 @@ def probe_connection_can_manage_iam(connection: S3Connection) -> bool:
         )
         client.list_users(MaxItems=1)
         return True
-    except (ClientError, BotoCoreError, RuntimeError):
+    except (ClientError, BotoCoreError):
         return False
 
 
@@ -65,5 +65,5 @@ def probe_execution_can_manage_iam(context) -> bool:
                        endpoint=iam_endpoint, region=resolve_iam_signing_region(endpoint),
                        verify_tls=verify_tls).list_users(MaxItems=1)
         return True
-    except (ClientError, BotoCoreError, RuntimeError):
+    except (ClientError, BotoCoreError):
         return False
