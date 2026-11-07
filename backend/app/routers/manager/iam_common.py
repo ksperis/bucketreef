@@ -19,7 +19,7 @@ from app.services.manager_iam_support import (
     build_iam_service_for_context,
     ensure_unmanaged_iam_user as ensure_unmanaged_iam_user_service,
 )
-from app.services.rgw_iam import RGWIAMService
+from app.services.rgw_iam import RGWIAMError, RGWIAMService
 from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.http_errors import (
     raise_bad_gateway_from_runtime,
@@ -56,7 +56,7 @@ def ensure_inline_policy_name(payload: InlinePolicy, policy_name: str) -> None:
 def run_iam_read(read: Callable[[], _T]) -> _T:
     try:
         return read()
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_bad_gateway_from_runtime(exc)
 
 
@@ -83,5 +83,5 @@ def run_audited_iam_mutation(
             metadata=metadata,
         )
         return result
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)

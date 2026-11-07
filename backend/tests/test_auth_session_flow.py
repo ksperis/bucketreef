@@ -16,6 +16,7 @@ from app.routers import auth as auth_router
 from app.routers import auth_common, auth_s3
 from app.services.auth_rate_limit_service import AuthRateLimitService
 from app.services import session_service as session_module
+from app.services.rgw_iam import RGWIAMError
 from tests.auth_test_utils import trusted_origin_headers
 from tests.router_test_utils import effective_routes
 from tests.s3_account_factory import make_s3_account
@@ -603,10 +604,10 @@ def test_iam_overview_handles_partial_failures(monkeypatch, client, db_session):
             return []
 
         def list_groups(self):
-            raise RuntimeError("groups disabled")
+            raise RGWIAMError("groups disabled")
 
         def list_roles(self):
-            raise RuntimeError("roles disabled")
+            raise RGWIAMError("roles disabled")
 
         def list_policies(self):
             return []

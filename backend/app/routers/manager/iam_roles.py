@@ -39,6 +39,7 @@ from app.services.manager_iam_support import (
     load_inline_policies,
     save_inline_policy,
 )
+from app.services.rgw_iam import RGWIAMError
 from app.routers.resource_name_validation import validate_inline_policy_request, validate_inline_policy_requests
 
 router = APIRouter(prefix="/manager/iam/roles", tags=["manager-iam-roles"])
@@ -47,12 +48,12 @@ router = APIRouter(prefix="/manager/iam/roles", tags=["manager-iam-roles"])
 def _ensure_role_tags_persisted(requested: list[IAMTag], current: list[IAMTag]) -> None:
     current_pairs = {(tag.key, tag.value) for tag in current}
     if any((tag.key, tag.value) not in current_pairs for tag in requested):
-        raise RuntimeError("IAM role tag update did not persist on the storage backend")
+        raise RGWIAMError("IAM role tag update did not persist on the storage backend")
 
 
 def _ensure_role_tag_removed(tag_key: str, current: list[IAMTag]) -> None:
     if any(tag.key == tag_key for tag in current):
-        raise RuntimeError("IAM role tag deletion did not persist on the storage backend")
+        raise RGWIAMError("IAM role tag deletion did not persist on the storage backend")
 
 
 @router.get("", response_model=list[IAMRole])
@@ -63,7 +64,7 @@ def list_roles(
     service = get_iam_service_for_context(context)
     try:
         return service.list_roles()
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
 
@@ -86,7 +87,7 @@ def list_roles_page(
                 inline = service.list_role_inline_policies(role.name)
                 role.inline_policies = inline or None
         return IAMRolePage(items=roles, next_marker=next_marker)
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
 
@@ -122,7 +123,7 @@ def create_role(
             },
         )
         return result
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
 
@@ -135,7 +136,7 @@ def get_role(
     service = get_iam_service_for_context(context)
     try:
         role = service.get_role(role_name)
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
     if role is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found")
@@ -160,7 +161,7 @@ def delete_role(
             entity_id=role_name,
             execution_context=context,
         )
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
 
@@ -184,7 +185,7 @@ def update_role(
         )
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
 
@@ -199,7 +200,7 @@ def list_role_tags(
         if service.get_role(role_name) is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found")
         return service.list_role_tags(role_name)
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
 
@@ -232,7 +233,7 @@ def put_role_tags(
             metadata={"tag_keys": [tag.key for tag in payload]},
         )
         return tags
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
 
@@ -261,7 +262,7 @@ def delete_role_tag(
             metadata={"tag_keys": [tag_key]},
         )
         return tags
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
 

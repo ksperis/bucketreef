@@ -8,6 +8,7 @@ from app.services.access_context_contracts import ManagerActor
 from app.models.iam import IAMOverview
 from app.routers.dependencies import get_s3_execution_context, require_iam_capable_manager
 from app.routers.manager.iam_common import get_iam_service_for_context
+from app.services.rgw_iam import RGWIAMError
 from app.services.s3_execution_context import S3ExecutionContext
 
 logger = logging.getLogger(__name__)
@@ -25,7 +26,7 @@ def iam_overview(
     def _capture(label: str, func):
         try:
             return func()
-        except RuntimeError as exc:
+        except RGWIAMError as exc:
             logger.debug("IAM overview fallback for %s: %s", label, exc)
             warnings.append(f"{label}: {exc}")
             return []

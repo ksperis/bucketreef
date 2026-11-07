@@ -57,7 +57,7 @@ from app.services.managed_private_access_query_service import (
     ManagedPrivateAccessQueryService,
 )
 from app.services.managed_private_access_sources import iam_source_reference
-from app.services.rgw_iam import RGWIAMService
+from app.services.rgw_iam import RGWIAMError, RGWIAMService
 
 router = APIRouter(prefix="/manager/iam/users", tags=["manager-iam-users"])
 
@@ -89,7 +89,7 @@ def list_users(
         for item in users:
             _annotate_managed_user(db, context, item)
         return users
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_bad_gateway_from_runtime(exc)
 
 
@@ -113,7 +113,7 @@ def list_users_page(
             items=[_annotate_managed_user(db, context, user) for user in users],
             next_marker=next_marker,
         )
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_bad_gateway_from_runtime(exc)
 
 
@@ -130,7 +130,7 @@ def get_user(
         if user is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
         return _annotate_managed_user(db, context, load_iam_user_details(service, user))
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_bad_gateway_from_runtime(exc)
 
 
@@ -163,7 +163,7 @@ def update_user(
         return result.user
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_bad_gateway_from_runtime(exc)
 
 
@@ -199,7 +199,7 @@ def create_user(
             },
         )
         return result
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
 
@@ -225,7 +225,7 @@ def delete_user(
             entity_id=user_name,
             execution_context=context,
         )
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
 
@@ -259,7 +259,7 @@ def list_access_keys(
                     key.is_private_access_managed = True
                     key.managed_connection_id = provisioning.s3_connection_id
         return keys
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
 
@@ -309,7 +309,7 @@ def create_access_key(
             metadata={"access_key_id": key.access_key_id},
         )
         return key
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
 
@@ -353,7 +353,7 @@ def update_access_key_metadata(
             },
         )
         return metadata_service.to_api(row)
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
 
@@ -406,7 +406,7 @@ def update_access_key_status(
         if updated:
             return updated
         return AccessKey(access_key_id=access_key_id, status=status_value)
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
 
@@ -443,7 +443,7 @@ def delete_access_key(
             execution_context=context,
             metadata={"access_key_id": access_key_id},
         )
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
 

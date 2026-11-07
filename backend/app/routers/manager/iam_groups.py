@@ -38,6 +38,7 @@ from app.services.manager_iam_support import (
     save_inline_policy,
 )
 from app.services.managed_resource_naming import PORTAL_MANAGED_IAM_GROUP_NAMES
+from app.services.rgw_iam import RGWIAMError
 from app.routers.resource_name_validation import validate_inline_policy_request, validate_inline_policy_requests
 
 router = APIRouter(prefix="/manager/iam/groups", tags=["manager-iam-groups"])
@@ -68,7 +69,7 @@ def list_groups(
     service = get_iam_service_for_context(context)
     try:
         return [_annotate_managed_group(group) for group in service.list_groups()]
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_bad_gateway_from_runtime(exc)
 
 
@@ -96,7 +97,7 @@ def list_groups_page(
             items=[_annotate_managed_group(group) for group in groups],
             next_marker=next_marker,
         )
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_bad_gateway_from_runtime(exc)
 
 
@@ -112,7 +113,7 @@ def get_group(
         if group is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
         return _annotate_managed_group(group)
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_bad_gateway_from_runtime(exc)
 
 
@@ -136,7 +137,7 @@ def update_group(
         effective_name = new_name or group_name
         updated = service.get_group(effective_name)
         if updated is None:
-            raise RuntimeError("Updated IAM group could not be reloaded")
+            raise RGWIAMError("Updated IAM group could not be reloaded")
         if new_name is not None or new_path is not None:
             audit_service.record_action(
                 user=current_user,
@@ -152,7 +153,7 @@ def update_group(
                 },
             )
         return _annotate_managed_group(updated)
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_bad_gateway_from_runtime(exc)
 
 
@@ -181,7 +182,7 @@ def create_group(
             },
         )
         return result
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
 
@@ -204,7 +205,7 @@ def delete_group(
             entity_id=group_name,
             execution_context=context,
         )
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
 
@@ -217,7 +218,7 @@ def list_group_users(
     service = get_iam_service_for_context(context)
     try:
         return service.list_group_users(group_name)
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
 
@@ -245,7 +246,7 @@ def add_user_to_group(
             metadata={"user": payload.name},
         )
         return IAMUser(name=payload.name)
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
 
@@ -272,7 +273,7 @@ def remove_user_from_group(
             execution_context=context,
             metadata={"user": user_name},
         )
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
 
