@@ -7,6 +7,7 @@ from typing import Literal, Optional
 
 from pydantic import EmailStr, Field, field_validator, model_validator
 
+from app.core.domain_enums import ExternalIdentityProviderType
 from app.models.base import ApiModel
 from app.models.auth import SessionInfo
 from app.models.user import UiRole
@@ -29,7 +30,7 @@ class AdminSessionInfo(SessionInfo):
 
 class AdminExternalIdentityInfo(ApiModel):
     id: str
-    provider_type: Literal["oidc", "ldap"]
+    provider_type: ExternalIdentityProviderType
     provider_id: str
     issuer: Optional[str]
     subject: str
@@ -57,7 +58,7 @@ class AdminSetPasswordRequest(ApiModel):
 
 
 class AdminExternalIdentityRequest(ApiModel):
-    provider_type: Literal["oidc", "ldap"]
+    provider_type: ExternalIdentityProviderType
     provider_id: str = Field(min_length=1, max_length=255)
     issuer: Optional[str] = Field(default=None, min_length=1, max_length=2048)
     subject: str = Field(min_length=1, max_length=2048)
@@ -99,7 +100,7 @@ class ExternalIdentityLinkRequestInfo(ApiModel):
     user_id: int
     user_email: str
     user_role: UiRole
-    provider_type: Literal["oidc", "ldap"]
+    provider_type: ExternalIdentityProviderType
     provider_id: str
     issuer: Optional[str]
     subject: str

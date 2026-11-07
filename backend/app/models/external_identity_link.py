@@ -7,6 +7,7 @@ from typing import Literal, Optional
 
 from pydantic import Field, field_validator
 
+from app.core.domain_enums import ExternalIdentityProviderType
 from app.models.base import ApiModel
 from app.utils.identity_provider_ids import normalize_identity_provider_id
 
@@ -20,7 +21,7 @@ class ExternalIdentityLinkProofMethod(ApiModel):
 class ExternalIdentityLinkStatus(ApiModel):
     attempt_id: str
     target_email: str
-    provider_type: Literal["oidc", "ldap"]
+    provider_type: ExternalIdentityProviderType
     provider_id: str
     source: Literal["login_collision", "profile"]
     stage: Literal[

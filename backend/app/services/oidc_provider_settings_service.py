@@ -2,12 +2,13 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from typing import Literal, Optional
+from typing import Optional
 from urllib.parse import urlparse
 
 from sqlalchemy.orm import Session
 
 from app.core.config import OIDCProviderSettings, Settings, get_settings
+from app.core.domain_enums import IdentityProviderSource
 from app.db import OidcProvider
 from app.models.identity_provider import IdentityProviderFieldLock
 from app.models.oidc import (
@@ -161,7 +162,7 @@ def _provider_item(
     provider_id: str,
     provider: OIDCProviderSettings,
     *,
-    source: Literal["environment", "ui"],
+    source: IdentityProviderSource,
     field_locks: Optional[dict[str, IdentityProviderFieldLock]] = None,
 ) -> OIDCProviderAdminItem:
     return OIDCProviderAdminItem(

@@ -58,7 +58,9 @@ class HealthWindow(str, Enum):
     YEAR = "year"
 
 
+ExternalIdentityProviderType = Literal["oidc", "ldap"]
 HealthCheckMode = Literal["http", "s3"]
+IdentityProviderSource = Literal["environment", "ui"]
 KeyRotationPhase = Literal["prepared", "activated"]
 S3SubjectType = Literal["account", "s3_user"]
 S3SubjectFilter = Literal["all", "account", "s3_user"]

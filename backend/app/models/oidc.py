@@ -4,6 +4,7 @@ from typing import Literal, Optional
 
 from pydantic import field_validator
 
+from app.core.domain_enums import IdentityProviderSource
 from app.models.base import ApiModel
 from app.models.identity_provider import IdentityProviderFieldLock
 from app.utils.identity_provider_ids import normalize_identity_provider_id
@@ -62,7 +63,7 @@ class OIDCProviderAdminItem(ApiModel):
     use_nonce: bool
     linking_policy: Literal["manual", "reauthenticate", "trusted_email"]
     trusted_email_domains: list[str]
-    source: Literal["environment", "ui"]
+    source: IdentityProviderSource
     editable: bool
     field_locks: dict[str, IdentityProviderFieldLock]
     has_client_secret: bool
