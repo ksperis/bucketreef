@@ -33,15 +33,19 @@ from app.utils.time import utcnow
 OIDC_ISSUER = "https://issuer.example.test"
 
 
-class _FakeUsersService:
+class _FakeExternalIdentityUserService:
     def __init__(self):
         self.calls: list[dict] = []
-        self.last_marked = None
         self.user = SimpleNamespace(id=1, email="oidc@example.test")
 
     def get_or_create_oidc_user(self, **kwargs):
         self.calls.append(kwargs)
         return self.user, True
+
+
+class _FakeUserLoginService:
+    def __init__(self):
+        self.last_marked = None
 
     def mark_last_login(self, user):
         self.last_marked = user
@@ -89,9 +93,12 @@ def _settings(provider: OIDCProviderSettings, **overrides) -> Settings:
 
 
 def _service(db_session, settings: Settings | None = None):
-    users = _FakeUsersService()
-    service = OidcService(db_session, users_service=users, settings=settings or _settings(_provider()))
-    return service, users
+    identity_users = _FakeExternalIdentityUserService()
+    login_service = _FakeUserLoginService()
+    service = OidcService(db_session, settings=settings or _settings(_provider()))
+    service.identity_users = identity_users
+    service.login_service = login_service
+    return service, SimpleNamespace(identity_users=identity_users, login_service=login_service)
 
 
 def test_list_providers_only_returns_enabled(db_session):
@@ -513,11 +520,11 @@ def test_complete_login_success_uses_userinfo_fallback_and_cleans_state(db_sessi
     )
 
     user, redirect_path, created = service.complete_login("google", "auth-code", started["state"])
-    assert user == users.user
+    assert user == users.identity_users.user
     assert redirect_path == "/target"
     assert created is True
-    assert users.last_marked == users.user
-    assert users.calls and users.calls[0]["email"] == "oidc@example.test"
+    assert users.login_service.last_marked == users.identity_users.user
+    assert users.identity_users.calls and users.identity_users.calls[0]["email"] == "oidc@example.test"
     assert db_session.scalar(
         select(OidcLoginState).where(OidcLoginState.state == started["state"])
     ) is None
@@ -655,7 +662,7 @@ def test_complete_login_routes_link_continuations(
     assert calls[0][1]["provider_id"] == "google"
     assert calls[0][1]["issuer"] == OIDC_ISSUER
     assert calls[0][1]["subject"] == "external-subject"
-    assert users.calls == []
+    assert users.identity_users.calls == []
 
 
 def test_metadata_and_jwks_caching(db_session, monkeypatch):

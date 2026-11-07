@@ -25,9 +25,10 @@ from app.models.ldap import LDAPProviderInfo
 from app.services.external_identity_user_service import (
     ExternalIdentityLinkRequiredError,
     ExternalIdentityReauthenticationRequiredError,
+    ExternalIdentityUserService,
 )
 from app.services.ldap_provider_settings_service import resolve_ldap_provider_map
-from app.services.users_service import UsersService, get_users_service
+from app.services.user_login_service import UserLoginService
 from app.utils.identity_provider_ids import normalize_identity_provider_id
 
 LOGGER = logging.getLogger(__name__)
@@ -68,11 +69,11 @@ class LDAPAuthService:
     def __init__(
         self,
         db: Session,
-        users_service: UsersService,
         settings: Optional[Settings] = None,
     ) -> None:
         self.db = db
-        self.users_service = users_service
+        self.identity_users = ExternalIdentityUserService(db)
+        self.login_service = UserLoginService(db)
         self.settings = settings or get_settings()
 
     def list_providers(self) -> list[LDAPProviderInfo]:
@@ -97,7 +98,7 @@ class LDAPAuthService:
         provider_key, provider = self._get_provider(provider_id)
         identity = self._authenticate_directory(provider_key, provider, normalized_username, password)
         try:
-            user, created = self.users_service.get_or_create_ldap_user(
+            user, created = self.identity_users.get_or_create_ldap_user(
                 provider=provider_key,
                 subject=identity.subject,
                 email=identity.email,
@@ -112,7 +113,7 @@ class LDAPAuthService:
             raise LDAPUserConflictError(sanitized_error_log_detail(exc)) from exc
         if not user.is_active:
             raise LDAPUserConflictError("User is inactive")
-        user = self.users_service.mark_last_login(user)
+        user = self.login_service.mark_last_login(user)
         return user, created
 
     def verify_credentials(self, provider_id: str, username: str, password: str) -> LDAPIdentity:
@@ -463,4 +464,4 @@ class LDAPAuthService:
 
 
 def get_ldap_auth_service(db: Session) -> LDAPAuthService:
-    return LDAPAuthService(db, users_service=get_users_service(db))
+    return LDAPAuthService(db)

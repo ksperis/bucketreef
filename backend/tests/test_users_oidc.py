@@ -9,15 +9,17 @@ from sqlalchemy import func, select
 
 from app.db import AuditLog, ExternalIdentity, ExternalIdentityLinkRequest, User, UserNotification
 from app.core.domain_enums import UserRole
-from app.services.external_identity_user_service import ExternalIdentityLinkRequiredError
-from app.services.users_service import UsersService
+from app.services.external_identity_user_service import (
+    ExternalIdentityLinkRequiredError,
+    ExternalIdentityUserService,
+)
 from app.utils.time import utcnow
 
 OIDC_ISSUER = "https://issuer.example.test"
 
 
 def test_get_or_create_oidc_user_creates_new_user(db_session):
-    service = UsersService(db_session)
+    service = ExternalIdentityUserService(db_session)
 
     user, created = service.get_or_create_oidc_user(
         provider="Google",
@@ -52,7 +54,7 @@ def test_get_or_create_oidc_user_requires_approval_for_existing_email(db_session
     db_session.add(existing)
     db_session.commit()
 
-    service = UsersService(db_session)
+    service = ExternalIdentityUserService(db_session)
     with pytest.raises(ExternalIdentityLinkRequiredError):
         service.get_or_create_oidc_user(
             provider="google",
@@ -100,7 +102,7 @@ def test_identity_link_request_notifies_authorized_admins_once_per_episode(
     )
     db_session.add_all([existing, admin, superadmin, inactive_admin])
     db_session.commit()
-    service = UsersService(db_session)
+    service = ExternalIdentityUserService(db_session)
 
     def request_link() -> None:
         with pytest.raises(ExternalIdentityLinkRequiredError):
@@ -162,7 +164,7 @@ def test_privileged_identity_link_request_notifies_superadmins_only(db_session):
     db_session.commit()
 
     with pytest.raises(ExternalIdentityLinkRequiredError):
-        UsersService(db_session).get_or_create_oidc_user(
+        ExternalIdentityUserService(db_session).get_or_create_oidc_user(
             provider="google",
             issuer=OIDC_ISSUER,
             subject="privileged-notification-subject",
@@ -199,7 +201,7 @@ def test_get_or_create_oidc_user_rejects_email_bound_to_another_identity(
     )
     db_session.commit()
 
-    service = UsersService(db_session)
+    service = ExternalIdentityUserService(db_session)
     with pytest.raises(ExternalIdentityLinkRequiredError):
         service.get_or_create_oidc_user(
             provider="google",
@@ -235,7 +237,7 @@ def test_get_or_create_oidc_user_reuses_existing_mapping(db_session):
     )
     db_session.commit()
 
-    service = UsersService(db_session)
+    service = ExternalIdentityUserService(db_session)
     user, created = service.get_or_create_oidc_user(
         provider="google",
         issuer=OIDC_ISSUER,
@@ -260,7 +262,7 @@ def test_trusted_email_policy_links_an_eligible_local_account(db_session):
     db_session.add(existing)
     db_session.commit()
 
-    user, created = UsersService(db_session).get_or_create_oidc_user(
+    user, created = ExternalIdentityUserService(db_session).get_or_create_oidc_user(
         provider="company",
         issuer=OIDC_ISSUER,
         subject="secret-provider-subject",
@@ -316,7 +318,7 @@ def test_trusted_email_policy_falls_back_to_manual_review(
     db_session.commit()
 
     with pytest.raises(ExternalIdentityLinkRequiredError):
-        UsersService(db_session).get_or_create_oidc_user(
+        ExternalIdentityUserService(db_session).get_or_create_oidc_user(
             provider="company",
             issuer=OIDC_ISSUER,
             subject=f"manual-{role}-{is_active}-{email_verified}-{domains[0]}",
@@ -357,7 +359,7 @@ def test_trusted_email_policy_rejects_accounts_with_revoked_identity_history(db_
     db_session.commit()
 
     with pytest.raises(ExternalIdentityLinkRequiredError):
-        UsersService(db_session).get_or_create_oidc_user(
+        ExternalIdentityUserService(db_session).get_or_create_oidc_user(
             provider="company",
             issuer=OIDC_ISSUER,
             subject="new-subject",

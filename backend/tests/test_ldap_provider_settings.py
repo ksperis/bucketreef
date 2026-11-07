@@ -23,7 +23,6 @@ from app.services.ldap_provider_settings_service import (
     resolve_ldap_provider_map,
 )
 from app.services.ldap_service import LDAPAuthService, LDAPIdentity
-from app.services.users_service import get_users_service
 from tests.auth_test_utils import authenticate_ui_client
 
 
@@ -301,7 +300,7 @@ def test_ldap_resolver_merges_env_and_ui_with_env_precedence(db_session):
     assert runtime["corp"].display_name == "Env LDAP"
     assert runtime["ui"].display_name == "UI LDAP"
 
-    service = LDAPAuthService(db_session, get_users_service(db_session), settings=settings)
+    service = LDAPAuthService(db_session, settings=settings)
     assert [provider.model_dump() for provider in service.list_providers()] == [
         {"id": "corp", "display_name": "Env LDAP"},
         {"id": "ui", "display_name": "UI LDAP"},
@@ -313,7 +312,6 @@ def test_ldap_service_authenticate_uses_ui_defined_provider(db_session, monkeypa
     db_session.commit()
     service = LDAPAuthService(
         db_session,
-        get_users_service(db_session),
         settings=Settings(ldap_providers={}),
     )
     monkeypatch.setattr(

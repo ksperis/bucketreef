@@ -25,7 +25,6 @@ from app.services.ldap_service import (
     LDAP_LEGACY_TLS_CIPHERS,
     LDAPUserConflictError,
 )
-from app.services.users_service import get_users_service
 
 
 def _provider(**overrides) -> LDAPProviderSettings:
@@ -45,7 +44,7 @@ def _settings(provider: LDAPProviderSettings | None = None) -> Settings:
 
 
 def _service(db_session, provider: LDAPProviderSettings | None = None) -> LDAPAuthService:
-    return LDAPAuthService(db_session, get_users_service(db_session), settings=_settings(provider))
+    return LDAPAuthService(db_session, settings=_settings(provider))
 
 
 def test_pyasn1_dependency_is_pinned_to_patched_release():
