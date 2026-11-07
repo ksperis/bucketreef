@@ -14,14 +14,14 @@ from app.routers.dependencies import (
     get_audit_service,
     get_current_account_user,
     get_current_user,
-    get_users_service_dependency,
 )
 from app.services.audit_service import AuditService
 from app.services.user_notifications_service import UserNotificationsService
-from app.services.users_service import UsersService
 from app.services.app_settings_service import load_app_settings_for_db
 from app.services.avatar_image_service import MAX_AVATAR_BYTES
 from app.services.user_avatar_service import UserAvatarService
+from app.services.user_output_service import UserOutputService
+from app.services.user_update_service import UserUpdateService
 from app.core.database import get_db
 from app.utils.http_errors import (
     raise_bad_request_from_value_error,
@@ -37,9 +37,9 @@ router.include_router(browser_favorites_router)
 @router.get("/me", response_model=UserOut)
 def read_users_me(
     current_user=Depends(get_current_user),
-    users_service: UsersService = Depends(get_users_service_dependency),
+    db: Session = Depends(get_db),
 ) -> UserOut:
-    return users_service.user_to_out(current_user)
+    return UserOutputService(db).to_out(current_user)
 
 
 @router.get("/me/notifications", response_model=UserNotificationsResponse)
@@ -112,7 +112,6 @@ def delete_my_notification(
 def update_users_me(
     payload: UserSelfUpdate,
     current_user: User = Depends(get_current_account_user),
-    users_service: UsersService = Depends(get_users_service_dependency),
     audit_service: AuditService = Depends(get_audit_service),
     db: Session = Depends(get_db),
 ) -> UserOut:
@@ -123,7 +122,7 @@ def update_users_me(
             detail="Profile name editing is disabled by the application administrator",
         )
     try:
-        user = users_service.update_current_user(current_user, payload)
+        user = UserUpdateService(db).update_current_user(current_user, payload)
     except ValueError as exc:
         raise_bad_request_from_value_error(exc)
 
@@ -140,7 +139,7 @@ def update_users_me(
         entity_id=str(user.id),
         metadata=audit_metadata or None,
     )
-    return users_service.user_to_out(user)
+    return UserOutputService(db).to_out(user)
 
 
 @router.put("/me/avatar", response_model=UserOut)
@@ -148,7 +147,6 @@ async def upload_my_avatar(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_account_user),
     db: Session = Depends(get_db),
-    users_service: UsersService = Depends(get_users_service_dependency),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> UserOut:
     payload = await file.read(MAX_AVATAR_BYTES + 1)
@@ -165,14 +163,13 @@ async def upload_my_avatar(
         entity_id=str(current_user.id),
         metadata={"content_type": current_user.avatar_content_type, "size_bytes": len(payload)},
     )
-    return users_service.user_to_out(current_user)
+    return UserOutputService(db).to_out(current_user)
 
 
 @router.delete("/me/avatar", response_model=UserOut)
 def delete_my_avatar(
     current_user: User = Depends(get_current_account_user),
     db: Session = Depends(get_db),
-    users_service: UsersService = Depends(get_users_service_dependency),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> UserOut:
     service = UserAvatarService(db)
@@ -184,7 +181,7 @@ def delete_my_avatar(
         entity_type="ui_user",
         entity_id=str(current_user.id),
     )
-    return users_service.user_to_out(current_user)
+    return UserOutputService(db).to_out(current_user)
 
 
 @router.get("/{user_id}/avatar")
