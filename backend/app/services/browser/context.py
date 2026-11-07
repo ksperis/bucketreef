@@ -363,7 +363,7 @@ class BrowserContextMixin:
 
     def ensure_bucket_cors(self, bucket_name: str, context: S3ExecutionTarget, origin: str) -> BucketCorsStatus:
         if not origin:
-            raise RuntimeError("Missing origin")
+            raise ValueError("Missing origin")
         client = self._client(context)
         try:
             resp = client.get_bucket_cors(Bucket=bucket_name)
@@ -373,7 +373,7 @@ class BrowserContextMixin:
             if code in {"NoSuchCORSConfiguration", "NoSuchCORS"}:
                 rules = []
             else:
-                raise RuntimeError(f"Unable to fetch CORS for '{bucket_name}': {exc}") from exc
+                raise S3OperationError(f"Unable to fetch CORS for '{bucket_name}': {exc}") from exc
 
         updated = False
         matched = False
@@ -399,6 +399,6 @@ class BrowserContextMixin:
             try:
                 client.put_bucket_cors(Bucket=bucket_name, CORSConfiguration={"CORSRules": rules})
             except (ClientError, BotoCoreError) as exc:
-                raise RuntimeError(f"Unable to update CORS for '{bucket_name}': {exc}") from exc
+                raise S3OperationError(f"Unable to update CORS for '{bucket_name}': {exc}") from exc
 
         return self.get_bucket_cors_status(bucket_name, context, origin=origin)

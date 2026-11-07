@@ -9,6 +9,7 @@ from typing import Any, Callable
 
 from botocore.exceptions import BotoCoreError, ClientError
 
+from app.core.domain_errors import BrowserListingScanLimitError
 from app.core.db_transactions import commit_or_rollback
 from app.models.browser import BrowserObject, BrowserObjectSortBy, BrowserObjectSortDir
 from app.services.object_listing_identity import (
@@ -167,7 +168,9 @@ class SortedObjectSnapshotBuilder:
         pages = 0
         while True:
             if pages >= 200 or monotonic() - started > 20:
-                raise RuntimeError("Sorted scan limit reached. Narrow the search or use name ascending to browse partial results.")
+                raise BrowserListingScanLimitError(
+                    "Sorted scan limit reached. Narrow the search or use name ascending to browse partial results."
+                )
             pages += 1
             kwargs = {
                 "Bucket": self.options.bucket_name,

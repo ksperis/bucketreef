@@ -1,7 +1,9 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+import pytest
+
 from app.core.domain_enums import StorageProvider
-from app.core.domain_errors import BrowserListingCursorError
+from app.core.domain_errors import BrowserListingCursorError, BrowserListingScanLimitError
 from app.db import S3Account, S3User, StorageEndpoint
 from app.main import app
 from app.models.browser import (
@@ -12,6 +14,7 @@ from app.models.browser import (
 from app.routers import browser as browser_router
 from app.routers import dependencies
 from app.services import browser_usage_summary_service
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionContext
 from tests.portal_storage_space_factory import portal_storage_space_summary
 
@@ -95,6 +98,32 @@ def test_browser_object_listing_maps_cursor_mismatch_to_unprocessable_entity(cli
 
     assert response.status_code == 422
     assert response.json()["detail"] == "Listing filters changed; restart pagination"
+
+
+def test_browser_object_listing_maps_scan_limit_to_bad_gateway(client):
+    class FakeService:
+        def list_objects(self, *_args, **_kwargs):  # noqa: ANN002, ANN003
+            raise BrowserListingScanLimitError("Sorted scan limit reached")
+
+    app.dependency_overrides[dependencies.get_s3_execution_context] = _account
+    app.dependency_overrides[browser_router.get_browser_service] = lambda: FakeService()
+
+    response = client.get("/api/browser/buckets/my-bucket/objects")
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == "Sorted scan limit reached"
+
+
+def test_browser_object_listing_propagates_unexpected_runtime_error(client):
+    class FakeService:
+        def list_objects(self, *_args, **_kwargs):  # noqa: ANN002, ANN003
+            raise RuntimeError("unexpected object listing regression")
+
+    app.dependency_overrides[dependencies.get_s3_execution_context] = _account
+    app.dependency_overrides[browser_router.get_browser_service] = lambda: FakeService()
+
+    with pytest.raises(RuntimeError, match="unexpected object listing regression"):
+        client.get("/api/browser/buckets/my-bucket/objects")
 
 
 def test_browser_bucket_openapi_excludes_removed_duplicate_collections() -> None:
@@ -216,7 +245,7 @@ def test_browser_bucket_search_endpoint_returns_enriched_display_fields(client):
 def test_browser_bucket_search_endpoint_maps_service_error(client):
     class FakeService:
         def search_buckets(self, account, query: BrowserBucketSearchRequest):  # noqa: ANN001
-            raise RuntimeError("bucket search failed")
+            raise S3OperationError("bucket search failed")
 
     app.dependency_overrides[dependencies.get_s3_execution_context] = _account
     app.dependency_overrides[browser_router.get_browser_service] = lambda: FakeService()
@@ -224,6 +253,18 @@ def test_browser_bucket_search_endpoint_maps_service_error(client):
     response = client.get("/api/browser/buckets/search")
     assert response.status_code == 502
     assert "bucket search failed" in response.json()["detail"]
+
+
+def test_browser_bucket_search_endpoint_propagates_unexpected_runtime_error(client):
+    class FakeService:
+        def search_buckets(self, account, query: BrowserBucketSearchRequest):  # noqa: ANN001
+            raise RuntimeError("unexpected bucket search regression")
+
+    app.dependency_overrides[dependencies.get_s3_execution_context] = _account
+    app.dependency_overrides[browser_router.get_browser_service] = lambda: FakeService()
+
+    with pytest.raises(RuntimeError, match="unexpected bucket search regression"):
+        client.get("/api/browser/buckets/search")
 
 
 def test_browser_usage_summary_uses_live_account_usage(client, monkeypatch):
