@@ -7,13 +7,14 @@ from typing import Literal, Optional
 
 from pydantic import Field, field_validator, model_validator
 
+from app.core.domain_enums import S3SubjectFilter, S3SubjectType
 from app.models.admin_listing import AdminSortableListingRequest
 from app.models.base import ApiModel
 from app.models.pagination import PaginatedResponse
 from app.models.retention import DataRetentionResult
 
 
-CostSubjectType = Literal["all", "account", "s3_user"]
+CostSubjectType = S3SubjectFilter
 CostSubjectSortBy = Literal[
     "name",
     "endpoint",
@@ -40,7 +41,7 @@ class CostEndpointCollectionError(ApiModel):
 class CostSubjectCollectionError(ApiModel):
     stage: Literal["usage", "storage"]
     endpoint_id: int
-    subject: Literal["account", "s3_user"]
+    subject: S3SubjectType
     subject_id: int
 
 

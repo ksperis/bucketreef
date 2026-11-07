@@ -4,11 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from typing import Any, Callable, Literal, Optional
+from typing import Any, Callable, Optional
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.domain_enums import S3SubjectType
 from app.db import QuotaUsageDaily, QuotaUsageHourly, S3Account, S3User, StorageEndpoint
 from app.models.admin_listing import AdminSortDir
 from app.models.usage_history import (
@@ -44,7 +45,7 @@ class _HistoryColumns:
 
 @dataclass(frozen=True)
 class _UsageSubject:
-    subject_type: Literal["account", "s3_user"]
+    subject_type: S3SubjectType
     subject_id: int
     name: str
     identifier: Optional[str]

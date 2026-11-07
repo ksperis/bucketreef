@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.core.db_transactions import commit_or_rollback
 from app.core.sqlite import add_and_flush_in_savepoint
 from app.db import CostStorageDaily, CostUsageDaily, S3Account, S3User, StorageEndpoint
-from app.core.domain_enums import StorageProvider
+from app.core.domain_enums import S3SubjectType, StorageProvider
 from app.models.cost import (
     CostCollectionError,
     CostCollectionResult,
@@ -43,7 +43,7 @@ _COST_STORAGE_SOURCE = "rgw_admin_bucket_stats"
 
 @dataclass(frozen=True)
 class _CostSubject:
-    kind: Literal["account", "s3_user"]
+    kind: S3SubjectType
     id: int
     principal: S3Account | S3User
     s3_account_id: int | None
@@ -54,7 +54,7 @@ def _collection_error(
     *,
     stage: Literal["endpoint", "usage", "storage"],
     endpoint_id: int,
-    subject: Literal["account", "s3_user"] | None = None,
+    subject: S3SubjectType | None = None,
     subject_id: int | None = None,
 ) -> CostCollectionError:
     if stage == "endpoint":

@@ -6,13 +6,14 @@ from typing import Literal, Optional
 
 from pydantic import Field
 
+from app.core.domain_enums import S3SubjectFilter, S3SubjectType
 from app.models.admin_listing import AdminSortDir
 from app.models.base import ApiModel
 from app.models.pagination import PaginatedResponse, PaginationRequest
 
 
 UsageHistoryGranularity = Literal["daily", "hourly"]
-UsageHistorySubjectType = Literal["all", "account", "s3_user"]
+UsageHistorySubjectType = S3SubjectFilter
 UsageHistorySortBy = Literal["period", "subject", "used_bytes", "used_objects", "ratio"]
 UsageHistoryTrendWindow = Literal["day", "week", "month"]
 
@@ -41,7 +42,7 @@ class UsageHistoryRecord(ApiModel):
     period_start: str
     storage_endpoint_id: int
     endpoint_name: str
-    subject_type: Literal["account", "s3_user"]
+    subject_type: S3SubjectType
     subject_id: int
     subject_name: str
     subject_identifier: Optional[str]
