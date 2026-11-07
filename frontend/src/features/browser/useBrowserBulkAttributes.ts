@@ -17,7 +17,10 @@ import { dateTimeLocalInputToIsoString } from "../../utils/dateTime";
 import { roundedClampedPercentageOf } from "../../utils/numbers";
 import type { useBrowserOperationRegistry } from "./useBrowserOperationRegistry";
 import type { ListAllBrowserObjectsForPrefix } from "./useBrowserRecursiveObjectListing";
-import type { BrowserItem, BulkMetadataDraft } from "./browserTypes";
+import type {
+  BrowserItem,
+  BrowserObjectMetadataDraft,
+} from "./browserTypes";
 import {
   normalizePrefix,
   pairsToRecord,
@@ -36,7 +39,7 @@ export type BrowserBulkAttributesDraft = {
   applyTags: boolean;
   aclValue: string;
   legalHoldStatus: "ON" | "OFF";
-  metadata: BulkMetadataDraft;
+  metadata: BrowserObjectMetadataDraft;
   metadataEntries: string;
   retentionBypass: boolean;
   retentionDate: string;
@@ -66,7 +69,7 @@ type UseBrowserBulkAttributesOptions = {
   updateOperation: OperationRegistry["updateOperation"];
 };
 
-function createEmptyMetadataDraft(): BulkMetadataDraft {
+function createEmptyMetadataDraft(): BrowserObjectMetadataDraft {
   return {
     contentType: "",
     cacheControl: "",
