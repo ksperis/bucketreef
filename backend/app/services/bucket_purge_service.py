@@ -22,6 +22,7 @@ from app.models.bucket_purge import (
 from app.services import s3_deletion
 from app.services.buckets_service import BucketsService
 from app.services.long_running_s3_client import LongRunningS3ClientMixin
+from app.services.s3_client import S3OperationError
 from app.utils.aws_errors import aws_error_code
 from app.utils.s3_errors import format_s3_error
 from app.core.sensitive_data import sanitized_error_log_detail
@@ -119,7 +120,7 @@ class BucketPurgeService(LongRunningS3ClientMixin):
             context = targets[indexes[0]].context
             try:
                 buckets = buckets_service.list_buckets(context, with_stats=True)
-            except RuntimeError as exc:
+            except S3OperationError as exc:
                 logger.info(
                     "Unable to resolve bucket purge entry estimates for context=%s: %s",
                     targets[indexes[0]].context_id,

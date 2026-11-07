@@ -24,6 +24,7 @@ from app.services.feature_policy_service import (
     bucket_usage_stats_collection_state,
     bucket_usage_stats_state,
 )
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
 from app.utils.time import utcnow
 
@@ -122,7 +123,7 @@ class BucketUsageStatsCollectionService:
         for resource in eligible_resources:
             try:
                 due_targets.extend(self._resource_due_targets(resource, cutoff=cutoff))
-            except RuntimeError as exc:
+            except S3OperationError as exc:
                 skipped_resources += 1
                 logger.warning(
                     "Unable to prepare bucket usage statistics collection for %s=%s: %s",
