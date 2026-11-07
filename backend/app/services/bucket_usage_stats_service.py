@@ -39,6 +39,7 @@ from app.services.operation_lease_service import (
 )
 from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import ResolvedS3BucketNameMixin, S3ExecutionTarget
+from app.utils.normalize import normalize_optional_string
 from app.utils.s3_errors import format_s3_error, is_s3_feature_unsupported
 from app.utils.time import utcnow
 
@@ -403,10 +404,10 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
         seen_targets: set[tuple[str, str, str, str]] = set()
         for target in targets:
             normalized = BucketUsageStatsAggregateTarget(
-                scope_kind=(target.scope_kind or "").strip(),
-                scope_id=(target.scope_id or "").strip(),
-                bucket_name=(target.bucket_name or "").strip(),
-                bucket_tenant=(target.bucket_tenant or "").strip(),
+                scope_kind=normalize_optional_string(target.scope_kind) or "",
+                scope_id=normalize_optional_string(target.scope_id) or "",
+                bucket_name=normalize_optional_string(target.bucket_name) or "",
+                bucket_tenant=normalize_optional_string(target.bucket_tenant) or "",
             )
             key = (
                 normalized.scope_kind,

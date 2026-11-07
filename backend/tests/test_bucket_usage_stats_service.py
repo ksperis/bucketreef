@@ -530,6 +530,16 @@ def test_usage_stats_aggregate_for_targets_merges_manager_scopes(db_session):
             BucketUsageStatsAggregateTarget(scope_kind="manager", scope_id="1", bucket_name="bucket-a"),
             BucketUsageStatsAggregateTarget(scope_kind="manager", scope_id="2", bucket_name="bucket-b"),
             BucketUsageStatsAggregateTarget(scope_kind="manager", scope_id="2", bucket_name="missing-bucket"),
+            BucketUsageStatsAggregateTarget(
+                scope_kind=" manager ",
+                scope_id=" 1 ",
+                bucket_name=" bucket-a ",
+            ),
+            BucketUsageStatsAggregateTarget(
+                scope_kind="manager",
+                scope_id=" ",
+                bucket_name="ignored-bucket",
+            ),
         ],
         warnings=["1 managed account(s) could not be scanned for bucket usage stats."],
         managed_account_count=3,
