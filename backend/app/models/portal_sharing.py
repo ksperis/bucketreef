@@ -8,7 +8,7 @@ from typing import Literal, Optional
 
 from pydantic import AwareDatetime, Field
 
-from app.core.domain_enums import PortalAccountRole
+from app.core.domain_enums import PortalAccountRole, TrendWindow
 from app.models.base import ApiModel
 from app.models.pagination import PaginatedResponse, PaginationRequest
 from app.models.portal_storage_spaces import (
@@ -109,7 +109,7 @@ class PortalCollaboratorAccessReview(ApiModel):
 
 
 class PortalCollaboratorTrend(ApiModel):
-    window: Literal["month", "week", "day"]
+    window: TrendWindow
     label: str
     period_start: str
     collaborator_count: int

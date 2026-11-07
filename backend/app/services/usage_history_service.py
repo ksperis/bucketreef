@@ -9,7 +9,7 @@ from typing import Any, Callable, Optional
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.domain_enums import S3SubjectType
+from app.core.domain_enums import S3SubjectType, TrendWindow
 from app.db import QuotaUsageDaily, QuotaUsageHourly, S3Account, S3User, StorageEndpoint
 from app.models.admin_listing import AdminSortDir
 from app.models.usage_history import (
@@ -23,7 +23,6 @@ from app.models.usage_history import (
     UsageHistoryTrendPoint,
     UsageHistoryTrendResponse,
     UsageHistoryTrendSummary,
-    UsageHistoryTrendWindow,
 )
 from app.services.pagination_window import page_window
 from app.utils.time import utcnow
@@ -71,7 +70,7 @@ class UsageHistoryService:
     def empty_trends(
         self,
         *,
-        window: UsageHistoryTrendWindow,
+        window: TrendWindow,
         unavailable_reason: Optional[str] = None,
     ) -> UsageHistoryTrendResponse:
         return UsageHistoryTrendResponse(
@@ -95,7 +94,7 @@ class UsageHistoryService:
     def aggregate_trends(
         self,
         *,
-        window: UsageHistoryTrendWindow,
+        window: TrendWindow,
         endpoint_id: Optional[int] = None,
         subject_type: UsageHistorySubjectType = "all",
         extra_filter_builder: Optional[TrendFilterBuilder] = None,
@@ -365,11 +364,11 @@ class UsageHistoryService:
         return int(counts.accounts or 0) + int(counts.users or 0)
 
     @staticmethod
-    def _trend_granularity(window: UsageHistoryTrendWindow) -> UsageHistoryGranularity:
+    def _trend_granularity(window: TrendWindow) -> UsageHistoryGranularity:
         return "hourly" if window == "day" else "daily"
 
     @staticmethod
-    def _trend_boundaries(window: UsageHistoryTrendWindow) -> tuple[date | datetime, date | datetime]:
+    def _trend_boundaries(window: TrendWindow) -> tuple[date | datetime, date | datetime]:
         now = utcnow()
         if window == "day":
             return now - timedelta(days=1), now

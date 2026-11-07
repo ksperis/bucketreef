@@ -7,18 +7,19 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.database import get_db
+from app.core.domain_enums import TrendWindow
 from app.db import QuotaUsageDaily
-from app.services.access_context_contracts import ManagerActor
 from app.models.healthcheck import WorkspaceEndpointHealthOverviewResponse
 from app.models.storage_stats import StorageStats
 from app.models.traffic import TrafficStats
+from app.models.usage_history import UsageHistoryTrendResponse
 from app.models.usage_trends import UsageTrendsResponse
-from app.models.usage_history import UsageHistoryTrendResponse, UsageHistoryTrendWindow
 from app.routers.dependencies import (
     get_s3_execution_context,
     require_usage_logs_capable_manager,
     require_storage_metrics_capable_manager,
 )
+from app.services.access_context_contracts import ManagerActor
 from app.services.app_settings_service import load_app_settings_for_db
 from app.services.buckets_service import BucketsService, get_buckets_service
 from app.services.healthcheck_query_service import HealthCheckQueryService
@@ -91,7 +92,7 @@ def account_usage_trends(
 
 @router.get("/usage-history-trends", response_model=UsageHistoryTrendResponse)
 def account_usage_history_trends(
-    window: UsageHistoryTrendWindow = Query("month"),
+    window: TrendWindow = Query("month"),
     context: S3ExecutionContext = Depends(get_s3_execution_context),
     _: ManagerActor = Depends(require_storage_metrics_capable_manager),
     db: Session = Depends(get_db),

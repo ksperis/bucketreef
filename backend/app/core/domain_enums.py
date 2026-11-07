@@ -88,6 +88,7 @@ ReadinessStatus = Literal["blocked", "critical", "warning", "ok"]
 S3SubjectType = Literal["account", "s3_user"]
 S3SubjectFilter = Literal["all", "account", "s3_user"]
 SortDirection = Literal["asc", "desc"]
+TrendWindow = Literal["day", "week", "month"]
 
 
 MANAGED_PRIVATE_ACCESS_ACTIVE_STATES: tuple[ManagedPrivateAccessActiveState, ...] = (

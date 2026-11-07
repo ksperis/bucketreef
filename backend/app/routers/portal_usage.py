@@ -7,21 +7,22 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.domain_enums import TrendWindow
 from app.db import QuotaUsageDaily
-from app.services.access_context_contracts import AccountAccess
 from app.models.bucket_usage_stats import BucketUsageStatsAggregateResponse
 from app.models.portal_usage import (
     PortalStorageSpaceUsageStatsResponse,
     PortalStorageSpaceUsageStatsSnapshot,
     PortalUsage,
 )
+from app.models.usage_history import UsageHistoryTrendResponse
 from app.models.usage_trends import UsageTrendsResponse
-from app.models.usage_history import UsageHistoryTrendResponse, UsageHistoryTrendWindow
 from app.routers.dependencies import get_portal_account_access
 from app.routers.portal_common import (
     get_portal_service_dependency,
     raise_portal_error,
 )
+from app.services.access_context_contracts import AccountAccess
 from app.services.app_settings_service import load_app_settings_for_db
 from app.services.bucket_usage_stats_service import (
     BucketUsageStatsAggregateTarget,
@@ -113,7 +114,7 @@ def portal_usage_stats_latest(
 
 @router.get("/usage-history-trends", response_model=UsageHistoryTrendResponse)
 def portal_usage_history_trends(
-    window: UsageHistoryTrendWindow = Query("month"),
+    window: TrendWindow = Query("month"),
     access: AccountAccess = Depends(get_portal_account_access),
     db: Session = Depends(get_db),
 ) -> UsageHistoryTrendResponse:
