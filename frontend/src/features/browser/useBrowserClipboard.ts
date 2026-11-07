@@ -21,6 +21,7 @@ import {
   initiateMultipartUpload,
   presignPart,
 } from "../../api/browserMultipart";
+import { isCancelledError } from "../../utils/apiError";
 import { runWithConcurrency } from "../../utils/concurrency";
 import { roundedClampedPercentageOf } from "../../utils/numbers";
 import { createRuntimeId } from "../../utils/runtimeId";
@@ -45,10 +46,7 @@ import type {
   CopyDetailItem,
   CopyDetailStatus,
 } from "./browserTypes";
-import {
-  isAbortError,
-  shortName,
-} from "./browserUtils";
+import { shortName } from "./browserUtils";
 import type { useBrowserOperationRegistry } from "./useBrowserOperationRegistry";
 import type { ListAllBrowserObjectsForPrefix } from "./useBrowserRecursiveObjectListing";
 import { useBrowserI18n } from "./browserI18n";
@@ -563,7 +561,7 @@ export function useBrowserClipboard({
             updateCopyDetailStatus(operationId, task.detailId, "done");
             succeeded += 1;
           } catch (caughtError) {
-            if (isAbortError(caughtError) || controller.signal.aborted) {
+            if (isCancelledError(caughtError) || controller.signal.aborted) {
               cancelled = true;
               controller.abort();
               updateCopyDetailStatus(
@@ -617,7 +615,7 @@ export function useBrowserClipboard({
       await onRefreshNow(normalizedPrefix);
       if (isMove && failures === 0) setClipboard(null);
     } catch (caughtError) {
-      if (isAbortError(caughtError) || controller.signal.aborted) {
+      if (isCancelledError(caughtError) || controller.signal.aborted) {
         cancelCopyDetails(operationId);
         completeOperation(operationId, "cancelled");
         onStatus(

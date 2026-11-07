@@ -21,13 +21,14 @@ import {
   MULTIPART_THRESHOLD,
   PART_SIZE,
 } from "./browserConstants";
+import { isCancelledError } from "../../utils/apiError";
 import { roundedClampedPercentageOf } from "../../utils/numbers";
 import { uploadBrowserFile } from "./browserFileUpload";
 import { uploadBrowserFileMultipart } from "./browserMultipartUpload";
 import { formatBrowserOperationError } from "./browserOperationErrors";
 import type { BrowserTransferReporter } from "./browserPageContract";
 import type { UploadQueueItem } from "./browserTypes";
-import { isAbortError, isLikelyCorsError } from "./browserUtils";
+import { isLikelyCorsError } from "./browserUtils";
 import { browserTransferScope, createBrowserDirectFetch } from "./browserDirectTransfer";
 import type { BrowserUploadMode } from "./sseBrowserLogic";
 import type { useBrowserOperationRegistry } from "./useBrowserOperationRegistry";
@@ -216,7 +217,7 @@ export function useBrowserQueuedUpload({
         onStatus(text("Uploaded {path}", { path: relativePath }));
         return true;
       } catch (caughtError) {
-        if (isAbortError(caughtError)) {
+        if (isCancelledError(caughtError)) {
           completeOperation(operationId, "cancelled");
           const message = text("Upload cancelled for {path}", { path: relativePath });
           if (transferId) transferReporter?.fail(transferId, message);

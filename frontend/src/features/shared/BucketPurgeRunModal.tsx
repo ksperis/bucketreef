@@ -21,7 +21,7 @@ import WorkflowPage from "../../components/WorkflowPage";
 import UiButton from "../../components/ui/UiButton";
 import UiInput from "../../components/ui/UiInput";
 import { cx, uiMutedTextClass } from "../../components/ui/styles";
-import { extractApiError } from "../../utils/apiError";
+import { extractApiError, isCancelledError } from "../../utils/apiError";
 import { formatCompactNumber, formatNumber } from "../../utils/format";
 import { roundedClampedPercentageOf } from "../../utils/numbers";
 import { BucketOperationSetup, BucketOperationProgress, BucketOperationSummaryStat } from "./bucketOperationRunUi";
@@ -97,10 +97,6 @@ function failureTarget(failure: BucketPurgeFailure): string {
   if (failure.key) return failure.key;
   if (failure.stage === "delete_bucket") return "Bucket deletion";
   return failure.stage === "list" ? "Bucket listing" : "DeleteObjects batch";
-}
-
-function isAbortError(err: unknown): boolean {
-  return err instanceof DOMException && err.name === "AbortError";
 }
 
 function progressDeletedEntries(progress: BucketPurgeProgress): number {
@@ -228,7 +224,7 @@ export default function BucketPurgeRunModal(props: BucketPurgeRunModalProps) {
                 : "Purge failed.",
       ));
     } catch (err) {
-      if (isAbortError(err)) {
+      if (isCancelledError(err)) {
         setMessage(surfaceText(isDeleteMode ? "Bucket deletion canceled." : "Purge canceled."));
       } else {
         setError(extractApiError(

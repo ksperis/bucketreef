@@ -1,5 +1,6 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { useCallback, useEffect, useRef, useState } from "react";
+import { isCancelledError } from "../../utils/apiError";
 
 type StreamOptions<P> = { signal: AbortSignal; onProgress: (progress: P) => void };
 
@@ -50,7 +51,7 @@ export function usePortalStreamOperation<P, R>(options: {
       current.onResult(value);
     } catch (cause) {
       if (!ownsRequest()) return;
-      if (request.signal.aborted || (cause instanceof DOMException && cause.name === "AbortError")) {
+      if (request.signal.aborted || isCancelledError(cause)) {
         setError(current.stoppedMessage);
         current.onStopped?.();
       } else setError(current.errorMessage(cause));

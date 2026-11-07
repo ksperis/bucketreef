@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
 import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import { listBrowserObjects } from "../../api/browserObjects";
+import { isCancelledError } from "../../utils/apiError";
 import {
   normalizeBrowserListingIssue,
   resolveBucketAccessEntry,
@@ -13,7 +14,6 @@ import {
   UNKNOWN_BUCKET_ACCESS,
   type BucketAccessEntry,
 } from "./browserBucketModel";
-import { isAbortError } from "./browserUtils";
 
 const BUCKET_ACCESS_PROBE_CONCURRENCY = 4;
 
@@ -147,7 +147,7 @@ export function useBrowserBucketAccess({
           });
         })
         .catch((error) => {
-          if (isAbortError(error) || requestSession !== sessionRef.current) {
+          if (isCancelledError(error) || requestSession !== sessionRef.current) {
             return;
           }
           const issue = normalizeBrowserListingIssue(

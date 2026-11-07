@@ -27,7 +27,7 @@ import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiInput from "../../components/ui/UiInput";
 import UiSegmentedControl from "../../components/ui/UiSegmentedControl";
 import UiSelect from "../../components/ui/UiSelect";
-import { extractApiError } from "../../utils/apiError";
+import { extractApiError, isCancelledError } from "../../utils/apiError";
 import { formatBytes, formatNumber } from "../../utils/format";
 import { roundedClampedPercentageOf } from "../../utils/numbers";
 import { BucketOperationSetup, BucketOperationProgress, BucketOperationSummaryStat } from "./bucketOperationRunUi";
@@ -120,10 +120,6 @@ function parseOptionalMaxMb(value: string): number | null {
     throw new Error("Max MB per object must be greater than zero.");
   }
   return parsed;
-}
-
-function isAbortError(err: unknown): boolean {
-  return err instanceof DOMException && err.name === "AbortError";
 }
 
 const CHECK_MODE_OPTIONS: Array<{ value: BucketIntegrityCheckMode; label: string }> = [
@@ -230,7 +226,7 @@ export default function BucketIntegrityCheckModal(props: BucketIntegrityCheckMod
               : "Check failed.",
       ));
     } catch (err) {
-      if (isAbortError(err)) {
+      if (isCancelledError(err)) {
         setMessage(surfaceText("Check canceled."));
       } else {
         setError(extractApiError(err, surfaceText("Bucket integrity check failed.")));
