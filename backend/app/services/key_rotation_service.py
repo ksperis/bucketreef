@@ -7,10 +7,10 @@ from typing import Optional, TypeVar
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.domain_enums import KeyRotationPhase
 from app.db import EndpointServiceIdentity, S3Account, S3User, StorageEndpoint, User
 from app.models.key_rotation import (
     KeyRotationRequest,
-    KeyRotationPhase,
     KeyRotationResponse,
     KeyRotationResultItem,
     KeyRotationResultStatus,
