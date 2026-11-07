@@ -533,7 +533,7 @@ def test_admin_usage_stats_latest_warns_for_unlistable_managed_accounts(client: 
         def list_buckets(self, account, **_kwargs):
             if account.id == 1:
                 return [type("Bucket", (), {"name": "bucket-a"})()]
-            raise RuntimeError("denied")
+            raise S3OperationError("denied")
 
     app.dependency_overrides[admin_usage_stats_router.get_buckets_service] = lambda: FakeBucketService()
 
@@ -552,11 +552,11 @@ def test_admin_usage_stats_latest_does_not_hide_unexpected_bucket_listing_errors
 
     class FakeBucketService:
         def list_buckets(self, _account, **_kwargs):
-            raise TypeError("unexpected bucket listing bug")
+            raise RuntimeError("unexpected bucket listing bug")
 
     app.dependency_overrides[admin_usage_stats_router.get_buckets_service] = lambda: FakeBucketService()
 
-    with pytest.raises(TypeError, match="unexpected bucket listing bug"):
+    with pytest.raises(RuntimeError, match="unexpected bucket listing bug"):
         client.get("/api/admin/usage-stats/latest", params={"endpoint_id": 7})
 
 
