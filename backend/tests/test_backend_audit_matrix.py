@@ -107,6 +107,28 @@ def test_backend_audit_matrix_tracks_manager_bucket_config_mutation_delegation()
     assert rows_by_function["delete_bucket_encryption"].signals["delegated_bucket_config_mutation_audit"]
 
 
+@pytest.mark.parametrize(
+    "body",
+    [
+        "    return run_manager_bucket_config_update(other_service, user, context, bucket, area, payload)\n",
+        "    return run_manager_bucket_config_delete(other_service, user, context, bucket, area)\n",
+    ],
+)
+def test_manager_bucket_config_wrapper_requires_mutation_dependency(tmp_path, body):
+    routers = tmp_path / "app" / "routers"
+    routers.mkdir(parents=True)
+    (routers / "example.py").write_text(
+        '@router.put("/example")\n'
+        'def example(mutation: BucketConfigMutationService = Depends(get_mutation)):\n'
+        + body
+    )
+
+    row, = collect_rows(tmp_path)
+
+    assert not row.signals["delegated_bucket_config_mutation_audit"]
+    assert not row.has_audit_signal
+
+
 def test_backend_audit_matrix_tracks_bucket_migration_maintenance_delegation():
     backend_root = Path(__file__).resolve().parents[1]
     rows_by_function = {row.function: row for row in collect_rows(backend_root)}
