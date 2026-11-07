@@ -100,9 +100,6 @@ class ExternalIdentityUserService:
             redirect_path=redirect_path,
         )
 
-    def list_link_requests(self, *, include_decided: bool = False) -> list[ExternalIdentityLinkRequest]:
-        return self.link_requests.list(include_decided=include_decided)
-
     def list_for_user(self, user_id: int, *, include_revoked: bool = False) -> list[ExternalIdentity]:
         return self.queries.list_for_user(user_id, include_revoked=include_revoked)
 
