@@ -164,10 +164,11 @@ def search_ldap_users_for_import(
     q: str = Query(..., min_length=2, max_length=256),
     users_service: UsersService = Depends(get_users_service_dependency),
     current_user: DbUser = Depends(get_current_ui_admin),
+    db: Session = Depends(get_db),
 ) -> LDAPImportSearchResponse:
-    session = require_admin_interactive_session(request, users_service.db, current_user)
+    session = require_admin_interactive_session(request, db, current_user)
     try:
-        return _ldap_import_service(users_service.db, users_service).search(
+        return _ldap_import_service(db, users_service).search(
             actor=current_user,
             session=session,
             provider_id=provider_id,
@@ -185,6 +186,7 @@ def import_ldap_user(
     associations_service: UserAssociationsService = Depends(get_user_associations_service_dependency),
     current_user: DbUser = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
+    db: Session = Depends(get_db),
 ) -> UserOut:
     if payload.action == "create":
         assert payload.create is not None
@@ -208,10 +210,10 @@ def import_ldap_user(
             allow_self=is_superadmin_ui_role(current_user.role),
         )
 
-    require_admin_sensitive_action(request, users_service.db, current_user)
-    session = require_admin_interactive_session(request, users_service.db, current_user)
+    require_admin_sensitive_action(request, db, current_user)
+    session = require_admin_interactive_session(request, db, current_user)
     try:
-        user, provider_id = _ldap_import_service(users_service.db, users_service).import_user(
+        user, provider_id = _ldap_import_service(db, users_service).import_user(
             payload,
             actor=current_user,
             session=session,
@@ -237,6 +239,7 @@ def create_user(
     associations_service: UserAssociationsService = Depends(get_user_associations_service_dependency),
     current_user: DbUser = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
+    db: Session = Depends(get_db),
 ) -> UserOut:
     ensure_actor_can_assign_role(
         current_user,
@@ -252,7 +255,7 @@ def create_user(
         associations_service,
         group_ids=payload.group_ids,
     )
-    require_admin_sensitive_action(request, users_service.db, current_user)
+    require_admin_sensitive_action(request, db, current_user)
     try:
         user = users_service.create_user(payload)
         audit_service.record_action(
@@ -285,6 +288,7 @@ def update_user(
     associations_service: UserAssociationsService = Depends(get_user_associations_service_dependency),
     current_user: DbUser = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
+    db: Session = Depends(get_db),
 ) -> UserOut:
     target = _require_user(users_service, user_id)
     ensure_actor_can_manage_user(current_user, target, allow_self=is_superadmin_ui_role(current_user.role))
@@ -304,9 +308,9 @@ def update_user(
         associations_service,
         group_ids=payload.group_ids,
     )
-    require_admin_interactive_session(request, users_service.db, current_user)
+    require_admin_interactive_session(request, db, current_user)
     if admin_user_update_requires_step_up(target, payload):
-        require_admin_sensitive_action(request, users_service.db, current_user)
+        require_admin_sensitive_action(request, db, current_user)
     try:
         user = users_service.update_user(user_id, payload)
         audit_service.record_action(
@@ -322,10 +326,16 @@ def update_user(
         raise_http_error_from_value_error(exc)
 
 
-def _avatar_target(request: Request, user_id: int, users_service: UsersService, actor: DbUser) -> DbUser:
+def _avatar_target(
+    request: Request,
+    user_id: int,
+    users_service: UsersService,
+    actor: DbUser,
+    db: Session,
+) -> DbUser:
     target = _require_user(users_service, user_id)
     ensure_actor_can_manage_user(actor, target, allow_self=is_superadmin_ui_role(actor.role))
-    require_admin_interactive_session(request, users_service.db, actor)
+    require_admin_interactive_session(request, db, actor)
     return target
 
 
@@ -337,11 +347,12 @@ async def upload_user_avatar(
     users_service: UsersService = Depends(get_users_service_dependency),
     current_user: DbUser = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
+    db: Session = Depends(get_db),
 ) -> UserOut:
-    target = _avatar_target(request, user_id, users_service, current_user)
+    target = _avatar_target(request, user_id, users_service, current_user, db)
     payload = await file.read(MAX_AVATAR_BYTES + 1)
     try:
-        UserAvatarService(users_service.db).store_uploaded_image(target, payload, file.content_type)
+        UserAvatarService(db).store_uploaded_image(target, payload, file.content_type)
     except ValueError as exc:
         raise_bad_request_from_value_error(exc)
     audit_service.record_action(
@@ -358,9 +369,10 @@ def delete_user_avatar(
     users_service: UsersService = Depends(get_users_service_dependency),
     current_user: DbUser = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
+    db: Session = Depends(get_db),
 ) -> UserOut:
-    target = _avatar_target(request, user_id, users_service, current_user)
-    UserAvatarService(users_service.db).remove_uploaded_image(target)
+    target = _avatar_target(request, user_id, users_service, current_user, db)
+    UserAvatarService(db).remove_uploaded_image(target)
     audit_service.record_action(
         user=current_user, scope="admin", action="delete_avatar", entity_type="ui_user", entity_id=str(target.id),
     )
@@ -374,6 +386,7 @@ def delete_user(
     users_service: UsersService = Depends(get_users_service_dependency),
     current_user: DbUser = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
+    db: Session = Depends(get_db),
 ) -> None:
     if current_user.id == user_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You cannot delete your own user")
@@ -383,7 +396,7 @@ def delete_user(
         users_service.validate_superadmin_delete(current_user, target)
     except ValueError as exc:
         raise_bad_request_from_value_error(exc)
-    require_admin_sensitive_action(request, users_service.db, current_user)
+    require_admin_sensitive_action(request, db, current_user)
     try:
         users_service.delete_user(user_id)
         audit_service.record_action(

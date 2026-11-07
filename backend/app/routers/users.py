@@ -114,9 +114,10 @@ def update_users_me(
     current_user: User = Depends(get_current_account_user),
     users_service: UsersService = Depends(get_users_service_dependency),
     audit_service: AuditService = Depends(get_audit_service),
+    db: Session = Depends(get_db),
 ) -> UserOut:
     update_fields = payload.model_fields_set
-    if "full_name" in update_fields and not load_app_settings_for_db(users_service.db).general.allow_user_profile_name_edit:
+    if "full_name" in update_fields and not load_app_settings_for_db(db).general.allow_user_profile_name_edit:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Profile name editing is disabled by the application administrator",
