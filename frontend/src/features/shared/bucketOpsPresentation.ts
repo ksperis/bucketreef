@@ -4,6 +4,7 @@
  */
 import type { CephAdminBucket } from "../../api/cephAdminBuckets";
 import { decodeStorageOpsBucketRef } from "../../api/storageOps";
+import { sanitizeDownloadFilename } from "../../utils/download";
 import { formatBytes, formatNumber } from "../../utils/format";
 import { normalizeQuotaLimit } from "./bucketBulkOperationsModel";
 import type { ColumnId, SortField } from "./bucketOpsListState";
@@ -13,13 +14,8 @@ const BUCKET_UI_TAG_KEY_SEPARATOR = "\u001f";
 export const isStatsSortField = (field: SortField) =>
   field === "used_bytes" || field === "object_count";
 
-export const sanitizeExportFilenamePart = (value?: string | null) => {
-  const normalized = (value ?? "").trim();
-  const cleaned = normalized
-    .replace(/[^a-zA-Z0-9-_]+/g, "_")
-    .replace(/^_+|_+$/g, "");
-  return cleaned || "buckets";
-};
+export const sanitizeExportFilenamePart = (value?: string | null) =>
+  sanitizeDownloadFilename(value ?? "", "buckets");
 
 export const csvEscape = (value: string) =>
   `"${value.replace(/"/g, "\"\"")}"`;
