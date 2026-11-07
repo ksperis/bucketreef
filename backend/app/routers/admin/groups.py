@@ -79,13 +79,14 @@ def create_group(
     groups_service: UiGroupsService = Depends(get_groups_service_dependency),
     current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
+    db: Session = Depends(get_db),
 ) -> UiGroupOut:
     _require_superadmin_for_privileged_grant(
         current_user,
         can_access_ceph_admin=payload.can_access_ceph_admin,
     )
     if admin_group_create_requires_step_up(payload):
-        require_admin_sensitive_action(request, groups_service.db, current_user)
+        require_admin_sensitive_action(request, db, current_user)
     try:
         group = groups_service.create_group(payload)
         audit_service.record_action(
@@ -117,6 +118,7 @@ def update_group(
     groups_service: UiGroupsService = Depends(get_groups_service_dependency),
     current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
+    db: Session = Depends(get_db),
 ) -> UiGroupOut:
     _require_superadmin_for_privileged_grant(
         current_user,
@@ -125,7 +127,7 @@ def update_group(
     try:
         existing_group = groups_service.get_group(group_id)
         if admin_group_update_requires_step_up(existing_group, payload):
-            require_admin_sensitive_action(request, groups_service.db, current_user)
+            require_admin_sensitive_action(request, db, current_user)
         group = groups_service.update_group(group_id, payload)
         audit_service.record_action(
             user=current_user,
