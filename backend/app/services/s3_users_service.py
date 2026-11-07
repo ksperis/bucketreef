@@ -12,13 +12,11 @@ from app.services.s3_user_query_service import S3UserQueryService
 from app.services.s3_user_quota_service import S3UserQuotaService
 from app.services.s3_user_repository import S3UserRepository
 from app.services.s3_user_rgw_context_service import S3UserRgwContextService
-from app.services.s3_user_update_service import S3UserUpdateService
 from app.services.tags_service import TagsService
 from app.models.s3_user import (
     S3User as S3UserSchema,
     S3UserCreate,
     S3UserImport,
-    S3UserUpdate,
 )
 
 
@@ -53,14 +51,6 @@ class S3UsersService:
             associations=self.associations,
             tags=self.tags,
         )
-        self.updater = S3UserUpdateService(
-            db,
-            repository=self.repository,
-            quota=self.quota,
-            associations=self.associations,
-            tags=self.tags,
-            query=self.query,
-        )
 
     def create_user(self, payload: S3UserCreate) -> S3UserSchema:
         provisioned = self.provisioning.create_user(payload)
@@ -88,9 +78,6 @@ class S3UsersService:
             )
             for imported in self.importer.import_users(items)
         ]
-
-    def update_user(self, user_id: int, payload: S3UserUpdate) -> S3UserSchema:
-        return self.updater.update_user(user_id, payload)
 
     def delete_user(self, user_id: int, delete_rgw: bool = False) -> None:
         s3_user = self.query.get_user_record(user_id)

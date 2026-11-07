@@ -50,6 +50,7 @@ from app.services.s3_user_key_management_service import S3UserKeyManagementServi
 from app.services.s3_user_metrics_service import S3UserMetricsService
 from app.services.s3_user_query_service import S3UserQueryService
 from app.services.s3_user_rgw_context_service import S3UserRgwContextService
+from app.services.s3_user_update_service import S3UserUpdateService
 from app.services.s3_users_service import S3UsersService
 
 
@@ -1112,7 +1113,7 @@ def test_update_links_normalizes_non_ui_roles_to_ui_user(db_session, monkeypatch
     db_session.add(actor)
     db_session.commit()
 
-    updated = service.update_user(
+    updated = S3UserUpdateService(db_session).update_user(
         created.id,
         S3UserUpdate(
             user_links=[
@@ -1167,7 +1168,7 @@ def test_update_links_validates_users_before_removing_existing_links(
     db_session.commit()
 
     with pytest.raises(ValueError, match="Users not found"):
-        service.update_user(
+        S3UserUpdateService(db_session).update_user(
             created.id,
             S3UserUpdate(
                 user_links=[
@@ -1223,7 +1224,7 @@ def test_update_links_validates_groups_before_mutating_user_links(
     db_session.commit()
 
     with pytest.raises(ValueError, match="UI groups not found"):
-        service.update_user(
+        S3UserUpdateService(db_session).update_user(
             created.id,
             S3UserUpdate(
                 user_links=[
@@ -1262,7 +1263,7 @@ def test_update_user_persists_privileged_target_grants(db_session, monkeypatch):
     assert record.allow_bucket_usage_stats is None
     assert record.allow_bucket_usage_stats_collection is None
 
-    updated = service.update_user(
+    updated = S3UserUpdateService(db_session).update_user(
         created.id,
         S3UserUpdate(
             allow_bucket_quota_management=True,
@@ -1296,7 +1297,10 @@ def test_update_user_explicit_null_clears_email(db_session, monkeypatch):
         )
     )
 
-    updated = service.update_user(created.id, S3UserUpdate(email=None))
+    updated = S3UserUpdateService(db_session).update_user(
+        created.id,
+        S3UserUpdate(email=None),
+    )
 
     assert updated.email is None
     record = db_session.get(S3User, created.id)
@@ -1328,7 +1332,7 @@ def test_update_user_commit_failure_restores_remote_quota_and_local_fields(
     monkeypatch.setattr(db_session, "commit", fail_commit)
 
     with pytest.raises(RuntimeError, match="simulated user update commit failure"):
-        service.update_user(
+        S3UserUpdateService(db_session).update_user(
             created.id,
             S3UserUpdate(
                 name="Changed locally",
@@ -1382,7 +1386,7 @@ def test_update_user_quota_failure_after_remote_mutation_restores_snapshot(
     monkeypatch.setattr(fake, "set_user_quota", mutate_then_fail)
 
     with pytest.raises(ValueError, match="RGW user quota update failed"):
-        service.update_user(
+        S3UserUpdateService(db_session).update_user(
             created.id,
             S3UserUpdate(
                 name="Must roll back",
@@ -1437,7 +1441,7 @@ def test_update_user_reports_quota_compensation_failure(db_session, monkeypatch)
         CompensationFailureError,
         match="Local or RGW rollback also failed",
     ) as raised:
-        service.update_user(
+        S3UserUpdateService(db_session).update_user(
             created.id,
             S3UserUpdate(
                 quota_max_size_gb=7,
@@ -1784,7 +1788,7 @@ def test_delete_user_key_cleanup_recovers_after_commit_failure_without_replay(
         for entry in fake.remote_users[persisted.rgw_user_uid]["keys"]
     }
     with pytest.raises(ValueError, match="deletion is pending"):
-        service.update_user(
+        S3UserUpdateService(db_session).update_user(
             created.id,
             S3UserUpdate(name="Must not mutate while deleting"),
         )
