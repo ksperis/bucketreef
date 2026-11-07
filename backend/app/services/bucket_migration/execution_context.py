@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from sqlalchemy import select
 
-from app.core.domain_errors import S3AccountNotFoundError, S3ConnectionNotFoundError, S3UserNotFoundError
-from app.db import S3Account, S3Connection, S3User
+from app.core.domain_errors import S3AccountNotFoundError, S3UserNotFoundError
+from app.db import S3Account, S3User
 from app.services.app_settings_service import load_app_settings_for_db
 from app.services.s3_client import get_s3_client
+from app.services.s3_connection_query_service import S3ConnectionQueryService
 from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
 from app.utils.s3_endpoint import normalize_s3_endpoint, resolve_s3_client_options
 from .execution_runtime import MIGRATION_USER_AGENT_MARKER, MigrationRuntimeLimits, ResolvedContext
@@ -70,11 +71,7 @@ class BucketMigrationExecutionContextMixin:
             suffix = value.split("conn-", 1)[1]
             if not suffix.isdigit():
                 raise ValueError("Invalid connection context id")
-            conn = self.db.scalars(
-                select(S3Connection).where(S3Connection.id == int(suffix))
-            ).first()
-            if not conn:
-                raise S3ConnectionNotFoundError("S3Connection not found")
+            conn = S3ConnectionQueryService(self.db).get_record(int(suffix))
             return S3ExecutionContext.from_connection(conn)
 
         if value.startswith("s3u-"):
