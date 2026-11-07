@@ -6,6 +6,10 @@ from typing import Any
 from app.core.sensitive_data import sanitized_error_log_detail
 
 
+class InvalidDeleteObjectsResponseError(RuntimeError):
+    """The provider returned a DeleteObjects response that cannot be attributed safely."""
+
+
 @dataclass(frozen=True)
 class ObjectDeletionFailure:
     key: str
@@ -28,15 +32,15 @@ def _delete_error_identity(
 ) -> tuple[str, str | None]:
     key = error.get("Key") if isinstance(error, dict) else None
     if not isinstance(key, str) or key not in versions_by_key:
-        raise RuntimeError(invalid_response)
+        raise InvalidDeleteObjectsResponseError(invalid_response)
     versions = versions_by_key[key]
     version_id = error.get("VersionId")
     if version_id is None:
         if len(versions) != 1:
-            raise RuntimeError(invalid_response)
+            raise InvalidDeleteObjectsResponseError(invalid_response)
         return key, next(iter(versions))
     if not isinstance(version_id, str) or version_id not in versions:
-        raise RuntimeError(invalid_response)
+        raise InvalidDeleteObjectsResponseError(invalid_response)
     return key, version_id
 
 
@@ -66,7 +70,7 @@ def parse_delete_objects_failures(
     """
     invalid_response = f"Invalid DeleteObjects response for bucket '{bucket_name}'"
     if not isinstance(response, dict) or not isinstance(response.get("Errors", []), list):
-        raise RuntimeError(invalid_response)
+        raise InvalidDeleteObjectsResponseError(invalid_response)
 
     versions_by_key = _requested_versions_by_key(items)
 
