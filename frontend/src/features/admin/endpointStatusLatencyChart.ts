@@ -34,7 +34,7 @@ export function deriveDailyStatusFromCounts(okCount: number, degradedCount: numb
   return "unknown";
 }
 
-export function chooseLatencyDisplayMode(windowValue: HealthWindow | string, hasRollupSeries: boolean): LatencyDisplayMode {
+export function chooseLatencyDisplayMode(windowValue: HealthWindow, hasRollupSeries: boolean): LatencyDisplayMode {
   const isShortWindow = windowValue === "day" || windowValue === "week";
   if (isShortWindow && hasRollupSeries) return "rollup";
   return "daily";
@@ -42,7 +42,7 @@ export function chooseLatencyDisplayMode(windowValue: HealthWindow | string, has
 
 export function buildLatencyChartPoints(
   series: EndpointHealthSeries | null,
-  windowValue: HealthWindow | string
+  windowValue: HealthWindow
 ): { mode: LatencyDisplayMode; points: LatencyChartPoint[] } {
   const hasRollupSeries = (series?.series.length ?? 0) > 0;
   const mode = chooseLatencyDisplayMode(windowValue, hasRollupSeries);
