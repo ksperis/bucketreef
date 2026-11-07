@@ -52,6 +52,7 @@ ManagerToolKey = Literal[
     "feature_rules",
     "bucket_purge",
 ]
+SupervisionFeature = Literal["metrics", "usage"]
 
 _MANAGER_TOOL_DISABLED_MESSAGES: dict[ManagerToolKey, str] = {
     "bucket_compare": "Bucket compare feature is disabled",
@@ -67,7 +68,7 @@ def _require_supervision_access(
     actor: ManagerActor,
     db: Session,
     disabled_detail: str,
-    required_feature: Literal["metrics", "usage"],
+    required_feature: SupervisionFeature,
 ) -> ManagerActor:
     if isinstance(context, S3ExecutionContext) and context.context_kind == "openstack_project":
         raise HTTPException(403, "RGW administrative metrics are unavailable for OpenStack contexts")
@@ -118,7 +119,7 @@ def _require_supervision_actor_capabilities(
 def _resolve_connection_supervision_identity(
     context: S3ExecutionContext,
     *,
-    required_feature: Literal["metrics", "usage"],
+    required_feature: SupervisionFeature,
     disabled_detail: str,
 ) -> None:
     if context.context_kind != "connection":
@@ -166,7 +167,7 @@ def _resolve_connection_supervision_identity(
 def _require_endpoint_supervision_feature(
     context: S3ExecutionContext,
     *,
-    required_feature: Literal["metrics", "usage"],
+    required_feature: SupervisionFeature,
     disabled_detail: str,
 ) -> None:
     endpoint = context.storage_endpoint

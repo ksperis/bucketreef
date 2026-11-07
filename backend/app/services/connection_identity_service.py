@@ -31,6 +31,8 @@ from app.utils.cache import TtlCacheEntry, get_or_build_single_flight_cache, inv
 
 logger = logging.getLogger(__name__)
 
+ConnectionIdentityCacheScope = Literal["identity", "metrics"]
+
 
 @dataclass(frozen=True)
 class ConnectionIdentityResolution:
@@ -52,7 +54,7 @@ class ConnectionIdentityResolution:
 
 @dataclass(frozen=True)
 class _CacheKey:
-    scope: Literal["identity", "metrics"]
+    scope: ConnectionIdentityCacheScope
     fingerprint: str
 
 
@@ -78,7 +80,7 @@ class ConnectionIdentityService:
         self,
         connection: S3Connection,
         *,
-        scope: Literal["identity", "metrics"],
+        scope: ConnectionIdentityCacheScope,
         resolver: Callable[[S3Connection], ConnectionIdentityResolution],
     ) -> ConnectionIdentityResolution:
         key = self._cache_key(connection, scope=scope)
@@ -346,7 +348,7 @@ class ConnectionIdentityService:
         )
 
     @staticmethod
-    def _cache_key(connection: S3Connection, *, scope: Literal["identity", "metrics"]) -> _CacheKey:
+    def _cache_key(connection: S3Connection, *, scope: ConnectionIdentityCacheScope) -> _CacheKey:
         endpoint = connection.storage_endpoint
         endpoint_configuration = None
         if endpoint is not None:
