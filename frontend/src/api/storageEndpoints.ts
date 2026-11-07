@@ -9,7 +9,7 @@ import type { TagDefinitionInput, TagDefinitionSummary } from "./tags";
 export type StorageProvider = "ceph" | "aws" | "other";
 export type StorageEndpointServiceIdentityKind = "runtime" | "supervision" | "ceph_admin";
 export type StorageEndpointServiceIdentityMode = "managed" | "external";
-export type StorageEndpointServiceIdentityStatus =
+type StorageEndpointServiceIdentityStatus =
   | "not_provisioned"
   | "missing"
   | "provisioning"
@@ -17,7 +17,7 @@ export type StorageEndpointServiceIdentityStatus =
   | "error"
   | "revocation_pending"
   | "disabled";
-export type StorageEndpointServiceIdentityRotationPhase = "prepared" | "activated";
+type StorageEndpointServiceIdentityRotationPhase = "prepared" | "activated";
 
 export type StorageEndpointServiceIdentity = {
   kind: StorageEndpointServiceIdentityKind;
