@@ -81,6 +81,7 @@ from app.services.portal.exceptions import (
     PortalAccessKeyProtected,
     PortalConflictError,
     PortalForbiddenError,
+    PortalOperationError,
     PortalStorageSpaceNotEmpty,
 )
 from app.services.rgw_iam import RGWIAMError, RGWIAMGroupAlreadyExistsError
@@ -5927,6 +5928,25 @@ def test_portal_restore_deleted_prefix_can_cancel_during_listing(db_session):
     assert checks == 2
 
 
+def test_portal_restore_deleted_prefix_does_not_wrap_unexpected_runtime_errors(db_session):
+    service = PortalService(db_session)
+
+    class BrokenClient:
+        def list_object_versions(self, **_kwargs):
+            raise RuntimeError("unexpected restore bug")
+
+    with pytest.raises(RuntimeError, match="unexpected restore bug"):
+        service.run_deleted_prefix_restore(
+            PortalDeletedPrefixRestoreTarget(
+                client=BrokenClient(),
+                bucket_name="trash-bucket",
+                storage_space_id="research-data",
+                storage_space_name="Research Data",
+                prefix="reports/",
+            )
+        )
+
+
 def test_portal_viewer_cannot_restore_object_version(monkeypatch, db_session):
     account = make_s3_account(db_session, name="portal-history-viewer")
     user = User(email="history-viewer@example.com", hashed_password="x", role="ui_user")
@@ -7503,6 +7523,30 @@ def test_portal_usage_exposes_quota_and_real_storage_space_breakdown(monkeypatch
     assert usage.other_storage_space is None
 
 
+def test_portal_usage_breakdown_only_swallows_portal_operation_errors(monkeypatch, db_session):
+    account = make_s3_account(db_session, name="portal-usage-errors")
+    user = User(email="usage-errors@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([account, user])
+    db_session.commit()
+    service = PortalService(db_session)
+    access = _portal_access(account, user)
+
+    monkeypatch.setattr(
+        service,
+        "list_storage_spaces",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(PortalOperationError("provider unavailable")),
+    )
+    assert service._usage_storage_space_breakdown(user, access, {}) == []
+
+    monkeypatch.setattr(
+        service,
+        "list_storage_spaces",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("unexpected usage bug")),
+    )
+    with pytest.raises(RuntimeError, match="unexpected usage bug"):
+        service._usage_storage_space_breakdown(user, access, {})
+
+
 def test_portal_user_usage_aggregates_hidden_storage_as_other(monkeypatch, db_session):
     account = make_s3_account(db_session, name="portal-usage-privacy", rgw_access_key="ROOT-AK", rgw_secret_key="ROOT-SK")
     user = User(email="usage-privacy@example.com", hashed_password="x", role="ui_user")
@@ -8142,6 +8186,30 @@ def test_portal_alerts_are_derived_from_quota_and_public_sharing(monkeypatch, db
     assert any(alert_id.startswith("link-expiring-") for alert_id in warning_ids)
     assert any("public link" in alert.description for alert in alerts)
     assert any("expires soon" in alert.description for alert in alerts)
+
+
+def test_portal_quota_alert_only_swallows_portal_operation_errors(monkeypatch, db_session):
+    account = make_s3_account(db_session, name="portal-alert-errors")
+    user = User(email="alert-errors@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([account, user])
+    db_session.commit()
+    service = PortalService(db_session)
+    access = _portal_access(account, user)
+
+    monkeypatch.setattr(
+        service,
+        "get_usage",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(PortalOperationError("provider unavailable")),
+    )
+    assert service._portal_quota_alert(user, access) is None
+
+    monkeypatch.setattr(
+        service,
+        "get_usage",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("unexpected alert bug")),
+    )
+    with pytest.raises(RuntimeError, match="unexpected alert bug"):
+        service._portal_quota_alert(user, access)
 
 
 def test_portal_alert_deduplication_keeps_highest_severity():
