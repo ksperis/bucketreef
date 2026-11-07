@@ -6,36 +6,32 @@ import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { normalizePrefix } from "./browserUtils";
+import type { BrowserLocation } from "./browserTypes";
 
-type BrowserNavigationLocation = {
-  bucketName: string;
-  prefix: string;
-};
-
-type BrowserHistoryState = BrowserNavigationLocation & {
+type BrowserHistoryState = BrowserLocation & {
   browserPage: true;
 };
 
 type PendingRouteLocation = {
-  location: BrowserNavigationLocation;
+  location: BrowserLocation;
   awaitingStateUpdate: boolean;
   waitingForBucketValidation: boolean;
   sawValidation: boolean;
 };
 
-type UseBrowserNavigationHistoryOptions = BrowserNavigationLocation & {
+type UseBrowserNavigationHistoryOptions = BrowserLocation & {
   lockedBucketName?: string;
-  onNavigate: (location: BrowserNavigationLocation) => boolean | void;
+  onNavigate: (location: BrowserLocation) => boolean | void;
   ready: boolean;
   scopeKey: string | null;
 };
 
 const sameBrowserLocation = (
-  left: BrowserNavigationLocation,
-  right: BrowserNavigationLocation,
+  left: BrowserLocation,
+  right: BrowserLocation,
 ) => left.bucketName === right.bucketName && left.prefix === right.prefix;
 
-function readBrowserLocation(search: string): BrowserNavigationLocation {
+function readBrowserLocation(search: string): BrowserLocation {
   const params = new URLSearchParams(search);
   return {
     bucketName: params.get("bucket")?.trim() ?? "",
@@ -47,7 +43,7 @@ export function buildBrowserLocationPath(
   pathname: string,
   search: string,
   hash: string,
-  location: BrowserNavigationLocation,
+  location: BrowserLocation,
 ): string {
   const params = new URLSearchParams(search);
   if (location.bucketName) {
@@ -75,7 +71,7 @@ export function useBrowserNavigationHistory({
   const navigate = useNavigate();
   const route = useLocation();
   const navigateRef = useRef(navigate);
-  const currentLocationRef = useRef<BrowserNavigationLocation>({
+  const currentLocationRef = useRef<BrowserLocation>({
     bucketName,
     prefix,
   });

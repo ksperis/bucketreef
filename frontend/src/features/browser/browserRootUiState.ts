@@ -11,6 +11,7 @@ import {
 } from "../../utils/clientStorage";
 import { isRecord } from "../../utils/record";
 import type { BrowserDensity } from "./browserActions";
+import type { BrowserLocation } from "./browserTypes";
 import {
   normalizePersistedBrowserColumns,
   normalizePersistedBrowserColumnWidths,
@@ -24,18 +25,13 @@ export const DEFAULT_FOLDERS_PANEL_WIDTH_PX = 280;
 export const MIN_FOLDERS_PANEL_WIDTH_PX = 220;
 export const MAX_FOLDERS_PANEL_WIDTH_PX = 420;
 
-type BrowserRootUiContextSelection = {
-  bucketName: string;
-  prefix: string;
-};
-
 type BrowserRootUiState = {
   density: BrowserDensity;
   showFolders: boolean;
   foldersPanelWidthPx: number;
   objectColumns: string[];
   objectColumnWidths: Record<string, number>;
-  contextSelections: Record<string, BrowserRootUiContextSelection>;
+  contextSelections: Record<string, BrowserLocation>;
 };
 
 const clampPanelWidth = (
@@ -50,7 +46,7 @@ const clampPanelWidth = (
 
 const normalizeContextSelection = (
   value: unknown,
-): BrowserRootUiContextSelection | null => {
+): BrowserLocation | null => {
   if (!isRecord(value)) return null;
   return {
     bucketName:
@@ -61,10 +57,10 @@ const normalizeContextSelection = (
 
 const normalizeContextSelections = (
   value: unknown,
-): Record<string, BrowserRootUiContextSelection> => {
+): Record<string, BrowserLocation> => {
   if (!isRecord(value)) return {};
   return Object.entries(value).reduce<
-    Record<string, BrowserRootUiContextSelection>
+    Record<string, BrowserLocation>
   >((acc, [key, entry]) => {
     const normalized = normalizeContextSelection(entry);
     if (normalized) acc[key] = normalized;
@@ -151,14 +147,14 @@ export const writeBrowserRootUiLayout = (
 
 export const readBrowserRootContextSelection = (
   contextId: string | null,
-): BrowserRootUiContextSelection | null => {
+): BrowserLocation | null => {
   if (!contextId) return null;
   return readContextSelections()[contextId] ?? null;
 };
 
 export const writeBrowserRootContextSelection = (
   contextId: string | null,
-  selection: BrowserRootUiContextSelection,
+  selection: BrowserLocation,
 ) => {
   if (!contextId) return;
   const current = readContextSelections();

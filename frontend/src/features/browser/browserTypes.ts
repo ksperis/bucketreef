@@ -4,6 +4,11 @@
  */
 import type { S3ExecutionContextSelector } from "../../api/accountParams";
 
+export type BrowserLocation = {
+  bucketName: string;
+  prefix: string;
+};
+
 export type BrowserItem = {
   id: string;
   key: string;
