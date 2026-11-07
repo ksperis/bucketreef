@@ -5,14 +5,13 @@ import type { S3ExecutionContextSelector } from "../../api/accountParams";
 import type { BrowserRequestOptions } from "../../api/browserWorkspace";
 import { hasOpenModal } from "../../components/ui/modalStack";
 import { buildPrefixBreadcrumbs } from "./browserUtils";
+import type { BrowserLocation } from "./browserTypes";
 import { useBrowserNavigationHistory } from "./useBrowserNavigationHistory";
 import { useBrowserPathEditor } from "./useBrowserPathEditor";
 import { useBrowserPathHistory } from "./useBrowserPathHistory";
 
-type UseBrowserPathRuntimeOptions = {
+type UseBrowserPathRuntimeOptions = BrowserLocation & {
   contextId: S3ExecutionContextSelector;
-  bucketName: string;
-  prefix: string;
   localPrefixes: string[];
   enabled: boolean;
   requestOptions?: BrowserRequestOptions;
