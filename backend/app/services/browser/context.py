@@ -313,7 +313,7 @@ class BrowserContextMixin:
     def invalidate_bucket_list_cache_for_context(self, context: S3ExecutionTarget) -> None:
         try:
             context_key = self._context_cache_key(context)
-        except RuntimeError:
+        except S3OperationError:
             return
         self.invalidate_bucket_list_cache(context_key)
 
@@ -322,7 +322,7 @@ class BrowserContextMixin:
             return
         try:
             context_key = self._context_cache_key(context)
-        except RuntimeError:
+        except S3OperationError:
             return
         self.invalidate_object_list_cache(context_key, bucket_name)
 
