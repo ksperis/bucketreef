@@ -5,8 +5,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal
 
+from app.core.domain_enums import EffectiveAccessSourceKind
 from app.services.access_context_contracts import EffectiveAccountLink
 from app.models.user import LinkedUiGroup, ManagerToolAccess
 
@@ -15,7 +15,7 @@ from app.models.user import LinkedUiGroup, ManagerToolAccess
 class EffectiveAccessSource:
     """Origin of an effective UI grant used for read-only access auditing."""
 
-    kind: Literal["direct", "group", "platform"]
+    kind: EffectiveAccessSourceKind
     group_id: int | None = None
     group_name: str | None = None
 

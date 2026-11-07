@@ -59,6 +59,7 @@ class HealthWindow(str, Enum):
 
 
 ExternalIdentityProviderType = Literal["oidc", "ldap"]
+EffectiveAccessSourceKind = Literal["direct", "group", "platform"]
 HealthCheckMode = Literal["http", "s3"]
 IdentityProviderSource = Literal["environment", "ui"]
 KeyRotationPhase = Literal["prepared", "activated"]
