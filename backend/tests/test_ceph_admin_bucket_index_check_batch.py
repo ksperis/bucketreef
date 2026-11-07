@@ -20,7 +20,7 @@ from app.models.ceph_admin_bucket_index import (
 from app.routers import dependencies
 from app.routers.ceph_admin import bucket_index_ops
 from app.services.bucket_index_check_service import BucketIndexCheckCancelled, BucketIndexCheckService
-from app.services.rgw_admin import RGWAdminOperationResponse
+from app.services.rgw_admin import RGWAdminError, RGWAdminOperationResponse
 
 
 class FakeAdmin:
@@ -112,6 +112,39 @@ def test_batch_service_reports_failed_when_every_target_fails():
     assert result.status == "failed"
     assert result.completed_buckets == 1
     assert result.failed_buckets == 1
+
+
+def test_batch_service_keeps_transport_failures_as_partial_results():
+    class TransportFailingAdmin(FakeAdmin):
+        def check_bucket_index_operation(self, bucket: str, **kwargs):
+            if bucket == "bucket-b":
+                raise RGWAdminError("RGW admin request failed: unavailable")
+            return super().check_bucket_index_operation(bucket, **kwargs)
+
+    result = BucketIndexCheckService().run(
+        TransportFailingAdmin(),
+        [CephAdminBucketIndexCheckTarget(name="bucket-a"), CephAdminBucketIndexCheckTarget(name="bucket-b")],
+        parallelism=2,
+    )
+
+    assert result.status == "completed_with_errors"
+    assert result.failed_buckets == 1
+    failed = next(item for item in result.buckets if item.name == "bucket-b")
+    assert failed.status == "failed"
+    assert failed.message == "RGW admin request failed: unavailable"
+
+
+def test_batch_service_propagates_unexpected_worker_errors():
+    class BrokenAdmin(FakeAdmin):
+        def check_bucket_index_operation(self, bucket: str, **kwargs):
+            raise RuntimeError("broken bucket index worker")
+
+    with pytest.raises(RuntimeError, match="broken bucket index worker"):
+        BucketIndexCheckService().run(
+            BrokenAdmin(),
+            [CephAdminBucketIndexCheckTarget(name="bucket-a")],
+            parallelism=1,
+        )
 
 
 def test_batch_service_honors_cooperative_cancellation():

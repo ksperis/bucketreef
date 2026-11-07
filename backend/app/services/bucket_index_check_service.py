@@ -13,7 +13,7 @@ from app.models.ceph_admin_bucket_index import (
     CephAdminBucketIndexCheckBatchResult,
     CephAdminBucketIndexCheckTarget,
 )
-from app.services.rgw_admin import RGWAdminClient, RGWAdminOperationResponse
+from app.services.rgw_admin import RGWAdminClient, RGWAdminError, RGWAdminOperationResponse
 from app.utils.time import utcnow
 
 
@@ -75,7 +75,7 @@ class BucketIndexCheckService:
             )
         except BucketIndexCheckCancelled:
             raise
-        except Exception as exc:  # noqa: BLE001
+        except RGWAdminError as exc:
             return CephAdminBucketIndexCheckBatchBucketResult(
                 name=target.name,
                 tenant=target.tenant,
