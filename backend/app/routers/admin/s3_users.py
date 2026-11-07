@@ -25,6 +25,7 @@ from app.routers.dependencies import (
 )
 from app.services.s3_user_key_management_service import S3UserKeyManagementService
 from app.services.s3_user_query_service import S3UserQueryService
+from app.services.s3_user_update_service import S3UserUpdateService
 from app.services.s3_users_service import S3UsersService, get_s3_users_service
 from app.services.audit_service import AuditService
 from app.services.tags_service import serialize_tag_summaries
@@ -50,6 +51,12 @@ def get_admin_s3_user_key_service(
     db: Session = Depends(get_db),
 ) -> S3UserKeyManagementService:
     return S3UserKeyManagementService(db)
+
+
+def get_admin_s3_user_update_service(
+    db: Session = Depends(get_db),
+) -> S3UserUpdateService:
+    return S3UserUpdateService(db)
 
 
 @router.get("", response_model=PaginatedS3UsersResponse)
@@ -123,7 +130,7 @@ def import_s3_users(
 def update_s3_user(
     user_id: int,
     payload: S3UserUpdate,
-    service: S3UsersService = Depends(get_admin_s3_users_service),
+    service: S3UserUpdateService = Depends(get_admin_s3_user_update_service),
     current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> S3User:
