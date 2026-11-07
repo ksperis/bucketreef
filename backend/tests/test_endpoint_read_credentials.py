@@ -202,6 +202,29 @@ def test_readers_do_not_retry_with_admin_after_service_identity_denial(
     assert len(requests) == (1 if failure_stage == "request" else 0)
 
 
+def test_portal_requester_identity_does_not_hide_unexpected_client_factory_errors(monkeypatch):
+    endpoint = _endpoint((True, True, True, True))
+    account = S3Account(name="portal-client-error", storage_endpoint=endpoint)
+    monkeypatch.setattr(
+        server_access_log_queries,
+        "get_rgw_admin_client",
+        lambda **_kwargs: (_ for _ in ()).throw(TypeError("unexpected client factory bug")),
+    )
+
+    with pytest.raises(TypeError, match="unexpected client factory bug"):
+        PortalServerAccessLogQueriesMixin()._portal_server_access_rgw_identities(account, ["requester"])
+
+
+def test_portal_requester_identity_does_not_hide_unexpected_lookup_errors():
+    account = S3Account(name="portal-request-error")
+    rgw_admin = SimpleNamespace(
+        get_user=lambda *_args, **_kwargs: (_ for _ in ()).throw(TypeError("unexpected requester lookup bug"))
+    )
+
+    with pytest.raises(TypeError, match="unexpected requester lookup bug"):
+        PortalServerAccessLogQueriesMixin()._portal_server_access_rgw_identity(account, rgw_admin, "requester")
+
+
 @pytest.mark.parametrize("supervision", [(False, False), (True, False), (False, True)])
 def test_metrics_still_require_complete_supervision_credentials(monkeypatch, supervision):
     endpoint = _endpoint((*supervision, True, True))

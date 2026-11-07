@@ -38,7 +38,7 @@ from app.utils.rgw_payloads import (
     require_rgw_user_identity,
     rgw_qualified_uid,
 )
-from app.services.rgw_admin import RGWAdminClient, get_rgw_admin_client
+from app.services.rgw_admin import RGWAdminClient, RGWAdminError, get_rgw_admin_client
 from app.utils.aws_errors import aws_error_code
 from app.utils.storage_endpoint_features import resolve_rgw_admin_api_endpoint
 
@@ -296,7 +296,7 @@ class PortalServerAccessLogQueriesMixin:
             if payload:
                 require_rgw_user_identity(payload, uid, tenant)
             identity = self._portal_server_access_identity_from_rgw_payload(payload)
-        except Exception as exc:
+        except (RGWAdminError, ValueError) as exc:
             logger.debug("Unable to resolve requester identity for %s: %s", requester, exc)
             identity = None
         return identity or self._unknown_portal_server_access_identity(requester)
@@ -310,7 +310,7 @@ class PortalServerAccessLogQueriesMixin:
             return {}
         try:
             rgw_admin = self._portal_server_access_rgw_admin_client(account)
-        except Exception as exc:
+        except RGWAdminError as exc:
             logger.debug(
                 "Unable to prepare RGW Admin requester identity resolver for account %s: %s",
                 account.id,
