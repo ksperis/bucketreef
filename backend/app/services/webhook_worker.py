@@ -206,7 +206,7 @@ class WebhookDeliveryWorker:
                     timeout=self._runtime.timeout_seconds,
                     allow_redirects=False,
                 )
-            except Exception as exc:  # noqa: BLE001
+            except requests.RequestException as exc:
                 self._retry_or_fail(delivery, error=exc)
                 commit_or_rollback(db)
                 return
