@@ -41,7 +41,7 @@ def put_bucket_cors(
     try:
         client.put_bucket_cors(Bucket=bucket_name, CORSConfiguration={"CORSRules": rules})
     except (BotoCoreError, ClientError) as exc:
-        raise RuntimeError(f"Unable to set bucket CORS for '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to set bucket CORS for '{bucket_name}': {exc}") from exc
     logger.debug("Updated CORS for bucket %s", bucket_name)
 
 
@@ -70,9 +70,9 @@ def get_bucket_website(
         code = aws_error_code(exc, lowercase=True)
         if code in {"nosuchwebsiteconfiguration", "nosuchbucket"}:
             return None
-        raise RuntimeError(f"Unable to fetch bucket website for '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to fetch bucket website for '{bucket_name}': {exc}") from exc
     except BotoCoreError as exc:
-        raise RuntimeError(f"Unable to fetch bucket website for '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to fetch bucket website for '{bucket_name}': {exc}") from exc
     config: dict = {}
     for key in ("IndexDocument", "ErrorDocument", "RedirectAllRequestsTo", "RoutingRules"):
         if resp.get(key) is not None:
@@ -89,7 +89,7 @@ def put_bucket_website(
     try:
         client.put_bucket_website(Bucket=bucket_name, WebsiteConfiguration=configuration)
     except (BotoCoreError, ClientError) as exc:
-        raise RuntimeError(f"Unable to set bucket website for '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to set bucket website for '{bucket_name}': {exc}") from exc
     logger.debug("Updated bucket website for bucket %s", bucket_name)
 
 
@@ -139,7 +139,7 @@ def put_bucket_policy(
     try:
         client.put_bucket_policy(Bucket=bucket_name, Policy=json.dumps(policy))
     except (BotoCoreError, ClientError) as exc:
-        raise RuntimeError(f"Unable to set bucket policy for '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to set bucket policy for '{bucket_name}': {exc}") from exc
     logger.debug("Updated policy for bucket %s", bucket_name)
 
 

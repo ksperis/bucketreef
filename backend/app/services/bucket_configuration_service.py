@@ -8,6 +8,7 @@ from app.services.s3_execution_context import (
     is_ceph_admin_execution_context,
 )
 from app.services.s3_execution_client import (
+    S3ExecutionCredentialsError,
     s3_execution_bucket_request_kwargs,
     s3_execution_request_kwargs,
 )
@@ -71,15 +72,18 @@ class BucketConfigurationService:
         execution_context: S3ExecutionTarget,
         bucket_name: str,
     ) -> dict:
-        if (
-            is_ceph_admin_execution_context(execution_context)
-            and split_explicit_rgw_s3_bucket_name(bucket_name) is not None
-        ):
-            return s3_execution_bucket_request_kwargs(
-                execution_context,
-                bucket_name,
-            )
-        return s3_execution_request_kwargs(execution_context)
+        try:
+            if (
+                is_ceph_admin_execution_context(execution_context)
+                and split_explicit_rgw_s3_bucket_name(bucket_name) is not None
+            ):
+                return s3_execution_bucket_request_kwargs(
+                    execution_context,
+                    bucket_name,
+                )
+            return s3_execution_request_kwargs(execution_context)
+        except S3ExecutionCredentialsError as exc:
+            raise s3_client.S3OperationError(str(exc)) from exc
 
     def get_bucket_tags(self, name: str, execution_context: S3ExecutionTarget) -> list[BucketTag]:
         tags_raw = s3_bucket_metadata.get_bucket_tags(
@@ -283,8 +287,8 @@ class BucketConfigurationService:
                 rules=rules,
                 **self._bucket_client_kwargs(execution_context, name),
             )
-        except RuntimeError as exc:
-            raise RuntimeError(f"Unable to set lifecycle rules: {exc}") from exc
+        except s3_client.S3OperationError as exc:
+            raise s3_client.S3OperationError(f"Unable to set lifecycle rules: {exc}") from exc
         return self.get_lifecycle(name, execution_context)
 
     def delete_lifecycle(self, name: str, execution_context: S3ExecutionTarget) -> None:
@@ -304,8 +308,8 @@ class BucketConfigurationService:
                     rules=[],
                     **self._bucket_client_kwargs(execution_context, name),
                 )
-            except RuntimeError as exc:
-                raise RuntimeError(f"Unable to delete bucket lifecycle: {exc}") from exc
+            except s3_client.S3OperationError as exc:
+                raise s3_client.S3OperationError(f"Unable to delete bucket lifecycle: {exc}") from exc
 
     def set_bucket_tags(self, name: str, execution_context: S3ExecutionTarget, tags: list[dict]) -> None:
         s3_bucket_metadata.put_bucket_tags(
@@ -607,7 +611,7 @@ class BucketConfigurationService:
         if mode and days is None and years is None:
             raise ValueError("A duration (days or years) is required when a retention mode is set.")
         if enabled is None:
-            raise RuntimeError("Object Lock not available on this bucket.")
+            raise s3_client.S3OperationError("Object Lock not available on this bucket.")
 
         try:
             s3_bucket_security.put_bucket_object_lock(
@@ -618,8 +622,8 @@ class BucketConfigurationService:
                 years=years,
                 **self._bucket_client_kwargs(execution_context, name),
             )
-        except RuntimeError as exc:
-            raise RuntimeError(f"Unable to update object lock for bucket {name}: {exc}") from exc
+        except s3_client.S3OperationError as exc:
+            raise s3_client.S3OperationError(f"Unable to update object lock for bucket {name}: {exc}") from exc
 
         return self.get_object_lock(name, execution_context)
 

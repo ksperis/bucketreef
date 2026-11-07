@@ -6,6 +6,7 @@ from collections.abc import Callable, Container
 
 from botocore.exceptions import BotoCoreError, ClientError
 
+from app.services.s3_client import S3OperationError
 from app.utils.aws_errors import aws_error_code
 
 
@@ -26,7 +27,7 @@ def delete_bucket_configuration(
     except ClientError as exc:
         if aws_error_code(exc, lowercase=True) in missing_error_codes:
             return False
-        raise RuntimeError(f"{error_message}: {exc}") from exc
+        raise S3OperationError(f"{error_message}: {exc}") from exc
     except BotoCoreError as exc:
-        raise RuntimeError(f"{error_message}: {exc}") from exc
+        raise S3OperationError(f"{error_message}: {exc}") from exc
     return True
