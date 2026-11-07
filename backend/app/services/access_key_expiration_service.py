@@ -28,6 +28,10 @@ class PermanentExpirationError(RuntimeError):
     pass
 
 
+class RetryableExpirationError(RuntimeError):
+    """Expected operational failure that should be retried by the scheduler."""
+
+
 class AccessKeyExpirationService:
     def __init__(self, db: Session) -> None:
         self.db = db
@@ -118,7 +122,9 @@ class AccessKeyExpirationService:
         )
         access_key, secret_key = context.effective_rgw_credentials()
         if not access_key or not secret_key:
-            raise RuntimeError("RGW Account credentials are unavailable for expiration enforcement")
+            raise RetryableExpirationError(
+                "RGW Account credentials are unavailable for expiration enforcement"
+            )
         iam_endpoint, region, verify_tls = resolve_iam_client_options(context)
         iam = get_iam_service(
             access_key,
@@ -180,7 +186,9 @@ class AccessKeyExpirationService:
         if remote is None:
             return False
         if not cls._iam_key_is_inactive(remote):
-            raise RuntimeError("Provider did not confirm the IAM access key as inactive")
+            raise RetryableExpirationError(
+                "Provider did not confirm the IAM access key as inactive"
+            )
         return True
 
     def _process_s3_user(self, row: ManagerAccessKeyMetadata) -> str:
@@ -205,7 +213,9 @@ class AccessKeyExpirationService:
         if remote.is_active:
             remote = service.set_key_status(s3_user.id, row.access_key_id, False)
             if remote.is_active:
-                raise RuntimeError("Provider did not confirm the RGW access key as inactive")
+                raise RetryableExpirationError(
+                    "Provider did not confirm the RGW access key as inactive"
+                )
         self._mark_enforced(
             row,
             entity_type="s3_user",
