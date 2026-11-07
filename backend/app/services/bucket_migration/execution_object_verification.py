@@ -19,6 +19,10 @@ from .execution_tuning import DIFF_CONTROL_CHECK_INTERVAL_OBJECTS, RUN_ACTIONS_C
 logger = logging.getLogger(__name__)
 
 
+class InvalidStrongVerificationResponseError(RuntimeError):
+    """The provider returned an object response that cannot be verified safely."""
+
+
 @dataclass
 class _StrongVerificationResults:
     verified_count: int = 0
@@ -88,7 +92,7 @@ class BucketMigrationObjectVerificationMixin:
                 key = key_for_item(item)
                 try:
                     verified, method = future.result()
-                except Exception as exc:  # noqa: BLE001
+                except (ClientError, BotoCoreError, InvalidStrongVerificationResponseError) as exc:
                     logger.warning("%s for '%s': %s", failure_log_prefix, key, exc)
                     results.record_failure(key)
                     continue
@@ -235,10 +239,7 @@ class BucketMigrationObjectVerificationMixin:
         kwargs: dict[str, Any] = {"Bucket": bucket_name, "Key": key}
         if version_id:
             kwargs["VersionId"] = version_id
-        try:
-            response = client.head_object(**kwargs)
-        except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(f"Unable to read object metadata for '{key}' in bucket '{bucket_name}': {exc}") from exc
+        response = client.head_object(**kwargs)
 
         result: dict[str, str] = {}
         for field in ("ChecksumSHA256", "ChecksumCRC32C", "ChecksumCRC32", "ChecksumSHA1"):
@@ -265,7 +266,9 @@ class BucketMigrationObjectVerificationMixin:
             response = client.get_object(**kwargs)
             body = response.get("Body")
             if body is None:
-                raise RuntimeError("response body is empty")
+                raise InvalidStrongVerificationResponseError(
+                    f"Object response body is empty for '{key}' in bucket '{bucket_name}'"
+                )
             while True:
                 if control_check:
                     control_check()
@@ -275,8 +278,6 @@ class BucketMigrationObjectVerificationMixin:
                 hasher.update(chunk)
         except WorkerLeaseLostError:
             raise
-        except (ClientError, BotoCoreError, RuntimeError) as exc:
-            raise RuntimeError(f"Unable to compute SHA-256 for '{key}' in bucket '{bucket_name}': {exc}") from exc
         finally:
             if body is not None:
                 try:
