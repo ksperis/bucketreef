@@ -176,26 +176,13 @@ class PortalServerAccessLoggingMixin:
 
         if snapshot.log_bucket_existed:
             try:
-                if snapshot.log_bucket_policy is None:
-                    s3_bucket_access.delete_bucket_policy(
-                        snapshot.log_bucket,
-                        access_key=access_key,
-                        secret_key=secret_key,
-                        **kwargs,
-                    )
-                elif "raw" in snapshot.log_bucket_policy:
-                    self._portal_server_access_client(account).put_bucket_policy(
-                        Bucket=snapshot.log_bucket,
-                        Policy=str(snapshot.log_bucket_policy["raw"]),
-                    )
-                else:
-                    s3_bucket_access.put_bucket_policy(
-                        snapshot.log_bucket,
-                        policy=copy.deepcopy(snapshot.log_bucket_policy),
-                        access_key=access_key,
-                        secret_key=secret_key,
-                        **kwargs,
-                    )
+                self._restore_portal_server_access_log_bucket_policy(
+                    account,
+                    snapshot,
+                    access_key=access_key,
+                    secret_key=secret_key,
+                    client_kwargs=kwargs,
+                )
             except Exception as exc:  # pragma: no cover - defensive remote failure
                 logger.error(
                     "Unable to restore policy on Portal access log bucket %s: %s",
@@ -204,21 +191,12 @@ class PortalServerAccessLoggingMixin:
                 )
                 failures.append(f"policy:{snapshot.log_bucket}")
             try:
-                if snapshot.log_bucket_lifecycle:
-                    s3_bucket_metadata.put_bucket_lifecycle(
-                        snapshot.log_bucket,
-                        rules=copy.deepcopy(snapshot.log_bucket_lifecycle),
-                        access_key=access_key,
-                        secret_key=secret_key,
-                        **kwargs,
-                    )
-                else:
-                    s3_bucket_metadata.delete_bucket_lifecycle(
-                        snapshot.log_bucket,
-                        access_key=access_key,
-                        secret_key=secret_key,
-                        **kwargs,
-                    )
+                self._restore_portal_server_access_log_bucket_lifecycle(
+                    snapshot,
+                    access_key=access_key,
+                    secret_key=secret_key,
+                    client_kwargs=kwargs,
+                )
             except Exception as exc:  # pragma: no cover - defensive remote failure
                 logger.error(
                     "Unable to restore lifecycle on Portal access log bucket %s: %s",
@@ -228,28 +206,12 @@ class PortalServerAccessLoggingMixin:
                 failures.append(f"lifecycle:{snapshot.log_bucket}")
         else:
             try:
-                s3_deletion.delete_empty_bucket(
-                    snapshot.log_bucket,
+                self._delete_portal_server_access_log_compensation_bucket(
+                    snapshot,
                     access_key=access_key,
                     secret_key=secret_key,
-                    **kwargs,
+                    client_kwargs=kwargs,
                 )
-            except s3_deletion.BucketNotEmptyError:
-                try:
-                    s3_deletion.delete_bucket(
-                        snapshot.log_bucket,
-                        force=True,
-                        access_key=access_key,
-                        secret_key=secret_key,
-                        **kwargs,
-                    )
-                except Exception as exc:  # pragma: no cover - defensive remote failure
-                    logger.error(
-                        "Unable to delete newly created Portal access log bucket %s: %s",
-                        snapshot.log_bucket,
-                        exc,
-                    )
-                    failures.append(f"bucket:{snapshot.log_bucket}")
             except Exception as exc:  # pragma: no cover - defensive remote failure
                 logger.error(
                     "Unable to delete newly created Portal access log bucket %s: %s",
@@ -262,6 +224,85 @@ class PortalServerAccessLoggingMixin:
             raise RuntimeError(
                 "Unable to restore Portal Server Access Logging resources: "
                 + ", ".join(failures)
+            )
+
+    def _restore_portal_server_access_log_bucket_policy(
+        self,
+        account: S3Account,
+        snapshot: _PortalServerAccessLoggingSnapshot,
+        *,
+        access_key: str,
+        secret_key: str,
+        client_kwargs: dict,
+    ) -> None:
+        if snapshot.log_bucket_policy is None:
+            s3_bucket_access.delete_bucket_policy(
+                snapshot.log_bucket,
+                access_key=access_key,
+                secret_key=secret_key,
+                **client_kwargs,
+            )
+            return
+        if "raw" in snapshot.log_bucket_policy:
+            self._portal_server_access_client(account).put_bucket_policy(
+                Bucket=snapshot.log_bucket,
+                Policy=str(snapshot.log_bucket_policy["raw"]),
+            )
+            return
+        s3_bucket_access.put_bucket_policy(
+            snapshot.log_bucket,
+            policy=copy.deepcopy(snapshot.log_bucket_policy),
+            access_key=access_key,
+            secret_key=secret_key,
+            **client_kwargs,
+        )
+
+    @staticmethod
+    def _restore_portal_server_access_log_bucket_lifecycle(
+        snapshot: _PortalServerAccessLoggingSnapshot,
+        *,
+        access_key: str,
+        secret_key: str,
+        client_kwargs: dict,
+    ) -> None:
+        if snapshot.log_bucket_lifecycle:
+            s3_bucket_metadata.put_bucket_lifecycle(
+                snapshot.log_bucket,
+                rules=copy.deepcopy(snapshot.log_bucket_lifecycle),
+                access_key=access_key,
+                secret_key=secret_key,
+                **client_kwargs,
+            )
+            return
+        s3_bucket_metadata.delete_bucket_lifecycle(
+            snapshot.log_bucket,
+            access_key=access_key,
+            secret_key=secret_key,
+            **client_kwargs,
+        )
+
+    @staticmethod
+    def _delete_portal_server_access_log_compensation_bucket(
+        snapshot: _PortalServerAccessLoggingSnapshot,
+        *,
+        access_key: str,
+        secret_key: str,
+        client_kwargs: dict,
+    ) -> None:
+        try:
+            s3_deletion.delete_empty_bucket(
+                snapshot.log_bucket,
+                access_key=access_key,
+                secret_key=secret_key,
+                **client_kwargs,
+            )
+        except s3_deletion.BucketNotEmptyError:
+            s3_deletion.delete_bucket(
+                snapshot.log_bucket,
+                force=True,
+                access_key=access_key,
+                secret_key=secret_key,
+                **client_kwargs,
             )
 
     def _portal_server_access_log_lifecycle_rules(self, portal_settings: PortalSettings) -> list[dict]:
