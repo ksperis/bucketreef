@@ -9,6 +9,7 @@ from app.models.iam import AccessKey, IAMGroup, IAMRole, IAMTag, IAMUser
 from app.models.policy import Policy
 from app.core.config import get_settings
 from app.services.aws_client_config import build_interactive_aws_config
+from app.services.rgw_iam_errors import RGWIAMError, RGWIAMGroupAlreadyExistsError
 from app.services.rgw_iam_pagination import iam_matches_fields, list_iam_all, list_iam_page
 from app.services.s3_execution_context import S3ExecutionTarget
 from app.utils.aws_errors import aws_error_code
@@ -34,10 +35,6 @@ def _role_name_from_data(data: dict, fallback: Optional[str] = None) -> Optional
     return raw_name if isinstance(raw_name, str) and raw_name else fallback
 
 
-class RGWIAMGroupAlreadyExistsError(RuntimeError):
-    """Raised when IAM reports a concurrent group-name conflict."""
-
-
 _IAMPolicyTarget = Literal["user", "group", "role"]
 
 
@@ -49,7 +46,7 @@ def get_iam_client(
     verify_tls: bool = True,
 ):
     if not endpoint:
-        raise RuntimeError("IAM endpoint is not configured")
+        raise RGWIAMError("IAM endpoint is not configured")
     return boto3.client(
         "iam",
         endpoint_url=endpoint,
@@ -109,9 +106,9 @@ class RGWIAMService:
         except ClientError as exc:
             if _is_no_such_entity(exc):
                 return
-            raise RuntimeError(f"{error_message}: {exc}") from exc
+            raise RGWIAMError(f"{error_message}: {exc}") from exc
         except BotoCoreError as exc:
-            raise RuntimeError(f"{error_message}: {exc}") from exc
+            raise RGWIAMError(f"{error_message}: {exc}") from exc
 
     def _list_attached_policies(self, target: _IAMPolicyTarget, identity_name: str) -> List[Policy]:
         try:
@@ -122,7 +119,7 @@ class RGWIAMService:
                 **self._policy_target_kwargs(target, identity_name),
             )
         except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to list {target} policies: {exc}") from exc
+            raise RGWIAMError(f"Unable to list {target} policies: {exc}") from exc
         return [self._policy_from_data(policy) for policy in policies]
 
     def _list_inline_policies(self, target: _IAMPolicyTarget, identity_name: str) -> list[str]:
@@ -135,7 +132,7 @@ class RGWIAMService:
             )
             return [policy for policy in policies if policy]
         except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to list inline policies for {target}: {exc}") from exc
+            raise RGWIAMError(f"Unable to list inline policies for {target}: {exc}") from exc
 
     def _get_inline_policy(
         self,
@@ -153,9 +150,9 @@ class RGWIAMService:
         except ClientError as exc:
             if _is_no_such_entity(exc):
                 return None
-            raise RuntimeError(f"Unable to fetch inline policy for {target}: {exc}") from exc
+            raise RGWIAMError(f"Unable to fetch inline policy for {target}: {exc}") from exc
         except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to fetch inline policy for {target}: {exc}") from exc
+            raise RGWIAMError(f"Unable to fetch inline policy for {target}: {exc}") from exc
 
     def _put_inline_policy(
         self,
@@ -173,7 +170,7 @@ class RGWIAMService:
                 PolicyDocument=document,
             )
         except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to put inline policy on {target}: {exc}") from exc
+            raise RGWIAMError(f"Unable to put inline policy on {target}: {exc}") from exc
 
     def _delete_inline_policy(self, target: _IAMPolicyTarget, identity_name: str, policy_name: str) -> None:
         kwargs = self._policy_target_kwargs(target, identity_name)
@@ -192,7 +189,7 @@ class RGWIAMService:
                 PolicyArn=policy_arn,
             )
         except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to attach policy to {target}: {exc}") from exc
+            raise RGWIAMError(f"Unable to attach policy to {target}: {exc}") from exc
 
     def _detach_policy(self, target: _IAMPolicyTarget, identity_name: str, policy_arn: str) -> None:
         kwargs = self._policy_target_kwargs(target, identity_name)
@@ -231,7 +228,7 @@ class RGWIAMService:
                 if row.get("UserName")
             ], next_marker
         except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to list IAM users: {exc}") from exc
+            raise RGWIAMError(f"Unable to list IAM users: {exc}") from exc
 
     # Users
     def list_users(self) -> List[IAMUser]:
@@ -267,7 +264,7 @@ class RGWIAMService:
                 )
             return users
         except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to list IAM users: {exc}") from exc
+            raise RGWIAMError(f"Unable to list IAM users: {exc}") from exc
 
     def create_user(
         self,
@@ -283,20 +280,20 @@ class RGWIAMService:
                 existing = self.get_user(name)
                 if existing is not None:
                     return existing, None
-            raise RuntimeError(f"Unable to create IAM user: {exc}") from exc
+            raise RGWIAMError(f"Unable to create IAM user: {exc}") from exc
         except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to create IAM user: {exc}") from exc
+            raise RGWIAMError(f"Unable to create IAM user: {exc}") from exc
 
         u = resp.get("User", {})
         new_key = None
         if create_key:
             try:
                 new_key = self.create_access_key(name)
-            except RuntimeError as exc:
+            except RGWIAMError as exc:
                 try:
                     self.delete_user(name)
-                except RuntimeError as rollback_exc:
-                    raise RuntimeError(
+                except RGWIAMError as rollback_exc:
+                    raise RGWIAMError(
                         f"{exc}; Unable to roll back created IAM user {name}: {rollback_exc}"
                     ) from exc
                 raise
@@ -321,9 +318,9 @@ class RGWIAMService:
         except ClientError as exc:
             if _is_no_such_entity(exc):
                 return None
-            raise RuntimeError(f"Unable to fetch IAM user: {exc}") from exc
+            raise RGWIAMError(f"Unable to fetch IAM user: {exc}") from exc
         except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to fetch IAM user: {exc}") from exc
+            raise RGWIAMError(f"Unable to fetch IAM user: {exc}") from exc
 
     def update_user(self, name: str, *, new_name: Optional[str] = None, new_path: Optional[str] = None) -> None:
         kwargs: dict = {"UserName": name}
@@ -336,7 +333,7 @@ class RGWIAMService:
         try:
             self.client.update_user(**kwargs)
         except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to update IAM user: {exc}") from exc
+            raise RGWIAMError(f"Unable to update IAM user: {exc}") from exc
 
     def delete_user(self, name: str) -> None:
         self._call_tolerating_missing_entity(
@@ -349,14 +346,14 @@ class RGWIAMService:
         try:
             keys = list_iam_all(self.client, "list_access_keys", "AccessKeyMetadata", UserName=user_name)
         except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to list IAM access keys: {exc}") from exc
+            raise RGWIAMError(f"Unable to list IAM access keys: {exc}") from exc
         return [self._format_access_key(k) for k in keys]
 
     def create_access_key(self, user_name: str) -> AccessKey:
         try:
             resp = self.client.create_access_key(UserName=user_name)
         except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to create IAM access key: {exc}") from exc
+            raise RGWIAMError(f"Unable to create IAM access key: {exc}") from exc
         return self._format_access_key(resp.get("AccessKey", {}), include_secret=True)
 
     def delete_access_key(self, user_name: str, access_key_id: str) -> None:
@@ -372,10 +369,10 @@ class RGWIAMService:
             self.client.update_access_key(UserName=user_name, AccessKeyId=access_key_id, Status=status)
         except ClientError as exc:
             if _is_no_such_entity(exc):
-                raise RuntimeError("Access key not found") from exc
-            raise RuntimeError(f"Unable to update IAM access key: {exc}") from exc
+                raise RGWIAMError("Access key not found") from exc
+            raise RGWIAMError(f"Unable to update IAM access key: {exc}") from exc
         except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to update IAM access key: {exc}") from exc
+            raise RGWIAMError(f"Unable to update IAM access key: {exc}") from exc
 
     def list_user_policies(self, user_name: str) -> List[Policy]:
         return self._list_attached_policies("user", user_name)
@@ -407,7 +404,7 @@ class RGWIAMService:
                 if g.get("GroupName")
             ]
         except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to list groups for user: {exc}") from exc
+            raise RGWIAMError(f"Unable to list groups for user: {exc}") from exc
 
     # Groups
     def list_groups(self) -> List[IAMGroup]:
@@ -424,7 +421,7 @@ class RGWIAMService:
                 groups.append(IAMGroup(name=name, arn=arn, path=g.get("Path"), policies=policy_arns))
             return groups
         except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to list IAM groups: {exc}") from exc
+            raise RGWIAMError(f"Unable to list IAM groups: {exc}") from exc
 
     def list_groups_page(
         self,
@@ -449,7 +446,7 @@ class RGWIAMService:
                 if row.get("GroupName")
             ], next_marker
         except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to list IAM groups: {exc}") from exc
+            raise RGWIAMError(f"Unable to list IAM groups: {exc}") from exc
 
     def create_group(self, name: str) -> IAMGroup:
         try:
@@ -459,9 +456,9 @@ class RGWIAMService:
         except ClientError as exc:
             if aws_error_code(exc) == "EntityAlreadyExists":
                 raise RGWIAMGroupAlreadyExistsError(f"IAM group already exists: {name}") from exc
-            raise RuntimeError(f"Unable to create IAM group: {exc}") from exc
+            raise RGWIAMError(f"Unable to create IAM group: {exc}") from exc
         except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to create IAM group: {exc}") from exc
+            raise RGWIAMError(f"Unable to create IAM group: {exc}") from exc
 
     def delete_group(self, name: str) -> None:
         self._call_tolerating_missing_entity(
@@ -490,9 +487,9 @@ class RGWIAMService:
         except ClientError as exc:
             if _is_no_such_entity(exc):
                 return None
-            raise RuntimeError(f"Unable to fetch IAM group: {exc}") from exc
+            raise RGWIAMError(f"Unable to fetch IAM group: {exc}") from exc
         except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to fetch IAM group: {exc}") from exc
+            raise RGWIAMError(f"Unable to fetch IAM group: {exc}") from exc
 
     def update_group(self, name: str, *, new_name: Optional[str] = None, new_path: Optional[str] = None) -> None:
         kwargs: dict = {"GroupName": name}
@@ -505,7 +502,7 @@ class RGWIAMService:
         try:
             self.client.update_group(**kwargs)
         except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to update IAM group: {exc}") from exc
+            raise RGWIAMError(f"Unable to update IAM group: {exc}") from exc
 
     def list_group_users(self, group_name: str) -> List[IAMUser]:
         try:
@@ -516,13 +513,13 @@ class RGWIAMService:
                     members.append(IAMUser(name=u.get("UserName"), user_id=u.get("UserId"), arn=u.get("Arn")))
             return members
         except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to list IAM group members: {exc}") from exc
+            raise RGWIAMError(f"Unable to list IAM group members: {exc}") from exc
 
     def add_user_to_group(self, group_name: str, user_name: str) -> None:
         try:
             self.client.add_user_to_group(GroupName=group_name, UserName=user_name)
         except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to add user to group: {exc}") from exc
+            raise RGWIAMError(f"Unable to add user to group: {exc}") from exc
 
     def remove_user_from_group(self, group_name: str, user_name: str) -> None:
         self._call_tolerating_missing_entity(
@@ -578,7 +575,7 @@ class RGWIAMService:
                 )
             return roles
         except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to list IAM roles: {exc}") from exc
+            raise RGWIAMError(f"Unable to list IAM roles: {exc}") from exc
 
     def list_roles_page(
         self,
@@ -612,7 +609,7 @@ class RGWIAMService:
                 )
             return roles, next_marker
         except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to list IAM roles: {exc}") from exc
+            raise RGWIAMError(f"Unable to list IAM roles: {exc}") from exc
 
     def create_role(
         self,
@@ -641,7 +638,7 @@ class RGWIAMService:
                 tags=tags,
             )
         except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to create IAM role: {exc}") from exc
+            raise RGWIAMError(f"Unable to create IAM role: {exc}") from exc
 
     def get_role(self, name: str) -> Optional[IAMRole]:
         try:
@@ -666,9 +663,9 @@ class RGWIAMService:
         except ClientError as exc:
             if _is_no_such_entity(exc):
                 return None
-            raise RuntimeError(f"Unable to fetch IAM role: {exc}") from exc
+            raise RGWIAMError(f"Unable to fetch IAM role: {exc}") from exc
         except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to fetch IAM role: {exc}") from exc
+            raise RGWIAMError(f"Unable to fetch IAM role: {exc}") from exc
 
     def delete_role(self, name: str) -> None:
         self._call_tolerating_missing_entity(
@@ -682,13 +679,13 @@ class RGWIAMService:
             document = json.dumps(assume_role_policy) if isinstance(assume_role_policy, dict) else assume_role_policy
             self.client.update_assume_role_policy(RoleName=role_name, PolicyDocument=document)
         except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to update role trust policy: {exc}") from exc
+            raise RGWIAMError(f"Unable to update role trust policy: {exc}") from exc
 
     def update_role_max_session_duration(self, role_name: str, max_session_duration: int) -> None:
         try:
             self.client.update_role(RoleName=role_name, MaxSessionDuration=max_session_duration)
         except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to update role maximum session duration: {exc}") from exc
+            raise RGWIAMError(f"Unable to update role maximum session duration: {exc}") from exc
 
     def list_role_tags(self, role_name: str) -> list[IAMTag]:
         try:
@@ -699,7 +696,7 @@ class RGWIAMService:
                 if tag.get("Key")
             ]
         except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to list IAM role tags: {exc}") from exc
+            raise RGWIAMError(f"Unable to list IAM role tags: {exc}") from exc
 
     def tag_role(self, role_name: str, tags: list[IAMTag]) -> None:
         try:
@@ -708,7 +705,7 @@ class RGWIAMService:
                 Tags=[{"Key": tag.key, "Value": tag.value} for tag in tags],
             )
         except (BotoCoreError, ClientError) as exc:
-            raise RuntimeError(f"Unable to tag IAM role: {exc}") from exc
+            raise RGWIAMError(f"Unable to tag IAM role: {exc}") from exc
 
     def untag_role(self, role_name: str, tag_keys: list[str]) -> None:
         self._call_tolerating_missing_entity(
@@ -785,9 +782,9 @@ class RGWIAMService:
             # Unsupported endpoint — fall back to static if available
             if exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode") == 405:
                 return next((p for p in self._default_policies if p.arn == policy_arn), None)
-            raise RuntimeError(f"Unable to fetch IAM policy: {exc}") from exc
+            raise RGWIAMError(f"Unable to fetch IAM policy: {exc}") from exc
         except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to fetch IAM policy: {exc}") from exc
+            raise RGWIAMError(f"Unable to fetch IAM policy: {exc}") from exc
 
     def create_policy(self, name: str, document: dict) -> Policy:
         try:
@@ -796,9 +793,9 @@ class RGWIAMService:
             status = exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode") if hasattr(exc, "response") else None
             if status == 405 or aws_error_code(exc) in {"NotImplemented", "MethodNotAllowed"}:
                 raise ValueError("IAM CreatePolicy is not supported by this endpoint") from exc
-            raise RuntimeError(f"Unable to create IAM policy: {exc}") from exc
+            raise RGWIAMError(f"Unable to create IAM policy: {exc}") from exc
         except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to create IAM policy: {exc}") from exc
+            raise RGWIAMError(f"Unable to create IAM policy: {exc}") from exc
         return self._policy_from_data(resp.get("Policy", {}), document=document)
 
     def delete_policy(self, policy_arn: str) -> None:
