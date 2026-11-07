@@ -508,6 +508,74 @@ def test_migration_context_resolution_types_missing_resources(db_session, contex
         service._context_to_execution_target(context_id)
 
 
+def test_migration_context_resolution_normalizes_whitespace(db_session):
+    _create_user(db_session)
+    account = _create_account(
+        db_session,
+        name="source",
+        endpoint_url="https://source.example.test",
+        account_id="RGW001",
+    )
+    db_session.commit()
+
+    service = BucketMigrationService(db_session)
+
+    assert service._context_to_execution_target(f"  {account.id}  ") == account
+
+
+def test_list_migrations_normalizes_context_filter(db_session):
+    user = _create_user(db_session)
+    source = _create_account(
+        db_session,
+        name="source",
+        endpoint_url="https://source.example.test",
+        account_id="RGW001",
+    )
+    target = _create_account(
+        db_session,
+        name="target",
+        endpoint_url="https://target.example.test",
+        account_id="RGW002",
+    )
+    db_session.commit()
+
+    service = BucketMigrationService(db_session)
+    migration = service.create_migration(
+        BucketMigrationCreateRequest(
+            source_context_id=str(source.id),
+            target_context_id=str(target.id),
+            buckets=[
+                BucketMigrationBucketMapping(
+                    source_bucket="bucket-a",
+                    target_bucket="bucket-a-dst",
+                )
+            ],
+        ),
+        user,
+    )
+
+    assert service.list_migrations(context_id=f"  {source.id}  ") == [migration]
+
+
+def test_migration_endpoint_capacity_key_normalizes_context_id(db_session):
+    _create_user(db_session)
+    account = _create_account(
+        db_session,
+        name="source",
+        endpoint_url="https://source.example.test",
+        account_id="RGW001",
+    )
+    db_session.commit()
+
+    service = BucketMigrationService(db_session)
+    cache: dict[str, str] = {}
+
+    assert service._context_endpoint_capacity_key(
+        f"  {account.id}  ", cache=cache
+    ) == "endpoint:https://source.example.test"
+    assert list(cache) == [str(account.id)]
+
+
 def test_create_migration_uses_admin_default_parallelism(db_session):
     user = _create_user(db_session)
     source = _create_account(db_session, name="source", endpoint_url="https://source.example.test", account_id="RGW001")

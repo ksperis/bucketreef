@@ -8,6 +8,7 @@ from sqlalchemy import or_, select
 
 from app.core.domain_errors import BucketMigrationNotFoundError
 from app.db import BucketMigration, BucketMigrationEvent, BucketMigrationItem
+from app.utils.normalize import normalize_optional_string
 
 
 class BucketMigrationQueryMixin:
@@ -25,7 +26,7 @@ class BucketMigrationQueryMixin:
                 BucketMigration.source_context_id.in_(self._authorized_context_ids),
                 BucketMigration.target_context_id.in_(self._authorized_context_ids),
             )
-        normalized_context_id = (context_id or "").strip()
+        normalized_context_id = normalize_optional_string(context_id)
         if normalized_context_id:
             if (
                 self._authorized_context_ids is not None
