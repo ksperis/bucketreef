@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import { SettingsButton, SettingsDialog } from "../../components/settings/SettingsControls";
 import UiTextarea from "../../components/ui/UiTextarea";
+import { copyTextToClipboard } from "../../utils/clipboard";
 import { useBrowserI18n } from "./browserI18n";
 
 type BrowserConfirmModalProps = {
@@ -73,15 +74,13 @@ export function BrowserCopyValueModal({
     pending.current = true;
     setCopying(true);
     try {
-      if (navigator.clipboard?.writeText) {
-        try {
-          await navigator.clipboard.writeText(value);
-          setCopyHint("Copied to clipboard.");
-          onCopySuccess?.();
-          return;
-        } catch {
-          // Fall back to manual copy instructions.
-        }
+      try {
+        await copyTextToClipboard(value);
+        setCopyHint("Copied to clipboard.");
+        onCopySuccess?.();
+        return;
+      } catch {
+        // Fall back to manual copy instructions.
       }
       valueRef.current?.focus();
       valueRef.current?.select();

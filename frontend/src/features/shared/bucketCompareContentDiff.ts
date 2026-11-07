@@ -9,6 +9,7 @@ import type {
   BucketCompareObjectDetail,
   BucketCompareObjectDiffEntry,
 } from "../../api/bucketCompareContracts";
+import { copyTextToClipboard } from "../../utils/clipboard";
 
 type CompareObjectDiffLike = Omit<BucketCompareObjectDiffEntry, "compare_by">;
 
@@ -149,19 +150,6 @@ export const formatCompareDisplayLimitMessage = (
   return `Showing ${visibleCount} of ${totalCount} objects. ${hidden} not displayed.`;
 };
 
-const copyCompareObjectKeysToClipboard = async (keys: string[]): Promise<void> => {
-  const clipboard =
-    typeof window !== "undefined"
-      ? window.navigator.clipboard
-      : typeof navigator !== "undefined"
-        ? navigator.clipboard
-        : null;
-  if (!clipboard?.writeText) {
-    throw new Error("Clipboard API is unavailable.");
-  }
-  await clipboard.writeText(keys.join("\n"));
-};
-
 export const useCompareVisibleKeysClipboard = () => {
   const [copyFeedback, setCopyFeedback] = useState<
     (CompareVisibleKeysCopyFeedback & { id: string }) | null
@@ -169,7 +157,7 @@ export const useCompareVisibleKeysClipboard = () => {
   const copyVisibleKeys = useCallback(async (id: string, keys: string[]) => {
     if (keys.length === 0) return;
     try {
-      await copyCompareObjectKeysToClipboard(keys);
+      await copyTextToClipboard(keys.join("\n"));
       setCopyFeedback({
         id,
         tone: "success",
