@@ -14,6 +14,7 @@ from app.db import (
     StorageEndpoint,
 )
 from app.core.domain_enums import HealthCheckStatus, StorageProvider
+from app.models.pagination import PaginationRequest
 from app.services import healthcheck_persistence_service, healthcheck_query_service, healthcheck_service
 from app.services.healthcheck_common import (
     DEFAULT_CHECK_TYPE,
@@ -270,6 +271,64 @@ def test_workspace_health_overview_uses_requested_incident_window(db_session):
     payload = service.build_workspace_health_overview(incident_highlight_minutes=7 * 24 * 60)
 
     assert payload["incident_highlight_minutes"] == 10080
+
+
+def test_raw_health_checks_are_paginated_with_filtered_total(db_session):
+    _seed_endpoint(
+        db_session,
+        name="Raw checks endpoint",
+        endpoint_url="https://raw-checks.example.test",
+        is_default=True,
+    )
+    db_session.flush()
+    endpoint = db_session.scalars(
+        select(StorageEndpoint).where(StorageEndpoint.name == "Raw checks endpoint")
+    ).one()
+    now = utcnow()
+    db_session.add_all(
+        [
+            EndpointHealthCheck(
+                storage_endpoint_id=endpoint.id,
+                checked_at=now - timedelta(days=8),
+                check_mode="http",
+                status=HealthCheckStatus.DOWN.value,
+                latency_ms=900,
+            ),
+            EndpointHealthCheck(
+                storage_endpoint_id=endpoint.id,
+                checked_at=now - timedelta(minutes=3),
+                check_mode="http",
+                status=HealthCheckStatus.UP.value,
+                latency_ms=30,
+            ),
+            EndpointHealthCheck(
+                storage_endpoint_id=endpoint.id,
+                checked_at=now - timedelta(minutes=2),
+                check_mode="http",
+                status=HealthCheckStatus.DEGRADED.value,
+                latency_ms=20,
+            ),
+            EndpointHealthCheck(
+                storage_endpoint_id=endpoint.id,
+                checked_at=now - timedelta(minutes=1),
+                check_mode="http",
+                status=HealthCheckStatus.UP.value,
+                latency_ms=10,
+            ),
+        ]
+    )
+    db_session.commit()
+
+    payload = HealthCheckQueryService(db_session).build_raw_checks(
+        endpoint.id,
+        HealthWindow.WEEK,
+        PaginationRequest(page=2, page_size=2),
+    )
+
+    assert payload["total"] == 3
+    assert payload["page"] == 2
+    assert payload["page_size"] == 2
+    assert [check["latency_ms"] for check in payload["checks"]] == [30]
 
 
 def test_workspace_health_overview_uses_configured_interval_for_stale_counts(db_session, monkeypatch):
