@@ -46,6 +46,7 @@ describe("ManagerTopicWorkspacePage", () => {
       contexts: [{ id: "conn-7", display_name: "Lab", storage_endpoint_capabilities: { sns: true } }],
       selectedContextId: "conn-7",
       contextIdForApi: "conn-7",
+      selectedStorageEndpointCapabilities: { sns: true },
       requiresContextSelection: false,
       accessMode: "default",
     });
@@ -96,6 +97,7 @@ describe("ManagerTopicWorkspacePage", () => {
       contexts: [{ id: "conn-7", display_name: "Lab", storage_endpoint_capabilities: { sns: false } }],
       selectedContextId: "conn-7",
       contextIdForApi: "conn-7",
+      selectedStorageEndpointCapabilities: { sns: false },
       requiresContextSelection: false,
       accessMode: "default",
     });

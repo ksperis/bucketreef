@@ -249,7 +249,7 @@ export default function BucketsPage() {
     () => contexts.find((a) => a.id === selectedContextId),
     [contexts, selectedContextId]
   );
-  const endpointCaps = selectedStorageEndpointCapabilities ?? selectedContext?.storage_endpoint_capabilities ?? null;
+  const endpointCaps = selectedStorageEndpointCapabilities;
   const usageFeatureEnabled = endpointCaps ? endpointCaps.metrics !== false : true;
   const snsFeatureEnabled = endpointCaps ? endpointCaps.sns !== false : true;
   const staticWebsiteFeatureEnabled = endpointCaps?.static_website === true;

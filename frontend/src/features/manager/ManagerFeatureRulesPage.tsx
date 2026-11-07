@@ -63,8 +63,6 @@ function ruleSearchText(row: FeatureRuleInventoryBucket): string {
 export default function ManagerFeatureRulesPage() {
   const { text } = useManagerI18n();
   const {
-    contexts,
-    selectedContextId,
     requiresContextSelection,
     contextIdForApi,
     selectedStorageEndpointCapabilities,
@@ -78,13 +76,7 @@ export default function ManagerFeatureRulesPage() {
   const [selectedRule, setSelectedRule] = useState<SelectedRule | null>(null);
   const ruleJsonRef = useRef<HTMLTextAreaElement>(null);
 
-  const selectedContext = useMemo(
-    () => contexts.find((context) => context.id === selectedContextId),
-    [contexts, selectedContextId]
-  );
-  const snsFeatureEnabled = (
-    selectedStorageEndpointCapabilities ?? selectedContext?.storage_endpoint_capabilities
-  )?.sns !== false;
+  const snsFeatureEnabled = selectedStorageEndpointCapabilities?.sns !== false;
   const needsContextSelection = requiresContextSelection && !contextIdForApi;
 
   useEffect(() => {

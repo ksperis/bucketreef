@@ -24,6 +24,8 @@ def make_execution_context(**overrides: Any) -> ExecutionContext:
         "endpoint_provider": None,
         "endpoint_url": "https://s3.example.test",
         "storage_endpoint_capabilities": {},
+        "destination_switching_allowed": False,
+        "execution_destinations": [],
         "tags": [],
         "endpoint_tags": [],
         "capabilities": ExecutionContextCapabilities(

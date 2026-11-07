@@ -49,6 +49,8 @@ def test_execution_context_api_models_require_complete_payloads() -> None:
         "endpoint_provider",
         "endpoint_url",
         "storage_endpoint_capabilities",
+        "destination_switching_allowed",
+        "execution_destinations",
         "tags",
         "endpoint_tags",
         "capabilities",

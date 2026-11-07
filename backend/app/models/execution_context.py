@@ -56,8 +56,8 @@ class ExecutionContext(ApiModel):
     endpoint_provider: Optional[Literal["ceph", "aws", "other"]]
     endpoint_url: str
     storage_endpoint_capabilities: dict[str, bool]
-    destination_switching_allowed: bool = False
-    execution_destinations: list[ExecutionDestination] = Field(default_factory=list)
+    destination_switching_allowed: bool
+    execution_destinations: list[ExecutionDestination]
     tags: list[TagDefinitionSummary]
     endpoint_tags: list[TagDefinitionSummary]
     capabilities: ExecutionContextCapabilities

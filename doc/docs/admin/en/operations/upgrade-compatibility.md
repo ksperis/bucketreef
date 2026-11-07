@@ -1,5 +1,16 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 canonical execution-context payloads
+
+The internal execution-context catalogue now treats
+`destination_switching_allowed`, `execution_destinations`,
+`storage_endpoint_capabilities`, and `capabilities` as complete response
+contracts. Backend producers populate these fields explicitly and the bundled
+frontend consumes them directly instead of tolerating partial legacy payloads.
+
+Deploy the backend and bundled frontend together. No database migration is
+required because persisted execution-context data is unchanged.
+
 ## 2026-11 canonical Portal Storage Space listing filters
 
 `GET /api/portal/storage-spaces` now accepts only the canonical Portal roles,

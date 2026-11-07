@@ -137,12 +137,11 @@ describe("ExecutionContextProvider", () => {
 
   it("uses the context kind instead of an S3-user ID prefix", async () => {
     listExecutionContextsMock.mockResolvedValue([
-      {
+      buildExecutionContext("s3u-misleading", {
         kind: "account",
-        id: "s3u-misleading",
         display_name: "Canonical account",
         capabilities: { can_manage_iam: true, sts_capable: true, admin_api_capable: true },
-      },
+      }),
     ]);
 
     renderProvider("/manager");
@@ -153,12 +152,11 @@ describe("ExecutionContextProvider", () => {
 
   it("uses the context kind instead of a connection ID prefix", async () => {
     listExecutionContextsMock.mockResolvedValue([
-      {
+      buildExecutionContext("conn-misleading", {
         kind: "s3_user",
-        id: "conn-misleading",
         display_name: "Canonical S3 user",
         capabilities: { can_manage_iam: false, sts_capable: false, admin_api_capable: false },
-      },
+      }),
     ]);
 
     renderProvider("/manager");
@@ -170,9 +168,8 @@ describe("ExecutionContextProvider", () => {
   it("registers and updates the selected RGW multisite execution destination", async () => {
     const user = userEvent.setup();
     listExecutionContextsMock.mockResolvedValue([
-      {
+      buildExecutionContext("1", {
         kind: "account",
-        id: "1",
         display_name: "Multisite account",
         endpoint_id: 10,
         endpoint_name: "Zone A",
@@ -208,7 +205,7 @@ describe("ExecutionContextProvider", () => {
           },
         ],
         capabilities: { can_manage_iam: true, sts_capable: true, admin_api_capable: true },
-      },
+      }),
     ]);
 
     renderProvider("/manager?ctx=1");
@@ -251,12 +248,12 @@ describe("ExecutionContextProvider", () => {
       .mockResolvedValueOnce(CONTEXTS)
       .mockResolvedValueOnce([
         ...CONTEXTS,
-        {
+        buildExecutionContext("conn-9", {
           kind: "connection",
-          id: "conn-9",
           display_name: "Connection 9",
+          connection_scope: "private",
           capabilities: { can_manage_iam: true, sts_capable: true, admin_api_capable: true },
-        },
+        }),
       ]);
 
     renderProvider("/manager");

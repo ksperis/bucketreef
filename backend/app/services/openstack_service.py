@@ -755,6 +755,8 @@ class OpenStackService:
                 endpoint_provider=endpoint_provider,
                 endpoint_url=context.endpoint_url,
                 storage_endpoint_capabilities=caps,
+                destination_switching_allowed=False,
+                execution_destinations=[],
                 tags=[], endpoint_tags=endpoint_tags,
                 capabilities=ExecutionContextCapabilities(can_manage_iam=execution.manager_capabilities.can_manage_iam, sts_capable=False, admin_api_capable=False),
                 openstack=OpenStackExecutionContextMetadata(

@@ -250,7 +250,7 @@ export function RequireManagerIamFeature() {
     return <Outlet />;
   }
   const selected = contexts.find((account) => account.id === selectedContextId) ?? null;
-  const iamEnabled = selected?.storage_endpoint_capabilities?.iam !== false;
+  const iamEnabled = selected?.storage_endpoint_capabilities.iam !== false;
   if (!iamEnabled) {
     return <FeatureDisabledPage feature="IAM" />;
   }

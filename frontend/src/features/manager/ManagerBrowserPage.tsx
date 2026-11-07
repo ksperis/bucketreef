@@ -114,9 +114,7 @@ export default function ManagerBrowserPage() {
                   canRestoreObjects: true,
                   canCreatePublicLinks: false,
                 }}
-                storageEndpointCapabilities={
-                  selectedStorageEndpointCapabilities ?? selectedContext?.storage_endpoint_capabilities ?? null
-                }
+                storageEndpointCapabilities={selectedStorageEndpointCapabilities}
                 onSelectedBucketNameChange={setSelectedBrowserBucketName}
               />
             </div>
