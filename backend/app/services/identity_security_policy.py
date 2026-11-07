@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Protocol
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import (
@@ -285,3 +285,52 @@ def ensure_actor_can_assign_role(actor: User, role: str) -> None:
         raise IdentitySecurityAuthorizationError(
             "Administrators can assign only standard user roles"
         )
+
+
+def _active_superadmin_count(db: Session, actor: User) -> int:
+    count = db.scalar(
+        select(func.count())
+        .select_from(User)
+        .where(
+            User.role == UserRole.UI_SUPERADMIN.value,
+            User.is_active.is_(True),
+        )
+    ) or 0
+    actor_is_persisted = db.scalar(
+        select(User.id).where(User.id == actor.id).limit(1)
+    )
+    if (
+        actor_is_persisted is None
+        and actor.role == UserRole.UI_SUPERADMIN.value
+        and actor.is_active
+    ):
+        count += 1
+    return count
+
+
+def validate_superadmin_update(
+    db: Session,
+    actor: User,
+    target: User,
+    payload: UserUpdate,
+) -> None:
+    next_role = payload.role or target.role
+    next_active = target.is_active if payload.is_active is None else payload.is_active
+    removes_active_superadmin = (
+        target.role == UserRole.UI_SUPERADMIN.value
+        and target.is_active
+        and (next_role != UserRole.UI_SUPERADMIN.value or not next_active)
+    )
+    if actor.id == target.id and removes_active_superadmin:
+        raise ValueError("A superadmin cannot deactivate or demote their own account")
+    if removes_active_superadmin and _active_superadmin_count(db, actor) <= 1:
+        raise ValueError("The last active superadmin cannot be deactivated or demoted")
+
+
+def validate_superadmin_delete(db: Session, actor: User, target: User) -> None:
+    if (
+        target.role == UserRole.UI_SUPERADMIN.value
+        and target.is_active
+        and _active_superadmin_count(db, actor) <= 1
+    ):
+        raise ValueError("The last active superadmin cannot be deleted")

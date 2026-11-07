@@ -54,7 +54,6 @@ from app.routers.dependencies_internal.sse_c import get_optional_sse_customer_co
 from app.services.audit_service import AuditService
 from app.services.manager_activity_service import ManagerActivityService
 from app.services.user_query_service import UserQueryService
-from app.services.users_service import UsersService, get_users_service
 
 
 def get_audit_service(
@@ -68,12 +67,6 @@ def get_manager_activity_service(
     audit_service: AuditService = Depends(get_audit_service),
 ) -> ManagerActivityService:
     return ManagerActivityService(db, audit_service)
-
-
-def get_users_service_dependency(
-    db: Session = Depends(get_db),
-) -> UsersService:
-    return get_users_service(db)
 
 
 def get_user_query_service_dependency(

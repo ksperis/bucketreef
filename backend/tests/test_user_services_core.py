@@ -38,9 +38,10 @@ from app.models.user import (
 from app.services.user_output_service import UserOutputService
 from app.services.user_query_service import UserQueryService
 from app.services.user_login_service import UserLoginService
+from app.services.user_associations_service import UserAssociationsService
+from app.services.user_provisioning_service import UserProvisioningService
 from app.services.user_update_service import UserUpdateService
 from app.services.auth_session_service import AuthSessionService
-from app.services.users_service import UsersService
 from tests.portal_iam_test_support import (
     FakePortalRevocationIAM,
     install_portal_revocation_fakes,
@@ -136,7 +137,7 @@ def _create_user_payload(**overrides):
 
 
 def test_create_user_and_authenticate(db_session):
-    service = UsersService(db_session)
+    service = UserProvisioningService(db_session)
 
     with pytest.raises(ValueError, match=PASSWORD_POLICY_ERROR):
         service.create_user(
@@ -205,7 +206,7 @@ def test_user_query_require_by_id_types_missing_user_without_changing_optional_l
 
 
 def test_create_user_rolls_back_when_commit_fails(db_session, monkeypatch):
-    service = UsersService(db_session)
+    service = UserProvisioningService(db_session)
     original_rollback = db_session.rollback
     rollback_calls: list[None] = []
 
@@ -820,14 +821,14 @@ def test_update_current_user_rolls_back_profile_and_password_when_commit_fails(d
 
 
 def test_paginate_users_and_detached_user_use_canonical_preload(db_session, monkeypatch):
-    service = UsersService(db_session)
+    service = UserAssociationsService(db_session)
     account = _seed_account(db_session, "acc-a", "RGW-ACC-A")
     user = _seed_user(db_session, "paged@example.com", role=UserRole.UI_USER.value)
     s3_user = _seed_s3_user(db_session, "paged-s3-user")
     shared_conn = _seed_connection(db_session, created_by_user_id=user.id, name="paged-shared-conn", is_shared=True)
     owned_conn = _seed_connection(db_session, created_by_user_id=user.id, name="paged-owned-conn", is_shared=False)
 
-    service.assign_user_to_account(
+    service.assign_account(
         user.id,
         account.id,
         manager_role=ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value,
@@ -940,7 +941,6 @@ def test_admin_user_accounts_sort_preserves_current_email_order(db_session):
 
 
 def test_admin_user_projection_and_search_hide_private_connection_links(db_session):
-    service = UsersService(db_session)
     user = _seed_user(db_session, "private-link-owner@example.com")
     private_connection = _seed_connection(
         db_session,
@@ -970,17 +970,17 @@ def test_admin_user_projection_and_search_hide_private_connection_links(db_sessi
     assert page.total == 0
 
 
-def test_assign_user_to_account_paths_and_paginated_user_summaries(db_session):
-    service = UsersService(db_session)
+def test_assign_account_paths_and_paginated_user_summaries(db_session):
+    service = UserAssociationsService(db_session)
     account = _seed_account(db_session, "acc-b", "RGW-ACC-B")
     user = _seed_user(db_session, "assign@example.com", role=UserRole.UI_NONE.value)
 
     with pytest.raises(UiUserNotFoundError, match="User not found"):
-        service.assign_user_to_account(99999, account.id, manager_role=None, portal_role=PortalAccountRole.PORTAL_USER.value)
+        service.assign_account(99999, account.id, manager_role=None, portal_role=PortalAccountRole.PORTAL_USER.value)
     with pytest.raises(S3AccountNotFoundError, match="S3Account not found"):
-        service.assign_user_to_account(user.id, 99999, manager_role=None, portal_role=PortalAccountRole.PORTAL_USER.value)
+        service.assign_account(user.id, 99999, manager_role=None, portal_role=PortalAccountRole.PORTAL_USER.value)
 
-    updated = service.assign_user_to_account(
+    updated = service.assign_account(
         user.id,
         account.id,
         manager_role=ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value,
@@ -997,7 +997,7 @@ def test_assign_user_to_account_paths_and_paginated_user_summaries(db_session):
     assert link.manager_role == ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value
     assert link.portal_role is None
 
-    service.assign_user_to_account(
+    service.assign_account(
         user.id,
         account.id,
         manager_role=None,

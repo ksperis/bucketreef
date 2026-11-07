@@ -30,7 +30,6 @@ from app.routers import dependencies, execution_contexts
 from app.services.effective_access_service import EffectiveAccessService
 from app.services.ui_group_avatar_service import UiGroupAvatarService
 from app.services.ui_groups_service import UiGroupsService
-from app.services.users_service import UsersService
 from app.services.user_output_service import UserOutputService
 from tests.auth_test_utils import authenticate_ui_client, trusted_origin_headers
 from tests.s3_account_factory import make_s3_account

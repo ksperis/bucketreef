@@ -63,7 +63,6 @@ from app.services import session_service
 from app.services.session_service import SessionService
 from app.services.user_login_service import UserLoginService
 from app.services.user_update_service import UserUpdateService
-from app.services.users_service import UsersService
 from app.services.webauthn_service import WebAuthnService
 from app.utils.request_security import client_ip
 from app.utils.time import utcnow

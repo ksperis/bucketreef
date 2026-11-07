@@ -22,7 +22,6 @@ from app.routers.dependencies import (
     get_audit_service,
     get_current_ui_admin,
     get_user_query_service_dependency,
-    get_users_service_dependency,
 )
 from app.routers.identity_security_policy import (
     ensure_actor_can_assign_role,
@@ -35,7 +34,6 @@ from app.services.user_associations_service import (
     UserAssociationsService,
     get_user_associations_service,
 )
-from app.services.users_service import UsersService
 from app.services.admin_ldap_user_import_service import AdminLdapUserImportService
 from app.services.ldap_service import (
     LDAPAuthenticationError,
@@ -45,11 +43,15 @@ from app.services.ldap_service import (
 )
 from app.services.avatar_image_service import MAX_AVATAR_BYTES
 from app.services.user_avatar_service import UserAvatarService
+from app.services.user_deletion_service import UserDeletionService
 from app.services.user_output_service import UserOutputService
+from app.services.user_provisioning_service import UserProvisioningService
 from app.services.user_query_service import UserQueryService
 from app.services.user_update_service import UserUpdateService
 from app.services.identity_security_policy import (
     admin_user_update_requires_step_up,
+    validate_superadmin_delete,
+    validate_superadmin_update,
 )
 from app.utils.http_errors import (
     raise_bad_request_from_value_error,
@@ -69,6 +71,18 @@ def get_user_update_service_dependency(
     db: Session = Depends(get_db),
 ) -> UserUpdateService:
     return UserUpdateService(db)
+
+
+def get_user_provisioning_service_dependency(
+    db: Session = Depends(get_db),
+) -> UserProvisioningService:
+    return UserProvisioningService(db)
+
+
+def get_user_deletion_service_dependency(
+    db: Session = Depends(get_db),
+) -> UserDeletionService:
+    return UserDeletionService(db)
 
 
 def get_user_output_service_dependency(
@@ -262,7 +276,7 @@ def import_ldap_user(
 def create_user(
     request: Request,
     payload: UserCreate,
-    users_service: UsersService = Depends(get_users_service_dependency),
+    provisioning_service: UserProvisioningService = Depends(get_user_provisioning_service_dependency),
     output_service: UserOutputService = Depends(get_user_output_service_dependency),
     associations_service: UserAssociationsService = Depends(get_user_associations_service_dependency),
     current_user: DbUser = Depends(get_current_ui_admin),
@@ -285,7 +299,7 @@ def create_user(
     )
     require_admin_sensitive_action(request, db, current_user)
     try:
-        user = users_service.create_user(payload)
+        user = provisioning_service.create_user(payload)
         audit_service.record_action(
             user=current_user,
             scope="admin",
@@ -312,7 +326,6 @@ def update_user(
     request: Request,
     user_id: int,
     payload: UserUpdate,
-    users_service: UsersService = Depends(get_users_service_dependency),
     update_service: UserUpdateService = Depends(get_user_update_service_dependency),
     output_service: UserOutputService = Depends(get_user_output_service_dependency),
     user_query_service: UserQueryService = Depends(get_user_query_service_dependency),
@@ -326,7 +339,7 @@ def update_user(
     if payload.role is not None:
         ensure_actor_can_assign_role(current_user, payload.role)
     try:
-        users_service.validate_superadmin_update(current_user, target, payload)
+        validate_superadmin_update(db, current_user, target, payload)
     except ValueError as exc:
         raise_bad_request_from_value_error(exc)
     _require_superadmin_for_privileged_change(
@@ -416,7 +429,7 @@ def delete_user_avatar(
 def delete_user(
     request: Request,
     user_id: int,
-    users_service: UsersService = Depends(get_users_service_dependency),
+    deletion_service: UserDeletionService = Depends(get_user_deletion_service_dependency),
     user_query_service: UserQueryService = Depends(get_user_query_service_dependency),
     current_user: DbUser = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
@@ -427,12 +440,12 @@ def delete_user(
     target = _require_user(user_query_service, user_id)
     ensure_actor_can_manage_user(current_user, target)
     try:
-        users_service.validate_superadmin_delete(current_user, target)
+        validate_superadmin_delete(db, current_user, target)
     except ValueError as exc:
         raise_bad_request_from_value_error(exc)
     require_admin_sensitive_action(request, db, current_user)
     try:
-        users_service.delete_user(user_id)
+        deletion_service.delete_user(user_id)
         audit_service.record_action(
             user=current_user,
             scope="admin",

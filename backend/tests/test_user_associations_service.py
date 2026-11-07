@@ -2,13 +2,13 @@
 # Licensed under the Apache License, Version 2.0
 from sqlalchemy import select
 
-from app.services.users_service import UsersService
+from app.services.user_associations_service import UserAssociationsService
 from app.db import S3Account, User, UserS3Account
 from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, UserRole
 from tests.s3_account_factory import make_s3_account
 
 
-def test_assign_user_to_account_creates_manager_link(db_session):
+def test_assign_account_creates_manager_link(db_session):
     # Seed account and user
     account = db_session.scalar(
         select(S3Account).where(
@@ -29,8 +29,8 @@ def test_assign_user_to_account_creates_manager_link(db_session):
     db_session.add(user)
     db_session.commit()
 
-    svc = UsersService(db_session)
-    updated = svc.assign_user_to_account(
+    svc = UserAssociationsService(db_session)
+    updated = svc.assign_account(
         user.id,
         account.id,
         manager_role=ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value,
@@ -49,7 +49,7 @@ def test_assign_user_to_account_creates_manager_link(db_session):
     assert {link.account_id for link in updated.account_links} == {account.id}
 
 
-def test_assign_user_to_account_updates_existing_link_without_widening_browser_access(
+def test_assign_account_updates_existing_link_without_widening_browser_access(
     db_session,
 ):
     account = make_s3_account(
@@ -77,7 +77,7 @@ def test_assign_user_to_account_updates_existing_link_without_widening_browser_a
     db_session.commit()
     link_id = link.id
 
-    UsersService(db_session).assign_user_to_account(
+    UserAssociationsService(db_session).assign_account(
         user.id,
         account.id,
         manager_role=None,

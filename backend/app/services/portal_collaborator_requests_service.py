@@ -179,7 +179,7 @@ class PortalCollaboratorRequestsService:
         )
         self.db.add(target)
         # Keep placeholder creation in the same transaction as account assignment.
-        # assign_user_to_account owns the commit and rolls back both on failure.
+        # UserAssociationsService.assign_account owns the commit and rolls back both on failure.
         self.db.flush()
         return target, True
 

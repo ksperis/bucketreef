@@ -27,7 +27,7 @@ from app.services.rgw_admin import RGWAdminError
 from app.services.s3_client import S3OperationError
 from app.services.storage_ops_bucket_listing_service import compute_storage_ops_bucket_listing
 from app.services.storage_ops_context_resolution import StorageOpsContextRef
-from app.services.users_service import UsersService
+from app.services.user_deletion_service import UserDeletionService
 from app.services.audit_service import AuditService
 from app.services.buckets_service import get_buckets_service
 from app.services.storage_endpoints_service import StorageEndpointsService
@@ -768,7 +768,7 @@ def test_deleting_user_removes_private_bucket_definitions_without_promoting_them
     )
     db_session.commit()
 
-    UsersService(db_session).delete_user(owner.id)
+    UserDeletionService(db_session).delete_user(owner.id)
 
     remaining = service.catalog(
         domain_kind=TAG_DOMAIN_BUCKET_UI_CEPH_ADMIN,
