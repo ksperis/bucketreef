@@ -20,7 +20,6 @@ from app.core.db_transactions import commit_or_rollback
 from app.core.domain_errors import WebhookEndpointNotFoundError
 from app.core.runtime_surfaces import runtime_surface_enabled
 from app.core.sensitive_data import sanitize_audit_metadata
-from app.core.sqlite import ensure_sqlite_transaction_for_savepoint
 from app.db import WebhookDelivery, WebhookEndpoint, WebhookEndpointSubscription
 from app.models.webhook import (
     WebhookDeliveryOut,
@@ -544,7 +543,6 @@ class WebhookEventPublisher:
 
         self.db.flush()
         try:
-            ensure_sqlite_transaction_for_savepoint(self.db)
             with self.db.begin_nested():
                 return self.publish_event(
                     event_type=event_type,

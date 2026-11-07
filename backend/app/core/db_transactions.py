@@ -6,6 +6,8 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Protocol
 
+from sqlalchemy.orm import Session
+
 
 class _CommitRollback(Protocol):
     def commit(self) -> None: ...
@@ -42,3 +44,11 @@ def rollback_safely(db: _CommitRollback) -> Exception | None:
     except Exception as exc:
         return exc
     return None
+
+
+def add_and_flush_in_savepoint(db: Session, row: object) -> None:
+    """Persist one ORM row inside a rollback-safe nested transaction."""
+
+    with db.begin_nested():
+        db.add(row)
+        db.flush()

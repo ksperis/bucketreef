@@ -445,6 +445,7 @@ def test_credential_rotation_reencrypts_openstack_tokens_and_keys(db_session, se
     assert rotate_credential_keys.rotate_credentials(new_key="openstack-test-rotation") == 2
     set_credential_keys_override(["openstack-test-rotation"])
     try:
+        db_session.rollback()
         token = db_session.execute(text("select token from openstack_sessions")).scalar_one()
         secret = db_session.execute(text("select secret_key from openstack_project_credentials")).scalar_one()
         assert decrypt_secret(token) == "PRIVATE-KEYSTONE-TOKEN"

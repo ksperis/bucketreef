@@ -14,6 +14,8 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import get_settings
+from app.core.database import configure_sqlite_connection
+from app.core.sqlite import begin_sqlite_transaction
 from app.db import AppSetting, Base
 from app.models.app_settings import AppSettings
 from app.services import app_settings_service, database_initialization
@@ -28,6 +30,8 @@ def sqlite_database(tmp_path, monkeypatch) -> Iterator[Engine]:
     get_settings.cache_clear()
     monkeypatch.setattr(database_initialization, "settings", get_settings())
     engine = sa.create_engine(database_url)
+    sa.event.listen(engine, "connect", configure_sqlite_connection)
+    sa.event.listen(engine, "begin", begin_sqlite_transaction)
     try:
         yield engine
     finally:

@@ -929,16 +929,20 @@ def test_concurrent_editor_cannot_overwrite_a_saved_revision(prepared, db_sessio
     service, migration, payload = prepared
     with Session(db_session.get_bind(), autoflush=False) as other_db:
         other = BucketMigrationService(other_db)
-        stale = other.get_migration(migration.id)
+        stale_revision = other.get_migration(migration.id).configuration_revision
+        other_db.rollback()
         service.update_draft_migration(
             migration.id,
             BucketMigrationUpdateRequest(**payload.model_dump(), configuration_revision=1),
         )
-        assert stale.configuration_revision == 1
+        assert stale_revision == 1
         with pytest.raises(ValueError, match="changed"):
             other.update_draft_migration(
                 migration.id,
-                BucketMigrationUpdateRequest(**payload.model_dump(), configuration_revision=1),
+                BucketMigrationUpdateRequest(
+                    **payload.model_dump(),
+                    configuration_revision=stale_revision,
+                ),
             )
     assert service.get_migration(migration.id).configuration_revision == 2
 

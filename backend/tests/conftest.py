@@ -4,9 +4,10 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
+from app import main as app_main
 from app.core.database import configure_sqlite_connection
+from app.core.sqlite import begin_sqlite_transaction
 from app.db import Base, User
 from app.core.domain_enums import UserRole
 from app.main import app
@@ -19,15 +20,48 @@ from app.services.webhook_worker import reset_webhook_delivery_worker_for_tests
 
 
 @pytest.fixture(scope="session")
-def test_engine():
-    # Shared in-memory sqlite database for the whole test session.
+def test_engine(tmp_path_factory):
+    # File-backed SQLite gives concurrent test sessions independent connections,
+    # matching the transaction model used by the application runtime.
+    database_path = tmp_path_factory.mktemp("bucketreef-tests") / "test.sqlite"
     engine = create_engine(
-        "sqlite:///:memory:",
+        f"sqlite:///{database_path}",
         connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
     )
     event.listen(engine, "connect", configure_sqlite_connection)
-    return engine
+    event.listen(engine, "begin", begin_sqlite_transaction)
+    try:
+        yield engine
+    finally:
+        engine.dispose()
+
+
+@pytest.fixture(scope="session")
+def app_lifespan_test_database(tmp_path_factory):
+    database_path = tmp_path_factory.mktemp("bucketreef-lifespan-tests") / "startup.sqlite"
+    engine = create_engine(
+        f"sqlite:///{database_path}",
+        connect_args={"check_same_thread": False},
+    )
+    event.listen(engine, "connect", configure_sqlite_connection)
+    event.listen(engine, "begin", begin_sqlite_transaction)
+    session_factory = sessionmaker(
+        autocommit=False,
+        autoflush=False,
+        bind=engine,
+        future=True,
+    )
+    try:
+        yield engine, session_factory
+    finally:
+        engine.dispose()
+
+
+@pytest.fixture(autouse=True)
+def isolate_app_lifespan_database(monkeypatch, app_lifespan_test_database):
+    engine, session_factory = app_lifespan_test_database
+    monkeypatch.setattr(app_main, "engine", engine)
+    monkeypatch.setattr(app_main, "SessionLocal", session_factory)
 
 
 @pytest.fixture
@@ -36,6 +70,7 @@ def dashboard_test_engine(tmp_path):
     # SQLite connection across threads and can crash the native sqlite driver.
     engine = create_engine(f"sqlite:///{tmp_path / 'dashboard.db'}", connect_args={"check_same_thread": False})
     event.listen(engine, "connect", configure_sqlite_connection)
+    event.listen(engine, "begin", begin_sqlite_transaction)
     yield engine
     engine.dispose()
 
@@ -68,7 +103,10 @@ def client(db_session, monkeypatch):
     monkeypatch.setattr("app.routers.admin.storage_endpoints.run_initial_healthchecks", lambda **kwargs: None)
 
     def override_get_db():
-        yield db_session
+        try:
+            yield db_session
+        finally:
+            db_session.rollback()
 
     def override_super_admin():
         return User(
