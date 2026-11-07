@@ -8,7 +8,10 @@ from typing import TYPE_CHECKING, Callable, TypeVar
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import BucketMigration, BucketMigrationItem
 from app.models.bucket import BucketObjectLockUpdate, BucketPublicAccessBlockUpdate
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionTarget
+
+from .diagnostics import MigrationSettingsCopyError
 
 if TYPE_CHECKING:
     from .execution_item_runner import BucketMigrationItemRunnerMixin
@@ -53,7 +56,7 @@ class _BucketSettingsCopyRunner:
             self.service._assert_workflow_lease()
             try:
                 operation.action()
-            except Exception as exc:  # noqa: BLE001
+            except (S3OperationError, ValueError) as exc:
                 error_detail = sanitized_error_log_detail(exc)
                 failures.append(f"{operation.name}: {error_detail}")
                 self.service._add_event(
@@ -65,7 +68,7 @@ class _BucketSettingsCopyRunner:
                 )
 
         if failures:
-            raise RuntimeError(
+            raise MigrationSettingsCopyError(
                 "Bucket settings copy failed for supported settings: "
                 + "; ".join(failures[:8])
             )

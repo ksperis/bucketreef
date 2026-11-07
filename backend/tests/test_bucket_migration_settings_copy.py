@@ -7,7 +7,9 @@ from unittest.mock import ANY
 
 import pytest
 
+from app.services.bucket_migration.diagnostics import MigrationSettingsCopyError
 from app.services.bucket_migration_service import BucketMigrationService
+from app.services.s3_client import S3OperationError
 
 
 class _SettingsStub:
@@ -22,7 +24,7 @@ class _SettingsStub:
     def _write(self, name: str, value=None) -> None:
         self.calls.append((name, value))
         if name == self.fail_write:
-            raise RuntimeError(f"{name} failed")
+            raise S3OperationError(f"{name} failed")
 
     def get_bucket_properties(self, *_args):
         return self._read(
@@ -188,7 +190,7 @@ def test_copy_bucket_settings_continues_after_failure_and_aggregates(db_session)
     )
 
     with pytest.raises(
-        RuntimeError,
+        MigrationSettingsCopyError,
         match="Bucket settings copy failed.*encryption: set_bucket_encryption failed",
     ):
         service._copy_bucket_settings(
@@ -217,7 +219,7 @@ def test_copy_bucket_settings_continues_after_failure_and_aggregates(db_session)
 def test_copy_bucket_settings_sanitizes_aggregated_failure(db_session):
     settings = _SettingsStub()
     settings.set_bucket_encryption = lambda *_args: (_ for _ in ()).throw(
-        RuntimeError(
+        S3OperationError(
             "secret_key=TOPSECRET endpoint=https://private.example.test/admin"
         )
     )
@@ -228,7 +230,7 @@ def test_copy_bucket_settings_sanitizes_aggregated_failure(db_session):
         lambda *_args, **kwargs: events.append(kwargs)
     )
 
-    with pytest.raises(RuntimeError) as error:
+    with pytest.raises(MigrationSettingsCopyError) as error:
         service._copy_bucket_settings(
             object(),
             "source-bucket",
@@ -245,3 +247,25 @@ def test_copy_bucket_settings_sanitizes_aggregated_failure(db_session):
         "error": "secret_key=<redacted> endpoint=<redacted-url>",
         "setting": "encryption",
     }
+
+
+def test_copy_bucket_settings_does_not_mask_unexpected_runtime_failure(db_session):
+    settings = _SettingsStub()
+    settings.set_bucket_encryption = lambda *_args: (_ for _ in ()).throw(
+        RuntimeError("unexpected settings regression")
+    )
+    service = BucketMigrationService(db_session)
+    service._configuration = settings  # type: ignore[assignment]
+    service._add_event = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
+
+    with pytest.raises(RuntimeError, match="unexpected settings regression"):
+        service._copy_bucket_settings(
+            object(),
+            "source-bucket",
+            object(),
+            "target-bucket",
+            SimpleNamespace(),
+            SimpleNamespace(execution_strategy="current_only"),
+        )
+
+    assert ("set_bucket_logging", None) not in settings.calls

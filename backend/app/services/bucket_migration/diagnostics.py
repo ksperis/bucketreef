@@ -17,3 +17,7 @@ class MigrationPermissionCheckError(MigrationPrecheckError):
 
 class MigrationExecutionStrategyError(RuntimeError):
     """Persisted migration execution strategy cannot be executed by this worker."""
+
+
+class MigrationSettingsCopyError(RuntimeError):
+    """Expected operational failure while copying supported bucket settings."""
