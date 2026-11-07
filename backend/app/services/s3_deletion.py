@@ -28,7 +28,7 @@ class BucketNotEmptyError(RuntimeError):
     """Raised when attempting to delete a non-empty bucket without force."""
 
 
-class DeleteObjectsError(RuntimeError):
+class DeleteObjectsError(S3OperationError):
     """A completed deletion batch with known successes and per-entry failures."""
 
     def __init__(

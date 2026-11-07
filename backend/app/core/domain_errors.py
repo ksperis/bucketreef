@@ -115,6 +115,10 @@ class BrowserListingScanLimitError(RuntimeError):
     """Raised when a sorted Browser listing exceeds its bounded scan budget."""
 
 
+class BrowserObjectValidationError(ValueError):
+    """Raised when a Browser object mutation contains invalid user input."""
+
+
 class BrowserStorageSpacePermissionError(PermissionError):
     """Raised when Portal Storage Space access does not permit a Browser mutation."""
 

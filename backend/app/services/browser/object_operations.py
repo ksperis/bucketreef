@@ -23,6 +23,7 @@ from app.models.browser import (
 )
 from app.services.s3_deletion import delete_objects
 from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
+from app.services.s3_client import S3OperationError
 from app.services.keystone_client import OpenStackError
 from app.utils.time import utcnow
 
@@ -316,7 +317,7 @@ class BrowserObjectOperationsMixin:
             try:
                 delete_objects(client, bucket_name, items)
             except (ClientError, BotoCoreError) as exc:
-                raise RuntimeError(f"Unable to delete objects in bucket '{bucket_name}': {exc}") from exc
+                raise S3OperationError(f"Unable to delete objects in bucket '{bucket_name}': {exc}") from exc
         return len(items)
 
     def create_folder(
@@ -331,7 +332,7 @@ class BrowserObjectOperationsMixin:
             try:
                 client.put_object(Bucket=bucket_name, Key=key, Body=b"")
             except (ClientError, BotoCoreError) as exc:
-                raise RuntimeError(f"Unable to create folder '{key}': {exc}") from exc
+                raise S3OperationError(f"Unable to create folder '{key}': {exc}") from exc
 
     def initiate_multipart_upload(
         self,
