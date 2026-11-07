@@ -2,6 +2,8 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Protocol
 
 
@@ -16,6 +18,17 @@ def commit_or_rollback(db: _CommitRollback) -> None:
 
     try:
         db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+
+@contextmanager
+def rollback_on_error(db: _CommitRollback) -> Iterator[None]:
+    """Rollback a unit of work when any operation in the scope fails."""
+
+    try:
+        yield
     except Exception:
         db.rollback()
         raise

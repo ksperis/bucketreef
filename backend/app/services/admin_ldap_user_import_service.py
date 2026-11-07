@@ -7,7 +7,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import rollback_on_error
 from app.core.security import create_ldap_import_selection_token, decode_typed_token
 from app.db import AuthSession, ExternalIdentity, User
 from app.models.admin_ldap_import import (
@@ -131,7 +131,7 @@ class AdminLdapUserImportService:
             subject=str(claims["ldap_subject"]),
         )
         mapping = self._identity_mapping(identity)
-        try:
+        with rollback_on_error(self.db):
             if request.action == "create":
                 if mapping is not None:
                     if mapping.revoked_at is not None:
@@ -146,10 +146,7 @@ class AdminLdapUserImportService:
                     imported = self._restore_identity(identity, target, mapping)
                 else:
                     imported = self._link_identity(identity, target, mapping)
-        except Exception:
-            self.db.rollback()
-            raise
-        commit_or_rollback(self.db)
+            self.db.commit()
         self.db.refresh(imported)
         return imported, identity.provider
 
