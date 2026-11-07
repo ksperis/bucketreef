@@ -1,6 +1,6 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from app.services.portal.exceptions import PortalForbiddenError
+from app.services.portal.exceptions import PortalForbiddenError, PortalOperationError
 import logging
 from typing import Annotated
 
@@ -95,7 +95,7 @@ def update_account_portal_settings(
         result = service.update(account_id, payload)
     except PortalForbiddenError as exc:
         raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
-    except RuntimeError as exc:
+    except PortalOperationError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
