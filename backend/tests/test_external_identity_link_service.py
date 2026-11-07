@@ -25,6 +25,7 @@ from app.models.external_identity_link import ExternalIdentityProfileOidcStartRe
 from app.services.api_token_service import ApiTokenService
 from app.services.auth_session_service import AuthSessionService
 from app.services.ldap_service import LDAPIdentity
+from app.services.external_identity_link_attempt_service import ExternalIdentityLinkAttemptService
 from app.services.external_identity_user_service import ExternalIdentityUserService
 from app.services.external_identity_link_contracts import ExternalIdentityLinkError
 from app.services.external_identity_link_service import ExternalIdentityLinkService
@@ -50,7 +51,7 @@ def _user(db_session, *, email: str, role: str = UserRole.UI_USER.value) -> User
 
 
 def _attempt(db_session, user: User, *, subject: str = "new-subject") -> ExternalIdentityLinkAttempt:
-    return ExternalIdentityLinkService(db_session).create_login_collision_attempt(
+    return ExternalIdentityLinkAttemptService(db_session).create_login_collision_attempt(
         user=user,
         provider_type="oidc",
         provider_id="company",
@@ -66,7 +67,7 @@ def _attempt(db_session, user: User, *, subject: str = "new-subject") -> Externa
 
 
 def _ldap_attempt(db_session, user: User, *, subject: str = "ldap-new-subject") -> ExternalIdentityLinkAttempt:
-    return ExternalIdentityLinkService(db_session).create_login_collision_attempt(
+    return ExternalIdentityLinkAttemptService(db_session).create_login_collision_attempt(
         user=user,
         provider_type="ldap",
         provider_id="corp",
@@ -99,7 +100,7 @@ def test_link_attempt_is_browser_bound_and_expires(db_session):
 def test_link_attempt_normalizes_provider_type(db_session):
     user = _user(db_session, email="provider-normalization@example.test")
 
-    attempt = ExternalIdentityLinkService(db_session).create_login_collision_attempt(
+    attempt = ExternalIdentityLinkAttemptService(db_session).create_login_collision_attempt(
         user=user,
         provider_type=" OIDC ",
         provider_id="company",
@@ -132,7 +133,7 @@ def test_profile_link_preserves_mfa_time_and_requires_fresh_step_up(db_session, 
     user = _user(db_session, email="profile-link@example.test")
     service = ExternalIdentityLinkService(db_session)
     verified_at = utcnow() - timedelta(minutes=service.settings.mfa_recent_minutes - 1)
-    attempt = service.create_profile_attempt(
+    attempt = ExternalIdentityLinkAttemptService(db_session).create_profile_attempt(
         user=user,
         provider_id="company",
         issuer=OIDC_ISSUER,
@@ -232,7 +233,7 @@ def test_admin_fallback_creates_review_request_and_stops_local_flow(db_session):
     initial_expiry = attempt.expires_at
     service = ExternalIdentityLinkService(db_session)
 
-    request = service.request_admin_approval(attempt.id, BROWSER_HASH)
+    request = ExternalIdentityLinkAttemptService(db_session).request_admin_approval(attempt.id, BROWSER_HASH)
 
     assert request.user_id == user.id
     assert request.provider_type == "oidc"
@@ -300,7 +301,7 @@ def test_admin_fallback_rolls_back_request_and_attempt_when_commit_fails(
     monkeypatch.setattr(db_session, "rollback", recording_rollback)
 
     with pytest.raises(RuntimeError, match="commit failed"):
-        ExternalIdentityLinkService(db_session).request_admin_approval(
+        ExternalIdentityLinkAttemptService(db_session).request_admin_approval(
             attempt.id,
             BROWSER_HASH,
         )
@@ -322,7 +323,7 @@ def test_admin_fallback_rejection_reaches_terminal_link_state(db_session):
     user = _user(db_session, email="fallback-rejected@example.test")
     attempt = _attempt(db_session, user, subject="rejected-subject")
     service = ExternalIdentityLinkService(db_session)
-    request = service.request_admin_approval(attempt.id, BROWSER_HASH)
+    request = ExternalIdentityLinkAttemptService(db_session).request_admin_approval(attempt.id, BROWSER_HASH)
     superadmin = _user(
         db_session,
         email="fallback-reject-superadmin@example.test",
@@ -368,7 +369,7 @@ def test_admin_link_approval_rolls_back_identity_and_credentials_on_commit_failu
     )
     attempt = _attempt(db_session, user, subject="approval-rollback-subject")
     service = ExternalIdentityLinkService(db_session)
-    request = service.request_admin_approval(attempt.id, BROWSER_HASH)
+    request = ExternalIdentityLinkAttemptService(db_session).request_admin_approval(attempt.id, BROWSER_HASH)
     superadmin = _user(
         db_session,
         email="approval-rollback-superadmin@example.test",
@@ -585,7 +586,7 @@ def test_ldap_admin_fallback_updates_bound_attempt(
     user = _user(db_session, email=f"ldap-admin-{approve}@example.test")
     attempt = _ldap_attempt(db_session, user, subject=f"ldap-admin-subject-{approve}")
     service = ExternalIdentityLinkService(db_session)
-    request = service.request_admin_approval(attempt.id, BROWSER_HASH)
+    request = ExternalIdentityLinkAttemptService(db_session).request_admin_approval(attempt.id, BROWSER_HASH)
     assert request.provider_type == "ldap"
     assert request.issuer is None
     assert service.status(attempt.id, BROWSER_HASH).stage == "admin_requested"

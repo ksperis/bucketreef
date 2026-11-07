@@ -33,6 +33,7 @@ from app.services.audit_service import AuditService
 from app.services.app_settings_service import load_app_settings_for_db
 from app.routers.dependencies_internal.auth_session import current_auth_session
 from app.services.ldap_service import LDAPAuthenticationError, LDAPConfigurationError, LDAPProviderNotFoundError
+from app.services.external_identity_link_attempt_service import ExternalIdentityLinkAttemptService
 from app.services.external_identity_link_contracts import ExternalIdentityLinkError
 from app.services.external_identity_link_service import ExternalIdentityLinkService
 from app.services.oidc_service import (
@@ -399,7 +400,7 @@ def external_identity_link_request_admin(
     service = _link_service(db)
     try:
         user = service.target_user(attempt_id, browser_hash)
-        link_request = service.request_admin_approval(attempt_id, browser_hash)
+        link_request = ExternalIdentityLinkAttemptService(db).request_admin_approval(attempt_id, browser_hash)
         status_model = service.status(attempt_id, browser_hash)
     except ExternalIdentityLinkError as exc:
         raise _link_error(exc) from exc
@@ -479,7 +480,7 @@ def profile_oidc_link_start(
     oidc = get_oidc_service(db)
     try:
         issuer = oidc.provider_issuer(provider_id)
-        attempt = _link_service(db).create_profile_attempt(
+        attempt = ExternalIdentityLinkAttemptService(db).create_profile_attempt(
             user=current_user,
             provider_id=provider_id,
             issuer=issuer,
