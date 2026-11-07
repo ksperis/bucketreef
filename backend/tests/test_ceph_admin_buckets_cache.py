@@ -44,6 +44,7 @@ from app.services.bucket_owner_enrichment import (
 from app.services.bucket_configuration_service import BucketConfigurationService
 from app.services import rgw_bucket_metadata
 from app.services.rgw_admin import RGWAdminError
+from app.services.s3_client import S3OperationError
 from tests.storage_endpoint_features import persisted_endpoint_features
 
 
@@ -2595,7 +2596,7 @@ def test_ceph_admin_bucket_listing_feature_param_filters_exclude_unavailable_buc
 
     def fake_get_lifecycle(self, name: str, account):
         if name == "bucket-b":
-            raise RuntimeError("lifecycle unavailable")
+            raise S3OperationError("lifecycle unavailable")
         return BucketLifecycleConfig(rules=[{"ID": "rule-a", "AbortIncompleteMultipartUpload": {"DaysAfterInitiation": 5}}])
 
     monkeypatch.setattr(BucketConfigurationService, "get_lifecycle", fake_get_lifecycle)
