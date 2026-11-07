@@ -45,54 +45,6 @@ class ExternalIdentityLinkService:
         self.settings = settings or get_settings()
         self.attempts = ExternalIdentityLinkAttemptService(db, self.settings)
 
-    def create_login_collision_attempt(
-        self,
-        *,
-        user: User,
-        provider_type: str,
-        provider_id: str,
-        issuer: Optional[str],
-        subject: str,
-        email: Optional[str],
-        email_verified: bool,
-        display_name: Optional[str],
-        picture_url: Optional[str],
-        browser_secret_hash: str,
-        redirect_path: Optional[str],
-    ) -> ExternalIdentityLinkAttempt:
-        return self.attempts.create_login_collision_attempt(
-            user=user,
-            provider_type=provider_type,
-            provider_id=provider_id,
-            issuer=issuer,
-            subject=subject,
-            email=email,
-            email_verified=email_verified,
-            display_name=display_name,
-            picture_url=picture_url,
-            browser_secret_hash=browser_secret_hash,
-            redirect_path=redirect_path,
-        )
-
-    def create_profile_attempt(
-        self,
-        *,
-        user: User,
-        provider_id: str,
-        issuer: str,
-        browser_secret_hash: str,
-        mfa_verified_at: Optional[datetime],
-        redirect_path: Optional[str],
-    ) -> ExternalIdentityLinkAttempt:
-        return self.attempts.create_profile_attempt(
-            user=user,
-            provider_id=provider_id,
-            issuer=issuer,
-            browser_secret_hash=browser_secret_hash,
-            mfa_verified_at=mfa_verified_at,
-            redirect_path=redirect_path,
-        )
-
     def status(self, attempt_id: str, browser_secret_hash: Optional[str]) -> ExternalIdentityLinkStatus:
         attempt = self.attempts.require_attempt(attempt_id, browser_secret_hash)
         user = self.attempts.require_user(attempt)
@@ -233,13 +185,6 @@ class ExternalIdentityLinkService:
         self.db.add(attempt)
         commit_or_rollback(self.db)
         return self._status_model(attempt, user)
-
-    def request_admin_approval(
-        self,
-        attempt_id: str,
-        browser_secret_hash: Optional[str],
-    ) -> ExternalIdentityLinkRequest:
-        return self.attempts.request_admin_approval(attempt_id, browser_secret_hash)
 
     def confirm(
         self,
