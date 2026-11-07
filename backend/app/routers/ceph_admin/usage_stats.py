@@ -23,6 +23,7 @@ from app.routers.ceph_admin.dependencies import (
 )
 from app.services.ceph_admin_context import CephAdminContext
 from app.services.ceph_admin_bucket_listing_cache import get_cached_rgw_bucket_entries
+from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_bucket_metadata import extract_bucket_identity
 from app.routers.dependencies import get_current_ceph_admin
 from app.services.s3_execution_context import build_ceph_admin_s3_context
@@ -61,7 +62,7 @@ def _target_for_bucket(
 def _list_ceph_bucket_references(ctx: CephAdminContext) -> list[RgwBucketReference]:
     try:
         entries = get_cached_rgw_bucket_entries(ctx, with_stats=False)
-    except Exception as exc:
+    except RGWAdminError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
     references: list[RgwBucketReference] = []
     seen: set[tuple[str, str]] = set()
