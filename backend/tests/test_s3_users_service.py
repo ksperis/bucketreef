@@ -46,8 +46,22 @@ from app.services import (
 )
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.app_settings_service import load_app_settings_for_db
+from app.services.s3_user_key_management_service import S3UserKeyManagementService
 from app.services.s3_user_rgw_context_service import S3UserRgwContextService
 from app.services.s3_users_service import S3UsersService
+
+
+def test_s3_user_key_management_service_composes_shared_dependencies(db_session):
+    service = S3UserKeyManagementService(db_session)
+
+    assert service.db is db_session
+    assert service.repository.db is db_session
+    assert service.rgw_context.db is db_session
+    assert service.associations.db is db_session
+    assert service.query.db is db_session
+    assert service.query.repository is service.repository
+    assert service.query.rgw_context is service.rgw_context
+    assert service.query.associations is service.associations
 
 
 class FakeRGWAdmin:

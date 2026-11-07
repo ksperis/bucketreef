@@ -22,18 +22,23 @@ class S3UserKeyManagementService:
         self,
         db: Session,
         *,
-        repository: S3UserRepository,
-        rgw_context: S3UserRgwContextService,
-        access_keys: S3UserAccessKeyService,
-        associations: S3UserAssociationsService,
-        query: S3UserQueryService,
+        repository: S3UserRepository | None = None,
+        rgw_context: S3UserRgwContextService | None = None,
+        access_keys: S3UserAccessKeyService | None = None,
+        associations: S3UserAssociationsService | None = None,
+        query: S3UserQueryService | None = None,
     ) -> None:
         self.db = db
-        self.repository = repository
-        self.rgw_context = rgw_context
-        self.access_keys = access_keys
-        self.associations = associations
-        self.query = query
+        self.repository = repository or S3UserRepository(db)
+        self.rgw_context = rgw_context or S3UserRgwContextService(db)
+        self.access_keys = access_keys or S3UserAccessKeyService()
+        self.associations = associations or S3UserAssociationsService(db)
+        self.query = query or S3UserQueryService(
+            db,
+            rgw_context=self.rgw_context,
+            repository=self.repository,
+            associations=self.associations,
+        )
 
     def rotate_keys(
         self,

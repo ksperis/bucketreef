@@ -853,12 +853,18 @@ def test_rgw_user_provisioning_uses_dedicated_resource_opt_in(db_session, monkey
     db_session.add(UserS3User(user_id=user.id, s3_user_id=s3_user.id))
     db_session.commit()
     context = S3ExecutionContext.from_s3_user(s3_user)
+
+    class FakeS3UserKeyManagementService:
+        def create_access_key_entry(self, user_id: int) -> S3UserGeneratedKey:
+            assert user_id == s3_user.id
+            return S3UserGeneratedKey(
+                access_key_id="PERSONAL-AK",
+                secret_access_key="PERSONAL-SK",
+            )
+
     monkeypatch.setattr(
-        "app.services.managed_private_access_credential_service.S3UsersService.create_access_key_entry",
-        lambda _service, user_id: S3UserGeneratedKey(
-            access_key_id="PERSONAL-AK",
-            secret_access_key="PERSONAL-SK",
-        ),
+        "app.services.managed_private_access_credential_service.S3UserKeyManagementService",
+        lambda _db: FakeS3UserKeyManagementService(),
     )
     _disable_capability_probe(monkeypatch)
 
@@ -938,8 +944,8 @@ def test_rgw_user_provisioning_requires_resource_opt_in_before_remote_calls(db_s
     db_session.commit()
     context = S3ExecutionContext.from_s3_user(s3_user)
     monkeypatch.setattr(
-        "app.services.managed_private_access_credential_service.S3UsersService.create_access_key_entry",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("RGW must not be contacted")),
+        "app.services.managed_private_access_credential_service.S3UserKeyManagementService",
+        lambda _db: (_ for _ in ()).throw(AssertionError("RGW must not be contacted")),
     )
 
     with pytest.raises(ManagedPrivateAccessForbidden, match="not allowed"):

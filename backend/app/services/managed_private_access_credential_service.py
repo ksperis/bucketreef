@@ -16,7 +16,7 @@ from app.services.managed_private_access_state_service import (
     ManagedPrivateAccessStateService,
 )
 from app.services.rgw_iam import RGWIAMService
-from app.services.s3_users_service import S3UsersService
+from app.services.s3_user_key_management_service import S3UserKeyManagementService
 
 
 class ManagedPrivateAccessCredentialService:
@@ -86,7 +86,7 @@ class ManagedPrivateAccessCredentialService:
         *,
         source_id: int,
     ) -> tuple[str, str]:
-        key = S3UsersService(self.db).create_access_key_entry(source_id)
+        key = S3UserKeyManagementService(self.db).create_access_key_entry(source_id)
         provisioning.access_key_id = key.access_key_id
         provisioning.created_access_key = True
         self.state.checkpoint(provisioning)
