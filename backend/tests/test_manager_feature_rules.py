@@ -3,6 +3,7 @@
 from types import SimpleNamespace
 
 import pytest
+from botocore.exceptions import ClientError
 
 from app.db import UiGroup, User, UserUiGroup
 from app.core.domain_enums import UserRole
@@ -27,8 +28,11 @@ class FakeBucketsService:
         return self.buckets
 
     def _maybe_fail(self, feature, bucket_name):  # noqa: ANN001
-        if self.failures.get((feature, bucket_name)):
-            raise RuntimeError(self.failures[(feature, bucket_name)])
+        failure = self.failures.get((feature, bucket_name))
+        if isinstance(failure, Exception):
+            raise failure
+        if failure:
+            raise RuntimeError(failure)
 
     def get_lifecycle(self, bucket_name, _context):  # noqa: ANN001
         self._maybe_fail("lifecycle", bucket_name)
@@ -49,6 +53,19 @@ class FakeBucketsService:
     def get_bucket_tags(self, bucket_name, _context):  # noqa: ANN001
         self._maybe_fail("tags", bucket_name)
         return self.tags.get(bucket_name, [])
+
+
+def _s3_runtime_error(code: str) -> RuntimeError:
+    cause = ClientError(
+        {
+            "Error": {"Code": code, "Message": "upstream failure"},
+            "ResponseMetadata": {"HTTPStatusCode": 403 if code == "AccessDenied" else 400},
+        },
+        "GetBucketConfiguration",
+    )
+    error = RuntimeError("Unable to read bucket configuration")
+    error.__cause__ = cause
+    return error
 
 
 @pytest.fixture
@@ -200,7 +217,7 @@ def test_feature_rules_lists_notifications_and_bucket_errors(feature_rule_client
         ],
         "EventBridgeConfiguration": {},
     }
-    service.failures[("notifications", "beta")] = "AccessDenied"
+    service.failures[("notifications", "beta")] = _s3_runtime_error("AccessDenied")
 
     response = client.get("/api/manager/feature-rules", params={"feature": "notifications"})
 
@@ -254,7 +271,7 @@ def test_feature_rules_lists_bucket_tags(feature_rule_client):
         BucketTag(key="environment", value="prod"),
         BucketTag(key="owner", value="data-platform"),
     ]
-    service.failures[("tags", "beta")] = "AccessDenied"
+    service.failures[("tags", "beta")] = _s3_runtime_error("AccessDenied")
 
     response = client.get("/api/manager/feature-rules", params={"feature": "tags"})
 
@@ -272,6 +289,18 @@ def test_feature_rules_lists_bucket_tags(feature_rule_client):
     }
     assert body[1]["status"] == "unavailable"
     assert body[1]["error"] == "AccessDenied"
+
+
+def test_feature_rules_do_not_infer_safe_codes_from_runtime_error_text(feature_rule_client):
+    client, service = feature_rule_client
+    service.failures[("policy", "alpha")] = "AccessDenied secret_access_key=abc123"
+
+    response = client.get("/api/manager/feature-rules", params={"feature": "policy"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body[0]["status"] == "unavailable"
+    assert body[0]["error"] == "Unable to read rules"
 
 
 def test_feature_rules_marks_notifications_unavailable_when_sns_is_disabled(feature_rule_client, monkeypatch):
