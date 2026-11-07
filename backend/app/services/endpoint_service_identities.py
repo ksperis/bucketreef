@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.core.db_transactions import commit_or_rollback
 from app.core.domain_enums import ManagedServiceIdentityKind, ServiceIdentityKind
 from app.core.sensitive_data import sanitized_error_log_detail
-from app.core.sqlite import ensure_sqlite_transaction_for_savepoint
+from app.core.sqlite import add_and_flush_in_savepoint
 from app.db import AppSetting, EndpointServiceIdentity, StorageEndpoint, User
 from app.models.storage_endpoint import StorageEndpointAdminOpsPermissions
 from app.services.audit_service import AuditService
@@ -57,10 +57,7 @@ class EndpointServiceIdentityService:
         if row is None:
             row = AppSetting(key=INSTALLATION_KEY, payload=uuid4().hex)
             try:
-                ensure_sqlite_transaction_for_savepoint(self.db)
-                with self.db.begin_nested():
-                    self.db.add(row)
-                    self.db.flush()
+                add_and_flush_in_savepoint(self.db, row)
             except IntegrityError:
                 row = self.db.get(AppSetting, INSTALLATION_KEY)
         installation_id = row.payload

@@ -43,3 +43,12 @@ def ensure_sqlite_transaction_for_savepoint(db: Session) -> None:
     driver_connection = connection.connection.driver_connection
     if not driver_connection.in_transaction:
         connection.exec_driver_sql("BEGIN")
+
+
+def add_and_flush_in_savepoint(db: Session, row: object) -> None:
+    """Persist one ORM row inside a rollback-safe nested transaction."""
+
+    ensure_sqlite_transaction_for_savepoint(db)
+    with db.begin_nested():
+        db.add(row)
+        db.flush()

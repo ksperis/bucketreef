@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.sqlite import ensure_sqlite_transaction_for_savepoint
+from app.core.sqlite import add_and_flush_in_savepoint
 from app.db import QuotaUsageDaily, QuotaUsageHourly
 from app.services.quota_subject import SubjectContext, quota_subject_ids
 
@@ -64,10 +64,7 @@ class QuotaUsageHistoryService:
             collected_at=now,
         )
         try:
-            ensure_sqlite_transaction_for_savepoint(self.db)
-            with self.db.begin_nested():
-                self.db.add(row)
-                self.db.flush()
+            add_and_flush_in_savepoint(self.db, row)
         except IntegrityError:
             existing = self._find_hourly(
                 hour_ts=hour_ts,
@@ -128,10 +125,7 @@ class QuotaUsageHistoryService:
             updated_at=now,
         )
         try:
-            ensure_sqlite_transaction_for_savepoint(self.db)
-            with self.db.begin_nested():
-                self.db.add(row)
-                self.db.flush()
+            add_and_flush_in_savepoint(self.db, row)
         except IntegrityError:
             existing = self._find_daily(
                 day=day,
