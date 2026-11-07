@@ -36,7 +36,7 @@ class PortalStateUsageMixin:
     ) -> list[PortalUsageStorageSpace]:
         try:
             spaces = self.list_storage_spaces(user, access)
-        except RuntimeError:
+        except PortalOperationError:
             return []
         breakdown: list[PortalUsageStorageSpace] = []
         for space in spaces:
@@ -156,7 +156,7 @@ class PortalStateUsageMixin:
         try:
             rgw_admin = self._runtime_read_for_account(account)
             bucket_payloads = self._admin_bucket_list(account, admin=rgw_admin)
-        except (RGWAdminError, RuntimeError) as exc:  # pragma: no cover - defensive path
+        except (RGWAdminError, PortalOperationError) as exc:  # pragma: no cover - defensive path
             logger.warning("Unable to list scoped bucket usage for portal user %s: %s", user.email, exc)
             return PortalUsage(
                 used_bytes=None,

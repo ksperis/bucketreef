@@ -246,7 +246,7 @@ class PortalDeletedPrefixRestoreMixin:
             ).run()
         except BucketPurgeCancelled:
             raise
-        except (ClientError, BotoCoreError, RuntimeError) as exc:
+        except (ClientError, BotoCoreError, PortalOperationError) as exc:
             raise PortalOperationError(
                 f"Unable to restore deleted files from '{target.prefix}' "
                 f"in Storage Space '{target.storage_space_name}': {exc}"
