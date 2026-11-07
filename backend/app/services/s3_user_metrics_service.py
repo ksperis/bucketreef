@@ -54,7 +54,7 @@ class S3UserMetricsService:
             return len(
                 [bucket for bucket in buckets if isinstance(bucket, dict) and bucket.get("name")]
             )
-        except RuntimeError as exc:
+        except s3_client.S3OperationError as exc:
             logger.warning("Unable to list buckets for user %s: %s", s3_user.rgw_user_uid, exc)
             return None
 

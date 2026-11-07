@@ -779,6 +779,32 @@ def _seed_local_user(
     return row
 
 
+def test_interface_bucket_count_only_suppresses_s3_operation_errors(db_session, monkeypatch):
+    endpoint = _seed_ceph_endpoint(db_session)
+    s3_user = _seed_local_user(
+        db_session,
+        name="Bucket Count User",
+        uid="bucket-count-user",
+        endpoint_id=endpoint.id,
+    )
+    service = S3UsersService(db_session)
+
+    monkeypatch.setattr(
+        s3_client,
+        "list_buckets",
+        lambda **_kwargs: (_ for _ in ()).throw(s3_client.S3OperationError("provider unavailable")),
+    )
+    assert service.metrics.get_interface_bucket_count(s3_user) is None
+
+    monkeypatch.setattr(
+        s3_client,
+        "list_buckets",
+        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("bucket count regression")),
+    )
+    with pytest.raises(RuntimeError, match="bucket count regression"):
+        service.metrics.get_interface_bucket_count(s3_user)
+
+
 def test_get_user_usage_aggregates_live_bucket_stats(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session, metrics_enabled=True)
     s3_user = _seed_local_user(db_session, name="Usage User", uid="usage-user", endpoint_id=endpoint.id)

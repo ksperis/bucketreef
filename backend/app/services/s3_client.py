@@ -14,6 +14,10 @@ settings = get_settings()
 logger = logging.getLogger(__name__)
 
 
+class S3OperationError(RuntimeError):
+    """Expected S3 provider failure raised by the convenience helpers."""
+
+
 class S3BucketClientKwargs(TypedDict, total=False):
     access_key: Optional[str]
     secret_key: Optional[str]
@@ -140,7 +144,7 @@ def list_buckets(
     try:
         response = client.list_buckets()
     except (BotoCoreError, ClientError) as exc:
-        raise RuntimeError(f"Unable to list buckets: {exc}") from exc
+        raise S3OperationError(f"Unable to list buckets: {exc}") from exc
     buckets = response.get("Buckets", [])
     logger.debug("Listed %s buckets", len(buckets))
     return [{"name": b.get("Name"), "creation_date": b.get("CreationDate")} for b in buckets]
@@ -170,7 +174,7 @@ def create_bucket(
             create_kwargs["ObjectLockEnabledForBucket"] = True
         client.create_bucket(**create_kwargs)
     except (BotoCoreError, ClientError) as exc:
-        raise RuntimeError(f"Unable to create bucket '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to create bucket '{bucket_name}': {exc}") from exc
     logger.debug("Created bucket %s", bucket_name)
 
 
@@ -194,7 +198,7 @@ def set_bucket_versioning(
     try:
         client.put_bucket_versioning(Bucket=bucket_name, VersioningConfiguration={"Status": status})
     except (BotoCoreError, ClientError) as exc:
-        raise RuntimeError(f"Unable to update versioning for bucket '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to update versioning for bucket '{bucket_name}': {exc}") from exc
     logger.debug("Set versioning for bucket %s to %s", bucket_name, status)
 
 
@@ -216,5 +220,5 @@ def get_bucket_versioning(
     try:
         resp = client.get_bucket_versioning(Bucket=bucket_name)
     except (BotoCoreError, ClientError) as exc:
-        raise RuntimeError(f"Unable to fetch versioning for bucket '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to fetch versioning for bucket '{bucket_name}': {exc}") from exc
     return resp.get("Status")
