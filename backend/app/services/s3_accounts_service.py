@@ -2,7 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 from sqlalchemy.orm import Session
 
-from app.db import S3Account
 from app.models.s3_account import (
     S3Account as S3AccountSchema,
     S3AccountCreate,
@@ -80,9 +79,6 @@ class S3AccountsService:
             account_roots=self.account_roots,
         )
 
-    def get_account_record(self, account_id: int) -> S3Account:
-        return self.repository.get(account_id)
-
     def import_accounts(self, imports: list[S3AccountImport]) -> list[S3AccountSchema]:
         return self.importer.import_accounts(imports)
 
@@ -109,7 +105,7 @@ class S3AccountsService:
         return self.updater.update_account(account_id, payload)
 
     def delete_account(self, account_id: int, delete_rgw: bool = False) -> None:
-        account = self.get_account_record(account_id)
+        account = self.repository.get(account_id)
         admin = None
         endpoint = None
         if delete_rgw:

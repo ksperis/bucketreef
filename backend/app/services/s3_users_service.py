@@ -2,7 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 from sqlalchemy.orm import Session
 
-from app.db import S3User as S3UserModel
 from app.services.mappers.s3_user import s3_user_from_db
 from app.services.s3_user_associations_service import S3UserAssociationsService
 from app.services.s3_user_access_key_service import S3UserAccessKeyService
@@ -75,9 +74,6 @@ class S3UsersService:
             query=self.query,
         )
 
-    def get_user_record(self, user_id: int) -> S3UserModel:
-        return self.query.get_user_record(user_id)
-
     def create_user(self, payload: S3UserCreate) -> S3UserSchema:
         provisioned = self.provisioning.create_user(payload)
         s3_user = provisioned.s3_user
@@ -124,7 +120,7 @@ class S3UsersService:
         self.key_management.delete_key(user_id, access_key)
 
     def delete_user(self, user_id: int, delete_rgw: bool = False) -> None:
-        s3_user = self.get_user_record(user_id)
+        s3_user = self.query.get_user_record(user_id)
         admin = self.rgw_context.admin_for_user(s3_user)
         self.deletion.delete_user(s3_user, admin, delete_rgw=delete_rgw)
 
