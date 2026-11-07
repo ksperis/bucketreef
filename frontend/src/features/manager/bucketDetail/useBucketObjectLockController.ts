@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useState } from "react";
-import type { S3ExecutionContextSelector } from "../../../api/accountParams";
+import type { BucketDetailControllerOptions } from "./bucketDetailControllerOptions";
 import { useBucketDetailsApi } from "../../shared/useBucketDetailsApi";
 import type { BucketObjectLockConfiguration } from "../../../api/bucketContracts";
 import {
@@ -21,13 +21,7 @@ type ObjectLockDraft = {
   years: string;
 };
 
-type UseBucketObjectLockControllerOptions = {
-  contextId: S3ExecutionContextSelector;
-  bucketName?: string;
-  cephAdmin: boolean;
-  cephAdminTenant?: string | null;
-  enabled: boolean;
-  endpointId?: number | null;
+type UseBucketObjectLockControllerOptions = BucketDetailControllerOptions & {
   onVersioningEnabled: () => void;
   versioningEnabled: boolean;
 };

@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useMemo, useState } from "react";
-import type { S3ExecutionContextSelector } from "../../../api/accountParams";
+import type { BucketDetailControllerOptions } from "./bucketDetailControllerOptions";
 import { useBucketDetailsApi } from "../../shared/useBucketDetailsApi";
 import {
   deleteCephAdminBucketNotifications,
@@ -33,15 +33,6 @@ import {
   type NotificationVisualTopicPatch,
 } from "./notificationEditorModel";
 
-type UseBucketNotificationsControllerOptions = {
-  contextId: S3ExecutionContextSelector;
-  bucketName?: string;
-  cephAdmin: boolean;
-  cephAdminTenant?: string | null;
-  enabled: boolean;
-  endpointId?: number | null;
-};
-
 function asConfiguration(value: unknown): NotificationConfigurationRecord {
   if (value === null || typeof value !== "object" || Array.isArray(value)) return {};
   return value as NotificationConfigurationRecord;
@@ -63,7 +54,7 @@ export function useBucketNotificationsController({
   cephAdminTenant,
   enabled,
   endpointId,
-}: UseBucketNotificationsControllerOptions) {
+}: BucketDetailControllerOptions) {
   const bucketDetailsApi = useBucketDetailsApi();
   const [configuration, setConfiguration] = useState<NotificationConfigurationRecord>({});
   const {

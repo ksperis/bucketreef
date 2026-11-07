@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { S3ExecutionContextSelector } from "../../../api/accountParams";
+import type { BucketDetailControllerOptions } from "./bucketDetailControllerOptions";
 import {
   getCephAdminBucketUsageStats,
   getManagerBucketUsageStats,
@@ -18,15 +18,6 @@ import {
   useBucketUsageStatsI18n,
 } from "../../shared/bucketUsageStatsMessage";
 
-type UseBucketUsageStatsControllerOptions = {
-  contextId: S3ExecutionContextSelector;
-  bucketName?: string;
-  cephAdmin: boolean;
-  cephAdminTenant?: string | null;
-  enabled: boolean;
-  endpointId?: number | null;
-};
-
 export function useBucketUsageStatsController({
   contextId,
   bucketName,
@@ -34,7 +25,7 @@ export function useBucketUsageStatsController({
   cephAdminTenant,
   enabled,
   endpointId,
-}: UseBucketUsageStatsControllerOptions) {
+}: BucketDetailControllerOptions) {
   const { locale } = useBucketUsageStatsI18n();
   const [snapshot, setSnapshot] = useState<BucketUsageStatsSnapshot | null>(
     null,

@@ -3,19 +3,13 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { S3ExecutionContextSelector } from "../../../api/accountParams";
+import type { BucketDetailControllerOptions } from "./bucketDetailControllerOptions";
 import { useBucketDetailsApi } from "../../shared/useBucketDetailsApi";
 import type { Bucket } from "../../../api/bucketContracts";
 import { listCephAdminBuckets } from "../../../api/cephAdminBuckets";
 import { extractApiError } from "../../../utils/apiError";
 
-type UseBucketMetadataControllerOptions = {
-  contextId: S3ExecutionContextSelector;
-  bucketName?: string;
-  cephAdmin: boolean;
-  cephAdminTenant?: string | null;
-  enabled: boolean;
-  endpointId?: number | null;
+type UseBucketMetadataControllerOptions = BucketDetailControllerOptions & {
   withStats: boolean;
 };
 

@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { S3ExecutionContextSelector } from "../../../api/accountParams";
+import type { BucketDetailControllerOptions } from "./bucketDetailControllerOptions";
 import { listCephAdminBucketObjects } from "../../../api/cephAdminBucketDetails";
 import {
   listManagerObjects,
@@ -12,15 +12,6 @@ import {
 import { extractApiError } from "../../../utils/apiError";
 import { parentS3Prefix } from "../../../utils/s3Prefix";
 
-type UseBucketObjectsControllerOptions = {
-  contextId: S3ExecutionContextSelector;
-  bucketName?: string;
-  cephAdmin: boolean;
-  cephAdminTenant?: string | null;
-  enabled: boolean;
-  endpointId?: number | null;
-};
-
 export function useBucketObjectsController({
   contextId,
   bucketName,
@@ -28,7 +19,7 @@ export function useBucketObjectsController({
   cephAdminTenant,
   enabled,
   endpointId,
-}: UseBucketObjectsControllerOptions) {
+}: BucketDetailControllerOptions) {
   const [objects, setObjects] = useState<ManagerObject[]>([]);
   const [prefixes, setPrefixes] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);

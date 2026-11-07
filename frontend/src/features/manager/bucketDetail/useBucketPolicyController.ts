@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useMemo, useState } from "react";
-import type { S3ExecutionContextSelector } from "../../../api/accountParams";
+import type { BucketDetailControllerOptions } from "./bucketDetailControllerOptions";
 import { useBucketDetailsApi } from "../../shared/useBucketDetailsApi";
 import {
   deleteCephAdminBucketPolicy,
@@ -31,15 +31,6 @@ import {
   type PolicyDocumentRecord,
   type PolicyVisualStatementPatch,
 } from "./policyEditorModel";
-
-type UseBucketPolicyControllerOptions = {
-  contextId: S3ExecutionContextSelector;
-  bucketName?: string;
-  cephAdmin: boolean;
-  cephAdminTenant?: string | null;
-  enabled: boolean;
-  endpointId?: number | null;
-};
 
 function normalizePolicy(value: unknown): PolicyDocumentRecord {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
@@ -70,7 +61,7 @@ export function useBucketPolicyController({
   cephAdminTenant,
   enabled,
   endpointId,
-}: UseBucketPolicyControllerOptions) {
+}: BucketDetailControllerOptions) {
   const bucketDetailsApi = useBucketDetailsApi();
   const [policy, setPolicy] = useState<PolicyDocumentRecord>({});
   const [loadError, setLoadError] = useState<string | null>(null);

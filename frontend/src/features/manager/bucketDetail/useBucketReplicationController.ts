@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useMemo, useState } from "react";
-import type { S3ExecutionContextSelector } from "../../../api/accountParams";
+import type { BucketDetailControllerOptions } from "./bucketDetailControllerOptions";
 import { useBucketDetailsApi } from "../../shared/useBucketDetailsApi";
 import {
   deleteCephAdminBucketReplication,
@@ -36,15 +36,6 @@ import {
   updateReplicationVisualRule,
   type ReplicationVisualRulePatch,
 } from "./replicationEditorModel";
-
-type UseBucketReplicationControllerOptions = {
-  contextId: S3ExecutionContextSelector;
-  bucketName?: string;
-  cephAdmin: boolean;
-  cephAdminTenant?: string | null;
-  enabled: boolean;
-  endpointId?: number | null;
-};
 
 function parseReplicationEditorSessionJson(text: string) {
   const parsed = parseReplicationEditorJson(text);
@@ -80,7 +71,7 @@ export function useBucketReplicationController({
   cephAdminTenant,
   enabled,
   endpointId,
-}: UseBucketReplicationControllerOptions) {
+}: BucketDetailControllerOptions) {
   const bucketDetailsApi = useBucketDetailsApi();
   const [configuration, setConfiguration] = useState<Record<string, unknown>>({});
   const {

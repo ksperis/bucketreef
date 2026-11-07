@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useState } from "react";
-import type { S3ExecutionContextSelector } from "../../../api/accountParams";
+import type { BucketDetailControllerOptions } from "./bucketDetailControllerOptions";
 import { useBucketDetailsApi } from "../../shared/useBucketDetailsApi";
 import type { BucketTag } from "../../../api/bucketContracts";
 import {
@@ -17,15 +17,6 @@ import { prepareS3Tags } from "../../../utils/s3Tags";
 import { stableBucketJsonSignature } from "./bucketFeatureState";
 
 type BucketTagDraft = BucketTag & { uiId: string };
-
-type UseBucketTagsControllerOptions = {
-  contextId: S3ExecutionContextSelector;
-  bucketName?: string;
-  cephAdmin: boolean;
-  cephAdminTenant?: string | null;
-  enabled: boolean;
-  endpointId?: number | null;
-};
 
 function createDraft(tag: BucketTag = { key: "", value: "" }): BucketTagDraft {
   return { ...tag, uiId: createUiDraftId("bucket-tag") };
@@ -48,7 +39,7 @@ export function useBucketTagsController({
   cephAdminTenant,
   enabled,
   endpointId,
-}: UseBucketTagsControllerOptions) {
+}: BucketDetailControllerOptions) {
   const bucketDetailsApi = useBucketDetailsApi();
   const [tags, setTags] = useState<BucketTagDraft[]>([]);
   const [snapshot, setSnapshot] = useState<BucketTag[]>([]);
