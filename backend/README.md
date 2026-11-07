@@ -63,8 +63,8 @@ alembic revision --autogenerate -m "describe change"
 ```bash
 curl https://pyenv.run | bash
 # ajouter pyenv à votre shell (~/.bashrc ou ~/.zshrc) puis recharger
-pyenv install 3.12.8
-pyenv local 3.12.8  # dans ce repo, ou pyenv global 3.12.8
+pyenv install 3.12.14
+pyenv local 3.12.14  # dans ce repo, ou pyenv global 3.12.14
 python -m venv .venv
 ```
 
