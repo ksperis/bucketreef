@@ -618,7 +618,8 @@ def test_tenanted_key_mutation_requires_exact_remote_identity(db_session, monkey
     endpoint = _seed_ceph_endpoint(db_session)
     fake = FakeTenantedRGWAdmin()
     fake.add_principal("analyst", "team_a")
-    service = _build_service(db_session, monkeypatch, fake)
+    _patch_rgw_clients(monkeypatch, fake)
+    key_service = S3UserKeyManagementService(db_session)
     row = S3User(name="Analyst", rgw_user_uid="analyst", rgw_tenant="team_a",
                  rgw_access_key="AK-team_a-analyst", rgw_secret_key="SECRET",
                  storage_endpoint_id=endpoint.id)
@@ -627,11 +628,11 @@ def test_tenanted_key_mutation_requires_exact_remote_identity(db_session, monkey
 
     fake.principals[("team_a", "analyst")]["tenant"] = "team_b"
     with pytest.raises(ValueError, match="another tenant"):
-        service.create_access_key_entry(row.id)
+        key_service.create_access_key_entry(row.id)
     assert fake.key_creations == []
 
     fake.principals[("team_a", "analyst")]["tenant"] = "team_a"
-    created = service.create_access_key_entry(row.id)
+    created = key_service.create_access_key_entry(row.id)
     assert created.access_key_id == "NEW-team_a-analyst"
     assert fake.key_creations == [("team_a", "analyst")]
 
@@ -684,13 +685,17 @@ def _seed_ceph_endpoint(db_session, *, metrics_enabled: bool = False) -> Storage
     return endpoint
 
 
-def _build_service(db_session, monkeypatch, fake_admin: FakeRGWAdmin) -> S3UsersService:
+def _patch_rgw_clients(monkeypatch, fake_admin: FakeRGWAdmin) -> None:
     monkeypatch.setattr(
         "app.services.s3_user_rgw_context_service.get_endpoint_admin_rgw_client",
         lambda _endpoint: fake_admin,
     )
     monkeypatch.setattr("app.services.s3_user_metrics_service.get_endpoint_runtime_rgw_client", lambda endpoint: fake_admin)
     monkeypatch.setattr("app.services.rgw_endpoint_clients.get_endpoint_admin_rgw_client", lambda endpoint: fake_admin)
+
+
+def _build_service(db_session, monkeypatch, fake_admin: FakeRGWAdmin) -> S3UsersService:
+    _patch_rgw_clients(monkeypatch, fake_admin)
     return S3UsersService(db_session)
 
 
@@ -1449,15 +1454,16 @@ def test_update_user_reports_quota_compensation_failure(db_session, monkeypatch)
 def test_rotate_keys_replaces_old_credentials_and_deletes_previous(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session)
     fake = FakeRGWAdmin()
-    service = _build_service(db_session, monkeypatch, fake)
+    user_service = _build_service(db_session, monkeypatch, fake)
+    key_service = S3UserKeyManagementService(db_session)
 
-    created = service.create_user(S3UserCreate(name="Rotate", uid="rotate-me", rgw_tenant="", storage_endpoint_id=endpoint.id))
+    created = user_service.create_user(S3UserCreate(name="Rotate", uid="rotate-me", rgw_tenant="", storage_endpoint_id=endpoint.id))
     record = db_session.get(S3User, created.id)
     assert record is not None
     previous_key = record.rgw_access_key
 
     monkeypatch.setattr("app.services.endpoint_service_identities.get_endpoint_bootstrap_rgw_client", lambda _: fake)
-    rotated = service.rotate_keys(created.id)
+    rotated = key_service.rotate_keys(created.id)
 
     record = db_session.get(S3User, created.id)
     assert record is not None
@@ -1470,12 +1476,13 @@ def test_rotate_keys_replaces_old_credentials_and_deletes_previous(db_session, m
 def test_list_keys_marks_ui_key(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session)
     fake = FakeRGWAdmin()
-    service = _build_service(db_session, monkeypatch, fake)
+    user_service = _build_service(db_session, monkeypatch, fake)
+    key_service = S3UserKeyManagementService(db_session)
 
-    created = service.create_user(S3UserCreate(name="Keys", uid="keys", rgw_tenant="", storage_endpoint_id=endpoint.id))
-    extra = service.create_access_key_entry(created.id)
+    created = user_service.create_user(S3UserCreate(name="Keys", uid="keys", rgw_tenant="", storage_endpoint_id=endpoint.id))
+    extra = key_service.create_access_key_entry(created.id)
 
-    keys = service.list_keys(created.id)
+    keys = key_service.list_keys(created.id)
 
     assert any(key.is_ui_managed for key in keys)
     assert any(key.access_key_id == extra.access_key_id for key in keys)
@@ -1484,21 +1491,23 @@ def test_list_keys_marks_ui_key(db_session, monkeypatch):
 def test_list_keys_types_missing_remote_user(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session)
     fake = FakeRGWAdmin()
-    service = _build_service(db_session, monkeypatch, fake)
+    user_service = _build_service(db_session, monkeypatch, fake)
+    key_service = S3UserKeyManagementService(db_session)
 
-    created = service.create_user(S3UserCreate(name="MissingRemote", uid="missing-remote", rgw_tenant="", storage_endpoint_id=endpoint.id))
+    created = user_service.create_user(S3UserCreate(name="MissingRemote", uid="missing-remote", rgw_tenant="", storage_endpoint_id=endpoint.id))
     fake.remote_users.pop("missing-remote")
 
     with pytest.raises(S3UserNotFoundError, match="RGW user not found"):
-        service.list_keys(created.id)
+        key_service.list_keys(created.id)
 
 
 def test_set_key_status_types_rgw_not_found(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session)
     fake = FakeRGWAdmin()
-    service = _build_service(db_session, monkeypatch, fake)
+    user_service = _build_service(db_session, monkeypatch, fake)
+    key_service = S3UserKeyManagementService(db_session)
 
-    created = service.create_user(S3UserCreate(name="MissingKey", uid="missing-key", rgw_tenant="", storage_endpoint_id=endpoint.id))
+    created = user_service.create_user(S3UserCreate(name="MissingKey", uid="missing-key", rgw_tenant="", storage_endpoint_id=endpoint.id))
 
     def missing_key(*_args, **_kwargs):
         raise RGWAdminError("missing", status_code=404, error_code="NoSuchKey")
@@ -1506,15 +1515,16 @@ def test_set_key_status_types_rgw_not_found(db_session, monkeypatch):
     monkeypatch.setattr(fake, "set_access_key_status", missing_key, raising=False)
 
     with pytest.raises(S3AccessKeyNotFoundError, match="Access key not found"):
-        service.set_key_status(created.id, "AK-MISSING", False)
+        key_service.set_key_status(created.id, "AK-MISSING", False)
 
 
 def test_list_keys_uses_active_flag_when_status_is_missing(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session)
     fake = FakeRGWAdmin()
-    service = _build_service(db_session, monkeypatch, fake)
+    user_service = _build_service(db_session, monkeypatch, fake)
+    key_service = S3UserKeyManagementService(db_session)
 
-    created = service.create_user(S3UserCreate(name="ActiveFlag", uid="active-flag", rgw_tenant="", storage_endpoint_id=endpoint.id))
+    created = user_service.create_user(S3UserCreate(name="ActiveFlag", uid="active-flag", rgw_tenant="", storage_endpoint_id=endpoint.id))
     record = db_session.get(S3User, created.id)
     assert record is not None
     fake.remote_users["active-flag"]["keys"] = [
@@ -1522,7 +1532,7 @@ def test_list_keys_uses_active_flag_when_status_is_missing(db_session, monkeypat
         {"access_key": "AK-DISABLED", "secret_key": "SK-DISABLED", "active": False},
     ]
 
-    keys = service.list_keys(created.id)
+    keys = key_service.list_keys(created.id)
     indexed = {entry.access_key_id: entry for entry in keys}
 
     assert indexed["AK-DISABLED"].is_active is False
@@ -1532,14 +1542,15 @@ def test_list_keys_uses_active_flag_when_status_is_missing(db_session, monkeypat
 def test_list_keys_defaults_missing_status_and_active_flag_to_enabled(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session)
     fake = FakeRGWAdmin()
-    service = _build_service(db_session, monkeypatch, fake)
+    user_service = _build_service(db_session, monkeypatch, fake)
+    key_service = S3UserKeyManagementService(db_session)
 
-    created = service.create_user(S3UserCreate(name="CanonicalKey", uid="canonical-key", rgw_tenant="", storage_endpoint_id=endpoint.id))
+    created = user_service.create_user(S3UserCreate(name="CanonicalKey", uid="canonical-key", rgw_tenant="", storage_endpoint_id=endpoint.id))
     fake.remote_users["canonical-key"]["keys"] = [
         {"access_key": "AK-CANONICAL", "secret_key": "SK-CANONICAL"},
     ]
 
-    [key] = service.list_keys(created.id)
+    [key] = key_service.list_keys(created.id)
 
     assert key.is_active is True
     assert key.status == "enabled"
@@ -1548,9 +1559,10 @@ def test_list_keys_defaults_missing_status_and_active_flag_to_enabled(db_session
 def test_list_keys_preserves_created_at_when_rgw_splits_key_metadata(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session)
     fake = FakeRGWAdmin()
-    service = _build_service(db_session, monkeypatch, fake)
+    user_service = _build_service(db_session, monkeypatch, fake)
+    key_service = S3UserKeyManagementService(db_session)
 
-    created = service.create_user(S3UserCreate(name="Dates", uid="dates", rgw_tenant="", storage_endpoint_id=endpoint.id))
+    created = user_service.create_user(S3UserCreate(name="Dates", uid="dates", rgw_tenant="", storage_endpoint_id=endpoint.id))
     record = db_session.get(S3User, created.id)
     assert record is not None
 
@@ -1562,7 +1574,7 @@ def test_list_keys_preserves_created_at_when_rgw_splits_key_metadata(db_session,
         {"access_key": "AK-THIRD", "secret_key": "SK-THIRD", "timestamp": "1773313200"},
     ]
 
-    keys = service.list_keys(created.id)
+    keys = key_service.list_keys(created.id)
     indexed = {entry.access_key_id: entry for entry in keys}
 
     assert indexed[record.rgw_access_key].created_at == datetime(2026, 3, 12, 10, 0, tzinfo=timezone.utc)
@@ -1573,9 +1585,10 @@ def test_list_keys_preserves_created_at_when_rgw_splits_key_metadata(db_session,
 def test_create_access_key_entry_propagates_created_at_from_rgw_response(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session)
     fake = FakeRGWAdmin()
-    service = _build_service(db_session, monkeypatch, fake)
+    user_service = _build_service(db_session, monkeypatch, fake)
+    key_service = S3UserKeyManagementService(db_session)
 
-    created = service.create_user(S3UserCreate(name="CreateDate", uid="create-date", rgw_tenant="", storage_endpoint_id=endpoint.id))
+    created = user_service.create_user(S3UserCreate(name="CreateDate", uid="create-date", rgw_tenant="", storage_endpoint_id=endpoint.id))
 
     def create_with_split_metadata(uid: str, tenant: Optional[str] = None):
         assert uid == "create-date"
@@ -1589,7 +1602,7 @@ def test_create_access_key_entry_propagates_created_at_from_rgw_response(db_sess
 
     monkeypatch.setattr(fake, "create_access_key", create_with_split_metadata)
 
-    generated = service.create_access_key_entry(created.id)
+    generated = key_service.create_access_key_entry(created.id)
 
     assert generated.access_key_id == "AK-NEW"
     assert generated.created_at == datetime(2026, 3, 12, 14, 30, tzinfo=timezone.utc)
@@ -1598,9 +1611,10 @@ def test_create_access_key_entry_propagates_created_at_from_rgw_response(db_sess
 def test_create_access_key_entry_selects_new_key_when_response_contains_existing_keys(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session)
     fake = FakeRGWAdmin()
-    service = _build_service(db_session, monkeypatch, fake)
+    user_service = _build_service(db_session, monkeypatch, fake)
+    key_service = S3UserKeyManagementService(db_session)
 
-    created = service.create_user(S3UserCreate(name="CreateSelect", uid="create-select", rgw_tenant="", storage_endpoint_id=endpoint.id))
+    created = user_service.create_user(S3UserCreate(name="CreateSelect", uid="create-select", rgw_tenant="", storage_endpoint_id=endpoint.id))
     record = db_session.get(S3User, created.id)
     assert record is not None
 
@@ -1618,7 +1632,7 @@ def test_create_access_key_entry_selects_new_key_when_response_contains_existing
 
     monkeypatch.setattr(fake, "create_access_key", create_with_existing_and_new)
 
-    generated = service.create_access_key_entry(created.id)
+    generated = key_service.create_access_key_entry(created.id)
 
     assert generated.access_key_id == "AK-NEW-SELECT"
     assert generated.secret_access_key == "SK-NEW-SELECT"
@@ -1627,9 +1641,10 @@ def test_create_access_key_entry_selects_new_key_when_response_contains_existing
 def test_create_access_key_entry_accepts_list_response(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session)
     fake = FakeRGWAdmin()
-    service = _build_service(db_session, monkeypatch, fake)
+    user_service = _build_service(db_session, monkeypatch, fake)
+    key_service = S3UserKeyManagementService(db_session)
 
-    created = service.create_user(S3UserCreate(name="CreateList", uid="create-list", rgw_tenant="", storage_endpoint_id=endpoint.id))
+    created = user_service.create_user(S3UserCreate(name="CreateList", uid="create-list", rgw_tenant="", storage_endpoint_id=endpoint.id))
 
     def create_with_list_response(uid: str, tenant: Optional[str] = None):
         assert uid == "create-list"
@@ -1640,7 +1655,7 @@ def test_create_access_key_entry_accepts_list_response(db_session, monkeypatch):
 
     monkeypatch.setattr(fake, "create_access_key", create_with_list_response)
 
-    generated = service.create_access_key_entry(created.id)
+    generated = key_service.create_access_key_entry(created.id)
 
     assert generated.access_key_id == "AK-NEW-LIST"
     assert generated.secret_access_key == "SK-NEW-LIST"
@@ -1649,25 +1664,27 @@ def test_create_access_key_entry_accepts_list_response(db_session, monkeypatch):
 def test_delete_key_validations(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session)
     fake = FakeRGWAdmin()
-    service = _build_service(db_session, monkeypatch, fake)
+    user_service = _build_service(db_session, monkeypatch, fake)
+    key_service = S3UserKeyManagementService(db_session)
 
-    created = service.create_user(S3UserCreate(name="DeleteKey", uid="delete-key", rgw_tenant="", storage_endpoint_id=endpoint.id))
+    created = user_service.create_user(S3UserCreate(name="DeleteKey", uid="delete-key", rgw_tenant="", storage_endpoint_id=endpoint.id))
     record = db_session.get(S3User, created.id)
     assert record is not None
 
     with pytest.raises(ValueError):
-        service.delete_key(created.id, record.rgw_access_key)
+        key_service.delete_key(created.id, record.rgw_access_key)
 
-    extra_key = service.create_access_key_entry(created.id).access_key_id
-    service.delete_key(created.id, extra_key)
+    extra_key = key_service.create_access_key_entry(created.id).access_key_id
+    key_service.delete_key(created.id, extra_key)
     assert extra_key in fake.deleted_keys
 
 
 def test_remote_key_mutations_do_not_commit_database_session(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session)
     fake = FakeRGWAdmin()
-    service = _build_service(db_session, monkeypatch, fake)
-    created = service.create_user(
+    user_service = _build_service(db_session, monkeypatch, fake)
+    key_service = S3UserKeyManagementService(db_session)
+    created = user_service.create_user(
         S3UserCreate(
             name="Remote-only keys",
             uid="remote-only-keys",
@@ -1682,9 +1699,9 @@ def test_remote_key_mutations_do_not_commit_database_session(db_session, monkeyp
         lambda: pytest.fail("remote-only key operations must not commit the database"),
     )
 
-    generated = service.create_access_key_entry(created.id)
-    updated = service.set_key_status(created.id, generated.access_key_id, False)
-    service.delete_key(created.id, generated.access_key_id)
+    generated = key_service.create_access_key_entry(created.id)
+    updated = key_service.set_key_status(created.id, generated.access_key_id, False)
+    key_service.delete_key(created.id, generated.access_key_id)
 
     assert updated.is_active is False
     assert generated.access_key_id in fake.deleted_keys
@@ -1721,6 +1738,7 @@ def test_delete_user_key_cleanup_recovers_after_commit_failure_without_replay(
     endpoint = _seed_ceph_endpoint(db_session)
     fake = FakeRGWAdmin()
     service = _build_service(db_session, monkeypatch, fake)
+    key_service = S3UserKeyManagementService(db_session)
     created = service.create_user(
         S3UserCreate(
             name="RetryableDelete",
@@ -1771,7 +1789,7 @@ def test_delete_user_key_cleanup_recovers_after_commit_failure_without_replay(
             S3UserUpdate(name="Must not mutate while deleting"),
         )
     with pytest.raises(ValueError, match="deletion is pending"):
-        service.create_access_key_entry(created.id)
+        key_service.create_access_key_entry(created.id)
 
     monkeypatch.setattr(
         s3_user_deletion_service_module,

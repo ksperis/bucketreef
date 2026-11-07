@@ -23,8 +23,9 @@ from app.routers.dependencies import (
     get_audit_service,
     get_current_ui_admin,
 )
-from app.services.s3_users_service import S3UsersService, get_s3_users_service
+from app.services.s3_user_key_management_service import S3UserKeyManagementService
 from app.services.s3_user_query_service import S3UserQueryService
+from app.services.s3_users_service import S3UsersService, get_s3_users_service
 from app.services.audit_service import AuditService
 from app.services.tags_service import serialize_tag_summaries
 from app.utils.http_errors import raise_http_error_from_value_error
@@ -43,6 +44,12 @@ def get_admin_s3_user_query_service(
     db: Session = Depends(get_db),
 ) -> S3UserQueryService:
     return S3UserQueryService(db)
+
+
+def get_admin_s3_user_key_service(
+    db: Session = Depends(get_db),
+) -> S3UserKeyManagementService:
+    return S3UserKeyManagementService(db)
 
 
 @router.get("", response_model=PaginatedS3UsersResponse)
@@ -138,7 +145,7 @@ def update_s3_user(
 @router.post("/{user_id}/rotate-keys", response_model=S3User)
 def rotate_s3_user_keys(
     user_id: int,
-    service: S3UsersService = Depends(get_admin_s3_users_service),
+    service: S3UserKeyManagementService = Depends(get_admin_s3_user_key_service),
     current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> S3User:
@@ -160,7 +167,7 @@ def rotate_s3_user_keys(
 @router.get("/{user_id}/keys", response_model=list[S3UserAccessKey])
 def list_s3_user_keys(
     user_id: int,
-    service: S3UsersService = Depends(get_admin_s3_users_service),
+    service: S3UserKeyManagementService = Depends(get_admin_s3_user_key_service),
     _: User = Depends(get_current_ui_admin),
 ) -> list[S3UserAccessKey]:
     try:
@@ -172,7 +179,7 @@ def list_s3_user_keys(
 @router.post("/{user_id}/keys", response_model=S3UserGeneratedKey, status_code=status.HTTP_201_CREATED)
 def create_s3_user_access_key(
     user_id: int,
-    service: S3UsersService = Depends(get_admin_s3_users_service),
+    service: S3UserKeyManagementService = Depends(get_admin_s3_user_key_service),
     current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> S3UserGeneratedKey:
@@ -196,7 +203,7 @@ def update_s3_user_access_key_status(
     user_id: int,
     access_key: str,
     payload: AccessKeyStatusChange,
-    service: S3UsersService = Depends(get_admin_s3_users_service),
+    service: S3UserKeyManagementService = Depends(get_admin_s3_user_key_service),
     current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> S3UserAccessKey:
@@ -219,7 +226,7 @@ def update_s3_user_access_key_status(
 def delete_s3_user_access_key(
     user_id: int,
     access_key: str,
-    service: S3UsersService = Depends(get_admin_s3_users_service),
+    service: S3UserKeyManagementService = Depends(get_admin_s3_user_key_service),
     current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> None:
