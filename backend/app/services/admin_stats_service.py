@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, TypeVar
+from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import InstrumentedAttribute, Session
 
 from app.core.domain_errors import (
-    S3AccountNotFoundError,
-    S3UserNotFoundError,
     StorageEndpointFeatureDisabledError,
     StorageEndpointProviderError,
 )
@@ -21,14 +19,13 @@ from app.services.admin_metrics_service import AdminMetricsService
 from app.services.auth_session_service import AuthSessionService
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_supervision import get_supervision_rgw_client
+from app.services.s3_account_repository import S3AccountRepository
+from app.services.s3_user_repository import S3UserRepository
 from app.services.storage_endpoint_repository import StorageEndpointRepository
 from app.services.traffic_service import TrafficWindow
 from app.utils.rgw_payloads import extract_bucket_list
 from app.utils.storage_endpoint_features import resolve_feature_flags
 from app.utils.usage_stats import build_bucket_overview, summarize_bucket_usage
-
-_StatsPrincipal = TypeVar("_StatsPrincipal", S3Account, S3User)
-
 
 @dataclass(frozen=True)
 class _AssignmentCounts:
@@ -45,6 +42,8 @@ class AdminStatsService:
 
     def __init__(self, db: Session) -> None:
         self.db = db
+        self.accounts = S3AccountRepository(db)
+        self.s3_users = S3UserRepository(db)
         self.endpoints = StorageEndpointRepository(db)
 
     def summary(self, actor: User) -> dict:
@@ -209,29 +208,15 @@ class AdminStatsService:
         }
 
     def account(self, account_id: int) -> dict:
-        return self._principal_stats(
-            S3Account,
-            account_id,
-            not_found_error=S3AccountNotFoundError("S3Account not found"),
-        )
+        return self._principal_stats(self.accounts.get(account_id))
 
     def s3_user(self, user_id: int) -> dict:
-        return self._principal_stats(
-            S3User,
-            user_id,
-            not_found_error=S3UserNotFoundError("S3 user not found"),
-        )
+        return self._principal_stats(self.s3_users.get(user_id))
 
     def _principal_stats(
         self,
-        model: type[_StatsPrincipal],
-        principal_id: int,
-        *,
-        not_found_error: S3AccountNotFoundError | S3UserNotFoundError,
+        principal: S3Account | S3User,
     ) -> dict:
-        principal = self.db.get(model, principal_id)
-        if principal is None:
-            raise not_found_error
         endpoint = self.resolve_endpoint(
             principal.storage_endpoint_id,
             require_storage_metrics=True,
