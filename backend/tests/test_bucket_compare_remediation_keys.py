@@ -13,6 +13,7 @@ from app.routers import dependencies
 from app.routers.manager import buckets
 from app.services.bucket_compare_remediation import remediate_bucket_content
 from app.services.bucket_comparison_service import BucketComparisonService
+from app.services.s3_client import S3OperationError
 from tests.execution_context_factory import make_s3_execution_context
 
 
@@ -152,7 +153,7 @@ def test_delete_remediation_rejects_unattributable_error_responses(response):
     client = Mock()
     client.delete_objects.return_value = response
 
-    with pytest.raises(RuntimeError, match="Invalid DeleteObjects response"):
+    with pytest.raises(S3OperationError, match="Invalid DeleteObjects response"):
         remediate_bucket_content(
             source_client=None, target_client=client, source_bucket="source", target_bucket="target",
             action="delete_target_only", object_keys=[" report.txt "], same_endpoint=False,
