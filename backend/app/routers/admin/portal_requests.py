@@ -17,24 +17,15 @@ from app.models.portal_requests import (
 from app.routers.dependencies import get_current_ui_admin
 from app.routers.portal_common import get_portal_requests_service_dependency
 from app.services.portal_requests_service import (
-    PortalRequestConflict,
     PortalRequestExecutionError,
-    PortalRequestNotFound,
     PortalRequestsService,
 )
-from app.utils.http_errors import raise_http_exception_from_exception
+from app.utils.http_errors import (
+    raise_http_error_from_value_error,
+    raise_http_exception_from_exception,
+)
 
 router = APIRouter(prefix="/admin/portal-requests", tags=["admin-portal-requests"])
-
-
-def _raise_portal_request_error(exc: Exception) -> None:
-    if isinstance(exc, PortalRequestNotFound):
-        raise_http_exception_from_exception(status.HTTP_404_NOT_FOUND, exc)
-    if isinstance(exc, PortalRequestConflict):
-        raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
-    if isinstance(exc, PortalRequestExecutionError):
-        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
-    raise_http_exception_from_exception(status.HTTP_400_BAD_REQUEST, exc)
 
 
 @router.get("", response_model=PaginatedPortalAdminRequestsResponse)
@@ -55,8 +46,10 @@ def approve_admin_portal_request(
 ) -> PortalAdminRequestOut:
     try:
         return service.approve_request(request_id, current_user, message=payload.message)
-    except (PortalRequestNotFound, PortalRequestConflict, PortalRequestExecutionError, ValueError) as exc:
-        _raise_portal_request_error(exc)
+    except PortalRequestExecutionError as exc:
+        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
+    except ValueError as exc:
+        raise_http_error_from_value_error(exc)
 
 
 @router.post("/{request_id}/reject", response_model=PortalAdminRequestOut)
@@ -68,8 +61,8 @@ def reject_admin_portal_request(
 ) -> PortalAdminRequestOut:
     try:
         return service.reject_request(request_id, current_user, message=payload.message)
-    except (PortalRequestNotFound, PortalRequestConflict, ValueError) as exc:
-        _raise_portal_request_error(exc)
+    except ValueError as exc:
+        raise_http_error_from_value_error(exc)
 
 
 @router.post("/{request_id}/messages", response_model=PortalAdminRequestOut)
@@ -81,5 +74,5 @@ def add_admin_portal_request_message(
 ) -> PortalAdminRequestOut:
     try:
         return service.add_admin_message(request_id, current_user, payload.message)
-    except (PortalRequestNotFound, ValueError) as exc:
-        _raise_portal_request_error(exc)
+    except ValueError as exc:
+        raise_http_error_from_value_error(exc)
