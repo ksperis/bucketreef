@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Literal, Optional
+from typing import Any, Callable, Optional
 
-CompareBy = Literal["md5", "size"]
+from app.core.domain_enums import ObjectComparisonMode
 
 
 @dataclass(frozen=True)
@@ -14,7 +14,7 @@ class ObjectEntryComparison:
     target_size: int
     source_etag: Optional[str]
     target_etag: Optional[str]
-    compare_by: CompareBy
+    compare_by: ObjectComparisonMode
     equal: bool
 
 
