@@ -7,6 +7,7 @@ import { formatBytes, formatNumber } from "../../utils/format";
 import type { FeatureKey } from "./bucketOpsAdvancedFilterModel";
 import {
   FEATURE_DETAIL_COLUMN_OPTIONS,
+  type BucketOpsFeatureColumn,
   type ColumnId,
 } from "./bucketOpsListState";
 import {
@@ -26,12 +27,6 @@ type BucketExportColumn = {
   id: string;
   label: string;
   getValue: (bucket: CephAdminBucket) => string;
-};
-
-export type BucketExportFeatureColumn = {
-  id: FeatureKey;
-  key: FeatureKey;
-  label: string;
 };
 
 const contextKindLabel = (kind?: string | null) => {
@@ -123,7 +118,7 @@ const STATIC_BUCKET_EXPORT_COLUMNS: Partial<
 
 type BuildBucketExportColumnsInput = {
   columnIds: readonly ColumnId[];
-  featureColumns: readonly BucketExportFeatureColumn[];
+  featureColumns: readonly BucketOpsFeatureColumn[];
   isStorageOps: boolean;
   useExplicitBucketName: boolean;
 };
