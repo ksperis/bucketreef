@@ -101,7 +101,7 @@ class CostCollector:
                 continue
             try:
                 rgw_admin = get_supervision_rgw_client(endpoint)
-            except Exception as exc:
+            except (RGWAdminError, ValueError) as exc:
                 logger.warning(
                     "Cost collection skipped for endpoint %s: %s",
                     endpoint.id,
@@ -214,16 +214,7 @@ class CostCollector:
             try:
                 operation(subject)
                 created += 1
-            except RGWAdminError as exc:
-                errors.append(
-                    self._collection_failure(
-                        stage=stage,
-                        endpoint=endpoint,
-                        subject=subject,
-                        exc=exc,
-                    )
-                )
-            except Exception as exc:
+            except (RGWAdminError, ValueError) as exc:
                 errors.append(
                     self._collection_failure(
                         stage=stage,

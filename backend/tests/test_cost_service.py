@@ -23,6 +23,7 @@ from app.services import admin_cost_service
 from app.services.admin_cost_service import AdminCostService
 from app.services.cost_collection_service import CostCollector
 from app.services.cost_calculations import parse_cost_month, validate_ops_breakdown
+from app.services.rgw_admin import RGWAdminError
 from app.services.cost_service import CostService
 from app.services.s3_execution_context import S3ExecutionContext
 from tests.storage_endpoint_features import persisted_endpoint_features
@@ -329,7 +330,7 @@ def test_cost_collection_returns_structured_errors_without_exception_detail(db_s
     monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db", lambda _db: AppSettings())
     monkeypatch.setattr(
         "app.services.cost_collection_service.get_supervision_rgw_client",
-        lambda _endpoint: (_ for _ in ()).throw(RuntimeError("secret upstream detail")),
+        lambda _endpoint: (_ for _ in ()).throw(RGWAdminError("secret upstream detail")),
     )
     monkeypatch.setattr(
         "app.services.cost_collection_service.DataRetentionService.purge_all",
@@ -357,6 +358,60 @@ def test_cost_collection_returns_structured_errors_without_exception_detail(db_s
         )
     ]
     assert "secret upstream detail" not in repr(result)
+
+
+def test_cost_collection_does_not_hide_unexpected_supervision_client_errors(db_session, monkeypatch):
+    endpoint = StorageEndpoint(
+        name="cost-programming-error-endpoint",
+        endpoint_url="https://cost-error.example.test",
+        provider="ceph",
+        features=persisted_endpoint_features("features:\n  admin:\n    enabled: true\n"),
+        is_default=False,
+    )
+    db_session.add(endpoint)
+    db_session.commit()
+
+    class GeneralSettings:
+        cost_enabled = True
+
+    class AppSettings:
+        general = GeneralSettings()
+
+    monkeypatch.setattr("app.services.app_settings_service.load_app_settings_for_db", lambda _db: AppSettings())
+    monkeypatch.setattr(
+        "app.services.cost_collection_service.get_supervision_rgw_client",
+        lambda _endpoint: (_ for _ in ()).throw(TypeError("unexpected supervision client bug")),
+    )
+
+    with pytest.raises(TypeError, match="unexpected supervision client bug"):
+        CostCollector(db_session).collect_daily(date(2026, 9, 25))
+
+
+def test_cost_subject_collection_only_absorbs_domain_collection_errors(db_session):
+    endpoint = _seed_endpoint(db_session)
+    _seed_account(db_session, endpoint.id)
+    _seed_s3_user(db_session, endpoint.id)
+    collector = CostCollector(db_session)
+
+    created, errors = collector._collect_subjects(
+        stage="storage",
+        endpoint=endpoint,
+        operation=lambda subject: (_ for _ in ()).throw(ValueError("invalid measurement"))
+        if subject.kind == "account"
+        else None,
+    )
+
+    assert created == 1
+    assert len(errors) == 1
+    assert errors[0].stage == "storage"
+    assert errors[0].subject == "account"
+
+    with pytest.raises(RuntimeError, match="database write failed"):
+        collector._collect_subjects(
+            stage="storage",
+            endpoint=endpoint,
+            operation=lambda _subject: (_ for _ in ()).throw(RuntimeError("database write failed")),
+        )
 
 
 def test_cost_usage_collection_uses_half_open_daily_window(db_session, monkeypatch):
