@@ -45,6 +45,14 @@ def _persistence_target_name(node: ast.AST) -> str | None:
     return None
 
 
+def _http_exception_details(node: ast.Call) -> list[ast.AST]:
+    if _call_name(node.func) != "HTTPException":
+        return []
+    details = [node.args[1]] if len(node.args) > 1 else []
+    details.extend(keyword.value for keyword in node.keywords if keyword.arg == "detail")
+    return details
+
+
 def _external_error_violations(app_root: Path) -> list[str]:
     violations: list[str] = []
     for file_path in sorted(app_root.rglob("*.py")):
@@ -53,6 +61,12 @@ def _external_error_violations(app_root: Path) -> list[str]:
         for node in ast.walk(tree):
             if isinstance(node, ast.Return) and node.value and _contains_raw_exception_text(node.value):
                 violations.append(f"{file_path.relative_to(app_root)}:{node.lineno}:return-str-exc")
+            if isinstance(node, ast.Call):
+                for detail in _http_exception_details(node):
+                    if _contains_raw_exception_text(detail):
+                        violations.append(
+                            f"{file_path.relative_to(app_root)}:{node.lineno}:http-detail-str-exc"
+                        )
             if isinstance(node, (ast.Assign, ast.AnnAssign)):
                 value = node.value
                 targets = node.targets if isinstance(node, ast.Assign) else [node.target]
@@ -100,7 +114,11 @@ def test_external_error_guard_detects_unsafe_patterns(tmp_path):
         "def unsafe(exc, response, row):\n"
         "    row.error_message = str(exc)\n"
         "    value = response.text\n"
-        "    return str(exc)\n",
+        "    return str(exc)\n"
+        "def unsafe_http_positional(exc):\n"
+        "    raise HTTPException(400, str(exc))\n"
+        "def unsafe_http_keyword(exc):\n"
+        "    raise HTTPException(status_code=400, detail=str(exc))\n",
         encoding="utf-8",
     )
 
@@ -108,4 +126,6 @@ def test_external_error_guard_detects_unsafe_patterns(tmp_path):
         "unsafe.py:2:persist-str-exc",
         "unsafe.py:3:raw-response-text",
         "unsafe.py:4:return-str-exc",
+        "unsafe.py:6:http-detail-str-exc",
+        "unsafe.py:8:http-detail-str-exc",
     ]
