@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 import json
 from dataclasses import dataclass, replace
-from typing import Literal, Optional
+from typing import Optional
 
 from pydantic import SecretStr, ValidationError, field_validator, model_validator
 
@@ -10,6 +10,7 @@ from app.db import StorageEndpoint
 from app.core.domain_enums import (
     MANAGED_SERVICE_IDENTITY_KINDS,
     SERVICE_IDENTITY_KINDS,
+    ServiceIdentityMode,
     StorageProvider,
 )
 from app.models.storage_endpoint import (
@@ -56,7 +57,7 @@ class EnvStorageEndpoint(StorageEndpointCoordinates):
     provider: StorageProvider = StorageProvider.CEPH
     admin_access_key: Optional[str] = None
     admin_secret_key: Optional[str] = None
-    service_identity_mode: Literal["managed", "external"] = "managed"
+    service_identity_mode: ServiceIdentityMode = "managed"
     runtime_access_key: Optional[str] = None
     runtime_secret_key: Optional[str] = None
     ceph_admin_access_key: Optional[str] = None
@@ -94,7 +95,7 @@ class NormalizedEndpointState:
     provider: StorageProvider
     admin_access_key: Optional[str]
     admin_secret_key: Optional[str]
-    service_identity_mode: Literal["managed", "external"]
+    service_identity_mode: ServiceIdentityMode
     runtime_access_key: Optional[str]
     runtime_secret_key: Optional[str]
     ceph_admin_access_key: Optional[str]
@@ -430,7 +431,7 @@ def normalize_storage_endpoint_update(
 def _storage_endpoint_update_base(
     endpoint: StorageEndpoint,
     *,
-    current_identity_mode: str,
+    current_identity_mode: ServiceIdentityMode,
     runtime,
     supervision,
     ceph_admin,

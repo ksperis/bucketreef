@@ -7,7 +7,7 @@ from __future__ import annotations
 from typing import Optional
 
 from app.db import EndpointServiceIdentity, StorageEndpoint
-from app.core.domain_enums import StorageProvider
+from app.core.domain_enums import ServiceIdentityKind, ServiceIdentityMode, StorageProvider
 from app.services.storage_endpoint_normalization import NormalizedEndpointState
 from app.utils.storage_endpoint_features import resolve_rgw_admin_api_endpoint
 
@@ -25,7 +25,10 @@ def apply_storage_endpoint_state(
         _invalidate_external_service_identities(endpoint)
 
 
-def _set_service_identity_mode(identity: EndpointServiceIdentity, mode: str) -> None:
+def _set_service_identity_mode(
+    identity: EndpointServiceIdentity,
+    mode: ServiceIdentityMode,
+) -> None:
     if identity.mode == mode:
         return
     identity.mode = mode
@@ -112,8 +115,8 @@ def _apply_ceph_service_identities(
 
 def _ensure_service_identity(
     endpoint: StorageEndpoint,
-    kind: str,
-    mode: str,
+    kind: ServiceIdentityKind,
+    mode: ServiceIdentityMode,
 ) -> EndpointServiceIdentity:
     identity = endpoint.service_identity(kind)
     if identity is None:

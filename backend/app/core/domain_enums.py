@@ -61,6 +61,7 @@ class HealthWindow(str, Enum):
 HealthCheckMode = Literal["http", "s3"]
 
 
+ServiceIdentityMode = Literal["managed", "external"]
 ServiceIdentityKind = Literal["runtime", "supervision", "ceph_admin"]
 ManagedServiceIdentityKind = Literal["runtime", "supervision"]
 
