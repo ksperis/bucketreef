@@ -23,8 +23,9 @@ from app.models.user import ManagerToolAccess, UserCreate
 from app.services.buckets_service import BucketsService
 from app.services.s3_account_provisioning_service import S3AccountProvisioningService
 from app.services.s3_execution_client import s3_execution_request_kwargs
+from app.services.user_associations_service import UserAssociationsService
+from app.services.user_provisioning_service import UserProvisioningService
 from app.services.user_query_service import UserQueryService
-from app.services.users_service import UsersService
 from app.services.rgw_iam import RGWIAMError, get_iam_service
 from app.services import s3_client
 from app.models.iam import AccessKey as IAMAccessKey
@@ -617,7 +618,8 @@ def _populate_seed_bucket(
 
 
 def _link_seed_users(
-    users_service: UsersService,
+    provisioning_service: UserProvisioningService,
+    associations_service: UserAssociationsService,
     user_query_service: UserQueryService,
     account: S3Account,
     user_plans: list[UserPlan],
@@ -626,7 +628,7 @@ def _link_seed_users(
         user = user_query_service.get_by_email(user_plan.email)
         if user is None:
             try:
-                user = users_service.create_user(
+                user = provisioning_service.create_user(
                     UserCreate(
                         email=user_plan.email,
                         password=user_plan.password,
@@ -645,7 +647,7 @@ def _link_seed_users(
                 logger.warning("  unable to create user %s: %s", user_plan.email, exc)
                 continue
         try:
-            users_service.assign_user_to_account(
+            associations_service.assign_account(
                 user.id,
                 account.id,
                 manager_role=ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value,
@@ -658,7 +660,8 @@ def _link_seed_users(
 def create_account_data(
     account_provisioning: S3AccountProvisioningService,
     buckets_service: BucketsService,
-    users_service: UsersService,
+    user_provisioning: UserProvisioningService,
+    user_associations: UserAssociationsService,
     user_query_service: UserQueryService,
     plan: AccountPlan,
     storage_endpoint_id: int,
@@ -697,7 +700,13 @@ def create_account_data(
             account_client,
             bucket_ready=bucket_ready,
         )
-    _link_seed_users(users_service, user_query_service, account, plan.users)
+    _link_seed_users(
+        user_provisioning,
+        user_associations,
+        user_query_service,
+        account,
+        plan.users,
+    )
 
 
 def parse_args() -> argparse.Namespace:
@@ -759,7 +768,8 @@ def main() -> None:
             raise SystemExit("A default Ceph storage endpoint is required to seed demo data.")
         account_provisioning = S3AccountProvisioningService(db)
         buckets_service = BucketsService()
-        users_service = UsersService(db)
+        user_provisioning = UserProvisioningService(db)
+        user_associations = UserAssociationsService(db)
         user_query_service = UserQueryService(db)
         plans = build_account_plans(args, config)
         logger.info("Planned %s accounts (%s from YAML).", len(plans), len(config.get('accounts', [])) if config else 0)
@@ -767,7 +777,8 @@ def main() -> None:
             create_account_data(
                 account_provisioning,
                 buckets_service,
-                users_service,
+                user_provisioning,
+                user_associations,
                 user_query_service,
                 plan,
                 storage_endpoint.id,

@@ -219,12 +219,13 @@ def test_create_account_data_falls_back_to_account_client_when_iam_provisioning_
         def put_object(self, **kwargs):  # noqa: ANN003
             object_puts.append(kwargs)
 
-    class _UsersService:
+    class _UserProvisioningService:
         def create_user(self, payload):  # noqa: ANN001
             assert payload.email == "admin@example.com"
             return SimpleNamespace(id=11)
 
-        def assign_user_to_account(self, user_id, account_id, *, manager_role, portal_role):  # noqa: ANN001
+    class _UserAssociationsService:
+        def assign_account(self, user_id, account_id, *, manager_role, portal_role):  # noqa: ANN001
             user_links.append((user_id, account_id, manager_role, portal_role))
 
     class _UserQueryService:
@@ -249,7 +250,8 @@ def test_create_account_data_falls_back_to_account_client_when_iam_provisioning_
     seed.create_account_data(
         object(),
         _BucketsService(),
-        _UsersService(),
+        _UserProvisioningService(),
+        _UserAssociationsService(),
         _UserQueryService(),
         seed.AccountPlan(
             name="Demo",

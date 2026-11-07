@@ -15,8 +15,8 @@ from app.services.manager_tool_access import MANAGER_TOOL_COLUMNS
 from app.services.ui_groups_service import UiGroupsService
 from app.services.ui_group_query_service import UiGroupQueryService
 from app.services.user_output_service import UserOutputService
+from app.services.user_provisioning_service import UserProvisioningService
 from app.services.user_update_service import UserUpdateService
-from app.services.users_service import UsersService
 
 
 _TOOLS = ("bucket_compare", "bucket_integrity_check", "bucket_migration", "feature_rules", "bucket_purge")
@@ -75,7 +75,7 @@ def test_manager_tool_contract_covers_exactly_the_persisted_user_and_group_colum
 def test_manager_tool_grants_round_trip_create_update_and_output(db_session, entity, enabled):
     initial = _access(enabled)
     if entity == "user":
-        service = UsersService(db_session)
+        service = UserProvisioningService(db_session)
         subject = service.create_user(_user_create(manager_tool_access=initial))
         to_out = UserOutputService(db_session).to_out
         update = UserUpdateService(db_session).update_user
@@ -110,7 +110,7 @@ def test_manager_tool_grants_round_trip_create_update_and_output(db_session, ent
 @pytest.mark.parametrize("role", [role.value for role in UserRole])
 def test_user_role_controls_persisted_and_effective_manager_tools(db_session, role):
     requested = _access(_TOOLS)
-    service = UsersService(db_session)
+    service = UserProvisioningService(db_session)
     user = service.create_user(_user_create(
         email="role-tools@example.com", role=role, manager_tool_access=requested,
     ))
@@ -129,7 +129,7 @@ def test_user_role_controls_persisted_and_effective_manager_tools(db_session, ro
 def test_role_masking_does_not_rewrite_group_grants(db_session):
     group_service = UiGroupsService(db_session)
     group = group_service.create_group(_group_create(name="Shared tools", manager_tool_access=_access(_TOOLS)))
-    service = UsersService(db_session)
+    service = UserProvisioningService(db_session)
     user = service.create_user(_user_create(
         email="role-mask@example.com", password="valid-test-password",
         role=UserRole.UI_NONE.value, group_ids=[group.id], manager_tool_access=_access(_TOOLS),
@@ -146,7 +146,7 @@ def test_role_masking_does_not_rewrite_group_grants(db_session):
 
 @pytest.mark.parametrize("tool", _TOOLS)
 def test_effective_tools_preserve_direct_and_group_provenance(db_session, tool):
-    service = UsersService(db_session)
+    service = UserProvisioningService(db_session)
     user = service.create_user(_user_create(email="group-tools@example.com"))
     output = UserOutputService(db_session)
     group_service = UiGroupsService(db_session)

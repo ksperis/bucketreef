@@ -21,7 +21,6 @@ from app.db import (
     UserS3Connection,
 )
 from app.core.domain_enums import UserRole
-from app.services.users_service import UsersService
 from app.services.user_deletion_service import UserDeletionService
 from app.db.tag_definition import TagDefinition
 from app.services.portal_service import PortalService
@@ -124,7 +123,7 @@ def test_delete_user_cleans_owned_connections_tokens_and_sessions(db_session):
 
     db_session.commit()
 
-    UsersService(db_session).delete_user(owner.id)
+    UserDeletionService(db_session).delete_user(owner.id)
 
     assert db_session.scalar(select(User).where(User.id == owner.id)) is None
     assert db_session.scalar(
@@ -191,7 +190,7 @@ def test_delete_user_nulls_nullable_foreign_keys(db_session):
     db_session.add_all([audit, migration, tag_definition])
     db_session.commit()
 
-    UsersService(db_session).delete_user(user.id)
+    UserDeletionService(db_session).delete_user(user.id)
 
     refreshed_audit = db_session.scalar(select(AuditLog).where(AuditLog.id == audit.id))
     refreshed_migration = db_session.scalar(
@@ -252,7 +251,7 @@ def test_delete_user_commit_failure_restores_portal_iam_identity(
     )
 
     with pytest.raises(RuntimeError, match="simulated user delete commit failure"):
-        UsersService(db_session).delete_user(user_id)
+        UserDeletionService(db_session).delete_user(user_id)
 
     assert db_session.get(User, user_id) is not None
     assert db_session.scalar(
@@ -330,7 +329,7 @@ def test_delete_user_prepare_failure_restores_earlier_portal_iam_identity(
     )
 
     with pytest.raises(RuntimeError, match="simulated IAM user lookup failure"):
-        UsersService(db_session).delete_user(int(user.id))
+        UserDeletionService(db_session).delete_user(int(user.id))
 
     assert db_session.get(User, user.id) is not None
     assert db_session.scalar(
@@ -436,7 +435,7 @@ def test_delete_user_keeps_failed_portal_iam_cleanup_reconcilable(
     fake_iam.fail_delete_key = True
     install_portal_revocation_fakes(monkeypatch, fake_iam)
 
-    UsersService(db_session).delete_user(user_id)
+    UserDeletionService(db_session).delete_user(user_id)
 
     assert db_session.get(User, user_id) is None
     assert db_session.scalar(
