@@ -8,11 +8,7 @@ import {
   mergeNotificationConfigurations,
 } from "../cephAdmin/bucketJsonParsers";
 import {
-  applyPublicAccessBlockTargets,
   bytesToGiB,
-  hasConfiguredQuota,
-  isPublicAccessBlockEquivalent,
-  normalizePublicAccessBlockState,
   type BulkOperation,
   type BulkQuotaSnapshot,
 } from "./bucketBulkOperationsModel";
@@ -32,7 +28,11 @@ import {
   runBucketMutationBatch,
   type BucketMutationBatchResult,
 } from "./bucketOpsBulkExecution";
-import { normalizeVersioningStatus } from "./bucketOpsPresentation";
+import {
+  resolveBulkPublicAccessBlockTarget,
+  resolveBulkQuotaTarget,
+  resolveBulkVersioningTarget,
+} from "./bucketOpsBulkTargets";
 
 type BucketOpsBulkApplyApi = Pick<
   BucketOpsApi,
@@ -123,21 +123,16 @@ export async function applyBucketOpsBulkUpdate({
     mutate: async (bucketName) => {
       if (operation === "set_quota" && parsedQuota && updateBucketQuota) {
         const currentQuota = await fetchBucketQuota(bucketName);
-        if (quotaSkipConfigured && hasConfiguredQuota(currentQuota)) {
+        const target = resolveBulkQuotaTarget(
+          currentQuota,
+          parsedQuota,
+          quotaSkipConfigured,
+        );
+        if (target.preserved || !target.changed) {
           return { changed: false };
         }
-        const nextSize = parsedQuota.applySize
-          ? parsedQuota.maxSizeBytes
-          : currentQuota.maxSizeBytes;
-        const nextObjects = parsedQuota.applyObjects
-          ? parsedQuota.maxObjects
-          : currentQuota.maxObjects;
-        if (
-          currentQuota.maxSizeBytes === nextSize &&
-          currentQuota.maxObjects === nextObjects
-        ) {
-          return { changed: false };
-        }
+        const nextSize = target.maxSizeBytes;
+        const nextObjects = target.maxObjects;
         const payloadSize =
           nextSize != null
             ? parsedQuota.applySize && parsedQuota.maxSizeValue != null
@@ -164,30 +159,28 @@ export async function applyBucketOpsBulkUpdate({
           operation === "remove_public_access_block") &&
         publicAccessBlockTargets
       ) {
-        const current = normalizePublicAccessBlockState(
+        const target = resolveBulkPublicAccessBlockTarget(
           await getBucketPublicAccessBlock(endpointId, bucketName),
-        );
-        const target = applyPublicAccessBlockTargets(
-          current,
           desiredPublicAccessBlockEnabled,
           publicAccessBlockTargets,
         );
-        if (isPublicAccessBlockEquivalent(current, target)) {
+        if (!target.changed) {
           return { changed: false };
         }
-        await updateBucketPublicAccessBlock(endpointId, bucketName, target);
+        await updateBucketPublicAccessBlock(endpointId, bucketName, target.target);
         return { changed: true };
       }
 
       if (operation === "enable_versioning" || operation === "disable_versioning") {
         const properties = await getBucketProperties(endpointId, bucketName);
-        const currentEnabled = normalizeVersioningStatus(
+        const target = resolveBulkVersioningTarget(
           properties.versioning_status,
+          desiredEnabled,
         );
-        if (currentEnabled !== null && currentEnabled === desiredEnabled) {
+        if (!target.changed) {
           return { changed: false };
         }
-        await setBucketVersioning(endpointId, bucketName, desiredEnabled);
+        await setBucketVersioning(endpointId, bucketName, target.targetEnabled);
         return { changed: true };
       }
 
