@@ -11,6 +11,7 @@ from app.db import (
     AuditLog,
     PortalAdminRequest,
     S3Account,
+    S3AccountDeletion,
     UiGroup,
     UiGroupS3Account,
     User,
@@ -35,17 +36,24 @@ from app.services.portal_requests_service import PortalRequestConflict, PortalRe
 from tests.s3_account_factory import make_s3_account
 
 
-class FakeAccountsService:
+class FakeAccountQuotaOperations:
     def __init__(self, quota=(10.0, 123)) -> None:
         self.quota = quota
         self.updates = []
 
-    def get_account_quota(self, account):  # noqa: ANN001
+    def get_quota(self, account):  # noqa: ANN001
         return self.quota
 
-    def update_account(self, account_id, payload):  # noqa: ANN001
-        self.updates.append((account_id, payload))
-        return None
+    def update(self, account, max_size_gb, max_objects, max_size_unit=None):  # noqa: ANN001
+        self.updates.append((account.id, max_size_gb, max_objects, max_size_unit))
+
+
+class FakeAccountRepository:
+    def __init__(self) -> None:
+        self.checked_account_ids = []
+
+    def ensure_not_pending_deletion(self, account_id):  # noqa: ANN001
+        self.checked_account_ids.append(account_id)
 
 
 def test_portal_request_optional_text_is_normalized() -> None:
@@ -124,7 +132,7 @@ def test_portal_request_creation_lists_only_requester_and_notifies_admin(db_sess
     requester = _seed_user(db_session, email="requester@example.org")
     other = _seed_user(db_session, email="other@example.org")
     admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
-    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    service = PortalRequestsService(db_session)
 
     created = _create_user_request(service, account, requester)
 
@@ -154,10 +162,7 @@ def test_portal_request_creation_rolls_back_session_when_commit_fails(
 ):
     account = _seed_account(db_session)
     requester = _seed_user(db_session, email="requester@example.org")
-    service = PortalRequestsService(
-        db_session,
-        accounts_service=FakeAccountsService(),
-    )
+    service = PortalRequestsService(db_session)
     original_rollback = db_session.rollback
     rollback_calls = 0
 
@@ -182,7 +187,7 @@ def test_portal_request_creation_rolls_back_session_when_commit_fails(
 def test_admin_search_matches_structured_request_payload(db_session):
     account = _seed_account(db_session)
     requester = _seed_user(db_session, email="requester@example.org")
-    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    service = PortalRequestsService(db_session)
     created = _create_user_request(service, account, requester)
 
     response = service.list_for_admin(
@@ -197,7 +202,7 @@ def test_admin_request_listing_is_paginated_and_searches_account_name(db_session
     account = _seed_account(db_session, name="Research Account")
     first_requester = _seed_user(db_session, email="first@example.org")
     second_requester = _seed_user(db_session, email="second@example.org")
-    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    service = PortalRequestsService(db_session)
     first = _create_user_request(service, account, first_requester)
     second = _create_user_request(service, account, second_requester)
 
@@ -226,7 +231,7 @@ def test_approve_user_access_creates_placeholder_and_portal_link(db_session):
     account = _seed_account(db_session)
     requester = _seed_user(db_session, email="requester@example.org")
     admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
-    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    service = PortalRequestsService(db_session)
     created = _create_user_request(service, account, requester)
 
     approved = service.approve_request(created.id, admin, message="Done")
@@ -259,7 +264,7 @@ def test_approve_user_access_rolls_back_placeholder_when_assignment_fails(
     account = _seed_account(db_session)
     requester = _seed_user(db_session, email="requester@example.org")
     admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
-    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    service = PortalRequestsService(db_session)
     created = _create_user_request(service, account, requester)
     monkeypatch.setattr(
         service.collaborator_requests.associations,
@@ -279,7 +284,7 @@ def test_approve_user_access_assigns_requested_portal_manager_role(db_session):
     account = _seed_account(db_session)
     requester = _seed_user(db_session, email="requester@example.org")
     admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
-    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    service = PortalRequestsService(db_session)
     created = _create_user_request(
         service,
         account,
@@ -318,7 +323,7 @@ def test_approve_user_access_does_not_downgrade_existing_portal_manager(db_sessi
         )
     )
     db_session.commit()
-    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    service = PortalRequestsService(db_session)
     created = _create_user_request(service, account, requester)
 
     approved = service.approve_request(created.id, admin)
@@ -339,7 +344,7 @@ def test_approve_user_access_rejects_noncanonical_missing_intent(db_session):
     account = _seed_account(db_session)
     requester = _seed_user(db_session, email="requester@example.org")
     admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
-    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    service = PortalRequestsService(db_session)
     created = _create_user_request(service, account, requester)
     row = db_session.get(PortalAdminRequest, created.id)
     assert row is not None
@@ -371,7 +376,7 @@ def test_approve_user_access_rejects_noncanonical_persisted_values(
     account = _seed_account(db_session)
     requester = _seed_user(db_session, email="requester@example.org")
     admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
-    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    service = PortalRequestsService(db_session)
     created = _create_user_request(service, account, requester)
     row = db_session.get(PortalAdminRequest, created.id)
     assert row is not None
@@ -399,7 +404,7 @@ def test_approve_user_access_preserves_existing_portal_manager_role(db_session):
         )
     )
     db_session.commit()
-    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    service = PortalRequestsService(db_session)
     created = _create_user_request(service, account, requester)
 
     approved = service.approve_request(created.id, admin)
@@ -431,7 +436,7 @@ def test_approve_user_removal_deletes_portal_user_link_only(db_session):
         )
     )
     db_session.commit()
-    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    service = PortalRequestsService(db_session)
     created = service.create_request(
         requester,
         _portal_access(account, requester),
@@ -470,7 +475,7 @@ def test_approve_user_removal_refuses_portal_manager_link(db_session):
         )
     )
     db_session.commit()
-    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    service = PortalRequestsService(db_session)
     created = service.create_request(
         requester,
         _portal_access(account, requester),
@@ -509,7 +514,7 @@ def test_role_change_request_promotes_direct_portal_user(db_session):
         )
     )
     db_session.commit()
-    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    service = PortalRequestsService(db_session)
 
     created = service.create_request(
         requester,
@@ -578,7 +583,7 @@ def test_role_change_execution_rejects_noncanonical_persisted_values(
         )
     )
     db_session.commit()
-    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    service = PortalRequestsService(db_session)
     created = service.create_request(
         requester,
         _portal_access(account, requester, portal_role=PortalAccountRole.PORTAL_MANAGER.value),
@@ -614,7 +619,7 @@ def test_role_change_request_rejects_unchanged_role(db_session):
         )
     )
     db_session.commit()
-    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    service = PortalRequestsService(db_session)
 
     with pytest.raises(ValueError, match="unchanged"):
         service.create_request(
@@ -642,7 +647,7 @@ def test_role_change_request_fails_if_role_changed_before_approval(db_session):
     )
     db_session.add(link)
     db_session.commit()
-    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    service = PortalRequestsService(db_session)
     created = service.create_request(
         requester,
         _portal_access(account, requester, portal_role=PortalAccountRole.PORTAL_MANAGER.value),
@@ -691,7 +696,7 @@ def test_collaborator_addition_delegation_combinations(
     db_session.commit()
     requester = _seed_user(db_session, email="manager@example.org")
     admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
-    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    service = PortalRequestsService(db_session)
 
     created = _create_user_request(
         service,
@@ -731,7 +736,7 @@ def test_delegated_execution_failure_is_sanitized_and_audited(db_session, monkey
     db_session.commit()
     requester = _seed_user(db_session, email="manager@example.org")
     admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
-    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    service = PortalRequestsService(db_session)
 
     def fail_execution(_row):
         raise RuntimeError("secret_key=top-secret endpoint=https://rgw.example.test/api")
@@ -812,7 +817,7 @@ def test_delegated_role_change_is_applied_immediately(
             (int(user.id), int(target_account.id), role)
         ),
     )
-    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    service = PortalRequestsService(db_session)
 
     created = service.create_request(
         requester,
@@ -862,7 +867,7 @@ def test_nondelegated_role_change_stays_pending_and_notifies_admin(db_session):
         )
     )
     db_session.commit()
-    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    service = PortalRequestsService(db_session)
 
     created = service.create_request(
         requester,
@@ -914,7 +919,7 @@ def test_role_change_rejects_self_and_group_backed_membership(db_session):
         ]
     )
     db_session.commit()
-    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    service = PortalRequestsService(db_session)
     access = _portal_access(account, requester, portal_role=PortalAccountRole.PORTAL_MANAGER.value)
 
     with pytest.raises(ValueError, match="own project role"):
@@ -947,7 +952,7 @@ def test_approve_user_access_marks_failed_for_inactive_existing_user(db_session)
     requester = _seed_user(db_session, email="requester@example.org")
     admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
     _seed_user(db_session, email="jane.viewer@example.org", active=False)
-    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    service = PortalRequestsService(db_session)
     created = _create_user_request(service, account, requester)
 
     with pytest.raises(PortalRequestExecutionError):
@@ -972,8 +977,14 @@ def test_approve_quota_change_applies_new_account_quota_and_keeps_object_quota(d
     account = _seed_account(db_session)
     requester = _seed_user(db_session, email="requester@example.org")
     admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
-    fake_accounts = FakeAccountsService(quota=(10.0, 123))
-    service = PortalRequestsService(db_session, accounts_service=fake_accounts)
+    fake_quota = FakeAccountQuotaOperations(quota=(10.0, 123))
+    fake_repository = FakeAccountRepository()
+    service = PortalRequestsService(
+        db_session,
+        account_metrics=fake_quota,
+        account_quota=fake_quota,
+        account_repository=fake_repository,
+    )
     created = service.create_request(
         requester,
         _portal_access(account, requester),
@@ -988,12 +999,8 @@ def test_approve_quota_change_applies_new_account_quota_and_keeps_object_quota(d
     approved = service.approve_request(created.id, admin)
 
     assert approved.status == "approved"
-    assert fake_accounts.updates
-    account_id, payload = fake_accounts.updates[0]
-    assert account_id == account.id
-    assert payload.quota_max_size_gb == 12
-    assert payload.quota_max_size_unit == "GiB"
-    assert payload.quota_max_objects == 123
+    assert fake_repository.checked_account_ids == [account.id]
+    assert fake_quota.updates == [(account.id, 12, 123, "GiB")]
 
 
 def test_setting_change_request_rejects_when_project_settings_are_delegated(db_session):
@@ -1002,7 +1009,7 @@ def test_setting_change_request_rejects_when_project_settings_are_delegated(db_s
     db_session.add(account)
     db_session.commit()
     requester = _seed_user(db_session, email="manager@example.org")
-    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    service = PortalRequestsService(db_session)
 
     with pytest.raises(ValueError, match="already delegated"):
         service.create_request(
@@ -1026,7 +1033,7 @@ def test_setting_change_request_rejects_when_project_settings_are_delegated(db_s
 def test_setting_change_request_requires_portal_manager_before_persisting(db_session):
     account = _seed_account(db_session)
     requester = _seed_user(db_session, email="requester@example.org")
-    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    service = PortalRequestsService(db_session)
 
     with pytest.raises(ValueError, match="Portal manager rights required"):
         service.create_request(
@@ -1052,7 +1059,7 @@ def test_approve_setting_change_preserves_concurrent_project_overrides(db_sessio
     db_session.commit()
     requester = _seed_user(db_session, email="manager@example.org")
     admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
-    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    service = PortalRequestsService(db_session)
     created = service.create_request(
         requester,
         _portal_access(
@@ -1103,7 +1110,7 @@ def test_approve_setting_change_inherit_removes_only_requested_nested_override(d
     db_session.commit()
     requester = _seed_user(db_session, email="manager@example.org")
     admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
-    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    service = PortalRequestsService(db_session)
     created = service.create_request(
         requester,
         _portal_access(
@@ -1148,7 +1155,7 @@ def test_create_quota_change_rejects_target_below_current_usage(db_session, monk
             )
 
     monkeypatch.setattr("app.services.portal_requests_service.PortalService", FakePortalService)
-    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService(quota=(20.0, 123)))
+    service = PortalRequestsService(db_session)
 
     with pytest.raises(ValueError, match="space already used"):
         service.create_request(
@@ -1181,10 +1188,7 @@ def test_create_quota_change_propagates_unexpected_usage_failures(db_session, mo
         "app.services.portal_requests_service.PortalService",
         FailingPortalService,
     )
-    service = PortalRequestsService(
-        db_session,
-        accounts_service=FakeAccountsService(quota=(20.0, 123)),
-    )
+    service = PortalRequestsService(db_session)
 
     with pytest.raises(TypeError, match="programming error"):
         service.create_request(
@@ -1206,8 +1210,12 @@ def test_quota_direction_mismatch_fails_request(db_session):
     account = _seed_account(db_session)
     requester = _seed_user(db_session, email="requester@example.org")
     admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
-    fake_accounts = FakeAccountsService(quota=(10.0, None))
-    service = PortalRequestsService(db_session, accounts_service=fake_accounts)
+    fake_quota = FakeAccountQuotaOperations(quota=(10.0, None))
+    service = PortalRequestsService(
+        db_session,
+        account_metrics=fake_quota,
+        account_quota=fake_quota,
+    )
     created = service.create_request(
         requester,
         _portal_access(account, requester),
@@ -1226,14 +1234,55 @@ def test_quota_direction_mismatch_fails_request(db_session):
     row = db_session.get(PortalAdminRequest, created.id)
     assert row is not None
     assert row.status == "failed"
-    assert fake_accounts.updates == []
+    assert fake_quota.updates == []
+
+
+def test_quota_approval_rejects_account_pending_deletion(db_session):
+    account = _seed_account(db_session)
+    requester = _seed_user(db_session, email="requester@example.org")
+    admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
+    fake_quota = FakeAccountQuotaOperations(quota=(10.0, 123))
+    service = PortalRequestsService(
+        db_session,
+        account_metrics=fake_quota,
+        account_quota=fake_quota,
+    )
+    created = service.create_request(
+        requester,
+        _portal_access(account, requester),
+        PortalAccountQuotaChangeRequestCreate(
+            request_type="account_quota_change",
+            direction="increase",
+            target_quota_value=12,
+            target_quota_unit="GiB",
+            reason="Need more capacity",
+        ),
+    )
+    db_session.add(
+        S3AccountDeletion(
+            account_id=account.id,
+            rgw_account_id=account.rgw_account_id,
+            rgw_user_uid=account.rgw_user_uid,
+            rgw_tenant=account.rgw_tenant,
+            storage_endpoint_id=account.storage_endpoint_id,
+        )
+    )
+    db_session.commit()
+
+    with pytest.raises(PortalRequestExecutionError):
+        service.approve_request(created.id, admin)
+
+    row = db_session.get(PortalAdminRequest, created.id)
+    assert row is not None
+    assert row.status == "failed"
+    assert fake_quota.updates == []
 
 
 def test_reject_and_conflict_on_final_request(db_session):
     account = _seed_account(db_session)
     requester = _seed_user(db_session, email="requester@example.org")
     admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
-    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    service = PortalRequestsService(db_session)
     created = _create_user_request(service, account, requester)
 
     rejected = service.reject_request(created.id, admin, message="Missing information")
@@ -1254,7 +1303,7 @@ def test_platform_prohibition_rejects_new_and_previously_pending_activation_requ
     account = _seed_account(db_session)
     requester = _seed_user(db_session, email="policy-manager@example.test")
     admin = _seed_user(db_session, email="policy-admin@example.test", role=UserRole.UI_ADMIN.value)
-    service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
+    service = PortalRequestsService(db_session)
     access = _portal_access(account, requester, portal_role=PortalAccountRole.PORTAL_MANAGER.value)
     payload = PortalSettingChangeRequestCreate(request_type="portal_setting_change",
         setting="allow_portal_user_external_sharing", mode="override", value=True)

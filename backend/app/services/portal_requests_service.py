@@ -28,12 +28,14 @@ from app.models.portal_requests import (
     PortalUserAccessRequestCreate,
     PortalUserRemovalRequestCreate,
 )
-from app.models.s3_account import S3AccountUpdate
 from app.services.audit_service import AuditService
 from app.services.portal_collaborator_requests_service import PortalCollaboratorRequestsService
 from app.services.portal_request_notification_service import PortalRequestNotificationService
 from app.services.portal_service import PortalService
-from app.services.s3_accounts_service import S3AccountsService, get_s3_accounts_service
+from app.services.s3_account_metrics_service import S3AccountMetricsService
+from app.services.s3_account_quota_service import S3AccountQuotaService
+from app.services.s3_account_repository import S3AccountRepository
+from app.services.s3_account_rgw_context_service import S3AccountRgwContextService
 from app.services.sqlalchemy_pagination import paginate_scalars
 from app.utils.size_units import size_to_bytes
 from app.utils.time import utcnow
@@ -76,10 +78,16 @@ class PortalRequestsService:
         self,
         db: Session,
         *,
-        accounts_service: Optional[S3AccountsService] = None,
+        account_metrics: Optional[S3AccountMetricsService] = None,
+        account_quota: Optional[S3AccountQuotaService] = None,
+        account_repository: Optional[S3AccountRepository] = None,
     ) -> None:
         self.db = db
-        self.accounts_service = accounts_service or get_s3_accounts_service(db)
+        self.account_metrics = account_metrics or S3AccountMetricsService()
+        self.account_repository = account_repository or S3AccountRepository(db)
+        self.account_quota = account_quota or S3AccountQuotaService(
+            S3AccountRgwContextService(db)
+        )
         self.collaborator_requests = PortalCollaboratorRequestsService(db)
         self.notifications = PortalRequestNotificationService(db)
 
@@ -511,20 +519,19 @@ class PortalRequestsService:
         target_value = payload.target_quota_value
         target_unit = payload.target_quota_unit
         target_bytes = size_to_bytes(target_value, target_unit)
-        current_size_gb, current_objects = self.accounts_service.get_account_quota(row.account)
+        current_size_gb, current_objects = self.account_metrics.get_quota(row.account)
         current_bytes = size_to_bytes(current_size_gb, "GiB") if current_size_gb is not None else None
         if current_bytes is not None and target_bytes is not None:
             if direction == "increase" and target_bytes <= current_bytes:
                 raise ValueError("Requested quota must be greater than the current quota")
             if direction == "decrease" and target_bytes >= current_bytes:
                 raise ValueError("Requested quota must be lower than the current quota")
-        self.accounts_service.update_account(
-            int(row.account_id),
-            S3AccountUpdate(
-                quota_max_size_gb=target_value,
-                quota_max_size_unit=target_unit,
-                quota_max_objects=current_objects,
-            ),
+        self.account_repository.ensure_not_pending_deletion(int(row.account_id))
+        self.account_quota.update(
+            row.account,
+            target_value,
+            current_objects,
+            target_unit,
         )
         return {
             "previous_quota_size_gb": current_size_gb,
