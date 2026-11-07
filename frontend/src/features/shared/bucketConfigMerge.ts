@@ -131,7 +131,7 @@ export const getPolicyStatementSid = (
   return null;
 };
 
-type LifecycleChange = {
+type RuleMergeChange = {
   action: "replace" | "add";
   index: number;
   before?: Record<string, unknown>;
@@ -143,7 +143,7 @@ export const mergeLifecycleRules = (
   incomingRules: Record<string, unknown>[],
   options?: { onlyUpdateExisting?: boolean },
 ) => {
-  const changes: LifecycleChange[] = [];
+  const changes: RuleMergeChange[] = [];
   const nextRules = [...existingRules];
   const serialize = (value: Record<string, unknown>) => stableStringify(value);
 
@@ -390,19 +390,12 @@ export const getPolicyStatementTypes = (
   return types;
 };
 
-type PolicyChange = {
-  action: "replace" | "add";
-  index: number;
-  before?: Record<string, unknown>;
-  after: Record<string, unknown>;
-};
-
 export const mergePolicyStatements = (
   existingStatements: Record<string, unknown>[],
   incomingStatements: Record<string, unknown>[],
   options?: { onlyUpdateExisting?: boolean },
 ) => {
-  const changes: PolicyChange[] = [];
+  const changes: RuleMergeChange[] = [];
   const nextStatements = [...existingStatements];
   const serialize = (value: Record<string, unknown>) => stableStringify(value);
 
@@ -463,19 +456,12 @@ export const mergePolicyStatements = (
   return { nextStatements, changes };
 };
 
-type CorsChange = {
-  action: "replace" | "add";
-  index: number;
-  before?: Record<string, unknown>;
-  after: Record<string, unknown>;
-};
-
 export const mergeCorsRules = (
   existingRules: Record<string, unknown>[],
   incomingRules: Record<string, unknown>[],
   options?: { onlyUpdateExisting?: boolean },
 ) => {
-  const changes: CorsChange[] = [];
+  const changes: RuleMergeChange[] = [];
   const nextRules = [...existingRules];
   const serialize = (value: Record<string, unknown>) => stableStringify(value);
 
