@@ -21,7 +21,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.domain_errors import BrowserListingCursorError
+from app.core.domain_errors import BrowserListingCursorError, BrowserListingScanLimitError
 from app.services.access_context_contracts import ManagerActor
 from app.models.app_settings import BrowserSettings
 from app.models.bucket import BucketVersioningStatus
@@ -54,6 +54,7 @@ from app.services.browser_usage_summary_service import (
     BrowserUsageSummaryService,
     get_browser_usage_summary_service,
 )
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.http_errors import raise_bad_gateway_from_runtime, raise_http_exception_from_exception
 
@@ -96,7 +97,7 @@ def search_buckets(
 ) -> PaginatedBrowserBucketsResponse:
     try:
         return service.search_buckets(context, query)
-    except RuntimeError as exc:
+    except S3OperationError as exc:
         raise_bad_gateway_from_runtime(exc)
 
 
@@ -135,7 +136,7 @@ def create_bucket(
             metadata={"versioning": payload.versioning},
         )
         return Response(status_code=status.HTTP_201_CREATED)
-    except RuntimeError as exc:
+    except S3OperationError as exc:
         raise_bad_gateway_from_runtime(exc)
 
 
@@ -150,7 +151,7 @@ def get_bucket_versioning(
         status_value = service.get_bucket_versioning(bucket_name, context)
         enabled = status_value == "Enabled"
         return BucketVersioningStatus(status=status_value, enabled=enabled)
-    except RuntimeError as exc:
+    except S3OperationError as exc:
         raise_bad_gateway_from_runtime(exc)
 
 
@@ -170,7 +171,7 @@ def list_objects(
         )
     except BrowserListingCursorError as exc:
         raise_http_exception_from_exception(status.HTTP_422_UNPROCESSABLE_CONTENT, exc)
-    except RuntimeError as exc:
+    except (S3OperationError, BrowserListingScanLimitError) as exc:
         raise_bad_gateway_from_runtime(exc)
 
 
@@ -229,5 +230,5 @@ def ensure_bucket_cors(
             metadata={"origin": payload.origin},
         )
         return status_result
-    except RuntimeError as exc:
+    except S3OperationError as exc:
         raise_bad_gateway_from_runtime(exc)

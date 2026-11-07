@@ -12,6 +12,7 @@ from app.models.browser import (
     BrowserBucketSearchRequest,
     PaginatedBrowserBucketsResponse,
 )
+from app.services.s3_client import S3OperationError
 from app.services.s3_client import create_bucket as s3_create_bucket
 from app.services.s3_client import set_bucket_versioning as s3_set_bucket_versioning
 from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
@@ -85,7 +86,7 @@ class BrowserBucketsMixin:
         try:
             resp = client.list_buckets()
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(f"Unable to list buckets: {exc}") from exc
+            raise S3OperationError(f"Unable to list buckets: {exc}") from exc
         buckets: list[BrowserBucket] = []
         for bucket in resp.get("Buckets", []):
             name = bucket.get("Name")

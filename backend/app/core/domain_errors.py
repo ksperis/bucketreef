@@ -111,6 +111,10 @@ class BrowserListingCursorError(ValueError):
     """Raised when a Browser listing cursor no longer matches its filters."""
 
 
+class BrowserListingScanLimitError(RuntimeError):
+    """Raised when a sorted Browser listing exceeds its bounded scan budget."""
+
+
 class BrowserStorageSpacePermissionError(PermissionError):
     """Raised when Portal Storage Space access does not permit a Browser mutation."""
 

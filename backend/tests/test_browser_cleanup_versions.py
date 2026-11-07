@@ -3,11 +3,13 @@
 from datetime import datetime, timedelta, timezone
 
 import pytest
+from botocore.exceptions import ClientError
 
 from app.db import S3Account
 from app.models.browser import CleanupObjectVersionsPayload
 from app.services import browser_service
 from app.services.browser import versions as browser_versions
+from app.services.s3_client import S3OperationError
 
 
 def _account() -> S3Account:
@@ -27,6 +29,25 @@ def test_cleanup_requires_a_criterion_before_opening_an_s3_client(monkeypatch):
             "bucket-a",
             _account(),
             CleanupObjectVersionsPayload(),
+        )
+
+
+def test_cleanup_types_provider_listing_failure(monkeypatch):
+    class FailingClient:
+        def list_object_versions(self, **_kwargs):
+            raise ClientError(
+                {"Error": {"Code": "AccessDenied", "Message": "denied"}},
+                "ListObjectVersions",
+            )
+
+    service = browser_service.BrowserService()
+    monkeypatch.setattr(service, "_client", lambda *_args, **_kwargs: FailingClient())
+
+    with pytest.raises(S3OperationError, match="Unable to clean old versions"):
+        service.cleanup_object_versions(
+            "bucket-a",
+            _account(),
+            CleanupObjectVersionsPayload(keep_last_n=1),
         )
 
 

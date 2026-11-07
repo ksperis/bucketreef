@@ -2,8 +2,10 @@
 # Licensed under the Apache License, Version 2.0
 
 import pytest
+from botocore.exceptions import ClientError
 
 from app.services.browser_service import BrowserService
+from app.services.s3_client import S3OperationError
 
 
 ORIGIN = "https://browser.example.test"
@@ -99,3 +101,24 @@ def test_ensure_cors_repairs_matching_wildcard_origin_rule(monkeypatch):
     assert len(client.rules) == 1
     assert client.rules[0]["AllowedOrigins"] == ["*"]
     assert "DELETE" in client.rules[0]["AllowedMethods"]
+
+
+def test_ensure_cors_types_provider_failures(monkeypatch):
+    class FailingCorsClient(CorsClient):
+        def get_bucket_cors(self, **_kwargs):
+            raise ClientError(
+                {"Error": {"Code": "AccessDenied", "Message": "denied"}},
+                "GetBucketCors",
+            )
+
+    service = _service_with_client(monkeypatch, FailingCorsClient([]))
+
+    with pytest.raises(S3OperationError, match="Unable to fetch CORS"):
+        service.ensure_bucket_cors("bucket-a", object(), ORIGIN)
+
+
+def test_ensure_cors_rejects_missing_origin_as_validation_error(monkeypatch):
+    service = _service_with_client(monkeypatch, CorsClient([]))
+
+    with pytest.raises(ValueError, match="Missing origin"):
+        service.ensure_bucket_cors("bucket-a", object(), "")

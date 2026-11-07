@@ -11,6 +11,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 from app.models.browser import CleanupObjectVersionsPayload, CleanupObjectVersionsResponse
 from app.services.object_listing_temp_store import TemporarySqliteStore
 from app.services.object_version_cleanup_store import ObjectVersionCleanupStore
+from app.services.s3_client import S3OperationError
 from app.services.s3_deletion import delete_objects
 from app.services.s3_execution_context import S3ExecutionTarget
 
@@ -23,7 +24,7 @@ class BrowserVersionsMixin:
         try:
             resp = client.get_bucket_versioning(Bucket=bucket_name)
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(f"Unable to fetch versioning for bucket '{bucket_name}': {exc}") from exc
+            raise S3OperationError(f"Unable to fetch versioning for bucket '{bucket_name}': {exc}") from exc
         return resp.get("Status")
 
     def _delete_version_batch(
@@ -149,4 +150,4 @@ class BrowserVersionsMixin:
                 scanned_delete_markers=scanned_delete_markers,
             )
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(f"Unable to clean old versions for '{bucket_name}': {exc}") from exc
+            raise S3OperationError(f"Unable to clean old versions for '{bucket_name}': {exc}") from exc
