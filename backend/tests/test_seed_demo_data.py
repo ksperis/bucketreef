@@ -141,6 +141,70 @@ def test_ensure_iam_user_does_not_mask_unexpected_runtime_errors(monkeypatch):
         seed.ensure_iam_user_with_key(account, "demo-user")
 
 
+def test_ensure_account_updates_existing_quota_through_provisioning_dependency():
+    account = SimpleNamespace(id=7, name="Demo")
+    quota_updates: list[tuple[object, int, None]] = []
+
+    class _Db:
+        def scalar(self, _query):  # noqa: ANN001
+            return account
+
+    class _Quota:
+        def update(self, account_arg, max_size_gb, max_objects):  # noqa: ANN001
+            quota_updates.append((account_arg, max_size_gb, max_objects))
+
+    provisioning = SimpleNamespace(
+        db=_Db(),
+        quota=_Quota(),
+        create_account_with_manager=lambda _payload: (_ for _ in ()).throw(
+            AssertionError("existing account should not be reprovisioned")
+        ),
+    )
+
+    resolved = seed.ensure_account(
+        provisioning,
+        "Demo",
+        "demo@example.com",
+        12,
+        storage_endpoint_id=3,
+    )
+
+    assert resolved is account
+    assert quota_updates == [(account, 12, None)]
+
+
+def test_ensure_account_returns_provisioned_account_directly():
+    account = SimpleNamespace(id=7, name="Demo")
+    created_payloads = []
+
+    class _Db:
+        def scalar(self, _query):  # noqa: ANN001
+            return None
+
+    def create_account(payload):  # noqa: ANN001
+        created_payloads.append(payload)
+        return SimpleNamespace(account=account)
+
+    provisioning = SimpleNamespace(
+        db=_Db(),
+        quota=object(),
+        create_account_with_manager=create_account,
+    )
+
+    resolved = seed.ensure_account(
+        provisioning,
+        "Demo",
+        "demo@example.com",
+        None,
+        storage_endpoint_id=3,
+    )
+
+    assert resolved is account
+    assert len(created_payloads) == 1
+    assert created_payloads[0].name == "Demo"
+    assert created_payloads[0].storage_endpoint_id == 3
+
+
 def test_create_account_data_falls_back_to_account_client_when_iam_provisioning_fails(monkeypatch):
     account = SimpleNamespace(id=7, name="Demo", rgw_account_id="rgw-demo")
     bucket_creates: list[tuple[str, int]] = []
