@@ -4,7 +4,6 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.domain_errors import S3AccountNotFoundError, UiUserNotFoundError
 from app.db import (
     S3Account,
     S3User,
@@ -30,6 +29,8 @@ from app.services.portal_role_sync import (
     capture_effective_portal_roles,
     commit_portal_role_changes,
 )
+from app.services.s3_account_repository import S3AccountRepository
+from app.services.user_query_service import UserQueryService
 from app.utils.account_roles import ManagerAccountRoleValue, PortalAccountRoleValue
 from app.utils.time import utcnow
 
@@ -39,6 +40,8 @@ class UserAssociationsService:
 
     def __init__(self, db: Session) -> None:
         self.db = db
+        self.accounts = S3AccountRepository(db)
+        self.users = UserQueryService(db)
 
     def apply_updates(self, user: User, payload: UserAssociationsPayload) -> None:
         fields = payload.model_fields_set
@@ -129,12 +132,8 @@ class UserAssociationsService:
         manager_role: ManagerAccountRoleValue | None,
         portal_role: PortalAccountRoleValue | None,
     ) -> User:
-        user = self.db.get(User, user_id)
-        if not user:
-            raise UiUserNotFoundError("User not found")
-        account = self.db.get(S3Account, account_id)
-        if not account:
-            raise S3AccountNotFoundError("S3Account not found")
+        user = self.users.require_by_id(user_id)
+        account = self.accounts.get(account_id)
 
         before_roles = capture_effective_portal_roles(
             self.db,

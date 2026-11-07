@@ -6,7 +6,7 @@ import pytest
 from pydantic import ValidationError
 from sqlalchemy import select
 
-from app.core.domain_errors import UiUserNotFoundError
+from app.core.domain_errors import S3AccountNotFoundError, UiUserNotFoundError
 from app.core.security import get_password_hash
 from app.db import (
     AccountIAMUser,
@@ -982,9 +982,9 @@ def test_assign_user_to_account_paths_and_paginated_user_summaries(db_session):
     account = _seed_account(db_session, "acc-b", "RGW-ACC-B")
     user = _seed_user(db_session, "assign@example.com", role=UserRole.UI_NONE.value)
 
-    with pytest.raises(ValueError, match="User not found"):
+    with pytest.raises(UiUserNotFoundError, match="User not found"):
         service.assign_user_to_account(99999, account.id, manager_role=None, portal_role=PortalAccountRole.PORTAL_USER.value)
-    with pytest.raises(ValueError, match="S3Account not found"):
+    with pytest.raises(S3AccountNotFoundError, match="S3Account not found"):
         service.assign_user_to_account(user.id, 99999, manager_role=None, portal_role=PortalAccountRole.PORTAL_USER.value)
 
     updated = service.assign_user_to_account(
