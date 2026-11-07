@@ -84,7 +84,7 @@ class OpenStackService:
         normalized_search = (request.search or "").strip()
         if normalized_search:
             query = query.where(OpenStackCloud.name.ilike(f"%{normalized_search}%"))
-        rows, total = paginate_scalars(
+        rows, total, has_next = paginate_scalars(
             self.db,
             query,
             order_by=(OpenStackCloud.name, OpenStackCloud.id),
@@ -96,7 +96,7 @@ class OpenStackService:
             total=total,
             page=request.page,
             page_size=request.page_size,
-            has_next=request.page * request.page_size < total,
+            has_next=has_next,
         )
 
     def user_connections(self, user: User, auth_id: str) -> list[dict]:

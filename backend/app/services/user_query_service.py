@@ -77,7 +77,7 @@ class UserQueryService:
                     func.coalesce(User.full_name, "").ilike(pattern),
                 )
             )
-        rows, total = paginate_scalars(
+        rows, total, has_next = paginate_scalars(
             self.db,
             statement,
             order_by=(func.lower(User.email).asc(), User.id.asc()),
@@ -100,7 +100,7 @@ class UserQueryService:
             total=total,
             page=request.page,
             page_size=request.page_size,
-            has_next=request.page * request.page_size < total,
+            has_next=has_next,
         )
 
     @staticmethod
@@ -182,7 +182,7 @@ class UserQueryService:
     ) -> PaginatedUsersResponse:
         search_value = request.search.strip() if isinstance(request.search, str) else ""
         statement = self._apply_search(select(User), search_value)
-        rows, total = paginate_scalars(
+        rows, total, has_next = paginate_scalars(
             self.db,
             statement,
             order_by=self._order_columns(request.sort_by, request.sort_dir),
@@ -201,5 +201,5 @@ class UserQueryService:
             total=total,
             page=request.page,
             page_size=request.page_size,
-            has_next=request.page * request.page_size < total,
+            has_next=has_next,
         )

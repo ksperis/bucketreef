@@ -290,7 +290,7 @@ class PortalRequestsService:
                     )
                 )
 
-        rows, total = paginate_scalars(
+        rows, total, has_next = paginate_scalars(
             self.db,
             stmt,
             order_by=(PortalAdminRequest.created_at.desc(), PortalAdminRequest.id.desc()),
@@ -302,7 +302,7 @@ class PortalRequestsService:
             total=total,
             page=query.page,
             page_size=query.page_size,
-            has_next=query.page * query.page_size < total,
+            has_next=has_next,
         )
 
     def add_admin_message(

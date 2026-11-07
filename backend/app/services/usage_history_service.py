@@ -24,6 +24,7 @@ from app.models.usage_history import (
     UsageHistoryTrendSummary,
     UsageHistoryTrendWindow,
 )
+from app.services.pagination_window import page_window
 from app.utils.time import utcnow
 
 TrendFilterBuilder = Callable[[Any], list]
@@ -201,10 +202,11 @@ class UsageHistoryService:
             )
             or 0
         )
+        window = page_window(total=total, page=query.page, page_size=query.page_size)
         rows = self._history_rows(
             columns,
             filters,
-            page=query.page,
+            offset=window.offset,
             page_size=query.page_size,
             sort_by=query.sort_by,
             sort_dir=query.sort_dir,
@@ -215,7 +217,7 @@ class UsageHistoryService:
             total=total,
             page=query.page,
             page_size=query.page_size,
-            has_next=query.page * query.page_size < total,
+            has_next=window.has_next,
             summary=summary,
         )
 
@@ -271,7 +273,7 @@ class UsageHistoryService:
         columns: _HistoryColumns,
         filters: list,
         *,
-        page: int,
+        offset: int,
         page_size: int,
         sort_by: UsageHistorySortBy,
         sort_dir: AdminSortDir,
@@ -301,7 +303,7 @@ class UsageHistoryService:
             .outerjoin(S3User, model.s3_user_id == S3User.id)
             .where(*filters)
             .order_by(ordered, model.id.desc())
-            .offset((page - 1) * page_size)
+            .offset(offset)
             .limit(page_size)
         ).all()
 
