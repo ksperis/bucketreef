@@ -20,7 +20,6 @@ import { managerBucketDetails } from "../../api/bucketDetails";
 import type {
   Bucket,
   BucketFeatureStatus,
-  BucketProperties,
   BucketTag,
 } from "../../api/bucketContracts";
 import { S3ExecutionContextSelector } from "../../api/accountParams";
@@ -52,17 +51,9 @@ import BucketPurgeRunModal from "../shared/BucketPurgeRunModal";
 import { BucketFeatureSummaryChip, BucketSummaryTooltip } from "../shared/BucketFeatureSummaryTooltip";
 import type { BucketFeatureTooltipState } from "../shared/BucketFeatureSummaryTooltip";
 import {
-  buildBucketPolicySummaryLines,
   buildBucketTagSummaryLines,
-  buildCorsRuleSummaryLines,
-  buildLifecycleRuleSummaryLines,
-  buildLoggingSummaryLines,
-  buildNotificationSummaryLines,
-  buildObjectLockSummaryLines,
-  buildPublicAccessBlockSummaryLines,
-  buildVersioningSummaryLines,
-  buildWebsiteSummaryLines,
 } from "../shared/bucketFeatureSummaries";
+import { useBucketFeatureTooltips } from "../shared/useBucketFeatureTooltips";
 import ManagerToolbarSearch from "./ManagerToolbarSearch";
 import BucketCreateWorkflow from "./BucketCreateWorkflow";
 import { useManagerI18n } from "./managerI18n";
@@ -233,11 +224,6 @@ export default function BucketsPage() {
   const fetchRequestRef = useRef(0);
   const fetchAbortRef = useRef<AbortController | null>(null);
   const lastFetchContextRef = useRef<string | null>(null);
-  const [activeFeatureTooltipKey, setActiveFeatureTooltipKey] = useState<string | null>(null);
-  const [featureTooltipState, setFeatureTooltipState] = useState<Record<string, BucketFeatureTooltipState>>({});
-  const featureTooltipInflightRef = useRef<Partial<Record<string, Promise<void>>>>({});
-  const bucketPropertiesCacheRef = useRef<Record<string, BucketProperties>>({});
-  const bucketPropertiesInflightRef = useRef<Record<string, Promise<BucketProperties>>>({});
   const [activeTagsTooltipKey, setActiveTagsTooltipKey] = useState<string | null>(null);
   const [sort, setSort] = useState<{ field: SortField; direction: "asc" | "desc" }>({
     field: "name",
@@ -297,6 +283,25 @@ export default function BucketsPage() {
   const needsContextSelection = requiresContextSelection && !contextIdForApi;
   const canDeleteBucketWithPurge =
     isFeaturePolicyAvailable(generalSettings.manager_feature_policies.bucket_purge) && Boolean(managerToolAccess?.bucket_purge);
+  const {
+    activeFeatureTooltipKey,
+    featureTooltipCacheKey,
+    featureTooltipState,
+    loadFeatureTooltip,
+    resetFeatureTooltipState,
+    setActiveFeatureTooltipKey,
+  } = useBucketFeatureTooltips<BucketListRow>({
+    bucketCacheKey: (bucket) => bucket.name,
+    enabled: !needsContextSelection,
+    extractError: (error) => extractApiError(error, text("Unable to load bucket feature details.")),
+    getBucketCors: (bucket) => getBucketCors(contextIdForApi, bucket.name),
+    getBucketLogging: (bucket) => getBucketLogging(contextIdForApi, bucket.name),
+    getBucketNotifications: (bucket) => getBucketNotifications(contextIdForApi, bucket.name),
+    getBucketPolicy: (bucket) => getBucketPolicy(contextIdForApi, bucket.name),
+    getBucketProperties: (bucket) => getBucketProperties(contextIdForApi, bucket.name),
+    getBucketWebsite: (bucket) => getBucketWebsite(contextIdForApi, bucket.name),
+    noAdditionalDetails: text("No additional details available."),
+  });
 
   const includeParams = useMemo(() => {
     const include: string[] = [];
@@ -324,107 +329,7 @@ export default function BucketsPage() {
   const quotaConfigured = (bucket: BucketListRow) =>
     Boolean((bucket.quota_max_size_bytes ?? 0) > 0 || (bucket.quota_max_objects ?? 0) > 0);
 
-  const bucketTooltipCacheKey = (bucket: BucketListRow) => bucket.name;
-  const featureTooltipCacheKey = (bucket: BucketListRow, featureKey: ManagerFeatureKey) =>
-    `${bucketTooltipCacheKey(bucket)}:${featureKey}`;
   const tagsTooltipCacheKey = (bucketName: string) => `${bucketName}:tags`;
-
-  const getBucketPropertiesCached = async (bucket: BucketListRow): Promise<BucketProperties> => {
-    const bucketKey = bucketTooltipCacheKey(bucket);
-    const cached = bucketPropertiesCacheRef.current[bucketKey];
-    if (cached) return cached;
-    const inflight = bucketPropertiesInflightRef.current[bucketKey];
-    if (inflight) return inflight;
-    const contextId = contextIdForApi;
-    const promise = getBucketProperties(contextId, bucket.name)
-      .then((properties) => {
-        bucketPropertiesCacheRef.current[bucketKey] = properties;
-        return properties;
-      })
-      .finally(() => {
-        delete bucketPropertiesInflightRef.current[bucketKey];
-      });
-    bucketPropertiesInflightRef.current[bucketKey] = promise;
-    return promise;
-  };
-
-  const buildFeatureTooltipLines = async (bucket: BucketListRow, featureKey: ManagerFeatureKey): Promise<string[]> => {
-    const contextId = contextIdForApi;
-
-    if (featureKey === "versioning") {
-      const properties = await getBucketPropertiesCached(bucket);
-      return buildVersioningSummaryLines(properties.versioning_status);
-    }
-
-    if (featureKey === "object_lock") {
-      const properties = await getBucketPropertiesCached(bucket);
-      return buildObjectLockSummaryLines(properties.object_lock);
-    }
-
-    if (featureKey === "block_public_access") {
-      const properties = await getBucketPropertiesCached(bucket);
-      return buildPublicAccessBlockSummaryLines(properties.public_access_block as Record<string, unknown> | null | undefined);
-    }
-
-    if (featureKey === "lifecycle_rules") {
-      const properties = await getBucketPropertiesCached(bucket);
-      return buildLifecycleRuleSummaryLines(properties.lifecycle_rules as unknown[]);
-    }
-
-    if (featureKey === "cors") {
-      const properties = await getBucketPropertiesCached(bucket);
-      const inlineRules = Array.isArray(properties.cors_rules) ? properties.cors_rules : null;
-      if (inlineRules) return buildCorsRuleSummaryLines(inlineRules);
-      const cors = await getBucketCors(contextId, bucket.name);
-      return buildCorsRuleSummaryLines(cors.rules);
-    }
-
-    if (featureKey === "static_website") {
-      const website = await getBucketWebsite(contextId, bucket.name);
-      return buildWebsiteSummaryLines(website as Record<string, unknown>);
-    }
-
-    if (featureKey === "bucket_policy") {
-      const policy = await getBucketPolicy(contextId, bucket.name);
-      return buildBucketPolicySummaryLines(policy.policy);
-    }
-
-    if (featureKey === "access_logging") {
-      const logging = await getBucketLogging(contextId, bucket.name);
-      return buildLoggingSummaryLines(logging as Record<string, unknown>);
-    }
-
-    if (featureKey === "notifications") {
-      const notifications = await getBucketNotifications(contextId, bucket.name);
-      return buildNotificationSummaryLines(notifications.configuration);
-    }
-
-    return [text("No additional details available.")];
-  };
-
-  const loadFeatureTooltip = (bucket: BucketListRow, featureKey: ManagerFeatureKey) => {
-    if (needsContextSelection) return;
-    const key = featureTooltipCacheKey(bucket, featureKey);
-    const current = featureTooltipState[key];
-    if (current?.status === "ready" || current?.status === "loading") return;
-    if (featureTooltipInflightRef.current[key]) return;
-
-    const work = (async () => {
-      setFeatureTooltipState((prev) => ({ ...prev, [key]: { status: "loading" } }));
-      try {
-        const lines = await buildFeatureTooltipLines(bucket, featureKey);
-        setFeatureTooltipState((prev) => ({ ...prev, [key]: { status: "ready", lines } }));
-      } catch (err) {
-        setFeatureTooltipState((prev) => ({
-          ...prev,
-          [key]: { status: "error", message: extractApiError(err, text("Unable to load bucket feature details.")) },
-        }));
-      } finally {
-        delete featureTooltipInflightRef.current[key];
-      }
-    })();
-    featureTooltipInflightRef.current[key] = work;
-  };
 
   const renderTagList = (tags?: BucketTag[] | null, bucketName = "bucket") => {
     const safeTags = Array.isArray(tags) ? tags.filter((t) => (t.key ?? "").trim()) : [];
@@ -563,13 +468,9 @@ export default function BucketsPage() {
   }, [contextIdForApi, fetchBuckets, needsContextSelection]);
 
   useEffect(() => {
-    setActiveFeatureTooltipKey(null);
-    setFeatureTooltipState({});
-    featureTooltipInflightRef.current = {};
-    bucketPropertiesCacheRef.current = {};
-    bucketPropertiesInflightRef.current = {};
+    resetFeatureTooltipState();
     setActiveTagsTooltipKey(null);
-  }, [contextIdForApi]);
+  }, [contextIdForApi, resetFeatureTooltipState]);
 
   useEffect(() => {
     persistVisibleColumns(visibleColumns);

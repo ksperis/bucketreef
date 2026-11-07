@@ -28,6 +28,7 @@ function createDeferred<T>() {
 
 function createApi() {
   return {
+    getBucketCors: vi.fn<TooltipOptions["getBucketCors"]>(async () => ({ rules: [] })),
     getBucketEncryption: vi.fn<TooltipOptions["getBucketEncryption"]>(async () => ({ rules: [] })),
     getBucketLogging: vi.fn<TooltipOptions["getBucketLogging"]>(async () => buildBucketLoggingConfiguration()),
     getBucketNotifications: vi.fn<TooltipOptions["getBucketNotifications"]>(async () => ({ configuration: {} })),
