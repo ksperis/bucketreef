@@ -2,7 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import StorageEndpointNotFoundError
@@ -21,9 +20,7 @@ class S3UserRgwContextService:
         self.db = db
 
     def resolve_storage_endpoint(self, storage_endpoint_id: int) -> StorageEndpoint:
-        endpoint = self.db.scalar(
-            select(StorageEndpoint).where(StorageEndpoint.id == storage_endpoint_id)
-        )
+        endpoint = self.db.get(StorageEndpoint, storage_endpoint_id)
         if not endpoint:
             raise StorageEndpointNotFoundError("Storage endpoint not found.")
         if endpoint.provider != StorageProvider.CEPH.value:

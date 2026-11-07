@@ -18,7 +18,7 @@ class S3UserRepository:
         self.db = db
 
     def get(self, user_id: int) -> S3User:
-        s3_user = self.db.scalar(select(S3User).where(S3User.id == user_id))
+        s3_user = self.db.get(S3User, user_id)
         if s3_user is None:
             raise S3UserNotFoundError("S3 user not found")
         return s3_user
