@@ -7,7 +7,7 @@ from typing import Literal, Optional
 
 from pydantic import Field, field_validator, model_validator
 
-from app.core.domain_enums import S3SubjectFilter, S3SubjectType
+from app.core.domain_enums import CostSubjectCollectionStage, S3SubjectFilter, S3SubjectType
 from app.models.admin_listing import AdminSortableListingRequest
 from app.models.base import ApiModel
 from app.models.pagination import PaginatedResponse
@@ -39,7 +39,7 @@ class CostEndpointCollectionError(ApiModel):
 
 
 class CostSubjectCollectionError(ApiModel):
-    stage: Literal["usage", "storage"]
+    stage: CostSubjectCollectionStage
     endpoint_id: int
     subject: S3SubjectType
     subject_id: int
