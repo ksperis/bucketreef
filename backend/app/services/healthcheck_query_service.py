@@ -10,7 +10,6 @@ from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.domain_errors import StorageEndpointNotFoundError
 from app.db import (
     EndpointHealthCheck,
     EndpointHealthLatest,
@@ -38,6 +37,7 @@ from app.services.healthcheck_query_projection import (
     workspace_endpoint_snapshot,
     workspace_incident_payload,
 )
+from app.services.storage_endpoint_repository import StorageEndpointRepository
 from app.utils.name_ordering import name_order_by
 from app.utils.time import utcnow
 
@@ -47,6 +47,7 @@ settings = get_settings()
 class HealthCheckQueryService:
     def __init__(self, db: Session) -> None:
         self.db = db
+        self.endpoints = StorageEndpointRepository(db)
 
     def _sorted_endpoints_statement(self):
         return select(StorageEndpoint).order_by(*name_order_by(StorageEndpoint))
@@ -93,9 +94,7 @@ class HealthCheckQueryService:
         return {"generated_at": utcnow().isoformat(), "endpoints": summaries}
 
     def build_series(self, endpoint_id: int, window: HealthWindow) -> dict:
-        endpoint = self.db.get(StorageEndpoint, endpoint_id)
-        if not endpoint:
-            raise StorageEndpointNotFoundError("Endpoint not found.")
+        endpoint = self.endpoints.get(endpoint_id)
         profile = resolve_healthcheck_profile(endpoint)
         now = utcnow()
         start = now - WINDOW_DELTAS[window]
@@ -324,12 +323,10 @@ class HealthCheckQueryService:
         endpoint_id: Optional[int] = None,
         incident_highlight_minutes: Optional[int] = None,
     ) -> dict:
-        endpoints_statement = self._sorted_endpoints_statement()
         if endpoint_id is not None:
-            endpoints_statement = endpoints_statement.where(StorageEndpoint.id == endpoint_id)
-        endpoints = self.db.scalars(endpoints_statement).all()
-        if endpoint_id is not None and not endpoints:
-            raise StorageEndpointNotFoundError("Endpoint not found.")
+            endpoints = [self.endpoints.get(endpoint_id)]
+        else:
+            endpoints = self.db.scalars(self._sorted_endpoints_statement()).all()
 
         now = utcnow()
         stale_after_seconds = settings.healthcheck_interval_seconds * 2
@@ -418,9 +415,7 @@ class HealthCheckQueryService:
         ]
 
     def build_incidents(self, endpoint_id: int, window: HealthWindow) -> dict:
-        endpoint = self.db.get(StorageEndpoint, endpoint_id)
-        if not endpoint:
-            raise StorageEndpointNotFoundError("Endpoint not found.")
+        endpoint = self.endpoints.get(endpoint_id)
         profile = resolve_healthcheck_profile(endpoint)
         latest_scope = self._load_latest_scope_by_endpoint([endpoint_id]).get(endpoint_id)
         check_mode = latest_scope.check_mode if latest_scope else profile.mode
@@ -457,9 +452,7 @@ class HealthCheckQueryService:
         window: HealthWindow,
         pagination: PaginationRequest,
     ) -> dict:
-        endpoint = self.db.get(StorageEndpoint, endpoint_id)
-        if not endpoint:
-            raise StorageEndpointNotFoundError("Endpoint not found.")
+        endpoint = self.endpoints.get(endpoint_id)
         now = utcnow()
         start = now - WINDOW_DELTAS[window]
 

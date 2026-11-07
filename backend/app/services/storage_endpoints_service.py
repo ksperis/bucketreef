@@ -13,7 +13,6 @@ from app.core.domain_enums import (
     SERVICE_IDENTITY_KINDS,
     StorageProvider,
 )
-from app.core.domain_errors import StorageEndpointNotFoundError
 from app.db import S3Account, S3Connection, S3User, StorageEndpoint, User
 from app.models.storage_endpoint import (
     StorageEndpointFeatureDetectionRequest,
@@ -33,6 +32,7 @@ from app.services.storage_endpoint_admin_permissions import (
 from app.services.storage_endpoint_feature_detection import (
     StorageEndpointFeatureDetector,
 )
+from app.services.storage_endpoint_repository import StorageEndpointRepository
 from app.services.endpoint_service_identity_reconciliation_policy import (
     needs_startup_reconciliation,
 )
@@ -67,6 +67,7 @@ class StorageEndpointsService:
     def __init__(self, db: Session, *, actor: User | None = None) -> None:
         self.db = db
         self.actor = actor
+        self.repository = StorageEndpointRepository(db)
         self.tags = TagsService(db)
 
     def env_endpoints_locked(self) -> bool:
@@ -185,10 +186,7 @@ class StorageEndpointsService:
         )
 
     def get_endpoint_record(self, endpoint_id: int) -> StorageEndpoint:
-        endpoint = self.db.get(StorageEndpoint, endpoint_id)
-        if not endpoint:
-            raise StorageEndpointNotFoundError("Endpoint not found.")
-        return endpoint
+        return self.repository.get(endpoint_id)
 
     def get_endpoint(self, endpoint_id: int, *, include_admin_ops_permissions: bool = True) -> StorageEndpointSchema:
         endpoint = self.get_endpoint_record(endpoint_id)

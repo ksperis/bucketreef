@@ -12,7 +12,6 @@ from app.core.domain_errors import (
     S3AccountNotFoundError,
     S3UserNotFoundError,
     StorageEndpointFeatureDisabledError,
-    StorageEndpointNotFoundError,
     StorageEndpointProviderError,
 )
 from app.db import S3Account, S3Connection, S3User, StorageEndpoint, User, UserS3Account, UserS3User
@@ -22,6 +21,7 @@ from app.services.admin_metrics_service import AdminMetricsService
 from app.services.auth_session_service import AuthSessionService
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_supervision import get_supervision_rgw_client
+from app.services.storage_endpoint_repository import StorageEndpointRepository
 from app.services.traffic_service import TrafficWindow
 from app.utils.rgw_payloads import extract_bucket_list
 from app.utils.storage_endpoint_features import resolve_feature_flags
@@ -45,6 +45,7 @@ class AdminStatsService:
 
     def __init__(self, db: Session) -> None:
         self.db = db
+        self.endpoints = StorageEndpointRepository(db)
 
     def summary(self, actor: User) -> dict:
         payload = self.platform_summary()
@@ -149,9 +150,7 @@ class AdminStatsService:
         require_usage_logs: bool = False,
     ) -> StorageEndpoint:
         if endpoint_id is not None:
-            endpoint = self.db.get(StorageEndpoint, endpoint_id)
-            if endpoint is None:
-                raise StorageEndpointNotFoundError("Endpoint not found.")
+            endpoint = self.endpoints.get(endpoint_id)
         else:
             endpoint = self.db.scalars(
                 select(StorageEndpoint).where(
