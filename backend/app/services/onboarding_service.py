@@ -77,12 +77,7 @@ class OnboardingService:
 
     @staticmethod
     def draft(row) -> OnboardingDraft:
-        data = dict(row.draft)
-        resources = row.resources
-        if resources.get("endpoint_id"):
-            data["endpoint_id"] = resources["endpoint_id"]
-            data["endpoint_url"] = ""
-        return OnboardingDraft.model_validate(data)
+        return OnboardingDraft.model_validate(row.draft)
 
     def preview(self, actor, row):
         self._require_admin(actor)
@@ -313,7 +308,6 @@ class OnboardingService:
         links: dict[str, str] = {}
         account_id = resources.get("account_id")
         connection_id = resources.get("connection_id")
-        endpoint_id = resources.get("endpoint_id") or draft.endpoint_id
         if draft.manager and account_id:
             links["manager"] = f"/manager/buckets?ctx={account_id}"
         if draft.portal and account_id:
@@ -321,8 +315,8 @@ class OnboardingService:
         if draft.private_connection and connection_id:
             links["browser"] = f"/browser?ctx=conn-{connection_id}"
             links["private_manager"] = f"/manager/buckets?ctx=conn-{connection_id}"
-        if draft.ceph_admin and endpoint_id:
-            links["ceph_admin"] = f"/ceph-admin?ep={endpoint_id}"
+        if draft.ceph_admin and draft.endpoint_id:
+            links["ceph_admin"] = f"/ceph-admin?ep={draft.endpoint_id}"
         return links
 
     def output(self, actor, row):
@@ -410,6 +404,13 @@ class OnboardingService:
         row.pending_step = None
         row.updated_at = utcnow()
         commit_or_rollback(self.db)
+
+    def checkpoint_endpoint(self, row, endpoint_id: int) -> None:
+        draft = self.draft(row).model_copy(
+            update={"endpoint_id": endpoint_id, "endpoint_url": ""}
+        )
+        row.draft = draft.model_dump(mode="json")
+        self.checkpoint(row, endpoint_id=endpoint_id)
 
     def audit(self, actor, action, identifier, *, status="success", **metadata):
         account_id = metadata.get("account_id")
