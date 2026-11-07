@@ -61,8 +61,8 @@ def get_user_associations_service_dependency(
     return get_user_associations_service(db)
 
 
-def _ldap_import_service(db: Session, users_service: UsersService) -> AdminLdapUserImportService:
-    return AdminLdapUserImportService(db, get_ldap_auth_service(db), users_service)
+def _ldap_import_service(db: Session) -> AdminLdapUserImportService:
+    return AdminLdapUserImportService(db, get_ldap_auth_service(db))
 
 
 def _raise_ldap_import_error(
@@ -162,13 +162,12 @@ def search_ldap_users_for_import(
     request: Request,
     provider_id: str = Query(..., min_length=1, max_length=128),
     q: str = Query(..., min_length=2, max_length=256),
-    users_service: UsersService = Depends(get_users_service_dependency),
     current_user: DbUser = Depends(get_current_ui_admin),
     db: Session = Depends(get_db),
 ) -> LDAPImportSearchResponse:
     session = require_admin_interactive_session(request, db, current_user)
     try:
-        return _ldap_import_service(db, users_service).search(
+        return _ldap_import_service(db).search(
             actor=current_user,
             session=session,
             provider_id=provider_id,
@@ -218,7 +217,7 @@ def import_ldap_user(
     require_admin_sensitive_action(request, db, current_user)
     session = require_admin_interactive_session(request, db, current_user)
     try:
-        user, provider_id = _ldap_import_service(db, users_service).import_user(
+        user, provider_id = _ldap_import_service(db).import_user(
             payload,
             actor=current_user,
             session=session,
