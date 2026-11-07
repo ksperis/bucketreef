@@ -119,7 +119,7 @@ class BucketPurgeService(LongRunningS3ClientMixin):
             context = targets[indexes[0]].context
             try:
                 buckets = buckets_service.list_buckets(context, with_stats=True)
-            except Exception as exc:  # noqa: BLE001 - stats are best-effort only.
+            except RuntimeError as exc:
                 logger.info(
                     "Unable to resolve bucket purge entry estimates for context=%s: %s",
                     targets[indexes[0]].context_id,
