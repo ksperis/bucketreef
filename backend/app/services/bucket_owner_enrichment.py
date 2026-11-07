@@ -19,7 +19,6 @@ from app.utils.cache import (
     TtlCacheEntry,
     get_or_build_single_flight_cache,
     invalidate_single_flight_cache,
-    prune_expired_lru_cache,
 )
 from app.utils.normalize import normalize_optional_string
 from app.utils.quota_stats import (
@@ -64,6 +63,7 @@ class BucketOwnerUsage:
 
 _ACCOUNT_LIST_CACHE: OrderedDict[int, TtlCacheEntry[object]] = OrderedDict()
 _ACCOUNT_LIST_CACHE_LOCK = Lock()
+_ACCOUNT_LIST_INFLIGHT: dict[int, Future[object]] = {}
 _ACCOUNT_DETAIL_CACHE: OrderedDict[tuple[int, str], TtlCacheEntry[object]] = OrderedDict()
 _ACCOUNT_DETAIL_CACHE_LOCK = Lock()
 _ACCOUNT_DETAIL_INFLIGHT: dict[tuple[int, str], Future[object]] = {}
@@ -159,40 +159,6 @@ def apply_bucket_owner_usage_map(
     return buckets
 
 
-def _cache_get(
-    cache: OrderedDict[object, TtlCacheEntry[object]],
-    lock: Lock,
-    key: object,
-    *,
-    max_entries: int,
-) -> object | None:
-    now = monotonic()
-    with lock:
-        prune_expired_lru_cache(cache, now=now, max_entries=max_entries)
-        cached = cache.get(key)
-        if cached is None:
-            return None
-        cache.move_to_end(key)
-        return cached.value
-
-
-def _cache_set(
-    cache: OrderedDict[object, TtlCacheEntry[object]],
-    lock: Lock,
-    key: object,
-    value: object,
-    *,
-    max_entries: int,
-) -> object:
-    expires_at = monotonic() + OWNER_DETAILS_CACHE_TTL_SECONDS
-    with lock:
-        prune_expired_lru_cache(cache, now=monotonic(), max_entries=max_entries)
-        cache[key] = TtlCacheEntry(expires_at=expires_at, value=value)
-        cache.move_to_end(key)
-        prune_expired_lru_cache(cache, now=monotonic(), max_entries=max_entries)
-    return value
-
-
 def _get_or_set_inflight_cache(
     cache: OrderedDict[object, TtlCacheEntry[object]],
     lock: Lock,
@@ -216,11 +182,13 @@ def _get_or_set_inflight_cache(
 
 
 def invalidate_bucket_owner_metadata_cache(endpoint_id: int | None = None) -> None:
-    with _ACCOUNT_LIST_CACHE_LOCK:
-        if endpoint_id is None:
-            _ACCOUNT_LIST_CACHE.clear()
-        else:
-            _ACCOUNT_LIST_CACHE.pop(endpoint_id, None)
+    account_list_predicate = None if endpoint_id is None else lambda key: key == endpoint_id
+    invalidate_single_flight_cache(
+        _ACCOUNT_LIST_CACHE,
+        _ACCOUNT_LIST_INFLIGHT,
+        _ACCOUNT_LIST_CACHE_LOCK,
+        predicate=account_list_predicate,
+    )
 
     account_predicate = None if endpoint_id is None else lambda key: key[0] == endpoint_id
     invalidate_single_flight_cache(
@@ -502,32 +470,28 @@ class BucketOwnerMetadataService:
         )
 
     def _get_account_listing(self) -> list[dict]:
-        cached = _cache_get(
-            _ACCOUNT_LIST_CACHE,
-            _ACCOUNT_LIST_CACHE_LOCK,
-            self.endpoint_id,
-            max_entries=OWNER_ACCOUNT_LIST_CACHE_MAX_ENTRIES,
-        )
-        if isinstance(cached, list):
-            return cached
-        client = self._get_rgw_admin()
-        if client is None:
-            return []
-        try:
-            payload = client.list_accounts(include_details=False)
-        except (RGWAdminError, TypeError):
+        def builder() -> object:
+            client = self._get_rgw_admin()
+            if client is None:
+                return []
             try:
-                payload = client.list_accounts()
-            except RGWAdminError:
-                payload = []
-        normalized = payload if isinstance(payload, list) else []
-        return _cache_set(
+                payload = client.list_accounts(include_details=False)
+            except (RGWAdminError, TypeError):
+                try:
+                    payload = client.list_accounts()
+                except RGWAdminError:
+                    payload = []
+            return payload if isinstance(payload, list) else []
+
+        cached = _get_or_set_inflight_cache(
             _ACCOUNT_LIST_CACHE,
             _ACCOUNT_LIST_CACHE_LOCK,
+            _ACCOUNT_LIST_INFLIGHT,
             self.endpoint_id,
-            normalized,
             max_entries=OWNER_ACCOUNT_LIST_CACHE_MAX_ENTRIES,
+            builder=builder,
         )
+        return cached if isinstance(cached, list) else []
 
     def _get_account_detail(self, account_id: str) -> dict | None:
         key = (self.endpoint_id, account_id)
