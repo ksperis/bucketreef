@@ -25,7 +25,7 @@ from app.services.onboarding_contracts import (
 from app.services.portal_access_service import resolve_portal_account_access
 from app.services.portal_service import get_portal_service
 from app.services.rgw_iam import get_iam_client
-from app.services.s3_accounts_service import get_s3_accounts_service
+from app.services.s3_account_provisioning_service import S3AccountProvisioningService
 from app.services.s3_connections_service import S3ConnectionsService
 from app.services.s3_execution_client import require_s3_execution_credentials
 from app.services.user_associations_service import UserAssociationsService
@@ -142,7 +142,7 @@ class OnboardingSetupService:
 
         row.pending_step = "account"
         commit_or_rollback(self.db)
-        created = get_s3_accounts_service(self.db).ensure_provisioned_account(
+        account = S3AccountProvisioningService(self.db).ensure_provisioned_account(
             S3AccountCreate(
                 name=account_name,
                 rgw_tenant="",
@@ -150,15 +150,15 @@ class OnboardingSetupService:
             ),
             identifier,
         )
-        self.progress.checkpoint(row, account_id=created.id)
+        self.progress.checkpoint(row, account_id=account.id)
         self.progress.audit(
             actor,
             "account_created",
             row.id,
-            account_id=created.id,
+            account_id=account.id,
             endpoint_id=endpoint.id,
         )
-        return self.db.get(S3Account, created.id)
+        return account
 
     def _ensure_portal_iam(self, actor, row, endpoint, account):
         if resolve_feature_flags(endpoint).iam_enabled:

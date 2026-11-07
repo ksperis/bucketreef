@@ -538,11 +538,11 @@ def test_manager_and_portal_share_one_sample_account_with_independent_roles(
         )
         db_session.add(row)
         db_session.commit()
-        return SimpleNamespace(id=row.id)
+        return row
 
     monkeypatch.setattr(
         setup_service,
-        "get_s3_accounts_service",
+        "S3AccountProvisioningService",
         lambda _db: SimpleNamespace(ensure_provisioned_account=ensure_account),
     )
     monkeypatch.setattr(
@@ -660,11 +660,11 @@ def test_manager_and_portal_role_axes_remain_independent(
         )
         db_session.add(row)
         db_session.commit()
-        return SimpleNamespace(id=row.id)
+        return row
 
     monkeypatch.setattr(
         setup_service,
-        "get_s3_accounts_service",
+        "S3AccountProvisioningService",
         lambda _db: SimpleNamespace(ensure_provisioned_account=ensure_account),
     )
     monkeypatch.setattr(
