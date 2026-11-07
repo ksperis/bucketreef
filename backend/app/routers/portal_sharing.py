@@ -22,7 +22,7 @@ from app.models.portal_sharing import (
 from app.routers.dependencies import (
     get_audit_service,
     get_portal_account_access,
-    get_users_service_dependency,
+    get_user_query_service_dependency,
 )
 from app.routers.portal_common import (
     PORTAL_EXPECTED_ERRORS,
@@ -32,7 +32,7 @@ from app.routers.portal_common import (
 from app.routers.s3_download_response import S3DownloadResponse
 from app.services.audit_service import AuditService
 from app.services.portal_service import PortalService
-from app.services.users_service import UsersService
+from app.services.user_query_service import UserQueryService
 
 router = APIRouter()
 
@@ -173,12 +173,12 @@ def portal_storage_space_share_candidates(
         raise_portal_error(exc)
 
 
-def _resolve_share_target(payload: PortalStorageSpaceSharePayload, users_service: UsersService) -> User:
+def _resolve_share_target(payload: PortalStorageSpaceSharePayload, user_queries: UserQueryService) -> User:
     target = None
     if payload.user_id is not None:
-        target = users_service.get_by_id(payload.user_id)
+        target = user_queries.get_by_id(payload.user_id)
     elif payload.email:
-        target = users_service.get_by_email_case_insensitive(payload.email)
+        target = user_queries.get_by_email_case_insensitive(payload.email)
     if not target:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return target
@@ -190,11 +190,11 @@ def grant_portal_storage_space_share(
     payload: PortalStorageSpaceSharePayload,
     access: AccountAccess = Depends(get_portal_account_access),
     audit_service: AuditService = Depends(get_audit_service),
-    users_service: UsersService = Depends(get_users_service_dependency),
+    user_queries: UserQueryService = Depends(get_user_query_service_dependency),
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PortalStorageSpaceShare:
     actor = access.actor
-    target = _resolve_share_target(payload, users_service)
+    target = _resolve_share_target(payload, user_queries)
     try:
         share = service.set_storage_space_share(actor, access, target, space_id, payload.role)
         audit_service.record_action(
@@ -218,11 +218,11 @@ def update_portal_storage_space_share(
     payload: PortalStorageSpaceShareUpdate,
     access: AccountAccess = Depends(get_portal_account_access),
     audit_service: AuditService = Depends(get_audit_service),
-    users_service: UsersService = Depends(get_users_service_dependency),
+    user_queries: UserQueryService = Depends(get_user_query_service_dependency),
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PortalStorageSpaceShare:
     actor = access.actor
-    target = users_service.get_by_id(user_id)
+    target = user_queries.get_by_id(user_id)
     if not target:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     try:
@@ -247,11 +247,11 @@ def revoke_portal_storage_space_share(
     user_id: int,
     access: AccountAccess = Depends(get_portal_account_access),
     audit_service: AuditService = Depends(get_audit_service),
-    users_service: UsersService = Depends(get_users_service_dependency),
+    user_queries: UserQueryService = Depends(get_user_query_service_dependency),
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> list[PortalStorageSpaceShare]:
     actor = access.actor
-    target = users_service.get_by_id(user_id)
+    target = user_queries.get_by_id(user_id)
     if not target:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     try:
