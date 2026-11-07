@@ -71,12 +71,13 @@ def create_first_admin_from_bootstrap(
     ),
     users_service: UsersService = Depends(get_users_service_dependency),
     audit_service: AuditService = Depends(get_audit_service),
+    db: Session = Depends(get_db),
 ) -> AuthenticationResponse:
     require_trusted_origin(request)
     rate_limit_account = "first-admin-bootstrap"
     attempt = AuthAttemptContext.from_request(
         request=request,
-        db=users_service.db,
+        db=db,
         audit_service=audit_service,
         account_key=rate_limit_account,
     )
@@ -90,7 +91,7 @@ def create_first_admin_from_bootstrap(
     )
 
     try:
-        created = FirstAdminBootstrapService(users_service.db).create_with_token(
+        created = FirstAdminBootstrapService(db).create_with_token(
             token=bootstrap_token or "",
             email=payload.email,
             full_name=payload.full_name,
@@ -140,12 +141,13 @@ def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     users_service: UsersService = Depends(get_users_service_dependency),
     audit_service: AuditService = Depends(get_audit_service),
+    db: Session = Depends(get_db),
 ) -> AuthenticationResponse:
     require_trusted_origin(request)
     username = (form_data.username or "").strip()
     attempt = AuthAttemptContext.from_request(
         request=request,
-        db=users_service.db,
+        db=db,
         audit_service=audit_service,
         account_key=username,
     )

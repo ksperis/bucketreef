@@ -109,6 +109,7 @@ def start_oidc_login(
     provider_id: str,
     payload: Optional[OIDCStartRequest] = None,
     oidc_service: OidcService = Depends(get_oidc_service_dependency),
+    db: Session = Depends(get_db),
 ) -> OIDCStartResponse:
     request_origin = require_trusted_origin(request)
     ip_address, _, _ = request_context(request, settings=settings)
@@ -117,7 +118,7 @@ def start_oidc_login(
     except ValueError as exc:
         raise HTTPException(status_code=404, detail="OIDC provider is unavailable") from exc
     account_key = f"oidc-start:{provider}"
-    limiter = AuthRateLimitService(oidc_service.db, settings=settings)
+    limiter = AuthRateLimitService(db, settings=settings)
     try:
         limiter.check(account=account_key, ip_address=ip_address)
     except LoginRateLimitedError as exc:
@@ -152,6 +153,7 @@ def complete_oidc_login(
     oidc_service: OidcService = Depends(get_oidc_service_dependency),
     users_service: UsersService = Depends(get_users_service_dependency),
     audit_service: AuditService = Depends(get_audit_service),
+    db: Session = Depends(get_db),
 ) -> AuthenticationResponse:
     request_origin = require_trusted_origin(request)
     try:
@@ -162,7 +164,7 @@ def complete_oidc_login(
     user_email = f"oidc:{provider}"
     attempt = AuthAttemptContext.from_request(
         request=request,
-        db=oidc_service.db,
+        db=db,
         audit_service=audit_service,
         account_key=account_key,
     )
