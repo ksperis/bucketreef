@@ -9,6 +9,9 @@ from app.utils.rgw_identifiers import is_rgw_account_id
 from app.utils.usage_stats import extract_usage_stats
 
 
+BucketOwnerKind = Literal["account", "user"]
+
+
 def split_tenant_uid(value: str) -> tuple[str | None, str]:
     if "$" in value:
         tenant, uid = value.split("$", 1)
@@ -16,7 +19,7 @@ def split_tenant_uid(value: str) -> tuple[str | None, str]:
     return None, value.strip()
 
 
-def owner_kind_from_owner(owner_id: str | None) -> Literal["account", "user"] | None:
+def owner_kind_from_owner(owner_id: str | None) -> BucketOwnerKind | None:
     if not owner_id:
         return None
     return "account" if is_rgw_account_id(owner_id) else "user"

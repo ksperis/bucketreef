@@ -16,6 +16,7 @@ from app.services.listing_progress import (
 )
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_bucket_metadata import (
+    BucketOwnerKind,
     extract_bucket_owner_scope,
     owner_kind_from_owner,
     split_tenant_uid,
@@ -32,6 +33,7 @@ OWNER_USAGE_FIELDS = {"owner_used_bytes", "owner_object_count"}
 OWNER_USAGE_PERCENT_FIELDS = {"owner_quota_usage_size_percent", "owner_quota_usage_object_percent"}
 OWNER_ENRICHED_FIELDS = OWNER_STATUS_FIELDS | OWNER_QUOTA_FIELDS | OWNER_USAGE_FIELDS | OWNER_USAGE_PERCENT_FIELDS
 OWNER_DETAIL_FIELDS = {"owner_name"} | OWNER_ENRICHED_FIELDS
+BucketOwnerLookupScope = Literal["any", "account", "user"]
 
 
 class BucketListingAdminContext(Protocol):
@@ -39,7 +41,7 @@ class BucketListingAdminContext(Protocol):
     rgw_admin: RGWAdminClient
 
 
-def normalize_owner_kind(raw: object) -> Literal["account", "user"] | None:
+def normalize_owner_kind(raw: object) -> BucketOwnerKind | None:
     if not isinstance(raw, str):
         return None
     value = raw.strip().lower().replace("-", "_")
@@ -58,7 +60,7 @@ def normalize_owner_kind_scalar(raw: object) -> str | None:
     return normalized or None
 
 
-def _owner_kind_rule_values(rule: object) -> set[Literal["account", "user"]]:
+def _owner_kind_rule_values(rule: object) -> set[BucketOwnerKind]:
     op = getattr(rule, "op", None)
     raw_value = getattr(rule, "value", None)
     if op in {"eq", "neq"}:
@@ -74,9 +76,9 @@ def _owner_kind_rule_values(rule: object) -> set[Literal["account", "user"]]:
 
 
 def _apply_owner_kind_rule(
-    allowed: set[Literal["account", "user"]],
+    allowed: set[BucketOwnerKind],
     rule: object,
-) -> set[Literal["account", "user"]]:
+) -> set[BucketOwnerKind]:
     values = _owner_kind_rule_values(rule)
     if not values:
         return allowed
@@ -87,13 +89,13 @@ def _apply_owner_kind_rule(
 
 def determine_owner_name_lookup_scope(
     query: BucketFilterQuery | None,
-) -> Literal["any", "account", "user"]:
+) -> BucketOwnerLookupScope:
     if not query or query.match != "all":
         return "any"
     owner_kind_rules = [rule for rule in query.rules if rule.field == "owner_kind"]
     if not owner_kind_rules:
         return "any"
-    allowed: set[Literal["account", "user"]] = {"account", "user"}
+    allowed: set[BucketOwnerKind] = {"account", "user"}
     for rule in owner_kind_rules:
         allowed = _apply_owner_kind_rule(allowed, rule)
     if len(allowed) == 1:
@@ -148,7 +150,7 @@ def _resolve_owner_name(
     owner_id: str | None,
     tenant: str | None,
     cache: dict[str, str | None],
-    owner_scope: Literal["any", "account", "user"] = "any",
+    owner_scope: BucketOwnerLookupScope = "any",
 ) -> str | None:
     if not owner_id:
         return None
@@ -179,7 +181,7 @@ def _resolve_owner_name(
 def resolve_owner_names_for_buckets(
     ctx: BucketListingAdminContext,
     buckets: list[BucketListingSummary],
-    owner_scope: Literal["any", "account", "user"] = "any",
+    owner_scope: BucketOwnerLookupScope = "any",
 ) -> dict[str, str | None]:
     owner_targets: dict[str, tuple[str | None, str]] = {}
     for bucket in buckets:
