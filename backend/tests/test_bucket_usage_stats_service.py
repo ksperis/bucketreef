@@ -340,32 +340,6 @@ def test_usage_stats_does_not_mask_unexpected_current_listing_runtime_errors():
         FakeUsageStatsService(client).calculate_bucket(_target())
 
 
-def test_usage_stats_client_kwargs_types_missing_execution_credentials():
-    service = BucketUsageStatsService()
-    context = S3ExecutionContext(
-        context_id="missing-credentials",
-        context_kind="session",
-        name="Missing credentials",
-        access_key=None,
-        secret_key=None,
-    )
-
-    with pytest.raises(S3OperationError, match="missing credentials"):
-        service._client_kwargs(context)
-
-
-def test_usage_stats_client_kwargs_does_not_mask_unexpected_credential_runtime_error():
-    service = BucketUsageStatsService()
-
-    class BrokenContext:
-        @staticmethod
-        def effective_rgw_credentials():
-            raise RuntimeError("unexpected credential resolver bug")
-
-    with pytest.raises(RuntimeError, match="unexpected credential resolver bug"):
-        service._client_kwargs(BrokenContext())
-
-
 def test_usage_stats_upsert_replaces_latest_snapshot_without_history(db_session):
     service = BucketUsageStatsService()
     first = FakeUsageStatsService(

@@ -7,6 +7,7 @@ from typing import Any
 from app.services import s3_client
 from app.services.rgw_bucket_target import split_explicit_rgw_s3_bucket_name
 from app.services.s3_execution_client import (
+    S3ExecutionCredentialsError,
     s3_execution_bucket_request_kwargs,
     s3_execution_request_kwargs,
 )
@@ -26,18 +27,21 @@ class LongRunningS3ClientMixin:
         *,
         bucket_name: str | None = None,
     ) -> dict[str, Any]:
-        client_kwargs = (
-            s3_execution_bucket_request_kwargs(
-                execution_context,
-                bucket_name,
-                error_message=self.s3_credentials_error_message,
+        try:
+            client_kwargs = (
+                s3_execution_bucket_request_kwargs(
+                    execution_context,
+                    bucket_name,
+                    error_message=self.s3_credentials_error_message,
+                )
+                if bucket_name is not None
+                else s3_execution_request_kwargs(
+                    execution_context,
+                    error_message=self.s3_credentials_error_message,
+                )
             )
-            if bucket_name is not None
-            else s3_execution_request_kwargs(
-                execution_context,
-                error_message=self.s3_credentials_error_message,
-            )
-        )
+        except S3ExecutionCredentialsError as exc:
+            raise s3_client.S3OperationError(str(exc)) from exc
         if self.s3_user_agent_extra:
             client_kwargs["user_agent_extra"] = self.s3_user_agent_extra
         return client_kwargs

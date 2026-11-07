@@ -19,7 +19,6 @@ from app.services.bucket_configuration_service import BucketConfigurationService
 from app.services.long_running_s3_client import LongRunningS3ClientMixin
 from app.services.object_listing_temp_store import TemporarySqliteStore
 from app.services.s3_client import S3OperationError
-from app.services.s3_execution_client import S3ExecutionCredentialsError
 from app.services.s3_execution_context import S3ExecutionTarget
 from app.utils.s3_errors import format_s3_error
 from app.utils.s3_etag import etag_md5
@@ -41,17 +40,6 @@ class BucketComparisonService(LongRunningS3ClientMixin):
 
     def __init__(self, configuration_reader: Optional[BucketConfigurationReader] = None) -> None:
         self._configuration_reader = configuration_reader or BucketConfigurationService()
-
-    def _client_kwargs(
-        self,
-        execution_context: S3ExecutionTarget,
-        *,
-        bucket_name: str | None = None,
-    ) -> dict[str, Any]:
-        try:
-            return super()._client_kwargs(execution_context, bucket_name=bucket_name)
-        except S3ExecutionCredentialsError as exc:
-            raise S3OperationError(str(exc)) from exc
 
     def _list_bucket_objects_for_compare(
         self,
