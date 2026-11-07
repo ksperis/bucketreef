@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 from app.models.s3_account import (
     S3Account as S3AccountSchema,
     S3AccountCreate,
-    S3AccountImport,
     S3AccountUpdate,
 )
 from app.services.mappers.s3_account import s3_account_from_db
@@ -13,7 +12,6 @@ from app.services.rgw_account_topics_resolver import RgwAccountTopicsResolver
 from app.services.rgw_account_root_service import RgwAccountRootService
 from app.services.s3_account_associations_service import S3AccountAssociationsService
 from app.services.s3_account_deletion_service import S3AccountDeletionService
-from app.services.s3_account_import_service import S3AccountImportService
 from app.services.s3_account_metrics_service import S3AccountMetricsService
 from app.services.s3_account_provisioning_service import S3AccountProvisioningService
 from app.services.s3_account_query_service import S3AccountQueryService
@@ -27,7 +25,6 @@ from app.services.tags_service import TagsService
 
 class S3AccountsService:
     def __init__(self, db: Session) -> None:
-        self.db = db
         self.tags = TagsService(db)
         self.account_topics = RgwAccountTopicsResolver()
         self.account_roots = RgwAccountRootService()
@@ -46,12 +43,6 @@ class S3AccountsService:
             rgw_users=self.rgw_users,
             account_topics=self.account_topics,
             tags=self.tags,
-        )
-        self.importer = S3AccountImportService(
-            db,
-            repository=self.repository,
-            rgw_context=self.rgw_context,
-            account_roots=self.account_roots,
         )
         self.provisioning = S3AccountProvisioningService(
             db,
@@ -78,9 +69,6 @@ class S3AccountsService:
             account_topics=self.account_topics,
             account_roots=self.account_roots,
         )
-
-    def import_accounts(self, imports: list[S3AccountImport]) -> list[S3AccountSchema]:
-        return self.importer.import_accounts(imports)
 
     def ensure_provisioned_account(self, payload: S3AccountCreate, rgw_account_id: str) -> S3AccountSchema:
         account = self.provisioning.ensure_provisioned_account(payload, rgw_account_id)

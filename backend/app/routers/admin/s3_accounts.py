@@ -24,6 +24,7 @@ from app.routers.dependencies import (
     get_current_ui_admin,
 )
 from app.services.s3_accounts_service import S3AccountsService, get_s3_accounts_service
+from app.services.s3_account_import_service import S3AccountImportService
 from app.services.s3_account_query_service import S3AccountQueryService
 from app.services.admin_account_portal_settings_service import AdminAccountPortalSettingsService
 from app.services.audit_service import AuditService
@@ -45,6 +46,12 @@ def get_admin_account_query_service(
     db: Session = Depends(get_db),
 ) -> S3AccountQueryService:
     return S3AccountQueryService(db)
+
+
+def get_admin_account_import_service(
+    db: Session = Depends(get_db),
+) -> S3AccountImportService:
+    return S3AccountImportService(db)
 
 
 def get_admin_account_portal_settings_service(
@@ -158,7 +165,7 @@ def create_account(
 @router.post("/import", response_model=list[S3Account])
 def import_accounts(
     payload: list[S3AccountImport],
-    service: S3AccountsService = Depends(get_admin_accounts_service),
+    service: S3AccountImportService = Depends(get_admin_account_import_service),
     current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> list[S3Account]:
