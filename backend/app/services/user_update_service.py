@@ -6,7 +6,6 @@ import logging
 from sqlalchemy.orm import Session
 
 from app.core.db_transactions import commit_or_rollback
-from app.core.domain_errors import UiUserNotFoundError
 from app.core.security import get_password_hash, verify_password
 from app.db import User
 from app.core.domain_enums import is_admin_ui_role
@@ -101,9 +100,7 @@ class UserUpdateService:
             user.quota_alerts_global_watch = False
 
     def update_user(self, user_id: int, payload: UserUpdate) -> User:
-        user = self.query.get_by_id(user_id)
-        if not user:
-            raise UiUserNotFoundError("User not found")
+        user = self.query.require_by_id(user_id)
         was_active = user.is_active
         affected_portal_account_ids = set(
             self.associations.affected_portal_account_ids(
