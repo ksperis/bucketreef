@@ -12,11 +12,10 @@ from app.db.s3_connection import S3Connection as DBS3Connection
 from app.db.storage_endpoint import StorageEndpoint
 from app.models.s3_connection import (
     S3_CONNECTION_CUSTOM_ENDPOINT_FIELDS,
-    S3ConnectionCreate,
+    S3ConnectionCreationPayload,
     S3ConnectionUpdate,
 )
 from app.models.s3_connection_admin import (
-    S3ConnectionAdminCreate,
     S3ConnectionAdminUpdate,
 )
 from app.utils.s3_connection_endpoint import ConnectionEndpointDetails, resolve_connection_details
@@ -24,9 +23,8 @@ from app.utils.s3_endpoint import validate_user_supplied_s3_endpoint
 
 
 S3ConnectionEndpointPayload = (
-    S3ConnectionCreate
+    S3ConnectionCreationPayload
     | S3ConnectionUpdate
-    | S3ConnectionAdminCreate
     | S3ConnectionAdminUpdate
 )
 

@@ -8,18 +8,18 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Literal, Optional, Self
 
-from pydantic import Field, model_validator
+from pydantic import model_validator
 
 from app.models.admin_listing import AdminSortableListingRequest
 from app.models.base import ApiModel, reject_explicit_null_fields
 from app.models.pagination import PaginatedResponse
 from app.models.tagging import (
     OptionalTagDefinitionList,
-    RequiredTagDefinitionList,
     TagDefinitionSummary,
 )
 from app.models.s3_connection import (
     CanonicalS3ConnectionEndpointPayload,
+    S3ConnectionCreationPayload,
     S3ConnectionCredentialsUpdate,
 )
 from app.models.ui_group import UiGroupAvatar
@@ -84,21 +84,8 @@ class S3ConnectionSummary(ApiModel):
     execution_status: Literal["ready", "remediation_required"]
 
 
-class S3ConnectionAdminCreate(CanonicalS3ConnectionEndpointPayload):
-    endpoint_conflict_scope = "S3 connection"
-
-    name: str
-    provider_hint: Optional[str] = None
-    rgw_user_uid: Optional[str] = None
-    rgw_tenant: Optional[str] = None
-    rgw_account_id: Optional[str] = None
-    endpoint_url: Optional[str] = None
-    region: Optional[str] = None
-    access_key_id: str
-    secret_access_key: str
-    force_path_style: bool = False
-    verify_tls: bool = True
-    tags: RequiredTagDefinitionList = Field(default_factory=list)
+class S3ConnectionAdminCreate(S3ConnectionCreationPayload):
+    pass
 
 
 class S3ConnectionAdminUpdate(CanonicalS3ConnectionEndpointPayload):

@@ -72,13 +72,11 @@ class S3Connection(ApiModel):
     last_used_at: Optional[datetime]
 
 
-class S3ConnectionCreate(CanonicalS3ConnectionEndpointPayload):
+class S3ConnectionCreationPayload(CanonicalS3ConnectionEndpointPayload):
     endpoint_conflict_scope = "S3 connection"
 
     name: str
     provider_hint: Optional[str] = None
-    access_manager: bool
-    access_browser: bool
     rgw_user_uid: Optional[str] = None
     rgw_tenant: Optional[str] = None
     rgw_account_id: Optional[str] = None
@@ -89,6 +87,11 @@ class S3ConnectionCreate(CanonicalS3ConnectionEndpointPayload):
     force_path_style: bool = False
     verify_tls: bool = True
     tags: RequiredTagDefinitionList = Field(default_factory=list)
+
+
+class S3ConnectionCreate(S3ConnectionCreationPayload):
+    access_manager: bool
+    access_browser: bool
 
 
 class S3ConnectionUpdate(CanonicalS3ConnectionEndpointPayload):
