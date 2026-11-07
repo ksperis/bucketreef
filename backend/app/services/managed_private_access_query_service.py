@@ -6,9 +6,8 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.domain_enums import MANAGED_PRIVATE_ACCESS_ACTIVE_STATES
 from app.db import ManagedPrivateAccess
-
-ACTIVE_STATES = ("provisioning", "active", "deleting", "cleanup_pending")
 
 
 class ManagedPrivateAccessQueryService:
@@ -22,7 +21,7 @@ class ManagedPrivateAccessQueryService:
         return select(ManagedPrivateAccess).where(
             ManagedPrivateAccess.source_context_type == source_kind,
             ManagedPrivateAccess.source_context_id == source_id,
-            ManagedPrivateAccess.state.in_(ACTIVE_STATES),
+            ManagedPrivateAccess.state.in_(MANAGED_PRIVATE_ACCESS_ACTIVE_STATES),
         )
 
     def managed_iam_user(

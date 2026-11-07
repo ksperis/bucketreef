@@ -16,6 +16,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.domain_enums import ManagedPrivateAccessActiveState
 from app.core.domain_errors import S3AccountNotFoundError, S3ConnectionNotFoundError, S3UserNotFoundError
 from app.db import User
 from app.services.access_context_contracts import ManagerActor, ManagerSessionPrincipal
@@ -71,7 +72,7 @@ class _ManagerFeatureAvailability:
     access_key_metadata: bool
     access_key_expiration: bool
     managed_private_connection_provisioning: bool
-    private_access_state: Optional[Literal["provisioning", "active", "deleting", "cleanup_pending"]]
+    private_access_state: Optional[ManagedPrivateAccessActiveState]
 
 
 def _manager_stats_state(
@@ -267,7 +268,7 @@ def _manager_private_access_state(
     context: S3ExecutionContext,
     actor: ManagerActor,
     db: Session,
-) -> Optional[Literal["provisioning", "active", "deleting", "cleanup_pending"]]:
+) -> Optional[ManagedPrivateAccessActiveState]:
     if not isinstance(actor, User):
         return None
 

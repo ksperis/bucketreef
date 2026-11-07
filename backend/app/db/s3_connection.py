@@ -11,8 +11,20 @@ from app.utils.time import utcnow
 from sqlalchemy import Boolean, CheckConstraint, Column, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import relationship
 
+from app.core.domain_enums import (
+    MANAGED_PRIVATE_ACCESS_ACTIVE_STATES,
+    MANAGED_PRIVATE_ACCESS_STATES,
+)
 from app.core.security import EncryptedString
 from .base import Base
+
+
+_MANAGED_PRIVATE_ACCESS_ACTIVE_STATES_SQL = ", ".join(
+    repr(state) for state in MANAGED_PRIVATE_ACCESS_ACTIVE_STATES
+)
+_MANAGED_PRIVATE_ACCESS_STATES_SQL = ", ".join(
+    repr(state) for state in MANAGED_PRIVATE_ACCESS_STATES
+)
 
 
 class S3Connection(Base):
@@ -151,7 +163,7 @@ class ManagedPrivateAccess(Base):
             name="ck_managed_private_access_principal_type",
         ),
         CheckConstraint(
-            "state IN ('provisioning', 'active', 'deleting', 'cleanup_pending', 'failed')",
+            f"state IN ({_MANAGED_PRIVATE_ACCESS_STATES_SQL})",
             name="ck_managed_private_access_state",
         ),
         Index(
@@ -160,8 +172,8 @@ class ManagedPrivateAccess(Base):
             "source_context_type",
             "source_context_id",
             unique=True,
-            sqlite_where=text("state IN ('provisioning', 'active', 'deleting', 'cleanup_pending')"),
-            postgresql_where=text("state IN ('provisioning', 'active', 'deleting', 'cleanup_pending')"),
+            sqlite_where=text(f"state IN ({_MANAGED_PRIVATE_ACCESS_ACTIVE_STATES_SQL})"),
+            postgresql_where=text(f"state IN ({_MANAGED_PRIVATE_ACCESS_ACTIVE_STATES_SQL})"),
         ),
         UniqueConstraint("s3_connection_id", name="uq_managed_private_access_connection"),
     )
