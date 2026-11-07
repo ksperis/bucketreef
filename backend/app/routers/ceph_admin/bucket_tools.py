@@ -28,6 +28,7 @@ from app.routers.ceph_admin.dependencies import (
 )
 from app.services.ceph_admin_context import CephAdminContext
 from app.services.bucket_config_backup_service import (
+    BucketConfigBackupFeatureError,
     BucketConfigBackupResolvedTarget,
     BucketConfigBackupService,
     quota_from_bucket_summary,
@@ -85,9 +86,13 @@ def backup_bucket_configs(
                 **({"tenant": target.tenant} if target.tenant else {}),
             )
         except RGWAdminError as exc:
-            raise RuntimeError(f"Unable to fetch bucket quota: {exc}") from exc
+            raise BucketConfigBackupFeatureError(
+                f"Unable to fetch bucket quota: {exc}"
+            ) from exc
         if not isinstance(raw, dict):
-            raise RuntimeError("Unable to fetch bucket quota: bucket not found")
+            raise BucketConfigBackupFeatureError(
+                "Unable to fetch bucket quota: bucket not found"
+            )
         summary = build_bucket_summary(raw)
         return quota_from_bucket_summary(summary)
 

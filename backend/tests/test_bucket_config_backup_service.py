@@ -22,9 +22,11 @@ from app.models.bucket_config_backup import (
 from app.routers.ceph_admin import bucket_tools as buckets_router
 from app.services import bucket_config_backup_service as bucket_config_backup_module
 from app.services.bucket_config_backup_service import (
+    BucketConfigBackupFeatureError,
     BucketConfigBackupResolvedTarget,
     BucketConfigBackupService,
 )
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionContext
 
 
@@ -138,7 +140,7 @@ def test_bucket_config_backup_collects_selected_features_without_secrets():
 def test_bucket_config_backup_captures_feature_errors():
     class FailingPolicyService(FakeBucketsService):
         def get_policy(self, bucket_name, account):  # noqa: ANN001
-            raise RuntimeError("policy denied")
+            raise S3OperationError("policy denied")
 
     service = BucketConfigBackupService(FailingPolicyService())
 
@@ -158,7 +160,7 @@ def test_bucket_config_backup_captures_feature_errors():
 def test_bucket_config_backup_sanitizes_feature_errors():
     class FailingPolicyService(FakeBucketsService):
         def get_policy(self, bucket_name, account):  # noqa: ANN001
-            raise RuntimeError(
+            raise S3OperationError(
                 "secret_key=TOPSECRET endpoint=https://private.example.test/admin"
             )
 
@@ -176,6 +178,54 @@ def test_bucket_config_backup_sanitizes_feature_errors():
     assert backup.buckets[0].errors == {
         "policy": "secret_key=<redacted> endpoint=<redacted-url>"
     }
+
+
+def test_bucket_config_backup_does_not_mask_unexpected_feature_errors():
+    class FailingPolicyService(FakeBucketsService):
+        def get_policy(self, bucket_name, account):  # noqa: ANN001
+            raise RuntimeError("unexpected backup regression")
+
+    with pytest.raises(RuntimeError, match="unexpected backup regression"):
+        BucketConfigBackupService(FailingPolicyService()).build_backup(
+            execution_context=S3Account(name="account-a"),
+            bucket_targets=[
+                BucketConfigBackupResolvedTarget(
+                    name="bucket-a",
+                    request_name="bucket-a",
+                )
+            ],
+            features=["policy"],
+            source=BucketConfigBackupSource(
+                surface="ceph-admin",
+                endpoint_id=7,
+                endpoint_name="Archive",
+            ),
+        )
+
+
+def test_bucket_config_backup_captures_typed_quota_loader_errors():
+    def quota_loader(_bucket_name: str) -> dict[str, int | None]:
+        raise BucketConfigBackupFeatureError("quota unavailable")
+
+    backup = BucketConfigBackupService(FakeBucketsService()).build_backup(
+        execution_context=S3Account(name="account-a"),
+        bucket_targets=[
+            BucketConfigBackupResolvedTarget(
+                name="bucket-a",
+                request_name="bucket-a",
+            )
+        ],
+        features=["quota"],
+        source=BucketConfigBackupSource(
+            surface="ceph-admin",
+            endpoint_id=7,
+            endpoint_name="Archive",
+        ),
+        quota_loader=quota_loader,
+    )
+
+    assert backup.buckets[0].configuration == {}
+    assert backup.buckets[0].errors == {"quota": "quota unavailable"}
 
 
 def test_ceph_admin_backup_route_uses_endpoint_quota_loader(monkeypatch):
