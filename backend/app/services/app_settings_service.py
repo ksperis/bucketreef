@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 
 from sqlalchemy import select, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.core.config import get_settings
 from app.core.db_transactions import commit_or_rollback
@@ -32,6 +32,10 @@ _PERSISTED_ENV_DEFAULT_PATHS = {
     ("manager", "bucket_migration_parallelism_max"),
     ("manager", "bucket_migration_max_active_per_endpoint"),
 }
+
+
+class AppSettingsLoadError(RuntimeError):
+    """Expected failure while loading persisted application settings."""
 
 
 def _settings_path() -> Path | None:
@@ -177,13 +181,16 @@ def _apply_general_feature_overrides(settings: AppSettings) -> AppSettings:
 
 def load_app_settings_for_db(db) -> AppSettings:
     """Load effective settings without importing defaults into the database."""
-    row = _get_persisted_settings_row(db)
-    persisted = (
-        _parse_settings_payload(row.payload)
-        if row is not None
-        else _load_persisted_settings_from_disk(_settings_path())
-    )
-    return _apply_general_feature_overrides(persisted)
+    try:
+        row = _get_persisted_settings_row(db)
+        persisted = (
+            _parse_settings_payload(row.payload)
+            if row is not None
+            else _load_persisted_settings_from_disk(_settings_path())
+        )
+        return _apply_general_feature_overrides(persisted)
+    except (OSError, SQLAlchemyError, ValueError) as exc:
+        raise AppSettingsLoadError("Application settings could not be loaded") from exc
 
 
 def bootstrap_app_settings_for_db(db) -> AppSettings:

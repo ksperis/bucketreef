@@ -13,6 +13,7 @@ from app.db import LdapProvider, OidcProvider, StorageEndpoint, User, WebAuthnCr
 from app.core.domain_enums import UserRole
 from app.models.app_settings import AppSettings
 from app.scripts.check_production_readiness import run
+from app.services.app_settings_service import AppSettingsLoadError
 from app.services.deployment_checks import deployment_exit_code, run_deployment_checks
 from tests.service_identity_helpers import service_identity
 
@@ -619,7 +620,7 @@ def test_every_reported_check_links_to_an_existing_documentation_anchor(db_sessi
 
 def test_cli_reports_app_settings_load_failure_as_critical(monkeypatch):
     def fail_load():
-        raise RuntimeError("database unavailable")
+        raise AppSettingsLoadError("database unavailable")
 
     monkeypatch.setattr("app.scripts.check_production_readiness.load_app_settings", fail_load)
 
@@ -628,3 +629,13 @@ def test_cli_reports_app_settings_load_failure_as_critical(monkeypatch):
     assert exit_code == 1
     assert "CRITICAL app-settings:" in output
     assert "database unavailable" not in output
+
+
+def test_cli_does_not_mask_unexpected_app_settings_loader_failure(monkeypatch):
+    def fail_load():
+        raise RuntimeError("programming regression")
+
+    monkeypatch.setattr("app.scripts.check_production_readiness.load_app_settings", fail_load)
+
+    with pytest.raises(RuntimeError, match="programming regression"):
+        run(profile="admin", settings=_production_settings())

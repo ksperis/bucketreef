@@ -2,12 +2,14 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
 from app.core.config import Settings
 from app.models.app_settings import AppSettings
 from app.routers.admin import production_readiness as production_readiness_router
+from app.services.app_settings_service import AppSettingsLoadError
 
 
 def _settings(**overrides) -> Settings:
@@ -118,7 +120,7 @@ def test_production_readiness_reports_admin_passkey_policy_as_critical(monkeypat
 
 def test_production_readiness_reports_app_settings_load_failure_as_critical(monkeypatch, db_session):
     def fail_load(_db):
-        raise RuntimeError("database unavailable")
+        raise AppSettingsLoadError("database unavailable")
 
     monkeypatch.setattr(production_readiness_router, "load_app_settings_for_db", fail_load)
 
@@ -128,6 +130,16 @@ def test_production_readiness_reports_app_settings_load_failure_as_critical(monk
     finding = next(item for item in response.json()["findings"] if item["code"] == "app-settings")
     assert finding["level"] == "critical"
     assert "database unavailable" not in response.text
+
+
+def test_production_readiness_does_not_mask_unexpected_settings_loader_failure(monkeypatch, db_session):
+    def fail_load(_db):
+        raise RuntimeError("programming regression")
+
+    monkeypatch.setattr(production_readiness_router, "load_app_settings_for_db", fail_load)
+
+    with pytest.raises(RuntimeError, match="programming regression"):
+        _client(_settings(), db_session).get("/api/admin/production-readiness")
 
 
 def test_production_readiness_includes_manual_operator_checks(monkeypatch, db_session):

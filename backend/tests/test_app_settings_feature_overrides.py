@@ -144,6 +144,27 @@ def test_app_settings_path_is_absent_without_explicit_bootstrap_configuration(mo
     assert app_settings_service._load_persisted_settings_from_disk(None) == AppSettings()
 
 
+def test_load_app_settings_types_invalid_persisted_payload(monkeypatch, db_session):
+    db_session.add(AppSetting(key=app_settings_service.APP_SETTINGS_DB_KEY, payload={}))
+    db_session.commit()
+    monkeypatch.setattr(app_settings_service, "get_settings", lambda: _runtime_settings())
+
+    with pytest.raises(app_settings_service.AppSettingsLoadError) as exc_info:
+        app_settings_service.load_app_settings_for_db(db_session)
+
+    assert isinstance(exc_info.value.__cause__, ValueError)
+
+
+def test_load_app_settings_does_not_mask_unexpected_runtime_failures(monkeypatch, db_session):
+    def fail_lookup(_db):
+        raise RuntimeError("programming regression")
+
+    monkeypatch.setattr(app_settings_service, "_get_persisted_settings_row", fail_lookup)
+
+    with pytest.raises(RuntimeError, match="programming regression"):
+        app_settings_service.load_app_settings_for_db(db_session)
+
+
 def test_load_app_settings_applies_feature_env_overrides(monkeypatch, tmp_path, db_session):
     settings_path = tmp_path / "app_settings.json"
     persisted = AppSettings()
