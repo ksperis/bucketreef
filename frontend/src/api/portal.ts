@@ -5,6 +5,7 @@
 import client, { LONG_RUNNING_REQUEST_TIMEOUT_MS } from "./client";
 import { S3AccountSelector, withS3AccountParam } from "./accountParams";
 import { filenameFromContentDisposition } from "./contentDisposition";
+import { lastNonEmptyPathSegment } from "../utils/pathSegments";
 import {
   buildJsonPostRequestInit,
   resolveApiBaseUrl,
@@ -528,7 +529,7 @@ export async function downloadPortalStorageSpaceObject(
       timeout: LONG_RUNNING_REQUEST_TIMEOUT_MS,
     }
   );
-  const fallback = key.split("/").filter(Boolean).at(-1) ?? "download";
+  const fallback = lastNonEmptyPathSegment(key, "download");
   const filename = filenameFromContentDisposition(response.headers?.["content-disposition"], fallback);
   return { blob: response.data, filename };
 }

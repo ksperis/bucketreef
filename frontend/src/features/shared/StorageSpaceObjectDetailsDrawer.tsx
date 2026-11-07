@@ -27,6 +27,7 @@ import { useI18n } from "../../i18n";
 import { extractApiError } from "../../utils/apiError";
 import { triggerBlobDownload } from "../../utils/download";
 import { formatBytes } from "../../utils/format";
+import { lastNonEmptyPathSegment } from "../../utils/pathSegments";
 import ObjectDetailsDrawer from "./ObjectDetailsDrawer";
 import ObjectPreview, { type ObjectPreviewLoadResult } from "./ObjectPreview";
 import PortalObjectHistoryPanel from "../portal/PortalObjectHistoryPanel";
@@ -62,10 +63,6 @@ type StorageSpaceObjectDetailsDrawerProps = {
   onRefreshObjects: () => void;
   onViewChange: (view: StorageSpaceObjectDetailsView) => void;
 };
-
-function objectName(key: string) {
-  return key.split("/").filter(Boolean).at(-1) ?? key;
-}
 
 export default function StorageSpaceObjectDetailsDrawer({
   navigation,
@@ -108,7 +105,7 @@ export default function StorageSpaceObjectDetailsDrawer({
 
   const canManageSharing =
     space.role === "Manager" && space.visibility === "shared" && space.status !== "Archived";
-  const resolvedName = detail?.name || objectName(objectKey);
+  const resolvedName = detail?.name || lastNonEmptyPathSegment(objectKey, objectKey);
   const resolvedKey = detail?.key || objectKey;
   const {
     busyLinkId,

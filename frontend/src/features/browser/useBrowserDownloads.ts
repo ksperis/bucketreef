@@ -17,6 +17,7 @@ import {
 } from "../../utils/download";
 import { isCancelledError } from "../../utils/apiError";
 import { clampPercentage } from "../../utils/numbers";
+import { lastNonEmptyPathSegment } from "../../utils/pathSegments";
 import { createRuntimeId } from "../../utils/runtimeId";
 import { buildAttachmentDownloadDisposition } from "./browserObjectDetailsModel";
 import {
@@ -485,7 +486,7 @@ export function useBrowserDownloads({
         onWarning(text("This version cannot be downloaded."));
         return;
       }
-      const filename = version.key.split("/").filter(Boolean).at(-1) || "download";
+      const filename = lastNonEmptyPathSegment(version.key, "download");
       const reportItem: BrowserItem = {
         id: `version:${version.key}:${version.version_id}`,
         key: version.key,

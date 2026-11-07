@@ -2,6 +2,8 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { lastNonEmptyPathSegment } from "../utils/pathSegments";
+
 export function filenameFromContentDisposition(
   value: unknown,
   fallback: string,
@@ -13,11 +15,11 @@ export function filenameFromContentDisposition(
     const encoded = raw.includes("''") ? raw.split("''").at(-1) ?? raw : raw;
     try {
       const decoded = decodeURIComponent(encoded);
-      return decoded.split("/").filter(Boolean).at(-1) ?? fallback;
+      return lastNonEmptyPathSegment(decoded, fallback);
     } catch {
-      return encoded.split("/").filter(Boolean).at(-1) ?? fallback;
+      return lastNonEmptyPathSegment(encoded, fallback);
     }
   }
   const basic = value.match(/filename\s*=\s*"?([^";]+)"?/i);
-  return basic?.[1]?.split("/").filter(Boolean).at(-1) ?? fallback;
+  return lastNonEmptyPathSegment(basic?.[1], fallback);
 }
