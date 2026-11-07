@@ -25,6 +25,7 @@ from app.models.s3_connection_admin import (
 )
 from app.models.user import UserAssociationDetail
 from app.services.s3_connections_service import S3ConnectionsService
+from app.services.sqlalchemy_pagination import paginate_rows
 from app.services.tags_service import TagsService
 from app.services.ui_group_avatar_service import UiGroupAvatarService
 from app.services.user_avatar_service import UserAvatarService
@@ -242,17 +243,12 @@ class AdminS3ConnectionsReadService:
             ),
             request,
         )
-        total = int(
-            self.db.scalar(
-                select(func.count()).select_from(statement.order_by(None).subquery())
-            )
-            or 0
+        rows, total = paginate_rows(
+            self.db,
+            statement,
+            page=request.page,
+            page_size=request.page_size,
         )
-        rows = self.db.execute(
-            statement.offset((request.page - 1) * request.page_size).limit(
-                request.page_size
-            )
-        ).all()
         return PaginatedS3ConnectionsResponse(
             items=self._items(rows),
             total=total,
