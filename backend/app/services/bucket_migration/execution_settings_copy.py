@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, TypeVar
 
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import BucketMigration, BucketMigrationItem
@@ -12,6 +12,10 @@ from app.services.s3_execution_context import S3ExecutionTarget
 
 if TYPE_CHECKING:
     from .execution_item_runner import BucketMigrationItemRunnerMixin
+
+
+_SourceSetting = TypeVar("_SourceSetting")
+_TargetSetting = TypeVar("_TargetSetting")
 
 
 @dataclass(frozen=True)
@@ -151,22 +155,12 @@ class _BucketSettingsCopyRunner:
             )
 
     def _copy_encryption(self) -> None:
-        encryption = self.service._configuration.get_bucket_encryption(
-            self.source_bucket,
-            self.source_execution_context,
+        self._copy_optional_setting(
+            read=self.service._configuration.get_bucket_encryption,
+            transform=lambda encryption: list(encryption.rules),
+            write=self.service._configuration.set_bucket_encryption,
+            delete=self.service._configuration.delete_bucket_encryption,
         )
-        rules = list(encryption.rules)
-        if rules:
-            self.service._configuration.set_bucket_encryption(
-                self.target_bucket,
-                self.target_execution_context,
-                rules,
-            )
-        else:
-            self.service._configuration.delete_bucket_encryption(
-                self.target_bucket,
-                self.target_execution_context,
-            )
 
     def _copy_public_access_block(self) -> None:
         public_access_block = self.service._configuration.get_public_access_block(
@@ -185,73 +179,54 @@ class _BucketSettingsCopyRunner:
         )
 
     def _copy_lifecycle(self) -> None:
-        lifecycle = self.service._configuration.get_lifecycle(
-            self.source_bucket,
-            self.source_execution_context,
+        self._copy_optional_setting(
+            read=self.service._configuration.get_lifecycle,
+            transform=lambda lifecycle: lifecycle.rules,
+            write=self.service._configuration.set_lifecycle,
+            delete=self.service._configuration.delete_lifecycle,
         )
-        rules = lifecycle.rules
-        if rules:
-            self.service._configuration.set_lifecycle(
-                self.target_bucket,
-                self.target_execution_context,
-                rules,
-            )
-        else:
-            self.service._configuration.delete_lifecycle(
-                self.target_bucket,
-                self.target_execution_context,
-            )
 
     def _copy_cors(self) -> None:
-        cors = self.service._configuration.get_bucket_cors(
-            self.source_bucket,
-            self.source_execution_context,
+        self._copy_optional_setting(
+            read=self.service._configuration.get_bucket_cors,
+            transform=lambda cors: cors,
+            write=self.service._configuration.set_cors,
+            delete=self.service._configuration.delete_cors,
         )
-        if cors:
-            self.service._configuration.set_cors(
-                self.target_bucket,
-                self.target_execution_context,
-                cors,
-            )
-        else:
-            self.service._configuration.delete_cors(
-                self.target_bucket,
-                self.target_execution_context,
-            )
 
     def _copy_policy(self) -> None:
-        policy = self.service._configuration.get_policy(
-            self.source_bucket,
-            self.source_execution_context,
+        self._copy_optional_setting(
+            read=self.service._configuration.get_policy,
+            transform=lambda policy: policy or {},
+            write=self.service._configuration.put_policy,
+            delete=self.service._configuration.delete_policy,
         )
-        if policy:
-            self.service._configuration.put_policy(
-                self.target_bucket,
-                self.target_execution_context,
-                policy,
-            )
-        else:
-            self.service._configuration.delete_policy(
-                self.target_bucket,
-                self.target_execution_context,
-            )
 
     def _copy_tags(self) -> None:
-        tags = self.service._configuration.get_bucket_tags(
-            self.source_bucket,
-            self.source_execution_context,
+        self._copy_optional_setting(
+            read=self.service._configuration.get_bucket_tags,
+            transform=lambda tags: [
+                {"key": tag.key, "value": tag.value} for tag in tags
+            ],
+            write=self.service._configuration.set_bucket_tags,
+            delete=self.service._configuration.delete_bucket_tags,
         )
-        if tags:
-            self.service._configuration.set_bucket_tags(
-                self.target_bucket,
-                self.target_execution_context,
-                [{"key": tag.key, "value": tag.value} for tag in tags],
-            )
-        else:
-            self.service._configuration.delete_bucket_tags(
-                self.target_bucket,
-                self.target_execution_context,
-            )
+
+    def _copy_optional_setting(
+        self,
+        *,
+        read: Callable[[str, S3ExecutionTarget], _SourceSetting],
+        transform: Callable[[_SourceSetting], _TargetSetting],
+        write: Callable[[str, S3ExecutionTarget, _TargetSetting], object],
+        delete: Callable[[str, S3ExecutionTarget], object],
+    ) -> None:
+        value = transform(
+            read(self.source_bucket, self.source_execution_context)
+        )
+        if value:
+            write(self.target_bucket, self.target_execution_context, value)
+            return
+        delete(self.target_bucket, self.target_execution_context)
 
     def _copy_access_logging(self) -> None:
         logging = self.service._configuration.get_bucket_logging(
