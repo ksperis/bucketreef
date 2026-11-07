@@ -18,8 +18,9 @@ from app.models.s3_connection import (
 from app.models.s3_connection_admin import (
     S3ConnectionAdminUpdate,
 )
+from app.utils.normalize import normalize_optional_string
 from app.utils.s3_connection_endpoint import ConnectionEndpointDetails, resolve_connection_details
-from app.utils.s3_endpoint import validate_user_supplied_s3_endpoint
+from app.utils.s3_endpoint import normalize_s3_endpoint, validate_user_supplied_s3_endpoint
 
 
 S3ConnectionEndpointPayload = (
@@ -126,7 +127,7 @@ class S3ConnectionEndpointPlanner:
             raise ValueError(
                 "force_path_style and verify_tls cannot be null for a custom endpoint"
             )
-        normalized_endpoint_url = (details.endpoint_url or "").strip().rstrip("/")
+        normalized_endpoint_url = normalize_s3_endpoint(details.endpoint_url)
         if not normalized_endpoint_url:
             raise ValueError("Endpoint URL is required for manual connections")
         if enforce_manual_endpoint_policy:
@@ -136,10 +137,10 @@ class S3ConnectionEndpointPlanner:
             )
         return S3ConnectionEndpointPlan.custom(
             normalized_endpoint_url,
-            self._normalize_optional_text(details.region),
+            normalize_optional_string(details.region),
             bool(details.force_path_style),
             bool(details.verify_tls),
-            self._normalize_optional_text(details.provider),
+            normalize_optional_string(details.provider),
         )
 
     @staticmethod
@@ -158,11 +159,6 @@ class S3ConnectionEndpointPlanner:
             if payload_field in payload.model_fields_set
         }
         return replace(current, **updates)
-
-    @staticmethod
-    def _normalize_optional_text(value: Optional[str]) -> Optional[str]:
-        normalized = (value or "").strip()
-        return normalized or None
 
     @staticmethod
     def _desired_endpoint_id(
@@ -196,7 +192,7 @@ class S3ConnectionEndpointPlanner:
         endpoint_url: Optional[str],
         verify_tls: bool,
     ) -> str:
-        normalized = (endpoint_url or "").strip()
+        normalized = normalize_s3_endpoint(endpoint_url)
         if not normalized:
             raise ValueError("Endpoint URL is required.")
         if not verify_tls:

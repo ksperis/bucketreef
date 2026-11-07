@@ -177,18 +177,20 @@ def test_create_connection_custom_endpoint_and_storage_endpoint_paths(db_session
         S3ConnectionCreate(
             name="custom-conn",
             endpoint_url="https://custom.example.test/",
-            region="us-east-1",
+            region=" us-east-1 ",
             force_path_style=True,
             verify_tls=True,
             access_key_id="AKIA-CUSTOM-1234",
             secret_access_key="SECRET-CUSTOM",
             access_manager=True,
             access_browser=True,
-            provider_hint="other",
+            provider_hint=" other ",
         ),
     )
     assert custom.is_shared is False
     assert custom.endpoint_url == "https://custom.example.test"
+    assert custom.region == "us-east-1"
+    assert custom.provider_hint == "other"
     assert custom.force_path_style is True
     assert custom.verify_tls is True
     assert custom.capabilities["can_manage_iam"] is True
