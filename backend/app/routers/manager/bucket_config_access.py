@@ -15,7 +15,11 @@ from app.models.bucket import (
     BucketPublicAccessBlockUpdate,
 )
 from app.routers.dependencies import get_s3_execution_context, get_current_account_admin
-from app.routers.bucket_config_errors import run_bucket_config_action, run_bucket_config_no_content
+from app.routers.bucket_config_errors import (
+    run_bucket_config_action,
+    run_bucket_config_no_content,
+    run_bucket_config_read,
+)
 from app.routers.manager.bucket_config_common import get_manager_bucket_config_mutation_service
 from app.services import bucket_config_actions
 from app.services.bucket_config_mutation_service import BucketConfigMutationService
@@ -35,12 +39,7 @@ def get_acl(
     service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketAcl:
-    return run_bucket_config_action(
-        bucket_config_actions.get_bucket_acl_config,
-        service=service,
-        context=context,
-        bucket_name=bucket_name,
-    )
+    return run_bucket_config_read(bucket_config_actions.get_bucket_acl_config, service, context, bucket_name)
 
 
 @router.put("/{bucket_name}/acl", response_model=BucketAcl)
@@ -68,11 +67,8 @@ def get_public_access_block(
     service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketPublicAccessBlock:
-    return run_bucket_config_action(
-        bucket_config_actions.get_bucket_public_access_block_config,
-        service=service,
-        context=context,
-        bucket_name=bucket_name,
+    return run_bucket_config_read(
+        bucket_config_actions.get_bucket_public_access_block_config, service, context, bucket_name
     )
 
 

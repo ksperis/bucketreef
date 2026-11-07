@@ -17,7 +17,11 @@ from app.models.bucket import (
     BucketWebsiteConfiguration,
 )
 from app.routers.storage_endpoint_feature_guards import require_replication_feature
-from app.routers.bucket_config_errors import run_bucket_config_action, run_bucket_config_no_content
+from app.routers.bucket_config_errors import (
+    run_bucket_config_action,
+    run_bucket_config_no_content,
+    run_bucket_config_read,
+)
 from app.routers.dependencies import get_s3_execution_context, get_current_account_admin
 from app.routers.manager.bucket_config_common import get_manager_bucket_config_mutation_service
 from app.services import bucket_config_actions
@@ -38,11 +42,8 @@ def get_lifecycle(
     service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketLifecycleConfig:
-    return run_bucket_config_action(
-        bucket_config_actions.get_bucket_lifecycle_config,
-        service=service,
-        context=context,
-        bucket_name=bucket_name,
+    return run_bucket_config_read(
+        bucket_config_actions.get_bucket_lifecycle_config, service, context, bucket_name
     )
 
 
@@ -91,12 +92,7 @@ def get_cors(
     service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketCors:
-    return run_bucket_config_action(
-        bucket_config_actions.get_bucket_cors_config,
-        service=service,
-        context=context,
-        bucket_name=bucket_name,
-    )
+    return run_bucket_config_read(bucket_config_actions.get_bucket_cors_config, service, context, bucket_name)
 
 
 @router.put("/{bucket_name}/cors", response_model=BucketCors)
@@ -144,11 +140,8 @@ def get_notifications(
     service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketNotificationConfiguration:
-    return run_bucket_config_action(
-        bucket_config_actions.get_bucket_notifications_config,
-        service=service,
-        context=context,
-        bucket_name=bucket_name,
+    return run_bucket_config_read(
+        bucket_config_actions.get_bucket_notifications_config, service, context, bucket_name
     )
 
 
@@ -198,11 +191,8 @@ def get_replication(
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketReplicationConfiguration:
     require_replication_feature(context.storage_endpoint)
-    return run_bucket_config_action(
-        bucket_config_actions.get_bucket_replication_config,
-        service=service,
-        context=context,
-        bucket_name=bucket_name,
+    return run_bucket_config_read(
+        bucket_config_actions.get_bucket_replication_config, service, context, bucket_name
     )
 
 
@@ -329,12 +319,7 @@ def get_tags(
     service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketTags:
-    return run_bucket_config_action(
-        bucket_config_actions.get_bucket_tags_config,
-        service=service,
-        context=context,
-        bucket_name=bucket_name,
-    )
+    return run_bucket_config_read(bucket_config_actions.get_bucket_tags_config, service, context, bucket_name)
 
 
 @router.put("/{bucket_name}/tags", response_model=BucketTags)

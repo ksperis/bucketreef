@@ -12,7 +12,7 @@ from app.models.bucket import (
     BucketProperties,
     BucketWebsiteConfiguration,
 )
-from app.routers.bucket_config_errors import run_bucket_config_action
+from app.routers.bucket_config_errors import run_bucket_config_read
 from app.routers.dependencies import get_current_account_admin, get_s3_execution_context
 from app.services import bucket_config_actions
 from app.services.bucket_configuration_service import (
@@ -31,11 +31,8 @@ def get_bucket_properties_config(
     service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketProperties:
-    return run_bucket_config_action(
-        bucket_config_actions.get_bucket_properties_config,
-        service=service,
-        context=context,
-        bucket_name=bucket_name,
+    return run_bucket_config_read(
+        bucket_config_actions.get_bucket_properties_config, service, context, bucket_name
     )
 
 
@@ -46,11 +43,8 @@ def get_bucket_policy_config(
     service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketPolicyOut:
-    return run_bucket_config_action(
-        bucket_config_actions.get_bucket_policy_config,
-        service=service,
-        context=context,
-        bucket_name=bucket_name,
+    return run_bucket_config_read(
+        bucket_config_actions.get_bucket_policy_config, service, context, bucket_name
     )
 
 
@@ -61,11 +55,8 @@ def get_bucket_logging_config(
     service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketLoggingConfiguration:
-    return run_bucket_config_action(
-        bucket_config_actions.get_bucket_logging_config,
-        service=service,
-        context=context,
-        bucket_name=bucket_name,
+    return run_bucket_config_read(
+        bucket_config_actions.get_bucket_logging_config, service, context, bucket_name
     )
 
 
@@ -76,9 +67,6 @@ def get_bucket_website_config(
     service: BucketConfigurationService = Depends(get_bucket_configuration_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> BucketWebsiteConfiguration:
-    return run_bucket_config_action(
-        bucket_config_actions.get_bucket_website_config,
-        service=service,
-        context=context,
-        bucket_name=bucket_name,
+    return run_bucket_config_read(
+        bucket_config_actions.get_bucket_website_config, service, context, bucket_name
     )
