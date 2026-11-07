@@ -109,9 +109,7 @@ class PortalStorageSpaceInitialShare(ApiModel):
     role: PortalStorageSpaceGrantRole
 
 
-class PortalStorageSpaceCreate(ApiModel):
-    naming_mode: PortalStorageSpaceNamingMode
-    name: str = Field(min_length=1, max_length=120)
+class _PortalStorageSpaceProvisioningOptions(ApiModel):
     description: Optional[str] = Field(default=None, max_length=2000)
     visibility: PortalStorageSpaceVisibility
     share_scope: PortalStorageSpaceShareScope
@@ -119,6 +117,11 @@ class PortalStorageSpaceCreate(ApiModel):
     initial_shares: list[PortalStorageSpaceInitialShare]
     project_key: Optional[str] = Field(default=None, max_length=80)
     dataset_label: Optional[str] = Field(default=None, max_length=120)
+
+
+class PortalStorageSpaceCreate(_PortalStorageSpaceProvisioningOptions):
+    naming_mode: PortalStorageSpaceNamingMode
+    name: str = Field(min_length=1, max_length=120)
 
     @field_validator("name")
     @classmethod
@@ -131,15 +134,8 @@ class PortalStorageSpaceCreate(ApiModel):
         return cleaned
 
 
-class PortalStorageSpaceImport(ApiModel):
+class PortalStorageSpaceImport(_PortalStorageSpaceProvisioningOptions):
     bucket_name: str = Field(min_length=1, max_length=63)
-    description: Optional[str] = Field(default=None, max_length=2000)
-    visibility: PortalStorageSpaceVisibility
-    share_scope: PortalStorageSpaceShareScope
-    account_member_role: Optional[PortalStorageSpaceAccountMemberRole]
-    initial_shares: list[PortalStorageSpaceInitialShare]
-    project_key: Optional[str] = Field(default=None, max_length=80)
-    dataset_label: Optional[str] = Field(default=None, max_length=120)
 
     @field_validator("bucket_name")
     @classmethod
