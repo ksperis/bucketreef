@@ -16,7 +16,6 @@ from app.core.domain_enums import UserRole
 from app.models.admin_ldap_import import LDAPImportRequest
 from app.services.admin_ldap_user_import_service import AdminLdapUserImportService
 from app.services.ldap_service import LDAPIdentity
-from app.services.users_service import get_users_service
 
 
 class FakeLdapService:
@@ -68,7 +67,6 @@ def _service(db_session, identity: LDAPIdentity) -> AdminLdapUserImportService:
     return AdminLdapUserImportService(
         db_session,
         FakeLdapService(identity),
-        get_users_service(db_session),
     )
 
 

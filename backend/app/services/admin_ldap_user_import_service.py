@@ -21,16 +21,16 @@ from app.services.auth_session_service import AuthSessionService
 from app.services.ldap_service import LDAPAuthService, LDAPIdentity
 from app.services.user_associations_service import UserAssociationsService
 from app.services.user_provisioning_service import user_create_access_column_values
-from app.services.users_service import UsersService
+from app.services.user_query_service import UserQueryService
 from app.utils.normalize import normalize_optional_string
 from app.utils.time import utcnow
 
 
 class AdminLdapUserImportService:
-    def __init__(self, db: Session, ldap: LDAPAuthService, users: UsersService) -> None:
+    def __init__(self, db: Session, ldap: LDAPAuthService) -> None:
         self.db = db
         self.ldap = ldap
-        self.users = users
+        self.user_queries = UserQueryService(db)
 
     @staticmethod
     def _matched_user(user: User | None) -> LDAPImportMatchedUser | None:
@@ -67,7 +67,7 @@ class AdminLdapUserImportService:
         for identity in identities:
             mapping = self._identity_mapping(identity)
             linked_user = self.db.get(User, mapping.user_id) if mapping else None
-            email_match = self.users.get_by_email_case_insensitive(identity.email) if identity.email else None
+            email_match = self.user_queries.get_by_email_case_insensitive(identity.email) if identity.email else None
             if mapping and mapping.revoked_at is not None:
                 state = "revoked"
             elif mapping:
@@ -142,7 +142,7 @@ class AdminLdapUserImportService:
                 imported = self._create_user(identity, request.create)
             else:
                 assert request.target_user_id is not None
-                target = self.users.require_by_id(request.target_user_id)
+                target = self.user_queries.require_by_id(request.target_user_id)
                 if request.action == "restore":
                     imported = self._restore_identity(identity, target, mapping)
                 else:
@@ -153,7 +153,7 @@ class AdminLdapUserImportService:
 
     def _create_user(self, identity: LDAPIdentity, payload: LDAPImportCreatePayload) -> User:
         email = payload.email.lower()
-        if self.users.get_by_email_case_insensitive(email):
+        if self.user_queries.get_by_email_case_insensitive(email):
             raise ValueError("A UI user with this email already exists; link the LDAP identity instead")
         role = payload.role
         user = User(
