@@ -183,16 +183,6 @@ export function recordsToCsv(records: Record<string, unknown>[]): string {
   return [header, ...rows].join("\n");
 }
 
-export function downloadTextFile(filename: string, content: string, mimeType: string) {
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
-
 export function buildMultisiteHref(path: string, currentSearch: URLSearchParams, extra: Record<string, string | number | null | undefined>) {
   const params = new URLSearchParams();
   const endpoint = currentSearch.get("ep");
