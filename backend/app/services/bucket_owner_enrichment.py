@@ -7,13 +7,14 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from threading import Lock
 from time import monotonic
-from typing import Callable, Literal
+from typing import Callable
 
 from app.db import StorageEndpoint
 from app.core.domain_enums import StorageProvider
 from app.services.s3_execution_context import S3ExecutionTarget
 from app.models.bucket_listing import BucketListingSummary
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
+from app.services.rgw_bucket_metadata import BucketOwnerKind
 from app.services.rgw_endpoint_clients import get_endpoint_runtime_rgw_client
 from app.utils.cache import (
     TtlCacheEntry,
@@ -44,7 +45,7 @@ class BucketOwnerIdentity:
     key: str
     tenant: str | None
     owner: str
-    owner_kind: Literal["account", "user"]
+    owner_kind: BucketOwnerKind
 
 
 @dataclass
@@ -106,7 +107,7 @@ def _normalize_owner_identity(tenant: str | None, owner: str | None) -> BucketOw
         if embedded_tenant:
             cleaned_tenant = embedded_tenant
         cleaned_owner = embedded_uid
-    owner_kind: Literal["account", "user"] = "account" if is_rgw_account_id(cleaned_owner) else "user"
+    owner_kind: BucketOwnerKind = "account" if is_rgw_account_id(cleaned_owner) else "user"
     key = f"{cleaned_tenant or ''}:{cleaned_owner}"
     return BucketOwnerIdentity(
         key=key,
