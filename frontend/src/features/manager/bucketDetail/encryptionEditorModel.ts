@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { hasOnlyKeys, isRecord } from "../../../utils/record";
+import { parseJsonObjectArray } from "./jsonObjectArrayEditor";
 
 export type EncryptionRuleRecord = Record<string, unknown>;
 
@@ -132,19 +133,12 @@ export function createVisualEncryptionRule(): EncryptionRuleRecord {
 export function parseEncryptionRulesJson(
   text: string,
 ): { rules: EncryptionRuleRecord[] | null; error: string | null } {
-  let parsed: unknown;
-  try {
-    parsed = text.trim() ? JSON.parse(text) : [];
-  } catch {
-    return { rules: null, error: "Encryption rules JSON is invalid." };
-  }
-  if (!Array.isArray(parsed)) {
-    return { rules: null, error: "Encryption JSON must be an array of rules." };
-  }
-  if (parsed.some((rule) => !isRecord(rule))) {
-    return { rules: null, error: "Each encryption rule must be a JSON object." };
-  }
-  return { rules: parsed as EncryptionRuleRecord[], error: null };
+  const parsed = parseJsonObjectArray<EncryptionRuleRecord>(text, {
+    invalidJson: "Encryption rules JSON is invalid.",
+    notArray: "Encryption JSON must be an array of rules.",
+    invalidEntry: "Each encryption rule must be a JSON object.",
+  });
+  return { rules: parsed.items, error: parsed.error };
 }
 
 export function validateVisualEncryptionRules(

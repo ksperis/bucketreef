@@ -3,6 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { isRecord, isStringArray } from "../../../utils/record";
+import { parseJsonObjectArray } from "./jsonObjectArrayEditor";
 
 export type CorsRuleRecord = Record<string, unknown>;
 
@@ -125,19 +126,12 @@ export function createVisualCorsRule(): CorsRuleRecord {
 export function parseCorsRulesJson(
   text: string,
 ): { rules: CorsRuleRecord[] | null; error: string | null } {
-  let parsed: unknown;
-  try {
-    parsed = text.trim() ? JSON.parse(text) : [];
-  } catch {
-    return { rules: null, error: "CORS rules JSON is invalid." };
-  }
-  if (!Array.isArray(parsed)) {
-    return { rules: null, error: "CORS JSON must be an array of rules." };
-  }
-  if (parsed.some((rule) => !isRecord(rule))) {
-    return { rules: null, error: "Each CORS rule must be a JSON object." };
-  }
-  return { rules: parsed as CorsRuleRecord[], error: null };
+  const parsed = parseJsonObjectArray<CorsRuleRecord>(text, {
+    invalidJson: "CORS rules JSON is invalid.",
+    notArray: "CORS JSON must be an array of rules.",
+    invalidEntry: "Each CORS rule must be a JSON object.",
+  });
+  return { rules: parsed.items, error: parsed.error };
 }
 
 export function validateVisualCorsRules(rules: CorsRuleRecord[]): string | null {
