@@ -8,13 +8,9 @@ import {
   deriveAdminAssociationOptions,
   filterAdminAssociationOptions,
   MAX_VISIBLE_ASSOCIATION_OPTIONS,
+  type AdminAssociationOption,
 } from "./adminAssociationOptions";
 import type { AdminUserAssociationEditorState } from "./useAdminUserAssociationEditorState";
-
-type AssociationOption = {
-  id: number;
-  label: string;
-};
 
 type AssociationEditorDerivationState = {
   accounts: {
@@ -40,18 +36,18 @@ type AssociationEditorDerivationState = {
 };
 
 type AssociationOptionSources = {
-  accountOptions: AssociationOption[];
-  s3UserOptions: AssociationOption[];
-  s3ConnectionOptions: AssociationOption[];
-  openStackOptions: AssociationOption[];
+  accountOptions: AdminAssociationOption[];
+  s3UserOptions: AdminAssociationOption[];
+  s3ConnectionOptions: AdminAssociationOption[];
+  openStackOptions: AdminAssociationOption[];
   groups: UiGroupSummary[];
 };
 
 export type AdminUserAssociationDerivedOptions = {
-  accounts: { available: AssociationOption[]; visible: AssociationOption[] };
-  s3Users: { available: AssociationOption[]; visible: AssociationOption[] };
-  connections: { available: AssociationOption[]; visible: AssociationOption[] };
-  openStack: { available: AssociationOption[]; visible: AssociationOption[] };
+  accounts: { available: AdminAssociationOption[]; visible: AdminAssociationOption[] };
+  s3Users: { available: AdminAssociationOption[]; visible: AdminAssociationOption[] };
+  connections: { available: AdminAssociationOption[]; visible: AdminAssociationOption[] };
+  openStack: { available: AdminAssociationOption[]; visible: AdminAssociationOption[] };
   groups: UiGroupSummary[];
 };
 
@@ -61,7 +57,7 @@ export function deriveAdminUserAssociationOptions(
   maxVisibleOptions = MAX_VISIBLE_ASSOCIATION_OPTIONS,
 ): AdminUserAssociationDerivedOptions {
   const deriveOptions = (
-    items: AssociationOption[],
+    items: AdminAssociationOption[],
     selectedIds: ReadonlySet<number>,
     search: string,
   ) => deriveAdminAssociationOptions(

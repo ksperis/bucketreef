@@ -26,17 +26,13 @@ import {
   ManagerAccountRoleSelect,
   PortalAccountRoleSelect,
 } from "./AccountAccessRoleSelectors";
+import type { AdminAssociationOption } from "./adminAssociationOptions";
 import { useAdminAssociationI18n } from "./adminAssociationMessages";
 import "./adminAssociations.css";
 
 const adminAssociationAddPanelClass = cx(uiCardMutedClass, "space-y-2 px-3 py-2");
 export const adminAssociationPanelClass = "mt-3 min-w-0 space-y-3";
 export const adminAssociationTableContainerClass = uiTableContainerClass;
-
-export type AdminAssociationOption = {
-  id: number;
-  label: string;
-};
 
 export type AdminAssociationPickerState = {
   available: AdminAssociationOption[];
