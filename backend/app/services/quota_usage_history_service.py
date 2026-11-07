@@ -1,16 +1,20 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
-from datetime import date, datetime
-from typing import Optional
+from datetime import datetime
+from typing import Callable, Optional, TypeVar
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.core.sqlite import add_and_flush_in_savepoint
 from app.db import QuotaUsageDaily, QuotaUsageHourly
 from app.services.quota_subject import SubjectContext, quota_subject_ids
+
+
+_QuotaUsageRow = TypeVar("_QuotaUsageRow", QuotaUsageHourly, QuotaUsageDaily)
 
 
 class QuotaUsageHistoryService:
@@ -32,50 +36,27 @@ class QuotaUsageHistoryService:
     ) -> None:
         hour_ts = now.replace(minute=0, second=0, microsecond=0)
         account_id, user_id = quota_subject_ids(subject)
-        existing = self._find_hourly(
-            hour_ts=hour_ts,
+        self._upsert_row(
+            model=QuotaUsageHourly,
+            period_clause=QuotaUsageHourly.hour_ts == hour_ts,
             subject=subject,
             account_id=account_id,
             user_id=user_id,
-        )
-        if existing is not None:
-            self._update_hourly(
-                existing,
-                used_bytes=used_bytes,
-                used_objects=used_objects,
-                bucket_count=bucket_count,
-                quota_size_bytes=quota_size_bytes,
-                quota_objects=quota_objects,
-                ratio_pct=ratio_pct,
-                now=now,
-            )
-            return
-        row = QuotaUsageHourly(
-            hour_ts=hour_ts,
-            storage_endpoint_id=subject.endpoint_id,
-            s3_account_id=account_id,
-            s3_user_id=user_id,
-            used_bytes=int(used_bytes),
-            used_objects=int(used_objects),
-            bucket_count=int(bucket_count),
-            quota_size_bytes=quota_size_bytes,
-            quota_objects=quota_objects,
-            usage_ratio_pct=ratio_pct,
-            collected_at=now,
-        )
-        try:
-            add_and_flush_in_savepoint(self.db, row)
-        except IntegrityError:
-            existing = self._find_hourly(
+            build_row=lambda: QuotaUsageHourly(
                 hour_ts=hour_ts,
-                subject=subject,
-                account_id=account_id,
-                user_id=user_id,
-            )
-            if existing is None:
-                raise
-            self._update_hourly(
-                existing,
+                storage_endpoint_id=subject.endpoint_id,
+                s3_account_id=account_id,
+                s3_user_id=user_id,
+                used_bytes=int(used_bytes),
+                used_objects=int(used_objects),
+                bucket_count=int(bucket_count),
+                quota_size_bytes=quota_size_bytes,
+                quota_objects=quota_objects,
+                usage_ratio_pct=ratio_pct,
+                collected_at=now,
+            ),
+            update_existing=lambda row: self._update_hourly(
+                row,
                 used_bytes=used_bytes,
                 used_objects=used_objects,
                 bucket_count=bucket_count,
@@ -83,7 +64,8 @@ class QuotaUsageHistoryService:
                 quota_objects=quota_objects,
                 ratio_pct=ratio_pct,
                 now=now,
-            )
+            ),
+        )
 
     def upsert_daily(
         self,
@@ -96,70 +78,66 @@ class QuotaUsageHistoryService:
     ) -> None:
         day = now.date()
         account_id, user_id = quota_subject_ids(subject)
-        existing = self._find_daily(
-            day=day,
+        self._upsert_row(
+            model=QuotaUsageDaily,
+            period_clause=QuotaUsageDaily.day == day,
             subject=subject,
             account_id=account_id,
             user_id=user_id,
-        )
-        if existing is not None:
-            self._update_daily(
-                existing,
-                used_bytes=used_bytes,
-                used_objects=used_objects,
-                bucket_count=bucket_count,
-                ratio_pct=ratio_pct,
-                now=now,
-            )
-            return
-        row = QuotaUsageDaily(
-            day=day,
-            storage_endpoint_id=subject.endpoint_id,
-            s3_account_id=account_id,
-            s3_user_id=user_id,
-            last_used_bytes=int(used_bytes),
-            last_used_objects=int(used_objects),
-            bucket_count=int(bucket_count),
-            max_ratio_pct=ratio_pct,
-            samples_count=1,
-            updated_at=now,
-        )
-        try:
-            add_and_flush_in_savepoint(self.db, row)
-        except IntegrityError:
-            existing = self._find_daily(
+            build_row=lambda: QuotaUsageDaily(
                 day=day,
-                subject=subject,
-                account_id=account_id,
-                user_id=user_id,
-            )
-            if existing is None:
-                raise
-            self._update_daily(
-                existing,
+                storage_endpoint_id=subject.endpoint_id,
+                s3_account_id=account_id,
+                s3_user_id=user_id,
+                last_used_bytes=int(used_bytes),
+                last_used_objects=int(used_objects),
+                bucket_count=int(bucket_count),
+                max_ratio_pct=ratio_pct,
+                samples_count=1,
+                updated_at=now,
+            ),
+            update_existing=lambda row: self._update_daily(
+                row,
                 used_bytes=used_bytes,
                 used_objects=used_objects,
                 bucket_count=bucket_count,
                 ratio_pct=ratio_pct,
                 now=now,
-            )
+            ),
+        )
 
-    def _find_hourly(
+    def _upsert_row(
         self,
         *,
-        hour_ts: datetime,
+        model: type[_QuotaUsageRow],
+        period_clause: ColumnElement[bool],
         subject: SubjectContext,
         account_id: Optional[int],
         user_id: Optional[int],
-    ) -> Optional[QuotaUsageHourly]:
-        return self.db.scalars(
-            select(QuotaUsageHourly).where(
-                QuotaUsageHourly.hour_ts == hour_ts,
-                QuotaUsageHourly.storage_endpoint_id == subject.endpoint_id,
-                QuotaUsageHourly.s3_account_id == account_id,
-                QuotaUsageHourly.s3_user_id == user_id,
-            )
-        ).first()
+        build_row: Callable[[], _QuotaUsageRow],
+        update_existing: Callable[[_QuotaUsageRow], None],
+    ) -> None:
+        def find_existing() -> Optional[_QuotaUsageRow]:
+            return self.db.scalars(
+                select(model).where(
+                    period_clause,
+                    model.storage_endpoint_id == subject.endpoint_id,
+                    model.s3_account_id == account_id,
+                    model.s3_user_id == user_id,
+                )
+            ).first()
+
+        existing = find_existing()
+        if existing is not None:
+            update_existing(existing)
+            return
+        try:
+            add_and_flush_in_savepoint(self.db, build_row())
+        except IntegrityError:
+            existing = find_existing()
+            if existing is None:
+                raise
+            update_existing(existing)
 
     @staticmethod
     def _update_hourly(
@@ -180,23 +158,6 @@ class QuotaUsageHistoryService:
         row.quota_objects = quota_objects
         row.usage_ratio_pct = ratio_pct
         row.collected_at = now
-
-    def _find_daily(
-        self,
-        *,
-        day: date,
-        subject: SubjectContext,
-        account_id: Optional[int],
-        user_id: Optional[int],
-    ) -> Optional[QuotaUsageDaily]:
-        return self.db.scalars(
-            select(QuotaUsageDaily).where(
-                QuotaUsageDaily.day == day,
-                QuotaUsageDaily.storage_endpoint_id == subject.endpoint_id,
-                QuotaUsageDaily.s3_account_id == account_id,
-                QuotaUsageDaily.s3_user_id == user_id,
-            )
-        ).first()
 
     @staticmethod
     def _update_daily(
