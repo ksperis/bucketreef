@@ -35,7 +35,6 @@ from app.services.portal_request_notification_service import PortalRequestNotifi
 from app.services.portal_service import PortalService
 from app.services.s3_accounts_service import S3AccountsService, get_s3_accounts_service
 from app.services.sqlalchemy_pagination import paginate_scalars
-from app.services.users_service import UsersService, get_users_service
 from app.utils.size_units import size_to_bytes
 from app.utils.time import utcnow
 
@@ -77,16 +76,11 @@ class PortalRequestsService:
         self,
         db: Session,
         *,
-        users_service: Optional[UsersService] = None,
         accounts_service: Optional[S3AccountsService] = None,
     ) -> None:
         self.db = db
-        self.users_service = users_service or get_users_service(db)
         self.accounts_service = accounts_service or get_s3_accounts_service(db)
-        self.collaborator_requests = PortalCollaboratorRequestsService(
-            db,
-            users_service=self.users_service,
-        )
+        self.collaborator_requests = PortalCollaboratorRequestsService(db)
         self.notifications = PortalRequestNotificationService(db)
 
     def _commit(self) -> None:

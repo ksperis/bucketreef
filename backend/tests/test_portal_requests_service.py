@@ -262,8 +262,8 @@ def test_approve_user_access_rolls_back_placeholder_when_assignment_fails(
     service = PortalRequestsService(db_session, accounts_service=FakeAccountsService())
     created = _create_user_request(service, account, requester)
     monkeypatch.setattr(
-        service.users_service,
-        "assign_user_to_account",
+        service.collaborator_requests.associations,
+        "assign_account",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("assignment failed")),
     )
 
