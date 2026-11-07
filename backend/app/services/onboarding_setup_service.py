@@ -28,7 +28,8 @@ from app.services.rgw_iam import get_iam_client
 from app.services.s3_accounts_service import get_s3_accounts_service
 from app.services.s3_connections_service import S3ConnectionsService
 from app.services.s3_execution_client import require_s3_execution_credentials
-from app.services.users_service import get_users_service
+from app.services.user_associations_service import UserAssociationsService
+from app.services.user_update_service import UserUpdateService
 from app.utils.rgw_identifiers import generate_rgw_account_id
 from app.utils.storage_endpoint_features import resolve_feature_flags
 from app.utils.time import utcnow
@@ -40,6 +41,8 @@ class OnboardingSetupService:
         self.db = progress.db
         self.endpoints = progress.endpoints
         self.endpoint_setup = OnboardingEndpointSetupService(progress)
+        self.user_associations = UserAssociationsService(self.db)
+        self.user_updates = UserUpdateService(self.db)
 
     def _private_credentials(self, payload):
         access, secret = credential_pair(
@@ -71,7 +74,7 @@ class OnboardingSetupService:
             self._private_connection(actor, row, endpoint, payload)
 
         if draft.ceph_admin and not actor.can_access_ceph_admin:
-            get_users_service(self.db).update_user(
+            self.user_updates.update_user(
                 actor.id, UserUpdate(can_access_ceph_admin=True)
             )
             self.progress.audit(
@@ -183,8 +186,7 @@ class OnboardingSetupService:
         )
 
     def _assign_account_access(self, actor, row, draft, account):
-        users = get_users_service(self.db)
-        users.assign_user_to_account(
+        self.user_associations.assign_account(
             actor.id,
             account.id,
             manager_role="account_administrator" if draft.manager else None,
@@ -237,7 +239,7 @@ class OnboardingSetupService:
 
         access, secret = self._private_credentials(payload)
         if not actor.can_create_manual_private_connections:
-            get_users_service(self.db).update_user(
+            self.user_updates.update_user(
                 actor.id, UserUpdate(can_create_manual_private_connections=True)
             )
             self.progress.audit(
