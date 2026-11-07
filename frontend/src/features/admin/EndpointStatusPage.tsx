@@ -10,6 +10,7 @@ import {
   type EndpointHealthGlobalIncident,
   type EndpointHealthLatencyOverviewEndpoint,
   type HealthCheckStatus,
+  type HealthWindow,
 } from "../../api/healthchecks";
 import ListPageSection from "../../components/list/ListPageSection";
 import PageBanner from "../../components/PageBanner";
@@ -35,21 +36,21 @@ import {
 import { useEndpointStatusText } from "./endpointStatusMessages";
 import { useEndpointStatusResources } from "./useEndpointStatusResources";
 
-type WindowOption = { value: "day" | "week" | "month" };
-type IncidentWindowOption = { value: "month" | "quarter" | "half_year" };
 type IncidentRow = EndpointHealthGlobalIncident & { rowKey: string };
 
-const TIMELINE_WINDOW_OPTIONS: WindowOption[] = [
+const TIMELINE_WINDOW_OPTIONS = [
   { value: "day" },
   { value: "week" },
   { value: "month" },
-];
+] as const satisfies ReadonlyArray<{ value: HealthWindow }>;
+type TimelineWindow = (typeof TIMELINE_WINDOW_OPTIONS)[number]["value"];
 
-const INCIDENT_WINDOW_OPTIONS: IncidentWindowOption[] = [
+const INCIDENT_WINDOW_OPTIONS = [
   { value: "month" },
   { value: "quarter" },
   { value: "half_year" },
-];
+] as const satisfies ReadonlyArray<{ value: HealthWindow }>;
+type IncidentWindow = (typeof INCIDENT_WINDOW_OPTIONS)[number]["value"];
 
 function latencyBarClass(status: HealthCheckStatus) {
   if (status === "up") return "bg-emerald-500";
@@ -84,8 +85,8 @@ export default function EndpointStatusPage() {
   const { text, locale } = useEndpointStatusText();
   const navigate = useNavigate();
 
-  const [timelineWindow, setTimelineWindow] = useState<WindowOption["value"]>("week");
-  const [incidentWindow, setIncidentWindow] = useState<IncidentWindowOption["value"]>("half_year");
+  const [timelineWindow, setTimelineWindow] = useState<TimelineWindow>("week");
+  const [incidentWindow, setIncidentWindow] = useState<IncidentWindow>("half_year");
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [runLoading, setRunLoading] = useState<boolean>(false);
