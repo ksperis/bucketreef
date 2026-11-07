@@ -71,6 +71,12 @@ export type ColumnId =
   | "sse_kms_key_ids"
   | "quota_status";
 
+export type BucketOpsFeatureColumn = {
+  id: FeatureKey;
+  key: FeatureKey;
+  label: string;
+};
+
 export type SortField = "name" | "tenant" | "owner" | "used_bytes" | "object_count";
 export type BucketListState = {
   filter: string;

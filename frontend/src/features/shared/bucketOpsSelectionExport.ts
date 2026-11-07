@@ -11,10 +11,9 @@ import {
   buildBucketExportColumns,
   buildBucketSelectionJsonPayload,
   serializeBucketSelectionCsv,
-  type BucketExportFeatureColumn,
 } from "./bucketOpsExportModel";
 import { loadBucketOpsFilteredBuckets } from "./bucketOpsFilteredBucketLoader";
-import type { ColumnId } from "./bucketOpsListState";
+import type { BucketOpsFeatureColumn, ColumnId } from "./bucketOpsListState";
 import { loadBucketOpsBucketsByNames } from "./bucketOpsNamedBucketLoader";
 import {
   decodeCephAdminBucketRef,
@@ -34,7 +33,7 @@ type BucketOpsSelectionExportInput = {
   exportPrefix: string;
   exportScopeKey: "endpoint" | "scope";
   exportWithStats: boolean;
-  featureColumns: readonly BucketExportFeatureColumn[];
+  featureColumns: readonly BucketOpsFeatureColumn[];
   filteredQuery: Omit<
     BucketListingParams,
     "include" | "page" | "page_size" | "with_stats"

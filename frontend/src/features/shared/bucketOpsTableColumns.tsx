@@ -10,6 +10,7 @@ import { formatBytes, formatNumber } from "../../utils/format";
 import type { FeatureKey } from "./bucketOpsAdvancedFilterModel";
 import {
   FEATURE_DETAIL_COLUMN_OPTIONS,
+  type BucketOpsFeatureColumn,
   type ColumnId,
 } from "./bucketOpsListState";
 import {
@@ -23,12 +24,6 @@ import {
   isBucketQuotaConfigured,
 } from "./bucketOpsPresentation";
 import type { BucketOpsTableColumn } from "./BucketOpsTable";
-
-type BucketOpsFeatureColumn = {
-  id: FeatureKey;
-  key: FeatureKey;
-  label: string;
-};
 
 type BuildBucketOpsDataColumnsInput = {
   featureColumns: readonly BucketOpsFeatureColumn[];
