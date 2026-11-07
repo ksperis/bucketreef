@@ -15,6 +15,7 @@ from app.services.rgw_principal_scope import resolve_target_tenant
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.storage_ops_bucket_filtering import match_storage_ops_field_rule
 from app.utils.cancellation import invoke_cancel_check
+from app.utils.normalize import normalize_optional_string
 
 
 CONTEXT_IDENTITY_FIELDS = {"context_id", "context_name", "context_kind", "endpoint_name"}
@@ -48,11 +49,11 @@ def build_storage_ops_bucket_identity(
 ) -> str | None:
     if endpoint_id is None or endpoint_id <= 0:
         return None
-    name = str(bucket_name or "").strip()
+    name = normalize_optional_string(bucket_name)
     if not name:
         return None
     return json.dumps(
-        [endpoint_id, str(tenant or "").strip(), name],
+        [endpoint_id, normalize_optional_string(tenant) or "", name],
         ensure_ascii=False,
         separators=(",", ":"),
     )
@@ -181,13 +182,13 @@ def resolve_storage_ops_contexts(
 
 
 def resolve_storage_ops_context_owner(context: S3ExecutionContext) -> StorageOpsContextOwner:
-    account_id = str(context.rgw_account_id or "").strip()
+    account_id = normalize_optional_string(context.rgw_account_id)
     if account_id:
         return StorageOpsContextOwner(
             owner=account_id,
             tenant=resolve_target_tenant(context),
         )
-    user_uid = str(context.rgw_user_uid or "").strip()
+    user_uid = normalize_optional_string(context.rgw_user_uid)
     if user_uid:
         return StorageOpsContextOwner(
             owner=user_uid,
@@ -207,4 +208,4 @@ def resolve_storage_ops_context_owner(context: S3ExecutionContext) -> StorageOps
 
 def resolve_storage_ops_context_tenant(context: S3ExecutionContext) -> str:
     """Return the normalized tenant used in the physical bucket identity."""
-    return str(resolve_storage_ops_context_owner(context).tenant or "").strip()
+    return normalize_optional_string(resolve_storage_ops_context_owner(context).tenant) or ""

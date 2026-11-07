@@ -804,6 +804,31 @@ def test_storage_ops_bucket_identity_is_endpoint_scoped_and_shared_across_contex
     assert [bucket.context_id for bucket in result] == ["account-1", "conn-2"]
 
 
+def test_storage_ops_bucket_identity_normalizes_tenant_and_bucket_name():
+    identity = storage_ops_context_resolution.build_storage_ops_bucket_identity(
+        7,
+        " tenant-a ",
+        " bucket-a ",
+    )
+
+    assert identity == '[7,"tenant-a","bucket-a"]'
+    assert storage_ops_context_resolution.build_storage_ops_bucket_identity(7, None, "   ") is None
+
+
+def test_storage_ops_context_owner_normalizes_direct_rgw_identity():
+    context = _source_context(
+        "1",
+        rgw_account_id=" account-a ",
+        rgw_user_uid=" user-a ",
+        rgw_tenant=" tenant-a ",
+    )
+
+    owner = storage_ops_context_resolution.resolve_storage_ops_context_owner(context)
+
+    assert owner.owner == "account-a"
+    assert storage_ops_context_resolution.resolve_storage_ops_context_tenant(context) == "tenant-a"
+
+
 def test_storage_ops_context_filters_match_context_kind_and_endpoint():
     buckets = [
         StorageOpsBucketSummary(
