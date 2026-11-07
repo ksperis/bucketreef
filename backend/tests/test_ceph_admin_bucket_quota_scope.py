@@ -1,10 +1,14 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from app.utils.storage_endpoint_features import parse_features_config
 from types import SimpleNamespace
+
+import pytest
+from fastapi import HTTPException
 
 from app.models.bucket import BucketQuotaUpdate
 from app.routers.ceph_admin import bucket_config_core as buckets_router
+from app.services.bucket_quota_service import BucketQuotaOperationError
+from app.utils.storage_endpoint_features import parse_features_config
 
 
 class _FakeRGWAdmin:
@@ -147,3 +151,34 @@ def test_update_quota_preserves_explicit_bucket_tenant(monkeypatch):
         "context_tenant": None,
         "target_tenant": "tenant_a",
     }
+
+
+def test_update_quota_maps_expected_operation_failure_to_bad_gateway(monkeypatch):
+    def fail_quota(*_args, **_kwargs):
+        raise BucketQuotaOperationError("quota provider unavailable")
+
+    monkeypatch.setattr(buckets_router.BucketQuotaService, "set_bucket_quota", fail_quota)
+
+    with pytest.raises(HTTPException) as exc_info:
+        buckets_router.update_quota(
+            "bucket-a",
+            BucketQuotaUpdate(enabled=True, max_objects=10),
+            ctx=_build_ctx({"bucket": "bucket-a", "owner": "RGW00000000000000009"}),
+        )
+
+    assert exc_info.value.status_code == 502
+    assert exc_info.value.detail == "quota provider unavailable"
+
+
+def test_update_quota_propagates_unexpected_runtime_failure(monkeypatch):
+    def fail_quota(*_args, **_kwargs):
+        raise RuntimeError("unexpected quota regression")
+
+    monkeypatch.setattr(buckets_router.BucketQuotaService, "set_bucket_quota", fail_quota)
+
+    with pytest.raises(RuntimeError, match="unexpected quota regression"):
+        buckets_router.update_quota(
+            "bucket-a",
+            BucketQuotaUpdate(enabled=True, max_objects=10),
+            ctx=_build_ctx({"bucket": "bucket-a", "owner": "RGW00000000000000009"}),
+        )

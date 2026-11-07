@@ -17,27 +17,31 @@ from app.utils.size_units import size_to_bytes
 from app.utils.storage_endpoint_features import resolve_admin_endpoint, resolve_feature_flags
 
 
+class BucketQuotaOperationError(RuntimeError):
+    """Expected failure while applying a bucket quota through RGW Admin Ops."""
+
+
 class BucketQuotaService:
     def _rgw_bucket_quota_admin_for_context(self, execution_context: S3ExecutionTarget):
         if isinstance(execution_context, S3ExecutionContext) and execution_context.context_kind == "openstack_project":
-            raise RuntimeError("Admin Ops are not available for OpenStack project contexts")
+            raise BucketQuotaOperationError("Admin Ops are not available for OpenStack project contexts")
         endpoint = execution_context.storage_endpoint
         if endpoint is None:
-            raise RuntimeError("Storage endpoint is not configured for this context")
+            raise BucketQuotaOperationError("Storage endpoint is not configured for this context")
         flags = resolve_feature_flags(endpoint)
         if not flags.admin_enabled:
-            raise RuntimeError("Admin API is disabled for this endpoint")
+            raise BucketQuotaOperationError("Admin API is disabled for this endpoint")
         access_key = (endpoint.admin_access_key or "").strip()
         secret_key = (endpoint.admin_secret_key or "").strip()
         if not access_key or not secret_key:
-            raise RuntimeError("Endpoint admin credentials are not configured for this endpoint")
+            raise BucketQuotaOperationError("Endpoint admin credentials are not configured for this endpoint")
         try:
             admin_endpoint = resolve_admin_endpoint(endpoint)
             if not admin_endpoint:
-                raise RuntimeError("Admin endpoint is not configured for this endpoint")
+                raise BucketQuotaOperationError("Admin endpoint is not configured for this endpoint")
             return get_endpoint_admin_rgw_client(endpoint)
         except RGWAdminError as exc:
-            raise RuntimeError(f"Unable to initialize bucket quota admin client: {exc}") from exc
+            raise BucketQuotaOperationError(f"Unable to initialize bucket quota admin client: {exc}") from exc
 
     def _resolve_bucket_quota_scope(
         self,
@@ -55,7 +59,7 @@ class BucketQuotaService:
         if root_uid:
             return account_id, tenant, root_uid
 
-        raise RuntimeError("Unable to set bucket quota: authorized owner scope is missing")
+        raise BucketQuotaOperationError("Unable to set bucket quota: authorized owner scope is missing")
 
     def set_bucket_quota(
         self,
@@ -86,11 +90,11 @@ class BucketQuotaService:
                 enabled=payload.enabled,
             )
         except RGWAdminError as exc:
-            raise RuntimeError(f"Unable to set bucket quota: {exc}") from exc
+            raise BucketQuotaOperationError(f"Unable to set bucket quota: {exc}") from exc
         if isinstance(response, dict) and response.get("not_found"):
-            raise RuntimeError("Unable to set bucket quota: bucket or owner scope not found")
+            raise BucketQuotaOperationError("Unable to set bucket quota: bucket or owner scope not found")
         if isinstance(response, dict) and response.get("not_implemented"):
-            raise RuntimeError("Unable to set bucket quota: operation not supported on this cluster")
+            raise BucketQuotaOperationError("Unable to set bucket quota: operation not supported on this cluster")
 
 
 def get_bucket_quota_service() -> BucketQuotaService:

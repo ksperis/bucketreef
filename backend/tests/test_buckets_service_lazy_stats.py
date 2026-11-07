@@ -8,7 +8,7 @@ from app.services import s3_client
 from app.services import buckets_service as buckets_service_module
 from app.services.buckets_service import BucketStatsUnavailableError, BucketsService
 from app.services.bucket_configuration_service import BucketConfigurationService
-from app.services.bucket_quota_service import BucketQuotaService
+from app.services.bucket_quota_service import BucketQuotaOperationError, BucketQuotaService
 from app.services.s3_execution_context import S3ExecutionContext
 from tests.service_identity_helpers import service_identity
 from tests.storage_endpoint_features import persisted_endpoint_features
@@ -665,15 +665,33 @@ def test_set_bucket_quota_raises_when_rgw_reports_not_found(monkeypatch):
 
     monkeypatch.setattr(service, "_rgw_bucket_quota_admin_for_context", lambda *_: FakeRGWAdmin())
 
-    try:
+    with pytest.raises(BucketQuotaOperationError, match="not found"):
         service.set_bucket_quota(
             "bucket-b",
             account,
             BucketQuotaUpdate(enabled=True, max_size_gb=5, max_size_unit="GiB"),
         )
-        assert False, "Expected RuntimeError for not_found bucket quota response"
-    except RuntimeError as exc:
-        assert "not found" in str(exc).lower()
+
+
+def test_set_bucket_quota_propagates_unexpected_runtime_failure():
+    service = BucketQuotaService()
+    account = S3Account(
+        name="quota-owner-account",
+        rgw_account_id="RGW00000000000000009",
+        rgw_user_uid="quota-root-09",
+    )
+
+    class BrokenRGWAdmin:
+        def set_bucket_quota(self, **_kwargs):
+            raise RuntimeError("unexpected quota client bug")
+
+    with pytest.raises(RuntimeError, match="unexpected quota client bug"):
+        service.set_bucket_quota(
+            "bucket-b",
+            account,
+            BucketQuotaUpdate(enabled=True, max_objects=5),
+            rgw_admin=BrokenRGWAdmin(),
+        )
 
 
 def test_set_bucket_quota_uses_explicit_disable_state(monkeypatch):
