@@ -1,6 +1,7 @@
-# Authentication Security and Cutover
+# Authentication Security
 
-This page is the operating contract for browser sessions, API tokens, federation, WebAuthn, and the authentication cutover introduced by migrations `0107` through `0110`.
+This page is the operating contract for browser sessions, API tokens,
+federation, WebAuthn, and authentication recovery.
 
 ## Authentication classes
 
@@ -86,19 +87,11 @@ Every token contains and persists one or more exact scopes. The UI/storage domai
 
 Changing a user's password, email, role, activation, MFA, or external identity increments `users.auth_version` and immediately invalidates sessions and API tokens. Logout, global logout, refresh replay, explicit session revocation, and expiry are also database-enforced.
 
-## Mandatory cutover procedure
+## Upgrade history
 
-Migrations `0107`–`0110` are a single compatibility boundary. Existing UI sessions, S3 sessions, refresh values, OIDC states, and API tokens do not survive. Migration `0109` erases S3 session secrets and has no data-restoring downgrade.
-
-1. Stop the frontend, backend replicas, schedulers, and CronJobs.
-2. Create and verify a restorable database backup. Keep the old credential-encryption key with it.
-3. Before changing `CREDENTIAL_KEYS`, use the existing Admin key-rotation workflow to re-encrypt every persisted credential with a strong new primary key. Validate reads while the old key remains second in the ring, then retire it.
-4. Generate strong, mutually distinct `UI_JWT_KEYS`, `API_JWT_KEYS`, and `CREDENTIAL_KEYS`, plus a strong scheduler token. Configure TLS, exact origins/hosts, WebAuthn, trusted proxy CIDRs, and registered S3 endpoints.
-5. Set `BUCKETREEF_DB_BACKUP_VERIFIED=true` only for the verified migration run. Deploy backend, frontend, migrations, and configuration together.
-6. Create the first superadmin interactively if the database has no users. Otherwise notify every user that reauthentication is required and every automation owner that API tokens must be recreated with explicit scopes.
-7. Verify passkey enrollment/login, refresh rotation, session inventory/revocation, API scopes, OIDC reauthenticated linking and administrator fallback, LDAP linking, S3 expiry, security headers, schedulers, and audit redaction.
-
-If rollback is required after `0109`, stop all writers and restore the pre-deployment database and matching credential keys. Do not run Alembic downgrade through the cutover.
+The destructive authentication cutover performed by migrations `0107` through
+`0110`, including its backup gate and rollback procedure, is documented in
+[Upgrade compatibility](../operations/upgrade-compatibility.md#2026-08-authentication-cutover).
 
 ## Key rotation
 
@@ -111,5 +104,6 @@ If rollback is required after `0109`, stop all writers and restore the pre-deplo
 - [Configuration](../configuration/index.md)
 - [Operations: API tokens](api-tokens.md)
 - [Backup and restore](../operations/backup-restore.md)
+- [Upgrade compatibility](../operations/upgrade-compatibility.md)
 - [Production readiness](../operations/production-readiness.md)
 - [Operations: security](index.md)
