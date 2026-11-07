@@ -6,6 +6,7 @@ from typing import Any, Literal, Optional
 
 from pydantic import Field
 
+from app.core.domain_enums import SortDirection
 from app.models.base import ApiModel
 from app.models.bucket import BucketFeatureStatus, BucketTag
 from app.models.bucket_ui_tags import BucketUiTagDefinitionSummary
@@ -39,7 +40,7 @@ class BucketListingRequest(PaginationRequest):
     filter: Optional[str] = None
     advanced_filter: Optional[str] = None
     sort_by: str = "name"
-    sort_dir: Literal["asc", "desc"] = "asc"
+    sort_dir: SortDirection = "asc"
     include: list[str] = Field(default_factory=list)
     with_stats: bool = True
     ui_tag_ids: list[int] = Field(default_factory=list)

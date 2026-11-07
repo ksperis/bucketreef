@@ -1,13 +1,14 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from typing import Literal, Optional
+from typing import Optional
 
 from pydantic import Field
 
+from app.core.domain_enums import SortDirection
 from app.models.pagination import PaginationRequest
 
 
-AdminSortDir = Literal["asc", "desc"]
+AdminSortDir = SortDirection
 
 
 class AdminPaginatedListingRequest(PaginationRequest):

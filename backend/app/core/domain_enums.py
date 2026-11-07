@@ -61,6 +61,7 @@ class HealthWindow(str, Enum):
 HealthCheckMode = Literal["http", "s3"]
 S3SubjectType = Literal["account", "s3_user"]
 S3SubjectFilter = Literal["all", "account", "s3_user"]
+SortDirection = Literal["asc", "desc"]
 
 
 ServiceIdentityMode = Literal["managed", "external"]
