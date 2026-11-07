@@ -1,5 +1,10 @@
 import { projectGeneralSettings } from "../api/featurePolicies";
-import { CLIENT_STORAGE_KEYS } from "../utils/clientStorage";
+import {
+  CLIENT_STORAGE_KEYS,
+  readSessionStorageKey,
+  writeClientJson,
+  writeSessionStorageKey,
+} from "../utils/clientStorage";
 import { favorites } from "./favorites";
 import { currentUser, DemoError, done, json, type DemoRequest } from "./http";
 import { loadState, resetState, saveState } from "./persistence";
@@ -24,15 +29,15 @@ declare global {
 function personaForLocation(): Persona {
   const url = new URL(location.href); const requested = url.searchParams.get("demoPersona");
   if (requested && Object.hasOwn(personaIds, requested)) {
-    sessionStorage.setItem("demo-persona", requested); url.searchParams.delete("demoPersona"); history.replaceState(null, "", url);
+    writeSessionStorageKey(CLIENT_STORAGE_KEYS.demoPersona, requested); url.searchParams.delete("demoPersona"); history.replaceState(null, "", url);
     return requested as Persona;
   }
   if (url.pathname.startsWith("/admin")) return "admin";
   if (url.pathname.startsWith("/ceph-admin")) return "ceph-admin";
   if (url.pathname.startsWith("/manager")) return "manager";
-  if (url.pathname.startsWith("/portal")) return sessionStorage.getItem("demo-persona") === "project-manager" ? "project-manager" : "member";
+  if (url.pathname.startsWith("/portal")) return readSessionStorageKey(CLIENT_STORAGE_KEYS.demoPersona) === "project-manager" ? "project-manager" : "member";
   if (url.pathname.startsWith("/browser")) {
-    const stored = sessionStorage.getItem("demo-persona");
+    const stored = readSessionStorageKey(CLIENT_STORAGE_KEYS.demoPersona);
     if (stored === "browser-user" || stored === "project-manager") return stored;
     return "member";
   }
@@ -81,7 +86,7 @@ export async function initializeDemo(): Promise<boolean> {
   }
   if (!state) { showRecovery("This demo uses a newer data format. Your saved data has been kept. Reset explicitly to start the new scenario.", true); return false; }
   const active = { state };
-  localStorage.setItem(CLIENT_STORAGE_KEYS.generalSettingsCache, JSON.stringify(projectGeneralSettings(settings)));
+  writeClientJson(CLIENT_STORAGE_KEYS.generalSettingsCache, projectGeneralSettings(settings));
   const nativeFetch = window.fetch.bind(window);
   let queue: Promise<unknown> = Promise.resolve();
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {

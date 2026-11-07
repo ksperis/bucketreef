@@ -13,6 +13,7 @@ export const CLIENT_STORAGE_KEYS = {
   languagePreference: "languagePreference",
   brandingPrimaryColor: "branding.primary_color",
   generalSettingsCache: "settings:general:v3",
+  demoPersona: "demo-persona",
   selectorTagsPreference: "showSelectorTags",
   sidebarCompact: "shell:sidebar-compact:v1",
   browserRootUiStateV3: "browser:root-ui-state:v3",
@@ -107,11 +108,11 @@ export function removeClientStorageKey(key: ClientStorageKey | ClientStorageRawK
   removeStorageKey(resolveLocalStorage, key);
 }
 
-function readSessionStorageKey(key: ClientStorageKey | ClientStorageRawKey): string | null {
+export function readSessionStorageKey(key: ClientStorageKey | ClientStorageRawKey): string | null {
   return readStorageKey(resolveSessionStorage, key);
 }
 
-function writeSessionStorageKey(key: ClientStorageKey | ClientStorageRawKey, value: string): void {
+export function writeSessionStorageKey(key: ClientStorageKey | ClientStorageRawKey, value: string): void {
   writeStorageKey(resolveSessionStorage, key, value);
 }
 
