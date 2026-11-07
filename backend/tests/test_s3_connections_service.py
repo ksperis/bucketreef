@@ -151,11 +151,11 @@ def test_get_owned_enforces_owner_access(db_session):
     private_row = _create_row(db_session, created_by_user_id=owner.id, name="private")
     db_session.commit()
 
-    service = S3ConnectionsService(db_session)
-    assert service.get_owned(owner.id, private_row.id).id == private_row.id
+    queries = S3ConnectionQueryService(db_session)
+    assert queries.get_owned(owner.id, private_row.id).id == private_row.id
 
     with pytest.raises(S3ConnectionNotFoundError):
-        service.get_owned(other.id, private_row.id)
+        queries.get_owned(other.id, private_row.id)
 
 
 def test_create_connection_custom_endpoint_and_storage_endpoint_paths(db_session, monkeypatch):
