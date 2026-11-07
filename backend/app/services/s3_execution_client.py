@@ -4,6 +4,7 @@ import json
 from hashlib import sha256
 from typing import Any
 
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import (
     S3ExecutionContext,
     S3ExecutionTarget,
@@ -43,10 +44,13 @@ def s3_execution_request_kwargs(
     *,
     error_message: str = DEFAULT_S3_EXECUTION_CREDENTIALS_ERROR,
 ) -> dict[str, Any]:
-    access_key, secret_key = require_s3_execution_credentials(
-        execution_context,
-        error_message=error_message,
-    )
+    try:
+        access_key, secret_key = require_s3_execution_credentials(
+            execution_context,
+            error_message=error_message,
+        )
+    except S3ExecutionCredentialsError as exc:
+        raise S3OperationError(str(exc)) from exc
     return {
         "access_key": access_key,
         "secret_key": secret_key,

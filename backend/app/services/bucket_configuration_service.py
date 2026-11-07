@@ -8,7 +8,6 @@ from app.services.s3_execution_context import (
     is_ceph_admin_execution_context,
 )
 from app.services.s3_execution_client import (
-    S3ExecutionCredentialsError,
     s3_execution_bucket_request_kwargs,
     s3_execution_request_kwargs,
 )
@@ -72,18 +71,15 @@ class BucketConfigurationService:
         execution_context: S3ExecutionTarget,
         bucket_name: str,
     ) -> dict:
-        try:
-            if (
-                is_ceph_admin_execution_context(execution_context)
-                and split_explicit_rgw_s3_bucket_name(bucket_name) is not None
-            ):
-                return s3_execution_bucket_request_kwargs(
-                    execution_context,
-                    bucket_name,
-                )
-            return s3_execution_request_kwargs(execution_context)
-        except S3ExecutionCredentialsError as exc:
-            raise s3_client.S3OperationError(str(exc)) from exc
+        if (
+            is_ceph_admin_execution_context(execution_context)
+            and split_explicit_rgw_s3_bucket_name(bucket_name) is not None
+        ):
+            return s3_execution_bucket_request_kwargs(
+                execution_context,
+                bucket_name,
+            )
+        return s3_execution_request_kwargs(execution_context)
 
     def get_bucket_tags(self, name: str, execution_context: S3ExecutionTarget) -> list[BucketTag]:
         tags_raw = s3_bucket_metadata.get_bucket_tags(
