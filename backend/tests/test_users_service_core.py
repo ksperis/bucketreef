@@ -37,6 +37,7 @@ from app.models.user import (
 )
 from app.services.user_output_service import UserOutputService
 from app.services.user_query_service import UserQueryService
+from app.services.user_update_service import UserUpdateService
 from app.services.auth_session_service import AuthSessionService
 from app.services.users_service import UsersService
 from tests.portal_iam_test_support import (
@@ -343,7 +344,6 @@ def test_user_create_requires_explicit_access_and_defaults_associations():
 
 
 def test_update_user_and_link_validations(db_session):
-    service = UsersService(db_session)
     user = _seed_user(db_session, "update-me@example.com", role=UserRole.UI_ADMIN.value)
     user.quota_alerts_global_watch = True
     db_session.add(user)
@@ -354,10 +354,10 @@ def test_update_user_and_link_validations(db_session):
     private_conn = _seed_connection(db_session, created_by_user_id=user.id, name="private-conn", is_shared=False)
 
     with pytest.raises(ValueError, match="Email already in use"):
-        service.update_user(user.id, UserUpdate(email="already-used@example.com"))
+        UserUpdateService(db_session).update_user(user.id, UserUpdate(email="already-used@example.com"))
 
     with pytest.raises(ValueError, match="S3 users not found"):
-        service.update_user(
+        UserUpdateService(db_session).update_user(
             user.id,
             UserUpdate(
                 s3_user_links=[
@@ -370,9 +370,9 @@ def test_update_user_and_link_validations(db_session):
         )
 
     with pytest.raises(ValueError, match="Only shared S3 connections can be linked"):
-        service.update_user(user.id, UserUpdate(s3_connection_ids=[private_conn.id]))
+        UserUpdateService(db_session).update_user(user.id, UserUpdate(s3_connection_ids=[private_conn.id]))
 
-    updated = service.update_user(
+    updated = UserUpdateService(db_session).update_user(
         user.id,
         UserUpdate(
             email="updated@example.com",
@@ -421,7 +421,6 @@ def test_deactivating_user_revokes_existing_portal_iam_identity(
     monkeypatch,
     membership_source,
 ):
-    service = UsersService(db_session)
     user = _seed_user(db_session, f"deactivate-{membership_source}@example.com")
     account = _seed_account(
         db_session,
@@ -470,7 +469,7 @@ def test_deactivating_user_revokes_existing_portal_iam_identity(
     )
     install_portal_revocation_fakes(monkeypatch, fake_iam)
 
-    updated = service.update_user(user.id, UserUpdate(is_active=False))
+    updated = UserUpdateService(db_session).update_user(user.id, UserUpdate(is_active=False))
 
     assert updated.is_active is False
     assert fake_iam.key_exists is False
@@ -513,7 +512,6 @@ def test_reactivating_user_does_not_reprovision_portal_iam_identity(
     db_session,
     monkeypatch,
 ):
-    service = UsersService(db_session)
     user = _seed_user(db_session, "reactivate-portal@example.com")
     account = _seed_account(db_session, "reactivate-portal", "RGW-REACTIVATE-PORTAL")
     db_session.add(
@@ -535,7 +533,7 @@ def test_reactivating_user_does_not_reprovision_portal_iam_identity(
         lambda *_args, **_kwargs: pytest.fail("Reactivation must stay lazy"),
     )
 
-    updated = service.update_user(user.id, UserUpdate(is_active=True))
+    updated = UserUpdateService(db_session).update_user(user.id, UserUpdate(is_active=True))
 
     assert updated.is_active is True
     assert (
@@ -551,10 +549,9 @@ def test_reactivating_user_does_not_reprovision_portal_iam_identity(
 
 
 def test_update_user_validates_s3_users_before_replacing_links(db_session):
-    service = UsersService(db_session)
     user = _seed_user(db_session, "preserve-link@example.com")
     s3_user = _seed_s3_user(db_session, "preserved-s3-user")
-    service.update_user(
+    UserUpdateService(db_session).update_user(
         user.id,
         UserUpdate(
             s3_user_links=[
@@ -567,7 +564,7 @@ def test_update_user_validates_s3_users_before_replacing_links(db_session):
     )
 
     with pytest.raises(ValueError, match="S3 users not found"):
-        service.update_user(
+        UserUpdateService(db_session).update_user(
             user.id,
             UserUpdate(
                 s3_user_links=[
@@ -592,7 +589,6 @@ def test_update_user_validates_s3_users_before_replacing_links(db_session):
 
 
 def test_update_user_replaces_direct_account_links_without_root_protection(db_session):
-    service = UsersService(db_session)
     user = _seed_user(db_session, "account-links@example.com", role=UserRole.UI_NONE.value)
     removed_account = _seed_account(db_session, "removed-account", "RGW-REMOVED")
     root_account = _seed_account(db_session, "root-account", "RGW-ROOT")
@@ -615,7 +611,7 @@ def test_update_user_replaces_direct_account_links_without_root_protection(db_se
     )
     db_session.commit()
 
-    updated = service.update_user(
+    updated = UserUpdateService(db_session).update_user(
         user.id,
         UserUpdate(
             account_links=[
@@ -651,7 +647,7 @@ def test_update_user_replaces_direct_account_links_without_root_protection(db_se
     assert added_link.portal_role is None
 
     with pytest.raises(ValueError, match="S3 accounts not found: 99999"):
-        service.update_user(
+        UserUpdateService(db_session).update_user(
             user.id,
             UserUpdate(
                 account_links=[
@@ -667,10 +663,9 @@ def test_update_user_replaces_direct_account_links_without_root_protection(db_se
 
 
 def test_update_user_clears_manager_tools_for_no_access_role(db_session):
-    service = UsersService(db_session)
     user = _seed_user(db_session, "manager-tools-clear@example.com", role=UserRole.UI_ADMIN.value)
 
-    updated = service.update_user(
+    updated = UserUpdateService(db_session).update_user(
         user.id,
         UserUpdate(
             role=UserRole.UI_NONE.value,
@@ -699,7 +694,6 @@ def test_update_user_clears_manager_tools_for_no_access_role(db_session):
 
 
 def test_update_user_preserves_manager_access_when_not_requested(db_session):
-    service = UsersService(db_session)
     user = _seed_user(db_session, "manager-tools-preserve@example.com", role=UserRole.UI_USER.value)
     user.can_access_storage_ops = True
     user.can_create_manual_private_connections = True
@@ -712,7 +706,7 @@ def test_update_user_preserves_manager_access_when_not_requested(db_session):
     db_session.add(user)
     db_session.commit()
 
-    updated = service.update_user(user.id, UserUpdate(full_name="Updated manager"))
+    updated = UserUpdateService(db_session).update_user(user.id, UserUpdate(full_name="Updated manager"))
 
     assert updated.can_access_storage_ops is True
     assert updated.can_create_manual_private_connections is True
@@ -725,10 +719,9 @@ def test_update_user_preserves_manager_access_when_not_requested(db_session):
 
 
 def test_update_user_allows_storage_ops_for_admin_like_role(db_session):
-    service = UsersService(db_session)
     user = _seed_user(db_session, "storage-ops-admin@example.com", role=UserRole.UI_USER.value)
 
-    updated = service.update_user(
+    updated = UserUpdateService(db_session).update_user(
         user.id,
         UserUpdate(
             role=UserRole.UI_ADMIN.value,
@@ -741,11 +734,10 @@ def test_update_user_allows_storage_ops_for_admin_like_role(db_session):
 
 
 def test_update_current_user_password_paths(db_session):
-    service = UsersService(db_session)
     user = _seed_user(db_session, "profile@example.com", role=UserRole.UI_USER.value, password="initialpass123")
 
     with pytest.raises(ValueError, match="Both current_password and new_password are required"):
-        service.update_current_user(
+        UserUpdateService(db_session).update_current_user(
             user,
             UserSelfUpdate(current_password="initialpass123"),
         )
@@ -754,7 +746,7 @@ def test_update_current_user_password_paths(db_session):
     db_session.add(user)
     db_session.commit()
     with pytest.raises(ValueError, match="unavailable"):
-        service.update_current_user(
+        UserUpdateService(db_session).update_current_user(
             user,
             UserSelfUpdate(current_password="x", new_password="nextpass12345"),
         )
@@ -763,12 +755,12 @@ def test_update_current_user_password_paths(db_session):
     db_session.add(user)
     db_session.commit()
     with pytest.raises(ValueError, match="incorrect"):
-        service.update_current_user(
+        UserUpdateService(db_session).update_current_user(
             user,
             UserSelfUpdate(current_password="bad", new_password="nextpass12345"),
         )
 
-    updated = service.update_current_user(
+    updated = UserUpdateService(db_session).update_current_user(
         user,
         UserSelfUpdate(
             full_name=" Profile Name ",
@@ -782,7 +774,6 @@ def test_update_current_user_password_paths(db_session):
 
 
 def test_update_current_user_rolls_back_profile_and_password_when_commit_fails(db_session, monkeypatch):
-    service = UsersService(db_session)
     user = _seed_user(
         db_session,
         "profile-rollback@example.com",
@@ -806,7 +797,7 @@ def test_update_current_user_rolls_back_profile_and_password_when_commit_fails(d
     monkeypatch.setattr(db_session, "commit", commit)
 
     with pytest.raises(RuntimeError, match="commit failed"):
-        service.update_current_user(
+        UserUpdateService(db_session).update_current_user(
             user,
             UserSelfUpdate(
                 full_name="Changed profile",
@@ -840,7 +831,7 @@ def test_paginate_users_and_detached_user_use_canonical_preload(db_session, monk
         manager_role=ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value,
         portal_role=None,
     )
-    service.update_user(
+    UserUpdateService(db_session).update_user(
         user.id,
         UserUpdate(
             s3_user_links=[

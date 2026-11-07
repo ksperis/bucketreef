@@ -46,6 +46,7 @@ from app.services.ldap_service import (
 from app.services.avatar_image_service import MAX_AVATAR_BYTES
 from app.services.user_avatar_service import UserAvatarService
 from app.services.user_query_service import UserQueryService
+from app.services.user_update_service import UserUpdateService
 from app.services.identity_security_policy import (
     admin_user_update_requires_step_up,
 )
@@ -61,6 +62,12 @@ def get_user_associations_service_dependency(
     db: Session = Depends(get_db),
 ) -> UserAssociationsService:
     return get_user_associations_service(db)
+
+
+def get_user_update_service_dependency(
+    db: Session = Depends(get_db),
+) -> UserUpdateService:
+    return UserUpdateService(db)
 
 
 def _ldap_import_service(db: Session) -> AdminLdapUserImportService:
@@ -298,6 +305,7 @@ def update_user(
     user_id: int,
     payload: UserUpdate,
     users_service: UsersService = Depends(get_users_service_dependency),
+    update_service: UserUpdateService = Depends(get_user_update_service_dependency),
     user_query_service: UserQueryService = Depends(get_user_query_service_dependency),
     associations_service: UserAssociationsService = Depends(get_user_associations_service_dependency),
     current_user: DbUser = Depends(get_current_ui_admin),
@@ -326,7 +334,7 @@ def update_user(
     if admin_user_update_requires_step_up(target, payload):
         require_admin_sensitive_action(request, db, current_user)
     try:
-        user = users_service.update_user(user_id, payload)
+        user = update_service.update_user(user_id, payload)
         audit_service.record_action(
             user=current_user,
             scope="admin",

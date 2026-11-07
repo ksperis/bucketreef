@@ -10,7 +10,6 @@ from app.core.domain_enums import UserRole
 from app.models.user import (
     UserCreate,
     UserOut,
-    UserSelfUpdate,
     UserUpdate,
 )
 from app.services.user_associations_service import UserAssociationsService
@@ -18,14 +17,12 @@ from app.services.user_deletion_service import UserDeletionService
 from app.services.user_login_service import UserLoginService
 from app.services.user_output_service import UserOutputService
 from app.services.user_provisioning_service import UserProvisioningService
-from app.services.user_update_service import UserUpdateService
 from app.utils.account_roles import ManagerAccountRoleValue, PortalAccountRoleValue
 
 class UsersService:
     def __init__(self, db: Session) -> None:
         self.db = db
         self.deletion = UserDeletionService(db)
-        self.updates = UserUpdateService(db)
         self.associations = UserAssociationsService(db)
         self.login = UserLoginService(db)
         self.provisioning = UserProvisioningService(db)
@@ -73,12 +70,6 @@ class UsersService:
 
     def create_user(self, payload: UserCreate) -> User:
         return self.provisioning.create_user(payload)
-
-    def update_user(self, user_id: int, payload: UserUpdate) -> User:
-        return self.updates.update_user(user_id, payload)
-
-    def update_current_user(self, user: User, payload: UserSelfUpdate) -> User:
-        return self.updates.update_current_user(user, payload)
 
     def delete_user(self, user_id: int) -> None:
         self.deletion.delete_user(user_id)
