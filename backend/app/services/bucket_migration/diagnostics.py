@@ -27,5 +27,9 @@ class MigrationCopyGrantError(RuntimeError):
     """Expected operational failure while managing temporary source-copy access."""
 
 
+class MigrationObjectInspectionError(RuntimeError):
+    """Expected operational failure while inspecting migration object state."""
+
+
 class MigrationRecoveryError(RuntimeError):
     """Expected operational failure while restoring temporary migration state."""

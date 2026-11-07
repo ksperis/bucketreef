@@ -9,6 +9,7 @@ from urllib.parse import parse_qsl
 from botocore.exceptions import ClientError
 import pytest
 
+from app.services.bucket_migration.diagnostics import MigrationObjectInspectionError
 from app.services.bucket_migration.execution_runtime import ResolvedContext
 from app.services.bucket_migration_service import BucketMigrationService
 from tests.execution_context_factory import make_s3_execution_context
@@ -192,7 +193,7 @@ def test_version_comparison_ignores_tag_order_not_tag_identity(storage):
 def test_malformed_source_tags_fail_before_any_destination_write(storage, response):
     service, source_ctx, target_ctx, source, target = storage
     source.get_object_tagging.return_value = response
-    with pytest.raises(RuntimeError, match="Invalid object tags response"):
+    with pytest.raises(MigrationObjectInspectionError, match="Invalid object tags response"):
         service._stream_copy_object(
             source_ctx, target_ctx, source_bucket="source", target_bucket="target", key="object",
         )
@@ -216,5 +217,24 @@ def test_empty_tagset_remains_a_valid_untagged_copy(storage):
 def test_malformed_destination_tags_cannot_pass_version_verification(storage, response):
     service, _source_ctx, _target_ctx, _source, target = storage
     target.get_object_tagging.return_value = response
-    with pytest.raises(RuntimeError, match="Invalid object tags response"):
+    with pytest.raises(MigrationObjectInspectionError, match="Invalid object tags response"):
         service._versioned_object_details(target, "target", "object", version_id="v2")
+
+
+def test_object_metadata_provider_failure_is_typed(storage):
+    service, _source_ctx, _target_ctx, source, _target = storage
+    source.head_object.side_effect = ClientError(
+        {"Error": {"Code": "SlowDown", "Message": "retry later"}},
+        "HeadObject",
+    )
+
+    with pytest.raises(MigrationObjectInspectionError, match="Unable to read metadata"):
+        service._head_object_with_version(source, "source", "object", version_id="v1")
+
+
+def test_invalid_object_metadata_response_is_rejected(storage):
+    service, _source_ctx, _target_ctx, source, _target = storage
+    source.head_object.return_value = None
+
+    with pytest.raises(MigrationObjectInspectionError, match="Invalid object metadata response"):
+        service._head_object_with_version(source, "source", "object", version_id="v1")
