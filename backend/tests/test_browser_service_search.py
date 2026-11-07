@@ -14,6 +14,7 @@ from app.models.portal_storage_spaces import PortalStorageSpaceIcon
 from app.services.browser import cache as browser_cache
 from app.services.browser import sorted_listing
 from app.services.browser_service import BrowserService
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionContext
 from tests.portal_storage_space_factory import portal_storage_space_summary
 
@@ -38,6 +39,40 @@ def _list_objects(
         account,
         BrowserObjectListingRequest(**options),
     )
+
+
+@pytest.mark.parametrize("sort_by", ["name", "size"])
+def test_list_objects_types_provider_listing_failures(monkeypatch, sort_by):
+    class FailingClient:
+        def list_objects_v2(self, **_kwargs):
+            raise ClientError(
+                {"Error": {"Code": "AccessDenied", "Message": "denied"}},
+                "ListObjectsV2",
+            )
+
+    service = BrowserService()
+    monkeypatch.setattr(service, "_client", lambda *_args, **_kwargs: FailingClient())
+
+    with pytest.raises(S3OperationError, match="Unable to list objects"):
+        _list_objects(service, "bucket", _account(), sort_by=sort_by)
+
+
+def test_list_objects_types_missing_credentials():
+    account = _account()
+    account.rgw_access_key = None
+    account.rgw_secret_key = None
+
+    with pytest.raises(S3OperationError, match="S3 credentials missing for this context"):
+        _list_objects(BrowserService(), "bucket", account)
+
+
+def test_list_objects_propagates_unexpected_credential_runtime():
+    class BrokenContext:
+        def effective_rgw_credentials(self):
+            raise RuntimeError("unexpected credential resolver bug")
+
+    with pytest.raises(RuntimeError, match="unexpected credential resolver bug"):
+        _list_objects(BrowserService(), "bucket", BrokenContext())
 
 
 @pytest.mark.parametrize("sort_by", ["name", "size"])
