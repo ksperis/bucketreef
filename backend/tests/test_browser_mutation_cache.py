@@ -7,6 +7,7 @@ from unittest.mock import Mock
 import pytest
 from botocore.exceptions import ClientError, EndpointConnectionError
 
+from app.core.domain_errors import BrowserObjectValidationError
 from app.models.browser import (
     BrowserObjectListingRequest,
     CleanupObjectVersionsPayload,
@@ -177,10 +178,14 @@ def test_mutation_outcomes_expire_only_the_affected_object_caches(monkeypatch, o
 
     if failure is None:
         _run_mutation(service, account, operation)
-    else:
+    elif outcome == "unexpected":
         with pytest.raises(RuntimeError) as caught:
             _run_mutation(service, account, operation)
-        assert caught.value is failure or caught.value.__cause__ is failure
+        assert caught.value is failure
+    else:
+        with pytest.raises(S3OperationError) as caught:
+            _run_mutation(service, account, operation)
+        assert caught.value.__cause__ is failure
 
     _assert_invalidated(entries, {"target"})
 
@@ -318,6 +323,15 @@ def test_noop_and_read_only_failures_do_not_expire_caches(monkeypatch, operation
     elif operation == "empty_cleanup":
         client.list_object_versions.return_value = {}
         service.cleanup_object_versions("target", account, CleanupObjectVersionsPayload(keep_last_n=1))
+    elif operation == "empty_parts":
+        with pytest.raises(BrowserObjectValidationError):
+            service.complete_multipart_upload(
+                "target",
+                account,
+                "object",
+                "upload-id",
+                CompleteMultipartUploadRequest(parts=[]),
+            )
     else:
         with pytest.raises((RuntimeError, OSError)):
             if operation == "scan_error":
@@ -329,8 +343,6 @@ def test_noop_and_read_only_failures_do_not_expire_caches(monkeypatch, operation
             elif operation == "copy_read":
                 client.head_object.side_effect = denied
                 service.copy_object("target", account, CopyObjectPayload(source_key="old", destination_key="new", replace_metadata=True))
-            elif operation == "empty_parts":
-                service.complete_multipart_upload("target", account, "object", "upload-id", CompleteMultipartUploadRequest(parts=[]))
             elif operation == "client_init":
                 monkeypatch.setattr(service, "_client", Mock(side_effect=RuntimeError("client unavailable")))
                 _run_mutation(service, account, "delete")

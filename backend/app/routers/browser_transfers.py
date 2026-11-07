@@ -2,14 +2,15 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from typing import Optional
+from collections.abc import Callable
+from typing import Any, Optional, TypeVar
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.domain_errors import BrowserStorageSpacePermissionError
+from app.core.domain_errors import BrowserObjectValidationError, BrowserStorageSpacePermissionError
 from app.services.access_context_contracts import ManagerActor
 from app.models.browser import (
     BrowserStsCredentials,
@@ -33,10 +34,33 @@ from app.routers.dependencies import (
 )
 from app.routers.dependencies_internal.auth_session import current_auth_session
 from app.services.browser_service import BrowserService, get_browser_service
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionContext
-from app.utils.http_errors import raise_bad_gateway_from_runtime, raise_http_exception_from_exception
+from app.utils.http_errors import (
+    raise_bad_gateway_from_runtime,
+    raise_bad_request_from_value_error,
+    raise_http_exception_from_exception,
+)
 
 router = APIRouter()
+
+_TransferActionResult = TypeVar("_TransferActionResult")
+
+
+def _run_s3_transfer_action(
+    action: Callable[..., _TransferActionResult],
+    /,
+    *args: Any,
+    **kwargs: Any,
+) -> _TransferActionResult:
+    try:
+        return action(*args, **kwargs)
+    except BrowserStorageSpacePermissionError as exc:
+        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
+    except BrowserObjectValidationError as exc:
+        raise_bad_request_from_value_error(exc)
+    except S3OperationError as exc:
+        raise_bad_gateway_from_runtime(exc)
 
 
 @router.get("/sts", response_model=StsStatus)
@@ -85,18 +109,16 @@ def upload_via_proxy(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing key")
     if sse_customer:
         require_sse_feature(context.storage_endpoint)
-    try:
-        service.upload_via_proxy(
-            bucket_name,
-            context,
-            file,
-            key=key,
-            content_type=content_type,
-            sse_customer=sse_customer,
-        )
-        return ObjectUploadResponse(message="Upload completed", key=key)
-    except RuntimeError as exc:
-        raise_bad_gateway_from_runtime(exc)
+    _run_s3_transfer_action(
+        service.upload_via_proxy,
+        bucket_name,
+        context,
+        file,
+        key=key,
+        content_type=content_type,
+        sse_customer=sse_customer,
+    )
+    return ObjectUploadResponse(message="Upload completed", key=key)
 
 
 @router.get("/buckets/{bucket_name}/download")
@@ -113,17 +135,15 @@ def download_object(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing key")
     if sse_customer:
         require_sse_feature(context.storage_endpoint)
-    try:
-        download = service.download_object(
-            bucket_name,
-            context,
-            key,
-            version_id=version_id,
-            sse_customer=sse_customer,
-        )
-        return S3DownloadResponse(download)
-    except RuntimeError as exc:
-        raise_bad_gateway_from_runtime(exc)
+    download = _run_s3_transfer_action(
+        service.download_object,
+        bucket_name,
+        context,
+        key,
+        version_id=version_id,
+        sse_customer=sse_customer,
+    )
+    return S3DownloadResponse(download)
 
 
 @router.post("/buckets/{bucket_name}/presign", response_model=PresignedUrl)
@@ -137,10 +157,13 @@ def presign(
 ) -> PresignedUrl:
     if sse_customer:
         require_sse_feature(context.storage_endpoint)
-    try:
-        return service.presign(bucket_name, context, payload, sse_customer=sse_customer)
-    except RuntimeError as exc:
-        raise_bad_gateway_from_runtime(exc)
+    return _run_s3_transfer_action(
+        service.presign,
+        bucket_name,
+        context,
+        payload,
+        sse_customer=sse_customer,
+    )
 
 
 @router.post("/buckets/{bucket_name}/multipart/initiate", response_model=MultipartUploadInitResponse)
@@ -156,17 +179,13 @@ def multipart_init(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing key")
     if sse_customer:
         require_sse_feature(context.storage_endpoint)
-    try:
-        return service.initiate_multipart_upload(
-            bucket_name,
-            context,
-            payload,
-            sse_customer=sse_customer,
-        )
-    except BrowserStorageSpacePermissionError as exc:
-        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
-    except RuntimeError as exc:
-        raise_bad_gateway_from_runtime(exc)
+    return _run_s3_transfer_action(
+        service.initiate_multipart_upload,
+        bucket_name,
+        context,
+        payload,
+        sse_customer=sse_customer,
+    )
 
 
 @router.get("/buckets/{bucket_name}/multipart", response_model=ListMultipartUploadsResponse)
@@ -180,17 +199,15 @@ def list_multipart_uploads(
     service: BrowserService = Depends(get_browser_service),
     _: ManagerActor = Depends(get_current_account_admin),
 ) -> ListMultipartUploadsResponse:
-    try:
-        return service.list_multipart_uploads(
-            bucket_name,
-            context,
-            prefix=prefix,
-            key_marker=key_marker,
-            upload_id_marker=upload_id_marker,
-            max_uploads=max_uploads,
-        )
-    except RuntimeError as exc:
-        raise_bad_gateway_from_runtime(exc)
+    return _run_s3_transfer_action(
+        service.list_multipart_uploads,
+        bucket_name,
+        context,
+        prefix=prefix,
+        key_marker=key_marker,
+        upload_id_marker=upload_id_marker,
+        max_uploads=max_uploads,
+    )
 
 
 
@@ -209,12 +226,13 @@ def presign_part_for_upload(
     payload.upload_id = upload_id
     if sse_customer:
         require_sse_feature(context.storage_endpoint)
-    try:
-        return service.presign_part(bucket_name, context, payload, sse_customer=sse_customer)
-    except BrowserStorageSpacePermissionError as exc:
-        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
-    except RuntimeError as exc:
-        raise_bad_gateway_from_runtime(exc)
+    return _run_s3_transfer_action(
+        service.presign_part,
+        bucket_name,
+        context,
+        payload,
+        sse_customer=sse_customer,
+    )
 
 
 @router.post(
@@ -232,13 +250,15 @@ def complete_multipart_upload(
 ) -> None:
     if not key:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing key")
-    try:
-        service.complete_multipart_upload(bucket_name, context, key, upload_id, payload)
-        return None
-    except BrowserStorageSpacePermissionError as exc:
-        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
-    except RuntimeError as exc:
-        raise_bad_gateway_from_runtime(exc)
+    _run_s3_transfer_action(
+        service.complete_multipart_upload,
+        bucket_name,
+        context,
+        key,
+        upload_id,
+        payload,
+    )
+    return None
 
 
 @router.delete(
@@ -255,10 +275,11 @@ def abort_multipart_upload(
 ) -> None:
     if not key:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing key")
-    try:
-        service.abort_multipart_upload(bucket_name, context, key, upload_id)
-        return None
-    except BrowserStorageSpacePermissionError as exc:
-        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
-    except RuntimeError as exc:
-        raise_bad_gateway_from_runtime(exc)
+    _run_s3_transfer_action(
+        service.abort_multipart_upload,
+        bucket_name,
+        context,
+        key,
+        upload_id,
+    )
+    return None

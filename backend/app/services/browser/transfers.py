@@ -12,6 +12,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 from app.core.config import get_settings
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.models.browser import BrowserStsCredentials, SseCustomerContext, StsStatus
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionTarget
 from app.services.s3_object_download import S3ObjectDownload
 from app.utils.s3_endpoint import resolve_s3_client_options
@@ -78,7 +79,7 @@ class BrowserTransfersMixin:
                 else:
                     client.upload_fileobj(file_obj, bucket_name, key)
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(f"Unable to upload '{key}': {exc}") from exc
+            raise S3OperationError(f"Unable to upload '{key}': {exc}") from exc
 
     def upload_via_proxy(
         self,
@@ -132,10 +133,10 @@ class BrowserTransfersMixin:
         try:
             resp = client.get_object(**kwargs)
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(f"Unable to download '{key}': {exc}") from exc
+            raise S3OperationError(f"Unable to download '{key}': {exc}") from exc
         body = resp.get("Body")
         if not body:
-            raise RuntimeError(f"Unable to download '{key}': empty response body")
+            raise S3OperationError(f"Unable to download '{key}': empty response body")
         content_type = resp.get("ContentType")
         filename = self._filename_from_content_disposition(resp.get("ContentDisposition"))
         if not filename:

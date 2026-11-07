@@ -3,7 +3,7 @@ from fastapi import HTTPException
 
 from app.core.domain_errors import BrowserObjectValidationError, BrowserStorageSpacePermissionError
 from app.main import app
-from app.models.browser import CopyObjectPayload, MultipartUploadInitRequest
+from app.models.browser import CompleteMultipartUploadRequest, CopyObjectPayload, MultipartUploadInitRequest
 from app.models.portal_storage_spaces import PortalStorageSpaceSummary
 from app.routers import browser_objects, browser_transfers
 from app.services.browser.object_operations import (
@@ -171,3 +171,23 @@ def test_multipart_route_preserves_storage_space_permission_response():
 
     assert error.value.status_code == 403
     assert error.value.detail == "Storage Space permissions do not allow this upload"
+
+
+def test_multipart_route_maps_validation_error_to_bad_request():
+    class FakeService:
+        def complete_multipart_upload(self, *_args, **_kwargs):  # noqa: ANN002, ANN003
+            raise BrowserObjectValidationError("No parts provided to complete multipart upload")
+
+    with pytest.raises(HTTPException) as error:
+        browser_transfers.complete_multipart_upload(
+            bucket_name="target",
+            upload_id="upload-1",
+            key="file",
+            payload=CompleteMultipartUploadRequest(parts=[]),
+            context=_context(),
+            service=FakeService(),
+            _=object(),
+        )
+
+    assert error.value.status_code == 400
+    assert error.value.detail == "No parts provided to complete multipart upload"

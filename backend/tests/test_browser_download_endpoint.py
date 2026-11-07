@@ -4,12 +4,14 @@ import base64
 import hashlib
 from io import BytesIO
 
+import pytest
 from botocore.response import StreamingBody
 
 from app.db import S3Account
 from app.main import app
 from app.routers import dependencies
 from app.routers import browser as browser_router
+from app.services.s3_client import S3OperationError
 from app.services.s3_object_download import S3ObjectDownload
 
 
@@ -64,7 +66,7 @@ def test_browser_download_rejects_missing_key(client):
 def test_browser_download_maps_service_error_to_bad_gateway(client):
     class FakeService:
         def download_object(self, bucket_name, account, key, version_id=None, sse_customer=None):  # noqa: ANN001
-            raise RuntimeError("S3 get_object failed")
+            raise S3OperationError("S3 get_object failed")
 
     app.dependency_overrides[dependencies.get_s3_execution_context] = _account
     app.dependency_overrides[browser_router.get_browser_service] = lambda: FakeService()
@@ -72,6 +74,18 @@ def test_browser_download_maps_service_error_to_bad_gateway(client):
     response = client.get("/api/browser/buckets/my-bucket/download?key=demo.txt")
     assert response.status_code == 502
     assert "S3 get_object failed" in response.json()["detail"]
+
+
+def test_browser_download_propagates_unexpected_runtime_error(client):
+    class FakeService:
+        def download_object(self, bucket_name, account, key, version_id=None, sse_customer=None):  # noqa: ANN001
+            raise RuntimeError("unexpected download regression")
+
+    app.dependency_overrides[dependencies.get_s3_execution_context] = _account
+    app.dependency_overrides[browser_router.get_browser_service] = lambda: FakeService()
+
+    with pytest.raises(RuntimeError, match="unexpected download regression"):
+        client.get("/api/browser/buckets/my-bucket/download?key=demo.txt")
 
 
 def test_browser_download_passes_sse_customer_context_to_service(client):
