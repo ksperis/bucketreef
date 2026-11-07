@@ -9,6 +9,7 @@ from pydantic import Field, field_validator, model_validator
 
 from app.models.admin_listing import AdminSortableListingRequest
 from app.models.base import ApiModel
+from app.models.pagination import PaginatedResponse
 from app.models.retention import DataRetentionResult
 
 
@@ -107,12 +108,8 @@ class CostSubjectSummary(ApiModel):
     cost: Optional[CostBreakdown]
 
 
-class CostSubjectsResponse(ApiModel):
+class CostSubjectsResponse(PaginatedResponse):
     items: list[CostSubjectSummary]
-    total: int
-    page: int
-    page_size: int
-    has_next: bool
 
 
 class CostDailySeriesPoint(ApiModel):

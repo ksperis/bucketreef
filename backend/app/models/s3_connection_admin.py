@@ -12,6 +12,7 @@ from pydantic import Field, model_validator
 
 from app.models.admin_listing import AdminSortableListingRequest
 from app.models.base import ApiModel, reject_explicit_null_fields
+from app.models.pagination import PaginatedResponse
 from app.models.tagging import (
     OptionalTagDefinitionList,
     RequiredTagDefinitionList,
@@ -140,9 +141,5 @@ class S3ConnectionAdminUpdate(CanonicalS3ConnectionEndpointPayload):
         return self
 
 
-class PaginatedS3ConnectionsResponse(ApiModel):
+class PaginatedS3ConnectionsResponse(PaginatedResponse):
     items: list[S3ConnectionAdminItem]
-    total: int
-    page: int
-    page_size: int
-    has_next: bool
