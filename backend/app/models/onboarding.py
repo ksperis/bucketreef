@@ -6,6 +6,7 @@ from urllib.parse import urlsplit
 
 from pydantic import ConfigDict, Field, SecretStr, model_validator
 
+from app.core.domain_enums import ServiceIdentityMode
 from app.models.base import ApiModel
 
 
@@ -71,7 +72,7 @@ class OnboardingApply(ApiModel):
     confirmed: Literal[True]
     review_token: str = Field(min_length=64, max_length=64)
     # Write-only credentials. They are never copied into draft/progress/audit data.
-    service_identity_mode: Literal["managed", "external"]
+    service_identity_mode: ServiceIdentityMode
     runtime_access_key: SecretStr | None = None
     runtime_secret_key: SecretStr | None = None
     admin_access_key: SecretStr | None = None

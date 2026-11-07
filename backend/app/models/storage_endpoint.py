@@ -7,7 +7,12 @@ from typing import Literal, Optional, Self
 from pydantic import ConfigDict, Field, SecretStr, field_validator, model_validator
 
 from app.models.base import ApiModel, reject_explicit_null_fields
-from app.core.domain_enums import HealthCheckMode, ServiceIdentityKind, StorageProvider
+from app.core.domain_enums import (
+    HealthCheckMode,
+    ServiceIdentityKind,
+    ServiceIdentityMode,
+    StorageProvider,
+)
 from app.models.tagging import RequiredTagDefinitionList, TagDefinitionSummary
 from app.utils.normalize import normalize_optional_string_field
 
@@ -65,7 +70,7 @@ class StorageEndpointAdminOpsPermissions(ApiModel):
 
 class EndpointServiceIdentityStatus(ApiModel):
     kind: ServiceIdentityKind
-    mode: Literal["managed", "external"]
+    mode: ServiceIdentityMode
     rgw_uid: Optional[str]
     status: Literal[
         "not_provisioned",
@@ -128,7 +133,7 @@ class StorageEndpointCreate(StorageEndpointMetadata):
     features: Optional[StorageEndpointFeatures] = None
     admin_access_key: Optional[str] = None
     admin_secret_key: Optional[SecretStr] = None
-    service_identity_mode: Literal["managed", "external"] = "managed"
+    service_identity_mode: ServiceIdentityMode = "managed"
     runtime_access_key: Optional[str] = None
     runtime_secret_key: Optional[SecretStr] = None
     ceph_admin_access_key: Optional[str] = None
@@ -149,7 +154,7 @@ class StorageEndpointUpdate(StorageEndpointCoordinates):
     provider: Optional[StorageProvider] = None
     admin_access_key: Optional[str] = None
     admin_secret_key: Optional[SecretStr] = None
-    service_identity_mode: Optional[Literal["managed", "external"]] = None
+    service_identity_mode: Optional[ServiceIdentityMode] = None
     runtime_access_key: Optional[str] = None
     runtime_secret_key: Optional[SecretStr] = None
     ceph_admin_allowed: Optional[bool] = None
