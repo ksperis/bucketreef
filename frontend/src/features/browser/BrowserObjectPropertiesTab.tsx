@@ -5,8 +5,8 @@ import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
 import { storageClassOptions } from "./browserConstants";
+import type { BrowserObjectMetadataDraft } from "./browserTypes";
 import type {
-  BrowserObjectMetadataDraft,
   BrowserObjectDirtySections,
   BrowserObjectPropertyEntry,
   BrowserObjectPropertyEntryField,

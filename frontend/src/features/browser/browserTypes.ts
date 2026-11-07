@@ -148,7 +148,7 @@ export type UploadOperationGroup = {
   totalBytes: number;
 };
 
-export type BulkMetadataDraft = {
+export type BrowserObjectMetadataDraft = {
   contentType: string;
   cacheControl: string;
   contentDisposition: string;

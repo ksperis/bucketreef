@@ -26,16 +26,7 @@ import {
 import { prepareS3Tags } from "../../utils/s3Tags";
 import { normalizeObjectDetailPairs } from "./browserObjectDetailsModel";
 import { runBrowserScopedSave } from "./browserScopedSave";
-import type { BrowserItem } from "./browserTypes";
-
-export type BrowserObjectMetadataDraft = {
-  contentType: string;
-  cacheControl: string;
-  contentDisposition: string;
-  contentEncoding: string;
-  contentLanguage: string;
-  expires: string;
-};
+import type { BrowserItem, BrowserObjectMetadataDraft } from "./browserTypes";
 
 export type BrowserObjectPropertyEntry = ObjectTag & { id: string };
 export type BrowserObjectPropertyEntryField = "key" | "value";
