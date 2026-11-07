@@ -22,6 +22,7 @@ import {
 } from "../../api/auth";
 import { authenticatePasskey, createPasskey } from "../../auth/webauthn";
 import BrandMark from "../../components/BrandMark";
+import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { PRODUCT_NAME } from "../../constants/product";
 import { AuthButton, AuthInput, AuthPasswordInput, AuthSelect } from "./AuthFormControls";
@@ -278,10 +279,10 @@ export default function ExternalIdentityLinkPage() {
                 <ul className="mt-2 grid grid-cols-2 gap-1 font-mono text-sm">
                   {recoveryCodes.map((code) => <li key={code}>{code}</li>)}
                 </ul>
-                <label className="mt-4 flex min-h-11 items-center gap-2 ui-body">
-                  <input type="checkbox" checked={recoveryCodesSaved} onChange={(event) => setRecoveryCodesSaved(event.target.checked)} />
+                <UiCheckboxField className="mt-4 min-h-11 ui-body" checked={recoveryCodesSaved}
+                  onChange={(event) => setRecoveryCodesSaved(event.target.checked)}>
                   <span>{text("savedRecoveryCodes")}</span>
-                </label>
+                </UiCheckboxField>
               </div>
             )}
 
