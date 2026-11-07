@@ -31,6 +31,7 @@ from app.services.healthcheck_query_projection import (
     build_rollup_availability_map,
     build_rollup_series,
     build_segment_timeline_map,
+    endpoint_health_snapshot,
     global_incident_payload,
     incident_payload,
     workspace_endpoint_snapshot,
@@ -57,38 +58,18 @@ class HealthCheckQueryService:
         endpoint_ids = [endpoint.id for endpoint in endpoints]
         latest_scope_by_endpoint = self._load_latest_scope_by_endpoint(endpoint_ids)
         summaries: list[dict] = []
-        now_iso = utcnow().isoformat()
+        now = utcnow()
         for endpoint in endpoints:
-            profile = resolve_healthcheck_profile(endpoint)
             latest = latest_scope_by_endpoint.get(endpoint.id)
-            if latest is None:
-                summaries.append(
-                    {
-                        "endpoint_id": endpoint.id,
-                        "name": endpoint.name,
-                        "endpoint_url": endpoint.endpoint_url,
-                        "status": HealthCheckStatus.UNKNOWN.value,
-                        "checked_at": now_iso,
-                        "latency_ms": None,
-                        "http_status": None,
-                        "error_message": "No checks yet",
-                        "check_mode": profile.mode,
-                        "check_target_url": profile.target_url,
-                    }
-                )
-                continue
             summaries.append(
                 {
-                    "endpoint_id": endpoint.id,
-                    "name": endpoint.name,
-                    "endpoint_url": endpoint.endpoint_url,
-                    "status": latest.status,
-                    "checked_at": latest.checked_at.isoformat(),
-                    "latency_ms": latest.latency_ms,
-                    "http_status": latest.http_status,
-                    "error_message": latest.error_message,
-                    "check_mode": latest.check_mode,
-                    "check_target_url": profile.target_url,
+                    **endpoint_health_snapshot(
+                        endpoint=endpoint,
+                        latest_scope=latest,
+                        now=now,
+                    ),
+                    "http_status": latest.http_status if latest is not None else None,
+                    "error_message": latest.error_message if latest is not None else "No checks yet",
                 }
             )
         return {"generated_at": utcnow().isoformat(), "endpoints": summaries}
@@ -150,32 +131,17 @@ class HealthCheckQueryService:
         )
 
         for endpoint in endpoints:
-            profile = resolve_healthcheck_profile(endpoint)
             latest_scope = latest_scope_by_endpoint.get(endpoint.id)
             timeline = timeline_by_endpoint.get(endpoint.id, [])
             availability = availability_by_endpoint.get(endpoint.id)
 
-            if latest_scope is not None:
-                status = latest_scope.status
-                checked_at = latest_scope.checked_at.isoformat()
-                latency_ms = latest_scope.latency_ms
-                check_mode = latest_scope.check_mode
-            else:
-                status = HealthCheckStatus.UNKNOWN.value
-                checked_at = now.isoformat()
-                latency_ms = None
-                check_mode = profile.mode
-
             payload.append(
                 {
-                    "endpoint_id": endpoint.id,
-                    "name": endpoint.name,
-                    "endpoint_url": endpoint.endpoint_url,
-                    "status": status,
-                    "checked_at": checked_at,
-                    "latency_ms": latency_ms,
-                    "check_mode": check_mode,
-                    "check_target_url": profile.target_url,
+                    **endpoint_health_snapshot(
+                        endpoint=endpoint,
+                        latest_scope=latest_scope,
+                        now=now,
+                    ),
                     "availability_pct": availability,
                     "timeline": timeline,
                 }
@@ -199,39 +165,27 @@ class HealthCheckQueryService:
 
         payload: list[dict[str, Any]] = []
         for endpoint in endpoints:
-            profile = resolve_healthcheck_profile(endpoint)
             latest_scope = latest_scope_by_endpoint.get(endpoint.id)
             if latest_scope is not None:
-                status = latest_scope.status
-                checked_at = latest_scope.checked_at.isoformat()
-                latency_ms = latest_scope.latency_ms
-                check_mode = latest_scope.check_mode
                 min_latency_ms = latest_scope.min_latency_ms
                 avg_latency_ms = latest_scope.avg_latency_ms
                 max_latency_ms = latest_scope.max_latency_ms
             else:
-                status = HealthCheckStatus.UNKNOWN.value
-                checked_at = now.isoformat()
-                latency_ms = None
-                check_mode = profile.mode
                 min_latency_ms = None
                 avg_latency_ms = None
                 max_latency_ms = None
             payload.append(
                 {
-                    "endpoint_id": endpoint.id,
-                    "name": endpoint.name,
-                    "endpoint_url": endpoint.endpoint_url,
-                    "status": status,
-                    "checked_at": checked_at,
-                    "latency_ms": latency_ms,
-                    "check_mode": check_mode,
-                    "check_target_url": profile.target_url,
+                    **endpoint_health_snapshot(
+                        endpoint=endpoint,
+                        latest_scope=latest_scope,
+                        now=now,
+                    ),
                     "min_latency_ms": min_latency_ms,
                     "avg_latency_ms": avg_latency_ms,
                     "max_latency_ms": max_latency_ms,
-                    "check_type": "availability",
-                    "scope": "endpoint",
+                    "check_type": DEFAULT_CHECK_TYPE,
+                    "scope": DEFAULT_SCOPE,
                 }
             )
 
