@@ -8,6 +8,7 @@ import UiDetails from "../ui/UiDetails";
 import { PRODUCT_NAME } from "../../constants/product";
 import { useI18n } from "../../i18n";
 import { classifyApplicationError, isRetryablePageError, type ApplicationErrorKind } from "../../utils/applicationError";
+import { copyTextToClipboard } from "../../utils/clipboard";
 import { resolveRouteErrorHomePath } from "../../utils/routeError";
 import { WorkspaceErrorContext } from "./WorkspaceErrorContext";
 import { errorActions, errorCopy } from "./errorCopy";
@@ -73,7 +74,9 @@ export default function ErrorState({ kind, error, presentation = "auto", title, 
   ];
   const copyDetails = async () => {
     try {
-      await navigator.clipboard.writeText(diagnostics.map(([label, value]) => `${label}: ${value}`).join("\n"));
+      await copyTextToClipboard(
+        diagnostics.map(([label, value]) => `${label}: ${value}`).join("\n"),
+      );
       setCopyStatus("copied");
     } catch {
       setCopyStatus("copyFailed");
