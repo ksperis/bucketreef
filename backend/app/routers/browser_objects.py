@@ -7,7 +7,7 @@ from typing import Annotated, Any, Optional, TypeVar
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from app.core.domain_errors import BrowserStorageSpacePermissionError
+from app.core.domain_errors import BrowserObjectValidationError, BrowserStorageSpacePermissionError
 from app.services.access_context_contracts import ManagerActor
 from app.models.browser import (
     CleanupObjectVersionsPayload,
@@ -37,8 +37,13 @@ from app.routers.dependencies import (
     get_optional_sse_customer_context,
 )
 from app.services.browser_service import BrowserService, get_browser_service
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionContext
-from app.utils.http_errors import raise_bad_gateway_from_runtime, raise_http_exception_from_exception
+from app.utils.http_errors import (
+    raise_bad_gateway_from_runtime,
+    raise_bad_request_from_value_error,
+    raise_http_exception_from_exception,
+)
 
 router = APIRouter()
 
@@ -53,7 +58,9 @@ def _run_object_action(
 ) -> _ObjectActionResult:
     try:
         return action(*args, **kwargs)
-    except RuntimeError as exc:
+    except BrowserObjectValidationError as exc:
+        raise_bad_request_from_value_error(exc)
+    except S3OperationError as exc:
         raise_bad_gateway_from_runtime(exc)
 
 

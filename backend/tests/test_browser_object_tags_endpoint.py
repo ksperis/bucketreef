@@ -1,11 +1,15 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
+import pytest
+
 from app.db import S3Account
+from app.core.domain_errors import BrowserObjectValidationError
 from app.main import app
 from app.models.browser import ObjectTag, ObjectTags
 from app.routers import browser as browser_router
 from app.routers import dependencies
+from app.services.s3_client import S3OperationError
 
 
 def _account() -> S3Account:
@@ -132,10 +136,10 @@ def test_browser_put_object_tags_rejects_missing_key(client):
     assert response.json()["detail"] == "Missing key"
 
 
-def test_browser_put_object_tags_maps_runtime_error_to_bad_gateway(client):
+def test_browser_put_object_tags_maps_s3_operation_error_to_bad_gateway(client):
     class FakeService:
         def put_object_tags(self, bucket_name, account, key, tags, version_id=None):  # noqa: ANN001
-            raise RuntimeError("S3 put_object_tagging failed")
+            raise S3OperationError("S3 put_object_tagging failed")
 
     app.dependency_overrides[dependencies.get_s3_execution_context] = _account
     app.dependency_overrides[browser_router.get_browser_service] = lambda: FakeService()
@@ -148,3 +152,37 @@ def test_browser_put_object_tags_maps_runtime_error_to_bad_gateway(client):
 
     assert response.status_code == 502
     assert "S3 put_object_tagging failed" in response.json()["detail"]
+
+
+def test_browser_put_object_tags_maps_object_validation_error_to_bad_request(client):
+    class FakeService:
+        def put_object_tags(self, bucket_name, account, key, tags, version_id=None):  # noqa: ANN001
+            raise BrowserObjectValidationError("invalid object mutation")
+
+    app.dependency_overrides[dependencies.get_s3_execution_context] = _account
+    app.dependency_overrides[browser_router.get_browser_service] = lambda: FakeService()
+    app.dependency_overrides[browser_router.get_audit_service] = lambda: _FakeAuditService()
+
+    response = client.put(
+        "/api/browser/buckets/my-bucket/object-tags?context_id=s3u-1",
+        json={"key": "folder/demo.txt", "tags": [{"key": "env", "value": "dev"}]},
+    )
+
+    assert response.status_code == 400
+    assert "invalid object mutation" in response.json()["detail"]
+
+
+def test_browser_put_object_tags_propagates_unexpected_runtime_error(client):
+    class FakeService:
+        def put_object_tags(self, bucket_name, account, key, tags, version_id=None):  # noqa: ANN001
+            raise RuntimeError("unexpected object tag regression")
+
+    app.dependency_overrides[dependencies.get_s3_execution_context] = _account
+    app.dependency_overrides[browser_router.get_browser_service] = lambda: FakeService()
+    app.dependency_overrides[browser_router.get_audit_service] = lambda: _FakeAuditService()
+
+    with pytest.raises(RuntimeError, match="unexpected object tag regression"):
+        client.put(
+            "/api/browser/buckets/my-bucket/object-tags?context_id=s3u-1",
+            json={"key": "folder/demo.txt", "tags": [{"key": "env", "value": "dev"}]},
+        )

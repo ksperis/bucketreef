@@ -10,6 +10,7 @@ from app.main import app
 from app.models.browser import ObjectAcl, ObjectLegalHold, ObjectRetention, ObjectTag, ObjectTags
 from app.routers import browser as browser_router
 from app.routers import dependencies
+from app.services.s3_client import S3OperationError
 
 
 def _account() -> S3Account:
@@ -122,8 +123,8 @@ def test_browser_object_read_routes_reject_empty_key(client, endpoint, result, _
 
 
 @pytest.mark.parametrize(("endpoint", "result", "_expected"), _READ_CASES)
-def test_browser_object_read_routes_map_runtime_errors(client, endpoint, result, _expected):  # noqa: ANN001
-    service = _FakeObjectReadService(result, error=RuntimeError("S3 object detail read failed"))
+def test_browser_object_read_routes_map_s3_operation_errors(client, endpoint, result, _expected):  # noqa: ANN001
+    service = _FakeObjectReadService(result, error=S3OperationError("S3 object detail read failed"))
     app.dependency_overrides[dependencies.get_s3_execution_context] = _account
     app.dependency_overrides[browser_router.get_browser_service] = lambda: service
 
@@ -135,3 +136,16 @@ def test_browser_object_read_routes_map_runtime_errors(client, endpoint, result,
     assert response.status_code == 502
     assert "S3 object detail read failed" in response.json()["detail"]
     assert service.calls == [("my-bucket", 78, "folder/demo.txt", "v1")]
+
+
+@pytest.mark.parametrize(("endpoint", "result", "_expected"), _READ_CASES)
+def test_browser_object_read_routes_propagate_unexpected_runtime_errors(client, endpoint, result, _expected):  # noqa: ANN001
+    service = _FakeObjectReadService(result, error=RuntimeError("unexpected object detail regression"))
+    app.dependency_overrides[dependencies.get_s3_execution_context] = _account
+    app.dependency_overrides[browser_router.get_browser_service] = lambda: service
+
+    with pytest.raises(RuntimeError, match="unexpected object detail regression"):
+        client.get(
+            f"/api/browser/buckets/my-bucket/{endpoint}"
+            "?key=folder%2Fdemo.txt&version_id=v1&context_id=s3u-1"
+        )

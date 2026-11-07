@@ -6,6 +6,7 @@ from botocore.exceptions import ClientError
 
 from app.db import S3Account
 from app.services.browser_service import BrowserService
+from app.services.s3_client import S3OperationError
 
 
 _ALL_USERS = "http://acs.amazonaws.com/groups/global/AllUsers"
@@ -103,5 +104,5 @@ def test_get_object_acl_wraps_storage_errors(monkeypatch):
     service = BrowserService()
     monkeypatch.setattr(service, "_client", lambda _context: FakeClient())
 
-    with pytest.raises(RuntimeError, match="Unable to fetch ACL for 'secret.txt'"):
+    with pytest.raises(S3OperationError, match="Unable to fetch ACL for 'secret.txt'"):
         service.get_object_acl("bucket-a", _account(), "secret.txt")

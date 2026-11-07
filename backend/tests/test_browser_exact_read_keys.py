@@ -89,6 +89,18 @@ def test_http_version_filter_never_targets_a_trimmed_or_prefix_neighbor_key(clie
     assert result["is_truncated"] is True
 
 
+def test_version_listing_maps_provider_authorization_error(client, storage):
+    storage.list_object_versions.side_effect = ClientError(
+        {"Error": {"Code": "AccessDenied", "Message": "denied"}},
+        "ListObjectVersions",
+    )
+
+    response = client.get("/api/browser/buckets/target/versions")
+
+    assert response.status_code == 403
+    assert "Unable to list object versions" in response.json()["detail"]
+
+
 @pytest.mark.parametrize("payload", [
     {}, {"keys": ["object"]}, {"columns": ["tags_count"]},
     {"keys": [], "columns": ["tags_count"]},

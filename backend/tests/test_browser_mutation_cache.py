@@ -21,6 +21,7 @@ from app.services.browser import buckets as browser_buckets
 from app.services.browser import cache as browser_cache
 from app.services.browser import versions as browser_versions
 from app.services.browser_service import BrowserService
+from app.services.s3_client import S3OperationError
 from app.services.s3_deletion import DeleteObjectsError
 from tests.execution_context_factory import make_s3_execution_context
 
@@ -240,7 +241,7 @@ def test_metadata_copy_failure_after_write_expires_cached_columns(monkeypatch):
         {"Error": {"Code": "AccessDenied", "Message": "denied"}}, "PutObjectTagging",
     )
 
-    with pytest.raises(RuntimeError, match="Unable to restore tags"):
+    with pytest.raises(S3OperationError, match="Unable to restore tags"):
         service.update_object_metadata("target", account, ObjectMetadataUpdate(key="object", metadata={"new": "value"}))
 
     assert client.copy_object.call_count == 1

@@ -17,6 +17,7 @@ from app.models.browser import (
     ListBrowserObjectsResponse,
     ListObjectVersionsResponse,
 )
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionTarget
 
 from .cache import OBJECT_LIST_CACHE, OBJECT_SORT_SNAPSHOT_CACHE
@@ -406,7 +407,7 @@ class BrowserListingMixin:
         try:
             resp = client.list_object_versions(**kwargs)
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(f"Unable to list object versions for '{bucket_name}': {exc}") from exc
+            raise S3OperationError(f"Unable to list object versions for '{bucket_name}': {exc}") from exc
         response_prefix = filter_key if filter_key is not None else (prefix or None)
         return ListObjectVersionsResponse(
             prefix=response_prefix,

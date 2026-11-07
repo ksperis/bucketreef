@@ -5,9 +5,11 @@ from datetime import datetime, timezone
 import pytest
 from botocore.exceptions import ClientError
 
+from app.core.domain_errors import BrowserObjectValidationError
 from app.db import S3Account
 from app.models.browser import CopyObjectPayload, ObjectMetadata, ObjectMetadataUpdate, ObjectTag
 from app.services.browser_service import BrowserService
+from app.services.s3_client import S3OperationError
 
 
 def _account() -> S3Account:
@@ -330,7 +332,7 @@ def test_update_object_metadata_rejects_invalid_expiration_before_copy(monkeypat
     service = BrowserService()
     monkeypatch.setattr(service, "_client", lambda _account: FakeClient())
 
-    with pytest.raises(RuntimeError, match="Invalid expires value: tomorrow"):
+    with pytest.raises(BrowserObjectValidationError, match="Invalid expires value: tomorrow"):
         service.update_object_metadata(
             "bucket-a",
             _account(),
@@ -355,7 +357,7 @@ def test_update_object_metadata_reports_tag_restoration_failure(monkeypatch):
     service = BrowserService()
     monkeypatch.setattr(service, "_client", lambda _account: FakeClient())
 
-    with pytest.raises(RuntimeError, match="Unable to restore tags for 'docs/report.txt'"):
+    with pytest.raises(S3OperationError, match="Unable to restore tags for 'docs/report.txt'"):
         service.update_object_metadata(
             "bucket-a",
             _account(),

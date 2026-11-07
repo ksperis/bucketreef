@@ -8,6 +8,7 @@ from urllib.parse import urlencode
 
 from botocore.exceptions import BotoCoreError, ClientError
 
+from app.core.domain_errors import BrowserObjectValidationError
 from app.models.browser import (
     BrowserObjectLazyColumn,
     BrowserObjectLazyColumnStatus,
@@ -26,6 +27,7 @@ from app.models.browser import (
     ObjectTags,
     SseCustomerContext,
 )
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionTarget
 from app.utils.aws_errors import aws_error_code
 
@@ -79,11 +81,11 @@ def _load_metadata_copy_state(
     try:
         current = client.head_object(**source)
     except (ClientError, BotoCoreError) as exc:
-        raise RuntimeError(f"Unable to fetch metadata for '{payload.key}': {exc}") from exc
+        raise S3OperationError(f"Unable to fetch metadata for '{payload.key}': {exc}") from exc
     try:
         current_tagging = client.get_object_tagging(**source)
     except (ClientError, BotoCoreError) as exc:
-        raise RuntimeError(f"Unable to fetch tags for '{payload.key}': {exc}") from exc
+        raise S3OperationError(f"Unable to fetch tags for '{payload.key}': {exc}") from exc
     return current, current_tagging.get("TagSet") or []
 
 
@@ -135,7 +137,7 @@ def _resolved_copy_expiration(
     try:
         return _parsed_iso_datetime(replacement)
     except ValueError as exc:
-        raise RuntimeError(f"Invalid expires value: {replacement}") from exc
+        raise BrowserObjectValidationError(f"Invalid expires value: {replacement}") from exc
 
 
 def _metadata_copy_request(
@@ -181,7 +183,7 @@ def _copy_metadata(
     try:
         response = client.copy_object(**kwargs)
     except (ClientError, BotoCoreError) as exc:
-        raise RuntimeError(f"Unable to update metadata for '{payload.key}': {exc}") from exc
+        raise S3OperationError(f"Unable to update metadata for '{payload.key}': {exc}") from exc
     return response.get("VersionId") if isinstance(response, dict) else None
 
 
@@ -204,7 +206,7 @@ def _restore_copied_tags(
     try:
         client.put_object_tagging(**kwargs)
     except (ClientError, BotoCoreError) as exc:
-        raise RuntimeError(f"Unable to restore tags for '{key}': {exc}") from exc
+        raise S3OperationError(f"Unable to restore tags for '{key}': {exc}") from exc
 
 
 def _is_owner_full_control_grant(
@@ -284,7 +286,7 @@ class BrowserObjectDetailsMixin:
         try:
             resp = client.head_object(**kwargs)
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(f"Unable to fetch metadata for '{key}': {exc}") from exc
+            raise S3OperationError(f"Unable to fetch metadata for '{key}': {exc}") from exc
         metadata = resp.get("Metadata") or {}
         return ObjectMetadata(
             key=key,
@@ -460,7 +462,7 @@ class BrowserObjectDetailsMixin:
         try:
             resp = client.get_object_tagging(**kwargs)
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(f"Unable to fetch tags for '{key}': {exc}") from exc
+            raise S3OperationError(f"Unable to fetch tags for '{key}': {exc}") from exc
         tagset = resp.get("TagSet") or []
         tags = [
             ObjectTag(key=tag.get("Key") or "", value=tag.get("Value") or "")
@@ -490,7 +492,7 @@ class BrowserObjectDetailsMixin:
                 else:
                     client.delete_object_tagging(**kwargs)
             except (ClientError, BotoCoreError) as exc:
-                raise RuntimeError(f"Unable to update tags for '{key}': {exc}") from exc
+                raise S3OperationError(f"Unable to update tags for '{key}': {exc}") from exc
         return ObjectTags(key=key, tags=tags, version_id=version_id)
 
     def update_object_metadata(
@@ -525,7 +527,7 @@ class BrowserObjectDetailsMixin:
         try:
             resp = client.get_object_acl(**kwargs)
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(f"Unable to fetch ACL for '{key}': {exc}") from exc
+            raise S3OperationError(f"Unable to fetch ACL for '{key}': {exc}") from exc
         return ObjectAcl(key=key, acl=_infer_object_acl(resp), version_id=version_id)
 
     def put_object_acl(
@@ -540,7 +542,7 @@ class BrowserObjectDetailsMixin:
         try:
             client.put_object_acl(**kwargs)
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(f"Unable to update ACL for '{payload.key}': {exc}") from exc
+            raise S3OperationError(f"Unable to update ACL for '{payload.key}': {exc}") from exc
         return ObjectAcl(key=payload.key, acl=payload.acl, version_id=payload.version_id)
 
     def get_object_legal_hold(
@@ -562,9 +564,9 @@ class BrowserObjectDetailsMixin:
                     object_lock_enabled=False,
                     version_id=version_id,
                 )
-            raise RuntimeError(f"Unable to fetch legal hold for '{key}': {exc}") from exc
+            raise S3OperationError(f"Unable to fetch legal hold for '{key}': {exc}") from exc
         except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to fetch legal hold for '{key}': {exc}") from exc
+            raise S3OperationError(f"Unable to fetch legal hold for '{key}': {exc}") from exc
         status = (resp.get("LegalHold") or {}).get("Status")
         return ObjectLegalHold(
             key=key,
@@ -586,7 +588,7 @@ class BrowserObjectDetailsMixin:
         try:
             client.put_object_legal_hold(**kwargs)
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(f"Unable to update legal hold for '{payload.key}': {exc}") from exc
+            raise S3OperationError(f"Unable to update legal hold for '{payload.key}': {exc}") from exc
         return ObjectLegalHold(
             key=payload.key,
             status=payload.status,
@@ -614,9 +616,9 @@ class BrowserObjectDetailsMixin:
                     object_lock_enabled=False,
                     version_id=version_id,
                 )
-            raise RuntimeError(f"Unable to fetch retention for '{key}': {exc}") from exc
+            raise S3OperationError(f"Unable to fetch retention for '{key}': {exc}") from exc
         except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to fetch retention for '{key}': {exc}") from exc
+            raise S3OperationError(f"Unable to fetch retention for '{key}': {exc}") from exc
         retention = resp.get("Retention") or {}
         return ObjectRetention(
             key=key,
@@ -644,7 +646,7 @@ class BrowserObjectDetailsMixin:
         try:
             client.put_object_retention(**kwargs)
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(f"Unable to update retention for '{payload.key}': {exc}") from exc
+            raise S3OperationError(f"Unable to update retention for '{payload.key}': {exc}") from exc
         return ObjectRetention(
             key=payload.key,
             mode=payload.mode,
@@ -669,4 +671,4 @@ class BrowserObjectDetailsMixin:
             try:
                 client.restore_object(**kwargs)
             except (ClientError, BotoCoreError) as exc:
-                raise RuntimeError(f"Unable to restore '{payload.key}': {exc}") from exc
+                raise S3OperationError(f"Unable to restore '{payload.key}': {exc}") from exc
