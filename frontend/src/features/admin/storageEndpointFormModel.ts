@@ -6,6 +6,7 @@ import type {
   StorageEndpoint,
   StorageProvider,
 } from "../../api/storageEndpoints";
+import type { HealthCheckMode } from "../../api/healthchecks";
 import { normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
 
 export type FeatureKey =
@@ -21,12 +22,10 @@ export type FeatureKey =
   | "replication"
   | "healthcheck";
 
-type HealthcheckMode = "http" | "s3";
-
 type FeatureState = {
   enabled: boolean;
   endpoint: string;
-  mode?: HealthcheckMode;
+  mode?: HealthCheckMode;
 };
 
 export type FeaturesState = Record<FeatureKey, FeatureState>;
