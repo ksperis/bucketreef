@@ -18,13 +18,11 @@ from app.services.s3_user_rgw_context_service import S3UserRgwContextService
 from app.services.s3_user_update_service import S3UserUpdateService
 from app.services.tags_service import TagsService
 from app.models.s3_user import (
-    PaginatedS3UsersResponse,
     S3User as S3UserSchema,
     S3UserAccessKey,
     S3UserCreate,
     S3UserGeneratedKey,
     S3UserImport,
-    S3UserListingRequest,
     S3UserUpdate,
 )
 class S3UsersService:
@@ -79,27 +77,6 @@ class S3UsersService:
 
     def get_user_record(self, user_id: int) -> S3UserModel:
         return self.query.get_user_record(user_id)
-
-    def list_users(self, include_quota: bool = False) -> list[S3UserSchema]:
-        return self.query.list_users(include_quota=include_quota)
-
-    def list_users_page(
-        self,
-        request: S3UserListingRequest,
-    ) -> PaginatedS3UsersResponse:
-        return self.query.list_users_page(request)
-
-    def get_user(
-        self,
-        user_id: int,
-        include_buckets: bool = False,
-        include_quota: bool = False,
-    ) -> S3UserSchema:
-        return self.query.get_user(
-            user_id,
-            include_buckets=include_buckets,
-            include_quota=include_quota,
-        )
 
     def create_user(self, payload: S3UserCreate) -> S3UserSchema:
         provisioned = self.provisioning.create_user(payload)
