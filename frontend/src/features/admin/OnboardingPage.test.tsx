@@ -165,7 +165,6 @@ function journey(id: string, draft: OnboardingDraft, configured = false): Onboar
     id,
     revision: 1,
     draft,
-    resources: {},
     configured,
     preview: configured ? { review_token: "", features: [], changes: [], blockers: [] } : previewFor(draft),
     links: {},
@@ -231,11 +230,6 @@ beforeEach(() => {
         ...current.draft,
         endpoint_id: endpointId,
         endpoint_url: "",
-      },
-      resources: {
-        ...(current.draft.endpoint_id ? {} : { endpoint_created: true }),
-        ...(current.draft.manager || current.draft.portal ? { account_id: 11 } : {}),
-        ...(current.draft.private_connection ? { connection_id: 12 } : {}),
       },
       preview: { review_token: "", features: [], changes: [], blockers: [] },
       links: {
@@ -726,7 +720,6 @@ describe("simplified onboarding", () => {
     mocks.applyOnboardingJourney.mockImplementationOnce(async (current: OnboardingJourney) => {
       const resumed = {
         ...current,
-        resources: { endpoint_created: true },
         draft: { ...current.draft, endpoint_id: 9 },
       };
       status = { ...status, journeys: [resumed] };

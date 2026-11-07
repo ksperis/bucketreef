@@ -92,11 +92,23 @@ class OnboardingPreview(ApiModel):
     review_token: str = ""
 
 
+class OnboardingResources(ApiModel):
+    """Internal resumable checkpoints for a guided onboarding journey."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    endpoint_created: Literal[True] | None = None
+    endpoint_name: str | None = Field(default=None, min_length=1)
+    rgw_account_id: str | None = Field(default=None, min_length=1)
+    account_name: str | None = Field(default=None, min_length=1)
+    account_id: int | None = Field(default=None, gt=0)
+    connection_id: int | None = Field(default=None, gt=0)
+
+
 class OnboardingJourneyOut(ApiModel):
     id: str
     revision: int
     draft: OnboardingDraft
-    resources: dict
     configured: bool
     preview: OnboardingPreview
     links: dict[str, str]

@@ -473,16 +473,17 @@ def test_private_only_new_endpoint_does_not_configure_admin_credentials(
     assert result.configured
     assert result.draft.endpoint_id is not None
     ep = db_session.get(StorageEndpoint, result.draft.endpoint_id)
-    assert result.resources["endpoint_created"] is True
-    assert "endpoint_id" not in result.resources
+    progress = db_session.get(OnboardingJourney, journey.id)
+    assert progress.resources["endpoint_created"] is True
+    assert "endpoint_id" not in progress.resources
+    assert "endpoint_name" not in progress.resources
     assert ep.admin_access_key is None and ep.admin_secret_key is None
-    connection = db_session.get(S3Connection, result.resources["connection_id"])
+    connection = db_session.get(S3Connection, progress.resources["connection_id"])
     assert connection.created_by_user_id == user.id
     assert connection.is_shared is False
     assert connection.access_browser and connection.access_manager
     assert user.can_create_manual_private_connections
 
-    progress = db_session.get(OnboardingJourney, journey.id)
     assert progress.draft["endpoint_id"] == ep.id
     assert progress.draft["endpoint_url"] == ""
     serialized = " ".join(
@@ -565,7 +566,10 @@ def test_manager_and_portal_share_one_sample_account_with_independent_roles(
     assert ep.admin_secret_key == "admin-sk"
     assert ep.service_identity("ceph_admin") is None
     assert db_session.scalar(sa.select(sa.func.count()).select_from(S3Account)) == 1
-    account = db_session.get(S3Account, result.resources["account_id"])
+    progress = db_session.get(OnboardingJourney, result.id)
+    account = db_session.get(S3Account, progress.resources["account_id"])
+    assert "rgw_account_id" not in progress.resources
+    assert "account_name" not in progress.resources
     assert account.rgw_account_id == "RGW70000000000000042"
     assert account.name == onboarding_sample_account_name(account.rgw_account_id)
     link = db_session.scalars(
@@ -675,10 +679,11 @@ def test_manager_and_portal_role_axes_remain_independent(
         save(guided, user, endpoint_id=ep.id, manager=manager, portal=portal),
         service_identity_mode="managed",
     )
+    progress = db_session.get(OnboardingJourney, result.id)
     link = db_session.scalars(
         sa.select(UserS3Account).where(
             UserS3Account.user_id == user.id,
-            UserS3Account.account_id == result.resources["account_id"],
+            UserS3Account.account_id == progress.resources["account_id"],
         )
     ).one()
     assert link.manager_role == expected_manager
@@ -931,6 +936,32 @@ def test_review_token_and_revision_prevent_stale_apply(guided, db_session, monke
         )
 
 
+def test_onboarding_draft_edit_requires_reconciliation_after_endpoint_name_checkpoint(
+    guided, db_session
+):
+    user = actor(db_session)
+    journey = save(
+        guided,
+        user,
+        endpoint_url="https://first.example.test",
+        private_connection=True,
+    )
+    row = guided.get(user, journey.id)
+    guided.checkpoint(row, endpoint_name="first")
+
+    with pytest.raises(OnboardingError, match="configuration_reconciliation_required"):
+        guided.save(
+            user,
+            journey.id,
+            OnboardingSave(
+                revision=journey.revision,
+                draft=journey.draft.model_copy(
+                    update={"endpoint_url": "https://second.example.test"}
+                ),
+            ),
+        )
+
+
 def test_configured_apply_is_idempotent_and_does_not_duplicate_private_connection(
     guided, db_session, monkeypatch
 ):
@@ -947,6 +978,7 @@ def test_configured_apply_is_idempotent_and_does_not_duplicate_private_connectio
         private_access_key="private-ak",
         private_secret_key="private-sk",
     )
+    first_resources = dict(db_session.get(OnboardingJourney, first.id).resources)
     second = guided.apply(
         user,
         first.id,
@@ -959,7 +991,8 @@ def test_configured_apply_is_idempotent_and_does_not_duplicate_private_connectio
             private_secret_key="private-sk",
         ),
     )
-    assert second.resources == first.resources
+    assert second.configured
+    assert db_session.get(OnboardingJourney, second.id).resources == first_resources
     assert db_session.scalar(sa.select(sa.func.count()).select_from(S3Connection)) == 1
 
 

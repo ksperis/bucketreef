@@ -9,7 +9,6 @@ def test_onboarding_responses_require_complete_canonical_payloads() -> None:
         "id",
         "revision",
         "draft",
-        "resources",
         "configured",
         "preview",
         "links",

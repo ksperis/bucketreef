@@ -1,5 +1,19 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 canonical onboarding progress resources
+
+Migration `0261_canonical_onboarding_resources` closes the internal onboarding
+checkpoint schema and removes metadata that becomes redundant once its canonical
+resource identifier exists. `endpoint_name` is discarded after a newly created
+endpoint is recorded in `draft.endpoint_id`, while `rgw_account_id` and
+`account_name` are discarded after the local `account_id` checkpoint exists.
+Retry metadata is retained while the corresponding resource has not yet been
+created.
+
+Onboarding checkpoint resources are now backend-internal state and are no longer
+returned by the Admin onboarding API. The bundled frontend did not consume that
+state. Deploy the backend and frontend from the same release.
+
 ## 2026-11 canonical onboarding endpoint checkpoints
 
 Migration `0260_onboarding_endpoint_checkpoint` removes the duplicated endpoint

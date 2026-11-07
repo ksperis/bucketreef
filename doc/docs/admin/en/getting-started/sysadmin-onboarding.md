@@ -121,12 +121,14 @@ service to users.
 
 ### Interrupted configuration
 
-Progress records contain the selected options and identifiers for resources
-created during setup, not submitted keys. The selected endpoint is stored once
-in the journey draft. Keys are retained only in the existing credential stores;
-re-enter unsubmitted keys after leaving the guide. Local connection/endpoint
-creation and their checkpoint commit together. Account provisioning records a
-durable RGW account identifier before the remote call and reuses it on retry.
+Progress records contain backend-internal checkpoints for resources created
+during setup, not submitted keys. The selected endpoint is stored once in the
+journey draft. Retry-only names and remote identifiers are removed after their
+canonical local resource ID has been checkpointed. Keys are retained only in
+the existing credential stores; re-enter unsubmitted keys after leaving the
+guide. Local connection/endpoint creation and their checkpoint commit together.
+Account provisioning records a durable RGW account identifier before the remote
+call and reuses it on retry.
 
 An unresolved remote failure requires reconciliation through the standard
 administration tools. A pending account resumes with the same durable RGW

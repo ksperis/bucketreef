@@ -21,7 +21,6 @@ function journey(id: string, draft: OnboardingDraft, revision = 3): OnboardingJo
     id,
     revision,
     draft,
-    resources: {},
     configured: false,
     preview,
     links: {},
