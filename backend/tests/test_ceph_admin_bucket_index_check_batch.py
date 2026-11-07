@@ -52,12 +52,14 @@ def test_batch_request_deduplicates_tenant_bucket_targets_and_caps_size():
             {"name": "bucket-a", "tenant": "tenant-a"},
             {"name": " bucket-a ", "tenant": " tenant-a "},
             {"name": "bucket-a", "tenant": "tenant-b"},
+            {"name": "bucket-c", "tenant": "   "},
         ]
     )
 
     assert [(target.tenant, target.name) for target in payload.targets] == [
         ("tenant-a", "bucket-a"),
         ("tenant-b", "bucket-a"),
+        (None, "bucket-c"),
     ]
 
     with pytest.raises(ValidationError):

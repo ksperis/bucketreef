@@ -102,7 +102,7 @@ def test_create_ldap_user_creates_passwordless_user_and_identity_atomically(db_s
             "action": "create",
             "create": {
                 "email": "jane.profile@example.com",
-                "full_name": "Jane Profile",
+                "full_name": "  Jane Profile  ",
                 "role": "ui_user",
                 "can_access_ceph_admin": False,
                 "can_access_storage_ops": False,

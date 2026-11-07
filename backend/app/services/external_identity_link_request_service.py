@@ -15,6 +15,7 @@ from app.core.domain_enums import UserRole
 from app.services.auth_session_service import AuthSessionService
 from app.services.external_identity_query_service import ExternalIdentityQueryService
 from app.services.user_notifications_service import UserNotificationsService
+from app.utils.normalize import normalize_optional_string
 from app.utils.time import utcnow
 
 
@@ -41,7 +42,7 @@ class ExternalIdentityLinkRequestService:
         request.status = "approved" if approve else "rejected"
         request.decided_at = now
         request.decided_by_user_id = superadmin.id
-        request.decision_reason = (reason or "").strip() or None
+        request.decision_reason = normalize_optional_string(reason)
         user = self.db.get(User, request.user_id)
         if not user:
             raise ValueError("Target user no longer exists")
