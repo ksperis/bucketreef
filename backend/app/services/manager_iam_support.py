@@ -350,11 +350,6 @@ def create_iam_role(
     )
 
 
-def validate_inline_policy_name(payload: InlinePolicy, policy_name: str) -> None:
-    if payload.name and payload.name != policy_name:
-        raise ValueError("Inline policy name in payload does not match the URL.")
-
-
 def load_inline_policies(
     entity_name: str,
     *,
