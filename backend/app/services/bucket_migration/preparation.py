@@ -14,7 +14,9 @@ from app.services.managed_resource_naming import (
     MIGRATION_PROBE_OBJECT_KEY,
     migration_probe_bucket_name,
 )
+from app.services.s3_client import S3OperationError
 from app.utils.time import utcnow
+from .diagnostics import MigrationPrecheckError
 from .execution_signals import WorkerLeaseLostError
 from .precheck_reporting import create_precheck_report
 from .workflow import require_action
@@ -609,7 +611,7 @@ class BucketMigrationPreparationMixin:
                 )
         except PermissionError:
             raise
-        except (RuntimeError, ValueError) as exc:
+        except (MigrationPrecheckError, S3OperationError, ValueError) as exc:
             raise ValueError(
                 f"Source '{item.source_bucket}' needs attention: {sanitized_error_log_detail(exc)}"
             ) from exc

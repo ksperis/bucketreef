@@ -46,6 +46,8 @@ from app.services.bucket_migration.execution_object_models import (
     VersionedObjectDetails,
     VersionTimelineDiffKey,
 )
+from app.services.bucket_migration.diagnostics import MigrationPrecheckError
+from app.services.bucket_migration.precheck_item_inspection import BucketMigrationItemInspector
 from app.services.bucket_migration.execution_runtime import ResolvedContext
 from app.services.bucket_migration.execution_signals import MigrationControlRequested
 from app.services.bucket_migration.worker import BucketMigrationWorker
@@ -1915,6 +1917,62 @@ def test_run_precheck_interruption_persists_canonical_report(db_session):
     assert diagnostic["details"] is None
 
 
+def test_precheck_item_inspection_records_typed_count_failure():
+    checks: list[dict] = []
+
+    class _Service:
+        @staticmethod
+        def _count_bucket_objects(*_args, **_kwargs):
+            raise MigrationPrecheckError("count unavailable")
+
+    inspector = SimpleNamespace(
+        inspect_bucket_state=lambda *_args, **_kwargs: _bucket_profile_stub("bucket-a")
+    )
+    item_inspector = BucketMigrationItemInspector(_Service(), inspector)
+
+    object_count, profile = item_inspector._inspect_existing_bucket_details(
+        SimpleNamespace(),
+        "bucket-a",
+        scope_prefix="source",
+        probe_policy=set(),
+        add_check=lambda **payload: checks.append(payload),
+        profile_error_severity="error",
+        profile_error_blocking=True,
+        profile_error_message="Unable to inspect source bucket features",
+    )
+
+    assert object_count is None
+    assert profile == _bucket_profile_stub("bucket-a")
+    assert checks[0]["code"] == "source_count_failed"
+    assert "count unavailable" in checks[0]["message"]
+
+
+def test_precheck_item_inspection_does_not_mask_unexpected_count_failure():
+    class _Service:
+        @staticmethod
+        def _count_bucket_objects(*_args, **_kwargs):
+            raise RuntimeError("unexpected count regression")
+
+    item_inspector = BucketMigrationItemInspector(
+        _Service(),
+        SimpleNamespace(
+            inspect_bucket_state=lambda *_args, **_kwargs: _bucket_profile_stub("bucket-a")
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="unexpected count regression"):
+        item_inspector._inspect_existing_bucket_details(
+            SimpleNamespace(),
+            "bucket-a",
+            scope_prefix="source",
+            probe_policy=set(),
+            add_check=lambda **_payload: None,
+            profile_error_severity="error",
+            profile_error_blocking=True,
+            profile_error_message="Unable to inspect source bucket features",
+        )
+
+
 def test_run_precheck_passed_then_start_allowed(db_session):
     user = _create_user(db_session)
     source = _create_account(db_session, name="source", endpoint_url="https://source.example.test", account_id="RGW001")
@@ -2256,7 +2314,7 @@ def test_run_precheck_blocks_when_requested_website_inspection_is_unavailable(db
             },
             "GetBucketWebsite",
         )
-        raise RuntimeError("Unable to fetch bucket website for 'bucket-a'.") from cause
+        raise S3OperationError("Unable to fetch bucket website for 'bucket-a'.") from cause
 
     buckets_stub, website_calls, _notification_calls, _replication_calls, _policy_calls = _make_bucket_feature_probe_stub(
         get_bucket_website=_website_method_not_allowed,

@@ -26,8 +26,10 @@ from app.models.bucket_migration import (
     BucketMigrationView,
 )
 from app.services.bucket_migration import maintenance as bucket_migration_maintenance
+from app.services.bucket_migration.diagnostics import MigrationPrecheckError
 from app.services.bucket_migration.execution_object_models import BucketVersionEntry
 from app.services.bucket_migration_service import BucketMigrationService
+from app.services.s3_client import S3OperationError
 from app.services.bucket_migration.workflow import available_actions, preparation_state
 from app.services.managed_resource_naming import MIGRATION_PROBE_OBJECT_KEY
 from app.services.mappers.bucket_migration import bucket_migration_to_detail
@@ -256,7 +258,7 @@ def test_unknown_destination_existence_blocks_precheck(prepared):
 
 def test_failed_destination_existence_probe_blocks_precheck(prepared):
     service, migration, _ = prepared
-    service._precheck_bucket_exists.side_effect = RuntimeError("probe failed")
+    service._precheck_bucket_exists.side_effect = MigrationPrecheckError("probe failed")
 
     service.run_precheck(migration.id, active_checks=True)
 
@@ -498,16 +500,22 @@ def test_created_destination_provenance_allows_retry_only_for_own_bucket(prepare
     service._revalidate_transfer_preconditions(migration)
 
 
-def test_source_revalidation_only_wraps_expected_runtime_failures(prepared):
+def test_source_revalidation_only_wraps_expected_provider_failures(prepared):
     service, migration, _ = prepared
     source = service._resolve_context(migration.source_context_id)
     item = migration.items[0]
 
-    service._inspector.inspect_bucket_state.side_effect = RuntimeError("source unavailable")
+    service._inspector.inspect_bucket_state.side_effect = S3OperationError("source unavailable")
     with pytest.raises(
         ValueError,
         match="Source 'source-bucket' needs attention: source unavailable",
     ):
+        service._revalidate_source_transfer_preconditions(migration, source, item)
+
+    service._inspector.inspect_bucket_state.side_effect = RuntimeError(
+        "unexpected inspection regression"
+    )
+    with pytest.raises(RuntimeError, match="unexpected inspection regression"):
         service._revalidate_source_transfer_preconditions(migration, source, item)
 
     service._inspector.inspect_bucket_state.side_effect = TypeError("unexpected inspection bug")

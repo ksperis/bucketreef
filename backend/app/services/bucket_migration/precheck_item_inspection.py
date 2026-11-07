@@ -5,7 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
-from .diagnostics import MigrationPermissionCheckError
+from app.services.s3_client import S3OperationError
+
+from .diagnostics import MigrationPermissionCheckError, MigrationPrecheckError
 from .precheck_inspection import BucketMigrationInspector
 
 
@@ -81,7 +83,7 @@ class BucketMigrationItemInspector:
             sampled_object = self._service._precheck_can_list_bucket(
                 context, item.source_bucket
             )
-        except Exception as exc:  # noqa: BLE001
+        except MigrationPrecheckError as exc:
             permission = (
                 exc.permission if isinstance(exc, MigrationPermissionCheckError) else None
             )
@@ -208,7 +210,7 @@ class BucketMigrationItemInspector:
                     scope="target_bucket",
                     message="Unable to verify whether target bucket exists.",
                 )
-        except Exception as exc:  # noqa: BLE001
+        except MigrationPrecheckError as exc:
             add_check(
                 code="target_existence_failed",
                 severity="error",
@@ -243,7 +245,7 @@ class BucketMigrationItemInspector:
                 message=f"{label} bucket object count: {object_count}.",
                 details={"current_object_count": object_count},
             )
-        except Exception as exc:  # noqa: BLE001
+        except MigrationPrecheckError as exc:
             add_check(
                 code=f"{scope_prefix}_count_failed",
                 severity="warning",
@@ -264,7 +266,7 @@ class BucketMigrationItemInspector:
                 scope_prefix=scope_prefix,
                 add_check=add_check,
             )
-        except Exception as exc:  # noqa: BLE001
+        except (MigrationPrecheckError, S3OperationError) as exc:
             add_check(
                 code=f"{scope_prefix}_profile_inspection_failed",
                 severity=profile_error_severity,

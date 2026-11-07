@@ -4,7 +4,11 @@
 from app.core.sensitive_data import sanitized_error_log_detail
 
 
-class MigrationPermissionCheckError(RuntimeError):
+class MigrationPrecheckError(RuntimeError):
+    """Expected operational failure while validating a migration precheck."""
+
+
+class MigrationPermissionCheckError(MigrationPrecheckError):
     def __init__(self, message: str, permission: str, cause: Exception):
         super().__init__(message)
         self.permission = permission
