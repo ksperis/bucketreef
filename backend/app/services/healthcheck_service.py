@@ -93,32 +93,17 @@ class HealthCheckService:
         results: list[HealthCheckResult] = []
         worker_count = min(len(check_targets), 8)
         with ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix="healthcheck") as executor:
-            futures = {
+            futures = [
                 executor.submit(
                     self._check_endpoint,
                     target,
                     profile=profiles[target.endpoint_id],
                     baseline_latency_ms=baselines[target.endpoint_id],
-                ): target.endpoint_id
+                )
                 for target in check_targets
-            }
+            ]
             for future in as_completed(futures):
-                endpoint_id = futures[future]
-                try:
-                    results.append(future.result())
-                except Exception as exc:  # pragma: no cover - defensive guard
-                    logger.exception("Healthcheck worker failed for endpoint %s: %s", endpoint_id, exc)
-                    results.append(
-                        HealthCheckResult(
-                            endpoint_id=endpoint_id,
-                            status=HealthCheckStatus.DOWN,
-                            checked_at=utcnow(),
-                            latency_ms=None,
-                            http_status=None,
-                            error_message=f"Healthcheck worker failure: {sanitized_error_log_detail(exc)}",
-                            check_mode=profiles[endpoint_id].mode,
-                        )
-                    )
+                results.append(future.result())
 
         results.sort(key=lambda item: item.endpoint_id)
         return results

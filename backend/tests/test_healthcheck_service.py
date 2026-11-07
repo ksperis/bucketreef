@@ -162,7 +162,7 @@ def test_s3_healthcheck_honors_endpoint_force_path_style(monkeypatch):
     assert result.error_message is None
 
 
-def test_run_endpoint_checks_converts_worker_failures_and_sorts_results(monkeypatch):
+def test_run_endpoint_checks_sorts_results(monkeypatch):
     service = HealthCheckService(db=None)
     targets = [
         _build_target(verify_tls=True, endpoint_id=2),
@@ -176,8 +176,6 @@ def test_run_endpoint_checks_converts_worker_failures_and_sorts_results(monkeypa
     def fake_check(target, *, profile, baseline_latency_ms):
         assert profile is profiles[target.endpoint_id]
         assert baseline_latency_ms is None
-        if target.endpoint_id == 1:
-            raise RuntimeError("worker exploded")
         return HealthCheckResult(
             endpoint_id=target.endpoint_id,
             status=HealthCheckStatus.UP,
@@ -197,9 +195,24 @@ def test_run_endpoint_checks_converts_worker_failures_and_sorts_results(monkeypa
     )
 
     assert [result.endpoint_id for result in results] == [1, 2]
-    assert results[0].status == HealthCheckStatus.DOWN
-    assert results[0].error_message == "Healthcheck worker failure: worker exploded"
-    assert results[1].status == HealthCheckStatus.UP
+
+
+def test_run_endpoint_checks_propagates_worker_failures(monkeypatch):
+    service = HealthCheckService(db=None)
+    target = _build_target(verify_tls=True, endpoint_id=1)
+    profile = HealthCheckProfile(mode="http", target_url=target.endpoint_url)
+
+    def fake_check(target, *, profile, baseline_latency_ms):
+        raise RuntimeError("worker exploded")
+
+    monkeypatch.setattr(service, "_check_endpoint", fake_check)
+
+    with pytest.raises(RuntimeError, match="worker exploded"):
+        service._run_endpoint_checks(
+            [target],
+            profiles={target.endpoint_id: profile},
+            baselines={target.endpoint_id: None},
+        )
 
 
 def test_healthcheck_classifies_http_server_error_as_degraded():
