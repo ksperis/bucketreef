@@ -1,6 +1,9 @@
 from types import SimpleNamespace
 
+import pytest
+
 from app.scripts import seed_demo_data as seed
+from app.services.rgw_iam import RGWIAMError
 
 
 def _plan_defaults(**overrides):
@@ -91,6 +94,51 @@ def test_seed_iam_client_reuses_cached_access_key(monkeypatch):
         ("IAM-AK", "IAM-SK", "https://s3.example.test"),
         ("IAM-AK", "IAM-SK", "https://s3.example.test"),
     ]
+
+
+def test_ensure_iam_user_reuses_key_after_expected_create_failure(monkeypatch):
+    key = seed.IAMAccessKey(access_key_id="IAM-AK", secret_access_key="IAM-SK")
+    account = SimpleNamespace(
+        name="Demo",
+        effective_rgw_credentials=lambda: ("ROOT-AK", "ROOT-SK"),
+    )
+
+    class _IamService:
+        def create_user(self, _username, *, create_key):  # noqa: ANN001
+            assert create_key is True
+            raise RGWIAMError("EntityAlreadyExists")
+
+        def list_access_keys(self, _username):  # noqa: ANN001
+            return [key]
+
+        def create_access_key(self, _username):  # noqa: ANN001
+            raise AssertionError("existing key should be reused")
+
+        def attach_user_policy(self, _username, _policy):  # noqa: ANN001
+            return None
+
+    monkeypatch.setattr(seed, "resolve_s3_endpoint", lambda _account: "https://s3.example.test")
+    monkeypatch.setattr(seed, "get_iam_service", lambda *_args, **_kwargs: _IamService())
+
+    assert seed.ensure_iam_user_with_key(account, "demo-user") is key
+
+
+def test_ensure_iam_user_does_not_mask_unexpected_runtime_errors(monkeypatch):
+    account = SimpleNamespace(
+        name="Demo",
+        effective_rgw_credentials=lambda: ("ROOT-AK", "ROOT-SK"),
+    )
+
+    class _IamService:
+        def create_user(self, _username, *, create_key):  # noqa: ANN001
+            assert create_key is True
+            raise RuntimeError("unexpected IAM regression")
+
+    monkeypatch.setattr(seed, "resolve_s3_endpoint", lambda _account: "https://s3.example.test")
+    monkeypatch.setattr(seed, "get_iam_service", lambda *_args, **_kwargs: _IamService())
+
+    with pytest.raises(RuntimeError, match="unexpected IAM regression"):
+        seed.ensure_iam_user_with_key(account, "demo-user")
 
 
 def test_create_account_data_falls_back_to_account_client_when_iam_provisioning_fails(monkeypatch):
