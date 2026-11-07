@@ -38,7 +38,7 @@ def _contains_unsanitized_exception(node: ast.AST) -> bool:
 
 def _unsafe_http_exception_details(app_root: Path) -> list[str]:
     unsafe: list[str] = []
-    for file_path in sorted([*app_root.joinpath("routers").rglob("*.py"), *app_root.joinpath("services").rglob("*.py")]):
+    for file_path in sorted(app_root.rglob("*.py")):
         tree = ast.parse(file_path.read_text(encoding="utf-8"), filename=str(file_path))
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call) or not _is_http_exception_call(node):
@@ -59,3 +59,20 @@ def test_http_exception_details_do_not_embed_raw_exception_text():
     unsafe = _unsafe_http_exception_details(app_root)
 
     assert unsafe == []
+
+
+def test_http_exception_detail_guard_detects_unsafe_patterns(tmp_path):
+    app_root = tmp_path / "app"
+    app_root.mkdir()
+    app_root.joinpath("unsafe.py").write_text(
+        "def unsafe_positional(exc):\n"
+        "    raise HTTPException(400, str(exc))\n"
+        "def unsafe_keyword(exc):\n"
+        "    raise HTTPException(status_code=400, detail=str(exc))\n",
+        encoding="utf-8",
+    )
+
+    assert _unsafe_http_exception_details(app_root) == [
+        "unsafe.py:2",
+        "unsafe.py:4",
+    ]
