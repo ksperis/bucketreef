@@ -120,13 +120,13 @@ def test_bucket_operations_close_their_client_on_every_exit(monkeypatch, operati
     if outcome == "cancel":
         with pytest.raises(cancellation):
             run()
-    elif operation == "usage" and outcome == "failure":
+    elif outcome == "failure":
         with pytest.raises(RuntimeError, match="Listing failed"):
             run()
     else:
         result = run()
         if operation != "usage":
-            assert result.status == ("failed" if outcome == "failure" else "passed" if operation == "integrity" else "completed")
+            assert result.status == ("passed" if operation == "integrity" else "completed")
     assert client.close_calls == 1
     assert client.delete_calls == int(operation == "delete" and outcome == "success")
 

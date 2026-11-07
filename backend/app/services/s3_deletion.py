@@ -11,7 +11,7 @@ from typing import Any, Optional
 from botocore.exceptions import BotoCoreError, ClientError
 from botocore.parsers import ResponseParserError
 
-from app.services.s3_client import get_s3_client
+from app.services.s3_client import S3OperationError, get_s3_client
 from app.services.s3_delete_response import (
     InvalidDeleteObjectsResponseError,
     ObjectDeletionFailure,
@@ -472,9 +472,9 @@ def delete_empty_bucket(
         if error_code == "nosuchbucket":
             logger.debug("Bucket %s was already absent", bucket_name)
             return False
-        raise RuntimeError(f"Unable to delete bucket '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to delete bucket '{bucket_name}': {exc}") from exc
     except BotoCoreError as exc:
-        raise RuntimeError(f"Unable to delete bucket '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to delete bucket '{bucket_name}': {exc}") from exc
     logger.debug("Deleted empty bucket %s", bucket_name)
     return True
 
@@ -483,7 +483,7 @@ def _bucket_has_current_objects(client: Any, bucket_name: str) -> bool:
     try:
         response = client.list_objects_v2(Bucket=bucket_name, MaxKeys=1)
     except (BotoCoreError, ClientError) as exc:
-        raise RuntimeError(
+        raise S3OperationError(
             f"Unable to inspect bucket '{bucket_name}': {exc}"
         ) from exc
     return (response.get("KeyCount") or 0) > 0 or bool(response.get("Contents"))
@@ -503,18 +503,18 @@ def _purge_bucket_before_delete(client: Any, bucket_name: str) -> None:
         sample = ", ".join(failure.message for failure in sample_failures)
         remaining = purge_result.failed_count - len(sample_failures)
         extra = f" (+{remaining} more)" if remaining > 0 else ""
-        raise RuntimeError(
+        raise S3OperationError(
             f"Unable to purge bucket contents in '{bucket_name}': {sample}{extra}"
         )
     except ClientError as exc:
         error_code = aws_error_code(exc, lowercase=True)
         if error_code in {"nosuchbucket", "nosuchversion"}:
             return
-        raise RuntimeError(
+        raise S3OperationError(
             f"Unable to purge bucket contents in '{bucket_name}': {exc}"
         ) from exc
     except BotoCoreError as exc:
-        raise RuntimeError(
+        raise S3OperationError(
             f"Unable to purge bucket contents in '{bucket_name}': {exc}"
         ) from exc
 
@@ -556,7 +556,7 @@ def delete_bucket(
             raise BucketNotEmptyError(
                 f"Bucket '{bucket_name}' is not empty. Retry with force=true to delete all objects."
             ) from exc
-        raise RuntimeError(f"Unable to delete bucket '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to delete bucket '{bucket_name}': {exc}") from exc
     except BotoCoreError as exc:
-        raise RuntimeError(f"Unable to delete bucket '{bucket_name}': {exc}") from exc
+        raise S3OperationError(f"Unable to delete bucket '{bucket_name}': {exc}") from exc
     logger.debug("Deleted bucket %s (force=%s)", bucket_name, force)

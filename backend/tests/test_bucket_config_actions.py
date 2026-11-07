@@ -171,3 +171,22 @@ def test_bucket_delete_action_preserves_structured_not_empty_contract():
         "code": "bucket_not_empty",
         "message": "Bucket 'demo-bucket' is not empty. Empty it before deleting.",
     }
+
+
+def test_bucket_delete_action_maps_expected_s3_error_to_bad_gateway():
+    def fail(*, bucket_name: str) -> None:
+        raise S3OperationError(f"Unable to delete bucket '{bucket_name}'")
+
+    with pytest.raises(HTTPException) as exc_info:
+        run_bucket_delete_action(fail, bucket_name="demo-bucket")
+
+    assert exc_info.value.status_code == 502
+    assert exc_info.value.detail == "Unable to delete bucket 'demo-bucket'"
+
+
+def test_bucket_delete_action_propagates_unexpected_runtime_error():
+    def fail(*, bucket_name: str) -> None:
+        raise RuntimeError(f"unexpected deletion regression for {bucket_name}")
+
+    with pytest.raises(RuntimeError, match="unexpected deletion regression"):
+        run_bucket_delete_action(fail, bucket_name="demo-bucket")

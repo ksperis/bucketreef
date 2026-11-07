@@ -55,5 +55,5 @@ def run_bucket_delete_action(action: Callable[..., None], /, *, bucket_name: str
                 "message": f"Bucket '{bucket_name}' is not empty. Empty it before deleting.",
             },
         ) from exc
-    except RuntimeError as exc:
+    except S3OperationError as exc:
         raise_bad_gateway_from_runtime(exc)
