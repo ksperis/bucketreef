@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.db_transactions import commit_or_rollback
+from app.core.domain_errors import ResourceNotFoundError
 from app.core.security import constant_time_equal, create_api_access_token, hash_refresh_token
 from app.db import ApiToken, User
 from app.core.domain_enums import is_admin_ui_role
@@ -24,7 +25,7 @@ class ApiTokenError(ValueError):
     pass
 
 
-class ApiTokenNotFoundError(ApiTokenError):
+class ApiTokenNotFoundError(ResourceNotFoundError):
     pass
 
 
