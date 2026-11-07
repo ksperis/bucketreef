@@ -9,6 +9,7 @@ from sqlalchemy import select
 from app.core.db_transactions import commit_or_rollback
 from app.db import BucketMigration, User
 from app.services.effective_access_service import EffectiveAccessService
+from app.utils.normalize import normalize_optional_string
 from app.utils.time import utcnow
 from .execution_signals import WorkerLeaseLostError
 
@@ -39,7 +40,7 @@ class BucketMigrationPersistenceMixin:
     def _is_context_authorized(self, context_id: str) -> bool:
         if self._authorized_context_ids is None:
             return True
-        return str(context_id or "").strip() in self._authorized_context_ids
+        return normalize_optional_string(context_id) in self._authorized_context_ids
 
     def _assert_context_authorized_for_mutation(self, context_id: str) -> None:
         if self._is_context_authorized(context_id):
@@ -89,14 +90,15 @@ class BucketMigrationPersistenceMixin:
         raise PermissionError("Migration creator access has been revoked")
 
     def _is_account_context_id(self, context_id: str) -> bool:
-        return str(context_id or "").strip().isdigit()
+        normalized_context_id = normalize_optional_string(context_id)
+        return bool(normalized_context_id and normalized_context_id.isdigit())
 
     def _assert_cross_account_admin_contexts(self, source_context_id: str, target_context_id: str) -> None:
         if self._admin_account_context_ids is None:
             return
 
-        source_value = str(source_context_id or "").strip()
-        target_value = str(target_context_id or "").strip()
+        source_value = normalize_optional_string(source_context_id) or ""
+        target_value = normalize_optional_string(target_context_id) or ""
         if source_value == target_value:
             return
         if not self._is_account_context_id(source_value) or not self._is_account_context_id(target_value):
