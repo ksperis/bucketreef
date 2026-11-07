@@ -21,8 +21,7 @@ from app.models.browser import (
 from app.services.aws_client_config import StorageRequestProfile
 from app.services.s3_client import S3OperationError, get_s3_client
 from app.services.s3_execution_client import (
-    S3ExecutionCredentialsError,
-    require_s3_execution_credentials,
+    require_s3_execution_credentials_with_error,
     s3_execution_cache_key,
 )
 from app.services.s3_execution_context import (
@@ -136,13 +135,11 @@ def _repair_browser_cors_rule(rule: dict, origin: str) -> bool:
 class BrowserContextMixin:
     @staticmethod
     def _require_s3_credentials(context: S3ExecutionTarget) -> tuple[str, str]:
-        try:
-            return require_s3_execution_credentials(
-                context,
-                error_message="S3 credentials missing for this context",
-            )
-        except S3ExecutionCredentialsError as exc:
-            raise S3OperationError(str(exc)) from exc
+        return require_s3_execution_credentials_with_error(
+            context,
+            error_message="S3 credentials missing for this context",
+            error_type=S3OperationError,
+        )
 
     def _resolve_s3_credentials(self, context: S3ExecutionTarget) -> tuple[str, str, Optional[str]]:
         access_key, secret_key = self._require_s3_credentials(context)

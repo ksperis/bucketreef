@@ -10,7 +10,7 @@ from urllib.parse import parse_qsl
 from app.core.domain_enums import StorageProvider
 from app.models.topic import Topic
 from app.services import sns_client
-from app.services.s3_execution_client import S3ExecutionCredentialsError, require_s3_execution_credentials
+from app.services.s3_execution_client import require_s3_execution_credentials_with_error
 from app.services.s3_execution_context import S3ExecutionTarget
 from app.services.sns_client import SNSOperationError
 from app.utils.s3_endpoint import resolve_s3_client_options
@@ -55,13 +55,11 @@ class TopicsService:
     _CEPH_NOTIFICATION_ENDPOINT_KEYS = {"EndpointAddress", "EndpointArgs", "EndpointTopic"}
 
     def _context_credentials(self, context: S3ExecutionTarget) -> tuple[str, str]:
-        try:
-            return require_s3_execution_credentials(
-                context,
-                error_message="S3ExecutionTarget is missing SNS credentials",
-            )
-        except S3ExecutionCredentialsError as exc:
-            raise SNSOperationError(str(exc)) from exc
+        return require_s3_execution_credentials_with_error(
+            context,
+            error_message="S3ExecutionTarget is missing SNS credentials",
+            error_type=SNSOperationError,
+        )
 
     def _client_kwargs(self, context: S3ExecutionTarget) -> dict:
         endpoint, region, _, verify_tls = resolve_s3_client_options(context)
