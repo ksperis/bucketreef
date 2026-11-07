@@ -384,14 +384,9 @@ def test_storage_ops_purge_route_resolves_authorized_manager_contexts(monkeypatc
 
     def fake_get_s3_execution_context(*, request, context_ref, actor, db):
         captured.setdefault("account_refs", []).append(context_ref)
-        return SimpleNamespace(name=f"Account {context_ref}")
+        return SimpleNamespace(name="S3 User 1")
 
     monkeypatch.setattr(storage_ops_purge, "stream_audited_resolved_bucket_purge", fake_stream)
-    monkeypatch.setattr(
-        storage_ops_purge,
-        "storage_ops_context_names",
-        lambda user, db: {"s3u-1": "S3 User 1"},
-    )
     monkeypatch.setattr(storage_ops_purge, "get_s3_execution_context", fake_get_s3_execution_context)
 
     response = storage_ops_purge.stream_storage_ops_bucket_purge(

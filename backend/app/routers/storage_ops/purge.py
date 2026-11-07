@@ -15,7 +15,6 @@ from app.routers.bucket_purge_stream import stream_audited_resolved_bucket_purge
 from app.routers.dependencies import get_s3_execution_context, get_current_storage_ops_admin, require_bucket_purge_global_enabled
 from app.services.bucket_purge_service import BucketPurgeOptions
 from app.services.s3_execution_context import ResolvedS3BucketTarget
-from app.services.storage_ops_context_service import storage_ops_context_names
 
 router = APIRouter(prefix="/storage-ops/buckets/purge", tags=["storage-ops-bucket-purge"])
 logger = logging.getLogger(__name__)
@@ -30,22 +29,23 @@ def stream_storage_ops_bucket_purge(
     db: Session = Depends(get_db),
 ) -> StreamingResponse:
     requested_targets = payload.targets
-    context_names = storage_ops_context_names(user, db)
     options = BucketPurgeOptions(parallelism=payload.parallelism, include_versions=payload.include_versions)
-    targets = [
-        ResolvedS3BucketTarget(
-            context=get_s3_execution_context(
-                request=request,
-                context_ref=target.context_id,
-                actor=user,
-                db=db,
-            ),
-            bucket_name=target.bucket_name,
-            context_id=target.context_id,
-            context_name=context_names.get(target.context_id) or target.context_id,
+    targets: list[ResolvedS3BucketTarget] = []
+    for target in requested_targets:
+        context = get_s3_execution_context(
+            request=request,
+            context_ref=target.context_id,
+            actor=user,
+            db=db,
         )
-        for target in requested_targets
-    ]
+        targets.append(
+            ResolvedS3BucketTarget(
+                context=context,
+                bucket_name=target.bucket_name,
+                context_id=target.context_id,
+                context_name=context.name,
+            )
+        )
     base_metadata = {
         "target_count": len(requested_targets),
         "bucket_sample": [target.bucket_name for target in requested_targets[:20]],

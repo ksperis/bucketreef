@@ -24,10 +24,3 @@ def list_storage_ops_contexts(user: User, db: Session) -> list[ExecutionContext]
 
 def list_storage_ops_context_refs(user: User, db: Session) -> list[StorageOpsContextRef]:
     return build_storage_ops_context_refs(list_storage_ops_contexts(user, db))
-
-
-def storage_ops_context_names(user: User, db: Session) -> dict[str, str]:
-    return {
-        context.id: context.display_name
-        for context in list_storage_ops_contexts(user, db)
-    }
