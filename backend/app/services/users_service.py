@@ -35,12 +35,6 @@ class UsersService:
     def get_by_email(self, email: str) -> Optional[User]:
         return self.query.get_by_email(email)
 
-    def get_by_email_case_insensitive(self, email: str) -> Optional[User]:
-        return self.query.get_by_email_case_insensitive(email)
-
-    def get_by_id(self, user_id: int) -> Optional[User]:
-        return self.query.get_by_id(user_id)
-
     def require_by_id(self, user_id: int) -> User:
         return self.query.require_by_id(user_id)
 
