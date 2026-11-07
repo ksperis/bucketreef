@@ -15,6 +15,7 @@ from app.models.browser import (
 from app.services.s3_client import create_bucket as s3_create_bucket
 from app.services.s3_client import set_bucket_versioning as s3_set_bucket_versioning
 from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
+from app.services.sequence_pagination import paginate_sequence
 from .cache import BUCKET_LIST_CACHE
 
 logger = logging.getLogger(__name__)
@@ -121,16 +122,17 @@ class BrowserBucketsMixin:
                 ]
         else:
             filtered = buckets
-        total = len(filtered)
-        start = (request.page - 1) * request.page_size
-        end = start + request.page_size
-        items = filtered[start:end] if start < total else []
+        items, total, has_next = paginate_sequence(
+            filtered,
+            page=request.page,
+            page_size=request.page_size,
+        )
         return PaginatedBrowserBucketsResponse(
             items=items,
             total=total,
             page=request.page,
             page_size=request.page_size,
-            has_next=end < total,
+            has_next=has_next,
         )
 
     def create_bucket(

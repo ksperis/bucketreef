@@ -36,6 +36,7 @@ from app.services.cost_calculations import (
     sum_costs,
 )
 from app.services.cost_query_service import CostQueryService
+from app.services.sequence_pagination import paginate_sequence
 
 
 def _history_periods(period: CostPeriod, months: int) -> list[CostPeriod]:
@@ -167,15 +168,17 @@ class CostService:
             key=lambda entry: self._subject_sort_value(entry, query.sort_by),
             reverse=query.sort_dir == "desc",
         )
-        total = len(items)
-        start = (query.page - 1) * query.page_size
-        end = start + query.page_size
+        page_items, total, has_next = paginate_sequence(
+            items,
+            page=query.page,
+            page_size=query.page_size,
+        )
         return CostSubjectsResponse(
-            items=items[start:end],
+            items=page_items,
             total=total,
             page=query.page,
             page_size=query.page_size,
-            has_next=end < total,
+            has_next=has_next,
         )
 
     def subject_detail(

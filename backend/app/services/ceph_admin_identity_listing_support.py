@@ -6,6 +6,7 @@ from typing import Callable, Protocol, TypeVar
 
 from app.models.ceph_admin_identity_filters import CephAdminFilterMatch
 from app.services.listing_progress import ListingProgressEmitter, emit_listing_ready
+from app.services.sequence_pagination import paginate_sequence
 from app.utils.cancellation import invoke_cancel_check
 
 
@@ -96,11 +97,12 @@ def paginate(
     page_size: int,
     clone: Callable[[list[_T]], list[_T]],
 ) -> tuple[list[_T], int, bool]:
-    total = len(items)
-    start = max(page - 1, 0) * page_size
-    end = start + page_size
-    page_items = clone(items[start:end])
-    return page_items, total, end < total
+    page_items, total, has_next = paginate_sequence(
+        items,
+        page=page,
+        page_size=page_size,
+    )
+    return clone(page_items), total, has_next
 
 
 def paginate_listing_results(

@@ -28,6 +28,7 @@ from app.services.mappers.execution_context import (
     s3_user_execution_context_from_db,
 )
 from app.services.rgw_multisite_endpoints import list_compatible_rgw_execution_endpoints
+from app.services.sequence_pagination import paginate_sequence
 from app.services.tags_service import TagsService
 
 
@@ -240,8 +241,11 @@ class ExecutionContextCatalogService:
             )
         ]
         filtered.sort(key=lambda context: (context.display_name.casefold(), context.id.casefold()))
-        total = len(filtered)
-        start = (request.page - 1) * request.page_size
+        page_contexts, total, has_next = paginate_sequence(
+            filtered,
+            page=request.page,
+            page_size=request.page_size,
+        )
         items = [
             ExecutionContextOption(
                 kind=context.kind,
@@ -251,14 +255,14 @@ class ExecutionContextCatalogService:
                 endpoint_id=context.endpoint_id,
                 endpoint_url=context.endpoint_url,
             )
-            for context in filtered[start : start + request.page_size]
+            for context in page_contexts
         ]
         return PaginatedExecutionContextOptionsResponse(
             items=items,
             total=total,
             page=request.page,
             page_size=request.page_size,
-            has_next=request.page * request.page_size < total,
+            has_next=has_next,
         )
 
     def _workspace_context_counts(self, user: User, effective) -> dict[str, int]:
