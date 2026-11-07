@@ -1,13 +1,16 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 import json
+from types import SimpleNamespace
 
 import pytest
+from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.db import S3Account, StorageEndpoint
 from app.core.domain_enums import StorageProvider
 from app.models.topic import Topic, TopicConfiguration, TopicCreate, TopicPolicy
+from app.routers.manager import topics as topics_router
 from app.services import sns_client
 from app.services.topics_service import TopicsService
 
@@ -324,3 +327,63 @@ def test_list_topics_keeps_standard_sns_behavior(monkeypatch):
 
     assert len(topics) == 1
     assert topics[0].name == "standard-topic"
+
+
+def test_topics_service_types_missing_credentials() -> None:
+    service = TopicsService()
+    context = SimpleNamespace(effective_rgw_credentials=lambda: (None, None))
+
+    with pytest.raises(sns_client.SNSOperationError, match="missing SNS credentials"):
+        service._context_credentials(context)
+
+
+def test_topics_service_does_not_mask_unexpected_credential_runtime_error() -> None:
+    service = TopicsService()
+
+    def broken_credentials():
+        raise RuntimeError("unexpected credential resolver bug")
+
+    context = SimpleNamespace(effective_rgw_credentials=broken_credentials)
+
+    with pytest.raises(RuntimeError, match="unexpected credential resolver bug"):
+        service._context_credentials(context)
+
+
+def test_create_topic_types_missing_gateway_arn(monkeypatch) -> None:
+    service = TopicsService()
+    monkeypatch.setattr(sns_client, "create_topic", lambda *_, **__: {})
+
+    with pytest.raises(sns_client.SNSOperationError, match="ARN was not returned"):
+        service.create_topic(_account(), "events")
+
+
+def test_manager_topics_route_maps_expected_sns_errors() -> None:
+    class FailedTopicsService:
+        @staticmethod
+        def list_topics(_context):
+            raise sns_client.SNSOperationError("SNS provider unavailable")
+
+    with pytest.raises(HTTPException) as exc_info:
+        topics_router.list_topics(
+            context=_account(),
+            service=FailedTopicsService(),
+            _sns_guard=None,
+            _actor=None,
+        )
+
+    assert exc_info.value.status_code == 502
+
+
+def test_manager_topics_route_does_not_mask_unexpected_runtime_errors() -> None:
+    class BrokenTopicsService:
+        @staticmethod
+        def list_topics(_context):
+            raise RuntimeError("unexpected topics bug")
+
+    with pytest.raises(RuntimeError, match="unexpected topics bug"):
+        topics_router.list_topics(
+            context=_account(),
+            service=BrokenTopicsService(),
+            _sns_guard=None,
+            _actor=None,
+        )

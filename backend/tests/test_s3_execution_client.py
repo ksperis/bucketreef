@@ -7,6 +7,7 @@ import pytest
 
 from app.db import S3Account, StorageEndpoint
 from app.services.s3_execution_client import (
+    S3ExecutionCredentialsError,
     require_s3_execution_credentials,
     s3_execution_cache_key,
     s3_execution_client_kwargs,
@@ -18,7 +19,7 @@ from app.services.s3_execution_context import S3ExecutionContext
 def test_require_s3_execution_credentials_preserves_requested_error() -> None:
     account = SimpleNamespace(effective_rgw_credentials=lambda: (None, None))
 
-    with pytest.raises(RuntimeError, match="custom credentials error"):
+    with pytest.raises(S3ExecutionCredentialsError, match="custom credentials error"):
         require_s3_execution_credentials(
             account,
             error_message="custom credentials error",
@@ -72,7 +73,7 @@ def test_s3_execution_request_kwargs_includes_credentials_and_client_options() -
 def test_s3_execution_request_kwargs_uses_default_credentials_error() -> None:
     account = SimpleNamespace(effective_rgw_credentials=lambda: (None, None))
 
-    with pytest.raises(RuntimeError, match="S3ExecutionTarget is missing admin credentials"):
+    with pytest.raises(S3ExecutionCredentialsError, match="S3ExecutionTarget is missing admin credentials"):
         s3_execution_request_kwargs(account)
 
 

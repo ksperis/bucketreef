@@ -13,6 +13,7 @@ from app.routers.dependencies import (
 )
 from app.utils.http_errors import raise_bad_gateway_from_runtime, raise_bad_request_from_value_error
 from app.services.audit_service import AuditService
+from app.services.sns_client import SNSOperationError
 from app.routers.resource_name_validation import validate_topic_request
 from app.services.topics_service import TopicsService, get_topics_service
 
@@ -28,7 +29,7 @@ def list_topics(
 ) -> list[Topic]:
     try:
         return service.list_topics(context)
-    except RuntimeError as exc:
+    except SNSOperationError as exc:
         raise_bad_gateway_from_runtime(exc)
 
 
@@ -63,7 +64,7 @@ def create_topic(
         return topic
     except ValueError as exc:
         raise_bad_request_from_value_error(exc)
-    except RuntimeError as exc:
+    except SNSOperationError as exc:
         raise_bad_gateway_from_runtime(exc)
 
 
@@ -86,7 +87,7 @@ def delete_topic(
             entity_id=topic_arn,
             execution_context=context,
         )
-    except RuntimeError as exc:
+    except SNSOperationError as exc:
         raise_bad_gateway_from_runtime(exc)
 
 
@@ -101,7 +102,7 @@ def get_topic_policy(
     try:
         policy = service.get_topic_policy(context, topic_arn)
         return TopicPolicy(policy=policy or {})
-    except RuntimeError as exc:
+    except SNSOperationError as exc:
         raise_bad_gateway_from_runtime(exc)
 
 
@@ -129,7 +130,7 @@ def put_topic_policy(
         return TopicPolicy(policy=updated)
     except ValueError as exc:
         raise_bad_request_from_value_error(exc)
-    except RuntimeError as exc:
+    except SNSOperationError as exc:
         raise_bad_gateway_from_runtime(exc)
 
 
@@ -144,7 +145,7 @@ def get_topic_configuration(
     try:
         configuration = service.get_topic_configuration(context, topic_arn)
         return TopicConfiguration(configuration=configuration)
-    except RuntimeError as exc:
+    except SNSOperationError as exc:
         raise_bad_gateway_from_runtime(exc)
 
 
@@ -172,5 +173,5 @@ def put_topic_configuration(
         return TopicConfiguration(configuration=updated)
     except ValueError as exc:
         raise_bad_request_from_value_error(exc)
-    except RuntimeError as exc:
+    except SNSOperationError as exc:
         raise_bad_gateway_from_runtime(exc)

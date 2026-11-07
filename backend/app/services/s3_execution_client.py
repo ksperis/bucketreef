@@ -16,6 +16,10 @@ from app.utils.s3_endpoint import resolve_s3_client_kwargs
 DEFAULT_S3_EXECUTION_CREDENTIALS_ERROR = "S3ExecutionTarget is missing admin credentials"
 
 
+class S3ExecutionCredentialsError(RuntimeError):
+    """Expected failure when an execution target has no usable S3 credentials."""
+
+
 def require_s3_execution_credentials(
     execution_context: S3ExecutionTarget,
     *,
@@ -23,7 +27,7 @@ def require_s3_execution_credentials(
 ) -> tuple[str, str]:
     access_key, secret_key = execution_context.effective_rgw_credentials()
     if not access_key or not secret_key:
-        raise RuntimeError(error_message)
+        raise S3ExecutionCredentialsError(error_message)
     return access_key, secret_key
 
 

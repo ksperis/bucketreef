@@ -94,7 +94,7 @@ class _FakeSNSClient:
 
 
 def test_get_sns_client_requires_endpoint():
-    with pytest.raises(RuntimeError, match="SNS endpoint is not configured"):
+    with pytest.raises(sns_client.SNSOperationError, match="SNS endpoint is not configured"):
         sns_client.get_sns_client(endpoint=None)
 
 
@@ -182,7 +182,7 @@ def test_list_topics_wraps_errors(monkeypatch):
     fake.raise_on["list_topics"] = _client_error("AccessDenied")
     monkeypatch.setattr(sns_client, "get_sns_client", lambda *args, **kwargs: fake)
 
-    with pytest.raises(RuntimeError, match="Unable to list SNS topics"):
+    with pytest.raises(sns_client.SNSOperationError, match="Unable to list SNS topics"):
         sns_client.list_topics(endpoint="https://sns.example.test")
 
 
@@ -256,7 +256,7 @@ def test_set_topic_attributes_ignores_empty_and_wraps_errors(monkeypatch):
     assert fake.calls == []
 
     fake.raise_on["set_topic_attributes"] = _client_error("AccessDenied")
-    with pytest.raises(RuntimeError, match="Unable to update SNS topic attribute"):
+    with pytest.raises(sns_client.SNSOperationError, match="Unable to update SNS topic attribute"):
         sns_client.set_topic_attributes(
             "arn:topic:test",
             {"verify-ssl": "false"},
