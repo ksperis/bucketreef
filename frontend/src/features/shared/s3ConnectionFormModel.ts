@@ -117,16 +117,7 @@ type PreparePrivateConnectionUpdateOptions = {
   serverManaged: boolean;
 };
 
-type PrepareAdminS3ConnectionUpdateOptions = {
-  credentialDraft: ConnectionCredentialDraft;
-  endpointId: string;
-  endpointMode: S3ConnectionEndpointMode;
-  form: EditAdminS3ConnectionForm;
-  linkedGroupIds: readonly number[];
-  linkedUserIds: readonly number[];
-};
-
-type BuildAdminS3ConnectionEditBaselineOptions = {
+type AdminS3ConnectionEditOptions = {
   credentialDraft: ConnectionCredentialDraft;
   endpointId: string;
   endpointMode: S3ConnectionEndpointMode;
@@ -229,7 +220,7 @@ export function buildEditAdminS3ConnectionBaseline({
   form,
   linkedGroupIds,
   linkedUserIds,
-}: BuildAdminS3ConnectionEditBaselineOptions) {
+}: AdminS3ConnectionEditOptions) {
   return {
     endpointMode,
     endpointId,
@@ -436,7 +427,7 @@ export function prepareUpdateAdminS3ConnectionPayload({
   form,
   linkedGroupIds,
   linkedUserIds,
-}: PrepareAdminS3ConnectionUpdateOptions): PreparedConnectionPayload<UpdateAdminS3ConnectionPayload> {
+}: AdminS3ConnectionEditOptions): PreparedConnectionPayload<UpdateAdminS3ConnectionPayload> {
   const target = prepareConnectionTarget(form, endpointMode, endpointId);
   if (target.error !== null) {
     return target;
