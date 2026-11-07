@@ -5,10 +5,9 @@ from __future__ import annotations
 from typing import Literal, Optional
 
 from app.models.base import ApiModel
-from app.core.domain_enums import HealthCheckStatus, HealthWindow
+from app.core.domain_enums import HealthCheckMode, HealthCheckStatus, HealthWindow
 
 
-HealthCheckMode = Literal["http", "s3"]
 HealthCheckType = Literal["availability"]
 HealthCheckScope = Literal["endpoint"]
 

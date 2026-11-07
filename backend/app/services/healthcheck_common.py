@@ -5,10 +5,10 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Literal, Optional
+from typing import Optional
 
 from app.core.config import get_settings
-from app.core.domain_enums import HealthCheckStatus, HealthWindow
+from app.core.domain_enums import HealthCheckMode, HealthCheckStatus, HealthWindow
 from app.db import StorageEndpoint
 from app.utils.storage_endpoint_features import validate_persisted_features
 
@@ -31,7 +31,7 @@ DEFAULT_ROLLUP_RESOLUTION_SECONDS = 300
 
 @dataclass(frozen=True)
 class HealthCheckProfile:
-    mode: Literal["http", "s3"]
+    mode: HealthCheckMode
     target_url: str
 
 
@@ -57,7 +57,7 @@ class HealthCheckResult:
     latency_ms: Optional[int]
     http_status: Optional[int]
     error_message: Optional[str]
-    check_mode: Literal["http", "s3"]
+    check_mode: HealthCheckMode
 
 
 def percentile(values: list[int], percentile: float) -> Optional[int]:
