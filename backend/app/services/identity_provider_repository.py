@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.domain_errors import ResourceConflictError, ResourceNotFoundError
 from app.core.db_transactions import commit_or_rollback
 from app.utils.time import utcnow
 
@@ -16,15 +17,15 @@ from app.utils.time import utcnow
 _PersistedProviderT = TypeVar("_PersistedProviderT")
 
 
-class IdentityProviderAlreadyExistsError(Exception):
+class IdentityProviderAlreadyExistsError(ResourceConflictError):
     """Raised when a persisted identity provider id is already used."""
 
 
-class IdentityProviderManagedByEnvironmentError(Exception):
+class IdentityProviderManagedByEnvironmentError(ResourceConflictError):
     """Raised when trying to mutate an environment-managed identity provider."""
 
 
-class IdentityProviderNotFoundError(Exception):
+class IdentityProviderNotFoundError(ResourceNotFoundError):
     """Raised when a persisted identity provider cannot be found."""
 
 
