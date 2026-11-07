@@ -329,6 +329,29 @@ def test_compare_bucket_content_wraps_list_objects_client_error(monkeypatch):
     assert "ListObjectsV2 failed with AccessDenied" in message
 
 
+def test_compare_bucket_content_propagates_unexpected_listing_errors(monkeypatch):
+    service = _build_service()
+    source = _build_account("source")
+    target = _build_account("target")
+
+    class BrokenClient:
+        def close(self):
+            pass
+
+        def list_objects_v2(self, **_kwargs):
+            raise RuntimeError("listing regression")
+
+    monkeypatch.setattr(service, "_build_client", lambda _account: BrokenClient())
+
+    with pytest.raises(RuntimeError, match="listing regression"):
+        service.compare_bucket_content(
+            "source-bucket",
+            source,
+            "target-bucket",
+            target,
+        )
+
+
 def test_compare_bucket_content_cleans_temp_store_when_listing_fails(monkeypatch, tmp_path):
     service = _build_service()
     source = _build_account("source")

@@ -53,7 +53,7 @@ class BucketComparisonService(LongRunningS3ClientMixin):
                     kwargs["ContinuationToken"] = continuation_token
                 try:
                     page = client.list_objects_v2(**kwargs)
-                except (RuntimeError, ClientError, BotoCoreError) as exc:
+                except (ClientError, BotoCoreError) as exc:
                     detail = format_s3_error(exc, include_operation=True)
                     raise RuntimeError(f"Unable to list objects in bucket '{bucket_name}': {detail}") from exc
                 for entry in page.get("Contents", []) or []:
