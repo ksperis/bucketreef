@@ -3,25 +3,10 @@
  * Licensed under the Apache License, Version 2.0
  */
 import {
-  deleteNotificationConfigurations,
-  isNotificationConfigurationEmpty,
-  mergeNotificationConfigurations,
-} from "../cephAdmin/bucketJsonParsers";
-import {
   bytesToGiB,
   type BulkOperation,
   type BulkQuotaSnapshot,
 } from "./bucketBulkOperationsModel";
-import {
-  getCorsRuleTypes,
-  getLifecycleRuleId,
-  getLifecycleRuleTypes,
-  getPolicyStatementSid,
-  getPolicyStatementTypes,
-  mergeCorsRules,
-  mergeLifecycleRules,
-  mergePolicyStatements,
-} from "./bucketConfigMerge";
 import type { BucketOpsApi } from "./bucketOpsApi";
 import type { PreparedBucketOpsBulkInput } from "./bucketOpsBulkInput";
 import {
@@ -29,6 +14,14 @@ import {
   type BucketMutationBatchResult,
 } from "./bucketOpsBulkExecution";
 import {
+  resolveBulkCorsDeleteTarget,
+  resolveBulkCorsMergeTarget,
+  resolveBulkLifecycleDeleteTarget,
+  resolveBulkLifecycleMergeTarget,
+  resolveBulkNotificationDeleteTarget,
+  resolveBulkNotificationMergeTarget,
+  resolveBulkPolicyDeleteTarget,
+  resolveBulkPolicyMergeTarget,
   resolveBulkPublicAccessBlockTarget,
   resolveBulkQuotaTarget,
   resolveBulkVersioningTarget,
@@ -186,46 +179,40 @@ export async function applyBucketOpsBulkUpdate({
 
       if (operation === "add_lifecycle" && parsedRules) {
         const lifecycle = await getBucketLifecycle(endpointId, bucketName);
-        const existingRules = lifecycle.rules;
-        const { nextRules, changes } = mergeLifecycleRules(
-          existingRules as Record<string, unknown>[],
+        const target = resolveBulkLifecycleMergeTarget(
+          lifecycle.rules as Record<string, unknown>[],
           parsedRules,
-          { onlyUpdateExisting: lifecycleUpdateOnlyExisting },
+          lifecycleUpdateOnlyExisting,
         );
-        if (changes.length === 0) return { changed: false };
-        await putBucketLifecycle(endpointId, bucketName, nextRules);
+        if (!target.changed) return { changed: false };
+        await putBucketLifecycle(endpointId, bucketName, target.nextRules);
         return { changed: true };
       }
 
       if (operation === "delete_lifecycle" && deleteIds && deleteTypes) {
         const lifecycle = await getBucketLifecycle(endpointId, bucketName);
-        const existingRules = lifecycle.rules;
-        const nextRules = existingRules.filter((rule) => {
-          const record = rule as Record<string, unknown>;
-          const ruleId = getLifecycleRuleId(record);
-          if (ruleId && deleteIds.has(ruleId)) return false;
-          if (deleteTypes.size === 0) return true;
-          return !getLifecycleRuleTypes(record).some((type) =>
-            deleteTypes.has(type),
-          );
-        }) as Record<string, unknown>[];
-        if (nextRules.length === existingRules.length) return { changed: false };
-        if (nextRules.length === 0) {
+        const target = resolveBulkLifecycleDeleteTarget(
+          lifecycle.rules as Record<string, unknown>[],
+          deleteIds,
+          deleteTypes,
+        );
+        if (!target.changed) return { changed: false };
+        if (target.nextRules.length === 0) {
           await deleteBucketLifecycle(endpointId, bucketName);
         } else {
-          await putBucketLifecycle(endpointId, bucketName, nextRules);
+          await putBucketLifecycle(endpointId, bucketName, target.nextRules);
         }
         return { changed: true };
       }
 
       if (operation === "add_notifications" && parsedNotificationConfiguration) {
         const notifications = await getBucketNotifications(endpointId, bucketName);
-        const { configuration, changes } = mergeNotificationConfigurations(
+        const target = resolveBulkNotificationMergeTarget(
           notifications.configuration,
           parsedNotificationConfiguration,
         );
-        if (changes.length === 0) return { changed: false };
-        await putBucketNotifications(endpointId, bucketName, configuration);
+        if (!target.changed) return { changed: false };
+        await putBucketNotifications(endpointId, bucketName, target.configuration);
         return { changed: true };
       }
 
@@ -235,105 +222,73 @@ export async function applyBucketOpsBulkUpdate({
         deleteNotificationTypes
       ) {
         const notifications = await getBucketNotifications(endpointId, bucketName);
-        const { configuration, changes } = deleteNotificationConfigurations(
+        const target = resolveBulkNotificationDeleteTarget(
           notifications.configuration,
           deleteNotificationIds,
           deleteNotificationTypes,
         );
-        if (changes.length === 0) return { changed: false };
-        if (isNotificationConfigurationEmpty(configuration)) {
+        if (!target.changed) return { changed: false };
+        if (target.deleteResource) {
           await deleteBucketNotifications(endpointId, bucketName);
         } else {
-          await putBucketNotifications(endpointId, bucketName, configuration);
+          await putBucketNotifications(endpointId, bucketName, target.configuration);
         }
         return { changed: true };
       }
 
       if (operation === "add_cors" && parsedCorsRules) {
         const cors = await getBucketCors(endpointId, bucketName);
-        const existingRules = cors.rules;
-        const { nextRules, changes } = mergeCorsRules(
-          existingRules as Record<string, unknown>[],
+        const target = resolveBulkCorsMergeTarget(
+          cors.rules as Record<string, unknown>[],
           parsedCorsRules,
-          { onlyUpdateExisting: corsUpdateOnlyExisting },
+          corsUpdateOnlyExisting,
         );
-        if (changes.length === 0) return { changed: false };
-        await putBucketCors(endpointId, bucketName, nextRules);
+        if (!target.changed) return { changed: false };
+        await putBucketCors(endpointId, bucketName, target.nextRules);
         return { changed: true };
       }
 
       if (operation === "delete_cors" && deleteCorsIds && deleteCorsTypes) {
         const cors = await getBucketCors(endpointId, bucketName);
-        const existingRules = cors.rules;
-        const nextRules = existingRules.filter((rule) => {
-          const record = rule as Record<string, unknown>;
-          const ruleId = getLifecycleRuleId(record);
-          if (ruleId && deleteCorsIds.has(ruleId)) return false;
-          if (deleteCorsTypes.size === 0) return true;
-          return !getCorsRuleTypes(record).some((type) =>
-            deleteCorsTypes.has(type),
-          );
-        }) as Record<string, unknown>[];
-        if (nextRules.length === existingRules.length) return { changed: false };
-        if (nextRules.length === 0) {
+        const target = resolveBulkCorsDeleteTarget(
+          cors.rules as Record<string, unknown>[],
+          deleteCorsIds,
+          deleteCorsTypes,
+        );
+        if (!target.changed) return { changed: false };
+        if (target.nextRules.length === 0) {
           await deleteBucketCors(endpointId, bucketName);
         } else {
-          await putBucketCors(endpointId, bucketName, nextRules);
+          await putBucketCors(endpointId, bucketName, target.nextRules);
         }
         return { changed: true };
       }
 
       if (operation === "add_policy" && parsedPolicyStatements) {
         const policy = await getBucketPolicy(endpointId, bucketName);
-        const existingPolicy = policy.policy ?? {};
-        const existingStatements = Array.isArray(
-          (existingPolicy as Record<string, unknown>).Statement,
-        )
-          ? ((existingPolicy as Record<string, unknown>)
-              .Statement as Record<string, unknown>[])
-          : [];
-        const { nextStatements, changes } = mergePolicyStatements(
-          existingStatements,
+        const target = resolveBulkPolicyMergeTarget(
+          (policy.policy ?? {}) as Record<string, unknown>,
+          parsedPolicy ?? {},
           parsedPolicyStatements,
-          { onlyUpdateExisting: policyUpdateOnlyExisting },
+          policyUpdateOnlyExisting,
         );
-        if (changes.length === 0) return { changed: false };
-        await putBucketPolicy(endpointId, bucketName, {
-          ...(Object.keys(existingPolicy).length > 0
-            ? (existingPolicy as Record<string, unknown>)
-            : (parsedPolicy ?? {})),
-          Statement: nextStatements,
-        });
+        if (!target.changed) return { changed: false };
+        await putBucketPolicy(endpointId, bucketName, target.targetPolicy);
         return { changed: true };
       }
 
       if (operation === "delete_policy" && deletePolicyIds && deletePolicyTypes) {
         const policy = await getBucketPolicy(endpointId, bucketName);
-        const existingPolicy = policy.policy ?? {};
-        const existingStatements = Array.isArray(
-          (existingPolicy as Record<string, unknown>).Statement,
-        )
-          ? ((existingPolicy as Record<string, unknown>)
-              .Statement as Record<string, unknown>[])
-          : [];
-        const nextStatements = existingStatements.filter((statement) => {
-          const sid = getPolicyStatementSid(statement);
-          if (sid && deletePolicyIds.has(sid)) return false;
-          if (deletePolicyTypes.size === 0) return true;
-          return !getPolicyStatementTypes(statement).some((type) =>
-            deletePolicyTypes.has(type),
-          );
-        });
-        if (nextStatements.length === existingStatements.length) {
-          return { changed: false };
-        }
-        if (nextStatements.length === 0) {
+        const target = resolveBulkPolicyDeleteTarget(
+          (policy.policy ?? {}) as Record<string, unknown>,
+          deletePolicyIds,
+          deletePolicyTypes,
+        );
+        if (!target.changed) return { changed: false };
+        if (target.targetPolicy === null) {
           await deleteBucketPolicy(endpointId, bucketName);
         } else {
-          await putBucketPolicy(endpointId, bucketName, {
-            ...(existingPolicy as Record<string, unknown>),
-            Statement: nextStatements,
-          });
+          await putBucketPolicy(endpointId, bucketName, target.targetPolicy);
         }
         return { changed: true };
       }
