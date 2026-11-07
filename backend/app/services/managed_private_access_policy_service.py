@@ -20,7 +20,7 @@ from app.services.managed_private_access_rgw_user_source_service import (
     ManagedPrivateAccessRGWUserSourceService,
 )
 from app.services.managed_resource_naming import PORTAL_MANAGED_IAM_GROUP_NAMES
-from app.services.rgw_iam import RGWIAMService
+from app.services.rgw_iam import RGWIAMError, RGWIAMService
 from app.services.s3_execution_context import S3ExecutionTarget
 
 
@@ -96,7 +96,7 @@ class ManagedPrivateAccessPolicyService:
             self._validate_iam_selections(iam, payload)
         except ManagedPrivateAccessError:
             raise
-        except RuntimeError as exc:
+        except RGWIAMError as exc:
             raise ManagedPrivateAccessError("Unable to validate IAM groups and policies") from exc
 
     @staticmethod
