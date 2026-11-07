@@ -228,7 +228,14 @@ class BucketIntegrityCheckService(LongRunningS3ClientMixin):
             response = client.get_object(**kwargs)
             body = response.get("Body")
             if body is None:
-                raise RuntimeError("response body is empty")
+                return _ObjectCheckResult(
+                    key=obj.key,
+                    version_id=obj.version_id,
+                    stage="get",
+                    success=False,
+                    bytes_read=total_read,
+                    message="S3 response body is empty",
+                )
             while True:
                 if cancel_check:
                     cancel_check()
@@ -244,7 +251,7 @@ class BucketIntegrityCheckService(LongRunningS3ClientMixin):
                 total_read += len(chunk)
         except BucketIntegrityCheckCancelled:
             raise
-        except (ClientError, BotoCoreError, RuntimeError) as exc:
+        except (ClientError, BotoCoreError) as exc:
             return _ObjectCheckResult(
                 key=obj.key,
                 version_id=obj.version_id,
@@ -281,7 +288,7 @@ class BucketIntegrityCheckService(LongRunningS3ClientMixin):
             client.head_object(**_object_request_kwargs(bucket_name, obj))
         except BucketIntegrityCheckCancelled:
             raise
-        except (ClientError, BotoCoreError, RuntimeError) as exc:
+        except (ClientError, BotoCoreError) as exc:
             return _ObjectCheckResult(
                 key=obj.key,
                 version_id=obj.version_id,
@@ -491,7 +498,7 @@ class BucketIntegrityCheckService(LongRunningS3ClientMixin):
             )
         except BucketIntegrityCheckCancelled:
             raise
-        except Exception as exc:  # noqa: BLE001
+        except (ClientError, BotoCoreError) as exc:
             state.add_failure(
                 BucketIntegrityFailure(
                     bucket_name=target.bucket_name,
