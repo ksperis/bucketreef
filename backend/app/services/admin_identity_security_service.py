@@ -10,7 +10,6 @@ from app.core.domain_errors import (
     ExternalIdentityLinkRequestNotFoundError,
     ExternalIdentityNotFoundError,
     IdentitySecurityAuthorizationError,
-    UiUserNotFoundError,
 )
 from app.db import (
     AuthSession,
@@ -70,9 +69,7 @@ class AdminIdentitySecurityService:
         *,
         allow_self: bool = True,
     ) -> User:
-        target = self.users.get_by_id(user_id)
-        if target is None:
-            raise UiUserNotFoundError("User not found")
+        target = self.users.require_by_id(user_id)
         ensure_actor_can_manage_user(actor, target, allow_self=allow_self)
         return target
 
