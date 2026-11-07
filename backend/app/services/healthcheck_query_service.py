@@ -37,6 +37,7 @@ from app.services.healthcheck_query_projection import (
     workspace_endpoint_snapshot,
     workspace_incident_payload,
 )
+from app.services.sqlalchemy_pagination import paginate_scalars
 from app.services.storage_endpoint_repository import StorageEndpointRepository
 from app.utils.name_ordering import name_order_by
 from app.utils.time import utcnow
@@ -461,20 +462,16 @@ class HealthCheckQueryService:
             EndpointHealthCheck.checked_at >= start,
             EndpointHealthCheck.checked_at <= now,
         )
-        total = int(
-            self.db.scalar(
-                select(func.count(EndpointHealthCheck.id)).where(*criteria)
-            )
-            or 0
+        rows, total = paginate_scalars(
+            self.db,
+            select(EndpointHealthCheck).where(*criteria),
+            order_by=(
+                EndpointHealthCheck.checked_at.desc(),
+                EndpointHealthCheck.id.desc(),
+            ),
+            page=pagination.page,
+            page_size=pagination.page_size,
         )
-        offset = (pagination.page - 1) * pagination.page_size
-        rows = self.db.scalars(
-            select(EndpointHealthCheck)
-            .where(*criteria)
-            .order_by(EndpointHealthCheck.checked_at.desc(), EndpointHealthCheck.id.desc())
-            .offset(offset)
-            .limit(pagination.page_size)
-        ).all()
         checks = [
             {
                 "checked_at": row.checked_at.isoformat(),
