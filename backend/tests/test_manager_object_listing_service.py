@@ -12,6 +12,7 @@ from app.services.manager_object_listing_service import (
     ManagerObjectListingService,
     get_manager_object_listing_service,
 )
+from app.services.s3_client import S3OperationError
 
 
 def _client_error(code: str, message: str = "boom") -> ClientError:
@@ -52,8 +53,18 @@ def _account() -> S3Account:
 def test_client_requires_execution_credentials():
     account = S3Account(name="missing-keys", rgw_access_key=None, rgw_secret_key=None)
 
-    with pytest.raises(RuntimeError, match="Execution context credentials are missing"):
+    with pytest.raises(S3OperationError, match="Execution context credentials are missing"):
         ManagerObjectListingService()._client(account)
+
+
+def test_client_does_not_mask_unexpected_credential_runtime_error():
+    class BrokenContext:
+        @staticmethod
+        def effective_rgw_credentials():
+            raise RuntimeError("unexpected credential resolver bug")
+
+    with pytest.raises(RuntimeError, match="unexpected credential resolver bug"):
+        ManagerObjectListingService()._client(BrokenContext())
 
 
 def test_list_objects_filters_folder_marker_and_returns_prefixes(monkeypatch):
@@ -125,7 +136,7 @@ def test_list_objects_wraps_errors(monkeypatch):
         lambda *args, **kwargs: fake,
     )
 
-    with pytest.raises(RuntimeError, match="Unable to list objects"):
+    with pytest.raises(S3OperationError, match="Unable to list objects"):
         service.list_objects("bucket-1", _account())
 
 

@@ -11,6 +11,7 @@ from app.services.manager_object_listing_service import (
     ManagerObjectListingService,
     get_manager_object_listing_service,
 )
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.http_errors import raise_http_exception_from_exception
 
@@ -28,5 +29,5 @@ def list_objects(
 ) -> ListObjectsResponse:
     try:
         return service.list_objects(bucket_name, context, prefix=prefix, continuation_token=continuation_token)
-    except RuntimeError as exc:
+    except S3OperationError as exc:
         raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
