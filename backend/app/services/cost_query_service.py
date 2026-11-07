@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import InstrumentedAttribute, Session
 
 from app.db import (
+    COST_MODEL_SINGLETON_ID,
     CostEndpointOverride,
     CostModel,
     CostStorageDaily,
@@ -54,7 +55,7 @@ class CostQueryService:
         self.db = db
 
     def resolve_model(self, endpoint_id: Optional[int]) -> Optional[EffectiveCostModel]:
-        global_model = self.db.get(CostModel, 1)
+        global_model = self.db.get(CostModel, COST_MODEL_SINGLETON_ID)
         if global_model is None:
             return None
         override = None

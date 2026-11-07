@@ -6,7 +6,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.core.db_transactions import commit_or_rollback
-from app.db import CostEndpointOverride, CostModel, StorageEndpoint
+from app.db import COST_MODEL_SINGLETON_ID, CostEndpointOverride, CostModel, StorageEndpoint
 from app.models.cost import CostEndpointOverride as CostEndpointOverrideModel
 from app.models.cost import CostGlobalModel, CostSettings
 from app.utils.time import utcnow
@@ -17,7 +17,7 @@ class CostSettingsService:
         self.db = db
 
     def get_settings(self) -> CostSettings:
-        model = self.db.get(CostModel, 1)
+        model = self.db.get(CostModel, COST_MODEL_SINGLETON_ID)
         overrides = self.db.scalars(
             select(CostEndpointOverride).order_by(CostEndpointOverride.storage_endpoint_id.asc())
         ).all()
@@ -59,16 +59,16 @@ class CostSettingsService:
 
         if payload.model is None:
             self.db.execute(delete(CostEndpointOverride))
-            model = self.db.get(CostModel, 1)
+            model = self.db.get(CostModel, COST_MODEL_SINGLETON_ID)
             if model is not None:
                 self.db.delete(model)
             commit_or_rollback(self.db)
             return self.get_settings()
 
         now = utcnow()
-        model = self.db.get(CostModel, 1)
+        model = self.db.get(CostModel, COST_MODEL_SINGLETON_ID)
         if model is None:
-            model = CostModel(id=1, created_at=now, updated_at=now)
+            model = CostModel(id=COST_MODEL_SINGLETON_ID, created_at=now, updated_at=now)
             self.db.add(model)
         model.currency = payload.model.currency
         model.storage_gb_month_price = payload.model.storage_gb_month_price

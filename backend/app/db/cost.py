@@ -24,6 +24,9 @@ from sqlalchemy.orm import relationship
 from .base import Base
 
 
+COST_MODEL_SINGLETON_ID = 1
+
+
 class CostUsageDaily(Base):
     __tablename__ = "cost_usage_daily"
     __table_args__ = (
@@ -149,14 +152,14 @@ class CostStorageDaily(Base):
 class CostModel(Base):
     __tablename__ = "cost_models"
     __table_args__ = (
-        CheckConstraint("id = 1", name="ck_cost_models_singleton"),
+        CheckConstraint(f"id = {COST_MODEL_SINGLETON_ID}", name="ck_cost_models_singleton"),
         CheckConstraint("storage_gb_month_price >= 0", name="ck_cost_models_storage_price_nonnegative"),
         CheckConstraint("egress_gb_price >= 0", name="ck_cost_models_egress_price_nonnegative"),
         CheckConstraint("ingress_gb_price >= 0", name="ck_cost_models_ingress_price_nonnegative"),
         CheckConstraint("requests_per_1000_price >= 0", name="ck_cost_models_requests_price_nonnegative"),
     )
 
-    id = Column(Integer, primary_key=True, default=1)
+    id = Column(Integer, primary_key=True, default=COST_MODEL_SINGLETON_ID)
     currency = Column(String, nullable=False, default="EUR", server_default="EUR")
     storage_gb_month_price = Column(Numeric(12, 6), nullable=False)
     egress_gb_price = Column(Numeric(12, 6), nullable=False)

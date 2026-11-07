@@ -48,6 +48,7 @@ from .oidc import (
     OidcProviderIssuerPin,
 )
 from .cost import (
+    COST_MODEL_SINGLETON_ID,
     CostEndpointOverride,
     CostModel,
     CostStorageDaily,
@@ -124,6 +125,7 @@ __all__ = [
     "OidcAuthorizationCode",
     "OidcProvider",
     "OidcProviderIssuerPin",
+    "COST_MODEL_SINGLETON_ID",
     "CostEndpointOverride",
     "CostModel",
     "CostStorageDaily",
