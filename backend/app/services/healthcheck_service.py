@@ -6,7 +6,7 @@ import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
-from typing import Literal, Optional
+from typing import Optional
 
 import requests
 from botocore.exceptions import BotoCoreError, ClientError
@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import EndpointHealthCheck, StorageEndpoint
-from app.core.domain_enums import HealthCheckStatus
+from app.core.domain_enums import HealthCheckMode, HealthCheckStatus
 from app.services.app_settings_service import load_app_settings_for_db
 from app.services.healthcheck_common import (
     EndpointCheckTarget,
@@ -168,7 +168,7 @@ class HealthCheckService:
     def _load_latency_baseline(
         self,
         endpoint_id: int,
-        check_mode: Literal["http", "s3"],
+        check_mode: HealthCheckMode,
         now: datetime,
     ) -> Optional[int]:
         baseline_window_days = settings.healthcheck_latency_baseline_window_days

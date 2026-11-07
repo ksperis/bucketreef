@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Optional, Protocol
+from typing import Any, Optional, Protocol, cast
 
 import yaml
 
-from app.core.domain_enums import StorageProvider
+from app.core.domain_enums import HealthCheckMode, StorageProvider
 from app.utils.normalize import normalize_storage_provider
 
 
@@ -156,7 +156,7 @@ class EndpointFeatureFlags:
     sse_enabled: bool
     replication_enabled: bool
     healthcheck_enabled: bool
-    healthcheck_mode: str
+    healthcheck_mode: HealthCheckMode
     healthcheck_url: Optional[str]
 
 
@@ -430,7 +430,7 @@ def resolve_feature_flags(endpoint: StorageEndpointLike) -> EndpointFeatureFlags
         sse_enabled=bool(features["sse"]["enabled"]),
         replication_enabled=bool(features["replication"]["enabled"]),
         healthcheck_enabled=bool(healthcheck["enabled"]),
-        healthcheck_mode=str(healthcheck["mode"]),
+        healthcheck_mode=cast(HealthCheckMode, healthcheck["mode"]),
         healthcheck_url=healthcheck["url"],
     )
 

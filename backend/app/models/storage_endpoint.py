@@ -7,7 +7,7 @@ from typing import Literal, Optional, Self
 from pydantic import ConfigDict, Field, SecretStr, field_validator, model_validator
 
 from app.models.base import ApiModel, reject_explicit_null_fields
-from app.core.domain_enums import ServiceIdentityKind, StorageProvider
+from app.core.domain_enums import HealthCheckMode, ServiceIdentityKind, StorageProvider
 from app.models.tagging import RequiredTagDefinitionList, TagDefinitionSummary
 from app.utils.normalize import normalize_optional_string_field
 
@@ -21,7 +21,7 @@ class StorageEndpointAddressableFeature(StorageEndpointFeature):
 
 class StorageEndpointHealthcheckFeature(ApiModel):
     enabled: bool = True
-    mode: Literal["http", "s3"] = "http"
+    mode: HealthCheckMode = "http"
     url: Optional[str] = None
 
 
