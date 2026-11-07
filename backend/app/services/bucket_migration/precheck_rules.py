@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Callable
 
+from .diagnostics import MigrationPrecheckError
+
 
 @dataclass(frozen=True)
 class SourceStrategyDecision:
@@ -205,7 +207,7 @@ class BucketMigrationPrecheckRules:
                     "reads and version tags."
                 ),
             )
-        except Exception as exc:  # noqa: BLE001
+        except MigrationPrecheckError as exc:
             add_check(
                 code="version_aware_source_access_failed",
                 severity="error",
@@ -279,7 +281,7 @@ class BucketMigrationPrecheckRules:
                 strategy=strategy,
                 source_profile=source_profile,
             )
-        except Exception as exc:  # noqa: BLE001
+        except MigrationPrecheckError as exc:
             add_check(
                 code="same_endpoint_copy_failed",
                 severity="error",
