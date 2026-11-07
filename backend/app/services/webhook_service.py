@@ -11,18 +11,16 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Iterable
 
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.core.db_transactions import commit_or_rollback
-from app.core.domain_errors import WebhookEndpointNotFoundError
 from app.core.runtime_surfaces import runtime_surface_enabled
 from app.core.sensitive_data import sanitize_audit_metadata
 from app.db import WebhookDelivery, WebhookEndpoint, WebhookEndpointSubscription
 from app.models.webhook import (
-    WebhookDeliveryOut,
     WebhookEndpointCreated,
     WebhookEndpointOut,
     WebhookEndpointPayload,
@@ -34,6 +32,7 @@ from app.services.webhook_catalog import (
     KNOWN_WEBHOOK_EVENT_TYPES,
     WEBHOOK_TEST_EVENT_TYPE,
 )
+from app.services.webhook_query_service import WebhookQueryService
 from app.utils.network_targets import normalize_hostname, validate_outbound_url
 from app.utils.time import utcnow
 
@@ -150,34 +149,7 @@ class WebhookService:
     def __init__(self, db: Session, *, settings: Settings | None = None) -> None:
         self.db = db
         self.settings = settings or get_settings()
-
-    def list_endpoints(self) -> list[WebhookEndpointOut]:
-        rows = self.db.scalars(
-            select(WebhookEndpoint).order_by(
-                WebhookEndpoint.name.asc(),
-                WebhookEndpoint.id.asc(),
-            )
-        ).all()
-        endpoint_ids = [int(row.id) for row in rows]
-        latest = self._latest_deliveries(endpoint_ids)
-        event_types = self._event_types_by_endpoint(endpoint_ids)
-        return [
-            self._endpoint_out(
-                row,
-                event_types=event_types.get(int(row.id), []),
-                latest_delivery=latest.get(int(row.id)),
-            )
-            for row in rows
-        ]
-
-    def get_endpoint(self, endpoint_id: int) -> WebhookEndpointOut:
-        row = self._require_endpoint(endpoint_id)
-        latest = self._latest_deliveries([int(row.id)])
-        return self._endpoint_out(
-            row,
-            event_types=self._event_types_by_endpoint([int(row.id)]).get(int(row.id), []),
-            latest_delivery=latest.get(int(row.id)),
-        )
+        self.query = WebhookQueryService(db)
 
     def create_endpoint(self, payload: WebhookEndpointPayload) -> WebhookEndpointCreated:
         validate_webhook_target_url(payload.url, self.settings)
@@ -200,11 +172,11 @@ class WebhookService:
             raise ValueError("A webhook endpoint with this name already exists") from exc
         self._commit_endpoint_change()
         self.db.refresh(row)
-        out = self._endpoint_out(row)
+        out = self.query.serialize_endpoint(row)
         return WebhookEndpointCreated(**out.model_dump(), signing_secret=secret)
 
     def update_endpoint(self, endpoint_id: int, payload: WebhookEndpointPayload) -> WebhookEndpointOut:
-        row = self._require_endpoint(endpoint_id)
+        row = self.query.get_endpoint_record(endpoint_id)
         validate_webhook_target_url(payload.url, self.settings)
         event_types = self._validate_event_types(payload.event_types)
         if payload.enabled and not row.signing_secret:
@@ -220,15 +192,15 @@ class WebhookService:
             raise ValueError("A webhook endpoint with this name already exists") from exc
         self._commit_endpoint_change()
         self.db.refresh(row)
-        return self._endpoint_out(row)
+        return self.query.serialize_endpoint(row)
 
     def delete_endpoint(self, endpoint_id: int) -> None:
-        row = self._require_endpoint(endpoint_id)
+        row = self.query.get_endpoint_record(endpoint_id)
         self.db.delete(row)
         commit_or_rollback(self.db)
 
     def rotate_secret(self, endpoint_id: int) -> WebhookSecretRotation:
-        row = self._require_endpoint(endpoint_id)
+        row = self.query.get_endpoint_record(endpoint_id)
         secret = _new_signing_secret()
         row.signing_secret = secret
         row.updated_at = utcnow()
@@ -236,7 +208,7 @@ class WebhookService:
         return WebhookSecretRotation(endpoint_id=row.id, signing_secret=secret)
 
     def enqueue_test(self, endpoint_id: int) -> WebhookTestResponse:
-        row = self._require_endpoint(endpoint_id)
+        row = self.query.get_endpoint_record(endpoint_id)
         if not row.signing_secret:
             raise ValueError("Rotate the signing secret before sending a test delivery")
         validate_webhook_target_url(row.url, self.settings)
@@ -254,22 +226,6 @@ class WebhookService:
         if not ids:
             raise RuntimeError("Unable to queue webhook test delivery")
         return WebhookTestResponse(delivery_id=ids[0], status="queued")
-
-    def list_deliveries(self, endpoint_id: int, *, limit: int = 100) -> list[WebhookDeliveryOut]:
-        self._require_endpoint(endpoint_id)
-        rows = self.db.scalars(
-            select(WebhookDelivery)
-            .where(WebhookDelivery.endpoint_id == endpoint_id)
-            .order_by(WebhookDelivery.created_at.desc(), WebhookDelivery.id.desc())
-            .limit(max(1, min(int(limit), 200)))
-        ).all()
-        return [self._delivery_out(row) for row in rows]
-
-    def _require_endpoint(self, endpoint_id: int) -> WebhookEndpoint:
-        row = self.db.get(WebhookEndpoint, int(endpoint_id))
-        if row is None:
-            raise WebhookEndpointNotFoundError("Webhook endpoint not found")
-        return row
 
     def _commit_endpoint_change(self) -> None:
         try:
@@ -307,84 +263,6 @@ class WebhookService:
                     event_type=event_type,
                 )
             )
-
-    def _event_types_by_endpoint(self, endpoint_ids: Iterable[int]) -> dict[int, list[str]]:
-        ids = sorted({int(endpoint_id) for endpoint_id in endpoint_ids})
-        if not ids:
-            return {}
-        grouped: dict[int, list[str]] = {}
-        for endpoint_id, event_type in self.db.execute(
-            select(
-                WebhookEndpointSubscription.endpoint_id,
-                WebhookEndpointSubscription.event_type,
-            )
-            .where(WebhookEndpointSubscription.endpoint_id.in_(ids))
-            .order_by(
-                WebhookEndpointSubscription.endpoint_id.asc(),
-                WebhookEndpointSubscription.event_type.asc(),
-            )
-        ):
-            grouped.setdefault(int(endpoint_id), []).append(str(event_type))
-        return {
-            endpoint_id: [ALL_WEBHOOK_EVENTS] if ALL_WEBHOOK_EVENTS in values else values
-            for endpoint_id, values in grouped.items()
-        }
-
-    def _latest_deliveries(self, endpoint_ids: Iterable[int]) -> dict[int, WebhookDelivery]:
-        ids = sorted({int(endpoint_id) for endpoint_id in endpoint_ids})
-        if not ids:
-            return {}
-        latest_ids = [
-            int(delivery_id)
-            for delivery_id in self.db.scalars(
-                select(func.max(WebhookDelivery.id))
-                .where(WebhookDelivery.endpoint_id.in_(ids))
-                .group_by(WebhookDelivery.endpoint_id)
-            ).all()
-            if delivery_id is not None
-        ]
-        if not latest_ids:
-            return {}
-        rows = self.db.scalars(
-            select(WebhookDelivery).where(WebhookDelivery.id.in_(latest_ids))
-        ).all()
-        return {int(row.endpoint_id): row for row in rows}
-
-    def _endpoint_out(
-        self,
-        row: WebhookEndpoint,
-        *,
-        event_types: list[str] | None = None,
-        latest_delivery: WebhookDelivery | None = None,
-    ) -> WebhookEndpointOut:
-        if event_types is None:
-            event_types = self._event_types_by_endpoint([int(row.id)]).get(int(row.id), [])
-        return WebhookEndpointOut(
-            id=int(row.id),
-            name=row.name,
-            url=row.url,
-            enabled=row.enabled,
-            event_types=event_types,
-            has_signing_secret=bool(row.signing_secret),
-            last_delivery=(self._delivery_out(latest_delivery) if latest_delivery is not None else None),
-            created_at=row.created_at,
-            updated_at=row.updated_at,
-        )
-
-    @staticmethod
-    def _delivery_out(row: WebhookDelivery) -> WebhookDeliveryOut:
-        return WebhookDeliveryOut(
-            id=int(row.id),
-            event_type=row.event_type,
-            is_test=row.is_test,
-            status=row.status,
-            attempt_count=int(row.attempt_count),
-            last_http_status=row.last_http_status,
-            last_error=row.last_error,
-            updated_at=row.updated_at,
-            delivered_at=row.delivered_at,
-        )
-
 
 class WebhookEventPublisher:
     def __init__(self, db: Session) -> None:
