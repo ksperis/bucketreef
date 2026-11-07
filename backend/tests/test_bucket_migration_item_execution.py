@@ -7,6 +7,8 @@ from types import SimpleNamespace
 
 import pytest
 
+from app.services.bucket_migration import planning as migration_planning
+from app.services.bucket_migration.diagnostics import MigrationExecutionStrategyError
 from app.services.bucket_migration_service import BucketMigrationService
 
 
@@ -153,7 +155,7 @@ def test_execution_strategy_requires_explicit_string_value(db_session, strategy)
     item.execution_strategy = strategy
 
     with pytest.raises(
-        RuntimeError,
+        MigrationExecutionStrategyError,
         match="^Migration item is missing a valid execution strategy",
     ):
         service._assert_item_execution_strategy_supported(item)
@@ -165,10 +167,44 @@ def test_execution_strategy_rejects_retired_skip_existing(db_session):
     item.execution_strategy = "skip_existing"
 
     with pytest.raises(
-        RuntimeError,
+        MigrationExecutionStrategyError,
         match="^Execution strategy 'skip_existing' is not implemented",
     ):
         service._assert_item_execution_strategy_supported(item)
+
+
+def test_start_plan_maps_execution_strategy_errors_to_stale_precheck(db_session, monkeypatch):
+    service = BucketMigrationService(db_session)
+    migration = SimpleNamespace(
+        status="draft",
+        items=[SimpleNamespace(source_bucket="bucket-a", target_bucket="bucket-b")],
+    )
+    monkeypatch.setattr(migration_planning, "preparation_is_current", lambda _migration: True)
+    monkeypatch.setattr(
+        service,
+        "_assert_item_execution_strategy_supported",
+        lambda _item: (_ for _ in ()).throw(MigrationExecutionStrategyError("retired strategy")),
+    )
+
+    with pytest.raises(ValueError, match="Precheck must be re-run before start"):
+        service._validate_start_execution_plan(migration)
+
+
+def test_start_plan_does_not_mask_unexpected_strategy_runtime_errors(db_session, monkeypatch):
+    service = BucketMigrationService(db_session)
+    migration = SimpleNamespace(
+        status="draft",
+        items=[SimpleNamespace(source_bucket="bucket-a", target_bucket="bucket-b")],
+    )
+    monkeypatch.setattr(migration_planning, "preparation_is_current", lambda _migration: True)
+    monkeypatch.setattr(
+        service,
+        "_assert_item_execution_strategy_supported",
+        lambda _item: (_ for _ in ()).throw(RuntimeError("unexpected strategy regression")),
+    )
+
+    with pytest.raises(RuntimeError, match="unexpected strategy regression"):
+        service._validate_start_execution_plan(migration)
 
 
 def test_verify_step_fails_non_clean_diff(db_session):
