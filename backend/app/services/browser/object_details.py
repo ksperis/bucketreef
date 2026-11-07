@@ -62,8 +62,8 @@ def _object_version_reference(
     bucket_name: str,
     key: str,
     version_id: Optional[str],
-) -> dict[str, str]:
-    reference = {"Bucket": bucket_name, "Key": key}
+) -> dict[str, object]:
+    reference: dict[str, object] = {"Bucket": bucket_name, "Key": key}
     if version_id:
         reference["VersionId"] = version_id
     return reference
@@ -278,9 +278,7 @@ class BrowserObjectDetailsMixin:
         sse_customer: Optional[SseCustomerContext] = None,
     ) -> ObjectMetadata:
         client = self._client(context)
-        kwargs = {"Bucket": bucket_name, "Key": key}
-        if version_id:
-            kwargs["VersionId"] = version_id
+        kwargs = _object_version_reference(bucket_name, key, version_id)
         kwargs.update(self._sse_customer_params(sse_customer))
         try:
             resp = client.head_object(**kwargs)
@@ -457,9 +455,7 @@ class BrowserObjectDetailsMixin:
         version_id: Optional[str] = None,
     ) -> ObjectTags:
         client = self._client(context)
-        kwargs = {"Bucket": bucket_name, "Key": key}
-        if version_id:
-            kwargs["VersionId"] = version_id
+        kwargs = _object_version_reference(bucket_name, key, version_id)
         try:
             resp = client.get_object_tagging(**kwargs)
         except (ClientError, BotoCoreError) as exc:
@@ -485,9 +481,7 @@ class BrowserObjectDetailsMixin:
             {"Key": tag.key, "Value": tag.value}
             for tag in tags
         ]
-        kwargs = {"Bucket": bucket_name, "Key": key}
-        if version_id:
-            kwargs["VersionId"] = version_id
+        kwargs = _object_version_reference(bucket_name, key, version_id)
         with self._object_mutation(context, bucket_name):
             try:
                 if tag_set:
@@ -526,9 +520,7 @@ class BrowserObjectDetailsMixin:
         version_id: Optional[str] = None,
     ) -> ObjectAcl:
         client = self._client(context)
-        kwargs: dict[str, object] = {"Bucket": bucket_name, "Key": key}
-        if version_id:
-            kwargs["VersionId"] = version_id
+        kwargs = _object_version_reference(bucket_name, key, version_id)
         try:
             resp = client.get_object_acl(**kwargs)
         except (ClientError, BotoCoreError) as exc:
@@ -542,9 +534,8 @@ class BrowserObjectDetailsMixin:
         payload: ObjectAclUpdate,
     ) -> ObjectAcl:
         client = self._client(context)
-        kwargs: dict[str, object] = {"Bucket": bucket_name, "Key": payload.key, "ACL": payload.acl}
-        if payload.version_id:
-            kwargs["VersionId"] = payload.version_id
+        kwargs = _object_version_reference(bucket_name, payload.key, payload.version_id)
+        kwargs["ACL"] = payload.acl
         try:
             client.put_object_acl(**kwargs)
         except (ClientError, BotoCoreError) as exc:
@@ -559,9 +550,7 @@ class BrowserObjectDetailsMixin:
         version_id: Optional[str] = None,
     ) -> ObjectLegalHold:
         client = self._client(context)
-        kwargs: dict[str, object] = {"Bucket": bucket_name, "Key": key}
-        if version_id:
-            kwargs["VersionId"] = version_id
+        kwargs = _object_version_reference(bucket_name, key, version_id)
         try:
             resp = client.get_object_legal_hold(**kwargs)
         except ClientError as exc:
@@ -591,13 +580,8 @@ class BrowserObjectDetailsMixin:
     ) -> ObjectLegalHold:
         client = self._client(context)
         status = payload.status.upper()
-        kwargs: dict[str, object] = {
-            "Bucket": bucket_name,
-            "Key": payload.key,
-            "LegalHold": {"Status": status},
-        }
-        if payload.version_id:
-            kwargs["VersionId"] = payload.version_id
+        kwargs = _object_version_reference(bucket_name, payload.key, payload.version_id)
+        kwargs["LegalHold"] = {"Status": status}
         try:
             client.put_object_legal_hold(**kwargs)
         except (ClientError, BotoCoreError) as exc:
@@ -617,9 +601,7 @@ class BrowserObjectDetailsMixin:
         version_id: Optional[str] = None,
     ) -> ObjectRetention:
         client = self._client(context)
-        kwargs: dict[str, object] = {"Bucket": bucket_name, "Key": key}
-        if version_id:
-            kwargs["VersionId"] = version_id
+        kwargs = _object_version_reference(bucket_name, key, version_id)
         try:
             resp = client.get_object_retention(**kwargs)
         except ClientError as exc:
@@ -651,13 +633,11 @@ class BrowserObjectDetailsMixin:
     ) -> ObjectRetention:
         client = self._client(context)
         mode = payload.mode.upper()
-        kwargs: dict[str, object] = {
-            "Bucket": bucket_name,
-            "Key": payload.key,
-            "Retention": {"Mode": mode, "RetainUntilDate": payload.retain_until},
+        kwargs = _object_version_reference(bucket_name, payload.key, payload.version_id)
+        kwargs["Retention"] = {
+            "Mode": mode,
+            "RetainUntilDate": payload.retain_until,
         }
-        if payload.version_id:
-            kwargs["VersionId"] = payload.version_id
         if payload.bypass_governance is not None:
             kwargs["BypassGovernanceRetention"] = payload.bypass_governance
         try:
@@ -682,13 +662,8 @@ class BrowserObjectDetailsMixin:
         restore_request: dict[str, object] = {"Days": payload.days}
         if payload.tier:
             restore_request["GlacierJobParameters"] = {"Tier": payload.tier}
-        kwargs: dict[str, object] = {
-            "Bucket": bucket_name,
-            "Key": payload.key,
-            "RestoreRequest": restore_request,
-        }
-        if payload.version_id:
-            kwargs["VersionId"] = payload.version_id
+        kwargs = _object_version_reference(bucket_name, payload.key, payload.version_id)
+        kwargs["RestoreRequest"] = restore_request
         with self._object_mutation(context, bucket_name):
             try:
                 client.restore_object(**kwargs)
