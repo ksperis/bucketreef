@@ -294,12 +294,10 @@ def copy_object(
             detail="Missing source or destination key",
         )
     try:
-        service.copy_object(bucket_name, context, payload)
+        _run_object_action(service.copy_object, bucket_name, context, payload)
         return None
     except BrowserStorageSpacePermissionError as exc:
         raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
-    except RuntimeError as exc:
-        raise_bad_gateway_from_runtime(exc)
 
 
 @router.post(

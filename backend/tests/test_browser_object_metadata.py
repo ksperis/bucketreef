@@ -187,6 +187,41 @@ def test_copy_object_preserves_literal_tag_pairs(monkeypatch):
     )
 
 
+def test_copy_object_reports_source_metadata_read_failure(monkeypatch):
+    class FakeClient:
+        def head_object(self, **_kwargs):  # noqa: ANN001
+            raise _client_error("AccessDenied", "HeadObject")
+
+    service = BrowserService()
+    monkeypatch.setattr(service, "_client", lambda *_args, **_kwargs: FakeClient())
+
+    with pytest.raises(S3OperationError, match="Unable to fetch metadata for 'source.txt' before copy"):
+        service.copy_object(
+            "bucket-a",
+            _account(),
+            CopyObjectPayload(
+                source_key="source.txt",
+                destination_key="destination.txt",
+                replace_metadata=True,
+            ),
+        )
+
+
+def test_move_object_rejects_same_source_and_destination_as_validation_error():
+    service = BrowserService()
+
+    with pytest.raises(BrowserObjectValidationError, match="Cannot move an object onto itself"):
+        service.copy_object(
+            "bucket-a",
+            _account(),
+            CopyObjectPayload(
+                source_key="source.txt",
+                destination_key="source.txt",
+                move=True,
+            ),
+        )
+
+
 def test_move_object_preserves_source_and_destination_version_identity(monkeypatch):
     calls: list[tuple[str, dict[str, object]]] = []
 

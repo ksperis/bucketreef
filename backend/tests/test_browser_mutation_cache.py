@@ -208,7 +208,7 @@ def test_copy_and_move_expire_only_potentially_mutated_buckets(monkeypatch, move
     should_fail = failure_stage in {"copy", "tags"} or (move and failure_stage is not None)
 
     if should_fail:
-        with pytest.raises(RuntimeError):
+        with pytest.raises(S3OperationError):
             service.copy_object("target", account, payload)
     else:
         service.copy_object("target", account, payload)
