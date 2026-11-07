@@ -5,12 +5,11 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.core.config import DeploymentProfile, Settings
+from app.core.domain_enums import ReadinessCheckLevel, ReadinessStatus
 from app.models.app_settings import AppSettings
 from app.services.deployment_check_models import (
-    CheckLevel,
     CheckPhase,
     DeploymentCheckFinding,
-    ReadinessStatus,
     finding as _finding,
     manual_finding as _manual,
 )
@@ -190,8 +189,14 @@ def readiness_status(findings: list[DeploymentCheckFinding]) -> ReadinessStatus:
     return "ok"
 
 
-def readiness_counts(findings: list[DeploymentCheckFinding]) -> dict[CheckLevel, int]:
-    counts: dict[CheckLevel, int] = {"blocked": 0, "critical": 0, "warning": 0, "manual": 0, "ok": 0}
+def readiness_counts(findings: list[DeploymentCheckFinding]) -> dict[ReadinessCheckLevel, int]:
+    counts: dict[ReadinessCheckLevel, int] = {
+        "blocked": 0,
+        "critical": 0,
+        "warning": 0,
+        "manual": 0,
+        "ok": 0,
+    }
     for finding in findings:
         counts[finding.level] += 1
     return counts

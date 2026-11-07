@@ -5,12 +5,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from app.core.domain_enums import (
+    ReadinessCheckLevel,
+    ReadinessCheckResult,
+    ReadinessCheckSeverity,
+)
 
-CheckResult = Literal["pass", "fail", "manual"]
-CheckSeverity = Literal["blocker", "critical", "warning"]
-CheckLevel = Literal["blocked", "critical", "warning", "manual", "ok"]
 CheckPhase = Literal["pre-database", "full"]
-ReadinessStatus = Literal["blocked", "critical", "warning", "ok"]
 
 DOCS_BASE_URL = "https://docs.bucketreef.ksperis.com/admin/en/operations/production-checks/"
 
@@ -19,14 +20,14 @@ DOCS_BASE_URL = "https://docs.bucketreef.ksperis.com/admin/en/operations/product
 class DeploymentCheckFinding:
     code: str
     label: str
-    result: CheckResult
-    severity: CheckSeverity | None
+    result: ReadinessCheckResult
+    severity: ReadinessCheckSeverity | None
     message: str
     documentation_url: str
     blocks_startup: bool = False
 
     @property
-    def level(self) -> CheckLevel:
+    def level(self) -> ReadinessCheckLevel:
         if self.result == "manual":
             return "manual"
         if self.result == "pass":
@@ -47,7 +48,7 @@ def finding(
     label: str,
     *,
     passed: bool,
-    severity: CheckSeverity,
+    severity: ReadinessCheckSeverity,
     pass_message: str,
     fail_message: str,
     docs_anchor: str | None = None,
