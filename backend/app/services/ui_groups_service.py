@@ -18,12 +18,8 @@ from app.db import (
 )
 from app.db.openstack import OpenStackCloud, cloud_groups
 from app.db.ui_group import ALL_USERS_SYSTEM_KEY
-from app.models.admin_listing import AdminOptionListingRequest
 from app.models.ui_group import (
-    PaginatedUiGroupSummariesResponse,
-    PaginatedUiGroupsResponse,
     UiGroupCreate,
-    UiGroupListingRequest,
     UiGroupOut,
     UiGroupUpdate,
 )
@@ -216,18 +212,6 @@ class UiGroupsService:
         if group is None:
             raise UiGroupNotFoundError("UI group not found")
         return group
-
-    def list_group_options_page(
-        self,
-        request: AdminOptionListingRequest,
-    ) -> PaginatedUiGroupSummariesResponse:
-        return self.queries.list_group_options_page(request)
-
-    def list_groups_page(
-        self,
-        request: UiGroupListingRequest,
-    ) -> PaginatedUiGroupsResponse:
-        return self.queries.list_groups_page(request)
 
     def group_to_out(self, group: UiGroup) -> UiGroupOut:
         return self.queries.group_to_out(group)

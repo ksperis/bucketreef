@@ -26,6 +26,7 @@ from app.services.identity_security_policy import (
     admin_group_update_requires_step_up,
 )
 from app.services.ui_group_avatar_service import UiGroupAvatarService
+from app.services.ui_group_query_service import UiGroupQueryService
 from app.services.ui_groups_service import UiGroupsService, get_ui_groups_service
 from app.utils.http_errors import (
     raise_bad_request_from_value_error,
@@ -39,6 +40,12 @@ def get_groups_service_dependency(
     db: Session = Depends(get_db),
 ) -> UiGroupsService:
     return get_ui_groups_service(db)
+
+
+def get_group_query_service_dependency(
+    db: Session = Depends(get_db),
+) -> UiGroupQueryService:
+    return UiGroupQueryService(db)
 
 
 def _require_superadmin_for_privileged_grant(
@@ -57,19 +64,19 @@ def _require_superadmin_for_privileged_grant(
 @router.get("", response_model=PaginatedUiGroupsResponse)
 def list_groups(
     query: Annotated[UiGroupListingRequest, Query()],
-    groups_service: UiGroupsService = Depends(get_groups_service_dependency),
+    group_queries: UiGroupQueryService = Depends(get_group_query_service_dependency),
     _: User = Depends(get_current_ui_admin),
 ) -> PaginatedUiGroupsResponse:
-    return groups_service.list_groups_page(query)
+    return group_queries.list_groups_page(query)
 
 
 @router.get("/options", response_model=PaginatedUiGroupSummariesResponse)
 def list_group_options(
     query: Annotated[AdminOptionListingRequest, Query()],
-    groups_service: UiGroupsService = Depends(get_groups_service_dependency),
+    group_queries: UiGroupQueryService = Depends(get_group_query_service_dependency),
     _: User = Depends(get_current_ui_admin),
 ) -> PaginatedUiGroupSummariesResponse:
-    return groups_service.list_group_options_page(query)
+    return group_queries.list_group_options_page(query)
 
 
 @router.post("", response_model=UiGroupOut, status_code=status.HTTP_201_CREATED)
