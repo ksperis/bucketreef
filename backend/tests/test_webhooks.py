@@ -13,6 +13,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
+import requests
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.schema import CreateTable
 from sqlalchemy import event, func, select, text
@@ -693,15 +694,13 @@ def test_worker_centralizes_error_sanitization(db_session, monkeypatch, failure_
         select(WebhookDelivery).where(WebhookDelivery.delivery_id == delivery_id)
     ).one()
     worker = WebhookDeliveryWorker(sessionmaker(bind=db_session.get_bind()))
-    sensitive_error = RuntimeError(
-        "secret_key=TOPSECRET endpoint=https://private.example.test/webhook"
-    )
+    sensitive_message = "secret_key=TOPSECRET endpoint=https://private.example.test/webhook"
 
     if failure_source == "validation":
         monkeypatch.setattr(
             "app.services.webhook_worker.validate_webhook_target_url",
             lambda *_args, **_kwargs: (_ for _ in ()).throw(
-                ValueError(str(sensitive_error))
+                ValueError(sensitive_message)
             ),
         )
         worker._deliver_one(delivery.id)
@@ -710,12 +709,50 @@ def test_worker_centralizes_error_sanitization(db_session, monkeypatch, failure_
             "app.services.webhook_worker.validate_webhook_target_url",
             lambda *_args, **_kwargs: None,
         )
-        with patch("app.services.webhook_worker.requests.post", side_effect=sensitive_error):
+        with patch(
+            "app.services.webhook_worker.requests.post",
+            side_effect=requests.RequestException(sensitive_message),
+        ):
             worker._deliver_one(delivery.id)
 
     db_session.expire_all()
     persisted = db_session.get(WebhookDelivery, delivery.id)
     assert persisted.last_error == "secret_key=<redacted> endpoint=<redacted-url>"
+
+
+def test_worker_propagates_unexpected_request_runtime_error(db_session, monkeypatch):
+    _create_endpoint(
+        db_session,
+        monkeypatch,
+        name="unexpected-request-error",
+        event_types=["audit.admin.update_ui_user"],
+    )
+    delivery_id = WebhookEventPublisher(db_session).publish_event(
+        event_type="audit.admin.update_ui_user",
+        data={},
+        commit=True,
+    )[0]
+    delivery = db_session.scalars(
+        select(WebhookDelivery).where(WebhookDelivery.delivery_id == delivery_id)
+    ).one()
+    worker = WebhookDeliveryWorker(sessionmaker(bind=db_session.get_bind()))
+    monkeypatch.setattr(
+        "app.services.webhook_worker.validate_webhook_target_url",
+        lambda *_args, **_kwargs: None,
+    )
+
+    with patch(
+        "app.services.webhook_worker.requests.post",
+        side_effect=RuntimeError("unexpected request wrapper failure"),
+    ):
+        with pytest.raises(RuntimeError, match="unexpected request wrapper failure"):
+            worker._deliver_one(delivery.id)
+
+    db_session.expire_all()
+    persisted = db_session.get(WebhookDelivery, delivery.id)
+    assert persisted.status == "pending"
+    assert persisted.attempt_count == 0
+    assert persisted.last_error is None
 
 
 def test_worker_retries_429_with_retry_after_then_fails_at_attempt_limit(db_session, monkeypatch):
