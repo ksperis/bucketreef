@@ -20,11 +20,6 @@ def _client_error(code: str, operation: str = "IAMOp", *, status_code: int = 400
     )
 
 
-class _Paginator:
-    def paginate(self, **kwargs):
-        return [{"Users": [{"UserName": "member-a", "UserId": "uid-a", "Arn": "arn:member-a"}]}]
-
-
 class _FakeIAMClient:
     def __init__(self):
         self.calls: list[tuple[str, dict]] = []
@@ -148,7 +143,10 @@ class _FakeIAMClient:
         self.calls.append(("get_group", kwargs))
         self._maybe_raise("get_group")
         group_name = kwargs["GroupName"]
-        return {"Group": {"GroupName": group_name, "Arn": f"arn:{group_name}", "Path": "/teams/"}, "Users": []}
+        return {
+            "Group": {"GroupName": group_name, "Arn": f"arn:{group_name}", "Path": "/teams/"},
+            "Users": [{"UserName": "member-a", "UserId": "uid-a", "Arn": "arn:member-a"}],
+        }
 
     def update_group(self, **kwargs):
         self.calls.append(("update_group", kwargs))
@@ -159,10 +157,6 @@ class _FakeIAMClient:
         self.calls.append(("delete_group", kwargs))
         self._maybe_raise("delete_group")
         return {}
-
-    def get_paginator(self, operation_name: str):
-        self.calls.append(("get_paginator", {"operation_name": operation_name}))
-        return _Paginator()
 
     def add_user_to_group(self, **kwargs):
         self.calls.append(("add_user_to_group", kwargs))
@@ -1160,7 +1154,7 @@ def test_remaining_tolerant_detach_paths_and_group_users_error(monkeypatch):
     fake.raise_on["untag_role"] = _client_error("NoSuchEntity", "UntagRole")
     service.untag_role("role-a", ["owner"])
 
-    monkeypatch.setattr(fake, "get_paginator", lambda operation_name: (_ for _ in ()).throw(BotoCoreError()))
+    fake.raise_on["get_group"] = BotoCoreError()
     with pytest.raises(rgw_iam.RGWIAMError, match="Unable to list IAM group members"):
         service.list_group_users("grp-a")
 

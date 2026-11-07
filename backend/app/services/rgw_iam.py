@@ -507,12 +507,11 @@ class RGWIAMService:
 
     def list_group_users(self, group_name: str) -> List[IAMUser]:
         try:
-            paginator = self.client.get_paginator("get_group")
-            members: List[IAMUser] = []
-            for page in paginator.paginate(GroupName=group_name):
-                for u in page.get("Users", []):
-                    members.append(IAMUser(name=u.get("UserName"), user_id=u.get("UserId"), arn=u.get("Arn")))
-            return members
+            users = list_iam_all(self.client, "get_group", "Users", GroupName=group_name)
+            return [
+                IAMUser(name=user.get("UserName"), user_id=user.get("UserId"), arn=user.get("Arn"))
+                for user in users
+            ]
         except (BotoCoreError, ClientError) as exc:
             raise RGWIAMError(f"Unable to list IAM group members: {exc}") from exc
 
