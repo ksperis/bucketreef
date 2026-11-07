@@ -9,12 +9,8 @@ import {
 } from "../cephAdmin/bucketJsonParsers";
 import {
   PUBLIC_ACCESS_BLOCK_OPTIONS,
-  applyPublicAccessBlockTargets,
   formatPublicAccessBlockFlag,
   formatPublicAccessBlockState,
-  hasConfiguredQuota,
-  isPublicAccessBlockEquivalent,
-  normalizePublicAccessBlockState,
   type BulkOperation,
   type BulkPreviewItem,
   type BulkPreviewLine,
@@ -38,9 +34,11 @@ import type { BucketOpsApi } from "./bucketOpsApi";
 import type { PreparedBucketOpsBulkInput } from "./bucketOpsBulkInput";
 import { runBucketPreviewBatch } from "./bucketOpsBulkPreviewExecution";
 import {
-  formatVersioningStatus,
-  normalizeVersioningStatus,
-} from "./bucketOpsPresentation";
+  resolveBulkPublicAccessBlockTarget,
+  resolveBulkQuotaTarget,
+  resolveBulkVersioningTarget,
+} from "./bucketOpsBulkTargets";
+import { formatVersioningStatus } from "./bucketOpsPresentation";
 
 type BucketOpsBulkPreviewApi = Pick<
   BucketOpsApi,
@@ -105,8 +103,10 @@ export async function previewBucketOpsBulkUpdate({
   const buildVersioningPreview = async (bucketName: string) => {
     const properties = await getBucketProperties(endpointId, bucketName);
     const currentStatus = formatVersioningStatus(properties.versioning_status);
-    const currentEnabled = normalizeVersioningStatus(properties.versioning_status);
-    const changed = currentEnabled === null || currentEnabled !== desiredEnabled;
+    const { currentEnabled, changed } = resolveBulkVersioningTarget(
+      properties.versioning_status,
+      desiredEnabled,
+    );
     return {
       bucket: bucketName,
       changed,
@@ -130,15 +130,11 @@ export async function previewBucketOpsBulkUpdate({
   };
 
   const buildPublicAccessBlockPreview = async (bucketName: string) => {
-    const current = normalizePublicAccessBlockState(
+    const { current, target, changed } = resolveBulkPublicAccessBlockTarget(
       await getBucketPublicAccessBlock(endpointId, bucketName),
-    );
-    const target = applyPublicAccessBlockTargets(
-      current,
       desiredPublicAccessBlockEnabled,
       publicAccessBlockTargets ?? [],
     );
-    const changed = !isPublicAccessBlockEquivalent(current, target);
     return {
       bucket: bucketName,
       changed,
@@ -171,11 +167,16 @@ export async function previewBucketOpsBulkUpdate({
       return { bucket: bucketName, changed: false, before: [], after: [] };
     }
     const currentQuota = await fetchBucketQuota(bucketName);
+    const target = resolveBulkQuotaTarget(
+      currentQuota,
+      parsedQuota,
+      quotaSkipConfigured,
+    );
     const sizeText = (value: number | null) =>
       value != null ? formatBytes(value) : "Not set";
     const objectsText = (value: number | null) =>
       value != null ? formatNumber(value) : "Not set";
-    if (quotaSkipConfigured && hasConfiguredQuota(currentQuota)) {
+    if (target.preserved) {
       return {
         bucket: bucketName,
         changed: false,
@@ -190,17 +191,13 @@ export async function previewBucketOpsBulkUpdate({
         ],
       };
     }
-    const afterSize = parsedQuota.applySize
-      ? parsedQuota.maxSizeBytes
-      : currentQuota.maxSizeBytes;
-    const afterObjects = parsedQuota.applyObjects
-      ? parsedQuota.maxObjects
-      : currentQuota.maxObjects;
-    const sizeChanged = currentQuota.maxSizeBytes !== afterSize;
-    const objectsChanged = currentQuota.maxObjects !== afterObjects;
+    const afterSize = target.maxSizeBytes;
+    const afterObjects = target.maxObjects;
+    const sizeChanged = currentQuota.maxSizeBytes !== target.maxSizeBytes;
+    const objectsChanged = currentQuota.maxObjects !== target.maxObjects;
     return {
       bucket: bucketName,
-      changed: sizeChanged || objectsChanged,
+      changed: target.changed,
       before: [
         {
           text: `Size: ${sizeText(currentQuota.maxSizeBytes)}`,
