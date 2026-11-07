@@ -24,6 +24,7 @@ from app.services.app_settings_service import load_app_settings_for_db
 from app.services.buckets_service import BucketsService, get_buckets_service
 from app.services.healthcheck_query_service import HealthCheckQueryService
 from app.services.rgw_admin import RGWAdminError
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.traffic_service import TrafficService, TrafficWindow
 from app.services.usage_trends_service import (
@@ -51,7 +52,7 @@ def account_stats(
     try:
         buckets = bucket_service.list_buckets(context)
         total_buckets = len(buckets)
-    except RuntimeError as exc:
+    except S3OperationError as exc:
         raise_http_exception_from_exception(
             502,
             exc,

@@ -3,6 +3,9 @@
 
 from types import SimpleNamespace
 
+import pytest
+from fastapi import HTTPException
+
 from app.db.openstack import OpenStackCloud
 from app.main import app
 from app.models.admin_listing import AdminOptionListingRequest, AdminPaginatedListingRequest
@@ -15,6 +18,7 @@ from app.routers.admin import users as users_router
 from app.routers.manager import buckets as buckets_router
 from app.services.buckets_service import BucketsService
 from app.services.execution_context_catalog_service import ExecutionContextCatalogService
+from app.services.s3_client import S3OperationError
 
 
 def test_manager_bucket_options_search_sort_and_paginate(monkeypatch):
@@ -41,6 +45,40 @@ def test_manager_bucket_options_search_sort_and_paginate(monkeypatch):
     assert response.page == 2
     assert response.page_size == 1
     assert response.has_next is False
+
+
+def test_manager_bucket_options_maps_expected_s3_errors(monkeypatch):
+    monkeypatch.setattr(
+        buckets_router,
+        "get_cached_bucket_listing_for_context",
+        lambda **_kwargs: (_ for _ in ()).throw(S3OperationError("S3 bucket listing unavailable")),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        buckets_router.list_bucket_options(
+            query=OptionListingRequest(),
+            context=object(),
+            service=BucketsService(),
+            _=object(),
+        )
+
+    assert exc_info.value.status_code == 502
+
+
+def test_manager_bucket_options_does_not_mask_unexpected_runtime_errors(monkeypatch):
+    monkeypatch.setattr(
+        buckets_router,
+        "get_cached_bucket_listing_for_context",
+        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("unexpected bucket listing bug")),
+    )
+
+    with pytest.raises(RuntimeError, match="unexpected bucket listing bug"):
+        buckets_router.list_bucket_options(
+            query=OptionListingRequest(),
+            context=object(),
+            service=BucketsService(),
+            _=object(),
+        )
 
 
 def test_execution_context_options_filter_search_exclude_and_paginate(monkeypatch):

@@ -254,6 +254,26 @@ def test_list_buckets_propagates_unexpected_admin_stats_runtime_errors(monkeypat
         service.list_buckets(account)
 
 
+def test_s3_request_kwargs_types_missing_execution_credentials():
+    service = BucketsService()
+    account = S3Account(name="missing-credentials", rgw_access_key=None, rgw_secret_key=None)
+
+    with pytest.raises(s3_client.S3OperationError, match="missing admin credentials"):
+        service._s3_request_kwargs(account)
+
+
+def test_s3_request_kwargs_does_not_mask_unexpected_credential_runtime_error():
+    service = BucketsService()
+
+    class BrokenContext:
+        @staticmethod
+        def effective_rgw_credentials():
+            raise RuntimeError("unexpected credential resolver bug")
+
+    with pytest.raises(RuntimeError, match="unexpected credential resolver bug"):
+        service._s3_request_kwargs(BrokenContext())
+
+
 def test_get_bucket_stats_skips_admin_for_bucket_outside_s3_scope(monkeypatch):
     service = BucketsService()
     account = _build_account()

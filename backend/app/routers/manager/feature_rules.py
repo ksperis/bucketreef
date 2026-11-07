@@ -16,6 +16,7 @@ from app.services.bucket_configuration_service import (
     get_bucket_configuration_service,
 )
 from app.services.feature_rule_inventory_service import FeatureRuleInventoryService
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.http_errors import raise_bad_gateway_from_runtime
 
@@ -33,5 +34,5 @@ def list_feature_rule_inventory(
 ) -> list[FeatureRuleInventoryBucket]:
     try:
         return FeatureRuleInventoryService(buckets_service, configuration_service).list_inventory(feature, context)
-    except RuntimeError as exc:
+    except S3OperationError as exc:
         raise_bad_gateway_from_runtime(exc)

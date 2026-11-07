@@ -4,7 +4,7 @@ import logging
 
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
-from app.services.s3_execution_client import s3_execution_request_kwargs
+from app.services.s3_execution_client import S3ExecutionCredentialsError, s3_execution_request_kwargs
 from app.services.bucket_configuration_service import BucketConfigurationService
 from app.services import bucket_feature_enrichment
 from app.services import (
@@ -31,6 +31,13 @@ class BucketStatsUnavailableError(RuntimeError):
 class BucketsService:
     def __init__(self, configuration: BucketConfigurationService | None = None) -> None:
         self.configuration = configuration or BucketConfigurationService()
+
+    @staticmethod
+    def _s3_request_kwargs(execution_context: S3ExecutionTarget) -> dict:
+        try:
+            return s3_execution_request_kwargs(execution_context)
+        except S3ExecutionCredentialsError as exc:
+            raise s3_client.S3OperationError(str(exc)) from exc
 
     def _rgw_runtime_for_context(self, execution_context: S3ExecutionTarget):
         if isinstance(execution_context, S3ExecutionContext) and execution_context.context_kind == "openstack_project":
@@ -157,7 +164,7 @@ class BucketsService:
         include: set[str] | None = None,
         with_stats: bool = True,
     ) -> list[Bucket]:
-        buckets = s3_client.list_buckets(**s3_execution_request_kwargs(execution_context))
+        buckets = s3_client.list_buckets(**self._s3_request_kwargs(execution_context))
         admin_by_name = self._admin_stats_by_bucket(
             execution_context,
             with_stats=with_stats,
@@ -225,7 +232,7 @@ class BucketsService:
             raise RuntimeError("Bucket name is required")
 
         tenant = resolve_target_tenant(execution_context)
-        buckets = s3_client.list_buckets(**s3_execution_request_kwargs(execution_context))
+        buckets = s3_client.list_buckets(**self._s3_request_kwargs(execution_context))
         creation_date = None
         bucket_in_scope = False
         for entry in buckets:
@@ -279,14 +286,14 @@ class BucketsService:
             name,
             location_constraint=location_constraint,
             object_lock_enabled=object_lock_enabled,
-            **s3_execution_request_kwargs(execution_context),
+            **self._s3_request_kwargs(execution_context),
         )
         effective_versioning = bool(versioning or object_lock_enabled)
         if effective_versioning:
             s3_client.set_bucket_versioning(
                 name,
                 enabled=True,
-                **s3_execution_request_kwargs(execution_context),
+                **self._s3_request_kwargs(execution_context),
             )
         logger.debug(
             "S3 execution context %s created bucket %s (versioning=%s object_lock=%s location=%s)",
@@ -304,7 +311,7 @@ class BucketsService:
         force: bool = False,
     ) -> None:
         s3_deletion.delete_bucket(
-            name, force=force, **s3_execution_request_kwargs(execution_context)
+            name, force=force, **self._s3_request_kwargs(execution_context)
         )
         logger.debug(
             "S3 execution context %s deleted bucket %s force=%s",

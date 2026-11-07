@@ -12,6 +12,7 @@ from app.models.bucket import BucketLifecycleConfig, BucketNotificationConfigura
 from app.routers import dependencies
 from app.routers.manager import feature_rules as feature_rules_router
 from app.services import feature_rule_inventory_service
+from app.services.s3_client import S3OperationError
 
 
 class FakeBucketsService:
@@ -120,6 +121,31 @@ def test_feature_rules_lists_lifecycle_rules_for_all_buckets(feature_rule_client
     assert body[0]["rules"][0]["raw"]["Expiration"]["Days"] == 30
     assert body[1]["status"] == "empty"
     assert body[1]["rules"] == []
+
+
+def test_feature_rules_maps_expected_bucket_listing_s3_errors(feature_rule_client, monkeypatch):
+    client, service = feature_rule_client
+    monkeypatch.setattr(
+        service,
+        "list_buckets",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(S3OperationError("S3 listing unavailable")),
+    )
+
+    response = client.get("/api/manager/feature-rules", params={"feature": "lifecycle"})
+
+    assert response.status_code == 502
+
+
+def test_feature_rules_does_not_mask_unexpected_bucket_listing_runtime_errors(feature_rule_client, monkeypatch):
+    client, service = feature_rule_client
+    monkeypatch.setattr(
+        service,
+        "list_buckets",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("unexpected bucket listing bug")),
+    )
+
+    with pytest.raises(RuntimeError, match="unexpected bucket listing bug"):
+        client.get("/api/manager/feature-rules", params={"feature": "lifecycle"})
 
 
 def test_feature_rules_lists_bucket_policy_statements(feature_rule_client):

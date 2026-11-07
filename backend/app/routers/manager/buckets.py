@@ -63,6 +63,7 @@ from app.services.manager_bucket_compare_service import (
     compare_manager_buckets,
     remediate_manager_bucket_comparison,
 )
+from app.services.s3_client import S3OperationError
 from app.utils.http_errors import raise_bad_gateway_from_runtime, raise_bad_request_from_value_error
 from app.routers.manager.access import require_bucket_management_context
 from app.routers.dependencies import (
@@ -186,7 +187,7 @@ def list_buckets(
             with_stats=with_stats,
             builder=lambda: service.list_buckets(context, include=include_set, with_stats=with_stats),
         )
-    except RuntimeError as exc:
+    except S3OperationError as exc:
         raise_bad_gateway_from_runtime(exc)
 
 
@@ -204,7 +205,7 @@ def list_bucket_options(
             with_stats=False,
             builder=lambda: service.list_buckets(context, include=set(), with_stats=False),
         )
-    except RuntimeError as exc:
+    except S3OperationError as exc:
         raise_bad_gateway_from_runtime(exc)
 
     return service.build_bucket_options_page(buckets, query)
@@ -220,7 +221,7 @@ def get_bucket_stats(
 ) -> Bucket:
     try:
         return service.get_bucket_stats(bucket_name, context, with_stats=with_stats)
-    except RuntimeError as exc:
+    except S3OperationError as exc:
         raise_bad_gateway_from_runtime(exc)
 
 
