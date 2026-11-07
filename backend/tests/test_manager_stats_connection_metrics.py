@@ -389,6 +389,22 @@ def test_manager_stats_overview_sanitizes_bucket_error_details():
     assert "top-secret" not in detail
 
 
+def test_manager_stats_overview_does_not_translate_unexpected_value_errors():
+    account = make_s3_execution_context(
+        can_manage_buckets=True,
+        name="stats-error-account",
+        rgw_account_id="rgw-stats-error",
+        rgw_user_uid="rgw-stats-error-admin",
+    )
+
+    class _BrokenBucketsService:
+        def list_buckets(self, target_account):
+            raise ValueError("unexpected bucket projection error")
+
+    with pytest.raises(ValueError, match="unexpected bucket projection error"):
+        manager_stats_router.account_stats(context=account, bucket_service=_BrokenBucketsService(), _={})
+
+
 def test_manager_stats_traffic_allows_connection_with_resolved_identity(db_session, monkeypatch):
     user = User(
         email="manager-stats-conn-traffic@example.com",
