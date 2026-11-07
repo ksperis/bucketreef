@@ -8,20 +8,21 @@ from botocore.exceptions import BotoCoreError, ClientError
 
 from app.models.manager_object_listing import ListObjectsResponse, S3Object
 from app.services.object_listing_identity import is_current_folder_marker
-from app.services.s3_client import get_s3_client
-from app.services.s3_execution_client import s3_execution_request_kwargs
+from app.services.s3_client import S3OperationError, get_s3_client
+from app.services.s3_execution_client import S3ExecutionCredentialsError, s3_execution_request_kwargs
 from app.services.s3_execution_context import S3ExecutionTarget
 
 
 class ManagerObjectListingService:
     def _client(self, context: S3ExecutionTarget):
-        return get_s3_client(
-            request_profile="long_running",
-            **s3_execution_request_kwargs(
+        try:
+            request_kwargs = s3_execution_request_kwargs(
                 context,
                 error_message="Execution context credentials are missing",
-            ),
-        )
+            )
+        except S3ExecutionCredentialsError as exc:
+            raise S3OperationError(str(exc)) from exc
+        return get_s3_client(request_profile="long_running", **request_kwargs)
 
     def list_objects(
         self,
@@ -44,7 +45,7 @@ class ManagerObjectListingService:
         try:
             response = client.list_objects_v2(**kwargs)
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(f"Unable to list objects for '{bucket_name}': {exc}") from exc
+            raise S3OperationError(f"Unable to list objects for '{bucket_name}': {exc}") from exc
 
         objects: list[S3Object] = []
         for entry in response.get("Contents", []):
