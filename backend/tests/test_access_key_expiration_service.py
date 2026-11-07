@@ -11,7 +11,10 @@ from app.core.domain_enums import StorageProvider
 from app.models.iam import AccessKey
 from app.models.s3_user import S3UserAccessKey
 from app.services import access_key_expiration_service
-from app.services.access_key_expiration_service import AccessKeyExpirationService
+from app.services.access_key_expiration_service import (
+    AccessKeyExpirationService,
+    RetryableExpirationError,
+)
 from app.utils.time import utcnow
 
 
@@ -206,6 +209,52 @@ def test_provider_failure_is_retried_without_marking_key_expired(db_session, mon
     assert row.expiration_state == "retrying"
     assert row.expiration_enforced_at is None
     assert "temporary provider outage" in (row.expiration_last_error or "")
+
+
+def test_missing_account_credentials_are_typed_as_retryable():
+    account = S3Account(
+        name="expiration-account-missing-credentials",
+        rgw_account_id="80000000000000009",
+        rgw_user_uid="80000000000000009-admin",
+        rgw_access_key=None,
+        rgw_secret_key=None,
+    )
+
+    with pytest.raises(
+        RetryableExpirationError,
+        match="credentials are unavailable",
+    ):
+        AccessKeyExpirationService._iam_service_for_account(account)
+
+
+def test_s3_user_provider_must_confirm_key_is_inactive(db_session, monkeypatch):
+    endpoint = _endpoint(db_session)
+    s3_user = _s3_user(db_session, endpoint)
+    row = _due_s3_user_row(db_session, s3_user)
+
+    class UnconfirmedS3UsersService(_FakeS3UsersService):
+        def set_key_status(
+            self,
+            user_id: int,
+            access_key: str,
+            active: bool,
+        ) -> S3UserAccessKey:
+            self.calls.append(("set", user_id, access_key, active))
+            return S3UserAccessKey(
+                access_key_id=access_key,
+                status="enabled",
+                is_ui_managed=False,
+                is_active=True,
+            )
+
+    fake = UnconfirmedS3UsersService(db_session, active=True)
+    monkeypatch.setattr(access_key_expiration_service, "S3UsersService", lambda _db: fake)
+
+    with pytest.raises(
+        RetryableExpirationError,
+        match="did not confirm the RGW access key as inactive",
+    ):
+        AccessKeyExpirationService(db_session)._process_s3_user(row)
 
 
 def test_failure_state_commit_failure_restores_session(db_session, monkeypatch):
@@ -408,6 +457,17 @@ def test_iam_provider_must_confirm_key_is_inactive(db_session, monkeypatch):
             status: str,
         ) -> None:
             self.calls.append(("set", user_name, access_key_id, status))
+
+    fake = UnconfirmedIamService()
+    with pytest.raises(
+        RetryableExpirationError,
+        match="did not confirm the IAM access key as inactive",
+    ):
+        AccessKeyExpirationService._ensure_iam_key_inactive(
+            fake,
+            principal_name="alice",
+            access_key_id="AK-IAM",
+        )
 
     fake = UnconfirmedIamService()
     monkeypatch.setattr(
