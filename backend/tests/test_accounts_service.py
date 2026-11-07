@@ -11,6 +11,7 @@ from app.core.domain_errors import CompensationFailureError, S3AccountNotFoundEr
 from app.services import s3_account_deletion_service as s3_account_deletion_service_module
 from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_account_root_service import RgwAccountRootService
+from app.services.s3_account_metrics_service import S3AccountMetricsService
 from app.services.s3_account_provisioning_service import S3AccountProvisioningService
 from app.services.s3_account_rgw_context_service import S3AccountRgwContextService
 from app.services.s3_accounts_service import S3AccountsService
@@ -1005,7 +1006,7 @@ def test_create_account_requires_account_api_feature(db_session, monkeypatch):
         svc.create_account_with_manager(payload)
 
 
-def test_get_account_limits_returns_quota_and_entity_limits(db_session, monkeypatch):
+def test_account_metrics_limits_return_quota_and_entity_limits(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
     account = S3Account(
         name="LimitedAccount",
@@ -1036,12 +1037,15 @@ def test_get_account_limits_returns_quota_and_entity_limits(db_session, monkeypa
             },
         }
     )
-    svc = _build_service(db_session, monkeypatch, fake_admin)
+    monkeypatch.setattr(
+        "app.services.s3_account_metrics_service.get_endpoint_runtime_rgw_client",
+        lambda _endpoint: fake_admin,
+    )
 
-    assert svc.get_account_limits(account) == (10, 2_000, 8, 20, 12, 6)
+    assert S3AccountMetricsService().get_limits(account) == (10, 2_000, 8, 20, 12, 6)
 
 
-def test_get_account_limits_does_not_repeat_lookup_without_embedded_quota(db_session, monkeypatch):
+def test_account_metrics_limits_do_not_repeat_lookup_without_embedded_quota(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
     account = S3Account(
         name="LimitsWithoutQuota",
@@ -1058,9 +1062,12 @@ def test_get_account_limits_does_not_repeat_lookup_without_embedded_quota(db_ses
         }
     )
     fake_admin.get_account_quota = lambda _account_id: pytest.fail("account payload must not be loaded twice")
-    svc = _build_service(db_session, monkeypatch, fake_admin)
+    monkeypatch.setattr(
+        "app.services.s3_account_metrics_service.get_endpoint_runtime_rgw_client",
+        lambda _endpoint: fake_admin,
+    )
 
-    assert svc.get_account_limits(account) == (None, None, 5, None, None, None)
+    assert S3AccountMetricsService().get_limits(account) == (None, None, 5, None, None, None)
 
 
 class FakeRGWAdminImport:

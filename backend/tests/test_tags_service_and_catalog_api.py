@@ -243,7 +243,7 @@ def test_execution_contexts_selector_hides_administrative_tags(client: TestClien
 
     app.dependency_overrides[dependencies.get_current_account_user] = lambda: user
     monkeypatch.setattr(
-        "app.services.s3_accounts_service.S3AccountsService.get_account_limits",
+        "app.services.s3_account_metrics_service.S3AccountMetricsService.get_limits",
         lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("Execution context catalog must stay local")),
     )
     response = client.get("/api/me/execution-contexts", params={"workspace": "manager"})

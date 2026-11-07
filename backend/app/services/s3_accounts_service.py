@@ -1,7 +1,5 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from typing import Optional
-
 from sqlalchemy.orm import Session
 
 from app.db import S3Account
@@ -14,7 +12,6 @@ from app.models.s3_account import (
     S3AccountUpdate,
 )
 from app.services.mappers.s3_account import s3_account_from_db
-from app.services.rgw_admin import RGWAdminClient
 from app.services.rgw_account_topics_resolver import RgwAccountTopicsResolver
 from app.services.rgw_account_root_service import RgwAccountRootService
 from app.services.s3_account_associations_service import S3AccountAssociationsService
@@ -87,22 +84,6 @@ class S3AccountsService:
 
     def get_account_record(self, account_id: int) -> S3Account:
         return self.repository.get(account_id)
-
-    def find_account_by_rgw_id(self, rgw_account_id: str) -> Optional[S3Account]:
-        return self.repository.find_by_rgw_id(rgw_account_id)
-
-    def get_account_quota(
-        self,
-        account: S3Account,
-        admin: Optional[RGWAdminClient] = None,
-    ) -> tuple[Optional[float], Optional[int]]:
-        return self.metrics.get_quota(account, admin)
-
-    def get_account_limits(
-        self,
-        account: S3Account,
-    ) -> tuple[Optional[float], Optional[int], Optional[int], Optional[int], Optional[int], Optional[int]]:
-        return self.metrics.get_limits(account)
 
     def list_accounts(
         self,
