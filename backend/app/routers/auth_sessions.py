@@ -416,7 +416,7 @@ def revoke_webauthn_credential(
     try:
         WebAuthnService(db).revoke_credential(current_user, credential_id)
     except LastRequiredPasskeyError as exc:
-        raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
+        raise_http_error_from_value_error(exc)
     except WebAuthnSecurityError as exc:
         raise HTTPException(status_code=400, detail="Passkey cannot be revoked") from exc
     AuthSessionService(db).revoke_all_for_user(current_user, "mfa_changed", increment_version=False)
