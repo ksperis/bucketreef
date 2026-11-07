@@ -48,6 +48,7 @@ from app.services.bucket_migration.execution_object_models import (
 )
 from app.services.bucket_migration.diagnostics import (
     MigrationCopyGrantError,
+    MigrationPolicyApplyError,
     MigrationPrecheckError,
     MigrationRecoveryError,
 )
@@ -4763,7 +4764,9 @@ def test_apply_target_lock_fails_when_lock_cannot_be_applied(db_session):
     db_session.commit()
 
     service._apply_target_write_lock_policy = (  # type: ignore[method-assign]
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("lock denied"))
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            MigrationPolicyApplyError("Unable to set destination bucket write-lock: lock denied")
+        )
     )
     service._remove_managed_target_write_lock_statement = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
     service._sync_bucket = lambda *_args, **_kwargs: (  # type: ignore[method-assign]
@@ -4792,7 +4795,7 @@ def test_apply_target_lock_fails_when_lock_cannot_be_applied(db_session):
         service._run_item(migration, item, source_ctx, target_ctx, control_check=_control_check)
         assert False, "Expected target write-lock application failure to stop the item"
     except RuntimeError as exc:
-        assert "Target write-lock policy could not be applied" in str(exc)
+        assert "Unable to set destination bucket write-lock" in str(exc)
 
     db_session.refresh(item)
     assert item.status == "running"
@@ -4847,18 +4850,20 @@ def test_apply_target_lock_sanitizes_apply_and_restore_failures(db_session):
     item.target_policy_backup = "{}"
     db_session.commit()
 
-    service._apply_target_write_lock_policy = Mock(
-        side_effect=RuntimeError(
+    def fail_after_write_lock_marker(*_args, **_kwargs):
+        item.target_lock_applied = True
+        raise MigrationPolicyApplyError(
             "secret_key=APPLYSECRET endpoint=https://apply.private.example.test/admin"
         )
-    )
+
+    service._apply_target_write_lock_policy = Mock(side_effect=fail_after_write_lock_marker)
     service._restore_target_write_lock_policy = Mock(
         side_effect=RuntimeError(
             "secret_key=RESTORESECRET endpoint=https://restore.private.example.test/admin"
         )
     )
 
-    with pytest.raises(RuntimeError) as error:
+    with pytest.raises(MigrationRecoveryError) as error:
         service._run_apply_target_lock_step(
             migration,
             item,
@@ -4871,6 +4876,36 @@ def test_apply_target_lock_sanitizes_apply_and_restore_failures(db_session):
     assert "apply.private.example.test" not in message
     assert "restore.private.example.test" not in message
     assert message.count("secret_key=<redacted> endpoint=<redacted-url>") == 2
+
+
+def test_apply_target_lock_does_not_mask_unexpected_runtime_failure(db_session):
+    service = BucketMigrationService(db_session)
+    migration = SimpleNamespace(mode="pre_sync")
+    item = SimpleNamespace(
+        target_bucket="bucket-a-dst",
+        target_lock_applied=False,
+        target_policy_backup=None,
+    )
+    target_ctx = SimpleNamespace(execution_context=object())
+    removed: list[str] = []
+
+    def fail_after_marker(*_args, **_kwargs):
+        item.target_lock_applied = True
+        raise RuntimeError("unexpected lock regression")
+
+    service._apply_target_write_lock_policy = fail_after_marker  # type: ignore[method-assign]
+    service._remove_managed_target_write_lock_statement = (  # type: ignore[method-assign]
+        lambda bucket, _context: removed.append(bucket)
+    )
+    service._verify_restored_bucket_policy = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
+    service._commit = lambda: None  # type: ignore[method-assign]
+
+    with pytest.raises(RuntimeError, match="^unexpected lock regression$"):
+        service._run_apply_target_lock_step(migration, item, target_ctx)
+
+    assert removed == ["bucket-a-dst"]
+    assert item.target_lock_applied is False
+    assert item.target_policy_backup is None
 
 
 def test_fail_migration_fatal_marks_failed_and_releases_lease(db_session, monkeypatch):

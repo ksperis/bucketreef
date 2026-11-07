@@ -14,7 +14,11 @@ from app.services.rgw_principal_scope import resolve_target_admin_uid
 from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionTarget
 
-from .diagnostics import MigrationCopyGrantError, MigrationPrecheckError
+from .diagnostics import (
+    MigrationCopyGrantError,
+    MigrationPolicyApplyError,
+    MigrationPrecheckError,
+)
 from .execution_runtime import MIGRATION_USER_AGENT_MARKER, ResolvedContext
 
 _READ_ONLY_POLICY_SID = "BucketReefMigrationReadOnlyDeny"
@@ -534,7 +538,16 @@ class BucketMigrationPolicyGrantsMixin:
         self._assert_workflow_lease()
         if item.target_lock_applied:
             return
-        existing_policy = self._configuration.get_policy(target_bucket, target_ctx.execution_context)
+        try:
+            existing_policy = self._configuration.get_policy(
+                target_bucket,
+                target_ctx.execution_context,
+            )
+        except S3OperationError as exc:
+            raise MigrationPolicyApplyError(
+                "Unable to read destination bucket policy before applying write-lock: "
+                f"{sanitized_error_log_detail(exc)}"
+            ) from exc
         item.target_policy_backup = existing_policy if isinstance(existing_policy, dict) else None
         item.target_lock_applied = True
         self._commit()
@@ -546,11 +559,14 @@ class BucketMigrationPolicyGrantsMixin:
             self._configuration.put_policy(target_bucket, target_ctx.execution_context, lock_policy_doc)
         except S3OperationError as exc:
             if self._is_access_denied_error(exc):
-                raise RuntimeError(
+                raise MigrationPolicyApplyError(
                     "Unable to set destination bucket write-lock: access denied on PutBucketPolicy. "
                     f"Required permissions on '{target_bucket}': s3:GetBucketPolicy and s3:PutBucketPolicy."
                 ) from exc
-            raise
+            raise MigrationPolicyApplyError(
+                "Unable to set destination bucket write-lock: "
+                f"{sanitized_error_log_detail(exc)}"
+            ) from exc
 
     def _restore_target_write_lock_policy(
         self,

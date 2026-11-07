@@ -22,6 +22,7 @@ from .diagnostics import (
     MigrationExecutionStrategyError,
     MigrationPermissionCheckError,
     MigrationPrecheckError,
+    MigrationRecoveryError,
 )
 
 
@@ -289,34 +290,34 @@ class BucketMigrationItemRunnerMixin:
             self._apply_target_write_lock_policy(target_ctx, item.target_bucket, item)
             item.target_lock_applied = True
         except Exception as exc:  # noqa: BLE001
-            lock_error = sanitized_error_log_detail(exc)
-            try:
-                if item.target_policy_backup is not None:
-                    self._restore_target_write_lock_policy(
+            if item.target_lock_applied:
+                try:
+                    if item.target_policy_backup is not None:
+                        self._restore_target_write_lock_policy(
+                            target_ctx.execution_context,
+                            item.target_bucket,
+                            item,
+                        )
+                    else:
+                        self._remove_managed_target_write_lock_statement(
+                            item.target_bucket,
+                            target_ctx.execution_context,
+                        )
+                    self._verify_restored_bucket_policy(
                         target_ctx.execution_context,
                         item.target_bucket,
-                        item,
+                        item.target_policy_backup,
                     )
-                else:
-                    self._remove_managed_target_write_lock_statement(
-                        item.target_bucket,
-                        target_ctx.execution_context,
-                    )
-                self._verify_restored_bucket_policy(
-                    target_ctx.execution_context,
-                    item.target_bucket,
-                    item.target_policy_backup,
-                )
-            except Exception as restore_exc:
-                lock_error = (
-                    f"{lock_error}; restore attempt failed: "
-                    f"{sanitized_error_log_detail(restore_exc)}"
-                )
-            else:
+                except Exception as restore_exc:
+                    raise MigrationRecoveryError(
+                        "Destination write-lock application failed and policy restoration also failed. "
+                        f"Apply error: {sanitized_error_log_detail(exc)}. "
+                        f"Restore error: {sanitized_error_log_detail(restore_exc)}"
+                    ) from exc
                 item.target_lock_applied = False
                 item.target_policy_backup = None
                 self._commit()
-            raise RuntimeError(f"Target write-lock policy could not be applied: {lock_error}") from exc
+            raise
 
         item.step = "pre_sync" if migration.mode == "pre_sync" and not item.pre_sync_done else "apply_read_only"
         item.updated_at = utcnow()
