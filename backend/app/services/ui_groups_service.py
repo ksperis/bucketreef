@@ -20,7 +20,6 @@ from app.db.openstack import OpenStackCloud, cloud_groups
 from app.db.ui_group import ALL_USERS_SYSTEM_KEY
 from app.models.ui_group import (
     UiGroupCreate,
-    UiGroupOut,
     UiGroupUpdate,
 )
 from app.models.user import (
@@ -212,9 +211,6 @@ class UiGroupsService:
         if group is None:
             raise UiGroupNotFoundError("UI group not found")
         return group
-
-    def group_to_out(self, group: UiGroup) -> UiGroupOut:
-        return self.queries.group_to_out(group)
 
     def _set_user_links(self, group: UiGroup, target_ids: list[int]) -> None:
         cleaned_ids = self._clean_ids(target_ids)

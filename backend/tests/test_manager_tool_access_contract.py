@@ -13,6 +13,7 @@ from app.services.effective_access_service import EffectiveAccessService
 from app.services.identity_security_policy import admin_user_update_requires_step_up
 from app.services.manager_tool_access import MANAGER_TOOL_COLUMNS
 from app.services.ui_groups_service import UiGroupsService
+from app.services.ui_group_query_service import UiGroupQueryService
 from app.services.users_service import UsersService
 
 
@@ -80,7 +81,7 @@ def test_manager_tool_grants_round_trip_create_update_and_output(db_session, ent
     else:
         service = UiGroupsService(db_session)
         subject = service.create_group(_group_create(manager_tool_access=initial))
-        to_out = service.group_to_out
+        to_out = UiGroupQueryService(db_session).group_to_out
         update = service.update_group
         payload_type = UiGroupUpdate
 
@@ -132,7 +133,7 @@ def test_role_masking_does_not_rewrite_group_grants(db_session):
     ))
     assert service.user_to_out(user).manager_tool_access == _access(())
     assert service.user_to_out(user).effective_access.manager_tool_access == _access(())
-    assert group_service.group_to_out(group).manager_tool_access == _access(_TOOLS)
+    assert UiGroupQueryService(db_session).group_to_out(group).manager_tool_access == _access(_TOOLS)
 
     service.update_user(user.id, UserUpdate(role=UserRole.UI_USER.value))
     assert service.user_to_out(user).manager_tool_access == _access(())

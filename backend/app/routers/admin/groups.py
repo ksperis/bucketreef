@@ -84,6 +84,7 @@ def create_group(
     request: Request,
     payload: UiGroupCreate,
     groups_service: UiGroupsService = Depends(get_groups_service_dependency),
+    group_queries: UiGroupQueryService = Depends(get_group_query_service_dependency),
     current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
     db: Session = Depends(get_db),
@@ -112,7 +113,7 @@ def create_group(
                 "can_access_storage_ops": group.can_access_storage_ops,
             },
         )
-        return groups_service.group_to_out(group)
+        return group_queries.group_to_out(group)
     except ValueError as exc:
         raise_bad_request_from_value_error(exc)
 
@@ -123,6 +124,7 @@ def update_group(
     group_id: int,
     payload: UiGroupUpdate,
     groups_service: UiGroupsService = Depends(get_groups_service_dependency),
+    group_queries: UiGroupQueryService = Depends(get_group_query_service_dependency),
     current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
     db: Session = Depends(get_db),
@@ -144,7 +146,7 @@ def update_group(
             entity_id=str(group_id),
             metadata=payload.model_dump(exclude_unset=True, exclude_none=True),
         )
-        return groups_service.group_to_out(group)
+        return group_queries.group_to_out(group)
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
 
@@ -154,6 +156,7 @@ async def upload_group_avatar(
     group_id: int,
     file: UploadFile = File(...),
     groups_service: UiGroupsService = Depends(get_groups_service_dependency),
+    group_queries: UiGroupQueryService = Depends(get_group_query_service_dependency),
     current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
     db: Session = Depends(get_db),
@@ -172,13 +175,14 @@ async def upload_group_avatar(
         entity_id=str(group_id),
         metadata={"content_type": group.avatar_content_type, "size_bytes": len(payload)},
     )
-    return groups_service.group_to_out(group)
+    return group_queries.group_to_out(group)
 
 
 @router.delete("/{group_id}/avatar", response_model=UiGroupOut)
 def delete_group_avatar(
     group_id: int,
     groups_service: UiGroupsService = Depends(get_groups_service_dependency),
+    group_queries: UiGroupQueryService = Depends(get_group_query_service_dependency),
     current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
     db: Session = Depends(get_db),
@@ -195,7 +199,7 @@ def delete_group_avatar(
         entity_type="ui_group",
         entity_id=str(group_id),
     )
-    return groups_service.group_to_out(group)
+    return group_queries.group_to_out(group)
 
 
 @router.get("/{group_id}/avatar")
