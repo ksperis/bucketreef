@@ -4,7 +4,7 @@
  */
 import { useCallback, useState } from "react";
 
-type BrowserConfirmDialogState = {
+export type BrowserConfirmDialogRequest = {
   title: string;
   message: string;
   confirmLabel: string;
@@ -13,10 +13,10 @@ type BrowserConfirmDialogState = {
 };
 
 export function useBrowserConfirmDialog() {
-  const [dialog, setDialog] = useState<BrowserConfirmDialogState | null>(null);
+  const [dialog, setDialog] = useState<BrowserConfirmDialogRequest | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const open = useCallback((nextDialog: BrowserConfirmDialogState) => {
+  const open = useCallback((nextDialog: BrowserConfirmDialogRequest) => {
     setDialog(nextDialog);
     setLoading(false);
   }, []);

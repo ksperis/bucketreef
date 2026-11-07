@@ -23,17 +23,10 @@ import {
 } from "./browserUtils";
 import type { useBrowserOperationRegistry } from "./useBrowserOperationRegistry";
 import type { ListAllBrowserObjectsForPrefix } from "./useBrowserRecursiveObjectListing";
+import type { BrowserConfirmDialogRequest } from "./useBrowserConfirmDialog";
 import { useBrowserI18n } from "./browserI18n";
 
 type OperationRegistry = ReturnType<typeof useBrowserOperationRegistry>;
-
-type DeleteConfirmation = {
-  title: string;
-  message: string;
-  confirmLabel: string;
-  tone: "danger";
-  onConfirm: () => Promise<void> | void;
-};
 
 type UseBrowserDeleteItemsOptions = {
   contextId: S3ExecutionContextSelector;
@@ -46,7 +39,7 @@ type UseBrowserDeleteItemsOptions = {
   enabled: boolean;
   isOperationAborted: OperationRegistry["isOperationAborted"];
   listAllObjectsForPrefix: ListAllBrowserObjectsForPrefix;
-  onConfirm: (confirmation: DeleteConfirmation) => void;
+  onConfirm: (confirmation: BrowserConfirmDialogRequest) => void;
   onProcessed: (items: BrowserItem[]) => void;
   onRefresh: (prefix: string) => Promise<void>;
   onRefreshNow: (prefix: string) => Promise<void>;
