@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import OIDCProviderSettings, Settings, get_settings
 from app.core.db_transactions import commit_or_rollback
+from app.core.domain_errors import ResourceNotFoundError
 from app.db import OidcAuthorizationCode, OidcLoginState, OidcProviderIssuerPin
 from app.models.oidc import OIDCProviderInfo
 from app.services.oidc_provider_settings_service import resolve_oidc_provider_map
@@ -50,7 +51,7 @@ class OIDCError(Exception):
     """Base class for OIDC exceptions."""
 
 
-class OIDCProviderNotFoundError(OIDCError):
+class OIDCProviderNotFoundError(ResourceNotFoundError, OIDCError):
     """Raised when a provider is missing or disabled."""
 
 
