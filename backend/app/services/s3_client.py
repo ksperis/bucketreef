@@ -42,7 +42,7 @@ def get_s3_client(
     allow_rgw_qualified_bucket_names: bool = False,
 ):
     if not endpoint:
-        raise RuntimeError("S3 endpoint is not configured")
+        raise S3OperationError("S3 endpoint is not configured")
     s3_config = None
     if force_path_style or allow_rgw_qualified_bucket_names:
         s3_config = {"addressing_style": "path"}

@@ -190,6 +190,11 @@ def test_s3_bucket_client_forwards_all_connection_options(monkeypatch):
     }
 
 
+def test_get_s3_client_uses_typed_operation_error_for_missing_endpoint():
+    with pytest.raises(s3_client.S3OperationError, match="S3 endpoint is not configured"):
+        s3_client.get_s3_client("access", "secret")
+
+
 def test_list_buckets_uses_typed_operation_error_for_provider_failures(monkeypatch):
     class FailedListClient:
         def list_buckets(self):
