@@ -39,10 +39,11 @@ from app.services.onboarding_endpoint_setup_service import OnboardingEndpointSet
 from app.services.onboarding_contracts import REQUIRED_FEATURES
 from app.services.onboarding_service import OnboardingError, OnboardingService
 from app.services.s3_connections_service import S3ConnectionsService
-from tests.service_identity_helpers import service_identity
+from app.services.storage_endpoint_query_service import StorageEndpointQueryService
 from app.services.storage_endpoints_service import StorageEndpointsService
 from app.utils.storage_endpoint_features import resolve_feature_flags
 from app.utils.time import utcnow
+from tests.service_identity_helpers import service_identity
 from tests.s3_account_factory import make_s3_account
 from tests.storage_endpoint_features import persisted_endpoint_features
 from tests.test_endpoint_service_identities import FakeRGW, SERVICE_CAPS
@@ -448,10 +449,10 @@ def test_private_only_new_endpoint_does_not_configure_admin_credentials(
         lambda *_args, **_kwargs: detection(admin=False, account=False),
     )
     monkeypatch.setattr(S3ConnectionsService, "_refresh_detected_capabilities", lambda *_: None)
-    original_serialize = StorageEndpointsService._serialize
+    original_serialize = StorageEndpointQueryService.serialize_endpoint
     monkeypatch.setattr(
-        StorageEndpointsService,
-        "_serialize",
+        StorageEndpointQueryService,
+        "serialize_endpoint",
         lambda self, row, **_kwargs: original_serialize(
             self, row, include_admin_ops_permissions=False
         ),
