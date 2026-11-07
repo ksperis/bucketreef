@@ -609,7 +609,7 @@ class BucketMigrationPreparationMixin:
                 )
         except PermissionError:
             raise
-        except Exception as exc:
+        except (RuntimeError, ValueError) as exc:
             raise ValueError(
                 f"Source '{item.source_bucket}' needs attention: {sanitized_error_log_detail(exc)}"
             ) from exc

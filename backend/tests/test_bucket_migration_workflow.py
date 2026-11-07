@@ -498,6 +498,23 @@ def test_created_destination_provenance_allows_retry_only_for_own_bucket(prepare
     service._revalidate_transfer_preconditions(migration)
 
 
+def test_source_revalidation_only_wraps_expected_runtime_failures(prepared):
+    service, migration, _ = prepared
+    source = service._resolve_context(migration.source_context_id)
+    item = migration.items[0]
+
+    service._inspector.inspect_bucket_state.side_effect = RuntimeError("source unavailable")
+    with pytest.raises(
+        ValueError,
+        match="Source 'source-bucket' needs attention: source unavailable",
+    ):
+        service._revalidate_source_transfer_preconditions(migration, source, item)
+
+    service._inspector.inspect_bucket_state.side_effect = TypeError("unexpected inspection bug")
+    with pytest.raises(TypeError, match="unexpected inspection bug"):
+        service._revalidate_source_transfer_preconditions(migration, source, item)
+
+
 def test_current_only_start_does_not_require_version_content_permissions(prepared):
     service, migration, _ = prepared
     service.run_precheck(migration.id, active_checks=True)
