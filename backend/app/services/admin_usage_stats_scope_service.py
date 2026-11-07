@@ -16,6 +16,7 @@ from app.services.bucket_usage_stats_service import (
     BucketUsageStatsResolvedTarget,
 )
 from app.services.buckets_service import BucketsService
+from app.services.s3_client import S3OperationError
 from app.services.storage_endpoint_repository import StorageEndpointRepository
 
 
@@ -58,9 +59,6 @@ class AdminUsageStatsScopeService:
         return account.name or account.rgw_account_id or f"Account {account.id}"
 
     def _list_account_bucket_names(self, account: S3Account) -> list[str]:
-        access_key, secret_key = account.effective_rgw_credentials()
-        if not access_key or not secret_key:
-            raise RuntimeError("S3 account credentials are missing.")
         buckets = self.bucket_service.list_buckets(
             account,
             include=set(),
@@ -117,7 +115,7 @@ class AdminUsageStatsScopeService:
         for account in accounts:
             try:
                 bucket_names = self._list_account_bucket_names(account)
-            except RuntimeError as exc:
+            except S3OperationError as exc:
                 skipped_account_count += 1
                 logger.warning(
                     "Unable to list managed account buckets for usage stats account=%s: %s",
