@@ -29,13 +29,14 @@ from app.services.s3_connections_service import S3ConnectionsService
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.s3_users_service import get_s3_users_service
 from app.services.storage_endpoints_service import get_storage_endpoints_service
+from app.utils.http_errors import raise_http_error_from_value_error
+from app.utils.request_paths import path_matches_prefix
 from app.utils.s3_connection_capabilities import s3_connection_can_manage_iam
 from app.utils.s3_connection_endpoint import resolve_connection_details
 from app.utils.s3_endpoint import (
     normalize_s3_endpoint,
     validate_user_supplied_s3_endpoint,
 )
-from app.utils.request_paths import path_matches_prefix
 
 from .auth_session import get_current_actor
 from .ceph_admin_context import resolve_ceph_admin_browser_context
@@ -143,8 +144,8 @@ def _resolve_s3_user_context(
 
     try:
         s3_user = get_s3_users_service(db).get_user_record(s3_user_id)
-    except S3UserNotFoundError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="S3 user not found")
+    except S3UserNotFoundError as exc:
+        raise_http_error_from_value_error(exc)
 
     if metadata_only:
         return S3ExecutionContext(
@@ -175,8 +176,8 @@ def _resolve_connection_context(
     connections = S3ConnectionsService(db)
     try:
         conn = connections.get_record(connection_id)
-    except S3ConnectionNotFoundError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="S3Connection not found")
+    except S3ConnectionNotFoundError as exc:
+        raise_http_error_from_value_error(exc)
     service = effective_access_service.EffectiveAccessService(db)
     effective = service.resolve_user(user)
     allowed = (
