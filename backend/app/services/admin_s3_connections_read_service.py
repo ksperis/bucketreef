@@ -243,7 +243,7 @@ class AdminS3ConnectionsReadService:
             ),
             request,
         )
-        rows, total = paginate_rows(
+        rows, total, has_next = paginate_rows(
             self.db,
             statement,
             page=request.page,
@@ -254,7 +254,7 @@ class AdminS3ConnectionsReadService:
             total=total,
             page=request.page,
             page_size=request.page_size,
-            has_next=request.page * request.page_size < total,
+            has_next=has_next,
         )
 
     def item(

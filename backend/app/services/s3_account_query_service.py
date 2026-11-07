@@ -216,7 +216,7 @@ class S3AccountQueryService:
             search_value,
             exact=request.search_exact,
         )
-        db_accounts, total = paginate_scalars(
+        db_accounts, total, has_next = paginate_scalars(
             self.db,
             query,
             order_by=self._account_order_columns(request.sort_by, request.sort_dir),
@@ -234,7 +234,7 @@ class S3AccountQueryService:
             total=total,
             page=request.page,
             page_size=request.page_size,
-            has_next=request.page * request.page_size < total,
+            has_next=has_next,
         )
 
     def get_account_detail(self, account_id: int, include_usage: bool = False) -> S3AccountSchema:

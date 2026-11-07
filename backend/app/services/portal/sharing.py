@@ -406,7 +406,7 @@ class PortalSharingMixin:
             include_already_shared=request.include_already_shared,
             search=request.search,
         )
-        targets, total = paginate_scalars(
+        targets, total, has_next = paginate_scalars(
             self.db,
             statement,
             order_by=(func.lower(User.email).asc(), User.id.asc()),
@@ -438,7 +438,7 @@ class PortalSharingMixin:
             total=total,
             page=request.page,
             page_size=request.page_size,
-            has_next=request.page * request.page_size < total,
+            has_next=has_next,
         )
 
     def _storage_space_share_candidate_scope(

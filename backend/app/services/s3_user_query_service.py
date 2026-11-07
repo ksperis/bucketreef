@@ -163,7 +163,7 @@ class S3UserQueryService:
             search_value,
             exact=request.search_exact,
         )
-        rows, total = paginate_scalars(
+        rows, total, has_next = paginate_scalars(
             self.db,
             query,
             order_by=self._user_order_columns(request.sort_by, request.sort_dir),
@@ -186,7 +186,7 @@ class S3UserQueryService:
             total=total,
             page=request.page,
             page_size=request.page_size,
-            has_next=request.page * request.page_size < total,
+            has_next=has_next,
         )
 
     def get_user(

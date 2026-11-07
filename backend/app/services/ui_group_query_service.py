@@ -76,7 +76,7 @@ class UiGroupQueryService:
         statement = select(UiGroup)
         if search_value:
             statement = statement.where(UiGroup.name.ilike(f"%{search_value}%"))
-        rows, total = paginate_scalars(
+        rows, total, has_next = paginate_scalars(
             self.db,
             statement,
             order_by=name_order_by(UiGroup),
@@ -98,7 +98,7 @@ class UiGroupQueryService:
             total=total,
             page=request.page,
             page_size=request.page_size,
-            has_next=request.page * request.page_size < total,
+            has_next=has_next,
         )
 
     @staticmethod
@@ -170,7 +170,7 @@ class UiGroupQueryService:
     ) -> PaginatedUiGroupsResponse:
         search_value = request.search.strip() if isinstance(request.search, str) else ""
         statement = self._apply_group_search(select(UiGroup), search_value)
-        rows, total = paginate_scalars(
+        rows, total, has_next = paginate_scalars(
             self.db,
             statement,
             order_by=self._group_order_columns(request),
@@ -182,7 +182,7 @@ class UiGroupQueryService:
             total=total,
             page=request.page,
             page_size=request.page_size,
-            has_next=request.page * request.page_size < total,
+            has_next=has_next,
         )
 
     def _preload_group_output(self, group_id: int) -> _UiGroupOutputPreload:

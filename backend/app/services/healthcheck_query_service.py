@@ -462,7 +462,7 @@ class HealthCheckQueryService:
             EndpointHealthCheck.checked_at >= start,
             EndpointHealthCheck.checked_at <= now,
         )
-        rows, total = paginate_scalars(
+        rows, total, _ = paginate_scalars(
             self.db,
             select(EndpointHealthCheck).where(*criteria),
             order_by=(
