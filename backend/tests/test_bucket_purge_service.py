@@ -50,6 +50,11 @@ def test_delete_bucket_with_purge_deletes_contents_then_bucket(monkeypatch):
 
     client = DeleteClient()
     monkeypatch.setattr(BucketPurgeService, "_build_client", lambda self, account: client)
+    monkeypatch.setattr(
+        BucketPurgeService,
+        "_resolve_initial_entry_estimates",
+        lambda self, targets: [None] * len(targets),
+    )
 
     result = BucketPurgeService().run_delete_bucket_with_purge(
         ResolvedS3BucketTarget(context=SimpleNamespace(), bucket_name="bucket-a", context_id="s3u-1"),
@@ -94,6 +99,11 @@ def test_delete_bucket_with_purge_deletes_large_bucket_without_entry_limit(monke
 
     client = LargeBucketClient()
     monkeypatch.setattr(BucketPurgeService, "_build_client", lambda self, account: client)
+    monkeypatch.setattr(
+        BucketPurgeService,
+        "_resolve_initial_entry_estimates",
+        lambda self, targets: [None] * len(targets),
+    )
 
     result = BucketPurgeService().run_delete_bucket_with_purge(
         ResolvedS3BucketTarget(context=SimpleNamespace(), bucket_name="bucket-huge", context_id="s3u-1"),
@@ -122,6 +132,11 @@ def test_delete_bucket_with_purge_preserves_content_purge_failures(monkeypatch):
         BucketPurgeService,
         "_build_client",
         lambda self, account: client,
+    )
+    monkeypatch.setattr(
+        BucketPurgeService,
+        "_resolve_initial_entry_estimates",
+        lambda self, targets: [None] * len(targets),
     )
     monkeypatch.setattr(
         bucket_purge_service.s3_deletion,
@@ -317,6 +332,11 @@ def test_delete_bucket_with_purge_reports_bucket_not_empty_race(monkeypatch):
         lambda self, account: DeleteClient(),
     )
     monkeypatch.setattr(
+        BucketPurgeService,
+        "_resolve_initial_entry_estimates",
+        lambda self, targets: [None] * len(targets),
+    )
+    monkeypatch.setattr(
         bucket_purge_service.s3_deletion,
         "purge_bucket_contents",
         lambda *args, **kwargs: (
@@ -422,6 +442,22 @@ def test_purge_progress_continues_when_rgw_stats_are_unavailable(monkeypatch):
     assert progress_events[-1].stage == "completed"
     assert progress_events[-1].total_entries_estimate == 1
     assert progress_events[-1].total_entries_final is True
+
+
+def test_purge_progress_propagates_unexpected_stats_failures(monkeypatch):
+    class BrokenBucketsService:
+        def list_buckets(self, account, *, with_stats=True):
+            raise TypeError("programming error")
+
+    monkeypatch.setattr(bucket_purge_service, "BucketsService", BrokenBucketsService)
+    target = ResolvedS3BucketTarget(
+        context=SimpleNamespace(),
+        bucket_name="bucket-a",
+        context_id="s3u-1",
+    )
+
+    with pytest.raises(TypeError, match="programming error"):
+        BucketPurgeService()._resolve_initial_entry_estimates([target])
 
 
 def test_purge_service_forwards_individual_delete_strategy(monkeypatch):
