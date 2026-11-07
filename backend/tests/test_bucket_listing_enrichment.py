@@ -13,6 +13,7 @@ from app.models.bucket import (
 from app.models.bucket_listing import BucketListingSummary
 from app.services.bucket_listing_enrichment import _enrich_website_configuration, _project_property_details
 from app.services.bucket_property_feature_enrichment import BucketPropertiesContext
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionContext
 
 
@@ -23,7 +24,7 @@ class _WebsiteService:
 
     def get_bucket_website(self, _name, _execution_context):
         if self.unavailable:
-            raise RuntimeError("unavailable")
+            raise S3OperationError("unavailable")
         assert self.website is not None
         return self.website
 
@@ -120,6 +121,23 @@ def test_enrich_website_configuration_marks_only_requested_details_unavailable()
         "website_index_document": None,
         "website_routing_rule_count": None,
     }
+
+
+def test_enrich_website_configuration_propagates_unexpected_runtime_error():
+    class BrokenService:
+        def get_bucket_website(self, _name, _execution_context):
+            raise RuntimeError("unexpected website enrichment regression")
+
+    with pytest.raises(RuntimeError, match="unexpected website enrichment regression"):
+        _enrich_website_configuration(
+            BucketListingSummary(name="bucket-a"),
+            BrokenService(),
+            _context(),
+            wants_feature=True,
+            detail_keys=set(),
+            feature_map={},
+            column_details={},
+        )
 
 
 def _properties_context(*, properties: BucketProperties | None, unavailable: bool = False) -> BucketPropertiesContext:
