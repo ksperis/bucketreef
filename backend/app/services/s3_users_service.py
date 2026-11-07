@@ -4,10 +4,8 @@ from sqlalchemy.orm import Session
 
 from app.services.mappers.s3_user import s3_user_from_db
 from app.services.s3_user_associations_service import S3UserAssociationsService
-from app.services.s3_user_access_key_service import S3UserAccessKeyService
 from app.services.s3_user_deletion_service import S3UserDeletionService
 from app.services.s3_user_import_service import S3UserImportService
-from app.services.s3_user_key_management_service import S3UserKeyManagementService
 from app.services.s3_user_metrics_service import S3UserMetricsService
 from app.services.s3_user_provisioning_service import S3UserProvisioningService
 from app.services.s3_user_query_service import S3UserQueryService
@@ -18,17 +16,15 @@ from app.services.s3_user_update_service import S3UserUpdateService
 from app.services.tags_service import TagsService
 from app.models.s3_user import (
     S3User as S3UserSchema,
-    S3UserAccessKey,
     S3UserCreate,
-    S3UserGeneratedKey,
     S3UserImport,
     S3UserUpdate,
 )
+
+
 class S3UsersService:
     def __init__(self, db: Session) -> None:
-        self.db = db
         self.associations = S3UserAssociationsService(db)
-        self.access_keys = S3UserAccessKeyService()
         self.metrics = S3UserMetricsService()
         self.rgw_context = S3UserRgwContextService(db)
         self.quota = S3UserQuotaService(self.rgw_context)
@@ -65,14 +61,6 @@ class S3UsersService:
             tags=self.tags,
             query=self.query,
         )
-        self.key_management = S3UserKeyManagementService(
-            db,
-            repository=self.repository,
-            rgw_context=self.rgw_context,
-            access_keys=self.access_keys,
-            associations=self.associations,
-            query=self.query,
-        )
 
     def create_user(self, payload: S3UserCreate) -> S3UserSchema:
         provisioned = self.provisioning.create_user(payload)
@@ -103,21 +91,6 @@ class S3UsersService:
 
     def update_user(self, user_id: int, payload: S3UserUpdate) -> S3UserSchema:
         return self.updater.update_user(user_id, payload)
-
-    def rotate_keys(self, user_id: int, *, actor=None) -> S3UserSchema:
-        return self.key_management.rotate_keys(user_id, actor=actor)
-
-    def list_keys(self, user_id: int) -> list[S3UserAccessKey]:
-        return self.key_management.list_keys(user_id)
-
-    def create_access_key_entry(self, user_id: int) -> S3UserGeneratedKey:
-        return self.key_management.create_access_key_entry(user_id)
-
-    def set_key_status(self, user_id: int, access_key: str, active: bool) -> S3UserAccessKey:
-        return self.key_management.set_key_status(user_id, access_key, active)
-
-    def delete_key(self, user_id: int, access_key: str) -> None:
-        self.key_management.delete_key(user_id, access_key)
 
     def delete_user(self, user_id: int, delete_rgw: bool = False) -> None:
         s3_user = self.query.get_user_record(user_id)
