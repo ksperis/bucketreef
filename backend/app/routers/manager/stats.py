@@ -51,7 +51,7 @@ def account_stats(
     try:
         buckets = bucket_service.list_buckets(context)
         total_buckets = len(buckets)
-    except Exception as exc:
+    except RuntimeError as exc:
         raise_http_exception_from_exception(
             502,
             exc,
