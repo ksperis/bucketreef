@@ -29,6 +29,7 @@ from webauthn.helpers.structs import (
 
 from app.core.config import Settings, get_settings
 from app.core.db_transactions import commit_or_rollback
+from app.core.domain_errors import ResourceConflictError
 from app.core.security import hash_refresh_token
 from app.db import AuthChallenge, AuthSession, RecoveryCode, User, WebAuthnCredential
 from app.services.identity_security_requirements import passkey_required_for_role
@@ -39,7 +40,7 @@ class WebAuthnSecurityError(ValueError):
     pass
 
 
-class LastRequiredPasskeyError(WebAuthnSecurityError):
+class LastRequiredPasskeyError(ResourceConflictError, WebAuthnSecurityError):
     pass
 
 
