@@ -12,7 +12,11 @@ from botocore.exceptions import BotoCoreError, ClientError
 from botocore.parsers import ResponseParserError
 
 from app.services.s3_client import get_s3_client
-from app.services.s3_delete_response import ObjectDeletionFailure, parse_delete_objects_failures
+from app.services.s3_delete_response import (
+    InvalidDeleteObjectsResponseError,
+    ObjectDeletionFailure,
+    parse_delete_objects_failures,
+)
 from app.utils.cancellation import invoke_cancel_check
 from app.utils.aws_errors import aws_error_code
 from app.utils.s3_errors import format_s3_error
@@ -285,7 +289,7 @@ class _BucketContentPurger:
             return stage, deleted, None, None
         except DeleteObjectsError as exc:
             return stage, exc.deleted_count, items, exc
-        except Exception as exc:  # noqa: BLE001
+        except (ClientError, BotoCoreError, InvalidDeleteObjectsResponseError) as exc:
             return stage, 0, items, exc
 
     def _drain(self, pending: _PendingDeletes, *, wait_all: bool = False) -> _PendingDeletes:

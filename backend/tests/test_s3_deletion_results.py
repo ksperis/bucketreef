@@ -244,6 +244,15 @@ def test_purge_does_not_turn_a_transport_error_into_a_partial_success():
     client.delete_object.assert_not_called()
 
 
+def test_purge_propagates_unexpected_delete_worker_errors():
+    client = Mock()
+    client.list_objects_v2.return_value = {"Contents": [{"Key": "first"}]}
+    client.delete_objects.side_effect = RuntimeError("broken delete worker")
+
+    with pytest.raises(RuntimeError, match="broken delete worker"):
+        s3_deletion.purge_bucket_contents(client, "target", include_versions=False)
+
+
 @pytest.mark.parametrize("individual_deletes", [False, True])
 @pytest.mark.parametrize("missing_code", ["NoSuchKey", "NoSuchVersion", "NotFound"])
 def test_individual_and_xml_fallback_purges_keep_exact_versions_and_partial_results(individual_deletes, missing_code):
