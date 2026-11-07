@@ -10,6 +10,7 @@ from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.db_transactions import commit_or_rollback
+from app.core.domain_errors import ResourceConflictError, ResourceNotFoundError
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import PortalAdminRequest, PortalAdminRequestMessage, S3Account, User
 from app.core.domain_enums import PortalAccountRole
@@ -60,11 +61,11 @@ PORTAL_BUCKET_SETTING_KEYS = {
 }
 
 
-class PortalRequestNotFound(ValueError):
+class PortalRequestNotFound(ResourceNotFoundError):
     pass
 
 
-class PortalRequestConflict(RuntimeError):
+class PortalRequestConflict(ResourceConflictError):
     pass
 
 
