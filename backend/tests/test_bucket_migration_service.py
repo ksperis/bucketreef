@@ -576,6 +576,20 @@ def test_migration_endpoint_capacity_key_normalizes_context_id(db_session):
     assert list(cache) == [str(account.id)]
 
 
+def test_migration_service_normalizes_authorized_context_sets(db_session):
+    service = BucketMigrationService(
+        db_session,
+        authorized_context_ids={" 10 ", " ", "conn-7"},
+        admin_account_context_ids={" 10 ", " 20 ", " "},
+    )
+
+    assert service._authorized_context_ids == {"10", "conn-7"}
+    assert service._admin_account_context_ids == {"10", "20"}
+    assert service._is_context_authorized(" 10 ") is True
+    assert service._is_account_context_id(" 10 ") is True
+    service._assert_cross_account_admin_contexts(" 10 ", " 20 ")
+
+
 def test_create_migration_uses_admin_default_parallelism(db_session):
     user = _create_user(db_session)
     source = _create_account(db_session, name="source", endpoint_url="https://source.example.test", account_id="RGW001")

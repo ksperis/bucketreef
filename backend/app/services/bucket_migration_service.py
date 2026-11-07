@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.services.bucket_configuration_service import BucketConfigurationService
 from app.services.buckets_service import BucketsService
+from app.utils.normalize import normalize_optional_string
 from .bucket_migration.execution import BucketMigrationExecutionMixin
 from .bucket_migration.persistence import BucketMigrationPersistenceMixin
 from .bucket_migration.planning import BucketMigrationPlanningMixin
@@ -58,10 +59,16 @@ class BucketMigrationService(
         if authorized_context_ids is None:
             self._authorized_context_ids = None
         else:
-            self._authorized_context_ids = {str(value or "").strip() for value in authorized_context_ids if str(value or "").strip()}
+            self._authorized_context_ids = {
+                normalized
+                for value in authorized_context_ids
+                if (normalized := normalize_optional_string(value))
+            }
         if admin_account_context_ids is None:
             self._admin_account_context_ids = None
         else:
             self._admin_account_context_ids = {
-                str(value or "").strip() for value in admin_account_context_ids if str(value or "").strip()
+                normalized
+                for value in admin_account_context_ids
+                if (normalized := normalize_optional_string(value))
             }
