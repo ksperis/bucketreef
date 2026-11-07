@@ -7,15 +7,14 @@ import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import PaginationControls from "../../components/PaginationControls";
 import BucketCompareSetup, { BucketCompareProgress } from "../shared/BucketCompareSetup";
 import WorkflowPage from "../../components/WorkflowPage";
-import { ListBadge } from "../../components/list/ListControls";
 import UiButton from "../../components/ui/UiButton";
 import UiInput from "../../components/ui/UiInput";
 import {
+  BucketCompareConfigDiff,
   BucketCompareContentDiff,
   BucketCompareFeedback,
   BucketCompareResult,
   BucketCompareResultFilters,
-  BucketCompareSection,
 } from "../shared/BucketCompareResults";
 import UiSelect from "../../components/ui/UiSelect";
 import { runWithConcurrencySettled } from "../../utils/concurrency";
@@ -30,20 +29,14 @@ import type { RgwBucketReference } from "../../api/bucketOperation";
 import { cephAdminPageBreadcrumbs } from "./cephAdminBreadcrumbs";
 import {
   BUCKET_COMPARE_CONFIG_FEATURE_OPTIONS,
-  formatUnknown,
-  getChangedTone,
   matchesBucketCompareRunFilters,
   normalizeBucketCompareParallelism,
-  renderDiffLines,
   resolveBucketCompareRunError,
   summarizeBucketCompareRun,
   useBucketCompareWorkflowState,
 } from "../shared/bucketCompareShared";
 import { BucketCompareManualMappingEditor } from "../shared/bucketCompareMapping";
-import {
-  buildBucketCompareContentSections,
-  getObjectParentPrefix,
-} from "../shared/bucketCompareContentDiff";
+import { getObjectParentPrefix } from "../shared/bucketCompareContentDiff";
 import {
   formatDownloadTimestamp,
   triggerJsonDownload,
@@ -496,26 +489,6 @@ export default function CephAdminBucketCompareModal({
             />
             {filteredItems.map((item) => {
               const content = item.result?.content_diff;
-              const contentSections = content
-                ? buildBucketCompareContentSections(content).map((section) => ({
-                    ...section,
-                    label:
-                      section.key === "source_only"
-                        ? surfaceText("Source only ({count})", { count: section.objectCount })
-                        : section.key === "target_only"
-                          ? surfaceText("Target only ({count})", { count: section.objectCount })
-                          : surfaceText("Different objects ({count})", { count: section.objectCount }),
-                  }))
-                : [];
-              const configSections =
-                item.result?.config_diff?.sections.map((section) => ({
-                  key: section.key,
-                  label: surfaceText(section.label),
-                  changed: section.changed,
-                  before: [{ text: formatUnknown(section.source), tone: section.changed ? ("removed" as const) : undefined }],
-                  after: [{ text: formatUnknown(section.target), tone: section.changed ? ("added" as const) : undefined }],
-                })) ?? [];
-              const configHasDifferences = Boolean(item.result?.config_diff?.changed);
               const bucketHasDifferences = Boolean(item.result?.has_differences);
               return (
                 <BucketCompareResult
@@ -532,7 +505,7 @@ export default function CephAdminBucketCompareModal({
                     {content && (
                       <BucketCompareContentDiff
                         sectionIdPrefix={`${item.sourceBucket}:${item.targetBucket}:content`}
-                        sections={contentSections}
+                        content={content}
                         copyFeedback={copyFeedback}
                         onCopyVisibleKeys={copyVisibleKeys}
                         getSourceOptions={() => ({
@@ -552,45 +525,7 @@ export default function CephAdminBucketCompareModal({
                       />
                     )}
                     {item.result?.config_diff && (
-                      <BucketCompareSection
-                        summary={
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="ui-caption font-semibold text-slate-700 dark:text-slate-200">{surfaceText("Config diff")}</span>
-                            <ListBadge tone={getChangedTone(configHasDifferences)}>
-                              {configHasDifferences ? surfaceText("Different") : surfaceText("Identical")}
-                            </ListBadge>
-                          </div>
-                        }
-                      >
-                        <div className="mt-2 space-y-3">
-                          {configSections.map((section) => (
-                            <BucketCompareSection
-                              key={`${item.sourceBucket}:${item.targetBucket}:config:${section.key}`}
-                              summary={
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <span className="ui-caption font-semibold text-slate-700 dark:text-slate-200">{section.label}</span>
-                                  <ListBadge tone={getChangedTone(section.changed)}>
-                                    {section.changed ? surfaceText("Different") : surfaceText("Identical")}
-                                  </ListBadge>
-                                </div>
-                              }
-                            >
-                              <div className="mt-1 grid gap-2 pb-2 lg:grid-cols-2">
-                                <div className="space-y-1">
-                                  <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                    {surfaceText("Source")}</p>
-                                  {renderDiffLines(section.before)}
-                                </div>
-                                <div className="space-y-1">
-                                  <p className="ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                    {surfaceText("Target")}</p>
-                                  {renderDiffLines(section.after)}
-                                </div>
-                              </div>
-                            </BucketCompareSection>
-                          ))}
-                        </div>
-                      </BucketCompareSection>
+                      <BucketCompareConfigDiff configDiff={item.result.config_diff} />
                     )}
                   </div>
                 </BucketCompareResult>
