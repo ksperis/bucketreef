@@ -3,7 +3,12 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
-import type { AccountMembership, ManagerToolAccess, S3UserMembership, UiRole } from "./users";
+import type {
+  AccountMembership,
+  PlatformAccessFields,
+  S3UserMembership,
+  UiRole,
+} from "./users";
 import type { UserAvatarDescriptor } from "./users";
 import type { PaginatedResponse } from "./types";
 
@@ -33,19 +38,12 @@ export type UiGroupUserDetail = {
   avatar: UserAvatarDescriptor | null;
 };
 
-export type UiGroup = {
+export type UiGroup = PlatformAccessFields & {
   id: number;
   name: string;
   system_key: string | null;
   description: string | null;
   avatar: UiGroupAvatarDescriptor;
-  can_access_ceph_admin: boolean;
-  can_access_storage_ops: boolean;
-  can_create_manual_private_connections: boolean;
-  can_provision_managed_private_connections: boolean;
-  allow_multisite_endpoint_switching: boolean;
-  manager_tool_access: ManagerToolAccess;
-  browser_advanced_features_enabled: boolean;
   user_details: UiGroupUserDetail[];
   account_details: { id: number; name: string; rgw_account_id: string }[];
   account_links: AccountMembership[];
@@ -63,18 +61,11 @@ export type UiGroup = {
   updated_at: string | null;
 };
 
-export type UiGroupPayload = {
+export type UiGroupPayload = Partial<PlatformAccessFields> & {
   name?: string;
   description?: string | null;
   avatar_source?: UiGroupAvatarSource;
   avatar_icon?: UiGroupAvatarIcon | null;
-  can_access_ceph_admin?: boolean;
-  can_access_storage_ops?: boolean;
-  can_create_manual_private_connections?: boolean;
-  can_provision_managed_private_connections?: boolean;
-  allow_multisite_endpoint_switching?: boolean;
-  manager_tool_access?: ManagerToolAccess;
-  browser_advanced_features_enabled?: boolean;
   user_ids?: number[];
   account_links?: AccountMembership[];
   s3_user_links?: S3UserMembership[];
@@ -82,15 +73,8 @@ export type UiGroupPayload = {
   openstack_cloud_ids?: number[];
 };
 
-export type UiGroupCreatePayload = UiGroupPayload & {
+export type UiGroupCreatePayload = UiGroupPayload & PlatformAccessFields & {
   name: string;
-  can_access_ceph_admin: boolean;
-  can_access_storage_ops: boolean;
-  can_create_manual_private_connections: boolean;
-  can_provision_managed_private_connections: boolean;
-  allow_multisite_endpoint_switching: boolean;
-  manager_tool_access: ManagerToolAccess;
-  browser_advanced_features_enabled: boolean;
 };
 
 type PaginatedUiGroupsResponse = PaginatedResponse<UiGroup>;
