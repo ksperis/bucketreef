@@ -3,12 +3,14 @@
 
 """Managed private-access domain errors."""
 
+from app.core.domain_errors import ResourceConflictError, ResourceNotFoundError
+
 
 class ManagedPrivateAccessError(RuntimeError):
     pass
 
 
-class ManagedPrivateAccessConflict(ManagedPrivateAccessError):
+class ManagedPrivateAccessConflict(ResourceConflictError, ManagedPrivateAccessError):
     pass
 
 
@@ -16,11 +18,11 @@ class ManagedPrivateAccessForbidden(ManagedPrivateAccessError):
     pass
 
 
-class ManagedPrivateAccessNotFound(ManagedPrivateAccessError):
+class ManagedPrivateAccessNotFound(ResourceNotFoundError, ManagedPrivateAccessError):
     pass
 
 
-class ManagedPrivateAccessCleanupPending(ManagedPrivateAccessError):
+class ManagedPrivateAccessCleanupPending(ManagedPrivateAccessConflict):
     def __init__(self, provisioning_id: int, message: str) -> None:
         super().__init__(message)
         self.provisioning_id = provisioning_id
