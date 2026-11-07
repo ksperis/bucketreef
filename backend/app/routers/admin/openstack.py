@@ -16,6 +16,7 @@ from app.models.openstack import (
 from app.routers.dependencies import get_current_ui_superadmin
 from app.routers.identity_security_policy import require_admin_sensitive_action
 from app.routers.openstack import ui_session, _record_action
+from app.services.openstack_cloud_query_service import OpenStackCloudQueryService
 from app.services.openstack_service import OpenStackService
 
 router = APIRouter(prefix="/admin/openstack-clouds", tags=["openstack-admin"])
@@ -23,7 +24,7 @@ router = APIRouter(prefix="/admin/openstack-clouds", tags=["openstack-admin"])
 
 @router.get("", response_model=list[OpenStackCloudRead])
 def list_clouds(db: Session = Depends(get_db), user: User = Depends(get_current_ui_superadmin), session=Depends(ui_session)):
-    return OpenStackService(db).admin_clouds()
+    return OpenStackCloudQueryService(db).list_clouds()
 
 
 @router.get("/options", response_model=PaginatedOpenStackCloudsResponse)
@@ -34,7 +35,7 @@ def list_cloud_options(
     session=Depends(ui_session),
 ) -> PaginatedOpenStackCloudsResponse:
     _ = user, session
-    return OpenStackService(db).paginated_admin_clouds(query)
+    return OpenStackCloudQueryService(db).list_clouds_page(query)
 
 
 @router.post("", response_model=OpenStackCloudRead, status_code=201)
@@ -43,7 +44,7 @@ def create_cloud(payload: OpenStackCloudWrite, request: Request, db: Session = D
     service = OpenStackService(db)
     cloud = service.save_cloud(payload)
     _record_action(db, user, "admin", "openstack.cloud.create", "OpenStackCloud", cloud.id)
-    return service.cloud_read(cloud)
+    return OpenStackCloudQueryService.serialize_cloud(cloud)
 
 
 @router.put("/{cloud_id}", response_model=OpenStackCloudRead)
@@ -52,7 +53,7 @@ def update_cloud(cloud_id: int, payload: OpenStackCloudWrite, request: Request, 
     service = OpenStackService(db)
     cloud = service.save_cloud(payload, cloud_id)
     _record_action(db, user, "admin", "openstack.cloud.update", "OpenStackCloud", cloud.id)
-    return service.cloud_read(cloud)
+    return OpenStackCloudQueryService.serialize_cloud(cloud)
 
 
 @router.delete("/{cloud_id}", status_code=204)
