@@ -112,6 +112,7 @@ def login_with_ldap(
     users_service: UsersService = Depends(get_users_service_dependency),
     ldap_service: LDAPAuthService = Depends(get_ldap_auth_service_dependency),
     audit_service: AuditService = Depends(get_audit_service),
+    db: Session = Depends(get_db),
 ) -> AuthenticationResponse:
     require_trusted_origin(request)
     username = (payload.username or "").strip()
@@ -122,7 +123,7 @@ def login_with_ldap(
     account_key = f"ldap:{provider}:{username.lower()}"
     attempt = AuthAttemptContext.from_request(
         request=request,
-        db=users_service.db,
+        db=db,
         audit_service=audit_service,
         account_key=account_key,
     )
