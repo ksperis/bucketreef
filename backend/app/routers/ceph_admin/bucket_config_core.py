@@ -27,7 +27,7 @@ from app.routers.ceph_admin.dependencies import (
 )
 from app.services.ceph_admin_context import CephAdminContext
 from app.services import bucket_config_actions
-from app.services.bucket_quota_service import BucketQuotaService
+from app.services.bucket_quota_service import BucketQuotaOperationError, BucketQuotaService
 from app.services.ceph_admin_bucket_listing_cache import invalidate_bucket_listing_cache
 from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_bucket_metadata import resolve_bucket_owner_identity
@@ -148,7 +148,7 @@ def update_quota(
         return Response(status_code=status.HTTP_204_NO_CONTENT)
     except ValueError as exc:
         raise_bad_request_from_value_error(exc)
-    except RuntimeError as exc:
+    except BucketQuotaOperationError as exc:
         raise_bad_gateway_from_runtime(exc)
 
 
