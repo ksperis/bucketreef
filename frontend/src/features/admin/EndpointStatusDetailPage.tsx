@@ -17,6 +17,7 @@ import {
 import {
   type EndpointHealthIncident,
   type EndpointHealthRawCheck,
+  type HealthWindow,
   runHealthchecks,
 } from "../../api/healthchecks";
 import PageBanner from "../../components/PageBanner";
@@ -50,9 +51,9 @@ import {
 import { useEndpointStatusText } from "./endpointStatusMessages";
 import { useEndpointStatusDetailResources } from "./useEndpointStatusDetailResources";
 
-type WindowOption = { label: string; value: "day" | "week" | "month" | "quarter" | "half_year"; helper: string };
-
 const RAW_CHECKS_PAGE_SIZE = 25;
+const DETAIL_WINDOW_VALUES = ["day", "week", "month", "quarter", "half_year"] as const satisfies readonly HealthWindow[];
+type DetailWindow = (typeof DETAIL_WINDOW_VALUES)[number];
 
 type RawCheckRow = EndpointHealthRawCheck & { rowKey: string };
 type IncidentRow = EndpointHealthIncident & { rowKey: string };
@@ -62,14 +63,13 @@ export default function EndpointStatusDetailPage() {
   const params = useParams();
   const endpointId = Number(params.endpointId ?? "");
   const hasValidEndpointId = Number.isFinite(endpointId) && endpointId > 0;
-  const windowOptions = useMemo<WindowOption[]>(
-    () => [
-      { label: text("windowLabel_day"), value: "day", helper: text("windowHelp_day") },
-      { label: text("windowLabel_week"), value: "week", helper: text("windowHelp_week") },
-      { label: text("windowLabel_month"), value: "month", helper: text("windowHelp_month") },
-      { label: text("windowLabel_quarter"), value: "quarter", helper: text("windowHelp_quarter") },
-      { label: text("windowLabel_half_year"), value: "half_year", helper: text("windowHelp_half_year") },
-    ],
+  const windowOptions = useMemo(
+    () =>
+      DETAIL_WINDOW_VALUES.map((value) => ({
+        label: text(`windowLabel_${value}`),
+        value,
+        helper: text(`windowHelp_${value}`),
+      })),
     [text]
   );
   const breadcrumbs = useMemo(
@@ -80,7 +80,7 @@ export default function EndpointStatusDetailPage() {
     [text]
   );
 
-  const [windowValue, setWindowValue] = useState<WindowOption["value"]>("week");
+  const [windowValue, setWindowValue] = useState<DetailWindow>("week");
   const [rawChecksPage, setRawChecksPage] = useState<number>(1);
   const [selectedTimelineSegmentKey, setSelectedTimelineSegmentKey] = useState<string | null>(null);
 

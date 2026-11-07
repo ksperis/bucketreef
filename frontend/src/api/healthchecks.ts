@@ -50,7 +50,7 @@ export type EndpointHealthDailyPoint = {
 
 export type EndpointHealthSeries = {
   endpoint_id: number;
-  window: string;
+  window: HealthWindow;
   start: string;
   end: string;
   data_points: number;
@@ -74,7 +74,7 @@ export type EndpointHealthIncident = {
 
 export type EndpointHealthIncidentsResponse = {
   endpoint_id: number;
-  window: string;
+  window: HealthWindow;
   check_mode: HealthCheckMode;
   check_type: HealthCheckType;
   scope: HealthCheckScope;
@@ -92,7 +92,7 @@ export type EndpointHealthRawCheck = {
 
 export type EndpointHealthRawChecksResponse = {
   endpoint_id: number;
-  window: string;
+  window: HealthWindow;
   start: string;
   end: string;
   page: number;
@@ -124,7 +124,7 @@ export type EndpointHealthOverviewEndpoint = {
 
 export type EndpointHealthOverviewResponse = {
   generated_at: string;
-  window: string;
+  window: HealthWindow;
   start: string;
   end: string;
   endpoints: EndpointHealthOverviewEndpoint[];
@@ -148,7 +148,7 @@ export type EndpointHealthLatencyOverviewEndpoint = {
 
 type EndpointHealthLatencyOverviewResponse = {
   generated_at: string;
-  window: string;
+  window: HealthWindow;
   start: string;
   end: string;
   endpoints: EndpointHealthLatencyOverviewEndpoint[];
@@ -168,7 +168,7 @@ export type EndpointHealthGlobalIncident = {
 };
 
 type EndpointHealthGlobalIncidentsResponse = {
-  window: string;
+  window: HealthWindow;
   start: string;
   end: string;
   total: number;
@@ -218,14 +218,14 @@ export async function fetchHealthSummary(): Promise<EndpointHealthSummaryRespons
   return data;
 }
 
-export async function fetchHealthSeries(endpointId: number, window: HealthWindow | string): Promise<EndpointHealthSeries> {
+export async function fetchHealthSeries(endpointId: number, window: HealthWindow): Promise<EndpointHealthSeries> {
   const { data } = await client.get<EndpointHealthSeries>("/admin/health/series", {
     params: { endpoint_id: endpointId, window },
   });
   return data;
 }
 
-export async function fetchHealthIncidents(endpointId: number, window: HealthWindow | string): Promise<EndpointHealthIncidentsResponse> {
+export async function fetchHealthIncidents(endpointId: number, window: HealthWindow): Promise<EndpointHealthIncidentsResponse> {
   const { data } = await client.get<EndpointHealthIncidentsResponse>("/admin/health/incidents", {
     params: { endpoint_id: endpointId, window },
   });
@@ -234,7 +234,7 @@ export async function fetchHealthIncidents(endpointId: number, window: HealthWin
 
 export async function fetchHealthRawChecks(
   endpointId: number,
-  window: HealthWindow | string,
+  window: HealthWindow,
   page = 1,
   pageSize = 25
 ): Promise<EndpointHealthRawChecksResponse> {
@@ -244,14 +244,14 @@ export async function fetchHealthRawChecks(
   return data;
 }
 
-export async function fetchHealthOverview(window: HealthWindow | string): Promise<EndpointHealthOverviewResponse> {
+export async function fetchHealthOverview(window: HealthWindow): Promise<EndpointHealthOverviewResponse> {
   const { data } = await client.get<EndpointHealthOverviewResponse>("/admin/health/overview", {
     params: { window },
   });
   return data;
 }
 
-export async function fetchHealthLatencyOverview(window: HealthWindow | string = "day"): Promise<EndpointHealthLatencyOverviewResponse> {
+export async function fetchHealthLatencyOverview(window: HealthWindow = "day"): Promise<EndpointHealthLatencyOverviewResponse> {
   const { data } = await client.get<EndpointHealthLatencyOverviewResponse>("/admin/health/latency-overview", {
     params: { window },
   });
@@ -259,7 +259,7 @@ export async function fetchHealthLatencyOverview(window: HealthWindow | string =
 }
 
 export async function fetchHealthGlobalIncidents(
-  window: HealthWindow | string = "half_year",
+  window: HealthWindow = "half_year",
   limit = 300
 ): Promise<EndpointHealthGlobalIncidentsResponse> {
   const { data } = await client.get<EndpointHealthGlobalIncidentsResponse>("/admin/health/incidents-global", {
