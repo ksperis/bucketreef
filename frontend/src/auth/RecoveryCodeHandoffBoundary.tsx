@@ -5,6 +5,7 @@ import { useSession } from "./SessionProvider";
 import { useProfileI18n } from "../features/shared/profileMessages";
 import { ProfileButton } from "../features/shared/ProfileControls";
 import UiInlineMessage from "../components/ui/UiInlineMessage";
+import { copyTextToClipboard } from "../utils/clipboard";
 
 export default function RecoveryCodeHandoffBoundary({ children }: { children: ReactNode }) {
   const state = useSyncExternalStore(recoveryCodeHandoff.subscribe, recoveryCodeHandoff.getSnapshot);
@@ -34,7 +35,7 @@ export default function RecoveryCodeHandoffBoundary({ children }: { children: Re
   const copy = async (index: number) => {
     setCopyError(false);
     try {
-      await navigator.clipboard.writeText(state.codes[index]);
+      await copyTextToClipboard(state.codes[index]);
       setCopied(index);
     } catch { setCopyError(true); }
   };

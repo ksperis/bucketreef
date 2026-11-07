@@ -102,6 +102,24 @@ describe("memory-only recovery code handoff", () => {
     expect(screen.getByLabelText("Authentication state")).toHaveTextContent("true");
   });
 
+  it("copies recovery codes through the shared clipboard path and keeps manual-copy feedback on failure", async () => {
+    mount();
+    const user = await rotate();
+    await act(async () => respondToRotation(json({ codes: syntheticCodes })));
+    expect(await screen.findByRole("heading", { name: "Wiederherstellungscodes" })).toBeInTheDocument();
+
+    const writeText = vi.spyOn(navigator.clipboard, "writeText");
+    await user.click(screen.getByRole("button", { name: "Kopieren 1" }));
+    expect(writeText).toHaveBeenCalledWith(syntheticCodes[0]);
+    expect(screen.getByRole("button", { name: "Kopieren 1" })).toHaveTextContent("Kopiert");
+
+    writeText.mockRejectedValueOnce(new Error("Permission denied"));
+    await user.click(screen.getByRole("button", { name: "Kopieren 2" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Kopieren fehlgeschlagen. Markieren und kopieren Sie den Code manuell.",
+    );
+  });
+
   it("restores normal unauthenticated navigation when rotation fails after a concurrent 401", async () => {
     mount();
     await rotate();
