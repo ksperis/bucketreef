@@ -19,6 +19,7 @@ from app.services.bucket_usage_stats_service import (
     _load_warnings,
 )
 from app.services.bucket_usage_stats_scan import classify_data_type
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionContext
 
 
@@ -309,11 +310,60 @@ def test_usage_stats_does_not_fallback_on_access_denied():
     )
     service = FakeUsageStatsService(client)
 
-    with pytest.raises(RuntimeError) as exc:
+    with pytest.raises(S3OperationError) as exc:
         service.calculate_bucket(_target())
 
     assert "unable to list object versions" in str(exc.value).lower()
     assert "AccessDenied" in str(exc.value)
+
+
+def test_usage_stats_does_not_mask_unexpected_version_listing_runtime_errors():
+    client = FakeS3Client(
+        {
+            "list_object_versions": FakePaginator(error=RuntimeError("unexpected version listing bug")),
+        }
+    )
+
+    with pytest.raises(RuntimeError, match="unexpected version listing bug"):
+        FakeUsageStatsService(client).calculate_bucket(_target())
+
+
+def test_usage_stats_does_not_mask_unexpected_current_listing_runtime_errors():
+    client = FakeS3Client(
+        {
+            "list_object_versions": FakePaginator(error=_client_error("NotImplemented", "not implemented")),
+            "list_objects_v2": FakePaginator(error=RuntimeError("unexpected current listing bug")),
+        }
+    )
+
+    with pytest.raises(RuntimeError, match="unexpected current listing bug"):
+        FakeUsageStatsService(client).calculate_bucket(_target())
+
+
+def test_usage_stats_client_kwargs_types_missing_execution_credentials():
+    service = BucketUsageStatsService()
+    context = S3ExecutionContext(
+        context_id="missing-credentials",
+        context_kind="session",
+        name="Missing credentials",
+        access_key=None,
+        secret_key=None,
+    )
+
+    with pytest.raises(S3OperationError, match="missing credentials"):
+        service._client_kwargs(context)
+
+
+def test_usage_stats_client_kwargs_does_not_mask_unexpected_credential_runtime_error():
+    service = BucketUsageStatsService()
+
+    class BrokenContext:
+        @staticmethod
+        def effective_rgw_credentials():
+            raise RuntimeError("unexpected credential resolver bug")
+
+    with pytest.raises(RuntimeError, match="unexpected credential resolver bug"):
+        service._client_kwargs(BrokenContext())
 
 
 def test_usage_stats_upsert_replaces_latest_snapshot_without_history(db_session):
