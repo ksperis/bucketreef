@@ -1270,7 +1270,7 @@ def test_portal_bucket_creation_rejects_unauthorized_role_before_s3_calls(monkey
         )
 
 
-def test_get_state_without_bootstrap_is_read_only(monkeypatch, db_session):
+def test_get_state_without_portal_identity_is_read_only(monkeypatch, db_session):
     account = make_s3_account(db_session, name="portal-account-read-only", rgw_access_key="ROOT-AK", rgw_secret_key="ROOT-SK")
     user = User(email="portal-readonly@example.com", hashed_password="x", role="ui_user")
     db_session.add_all([account, user])
@@ -1465,7 +1465,7 @@ def test_portal_traffic_filters_to_requested_visible_bucket(monkeypatch, db_sess
     assert excinfo.value.status_code == 403
 
 
-def test_list_access_keys_without_bootstrap_returns_empty(monkeypatch, db_session):
+def test_list_access_keys_without_portal_identity_returns_empty(monkeypatch, db_session):
     account = make_s3_account(db_session, name="portal-account-no-keys", rgw_access_key="ROOT-AK", rgw_secret_key="ROOT-SK")
     user = User(email="portal-nokeys@example.com", hashed_password="x", role="ui_user")
     db_session.add_all([account, user])

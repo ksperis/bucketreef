@@ -29,7 +29,9 @@ def _admin(db_session) -> User:
 def test_status_and_dismiss_api_do_not_mutate_app_settings(db_session, client):
     user = _admin(db_session)
     payload = AppSettings().model_dump(mode="json")
-    db_session.add(AppSetting(key="default", payload=payload))
+    app_settings = db_session.get(AppSetting, "default")
+    assert app_settings is not None
+    app_settings.payload = payload
     db_session.commit()
     app.dependency_overrides[get_current_ui_admin] = lambda: user
     initial = client.get("/api/admin/onboarding")

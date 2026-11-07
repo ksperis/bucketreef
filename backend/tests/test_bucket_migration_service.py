@@ -59,6 +59,7 @@ from app.services.bucket_migration.execution_runtime import ResolvedContext
 from app.services.bucket_migration.execution_signals import MigrationControlRequested
 from app.services.bucket_migration.worker import BucketMigrationWorker
 from app.services.bucket_migration_service import BucketMigrationService
+from app.services.app_settings_service import bootstrap_app_settings_for_db
 from app.services.s3_client import S3OperationError
 from app.services.webhook_catalog import MIGRATION_EVENT_TYPE
 from app.services.webhook_service import WebhookQueueError, WebhookService
@@ -5192,6 +5193,7 @@ def test_worker_marks_migration_failed_on_fatal_exception(tmp_path, monkeypatch)
 
     try:
         with test_session_factory() as db:
+            bootstrap_app_settings_for_db(db)
             migration = BucketMigration(
                 source_context_id="10",
                 target_context_id="20",

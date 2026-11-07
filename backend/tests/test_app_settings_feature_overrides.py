@@ -17,6 +17,12 @@ from app.models.app_settings import AppSettings, BrandingSettings, GeneralSettin
 from app.services import app_settings_service
 
 
+@pytest.fixture
+def db_session(raw_db_session):
+    """App-settings tests control the pre/post-bootstrap transition explicitly."""
+    return raw_db_session
+
+
 def _runtime_settings(**overrides):
     defaults = {
         "app_settings_path": None,
@@ -186,15 +192,16 @@ def test_load_app_settings_applies_feature_env_overrides(monkeypatch, tmp_path, 
             feature_portal_enabled=True,
         ),
     )
+    app_settings_service.bootstrap_app_settings_for_db(db_session)
 
     effective = app_settings_service.load_app_settings()
     assert effective.general.manager_enabled is True
     assert effective.general.openstack_enabled is True
     assert effective.general.browser_enabled is False
     assert effective.general.portal_enabled is True
-    # Not forced: the bootstrap value is preserved without a read-side write.
+    # Not forced: the bootstrap value is preserved by the database-backed read.
     assert effective.general.ceph_admin_enabled is True
-    assert db_session.get(AppSetting, app_settings_service.APP_SETTINGS_DB_KEY) is None
+    assert db_session.get(AppSetting, app_settings_service.APP_SETTINGS_DB_KEY) is not None
 
 
 def test_save_app_settings_keeps_persisted_value_for_locked_features(monkeypatch, tmp_path, db_session):
@@ -211,6 +218,7 @@ def test_save_app_settings_keeps_persisted_value_for_locked_features(monkeypatch
         "get_settings",
         lambda: _runtime_settings(feature_manager_enabled=True, feature_cost_enabled=False),
     )
+    app_settings_service.bootstrap_app_settings_for_db(db_session)
 
     payload = AppSettings()
     payload.general.manager_enabled = True
@@ -264,6 +272,7 @@ def test_app_settings_save_rolls_back_when_commit_fails(monkeypatch, tmp_path, d
     monkeypatch.setattr(app_settings_service, "get_settings", lambda: _runtime_settings())
     original = AppSettings()
     original.general.browser_enabled = False
+    app_settings_service.bootstrap_app_settings_for_db(db_session)
     app_settings_service.save_app_settings_for_db(db_session, original)
     rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
 
@@ -284,6 +293,7 @@ def test_enable_onboarding_features_rolls_back_when_commit_fails(monkeypatch, tm
     monkeypatch.setattr(app_settings_service, "get_settings", lambda: _runtime_settings())
     original = AppSettings()
     original.general.manager_enabled = False
+    app_settings_service.bootstrap_app_settings_for_db(db_session)
     app_settings_service.save_app_settings_for_db(db_session, original)
     rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
 
@@ -296,7 +306,7 @@ def test_enable_onboarding_features_rolls_back_when_commit_fails(monkeypatch, tm
     assert persisted.general.manager_enabled is False
 
 
-def test_app_settings_db_load_does_not_persist_bootstrap(monkeypatch, tmp_path, db_session):
+def test_app_settings_db_load_does_not_fallback_to_bootstrap_file(monkeypatch, tmp_path, db_session):
     settings_path = tmp_path / "app_settings.json"
     bootstrap = AppSettings()
     bootstrap.general.browser_enabled = False
@@ -305,9 +315,12 @@ def test_app_settings_db_load_does_not_persist_bootstrap(monkeypatch, tmp_path, 
     monkeypatch.setattr(app_settings_service, "_settings_path", lambda: settings_path)
     monkeypatch.setattr(app_settings_service, "get_settings", lambda: _runtime_settings())
 
-    loaded = app_settings_service.load_app_settings_for_db(db_session)
+    with pytest.raises(
+        app_settings_service.AppSettingsLoadError,
+        match="have not been initialized",
+    ):
+        app_settings_service.load_app_settings_for_db(db_session)
 
-    assert loaded.general.browser_enabled is False
     assert db_session.get(AppSetting, app_settings_service.APP_SETTINGS_DB_KEY) is None
 
 
@@ -453,17 +466,18 @@ def test_manager_ceph_s3_user_keys_flag_default_enabled():
     assert settings.manager.feature_policies.ceph_s3_user_keys == "targeted"
 
 
-def test_fresh_settings_enable_access_key_extensions_and_preserve_disabled_choices(monkeypatch, tmp_path, db_session):
+def test_bootstrapped_settings_enable_access_key_extensions_and_preserve_disabled_choices(monkeypatch, tmp_path, db_session):
     monkeypatch.setattr(app_settings_service, "_settings_path", lambda: tmp_path / "missing.json")
     monkeypatch.setattr(app_settings_service, "get_settings", _runtime_settings)
     _use_settings_db(monkeypatch, db_session)
+    app_settings_service.bootstrap_app_settings_for_db(db_session)
 
     settings = app_settings_service.load_app_settings()
     features = ("access_key_metadata", "access_key_expiration")
     for feature in features:
         assert getattr(settings.manager.feature_policies, feature) == "targeted"
         setattr(settings.manager.feature_policies, feature, "disabled")
-    assert db_session.get(AppSetting, app_settings_service.APP_SETTINGS_DB_KEY) is None
+    assert db_session.get(AppSetting, app_settings_service.APP_SETTINGS_DB_KEY) is not None
 
     app_settings_service.save_app_settings_for_db(db_session, settings)
     reloaded = app_settings_service.load_app_settings()
@@ -644,6 +658,7 @@ def test_manager_ceph_s3_user_keys_flag_persists(monkeypatch, tmp_path, db_sessi
         "get_settings",
         lambda: _runtime_settings(),
     )
+    app_settings_service.bootstrap_app_settings_for_db(db_session)
 
     payload = AppSettings()
     payload.manager.feature_policies.ceph_s3_user_keys = "targeted"
@@ -665,6 +680,7 @@ def test_managed_private_connection_provisioning_flag_persists(monkeypatch, tmp_
         "get_settings",
         lambda: _runtime_settings(),
     )
+    app_settings_service.bootstrap_app_settings_for_db(db_session)
 
     payload = AppSettings()
     payload.manager.feature_policies.managed_private_connection_provisioning = "targeted"
@@ -686,6 +702,7 @@ def test_manager_rgw_usage_metrics_flag_persists(monkeypatch, tmp_path, db_sessi
         "get_settings",
         lambda: _runtime_settings(),
     )
+    app_settings_service.bootstrap_app_settings_for_db(db_session)
 
     payload = AppSettings()
     payload.manager.feature_policies.rgw_usage_metrics = "disabled"
@@ -708,6 +725,7 @@ def test_bucket_integrity_check_flag_persists(monkeypatch, tmp_path, db_session)
         "get_settings",
         lambda: _runtime_settings(),
     )
+    app_settings_service.bootstrap_app_settings_for_db(db_session)
 
     payload = AppSettings()
     payload.manager.feature_policies.bucket_integrity_check = "targeted"
@@ -729,6 +747,7 @@ def test_bucket_purge_flag_persists(monkeypatch, tmp_path, db_session):
         "get_settings",
         lambda: _runtime_settings(),
     )
+    app_settings_service.bootstrap_app_settings_for_db(db_session)
 
     payload = AppSettings()
     payload.manager.feature_policies.bucket_purge = "targeted"
