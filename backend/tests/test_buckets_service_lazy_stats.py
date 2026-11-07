@@ -9,6 +9,7 @@ from app.services import buckets_service as buckets_service_module
 from app.services.buckets_service import BucketStatsUnavailableError, BucketsService
 from app.services.bucket_configuration_service import BucketConfigurationService
 from app.services.bucket_quota_service import BucketQuotaOperationError, BucketQuotaService
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionContext
 from tests.service_identity_helpers import service_identity
 from tests.storage_endpoint_features import persisted_endpoint_features
@@ -492,7 +493,7 @@ def test_list_buckets_notifications_feature_statuses(monkeypatch):
             )
         if bucket_name == "bucket-empty":
             return BucketNotificationConfiguration(configuration={"TopicConfigurations": [], "QueueConfigurations": [{}]})
-        raise RuntimeError("GetBucketNotificationConfiguration failed")
+        raise S3OperationError("GetBucketNotificationConfiguration failed")
 
     monkeypatch.setattr(service.configuration, "get_bucket_notifications", fake_get_notifications)
 
@@ -505,6 +506,25 @@ def test_list_buckets_notifications_feature_statuses(monkeypatch):
     assert features["bucket-empty"].tone == "inactive"
     assert features["bucket-failing"].state == "Unavailable"
     assert features["bucket-failing"].tone == "unknown"
+
+
+def test_list_buckets_notifications_propagates_unexpected_runtime_error(monkeypatch):
+    service = BucketsService()
+    account = _build_account()
+    monkeypatch.setattr(s3_client, "list_buckets", lambda **kwargs: [{"name": "bucket-failing"}])
+    monkeypatch.setattr(service, "_admin_bucket_list", lambda *args, **kwargs: [])
+
+    def fail_unexpectedly(*_args, **_kwargs):
+        raise RuntimeError("unexpected notification enrichment regression")
+
+    monkeypatch.setattr(
+        service.configuration,
+        "get_bucket_notifications",
+        fail_unexpectedly,
+    )
+
+    with pytest.raises(RuntimeError, match="unexpected notification enrichment regression"):
+        service.list_buckets(account, include={"notifications"}, with_stats=False)
 
 
 def test_list_buckets_notifications_unavailable_when_sns_disabled(monkeypatch):

@@ -44,6 +44,7 @@ from app.services.listing_progress import (
     ListingProgressEmitter,
     build_listing_progress_callback,
 )
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionTarget
 from app.utils.cancellation import invoke_cancel_check
 from app.utils.normalize import normalize_optional_string
@@ -133,7 +134,7 @@ def _enrich_website_configuration(
 ) -> None:
     try:
         website = service.get_bucket_website(bucket.name, execution_context)
-    except RuntimeError:
+    except S3OperationError:
         if wants_feature:
             feature_map["static_website"] = _feature_status_unavailable()
         _mark_details_unavailable(column_details, detail_keys)
@@ -168,7 +169,7 @@ def _enrich_policy_configuration(
 ) -> None:
     try:
         policy = service.get_policy(bucket.name, execution_context)
-    except RuntimeError:
+    except S3OperationError:
         if wants_feature:
             feature_map["bucket_policy"] = _feature_status_unavailable()
         _mark_details_unavailable(column_details, detail_keys)
@@ -202,7 +203,7 @@ def _enrich_logging_configuration(
 ) -> None:
     try:
         logging_config = service.get_bucket_logging(bucket.name, execution_context)
-    except RuntimeError:
+    except S3OperationError:
         if wants_feature:
             feature_map["access_logging"] = _feature_status_unavailable()
         _mark_details_unavailable(column_details, detail_keys)
@@ -243,7 +244,7 @@ def _enrich_notification_configuration(
 
     try:
         notifications = service.get_bucket_notifications(bucket.name, execution_context)
-    except RuntimeError:
+    except S3OperationError:
         if wants_feature:
             feature_map["notifications"] = _feature_status_unavailable()
         _mark_details_unavailable(column_details, detail_keys)
@@ -271,7 +272,7 @@ def _enrich_encryption_configuration(
 ) -> None:
     try:
         encryption = service.get_bucket_encryption(bucket.name, execution_context)
-    except RuntimeError:
+    except S3OperationError:
         if wants_feature:
             feature_map["server_side_encryption"] = _feature_status_unavailable()
         _mark_details_unavailable(column_details, detail_keys)
@@ -333,7 +334,7 @@ def _enrich_lifecycle_configuration(
             context.bucket_name,
             context.execution_context,
         ).rules
-    except RuntimeError:
+    except S3OperationError:
         if wants_feature:
             feature_map["lifecycle_rules"] = _feature_status_unavailable()
         _mark_details_unavailable(column_details, detail_keys)
@@ -464,7 +465,7 @@ class _BucketEnricher:
             return None
         try:
             return self.service.get_bucket_tags(bucket.name, self.execution_context)
-        except RuntimeError:
+        except S3OperationError:
             return []
 
     def _enrich_property_features(

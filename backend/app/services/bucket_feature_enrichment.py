@@ -29,6 +29,7 @@ from app.services.bucket_property_feature_enrichment import (
     load_bucket_properties_context,
     unavailable_feature_status,
 )
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionTarget
 
 
@@ -69,7 +70,7 @@ def _load_bucket_tags(
         return None
     try:
         return reader.get_bucket_tags(bucket_name, execution_context)
-    except RuntimeError:
+    except S3OperationError:
         return []
 
 
@@ -119,7 +120,7 @@ def _enrich_static_website(
         feature_map["static_website"] = (
             active_feature_status("Enabled") if configured else inactive_feature_status("Disabled")
         )
-    except RuntimeError:
+    except S3OperationError:
         feature_map["static_website"] = unavailable_feature_status()
 
 
@@ -135,7 +136,7 @@ def _enrich_bucket_policy(
         feature_map["bucket_policy"] = (
             active_feature_status("Configured") if configured else inactive_feature_status("Not set")
         )
-    except RuntimeError:
+    except S3OperationError:
         feature_map["bucket_policy"] = unavailable_feature_status()
 
 
@@ -151,7 +152,7 @@ def _enrich_access_logging(
         feature_map["access_logging"] = (
             active_feature_status("Enabled") if enabled else inactive_feature_status("Disabled")
         )
-    except RuntimeError:
+    except S3OperationError:
         feature_map["access_logging"] = unavailable_feature_status()
 
 
@@ -172,7 +173,7 @@ def _enrich_notifications(
         feature_map["notifications"] = (
             active_feature_status("Configured") if configured else inactive_feature_status("Not set")
         )
-    except RuntimeError:
+    except S3OperationError:
         feature_map["notifications"] = unavailable_feature_status()
 
 

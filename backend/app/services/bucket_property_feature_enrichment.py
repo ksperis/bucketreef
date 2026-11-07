@@ -12,6 +12,7 @@ from app.models.bucket import (
     BucketProperties,
     BucketPublicAccessBlock,
 )
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionTarget
 
 BUCKET_PROPERTY_FEATURES = frozenset(
@@ -55,7 +56,7 @@ def load_bucket_properties_context(
     if uses_bundle:
         try:
             properties = reader.get_bucket_properties(bucket_name, execution_context)
-        except RuntimeError:
+        except S3OperationError:
             unavailable = True
     return BucketPropertiesContext(
         bucket_name=bucket_name,
@@ -83,7 +84,7 @@ def enrich_versioning(
                 context.bucket_name,
                 context.execution_context,
             )
-        except RuntimeError:
+        except S3OperationError:
             feature_map["versioning"] = unavailable_feature_status()
             return
 
@@ -113,7 +114,7 @@ def enrich_object_lock(
                 context.bucket_name,
                 context.execution_context,
             )
-        except RuntimeError:
+        except S3OperationError:
             feature_map["object_lock"] = unavailable_feature_status()
             return
         enabled = bool(object_lock and object_lock.enabled is True)
@@ -138,7 +139,7 @@ def enrich_public_access_block(
                 context.bucket_name,
                 context.execution_context,
             )
-        except RuntimeError:
+        except S3OperationError:
             feature_map["block_public_access"] = unavailable_feature_status()
             return
 
@@ -175,7 +176,7 @@ def enrich_lifecycle(
                 context.bucket_name,
                 context.execution_context,
             ).rules
-        except RuntimeError:
+        except S3OperationError:
             feature_map["lifecycle_rules"] = unavailable_feature_status()
             return
 
@@ -199,7 +200,7 @@ def enrich_cors(
                 context.bucket_name,
                 context.execution_context,
             )
-        except RuntimeError:
+        except S3OperationError:
             feature_map["cors"] = unavailable_feature_status()
             return
 

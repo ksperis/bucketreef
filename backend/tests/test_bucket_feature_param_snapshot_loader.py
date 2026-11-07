@@ -1,6 +1,8 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
+import pytest
+
 from app.models.bucket import (
     BucketEncryptionConfiguration,
     BucketLifecycleConfig,
@@ -10,6 +12,7 @@ from app.models.bucket import (
 from app.models.bucket_listing import BucketListingSummary
 from app.services import bucket_feature_param_snapshot_loader as snapshot_loader
 from app.services.bucket_feature_param_matching import FEATURE_PARAM_UNAVAILABLE
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionContext
 
 
@@ -21,7 +24,7 @@ class _Service:
     def _value(self, source: str, value):
         self.calls.append(source)
         if source in self.failures:
-            raise RuntimeError(source)
+            raise S3OperationError(source)
         return value
 
     def get_bucket_properties(self, *_args):
@@ -75,7 +78,7 @@ def test_feature_param_snapshot_loads_requested_sources_in_stable_order():
     assert snapshot["policy"] == {"Statement": []}
 
 
-def test_feature_param_snapshot_marks_runtime_errors_unavailable():
+def test_feature_param_snapshot_marks_s3_errors_unavailable():
     service = _Service()
     service.failures.add("website")
 
@@ -88,6 +91,23 @@ def test_feature_param_snapshot_marks_runtime_errors_unavailable():
 
     assert snapshot["website"] is FEATURE_PARAM_UNAVAILABLE
     assert isinstance(snapshot["encryption"], BucketEncryptionConfiguration)
+
+
+def test_feature_param_snapshot_propagates_unexpected_runtime_error(monkeypatch):
+    service = _Service()
+
+    def fail_unexpectedly(*_args):
+        raise RuntimeError("unexpected feature parameter regression")
+
+    monkeypatch.setattr(service, "get_bucket_website", fail_unexpectedly)
+
+    with pytest.raises(RuntimeError, match="unexpected feature parameter regression"):
+        snapshot_loader._load_feature_param_snapshot_for_bucket(
+            BucketListingSummary(name="bucket-a"),
+            {"website"},
+            service,
+            _context(),
+        )
 
 
 def test_feature_param_snapshot_skips_notifications_when_sns_is_disabled(monkeypatch):

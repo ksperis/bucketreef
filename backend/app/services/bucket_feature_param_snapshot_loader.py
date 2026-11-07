@@ -17,6 +17,7 @@ from app.services.listing_progress import (
     ListingProgressEmitter,
     build_listing_progress_callback,
 )
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionTarget
 from app.utils.cancellation import invoke_cancel_check
 
@@ -39,7 +40,7 @@ def bucket_identity_key(bucket: BucketListingSummary) -> str:
 def _load_feature_param_source(loader: Callable[[], object]) -> object:
     try:
         return loader()
-    except RuntimeError:
+    except S3OperationError:
         return FEATURE_PARAM_UNAVAILABLE
 
 
