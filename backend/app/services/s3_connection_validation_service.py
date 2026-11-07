@@ -83,7 +83,7 @@ class S3ConnectionValidationService:
                 code=code or None,
                 message="Unable to validate credentials on this endpoint.",
             )
-        except (BotoCoreError, RuntimeError):
+        except BotoCoreError:
             return S3ConnectionCredentialsValidationResult(
                 ok=False,
                 severity="error",

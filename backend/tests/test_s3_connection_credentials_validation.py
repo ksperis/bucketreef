@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+import pytest
 from botocore.exceptions import ClientError
 from fastapi.testclient import TestClient
 
 from app.db import StorageEndpoint, User
 from app.core.domain_enums import UserRole
 from app.main import app
+from app.models.s3_connection import S3ConnectionCredentialsValidationRequest
 from app.routers import dependencies
+from app.services.s3_connection_validation_service import S3ConnectionValidationService
 
 
 def _client_error(code: str, message: str = "boom") -> ClientError:
@@ -161,6 +164,21 @@ def test_validate_credentials_invalid_credentials_error(db_session, monkeypatch)
     assert payload["severity"] == "error"
     assert payload["code"] == "InvalidAccessKeyId"
     assert payload["message"] == "Invalid S3 credentials."
+
+
+def test_validate_credentials_propagates_unexpected_runtime_errors(db_session, monkeypatch):
+    monkeypatch.setattr(
+        "app.services.s3_connection_validation_service.s3_client.get_s3_client",
+        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("validation regression")),
+    )
+    payload = S3ConnectionCredentialsValidationRequest(
+        endpoint_url="https://s3.example.test",
+        access_key_id="AKIA-RUNTIME",
+        secret_access_key="SECRET-RUNTIME",
+    )
+
+    with pytest.raises(RuntimeError, match="validation regression"):
+        S3ConnectionValidationService(db_session).validate_credentials(payload)
 
 
 def test_validate_credentials_rejects_manual_private_endpoint(db_session, monkeypatch):
