@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from typing import Any, Optional
 
 from sqlalchemy import select, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import S3ConnectionConflictError
@@ -664,5 +664,5 @@ class S3ConnectionsService:
     def touch_usage_best_effort(self, row: DBS3Connection) -> None:
         try:
             self.touch_usage(row)
-        except Exception:
+        except SQLAlchemyError:
             return

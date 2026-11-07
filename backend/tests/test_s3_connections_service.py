@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import pytest
 from sqlalchemy import func, select
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.domain_errors import S3ConnectionConflictError, S3ConnectionNotFoundError
 from pydantic import ValidationError
@@ -473,6 +474,44 @@ def test_touch_usage_rolls_back_failed_commit(db_session, monkeypatch):
     persisted = db_session.get(S3Connection, row.id)
     assert persisted is not None
     assert persisted.last_used_at is None
+
+
+def test_touch_usage_best_effort_ignores_database_errors(db_session, monkeypatch):
+    user = _user(db_session, "touch-best-effort-db@example.test")
+    row = _create_row(
+        db_session,
+        created_by_user_id=user.id,
+        name="touch-best-effort-db",
+    )
+    service = S3ConnectionsService(db_session)
+
+    def fail_touch_usage(_row):
+        raise SQLAlchemyError("database unavailable")
+
+    monkeypatch.setattr(service, "touch_usage", fail_touch_usage)
+
+    service.touch_usage_best_effort(row)
+
+
+def test_touch_usage_best_effort_does_not_hide_programming_errors(
+    db_session,
+    monkeypatch,
+):
+    user = _user(db_session, "touch-best-effort-bug@example.test")
+    row = _create_row(
+        db_session,
+        created_by_user_id=user.id,
+        name="touch-best-effort-bug",
+    )
+    service = S3ConnectionsService(db_session)
+
+    def fail_touch_usage(_row):
+        raise RuntimeError("unexpected bug")
+
+    monkeypatch.setattr(service, "touch_usage", fail_touch_usage)
+
+    with pytest.raises(RuntimeError, match="unexpected bug"):
+        service.touch_usage_best_effort(row)
 
 
 def test_create_and_update_connection_normalize_tags(db_session, monkeypatch):
