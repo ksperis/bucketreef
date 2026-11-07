@@ -46,18 +46,12 @@ class _RgwBucketPayloadCacheKey:
     with_stats: bool
 
 
-@dataclass
-class _RgwBucketPayloadCacheEntry:
-    expires_at: float
-    entries: list[dict]
-
-
 _BUCKET_LIST_CACHE: OrderedDict[
     CephAdminBucketListCacheKey,
     TtlCacheEntry[CephAdminBucketListingSnapshot],
 ] = OrderedDict()
 _BUCKET_LIST_INFLIGHT: dict[CephAdminBucketListCacheKey, Future[CephAdminBucketListingSnapshot]] = {}
-_RGW_BUCKET_PAYLOAD_CACHE: OrderedDict[_RgwBucketPayloadCacheKey, _RgwBucketPayloadCacheEntry] = OrderedDict()
+_RGW_BUCKET_PAYLOAD_CACHE: OrderedDict[_RgwBucketPayloadCacheKey, TtlCacheEntry[list[dict]]] = OrderedDict()
 _RGW_BUCKET_PAYLOAD_INFLIGHT: dict[int, Event] = {}
 # Both cache layers must be invalidated together. No provider call or wait
 # holds this lock; payload requests remain serialized per endpoint and load.
@@ -78,14 +72,14 @@ def _cached_rgw_bucket_entries_locked(key: _RgwBucketPayloadCacheKey) -> list[di
     cached = _RGW_BUCKET_PAYLOAD_CACHE.get(key)
     if cached is not None:
         _RGW_BUCKET_PAYLOAD_CACHE.move_to_end(key)
-        return cached.entries
+        return cached.value
 
     if not key.with_stats:
         stats_key = _RgwBucketPayloadCacheKey(endpoint_id=key.endpoint_id, with_stats=True)
         cached_stats = _RGW_BUCKET_PAYLOAD_CACHE.get(stats_key)
         if cached_stats is not None:
             _RGW_BUCKET_PAYLOAD_CACHE.move_to_end(stats_key)
-            return cached_stats.entries
+            return cached_stats.value
     return None
 
 
@@ -112,9 +106,9 @@ def get_cached_rgw_bucket_entries(ctx: BucketListingAdminContext, with_stats: bo
         expires_at = monotonic() + BUCKET_LIST_CACHE_TTL_SECONDS
         with _CACHE_LOCK:
             if _RGW_BUCKET_PAYLOAD_INFLIGHT.get(endpoint_id) is in_flight:
-                _RGW_BUCKET_PAYLOAD_CACHE[key] = _RgwBucketPayloadCacheEntry(
+                _RGW_BUCKET_PAYLOAD_CACHE[key] = TtlCacheEntry(
                     expires_at=expires_at,
-                    entries=entries,
+                    value=entries,
                 )
                 _RGW_BUCKET_PAYLOAD_CACHE.move_to_end(key)
                 prune_expired_lru_cache(
