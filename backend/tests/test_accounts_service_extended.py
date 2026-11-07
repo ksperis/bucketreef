@@ -625,6 +625,44 @@ def _prepare_account_deletion_checks(service, admin, monkeypatch):
     monkeypatch.setattr(service.rgw_context, "admin_for_account", lambda *args, **kwargs: admin)
 
 
+def test_account_iam_cleanup_only_wraps_expected_client_initialization_errors(
+    db_session,
+    monkeypatch,
+):
+    endpoint = _seed_endpoint(
+        db_session,
+        name="ceph-delete-iam-client-errors",
+        is_default=True,
+        iam_enabled=True,
+    )
+    account = _seed_account(
+        db_session,
+        endpoint.id,
+        name="delete-iam-client-errors",
+        rgw_account_id="RGW-DEL-IAM-CLIENT-ERRORS",
+    )
+
+    def unavailable_iam(*_args, **_kwargs):
+        raise RuntimeError("IAM endpoint unavailable")
+
+    monkeypatch.setattr(
+        "app.services.s3_account_iam_cleanup_service.get_iam_service",
+        unavailable_iam,
+    )
+    with pytest.raises(ValueError, match="Unable to initialize RGW IAM cleanup"):
+        S3AccountIamCleanupService._iam_for_account(account)
+
+    def broken_iam(*_args, **_kwargs):
+        raise TypeError("unexpected IAM client bug")
+
+    monkeypatch.setattr(
+        "app.services.s3_account_iam_cleanup_service.get_iam_service",
+        broken_iam,
+    )
+    with pytest.raises(TypeError, match="unexpected IAM client bug"):
+        S3AccountIamCleanupService._iam_for_account(account)
+
+
 def test_delete_account_removes_empty_portal_groups_before_root_user(db_session, monkeypatch):
     endpoint = _seed_endpoint(
         db_session,
