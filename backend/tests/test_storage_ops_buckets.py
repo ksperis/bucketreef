@@ -629,6 +629,46 @@ def test_storage_ops_listing_fanout_runs_in_parallel(client, monkeypatch):
         app.dependency_overrides.pop(storage_ops_router.get_buckets_service, None)
 
 
+def test_storage_ops_listing_fanout_propagates_context_failures(monkeypatch):
+    refs = [
+        storage_ops_context_resolution.StorageOpsContextRef(
+            context_id=context_id,
+            context_name=f"Account {context_id}",
+            context_kind="account",
+            endpoint_id=None,
+            endpoint_name=None,
+        )
+        for context_id in ("1", "2")
+    ]
+
+    def list_context_buckets(*, context, service, query):  # noqa: ARG001
+        if context.ref.context_id == "2":
+            raise RuntimeError("context listing failed")
+        return [
+            StorageOpsBucketSummary(
+                name="bucket-1",
+                context_id="1",
+                context_name="Account 1",
+                context_kind="account",
+                bucket_name="bucket-1",
+            )
+        ]
+
+    monkeypatch.setattr(
+        storage_ops_listing_service,
+        "list_storage_ops_context_buckets",
+        list_context_buckets,
+    )
+
+    with pytest.raises(RuntimeError, match="context listing failed"):
+        storage_ops_listing_service.compute_storage_ops_bucket_listing(
+            load_context_refs=lambda: refs,
+            resolve_context=lambda ref: _source_context(ref.context_id),
+            service=SimpleNamespace(),
+            request=BucketListingRequest(with_stats=False),
+        )
+
+
 def test_storage_ops_feature_param_filter_prefilters_base_candidates(monkeypatch):
     captured: dict[str, list[str]] = {}
 

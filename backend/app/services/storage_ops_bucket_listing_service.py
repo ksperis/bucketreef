@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import logging
 from typing import Callable
 
 from app.models.bucket_listing import BucketListingRequest
@@ -38,9 +37,6 @@ from app.services.storage_ops_context_resolution import (
 )
 from app.utils.cancellation import invoke_cancel_check
 from app.utils.tagging import TAG_DOMAIN_BUCKET_UI_STORAGE_OPS
-
-
-logger = logging.getLogger(__name__)
 
 
 STORAGE_OPS_CONTEXT_LISTING_MAX_WORKERS = 6
@@ -257,10 +253,7 @@ class _StorageOpsBucketListingPipeline:
             ]
             for index, future in enumerate(as_completed(futures), start=1):
                 invoke_cancel_check(self.cancel_check)
-                try:
-                    results.extend(future.result())
-                except Exception as exc:
-                    logger.warning("Storage Ops context worker failed: %s", exc)
+                results.extend(future.result())
                 self._emit_context_listing_progress(index, total)
                 invoke_cancel_check(self.cancel_check)
         return results
