@@ -170,21 +170,6 @@ class StorageEndpointsService:
             return endpoint.endpoint_url
         return configured_s3_endpoint()
 
-    def get_default_endpoint_record(self) -> Optional[StorageEndpoint]:
-        return self.db.scalar(
-            select(StorageEndpoint)
-            .where(StorageEndpoint.is_default.is_(True))
-            .order_by(StorageEndpoint.id.asc())
-            .limit(1)
-        )
-
-    def find_endpoint_record_by_url(self, endpoint_url: str) -> Optional[StorageEndpoint]:
-        return self.db.scalar(
-            select(StorageEndpoint)
-            .where(StorageEndpoint.endpoint_url == endpoint_url)
-            .limit(1)
-        )
-
     def get_endpoint_record(self, endpoint_id: int) -> StorageEndpoint:
         return self.repository.get(endpoint_id)
 
