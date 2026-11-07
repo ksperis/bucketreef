@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useState } from "react";
-import type { S3ExecutionContextSelector } from "../../../api/accountParams";
+import type { BucketDetailControllerOptions } from "./bucketDetailControllerOptions";
 import { useBucketDetailsApi } from "../../shared/useBucketDetailsApi";
 import type { BucketWebsiteConfiguration } from "../../../api/bucketContracts";
 import {
@@ -27,15 +27,6 @@ type WebsiteDraft = {
   redirectHost: string;
   redirectProtocol: string;
   routingRules: string;
-};
-
-type UseBucketWebsiteControllerOptions = {
-  contextId: S3ExecutionContextSelector;
-  bucketName?: string;
-  cephAdmin: boolean;
-  cephAdminTenant?: string | null;
-  enabled: boolean;
-  endpointId?: number | null;
 };
 
 const emptyDraft: WebsiteDraft = {
@@ -83,7 +74,7 @@ export function useBucketWebsiteController({
   cephAdminTenant,
   enabled,
   endpointId,
-}: UseBucketWebsiteControllerOptions) {
+}: BucketDetailControllerOptions) {
   const bucketDetailsApi = useBucketDetailsApi();
   const [draft, setDraft] = useState<WebsiteDraft>(emptyDraft);
   const [snapshot, setSnapshot] = useState<WebsiteDraft>(emptyDraft);

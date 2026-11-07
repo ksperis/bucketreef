@@ -3,22 +3,13 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useState } from "react";
-import type { S3ExecutionContextSelector } from "../../../api/accountParams";
+import type { BucketDetailControllerOptions } from "./bucketDetailControllerOptions";
 import { useBucketDetailsApi } from "../../shared/useBucketDetailsApi";
 import {
   getCephAdminBucketVersioning,
   setCephAdminBucketVersioning,
 } from "../../../api/cephAdminBucketDetails";
 import { extractApiError, isApiFeatureUnsupportedError } from "../../../utils/apiError";
-
-type UseBucketVersioningControllerOptions = {
-  contextId: S3ExecutionContextSelector;
-  bucketName?: string;
-  cephAdmin: boolean;
-  cephAdminTenant?: string | null;
-  enabled: boolean;
-  endpointId?: number | null;
-};
 
 function statusIsEnabled(status?: string | null): boolean {
   return (status ?? "").trim().toLowerCase() === "enabled";
@@ -31,7 +22,7 @@ export function useBucketVersioningController({
   cephAdminTenant,
   enabled,
   endpointId,
-}: UseBucketVersioningControllerOptions) {
+}: BucketDetailControllerOptions) {
   const bucketDetailsApi = useBucketDetailsApi();
   const [status, setStatus] = useState<string | null>(null);
   const [draftEnabled, setDraftEnabled] = useState(false);

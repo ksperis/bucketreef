@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useMemo, useState } from "react";
-import type { S3ExecutionContextSelector } from "../../../api/accountParams";
+import type { BucketDetailControllerOptions } from "./bucketDetailControllerOptions";
 import { useBucketDetailsApi } from "../../shared/useBucketDetailsApi";
 import {
   deleteCephAdminBucketLifecycle,
@@ -27,15 +27,6 @@ import {
   type LifecycleVisualRulePatch,
 } from "./lifecycleEditorModel";
 
-type UseBucketLifecycleControllerOptions = {
-  contextId: S3ExecutionContextSelector;
-  bucketName?: string;
-  cephAdmin: boolean;
-  cephAdminTenant?: string | null;
-  enabled: boolean;
-  endpointId?: number | null;
-};
-
 function normalizeRules(value: unknown): LifecycleRuleRecord[] {
   if (!Array.isArray(value)) return [];
   return value.filter(
@@ -56,7 +47,7 @@ export function useBucketLifecycleController({
   cephAdminTenant,
   enabled,
   endpointId,
-}: UseBucketLifecycleControllerOptions) {
+}: BucketDetailControllerOptions) {
   const bucketDetailsApi = useBucketDetailsApi();
   const [rules, setRules] = useState<LifecycleRuleRecord[]>([]);
   const {

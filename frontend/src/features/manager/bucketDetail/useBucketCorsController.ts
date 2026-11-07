@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useMemo, useState } from "react";
-import type { S3ExecutionContextSelector } from "../../../api/accountParams";
+import type { BucketDetailControllerOptions } from "./bucketDetailControllerOptions";
 import { useBucketDetailsApi } from "../../shared/useBucketDetailsApi";
 import {
   deleteCephAdminBucketCors,
@@ -27,15 +27,6 @@ import {
   type CorsVisualRulePatch,
 } from "./corsEditorModel";
 
-type UseBucketCorsControllerOptions = {
-  contextId: S3ExecutionContextSelector;
-  bucketName?: string;
-  cephAdmin: boolean;
-  cephAdminTenant?: string | null;
-  enabled: boolean;
-  endpointId?: number | null;
-};
-
 function normalizeRules(value: unknown): CorsRuleRecord[] {
   if (!Array.isArray(value)) return [];
   return value.filter(
@@ -56,7 +47,7 @@ export function useBucketCorsController({
   cephAdminTenant,
   enabled,
   endpointId,
-}: UseBucketCorsControllerOptions) {
+}: BucketDetailControllerOptions) {
   const bucketDetailsApi = useBucketDetailsApi();
   const [rules, setRules] = useState<CorsRuleRecord[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);

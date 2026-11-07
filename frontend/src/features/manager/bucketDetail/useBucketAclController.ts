@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useState } from "react";
-import type { S3ExecutionContextSelector } from "../../../api/accountParams";
+import type { BucketDetailControllerOptions } from "./bucketDetailControllerOptions";
 import { useBucketDetailsApi } from "../../shared/useBucketDetailsApi";
 import type { BucketAcl } from "../../../api/bucketContracts";
 import {
@@ -12,15 +12,6 @@ import {
 } from "../../../api/cephAdminBucketDetails";
 import { extractApiError, isApiFeatureUnsupportedError } from "../../../utils/apiError";
 import { stableBucketJsonSignature } from "./bucketFeatureState";
-
-type UseBucketAclControllerOptions = {
-  contextId: S3ExecutionContextSelector;
-  bucketName?: string;
-  cephAdmin: boolean;
-  cephAdminTenant?: string | null;
-  enabled: boolean;
-  endpointId?: number | null;
-};
 
 type AclDraft = {
   custom: string;
@@ -76,7 +67,7 @@ export function useBucketAclController({
   cephAdminTenant,
   enabled,
   endpointId,
-}: UseBucketAclControllerOptions) {
+}: BucketDetailControllerOptions) {
   const bucketDetailsApi = useBucketDetailsApi();
   const [acl, setAcl] = useState<BucketAcl | null>(null);
   const [draft, setDraft] = useState<AclDraft>(privateDraft);

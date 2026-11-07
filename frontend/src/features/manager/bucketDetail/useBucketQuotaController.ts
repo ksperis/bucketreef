@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useEffect, useState } from "react";
-import type { S3ExecutionContextSelector } from "../../../api/accountParams";
+import type { BucketDetailControllerOptions } from "./bucketDetailControllerOptions";
 import { managerBucketDetails } from "../../../api/bucketDetails";
 import type { BucketQuotaUpdate } from "../../../api/bucketContracts";
 import { updateCephAdminBucketQuota } from "../../../api/cephAdminBucketDetails";
@@ -19,14 +19,8 @@ type BucketQuotaDraft = {
   unit: BucketQuotaUnit;
 };
 
-type UseBucketQuotaControllerOptions = {
-  contextId: S3ExecutionContextSelector;
-  bucketName?: string;
-  cephAdmin: boolean;
-  cephAdminTenant?: string | null;
+type UseBucketQuotaControllerOptions = BucketDetailControllerOptions & {
   editable: boolean;
-  enabled: boolean;
-  endpointId?: number | null;
   maxObjects?: number | null;
   maxSizeBytes?: number | null;
   onSaved: () => Promise<void> | void;

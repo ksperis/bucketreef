@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useState } from "react";
-import type { S3ExecutionContextSelector } from "../../../api/accountParams";
+import type { BucketDetailControllerOptions } from "./bucketDetailControllerOptions";
 import { useBucketDetailsApi } from "../../shared/useBucketDetailsApi";
 import type { BucketLoggingConfiguration } from "../../../api/bucketContracts";
 import {
@@ -17,15 +17,6 @@ import {
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
 
-type UseBucketAccessLoggingControllerOptions = {
-  contextId: S3ExecutionContextSelector;
-  bucketName?: string;
-  cephAdmin: boolean;
-  cephAdminTenant?: string | null;
-  enabled: boolean;
-  endpointId?: number | null;
-};
-
 export function useBucketAccessLoggingController({
   contextId,
   bucketName,
@@ -33,7 +24,7 @@ export function useBucketAccessLoggingController({
   cephAdminTenant,
   enabled,
   endpointId,
-}: UseBucketAccessLoggingControllerOptions) {
+}: BucketDetailControllerOptions) {
   const bucketDetailsApi = useBucketDetailsApi();
   const [config, setConfig] = useState<BucketLoggingConfiguration | null>(null);
   const [loggingEnabled, setLoggingEnabled] = useState(false);

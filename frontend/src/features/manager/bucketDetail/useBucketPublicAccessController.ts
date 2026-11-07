@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import { useCallback, useState } from "react";
-import type { S3ExecutionContextSelector } from "../../../api/accountParams";
+import type { BucketDetailControllerOptions } from "./bucketDetailControllerOptions";
 import { useBucketDetailsApi } from "../../shared/useBucketDetailsApi";
 import type { BucketPublicAccessBlock } from "../../../api/bucketContracts";
 import {
@@ -15,15 +15,6 @@ import {
   normalizePublicAccessDraft,
   stableBucketJsonSignature,
 } from "./bucketFeatureState";
-
-type UseBucketPublicAccessControllerOptions = {
-  contextId: S3ExecutionContextSelector;
-  bucketName?: string;
-  cephAdmin: boolean;
-  cephAdminTenant?: string | null;
-  enabled: boolean;
-  endpointId?: number | null;
-};
 
 const defaultPublicAccessBlock: BucketPublicAccessBlock = {
   block_public_acls: false,
@@ -56,7 +47,7 @@ export function useBucketPublicAccessController({
   cephAdminTenant,
   enabled,
   endpointId,
-}: UseBucketPublicAccessControllerOptions) {
+}: BucketDetailControllerOptions) {
   const bucketDetailsApi = useBucketDetailsApi();
   const [config, setConfig] = useState(() => normalize());
   const [snapshot, setSnapshot] = useState(() => normalize());
