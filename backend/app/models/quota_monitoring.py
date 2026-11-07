@@ -4,18 +4,19 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
+from app.core.domain_enums import S3SubjectType
 from app.models.base import ApiModel
 from app.models.retention import DataRetentionResult
 
 
 class QuotaMonitoringSubjectError(ApiModel):
-    subject_type: Literal["account", "s3_user"]
+    subject_type: S3SubjectType
     subject_id: int
     error: str
 
 
 class QuotaMonitoringSubjectWarning(ApiModel):
-    subject_type: Literal["account", "s3_user"]
+    subject_type: S3SubjectType
     subject_id: int
     warning: str
 

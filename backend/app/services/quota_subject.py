@@ -2,12 +2,14 @@
 # Licensed under the Apache License, Version 2.0
 
 from dataclasses import dataclass
-from typing import Literal, Optional
+from typing import Optional
+
+from app.core.domain_enums import S3SubjectType
 
 
 @dataclass
 class SubjectContext:
-    subject_type: Literal["account", "s3_user"]
+    subject_type: S3SubjectType
     subject_id: int
     endpoint_id: int
     endpoint_name: str
