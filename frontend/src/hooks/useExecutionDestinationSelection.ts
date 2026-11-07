@@ -21,15 +21,15 @@ export function useExecutionDestinationSelection({
   const [selectedExecutionEndpointId, setSelectedExecutionEndpointId] = useState<number | null>(null);
   const previousExecutionContextIdRef = useRef<string | null>(null);
   const executionDestinationIds = useMemo(
-    () => selectedContext?.execution_destinations?.map((item) => item.endpoint_id) ?? [],
+    () => selectedContext?.execution_destinations.map((item) => item.endpoint_id) ?? [],
     [selectedContext?.execution_destinations],
   );
-  const selectedExecutionDestination = selectedContext?.execution_destinations?.find(
+  const selectedExecutionDestination = selectedContext?.execution_destinations.find(
     (destination) => destination.endpoint_id === selectedExecutionEndpointId,
   ) ?? null;
-  const selectedStorageEndpointCapabilities = selectedExecutionDestination?.storage_endpoint_capabilities
-    ?? selectedContext?.storage_endpoint_capabilities
-    ?? null;
+  const selectedStorageEndpointCapabilities = selectedContext
+    ? selectedExecutionDestination?.storage_endpoint_capabilities ?? selectedContext.storage_endpoint_capabilities
+    : null;
 
   useEffect(() => {
     const contextChanged = previousExecutionContextIdRef.current !== selectedContextId;

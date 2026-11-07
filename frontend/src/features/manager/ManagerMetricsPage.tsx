@@ -55,8 +55,6 @@ export default function ManagerMetricsPage() {
   const [costLoading, setCostLoading] = useState(false);
   const [costError, setCostError] = useState<string | null>(null);
   const {
-    contexts,
-    selectedContextId,
     hasExecutionContext,
     requiresContextSelection,
     contextIdForApi,
@@ -67,12 +65,8 @@ export default function ManagerMetricsPage() {
     managerFeatureStates,
   } = useExecutionContext();
 
-  const selected = useMemo(
-    () => contexts.find((a) => a.id === selectedContextId),
-    [contexts, selectedContextId]
-  );
   const hasContext = hasExecutionContext;
-  const endpointCaps = selectedStorageEndpointCapabilities ?? selected?.storage_endpoint_capabilities ?? null;
+  const endpointCaps = selectedStorageEndpointCapabilities;
   const usageFeatureEnabled = Boolean(managerStatsEnabled) && (endpointCaps ? endpointCaps.metrics !== false : true);
   const metricsFeatureEnabled = Boolean(managerStatsEnabled) && (endpointCaps ? endpointCaps.usage !== false : true);
   const canLoadUsageStatsAggregate =

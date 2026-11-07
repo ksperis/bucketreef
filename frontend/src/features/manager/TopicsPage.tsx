@@ -26,17 +26,13 @@ type TopicAction = { kind: "create"; contextId: S3ExecutionContextSelector }
 export default function TopicsPage() {
   const { text } = useManagerI18n();
   const {
-    contexts,
     contextIdForApi,
     requiresContextSelection,
     accessMode,
     selectedStorageEndpointCapabilities,
   } = useExecutionContext();
   const needsContextSelection = requiresContextSelection && !contextIdForApi;
-  const selectedContext = contexts.find(context => context.id === contextIdForApi);
-  const snsFeatureEnabled = (
-    selectedStorageEndpointCapabilities ?? selectedContext?.storage_endpoint_capabilities
-  )?.sns !== false;
+  const snsFeatureEnabled = selectedStorageEndpointCapabilities?.sns !== false;
   const [topics, setTopics] = useState<Topic[]>([]);
   const [topicFilter, setTopicFilter] = useState("");
   const [loading, setLoading] = useState(true);

@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { TOPBAR_CONTEXT_SELECTOR_WIDTH_CLASS } from "../../components/topbarControlWidths";
 import type { SidebarBodyRenderArgs, SidebarLink } from "../../components/Sidebar";
+import { buildExecutionContext } from "../../test/executionContexts";
 import BrowserLayout, { useBrowserSidebarSlot } from "./BrowserLayout";
 
 const useBrowserContextMock = vi.fn();
@@ -97,8 +98,8 @@ vi.mock("../shared/storageEndpointLabel", () => ({
 function buildBrowserContext(overrides?: Record<string, unknown>) {
   return {
     contexts: [
-      { id: "ctx-1", display_name: "Main account" },
-      { id: "ctx-2", display_name: "Archive account" },
+      buildExecutionContext("ctx-1", { display_name: "Main account" }),
+      buildExecutionContext("ctx-2", { display_name: "Archive account" }),
     ],
     selectedContextId: "ctx-1",
     refreshContexts: vi.fn(async () => []),
@@ -219,7 +220,7 @@ describe("BrowserLayout", () => {
 
   it("renders the only Browser account as a static topbar control", () => {
     useBrowserContextMock.mockReturnValue(buildBrowserContext({
-      contexts: [{ id: "ctx-1", display_name: "Main account" }],
+      contexts: [buildExecutionContext("ctx-1", { display_name: "Main account" })],
     }));
 
     render(
@@ -281,16 +282,16 @@ describe("BrowserLayout", () => {
 
   it("does not load Manager context for a Browser-only private connection", async () => {
     useBrowserContextMock.mockReturnValue(buildBrowserContext({
-      contexts: [{
-        id: "conn-1",
+      contexts: [buildExecutionContext("conn-1", {
         kind: "connection",
         display_name: "Private Browser connection",
+        connection_scope: "private",
         capabilities: {
           can_manage_iam: false,
           sts_capable: false,
           admin_api_capable: false,
         },
-      }],
+      })],
       selectedContextId: "conn-1",
     }));
 
@@ -313,10 +314,10 @@ describe("BrowserLayout", () => {
   it("shows the RGW destination selector for an eligible Browser connection", () => {
     const setExecutionEndpointId = vi.fn();
     useBrowserContextMock.mockReturnValue(buildBrowserContext({
-      contexts: [{
-        id: "conn-1",
+      contexts: [buildExecutionContext("conn-1", {
         kind: "connection",
         display_name: "Multisite Browser connection",
+        connection_scope: "private",
         endpoint_id: 10,
         capabilities: {
           can_manage_iam: false,
@@ -329,18 +330,28 @@ describe("BrowserLayout", () => {
             endpoint_id: 10,
             name: "Zone A",
             endpoint_url: "https://zone-a.example.test",
+            provider: "ceph",
             region: null,
+            realm_id: null,
+            zonegroup_id: null,
             zone_id: "zone-a",
+            is_default: true,
+            storage_endpoint_capabilities: {},
           },
           {
             endpoint_id: 11,
             name: "Zone B",
             endpoint_url: "https://zone-b.example.test",
+            provider: "ceph",
             region: null,
+            realm_id: null,
+            zonegroup_id: null,
             zone_id: "zone-b",
+            is_default: false,
+            storage_endpoint_capabilities: {},
           },
         ],
-      }],
+      })],
       selectedContextId: "conn-1",
       selectedExecutionEndpointId: 11,
       setExecutionEndpointId,

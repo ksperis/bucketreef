@@ -170,13 +170,12 @@ describe("BrowserContextProvider", () => {
   it("accepts a Portal account returned by the Browser catalogue", async () => {
     listExecutionContextsMock.mockResolvedValueOnce([
       ...CONTEXTS,
-      {
+      buildExecutionContext("101", {
         kind: "portal_account",
-        id: "101",
         display_name: "Portal project",
-        role: "portal_user",
+        portal_role: "portal_user",
         capabilities: { can_manage_iam: false, sts_capable: false, admin_api_capable: false },
-      },
+      }),
     ]);
 
     renderProvider("/browser?ctx=101");
@@ -215,12 +214,12 @@ describe("BrowserContextProvider", () => {
       .mockResolvedValueOnce(CONTEXTS)
       .mockResolvedValueOnce([
         ...CONTEXTS,
-        {
+        buildExecutionContext("conn-9", {
           kind: "connection",
-          id: "conn-9",
           display_name: "Connection 9",
+          connection_scope: "private",
           capabilities: { can_manage_iam: true, sts_capable: true, admin_api_capable: true },
-        },
+        }),
       ]);
 
     renderProvider("/browser");

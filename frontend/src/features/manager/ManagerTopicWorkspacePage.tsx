@@ -22,17 +22,13 @@ export default function ManagerTopicWorkspacePage() {
   const location = useLocation();
   const navigate = useNavigate();
   const {
-    contexts,
     contextIdForApi,
     requiresContextSelection,
     accessMode,
     selectedStorageEndpointCapabilities,
   } = useExecutionContext();
   const needsSelection = requiresContextSelection && !contextIdForApi;
-  const selectedContext = contexts.find(context => context.id === contextIdForApi);
-  const snsFeatureEnabled = (
-    selectedStorageEndpointCapabilities ?? selectedContext?.storage_endpoint_capabilities
-  )?.sns !== false;
+  const snsFeatureEnabled = selectedStorageEndpointCapabilities?.sns !== false;
   const name = decodeRouteValue(topicName);
   const [topic, setTopic] = useState<Topic | null>(null);
   const [loading, setLoading] = useState(false);

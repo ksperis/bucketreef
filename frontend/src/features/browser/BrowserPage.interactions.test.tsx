@@ -97,6 +97,7 @@ const browserContextMock = vi.hoisted(() => ({
     contexts: [],
     selectedContextId: null,
     selectedContext: null,
+    selectedStorageEndpointCapabilities: null,
     setSelectedContextId: vi.fn(),
     requiresContextSelection: false,
     hasContext: true,
@@ -108,6 +109,7 @@ const browserContextMock = vi.hoisted(() => ({
     contexts: ExecutionContext[];
     selectedContextId: string | null;
     selectedContext: ExecutionContext | null;
+    selectedStorageEndpointCapabilities: ExecutionContext["storage_endpoint_capabilities"] | null;
     setSelectedContextId: (id: string | null) => void;
     requiresContextSelection: boolean;
     hasContext: boolean;
@@ -326,6 +328,7 @@ function setBrowserContext(overrides: Partial<typeof browserContextMock.value> =
     contexts: [],
     selectedContextId: null,
     selectedContext: null,
+    selectedStorageEndpointCapabilities: null,
     setSelectedContextId: vi.fn(),
     requiresContextSelection: false,
     hasContext: true,
@@ -4207,6 +4210,7 @@ describe("BrowserPage interactions", () => {
         id: "acc-1",
         storage_endpoint_capabilities: { sse: true },
       }),
+      selectedStorageEndpointCapabilities: { sse: true },
       contextIdForApi: "acc-1",
     });
 

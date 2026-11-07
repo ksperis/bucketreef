@@ -66,7 +66,7 @@ export function BrowserContextProvider({ children }: { children: ReactNode }) {
   const destinationSwitchingAvailable = Boolean(
     selectedContext?.kind === "connection"
       && selectedContext.destination_switching_allowed
-      && (selectedContext.execution_destinations?.length ?? 0) > 1,
+      && selectedContext.execution_destinations.length > 1,
   );
   const {
     selectedExecutionEndpointId,

@@ -133,7 +133,7 @@ export function ExecutionContextProvider({ children, scope = "manager" }: Execut
   const selectedContextName = selectedContext?.display_name ?? sessionAccountName;
   const selectedContextKind = selectedContext?.kind ?? null;
   const destinationSwitchingAvailable = Boolean(
-    selectedContext?.destination_switching_allowed && (selectedContext.execution_destinations?.length ?? 0) > 0,
+    selectedContext?.destination_switching_allowed && selectedContext.execution_destinations.length > 0,
   );
   const {
     selectedExecutionEndpointId,

@@ -89,7 +89,7 @@ function BrowserShell() {
   const isBrowserExplorerRoute = normalizedPath === "/browser";
   const selected = contexts.find((a) => a.id === selectedContextId);
   const canLoadManagerIdentity = !(
-    selected?.kind === "connection" && selected.capabilities?.can_manage_iam === false
+    selected?.kind === "connection" && selected.capabilities.can_manage_iam === false
   );
   const identityLabel = identityState.iamIdentity
     ? identityState.accessMode === "connection"
@@ -220,10 +220,10 @@ function BrowserShell() {
   } else if (
     selected?.kind === "connection"
     && Boolean(selected.destination_switching_allowed)
-    && (selected.execution_destinations?.length ?? 0) > 1
+    && selected.execution_destinations.length > 1
     && selectedExecutionEndpointId != null
   ) {
-    const executionDestinations = selected.execution_destinations ?? [];
+    const executionDestinations = selected.execution_destinations;
     const { active: activeExecutionDestination, options: destinationOptions } =
       buildExecutionDestinationControlModel(
         executionDestinations,

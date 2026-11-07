@@ -520,7 +520,7 @@ export default function BrowserPage({
   const objectsListViewportRef = useRef<HTMLDivElement | null>(null);
   const effectiveCaps =
     storageEndpointCapabilities === undefined
-      ? (selectedStorageEndpointCapabilities ?? selectedContext?.storage_endpoint_capabilities ?? null)
+      ? selectedStorageEndpointCapabilities
       : storageEndpointCapabilities;
   const bucketManagementEnabled =
     normalizedPath.endsWith("/browser") &&

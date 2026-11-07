@@ -95,6 +95,7 @@ function buildContext({
       },
     ],
     selectedContextId: contextId,
+    selectedStorageEndpointCapabilities: capabilities,
     requiresContextSelection: true,
     hasExecutionContext: true,
     contextIdForApi: contextId,

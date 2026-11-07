@@ -563,9 +563,9 @@ export default function ManagerDashboard() {
     [contexts, selectedContextId]
   );
   const hasContext = hasExecutionContext;
-  const endpointCaps = selectedStorageEndpointCapabilities ?? selected?.storage_endpoint_capabilities ?? null;
+  const endpointCaps = selectedStorageEndpointCapabilities;
   const iamFeatureEnabled = endpointCaps ? endpointCaps.iam !== false : true;
-  const contextCanManageIam = selected?.capabilities?.can_manage_iam !== false;
+  const contextCanManageIam = selected?.capabilities.can_manage_iam !== false;
   const usageFeatureEnabled = Boolean(managerStatsEnabled) && (endpointCaps ? endpointCaps.metrics !== false : true);
   const trafficFeatureEnabled = Boolean(managerStatsEnabled) && (endpointCaps ? endpointCaps.usage !== false : true);
   const isS3User = selectedContextKind === "s3_user";

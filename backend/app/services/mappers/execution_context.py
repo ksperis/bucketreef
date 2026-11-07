@@ -109,6 +109,8 @@ def portal_account_execution_context_from_db(
         portal_role=portal_role,
         rgw_account_id=account.rgw_account_id,
         **_storage_endpoint_projection(endpoint),
+        destination_switching_allowed=False,
+        execution_destinations=[],
         tags=tags_service.filter_selector_visible(tags_service.get_account_tags(account)),
         endpoint_tags=tags_service.filter_selector_visible(tags_service.get_storage_endpoint_tags(endpoint)),
         capabilities=ExecutionContextCapabilities(
