@@ -186,20 +186,16 @@ export type StorageEndpointFeatureDetectionResult = {
   credential_checks: StorageEndpointCredentialChecks;
 };
 
-type ListStorageEndpointsParams = {
+type StorageEndpointQueryParams = {
   include_admin_ops_permissions?: boolean;
 };
 
-type GetStorageEndpointParams = {
-  include_admin_ops_permissions?: boolean;
-};
-
-export async function listStorageEndpoints(params?: ListStorageEndpointsParams): Promise<StorageEndpoint[]> {
+export async function listStorageEndpoints(params?: StorageEndpointQueryParams): Promise<StorageEndpoint[]> {
   const { data } = await client.get<StorageEndpoint[]>("/admin/storage-endpoints", { params });
   return data;
 }
 
-export async function getStorageEndpoint(id: number, params?: GetStorageEndpointParams): Promise<StorageEndpoint> {
+export async function getStorageEndpoint(id: number, params?: StorageEndpointQueryParams): Promise<StorageEndpoint> {
   const { data } = await client.get<StorageEndpoint>(`/admin/storage-endpoints/${id}`, { params });
   return data;
 }
