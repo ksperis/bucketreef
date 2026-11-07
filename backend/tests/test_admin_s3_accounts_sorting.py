@@ -53,15 +53,16 @@ def test_admin_account_error_status_does_not_depend_on_message_text(client):
         def get_account_detail(self, account_id, *, include_usage=False):
             raise ValueError("Upstream account metadata was not found in a valid format")
 
-    previous_service = app.dependency_overrides.get(s3_accounts_router.get_admin_accounts_service)
-    app.dependency_overrides[s3_accounts_router.get_admin_accounts_service] = FakeService
+    dependency = s3_accounts_router.get_admin_account_query_service
+    previous_service = app.dependency_overrides.get(dependency)
+    app.dependency_overrides[dependency] = FakeService
     try:
         response = client.get("/api/admin/accounts/999999")
     finally:
         if previous_service is None:
-            app.dependency_overrides.pop(s3_accounts_router.get_admin_accounts_service, None)
+            app.dependency_overrides.pop(dependency, None)
         else:
-            app.dependency_overrides[s3_accounts_router.get_admin_accounts_service] = previous_service
+            app.dependency_overrides[dependency] = previous_service
 
     assert response.status_code == 400, response.text
 

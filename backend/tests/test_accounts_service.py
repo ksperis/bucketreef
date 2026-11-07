@@ -15,6 +15,7 @@ from app.services.s3_account_metrics_service import S3AccountMetricsService
 from app.services.s3_account_provisioning_service import S3AccountProvisioningService
 from app.services.s3_account_rgw_context_service import S3AccountRgwContextService
 from app.services.s3_accounts_service import S3AccountsService
+from app.services.s3_account_query_service import S3AccountQueryService
 from app.db import (
     CostStorageDaily,
     CostUsageDaily,
@@ -109,7 +110,7 @@ def test_account_rgw_context_only_suppresses_expected_client_errors(db_session, 
 
 
 def test_get_account_detail_uses_typed_not_found_error(db_session):
-    service = S3AccountsService(db_session)
+    service = S3AccountQueryService(db_session)
 
     with pytest.raises(S3AccountNotFoundError, match="S3Account not found"):
         service.get_account_detail(999_999)
