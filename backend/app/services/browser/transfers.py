@@ -17,7 +17,7 @@ from app.services.s3_execution_context import S3ExecutionTarget
 from app.services.s3_object_download import S3ObjectDownload
 from app.utils.s3_endpoint import resolve_s3_client_options
 
-from .sts import BrowserStsRequestError, request_browser_sts_session
+from .sts import BrowserStsRequestError, BrowserStsUnavailableError, request_browser_sts_session
 
 settings = get_settings()
 
@@ -25,7 +25,7 @@ settings = get_settings()
 def _resolve_endpoint(context: S3ExecutionTarget) -> str:
     endpoint, _, _, _ = resolve_s3_client_options(context)
     if not endpoint:
-        raise RuntimeError("S3 endpoint is not configured for this context")
+        raise BrowserStsUnavailableError("S3 endpoint is not configured for this context")
     return endpoint
 
 
@@ -33,7 +33,7 @@ class BrowserTransfersMixin:
     def check_sts(self, context: S3ExecutionTarget) -> StsStatus:
         try:
             request_browser_sts_session(context)
-        except RuntimeError as exc:
+        except (BrowserStsUnavailableError, BrowserStsRequestError) as exc:
             return StsStatus(available=False, error=sanitized_error_log_detail(exc))
         return StsStatus(available=True, error=None)
 
@@ -46,7 +46,7 @@ class BrowserTransfersMixin:
         try:
             session = request_browser_sts_session(context, cache_partition=cache_partition)
         except BrowserStsRequestError as exc:
-            raise RuntimeError(f"Unable to request STS credentials: {exc}") from exc
+            raise BrowserStsRequestError(f"Unable to request STS credentials: {exc}") from exc
         credentials = session.credentials
         return BrowserStsCredentials(
             access_key_id=credentials.access_key_id,

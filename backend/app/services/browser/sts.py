@@ -9,9 +9,13 @@ from threading import Lock
 from typing import Optional
 
 from app.core.sensitive_data import sanitized_error_log_detail
-from app.services.s3_execution_client import require_s3_execution_credentials, s3_execution_cache_key
+from app.services.s3_execution_client import (
+    S3ExecutionCredentialsError,
+    require_s3_execution_credentials,
+    s3_execution_cache_key,
+)
 from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
-from app.services.sts_service import get_session_token
+from app.services.sts_service import StsOperationError, get_session_token
 from app.utils.cache import prune_expired_lru_cache
 from app.utils.s3_endpoint import resolve_s3_client_options
 from app.utils.storage_endpoint_features import resolve_feature_flags, resolve_sts_endpoint
@@ -43,6 +47,10 @@ _STS_CACHE_LOCK = Lock()
 
 class BrowserStsRequestError(RuntimeError):
     """STS provider failure after the Browser STS context was validated."""
+
+
+class BrowserStsUnavailableError(RuntimeError):
+    """Browser STS cannot be used for the selected execution context."""
 
 
 @dataclass(frozen=True)
@@ -91,15 +99,18 @@ def request_browser_sts_session(
     cache_partition: Optional[str] = None,
 ) -> BrowserStsSession:
     if not browser_sts_enabled(context):
-        raise RuntimeError("STS is disabled for this endpoint")
+        raise BrowserStsUnavailableError("STS is disabled for this endpoint")
 
-    access_key, secret_key = require_s3_execution_credentials(
-        context, error_message="S3 credentials missing for this context",
-    )
+    try:
+        access_key, secret_key = require_s3_execution_credentials(
+            context, error_message="S3 credentials missing for this context",
+        )
+    except S3ExecutionCredentialsError as exc:
+        raise BrowserStsUnavailableError(str(exc)) from exc
 
     endpoint = resolve_sts_endpoint(context.storage_endpoint) if context.storage_endpoint else None
     if not endpoint:
-        raise RuntimeError("STS endpoint is not configured for this context")
+        raise BrowserStsUnavailableError("STS endpoint is not configured for this context")
 
     _, region, _, verify_tls = resolve_s3_client_options(context)
     cache_key = _sts_cache_key(context, endpoint, cache_partition)
@@ -117,7 +128,7 @@ def request_browser_sts_session(
             region=region,
             verify_tls=verify_tls,
         )
-    except RuntimeError as exc:
+    except StsOperationError as exc:
         raise BrowserStsRequestError(sanitized_error_log_detail(exc)) from exc
 
     normalized_expiration = assume_utc(expiration)

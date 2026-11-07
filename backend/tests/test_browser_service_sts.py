@@ -78,7 +78,7 @@ def test_browser_service_falls_back_on_sts_error(monkeypatch):
     account.session_token_value = "session-token"
 
     def fake_get_session_token(*args, **kwargs):
-        raise RuntimeError("STS unavailable")
+        raise sts_service.StsOperationError("STS unavailable")
 
     monkeypatch.setattr(browser_sts, "get_session_token", fake_get_session_token)
     captured = {}
@@ -184,7 +184,7 @@ def test_browser_sts_preserves_status_and_credentials_error_contracts(monkeypatc
     account = _account_with_sts_endpoint()
 
     def fake_get_session_token(*args, **kwargs):
-        raise RuntimeError("STS unavailable")
+        raise sts_service.StsOperationError("STS unavailable")
 
     monkeypatch.setattr(browser_sts, "get_session_token", fake_get_session_token)
     service = browser_service.BrowserService()
@@ -192,8 +192,27 @@ def test_browser_sts_preserves_status_and_credentials_error_contracts(monkeypatc
     status = service.check_sts(account)
     assert status.available is False
     assert status.error == "STS unavailable"
-    with pytest.raises(RuntimeError, match="Unable to request STS credentials: STS unavailable"):
+    with pytest.raises(
+        browser_sts.BrowserStsRequestError,
+        match="Unable to request STS credentials: STS unavailable",
+    ):
         service.get_sts_credentials(account)
+
+
+def test_browser_sts_does_not_hide_unexpected_runtime_error(monkeypatch):
+    browser_sts._STS_CACHE.clear()
+    account = _account_with_sts_endpoint()
+
+    def fail_unexpectedly(*args, **kwargs):
+        raise RuntimeError("unexpected STS regression")
+
+    monkeypatch.setattr(browser_sts, "get_session_token", fail_unexpectedly)
+
+    service = browser_service.BrowserService()
+    with pytest.raises(RuntimeError, match="unexpected STS regression"):
+        service.check_sts(account)
+    with pytest.raises(RuntimeError, match="unexpected STS regression"):
+        service._resolve_s3_credentials(account)
 
 
 @pytest.mark.parametrize(
@@ -268,7 +287,7 @@ def test_browser_sts_fallback_logs_context_identity_without_access_key(monkeypat
     )
 
     def unavailable(*args, **kwargs):
-        raise RuntimeError("STS unavailable token=private-token")
+        raise sts_service.StsOperationError("STS unavailable token=private-token")
 
     monkeypatch.setattr(browser_sts, "get_session_token", unavailable)
     with caplog.at_level(logging.INFO, logger=browser_context.__name__):
@@ -413,7 +432,10 @@ def test_browser_sts_rejects_invalid_provider_expiration_without_caching(monkeyp
     status = service.check_sts(account)
     assert status.available is False
     assert status.error == error
-    with pytest.raises(RuntimeError, match="Unable to request STS credentials: STS get session token"):
+    with pytest.raises(
+        browser_sts.BrowserStsRequestError,
+        match="Unable to request STS credentials: STS get session token",
+    ):
         service.get_sts_credentials(account)
     assert service._resolve_s3_credentials(account) == ("root", "secret", None)
     assert not browser_sts._STS_CACHE

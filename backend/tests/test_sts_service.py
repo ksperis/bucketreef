@@ -31,7 +31,7 @@ class _FakeStsClient:
 
 
 def test_get_sts_client_requires_endpoint():
-    with pytest.raises(RuntimeError, match="STS endpoint is not configured"):
+    with pytest.raises(sts_service.StsOperationError, match="STS endpoint is not configured"):
         sts_service.get_sts_client("ak", "sk", endpoint=None)
 
 
@@ -87,12 +87,12 @@ def test_get_session_token_success_and_error_paths(monkeypatch):
 
     bad_client = _FakeStsClient(session_payload={"Credentials": {"AccessKeyId": "only"}})
     monkeypatch.setattr(sts_service, "get_sts_client", lambda *args, **kwargs: bad_client)
-    with pytest.raises(RuntimeError, match="did not return credentials"):
+    with pytest.raises(sts_service.StsOperationError, match="did not return credentials"):
         sts_service.get_session_token(900, "AK", "SK", endpoint="https://sts.example.test")
 
     err_client = _FakeStsClient(error=_client_error("Throttling"))
     monkeypatch.setattr(sts_service, "get_sts_client", lambda *args, **kwargs: err_client)
-    with pytest.raises(RuntimeError, match="Unable to get session token"):
+    with pytest.raises(sts_service.StsOperationError, match="Unable to get session token"):
         sts_service.get_session_token(900, "AK", "SK", endpoint="https://sts.example.test")
 
 
@@ -120,7 +120,10 @@ def test_get_session_token_rejects_missing_or_invalid_expiration(monkeypatch, ex
     )
     monkeypatch.setattr(sts_service, "get_sts_client", lambda *args, **kwargs: fake)
 
-    with pytest.raises(RuntimeError, match="STS get session token did not return a valid timezone-aware expiration"):
+    with pytest.raises(
+        sts_service.StsOperationError,
+        match="STS get session token did not return a valid timezone-aware expiration",
+    ):
         sts_service.get_session_token(900, "AK", "SK", endpoint="https://sts.example.test")
 
 
@@ -129,7 +132,7 @@ def test_get_session_token_rejects_invalid_credential_envelopes(monkeypatch, cre
     fake = _FakeStsClient(session_payload={"Credentials": credentials})
     monkeypatch.setattr(sts_service, "get_sts_client", lambda *args, **kwargs: fake)
 
-    with pytest.raises(RuntimeError, match="STS get session token did not return credentials"):
+    with pytest.raises(sts_service.StsOperationError, match="STS get session token did not return credentials"):
         sts_service.get_session_token(900, "AK", "SK", endpoint="https://sts.example.test")
 
 
@@ -145,7 +148,7 @@ def test_get_session_token_requires_string_credentials(monkeypatch, field):
     fake = _FakeStsClient(session_payload={"Credentials": credentials})
     monkeypatch.setattr(sts_service, "get_sts_client", lambda *args, **kwargs: fake)
 
-    with pytest.raises(RuntimeError, match="STS get session token did not return credentials"):
+    with pytest.raises(sts_service.StsOperationError, match="STS get session token did not return credentials"):
         sts_service.get_session_token(900, "AK", "SK", endpoint="https://sts.example.test")
 
 
@@ -163,5 +166,5 @@ def test_get_session_token_rejects_already_expired_credentials(monkeypatch, expi
     )
     monkeypatch.setattr(sts_service, "get_sts_client", lambda *args, **kwargs: fake)
 
-    with pytest.raises(RuntimeError, match="STS get session token returned expired credentials"):
+    with pytest.raises(sts_service.StsOperationError, match="STS get session token returned expired credentials"):
         sts_service.get_session_token(900, "AK", "SK", endpoint="https://sts.example.test")
