@@ -49,6 +49,16 @@ export type ManagerToolAccess = {
   feature_rules: boolean;
 };
 
+export type PlatformAccessFields = {
+  can_access_ceph_admin: boolean;
+  can_access_storage_ops: boolean;
+  can_create_manual_private_connections: boolean;
+  can_provision_managed_private_connections: boolean;
+  allow_multisite_endpoint_switching: boolean;
+  manager_tool_access: ManagerToolAccess;
+  browser_advanced_features_enabled: boolean;
+};
+
 export type UiPreferences = {
   theme: "light" | "dark" | null;
   selected_portal_account_id: string | null;
@@ -67,17 +77,10 @@ export type UserAvatarDescriptor = {
   updated_at: string | null;
 };
 
-export type EffectiveUserAccess = {
-  can_access_ceph_admin: boolean;
-  can_access_storage_ops: boolean;
-  can_create_manual_private_connections: boolean;
-  can_provision_managed_private_connections: boolean;
-  allow_multisite_endpoint_switching: boolean;
+export type EffectiveUserAccess = PlatformAccessFields & {
   group_can_provision_managed_private_connections: boolean;
   has_owned_private_connections: boolean;
-  manager_tool_access: ManagerToolAccess;
   group_manager_tool_access: ManagerToolAccess;
-  browser_advanced_features_enabled: boolean;
   account_links: EffectiveAccountMembership[];
   s3_user_details: { id: number; name: string }[];
   s3_connection_details: {
@@ -86,7 +89,7 @@ export type EffectiveUserAccess = {
   }[];
 };
 
-export type User = {
+export type User = PlatformAccessFields & {
   id: number;
   email: string;
   full_name: string | null;
@@ -96,13 +99,6 @@ export type User = {
   is_active: boolean;
   is_admin: boolean;
   role: UiRole;
-  can_access_ceph_admin: boolean;
-  can_access_storage_ops: boolean;
-  can_create_manual_private_connections: boolean;
-  can_provision_managed_private_connections: boolean;
-  allow_multisite_endpoint_switching: boolean;
-  manager_tool_access: ManagerToolAccess;
-  browser_advanced_features_enabled: boolean;
   ui_language: "en" | "fr" | "de" | "zh" | null;
   quota_alerts_enabled: boolean;
   quota_alerts_global_watch: boolean;
@@ -131,18 +127,11 @@ export type UserSummary = {
   role: UiRole;
 };
 
-export type CreateUserPayload = {
+export type CreateUserPayload = PlatformAccessFields & {
   email: string;
   full_name?: string | null;
   password: string;
   role: UiRole;
-  can_access_ceph_admin: boolean;
-  can_access_storage_ops: boolean;
-  can_create_manual_private_connections: boolean;
-  can_provision_managed_private_connections: boolean;
-  allow_multisite_endpoint_switching: boolean;
-  manager_tool_access: ManagerToolAccess;
-  browser_advanced_features_enabled: boolean;
   account_links?: AccountMembership[];
   s3_user_links?: S3UserMembership[];
   s3_connection_ids?: number[];
@@ -187,7 +176,7 @@ type LdapImportUserPayload =
       target_user_id: number;
     };
 
-export type UpdateUserPayload = {
+export type UpdateUserPayload = Partial<PlatformAccessFields> & {
   email?: string;
   full_name?: string | null;
   avatar_preference?: UserAvatarPreference;
@@ -196,13 +185,6 @@ export type UpdateUserPayload = {
   quota_alerts_global_watch?: boolean;
   password?: string;
   role?: UiRole;
-  can_access_ceph_admin?: boolean;
-  can_access_storage_ops?: boolean;
-  can_create_manual_private_connections?: boolean;
-  can_provision_managed_private_connections?: boolean;
-  allow_multisite_endpoint_switching?: boolean;
-  manager_tool_access?: ManagerToolAccess;
-  browser_advanced_features_enabled?: boolean;
   is_active?: boolean;
   account_links?: AccountMembership[];
   s3_user_links?: S3UserMembership[];
