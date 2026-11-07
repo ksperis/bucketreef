@@ -3,6 +3,7 @@
 
 from datetime import datetime
 import logging
+import smtplib
 from typing import Optional
 
 from app.core.config import get_settings
@@ -97,7 +98,7 @@ class QuotaAlertEmailService:
                 subject=subject,
                 body=body,
             )
-        except Exception as exc:
+        except (OSError, smtplib.SMTPException) as exc:
             raise ValueError(f"Unable to send test email: {exc}") from exc
 
         return {
@@ -151,7 +152,7 @@ class QuotaAlertEmailService:
                 body=body,
             )
             return True
-        except Exception as exc:  # pragma: no cover - network side effect
+        except (OSError, smtplib.SMTPException) as exc:  # pragma: no cover - network side effect
             logger.warning(
                 "Unable to send quota alert email for %s:%s to %s "
                 "recipients: %s",
