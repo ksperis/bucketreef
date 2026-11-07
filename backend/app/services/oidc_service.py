@@ -26,8 +26,9 @@ from app.core.db_transactions import commit_or_rollback
 from app.core.domain_errors import ResourceNotFoundError
 from app.db import OidcAuthorizationCode, OidcLoginState, OidcProviderIssuerPin
 from app.models.oidc import OIDCProviderInfo
+from app.services.external_identity_user_service import ExternalIdentityUserService
 from app.services.oidc_provider_settings_service import resolve_oidc_provider_map
-from app.services.users_service import UsersService, get_users_service
+from app.services.user_login_service import UserLoginService
 from app.utils.identity_provider_ids import normalize_identity_provider_id, normalize_oidc_issuer
 
 LOGGER = logging.getLogger(__name__)
@@ -77,11 +78,11 @@ class OidcService:
     def __init__(
         self,
         db: Session,
-        users_service: UsersService,
         settings: Optional[Settings] = None,
     ) -> None:
         self.db = db
-        self.users_service = users_service
+        self.identity_users = ExternalIdentityUserService(db)
+        self.login_service = UserLoginService(db)
         self.settings = settings or get_settings()
         self._metadata_cache: dict[str, tuple[dict[str, Any], float]] = {}
         self._jwks_cache: dict[str, tuple[dict[str, Any], float]] = {}
@@ -213,7 +214,7 @@ class OidcService:
                 browser_secret_hash=browser_secret_hash,
             )
 
-        user, created = self.users_service.get_or_create_oidc_user(
+        user, created = self.identity_users.get_or_create_oidc_user(
             provider=provider_key,
             issuer=issuer,
             **identity,
@@ -223,7 +224,7 @@ class OidcService:
             redirect_path=login_state.redirect_path,
         )
 
-        user = self.users_service.mark_last_login(user)
+        user = self.login_service.mark_last_login(user)
         return user, login_state.redirect_path, created
 
     def _complete_link_continuation(
@@ -655,5 +656,4 @@ class OidcService:
 
 
 def get_oidc_service(db: Session) -> OidcService:
-    users_service = get_users_service(db)
-    return OidcService(db, users_service)
+    return OidcService(db)

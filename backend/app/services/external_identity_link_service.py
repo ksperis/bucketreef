@@ -26,7 +26,6 @@ from app.services.external_identity_link_contracts import (
 from app.services.identity_security_requirements import passkey_required_for_role
 from app.services.ldap_service import LDAPAuthService
 from app.services.user_notifications_service import UserNotificationsService
-from app.services.users_service import get_users_service
 from app.services.webauthn_service import WebAuthnService
 from app.utils.normalize import normalize_optional_email
 from app.utils.time import utcnow
@@ -168,7 +167,7 @@ class ExternalIdentityLinkService:
     ) -> ExternalIdentityLinkStatus:
         attempt = self.attempts.require_attempt(attempt_id, browser_secret_hash, for_update=True)
         user = self.attempts.require_user(attempt)
-        ldap = LDAPAuthService(self.db, get_users_service(self.db), self.settings)
+        ldap = LDAPAuthService(self.db, settings=self.settings)
         identity = ldap.verify_credentials(provider_id, username, password)
         linked = self.db.scalar(
             select(ExternalIdentity).where(

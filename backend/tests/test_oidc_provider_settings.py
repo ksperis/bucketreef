@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from importlib import util
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 from alembic.migration import MigrationContext
@@ -200,14 +199,6 @@ def _authenticate_superadmin(client, db_session) -> None:
     authenticate_ui_client(client, db_session, actor, mfa_verified=True)
 
 
-class _FakeUsersService:
-    def get_or_create_oidc_user(self, **_kwargs):
-        return SimpleNamespace(id=1, email="oidc@example.test"), True
-
-    def mark_last_login(self, user):
-        return user
-
-
 def test_oidc_providers_migration_creates_and_drops_table(monkeypatch):
     migration_path = Path(__file__).resolve().parents[1] / "alembic" / "versions" / "0054_oidc_providers.py"
     spec = util.spec_from_file_location("migration_0054_oidc_providers", migration_path)
@@ -272,7 +263,7 @@ def test_oidc_resolver_merges_env_and_ui_with_env_precedence(db_session):
     assert runtime["google"].display_name == "Env Google"
     assert runtime["ui"].display_name == "UI Provider"
 
-    service = OidcService(db_session, users_service=_FakeUsersService(), settings=settings)
+    service = OidcService(db_session, settings=settings)
     assert [provider.model_dump() for provider in service.list_providers()] == [
         {"id": "google", "display_name": "Env Google", "icon_url": None},
         {"id": "ui", "display_name": "UI Provider", "icon_url": None},
@@ -284,7 +275,6 @@ def test_oidc_service_start_login_uses_ui_defined_provider(db_session, monkeypat
     db_session.commit()
     service = OidcService(
         db_session,
-        users_service=_FakeUsersService(),
         settings=Settings(oidc_state_ttl_seconds=60, oidc_providers={}),
     )
     monkeypatch.setattr(

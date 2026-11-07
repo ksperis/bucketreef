@@ -17,7 +17,6 @@ from app.models.user import (
     UserSelfUpdate,
     UserUpdate,
 )
-from app.services.external_identity_user_service import ExternalIdentityUserService
 from app.services.user_associations_service import UserAssociationsService
 from app.services.user_deletion_service import UserDeletionService
 from app.services.user_login_service import UserLoginService
@@ -140,60 +139,6 @@ class UsersService:
         user: User,
     ) -> UserOut:
         return UserOutputService(self.db).to_out(user)
-
-    def mark_last_login(self, user: User) -> User:
-        return self.login.mark_last_login(user)
-
-    def get_or_create_oidc_user(
-        self,
-        *,
-        provider: str,
-        issuer: str,
-        subject: str,
-        email: Optional[str],
-        full_name: Optional[str],
-        picture_url: Optional[str],
-        email_verified: bool = True,
-        linking_policy: str = "manual",
-        trusted_email_domains: Optional[list[str]] = None,
-        browser_secret_hash: Optional[str] = None,
-        redirect_path: Optional[str] = None,
-    ) -> tuple[User, bool]:
-        return ExternalIdentityUserService(self.db).get_or_create_oidc_user(
-            provider=provider,
-            issuer=issuer,
-            subject=subject,
-            email=email,
-            full_name=full_name,
-            picture_url=picture_url,
-            email_verified=email_verified,
-            linking_policy=linking_policy,
-            trusted_email_domains=trusted_email_domains,
-            browser_secret_hash=browser_secret_hash,
-            redirect_path=redirect_path,
-        )
-
-    def get_or_create_ldap_user(
-        self,
-        *,
-        provider: str,
-        subject: str,
-        email: Optional[str],
-        full_name: Optional[str],
-        linking_policy: str = "manual",
-        browser_secret_hash: Optional[str] = None,
-        redirect_path: Optional[str] = None,
-    ) -> tuple[User, bool]:
-        return ExternalIdentityUserService(self.db).get_or_create_ldap_user(
-            provider=provider,
-            subject=subject,
-            email=email,
-            full_name=full_name,
-            linking_policy=linking_policy,
-            browser_secret_hash=browser_secret_hash,
-            redirect_path=redirect_path,
-        )
-
 
 def get_users_service(db: Session) -> UsersService:
     return UsersService(db)
