@@ -17,7 +17,11 @@ from .execution_signals import check_control_state
 from .execution_runtime import ResolvedContext
 from .execution_item_loop import _MigrationItemExecutionLoop
 from .execution_settings_copy import _BucketSettingsCopyRunner
-from .diagnostics import MigrationExecutionStrategyError, MigrationPermissionCheckError
+from .diagnostics import (
+    MigrationExecutionStrategyError,
+    MigrationPermissionCheckError,
+    MigrationPrecheckError,
+)
 
 
 class BucketMigrationItemRunnerMixin:
@@ -383,7 +387,7 @@ class BucketMigrationItemRunnerMixin:
             response = client.get_object(Bucket=source_bucket, Key=sample_key)
             body = response.get("Body")
             if body is None:
-                raise RuntimeError("Source content response has no readable body")
+                raise MigrationPrecheckError("Source content response has no readable body")
             try:
                 body.read(1)
             finally:
@@ -431,7 +435,7 @@ class BucketMigrationItemRunnerMixin:
         try:
             client.head_object(Bucket=source_bucket, Key=sample_key, VersionId=sample_version_id)
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(
+            raise MigrationPrecheckError(
                 f"Unable to read sample version '{sample_version_id}' for '{sample_key}' in source bucket "
                 f"'{source_bucket}': {exc}"
             ) from exc
@@ -441,10 +445,10 @@ class BucketMigrationItemRunnerMixin:
             response = client.get_object(Bucket=source_bucket, Key=sample_key, VersionId=sample_version_id)
             body = response.get("Body")
             if body is None:
-                raise RuntimeError("Source version content could not be read")
+                raise MigrationPrecheckError("Source version content could not be read")
             body.read(1)
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(
+            raise MigrationPrecheckError(
                 f"Unable to stream sample version '{sample_version_id}' for '{sample_key}' in source bucket "
                 f"'{source_bucket}': {exc}"
             ) from exc
@@ -458,7 +462,7 @@ class BucketMigrationItemRunnerMixin:
         try:
             client.get_object_tagging(Bucket=source_bucket, Key=sample_key, VersionId=sample_version_id)
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(
+            raise MigrationPrecheckError(
                 f"Unable to read tags for sample version '{sample_version_id}' of '{sample_key}' in source bucket "
                 f"'{source_bucket}': {exc}"
             ) from exc
@@ -474,7 +478,9 @@ class BucketMigrationItemRunnerMixin:
             try:
                 page = client.list_objects_v2(**kwargs)
             except (ClientError, BotoCoreError) as exc:
-                raise RuntimeError(f"Unable to count objects in bucket '{bucket_name}': {exc}") from exc
+                raise MigrationPrecheckError(
+                    f"Unable to count objects in bucket '{bucket_name}': {exc}"
+                ) from exc
             contents = page.get("Contents", []) if isinstance(page, dict) else []
             if isinstance(contents, list):
                 total += len(contents)
@@ -500,7 +506,7 @@ class BucketMigrationItemRunnerMixin:
         try:
             page = source_client.list_objects_v2(Bucket=source_bucket, MaxKeys=1)
         except (ClientError, BotoCoreError) as exc:
-            raise RuntimeError(
+            raise MigrationPrecheckError(
                 f"Unable to list source bucket '{source_bucket}' to validate x-amz-copy-source access: {exc}"
             ) from exc
 
@@ -539,13 +545,13 @@ class BucketMigrationItemRunnerMixin:
             return "validated"
         except (ClientError, BotoCoreError) as exc:
             if not self._is_access_denied_error(exc):
-                raise RuntimeError(
+                raise MigrationPrecheckError(
                     f"Unable to validate target access to sample source object '{sample_key}' in bucket "
                     f"'{source_bucket}' for x-amz-copy-source: {exc}"
                 ) from exc
             if not auto_grant:
                 permission_hint = "s3:GetObjectVersion" if sample_version_id else "s3:GetObject"
-                raise RuntimeError(
+                raise MigrationPrecheckError(
                     "Target context cannot read source objects required for x-amz-copy-source. "
                     f"Grant {permission_hint} on source bucket '{source_bucket}'."
                 ) from exc
@@ -560,7 +566,7 @@ class BucketMigrationItemRunnerMixin:
                 ):
                     target_client.head_object(**head_kwargs)
             except Exception as grant_exc:  # noqa: BLE001
-                raise RuntimeError(
+                raise MigrationPrecheckError(
                     "Unable to validate temporary same-endpoint source-read grant for x-amz-copy-source: "
                     f"{grant_exc}"
                 ) from grant_exc
@@ -619,9 +625,13 @@ class BucketMigrationItemRunnerMixin:
                 except (ClientError, BotoCoreError):
                     return None
                 return None
-            raise RuntimeError(f"Unable to check bucket '{target_bucket}': {exc}") from exc
+            raise MigrationPrecheckError(
+                f"Unable to check bucket '{target_bucket}': {exc}"
+            ) from exc
         except BotoCoreError as exc:
-            raise RuntimeError(f"Unable to check bucket '{target_bucket}': {exc}") from exc
+            raise MigrationPrecheckError(
+                f"Unable to check bucket '{target_bucket}': {exc}"
+            ) from exc
 
     def _next_step_after_target_setup(self, migration: BucketMigration, item: BucketMigrationItem) -> str:
         if migration.lock_target_writes and not item.target_lock_applied:

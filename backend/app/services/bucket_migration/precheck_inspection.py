@@ -18,10 +18,12 @@ from app.models.bucket import (
     BucketReplicationConfiguration,
     BucketWebsiteConfiguration,
 )
+from app.services.s3_client import S3OperationError
 from app.utils.aws_errors import aws_error_code
 from app.utils.s3_errors import is_s3_feature_unsupported
 from app.utils.storage_endpoint_features import resolve_endpoint_capabilities
 
+from .diagnostics import MigrationPrecheckError
 from .execution_runtime import ResolvedContext
 
 
@@ -213,7 +215,7 @@ class _BucketFeatureProbe:
             return default
         try:
             value = fetcher()
-        except Exception as exc:  # noqa: BLE001
+        except S3OperationError as exc:
             if soft_unavailable and is_s3_feature_unsupported(exc):
                 self.mark(
                     feature,
@@ -353,14 +355,14 @@ class BucketMigrationInspector:
         except ClientError as exc:
             code = aws_error_code(exc, lowercase=True)
             if code in {"notimplemented", "notsupported", "unsupported"}:
-                raise RuntimeError(
+                raise MigrationPrecheckError(
                     f"Version listing is not supported for bucket '{bucket_name}': {exc}"
                 ) from exc
-            raise RuntimeError(
+            raise MigrationPrecheckError(
                 f"Unable to inspect versions in bucket '{bucket_name}': {exc}"
             ) from exc
         except BotoCoreError as exc:
-            raise RuntimeError(
+            raise MigrationPrecheckError(
                 f"Unable to inspect versions in bucket '{bucket_name}': {exc}"
             ) from exc
 
