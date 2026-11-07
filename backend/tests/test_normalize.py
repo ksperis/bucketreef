@@ -9,6 +9,7 @@ from app.utils.normalize import (
     normalize_optional_string,
     normalize_optional_string_field,
     normalize_storage_provider,
+    normalize_text,
 )
 
 
@@ -40,6 +41,20 @@ def test_normalize_optional_string(value, expected):
 )
 def test_normalize_optional_email(value, expected):
     assert normalize_optional_email(value) == expected
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("  Value  ", "value"),
+        (12, "12"),
+        (0, ""),
+        (False, ""),
+        (None, ""),
+    ],
+)
+def test_normalize_text_preserves_existing_falsy_semantics(value, expected):
+    assert normalize_text(value) == expected
 
 
 @pytest.mark.parametrize(

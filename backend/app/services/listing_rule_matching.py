@@ -32,7 +32,7 @@ _NUMERIC_COMPARATORS = {
 
 
 def _normalize_scalar_text(value: object) -> str:
-    return normalize_text(str(value or ""))
+    return normalize_text(value)
 
 
 def _normalize_candidate_text(value: object) -> str:

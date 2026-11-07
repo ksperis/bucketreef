@@ -27,6 +27,11 @@ def test_match_text_rule_supports_listing_operators(op, expected, matched):
     assert match_text_rule("Alpha Beta", op, expected) is matched
 
 
+def test_match_text_rule_keeps_scalar_and_candidate_falsy_semantics():
+    assert not match_text_rule("0", "eq", 0)
+    assert match_text_rule("0", "in", [0])
+
+
 @pytest.mark.parametrize(
     ("op", "expected", "matched"),
     [

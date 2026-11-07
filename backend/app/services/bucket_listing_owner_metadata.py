@@ -56,7 +56,7 @@ def normalize_owner_kind_scalar(raw: object) -> str | None:
     normalized_kind = normalize_owner_kind(raw)
     if normalized_kind:
         return normalized_kind
-    normalized = normalize_text(str(raw or ""))
+    normalized = normalize_text(raw)
     return normalized or None
 
 
