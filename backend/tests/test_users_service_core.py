@@ -6,6 +6,7 @@ import pytest
 from pydantic import ValidationError
 from sqlalchemy import select
 
+from app.core.domain_errors import UiUserNotFoundError
 from app.core.security import get_password_hash
 from app.db import (
     AccountIAMUser,
@@ -188,6 +189,15 @@ def test_create_user_and_authenticate(db_session):
     authenticated = service.authenticate("ui-admin@example.com", "verylongpass123")
     assert authenticated is not None
     assert authenticated.last_login_at is not None
+
+
+def test_require_by_id_types_missing_user_without_changing_optional_lookup(db_session):
+    service = UsersService(db_session)
+    missing_id = 987654321
+
+    assert service.get_by_id(missing_id) is None
+    with pytest.raises(UiUserNotFoundError, match="User not found"):
+        service.require_by_id(missing_id)
 
 
 def test_create_user_rolls_back_when_commit_fails(db_session, monkeypatch):

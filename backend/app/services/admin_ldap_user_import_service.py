@@ -140,9 +140,8 @@ class AdminLdapUserImportService:
                 assert request.create is not None
                 imported = self._create_user(identity, request.create)
             else:
-                target = self.db.get(User, request.target_user_id)
-                if target is None:
-                    raise ValueError("Target UI user not found")
+                assert request.target_user_id is not None
+                target = self.users.require_by_id(request.target_user_id)
                 if request.action == "restore":
                     imported = self._restore_identity(identity, target, mapping)
                 else:

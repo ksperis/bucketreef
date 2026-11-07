@@ -79,8 +79,15 @@ def _raise_ldap_import_error(exc: Exception) -> None:
             detail="LDAP import selection is no longer valid; search again",
         ) from exc
     if isinstance(exc, ValueError):
-        raise_bad_request_from_value_error(exc)
+        raise_http_error_from_value_error(exc)
     raise exc
+
+
+def _require_user(users_service: UsersService, user_id: int) -> DbUser:
+    try:
+        return users_service.require_by_id(user_id)
+    except ValueError as exc:
+        raise_http_error_from_value_error(exc)
 
 
 def _require_superadmin_for_privileged_change(
@@ -194,9 +201,7 @@ def import_ldap_user(
         )
     else:
         assert payload.target_user_id is not None
-        target = users_service.get_by_id(payload.target_user_id)
-        if target is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        target = _require_user(users_service, payload.target_user_id)
         ensure_actor_can_manage_user(
             current_user,
             target,
@@ -281,9 +286,7 @@ def update_user(
     current_user: DbUser = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> UserOut:
-    target = users_service.get_by_id(user_id)
-    if target is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    target = _require_user(users_service, user_id)
     ensure_actor_can_manage_user(current_user, target, allow_self=is_superadmin_ui_role(current_user.role))
     if payload.role is not None:
         ensure_actor_can_assign_role(current_user, payload.role)
@@ -320,9 +323,7 @@ def update_user(
 
 
 def _avatar_target(request: Request, user_id: int, users_service: UsersService, actor: DbUser) -> DbUser:
-    target = users_service.get_by_id(user_id)
-    if target is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    target = _require_user(users_service, user_id)
     ensure_actor_can_manage_user(actor, target, allow_self=is_superadmin_ui_role(actor.role))
     require_admin_interactive_session(request, users_service.db, actor)
     return target
@@ -376,9 +377,7 @@ def delete_user(
 ) -> None:
     if current_user.id == user_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You cannot delete your own user")
-    target = users_service.get_by_id(user_id)
-    if target is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    target = _require_user(users_service, user_id)
     ensure_actor_can_manage_user(current_user, target)
     try:
         users_service.validate_superadmin_delete(current_user, target)

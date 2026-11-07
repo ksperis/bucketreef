@@ -5,6 +5,7 @@ from typing import Optional
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.domain_errors import UiUserNotFoundError
 from app.db import User
 from app.core.domain_enums import UserRole
 from app.models.admin_listing import AdminOptionListingRequest
@@ -45,6 +46,12 @@ class UsersService:
 
     def get_by_id(self, user_id: int) -> Optional[User]:
         return self.query.get_by_id(user_id)
+
+    def require_by_id(self, user_id: int) -> User:
+        user = self.get_by_id(user_id)
+        if user is None:
+            raise UiUserNotFoundError("User not found")
+        return user
 
     def _active_superadmin_count(self, actor: User) -> int:
         count = self.db.scalar(

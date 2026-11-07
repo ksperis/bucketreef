@@ -748,3 +748,23 @@ def test_admin_avatar_requires_interactive_session_and_existing_target(client, s
     client.cookies.clear()
     assert client.put(f"/api/admin/users/{user.id}/avatar", files={"file": ("image.png", PROFILE_PNG, "image/png")}).status_code == 401
     assert client.delete(f"/api/admin/users/{user.id}/avatar").status_code == 401
+
+
+def test_admin_user_mutations_share_not_found_contract(client: TestClient):
+    user_id = 987654321
+    responses = [
+        client.patch(
+            f"/api/admin/users/{user_id}",
+            json={"full_name": "Missing User"},
+        ),
+        client.put(
+            f"/api/admin/users/{user_id}/avatar",
+            files={"file": ("image.png", PROFILE_PNG, "image/png")},
+        ),
+        client.delete(f"/api/admin/users/{user_id}/avatar"),
+        client.delete(f"/api/admin/users/{user_id}"),
+    ]
+
+    for response in responses:
+        assert response.status_code == 404, response.text
+        assert response.json()["detail"] == "User not found"
