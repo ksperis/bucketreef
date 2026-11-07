@@ -501,7 +501,7 @@ def test_usage_collection_failure_does_not_block_remaining_subjects(
 
     def collect_usage(self, admin, usage_uid, tenant):  # noqa: ARG001
         if usage_uid == account.rgw_user_uid:
-            raise RuntimeError("account usage unavailable")
+            raise RGWAdminError("account usage unavailable")
         assert tenant == s3_user.rgw_tenant
         return 25, 2, 1
 
@@ -544,6 +544,136 @@ def test_usage_collection_failure_does_not_block_remaining_subjects(
         }
     ]
     assert db_session.scalars(sa.select(QuotaUsageHourly)).one().s3_user_id == s3_user.id
+
+
+def test_usage_collection_propagates_unexpected_errors(db_session, monkeypatch):
+    endpoint = _seed_endpoint(db_session)
+    _seed_account(db_session, endpoint)
+    fake_admin = _FakeAdminClient(
+        usage_bytes=25,
+        usage_objects=2,
+        quota_bytes=100,
+        quota_objects=10,
+    )
+
+    monkeypatch.setattr(
+        quota_monitoring_service,
+        "load_app_settings_for_db",
+        lambda _db: _settings(
+            quota_alerts_enabled=False,
+            usage_history_enabled=True,
+        ),
+    )
+    monkeypatch.setattr(
+        QuotaMonitoringService,
+        "_resolve_usage_client",
+        lambda self, endpoint, cache: fake_admin,
+    )
+    monkeypatch.setattr(
+        QuotaMonitoringService,
+        "_collect_usage",
+        lambda self, admin, usage_uid, tenant: (_ for _ in ()).throw(
+            RuntimeError("programming error")
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="programming error"):
+        QuotaMonitoringService(db_session).collect_usage_history()
+
+
+def test_quota_collection_failure_keeps_usage_history(db_session, monkeypatch):
+    endpoint = _seed_endpoint(db_session)
+    account = _seed_account(db_session, endpoint)
+    fake_admin = _FakeAdminClient(
+        usage_bytes=25,
+        usage_objects=2,
+        quota_bytes=100,
+        quota_objects=10,
+    )
+
+    monkeypatch.setattr(
+        quota_monitoring_service,
+        "load_app_settings_for_db",
+        lambda _db: _settings(
+            quota_alerts_enabled=False,
+            usage_history_enabled=True,
+        ),
+    )
+    monkeypatch.setattr(
+        quota_monitoring_service.DataRetentionService,
+        "purge_all",
+        lambda self: {},
+    )
+    monkeypatch.setattr(
+        QuotaMonitoringService,
+        "_resolve_usage_client",
+        lambda self, endpoint, cache: fake_admin,
+    )
+    monkeypatch.setattr(
+        QuotaMonitoringService,
+        "_resolve_runtime_client",
+        lambda self, endpoint, cache: fake_admin,
+    )
+    monkeypatch.setattr(
+        QuotaMonitoringService,
+        "_collect_quota",
+        lambda self, client, subject: (_ for _ in ()).throw(
+            RGWAdminError("account quota unavailable")
+        ),
+    )
+
+    result = QuotaMonitoringService(db_session).collect_usage_history()
+
+    assert result["subjects_processed"] == 1
+    assert result["history_hourly_upserts"] == 1
+    assert result["history_daily_upserts"] == 1
+    assert result["warnings"] == [
+        {
+            "subject_type": "account",
+            "subject_id": account.id,
+            "warning": "Quota collection failed: account quota unavailable",
+        }
+    ]
+
+
+def test_quota_collection_propagates_unexpected_errors(db_session, monkeypatch):
+    endpoint = _seed_endpoint(db_session)
+    _seed_account(db_session, endpoint)
+    fake_admin = _FakeAdminClient(
+        usage_bytes=25,
+        usage_objects=2,
+        quota_bytes=100,
+        quota_objects=10,
+    )
+
+    monkeypatch.setattr(
+        quota_monitoring_service,
+        "load_app_settings_for_db",
+        lambda _db: _settings(
+            quota_alerts_enabled=False,
+            usage_history_enabled=True,
+        ),
+    )
+    monkeypatch.setattr(
+        QuotaMonitoringService,
+        "_resolve_usage_client",
+        lambda self, endpoint, cache: fake_admin,
+    )
+    monkeypatch.setattr(
+        QuotaMonitoringService,
+        "_resolve_runtime_client",
+        lambda self, endpoint, cache: fake_admin,
+    )
+    monkeypatch.setattr(
+        QuotaMonitoringService,
+        "_collect_quota",
+        lambda self, client, subject: (_ for _ in ()).throw(
+            RuntimeError("programming error")
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="programming error"):
+        QuotaMonitoringService(db_session).collect_usage_history()
 
 
 def test_alert_crossing_first_run_no_duplicate_and_reset(db_session, monkeypatch):

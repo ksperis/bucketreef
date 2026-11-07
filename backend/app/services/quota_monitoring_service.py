@@ -266,7 +266,7 @@ class QuotaMonitoringService:
                 subject.usage_uid,
                 subject.rgw_tenant,
             )
-        except Exception as exc:  # pragma: no cover - defensive logging
+        except RGWAdminError as exc:
             logger.warning(
                 "Quota monitor usage collection failed for %s:%s: %s",
                 subject.subject_type,
@@ -300,7 +300,7 @@ class QuotaMonitoringService:
             return None, None
         try:
             return self._collect_quota(runtime_client, subject)
-        except Exception as exc:  # pragma: no cover - defensive logging
+        except RGWAdminError as exc:
             logger.warning(
                 "Quota monitor quota collection failed for %s:%s: %s",
                 subject.subject_type,
