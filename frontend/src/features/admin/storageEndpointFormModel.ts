@@ -4,6 +4,7 @@
  */
 import type {
   StorageEndpoint,
+  StorageEndpointServiceIdentityMode,
   StorageProvider,
 } from "../../api/storageEndpoints";
 import type { HealthCheckMode } from "../../api/healthchecks";
@@ -44,7 +45,7 @@ export type FormState = {
   longitude: string;
   provider: StorageProvider;
   tags: UiTagDefinition[];
-  service_identity_mode: "managed" | "external";
+  service_identity_mode: StorageEndpointServiceIdentityMode;
   runtime_access_key: string;
   runtime_secret_key: string;
   has_runtime_secret: boolean;

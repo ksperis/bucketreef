@@ -7,6 +7,29 @@ import type { HealthCheckMode } from "./healthchecks";
 import type { TagDefinitionInput, TagDefinitionSummary } from "./tags";
 
 export type StorageProvider = "ceph" | "aws" | "other";
+export type StorageEndpointServiceIdentityKind = "runtime" | "supervision" | "ceph_admin";
+export type StorageEndpointServiceIdentityMode = "managed" | "external";
+export type StorageEndpointServiceIdentityStatus =
+  | "not_provisioned"
+  | "missing"
+  | "provisioning"
+  | "ready"
+  | "error"
+  | "revocation_pending"
+  | "disabled";
+export type StorageEndpointServiceIdentityRotationPhase = "prepared" | "activated";
+
+export type StorageEndpointServiceIdentity = {
+  kind: StorageEndpointServiceIdentityKind;
+  mode: StorageEndpointServiceIdentityMode;
+  status: StorageEndpointServiceIdentityStatus;
+  rgw_uid: string | null;
+  credentials_configured: boolean;
+  rotation_pending: boolean;
+  rotation_phase: StorageEndpointServiceIdentityRotationPhase | null;
+  last_error: string | null;
+  last_reconciled_at: string | null;
+};
 
 export type StorageEndpointPublic = {
   id: number;
@@ -70,17 +93,7 @@ export type StorageEndpoint = {
   admin_access_key: string | null;
   has_admin_secret: boolean;
   ceph_admin_active: boolean;
-  service_identities: {
-    kind: "runtime" | "supervision" | "ceph_admin";
-    mode: "managed" | "external";
-    status: "not_provisioned" | "missing" | "provisioning" | "ready" | "error" | "revocation_pending" | "disabled";
-    rgw_uid: string | null;
-    credentials_configured: boolean;
-    rotation_pending: boolean;
-    rotation_phase: "prepared" | "activated" | null;
-    last_error: string | null;
-    last_reconciled_at: string | null;
-  }[];
+  service_identities: StorageEndpointServiceIdentity[];
   ceph_admin_allowed: boolean;
   capabilities: Record<string, boolean>;
   admin_ops_permissions: StorageEndpointAdminOpsPermissions;
@@ -114,7 +127,7 @@ export type StorageEndpointPayload = {
   provider?: StorageProvider;
   admin_access_key?: string | null;
   admin_secret_key?: string | null;
-  service_identity_mode?: "managed" | "external";
+  service_identity_mode?: StorageEndpointServiceIdentityMode;
   runtime_access_key?: string | null;
   runtime_secret_key?: string | null;
   ceph_admin_allowed?: boolean;
@@ -135,7 +148,7 @@ export type StorageEndpointFeatureDetectionPayload = {
   check_http?: boolean;
   admin_access_key?: string | null;
   admin_secret_key?: string | null;
-  service_identity_mode?: "managed" | "external";
+  service_identity_mode?: StorageEndpointServiceIdentityMode;
   runtime_access_key?: string | null;
   runtime_secret_key?: string | null;
   ceph_admin_allowed?: boolean;
