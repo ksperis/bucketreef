@@ -46,7 +46,6 @@ from app.utils.s3_connection_endpoint import (
 )
 from app.utils.http_errors import (
     raise_http_error_from_value_error,
-    raise_http_exception_from_exception,
 )
 router = APIRouter(prefix="/admin/s3-connections", tags=["admin-s3-connections"])
 logger = logging.getLogger(__name__)
@@ -183,7 +182,7 @@ def delete_s3_connection(
     try:
         service.delete_admin_shared(conn)
     except S3ConnectionConflictError as exc:
-        raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
+        raise_http_error_from_value_error(exc)
     audit.record_action(
         user=current_user,
         scope="admin",
