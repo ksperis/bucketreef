@@ -53,8 +53,11 @@ import { extractApiError } from "../../utils/apiError";
 import { isAdminLikeRole, isSuperAdminRole, readStoredUser, setSessionUserCache } from "../../utils/workspaces";
 import {
   clearAdminPrincipalEditRequest,
-  readAdminPrincipalEditRequest,
 } from "./adminPrincipalEditLink";
+import {
+  useAdminPrincipalEditRequest,
+  useOpenRequestedAdminPrincipal,
+} from "./useAdminPrincipalEditRequest";
 import { adminAssociationPanelClass } from "./AdminAssociationPicker";
 import UserAuthenticationPanel from "./UserAuthenticationPanel";
 import AdminUserProfilePanel from "./AdminUserProfilePanel";
@@ -140,12 +143,7 @@ export default function UsersPage() {
   const cephAdminFeatureEnabled = generalSettings.ceph_admin_enabled;
   const openStackEnabled = generalSettings.openstack_enabled;
   const showPortalRole = Boolean(generalSettings.portal_enabled);
-  const principalEditRequest = useMemo(
-    () => readAdminPrincipalEditRequest(typeof window === "undefined" ? "" : window.location.search),
-    [],
-  );
-  const requestedEditHandledRef = useRef(false);
-  const startEditRef = useRef<(user: User) => void>(() => undefined);
+  const principalEditRequest = useAdminPrincipalEditRequest();
   const {
     accounts,
     s3AccountsLoaded,
@@ -684,14 +682,7 @@ export default function UsersPage() {
     void ensureAssociationOptionsForTab(initialAssociationsTab, { retryOnError: true });
   };
 
-  startEditRef.current = startEdit;
-  useEffect(() => {
-    if (!principalEditRequest || requestedEditHandledRef.current) return;
-    const requestedUser = users.find((user) => user.id === principalEditRequest.id);
-    if (!requestedUser) return;
-    requestedEditHandledRef.current = true;
-    startEditRef.current(requestedUser);
-  }, [principalEditRequest, users]);
+  useOpenRequestedAdminPrincipal(principalEditRequest, users, startEdit);
 
   const submitEdit = async (e: FormEvent) => {
     e.preventDefault();
