@@ -1,7 +1,5 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from typing import Optional
-
 from sqlalchemy.orm import Session
 
 from app.db import S3User as S3UserModel
@@ -29,8 +27,6 @@ from app.models.s3_user import (
     S3UserListingRequest,
     S3UserUpdate,
 )
-from app.services.rgw_admin import RGWAdminClient
-
 class S3UsersService:
     def __init__(self, db: Session) -> None:
         self.db = db
@@ -80,19 +76,6 @@ class S3UsersService:
             associations=self.associations,
             query=self.query,
         )
-
-    def get_user_usage(self, s3_user: S3UserModel) -> tuple[Optional[int], Optional[int], Optional[int]]:
-        return self.metrics.get_usage(s3_user)
-
-    def get_user_quota(
-        self,
-        s3_user: S3UserModel,
-        admin: Optional[RGWAdminClient] = None,
-    ) -> tuple[Optional[float], Optional[int]]:
-        return self.metrics.get_quota(s3_user, admin)
-
-    def get_user_limits(self, s3_user: S3UserModel) -> tuple[Optional[float], Optional[int], Optional[int]]:
-        return self.metrics.get_limits(s3_user)
 
     def get_user_record(self, user_id: int) -> S3UserModel:
         return self.query.get_user_record(user_id)

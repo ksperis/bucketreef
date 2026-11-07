@@ -47,6 +47,7 @@ from app.services import (
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.app_settings_service import load_app_settings_for_db
 from app.services.s3_user_key_management_service import S3UserKeyManagementService
+from app.services.s3_user_metrics_service import S3UserMetricsService
 from app.services.s3_user_rgw_context_service import S3UserRgwContextService
 from app.services.s3_users_service import S3UsersService
 
@@ -823,7 +824,7 @@ def test_interface_bucket_count_only_suppresses_s3_operation_errors(db_session, 
         service.metrics.get_interface_bucket_count(s3_user)
 
 
-def test_get_user_usage_aggregates_live_bucket_stats(db_session, monkeypatch):
+def test_user_metrics_usage_aggregates_live_bucket_stats(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session, metrics_enabled=True)
     s3_user = _seed_local_user(db_session, name="Usage User", uid="usage-user", endpoint_id=endpoint.id)
     fake_admin = FakeRGWAdmin()
@@ -833,15 +834,18 @@ def test_get_user_usage_aggregates_live_bucket_stats(db_session, monkeypatch):
             {"name": "beta", "usage": {"total_bytes": 30, "total_objects": 3}},
         ]
     }
-    service = _build_service(db_session, monkeypatch, fake_admin)
+    monkeypatch.setattr(
+        "app.services.s3_user_metrics_service.get_endpoint_runtime_rgw_client",
+        lambda _endpoint: fake_admin,
+    )
 
-    assert service.get_user_usage(s3_user) == (50, 5, 2)
+    assert S3UserMetricsService().get_usage(s3_user) == (50, 5, 2)
     assert fake_admin.bucket_list_calls == [
         {"account_id": None, "uid": "usage-user", "with_stats": True}
     ]
 
 
-def test_get_user_usage_uses_runtime_when_monitoring_is_disabled(db_session, monkeypatch):
+def test_user_metrics_usage_uses_runtime_when_monitoring_is_disabled(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session)
     s3_user = _seed_local_user(db_session, name="No Metrics User", uid="no-metrics-user", endpoint_id=endpoint.id)
     fake = FakeRGWAdmin()
@@ -850,15 +854,18 @@ def test_get_user_usage_uses_runtime_when_monitoring_is_disabled(db_session, mon
             {"name": "alpha", "usage": {"total_bytes": 30, "total_objects": 3}},
         ]
     }
-    service = _build_service(db_session, monkeypatch, fake)
+    monkeypatch.setattr(
+        "app.services.s3_user_metrics_service.get_endpoint_runtime_rgw_client",
+        lambda _endpoint: fake,
+    )
 
-    assert service.get_user_usage(s3_user) == (30, 3, 1)
+    assert S3UserMetricsService().get_usage(s3_user) == (30, 3, 1)
     assert fake.bucket_list_calls == [
         {"account_id": None, "uid": "no-metrics-user", "with_stats": True}
     ]
 
 
-def test_get_user_limits_reads_embedded_quota_without_repeating_lookup(db_session, monkeypatch):
+def test_user_metrics_limits_read_embedded_quota_without_repeating_lookup(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session)
     s3_user = _seed_local_user(
         db_session,
@@ -878,9 +885,12 @@ def test_get_user_limits_reads_embedded_quota_without_repeating_lookup(db_sessio
         },
     }
     fake.get_user_quota = lambda *_args, **_kwargs: pytest.fail("user payload must not be loaded twice")
-    service = _build_service(db_session, monkeypatch, fake)
+    monkeypatch.setattr(
+        "app.services.s3_user_metrics_service.get_endpoint_runtime_rgw_client",
+        lambda _endpoint: fake,
+    )
 
-    assert service.get_user_limits(s3_user) == (2, 500, None)
+    assert S3UserMetricsService().get_limits(s3_user) == (2, 500, None)
 
 
 def test_create_user_persists_credentials(db_session, monkeypatch):
