@@ -1166,6 +1166,42 @@ def test_create_quota_change_rejects_target_below_current_usage(db_session, monk
     assert db_session.scalar(select(func.count()).select_from(PortalAdminRequest)) == 0
 
 
+def test_create_quota_change_propagates_unexpected_usage_failures(db_session, monkeypatch):
+    account = _seed_account(db_session)
+    requester = _seed_user(db_session, email="requester@example.org")
+
+    class FailingPortalService:
+        def __init__(self, db):  # noqa: ANN001
+            self.db = db
+
+        def get_usage(self, actor, access):  # noqa: ANN001, ARG002
+            raise TypeError("programming error")
+
+    monkeypatch.setattr(
+        "app.services.portal_requests_service.PortalService",
+        FailingPortalService,
+    )
+    service = PortalRequestsService(
+        db_session,
+        accounts_service=FakeAccountsService(quota=(20.0, 123)),
+    )
+
+    with pytest.raises(TypeError, match="programming error"):
+        service.create_request(
+            requester,
+            _portal_access(account, requester),
+            PortalAccountQuotaChangeRequestCreate(
+                request_type="account_quota_change",
+                direction="decrease",
+                target_quota_value=10,
+                target_quota_unit="GiB",
+                reason="Validate usage",
+            ),
+        )
+
+    assert db_session.scalar(select(func.count()).select_from(PortalAdminRequest)) == 0
+
+
 def test_quota_direction_mismatch_fails_request(db_session):
     account = _seed_account(db_session)
     requester = _seed_user(db_session, email="requester@example.org")

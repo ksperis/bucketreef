@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Any, NoReturn, Optional
 
 from sqlalchemy import String, cast, or_, select
@@ -42,7 +41,6 @@ from app.utils.time import utcnow
 
 
 REQUEST_FINAL_STATUSES = {"approved", "rejected", "failed"}
-logger = logging.getLogger(__name__)
 
 PORTAL_DIRECT_SETTING_KEYS = {
     "browser_access_enabled",
@@ -608,11 +606,7 @@ class PortalRequestsService:
         target_bytes = size_to_bytes(payload.target_quota_value, payload.target_quota_unit)
         if target_bytes is None:
             return
-        try:
-            usage = PortalService(self.db).get_usage(actor, access)
-        except Exception as exc:  # noqa: BLE001 - usage may be unavailable on degraded RGW paths.
-            logger.warning("Unable to validate Portal quota request against usage: %s", exc)
-            return
+        usage = PortalService(self.db).get_usage(actor, access)
         used_bytes = usage.used_bytes
         if used_bytes is not None and target_bytes < int(used_bytes):
             raise ValueError("Requested quota cannot be lower than the space already used")
