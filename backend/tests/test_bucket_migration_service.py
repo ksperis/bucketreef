@@ -50,6 +50,7 @@ from app.services.bucket_migration.execution_runtime import ResolvedContext
 from app.services.bucket_migration.execution_signals import MigrationControlRequested
 from app.services.bucket_migration.worker import BucketMigrationWorker
 from app.services.bucket_migration_service import BucketMigrationService
+from app.services.s3_client import S3OperationError
 from app.services.webhook_catalog import MIGRATION_EVENT_TYPE
 from app.services.webhook_service import WebhookService
 from tests.storage_endpoint_features import persisted_endpoint_features
@@ -1745,7 +1746,7 @@ def test_apply_read_only_policy_returns_clear_message_on_access_denied(db_sessio
                 },
                 "PutBucketPolicy",
             )
-            raise RuntimeError("Unable to set bucket policy for 'bucket-a'.") from cause
+            raise S3OperationError("Unable to set bucket policy for 'bucket-a'.") from cause
 
     service = BucketMigrationService(db_session)
     service._configuration = _BucketsStub()  # type: ignore[assignment]
@@ -1757,6 +1758,37 @@ def test_apply_read_only_policy_returns_clear_message_on_access_denied(db_sessio
     except RuntimeError as exc:
         assert "set source bucket to read-only" in str(exc)
         assert "s3:GetBucketPolicy and s3:PutBucketPolicy" in str(exc)
+
+
+def test_apply_read_only_policy_does_not_remap_unexpected_runtime_errors(db_session):
+    source = _create_account(
+        db_session,
+        name="source-runtime-regression",
+        endpoint_url="https://source-runtime.example.test",
+        account_id="RGW001RUNTIME",
+    )
+    db_session.commit()
+
+    class _BucketsStub:
+        def get_policy(self, *_args, **_kwargs):
+            return None
+
+        def put_policy(self, *_args, **_kwargs):
+            cause = ClientError(
+                {
+                    "Error": {"Code": "AccessDenied", "Message": "Denied"},
+                    "ResponseMetadata": {"HTTPStatusCode": 403},
+                },
+                "PutBucketPolicy",
+            )
+            raise RuntimeError("unexpected policy regression") from cause
+
+    service = BucketMigrationService(db_session)
+    service._configuration = _BucketsStub()  # type: ignore[assignment]
+    item = SimpleNamespace(source_policy_backup=None, read_only_applied=False)
+
+    with pytest.raises(RuntimeError, match="^unexpected policy regression$"):
+        service._apply_read_only_policy(source, "bucket-a", item)
 
 
 def test_start_migration_requires_precheck_passed(db_session):

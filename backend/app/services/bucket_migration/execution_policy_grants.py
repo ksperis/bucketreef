@@ -11,6 +11,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 
 from app.db import BucketMigrationItem
 from app.services.rgw_principal_scope import resolve_target_admin_uid
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionTarget
 
 from .execution_runtime import MIGRATION_USER_AGENT_MARKER, ResolvedContext
@@ -152,7 +153,7 @@ class BucketMigrationPolicyGrantsMixin:
                 source_bucket,
                 source_execution_context,
             )
-        except RuntimeError as exc:
+        except S3OperationError as exc:
             if self._is_access_denied_error(exc):
                 raise RuntimeError(
                     "Unable to read source bucket policy for temporary source-read grant. "
@@ -185,7 +186,7 @@ class BucketMigrationPolicyGrantsMixin:
                     source_execution_context,
                     policy_doc,
                 )
-            except RuntimeError as exc:
+            except S3OperationError as exc:
                 if self._is_access_denied_error(exc):
                     raise RuntimeError(
                         "Unable to apply temporary source-read grant: access denied on source bucket policy update. "
@@ -284,7 +285,7 @@ class BucketMigrationPolicyGrantsMixin:
                     source_execution_context,
                     backup_policy,
                 )
-            except RuntimeError as exc:
+            except S3OperationError as exc:
                 if self._is_access_denied_error(exc):
                     raise RuntimeError(
                         "Unable to restore source bucket policy after temporary source-read grant. "
@@ -469,7 +470,7 @@ class BucketMigrationPolicyGrantsMixin:
                 source_execution_context,
                 policy_doc,
             )
-        except RuntimeError as exc:
+        except S3OperationError as exc:
             if self._is_access_denied_error(exc):
                 mode = "read-only" if deny_delete else "write-block"
                 raise RuntimeError(
@@ -488,7 +489,7 @@ class BucketMigrationPolicyGrantsMixin:
                 source_bucket,
                 source_execution_context,
             )
-        except RuntimeError as exc:
+        except S3OperationError as exc:
             if self._is_access_denied_error(exc):
                 raise RuntimeError(
                     "Unable to read source bucket policy during precheck. "
@@ -553,7 +554,7 @@ class BucketMigrationPolicyGrantsMixin:
                 source_execution_context,
                 policy_doc,
             )
-        except RuntimeError as exc:
+        except S3OperationError as exc:
             if self._is_access_denied_error(exc):
                 raise RuntimeError(
                     "Unable to set source bucket to read-only: access denied on PutBucketPolicy. "
@@ -575,7 +576,7 @@ class BucketMigrationPolicyGrantsMixin:
         )
         try:
             self._configuration.put_policy(target_bucket, target_ctx.execution_context, lock_policy_doc)
-        except RuntimeError as exc:
+        except S3OperationError as exc:
             if self._is_access_denied_error(exc):
                 raise RuntimeError(
                     "Unable to set destination bucket write-lock: access denied on PutBucketPolicy. "
