@@ -68,6 +68,18 @@ def _merge_access_key_entries(entries: list[dict]) -> list[dict]:
 
 class RGWAdminUserOperations:
     @staticmethod
+    def _validate_explicit_key_credentials(
+        access_key: Optional[str],
+        secret_key: Optional[str],
+        *,
+        generate_key: Optional[bool] = None,
+    ) -> None:
+        if bool(access_key) != bool(secret_key):
+            raise ValueError("Explicit key creation requires a complete credential pair")
+        if access_key and generate_key:
+            raise ValueError("Explicit credentials require generate_key=False")
+
+    @staticmethod
     def _validate_user_extra_params(extra_params: Optional[Dict[str, Any]]) -> None:
         protected = {
             "uid", "tenant", "account-id", "account-root", "format",
@@ -95,10 +107,11 @@ class RGWAdminUserOperations:
         access_key: Optional[str] = None,
         secret_key: Optional[str] = None,
     ) -> Dict[str, Any]:
-        if bool(access_key) != bool(secret_key):
-            raise ValueError("Explicit key creation requires a complete credential pair")
-        if access_key and generate_key:
-            raise ValueError("Explicit credentials require generate_key=False")
+        self._validate_explicit_key_credentials(
+            access_key,
+            secret_key,
+            generate_key=generate_key,
+        )
         params: Dict[str, Any] = {
             "uid": rgw_qualified_uid(uid, tenant),
             "display-name": display_name or uid,
@@ -167,8 +180,7 @@ class RGWAdminUserOperations:
             raise RGWAdminError(
                 "account-scoped access key creation is not supported on this RGW cluster"
             )
-        if bool(access_key) != bool(secret_key):
-            raise ValueError("Explicit key creation requires a complete credential pair")
+        self._validate_explicit_key_credentials(access_key, secret_key)
         params: Dict[str, Any] = {
             "uid": rgw_qualified_uid(uid, tenant),
             "key": "true",

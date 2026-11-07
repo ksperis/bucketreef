@@ -299,10 +299,11 @@ class RGWAdminAccountOperations:
         access_key: Optional[str] = None,
         secret_key: Optional[str] = None,
     ) -> Dict[str, Any]:
-        if bool(access_key) != bool(secret_key):
-            raise ValueError("Explicit key creation requires a complete credential pair")
-        if access_key and generate_key:
-            raise ValueError("Explicit credentials require generate_key=False")
+        self._validate_explicit_key_credentials(
+            access_key,
+            secret_key,
+            generate_key=generate_key,
+        )
         params: Dict[str, Any] = {
             "uid": rgw_qualified_uid(uid, tenant),
             "account-id": account_id,
