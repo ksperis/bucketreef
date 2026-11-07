@@ -24,6 +24,7 @@ from app.routers.dependencies import (
     get_current_ui_admin,
 )
 from app.services.s3_accounts_service import S3AccountsService, get_s3_accounts_service
+from app.services.s3_account_query_service import S3AccountQueryService
 from app.services.admin_account_portal_settings_service import AdminAccountPortalSettingsService
 from app.services.audit_service import AuditService
 from app.services.rgw_admin import RGWAdminError
@@ -40,6 +41,12 @@ def get_admin_accounts_service(
     return get_s3_accounts_service(db)
 
 
+def get_admin_account_query_service(
+    db: Session = Depends(get_db),
+) -> S3AccountQueryService:
+    return S3AccountQueryService(db)
+
+
 def get_admin_account_portal_settings_service(
     db: Session = Depends(get_db),
 ) -> AdminAccountPortalSettingsService:
@@ -49,7 +56,7 @@ def get_admin_account_portal_settings_service(
 @router.get("", response_model=PaginatedS3AccountsResponse)
 def list_accounts(
     query: Annotated[S3AccountListingRequest, Query()],
-    service: S3AccountsService = Depends(get_admin_accounts_service),
+    service: S3AccountQueryService = Depends(get_admin_account_query_service),
     _: User = Depends(get_current_ui_admin),
 ) -> PaginatedS3AccountsResponse:
     return service.list_accounts_page(query)
@@ -62,7 +69,7 @@ def get_account(
         False,
         description="Include RGW usage stats (slower, triggers bucket listing).",
     ),
-    service: S3AccountsService = Depends(get_admin_accounts_service),
+    service: S3AccountQueryService = Depends(get_admin_account_query_service),
     _: User = Depends(get_current_ui_admin),
 ) -> S3Account:
     try:

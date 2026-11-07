@@ -4,11 +4,9 @@ from sqlalchemy.orm import Session
 
 from app.db import S3Account
 from app.models.s3_account import (
-    PaginatedS3AccountsResponse,
     S3Account as S3AccountSchema,
     S3AccountCreate,
     S3AccountImport,
-    S3AccountListingRequest,
     S3AccountUpdate,
 )
 from app.services.mappers.s3_account import s3_account_from_db
@@ -85,33 +83,12 @@ class S3AccountsService:
     def get_account_record(self, account_id: int) -> S3Account:
         return self.repository.get(account_id)
 
-    def list_accounts(
-        self,
-        include_usage_stats: bool = True,
-        include_quota: bool = True,
-        include_rgw_details: bool = True,
-    ) -> list[S3AccountSchema]:
-        return self.query.list_accounts(
-            include_usage_stats=include_usage_stats,
-            include_quota=include_quota,
-            include_rgw_details=include_rgw_details,
-        )
-
-    def list_accounts_page(
-        self,
-        request: S3AccountListingRequest,
-    ) -> PaginatedS3AccountsResponse:
-        return self.query.list_accounts_page(request)
-
-    def get_account_detail(self, account_id: int, include_usage: bool = False) -> S3AccountSchema:
-        return self.query.get_account_detail(account_id, include_usage=include_usage)
-
     def import_accounts(self, imports: list[S3AccountImport]) -> list[S3AccountSchema]:
         return self.importer.import_accounts(imports)
 
     def ensure_provisioned_account(self, payload: S3AccountCreate, rgw_account_id: str) -> S3AccountSchema:
         account = self.provisioning.ensure_provisioned_account(payload, rgw_account_id)
-        return self.get_account_detail(account.id, include_usage=False)
+        return self.query.get_account_detail(account.id, include_usage=False)
 
     def create_account_with_manager(self, payload: S3AccountCreate) -> S3AccountSchema:
         provisioned = self.provisioning.create_account_with_manager(payload)

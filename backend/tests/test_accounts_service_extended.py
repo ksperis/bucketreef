@@ -27,6 +27,7 @@ from app.services.rgw_account_root_service import RgwAccountRootService
 from app.services.rgw_account_topics_resolver import RgwAccountTopicsResolver, normalize_account_key
 from app.services.s3_account_iam_cleanup_service import S3AccountIamCleanupService
 from app.services.s3_accounts_service import S3AccountsService
+from app.services.s3_account_query_service import S3AccountQueryService
 from tests.storage_endpoint_features import persisted_endpoint_features
 
 
@@ -924,7 +925,7 @@ def test_list_accounts_and_paginated_are_sorted_case_insensitive(db_session):
     _seed_account(db_session, endpoint.id, name="same", rgw_account_id="RGW-SORT-04")
     _seed_account(db_session, endpoint.id, name="Same", rgw_account_id="RGW-SORT-05")
 
-    service = S3AccountsService(db_session)
+    service = S3AccountQueryService(db_session)
     listed = service.list_accounts(
         include_usage_stats=False,
         include_quota=False,

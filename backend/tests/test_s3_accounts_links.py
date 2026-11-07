@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from app.db import S3Account, StorageEndpoint, UiGroup, UiGroupS3Account, User, UserS3Account
 from app.core.domain_enums import ManagerAccountRole, StorageProvider, UserRole
-from app.services.s3_accounts_service import S3AccountsService
+from app.services.s3_account_query_service import S3AccountQueryService
 from tests.storage_endpoint_features import persisted_endpoint_features
 
 
@@ -45,7 +45,7 @@ def test_list_accounts_exposes_user_email_in_user_links(db_session):
     )
     db_session.commit()
 
-    service = S3AccountsService(db_session)
+    service = S3AccountQueryService(db_session)
     accounts = service.list_accounts(
         include_usage_stats=False,
         include_quota=False,
@@ -89,7 +89,7 @@ def test_accounts_expose_direct_group_links(db_session):
     )
     db_session.commit()
 
-    service = S3AccountsService(db_session)
+    service = S3AccountQueryService(db_session)
     accounts = service.list_accounts(
         include_usage_stats=False,
         include_quota=False,
