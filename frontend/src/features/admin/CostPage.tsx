@@ -43,7 +43,7 @@ import {
 import { resolveListTableStatus } from "../../components/list/listTableStatus";
 import { extractApiError } from "../../utils/apiError";
 import { triggerBlobDownload } from "../../utils/download";
-import { currentUtcMonthInputValue } from "../../utils/dateInputValues";
+import { currentUtcMonthInputValue, utcDateInputValue } from "../../utils/dateInputValues";
 import { formatBytes, formatCompactNumber } from "../../utils/format";
 import { parsePositiveInteger } from "../../utils/numbers";
 import { listStorageEndpoints, type StorageEndpoint } from "../../api/storageEndpoints";
@@ -90,13 +90,6 @@ const SORT_OPTIONS = [
 const COMPONENT_COLORS = ["#2563eb", "#f97316", "#14b8a6", "#8b5cf6"];
 const CONCENTRATION_COLORS = ["#2563eb", "#cbd5e1"];
 
-function defaultCollectDay(): string {
-  const now = new Date();
-  const utc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  utc.setUTCDate(utc.getUTCDate() - 1);
-  return utc.toISOString().slice(0, 10);
-}
-
 function parseSubjectType(value: string | null): CostSubjectType {
   return value === "account" || value === "s3_user" ? value : "all";
 }
@@ -136,7 +129,7 @@ export default function CostPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [month, setMonth] = useState(() => searchParams.get("month") || currentUtcMonthInputValue());
-  const [collectDay, setCollectDay] = useState(defaultCollectDay);
+  const [collectDay, setCollectDay] = useState(() => utcDateInputValue(1));
   const [endpoints, setEndpoints] = useState<StorageEndpoint[]>([]);
   const [endpointsLoaded, setEndpointsLoaded] = useState(false);
   const [selectedEndpointId, setSelectedEndpointId] = useState<number | null>(
