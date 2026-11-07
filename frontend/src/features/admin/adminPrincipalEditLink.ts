@@ -1,6 +1,6 @@
 type AdminPrincipalKind = "user" | "group";
 
-type AdminPrincipalEditRequest = {
+export type AdminPrincipalEditRequest = {
   id: number;
   search: string;
 };

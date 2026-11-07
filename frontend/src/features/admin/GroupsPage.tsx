@@ -63,8 +63,11 @@ import { isFeaturePolicyAvailable } from "../../api/featurePolicies";
 import { extractApiError } from "../../utils/apiError";
 import {
   clearAdminPrincipalEditRequest,
-  readAdminPrincipalEditRequest,
 } from "./adminPrincipalEditLink";
+import {
+  useAdminPrincipalEditRequest,
+  useOpenRequestedAdminPrincipal,
+} from "./useAdminPrincipalEditRequest";
 import { useGroupsI18n, type GroupsMessageKey } from "./groupsMessage";
 import AdminGroupsList, { type GroupSortField } from "./AdminGroupsList";
 import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
@@ -123,12 +126,7 @@ export default function GroupsPage() {
   }), [locale, text]);
   const { runWithStepUp, verificationDialog } = useRecentWebAuthnStepUp(stepUpLabels);
   const showPortalRole = Boolean(generalSettings.portal_enabled);
-  const principalEditRequest = useMemo(
-    () => readAdminPrincipalEditRequest(typeof window === "undefined" ? "" : window.location.search),
-    [],
-  );
-  const requestedEditHandledRef = useRef(false);
-  const openEditRef = useRef<(group: UiGroup) => void>(() => undefined);
+  const principalEditRequest = useAdminPrincipalEditRequest();
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const handleAssociationOptionsError = useCallback(
@@ -317,14 +315,7 @@ export default function GroupsPage() {
     void loadAuxiliaryData();
   };
 
-  openEditRef.current = openEditModal;
-  useEffect(() => {
-    if (!principalEditRequest || requestedEditHandledRef.current) return;
-    const requestedGroup = groups.find((group) => group.id === principalEditRequest.id);
-    if (!requestedGroup) return;
-    requestedEditHandledRef.current = true;
-    openEditRef.current(requestedGroup);
-  }, [groups, principalEditRequest]);
+  useOpenRequestedAdminPrincipal(principalEditRequest, groups, openEditModal);
 
   const closeModal = () => {
     setShowModal(false);
