@@ -1844,12 +1844,39 @@ def test_apply_read_only_policy_returns_clear_message_on_access_denied(db_sessio
     service._configuration = _BucketsStub()  # type: ignore[assignment]
     item = SimpleNamespace(source_policy_backup=None, read_only_applied=False)
 
-    try:
+    with pytest.raises(MigrationPolicyApplyError) as error:
         service._apply_read_only_policy(source, "bucket-a", item)
-        assert False, "Expected _apply_read_only_policy to fail"
-    except RuntimeError as exc:
-        assert "set source bucket to read-only" in str(exc)
-        assert "s3:GetBucketPolicy and s3:PutBucketPolicy" in str(exc)
+
+    assert "set source bucket to read-only" in str(error.value)
+    assert "s3:GetBucketPolicy and s3:PutBucketPolicy" in str(error.value)
+
+
+def test_apply_read_only_policy_types_provider_read_failure(db_session):
+    source = _create_account(
+        db_session,
+        name="source-read-provider-failure",
+        endpoint_url="https://source.example.test",
+        account_id="RGW001READ",
+    )
+    db_session.commit()
+
+    class _BucketsStub:
+        def get_policy(self, *_args, **_kwargs):
+            raise S3OperationError(
+                "secret_key=READSECRET endpoint=https://source.private.example.test/admin"
+            )
+
+    service = BucketMigrationService(db_session)
+    service._configuration = _BucketsStub()  # type: ignore[assignment]
+    item = SimpleNamespace(source_policy_backup=None, read_only_applied=False)
+
+    with pytest.raises(MigrationPolicyApplyError) as error:
+        service._apply_read_only_policy(source, "bucket-a", item)
+
+    message = str(error.value)
+    assert "Unable to read source bucket policy" in message
+    assert "READSECRET" not in message
+    assert "source.private.example.test" not in message
 
 
 def test_apply_read_only_policy_does_not_remap_unexpected_runtime_errors(db_session):
