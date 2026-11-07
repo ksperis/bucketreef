@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 import pytest
 import sqlalchemy as sa
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import sessionmaker
@@ -30,6 +31,7 @@ from app.routers.ceph_admin import usage_stats as ceph_usage_stats_router
 from app.routers.manager import usage_stats as manager_usage_stats_router
 from app.routers.storage_ops import usage_stats as storage_ops_usage_stats_router
 from app.services.bucket_usage_stats_service import BucketUsageStatsService
+from app.services.rgw_admin import RGWAdminError
 from app.services.s3_execution_context import S3ExecutionContext
 
 
@@ -246,6 +248,33 @@ def test_ceph_admin_usage_stats_latest_aggregates_endpoint_scope(client: TestCli
     assert aggregate["bucket_count"] == 2
     assert aggregate["buckets_with_snapshot"] == 1
     assert aggregate["total_bytes"] == 30
+
+
+def test_ceph_admin_usage_stats_bucket_listing_maps_rgw_admin_errors(monkeypatch):
+    ctx = type("Ctx", (), {})()
+
+    def fail_listing(_ctx, *, with_stats):
+        raise RGWAdminError("RGW listing failed")
+
+    monkeypatch.setattr(ceph_usage_stats_router, "get_cached_rgw_bucket_entries", fail_listing)
+
+    with pytest.raises(HTTPException) as exc_info:
+        ceph_usage_stats_router._list_ceph_bucket_references(ctx)
+
+    assert exc_info.value.status_code == 502
+    assert exc_info.value.detail == "RGW listing failed"
+
+
+def test_ceph_admin_usage_stats_bucket_listing_does_not_translate_unexpected_errors(monkeypatch):
+    ctx = type("Ctx", (), {})()
+
+    def fail_listing(_ctx, *, with_stats):
+        raise ValueError("unexpected bucket normalization error")
+
+    monkeypatch.setattr(ceph_usage_stats_router, "get_cached_rgw_bucket_entries", fail_listing)
+
+    with pytest.raises(ValueError, match="unexpected bucket normalization error"):
+        ceph_usage_stats_router._list_ceph_bucket_references(ctx)
 
 
 def test_ceph_admin_usage_stats_stream_builds_endpoint_targets(client: TestClient, monkeypatch):
