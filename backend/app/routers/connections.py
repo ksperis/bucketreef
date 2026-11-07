@@ -241,5 +241,5 @@ def delete_connection(
             detail=sanitize_error_detail({"message": str(exc), "provisioning_id": exc.provisioning_id}),
         ) from exc
     except (ManagedPrivateAccessConflict, S3ConnectionConflictError) as exc:
-        raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
+        raise_http_error_from_value_error(exc)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
