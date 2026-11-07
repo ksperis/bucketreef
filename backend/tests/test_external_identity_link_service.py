@@ -10,6 +10,7 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
+from app.core.domain_errors import ExternalIdentityConflictError
 from app.core.security import get_password_hash
 from app.db import (
     AuthSession,
@@ -673,3 +674,53 @@ def test_external_identity_uniqueness_matches_provider_semantics(db_session):
         )
     )
     db_session.commit()
+
+
+def test_provision_identity_types_subject_owner_conflict(db_session):
+    owner = _user(db_session, email="identity-owner@example.test")
+    other = _user(db_session, email="identity-other@example.test")
+    db_session.add(
+        ExternalIdentity(
+            id=str(uuid.uuid4()),
+            user_id=owner.id,
+            provider_type="ldap",
+            provider_id="corp",
+            subject="uid=shared,dc=example,dc=test",
+            email=owner.email,
+            email_verified=False,
+        )
+    )
+    db_session.commit()
+
+    with pytest.raises(ExternalIdentityConflictError, match="belongs to another user"):
+        ExternalIdentityUserService(db_session).provision_identity(
+            user=other,
+            provider_type="ldap",
+            provider_id="corp",
+            subject="uid=shared,dc=example,dc=test",
+        )
+
+
+def test_provision_identity_types_explicit_restore_conflict(db_session):
+    user = _user(db_session, email="identity-revoked@example.test")
+    db_session.add(
+        ExternalIdentity(
+            id=str(uuid.uuid4()),
+            user_id=user.id,
+            provider_type="ldap",
+            provider_id="corp",
+            subject="uid=revoked,dc=example,dc=test",
+            email=user.email,
+            email_verified=False,
+            revoked_at=utcnow(),
+        )
+    )
+    db_session.commit()
+
+    with pytest.raises(ExternalIdentityConflictError, match="explicit restoration is required"):
+        ExternalIdentityUserService(db_session).provision_identity(
+            user=user,
+            provider_type="ldap",
+            provider_id="corp",
+            subject="uid=revoked,dc=example,dc=test",
+        )

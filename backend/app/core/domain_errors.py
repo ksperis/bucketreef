@@ -115,6 +115,10 @@ class ExternalIdentityNotFoundError(ResourceNotFoundError):
     pass
 
 
+class ExternalIdentityConflictError(ResourceConflictError):
+    pass
+
+
 class ExternalIdentityLinkRequestNotFoundError(ResourceNotFoundError):
     pass
 
