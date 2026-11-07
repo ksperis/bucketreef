@@ -39,6 +39,7 @@ from app.routers.dependencies import (
 from app.routers.identity_security_policy import require_self_service_security_action
 from app.services.audit_service import AuditService
 from app.services.auth_session_service import AuthSessionError, AuthSessionService, RefreshReplayError
+from app.services.external_identity_query_service import ExternalIdentityQueryService
 from app.services.external_identity_user_service import ExternalIdentityUserService
 from app.services.user_output_service import UserOutputService
 from app.services.webauthn_service import LastRequiredPasskeyError, WebAuthnSecurityError, WebAuthnService
@@ -237,7 +238,7 @@ def list_external_identities(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[ExternalIdentityInfo]:
-    rows = ExternalIdentityUserService(db).list_for_user(current_user.id)
+    rows = ExternalIdentityQueryService(db).list_for_user(current_user.id)
     return [
         ExternalIdentityInfo(
             id=row.id,
@@ -320,20 +321,20 @@ def revoke_external_identity(
             detail="External identity unlinking is disabled by the application administrator",
         )
     require_self_service_security_action(request, db, current_user)
-    service = ExternalIdentityUserService(db)
-    identity = next(
-        (row for row in service.list_for_user(current_user.id) if row.id == identity_id),
-        None,
-    )
+    queries = ExternalIdentityQueryService(db)
+    identity = queries.find_for_user(current_user.id, identity_id)
     if identity is None:
         raise HTTPException(status_code=404, detail="External identity not found")
     try:
-        if not service.has_alternate_primary_login(current_user, excluding_identity_id=identity.id):
+        if not queries.has_alternate_primary_login(
+            current_user,
+            excluding_identity_id=identity.id,
+        ):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="The last primary sign-in method cannot be removed",
             )
-        service.revoke_identity(identity.id)
+        ExternalIdentityUserService(db).revoke_identity(identity.id)
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
     audit_service.record_action(
