@@ -11,6 +11,7 @@ from app.db import PortalStorageSpaceMetadata, S3Account
 from app.services.rgw_principal_scope import resolve_target_tenant
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_runtime_rgw_client
+from app.services.portal.exceptions import PortalOperationError
 from app.utils.quota_stats import (
     extract_rgw_account_positive_limit,
     extract_rgw_account_quota_limits,
@@ -39,7 +40,7 @@ class PortalAccountRuntimeMixin:
     def _account_credentials(self, account: S3Account) -> tuple[str, str]:
         access_key, secret_key = account.effective_rgw_credentials()
         if not access_key or not secret_key:
-            raise RuntimeError("S3Account is missing root credentials")
+            raise PortalOperationError("S3Account is missing root credentials")
         return access_key, secret_key
 
     def _s3_client_kwargs(self, account: S3Account) -> dict:
@@ -48,7 +49,7 @@ class PortalAccountRuntimeMixin:
     def _runtime_read_for_account(self, account: S3Account) -> RGWAdminClient:
         admin = self._runtime_for_account(account)
         if admin is None:
-            raise RuntimeError("Runtime Read Ops credentials are missing for this endpoint.")
+            raise PortalOperationError("Runtime Read Ops credentials are missing for this endpoint.")
         return admin
 
     def _runtime_for_account(self, account: S3Account) -> Optional[RGWAdminClient]:

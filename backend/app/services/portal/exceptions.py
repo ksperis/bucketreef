@@ -9,6 +9,10 @@ class PortalClientError(RuntimeError):
     """Base class for Portal business errors caused by the current request."""
 
 
+class PortalOperationError(RuntimeError):
+    """Base class for expected server-side Portal workflow failures."""
+
+
 class PortalBadRequestError(PortalClientError):
     pass
 

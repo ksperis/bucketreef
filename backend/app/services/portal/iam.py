@@ -16,7 +16,7 @@ from app.models.iam import AccessKey as ModelAccessKey, IAMUser
 from app.models.portal_access_keys import PortalAccessKey
 from app.services.managed_resource_naming import portal_iam_username
 from app.services.mappers.portal import portal_access_key_from_active_link, portal_access_key_from_iam_metadata
-from app.services.portal.exceptions import PortalConflictError
+from app.services.portal.exceptions import PortalConflictError, PortalOperationError
 from app.services.rgw_iam import RGWIAMGroupAlreadyExistsError, RGWIAMService, get_iam_service
 from app.utils.account_roles import PortalAccountRoleValue
 from app.utils.s3_endpoint import resolve_s3_client_options
@@ -156,7 +156,7 @@ class PortalIamMixin:
                 created_key=created_key,
             )
             if rollback_error is not None or remote_rollback_failed:
-                raise RuntimeError(
+                raise PortalOperationError(
                     "Unable to provision Portal IAM user. Local or IAM rollback also failed."
                 ) from exc
             raise
@@ -217,7 +217,7 @@ class PortalIamMixin:
             )
 
         if link and link.iam_username and link.iam_username != expected_username:
-            raise RuntimeError(
+            raise PortalOperationError(
                 "Stored Portal IAM identity does not match the BucketReef-managed naming contract"
             )
 
@@ -291,7 +291,7 @@ class PortalIamMixin:
             time.sleep(delay)
             if iam_service.get_group_inline_policy(group_name, policy_name) is not None:
                 return
-        raise RuntimeError(
+        raise PortalOperationError(
             f"Refusing to reuse existing IAM group '{group_name}' because it is not marked as BucketReef-managed"
         )
 
@@ -304,7 +304,7 @@ class PortalIamMixin:
         account: Optional[S3Account] = None,
     ) -> None:
         if not iam_username:
-            raise RuntimeError("IAM username missing for this portal user")
+            raise PortalOperationError("IAM username missing for this portal user")
         if portal_role not in {PortalAccountRole.PORTAL_MANAGER.value, PortalAccountRole.PORTAL_USER.value}:
             self._remove_portal_group_memberships(iam_service, iam_username)
             return
@@ -372,7 +372,7 @@ class PortalIamMixin:
     def _active_credentials(self, link: AccountIAMUser, iam_service: RGWIAMService) -> tuple[str, str]:
         active = self._ensure_active_key(link, iam_service)
         if not active.access_key_id or not active.secret_access_key:
-            raise RuntimeError("Active access key is missing for this portal user")
+            raise PortalOperationError("Active access key is missing for this portal user")
         return active.access_key_id, active.secret_access_key
 
     def get_portal_credentials(self, user: User, account: S3Account, portal_role: str) -> tuple[str, str]:
@@ -390,7 +390,7 @@ class PortalIamMixin:
 
     def _ensure_active_key(self, link: AccountIAMUser, iam_service: RGWIAMService) -> PortalAccessKey:
         if not link.iam_username:
-            raise RuntimeError("IAM username missing for this portal user")
+            raise PortalOperationError("IAM username missing for this portal user")
         key_list = iam_service.list_access_keys(link.iam_username)
         active = next((k for k in key_list if k.access_key_id == link.active_access_key), None)
         if active:
@@ -452,7 +452,7 @@ class PortalIamMixin:
                 )
                 remote_rollback_failed = True
             if rollback_error is not None or remote_rollback_failed:
-                raise RuntimeError(
+                raise PortalOperationError(
                     "Unable to activate Portal IAM key. Local or IAM rollback also failed."
                 ) from exc
             raise
@@ -492,7 +492,7 @@ class PortalIamMixin:
         include_portal: bool = False,
     ) -> list[PortalAccessKey]:
         if not link.iam_username:
-            raise RuntimeError("IAM username missing for this portal user")
+            raise PortalOperationError("IAM username missing for this portal user")
         metas = iam_service.list_access_keys(link.iam_username)
         keys: list[PortalAccessKey] = []
         for meta in metas:

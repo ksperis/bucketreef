@@ -37,6 +37,7 @@ from app.services.portal.exceptions import (
     PortalBadRequestError,
     PortalConflictError,
     PortalNotFoundError,
+    PortalOperationError,
 )
 from app.utils.s3_endpoint import resolve_s3_client_options
 from app.utils.time import utcnow
@@ -198,7 +199,7 @@ class PortalAccessKeysMixin:
             account=access.account,
         )
         if not link.iam_username:
-            raise RuntimeError("IAM username missing for this portal user")
+            raise PortalOperationError("IAM username missing for this portal user")
         existing_user_keys = self._list_access_keys(link, iam_service, include_portal=False)
         self._ensure_personal_iam_user_access_key_limit(
             portal_settings=portal_settings,
@@ -263,7 +264,7 @@ class PortalAccessKeysMixin:
         self._require_storage_space_full_content_access(user, access, bucket_name)
         metadata = self._require_storage_space_active(access.account, bucket_name)
         if metadata is None:
-            raise RuntimeError("Storage space metadata is missing.")
+            raise PortalOperationError("Storage space metadata is missing.")
         if (
             access.portal_role != PortalAccountRole.PORTAL_MANAGER.value
             and not self._portal_user_can_create_external_sharing(user, access, bucket_name)
@@ -339,7 +340,7 @@ class PortalAccessKeysMixin:
                 new_key=new_key,
             )
             if rollback_error is not None or projection_rollback_failed or iam_rollback_failed:
-                raise RuntimeError(
+                raise PortalOperationError(
                     "Unable to create external Portal access. Local or remote rollback also failed."
                 ) from exc
             raise
@@ -469,7 +470,7 @@ class PortalAccessKeysMixin:
                     sync_participants=False,
                 )
             if rollback_error is not None or remote_rollback_failed or projection_rollback_failed:
-                raise RuntimeError(
+                raise PortalOperationError(
                     f"Unable to {action}. Local or remote rollback also failed."
                 ) from exc
             raise
@@ -517,7 +518,7 @@ class PortalAccessKeysMixin:
             account=access.account,
         )
         if not link.iam_username:
-            raise RuntimeError("IAM username missing for this portal user")
+            raise PortalOperationError("IAM username missing for this portal user")
         if access_key_id == link.active_access_key:
             raise PortalAccessKeyProtected("Cannot update the portal access key")
         status_value = "Active" if active else "Inactive"
@@ -553,7 +554,7 @@ class PortalAccessKeysMixin:
                 )
                 self.db.refresh(external)
             if self._cleanup_external_credential_remote(iam_service, external):
-                raise RuntimeError(
+                raise PortalOperationError(
                     "External Portal access revocation is pending because remote cleanup failed. Retry deletion."
                 )
             external.status = "Inactive"
@@ -564,7 +565,7 @@ class PortalAccessKeysMixin:
                 self.db.commit()
             except Exception as exc:
                 self.db.rollback()
-                raise RuntimeError(
+                raise PortalOperationError(
                     "External Portal access was removed remotely, but local revocation is pending. Retry deletion."
                 ) from exc
             return deleted
@@ -580,6 +581,6 @@ class PortalAccessKeysMixin:
         if access_key_id == link.active_access_key:
             raise PortalAccessKeyProtected("Cannot delete the portal access key")
         if not link.iam_username:
-            raise RuntimeError("IAM username missing for this portal user")
+            raise PortalOperationError("IAM username missing for this portal user")
         iam_service.delete_access_key(link.iam_username, access_key_id)
         return None
