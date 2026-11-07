@@ -14,6 +14,10 @@ from app.utils.time import normalize_utc, utcnow
 settings = get_settings()
 
 
+class StsOperationError(RuntimeError):
+    """Expected STS configuration, provider, or response-contract failure."""
+
+
 def get_sts_client(
     access_key: Optional[str],
     secret_key: Optional[str],
@@ -23,7 +27,7 @@ def get_sts_client(
     verify_tls: bool = True,
 ):
     if not endpoint:
-        raise RuntimeError("STS endpoint is not configured")
+        raise StsOperationError("STS endpoint is not configured")
     return boto3.client(
         "sts",
         endpoint_url=endpoint,
@@ -57,20 +61,22 @@ def get_session_token(
         resp = client.get_session_token(DurationSeconds=duration_seconds)
         creds = resp.get("Credentials") if isinstance(resp, Mapping) else None
         if not isinstance(creds, Mapping):
-            raise RuntimeError("STS get session token did not return credentials")
+            raise StsOperationError("STS get session token did not return credentials")
         access = creds.get("AccessKeyId")
         secret = creds.get("SecretAccessKey")
         token = creds.get("SessionToken")
         expiration_raw = creds.get("Expiration")
         if any(not isinstance(value, str) or not value for value in (access, secret, token)):
-            raise RuntimeError("STS get session token did not return credentials")
+            raise StsOperationError("STS get session token did not return credentials")
         try:
             expiration = expiration_raw if isinstance(expiration_raw, datetime) else datetime.fromisoformat(expiration_raw)
             expiration = normalize_utc(expiration, name="STS expiration")
         except (TypeError, ValueError):
-            raise RuntimeError("STS get session token did not return a valid timezone-aware expiration") from None
+            raise StsOperationError(
+                "STS get session token did not return a valid timezone-aware expiration"
+            ) from None
         if expiration <= utcnow():
-            raise RuntimeError("STS get session token returned expired credentials")
+            raise StsOperationError("STS get session token returned expired credentials")
         return access, secret, token, expiration
     except (ClientError, BotoCoreError) as exc:
-        raise RuntimeError(f"Unable to get session token: {exc}") from exc
+        raise StsOperationError(f"Unable to get session token: {exc}") from exc

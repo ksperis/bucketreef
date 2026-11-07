@@ -34,6 +34,7 @@ from app.routers.dependencies import (
 )
 from app.routers.dependencies_internal.auth_session import current_auth_session
 from app.services.browser_service import BrowserService, get_browser_service
+from app.services.browser.sts import BrowserStsRequestError, BrowserStsUnavailableError
 from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.http_errors import (
@@ -90,7 +91,7 @@ def get_sts_credentials(
         response.headers["Cache-Control"] = "no-store, private"
         response.headers["Pragma"] = "no-cache"
         return credentials
-    except RuntimeError as exc:
+    except (BrowserStsUnavailableError, BrowserStsRequestError) as exc:
         raise_bad_gateway_from_runtime(exc)
 
 

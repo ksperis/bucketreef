@@ -42,7 +42,12 @@ from .cache import (
     OBJECT_LIST_CACHE,
     OBJECT_SORT_SNAPSHOT_CACHE,
 )
-from .sts import browser_sts_enabled, request_browser_sts_session
+from .sts import (
+    BrowserStsRequestError,
+    BrowserStsUnavailableError,
+    browser_sts_enabled,
+    request_browser_sts_session,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +151,7 @@ class BrowserContextMixin:
             return access_key, secret_key, session_token
         try:
             credentials = request_browser_sts_session(context).credentials
-        except RuntimeError as exc:
+        except (BrowserStsUnavailableError, BrowserStsRequestError) as exc:
             context_id = context.context_id if isinstance(context, S3ExecutionContext) else context.id
             logger.info(
                 "STS session token unavailable for context %s: %s", context_id, sanitized_error_log_detail(exc),
