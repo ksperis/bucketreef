@@ -13,37 +13,37 @@ import {
   type AdvancedSearchProgress,
 } from "../../shared/advancedFilterShared";
 
-type SortDirection = "asc" | "desc";
+export type CephAdminListingSortDirection = "asc" | "desc";
 
-type EntityListingParams = {
+export type CephAdminEntityListingParams = {
   page: number;
   page_size: number;
   search?: string;
   advanced_filter?: string;
   sort_by: string;
-  sort_dir: SortDirection;
+  sort_dir: CephAdminListingSortDirection;
   include?: string[];
 };
 
-type EntityListingResponse<Entity> = {
+export type CephAdminEntityListingResponse<Entity> = {
   items: Entity[];
   total: number;
 };
 
-type ListEntities<Entity> = (
+export type CephAdminListEntities<Entity> = (
   endpointId: number,
-  params: EntityListingParams,
+  params: CephAdminEntityListingParams,
   options: { signal: AbortSignal }
-) => Promise<EntityListingResponse<Entity>>;
+) => Promise<CephAdminEntityListingResponse<Entity>>;
 
-type StreamEntities<Entity> = (
+export type CephAdminStreamEntities<Entity> = (
   endpointId: number,
-  params: EntityListingParams,
+  params: CephAdminEntityListingParams,
   options: {
     signal: AbortSignal;
     onProgress: (event: CephAdminListingStreamProgress) => void;
   }
-) => Promise<EntityListingResponse<Entity>>;
+) => Promise<CephAdminEntityListingResponse<Entity>>;
 
 type UseCephAdminEntityListingOptions<Entity> = {
   endpointId: number | null;
@@ -52,11 +52,11 @@ type UseCephAdminEntityListingOptions<Entity> = {
   search: string;
   advancedFilter?: string;
   sortBy: string;
-  sortDirection: SortDirection;
+  sortDirection: CephAdminListingSortDirection;
   includes: string[];
   reloadNonce: number;
-  listEntities: ListEntities<Entity>;
-  streamEntities: StreamEntities<Entity>;
+  listEntities: CephAdminListEntities<Entity>;
+  streamEntities: CephAdminStreamEntities<Entity>;
   entityKey: (entity: Entity) => string;
 };
 
@@ -109,7 +109,7 @@ export function useCephAdminEntityListing<Entity>({
 
     const requestAbort = new AbortController();
     const isCurrentRequest = () => requestId === requestSequence.current && !requestAbort.signal.aborted;
-    const baseParams: EntityListingParams = {
+    const baseParams: CephAdminEntityListingParams = {
       page,
       page_size: pageSize,
       search: search || undefined,
@@ -129,7 +129,7 @@ export function useCephAdminEntityListing<Entity>({
 
       try {
         const canUseAdvancedStream = Boolean(advancedFilter?.trim().startsWith("{"));
-        let baseResponse: EntityListingResponse<Entity>;
+        let baseResponse: CephAdminEntityListingResponse<Entity>;
 
         if (canUseAdvancedStream) {
           setAdvancedProgress(PREPARING_ADVANCED_PROGRESS);

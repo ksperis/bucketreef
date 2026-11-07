@@ -66,8 +66,7 @@ import {
   type AccountAdvancedFilterState,
   type AccountAdvancedNumericField,
 } from "./filtering/accountAdvancedFilterModel";
-import { useCephAdminListingFilters } from "./filtering/useCephAdminListingFilters";
-import { useCephAdminEntityListing } from "./listing/useCephAdminEntityListing";
+import { useCephAdminFilteredEntityListing } from "./listing/useCephAdminFilteredEntityListing";
 import { useCephAdminListingTableState } from "./listing/useCephAdminListingTableState";
 import { formatBytes, formatNumber } from "../../utils/format";
 import { useCephAdminI18n } from "./cephAdminI18n";
@@ -162,32 +161,6 @@ export default function CephAdminAccountsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState<CephAdminRgwAccount | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
-  const {
-    filter,
-    setFilter,
-    searchValue,
-    quickFilterState,
-    toggleQuickFilterMode,
-    showAdvancedFilter,
-    setShowAdvancedFilter,
-    advancedDraft,
-    advancedApplied,
-    hasPendingAdvancedChanges,
-    hasAnyAdvancedToClear,
-    advancedFilterCloseGuard,
-    updateAdvancedField,
-    applyAdvancedFilter,
-    resetAdvancedFilter,
-    resetAllFilters,
-    removeActiveFilterItem,
-  } = useCephAdminListingFilters<AccountAdvancedFilterState>({
-    endpointId: selectedEndpointId,
-    defaultAdvancedFilter: defaultAccountAdvancedFilter,
-    serializeAdvancedFilter: (state) =>
-      buildAccountAdvancedFilterPayload(state, "", "contains", canViewMetrics),
-    setPage,
-  });
-
   useEffect(() => {
     resetPageSize();
     resetSort();
@@ -203,35 +176,52 @@ export default function CephAdminAccountsPage() {
   }, [visibleColumns]);
 
   const {
-    active: quickFilterActive,
-    appliedParsed: quickFilterAppliedParsed,
-    draftForcesExact: quickFilterDraftForcesExact,
-    effectiveMode: effectiveQuickFilterMode,
-    effectiveSearchValue,
-    fieldState: quickFilterFieldState,
-    modeForDisplay: quickFilterModeForDisplay,
-    pending: quickFilterPending,
-  } = quickFilterState;
-  const advancedFilterParam = useMemo(
-    () => buildAccountAdvancedFilterPayload(advancedApplied, searchValue, effectiveQuickFilterMode, canViewMetrics),
-    [advancedApplied, searchValue, effectiveQuickFilterMode, canViewMetrics]
-  );
-
-  const { items, total, loading, loadingDetails, advancedProgress, error, updateEntity } =
-    useCephAdminEntityListing<CephAdminRgwAccount>({
-      endpointId: selectedEndpointId,
-      page,
-      pageSize,
-      search: effectiveSearchValue,
-      advancedFilter: advancedFilterParam,
-      sortBy: sort.field,
-      sortDirection: sort.direction,
-      includes: includeParams,
-      reloadNonce,
-      listEntities: listCephAdminAccounts,
-      streamEntities: streamCephAdminAccounts,
-      entityKey: rowKey,
-    });
+    filter,
+    setFilter,
+    searchValue,
+    quickFilterActive,
+    quickFilterAppliedParsed,
+    quickFilterDraftForcesExact,
+    effectiveQuickFilterMode,
+    quickFilterFieldState,
+    quickFilterModeForDisplay,
+    quickFilterPending,
+    toggleQuickFilterMode,
+    showAdvancedFilter,
+    setShowAdvancedFilter,
+    advancedDraft,
+    advancedApplied,
+    hasPendingAdvancedChanges,
+    hasAnyAdvancedToClear,
+    advancedFilterCloseGuard,
+    updateAdvancedField,
+    applyAdvancedFilter,
+    resetAdvancedFilter,
+    resetAllFilters,
+    removeActiveFilterItem,
+    items,
+    total,
+    loading,
+    loadingDetails,
+    advancedProgress,
+    error,
+    updateEntity,
+  } = useCephAdminFilteredEntityListing<CephAdminRgwAccount, AccountAdvancedFilterState>({
+    endpointId: selectedEndpointId,
+    page,
+    setPage,
+    pageSize,
+    sortBy: sort.field,
+    sortDirection: sort.direction,
+    includes: includeParams,
+    reloadNonce,
+    defaultAdvancedFilter: defaultAccountAdvancedFilter,
+    buildAdvancedFilter: (state, quickSearch, quickMatchMode) =>
+      buildAccountAdvancedFilterPayload(state, quickSearch, quickMatchMode, canViewMetrics),
+    listEntities: listCephAdminAccounts,
+    streamEntities: streamCephAdminAccounts,
+    entityKey: rowKey,
+  });
   const {
     closeConfiguration,
     configurationNavigation,

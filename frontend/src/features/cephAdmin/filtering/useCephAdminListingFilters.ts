@@ -8,7 +8,7 @@ import { useUnsavedChangesGuard } from "../../../components/useUnsavedChangesGua
 import type { TextMatchMode } from "../../shared/advancedFilterShared";
 import { resolveCephAdminQuickFilterState } from "../listing/cephAdminListingViewState";
 
-type StringState<State> = {
+export type CephAdminListingStringState<State> = {
   [Field in keyof State]: string;
 };
 
@@ -23,7 +23,7 @@ type UseCephAdminListingFiltersOptions<State> = {
   setPage: Dispatch<SetStateAction<number>>;
 };
 
-export function useCephAdminListingFilters<State extends StringState<State>>({
+export function useCephAdminListingFilters<State extends CephAdminListingStringState<State>>({
   endpointId,
   defaultAdvancedFilter,
   serializeAdvancedFilter,

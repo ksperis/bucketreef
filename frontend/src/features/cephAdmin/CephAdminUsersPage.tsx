@@ -59,7 +59,6 @@ import {
   numericFilterRangeFieldHighlight,
   type NumericFilterRangeField,
 } from "./filtering/advancedFilterModel";
-import { useCephAdminListingFilters } from "./filtering/useCephAdminListingFilters";
 import {
   buildUserAdvancedFilterPayload,
   defaultUserAdvancedFilter,
@@ -70,7 +69,7 @@ import {
   type UserAdvancedNumericField,
   type UserAdvancedStatusFilter,
 } from "./filtering/userAdvancedFilterModel";
-import { useCephAdminEntityListing } from "./listing/useCephAdminEntityListing";
+import { useCephAdminFilteredEntityListing } from "./listing/useCephAdminFilteredEntityListing";
 import { useCephAdminListingTableState } from "./listing/useCephAdminListingTableState";
 import { formatBytes, formatNumber } from "../../utils/format";
 import { useCephAdminI18n } from "./cephAdminI18n";
@@ -164,32 +163,6 @@ export default function CephAdminUsersPage() {
   });
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [reloadNonce, setReloadNonce] = useState(0);
-  const {
-    filter,
-    setFilter,
-    searchValue,
-    quickFilterState,
-    toggleQuickFilterMode,
-    showAdvancedFilter,
-    setShowAdvancedFilter,
-    advancedDraft,
-    advancedApplied,
-    hasPendingAdvancedChanges,
-    hasAnyAdvancedToClear,
-    advancedFilterCloseGuard,
-    updateAdvancedField,
-    applyAdvancedFilter,
-    resetAdvancedFilter,
-    resetAllFilters,
-    removeActiveFilterItem,
-  } = useCephAdminListingFilters<UserAdvancedFilterState>({
-    endpointId: selectedEndpointId,
-    defaultAdvancedFilter: defaultUserAdvancedFilter,
-    serializeAdvancedFilter: (state) =>
-      buildUserAdvancedFilterPayload(state, "", "contains", canViewMetrics),
-    setPage,
-  });
-
   useEffect(() => {
     resetSort();
     setShowCreateModal(false);
@@ -206,35 +179,52 @@ export default function CephAdminUsersPage() {
   }, [visibleColumns]);
 
   const {
-    active: quickFilterActive,
-    appliedParsed: quickFilterAppliedParsed,
-    draftForcesExact: quickFilterDraftForcesExact,
-    effectiveMode: effectiveQuickFilterMode,
-    effectiveSearchValue,
-    fieldState: quickFilterFieldState,
-    modeForDisplay: quickFilterModeForDisplay,
-    pending: quickFilterPending,
-  } = quickFilterState;
-  const advancedFilterParam = useMemo(
-    () => buildUserAdvancedFilterPayload(advancedApplied, searchValue, effectiveQuickFilterMode, canViewMetrics),
-    [advancedApplied, searchValue, effectiveQuickFilterMode, canViewMetrics]
-  );
-
-  const { items, total, loading, loadingDetails, advancedProgress, error, updateEntity } =
-    useCephAdminEntityListing<CephAdminRgwUser>({
-      endpointId: selectedEndpointId,
-      page,
-      pageSize,
-      search: effectiveSearchValue,
-      advancedFilter: advancedFilterParam,
-      sortBy: sort.field,
-      sortDirection: sort.direction,
-      includes: includeParams,
-      reloadNonce,
-      listEntities: listCephAdminUsers,
-      streamEntities: streamCephAdminUsers,
-      entityKey: rowKey,
-    });
+    filter,
+    setFilter,
+    searchValue,
+    quickFilterActive,
+    quickFilterAppliedParsed,
+    quickFilterDraftForcesExact,
+    effectiveQuickFilterMode,
+    quickFilterFieldState,
+    quickFilterModeForDisplay,
+    quickFilterPending,
+    toggleQuickFilterMode,
+    showAdvancedFilter,
+    setShowAdvancedFilter,
+    advancedDraft,
+    advancedApplied,
+    hasPendingAdvancedChanges,
+    hasAnyAdvancedToClear,
+    advancedFilterCloseGuard,
+    updateAdvancedField,
+    applyAdvancedFilter,
+    resetAdvancedFilter,
+    resetAllFilters,
+    removeActiveFilterItem,
+    items,
+    total,
+    loading,
+    loadingDetails,
+    advancedProgress,
+    error,
+    updateEntity,
+  } = useCephAdminFilteredEntityListing<CephAdminRgwUser, UserAdvancedFilterState>({
+    endpointId: selectedEndpointId,
+    page,
+    setPage,
+    pageSize,
+    sortBy: sort.field,
+    sortDirection: sort.direction,
+    includes: includeParams,
+    reloadNonce,
+    defaultAdvancedFilter: defaultUserAdvancedFilter,
+    buildAdvancedFilter: (state, quickSearch, quickMatchMode) =>
+      buildUserAdvancedFilterPayload(state, quickSearch, quickMatchMode, canViewMetrics),
+    listEntities: listCephAdminUsers,
+    streamEntities: streamCephAdminUsers,
+    entityKey: rowKey,
+  });
   const accountScopeLoaded = includeParams.includes("account") && !loadingDetails;
   const {
     closeConfiguration,
