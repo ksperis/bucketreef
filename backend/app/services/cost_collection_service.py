@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
-from typing import Callable, Literal, Optional, TypeVar
+from typing import Callable, Optional, TypeVar
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -14,7 +14,12 @@ from sqlalchemy.orm import Session
 from app.core.db_transactions import commit_or_rollback
 from app.core.sqlite import add_and_flush_in_savepoint
 from app.db import CostStorageDaily, CostUsageDaily, S3Account, S3User, StorageEndpoint
-from app.core.domain_enums import S3SubjectType, StorageProvider
+from app.core.domain_enums import (
+    CostCollectionStage,
+    CostSubjectCollectionStage,
+    S3SubjectType,
+    StorageProvider,
+)
 from app.models.cost import (
     CostCollectionError,
     CostCollectionResult,
@@ -52,7 +57,7 @@ class _CostSubject:
 
 def _collection_error(
     *,
-    stage: Literal["endpoint", "usage", "storage"],
+    stage: CostCollectionStage,
     endpoint_id: int,
     subject: S3SubjectType | None = None,
     subject_id: int | None = None,
@@ -168,7 +173,7 @@ class CostCollector:
     @staticmethod
     def _collection_failure(
         *,
-        stage: Literal["usage", "storage"],
+        stage: CostSubjectCollectionStage,
         endpoint: StorageEndpoint,
         subject: _CostSubject,
         exc: Exception,
@@ -199,7 +204,7 @@ class CostCollector:
     def _collect_subjects(
         self,
         *,
-        stage: Literal["usage", "storage"],
+        stage: CostSubjectCollectionStage,
         endpoint: StorageEndpoint,
         operation: Callable[[_CostSubject], None],
     ) -> tuple[int, list[CostCollectionError]]:
