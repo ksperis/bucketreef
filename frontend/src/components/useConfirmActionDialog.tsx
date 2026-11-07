@@ -4,13 +4,7 @@
  */
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 
-import ConfirmActionDialog from "./ConfirmActionDialog";
-
-type ConfirmActionDialogDetail = {
-  label: string;
-  value: ReactNode;
-  mono?: boolean;
-};
+import ConfirmActionDialog, { type ConfirmActionDialogDetail } from "./ConfirmActionDialog";
 
 type ConfirmActionRequest = {
   title: string;
