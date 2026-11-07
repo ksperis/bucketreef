@@ -119,9 +119,7 @@ class UiGroupsService:
         return group
 
     def update_group(self, group_id: int, payload: UiGroupUpdate) -> UiGroup:
-        group = self.db.get(UiGroup, group_id)
-        if not group:
-            raise UiGroupNotFoundError("UI group not found")
+        group = self.get_group(group_id)
         affected_user_ids, affected_account_ids = self._updated_portal_scope(group.id, payload)
         portal_roles_before = capture_effective_portal_roles(
             self.db,
@@ -194,9 +192,7 @@ class UiGroupsService:
             self._set_openstack_cloud_links(group, payload.openstack_cloud_ids)
 
     def delete_group(self, group_id: int) -> None:
-        group = self.db.get(UiGroup, group_id)
-        if not group:
-            raise UiGroupNotFoundError("UI group not found")
+        group = self.get_group(group_id)
         if group.system_key:
             raise ValueError("System groups cannot be deleted")
         affected_user_ids, affected_account_ids = self._existing_portal_scope(group.id)
