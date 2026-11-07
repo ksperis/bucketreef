@@ -512,6 +512,19 @@ def test_admin_usage_stats_latest_warns_for_unlistable_managed_accounts(client: 
     assert "1 managed account(s) could not be scanned for bucket usage stats." in aggregate["warnings"]
 
 
+def test_admin_usage_stats_latest_does_not_hide_unexpected_bucket_listing_errors(client: TestClient, db_session):
+    _persist_endpoint_and_accounts(db_session)
+
+    class FakeBucketService:
+        def list_buckets(self, _account, **_kwargs):
+            raise TypeError("unexpected bucket listing bug")
+
+    app.dependency_overrides[admin_usage_stats_router.get_buckets_service] = lambda: FakeBucketService()
+
+    with pytest.raises(TypeError, match="unexpected bucket listing bug"):
+        client.get("/api/admin/usage-stats/latest", params={"endpoint_id": 7})
+
+
 def test_admin_usage_stats_stream_builds_manager_scope_targets(client: TestClient, db_session, monkeypatch):
     _persist_endpoint_and_accounts(db_session)
     captured: dict[str, object] = {}

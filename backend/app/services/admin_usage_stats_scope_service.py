@@ -117,7 +117,7 @@ class AdminUsageStatsScopeService:
         for account in accounts:
             try:
                 bucket_names = self._list_account_bucket_names(account)
-            except Exception as exc:  # noqa: BLE001
+            except RuntimeError as exc:
                 skipped_account_count += 1
                 logger.warning(
                     "Unable to list managed account buckets for usage stats account=%s: %s",
