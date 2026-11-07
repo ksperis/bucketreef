@@ -197,6 +197,15 @@ def _calls_bucket_config_mutation(node: ast.AST) -> bool:
         if not isinstance(call, ast.Call):
             continue
         if (
+            isinstance(call.func, ast.Name)
+            and call.func.id
+            in {"run_manager_bucket_config_update", "run_manager_bucket_config_delete"}
+            and call.args
+            and isinstance(call.args[0], ast.Name)
+            and call.args[0].id == "mutation"
+        ):
+            return True
+        if (
             isinstance(call.func, ast.Attribute)
             and isinstance(call.func.value, ast.Name)
             and call.func.value.id == "mutation"
