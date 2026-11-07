@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 from app.models.s3_account import (
     S3Account as S3AccountSchema,
     S3AccountCreate,
-    S3AccountUpdate,
 )
 from app.services.mappers.s3_account import s3_account_from_db
 from app.services.rgw_account_topics_resolver import RgwAccountTopicsResolver
@@ -19,7 +18,6 @@ from app.services.s3_account_quota_service import S3AccountQuotaService
 from app.services.s3_account_repository import S3AccountRepository
 from app.services.s3_account_rgw_context_service import S3AccountRgwContextService
 from app.services.s3_account_rgw_users_service import S3AccountRgwUsersService
-from app.services.s3_account_update_service import S3AccountUpdateService
 from app.services.tags_service import TagsService
 
 
@@ -53,15 +51,6 @@ class S3AccountsService:
             metrics=self.metrics,
             tags=self.tags,
         )
-        self.updater = S3AccountUpdateService(
-            db,
-            repository=self.repository,
-            rgw_context=self.rgw_context,
-            quota=self.quota,
-            metrics=self.metrics,
-            associations=self.associations,
-            tags=self.tags,
-        )
         self.deletion = S3AccountDeletionService(
             db,
             metrics=self.metrics,
@@ -88,9 +77,6 @@ class S3AccountsService:
             storage_endpoint_capabilities=self.rgw_context.endpoint_capabilities(endpoint),
             tags=self.tags.get_account_tags(account),
         )
-
-    def update_account(self, account_id: int, payload: S3AccountUpdate) -> S3AccountSchema:
-        return self.updater.update_account(account_id, payload)
 
     def delete_account(self, account_id: int, delete_rgw: bool = False) -> None:
         account = self.repository.get(account_id)

@@ -26,6 +26,7 @@ from app.routers.dependencies import (
 from app.services.s3_accounts_service import S3AccountsService, get_s3_accounts_service
 from app.services.s3_account_import_service import S3AccountImportService
 from app.services.s3_account_query_service import S3AccountQueryService
+from app.services.s3_account_update_service import S3AccountUpdateService
 from app.services.admin_account_portal_settings_service import AdminAccountPortalSettingsService
 from app.services.audit_service import AuditService
 from app.services.rgw_admin import RGWAdminError
@@ -52,6 +53,12 @@ def get_admin_account_import_service(
     db: Session = Depends(get_db),
 ) -> S3AccountImportService:
     return S3AccountImportService(db)
+
+
+def get_admin_account_update_service(
+    db: Session = Depends(get_db),
+) -> S3AccountUpdateService:
+    return S3AccountUpdateService(db)
 
 
 def get_admin_account_portal_settings_service(
@@ -191,7 +198,7 @@ def import_accounts(
 def update_account(
     account_id: int,
     payload: S3AccountUpdate,
-    service: S3AccountsService = Depends(get_admin_accounts_service),
+    service: S3AccountUpdateService = Depends(get_admin_account_update_service),
     current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> S3Account:

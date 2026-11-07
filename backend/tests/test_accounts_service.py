@@ -15,6 +15,7 @@ from app.services.s3_account_import_service import S3AccountImportService
 from app.services.s3_account_metrics_service import S3AccountMetricsService
 from app.services.s3_account_provisioning_service import S3AccountProvisioningService
 from app.services.s3_account_rgw_context_service import S3AccountRgwContextService
+from app.services.s3_account_update_service import S3AccountUpdateService
 from app.services.s3_accounts_service import S3AccountsService
 from app.services.s3_account_query_service import S3AccountQueryService
 from app.db import (
@@ -2357,7 +2358,10 @@ def test_delete_account_recovers_after_commit_failure_without_remote_replay(
     assert fake_admin.deleted == ([account_id] if account_deleted_before_retry else [])
 
     with pytest.raises(ValueError, match="deletion is pending"):
-        svc.update_account(account.id, S3AccountUpdate(name="Must not mutate"))
+        S3AccountUpdateService(db_session).update_account(
+            account.id,
+            S3AccountUpdate(name="Must not mutate"),
+        )
     with pytest.raises(ValueError, match="deletion is pending"):
         svc.delete_account(account.id, delete_rgw=False)
 
