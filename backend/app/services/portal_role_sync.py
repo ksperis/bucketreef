@@ -10,6 +10,7 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.domain_errors import CompensationFailureError
 from app.db import AccountIAMUser, PortalIAMRevocation, S3Account, User
 from app.services.effective_access_service import EffectiveAccessService
 from app.services.portal.iam_revocation import PortalIAMRevocationPreparation
@@ -256,7 +257,7 @@ def commit_portal_role_changes(
         if not rollback_failed:
             restore_failed = _restore_portal_role_downgrades(db, effects)
         if rollback_failed or restore_failed:
-            raise RuntimeError(
+            raise CompensationFailureError(
                 "Unable to commit Portal role changes. Local or IAM rollback also failed."
             ) from exc
         raise

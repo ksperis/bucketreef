@@ -7,6 +7,7 @@ import logging
 from sqlalchemy.orm import Session
 
 from app.core.db_transactions import rollback_safely
+from app.core.domain_errors import CompensationFailureError
 from app.db import S3User
 from app.models.s3_user import S3User as S3UserSchema, S3UserUpdate
 from app.services.app_settings_service import load_app_settings_for_db
@@ -128,7 +129,7 @@ class S3UserUpdateService:
                 quota_rollback_failed = True
 
         if rollback_error is not None or quota_rollback_failed:
-            raise RuntimeError(
+            raise CompensationFailureError(
                 "Unable to update S3 user. Local or RGW rollback also failed."
             ) from exc
 
