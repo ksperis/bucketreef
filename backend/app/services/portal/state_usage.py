@@ -14,7 +14,7 @@ from app.models.portal_usage import (
     PortalUsageStorageSpace,
 )
 from app.services.rgw_admin import RGWAdminError
-from app.services.portal.exceptions import PortalBadRequestError, PortalForbiddenError
+from app.services.portal.exceptions import PortalBadRequestError, PortalForbiddenError, PortalOperationError
 from app.services.app_settings_service import load_app_settings_for_db
 from app.services.feature_policy_service import bucket_usage_stats_state
 from app.utils.usage_stats import aggregate_bucket_usage, extract_usage_stats
@@ -211,11 +211,11 @@ class PortalStateUsageMixin:
             rgw_admin = self._runtime_read_for_account(account)
         except RGWAdminError as exc:  # pragma: no cover - defensive path
             logger.warning("Unable to initialize RGW admin client for bucket stats: %s", exc)
-            raise RuntimeError("Impossible d'initialiser le client RGW.") from exc
+            raise PortalOperationError("Impossible d'initialiser le client RGW.") from exc
         try:
             stats = self._admin_bucket_info(account, bucket_name, admin=rgw_admin)
         except RGWAdminError as exc:
-            raise RuntimeError(f"Unable to fetch bucket stats: {exc}") from exc
+            raise PortalOperationError(f"Unable to fetch bucket stats: {exc}") from exc
         usage = stats.get("usage") if isinstance(stats, dict) else None
         usage_bytes, usage_objects = extract_usage_stats(usage)
         return Bucket(

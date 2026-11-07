@@ -20,7 +20,7 @@ from app.services.object_listing_temp_store import TemporarySqliteStore
 from app.services.object_version_cleanup_store import ObjectVersionCleanupStore, ObjectVersionScanCounts
 from app.services import s3_deletion
 from app.services.s3_delete_response import InvalidDeleteObjectsResponseError
-from app.services.portal.exceptions import PortalForbiddenError, PortalNotFoundError
+from app.services.portal.exceptions import PortalForbiddenError, PortalNotFoundError, PortalOperationError
 from app.utils.cancellation import invoke_cancel_check
 
 if TYPE_CHECKING:
@@ -255,6 +255,6 @@ class PortalStorageSpaceVersionCleanupMixin:
             s3_deletion.DeleteObjectsError,
             InvalidDeleteObjectsResponseError,
         ) as exc:
-            raise RuntimeError(
+            raise PortalOperationError(
                 f"Unable to clean historical versions for Storage Space '{target.storage_space_name}': {exc}"
             ) from exc

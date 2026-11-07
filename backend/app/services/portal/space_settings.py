@@ -13,7 +13,7 @@ from app.services.managed_resource_naming import (
     PORTAL_EXPIRE_OLD_VERSIONS_RULE_ID,
     PORTAL_LIFECYCLE_RULE_IDS,
 )
-from app.services.portal.exceptions import PortalForbiddenError, PortalNotFoundError
+from app.services.portal.exceptions import PortalForbiddenError, PortalNotFoundError, PortalOperationError
 
 if TYPE_CHECKING:
     from app.services.access_context_contracts import AccountAccess
@@ -223,7 +223,7 @@ class PortalStorageSpaceSettingsMixin:
                 suffix = " Previous lifecycle settings were restored."
             else:
                 suffix = " Lifecycle rollback also failed."
-            raise RuntimeError(f"Unable to update Storage Space settings: {exc}.{suffix}") from exc
+            raise PortalOperationError(f"Unable to update Storage Space settings: {exc}.{suffix}") from exc
 
     def update_storage_space_settings(
         self,

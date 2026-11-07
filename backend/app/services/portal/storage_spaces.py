@@ -34,6 +34,7 @@ from app.services.portal.exceptions import (
     PortalConflictError,
     PortalForbiddenError,
     PortalNotFoundError,
+    PortalOperationError,
     PortalStorageSpaceNotEmpty,
 )
 from app.services.rgw_admin import RGWAdminError
@@ -134,7 +135,7 @@ class PortalStorageSpacesMixin:
             raise
         storage_space = self.get_storage_space(user, access, bucket_name)
         if storage_space is None:
-            raise RuntimeError("Created Storage Space is not visible.")
+            raise PortalOperationError("Created Storage Space is not visible.")
         return storage_space
 
     @staticmethod
@@ -291,7 +292,7 @@ class PortalStorageSpacesMixin:
             raise
         storage_space = self.get_storage_space(user, access, cleaned_bucket_name)
         if storage_space is None:
-            raise RuntimeError("Imported Storage Space is not visible.")
+            raise PortalOperationError("Imported Storage Space is not visible.")
         return storage_space
 
     def _validate_storage_space_import_access(
@@ -351,7 +352,7 @@ class PortalStorageSpacesMixin:
         self._require_storage_space_manager(user, access, bucket_name, include_archived=True)
         metadata = self._storage_space_metadata(access.account, bucket_name)
         if metadata is None:
-            raise RuntimeError("Storage space metadata is missing.")
+            raise PortalOperationError("Storage space metadata is missing.")
         previous_participant_user_ids = self._storage_space_participant_user_ids(metadata)
         projection_attempted = False
         try:
@@ -384,7 +385,7 @@ class PortalStorageSpacesMixin:
                     extra_user_ids=previous_participant_user_ids,
                 )
             if rollback_error is not None or projection_rollback_failed:
-                raise RuntimeError(
+                raise PortalOperationError(
                     "Unable to update Storage Space. Local or remote rollback also failed."
                 ) from exc
             raise
@@ -501,7 +502,7 @@ class PortalStorageSpacesMixin:
         try:
             stats = self._admin_bucket_info(account, bucket_name)
         except RGWAdminError as exc:
-            raise RuntimeError(f"Unable to fetch Storage Space deletion stats: {exc}") from exc
+            raise PortalOperationError(f"Unable to fetch Storage Space deletion stats: {exc}") from exc
         if stats is None:
             return False, None, None
         usage = stats.get("usage") if isinstance(stats, dict) else None
@@ -522,7 +523,7 @@ class PortalStorageSpacesMixin:
             bucket_name,
         )
         if bucket_exists and (used_bytes is None or object_count is None):
-            raise RuntimeError(
+            raise PortalOperationError(
                 "Storage Space usage statistics are unavailable. Retry before deleting the space."
             )
         if bucket_exists and (used_bytes != 0 or object_count != 0):
