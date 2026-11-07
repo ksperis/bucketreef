@@ -3,12 +3,38 @@
 from __future__ import annotations
 
 from app.db import StorageEndpoint as DBStorageEndpoint
-from app.core.domain_enums import StorageProvider
+from app.core.domain_enums import SERVICE_IDENTITY_ROTATION_KEY_TYPES, StorageProvider
 from app.models.storage_endpoint import (
     StorageEndpoint,
     StorageEndpointAdminOpsPermissions,
 )
 from app.models.tagging import TagDefinitionSummary
+
+
+def _service_identity_statuses(endpoint: DBStorageEndpoint) -> list[dict[str, object]]:
+    pending_by_target = {
+        (intent.target_id, intent.key_type): intent
+        for intent in endpoint.key_rotation_intents
+    }
+    statuses: list[dict[str, object]] = []
+    for identity in endpoint.service_identities:
+        pending = pending_by_target.get(
+            (identity.id, SERVICE_IDENTITY_ROTATION_KEY_TYPES[identity.kind])
+        )
+        statuses.append(
+            {
+                "kind": identity.kind,
+                "mode": identity.mode,
+                "rgw_uid": identity.rgw_uid,
+                "status": identity.status,
+                "credentials_configured": bool(identity.access_key and identity.secret_key),
+                "rotation_pending": pending is not None,
+                "rotation_phase": pending.phase if pending else None,
+                "last_error": identity.last_error,
+                "last_reconciled_at": identity.last_reconciled_at,
+            }
+        )
+    return statuses
 
 
 def storage_endpoint_from_db(
@@ -37,12 +63,7 @@ def storage_endpoint_from_db(
         admin_access_key=endpoint.admin_access_key,
         ceph_admin_allowed=endpoint.ceph_admin_allowed,
         ceph_admin_active=ceph_admin_identity_active(endpoint, ceph_admin_enabled=ceph_admin_enabled),
-        service_identities=[dict(kind=row.kind, mode=row.mode, rgw_uid=row.rgw_uid, status=row.status,
-                                 credentials_configured=bool(row.access_key and row.secret_key),
-                                 rotation_pending=any(intent.target_id == row.id and intent.key_type == {"runtime": "endpoint_runtime", "supervision": "endpoint_supervision", "ceph_admin": "ceph_admin"}[row.kind] for intent in endpoint.key_rotation_intents),
-                                 rotation_phase=next((intent.phase for intent in endpoint.key_rotation_intents if intent.target_id == row.id and intent.key_type == {"runtime": "endpoint_runtime", "supervision": "endpoint_supervision", "ceph_admin": "ceph_admin"}[row.kind]), None),
-                                 last_error=row.last_error, last_reconciled_at=row.last_reconciled_at)
-                            for row in endpoint.service_identities],
+        service_identities=_service_identity_statuses(endpoint),
         capabilities=capabilities,
         admin_ops_permissions=admin_ops_permissions,
         is_default=endpoint.is_default,
