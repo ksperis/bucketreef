@@ -31,6 +31,7 @@ from app.services.effective_access_service import EffectiveAccessService
 from app.services.ui_group_avatar_service import UiGroupAvatarService
 from app.services.ui_groups_service import UiGroupsService
 from app.services.users_service import UsersService
+from app.services.user_output_service import UserOutputService
 from tests.auth_test_utils import authenticate_ui_client, trusted_origin_headers
 from tests.s3_account_factory import make_s3_account
 from tests.s3_connection_factory import custom_endpoint_fields
@@ -603,7 +604,7 @@ def test_ui_group_effective_access_is_inherited_without_overwriting_direct_user_
     )
     assert response.status_code == 201, response.text
 
-    out = UsersService(db_session).user_to_out(user)
+    out = UserOutputService(db_session).to_out(user)
     assert out.can_access_storage_ops is False
     assert out.browser_advanced_features_enabled is False
     assert out.can_create_manual_private_connections is False

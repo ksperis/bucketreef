@@ -61,6 +61,7 @@ from app.services.oidc_service import (
 )
 from app.services import session_service
 from app.services.session_service import SessionService
+from app.services.user_login_service import UserLoginService
 from app.services.user_update_service import UserUpdateService
 from app.services.users_service import UsersService
 from app.services.webauthn_service import WebAuthnService
@@ -1161,7 +1162,7 @@ def test_argon2_accepts_long_passwords_and_legacy_bcrypt_is_rehashed(db_session)
     )
     db_session.add(user)
     db_session.commit()
-    authenticated = UsersService(db_session).authenticate(user.email, legacy_password)
+    authenticated = UserLoginService(db_session).authenticate_password(user.email, legacy_password)
     assert authenticated is not None
     assert authenticated.hashed_password.startswith("$argon2id$")
     assert authenticated.auth_version == 2

@@ -37,6 +37,7 @@ from app.models.user import (
 )
 from app.services.user_output_service import UserOutputService
 from app.services.user_query_service import UserQueryService
+from app.services.user_login_service import UserLoginService
 from app.services.user_update_service import UserUpdateService
 from app.services.auth_session_service import AuthSessionService
 from app.services.users_service import UsersService
@@ -187,8 +188,9 @@ def test_create_user_and_authenticate(db_session):
     assert created.can_provision_managed_private_connections is True
     assert created.allow_multisite_endpoint_switching is True
 
-    assert service.authenticate("ui-admin@example.com", "wrong-password") is None
-    authenticated = service.authenticate("ui-admin@example.com", "verylongpass123")
+    login = UserLoginService(db_session)
+    assert login.authenticate_password("ui-admin@example.com", "wrong-password") is None
+    authenticated = login.authenticate_password("ui-admin@example.com", "verylongpass123")
     assert authenticated is not None
     assert authenticated.last_login_at is not None
 
@@ -272,7 +274,7 @@ def test_password_rehash_login_rolls_back_user_and_session_changes_on_commit_fai
     monkeypatch.setattr(db_session, "commit", commit)
 
     with pytest.raises(RuntimeError, match="commit failed"):
-        UsersService(db_session).authenticate(user.email, "supersecret1234")
+        UserLoginService(db_session).authenticate_password(user.email, "supersecret1234")
 
     assert rollback_calls == [None]
     db_session.expire_all()
@@ -866,7 +868,7 @@ def test_paginate_users_and_detached_user_use_canonical_preload(db_session, monk
         assert preload_calls == [[user.id]]
 
         db_session.expunge(user)
-        out = service.user_to_out(user)
+        out = UserOutputService(db_session).to_out(user)
         assert preload_calls == [[user.id], [user.id]]
     assert total >= 1
     target = next(item for item in rows if item.id == user.id)
@@ -954,7 +956,7 @@ def test_admin_user_projection_and_search_hide_private_connection_links(db_sessi
     )
     db_session.commit()
 
-    projected = service.user_to_out(user)
+    projected = UserOutputService(db_session).to_out(user)
     assert projected.s3_connection_details == []
 
     page = UserQueryService(db_session).list_users_page(

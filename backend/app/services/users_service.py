@@ -9,13 +9,10 @@ from app.db import User
 from app.core.domain_enums import UserRole
 from app.models.user import (
     UserCreate,
-    UserOut,
     UserUpdate,
 )
 from app.services.user_associations_service import UserAssociationsService
 from app.services.user_deletion_service import UserDeletionService
-from app.services.user_login_service import UserLoginService
-from app.services.user_output_service import UserOutputService
 from app.services.user_provisioning_service import UserProvisioningService
 from app.utils.account_roles import ManagerAccountRoleValue, PortalAccountRoleValue
 
@@ -24,7 +21,6 @@ class UsersService:
         self.db = db
         self.deletion = UserDeletionService(db)
         self.associations = UserAssociationsService(db)
-        self.login = UserLoginService(db)
         self.provisioning = UserProvisioningService(db)
 
     def _active_superadmin_count(self, actor: User) -> int:
@@ -88,15 +84,6 @@ class UsersService:
             manager_role=manager_role,
             portal_role=portal_role,
         )
-
-    def authenticate(self, email: str, password: str) -> Optional[User]:
-        return self.login.authenticate_password(email, password)
-
-    def user_to_out(
-        self,
-        user: User,
-    ) -> UserOut:
-        return UserOutputService(self.db).to_out(user)
 
 def get_users_service(db: Session) -> UsersService:
     return UsersService(db)
