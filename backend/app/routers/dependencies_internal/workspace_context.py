@@ -13,6 +13,7 @@ from app.db import S3Account, User, UserS3Account
 from app.services.access_context_contracts import EffectiveAccountLink
 from app.services import effective_access_service
 from app.services.s3_accounts_service import get_s3_accounts_service
+from app.utils.http_errors import raise_http_error_from_value_error
 from app.utils.request_paths import path_matches_prefix
 
 
@@ -47,8 +48,8 @@ def _resolve_default_account_id(db: Session, user: User) -> int:
 def resolve_account_by_id(db: Session, account_id: int) -> S3Account:
     try:
         return get_s3_accounts_service(db).get_account_record(account_id)
-    except S3AccountNotFoundError:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="S3Account not found")
+    except S3AccountNotFoundError as exc:
+        raise_http_error_from_value_error(exc)
 
 
 def resolve_user_account_link(
