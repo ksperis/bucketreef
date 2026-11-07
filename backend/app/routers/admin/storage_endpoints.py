@@ -228,13 +228,14 @@ def delete_storage_endpoint(
 def reconcile_service_identities(
     endpoint_id: int, request: Request, background_tasks: BackgroundTasks,
     service: StorageEndpointsService = Depends(get_service),
+    query_service: StorageEndpointQueryService = Depends(get_query_service),
     current_user: User = Depends(get_current_ui_superadmin),
     audit_service: AuditService = Depends(get_audit_service),
     db: Session = Depends(get_db),
 ) -> StorageEndpoint:
     require_admin_sensitive_action(request, db, current_user)
     try:
-        endpoint = service.get_endpoint_record(endpoint_id)
+        endpoint = query_service.get_endpoint_record(endpoint_id)
         initial_provisioning = any(
                 identity.kind in MANAGED_SERVICE_IDENTITY_KINDS
                 and identity.mode == "managed"
