@@ -11,6 +11,7 @@ import {
   type OpenStackProjectOption,
 } from "../../api/openstack";
 import type { TopbarDropdownOption } from "../../components/TopbarDropdownSelect";
+import ModalActions from "../../components/ModalActions";
 import UiButton from "../../components/ui/UiButton";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import UiSelect from "../../components/ui/UiSelect";
@@ -327,7 +328,7 @@ export function useOpenStackProjectSelector({
             {activation.access.access_keys.map((key) => <option key={key} value={key}>{key}</option>)}
           </UiSelect>
         </div>
-        <div className="flex justify-end gap-2">
+        <ModalActions>
           <UiButton variant="secondary" disabled={busy} onClick={() => setActivation(null)}>{text("cancel")}</UiButton>
           <UiButton
             loading={busy}
@@ -336,7 +337,7 @@ export function useOpenStackProjectSelector({
           >
             {text("useProject")}
           </UiButton>
-        </div>
+        </ModalActions>
       </div>
     </SettingsDialog>
   ) : null;
