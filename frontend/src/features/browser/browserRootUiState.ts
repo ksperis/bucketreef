@@ -11,6 +11,10 @@ import {
 } from "../../utils/clientStorage";
 import { isRecord } from "../../utils/record";
 import type { BrowserDensity } from "./browserActions";
+import {
+  normalizePersistedBrowserColumns,
+  normalizePersistedBrowserColumnWidths,
+} from "./browserColumnPersistence";
 
 export const BROWSER_ROOT_UI_STATE_V3_STORAGE_KEY =
   CLIENT_STORAGE_KEYS.browserRootUiStateV3;
@@ -42,35 +46,6 @@ const clampPanelWidth = (
 ) => {
   if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
   return Math.min(max, Math.max(min, Math.round(value)));
-};
-
-const normalizeObjectColumns = (value: unknown): string[] =>
-  Array.isArray(value)
-    ? value.filter(
-        (entry): entry is string =>
-          typeof entry === "string" && entry.trim().length > 0,
-      )
-    : [];
-
-const normalizeObjectColumnWidths = (
-  value: unknown,
-): Record<string, number> => {
-  if (!isRecord(value)) return {};
-  return Object.entries(value).reduce<Record<string, number>>(
-    (acc, [key, entry]) => {
-      if (
-        !key.trim() ||
-        typeof entry !== "number" ||
-        !Number.isFinite(entry) ||
-        entry <= 0
-      ) {
-        return acc;
-      }
-      acc[key] = Math.round(entry);
-      return acc;
-    },
-    {},
-  );
 };
 
 const normalizeContextSelection = (
@@ -125,8 +100,10 @@ const normalizeV3State = (value: unknown): BrowserRootUiState | null => {
       MIN_FOLDERS_PANEL_WIDTH_PX,
       MAX_FOLDERS_PANEL_WIDTH_PX,
     ),
-    objectColumns: normalizeObjectColumns(value.objectColumns),
-    objectColumnWidths: normalizeObjectColumnWidths(value.objectColumnWidths),
+    objectColumns: normalizePersistedBrowserColumns(value.objectColumns),
+    objectColumnWidths: normalizePersistedBrowserColumnWidths(
+      value.objectColumnWidths,
+    ),
     contextSelections: readContextSelections(),
   };
 };
