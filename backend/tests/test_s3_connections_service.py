@@ -30,6 +30,7 @@ from app.models.s3_connection import (
     S3ConnectionUpdate,
 )
 from app.models.s3_connection_admin import S3ConnectionAdminCreate, S3ConnectionAdminUpdate
+from app.services.s3_connection_query_service import S3ConnectionQueryService
 from app.services.s3_connections_service import (
     S3_CONNECTION_NAME_CONFLICT_ERROR,
     S3ConnectionsService,
@@ -109,14 +110,14 @@ def test_list_for_user_and_list_owned_private_filters_scopes(db_session):
     db_session.add(UserS3Connection(user_id=shared_user.id, s3_connection_id=shared_row.id))
     db_session.commit()
 
-    service = S3ConnectionsService(db_session)
-    owner_visible = [item.name for item in service.list_for_user(owner.id)]
+    queries = S3ConnectionQueryService(db_session)
+    owner_visible = [item.name for item in queries.list_for_user(owner.id)]
     assert owner_visible == ["owned-private"]
 
-    shared_visible = [item.name for item in service.list_for_user(shared_user.id)]
+    shared_visible = [item.name for item in queries.list_for_user(shared_user.id)]
     assert shared_visible == ["shared"]
 
-    owned_private_list = [item.name for item in service.list_owned_private(owner.id)]
+    owned_private_list = [item.name for item in queries.list_owned_private(owner.id)]
     assert owned_private_list == ["owned-private"]
     assert owned_private.id > 0
 
@@ -132,11 +133,11 @@ def test_list_for_user_and_owned_private_are_sorted_case_insensitive(db_session)
     db_session.add(UserS3Connection(user_id=shared_user.id, s3_connection_id=shared.id))
     db_session.commit()
 
-    service = S3ConnectionsService(db_session)
+    queries = S3ConnectionQueryService(db_session)
 
-    owner_visible_names = [item.name for item in service.list_for_user(owner.id)]
-    owned_private_names = [item.name for item in service.list_owned_private(owner.id)]
-    shared_visible_names = [item.name for item in service.list_for_user(shared_user.id)]
+    owner_visible_names = [item.name for item in queries.list_for_user(owner.id)]
+    owned_private_names = [item.name for item in queries.list_owned_private(owner.id)]
+    shared_visible_names = [item.name for item in queries.list_for_user(shared_user.id)]
 
     assert owner_visible_names == ["alpha", "Beta"]
     assert owned_private_names == ["alpha", "Beta"]
@@ -886,7 +887,7 @@ def test_update_connection_supports_active_flag_and_keeps_inactive_visible_in_ma
     db_session.refresh(row)
     assert row.is_active is False
 
-    owned_private_names = [item.name for item in service.list_owned_private(owner.id)]
+    owned_private_names = [item.name for item in S3ConnectionQueryService(db_session).list_owned_private(owner.id)]
     assert "active-flag-conn" in owned_private_names
 
 

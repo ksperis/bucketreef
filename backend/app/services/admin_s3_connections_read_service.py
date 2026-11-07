@@ -24,7 +24,7 @@ from app.models.s3_connection_admin import (
     S3ConnectionGroupDetail,
 )
 from app.models.user import UserAssociationDetail
-from app.services.s3_connections_service import S3ConnectionsService
+from app.services.s3_connection_query_service import S3ConnectionQueryService
 from app.services.sqlalchemy_pagination import paginate_rows
 from app.services.tags_service import TagsService
 from app.services.ui_group_avatar_service import UiGroupAvatarService
@@ -157,7 +157,7 @@ class AdminS3ConnectionsReadService:
             .outerjoin(StorageEndpoint, StorageEndpoint.id == S3Connection.storage_endpoint_id)
             .outerjoin(UserS3Connection, UserS3Connection.s3_connection_id == S3Connection.id)
             .outerjoin(linked_user, linked_user.id == UserS3Connection.user_id)
-            .where(*S3ConnectionsService.admin_shared_predicates())
+            .where(*S3ConnectionQueryService.admin_shared_predicates())
             .group_by(S3Connection.id)
         )
         if not search:

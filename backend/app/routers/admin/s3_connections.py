@@ -35,6 +35,7 @@ from app.services.identity_security_policy import (
     admin_s3_connection_update_requires_step_up,
 )
 from app.services.mappers.s3_connection import mask_access_key_id
+from app.services.s3_connection_query_service import S3ConnectionQueryService
 from app.services.s3_connections_service import (
     S3ConnectionsService,
 )
@@ -53,7 +54,7 @@ logger = logging.getLogger(__name__)
 
 def _get_admin_shared_connection(db: Session, connection_id: int) -> S3Connection:
     try:
-        return S3ConnectionsService(db).get_admin_shared(connection_id)
+        return S3ConnectionQueryService(db).get_admin_shared(connection_id)
     except S3ConnectionNotFoundError as exc:
         raise_http_error_from_value_error(exc)
 

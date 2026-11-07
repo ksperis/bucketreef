@@ -25,6 +25,7 @@ from app.services.execution_destination_service import (
     ExecutionDestinationError,
     ExecutionDestinationService,
 )
+from app.services.s3_connection_query_service import S3ConnectionQueryService
 from app.services.s3_connections_service import S3ConnectionsService
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.s3_user_query_service import S3UserQueryService
@@ -146,9 +147,8 @@ def _resolve_connection_context(
     metadata_only: bool = False,
 ) -> S3ExecutionContext:
     """Resolve a connection through the same policy used by the catalogue."""
-    connections = S3ConnectionsService(db)
     try:
-        conn = connections.get_record(connection_id)
+        conn = S3ConnectionQueryService(db).get_record(connection_id)
     except S3ConnectionNotFoundError as exc:
         raise_http_error_from_value_error(exc)
     service = effective_access_service.EffectiveAccessService(db)
@@ -180,7 +180,7 @@ def _resolve_connection_context(
     if metadata_only:
         return S3ExecutionContext.from_connection(conn, metadata_only=True)
     if touch_usage:
-        connections.touch_usage_best_effort(conn)
+        S3ConnectionsService(db).touch_usage_best_effort(conn)
     can_manage_iam = _connection_iam_capable(conn)
     return S3ExecutionContext.from_connection(
         conn,
