@@ -11,7 +11,7 @@ from app.db import S3Account, StorageEndpoint
 from app.services.access_context_contracts import AccountCapabilities, ManagerSessionPrincipal
 
 from app.services import app_settings_service
-from app.services.s3_accounts_service import get_s3_accounts_service
+from app.services.s3_account_repository import S3AccountRepository
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.storage_endpoints_service import get_storage_endpoints_service
 from app.utils.s3_endpoint import normalize_s3_endpoint, resolve_s3_endpoint
@@ -49,7 +49,7 @@ def _resolve_session_account_record(
                 detail="Not authorized for this account",
             )
         return account
-    return get_s3_accounts_service(db).find_account_by_rgw_id(actor.account_id)
+    return S3AccountRepository(db).find_by_rgw_id(actor.account_id)
 
 
 def _resolve_session_storage_endpoint(
