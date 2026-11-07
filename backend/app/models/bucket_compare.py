@@ -7,6 +7,7 @@ from typing import Any, Literal, Optional
 
 from pydantic import model_validator
 
+from app.core.domain_enums import ObjectComparisonMode
 from app.models.base import ApiModel
 
 
@@ -89,7 +90,7 @@ class BucketObjectDiffEntry(ApiModel):
     target_last_modified: Optional[datetime]
     source_storage_class: Optional[str]
     target_storage_class: Optional[str]
-    compare_by: Literal["md5", "size"]
+    compare_by: ObjectComparisonMode
 
 
 class BucketContentDiff(ApiModel):
