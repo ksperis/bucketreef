@@ -14,6 +14,7 @@ from app.services.identity_security_policy import admin_user_update_requires_ste
 from app.services.manager_tool_access import MANAGER_TOOL_COLUMNS
 from app.services.ui_groups_service import UiGroupsService
 from app.services.ui_group_query_service import UiGroupQueryService
+from app.services.user_update_service import UserUpdateService
 from app.services.users_service import UsersService
 
 
@@ -76,7 +77,7 @@ def test_manager_tool_grants_round_trip_create_update_and_output(db_session, ent
         service = UsersService(db_session)
         subject = service.create_user(_user_create(manager_tool_access=initial))
         to_out = service.user_to_out
-        update = service.update_user
+        update = UserUpdateService(db_session).update_user
         payload_type = UserUpdate
     else:
         service = UiGroupsService(db_session)
@@ -116,10 +117,10 @@ def test_user_role_controls_persisted_and_effective_manager_tools(db_session, ro
     assert service.user_to_out(user).manager_tool_access == expected
     assert EffectiveAccessService(db_session).resolve_user(user).manager_tool_access == expected
 
-    service.update_user(user.id, UserUpdate(role=UserRole.UI_NONE.value))
+    UserUpdateService(db_session).update_user(user.id, UserUpdate(role=UserRole.UI_NONE.value))
     assert service.user_to_out(user).manager_tool_access == _access(())
     # Promotion does not restore direct grants cleared during demotion.
-    service.update_user(user.id, UserUpdate(role=UserRole.UI_USER.value))
+    UserUpdateService(db_session).update_user(user.id, UserUpdate(role=UserRole.UI_USER.value))
     assert service.user_to_out(user).manager_tool_access == _access(())
 
 
@@ -135,7 +136,7 @@ def test_role_masking_does_not_rewrite_group_grants(db_session):
     assert service.user_to_out(user).effective_access.manager_tool_access == _access(())
     assert UiGroupQueryService(db_session).group_to_out(group).manager_tool_access == _access(_TOOLS)
 
-    service.update_user(user.id, UserUpdate(role=UserRole.UI_USER.value))
+    UserUpdateService(db_session).update_user(user.id, UserUpdate(role=UserRole.UI_USER.value))
     assert service.user_to_out(user).manager_tool_access == _access(())
     assert service.user_to_out(user).effective_access.manager_tool_access == _access(_TOOLS)
 
@@ -156,7 +157,7 @@ def test_effective_tools_preserve_direct_and_group_provenance(db_session, tool):
     # Matching an inherited grant still changes the user's persisted direct access.
     grant = UserUpdate(manager_tool_access=_access((tool,)))
     assert admin_user_update_requires_step_up(user, grant) is True
-    service.update_user(user.id, grant)
+    UserUpdateService(db_session).update_user(user.id, grant)
     assert admin_user_update_requires_step_up(user, grant) is False
 
     group_service.update_group(group.id, UiGroupUpdate(manager_tool_access={}))
@@ -164,7 +165,7 @@ def test_effective_tools_preserve_direct_and_group_provenance(db_session, tool):
     assert direct.manager_tool_access == _access((tool,))
     assert direct.effective_access.manager_tool_access == _access((tool,))
     assert direct.effective_access.group_manager_tool_access == _access(())
-    service.update_user(user.id, UserUpdate(manager_tool_access={}))
+    UserUpdateService(db_session).update_user(user.id, UserUpdate(manager_tool_access={}))
     assert service.user_to_out(user).effective_access.manager_tool_access == _access(())
 
 

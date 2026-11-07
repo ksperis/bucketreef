@@ -61,6 +61,7 @@ from app.services.oidc_service import (
 )
 from app.services import session_service
 from app.services.session_service import SessionService
+from app.services.user_update_service import UserUpdateService
 from app.services.users_service import UsersService
 from app.services.webauthn_service import WebAuthnService
 from app.utils.request_security import client_ip
@@ -1171,7 +1172,7 @@ def test_promotion_to_admin_revokes_existing_session_and_forces_passkey_enrollme
     user = _user(db_session, email="promoted-admin@example.com")
     credentials = authenticate_ui_client(auth_client, db_session, user, mfa_verified=False)
 
-    promoted = UsersService(db_session).update_user(user.id, UserUpdate(role=UserRole.UI_ADMIN.value))
+    promoted = UserUpdateService(db_session).update_user(user.id, UserUpdate(role=UserRole.UI_ADMIN.value))
 
     db_session.refresh(credentials.session)
     assert promoted.auth_version == 2
