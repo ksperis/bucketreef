@@ -7,6 +7,8 @@ import { ApiError } from "../../api/client";
 import { DEFAULT_MANAGER_FEATURE_POLICIES, type ManagerFeaturePolicies } from "../../api/featurePolicies";
 import type { S3UserSummary } from "../../api/s3Users";
 import type { S3ConnectionSummary } from "../../api/s3ConnectionsAdmin";
+import type { EffectiveUserAccess, ManagerToolAccess, UpdateUserPayload, User } from "../../api/users";
+import { buildEffectiveUserAccess, buildManagerToolAccess } from "../../test/effectiveAccess";
 
 const listUsersMock = vi.fn();
 const createUserMock = vi.fn();
@@ -25,6 +27,56 @@ const listS3ConnectionsMock = vi.fn();
 const listGroupOptionsMock = vi.fn();
 const listAdminOpenStackCloudOptionsMock = vi.fn();
 const fetchLdapProvidersMock = vi.fn();
+
+type UserFixture = Omit<Partial<User>, "effective_access" | "manager_tool_access"> &
+  Pick<User, "id" | "email" | "role"> & {
+    effective_access?: Partial<EffectiveUserAccess>;
+    manager_tool_access?: Partial<ManagerToolAccess>;
+  };
+
+function canonicalUserFixture(input: UserFixture): User {
+  const nameParts = (input.full_name ?? "").trim().split(/\s+/).filter(Boolean);
+  const initials = nameParts.length > 0
+    ? nameParts.slice(0, 2).map((part) => part[0]).join("").toUpperCase()
+    : input.email.slice(0, 2).toUpperCase();
+  return {
+    full_name: null,
+    picture_url: null,
+    avatar: {
+      preference: "auto",
+      source: "initials",
+      url: null,
+      initials,
+      updated_at: null,
+    },
+    has_local_password: true,
+    is_active: true,
+    is_admin: input.role === "ui_admin" || input.role === "ui_superadmin",
+    can_access_ceph_admin: false,
+    can_access_storage_ops: false,
+    can_create_manual_private_connections: false,
+    can_provision_managed_private_connections: false,
+    allow_multisite_endpoint_switching: false,
+    browser_advanced_features_enabled: false,
+    ui_language: null,
+    quota_alerts_enabled: false,
+    quota_alerts_global_watch: false,
+    ui_preferences: {
+      theme: null,
+      selected_portal_account_id: null,
+    },
+    account_links: [],
+    group_details: [],
+    s3_user_links: [],
+    s3_user_details: [],
+    s3_connection_details: [],
+    openstack_cloud_details: [],
+    last_login_at: null,
+    ...input,
+    manager_tool_access: buildManagerToolAccess(input.manager_tool_access),
+    effective_access: buildEffectiveUserAccess(input.effective_access),
+  };
+}
 
 function canonicalS3UserSummary(id: number, name: string): S3UserSummary {
   return {
@@ -95,11 +147,26 @@ vi.mock("../../components/GeneralSettingsContext", () => ({
 }));
 
 vi.mock("../../api/users", () => ({
-  listUsers: (params?: unknown) => listUsersMock(params),
+  listUsers: async (params?: unknown) => {
+    const response = await listUsersMock(params);
+    return {
+      ...response,
+      items: response.items.map((user: UserFixture) => canonicalUserFixture(user)),
+    };
+  },
   createUser: (payload: unknown) => createUserMock(payload),
   searchLdapUsers: (providerId: string, query: string) => searchLdapUsersMock(providerId, query),
   importLdapUser: (payload: unknown) => importLdapUserMock(payload),
-  updateUser: (userId: number, payload: unknown) => updateUserMock(userId, payload),
+  updateUser: async (userId: number, payload: UpdateUserPayload) => {
+    const response = await updateUserMock(userId, payload) as Partial<User>;
+    return canonicalUserFixture({
+      ...payload,
+      ...response,
+      id: userId,
+      email: response.email ?? payload.email ?? `user-${userId}@example.test`,
+      role: response.role ?? payload.role ?? "ui_user",
+    });
+  },
   assignUserToS3Account: (userId: number, accountId: number, role: string) =>
     assignUserToS3AccountMock(userId, accountId, role),
   deleteUser: (userId: number) => deleteUserMock(userId),

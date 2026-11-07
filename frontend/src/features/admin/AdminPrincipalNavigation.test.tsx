@@ -4,12 +4,74 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { createMemoryRouter, Link, RouterProvider } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { UiGroup } from "../../api/groups";
+import type { User } from "../../api/users";
 import { setSessionUserCache } from "../../utils/workspaces";
 import GroupsPage from "./GroupsPage";
 import UsersPage from "./UsersPage";
 
 const fixtures = vi.hoisted(() => ({
-  user: { id: 2, email: "alice@example.com", full_name: "Alice", role: "ui_user" },
+  user: {
+    id: 2,
+    email: "alice@example.com",
+    full_name: "Alice",
+    picture_url: null,
+    avatar: { preference: "auto", source: "initials", url: null, initials: "A", updated_at: null },
+    has_local_password: true,
+    is_active: true,
+    is_admin: false,
+    role: "ui_user",
+    can_access_ceph_admin: false,
+    can_access_storage_ops: false,
+    can_create_manual_private_connections: false,
+    can_provision_managed_private_connections: false,
+    allow_multisite_endpoint_switching: false,
+    manager_tool_access: {
+      bucket_compare: false,
+      bucket_integrity_check: false,
+      bucket_migration: false,
+      bucket_purge: false,
+      feature_rules: false,
+    },
+    browser_advanced_features_enabled: false,
+    ui_language: null,
+    quota_alerts_enabled: true,
+    quota_alerts_global_watch: false,
+    ui_preferences: { theme: null, selected_portal_account_id: null },
+    account_links: [],
+    group_details: [],
+    s3_user_links: [],
+    s3_user_details: [],
+    s3_connection_details: [],
+    openstack_cloud_details: [],
+    effective_access: {
+      can_access_ceph_admin: false,
+      can_access_storage_ops: false,
+      can_create_manual_private_connections: false,
+      can_provision_managed_private_connections: false,
+      allow_multisite_endpoint_switching: false,
+      group_can_provision_managed_private_connections: false,
+      has_owned_private_connections: false,
+      manager_tool_access: {
+        bucket_compare: false,
+        bucket_integrity_check: false,
+        bucket_migration: false,
+        bucket_purge: false,
+        feature_rules: false,
+      },
+      group_manager_tool_access: {
+        bucket_compare: false,
+        bucket_integrity_check: false,
+        bucket_migration: false,
+        bucket_purge: false,
+        feature_rules: false,
+      },
+      browser_advanced_features_enabled: false,
+      account_links: [],
+      s3_user_details: [],
+      s3_connection_details: [],
+    },
+    last_login_at: null,
+  } satisfies User,
   group: {
     id: 50,
     name: "ops-group",

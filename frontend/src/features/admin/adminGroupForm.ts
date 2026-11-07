@@ -54,7 +54,7 @@ export function adminGroupForm(group: UiGroup): UiGroupPayload {
     s3_connection_ids: group.s3_connection_details.map((connection) =>
       Number(connection.id),
     ),
-    openstack_cloud_ids: (group.openstack_cloud_details ?? []).map((cloud) =>
+    openstack_cloud_ids: group.openstack_cloud_details.map((cloud) =>
       Number(cloud.id),
     ),
   };

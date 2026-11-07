@@ -77,7 +77,7 @@ export default function AdminUsersList({
     formatLocalDateTime(value, intlLocale(locale));
 
   const renderAssociationSummary = (user: User) => {
-    const accountItems = (user.effective_access?.account_links ?? []).map((link) => {
+    const accountItems = user.effective_access.account_links.map((link) => {
       const id = Number(link.account_id);
       const label = accountOptionsById.get(id)?.name ?? text("accountFallback", { id });
       return {
@@ -91,11 +91,11 @@ export default function AdminUsersList({
         }),
       };
     });
-    const s3UserItems = (user.effective_access?.s3_user_details ?? []).map((entry) => ({
+    const s3UserItems = user.effective_access.s3_user_details.map((entry) => ({
       id: entry.id,
       label: entry.name || text("userFallback", { id: entry.id }),
     }));
-    const connectionItems = (user.effective_access?.s3_connection_details ?? []).map((entry) => ({
+    const connectionItems = user.effective_access.s3_connection_details.map((entry) => ({
       id: entry.id,
       label: entry.name || text("connectionFallback", { id: entry.id }),
     }));

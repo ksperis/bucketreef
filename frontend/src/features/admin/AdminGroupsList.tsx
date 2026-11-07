@@ -203,7 +203,7 @@ export default function AdminGroupsList({
                 text("connectionNumber", { id: connectionId }),
             };
           });
-          const openStackItems = (group.openstack_cloud_details ?? []).map((cloud) => ({
+          const openStackItems = group.openstack_cloud_details.map((cloud) => ({
             id: cloud.id,
             label: cloud.name,
           }));
