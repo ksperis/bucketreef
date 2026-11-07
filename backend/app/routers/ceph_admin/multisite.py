@@ -21,6 +21,9 @@ from app.models.ceph_multisite import (
     Topology,
 )
 from app.routers.dependencies import get_current_ceph_admin
+from app.routers.dependencies_internal.ceph_admin_endpoint import (
+    raise_ceph_admin_endpoint_error,
+)
 from app.services.ceph_admin_endpoint_service import CephAdminEndpointUnavailableError
 from app.services.ceph_multisite_service import CephMultisiteService
 
@@ -35,12 +38,12 @@ T = TypeVar("T")
 def _run_multisite_action(action: Callable[..., T], *args, **kwargs) -> T:
     try:
         return action(*args, **kwargs)
-    except StorageEndpointNotFoundError as exc:
-        raise HTTPException(404, "Storage endpoint not found") from exc
-    except StorageEndpointProviderError as exc:
-        raise HTTPException(400, "Storage endpoint is not a Ceph provider") from exc
-    except CephAdminEndpointUnavailableError as exc:
-        raise HTTPException(403, "Ceph Admin is not active on this endpoint") from exc
+    except (
+        StorageEndpointNotFoundError,
+        StorageEndpointProviderError,
+        CephAdminEndpointUnavailableError,
+    ) as exc:
+        raise_ceph_admin_endpoint_error(exc)
     except CephMultisiteCredentialsMissingError as exc:
         raise HTTPException(403, str(exc)) from exc
     except CephMultisiteValidationError as exc:
