@@ -17,13 +17,13 @@ from app.models.bucket import (
     BucketWebsiteConfiguration,
 )
 from app.routers.storage_endpoint_feature_guards import require_replication_feature
-from app.routers.bucket_config_errors import (
-    run_bucket_config_action,
-    run_bucket_config_no_content,
-    run_bucket_config_read,
-)
+from app.routers.bucket_config_errors import run_bucket_config_read
 from app.routers.dependencies import get_s3_execution_context, get_current_account_admin
-from app.routers.manager.bucket_config_common import get_manager_bucket_config_mutation_service
+from app.routers.manager.bucket_config_common import (
+    get_manager_bucket_config_mutation_service,
+    run_manager_bucket_config_delete,
+    run_manager_bucket_config_update,
+)
 from app.services import bucket_config_actions
 from app.services.bucket_config_mutation_service import BucketConfigMutationService
 from app.services.bucket_configuration_service import (
@@ -55,13 +55,8 @@ def put_lifecycle(
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> BucketLifecycleConfig:
-    return run_bucket_config_action(
-        mutation.update,
-        actor=current_user,
-        context=context,
-        bucket_name=bucket_name,
-        config_area="lifecycle",
-        payload=payload,
+    return run_manager_bucket_config_update(
+        mutation, current_user, context, bucket_name, "lifecycle", payload
     )
 
 
@@ -76,13 +71,7 @@ def delete_lifecycle(
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> Response:
-    return run_bucket_config_no_content(
-        mutation.delete,
-        actor=current_user,
-        context=context,
-        bucket_name=bucket_name,
-        config_area="lifecycle",
-    )
+    return run_manager_bucket_config_delete(mutation, current_user, context, bucket_name, "lifecycle")
 
 
 @router.get("/{bucket_name}/cors", response_model=BucketCors)
@@ -103,14 +92,7 @@ def put_cors(
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> BucketCors:
-    return run_bucket_config_action(
-        mutation.update,
-        actor=current_user,
-        context=context,
-        bucket_name=bucket_name,
-        config_area="cors",
-        payload=payload,
-    )
+    return run_manager_bucket_config_update(mutation, current_user, context, bucket_name, "cors", payload)
 
 
 @router.delete(
@@ -124,13 +106,7 @@ def delete_cors(
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> Response:
-    return run_bucket_config_no_content(
-        mutation.delete,
-        actor=current_user,
-        context=context,
-        bucket_name=bucket_name,
-        config_area="cors",
-    )
+    return run_manager_bucket_config_delete(mutation, current_user, context, bucket_name, "cors")
 
 
 @router.get("/{bucket_name}/notifications", response_model=BucketNotificationConfiguration)
@@ -153,13 +129,8 @@ def put_notifications(
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> BucketNotificationConfiguration:
-    return run_bucket_config_action(
-        mutation.update,
-        actor=current_user,
-        context=context,
-        bucket_name=bucket_name,
-        config_area="notifications",
-        payload=payload,
+    return run_manager_bucket_config_update(
+        mutation, current_user, context, bucket_name, "notifications", payload
     )
 
 
@@ -174,12 +145,8 @@ def delete_notifications(
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> Response:
-    return run_bucket_config_no_content(
-        mutation.delete,
-        actor=current_user,
-        context=context,
-        bucket_name=bucket_name,
-        config_area="notifications",
+    return run_manager_bucket_config_delete(
+        mutation, current_user, context, bucket_name, "notifications"
     )
 
 
@@ -205,13 +172,8 @@ def put_replication(
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> BucketReplicationConfiguration:
     require_replication_feature(context.storage_endpoint)
-    return run_bucket_config_action(
-        mutation.update,
-        actor=current_user,
-        context=context,
-        bucket_name=bucket_name,
-        config_area="replication",
-        payload=payload,
+    return run_manager_bucket_config_update(
+        mutation, current_user, context, bucket_name, "replication", payload
     )
 
 
@@ -227,12 +189,8 @@ def delete_replication(
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> Response:
     require_replication_feature(context.storage_endpoint)
-    return run_bucket_config_no_content(
-        mutation.delete,
-        actor=current_user,
-        context=context,
-        bucket_name=bucket_name,
-        config_area="replication",
+    return run_manager_bucket_config_delete(
+        mutation, current_user, context, bucket_name, "replication"
     )
 
 
@@ -244,13 +202,8 @@ def put_logging(
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> BucketLoggingConfiguration:
-    return run_bucket_config_action(
-        mutation.update,
-        actor=current_user,
-        context=context,
-        bucket_name=bucket_name,
-        config_area="logging",
-        payload=payload,
+    return run_manager_bucket_config_update(
+        mutation, current_user, context, bucket_name, "logging", payload
     )
 
 
@@ -265,13 +218,7 @@ def delete_logging(
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> Response:
-    return run_bucket_config_no_content(
-        mutation.delete,
-        actor=current_user,
-        context=context,
-        bucket_name=bucket_name,
-        config_area="logging",
-    )
+    return run_manager_bucket_config_delete(mutation, current_user, context, bucket_name, "logging")
 
 
 @router.put("/{bucket_name}/website", response_model=BucketWebsiteConfiguration)
@@ -282,13 +229,8 @@ def put_website(
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> BucketWebsiteConfiguration:
-    return run_bucket_config_action(
-        mutation.update,
-        actor=current_user,
-        context=context,
-        bucket_name=bucket_name,
-        config_area="website",
-        payload=payload,
+    return run_manager_bucket_config_update(
+        mutation, current_user, context, bucket_name, "website", payload
     )
 
 
@@ -303,13 +245,7 @@ def delete_website(
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> Response:
-    return run_bucket_config_no_content(
-        mutation.delete,
-        actor=current_user,
-        context=context,
-        bucket_name=bucket_name,
-        config_area="website",
-    )
+    return run_manager_bucket_config_delete(mutation, current_user, context, bucket_name, "website")
 
 
 @router.get("/{bucket_name}/tags", response_model=BucketTags)
@@ -330,14 +266,7 @@ def put_tags(
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> BucketTags:
-    return run_bucket_config_action(
-        mutation.update,
-        actor=current_user,
-        context=context,
-        bucket_name=bucket_name,
-        config_area="tags",
-        payload=payload,
-    )
+    return run_manager_bucket_config_update(mutation, current_user, context, bucket_name, "tags", payload)
 
 
 @router.delete(
@@ -351,10 +280,4 @@ def delete_tags(
     current_user: ManagerActor = Depends(get_current_account_admin),
     mutation: BucketConfigMutationService = Depends(get_manager_bucket_config_mutation_service),
 ) -> Response:
-    return run_bucket_config_no_content(
-        mutation.delete,
-        actor=current_user,
-        context=context,
-        bucket_name=bucket_name,
-        config_area="tags",
-    )
+    return run_manager_bucket_config_delete(mutation, current_user, context, bucket_name, "tags")

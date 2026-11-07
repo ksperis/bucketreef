@@ -3,13 +3,18 @@
 
 """Shared dependencies for Manager bucket configuration routes."""
 
-from fastapi import Depends, Request
+from typing import Any
+
+from fastapi import Depends, Request, Response
 
 from app.core.config import get_settings
+from app.routers.bucket_config_errors import run_bucket_config_action, run_bucket_config_no_content
+from app.services.access_context_contracts import ManagerActor
 from app.utils.request_paths import path_matches_prefix
 
 from app.routers.dependencies import get_audit_service
 from app.services.audit_service import AuditService
+from app.services.bucket_config_mutation_registry import BucketConfigArea
 from app.services.bucket_config_mutation_service import BucketConfigMutationService
 from app.services.bucket_configuration_service import (
     BucketConfigurationService,
@@ -42,4 +47,38 @@ def get_manager_bucket_config_mutation_service(
             else "manager"
         ),
         cache_invalidator=_invalidate_manager_bucket_config_cache,
+    )
+
+
+def run_manager_bucket_config_update(
+    mutation: BucketConfigMutationService,
+    actor: ManagerActor,
+    context: S3ExecutionContext,
+    bucket_name: str,
+    config_area: BucketConfigArea,
+    payload: Any,
+) -> Any:
+    return run_bucket_config_action(
+        mutation.update,
+        actor=actor,
+        context=context,
+        bucket_name=bucket_name,
+        config_area=config_area,
+        payload=payload,
+    )
+
+
+def run_manager_bucket_config_delete(
+    mutation: BucketConfigMutationService,
+    actor: ManagerActor,
+    context: S3ExecutionContext,
+    bucket_name: str,
+    config_area: BucketConfigArea,
+) -> Response:
+    return run_bucket_config_no_content(
+        mutation.delete,
+        actor=actor,
+        context=context,
+        bucket_name=bucket_name,
+        config_area=config_area,
     )
