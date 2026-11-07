@@ -23,5 +23,9 @@ class MigrationSettingsCopyError(RuntimeError):
     """Expected operational failure while copying supported bucket settings."""
 
 
+class MigrationCopyGrantError(RuntimeError):
+    """Expected operational failure while managing temporary source-copy access."""
+
+
 class MigrationRecoveryError(RuntimeError):
     """Expected operational failure while restoring temporary migration state."""

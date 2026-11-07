@@ -47,6 +47,7 @@ from app.services.bucket_migration.execution_object_models import (
     VersionTimelineDiffKey,
 )
 from app.services.bucket_migration.diagnostics import (
+    MigrationCopyGrantError,
     MigrationPrecheckError,
     MigrationRecoveryError,
 )
@@ -1326,16 +1327,24 @@ def test_precheck_same_endpoint_copy_source_access_can_use_temporary_auto_grant(
     )
 
     class _BucketsStub:
+        get_policy_calls = 0
+        put_policy_calls = 0
+        delete_policy_calls = 0
+
         def get_policy(self, *_args, **_kwargs):
+            self.get_policy_calls += 1
             return None
 
         def put_policy(self, *_args, **_kwargs):
+            self.put_policy_calls += 1
             target_client.allow = True
 
         def delete_policy(self, *_args, **_kwargs):
+            self.delete_policy_calls += 1
             target_client.allow = False
 
-    service._configuration = _BucketsStub()  # type: ignore[assignment]
+    buckets = _BucketsStub()
+    service._configuration = buckets  # type: ignore[assignment]
 
     result = service._precheck_same_endpoint_copy_source_access(
         source_ctx,
@@ -1346,6 +1355,82 @@ def test_precheck_same_endpoint_copy_source_access_can_use_temporary_auto_grant(
 
     assert result == "validated_with_temporary_grant"
     assert target_client.allow is False
+    assert buckets.get_policy_calls == 2
+    assert buckets.put_policy_calls == 1
+    assert buckets.delete_policy_calls == 1
+
+
+@pytest.mark.parametrize(
+    ("grant_error", "expected_error"),
+    [
+        (MigrationCopyGrantError("provider failure"), MigrationPrecheckError),
+        (RuntimeError("unexpected regression"), RuntimeError),
+    ],
+)
+def test_same_endpoint_copy_precheck_only_types_expected_grant_failures(
+    db_session,
+    grant_error,
+    expected_error,
+):
+    service = BucketMigrationService(db_session)
+    source_ctx = SimpleNamespace()
+    target_ctx = SimpleNamespace()
+
+    class _TargetClient:
+        def head_object(self, **_kwargs):
+            raise ClientError(
+                {
+                    "Error": {"Code": "AccessDenied", "Message": "Denied"},
+                    "ResponseMetadata": {"HTTPStatusCode": 403},
+                },
+                "HeadObject",
+            )
+
+    service._context_client = lambda _ctx: _TargetClient()  # type: ignore[method-assign]
+    service._same_endpoint_copy_probe_candidate = (  # type: ignore[method-assign]
+        lambda *_args, **_kwargs: ("object-a", None, None)
+    )
+    service._temporary_source_copy_grant = Mock(side_effect=grant_error)  # type: ignore[method-assign]
+
+    with pytest.raises(expected_error, match=str(grant_error)):
+        service._precheck_same_endpoint_copy_source_access(
+            source_ctx,
+            target_ctx,
+            "bucket-a",
+            auto_grant=True,
+        )
+
+
+def test_temporary_copy_grant_keeps_recovery_record_when_restoration_fails(db_session):
+    service = BucketMigrationService(db_session)
+    migration = BucketMigration(source_context_id="1", target_context_id="2")
+    item = BucketMigrationItem(source_bucket="bucket-a", target_bucket="bucket-b")
+    migration.items.append(item)
+    db_session.add(migration)
+    db_session.commit()
+    service._preparation_item = item
+
+    source_ctx = SimpleNamespace(context_id="1", execution_context=object())
+    target_ctx = SimpleNamespace(context_id="2", execution_context=object())
+    service._configuration = SimpleNamespace(get_policy=lambda *_args, **_kwargs: None)  # type: ignore[assignment]
+    service._context_client = Mock(return_value=object())  # type: ignore[method-assign]
+    service._source_copy_grant_principal_candidates = Mock(return_value=["arn:aws:iam:::user/target"])  # type: ignore[method-assign]
+    service._select_source_copy_grant_principal = Mock(return_value=("arn:aws:iam:::user/target", None))  # type: ignore[method-assign]
+    service._restore_checked_policy = Mock(  # type: ignore[method-assign]
+        side_effect=MigrationRecoveryError("restore failed")
+    )
+
+    with pytest.raises(MigrationRecoveryError, match="restore failed"):
+        with service._temporary_source_copy_grant(
+            source_ctx,
+            target_ctx,
+            source_bucket="bucket-a",
+            sample_key="object-a",
+        ):
+            pass
+
+    assert item.preparation_effects is not None
+    assert item.preparation_effects["source_copy_grant"]["bucket"] == "bucket-a"
 
 
 def test_copy_object_falls_back_to_stream_copy_on_copy_source_access_denied(db_session):

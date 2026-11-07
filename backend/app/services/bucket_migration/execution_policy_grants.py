@@ -2,7 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-import logging
 from contextlib import contextmanager
 from copy import deepcopy
 from typing import Any, Optional
@@ -15,10 +14,8 @@ from app.services.rgw_principal_scope import resolve_target_admin_uid
 from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionTarget
 
-from .diagnostics import MigrationPrecheckError
+from .diagnostics import MigrationCopyGrantError, MigrationPrecheckError
 from .execution_runtime import MIGRATION_USER_AGENT_MARKER, ResolvedContext
-
-logger = logging.getLogger(__name__)
 
 _READ_ONLY_POLICY_SID = "BucketReefMigrationReadOnlyDeny"
 _TARGET_WRITE_LOCK_POLICY_SID = "BucketReefMigrationTargetWriteLockDeny"
@@ -128,23 +125,6 @@ class BucketMigrationPolicyGrantsMixin:
             policy_doc["Version"] = "2012-10-17"
         return policy_doc
 
-    def _restore_source_copy_grant_policy(
-        self,
-        source_bucket: str,
-        source_execution_context: S3ExecutionTarget,
-        backup_policy: Optional[dict[str, Any]],
-    ) -> None:
-        self._assert_workflow_lease()
-        restored = self._without_managed_source_copy_grant_statement(backup_policy)
-        if isinstance(restored, dict):
-            self._configuration.put_policy(
-                source_bucket,
-                source_execution_context,
-                restored,
-            )
-            return
-        self._configuration.delete_policy(source_bucket, source_execution_context)
-
     def _read_source_copy_grant_backup(
         self,
         source_bucket: str,
@@ -157,11 +137,14 @@ class BucketMigrationPolicyGrantsMixin:
             )
         except S3OperationError as exc:
             if self._is_access_denied_error(exc):
-                raise RuntimeError(
+                raise MigrationCopyGrantError(
                     "Unable to read source bucket policy for temporary source-read grant. "
                     f"Required permissions on '{source_bucket}': s3:GetBucketPolicy and s3:PutBucketPolicy."
                 ) from exc
-            raise
+            raise MigrationCopyGrantError(
+                "Unable to read source bucket policy for temporary source-read grant: "
+                f"{sanitized_error_log_detail(exc)}"
+            ) from exc
 
     def _select_source_copy_grant_principal(
         self,
@@ -190,11 +173,14 @@ class BucketMigrationPolicyGrantsMixin:
                 )
             except S3OperationError as exc:
                 if self._is_access_denied_error(exc):
-                    raise RuntimeError(
+                    raise MigrationCopyGrantError(
                         "Unable to apply temporary source-read grant: access denied on source bucket policy update. "
                         f"Required permissions on '{source_bucket}': s3:GetBucketPolicy and s3:PutBucketPolicy."
                     ) from exc
-                raise
+                raise MigrationCopyGrantError(
+                    "Unable to apply temporary source-read grant: "
+                    f"{sanitized_error_log_detail(exc)}"
+                ) from exc
             if not sample_key:
                 return candidate, None
             try:
@@ -210,8 +196,9 @@ class BucketMigrationPolicyGrantsMixin:
                 if self._is_access_denied_error(exc):
                     last_access_error = exc
                     continue
-                raise RuntimeError(
-                    f"Unable to validate temporary source-read grant on sample object '{sample_key}': {exc}"
+                raise MigrationCopyGrantError(
+                    "Unable to validate temporary source-read grant on sample object "
+                    f"'{sample_key}': {sanitized_error_log_detail(exc)}"
                 ) from exc
         return None, last_access_error
 
@@ -220,80 +207,50 @@ class BucketMigrationPolicyGrantsMixin:
         item = self._preparation_item or self._execution_item
         if item is None:
             raise RuntimeError("Temporary grants require a persisted recovery record")
-        backup = self._configuration.get_policy(source_bucket, source_ctx.execution_context)
-        self._journal_preparation_effect(item, "source_copy_grant", {"context_id": source_ctx.context_id, "bucket": source_bucket, "policy": backup})
+        backup = self._read_source_copy_grant_backup(
+            source_bucket,
+            source_ctx.execution_context,
+        )
+        self._journal_preparation_effect(
+            item,
+            "source_copy_grant",
+            {
+                "context_id": source_ctx.context_id,
+                "bucket": source_bucket,
+                "policy": backup,
+            },
+        )
         try:
-            with self._temporary_source_copy_grant_unjournaled(source_ctx, target_ctx, source_bucket=source_bucket, sample_key=sample_key, sample_version_id=sample_version_id) as principal:
-                yield principal
+            candidates = self._source_copy_grant_principal_candidates(target_ctx)
+            if not candidates:
+                raise MigrationCopyGrantError(
+                    "Target context identity is not supported for temporary source-read grant. "
+                    "Use an account/s3_user target context or grant source read permissions manually."
+                )
+
+            target_client = self._context_client(target_ctx)
+            selected_principal, last_access_error = self._select_source_copy_grant_principal(
+                target_client,
+                candidates,
+                source_bucket=source_bucket,
+                source_execution_context=source_ctx.execution_context,
+                backup_policy=backup,
+                sample_key=sample_key,
+                sample_version_id=sample_version_id,
+            )
+            if selected_principal is None:
+                if last_access_error is not None:
+                    raise MigrationCopyGrantError(
+                        f"Temporary source-read grant could not be validated for bucket '{source_bucket}'."
+                    ) from last_access_error
+                raise MigrationCopyGrantError(
+                    "Unable to determine a compatible target principal for temporary source-read grant."
+                )
+
+            yield selected_principal
         finally:
             self._restore_checked_policy(source_ctx.execution_context, source_bucket, backup)
             self._clear_preparation_effect(item, "source_copy_grant")
-
-    @contextmanager
-    def _temporary_source_copy_grant_unjournaled(
-        self,
-        source_ctx: ResolvedContext,
-        target_ctx: ResolvedContext,
-        *,
-        source_bucket: str,
-        sample_key: Optional[str] = None,
-        sample_version_id: Optional[str] = None,
-    ):
-        source_execution_context = source_ctx.execution_context
-        target_client = self._context_client(target_ctx)
-        backup_policy = self._read_source_copy_grant_backup(
-            source_bucket,
-            source_execution_context,
-        )
-        candidates = self._source_copy_grant_principal_candidates(target_ctx)
-        if not candidates:
-            raise RuntimeError(
-                "Target context identity is not supported for temporary source-read grant. "
-                "Use an account/s3_user target context or grant source read permissions manually."
-            )
-
-        selected_principal, last_access_error = self._select_source_copy_grant_principal(
-            target_client,
-            candidates,
-            source_bucket=source_bucket,
-            source_execution_context=source_execution_context,
-            backup_policy=backup_policy,
-            sample_key=sample_key,
-            sample_version_id=sample_version_id,
-        )
-
-        if selected_principal is None:
-            try:
-                self._restore_source_copy_grant_policy(source_bucket, source_execution_context, backup_policy)
-            except Exception:  # noqa: BLE001
-                logger.exception(
-                    "Unable to restore source policy after unsuccessful temporary source-read grant attempts: bucket=%s",
-                    source_bucket,
-                )
-            if last_access_error is not None:
-                raise RuntimeError(
-                    f"Temporary source-read grant could not be validated for bucket '{source_bucket}': {last_access_error}"
-                ) from last_access_error
-            raise RuntimeError(
-                "Unable to determine a compatible target principal for temporary source-read grant."
-            )
-
-        try:
-            yield selected_principal
-        finally:
-            try:
-                self._restore_source_copy_grant_policy(
-                    source_bucket,
-                    source_execution_context,
-                    backup_policy,
-                )
-            except S3OperationError as exc:
-                if self._is_access_denied_error(exc):
-                    raise RuntimeError(
-                        "Unable to restore source bucket policy after temporary source-read grant. "
-                        f"Required permissions on '{source_bucket}': s3:GetBucketPolicy and s3:PutBucketPolicy."
-                    ) from exc
-                raise
 
     def _build_read_only_policy(
         self,

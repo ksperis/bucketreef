@@ -18,6 +18,7 @@ from .execution_runtime import ResolvedContext
 from .execution_item_loop import _MigrationItemExecutionLoop
 from .execution_settings_copy import _BucketSettingsCopyRunner
 from .diagnostics import (
+    MigrationCopyGrantError,
     MigrationExecutionStrategyError,
     MigrationPermissionCheckError,
     MigrationPrecheckError,
@@ -565,10 +566,10 @@ class BucketMigrationItemRunnerMixin:
                     sample_version_id=sample_version_id,
                 ):
                     target_client.head_object(**head_kwargs)
-            except Exception as grant_exc:  # noqa: BLE001
+            except (MigrationCopyGrantError, ClientError, BotoCoreError) as grant_exc:
                 raise MigrationPrecheckError(
                     "Unable to validate temporary same-endpoint source-read grant for x-amz-copy-source: "
-                    f"{grant_exc}"
+                    f"{sanitized_error_log_detail(grant_exc)}"
                 ) from grant_exc
             return "validated_with_temporary_grant"
 
