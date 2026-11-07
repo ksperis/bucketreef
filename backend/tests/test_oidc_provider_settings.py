@@ -152,6 +152,21 @@ def test_environment_oidc_provider_parses_security_lists_from_nested_env(monkeyp
     assert provider.trusted_email_domains == ["example.com"]
 
 
+@pytest.mark.parametrize(
+    ("field", "expected_error"),
+    [
+        ("scopes", "Unable to parse scopes JSON"),
+        ("allowed_hosts", "Unable to parse OIDC security list JSON"),
+    ],
+)
+def test_environment_oidc_provider_preserves_list_json_errors(field: str, expected_error: str):
+    payload = _provider_settings().model_dump()
+    payload[field] = "[invalid"
+
+    with pytest.raises(ValidationError, match=expected_error):
+        OIDCProviderSettings.model_validate(payload)
+
+
 def _ui_provider(provider_id: str, *, enabled: bool = True, display_name: str | None = None) -> OidcProvider:
     return OidcProvider(
         provider_id=provider_id,

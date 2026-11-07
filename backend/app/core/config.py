@@ -26,6 +26,20 @@ from app.utils.oidc_validation import normalize_trusted_email_domains
 DeploymentProfile = Literal["full", "admin", "user"]
 
 
+def _parse_string_list(value, *, json_error: str):
+    if not isinstance(value, str):
+        return value
+    text = value.strip()
+    if not text:
+        return []
+    if text.startswith("["):
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise ValueError(json_error) from exc
+    return [item.strip() for item in text.split(",") if item.strip()]
+
+
 class OIDCProviderSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -48,32 +62,12 @@ class OIDCProviderSettings(BaseModel):
     @field_validator("scopes", mode="before")
     @classmethod
     def parse_scopes(cls, value):
-        if isinstance(value, str):
-            text = value.strip()
-            if not text:
-                return []
-            if text.startswith("["):
-                try:
-                    return json.loads(text)
-                except json.JSONDecodeError as exc:
-                    raise ValueError("Unable to parse scopes JSON") from exc
-            return [item.strip() for item in text.split(",") if item.strip()]
-        return value
+        return _parse_string_list(value, json_error="Unable to parse scopes JSON")
 
     @field_validator("allowed_algorithms", "allowed_hosts", "trusted_email_domains", mode="before")
     @classmethod
     def parse_security_lists(cls, value):
-        if isinstance(value, str):
-            text = value.strip()
-            if not text:
-                return []
-            if text.startswith("["):
-                try:
-                    return json.loads(text)
-                except json.JSONDecodeError as exc:
-                    raise ValueError("Unable to parse OIDC security list JSON") from exc
-            return [item.strip() for item in text.split(",") if item.strip()]
-        return value
+        return _parse_string_list(value, json_error="Unable to parse OIDC security list JSON")
 
     @field_validator("trusted_email_domains")
     @classmethod
