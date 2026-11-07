@@ -626,19 +626,19 @@ export default function UsersPage() {
     resetAssociationOptionSearches();
     setEditingUser(user);
     setEditForm(nextEditForm);
-    const selectedAccounts = (user.account_links ?? []).map((link) => ({
+    const selectedAccounts = user.account_links.map((link) => ({
       id: Number(link.account_id),
       manager_role: link.manager_role,
       portal_role: link.portal_role,
       allow_manager_browser_data_access: link.allow_manager_browser_data_access,
     }));
-    const nextSelectedS3Users = (user.s3_user_links ?? []).map((link) => ({
+    const nextSelectedS3Users = user.s3_user_links.map((link) => ({
       s3_user_id: Number(link.s3_user_id),
       allow_manager_browser_data_access: link.allow_manager_browser_data_access,
     }));
-    const nextSelectedS3Connections = (user.s3_connection_details ?? []).map((connection) => Number(connection.id));
-    const nextSelectedOpenStackClouds = (user.openstack_cloud_details ?? []).map((cloud) => Number(cloud.id));
-    const nextSelectedGroups = (user.group_details ?? []).map((group) => Number(group.id));
+    const nextSelectedS3Connections = user.s3_connection_details.map((connection) => Number(connection.id));
+    const nextSelectedOpenStackClouds = user.openstack_cloud_details.map((cloud) => Number(cloud.id));
+    const nextSelectedGroups = user.group_details.map((group) => Number(group.id));
     const hasAccounts = selectedAccounts.length > 0;
     const hasS3Users = nextSelectedS3Users.length > 0;
     const hasConnections = nextSelectedS3Connections.length > 0;
@@ -1073,14 +1073,14 @@ export default function UsersPage() {
                 supportsManagerTools={editTargetSupportsManagerTools}
                 managerFeaturePolicies={generalSettings.manager_feature_policies}
                 inheritedManagerToolAccess={
-                  editingUser.effective_access?.group_manager_tool_access
+                  editingUser.effective_access.group_manager_tool_access
                 }
                 inheritedManagedProvisioning={Boolean(
                   editingUser.effective_access
-                    ?.group_can_provision_managed_private_connections,
+                    .group_can_provision_managed_private_connections,
                 )}
                 inheritedMultisiteSwitching={Boolean(
-                  editingUser.effective_access?.allow_multisite_endpoint_switching
+                  editingUser.effective_access.allow_multisite_endpoint_switching
                   && !editingUser.allow_multisite_endpoint_switching
                 )}
                 text={text}

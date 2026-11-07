@@ -129,14 +129,14 @@ export default function AdminS3UsersList({
         label: "UI Users / Groups",
         cellClassName: "min-w-[200px] max-w-[260px] align-middle",
         render: (user) => {
-          const userItems: AssociationPrincipalItem[] = (user.user_links ?? []).map((link) => ({
+          const userItems: AssociationPrincipalItem[] = user.user_links.map((link) => ({
             id: link.user_id,
             kind: "user",
             label: link.user_full_name || link.user_email || `User #${link.user_id}`,
             email: link.user_email,
             avatar: link.user_avatar,
           }));
-          const groupItems: AssociationPrincipalItem[] = (user.group_links ?? []).map((link) => ({
+          const groupItems: AssociationPrincipalItem[] = user.group_links.map((link) => ({
             id: link.group_id,
             kind: "group",
             label: link.group_name || `Group #${link.group_id}`,

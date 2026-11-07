@@ -108,10 +108,10 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
     if (permissionLoaded) return;
     void loadPermissions(account.storage_endpoint_id);
   }, [account.storage_endpoint_id, loadPermissions, permissionLoaded]);
-  const allowQuotaUpdates = Boolean(account.storage_endpoint_capabilities?.admin && account.rgw_account_id && endpointPermissions?.accounts_write);
+  const allowQuotaUpdates = Boolean(account.storage_endpoint_capabilities.admin && account.rgw_account_id && endpointPermissions?.accounts_write);
   const { generalSettings } = useGeneralSettings();
   const allowBucketQuotas = Boolean(endpointPermissions?.buckets_write);
-  const usageEnabled = Boolean(account.storage_endpoint_capabilities?.usage && account.rgw_account_id);
+  const usageEnabled = Boolean(account.storage_endpoint_capabilities.usage && account.rgw_account_id);
   const usage = useAdminAccountStats(account.id, usageEnabled);
   const tags = useTagCatalog({ kind: "admin", domain: "admin_managed" }, true);
   const quotaErrors = allowQuotaUpdates ? adminQuotaErrors(form.draft) : {};
