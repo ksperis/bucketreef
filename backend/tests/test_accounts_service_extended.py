@@ -22,6 +22,7 @@ from app.services.managed_resource_naming import (
     PORTAL_USER_GROUP_NAME,
 )
 from app.services.rgw_admin import RGWAdminError
+from app.services.rgw_iam import RGWIAMError
 from app.services.rgw_account_root_service import RgwAccountRootService
 from app.services.rgw_account_topics_resolver import RgwAccountTopicsResolver, normalize_account_key
 from app.services.s3_account_iam_cleanup_service import S3AccountIamCleanupService
@@ -643,13 +644,23 @@ def test_account_iam_cleanup_only_wraps_expected_client_initialization_errors(
     )
 
     def unavailable_iam(*_args, **_kwargs):
-        raise RuntimeError("IAM endpoint unavailable")
+        raise RGWIAMError("IAM endpoint unavailable")
 
     monkeypatch.setattr(
         "app.services.s3_account_iam_cleanup_service.get_iam_service",
         unavailable_iam,
     )
     with pytest.raises(ValueError, match="Unable to initialize RGW IAM cleanup"):
+        S3AccountIamCleanupService._iam_for_account(account)
+
+    def internal_runtime_regression(*_args, **_kwargs):
+        raise RuntimeError("unexpected IAM runtime regression")
+
+    monkeypatch.setattr(
+        "app.services.s3_account_iam_cleanup_service.get_iam_service",
+        internal_runtime_regression,
+    )
+    with pytest.raises(RuntimeError, match="unexpected IAM runtime regression"):
         S3AccountIamCleanupService._iam_for_account(account)
 
     def broken_iam(*_args, **_kwargs):

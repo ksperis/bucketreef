@@ -12,7 +12,7 @@ from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import S3Account, StorageEndpoint
 from app.models.iam import IAMGroup, IAMRole, IAMUser
 from app.services.managed_resource_naming import PORTAL_MANAGED_IAM_GROUP_NAMES
-from app.services.rgw_iam import RGWIAMService, get_iam_service
+from app.services.rgw_iam import RGWIAMError, RGWIAMService, get_iam_service
 from app.utils.s3_endpoint import resolve_iam_client_options
 from app.utils.storage_endpoint_features import resolve_feature_flags
 
@@ -60,7 +60,7 @@ class S3AccountIamCleanupService:
                 region=region,
                 verify_tls=verify_tls,
             )
-        except (BotoCoreError, RuntimeError, ValueError) as exc:
+        except (BotoCoreError, RGWIAMError, ValueError) as exc:
             raise ValueError(
                 f"Unable to initialize RGW IAM cleanup: {sanitized_error_log_detail(exc)}"
             ) from exc
@@ -75,7 +75,7 @@ class S3AccountIamCleanupService:
                 group.name: iam.list_group_users(group.name)
                 for group in groups
             }
-        except RuntimeError as exc:
+        except RGWIAMError as exc:
             raise ValueError(
                 f"Unable to verify RGW IAM resources; cannot delete the RGW tenant: {sanitized_error_log_detail(exc)}"
             ) from exc
@@ -115,7 +115,7 @@ class S3AccountIamCleanupService:
                 for policy_name in iam.list_group_inline_policies(group.name):
                     iam.delete_group_inline_policy(group.name, policy_name)
                 iam.delete_group(group.name)
-        except RuntimeError as exc:
+        except RGWIAMError as exc:
             raise ValueError(
                 f"Unable to remove Portal IAM groups; cannot delete the RGW tenant: {sanitized_error_log_detail(exc)}"
             ) from exc

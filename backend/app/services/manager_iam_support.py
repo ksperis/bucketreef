@@ -33,7 +33,7 @@ from app.services.managed_private_access_query_service import (
 from app.services.managed_private_access_sources import iam_source_reference
 from app.services.managed_resource_naming import PORTAL_MANAGED_IAM_GROUP_NAMES
 from app.services.resource_name_validation import validate_inline_policy_requests
-from app.services.rgw_iam import RGWIAMService, get_iam_service_for_execution_target
+from app.services.rgw_iam import RGWIAMError, RGWIAMService, get_iam_service_for_execution_target
 from app.services.s3_execution_context import S3ExecutionContext
 
 
@@ -168,7 +168,7 @@ def create_iam_user(
         for inline in payload.inline_policies:
             service.put_user_inline_policy(payload.name, inline.name, inline.document)
             inline_policy_names.append(inline.name)
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         try:
             _rollback_created_iam_user(
                 service,
@@ -178,8 +178,8 @@ def create_iam_user(
                 inline_policy_names=inline_policy_names,
                 access_key_id=created_key.access_key_id if created_key is not None else None,
             )
-        except RuntimeError as rollback_exc:
-            raise RuntimeError(f"{exc}; {rollback_exc}") from exc
+        except RGWIAMError as rollback_exc:
+            raise RGWIAMError(f"{exc}; {rollback_exc}") from exc
         raise
     return IAMUserWithKey(**created_user.model_dump(), access_key=created_key)
 
@@ -191,7 +191,7 @@ def _run_iam_rollback_step(
 ) -> None:
     try:
         rollback_fn(*args)
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         failures.append(str(exc))
 
 
@@ -235,7 +235,7 @@ def _rollback_created_iam_user(
         )
     _run_iam_rollback_step(failures, service.delete_user, user_name)
     if failures:
-        raise RuntimeError(
+        raise RGWIAMError(
             f"Unable to fully roll back created IAM user {user_name}: " + "; ".join(failures)
         )
 
@@ -262,7 +262,7 @@ def _rollback_created_iam_identity(
         _run_iam_rollback_step(failures, detach_policy_fn, entity_name, policy_arn)
     _run_iam_rollback_step(failures, delete_entity_fn, entity_name)
     if failures:
-        raise RuntimeError(
+        raise RGWIAMError(
             f"Unable to fully roll back created {entity_label} {entity_name}: "
             + "; ".join(failures)
         )
@@ -290,7 +290,7 @@ def _configure_created_iam_identity(
         for inline in inline_policies:
             put_inline_policy_fn(entity_name, inline.name, inline.document)
             inline_policy_names.append(inline.name)
-    except RuntimeError as exc:
+    except RGWIAMError as exc:
         try:
             _rollback_created_iam_identity(
                 entity_label=entity_label,
@@ -301,8 +301,8 @@ def _configure_created_iam_identity(
                 delete_inline_policy_fn=delete_inline_policy_fn,
                 delete_entity_fn=delete_entity_fn,
             )
-        except RuntimeError as rollback_exc:
-            raise RuntimeError(f"{exc}; {rollback_exc}") from exc
+        except RGWIAMError as rollback_exc:
+            raise RGWIAMError(f"{exc}; {rollback_exc}") from exc
         raise
     return result
 

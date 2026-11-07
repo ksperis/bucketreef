@@ -17,6 +17,7 @@ from app.models.access_key_metadata import AccessKeyMetadataInput, AccessKeyStat
 from app.models.policy import InlinePolicy, Policy
 from app.routers.manager import iam_common, iam_groups, iam_roles, iam_users
 from app.services import manager_iam_support
+from app.services.rgw_iam import RGWIAMError
 from app.services.s3_execution_context import S3ExecutionContext
 
 EXPLICIT_ROLE_TRUST = {
@@ -236,7 +237,7 @@ class _CreateIdentityService:
         if self.fail_on == operation or (
             isinstance(self.fail_on, set) and operation in self.fail_on
         ):
-            raise RuntimeError(f"{operation} failed")
+            raise RGWIAMError(f"{operation} failed")
 
     def create_user(self, name: str, create_key: bool = False):
         self._record("create_user", name, create_key=create_key)
@@ -344,7 +345,7 @@ def test_group_create_orchestration_rolls_back_after_policy_failure():
         inline_policies=[InlinePolicy(name="local-read", document={})],
     )
 
-    with pytest.raises(RuntimeError, match="put_group_inline_policy failed"):
+    with pytest.raises(RGWIAMError, match="put_group_inline_policy failed"):
         manager_iam_support.create_iam_group(service, payload)
 
     assert [call[0] for call in service.calls] == [
@@ -364,7 +365,7 @@ def test_group_create_orchestration_does_not_undo_failed_policy_attachment():
         inline_policies=[],
     )
 
-    with pytest.raises(RuntimeError, match="attach_group_policy failed"):
+    with pytest.raises(RGWIAMError, match="attach_group_policy failed"):
         manager_iam_support.create_iam_group(service, payload)
 
     assert [call[0] for call in service.calls] == [
@@ -384,7 +385,7 @@ def test_user_create_orchestration_rolls_back_after_inline_policy_failure():
         inline_policies=[InlinePolicy(name="local-read", document={})],
     )
 
-    with pytest.raises(RuntimeError, match="put_user_inline_policy failed"):
+    with pytest.raises(RGWIAMError, match="put_user_inline_policy failed"):
         manager_iam_support.create_iam_user(service, payload)
 
     assert [call[0] for call in service.calls] == [
@@ -411,7 +412,7 @@ def test_user_create_orchestration_continues_rollback_after_cleanup_failure():
         inline_policies=[InlinePolicy(name="local-read", document={})],
     )
 
-    with pytest.raises(RuntimeError) as exc_info:
+    with pytest.raises(RGWIAMError) as exc_info:
         manager_iam_support.create_iam_user(service, payload)
 
     message = str(exc_info.value)
@@ -471,7 +472,7 @@ def test_role_create_orchestration_rolls_back_after_policy_failure():
         inline_policies=[InlinePolicy(name="local-read", document={})],
     )
 
-    with pytest.raises(RuntimeError, match="put_role_inline_policy failed"):
+    with pytest.raises(RGWIAMError, match="put_role_inline_policy failed"):
         manager_iam_support.create_iam_role(service, payload, {"Statement": []})
 
     assert [call[0] for call in service.calls] == [
@@ -481,6 +482,28 @@ def test_role_create_orchestration_rolls_back_after_policy_failure():
         "detach_role_policy",
         "delete_role",
     ]
+
+
+def test_group_create_orchestration_does_not_absorb_unexpected_runtime_errors():
+    service = _CreateIdentityService()
+    payload = IAMGroupCreate(
+        name="researchers",
+        policies=["arn:policy/read"],
+        inline_policies=[],
+    )
+    regression = RuntimeError("unexpected manager IAM regression")
+
+    def fail_attach(name: str, policy_arn: str) -> None:
+        service.calls.append(("attach_group_policy", (name, policy_arn), {}))
+        raise regression
+
+    service.attach_group_policy = fail_attach  # type: ignore[method-assign]
+
+    with pytest.raises(RuntimeError) as exc_info:
+        manager_iam_support.create_iam_group(service, payload)
+
+    assert exc_info.value is regression
+    assert [call[0] for call in service.calls] == ["create_group", "attach_group_policy"]
 
 
 def test_user_detail_rehydrates_provider_relationships(monkeypatch):
