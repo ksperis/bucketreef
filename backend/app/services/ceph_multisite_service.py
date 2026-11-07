@@ -378,22 +378,7 @@ class CephMultisiteService:
             )
             for future in done:
                 family, dest, source = futures[future]
-                try:
-                    flow = future.result()
-                except Exception:
-                    local = self.local_zones.get(dest.id)
-                    flow = Flow(
-                        destination_endpoint_id=dest.id,
-                        destination_zone_id=local.id if local else "",
-                        source_zone_id=source,
-                        status=self.missing(
-                            dest,
-                            "metadata_status" if family == "metadata" else "data_status",
-                            "collection_failed",
-                            availability="unavailable",
-                            source=source,
-                        ),
-                    )
+                flow = future.result()
                 getattr(result, family).append(flow)
                 if flow.status.reason_code == "collection_budget_exhausted":
                     result.uncollected.append(flow.destination_zone_id)
