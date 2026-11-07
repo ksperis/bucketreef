@@ -164,9 +164,8 @@ def resolve_s3_client_kwargs(account: S3EndpointTarget) -> dict[str, object]:
 
 def resolve_iam_client_options(account: S3EndpointTarget) -> tuple[Optional[str], Optional[str], bool]:
     """Resolve IAM client options for account-like manager contexts."""
-    from app.utils.s3_connection_endpoint import resolve_connection_details
+    from app.utils.s3_connection_endpoint import resolve_connection_iam_options
     from app.utils.storage_endpoint_features import (
-        aws_iam_client_options_for_region,
         resolve_iam_endpoint,
         resolve_iam_signing_region,
     )
@@ -185,14 +184,7 @@ def resolve_iam_client_options(account: S3EndpointTarget) -> tuple[Optional[str]
 
     source_connection = getattr(account, "source_connection", None)
     if source_connection is not None:
-        details = resolve_connection_details(source_connection)
-        provider = (details.provider or "").strip().lower()
-        if provider == "aws":
-            endpoint, iam_region = aws_iam_client_options_for_region(details.region)
-        else:
-            endpoint = details.endpoint_url
-            iam_region = details.region
-        return endpoint, iam_region, details.verify_tls
+        return resolve_connection_iam_options(source_connection)
 
     endpoint, region, _, verify_tls = resolve_s3_client_options(account)
     return endpoint, region, verify_tls

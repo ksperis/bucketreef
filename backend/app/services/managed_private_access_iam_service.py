@@ -18,12 +18,7 @@ from app.services.rgw_iam import (
     get_iam_service_for_execution_target,
 )
 from app.services.s3_execution_context import S3ExecutionTarget
-from app.utils.s3_connection_endpoint import resolve_connection_details
-from app.utils.storage_endpoint_features import (
-    aws_iam_client_options_for_region,
-    resolve_iam_endpoint,
-    resolve_iam_signing_region,
-)
+from app.utils.s3_connection_endpoint import resolve_connection_iam_options
 
 
 class ManagedPrivateAccessIAMService:
@@ -73,19 +68,11 @@ class ManagedPrivateAccessIAMService:
         ):
             raise ManagedPrivateAccessForbidden("Source connection access was revoked")
 
-        details = resolve_connection_details(connection)
-        endpoint = connection.storage_endpoint
-        if endpoint is not None:
-            iam_endpoint = resolve_iam_endpoint(endpoint)
-            iam_region = resolve_iam_signing_region(endpoint)
-        elif (details.provider or "").strip().lower() == "aws":
-            iam_endpoint, iam_region = aws_iam_client_options_for_region(details.region)
-        else:
-            iam_endpoint, iam_region = details.endpoint_url, details.region
+        iam_endpoint, iam_region, verify_tls = resolve_connection_iam_options(connection)
         return get_iam_service(
             connection.access_key_id,
             connection.secret_access_key,
             endpoint=iam_endpoint,
             region=iam_region,
-            verify_tls=details.verify_tls,
+            verify_tls=verify_tls,
         )

@@ -4,7 +4,7 @@ import ipaddress
 
 import pytest
 
-from app.db import S3Account, StorageEndpoint
+from app.db import S3Account, S3Connection, StorageEndpoint
 from app.core.domain_enums import StorageProvider
 from app.services.s3_execution_context import S3ExecutionContext
 from app.utils import s3_endpoint
@@ -15,7 +15,9 @@ from app.utils.s3_endpoint import (
     validate_custom_login_s3_endpoint,
     validate_user_supplied_s3_endpoint,
 )
+from app.utils.s3_connection_endpoint import resolve_connection_iam_options
 from app.utils.storage_endpoint_features import AWS_IAM_ENDPOINT, AWS_S3_ENDPOINT
+from tests.s3_connection_factory import custom_endpoint_fields
 from tests.storage_endpoint_features import persisted_endpoint_features
 
 
@@ -102,6 +104,50 @@ def test_resolve_iam_client_options_uses_aws_iam_endpoint_for_aws_storage_endpoi
     account = S3Account(storage_endpoint=endpoint)
 
     assert resolve_iam_client_options(account) == (AWS_IAM_ENDPOINT, "us-east-1", True)
+
+
+def test_resolve_connection_iam_options_uses_custom_aws_iam_endpoint():
+    connection = S3Connection(
+        created_by_user_id=1,
+        name="AWS custom",
+        **custom_endpoint_fields(
+            "https://s3.eu-west-1.amazonaws.com",
+            region="eu-west-1",
+            provider=" AWS ",
+            verify_tls=False,
+        ),
+        access_key_id="AK",
+        secret_access_key="SK",
+    )
+
+    assert resolve_connection_iam_options(connection) == (
+        AWS_IAM_ENDPOINT,
+        "us-east-1",
+        False,
+    )
+
+
+def test_resolve_connection_iam_options_respects_disabled_endpoint_iam():
+    endpoint = StorageEndpoint(
+        name="AWS disabled IAM",
+        endpoint_url=AWS_S3_ENDPOINT,
+        provider=StorageProvider.AWS.value,
+        region="eu-west-1",
+        verify_tls=True,
+        features=persisted_endpoint_features(
+            "features:\n  iam:\n    enabled: false\n",
+            provider=StorageProvider.AWS,
+        ),
+    )
+    connection = S3Connection(
+        created_by_user_id=1,
+        name="AWS endpoint",
+        storage_endpoint=endpoint,
+        access_key_id="AK",
+        secret_access_key="SK",
+    )
+
+    assert resolve_connection_iam_options(connection) == (None, "us-east-1", True)
 
 
 def test_resolve_s3_client_options_uses_storage_endpoint_force_path_style():
