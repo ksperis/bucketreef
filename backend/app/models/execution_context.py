@@ -4,6 +4,7 @@ from typing import Optional, Literal
 
 from pydantic import Field
 
+from app.core.domain_enums import ManagedPrivateAccessActiveState
 from app.models.base import ApiModel
 from app.models.feature_policy import FeatureState
 from app.models.pagination import OptionListingRequest, PaginatedResponse
@@ -98,7 +99,7 @@ class ManagerContext(ApiModel):
     manager_access_key_metadata_enabled: bool
     manager_access_key_expiration_enabled: bool
     manager_private_access_enabled: bool
-    manager_private_access_state: Optional[Literal["provisioning", "active", "deleting", "cleanup_pending"]]
+    manager_private_access_state: Optional[ManagedPrivateAccessActiveState]
     quota_max_size_gb: Optional[float]
     quota_max_objects: Optional[int]
     max_buckets: Optional[int]

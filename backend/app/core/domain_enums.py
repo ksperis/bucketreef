@@ -63,6 +63,19 @@ HealthCheckMode = Literal["http", "s3"]
 IdentityProviderSource = Literal["environment", "ui"]
 KeyRotationPhase = Literal["prepared", "activated"]
 LDAPLinkingPolicy = Literal["manual", "reauthenticate"]
+ManagedPrivateAccessActiveState = Literal[
+    "provisioning",
+    "active",
+    "deleting",
+    "cleanup_pending",
+]
+ManagedPrivateAccessState = Literal[
+    "provisioning",
+    "active",
+    "deleting",
+    "cleanup_pending",
+    "failed",
+]
 OIDCLinkingPolicy = Literal["manual", "reauthenticate", "trusted_email"]
 ObjectComparisonMode = Literal["md5", "size"]
 ReadinessCheckLevel = Literal["blocked", "critical", "warning", "manual", "ok"]
@@ -72,6 +85,18 @@ ReadinessStatus = Literal["blocked", "critical", "warning", "ok"]
 S3SubjectType = Literal["account", "s3_user"]
 S3SubjectFilter = Literal["all", "account", "s3_user"]
 SortDirection = Literal["asc", "desc"]
+
+
+MANAGED_PRIVATE_ACCESS_ACTIVE_STATES: tuple[ManagedPrivateAccessActiveState, ...] = (
+    "provisioning",
+    "active",
+    "deleting",
+    "cleanup_pending",
+)
+MANAGED_PRIVATE_ACCESS_STATES: tuple[ManagedPrivateAccessState, ...] = (
+    *MANAGED_PRIVATE_ACCESS_ACTIVE_STATES,
+    "failed",
+)
 
 
 ServiceIdentityMode = Literal["managed", "external"]
