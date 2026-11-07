@@ -10,7 +10,7 @@ import UiButton from "./ui/UiButton";
 import UiInlineMessage from "./ui/UiInlineMessage";
 import "./settings/compactSettings.css";
 
-type ConfirmActionDialogDetail = {
+export type ConfirmActionDialogDetail = {
   label: string;
   value: ReactNode;
   mono?: boolean;
