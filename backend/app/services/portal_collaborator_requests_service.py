@@ -12,7 +12,8 @@ from app.db import PortalAdminRequest, UiGroupS3Account, User, UserS3Account, Us
 from app.core.domain_enums import PortalAccountRole, UserRole
 from app.services.access_context_contracts import AccountAccess
 from app.models.portal_requests import PortalUserAccessRequestCreate
-from app.services.users_service import UsersService
+from app.services.user_associations_service import UserAssociationsService
+from app.services.user_query_service import UserQueryService
 from app.utils.normalize import normalize_optional_email
 from app.utils.time import utcnow
 
@@ -26,9 +27,10 @@ _PORTAL_ROLES = {
 class PortalCollaboratorRequestsService:
     """Validate and execute Portal collaborator request mutations."""
 
-    def __init__(self, db: Session, *, users_service: UsersService) -> None:
+    def __init__(self, db: Session) -> None:
         self.db = db
-        self.users_service = users_service
+        self.associations = UserAssociationsService(db)
+        self.users = UserQueryService(db)
 
     def _direct_portal_link(self, user_id: int, account_id: int) -> UserS3Account | None:
         return self.db.scalar(
@@ -128,7 +130,7 @@ class PortalCollaboratorRequestsService:
             existing_link,
             requested_portal_role=requested_portal_role,
         )
-        self.users_service.assign_user_to_account(
+        self.associations.assign_account(
             int(target.id),
             int(row.account_id),
             manager_role=existing_link.manager_role if existing_link else None,
@@ -159,7 +161,7 @@ class PortalCollaboratorRequestsService:
         target_name: str,
         target_email: str,
     ) -> tuple[User, bool]:
-        target = self.users_service.get_by_email_case_insensitive(target_email)
+        target = self.users.get_by_email_case_insensitive(target_email)
         if target:
             if not target.is_active:
                 raise ValueError("Target user is inactive")
@@ -204,7 +206,7 @@ class PortalCollaboratorRequestsService:
         if not target_email:
             raise ValueError("Target user email is required")
 
-        target = self.users_service.get_by_email_case_insensitive(target_email)
+        target = self.users.get_by_email_case_insensitive(target_email)
         if not target:
             raise ValueError("Target user was not found")
 
@@ -218,7 +220,7 @@ class PortalCollaboratorRequestsService:
             raise ValueError("Only Portal user links can be removed through this request")
 
         removed_role = link.portal_role
-        self.users_service.assign_user_to_account(
+        self.associations.assign_account(
             int(target.id),
             int(row.account_id),
             manager_role=link.manager_role,
@@ -263,7 +265,7 @@ class PortalCollaboratorRequestsService:
         if link.portal_role != expected_role:
             raise ValueError("Target user's Portal role changed after this request was created")
 
-        self.users_service.assign_user_to_account(
+        self.associations.assign_account(
             target_user_id,
             int(row.account_id),
             manager_role=link.manager_role,
