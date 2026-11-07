@@ -12,6 +12,7 @@ from app.services.bucket_listing_enrichment import enrich_buckets
 from app.services.bucket_owner_enrichment import BucketOwnerMetadataService
 from app.services.buckets_service import BucketsService
 from app.services.listing_progress import ListingProgressEmitter, interpolate_progress_percent
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.storage_ops_bucket_filtering import (
     apply_storage_ops_advanced_filter,
@@ -96,7 +97,7 @@ def _load_storage_ops_context_buckets(
                 with_stats=needs_stats,
             ),
         )
-    except RuntimeError as exc:
+    except S3OperationError as exc:
         logger.warning("Storage Ops listing failed for context %s: %s", ref.context_id, exc)
         return []
 

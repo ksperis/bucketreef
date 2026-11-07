@@ -19,6 +19,7 @@ from app.services.bucket_ui_tags_service import (
     PhysicalBucketTarget,
 )
 from app.services.buckets_service import BucketsService
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.storage_ops_context_resolution import (
     StorageOpsContextRef,
@@ -79,7 +80,7 @@ class StorageOpsBucketUiTagsWorkflow:
         # deleted or recreated bucket could be accepted from stale inventory.
         try:
             listed = buckets.list_buckets(context, include=None, with_stats=False)
-        except RuntimeError as exc:
+        except S3OperationError as exc:
             raise StorageOpsBucketUiTagUpstreamError(sanitized_error_log_detail(exc)) from exc
         inventory = (context, {str(bucket.name) for bucket in listed})
         self.resolved[context_id] = inventory

@@ -29,6 +29,7 @@ from app.services.bucket_listing_enrichment import _BucketEnricher
 from app.services import app_settings_service, effective_access_service
 from app.services.connection_identity_service import ConnectionIdentityResolution
 from app.services.listing_progress import ListingProgressSnapshot
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.storage_ops_bucket_listing_request import prepare_storage_ops_bucket_listing_request
 from app.main import app
@@ -1529,6 +1530,67 @@ def test_storage_ops_notifications_feature_filter_uses_enrichment(monkeypatch):
     assert captured["requested_features"] == {"notifications"}
     assert captured["include_tags"] is False
     assert [bucket.bucket_name for bucket in result] == ["alpha"]
+
+
+def test_storage_ops_context_listing_skips_expected_s3_listing_failures(monkeypatch):
+    execution_context = _source_context("1", storage_endpoint_id=1)
+    context = storage_ops_context_resolution.StorageOpsResolvedContext(
+        ref=storage_ops_context_resolution.StorageOpsContextRef(
+            context_id="1",
+            context_name="Account A",
+            context_kind="account",
+            endpoint_id=1,
+            endpoint_name="Primary",
+        ),
+        context=execution_context,
+    )
+
+    class FailingBucketsService(_CompositeConfigurationStub):
+        def list_buckets(self, account, include=None, with_stats=True):  # noqa: ARG002
+            raise S3OperationError("S3 listing unavailable")
+
+    monkeypatch.setattr(
+        storage_ops_context_listing,
+        "get_cached_bucket_listing_for_context",
+        lambda **kwargs: kwargs["builder"](),
+    )
+
+    assert storage_ops_context_listing._load_storage_ops_context_buckets(
+        context=context,
+        service=FailingBucketsService(),
+        needs_stats=False,
+    ) == []
+
+
+def test_storage_ops_context_listing_does_not_mask_unexpected_runtime_errors(monkeypatch):
+    execution_context = _source_context("1", storage_endpoint_id=1)
+    context = storage_ops_context_resolution.StorageOpsResolvedContext(
+        ref=storage_ops_context_resolution.StorageOpsContextRef(
+            context_id="1",
+            context_name="Account A",
+            context_kind="account",
+            endpoint_id=1,
+            endpoint_name="Primary",
+        ),
+        context=execution_context,
+    )
+
+    class FailingBucketsService(_CompositeConfigurationStub):
+        def list_buckets(self, account, include=None, with_stats=True):  # noqa: ARG002
+            raise RuntimeError("unexpected storage ops listing regression")
+
+    monkeypatch.setattr(
+        storage_ops_context_listing,
+        "get_cached_bucket_listing_for_context",
+        lambda **kwargs: kwargs["builder"](),
+    )
+
+    with pytest.raises(RuntimeError, match="unexpected storage ops listing regression"):
+        storage_ops_context_listing._load_storage_ops_context_buckets(
+            context=context,
+            service=FailingBucketsService(),
+            needs_stats=False,
+        )
 
 
 def test_storage_ops_notification_param_filter_uses_shared_snapshot_matching(monkeypatch):
