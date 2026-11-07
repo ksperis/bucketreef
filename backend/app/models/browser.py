@@ -1,7 +1,7 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from datetime import datetime
-from typing import Annotated, Optional, Literal
+from typing import Annotated, Literal, Optional
 
 from pydantic import AfterValidator, Field, field_validator
 
@@ -71,6 +71,7 @@ BrowserObjectLazyColumn = Literal[
     "expires",
     "restore_status",
 ]
+BrowserObjectLazyColumnStatus = Literal["ready", "error"]
 
 
 class BrowserObjectListingRequest(ApiModel):
@@ -122,8 +123,8 @@ class ObjectColumnValues(ApiModel):
     cache_control: Optional[str] = None
     expires: Optional[datetime] = None
     restore_status: Optional[str] = None
-    metadata_status: Literal["ready", "error"] = "ready"
-    tags_status: Literal["ready", "error"] = "ready"
+    metadata_status: BrowserObjectLazyColumnStatus = "ready"
+    tags_status: BrowserObjectLazyColumnStatus = "ready"
 
 
 class ObjectColumnsResponse(ApiModel):

@@ -10,6 +10,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 
 from app.models.browser import (
     BrowserObjectLazyColumn,
+    BrowserObjectLazyColumnStatus,
     ObjectAcl,
     ObjectAclUpdate,
     ObjectColumnValues,
@@ -380,7 +381,7 @@ class BrowserObjectDetailsMixin:
     def _lazy_column_status(
         requested: bool,
         value: ObjectLazyHeadCacheValue | ObjectLazyTagsCacheValue | None,
-    ) -> str:
+    ) -> BrowserObjectLazyColumnStatus:
         return "ready" if not requested or (value is not None and value.available) else "error"
 
     def _object_column_values(

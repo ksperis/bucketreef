@@ -20,6 +20,7 @@ from app.models.user import UserAvatar
 
 
 PortalStorageSpaceShareDirection = Literal["with_me", "by_me"]
+PortalShareAccessSource = Literal["direct", "group", "direct_and_group"]
 
 
 class PortalStorageSpaceShare(ApiModel):
@@ -59,7 +60,7 @@ class PortalStorageSpaceShareCandidate(ApiModel):
     email: str
     display_name: Optional[str]
     portal_role: PortalAccountRole
-    access_source: Literal["direct", "group", "direct_and_group"]
+    access_source: PortalShareAccessSource
     already_shared: bool
     avatar: Optional[UserAvatar]
 
@@ -79,7 +80,7 @@ class PortalCollaborator(ApiModel):
     email: str
     display_name: Optional[str]
     portal_role: PortalAccountRole
-    access_source: Literal["direct", "group", "direct_and_group"]
+    access_source: PortalShareAccessSource
     member_since: Optional[datetime]
     avatar: Optional[UserAvatar]
     can_review_access: bool
