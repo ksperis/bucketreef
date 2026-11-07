@@ -3,7 +3,7 @@
 
 """Shared execution helpers for Ceph Admin bucket configuration."""
 
-from typing import Any, Literal
+from typing import Any
 
 from fastapi import HTTPException, Response, status
 
@@ -12,6 +12,7 @@ from app.services.ceph_admin_context import CephAdminContext
 from app.services import bucket_config_actions
 from app.services.bucket_config_mutation_registry import (
     BucketConfigArea,
+    BucketConfigMutationOperation,
     get_bucket_config_delete_mutation,
     get_bucket_config_mutation,
 )
@@ -61,7 +62,7 @@ def _record_bucket_config_mutation(
     *,
     tenant: str | None = None,
     config_area: str,
-    operation: Literal["update", "delete"],
+    operation: BucketConfigMutationOperation,
     metadata: dict[str, Any] | None = None,
 ) -> None:
     invalidate_bucket_listing_cache(ctx.endpoint.id)

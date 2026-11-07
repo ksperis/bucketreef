@@ -22,6 +22,7 @@ BucketConfigArea = Literal[
     "website",
     "tags",
 ]
+BucketConfigMutationOperation = Literal["update", "delete"]
 BucketConfigUpdateAction = Callable[..., tuple[Any, dict[str, Any]]]
 BucketConfigDeleteAction = Callable[..., None]
 
@@ -41,7 +42,7 @@ _MANAGER_UPDATE_AUDIT_OVERRIDES: dict[BucketConfigArea, str] = {
 def manager_bucket_config_audit_action(
     config_area: BucketConfigArea,
     *,
-    operation: Literal["update", "delete"],
+    operation: BucketConfigMutationOperation,
 ) -> str:
     if operation == "delete":
         return f"delete_bucket_{config_area}"
