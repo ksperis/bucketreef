@@ -47,6 +47,21 @@ class ExternalIdentityQueryService:
             statement.order_by(ExternalIdentity.created_at.asc())
         ).all()
 
+    def find_for_user(
+        self,
+        user_id: int,
+        identity_id: str,
+        *,
+        include_revoked: bool = False,
+    ) -> ExternalIdentity | None:
+        statement = select(ExternalIdentity).where(
+            ExternalIdentity.id == identity_id,
+            ExternalIdentity.user_id == user_id,
+        )
+        if not include_revoked:
+            statement = statement.where(ExternalIdentity.revoked_at.is_(None))
+        return self.db.scalar(statement)
+
     def find_mapping(
         self,
         provider_type: str,

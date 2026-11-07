@@ -100,9 +100,6 @@ class ExternalIdentityUserService:
             redirect_path=redirect_path,
         )
 
-    def list_for_user(self, user_id: int, *, include_revoked: bool = False) -> list[ExternalIdentity]:
-        return self.queries.list_for_user(user_id, include_revoked=include_revoked)
-
     def decide_link_request(
         self,
         request_id: str,
@@ -242,12 +239,6 @@ class ExternalIdentityUserService:
         commit_or_rollback(self.db)
         self.db.refresh(identity)
         return identity, True
-
-    def has_alternate_primary_login(self, user: User, *, excluding_identity_id: str) -> bool:
-        return self.queries.has_alternate_primary_login(
-            user,
-            excluding_identity_id=excluding_identity_id,
-        )
 
     def _get_or_create(
         self,
