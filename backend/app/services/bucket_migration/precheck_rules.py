@@ -281,7 +281,7 @@ class BucketMigrationPrecheckRules:
                 strategy=strategy,
                 source_profile=source_profile,
             )
-        except MigrationPrecheckError as exc:
+        except (MigrationPrecheckError, MigrationRecoveryError) as exc:
             add_check(
                 code="same_endpoint_copy_failed",
                 severity="error",

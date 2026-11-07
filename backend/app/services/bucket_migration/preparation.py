@@ -20,6 +20,7 @@ from app.services.s3_client import S3OperationError
 from app.services.s3_deletion import BucketNotEmptyError
 from app.utils.time import utcnow
 from .diagnostics import (
+    MigrationCopyGrantError,
     MigrationPrecheckError,
     MigrationRecoveryError,
     MigrationSettingsCopyError,
@@ -505,6 +506,7 @@ class BucketMigrationPreparationMixin:
             if isinstance(
                 error,
                 (
+                    MigrationCopyGrantError,
                     MigrationSettingsCopyError,
                     S3OperationError,
                     ClientError,
