@@ -24,22 +24,30 @@ from app.utils.usage_stats import extract_usage_stats
 logger = logging.getLogger(__name__)
 
 
+class BucketStatsUnavailableError(RuntimeError):
+    """Expected Runtime Read Ops failure while enriching bucket statistics."""
+
+
 class BucketsService:
     def __init__(self, configuration: BucketConfigurationService | None = None) -> None:
         self.configuration = configuration or BucketConfigurationService()
 
     def _rgw_runtime_for_context(self, execution_context: S3ExecutionTarget):
         if isinstance(execution_context, S3ExecutionContext) and execution_context.context_kind == "openstack_project":
-            raise RuntimeError("Runtime Read Ops are not available for OpenStack project contexts")
+            raise BucketStatsUnavailableError(
+                "Runtime Read Ops are not available for OpenStack project contexts"
+            )
         endpoint = execution_context.storage_endpoint
         if endpoint is None:
-            raise RuntimeError("Runtime Read Ops credentials are not configured for this endpoint")
+            raise BucketStatsUnavailableError(
+                "Runtime Read Ops credentials are not configured for this endpoint"
+            )
         try:
             return get_endpoint_runtime_rgw_client(endpoint)
         except ValueError as exc:
-            raise RuntimeError(sanitized_error_log_detail(exc)) from exc
+            raise BucketStatsUnavailableError(sanitized_error_log_detail(exc)) from exc
         except RGWAdminError as exc:
-            raise RuntimeError(
+            raise BucketStatsUnavailableError(
                 f"Unable to initialize admin client: {sanitized_error_log_detail(exc)}"
             ) from exc
 
@@ -60,7 +68,7 @@ class BucketsService:
                 **({"tenant": tenant} if tenant else {}),
             )
         except (RGWAdminError, ValueError) as exc:
-            raise RuntimeError(
+            raise BucketStatsUnavailableError(
                 f"Unable to list buckets via admin API: {sanitized_error_log_detail(exc)}"
             ) from exc
         return extract_bucket_list(payload)
@@ -85,7 +93,7 @@ class BucketsService:
 
         try:
             admin_list = self._admin_bucket_list(execution_context, with_stats=True)
-        except RuntimeError as exc:
+        except BucketStatsUnavailableError as exc:
             logger.warning(
                 "Unable to fetch admin bucket stats for %s: %s",
                 context_label,
@@ -240,7 +248,7 @@ class BucketsService:
                         normalized_bucket, uid=account_uid, allow_not_found=True,
                         **({"tenant": tenant} if tenant else {}),
                     )
-                except (RuntimeError, RGWAdminError, ValueError) as exc:
+                except (BucketStatsUnavailableError, RGWAdminError, ValueError) as exc:
                     logger.warning(
                         "Unable to fetch bucket stats for %s on %s: %s",
                         normalized_bucket,
