@@ -122,7 +122,7 @@ class BucketUsageStatsCollectionService:
         for resource in eligible_resources:
             try:
                 due_targets.extend(self._resource_due_targets(resource, cutoff=cutoff))
-            except Exception as exc:  # noqa: BLE001
+            except RuntimeError as exc:
                 skipped_resources += 1
                 logger.warning(
                     "Unable to prepare bucket usage statistics collection for %s=%s: %s",
