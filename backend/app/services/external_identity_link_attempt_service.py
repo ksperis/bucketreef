@@ -20,7 +20,7 @@ from app.services.external_identity_link_contracts import (
     normalize_link_provider_id,
 )
 from app.services.external_identity_link_request_service import ExternalIdentityLinkRequestService
-from app.utils.normalize import normalize_optional_email
+from app.utils.normalize import normalize_optional_email, normalize_text
 from app.utils.time import utcnow
 
 
@@ -168,7 +168,7 @@ class ExternalIdentityLinkAttemptService:
 
     @staticmethod
     def _normalize_provider_type(provider_type: str) -> str:
-        value = str(provider_type or "").strip().lower()
+        value = normalize_text(provider_type)
         if value not in {"oidc", "ldap"}:
             raise ExternalIdentityLinkError("Unsupported external identity provider type")
         return value

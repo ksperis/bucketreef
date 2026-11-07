@@ -22,7 +22,7 @@ def test_get_or_create_oidc_user_creates_new_user(db_session):
     user, created = service.get_or_create_oidc_user(
         provider="Google",
         issuer=OIDC_ISSUER,
-        subject="sub-123",
+        subject=" sub-123 ",
         email="oidc@example.com",
         full_name="OIDC User",
         picture_url="http://example.com/pic.png",
