@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.domain_enums import HealthWindow
 from app.db import User
 from app.models.healthcheck import (
     EndpointHealthRunResponse,
@@ -23,7 +24,6 @@ from app.models.healthcheck import (
 from app.models.pagination import PaginationRequest
 from app.routers.dependencies import get_current_ui_admin
 from app.services.app_settings_service import load_app_settings_for_db
-from app.services.healthcheck_common import HealthWindow
 from app.services.healthcheck_query_service import HealthCheckQueryService
 from app.services.healthcheck_service import HealthCheckService
 from app.services.operation_lease_service import (

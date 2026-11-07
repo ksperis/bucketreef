@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Literal, Optional
 
 from app.models.base import ApiModel
-from app.core.domain_enums import HealthCheckStatus
+from app.core.domain_enums import HealthCheckStatus, HealthWindow
 
 
 HealthCheckMode = Literal["http", "s3"]
@@ -68,7 +68,7 @@ class EndpointHealthDailyPoint(ApiModel):
 
 class EndpointHealthSeries(ApiModel):
     endpoint_id: int
-    window: str
+    window: HealthWindow
     start: str
     end: str
     data_points: int
@@ -92,7 +92,7 @@ class EndpointHealthIncident(ApiModel):
 
 class EndpointHealthIncidentsResponse(ApiModel):
     endpoint_id: int
-    window: str
+    window: HealthWindow
     check_mode: HealthCheckMode
     check_type: HealthCheckType
     scope: HealthCheckScope
@@ -110,7 +110,7 @@ class EndpointHealthRawCheck(ApiModel):
 
 class EndpointHealthRawChecksResponse(ApiModel):
     endpoint_id: int
-    window: str
+    window: HealthWindow
     start: str
     end: str
     page: int
@@ -142,7 +142,7 @@ class EndpointHealthOverviewEndpoint(ApiModel):
 
 class EndpointHealthOverviewResponse(ApiModel):
     generated_at: str
-    window: str
+    window: HealthWindow
     start: str
     end: str
     endpoints: list[EndpointHealthOverviewEndpoint]
@@ -166,7 +166,7 @@ class EndpointHealthLatencyOverviewEndpoint(ApiModel):
 
 class EndpointHealthLatencyOverviewResponse(ApiModel):
     generated_at: str
-    window: str
+    window: HealthWindow
     start: str
     end: str
     endpoints: list[EndpointHealthLatencyOverviewEndpoint]
@@ -186,7 +186,7 @@ class EndpointHealthGlobalIncident(ApiModel):
 
 
 class EndpointHealthGlobalIncidentsResponse(ApiModel):
-    window: str
+    window: HealthWindow
     start: str
     end: str
     total: int

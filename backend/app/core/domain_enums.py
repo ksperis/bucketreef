@@ -49,6 +49,15 @@ class HealthCheckStatus(str, Enum):
     DOWN = "down"
 
 
+class HealthWindow(str, Enum):
+    DAY = "day"
+    WEEK = "week"
+    MONTH = "month"
+    QUARTER = "quarter"
+    HALF_YEAR = "half_year"
+    YEAR = "year"
+
+
 ServiceIdentityKind = Literal["runtime", "supervision", "ceph_admin"]
 ManagedServiceIdentityKind = Literal["runtime", "supervision"]
 
