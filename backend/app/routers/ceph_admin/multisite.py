@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, Callable, Literal, TypeVar
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -26,6 +26,7 @@ from app.routers.dependencies_internal.ceph_admin_endpoint import (
 )
 from app.services.ceph_admin_endpoint_service import CephAdminEndpointUnavailableError
 from app.services.ceph_multisite_service import CephMultisiteService
+from app.utils.http_errors import raise_http_exception_from_exception
 
 router = APIRouter(prefix="/ceph-admin/endpoints/{endpoint_id}/multisite", tags=["ceph-admin-multisite"])
 Identifier = Annotated[str, Query(min_length=1, max_length=255, pattern=r"^[^\s\x00-\x1f/?:#]+$")]
@@ -45,11 +46,11 @@ def _run_multisite_action(action: Callable[..., T], *args, **kwargs) -> T:
     ) as exc:
         raise_ceph_admin_endpoint_error(exc)
     except CephMultisiteCredentialsMissingError as exc:
-        raise HTTPException(403, str(exc)) from exc
+        raise_http_exception_from_exception(status.HTTP_403_FORBIDDEN, exc)
     except CephMultisiteValidationError as exc:
-        raise HTTPException(422, str(exc)) from exc
+        raise_http_exception_from_exception(status.HTTP_422_UNPROCESSABLE_CONTENT, exc)
     except CephMultisiteConflictError as exc:
-        raise HTTPException(409, str(exc)) from exc
+        raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
 
 
 def service(
