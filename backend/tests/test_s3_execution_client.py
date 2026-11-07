@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.db import S3Account, StorageEndpoint
+from app.services.s3_client import S3OperationError
 from app.services.s3_execution_client import (
     S3ExecutionCredentialsError,
     require_s3_execution_credentials,
@@ -73,8 +74,23 @@ def test_s3_execution_request_kwargs_includes_credentials_and_client_options() -
 def test_s3_execution_request_kwargs_uses_default_credentials_error() -> None:
     account = SimpleNamespace(effective_rgw_credentials=lambda: (None, None))
 
-    with pytest.raises(S3ExecutionCredentialsError, match="S3ExecutionTarget is missing admin credentials"):
+    with pytest.raises(
+        S3OperationError,
+        match="S3ExecutionTarget is missing admin credentials",
+    ) as raised:
         s3_execution_request_kwargs(account)
+
+    assert isinstance(raised.value.__cause__, S3ExecutionCredentialsError)
+
+
+def test_s3_execution_request_kwargs_preserves_unexpected_credential_failure() -> None:
+    class BrokenContext:
+        @staticmethod
+        def effective_rgw_credentials():
+            raise RuntimeError("unexpected credential resolver bug")
+
+    with pytest.raises(RuntimeError, match="unexpected credential resolver bug"):
+        s3_execution_request_kwargs(BrokenContext())
 
 
 def test_s3_execution_cache_key_matches_account_and_explicit_context() -> None:

@@ -9,19 +9,16 @@ from botocore.exceptions import BotoCoreError, ClientError
 from app.models.manager_object_listing import ListObjectsResponse, S3Object
 from app.services.object_listing_identity import is_current_folder_marker
 from app.services.s3_client import S3OperationError, get_s3_client
-from app.services.s3_execution_client import S3ExecutionCredentialsError, s3_execution_request_kwargs
+from app.services.s3_execution_client import s3_execution_request_kwargs
 from app.services.s3_execution_context import S3ExecutionTarget
 
 
 class ManagerObjectListingService:
     def _client(self, context: S3ExecutionTarget):
-        try:
-            request_kwargs = s3_execution_request_kwargs(
-                context,
-                error_message="Execution context credentials are missing",
-            )
-        except S3ExecutionCredentialsError as exc:
-            raise S3OperationError(str(exc)) from exc
+        request_kwargs = s3_execution_request_kwargs(
+            context,
+            error_message="Execution context credentials are missing",
+        )
         return get_s3_client(request_profile="long_running", **request_kwargs)
 
     def list_objects(
