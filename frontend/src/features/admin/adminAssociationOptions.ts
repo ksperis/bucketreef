@@ -5,6 +5,11 @@
 
 export const MAX_VISIBLE_ASSOCIATION_OPTIONS = 10;
 
+export type AdminAssociationOption = {
+  id: number;
+  label: string;
+};
+
 type AssociationOptionsConfig<T> = {
   items: T[];
   selectedIds: ReadonlySet<number>;
