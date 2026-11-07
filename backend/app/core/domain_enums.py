@@ -125,3 +125,11 @@ MANAGED_SERVICE_IDENTITY_KINDS: tuple[ManagedServiceIdentityKind, ...] = (
     "runtime",
     "supervision",
 )
+SERVICE_IDENTITY_ROTATION_KEY_TYPES: dict[
+    ServiceIdentityKind,
+    str,
+] = {
+    "runtime": "endpoint_runtime",
+    "supervision": "endpoint_supervision",
+    "ceph_admin": "ceph_admin",
+}

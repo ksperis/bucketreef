@@ -10,6 +10,10 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.core.domain_enums import (
+    MANAGED_SERVICE_IDENTITY_KINDS,
+    SERVICE_IDENTITY_ROTATION_KEY_TYPES,
+)
 from app.core.db_transactions import commit_or_rollback
 from app.db import (
     EndpointServiceIdentity,
@@ -32,9 +36,16 @@ from app.utils.time import utcnow
 if TYPE_CHECKING:
     from app.services.endpoint_service_identities import EndpointServiceIdentityService
 
-SERVICE_TYPES = {"endpoint_runtime": "runtime", "endpoint_supervision": "supervision"}
-IDENTITY_TYPES = {**SERVICE_TYPES, "ceph_admin": "ceph_admin"}
-ROTATION_TYPES = (*SERVICE_TYPES, "ceph_admin", "endpoint_admin", "account", "s3_user")
+IDENTITY_TYPES = {
+    key_type: kind
+    for kind, key_type in SERVICE_IDENTITY_ROTATION_KEY_TYPES.items()
+}
+SERVICE_TYPES = {
+    key_type: kind
+    for key_type, kind in IDENTITY_TYPES.items()
+    if kind in MANAGED_SERVICE_IDENTITY_KINDS
+}
+ROTATION_TYPES = (*IDENTITY_TYPES, "endpoint_admin", "account", "s3_user")
 RotationTarget = EndpointServiceIdentity | S3Account | S3User | StorageEndpoint
 
 

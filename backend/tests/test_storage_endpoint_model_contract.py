@@ -1,6 +1,8 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
+from types import SimpleNamespace
+
 import pytest
 from pydantic import ValidationError
 
@@ -12,6 +14,7 @@ from app.models.storage_endpoint import (
     StorageEndpointMetadata,
     StorageEndpointUpdate,
 )
+from app.services.mappers.storage_endpoint import _service_identity_statuses
 
 
 @pytest.mark.parametrize(
@@ -119,6 +122,39 @@ def test_storage_endpoint_response_serialization_never_contains_service_credenti
     assert "supervision_secret_key" not in StorageEndpoint.model_fields
     assert "runtime_access_key" in StorageEndpointCreate.model_fields
     assert "supervision_access_key" in StorageEndpointCreate.model_fields
+
+
+def test_service_identity_statuses_use_canonical_rotation_key_types() -> None:
+    identities = [
+        SimpleNamespace(
+            id=index,
+            kind=kind,
+            mode="managed" if kind != "ceph_admin" else "external",
+            rgw_uid=f"{kind}-uid",
+            status="ready",
+            access_key="AK",
+            secret_key="SK",
+            last_error=None,
+            last_reconciled_at=None,
+        )
+        for index, kind in enumerate(("runtime", "supervision", "ceph_admin"), start=1)
+    ]
+    endpoint = SimpleNamespace(
+        service_identities=identities,
+        key_rotation_intents=[
+            SimpleNamespace(target_id=1, key_type="endpoint_runtime", phase="prepared"),
+            SimpleNamespace(target_id=2, key_type="endpoint_supervision", phase="activated"),
+            SimpleNamespace(target_id=3, key_type="ceph_admin", phase="prepared"),
+        ],
+    )
+
+    statuses = _service_identity_statuses(endpoint)
+
+    assert [(row["rotation_pending"], row["rotation_phase"]) for row in statuses] == [
+        (True, "prepared"),
+        (True, "activated"),
+        (True, "prepared"),
+    ]
 
 
 def test_storage_endpoint_response_requires_complete_canonical_payload() -> None:
