@@ -32,7 +32,7 @@ class _AuditService:
 
 def _call_import_route(monkeypatch, *, service: _ImportService, audit_service: _AuditService):
     current_user = SimpleNamespace(id=1, role="ui_admin")
-    users_service = SimpleNamespace(user_to_out=lambda user: user)
+    output_service = SimpleNamespace(to_out=lambda user: user)
     monkeypatch.setattr(users_router, "_require_user", lambda *_: SimpleNamespace(id=2))
     monkeypatch.setattr(users_router, "ensure_actor_can_manage_user", lambda *args, **kwargs: None)
     monkeypatch.setattr(users_router, "require_admin_sensitive_action", lambda *args, **kwargs: None)
@@ -50,7 +50,7 @@ def _call_import_route(monkeypatch, *, service: _ImportService, audit_service: _
             action="link",
             target_user_id=2,
         ),
-        users_service=users_service,
+        output_service=output_service,
         user_query_service=SimpleNamespace(),
         associations_service=SimpleNamespace(),
         current_user=current_user,

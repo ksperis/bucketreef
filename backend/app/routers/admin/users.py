@@ -34,9 +34,9 @@ from app.services.user_associations_service import UserAssociationsService
 from app.services.admin_ldap_user_import_service import AdminLdapUserImportService
 from app.services.ldap_service import (
     LDAPAuthenticationError,
+    LDAPAuthService,
     LDAPConfigurationError,
     LDAPProviderNotFoundError,
-    get_ldap_auth_service,
 )
 from app.services.avatar_image_service import MAX_AVATAR_BYTES
 from app.services.user_avatar_service import UserAvatarService
@@ -89,7 +89,7 @@ def get_user_output_service_dependency(
 
 
 def _ldap_import_service(db: Session) -> AdminLdapUserImportService:
-    return AdminLdapUserImportService(db, get_ldap_auth_service(db))
+    return AdminLdapUserImportService(db, LDAPAuthService(db))
 
 
 def _raise_ldap_import_error(

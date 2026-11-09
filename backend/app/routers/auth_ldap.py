@@ -31,7 +31,6 @@ from app.services.ldap_service import (
     LDAPConfigurationError,
     LDAPProviderNotFoundError,
     LDAPUserConflictError,
-    get_ldap_auth_service,
 )
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.identity_provider_ids import normalize_identity_provider_id
@@ -44,7 +43,7 @@ router = APIRouter()
 def get_ldap_auth_service_dependency(
     db: Session = Depends(get_db),
 ) -> LDAPAuthService:
-    return get_ldap_auth_service(db)
+    return LDAPAuthService(db)
 
 
 def _raise_ldap_login_failure(
