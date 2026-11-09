@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { axe } from "jest-axe";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiError } from "../../api/client";
 import type {
   OnboardingDraft,
   OnboardingJourney,
@@ -261,6 +262,29 @@ beforeEach(() => {
 });
 
 describe("simplified onboarding", () => {
+  it("does not infer onboarding error codes from an HTTP 422 status", async () => {
+    mocks.saveOnboardingJourney.mockRejectedValueOnce(new ApiError("Request failed", {
+      response: {
+        status: 422,
+        data: { detail: "Validation failed" },
+        headers: {},
+      },
+    }));
+
+    renderPage();
+    fireEvent.change(await screen.findByRole("combobox", { name: "Endpoint" }), {
+      target: { value: "3" },
+    });
+    const continueButton = screen.getByRole("button", { name: "Continue" });
+    await waitFor(() => expect(continueButton).toBeEnabled());
+    fireEvent.click(continueButton);
+
+    expect(
+      await screen.findByText("Setup could not complete. The saved progress can be retried safely."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Check the endpoint and selected options.")).not.toBeInTheDocument();
+  });
+
   it("uses four clear steps and keeps endpoint connection credential-free", async () => {
     renderPage();
 
