@@ -16,10 +16,7 @@ from app.services.portal.exceptions import (
     PortalGoneError,
     PortalOperationError,
 )
-from app.services.portal_requests_service import (
-    PortalRequestsService,
-    get_portal_requests_service,
-)
+from app.services.portal_requests_service import PortalRequestsService
 from app.services.portal_service import PortalService, get_portal_service
 from app.services.rgw_iam import RGWIAMError
 from app.utils.http_errors import (
@@ -40,7 +37,7 @@ def get_portal_service_dependency(
 def get_portal_requests_service_dependency(
     db: Session = Depends(get_db),
 ) -> PortalRequestsService:
-    return get_portal_requests_service(db)
+    return PortalRequestsService(db)
 
 
 def raise_portal_error(
