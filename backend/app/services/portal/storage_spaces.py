@@ -20,11 +20,11 @@ from app.db import (
 from app.core.domain_enums import PortalAccountRole
 from app.models.portal_storage_spaces import (
     PortalStorageSpaceAccountMemberRole,
+    PortalStorageSpaceCatalogEntry,
     PortalStorageSpaceInitialShare,
     PortalStorageSpaceNamingMode,
     PortalStorageSpaceRole,
     PortalStorageSpaceShareScope,
-    PortalStorageSpaceSummary,
     PortalStorageSpaceUpdate,
     PortalStorageSpaceVisibility,
 )
@@ -72,7 +72,7 @@ class PortalStorageSpacesMixin:
         description: Optional[str] = None,
         project_key: Optional[str] = None,
         dataset_label: Optional[str] = None,
-    ) -> PortalStorageSpaceSummary:
+    ) -> PortalStorageSpaceCatalogEntry:
         portal_settings = self._validate_storage_space_creation_access(
             access,
             visibility=visibility,
@@ -240,7 +240,7 @@ class PortalStorageSpacesMixin:
         description: Optional[str] = None,
         project_key: Optional[str] = None,
         dataset_label: Optional[str] = None,
-    ) -> PortalStorageSpaceSummary:
+    ) -> PortalStorageSpaceCatalogEntry:
         cleaned_bucket_name = (bucket_name or "").strip()
         if not cleaned_bucket_name:
             raise PortalBadRequestError("Bucket name requis.")
@@ -345,7 +345,7 @@ class PortalStorageSpacesMixin:
         access: "AccountAccess",
         space_id: str,
         update: PortalStorageSpaceUpdate,
-    ) -> PortalStorageSpaceSummary:
+    ) -> PortalStorageSpaceCatalogEntry:
         bucket_name = self._resolve_storage_space_bucket_name(user, access, space_id, include_archived=True)
         if not bucket_name:
             raise PortalNotFoundError("Storage space not found or not allowed.")
@@ -463,7 +463,7 @@ class PortalStorageSpacesMixin:
         user: User,
         access: "AccountAccess",
         space_id: str,
-    ) -> PortalStorageSpaceSummary:
+    ) -> PortalStorageSpaceCatalogEntry:
         if access.portal_role != PortalAccountRole.PORTAL_MANAGER.value:
             raise PortalForbiddenError("Only project managers can take ownership of a private Storage Space.")
         bucket_name = self._resolve_storage_space_bucket_name(user, access, space_id, include_archived=True)

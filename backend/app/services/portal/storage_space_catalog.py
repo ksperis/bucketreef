@@ -13,12 +13,12 @@ from app.core.domain_enums import PortalAccountRole
 from app.models.bucket import Bucket
 from app.models.portal_storage_spaces import (
     PortalStorageSpaceAccountMemberRole,
+    PortalStorageSpaceCatalogEntry,
     PortalStorageSpaceCollaboratorPreview,
     PortalStorageSpaceRole,
     PortalStorageSpaceShareScope,
     PortalStorageSpaceSort,
     PortalStorageSpaceStatus,
-    PortalStorageSpaceSummary,
     PortalStorageSpaceVisibility,
 )
 from app.services.managed_resource_naming import portal_storage_space_bucket_name
@@ -151,12 +151,12 @@ class PortalStorageSpaceCatalogMixin:
         metadata: PortalStorageSpaceMetadata | None = None,
         collaborators: Optional[list[PortalStorageSpaceCollaboratorPreview]] = None,
         collaborator_count: int = 0,
-    ) -> PortalStorageSpaceSummary:
+    ) -> PortalStorageSpaceCatalogEntry:
         role = role or self._storage_space_role(access)
         endpoint = access.account.storage_endpoint
         region = endpoint.region
         name = self._display_storage_space_name(bucket.name, metadata)
-        return PortalStorageSpaceSummary(
+        return PortalStorageSpaceCatalogEntry(
             id=bucket.name,
             name=name,
             role=role,
@@ -203,7 +203,7 @@ class PortalStorageSpaceCatalogMixin:
         ],
         *,
         include_archived: bool,
-    ) -> PortalStorageSpaceSummary | None:
+    ) -> PortalStorageSpaceCatalogEntry | None:
         direct_role = role_by_bucket.get(metadata.bucket_name)
         role_for_bucket = self._storage_space_effective_role(
             user,
@@ -237,7 +237,7 @@ class PortalStorageSpaceCatalogMixin:
 
     @staticmethod
     def _storage_space_matches_search(
-        space: PortalStorageSpaceSummary,
+        space: PortalStorageSpaceCatalogEntry,
         term: str,
     ) -> bool:
         values = (
@@ -254,12 +254,12 @@ class PortalStorageSpaceCatalogMixin:
 
     def _filter_storage_space_summaries(
         self,
-        spaces: list[PortalStorageSpaceSummary],
+        spaces: list[PortalStorageSpaceCatalogEntry],
         *,
         search: str | None,
         role: PortalStorageSpaceRole | None,
         status: PortalStorageSpaceStatus | None,
-    ) -> list[PortalStorageSpaceSummary]:
+    ) -> list[PortalStorageSpaceCatalogEntry]:
         search_term = (search or "").strip().lower()
         if search_term:
             spaces = [
@@ -275,9 +275,9 @@ class PortalStorageSpaceCatalogMixin:
 
     @staticmethod
     def _sort_storage_space_summaries(
-        spaces: list[PortalStorageSpaceSummary],
+        spaces: list[PortalStorageSpaceCatalogEntry],
         sort: PortalStorageSpaceSort,
-    ) -> list[PortalStorageSpaceSummary]:
+    ) -> list[PortalStorageSpaceCatalogEntry]:
         reverse = sort.startswith("-")
         sort_key = sort[1:] if reverse else sort
         sorters = {
@@ -303,7 +303,7 @@ class PortalStorageSpaceCatalogMixin:
         status: Optional[PortalStorageSpaceStatus] = None,
         sort: PortalStorageSpaceSort = "name",
         include_archived: bool = False,
-    ) -> list[PortalStorageSpaceSummary]:
+    ) -> list[PortalStorageSpaceCatalogEntry]:
         role_by_bucket = self._storage_space_roles_by_bucket(
             user,
             access.account,
@@ -345,7 +345,7 @@ class PortalStorageSpaceCatalogMixin:
         space_id: str,
         *,
         include_archived: bool = False,
-    ) -> PortalStorageSpaceSummary | None:
+    ) -> PortalStorageSpaceCatalogEntry | None:
         if not space_id:
             return None
         return next(
@@ -366,7 +366,7 @@ class PortalStorageSpaceCatalogMixin:
         user: User,
         access: "AccountAccess",
         space_id: str,
-    ) -> Optional[PortalStorageSpaceSummary]:
+    ) -> Optional[PortalStorageSpaceCatalogEntry]:
         summary = self._visible_storage_space_summary(
             user,
             access,
@@ -399,4 +399,4 @@ class PortalStorageSpaceCatalogMixin:
             can_delete=summary.can_delete,
             metadata=metadata,
         )
-        return PortalStorageSpaceSummary(**merged.model_dump())
+        return PortalStorageSpaceCatalogEntry(**merged.model_dump())

@@ -82,7 +82,6 @@ class PortalStorageSpaceSummary(ApiModel):
     status: PortalStorageSpaceStatus
     description: Optional[str]
     owner_label: Optional[str]
-    owner_user_id: Optional[int]
     collaborators: list[PortalStorageSpaceCollaboratorPreview]
     collaborator_count: int
     visibility: PortalStorageSpaceVisibility
@@ -95,11 +94,17 @@ class PortalStorageSpaceSummary(ApiModel):
     used_bytes: Optional[int]
     object_count: Optional[int]
     quota_max_size_bytes: Optional[int]
-    quota_max_objects: Optional[int]
     internal_bucket_name: Optional[str]
     archived_at: Optional[datetime]
     name_editable: bool
     icon: PortalStorageSpaceIcon
+
+
+class PortalStorageSpaceCatalogEntry(PortalStorageSpaceSummary):
+    """Internal catalogue fields that Portal responses must not serialize."""
+
+    owner_user_id: Optional[int]
+    quota_max_objects: Optional[int]
 
 
 class PortalStorageSpaceInitialShare(ApiModel):

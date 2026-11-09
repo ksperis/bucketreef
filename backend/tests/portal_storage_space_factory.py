@@ -4,12 +4,12 @@
 from typing import Any
 
 from app.models.portal_storage_spaces import (
+    PortalStorageSpaceCatalogEntry,
     PortalStorageSpaceIcon,
-    PortalStorageSpaceSummary,
 )
 
 
-def portal_storage_space_summary(**overrides: Any) -> PortalStorageSpaceSummary:
+def portal_storage_space_summary(**overrides: Any) -> PortalStorageSpaceCatalogEntry:
     values: dict[str, Any] = {
         "id": "space",
         "name": "Storage Space",
@@ -45,4 +45,4 @@ def portal_storage_space_summary(**overrides: Any) -> PortalStorageSpaceSummary:
         ),
     }
     values.update(overrides)
-    return PortalStorageSpaceSummary(**values)
+    return PortalStorageSpaceCatalogEntry(**values)
