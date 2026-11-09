@@ -7,15 +7,16 @@ from fastapi import APIRouter, Depends, status
 from app.services.access_context_contracts import ManagerActor
 from app.models.manager_object_listing import ListObjectsResponse
 from app.routers.dependencies import get_s3_execution_context, get_current_account_admin
-from app.services.manager_object_listing_service import (
-    ManagerObjectListingService,
-    get_manager_object_listing_service,
-)
+from app.services.manager_object_listing_service import ManagerObjectListingService
 from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.http_errors import raise_http_exception_from_exception
 
 router = APIRouter(prefix="/manager/buckets/{bucket_name}/objects", tags=["manager-objects"])
+
+
+def get_manager_object_listing_service() -> ManagerObjectListingService:
+    return ManagerObjectListingService()
 
 
 @router.get("", response_model=ListObjectsResponse)
