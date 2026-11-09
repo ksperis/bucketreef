@@ -653,7 +653,3 @@ class OidcService:
             commit_or_rollback(self.db)
         except IntegrityError as exc:
             raise OIDCStateError("OIDC authorization code has already been consumed") from exc
-
-
-def get_oidc_service(db: Session) -> OidcService:
-    return OidcService(db)
