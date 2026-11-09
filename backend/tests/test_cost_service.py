@@ -493,10 +493,16 @@ def test_cost_subject_collection_only_absorbs_domain_collection_errors(db_sessio
     _seed_account(db_session, endpoint.id)
     _seed_s3_user(db_session, endpoint.id)
     collector = CostCollector(db_session)
+    subjects = collector._load_subjects(endpoint)
+    for subject in subjects:
+        db_session.expunge(subject.principal)
+    db_session.expunge(endpoint)
+    db_session.rollback()
 
     created, errors = collector._collect_subjects(
         stage="storage",
         endpoint=endpoint,
+        subjects=subjects,
         operation=lambda subject: (_ for _ in ()).throw(ValueError("invalid measurement"))
         if subject.kind == "account"
         else None,
@@ -511,6 +517,7 @@ def test_cost_subject_collection_only_absorbs_domain_collection_errors(db_sessio
         collector._collect_subjects(
             stage="storage",
             endpoint=endpoint,
+            subjects=subjects,
             operation=lambda _subject: (_ for _ in ()).throw(RuntimeError("database write failed")),
         )
 

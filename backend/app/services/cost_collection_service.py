@@ -222,19 +222,11 @@ class CostCollector:
         *,
         stage: CostSubjectCollectionStage,
         endpoint: StorageEndpoint,
-        subjects: list[_CostSubject] | None = None,
+        subjects: list[_CostSubject],
         operation: Callable[[_CostSubject], None],
     ) -> tuple[int, list[CostCollectionError]]:
         created = 0
         errors: list[CostCollectionError] = []
-        if subjects is None:
-            subjects = self._load_subjects(endpoint)
-            for subject in subjects:
-                self.db.expunge(subject.principal)
-            # Compatibility callers may ask this helper to discover subjects.
-            # Detach that read snapshot before the supplied operation performs
-            # RGW I/O.
-            self.db.rollback()
         for subject in subjects:
             try:
                 operation(subject)
@@ -329,7 +321,7 @@ class CostCollector:
         endpoint: StorageEndpoint,
         day: date,
         *,
-        subjects: list[_CostSubject] | None = None,
+        subjects: list[_CostSubject],
     ) -> tuple[int, list[CostCollectionError]]:
         start = datetime.combine(day, datetime.min.time()).replace(
             tzinfo=timezone.utc
@@ -355,7 +347,7 @@ class CostCollector:
         endpoint: StorageEndpoint,
         day: date,
         *,
-        subjects: list[_CostSubject] | None = None,
+        subjects: list[_CostSubject],
     ) -> tuple[int, list[CostCollectionError]]:
         return self._collect_subjects(
             stage="storage",
