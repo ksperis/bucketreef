@@ -65,6 +65,7 @@ import AdminS3ConnectionsList from "./AdminS3ConnectionsList";
 import useAdminPrincipalCatalogs from "./useAdminPrincipalCatalogs";
 import useAdminS3ConnectionsListController from "./useAdminS3ConnectionsListController";
 import {
+  buildAdminAssociationLookup,
   deriveAdminAssociationOptions,
   MAX_VISIBLE_ASSOCIATION_OPTIONS,
 } from "./adminAssociationOptions";
@@ -279,11 +280,19 @@ export default function S3ConnectionsPage() {
     [uiGroups],
   );
   const portalUserLabelById = useMemo(
-    () => new Map(portalUserOptions.map((option) => [option.id, option.label] as const)),
+    () => buildAdminAssociationLookup(
+      [portalUserOptions],
+      (option) => option.id,
+      (option) => option.label,
+    ),
     [portalUserOptions],
   );
   const groupLabelById = useMemo(
-    () => new Map(groupOptions.map((option) => [option.id, option.label] as const)),
+    () => buildAdminAssociationLookup(
+      [groupOptions],
+      (option) => option.id,
+      (option) => option.label,
+    ),
     [groupOptions],
   );
   const { available: availableEditUsers, visible: visibleAvailableEditUsers } = useMemo(
