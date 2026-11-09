@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
 from app.core.domain_errors import ResourceNotFoundError
 from app.core.security import constant_time_equal, create_api_access_token, hash_refresh_token
 from app.db import ApiToken, User
@@ -140,6 +140,28 @@ class ApiTokenService:
     def mark_used(self, row: ApiToken) -> None:
         row.last_used_at = utcnow()
         commit_or_rollback(self.db)
+
+    def resolve_and_mark_used(
+        self,
+        claims: dict,
+        *,
+        token: Optional[str] = None,
+        required_scope: str | None = None,
+    ) -> tuple[User, ApiToken] | None:
+        """Resolve an API token and persist usage in one replayable DB unit."""
+
+        def operation() -> tuple[User, ApiToken] | None:
+            resolved = self.resolve_from_claims(claims, token=token)
+            if resolved is None:
+                return None
+            user, row = resolved
+            if required_scope is not None and required_scope not in row.scopes:
+                return user, row
+            row.last_used_at = utcnow()
+            commit_or_rollback(self.db)
+            return user, row
+
+        return run_db_unit_with_sqlite_retry(self.db, operation)
 
     @staticmethod
     def _claim_identity(claims: dict) -> tuple[str, int] | None:

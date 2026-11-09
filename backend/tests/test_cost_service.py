@@ -1,5 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+import sqlite3
 from types import SimpleNamespace
 
 from fastapi import HTTPException
@@ -9,6 +10,7 @@ from datetime import date, datetime, timedelta
 
 import pytest
 from sqlalchemy import func, select
+from sqlalchemy.exc import OperationalError
 
 from app.core.domain_errors import CostSubjectNotFoundError
 from app.db import CostEndpointOverride, CostModel, CostStorageDaily, CostUsageDaily, S3Account, S3User, StorageEndpoint, User
@@ -87,6 +89,105 @@ def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
     monkeypatch.setattr(db_session, "rollback", rollback)
     monkeypatch.setattr(db_session, "commit", commit)
     return rollback_calls
+
+
+def _busy_snapshot_error() -> OperationalError:
+    original = sqlite3.OperationalError("database is locked")
+    original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
+    return OperationalError("COMMIT", (), original)
+
+
+def test_cost_collection_keeps_rgw_outside_transaction_and_retries_only_upsert(
+    db_session,
+    monkeypatch,
+):
+    endpoint = StorageEndpoint(
+        name="cost-boundary",
+        endpoint_url="https://cost-boundary.example.test",
+        provider="ceph",
+        features=persisted_endpoint_features(
+            "features:\n"
+            "  admin:\n"
+            "    enabled: true\n"
+            "  usage:\n"
+            "    enabled: true\n"
+        ),
+        is_default=True,
+    )
+    db_session.add(endpoint)
+    db_session.commit()
+    account = _seed_account(db_session, endpoint.id)
+    account_id = int(account.id)
+
+    class BoundaryAdmin:
+        def __init__(self) -> None:
+            self.usage_calls = 0
+            self.bucket_calls = 0
+
+        def get_usage(self, **_kwargs):
+            assert db_session.in_transaction() is False
+            self.usage_calls += 1
+            return []
+
+        def get_all_buckets(self, **_kwargs):
+            assert db_session.in_transaction() is False
+            self.bucket_calls += 1
+            return [{"bucket": "bucket-1", "usage": {}}]
+
+    fake_admin = BoundaryAdmin()
+    monkeypatch.setattr(
+        "app.services.app_settings_service.load_app_settings_for_db",
+        lambda _db: _enabled_cost_settings(),
+    )
+    monkeypatch.setattr(
+        "app.services.cost_collection_service.get_supervision_rgw_client",
+        lambda _endpoint: fake_admin,
+    )
+    monkeypatch.setattr(
+        "app.services.cost_collection_service.DataRetentionService.purge_all",
+        lambda _self: {
+            "quota_history": {
+                "hourly_retention_days": 30,
+                "daily_retention_days": 365,
+                "deleted_hourly": 0,
+                "deleted_daily": 0,
+            },
+            "cost_history": {
+                "daily_retention_days": 365,
+                "deleted_usage_daily": 0,
+                "deleted_storage_daily": 0,
+            },
+        },
+    )
+    original_commit = db_session.commit
+    fail_once = True
+
+    def commit_with_busy_once() -> None:
+        nonlocal fail_once
+        if fail_once:
+            fail_once = False
+            raise _busy_snapshot_error()
+        original_commit()
+
+    monkeypatch.setattr(db_session, "commit", commit_with_busy_once)
+
+    result = CostCollector(db_session).collect_daily(date(2026, 9, 25))
+
+    assert result.usage_records == 1
+    assert result.storage_records == 1
+    assert fake_admin.usage_calls == 1
+    assert fake_admin.bucket_calls == 1
+    db_session.rollback()
+    assert db_session.scalar(
+        select(func.count()).select_from(CostUsageDaily).where(
+            CostUsageDaily.s3_account_id == account_id
+        )
+    ) == 1
+    assert db_session.scalar(
+        select(func.count()).select_from(CostStorageDaily).where(
+            CostStorageDaily.s3_account_id == account_id
+        )
+    ) == 1
 
 
 def _assert_cost_disabled_error(exc: HTTPException) -> None:

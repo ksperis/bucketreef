@@ -102,13 +102,16 @@ def _resolve_bearer(db: Session, token: str, request: Request) -> User:
     if required_scope is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="API tokens are not allowed for this route")
     token_service = ApiTokenService(db)
-    resolved = token_service.resolve_from_claims(claims, token=token)
+    resolved = token_service.resolve_and_mark_used(
+        claims,
+        token=token,
+        required_scope=required_scope,
+    )
     if resolved is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="API token expired or revoked")
     user, token_row = resolved
     if required_scope not in token_row.scopes:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="API token scope is insufficient")
-    token_service.mark_used(token_row)
     return user
 
 

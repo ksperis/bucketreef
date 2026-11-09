@@ -28,15 +28,17 @@ class _FakeAuditService:
         type(self).calls.append(kwargs)
 
 
-class _FakeS3UserKeyManagementService:
-    def __init__(self, _db, *, active: bool = True, missing: bool = False, failure: Exception | None = None) -> None:
+class _FakeS3UserAccessKeyService:
+    def __init__(self, db, *, active: bool = True, missing: bool = False, failure: Exception | None = None) -> None:
+        self.db = db
         self.active = active
         self.missing = missing
         self.failure = failure
         self.calls: list[tuple] = []
 
-    def list_keys(self, user_id: int) -> list[S3UserAccessKey]:
-        self.calls.append(("list", user_id))
+    def list_keys(self, s3_user, _admin) -> list[S3UserAccessKey]:
+        assert self.db.in_transaction() is False
+        self.calls.append(("list", s3_user.id))
         if self.failure is not None:
             raise self.failure
         if self.missing:
@@ -50,8 +52,9 @@ class _FakeS3UserKeyManagementService:
             )
         ]
 
-    def set_key_status(self, user_id: int, access_key: str, active: bool) -> S3UserAccessKey:
-        self.calls.append(("set", user_id, access_key, active))
+    def set_key_status(self, s3_user, _admin, access_key: str, active: bool) -> S3UserAccessKey:
+        assert self.db.in_transaction() is False
+        self.calls.append(("set", s3_user.id, access_key, active))
         self.active = active
         return S3UserAccessKey(
             access_key_id=access_key,
@@ -118,11 +121,16 @@ def _patch_audit(monkeypatch) -> None:
     monkeypatch.setattr(access_key_expiration_service, "AuditService", _FakeAuditService)
 
 
-def _patch_s3_user_keys(monkeypatch, fake: _FakeS3UserKeyManagementService) -> None:
+def _patch_s3_user_keys(monkeypatch, fake: _FakeS3UserAccessKeyService) -> None:
     monkeypatch.setattr(
         access_key_expiration_service,
-        "S3UserKeyManagementService",
-        lambda _db: fake,
+        "S3UserAccessKeyService",
+        lambda: fake,
+    )
+    monkeypatch.setattr(
+        access_key_expiration_service.S3UserRgwContextService,
+        "admin_for_endpoint",
+        staticmethod(lambda _endpoint: object()),
     )
 
 
@@ -142,7 +150,7 @@ def test_due_rgw_user_key_is_disabled_even_after_resource_opt_out(db_session, mo
     endpoint = _endpoint(db_session)
     s3_user = _s3_user(db_session, endpoint)
     row = _due_s3_user_row(db_session, s3_user)
-    fake = _FakeS3UserKeyManagementService(db_session, active=True)
+    fake = _FakeS3UserAccessKeyService(db_session, active=True)
     _patch_s3_user_keys(monkeypatch, fake)
     _patch_audit(monkeypatch)
 
@@ -165,7 +173,7 @@ def test_attempt_commit_failure_rolls_back_before_provider_call(db_session, monk
     endpoint = _endpoint(db_session)
     s3_user = _s3_user(db_session, endpoint)
     row = _due_s3_user_row(db_session, s3_user)
-    fake = _FakeS3UserKeyManagementService(db_session, active=True)
+    fake = _FakeS3UserAccessKeyService(db_session, active=True)
     _patch_s3_user_keys(monkeypatch, fake)
     rollback_calls = _track_rollback(db_session, monkeypatch)
 
@@ -190,7 +198,7 @@ def test_already_inactive_key_is_idempotently_enforced(db_session, monkeypatch):
     endpoint = _endpoint(db_session)
     s3_user = _s3_user(db_session, endpoint)
     row = _due_s3_user_row(db_session, s3_user)
-    fake = _FakeS3UserKeyManagementService(db_session, active=False)
+    fake = _FakeS3UserAccessKeyService(db_session, active=False)
     _patch_s3_user_keys(monkeypatch, fake)
     _patch_audit(monkeypatch)
 
@@ -206,7 +214,7 @@ def test_provider_failure_is_retried_without_marking_key_expired(db_session, mon
     endpoint = _endpoint(db_session)
     s3_user = _s3_user(db_session, endpoint)
     row = _due_s3_user_row(db_session, s3_user)
-    fake = _FakeS3UserKeyManagementService(db_session, failure=ValueError("temporary provider outage"))
+    fake = _FakeS3UserAccessKeyService(db_session, failure=ValueError("temporary provider outage"))
     _patch_s3_user_keys(monkeypatch, fake)
     _patch_audit(monkeypatch)
 
@@ -240,14 +248,16 @@ def test_s3_user_provider_must_confirm_key_is_inactive(db_session, monkeypatch):
     s3_user = _s3_user(db_session, endpoint)
     row = _due_s3_user_row(db_session, s3_user)
 
-    class UnconfirmedS3UserKeyManagementService(_FakeS3UserKeyManagementService):
+    class UnconfirmedS3UserAccessKeyService(_FakeS3UserAccessKeyService):
         def set_key_status(
             self,
-            user_id: int,
+            s3_user,
+            _admin,
             access_key: str,
             active: bool,
         ) -> S3UserAccessKey:
-            self.calls.append(("set", user_id, access_key, active))
+            assert self.db.in_transaction() is False
+            self.calls.append(("set", s3_user.id, access_key, active))
             return S3UserAccessKey(
                 access_key_id=access_key,
                 status="enabled",
@@ -255,21 +265,21 @@ def test_s3_user_provider_must_confirm_key_is_inactive(db_session, monkeypatch):
                 is_active=True,
             )
 
-    fake = UnconfirmedS3UserKeyManagementService(db_session, active=True)
+    fake = UnconfirmedS3UserAccessKeyService(db_session, active=True)
     _patch_s3_user_keys(monkeypatch, fake)
 
     with pytest.raises(
         RetryableExpirationError,
         match="did not confirm the RGW access key as inactive",
     ):
-        AccessKeyExpirationService(db_session)._process_s3_user(row)
+        AccessKeyExpirationService(db_session)._process_s3_user(row.id, s3_user.id)
 
 
 def test_failure_state_commit_failure_restores_session(db_session, monkeypatch):
     endpoint = _endpoint(db_session)
     s3_user = _s3_user(db_session, endpoint)
     row = _due_s3_user_row(db_session, s3_user)
-    fake = _FakeS3UserKeyManagementService(db_session, failure=ValueError("temporary provider outage"))
+    fake = _FakeS3UserAccessKeyService(db_session, failure=ValueError("temporary provider outage"))
     _patch_s3_user_keys(monkeypatch, fake)
     rollback_calls = _track_rollback(db_session, monkeypatch)
     original_commit = db_session.commit
@@ -288,7 +298,9 @@ def test_failure_state_commit_failure_restores_session(db_session, monkeypatch):
         AccessKeyExpirationService(db_session).run_due()
 
     assert commit_calls == 2
-    assert rollback_calls == [None, None]
+    # The first rollback deliberately closes the read snapshot before RGW I/O.
+    # The remaining two come from failure recovery and the failed persistence commit.
+    assert rollback_calls == [None, None, None]
     db_session.expire_all()
     persisted = db_session.get(ManagerAccessKeyMetadata, row.id)
     assert persisted is not None
@@ -300,7 +312,7 @@ def test_provider_failure_persists_only_sanitized_error_details(db_session, monk
     endpoint = _endpoint(db_session)
     s3_user = _s3_user(db_session, endpoint)
     row = _due_s3_user_row(db_session, s3_user)
-    fake = _FakeS3UserKeyManagementService(
+    fake = _FakeS3UserAccessKeyService(
         db_session,
         failure=ValueError("secret_key=TOPSECRET endpoint=https://private.example.test/admin"),
     )
@@ -321,7 +333,7 @@ def test_interface_key_is_blocked_without_provider_mutation(db_session, monkeypa
     endpoint = _endpoint(db_session)
     s3_user = _s3_user(db_session, endpoint)
     row = _due_s3_user_row(db_session, s3_user, access_key_id="AK-INTERFACE")
-    fake = _FakeS3UserKeyManagementService(db_session, active=True)
+    fake = _FakeS3UserAccessKeyService(db_session, active=True)
     _patch_s3_user_keys(monkeypatch, fake)
     _patch_audit(monkeypatch)
 
@@ -339,7 +351,7 @@ def test_missing_provider_key_removes_stale_local_record(db_session, monkeypatch
     s3_user = _s3_user(db_session, endpoint)
     row = _due_s3_user_row(db_session, s3_user)
     row_id = row.id
-    fake = _FakeS3UserKeyManagementService(db_session, missing=True)
+    fake = _FakeS3UserAccessKeyService(db_session, missing=True)
     _patch_s3_user_keys(monkeypatch, fake)
     _patch_audit(monkeypatch)
 

@@ -10,7 +10,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.db_transactions import add_and_flush_in_savepoint, commit_or_rollback
+from app.core.db_transactions import (
+    add_and_flush_in_savepoint,
+    commit_or_rollback,
+    run_db_unit_with_sqlite_retry,
+)
 from app.core.sensitive_data import sanitize_persisted_error
 from app.db import (
     EndpointHealthCheck,
@@ -37,6 +41,19 @@ class HealthCheckPersistenceService:
         self.db = db
 
     def record_results(self, results: list[HealthCheckResult]) -> None:
+        run_db_unit_with_sqlite_retry(
+            self.db,
+            lambda: self._record_results_once(results),
+        )
+        self.prune_history()
+
+    def _record_results_once(self, results: list[HealthCheckResult]) -> None:
+        self.stage_results(results)
+        commit_or_rollback(self.db)
+
+    def stage_results(self, results: list[HealthCheckResult]) -> None:
+        """Stage raw and derived health rows without committing the transaction."""
+
         for result in results:
             safe_error = (
                 sanitize_persisted_error(result.error_message)
@@ -54,15 +71,12 @@ class HealthCheckPersistenceService:
                     error_message=safe_error,
                 )
             )
-        commit_or_rollback(self.db)
+        self.db.flush()
 
         for result in results:
             self._update_latest_entry(result)
             self._update_status_segment(result)
             self._update_rollup_bucket(result, resolution_seconds=DEFAULT_ROLLUP_RESOLUTION_SECONDS)
-        commit_or_rollback(self.db)
-
-        self._prune_history()
 
     def _update_latest_entry(self, result: HealthCheckResult) -> None:
         window_start = result.checked_at - timedelta(days=1)
@@ -254,7 +268,15 @@ class HealthCheckPersistenceService:
         entry.latency_p95_ms = percentile(latencies, 0.95) if latencies else None
         entry.updated_at = utcnow()
 
+    def prune_history(self) -> None:
+        run_db_unit_with_sqlite_retry(self.db, self._prune_history_once)
+
     def _prune_history(self) -> None:
+        """Backward-compatible wrapper for direct callers and tests."""
+
+        self.prune_history()
+
+    def _prune_history_once(self) -> None:
         retention_days = settings.healthcheck_retention_days
         if retention_days == 0:
             return

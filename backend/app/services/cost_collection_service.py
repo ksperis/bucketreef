@@ -11,7 +11,11 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import add_and_flush_in_savepoint, commit_or_rollback
+from app.core.db_transactions import (
+    add_and_flush_in_savepoint,
+    commit_or_rollback,
+    run_db_unit_with_sqlite_retry,
+)
 from app.db import CostStorageDaily, CostUsageDaily, S3Account, S3User, StorageEndpoint
 from app.core.domain_enums import (
     CostCollectionStage,
@@ -89,7 +93,7 @@ class CostCollector:
             select(StorageEndpoint).where(
                 StorageEndpoint.provider == StorageProvider.CEPH.value
             )
-        )
+        ).all()
         endpoints_count = 0
         usage_records = 0
         storage_records = 0
@@ -111,12 +115,21 @@ class CostCollector:
                 )
                 continue
 
+            subjects = self._load_subjects(endpoint)
+            for subject in subjects:
+                self.db.expunge(subject.principal)
+            self.db.expunge(endpoint)
+            # All RGW inputs are now detached snapshots. Close the database
+            # read transaction before issuing any remote Admin Ops calls.
+            self.db.rollback()
+
             endpoints_count += 1
             if flags.usage_enabled:
                 created_usage_records, usage_errors = self._collect_usage_for_endpoint(
                     rgw_admin,
                     endpoint,
                     day,
+                    subjects=subjects,
                 )
                 usage_records += created_usage_records
                 errors.extend(usage_errors)
@@ -125,6 +138,7 @@ class CostCollector:
                 rgw_admin,
                 endpoint,
                 day,
+                subjects=subjects,
             )
             storage_records += created_storage_records
             errors.extend(storage_errors)
@@ -135,7 +149,10 @@ class CostCollector:
             storage_records=storage_records,
             errors=errors,
             retention=DataRetentionResult.model_validate(
-                DataRetentionService(self.db).purge_all()
+                run_db_unit_with_sqlite_retry(
+                    self.db,
+                    lambda: DataRetentionService(self.db).purge_all(),
+                )
             ),
         )
 
@@ -205,11 +222,20 @@ class CostCollector:
         *,
         stage: CostSubjectCollectionStage,
         endpoint: StorageEndpoint,
+        subjects: list[_CostSubject] | None = None,
         operation: Callable[[_CostSubject], None],
     ) -> tuple[int, list[CostCollectionError]]:
         created = 0
         errors: list[CostCollectionError] = []
-        for subject in self._load_subjects(endpoint):
+        if subjects is None:
+            subjects = self._load_subjects(endpoint)
+            for subject in subjects:
+                self.db.expunge(subject.principal)
+            # Compatibility callers may ask this helper to discover subjects.
+            # Detach that read snapshot before the supplied operation performs
+            # RGW I/O.
+            self.db.rollback()
+        for subject in subjects:
             try:
                 operation(subject)
                 created += 1
@@ -302,6 +328,8 @@ class CostCollector:
         rgw_admin: RGWAdminClient,
         endpoint: StorageEndpoint,
         day: date,
+        *,
+        subjects: list[_CostSubject] | None = None,
     ) -> tuple[int, list[CostCollectionError]]:
         start = datetime.combine(day, datetime.min.time()).replace(
             tzinfo=timezone.utc
@@ -310,6 +338,7 @@ class CostCollector:
         return self._collect_subjects(
             stage="usage",
             endpoint=endpoint,
+            subjects=subjects,
             operation=lambda subject: self._collect_usage_subject(
                 rgw_admin,
                 endpoint,
@@ -325,10 +354,13 @@ class CostCollector:
         rgw_admin: RGWAdminClient,
         endpoint: StorageEndpoint,
         day: date,
+        *,
+        subjects: list[_CostSubject] | None = None,
     ) -> tuple[int, list[CostCollectionError]]:
         return self._collect_subjects(
             stage="storage",
             endpoint=endpoint,
+            subjects=subjects,
             operation=lambda subject: self._collect_storage_subject(
                 rgw_admin,
                 endpoint,
@@ -446,6 +478,22 @@ class CostCollector:
         )
 
     def _upsert_daily_row(
+        self,
+        *,
+        find_existing: Callable[[], _DailyCostRow | None],
+        build_row: Callable[[datetime], _DailyCostRow],
+        update_existing: Callable[[_DailyCostRow, datetime], None],
+    ) -> None:
+        run_db_unit_with_sqlite_retry(
+            self.db,
+            lambda: self._upsert_daily_row_once(
+                find_existing=find_existing,
+                build_row=build_row,
+                update_existing=update_existing,
+            ),
+        )
+
+    def _upsert_daily_row_once(
         self,
         *,
         find_existing: Callable[[], _DailyCostRow | None],

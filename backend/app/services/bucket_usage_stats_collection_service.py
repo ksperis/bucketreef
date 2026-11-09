@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass, field
 from datetime import timedelta
-from typing import Callable
+from typing import Callable, Literal
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
@@ -35,6 +36,46 @@ BUCKET_USAGE_STATS_COLLECTION_PARALLELISM = 2
 UsageCollectionResource = S3Account | S3User
 
 
+@dataclass(frozen=True)
+class _UsageCollectionResourceSnapshot:
+    kind: Literal["account", "s3_user"]
+    id: int
+    name: str
+    access_key: str | None
+    secret_key: str | None = field(repr=False)
+    rgw_account_id: str | None = None
+    rgw_user_uid: str | None = None
+    rgw_tenant: str = ""
+    storage_endpoint_id: int | None = None
+    endpoint_url: str | None = None
+    region: str | None = None
+    force_path_style: bool = False
+    verify_tls: bool = True
+
+    @property
+    def scope_id(self) -> str:
+        return f"s3u-{self.id}" if self.kind == "s3_user" else str(self.id)
+
+    def execution_context(self) -> S3ExecutionContext:
+        return S3ExecutionContext(
+            context_id=self.scope_id,
+            context_kind="s3_user" if self.kind == "s3_user" else "account",
+            name=self.name,
+            access_key=self.access_key,
+            secret_key=self.secret_key,
+            id=self.id if self.kind == "account" else None,
+            rgw_account_id=self.rgw_account_id,
+            rgw_user_uid=self.rgw_user_uid,
+            rgw_tenant=self.rgw_tenant,
+            storage_endpoint_id=self.storage_endpoint_id,
+            session_endpoint=self.endpoint_url,
+            session_region=self.region,
+            session_force_path_style=self.force_path_style,
+            session_verify_tls=self.verify_tls,
+            s3_user_id=self.id if self.kind == "s3_user" else None,
+        )
+
+
 class BucketUsageStatsCollectionService:
     def __init__(
         self,
@@ -48,56 +89,79 @@ class BucketUsageStatsCollectionService:
         self.buckets_service = buckets_service or BucketsService()
         self.usage_stats_service = usage_stats_service or BucketUsageStatsService(session_factory)
 
-    def _eligible_resources(self) -> list[UsageCollectionResource]:
-        settings = load_app_settings_for_db(self.db)
-        accounts = self.db.scalars(select(S3Account).order_by(S3Account.id.asc())).all()
-        users = self.db.scalars(select(S3User).order_by(S3User.id.asc())).all()
-        return [
-            resource
-            for resource in [*accounts, *users]
-            if bucket_usage_stats_state(settings.general.project_feature_policies, resource).enabled
-            and bucket_usage_stats_collection_state(settings.general.project_collection_policies, resource).enabled
-        ]
+    def _eligible_resources(self) -> list[_UsageCollectionResourceSnapshot]:
+        try:
+            settings = load_app_settings_for_db(self.db)
+            accounts = self.db.scalars(select(S3Account).order_by(S3Account.id.asc())).all()
+            users = self.db.scalars(select(S3User).order_by(S3User.id.asc())).all()
+            return [
+                self._snapshot_resource(resource)
+                for resource in [*accounts, *users]
+                if bucket_usage_stats_state(settings.general.project_feature_policies, resource).enabled
+                and bucket_usage_stats_collection_state(settings.general.project_collection_policies, resource).enabled
+            ]
+        finally:
+            # The returned objects contain only primitive S3 client inputs. Close
+            # the read snapshot before any remote bucket listing is attempted.
+            self.db.rollback()
 
     @staticmethod
-    def _execution_target(resource: UsageCollectionResource) -> S3ExecutionTarget:
-        if isinstance(resource, S3User):
-            return S3ExecutionContext.from_s3_user(resource)
-        return resource
-
-    @staticmethod
-    def _scope_id(resource: UsageCollectionResource) -> str:
-        return f"s3u-{resource.id}" if isinstance(resource, S3User) else str(resource.id)
+    def _snapshot_resource(resource: UsageCollectionResource) -> _UsageCollectionResourceSnapshot:
+        endpoint = resource.storage_endpoint
+        is_s3_user = isinstance(resource, S3User)
+        return _UsageCollectionResourceSnapshot(
+            kind="s3_user" if is_s3_user else "account",
+            id=int(resource.id),
+            name=resource.name,
+            access_key=resource.rgw_access_key,
+            secret_key=resource.rgw_secret_key,
+            rgw_account_id=None if is_s3_user else resource.rgw_account_id,
+            rgw_user_uid=resource.rgw_user_uid,
+            rgw_tenant=resource.rgw_tenant or "",
+            storage_endpoint_id=resource.storage_endpoint_id,
+            endpoint_url=endpoint.endpoint_url if endpoint is not None else None,
+            region=endpoint.region if endpoint is not None else None,
+            force_path_style=bool(endpoint.force_path_style) if endpoint is not None else False,
+            verify_tls=bool(endpoint.verify_tls) if endpoint is not None else True,
+        )
 
     def _resource_due_targets(
         self,
-        resource: UsageCollectionResource,
+        resource: _UsageCollectionResourceSnapshot,
         *,
         cutoff,
     ) -> list[tuple[float, BucketUsageStatsResolvedTarget]]:
-        execution_target = self._execution_target(resource)
+        execution_target = resource.execution_context()
         buckets = self.buckets_service.list_buckets(execution_target, include=set(), with_stats=False)
         bucket_names = list(dict.fromkeys(bucket.name for bucket in buckets if bucket.name))
         if not bucket_names:
             return []
 
-        scope_id = self._scope_id(resource)
-        snapshots = {
-            row.bucket_name: row
-            for row in self.db.scalars(
-                select(BucketUsageStatsSnapshotRow).where(
-                    BucketUsageStatsSnapshotRow.scope_kind == "manager",
-                    BucketUsageStatsSnapshotRow.scope_id == scope_id,
-                    BucketUsageStatsSnapshotRow.bucket_name.in_(bucket_names),
-                )
-            ).all()
-        }
+        scope_id = resource.scope_id
+        try:
+            snapshot_times = dict(
+                self.db.execute(
+                    select(
+                        BucketUsageStatsSnapshotRow.bucket_name,
+                        BucketUsageStatsSnapshotRow.calculated_at,
+                    ).where(
+                        BucketUsageStatsSnapshotRow.scope_kind == "manager",
+                        BucketUsageStatsSnapshotRow.scope_id == scope_id,
+                        BucketUsageStatsSnapshotRow.bucket_name.in_(bucket_names),
+                    )
+                ).all()
+            )
+        finally:
+            # Each remote listing is followed by a fresh, short DB read. Do not
+            # carry that snapshot into the next S3 call or the long-running scan.
+            self.db.rollback()
+
         due: list[tuple[float, BucketUsageStatsResolvedTarget]] = []
         for bucket_name in bucket_names:
-            snapshot = snapshots.get(bucket_name)
-            if snapshot is not None and snapshot.calculated_at > cutoff:
+            calculated_at = snapshot_times.get(bucket_name)
+            if calculated_at is not None and calculated_at > cutoff:
                 continue
-            priority = snapshot.calculated_at.timestamp() if snapshot is not None else float("-inf")
+            priority = calculated_at.timestamp() if calculated_at is not None else float("-inf")
             due.append(
                 (
                     priority,
@@ -127,7 +191,7 @@ class BucketUsageStatsCollectionService:
                 skipped_resources += 1
                 logger.warning(
                     "Unable to prepare bucket usage statistics collection for %s=%s: %s",
-                    "s3_user" if isinstance(resource, S3User) else "account",
+                    resource.kind,
                     resource.id,
                     sanitized_error_log_detail(exc),
                 )

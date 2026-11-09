@@ -2,14 +2,16 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from datetime import timedelta
+from dataclasses import dataclass
+from datetime import datetime, timedelta
 from uuid import UUID
 
+from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
 from app.db import AuthSession, User
 from app.db.openstack import OpenStackCloud, OpenStackConnection, OpenStackProjectContext, OpenStackProjectCredential, OpenStackSession
 from app.models.execution_context import (
@@ -26,12 +28,17 @@ from app.models.s3_connection import S3Connection, S3ConnectionCreate
 from app.services.access_context_contracts import AccountCapabilities
 from app.services.keystone_client import KeystoneClient, KeystoneIdentity, OpenStackError
 from app.services.openstack_access_policy import can_connect_openstack_cloud
+from app.services.rgw_iam import get_iam_client
 from app.services.s3_connections_service import S3ConnectionsService
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.storage_endpoint_repository import StorageEndpointRepository
 from app.services.tags_service import TagsService
-from app.utils.s3_endpoint import validate_openstack_catalog_s3_endpoint
-from app.utils.storage_endpoint_features import resolve_endpoint_capabilities
+from app.utils.s3_endpoint import resolve_s3_client_options, validate_openstack_catalog_s3_endpoint
+from app.utils.storage_endpoint_features import (
+    resolve_endpoint_capabilities,
+    resolve_iam_endpoint,
+    resolve_iam_signing_region,
+)
 from app.utils.time import utcnow
 
 
@@ -42,6 +49,20 @@ def _resolve_guard_context(
     context_ref: str,
 ) -> S3ExecutionContext:
     return OpenStackService(db).resolve(user, auth_id, context_ref, attach_guard=False)
+
+
+@dataclass(frozen=True)
+class _OpenStackSessionSnapshot:
+    user_id: int
+    connection_id: str
+    cloud_id: int
+    cloud_name: str
+    auth_url: str
+    session_id: str
+    token: str
+    keystone_user_id: str
+    display_name: str
+    expires_at: datetime
 
 
 class OpenStackService:
@@ -162,33 +183,108 @@ class OpenStackService:
     def _identity(connection: OpenStackConnection, session: OpenStackSession) -> KeystoneIdentity:
         return KeystoneIdentity(session.token, connection.keystone_user_id, connection.display_name, session.expires_at)
 
+    def _snapshot_session_for_io(
+        self,
+        user: User,
+        auth_id: str,
+        connection_id: str,
+    ) -> _OpenStackSessionSnapshot:
+        connection = self.owned(user, connection_id)
+        session = self._session(user, auth_id, connection)
+        snapshot = _OpenStackSessionSnapshot(
+            user_id=int(user.id),
+            connection_id=str(connection.id),
+            cloud_id=int(connection.cloud_id),
+            cloud_name=str(connection.cloud.name),
+            auth_url=str(connection.cloud.auth_url),
+            session_id=str(session.id),
+            token=str(session.token),
+            keystone_user_id=str(connection.keystone_user_id),
+            display_name=str(connection.display_name),
+            expires_at=session.expires_at,
+        )
+        self.db.rollback()
+        return snapshot
+
+    def _revalidate_session_snapshot(
+        self,
+        snapshot: _OpenStackSessionSnapshot,
+        auth_id: str,
+    ) -> tuple[User, OpenStackConnection, OpenStackSession]:
+        user = self.db.get(User, snapshot.user_id, populate_existing=True)
+        if user is None:
+            raise OpenStackError("reauthentication_required", "The BucketReef session is no longer active")
+        connection = self.owned(user, snapshot.connection_id)
+        session = self._session(
+            user,
+            auth_id,
+            connection,
+            expected_id=snapshot.session_id,
+        )
+        return user, connection, session
+
     def authenticate(self, user: User, auth_id: str, payload: OpenStackAuthenticate) -> OpenStackConnection:
         self._auth(user, auth_id)
         cloud = self.cloud(user, payload.cloud_id)
         if not (cloud.allow_password if payload.method == "password" else cloud.allow_token):
             raise OpenStackError("method_disabled", "This authentication method is disabled", 403)
+        user_id = int(user.id)
+        cloud_id = int(cloud.id)
+        auth_url = str(cloud.auth_url)
+        default_domain = str(cloud.default_domain)
         expected_version = cloud.config_version
-        identity = KeystoneClient(cloud.auth_url).authenticate(payload, cloud.default_domain)
-        auth = self._auth(user, auth_id, lock=True)
-        # Repeat local authorization after the network call.
-        self.db.scalar(select(OpenStackCloud).where(OpenStackCloud.id == cloud.id).with_for_update().execution_options(populate_existing=True))
-        current_cloud = self.cloud(user, cloud.id)
-        if current_cloud.config_version != expected_version:
-            raise OpenStackError("configuration_changed", "OpenStack configuration changed; reconnect")
-        connection = self.db.scalar(select(OpenStackConnection).where(
-            OpenStackConnection.user_id == user.id, OpenStackConnection.cloud_id == cloud.id,
-            OpenStackConnection.keystone_user_id == identity.user_id,
-        ))
-        if connection is None:
-            connection = OpenStackConnection(user_id=user.id, cloud_id=cloud.id, keystone_user_id=identity.user_id, display_name=identity.name)
-            self.db.add(connection)
+        self.db.rollback()
+        identity = KeystoneClient(auth_url).authenticate(payload, default_domain)
+
+        def persist() -> str:
+            current_user = self.db.get(User, user_id, populate_existing=True)
+            if current_user is None:
+                raise OpenStackError("reauthentication_required", "The BucketReef session is no longer active")
+            auth = self._auth(current_user, auth_id, lock=True)
+            self.db.scalar(
+                select(OpenStackCloud)
+                .where(OpenStackCloud.id == cloud_id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+            current_cloud = self.cloud(current_user, cloud_id)
+            if current_cloud.config_version != expected_version:
+                raise OpenStackError("configuration_changed", "OpenStack configuration changed; reconnect")
+            connection = self.db.scalar(select(OpenStackConnection).where(
+                OpenStackConnection.user_id == user_id,
+                OpenStackConnection.cloud_id == cloud_id,
+                OpenStackConnection.keystone_user_id == identity.user_id,
+            ))
+            if connection is None:
+                connection = OpenStackConnection(
+                    user_id=user_id,
+                    cloud_id=cloud_id,
+                    keystone_user_id=identity.user_id,
+                    display_name=identity.name,
+                )
+                self.db.add(connection)
+                self.db.flush()
+            for old in self.db.scalars(select(OpenStackSession).where(
+                OpenStackSession.connection_id == connection.id,
+                OpenStackSession.auth_session_id == auth_id,
+            )).all():
+                self.db.delete(old)
             self.db.flush()
-        for old in self.db.scalars(select(OpenStackSession).where(OpenStackSession.connection_id == connection.id, OpenStackSession.auth_session_id == auth_id)).all():
-            self.db.delete(old)
-        self.db.flush()
-        self.db.add(OpenStackSession(connection_id=connection.id, auth_session_id=auth_id, token=identity.token, cloud_version=expected_version,
-                                    expires_at=min(identity.expires_at, auth.absolute_expires_at)))
-        commit_or_rollback(self.db)
+            self.db.add(OpenStackSession(
+                connection_id=connection.id,
+                auth_session_id=auth_id,
+                token=identity.token,
+                cloud_version=expected_version,
+                expires_at=min(identity.expires_at, auth.absolute_expires_at),
+            ))
+            connection_id = str(connection.id)
+            commit_or_rollback(self.db)
+            return connection_id
+
+        connection_id = run_db_unit_with_sqlite_retry(self.db, persist)
+        connection = self.db.get(OpenStackConnection, connection_id)
+        if connection is None:
+            raise OpenStackError("connection_not_found", "OpenStack connection not found", 404)
         return connection
 
     def connection_read(self, connection: OpenStackConnection, user: User, auth_id: str) -> dict:
@@ -224,22 +320,28 @@ class OpenStackService:
 
     def project_access(self, user: User, auth_id: str, connection_id: str, project_id: str) -> dict:
         """Resolve the selected project's current S3 catalog targets and EC2 credentials."""
-        connection = self.owned(user, connection_id)
-        session = self._session(user, auth_id, connection)
-        session_id = session.id
-        client = KeystoneClient(connection.cloud.auth_url)
-        projects = client.projects(session.token)
+        snapshot = self._snapshot_session_for_io(user, auth_id, connection_id)
+        client = KeystoneClient(snapshot.auth_url)
+        projects = client.projects(snapshot.token)
         project = next((item for item in projects if item["id"] == project_id), None)
         if project is None:
             raise OpenStackError("project_not_allowed", "OpenStack project is not available", 403)
-        access = client.project_access(self._identity(connection, session), project_id)
-        self._session(user, auth_id, connection, expected_id=session_id)
+        access = client.project_access(
+            KeystoneIdentity(
+                snapshot.token,
+                snapshot.keystone_user_id,
+                snapshot.display_name,
+                snapshot.expires_at,
+            ),
+            project_id,
+        )
+        _current_user, connection, _session = self._revalidate_session_snapshot(snapshot, auth_id)
         available_access_keys = {credential["access"] for credential in access["credentials"]}
         selected_credential = self.db.scalar(
             select(OpenStackProjectCredential)
             .join(OpenStackProjectContext, OpenStackProjectCredential.context_id == OpenStackProjectContext.id)
             .where(
-                OpenStackProjectCredential.session_id == session_id,
+                OpenStackProjectCredential.session_id == snapshot.session_id,
                 OpenStackProjectCredential.secret_key.is_not(None),
                 OpenStackProjectCredential.expires_at > utcnow(),
                 OpenStackProjectContext.connection_id == connection.id,
@@ -247,7 +349,7 @@ class OpenStackService:
             )
             .order_by(OpenStackProjectCredential.validated_at.desc(), OpenStackProjectCredential.id.desc())
         )
-        return {
+        result = {
             "project": project,
             "targets": self._annotate_targets(connection.cloud, access["targets"]),
             "credentials": access["credentials"],
@@ -257,14 +359,15 @@ class OpenStackService:
                 else None
             ),
         }
+        self.db.rollback()
+        return result
 
     def projects(self, user: User, auth_id: str, connection_id: str) -> list[dict]:
         """Return every Keystone project currently available to one connected identity."""
-        connection = self.owned(user, connection_id)
-        session = self._session(user, auth_id, connection)
-        projects = KeystoneClient(connection.cloud.auth_url).projects(session.token)
-        self._session(user, auth_id, connection, expected_id=session.id)
-        return [
+        snapshot = self._snapshot_session_for_io(user, auth_id, connection_id)
+        projects = KeystoneClient(snapshot.auth_url).projects(snapshot.token)
+        self._revalidate_session_snapshot(snapshot, auth_id)
+        result = [
             {
                 "project_id": project["id"],
                 "project_name": project["name"],
@@ -272,6 +375,8 @@ class OpenStackService:
             }
             for project in sorted(projects, key=lambda item: (item["name"].casefold(), item["id"]))
         ]
+        self.db.rollback()
+        return result
 
     @staticmethod
     def _select_project_target(access: dict, target_id: str) -> dict:
@@ -419,20 +524,35 @@ class OpenStackService:
         result: list[dict] = []
         warnings: list[dict] = []
         now = utcnow()
-        for session in self._active_sessions(user, auth_id):
-            connection = session.connection
-            cloud = self.cloud(user, connection.cloud_id)
+        user_id = int(user.id)
+        session_summaries = [
+            {
+                "connection_id": str(session.connection.id),
+                "cloud_id": int(session.connection.cloud.id),
+                "cloud_name": str(session.connection.cloud.name),
+                "identity_name": str(session.connection.display_name),
+                "keystone_user_id": str(session.connection.keystone_user_id),
+            }
+            for session in self._active_sessions(user, auth_id)
+        ]
+        self.db.rollback()
+        for summary in session_summaries:
+            connection_id = summary["connection_id"]
             try:
-                projects = KeystoneClient(cloud.auth_url).projects(session.token)
-                self._session(user, auth_id, connection, expected_id=session.id)
+                projects = self.projects(user, auth_id, connection_id)
             except OpenStackError as exc:
                 warnings.append({
-                    "connection_id": connection.id,
-                    "cloud_name": cloud.name,
-                    "identity_name": connection.display_name,
+                    "connection_id": connection_id,
+                    "cloud_name": summary["cloud_name"],
+                    "identity_name": summary["identity_name"],
                     "code": exc.code,
                 })
                 continue
+            current_user = self.db.get(User, user_id, populate_existing=True)
+            if current_user is None:
+                continue
+            connection = self.owned(current_user, connection_id)
+            session = self._session(current_user, auth_id, connection)
             active_project_ids = {
                 credential.context.project_id
                 for credential in session.credentials
@@ -440,75 +560,150 @@ class OpenStackService:
                 and credential.expires_at > now
                 and self._is_catalog_context(credential.context)
             }
-            for project in sorted(projects, key=lambda item: (item["name"].casefold(), item["id"])):
-                if project["id"] in active_project_ids:
+            self.db.rollback()
+            for project in sorted(
+                projects,
+                key=lambda item: (item["project_name"].casefold(), item["project_id"]),
+            ):
+                if project["project_id"] in active_project_ids:
                     continue
                 result.append({
-                    "connection_id": connection.id,
-                    "cloud_id": cloud.id,
-                    "cloud_name": cloud.name,
-                    "identity_name": connection.display_name,
-                    "keystone_user_id": connection.keystone_user_id,
-                    "project_id": project["id"],
-                    "project_name": project["name"],
-                    "project_domain_id": project.get("domain_id"),
+                    "connection_id": connection_id,
+                    "cloud_id": summary["cloud_id"],
+                    "cloud_name": summary["cloud_name"],
+                    "identity_name": summary["identity_name"],
+                    "keystone_user_id": summary["keystone_user_id"],
+                    "project_id": project["project_id"],
+                    "project_name": project["project_name"],
+                    "project_domain_id": project.get("project_domain_id"),
                 })
         return {"options": result, "warnings": warnings}
 
     def activate(self, user: User, auth_id: str, connection_id: str, project_id: str, target_id: str, access_key: str | None) -> str:
-        connection = self.owned(user, connection_id)
-        cloud = self.cloud(user, connection.cloud_id)
-        session = self._session(user, auth_id, connection)
-        session_id = session.id
+        user_id = int(user.id)
+        initial = self._snapshot_session_for_io(user, auth_id, connection_id)
+        session_id = initial.session_id
         access = self.project_access(user, auth_id, connection_id, project_id)
         project = access["project"]
         target = self._select_project_target(access, target_id)
         key = self._select_project_credential(access, access_key)
-        self._auth(user, auth_id, lock=True)
-        self.db.scalar(select(OpenStackCloud).where(OpenStackCloud.id == cloud.id).with_for_update().execution_options(populate_existing=True))
-        session = self._session(user, auth_id, connection, expected_id=session_id)
-        context = self.db.scalar(select(OpenStackProjectContext).where(
-            OpenStackProjectContext.connection_id == connection.id, OpenStackProjectContext.project_id == project_id,
-            OpenStackProjectContext.target_id == target_id,
-        ))
-        if context is None:
-            context = OpenStackProjectContext(
-                connection_id=connection.id,
-                project_id=project_id,
-                project_name=project["name"],
-                target_id=target["target_id"],
-                region_id=target["region_id"],
-                endpoint_url=target["endpoint_url"],
-                endpoint_name=target["service_name"] or target["region_id"],
-                endpoint_interface=target["interface"],
-                service_type=target["service_type"],
+        def persist_context() -> tuple[str, str]:
+            current_user = self.db.get(User, user_id, populate_existing=True)
+            if current_user is None:
+                raise OpenStackError("reauthentication_required", "The BucketReef session is no longer active")
+            self._auth(current_user, auth_id, lock=True)
+            self.db.scalar(
+                select(OpenStackCloud)
+                .where(OpenStackCloud.id == initial.cloud_id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
             )
-            self.db.add(context)
+            connection = self.owned(current_user, connection_id)
+            session = self._session(current_user, auth_id, connection, expected_id=session_id)
+            context = self.db.scalar(select(OpenStackProjectContext).where(
+                OpenStackProjectContext.connection_id == connection.id,
+                OpenStackProjectContext.project_id == project_id,
+                OpenStackProjectContext.target_id == target_id,
+            ))
+            if context is None:
+                context = OpenStackProjectContext(
+                    connection_id=connection.id,
+                    project_id=project_id,
+                    project_name=project["name"],
+                    target_id=target["target_id"],
+                    region_id=target["region_id"],
+                    endpoint_url=target["endpoint_url"],
+                    endpoint_name=target["service_name"] or target["region_id"],
+                    endpoint_interface=target["interface"],
+                    service_type=target["service_type"],
+                )
+                self.db.add(context)
+                self.db.flush()
+            else:
+                context.project_name = project["name"]
+                context.region_id = target["region_id"]
+                context.endpoint_url = target["endpoint_url"]
+                context.endpoint_name = target["service_name"] or target["region_id"]
+                context.endpoint_interface = target["interface"]
+                context.service_type = target["service_type"]
+            self.db.execute(delete(OpenStackProjectCredential).where(
+                OpenStackProjectCredential.session_id == session.id,
+                OpenStackProjectCredential.context_id == context.id,
+            ))
+            credential = OpenStackProjectCredential(
+                session_id=session.id,
+                context_id=context.id,
+                access_key=key["access"],
+                secret_key=key["secret"],
+                expires_at=min(key["expires_at"], session.expires_at),
+                validated_at=utcnow(),
+                can_manage_iam=False,
+            )
+            self.db.add(credential)
             self.db.flush()
-        else:
-            context.project_name = project["name"]
-            context.region_id = target["region_id"]
-            context.endpoint_url = target["endpoint_url"]
-            context.endpoint_name = target["service_name"] or target["region_id"]
-            context.endpoint_interface = target["interface"]
-            context.service_type = target["service_type"]
-        self.db.execute(delete(OpenStackProjectCredential).where(
-            OpenStackProjectCredential.session_id == session.id,
-            OpenStackProjectCredential.context_id == context.id,
-        ))
-        credential = OpenStackProjectCredential(session_id=session.id, context_id=context.id, access_key=key["access"], secret_key=key["secret"],
-                                              expires_at=min(key["expires_at"], session.expires_at), validated_at=utcnow())
-        self.db.add(credential)
-        self.db.flush()
-        credential.can_manage_iam = self._probe_iam(context, credential, auth_id)
-        self._auth(user, auth_id, lock=True)
-        self._session(user, auth_id, connection, expected_id=session_id)
-        commit_or_rollback(self.db)
-        return f"os-{context.id}"
+            context_id = str(context.id)
+            credential_id = str(credential.id)
+            commit_or_rollback(self.db)
+            return context_id, credential_id
 
-    def _probe_iam(self, context, credential, auth_id) -> bool:
-        from app.services.s3_connection_capabilities_service import probe_execution_can_manage_iam
-        return probe_execution_can_manage_iam(self._execution(context, credential, auth_id))
+        context_id, credential_id = run_db_unit_with_sqlite_retry(self.db, persist_context)
+        context = self.db.get(OpenStackProjectContext, context_id)
+        credential = self.db.get(OpenStackProjectCredential, credential_id)
+        if context is None or credential is None:
+            raise OpenStackError("reauthentication_required", "Reconnect to OpenStack")
+        execution = self._execution(context, credential, auth_id)
+        endpoint = execution.storage_endpoint
+        iam_endpoint = resolve_iam_endpoint(endpoint) if endpoint else None
+        iam_region = resolve_iam_signing_region(endpoint) if endpoint else None
+        _, _, _, verify_tls = resolve_s3_client_options(execution)
+        probe_access_key = execution.access_key
+        probe_secret_key = execution.secret_key
+        self.db.rollback()
+        can_manage_iam = self._probe_iam(
+            probe_access_key,
+            probe_secret_key,
+            iam_endpoint,
+            iam_region,
+            verify_tls,
+        )
+
+        def persist_capability() -> None:
+            current_user = self.db.get(User, user_id, populate_existing=True)
+            if current_user is None:
+                raise OpenStackError("reauthentication_required", "The BucketReef session is no longer active")
+            self._auth(current_user, auth_id, lock=True)
+            connection = self.owned(current_user, connection_id)
+            self._session(current_user, auth_id, connection, expected_id=session_id)
+            current = self.db.get(OpenStackProjectCredential, credential_id)
+            if current is None or current.context_id != context_id:
+                raise OpenStackError("reauthentication_required", "Reconnect to OpenStack")
+            current.can_manage_iam = can_manage_iam
+            commit_or_rollback(self.db)
+
+        run_db_unit_with_sqlite_retry(self.db, persist_capability)
+        return f"os-{context_id}"
+
+    @staticmethod
+    def _probe_iam(
+        access_key: str | None,
+        secret_key: str | None,
+        iam_endpoint: str | None,
+        iam_region: str | None,
+        verify_tls: bool,
+    ) -> bool:
+        if not iam_endpoint or not access_key or not secret_key:
+            return False
+        try:
+            get_iam_client(
+                access_key=access_key,
+                secret_key=secret_key,
+                endpoint=iam_endpoint,
+                region=iam_region,
+                verify_tls=verify_tls,
+            ).list_users(MaxItems=1)
+            return True
+        except (ClientError, BotoCoreError):
+            return False
 
     def _execution(self, context, credential, auth_id) -> S3ExecutionContext:
         endpoint = self._managed_endpoint(context.endpoint_url)
