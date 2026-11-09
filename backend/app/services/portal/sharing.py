@@ -394,14 +394,12 @@ class PortalSharingMixin:
                 user_id=target.id,
                 email=target.email,
                 display_name=target.full_name,
-                portal_role=PortalAccountRole.PORTAL_USER.value,
                 access_source=self._storage_space_share_candidate_source(
                     target.id,
                     direct_ids,
                     group_ids,
                 ),
                 already_shared=target.id in shared_user_ids,
-                avatar=None,
             )
             for target in targets
         ]

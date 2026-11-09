@@ -2,7 +2,6 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import type { PortalAccountRole } from "./accountAccess";
 import type { S3AccountSelector } from "./accountParams";
 import { withS3AccountParam } from "./accountParams";
 import client from "./client";
@@ -11,7 +10,6 @@ import type {
   PortalStorageSpaceGrantRole,
 } from "./portal";
 import type { PaginatedResponse } from "./types";
-import type { UserAvatarDescriptor } from "./users";
 
 export type PortalStorageSpaceShare = {
   user_id: number;
@@ -39,10 +37,8 @@ export type PortalStorageSpaceShareCandidate = {
   user_id: number;
   email: string;
   display_name: string | null;
-  portal_role: PortalAccountRole;
   access_source: "direct" | "group" | "direct_and_group";
   already_shared: boolean;
-  avatar: UserAvatarDescriptor | null;
 };
 
 type PortalShareCandidatesQuery = {

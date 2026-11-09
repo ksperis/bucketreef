@@ -48,10 +48,8 @@ class PortalStorageSpaceShareCandidate(ApiModel):
     user_id: int
     email: str
     display_name: Optional[str]
-    portal_role: PortalAccountRole
     access_source: PortalShareAccessSource
     already_shared: bool
-    avatar: Optional[UserAvatar]
 
 
 class PortalShareCandidateListingRequest(PaginationRequest):

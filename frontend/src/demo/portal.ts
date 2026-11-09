@@ -234,7 +234,15 @@ export function portal(c: DemoRequest): Response | undefined {
     return json({ effective: resolvePortalSettings(settings.portal), feature_states: {}, project_override: {}, delegated_to_portal_managers: false, portal_collaborator_role_management_delegated: false, portal_collaborator_addition_delegated: false, can_update: false });
   }
   if (path === "/portal/collaborators" && method === "GET") return json({ summary: { collaborator_count: candidates.length, external_access_key_count: 0 }, collaborators: candidates });
-  if (path === "/portal/share-candidates" && method === "GET") return json(paginatedCandidates(candidates));
+  if (path === "/portal/share-candidates" && method === "GET") {
+    return json(paginatedCandidates(candidates.map(candidate => ({
+      user_id: candidate.user_id,
+      email: candidate.email,
+      display_name: candidate.display_name,
+      access_source: candidate.access_source,
+      already_shared: false,
+    }))));
+  }
   const review = path.match(/^\/portal\/collaborators\/(\d+)\/access$/);
   if (review && method === "GET") return json({ collaborator: required(candidates.find(u => u.user_id === Number(review[1]))), can_request_project_removal: manager, can_request_role_change: manager, space_accesses: state.spaces.filter(s => s.accountId === account.id && s.visibility === "shared").map(s => ({ storage_space_id: s.id, storage_space_name: s.name, role: s.account_member_role ?? "Viewer", source: "team", can_revoke: false })) });
   const match = path.match(/^\/portal\/storage-spaces(?:\/([^/]+)(?:\/(settings|shares|share-candidates|access-summary|public-links)(?:\/(\d+))?)?)?$/);
@@ -294,12 +302,18 @@ export function portal(c: DemoRequest): Response | undefined {
   if (match[2] === "share-candidates" && method === "GET") {
     const includeAlreadyShared = c.url.searchParams.get("include_already_shared") === "true";
     const shareCandidates = candidates
-      .map(u => ({ ...u, already_shared: space.shares.some(s => s.user_id === u.user_id) }))
+      .map(candidate => ({
+        user_id: candidate.user_id,
+        email: candidate.email,
+        display_name: candidate.display_name,
+        access_source: candidate.access_source,
+        already_shared: space.shares.some(s => s.user_id === candidate.user_id),
+      }))
       .filter(u => includeAlreadyShared || !u.already_shared);
     return json(paginatedCandidates(shareCandidates));
   }
   if (match[2] === "access-summary" && method === "GET") return json({ mode: space.visibility === "private" ? "private" : space.share_scope === "account" ? "all" : "restricted", default_account_member_role: space.account_member_role,
-    owner: space.owner_user_id ? { user_id: space.owner_user_id, email: state.users.find(u => u.id === space.owner_user_id)?.email, role: "Owner", access_source: "owner" } : null,
+    owner: space.owner_user_id ? { email: state.users.find(u => u.id === space.owner_user_id)?.email, display_name: state.users.find(u => u.id === space.owner_user_id)?.full_name ?? null } : null,
     effective_member_count: space.share_scope === "account" ? candidates.length : space.shares.length + 1, explicit_shares: space.shares, public_link_count: 1, can_manage_access: writable, can_create_public_links: false });
   if (match[2] === "public-links" && method === "GET") return json([{ id: 1, storage_space_id: space.id, storage_space_name: space.name, object_name: "README.txt", url: "#demo-example-only", expires_at: null, status: "Example" }]);
   if (match[2] === "shares") {

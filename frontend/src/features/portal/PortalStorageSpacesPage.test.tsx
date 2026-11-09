@@ -161,7 +161,6 @@ describe("PortalStorageSpacesPage", () => {
           user_id: 12,
           email: "viewer@example.com",
           display_name: null,
-          portal_role: "portal_user",
           access_source: "direct",
           already_shared: false,
         },
