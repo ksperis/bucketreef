@@ -38,7 +38,7 @@ export function adminAccountForm(account: S3Account) {
   return {
     tags: normalizeUiTags(account.tags),
     quota_max_size_gb: quota.value,
-    quota_max_size_unit: quota.unit as string,
+    quota_max_size_unit: quota.unit,
     quota_max_objects: account.quota_max_objects == null ? "" : String(account.quota_max_objects),
     allow_bucket_quota_management: account.allow_bucket_quota_management,
     allow_access_key_metadata: account.allow_access_key_metadata,

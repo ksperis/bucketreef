@@ -3,9 +3,13 @@
  * Licensed under the Apache License, Version 2.0
  */
 
+export const ADMIN_QUOTA_UNITS = ["MiB", "GiB", "TiB"] as const;
+
+export type AdminQuotaUnit = (typeof ADMIN_QUOTA_UNITS)[number];
+
 type AdminQuotaSizeEditorValue = {
   value: string;
-  unit: "MiB" | "GiB";
+  unit: AdminQuotaUnit;
 };
 
 export function buildAdminQuotaSizeEditorValue(

@@ -1,5 +1,6 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
+import type { AdminQuotaUnit } from "./adminQuotaForm";
 
 export type AdminRgwCreateForm = {
   name: string;
@@ -7,7 +8,7 @@ export type AdminRgwCreateForm = {
   email: string;
   tags: UiTagDefinition[];
   quota_max_size_gb: string;
-  quota_max_size_unit: string;
+  quota_max_size_unit: AdminQuotaUnit;
   quota_max_objects: string;
   storage_endpoint_id: string;
 };
