@@ -223,7 +223,7 @@ def test_settings_only_trigger_initial_check_on_effective_activation(
     saved.general.endpoint_status_enabled = after
     monkeypatch.setattr(admin_settings, "load_app_settings_for_db", lambda db: current)
     monkeypatch.setattr(admin_settings, "save_app_settings_for_db", lambda _db, payload: saved)
-    monkeypatch.setattr(admin_settings, "get_portal_service", lambda db: SimpleNamespace(
+    monkeypatch.setattr(admin_settings, "PortalService", lambda db: SimpleNamespace(
         reconcile_all_portal_server_access_logging=lambda settings: {},
     ))
     runs = []
@@ -244,7 +244,7 @@ def test_settings_skip_portal_logging_reconcile_when_toggle_is_unchanged(
     requested.general.project_feature_policies.bucket_usage_stats = "disabled"
     monkeypatch.setattr(admin_settings, "load_app_settings_for_db", lambda db: current)
     monkeypatch.setattr(admin_settings, "save_app_settings_for_db", lambda _db, payload: requested)
-    monkeypatch.setattr(admin_settings, "get_portal_service", _forbid_call)
+    monkeypatch.setattr(admin_settings, "PortalService", _forbid_call)
 
     response = client.put("/api/admin/settings", json=requested.model_dump(mode="json"))
 
@@ -263,7 +263,7 @@ def test_settings_reconcile_portal_logging_when_toggle_changes(
     monkeypatch.setattr(admin_settings, "save_app_settings_for_db", lambda _db, payload: requested)
     monkeypatch.setattr(
         admin_settings,
-        "get_portal_service",
+        "PortalService",
         lambda db: SimpleNamespace(
             reconcile_all_portal_server_access_logging=lambda settings: calls.append(
                 settings.feature_policies.server_access_logging
@@ -290,7 +290,7 @@ def test_settings_portal_logging_reconcile_maps_endpoint_failure_to_service_unav
     monkeypatch.setattr(admin_settings, "load_app_settings_for_db", lambda db: current)
     monkeypatch.setattr(
         admin_settings,
-        "get_portal_service",
+        "PortalService",
         lambda db: SimpleNamespace(
             reconcile_all_portal_server_access_logging=Mock(side_effect=failure),
         ),
@@ -316,7 +316,7 @@ def test_settings_portal_logging_reconcile_propagates_unexpected_runtime_error(
     monkeypatch.setattr(admin_settings, "load_app_settings_for_db", lambda db: current)
     monkeypatch.setattr(
         admin_settings,
-        "get_portal_service",
+        "PortalService",
         lambda db: SimpleNamespace(
             reconcile_all_portal_server_access_logging=Mock(side_effect=failure),
         ),
@@ -336,7 +336,7 @@ def test_environment_lock_prevents_initial_check_on_requested_activation(
     requested.general.endpoint_status_enabled = True
     monkeypatch.setattr(admin_settings, "load_app_settings_for_db", lambda db: locked)
     monkeypatch.setattr(admin_settings, "save_app_settings_for_db", lambda _db, payload: locked)
-    monkeypatch.setattr(admin_settings, "get_portal_service", lambda db: SimpleNamespace(
+    monkeypatch.setattr(admin_settings, "PortalService", lambda db: SimpleNamespace(
         reconcile_all_portal_server_access_logging=lambda settings: {},
     ))
     monkeypatch.setattr(admin_settings, "run_initial_healthchecks", _forbid_call)

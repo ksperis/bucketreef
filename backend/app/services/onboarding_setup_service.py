@@ -23,7 +23,7 @@ from app.services.onboarding_contracts import (
     required_onboarding_feature_fields,
 )
 from app.services.portal_access_service import resolve_portal_account_access
-from app.services.portal_service import get_portal_service
+from app.services.portal_service import PortalService
 from app.services.rgw_iam import get_iam_client
 from app.services.s3_account_provisioning_service import S3AccountProvisioningService
 from app.services.s3_connections_service import S3ConnectionsService
@@ -66,7 +66,7 @@ class OnboardingSetupService:
             self._assign_account_access(actor, row, draft, account)
             if draft.portal:
                 access = resolve_portal_account_access(self.db, actor, account.id)
-                get_portal_service(self.db).get_portal_credentials(
+                PortalService(self.db).get_portal_credentials(
                     actor, account, access.portal_role
                 )
 

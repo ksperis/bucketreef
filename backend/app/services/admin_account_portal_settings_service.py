@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.db import S3Account
 from app.models.app_settings import PortalSettingsAdminUpdate, PortalSettingsOverride
 from app.models.portal_settings import PortalAccountSettings
-from app.services.portal_service import PortalService, get_portal_service
+from app.services.portal_service import PortalService
 from app.services.s3_account_repository import S3AccountRepository
 
 
@@ -26,7 +26,7 @@ class AdminAccountPortalSettingsService:
     def __init__(self, db: Session, portal: PortalService | None = None) -> None:
         self.db = db
         self.accounts = S3AccountRepository(db)
-        self.portal = portal if portal is not None else get_portal_service(db)
+        self.portal = portal if portal is not None else PortalService(db)
 
     def get(self, account_id: int) -> PortalAccountSettings:
         return self.portal.get_portal_account_settings(self.accounts.get(account_id))
