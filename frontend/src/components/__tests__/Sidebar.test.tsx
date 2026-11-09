@@ -2,7 +2,8 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import Sidebar, { resolveSidebarLinkIconName } from "../Sidebar";
+import Sidebar from "../Sidebar";
+import { resolveSidebarLinkIconName } from "../sidebarIcons";
 import { SIDEBAR_DEFAULT_WIDTH } from "../sidebarSizing";
 
 describe("Sidebar", () => {
