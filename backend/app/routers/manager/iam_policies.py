@@ -24,18 +24,6 @@ from app.utils.http_errors import (
 router = APIRouter(prefix="/manager/iam/policies", tags=["manager-iam-policies"])
 
 
-@router.get("", response_model=list[Policy])
-def list_policies(
-    context: S3ExecutionContext = Depends(get_s3_execution_context),
-    _: ManagerActor = Depends(require_iam_capable_manager),
-) -> list[Policy]:
-    service = get_iam_service_for_context(context)
-    try:
-        return service.list_policies()
-    except RGWIAMError as exc:
-        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
-
-
 @router.get("/page", response_model=IAMPolicyPage)
 def list_policies_page(
     query: Annotated[IAMPageRequest, Depends()],

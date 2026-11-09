@@ -59,7 +59,10 @@ def test_iam_policy_and_user_flow(
     assert created_user["name"] == iam_user
     created_key = (created_user.get("access_key") or {}).get("access_key_id")
 
-    users = manager_session.get("/manager/iam/users", params={"context_id": account_id})
+    users = manager_session.get(
+        "/manager/iam/users/page",
+        params={"context_id": account_id, "search": iam_user},
+    )["items"]
     assert any(entry["name"] == iam_user for entry in users)
 
     policy_document = {

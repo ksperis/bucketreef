@@ -77,22 +77,6 @@ def _ensure_unmanaged_user(db: Session, context: S3ExecutionContext, user_name: 
     ensure_unmanaged_iam_user(db, context, user_name)
 
 
-@router.get("", response_model=list[IAMUser])
-def list_users(
-    context: S3ExecutionContext = Depends(get_s3_execution_context),
-    db: Session = Depends(get_db),
-    _: ManagerActor = Depends(require_iam_capable_manager),
-) -> list[IAMUser]:
-    service = get_iam_service_for_context(context)
-    try:
-        users = service.list_users()
-        for item in users:
-            _annotate_managed_user(db, context, item)
-        return users
-    except RGWIAMError as exc:
-        raise_bad_gateway_from_runtime(exc)
-
-
 @router.get("/page", response_model=IAMUserPage)
 def list_users_page(
     query: Annotated[IAMDetailedPageRequest, Depends()],
