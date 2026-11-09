@@ -52,26 +52,20 @@ import { useSettingsBaseline } from "../../components/settings/useSettingsDraft"
 import { classifyApiError, extractApiError } from "../../utils/apiError";
 import { type TextMatchMode } from "../../utils/textMatch";
 import { isAdminLikeRole, readStoredUser } from "../../utils/workspaces";
-import { buildUiTagItems, normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
+import { buildUiTagItems } from "../../utils/uiTags";
 import { buildAccessAuditHref } from "./accessAuditLink";
-import { buildCreateAccountDraft, buildImportAccountDraft } from "./adminAccountForm";
+import {
+  adminAccountCreatePayload,
+  buildCreateAccountDraft,
+  buildImportAccountDraft,
+  emptyAdminAccountCreateForm,
+} from "./adminAccountForm";
 import { useAdminI18n } from "./adminI18n";
 import useAdminEndpointAdminOpsPermissions from "./useAdminEndpointAdminOpsPermissions";
 import useAdminPaginatedListState from "./useAdminPaginatedListState";
 import useAdminPaginatedListController from "./useAdminPaginatedListController";
 
 type SortField = "name" | "rgw_account_id";
-
-const createEmptyAccountForm = (storageEndpointId = "") => ({
-  name: "",
-  rgw_tenant: "",
-  email: "",
-  tags: [] as UiTagDefinition[],
-  quota_max_size_gb: "",
-  quota_max_size_unit: "GiB",
-  quota_max_objects: "",
-  storage_endpoint_id: storageEndpointId,
-});
 
 export default function S3AccountsPage() {
   const { text: adminText } = useAdminI18n();
@@ -103,7 +97,7 @@ export default function S3AccountsPage() {
     initialSort: { field: "name", direction: "asc" },
   });
   const [quickFilterMode, setQuickFilterMode] = useState<TextMatchMode>("contains");
-  const [form, setForm] = useState(createEmptyAccountForm);
+  const [form, setForm] = useState(emptyAdminAccountCreateForm);
   const {
     items: storageEndpoints,
     loading: loadingEndpoints,
@@ -383,20 +377,11 @@ export default function S3AccountsPage() {
     setActionError(null);
     setActionMessage(null);
     try {
-      await createS3Account({
-        name: form.name.trim(),
-        rgw_tenant: managedTenantCreationEnabled ? form.rgw_tenant.trim() : "",
-        email: form.email.trim() || undefined,
-        tags: normalizeUiTags(form.tags),
-        quota_max_size_gb: form.quota_max_size_gb ? Number(form.quota_max_size_gb) : undefined,
-        quota_max_size_unit: form.quota_max_size_gb ? form.quota_max_size_unit : undefined,
-        quota_max_objects: form.quota_max_objects ? Number(form.quota_max_objects) : undefined,
-        storage_endpoint_id: Number(form.storage_endpoint_id),
-      });
+      await createS3Account(adminAccountCreatePayload(form, managedTenantCreationEnabled));
       setActionMessage(adminText("RGW account created."));
       const defaultCeph =
         accountCephEndpoints.find((ep) => ep.is_default) || accountCephEndpoints[0];
-      setForm(createEmptyAccountForm(defaultCeph ? String(defaultCeph.id) : ""));
+      setForm(emptyAdminAccountCreateForm(defaultCeph ? String(defaultCeph.id) : ""));
       await fetchS3Accounts();
       setShowCreateModal(false);
     } catch (err) {
