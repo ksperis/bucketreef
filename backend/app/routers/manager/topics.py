@@ -15,9 +15,13 @@ from app.utils.http_errors import raise_bad_gateway_from_runtime, raise_bad_requ
 from app.services.audit_service import AuditService
 from app.services.sns_client import SNSOperationError
 from app.routers.resource_name_validation import validate_topic_request
-from app.services.topics_service import TopicsService, get_topics_service
+from app.services.topics_service import TopicsService
 
 router = APIRouter(prefix="/manager/topics", tags=["manager-topics"])
+
+
+def get_topics_service() -> TopicsService:
+    return TopicsService()
 
 
 @router.get("", response_model=list[Topic])
