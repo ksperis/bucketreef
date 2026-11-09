@@ -6,21 +6,18 @@ import { WorkflowSection } from "../../components/WorkflowPage";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
+import { QUOTA_SIZE_UNITS, type QuotaSizeUnit } from "../../utils/quotaUnits";
 import { useAdminI18n } from "./adminI18n";
-import {
-  ADMIN_QUOTA_UNITS,
-  type AdminQuotaUnit,
-} from "./adminQuotaForm";
 
 type AdminQuotaFieldsProps = {
   storageValue: string;
-  storageUnit: AdminQuotaUnit;
+  storageUnit: QuotaSizeUnit;
   objectValue: string;
   disabled: boolean;
   compact?: boolean;
   errors?: Record<string, string | undefined>;
   onStorageValueChange: (value: string) => void;
-  onStorageUnitChange: (value: AdminQuotaUnit) => void;
+  onStorageUnitChange: (value: QuotaSizeUnit) => void;
   onObjectValueChange: (value: string) => void;
 };
 
@@ -62,9 +59,9 @@ export default function AdminQuotaFields({
             aria-label={adminText("Storage quota unit")}
             value={storageUnit}
             disabled={disabled}
-            onChange={(event) => onStorageUnitChange(event.target.value as AdminQuotaUnit)}
+            onChange={(event) => onStorageUnitChange(event.target.value as QuotaSizeUnit)}
           >
-            {ADMIN_QUOTA_UNITS.map((unit) => (
+            {QUOTA_SIZE_UNITS.map((unit) => (
               <option key={unit} value={unit}>{unit}</option>
             ))}
           </UiSelect>

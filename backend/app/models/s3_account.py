@@ -8,6 +8,7 @@ from app.models.account_access import AccountAccessGrant
 from app.models.admin_listing import AdminManagedEntityListingRequest
 from app.models.base import ApiModel, reject_explicit_null_fields
 from app.models.pagination import PaginatedResponse
+from app.models.quota import QuotaSizeUnit
 from app.models.tagging import (
     OptionalTagDefinitionList,
     RequiredTagDefinitionList,
@@ -96,7 +97,7 @@ class S3AccountCreate(ApiModel):
     rgw_tenant: str
     email: Optional[str] = None
     quota_max_size_gb: Optional[float] = None
-    quota_max_size_unit: Optional[str] = None
+    quota_max_size_unit: Optional[QuotaSizeUnit] = None
     quota_max_objects: Optional[int] = None
     storage_endpoint_id: int
     tags: RequiredTagDefinitionList = Field(default_factory=list)
@@ -139,7 +140,7 @@ class S3AccountImport(ApiModel):
 
 class S3AccountUpdate(ApiModel):
     quota_max_size_gb: Optional[float] = None
-    quota_max_size_unit: Optional[str] = None
+    quota_max_size_unit: Optional[QuotaSizeUnit] = None
     quota_max_objects: Optional[int] = None
     user_links: Optional[list[AccountUserLinkInput]] = None
     group_links: Optional[list[AccountGroupLinkInput]] = None

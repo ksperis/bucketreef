@@ -10,6 +10,7 @@ import type { TagDefinitionInput, TagDefinitionSummary } from "./tags";
 import type { UiGroupAvatarDescriptor } from "./groups";
 import type { UserAvatarDescriptor } from "./users";
 import type { AccountAccessGrant } from "./accountAccess";
+import type { QuotaSizeUnit } from "../utils/quotaUnits";
 
 export type AccountUserLink = AccountAccessGrant & {
   user_id: number;
@@ -127,7 +128,7 @@ type CreateS3AccountPayload = {
   rgw_tenant: string;
   email?: string | null;
   quota_max_size_gb?: number | null;
-  quota_max_size_unit?: string | null;
+  quota_max_size_unit?: QuotaSizeUnit | null;
   quota_max_objects?: number | null;
   storage_endpoint_id: number;
   tags?: TagDefinitionInput[];
@@ -140,7 +141,7 @@ export async function createS3Account(payload: CreateS3AccountPayload): Promise<
 
 type UpdateS3AccountPayload = {
   quota_max_size_gb?: number | null;
-  quota_max_size_unit?: string | null;
+  quota_max_size_unit?: QuotaSizeUnit | null;
   quota_max_objects?: number | null;
   user_links?: AccountUserLinkInput[];
   group_links?: AccountGroupLinkInput[];

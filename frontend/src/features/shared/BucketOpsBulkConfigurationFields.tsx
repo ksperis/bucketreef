@@ -21,8 +21,8 @@ import {
 } from "./bucketConfigMerge";
 import {
   PUBLIC_ACCESS_BLOCK_OPTIONS,
-  type QuotaSizeUnit,
 } from "./bucketBulkOperationsModel";
+import type { QuotaSizeUnit } from "../../utils/quotaUnits";
 import type { useBucketOpsBulkForm } from "./useBucketOpsBulkForm";
 import { useSharedI18n } from "./sharedI18n";
 

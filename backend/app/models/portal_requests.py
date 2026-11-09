@@ -18,6 +18,7 @@ from pydantic import (
 from app.models.admin_listing import AdminPaginatedListingRequest
 from app.models.base import ApiModel
 from app.models.pagination import PaginatedResponse
+from app.models.quota import QuotaSizeUnit
 
 
 PortalAdminRequestType = Literal[
@@ -28,7 +29,6 @@ PortalAdminRequestType = Literal[
 ]
 PortalAdminRequestStatus = Literal["pending", "processing", "approved", "rejected", "failed"]
 PortalQuotaDirection = Literal["increase", "decrease"]
-PortalQuotaUnit = Literal["MiB", "GiB", "TiB"]
 PortalSettingChangeMode = Literal["inherit", "override"]
 PortalSettingKey = Literal[
     "browser_access_enabled",
@@ -121,7 +121,7 @@ class PortalAccountQuotaChangeRequestCreate(ApiModel):
     request_type: Literal["account_quota_change"]
     direction: PortalQuotaDirection
     target_quota_value: float = Field(gt=0)
-    target_quota_unit: PortalQuotaUnit
+    target_quota_unit: QuotaSizeUnit
     reason: Optional[str] = Field(default=None, max_length=2000)
 
     _normalize_reason = field_validator("reason")(_normalize_optional_request_text)

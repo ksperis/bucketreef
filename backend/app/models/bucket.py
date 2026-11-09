@@ -7,6 +7,7 @@ from pydantic import field_validator, model_validator
 
 from app.models.base import ApiModel
 from app.models.pagination import PaginatedResponse
+from app.models.quota import QuotaSizeUnit
 from app.utils.normalize import normalize_optional_scalar
 
 
@@ -159,7 +160,7 @@ class BucketAclUpdate(ApiModel):
 class BucketQuotaUpdate(ApiModel):
     enabled: bool
     max_size_gb: Optional[float] = None
-    max_size_unit: Optional[str] = None
+    max_size_unit: Optional[QuotaSizeUnit] = None
     max_objects: Optional[int] = None
 
     @model_validator(mode="after")

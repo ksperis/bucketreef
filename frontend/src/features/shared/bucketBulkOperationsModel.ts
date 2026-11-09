@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { QUOTA_SIZE_UNIT_BYTES, type QuotaSizeUnit } from "../../utils/quotaUnits";
 import type { CephAdminBucketConfigBackupFeature } from "../../api/cephAdminBuckets";
 import type {
   BucketLoggingConfiguration,
@@ -103,8 +104,6 @@ export type BulkPastePlan = {
   error: string | null;
 };
 
-export type QuotaSizeUnit = "MiB" | "GiB" | "TiB";
-
 export type ParsedQuotaInput = {
   applySize: boolean;
   applyObjects: boolean;
@@ -112,12 +111,6 @@ export type ParsedQuotaInput = {
   maxSizeUnit: QuotaSizeUnit;
   maxSizeBytes: number | null;
   maxObjects: number | null;
-};
-
-const QUOTA_UNIT_TO_BYTES: Record<QuotaSizeUnit, number> = {
-  MiB: 1024 ** 2,
-  GiB: 1024 ** 3,
-  TiB: 1024 ** 4,
 };
 
 export const normalizeQuotaLimit = (value?: number | null) => {
@@ -153,7 +146,7 @@ export const parseQuotaInput = (
       return { error: "Quota size must be a positive number or zero." };
     }
     maxSizeValue = parsed;
-    maxSizeBytes = Math.floor(parsed * QUOTA_UNIT_TO_BYTES[maxSizeUnit]);
+    maxSizeBytes = Math.floor(parsed * QUOTA_SIZE_UNIT_BYTES[maxSizeUnit]);
   }
 
   let maxObjects: number | null = null;
