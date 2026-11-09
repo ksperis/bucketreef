@@ -1,5 +1,6 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import type {
+  createS3User,
   S3User,
   S3UserGroupLinkInput,
   S3UserUserLinkInput,
@@ -7,6 +8,39 @@ import type {
 } from "../../api/s3Users";
 import { canonicalizeUiTags, normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
 import { buildAdminQuotaSizeEditorValue } from "./adminQuotaForm";
+
+export function emptyAdminS3UserCreateForm(storageEndpointId = "") {
+  return {
+    name: "",
+    uid: "",
+    rgw_tenant: "",
+    email: "",
+    tags: [] as UiTagDefinition[],
+    quota_max_size_gb: "",
+    quota_max_size_unit: "GiB",
+    quota_max_objects: "",
+    storage_endpoint_id: storageEndpointId,
+  };
+}
+
+type AdminS3UserCreateForm = ReturnType<typeof emptyAdminS3UserCreateForm>;
+
+export function adminS3UserCreatePayload(
+  form: AdminS3UserCreateForm,
+  managedTenantCreationEnabled: boolean,
+): Parameters<typeof createS3User>[0] {
+  return {
+    name: form.name.trim(),
+    uid: form.uid.trim() || undefined,
+    rgw_tenant: managedTenantCreationEnabled ? form.rgw_tenant.trim() : "",
+    email: form.email.trim() || undefined,
+    tags: normalizeUiTags(form.tags),
+    quota_max_size_gb: form.quota_max_size_gb ? Number(form.quota_max_size_gb) : undefined,
+    quota_max_size_unit: form.quota_max_size_gb ? form.quota_max_size_unit : undefined,
+    quota_max_objects: form.quota_max_objects ? Number(form.quota_max_objects) : undefined,
+    storage_endpoint_id: Number(form.storage_endpoint_id),
+  };
+}
 
 export function emptyAdminS3UserForm() {
   return {

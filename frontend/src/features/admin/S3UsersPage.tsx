@@ -49,7 +49,6 @@ import useLazyListLoader from "../../hooks/useLazyListLoader";
 import { extractApiError } from "../../utils/apiError";
 import { formatBytes, formatCompactNumber } from "../../utils/format";
 import { type TextMatchMode } from "../../utils/textMatch";
-import { normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
 import { isAdminLikeRole, readStoredUser } from "../../utils/workspaces";
 import { adminAssociationPanelClass } from "./AdminAssociationPicker";
 import AdminRgwUserAccessAssociationsPanel, {
@@ -67,11 +66,13 @@ import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
 import useAdminEndpointAdminOpsPermissions from "./useAdminEndpointAdminOpsPermissions";
 import useAdminPrincipalCatalogs from "./useAdminPrincipalCatalogs";
 import {
+  adminS3UserCreatePayload,
   adminS3UserForm,
   adminS3UserPayload,
   buildCreateS3UserDraft,
   buildEditS3UserDraft,
   buildImportS3UserDraft,
+  emptyAdminS3UserCreateForm,
   emptyAdminS3UserForm,
 } from "./adminS3UserForm";
 import {
@@ -128,17 +129,7 @@ export default function S3UsersPage() {
   } = useAdminEndpointAdminOpsPermissions({ formatError: formatEndpointPermissionError });
 
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [createForm, setCreateForm] = useState({
-    name: "",
-    uid: "",
-    rgw_tenant: "",
-    email: "",
-    tags: [] as UiTagDefinition[],
-    quota_max_size_gb: "",
-    quota_max_size_unit: "GiB",
-    quota_max_objects: "",
-    storage_endpoint_id: "",
-  });
+  const [createForm, setCreateForm] = useState(emptyAdminS3UserCreateForm);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -496,17 +487,7 @@ export default function S3UsersPage() {
     setCreating(true);
     setCreateError(null);
     try {
-      await createS3User({
-        name: createForm.name.trim(),
-        uid: createForm.uid.trim() || undefined,
-        rgw_tenant: managedTenantCreationEnabled ? createForm.rgw_tenant.trim() : "",
-        email: createForm.email.trim() || undefined,
-        tags: normalizeUiTags(createForm.tags),
-        quota_max_size_gb: createForm.quota_max_size_gb ? Number(createForm.quota_max_size_gb) : undefined,
-        quota_max_size_unit: createForm.quota_max_size_gb ? createForm.quota_max_size_unit : undefined,
-        quota_max_objects: createForm.quota_max_objects ? Number(createForm.quota_max_objects) : undefined,
-        storage_endpoint_id: Number(createForm.storage_endpoint_id),
-      });
+      await createS3User(adminS3UserCreatePayload(createForm, managedTenantCreationEnabled));
       setShowCreateModal(false);
       setCreateForm((prev) => ({
         ...prev,
