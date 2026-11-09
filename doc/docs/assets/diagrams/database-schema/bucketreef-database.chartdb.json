@@ -23733,6 +23733,11 @@
           "createdAt": 0
         },
         {
+          "id": "check:portal_storage_space_metadata:ck_portal_storage_space_metadata_origin",
+          "expression": "origin IN ('portal_generic', 'portal_named', 'imported')",
+          "createdAt": 0
+        },
+        {
           "id": "check:portal_storage_space_metadata:ck_portal_storage_space_metadata_private_owner",
           "expression": "(visibility = 'private' AND owner_user_id IS NOT NULL) OR (visibility = 'shared' AND owner_user_id IS NULL)",
           "createdAt": 0

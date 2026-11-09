@@ -23,6 +23,10 @@ class PortalStorageSpaceMetadata(Base):
             name="ck_portal_storage_space_metadata_canonical_sharing",
         ),
         CheckConstraint(
+            "origin IN ('portal_generic', 'portal_named', 'imported')",
+            name="ck_portal_storage_space_metadata_origin",
+        ),
+        CheckConstraint(
             "icon_source IN ('preset', 'uploaded')",
             name="ck_portal_storage_space_metadata_icon_source",
         ),
