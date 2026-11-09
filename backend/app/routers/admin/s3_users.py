@@ -53,12 +53,6 @@ def get_admin_s3_user_key_service(
     return S3UserKeyManagementService(db)
 
 
-def get_admin_s3_user_update_service(
-    db: Session = Depends(get_db),
-) -> S3UserUpdateService:
-    return S3UserUpdateService(db)
-
-
 @router.get("", response_model=PaginatedS3UsersResponse)
 def list_s3_users(
     query: Annotated[S3UserListingRequest, Query()],
@@ -130,10 +124,11 @@ def import_s3_users(
 def update_s3_user(
     user_id: int,
     payload: S3UserUpdate,
-    service: S3UserUpdateService = Depends(get_admin_s3_user_update_service),
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> S3User:
+    service = S3UserUpdateService(db)
     try:
         updated = service.update_user(user_id, payload)
         audit_service.record_action(
