@@ -1025,6 +1025,8 @@ export default function BrowserPage({
       activeBucketName: bucketName,
       bucketFilter,
       loadingBuckets,
+      bucketRefreshEnabled:
+        hasExecutionContext && selectionReady && !contextSwitchInFlight,
       bucketError,
       bucketManagementEnabled,
       canLoadMore: canLoadMoreBucketResults,
@@ -1035,7 +1037,7 @@ export default function BrowserPage({
       usageLoading: usageSummaryLoading,
       usageError: usageSummaryError,
       onBucketFilterChange: setBucketFilter,
-      onRetryBuckets: refreshBucketList,
+      onRetryBuckets: () => void refreshBucketList({ forceRefresh: true }),
       onCreateBucket: openCreateBucketDialog,
       onSelectBucket: handleBucketChange,
       onLoadMore: handleBucketMenuLoadMore,

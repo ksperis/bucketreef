@@ -22,6 +22,7 @@ export async function searchBrowserBuckets(
     exact?: boolean;
     page?: number;
     pageSize?: number;
+    forceRefresh?: boolean;
   } & BrowserRequestOptions,
 ): Promise<PaginatedBrowserBucketsResponse> {
   const params = withS3ContextParam(
@@ -30,6 +31,7 @@ export async function searchBrowserBuckets(
       exact: options?.exact ? true : undefined,
       page: options?.page ?? undefined,
       page_size: options?.pageSize ?? undefined,
+      force_refresh: options?.forceRefresh ? true : undefined,
     },
     contextId,
   );

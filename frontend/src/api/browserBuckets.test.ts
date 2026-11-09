@@ -33,6 +33,7 @@ describe("browser bucket api", () => {
       exact: true,
       page: 2,
       pageSize: 25,
+      forceRefresh: true,
       workspaceSurface: "browser",
     });
 
@@ -43,6 +44,7 @@ describe("browser bucket api", () => {
         exact: true,
         page: 2,
         page_size: 25,
+        force_refresh: true,
       },
       headers: {},
     });

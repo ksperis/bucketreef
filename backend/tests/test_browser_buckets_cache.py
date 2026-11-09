@@ -112,6 +112,38 @@ def test_bucket_cache_invalidated_after_bucket_mutation(monkeypatch):
     assert len(calls) == 2
 
 
+def test_bucket_search_force_refresh_invalidates_cached_listing(monkeypatch):
+    _reset_browser_caches()
+    calls = 0
+
+    class FakeClient:
+        def list_buckets(self):  # noqa: ANN001
+            nonlocal calls
+            calls += 1
+            return {"Buckets": [{"Name": f"bucket-{calls}"}]}
+
+    service = browser_service.BrowserService()
+    monkeypatch.setattr(service, "_client", lambda _account: FakeClient())
+
+    first = service.search_buckets(
+        _account(),
+        BrowserBucketSearchRequest(page=1, page_size=10),
+    )
+    cached = service.search_buckets(
+        _account(),
+        BrowserBucketSearchRequest(page=1, page_size=10),
+    )
+    refreshed = service.search_buckets(
+        _account(),
+        BrowserBucketSearchRequest(page=1, page_size=10, force_refresh=True),
+    )
+
+    assert [bucket.name for bucket in first.items] == ["bucket-1"]
+    assert [bucket.name for bucket in cached.items] == ["bucket-1"]
+    assert [bucket.name for bucket in refreshed.items] == ["bucket-2"]
+    assert calls == 2
+
+
 @pytest.mark.parametrize(
     "changes",
     [

@@ -178,7 +178,10 @@ export function useBrowserBucketCatalog({
   ]);
 
   const refreshBucketList = useCallback(
-    async (options?: { preferredBucket?: string | null }) => {
+    async (options?: {
+      preferredBucket?: string | null;
+      forceRefresh?: boolean;
+    }) => {
       const requestContextKey = enabled ? accessContextKey : null;
       if (activeContextKeyRef.current !== requestContextKey) return;
       const requestId = requestIdRef.current + 1;
@@ -233,6 +236,7 @@ export function useBrowserBucketCatalog({
         const firstPage = await searchBrowserBuckets(contextId, {
           page: 1,
           pageSize: BUCKET_MENU_LIMIT,
+          forceRefresh: options?.forceRefresh,
           ...stableRequestOptions,
         });
         if (!requestIsCurrent(requestId, requestContextKey)) return;
