@@ -234,7 +234,3 @@ class BucketComparisonService(LongRunningS3ClientMixin):
             target_context,
             include_sections=include_sections,
         )
-
-
-def get_bucket_comparison_service() -> BucketComparisonService:
-    return BucketComparisonService()
