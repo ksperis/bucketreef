@@ -54,6 +54,10 @@ role, access-source, and avatar projections are removed.
 Share-candidate responses now omit the constant Portal role and unused avatar.
 The candidate routes already return only Portal users, so the frontend derives
 that fixed role while retaining the dynamic access source and invitation state.
+Storage Space share creation requests now require the candidate `user_id` and
+role. The legacy email selector has been removed because the bundled frontend
+creates shares from the candidate catalogue, which already provides the
+canonical user identifier.
 Public-link responses now expose only the link identifier, Storage Space
 identity, object display name, URL, expiration, and computed status. Exact
 `object_key`, label, creator email, creation timestamp, and revocation timestamp

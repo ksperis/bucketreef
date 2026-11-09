@@ -113,8 +113,7 @@ class PortalCollaboratorsResponse(ApiModel):
 
 
 class PortalStorageSpaceSharePayload(ApiModel):
-    email: Optional[str] = None
-    user_id: Optional[int] = None
+    user_id: int
     role: PortalStorageSpaceGrantRole
 
 

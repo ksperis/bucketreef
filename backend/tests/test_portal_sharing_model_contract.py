@@ -15,6 +15,7 @@ from app.models.portal_sharing import (
     PortalStorageSpaceOwner,
     PortalStorageSpaceShare,
     PortalStorageSpaceShareCandidate,
+    PortalStorageSpaceSharePayload,
 )
 
 
@@ -42,6 +43,11 @@ def test_portal_sharing_routes_preserve_their_openapi_contracts() -> None:
     }
     assert create_link["responses"]["201"]["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/PortalPublicLink"
+    }
+
+    create_share = paths["/api/portal/storage-spaces/{space_id}/shares"]["post"]
+    assert create_share["requestBody"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/PortalStorageSpaceSharePayload"
     }
 
     for path in (
@@ -80,6 +86,13 @@ def test_portal_share_candidate_request_preserves_listing_bounds() -> None:
         "type": "integer",
     }
     assert schema["search"]["anyOf"][0] == {"maxLength": 200, "type": "string"}
+
+
+def test_portal_share_creation_requires_canonical_user_id() -> None:
+    schema = PortalStorageSpaceSharePayload.model_json_schema()
+
+    assert set(schema["properties"]) == {"user_id", "role"}
+    assert set(schema["required"]) == {"user_id", "role"}
 
 
 def test_portal_sharing_responses_require_complete_canonical_payloads() -> None:

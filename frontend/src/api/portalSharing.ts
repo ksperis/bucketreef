@@ -96,8 +96,7 @@ export async function grantPortalStorageSpaceShare(
   accountId: S3AccountSelector,
   spaceId: string,
   payload: {
-    email?: string;
-    user_id?: number;
+    user_id: number;
     role: PortalStorageSpaceGrantRole;
   },
 ): Promise<PortalStorageSpaceShare> {

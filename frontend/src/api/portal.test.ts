@@ -264,7 +264,7 @@ describe("portal storage spaces api", () => {
 
     await listPortalShareCandidates(101);
     await listPortalStorageSpaceShareCandidates(101, "research data");
-    await grantPortalStorageSpaceShare(101, "research data", { email: "viewer@example.com", role: "Viewer" });
+    await grantPortalStorageSpaceShare(101, "research data", { user_id: 12, role: "Viewer" });
     await updatePortalStorageSpaceShare(101, "research data", 12, "Editor");
     await revokePortalStorageSpaceShare(101, "research data", 12);
 
@@ -276,7 +276,7 @@ describe("portal storage spaces api", () => {
     });
     expect(clientMock.post).toHaveBeenCalledWith(
       "/portal/storage-spaces/research%20data/shares",
-      { email: "viewer@example.com", role: "Viewer" },
+      { user_id: 12, role: "Viewer" },
       { params: { account_id: 101 } }
     );
     expect(clientMock.put).toHaveBeenCalledWith(

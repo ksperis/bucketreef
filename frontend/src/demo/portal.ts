@@ -318,7 +318,7 @@ export function portal(c: DemoRequest): Response | undefined {
   if (match[2] === "public-links" && method === "GET") return json([{ id: 1, storage_space_id: space.id, storage_space_name: space.name, object_name: "README.txt", url: "#demo-example-only", expires_at: null, status: "Example" }]);
   if (match[2] === "shares") {
     if (method === "GET") return json(space.shares);
-    const target = required(candidates.find(u => u.user_id === Number(match[3] ?? body.user_id) || u.email === body.email));
+    const target = required(candidates.find(u => u.user_id === Number(match[3] ?? body.user_id)));
     if (method === "DELETE") { space.shares = space.shares.filter(s => s.user_id !== target.user_id); return json(space.shares); }
     if (method === "POST" || method === "PUT") {
       if (body.role !== "Viewer" && body.role !== "Editor") throw new DemoError(422, "Choose Viewer or Editor");
