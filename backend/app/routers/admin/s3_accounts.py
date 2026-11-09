@@ -31,6 +31,7 @@ from app.services.admin_account_portal_settings_service import AdminAccountPorta
 from app.services.audit_service import AuditService
 from app.services.rgw_admin import RGWAdminError
 from app.services.tags_service import serialize_tag_summaries
+from app.core.domain_errors import CompensationFailureError
 from app.utils.http_errors import raise_http_error_from_value_error, raise_http_exception_from_exception
 
 router = APIRouter(prefix="/admin/accounts", tags=["admin-accounts"])
@@ -230,3 +231,5 @@ def delete_account(
         )
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
+    except CompensationFailureError as exc:
+        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)

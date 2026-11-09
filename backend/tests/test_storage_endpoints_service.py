@@ -1371,6 +1371,9 @@ def test_sync_env_endpoints_updates_in_place_and_uses_first_default(db_session, 
                     "name": "env-a",
                     "endpoint_url": "https://env-a.example.test/",
                     "provider": "ceph",
+                    "realm_id": "realm-a",
+                    "zonegroup_id": "zonegroup-a",
+                    "zone_id": "zone-a",
                     "service_identity_mode": "managed",
                     "force_path_style": True,
                     "verify_tls": False,
@@ -1394,6 +1397,9 @@ def test_sync_env_endpoints_updates_in_place_and_uses_first_default(db_session, 
     updated = db_session.get(StorageEndpoint, existing_id)
     assert updated is not None
     assert updated.name == "env-a"
+    assert updated.realm_id == "realm-a"
+    assert updated.zonegroup_id == "zonegroup-a"
+    assert updated.zone_id == "zone-a"
     assert updated.force_path_style is True
     assert updated.verify_tls is False
     assert updated.is_editable is False

@@ -7,6 +7,7 @@ import sqlalchemy as sa
 
 from app.db import S3Account, UiGroup, UiGroupS3Account, User, UserS3Account
 from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, UserRole
+from app.core.domain_errors import CompensationFailureError
 from app.main import app
 from app.routers.admin import s3_accounts as s3_accounts_router
 from app.services.s3_account_metrics_service import S3AccountMetricsService
@@ -71,6 +72,33 @@ def test_admin_account_missing_resource_is_not_found(client):
     response = client.get("/api/admin/accounts/999999")
 
     assert response.status_code == 404, response.text
+
+
+def test_admin_account_delete_maps_compensation_failure_to_bad_gateway(client):
+    class FakeService:
+        def delete_account(self, account_id, *, delete_rgw=False):
+            raise CompensationFailureError(
+                "Unable to delete S3 account. RGW account state could not be verified after root-user deletion."
+            )
+
+    dependency = s3_accounts_router.get_admin_accounts_service
+    previous_service = app.dependency_overrides.get(dependency)
+    app.dependency_overrides[dependency] = FakeService
+    try:
+        response = client.delete("/api/admin/accounts/7?delete_rgw=true")
+    finally:
+        if previous_service is None:
+            app.dependency_overrides.pop(dependency, None)
+        else:
+            app.dependency_overrides[dependency] = previous_service
+
+    assert response.status_code == 502, response.text
+    assert response.json() == {
+        "detail": (
+            "Unable to delete S3 account. RGW account state could not be verified "
+            "after root-user deletion."
+        )
+    }
 
 
 def test_admin_accounts_sort_by_name_desc_is_case_insensitive(client, db_session):

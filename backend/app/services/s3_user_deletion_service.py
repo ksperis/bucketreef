@@ -6,7 +6,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import S3User, S3UserDeletion, UiGroupS3User, UserS3User
 from app.services.resource_deletion_purge_service import ResourceDeletionPurgeService
@@ -112,10 +112,7 @@ class S3UserDeletionService:
 
         if not deletion.remote_completed:
             self._complete_remote_deletion(s3_user, deletion, admin)
-            deletion.remote_completed = True
-            deletion.updated_at = utcnow()
-            commit_or_rollback(self.db)
-            self.db.refresh(deletion)
+            self._mark_remote_completed(deletion)
 
         self._delete_local_user(s3_user, deletion=deletion)
 
@@ -125,31 +122,57 @@ class S3UserDeletionService:
         )
 
     def _claim_deletion(self, s3_user: S3User, *, mode: str) -> S3UserDeletion:
-        deletion = S3UserDeletion(
-            s3_user_id=s3_user.id,
-            mode=mode,
-            rgw_user_uid=s3_user.rgw_user_uid,
-            rgw_tenant=s3_user.rgw_tenant,
-            access_key_id=(
-                (s3_user.rgw_access_key or "").strip()
-                if mode == _DELETE_ACCESS_KEY
-                else None
-            ),
-            remote_completed=False,
-            created_at=utcnow(),
-            updated_at=utcnow(),
+        s3_user_id = int(s3_user.id)
+        rgw_user_uid = s3_user.rgw_user_uid
+        rgw_tenant = s3_user.rgw_tenant
+        access_key_id = (
+            (s3_user.rgw_access_key or "").strip()
+            if mode == _DELETE_ACCESS_KEY
+            else None
         )
-        self.db.add(deletion)
-        try:
+
+        def claim_once() -> int:
+            deletion = S3UserDeletion(
+                s3_user_id=s3_user_id,
+                mode=mode,
+                rgw_user_uid=rgw_user_uid,
+                rgw_tenant=rgw_tenant,
+                access_key_id=access_key_id,
+                remote_completed=False,
+                created_at=utcnow(),
+                updated_at=utcnow(),
+            )
+            self.db.add(deletion)
             commit_or_rollback(self.db)
+            return int(deletion.id)
+
+        try:
+            deletion_id = run_db_unit_with_sqlite_retry(self.db, claim_once)
         except IntegrityError:
-            existing = self._pending_deletion(s3_user.id)
+            existing = self._pending_deletion(s3_user_id)
             if existing is None:
                 raise
             self._validate_pending_deletion(existing, s3_user, mode=mode)
             return existing
-        self.db.refresh(deletion)
+        deletion = self.db.get(S3UserDeletion, deletion_id)
+        if deletion is None:  # pragma: no cover - defensive consistency check
+            raise RuntimeError("S3 user deletion claim could not be reloaded")
         return deletion
+
+    def _mark_remote_completed(self, deletion: S3UserDeletion) -> None:
+        deletion_id = int(deletion.id)
+        updated_at = utcnow()
+
+        def persist_once() -> None:
+            row = self.db.get(S3UserDeletion, deletion_id)
+            if row is None:  # pragma: no cover - defensive consistency check
+                raise RuntimeError("S3 user deletion checkpoint could not be reloaded")
+            row.remote_completed = True
+            row.updated_at = updated_at
+            commit_or_rollback(self.db)
+
+        run_db_unit_with_sqlite_retry(self.db, persist_once)
+        self.db.refresh(deletion)
 
     @staticmethod
     def _validate_pending_deletion(

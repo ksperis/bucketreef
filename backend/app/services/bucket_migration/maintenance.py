@@ -47,19 +47,28 @@ class BucketMigrationMaintenanceMixin:
         require_action(migration, operation)
         if not confirmed:
             raise ValueError("Review the impacts and confirm this operation")
-        self._transition_command(
-            migration, maintenance_status="queued", maintenance_operation=operation
+        requested_at = utcnow()
+
+        def mutate(current) -> None:
+            current.maintenance_requested_by_user_id = operator_id
+            current.maintenance_error = None
+            current.worker_lease_owner = None
+            current.worker_lease_until = None
+            current.updated_at = requested_at
+            self._add_event(
+                current,
+                level="info",
+                message=f"Recovery operation queued: {operation}.",
+            )
+
+        return self._persist_transition_command(
+            migration,
+            values={
+                "maintenance_status": "queued",
+                "maintenance_operation": operation,
+            },
+            mutate=mutate,
         )
-        migration.maintenance_requested_by_user_id = operator_id
-        migration.maintenance_error = None
-        migration.worker_lease_owner = None
-        migration.worker_lease_until = None
-        migration.updated_at = utcnow()
-        self._add_event(
-            migration, level="info", message=f"Recovery operation queued: {operation}."
-        )
-        self._commit()
-        return migration
 
     def _restore_migration_access(self, migration, source, target) -> list[str]:
         errors: list[str] = []

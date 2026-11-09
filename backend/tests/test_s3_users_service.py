@@ -1131,6 +1131,69 @@ def test_create_user_persists_credentials(db_session, monkeypatch):
     assert record.storage_endpoint_id == endpoint.id
 
 
+@pytest.mark.parametrize("busy_phase", ["flush", "commit"])
+def test_create_user_retries_sqlite_busy_without_replaying_remote_create(
+    db_session,
+    monkeypatch,
+    busy_phase,
+):
+    endpoint = _seed_ceph_endpoint(db_session)
+    fake = FakeRGWAdmin()
+    service = _build_service(db_session, monkeypatch, fake)
+    create_calls = 0
+    quota_calls = 0
+    real_create_user = fake.create_user
+    real_set_user_quota = fake.set_user_quota
+
+    def tracked_create_user(*args, **kwargs):
+        nonlocal create_calls
+        create_calls += 1
+        return real_create_user(*args, **kwargs)
+
+    def tracked_set_user_quota(*args, **kwargs):
+        nonlocal quota_calls
+        quota_calls += 1
+        return real_set_user_quota(*args, **kwargs)
+
+    monkeypatch.setattr(fake, "create_user", tracked_create_user)
+    monkeypatch.setattr(fake, "set_user_quota", tracked_set_user_quota)
+
+    real_db_call = getattr(db_session, busy_phase)
+    failed = False
+
+    def busy_once(*args, **kwargs):
+        nonlocal failed
+        if not failed:
+            failed = True
+            original = sqlite3.OperationalError("database is locked")
+            original.sqlite_errorcode = sqlite3.SQLITE_BUSY
+            raise OperationalError(busy_phase.upper(), (), original)
+        return real_db_call(*args, **kwargs)
+
+    monkeypatch.setattr(db_session, busy_phase, busy_once)
+
+    created = service.create_user(
+        S3UserCreate(
+            name="Busy create",
+            uid=f"busy-create-{busy_phase}",
+            rgw_tenant="",
+            storage_endpoint_id=endpoint.id,
+            quota_max_objects=123,
+        )
+    )
+
+    assert failed is True
+    assert create_calls == 1
+    assert quota_calls == 1
+    assert fake.deleted_users == []
+    assert created.rgw_user_uid == f"busy-create-{busy_phase}"
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(S3User)
+        .where(S3User.rgw_user_uid == f"busy-create-{busy_phase}")
+    ) == 1
+
+
 def test_create_user_commit_failure_compensates_remote_user(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session)
     fake = FakeRGWAdmin()
@@ -1934,6 +1997,45 @@ def test_delete_user_with_delete_rgw_checks_buckets_then_deletes(db_session, mon
 
     assert "remote-user" in fake.deleted_users
     assert db_session.get(S3User, created.id) is None
+
+
+@pytest.mark.parametrize("busy_commit_call", [1, 2])
+def test_delete_remote_user_retries_sqlite_busy_without_replaying_remote_delete(
+    db_session,
+    monkeypatch,
+    busy_commit_call,
+):
+    endpoint = _seed_ceph_endpoint(db_session)
+    fake = FakeRGWAdmin()
+    service = _build_service(db_session, monkeypatch, fake)
+    created = service.create_user(
+        S3UserCreate(
+            name="Busy delete",
+            uid=f"busy-delete-{busy_commit_call}",
+            rgw_tenant="",
+            storage_endpoint_id=endpoint.id,
+        )
+    )
+    monkeypatch.setattr(s3_client, "list_buckets", lambda **_kwargs: [])
+    real_commit = db_session.commit
+    commit_calls = 0
+
+    def busy_once():
+        nonlocal commit_calls
+        commit_calls += 1
+        if commit_calls == busy_commit_call:
+            raise _busy_snapshot_error()
+        return real_commit()
+
+    monkeypatch.setattr(db_session, "commit", busy_once)
+
+    service.delete_user(created.id, delete_rgw=True)
+
+    assert fake.deleted_users == [created.rgw_user_uid]
+    assert db_session.get(S3User, created.id) is None
+    assert db_session.scalar(
+        select(S3UserDeletion).where(S3UserDeletion.s3_user_id == created.id)
+    ) is None
 
 
 @pytest.mark.parametrize(

@@ -1113,6 +1113,46 @@ def _exercise_sqlite_read_to_write_conflict(
     return result
 
 
+def test_create_auth_session_recovers_from_sqlite_read_to_write_busy(
+    db_session,
+    test_engine,
+):
+    user = _user(db_session, email="sqlite-session-create-busy@example.com")
+    user_id = int(user.id)
+
+    def create_session(target_db):
+        target_user = target_db.get(User, user_id)
+        assert target_user is not None
+        return AuthSessionService(target_db).create_for_user(
+            target_user,
+            auth_type="password",
+            ip_address="127.0.0.1",
+            user_agent="pytest",
+            mfa_verified=False,
+        )
+
+    credentials = _exercise_sqlite_read_to_write_conflict(
+        test_engine,
+        statement_prefix="INSERT INTO auth_sessions",
+        writer_statement=(
+            update(User)
+            .where(User.id == user_id)
+            .values(full_name="Concurrent session writer")
+        ),
+        target_operation=create_session,
+    )
+
+    db_session.rollback()
+    persisted = db_session.get(AuthSession, credentials.session.id)
+    assert persisted is not None
+    refresh_rows = db_session.scalars(
+        select(RefreshToken).where(
+            RefreshToken.auth_session_id == credentials.session.id
+        )
+    ).all()
+    assert len(refresh_rows) == 1
+
+
 def test_validate_access_recovers_from_sqlite_read_to_write_busy(db_session, test_engine):
     user = _user(db_session, email="sqlite-auth-busy@example.com")
     credentials = AuthSessionService(db_session).create_for_user(

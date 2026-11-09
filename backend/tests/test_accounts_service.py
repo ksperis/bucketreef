@@ -26,6 +26,7 @@ from app.db import (
     BrowserFavorite,
     BucketMigration,
     BucketUsageStatsSnapshot,
+    ManagedPrivateAccess,
     QuotaAlertState,
     QuotaUsageDaily,
     QuotaUsageHourly,
@@ -2161,6 +2162,31 @@ class UnrecoverableRGWDeleteAdmin(RecoverableRGWDeleteAdmin):
         )
 
 
+class ConcurrentRGWDeleteAdmin(RetryableRGWDeleteAdmin):
+    def __init__(self, *, account_id: str, root_uid: str) -> None:
+        super().__init__(account_id=account_id, root_uid=root_uid)
+        self.delete_attempts = 0
+
+    def delete_account(self, account_id: str):
+        assert account_id == self.account_id
+        self.delete_attempts += 1
+        if self.delete_attempts == 1:
+            raise RGWAdminError(
+                "concurrent account update",
+                status_code=409,
+                error_code="ConcurrentModification",
+            )
+        return super().delete_account(account_id)
+
+
+class IdempotentRGWDeleteAdmin(RetryableRGWDeleteAdmin):
+    def delete_account(self, account_id: str):
+        assert account_id == self.account_id
+        if not self.account_exists:
+            return {"not_found": True}
+        return super().delete_account(account_id)
+
+
 
 def _seed_account_derived_rows(db_session, *, endpoint: StorageEndpoint, account: S3Account) -> None:
     db_session.add_all(
@@ -2385,6 +2411,50 @@ def test_delete_account_rejects_active_bucket_migration_before_remote_delete(db_
     assert db_session.scalars(select(S3Account).where(S3Account.id == account.id)).one()
 
 
+def test_delete_account_rejects_active_managed_private_access_source(
+    db_session,
+    monkeypatch,
+):
+    endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
+    owner = User(
+        email="managed-source-delete@example.test",
+        hashed_password="x",
+        role=UserRole.UI_USER.value,
+        is_active=True,
+    )
+    account = S3Account(
+        name="ManagedPrivateSource",
+        rgw_account_id="RGW00000000000000007",
+        rgw_user_uid="rgw00000000000000007-admin",
+        storage_endpoint_id=endpoint.id,
+    )
+    db_session.add_all([owner, account])
+    db_session.flush()
+    db_session.add(
+        ManagedPrivateAccess(
+            owner_user_id=owner.id,
+            source_context_type="account",
+            source_context_id=account.id,
+            remote_principal_type="iam_user",
+            remote_principal_identifier="managed-user",
+            iam_username="managed-user",
+            state="cleanup_pending",
+            iam_managed_policies=["arn:aws:iam::aws:policy/AmazonS3FullAccess"],
+        )
+    )
+    db_session.commit()
+
+    fake_admin = FakeRGWDeleteAdmin()
+    svc = _build_service(db_session, monkeypatch, fake_admin)
+
+    with pytest.raises(ValueError, match="Delete managed private accesses"):
+        svc.delete_account(account.id, delete_rgw=False)
+
+    assert db_session.get(S3Account, account.id) is not None
+    assert fake_admin.deleted == []
+    assert fake_admin.deleted_users == []
+
+
 def test_delete_account_calls_rgw_when_flag_true(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
     account = S3Account(
@@ -2490,6 +2560,128 @@ def test_delete_account_retries_busy_checkpoint_without_replaying_root_delete(
     assert fake_admin.deleted_users == [(account.rgw_user_uid, None)]
     assert fake_admin.deleted == [account.rgw_account_id]
     assert db_session.get(S3Account, account.id) is None
+
+
+def test_delete_account_retries_transient_rgw_concurrent_modification(
+    db_session,
+    monkeypatch,
+):
+    endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
+    account = S3Account(
+        name="DeleteConcurrentModification",
+        rgw_account_id="RGW00000000000000996",
+        rgw_user_uid="rgw00000000000000996-admin",
+        rgw_tenant="",
+        storage_endpoint_id=endpoint.id,
+    )
+    db_session.add(account)
+    db_session.commit()
+
+    fake_admin = ConcurrentRGWDeleteAdmin(
+        account_id=account.rgw_account_id,
+        root_uid=account.rgw_user_uid,
+    )
+    svc = _build_service(db_session, monkeypatch, fake_admin)
+    svc.deletion.metrics.get_usage = lambda _account: (0, 0, 0)  # type: ignore[method-assign]
+    svc.rgw_users.resolve = lambda *_args, **_kwargs: (0, [])  # type: ignore[method-assign]
+    svc.account_topics.resolve = lambda *_args, **_kwargs: (0, [])  # type: ignore[method-assign]
+    monkeypatch.setattr(
+        s3_account_deletion_service_module.s3_client,
+        "list_buckets",
+        lambda **_kwargs: [],
+    )
+    monkeypatch.setattr(
+        s3_account_deletion_service_module.time,
+        "sleep",
+        lambda _delay: None,
+    )
+
+    svc.delete_account(account.id, delete_rgw=True)
+
+    assert fake_admin.delete_attempts == 2
+    assert fake_admin.deleted_users == [(account.rgw_user_uid, None)]
+    assert fake_admin.deleted == [account.rgw_account_id]
+    assert db_session.get(S3Account, account.id) is None
+
+
+def test_delete_account_resumes_after_remote_delete_when_account_listing_is_forbidden(
+    db_session,
+    monkeypatch,
+):
+    endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
+    account = S3Account(
+        name="DeleteResumeWithoutListing",
+        rgw_account_id="RGW00000000000000997",
+        rgw_user_uid="rgw00000000000000997-admin",
+        rgw_tenant="",
+        storage_endpoint_id=endpoint.id,
+    )
+    db_session.add(account)
+    db_session.commit()
+
+    fake_admin = IdempotentRGWDeleteAdmin(
+        account_id=account.rgw_account_id,
+        root_uid=account.rgw_user_uid,
+    )
+    svc = _build_service(db_session, monkeypatch, fake_admin)
+    svc.deletion.metrics.get_usage = lambda _account: (0, 0, 0)  # type: ignore[method-assign]
+    svc.rgw_users.resolve = lambda *_args, **_kwargs: (0, [])  # type: ignore[method-assign]
+    svc.account_topics.resolve = lambda *_args, **_kwargs: (0, [])  # type: ignore[method-assign]
+    monkeypatch.setattr(
+        s3_account_deletion_service_module.s3_client,
+        "list_buckets",
+        lambda **_kwargs: [],
+    )
+    original_commit = s3_account_deletion_service_module.commit_or_rollback
+    commit_calls = 0
+
+    def fail_remote_deleted_checkpoint(db):
+        nonlocal commit_calls
+        commit_calls += 1
+        if commit_calls == 4:
+            db.rollback()
+            raise RuntimeError("simulated remote deletion checkpoint failure")
+        original_commit(db)
+
+    monkeypatch.setattr(
+        s3_account_deletion_service_module,
+        "commit_or_rollback",
+        fail_remote_deleted_checkpoint,
+    )
+
+    with pytest.raises(RuntimeError, match="checkpoint failure"):
+        svc.delete_account(account.id, delete_rgw=True)
+
+    assert fake_admin.account_exists is False
+    db_session.expire_all()
+    deletion = db_session.scalar(
+        select(S3AccountDeletion).where(S3AccountDeletion.account_id == account.id)
+    )
+    assert deletion is not None
+    assert deletion.root_user_deleted is True
+    assert deletion.remote_account_deleted is False
+
+    def forbidden_list_accounts(*_args, **_kwargs):
+        raise RGWAdminError(
+            "forbidden",
+            status_code=403,
+            error_code="AccessDenied",
+        )
+
+    monkeypatch.setattr(fake_admin, "list_accounts", forbidden_list_accounts)
+    monkeypatch.setattr(
+        s3_account_deletion_service_module,
+        "commit_or_rollback",
+        original_commit,
+    )
+
+    svc.delete_account(account.id, delete_rgw=True)
+
+    assert fake_admin.deleted == [account.rgw_account_id]
+    assert db_session.get(S3Account, account.id) is None
+    assert db_session.scalar(
+        select(S3AccountDeletion).where(S3AccountDeletion.account_id == account.id)
+    ) is None
 
 
 def test_delete_account_restores_root_when_remote_account_delete_fails(

@@ -75,3 +75,29 @@ class ManagedPrivateAccessIAMService:
             region=iam_region,
             verify_tls=verify_tls,
         )
+
+    def for_cleanup_source(
+        self,
+        provisioning: ManagedPrivateAccess,
+    ) -> RGWIAMService:
+        """Resolve the persisted source for internal compensation cleanup."""
+        if provisioning.source_context_type == "account":
+            account = self.db.get(S3Account, provisioning.source_context_id)
+            if account is None:
+                raise ManagedPrivateAccessError("Source account not found")
+            return self.for_context(account)
+
+        if provisioning.source_context_type != "connection":
+            raise ManagedPrivateAccessError("Invalid IAM source context")
+        connection = self.db.get(S3Connection, provisioning.source_context_id)
+        if connection is None:
+            raise ManagedPrivateAccessError("Source connection not found")
+
+        iam_endpoint, iam_region, verify_tls = resolve_connection_iam_options(connection)
+        return RGWIAMService(
+            connection.access_key_id,
+            connection.secret_access_key,
+            endpoint=iam_endpoint,
+            region=iam_region,
+            verify_tls=verify_tls,
+        )

@@ -35,9 +35,29 @@ class ManagedPrivateAccessRemoteCleanupService:
         self.iam = iam or ManagedPrivateAccessIAMService(db)
         self.state = state or ManagedPrivateAccessStateService(db)
 
-    def cleanup(self, provisioning: ManagedPrivateAccess, *, user: User) -> None:
+    def cleanup(
+        self,
+        provisioning: ManagedPrivateAccess,
+        *,
+        user: User,
+        use_persisted_source: bool = False,
+    ) -> None:
         if provisioning.remote_principal_type == "iam_user":
-            iam = self.iam.for_source(provisioning, user)
+            if not any(
+                (
+                    provisioning.created_access_key and provisioning.access_key_id,
+                    provisioning.iam_inline_policy_names,
+                    provisioning.iam_managed_policies,
+                    provisioning.iam_groups,
+                    provisioning.created_remote_principal,
+                )
+            ):
+                return
+            iam = (
+                self.iam.for_cleanup_source(provisioning)
+                if use_persisted_source
+                else self.iam.for_source(provisioning, user)
+            )
             self.cleanup_iam_resources(provisioning, iam)
             return
 

@@ -2,6 +2,8 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+import time
+
 from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -18,6 +20,9 @@ from app.db import (
     UserS3Account,
 )
 from app.services.resource_deletion_purge_service import ResourceDeletionPurgeService
+from app.services.managed_private_access_query_service import (
+    ManagedPrivateAccessQueryService,
+)
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_account_root_service import RgwAccountRootService
 from app.services.rgw_account_topics_resolver import RgwAccountTopicsResolver
@@ -57,6 +62,7 @@ class S3AccountDeletionService:
         self.account_topics = account_topics or RgwAccountTopicsResolver()
         self.iam_cleanup = iam_cleanup or S3AccountIamCleanupService(db)
         self.tags = TagsService(db)
+        self.managed_private_access_queries = ManagedPrivateAccessQueryService(db)
 
     def delete_account(
         self,
@@ -66,6 +72,13 @@ class S3AccountDeletionService:
         admin: RGWAdminClient | None = None,
         endpoint: StorageEndpoint | None = None,
     ) -> None:
+        if self.managed_private_access_queries.has_active_source(
+            "account",
+            int(account.id),
+        ):
+            raise ValueError(
+                "Delete managed private accesses created from this source account first"
+            )
         ResourceDeletionPurgeService(self.db).validate_execution_context_cleanup(
             str(account.id)
         )
@@ -126,18 +139,17 @@ class S3AccountDeletionService:
             deletion = self._checkpoint(deletion, "root_user_deleted")
 
         if not deletion.remote_account_deleted:
-            if self._load_remote_account(account, admin) is not None:
-                try:
-                    self._delete_remote_account(account, admin)
-                except Exception as exc:
-                    remote_deleted = self._recover_after_failed_remote_account_delete(
-                        account,
-                        deletion,
-                        admin,
-                    )
-                    if remote_deleted:
-                        return
-                    raise
+            try:
+                self._delete_remote_account(account, admin)
+            except Exception:
+                remote_deleted = self._recover_after_failed_remote_account_delete(
+                    account,
+                    deletion,
+                    admin,
+                )
+                if remote_deleted:
+                    return
+                raise
             self._checkpoint(deletion, "remote_account_deleted")
 
     def _recover_after_failed_remote_account_delete(
@@ -459,19 +471,29 @@ class S3AccountDeletionService:
         admin: RGWAdminClient,
     ) -> None:
         account_identifier = account.rgw_account_id
-        try:
-            result = admin.delete_account(account_identifier)
-        except RGWAdminError as exc:
-            raise ValueError(
-                f"Unable to delete RGW account {account_identifier}: "
-                f"{sanitized_error_log_detail(exc)}"
-            ) from exc
+        retry_delays = iter((0.05, 0.1, 0.25))
+        while True:
+            try:
+                result = admin.delete_account(account_identifier)
+                break
+            except RGWAdminError as exc:
+                if exc.error_code != "ConcurrentModification":
+                    raise ValueError(
+                        f"Unable to delete RGW account {account_identifier}: "
+                        f"{sanitized_error_log_detail(exc)}"
+                    ) from exc
+                try:
+                    delay = next(retry_delays)
+                except StopIteration:
+                    raise ValueError(
+                        f"Unable to delete RGW account {account_identifier}: "
+                        f"{sanitized_error_log_detail(exc)}"
+                    ) from exc
+                time.sleep(delay)
         if isinstance(result, dict) and result.get("not_implemented"):
             raise ValueError("RGW account deletion API is not available")
         if isinstance(result, dict) and result.get("not_found"):
-            if self._load_remote_account(account, admin) is None:
-                return
-            raise ValueError("RGW account deletion returned not found for an existing account")
+            return
 
     def _delete_root_user(
         self,

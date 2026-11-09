@@ -55,7 +55,13 @@ class ManagedPrivateAccessCleanupService:
             state=state_store,
         )
 
-    def delete_owned_connection(self, *, user: User, connection_id: int) -> bool:
+    def delete_owned_connection(
+        self,
+        *,
+        user: User,
+        connection_id: int,
+        use_persisted_source: bool = False,
+    ) -> bool:
         provisioning = self.db.scalar(
             select(ManagedPrivateAccess)
             .where(
@@ -81,6 +87,7 @@ class ManagedPrivateAccessCleanupService:
         self._cleanup_remote_or_pending(
             provisioning,
             user=user,
+            use_persisted_source=use_persisted_source,
             pending_message="Remote cleanup failed; the managed access remains recorded for remediation",
         )
 
@@ -146,11 +153,16 @@ class ManagedPrivateAccessCleanupService:
         provisioning: ManagedPrivateAccess,
         *,
         user: User,
+        use_persisted_source: bool = False,
         pending_message: str,
     ) -> None:
         self.state.mark_deleting(provisioning)
         try:
-            self.remote.cleanup(provisioning, user=user)
+            self.remote.cleanup(
+                provisioning,
+                user=user,
+                use_persisted_source=use_persisted_source,
+            )
         except Exception as exc:
             cleanup_error = sanitized_error_log_detail(exc)
             self.state.mark_cleanup_pending(provisioning, cleanup_error)

@@ -898,6 +898,54 @@ def test_portal_user_creation_uses_managed_name_without_adopting_existing_remote
     assert link.active_secret_key == "SK-MANAGED"
 
 
+def test_portal_user_creation_retries_busy_link_without_replaying_remote_create(db_session, monkeypatch):
+    account = make_s3_account(db_session, name="portal-managed-busy")
+    user = User(email="portal-managed-busy@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([account, user])
+    db_session.commit()
+    service = PortalService(db_session)
+    username = portal_iam_username(account.id, user.id)
+    iam_service = Mock()
+    iam_service.get_user.return_value = None
+    iam_service.create_user.return_value = (
+        IAMUser(name=username, user_id="managed-busy-uid"),
+        IAMAccessKey(access_key_id="AK-BUSY", secret_access_key="SK-BUSY"),
+    )
+    real_commit = db_session.commit
+    commit_calls = 0
+
+    def busy_once() -> None:
+        nonlocal commit_calls
+        commit_calls += 1
+        if commit_calls == 1:
+            raise _busy_snapshot_error()
+        real_commit()
+
+    monkeypatch.setattr(db_session, "commit", busy_once)
+
+    link, iam_user, created = service._ensure_portal_user(user, account, iam_service)
+
+    assert commit_calls == 2
+    iam_service.create_user.assert_called_once_with(
+        username,
+        create_key=True,
+        allow_existing=False,
+    )
+    iam_service.delete_access_key.assert_not_called()
+    iam_service.delete_user.assert_not_called()
+    assert iam_user is not None and iam_user.name == username
+    assert created is True
+    assert link.iam_user_id == "managed-busy-uid"
+    assert link.active_access_key == "AK-BUSY"
+    assert link.active_secret_key == "SK-BUSY"
+    assert db_session.scalar(
+        sa.select(sa.func.count()).select_from(AccountIAMUser).where(
+            AccountIAMUser.user_id == user.id,
+            AccountIAMUser.account_id == account.id,
+        )
+    ) == 1
+
+
 def test_portal_user_creation_commit_failure_compensates_remote_user(
     db_session,
     monkeypatch,

@@ -466,21 +466,28 @@ class BucketMigrationPlanningMixin:
         migration: BucketMigration,
         exc: ValueError,
     ) -> None:
-        migration.preparation_status = "stale"
-        report = dict(migration.precheck_report or {})
-        report["checks"] = [
-            build_diagnostic(
-                code="start_precondition_changed",
-                severity="error",
-                blocking=True,
-                scope="migration",
-                message=sanitized_error_log_detail(exc),
-            )
-        ]
-        report["errors"] = max(1, report.get("errors", 0))
-        report["status"] = "failed"
-        migration.precheck_report = report
-        self._commit()
+        migration_id = int(migration.id)
+        error_message = sanitized_error_log_detail(exc)
+
+        def record_once() -> None:
+            current = self.get_migration(migration_id)
+            current.preparation_status = "stale"
+            report = dict(current.precheck_report or {})
+            report["checks"] = [
+                build_diagnostic(
+                    code="start_precondition_changed",
+                    severity="error",
+                    blocking=True,
+                    scope="migration",
+                    message=error_message,
+                )
+            ]
+            report["errors"] = max(1, report.get("errors", 0))
+            report["status"] = "failed"
+            current.precheck_report = report
+            self._commit()
+
+        run_db_unit_with_sqlite_retry(self.db, record_once)
 
     def _revalidate_start_preconditions(self, migration: BucketMigration) -> None:
         try:

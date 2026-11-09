@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 
 from __future__ import annotations
+import sqlite3
 from types import SimpleNamespace
 
 import pytest
@@ -41,9 +42,13 @@ from app.services.managed_private_access_errors import (
 from app.services.managed_private_access_cleanup_service import (
     ManagedPrivateAccessCleanupService,
 )
+from app.services.managed_private_access_iam_service import ManagedPrivateAccessIAMService
 from app.services import managed_private_access_cleanup_service as cleanup_service_module
 from app.services.managed_private_access_policy_service import ManagedPrivateAccessPolicyService
 from app.services.managed_private_access_service import ManagedPrivateAccessService
+from app.services.managed_private_access_remote_cleanup_service import (
+    ManagedPrivateAccessRemoteCleanupService,
+)
 from app.services.managed_private_access_state_service import ManagedPrivateAccessStateService
 from app.services.rgw_iam import RGWIAMError
 from tests.s3_connection_factory import custom_endpoint_fields
@@ -306,6 +311,79 @@ def test_iam_provisioning_preserves_tenant_account_identity(db_session, monkeypa
     assert context.rgw_account_id == account.rgw_account_id
     assert context.rgw_user_uid == "account-root"
     assert context.rgw_tenant == "customer01"
+
+
+def test_internal_cleanup_uses_persisted_account_after_owner_access_is_revoked(
+    db_session,
+    monkeypatch,
+):
+    user = _user(db_session, email="cleanup-revoked@example.test")
+    account = _account(db_session, user, _endpoint(db_session))
+    provisioning = ManagedPrivateAccess(
+        owner_user_id=user.id,
+        source_context_type="account",
+        source_context_id=account.id,
+        remote_principal_type="iam_user",
+        remote_principal_identifier="managed-user",
+        iam_username="managed-user",
+        state="cleanup_pending",
+    )
+    db_session.add(provisioning)
+    db_session.execute(
+        sa.delete(UserS3Account).where(
+            UserS3Account.user_id == user.id,
+            UserS3Account.account_id == account.id,
+        )
+    )
+    db_session.commit()
+
+    fake = FakeIAM()
+    iam = ManagedPrivateAccessIAMService(db_session)
+    monkeypatch.setattr(iam, "for_context", lambda _context: fake)
+
+    with pytest.raises(ManagedPrivateAccessForbidden, match="Account access was revoked"):
+        iam.for_source(provisioning, user)
+
+    assert iam.for_cleanup_source(provisioning) is fake
+
+
+def test_remote_cleanup_skips_iam_resolution_after_all_checkpoints_are_cleared(
+    db_session,
+):
+    user = _user(db_session, email="cleanup-complete@example.test")
+    provisioning = ManagedPrivateAccess(
+        owner_user_id=user.id,
+        source_context_type="account",
+        source_context_id=9999,
+        remote_principal_type="iam_user",
+        remote_principal_identifier="already-removed",
+        iam_username="already-removed",
+        access_key_id=None,
+        state="cleanup_pending",
+        iam_groups=[],
+        iam_managed_policies=[],
+        iam_inline_policy_names=[],
+        created_remote_principal=False,
+        created_access_key=False,
+    )
+    db_session.add(provisioning)
+    db_session.commit()
+
+    class UnexpectedIAMResolution:
+        def for_source(self, *_args, **_kwargs):
+            raise AssertionError("IAM source should not be resolved")
+
+        def for_cleanup_source(self, *_args, **_kwargs):
+            raise AssertionError("cleanup IAM source should not be resolved")
+
+    ManagedPrivateAccessRemoteCleanupService(
+        db_session,
+        iam=UnexpectedIAMResolution(),
+    ).cleanup(
+        provisioning,
+        user=user,
+        use_persisted_source=True,
+    )
 
 
 def test_iam_provisioning_accepts_builtin_full_access_when_catalog_omits_it(db_session, monkeypatch):
@@ -637,6 +715,32 @@ def test_claim_constraint_rejects_concurrent_active_source(db_session):
         state.claim(user, source)
 
 
+def test_managed_private_access_claim_retries_sqlite_busy(db_session, monkeypatch):
+    user = _user(db_session, email="claim-busy@example.test")
+    account = _account(db_session, user, _endpoint(db_session))
+    source = ManagedPrivateAccessService(db_session).iam_sources.resolve(user, account)
+    state = ManagedPrivateAccessStateService(db_session)
+    real_commit = db_session.commit
+    commit_calls = 0
+
+    def busy_once():
+        nonlocal commit_calls
+        commit_calls += 1
+        if commit_calls == 1:
+            original = sqlite3.OperationalError("database is locked")
+            original.sqlite_errorcode = sqlite3.SQLITE_BUSY
+            raise sa.exc.OperationalError("INSERT", (), original)
+        return real_commit()
+
+    monkeypatch.setattr(db_session, "commit", busy_once)
+
+    provisioning = state.claim(user, source)
+
+    assert commit_calls == 2
+    assert provisioning.state == "provisioning"
+    assert db_session.scalar(sa.select(sa.func.count()).select_from(ManagedPrivateAccess)) == 1
+
+
 def test_managed_private_access_claim_rolls_back_when_commit_fails(db_session, monkeypatch):
     user = _user(db_session, email="claim-rollback@example.test")
     account = _account(db_session, user, _endpoint(db_session))
@@ -666,6 +770,50 @@ def test_managed_private_access_checkpoint_rolls_back_when_commit_fails(db_sessi
     assert rollback_calls == [None]
     db_session.expire_all()
     assert db_session.get(ManagedPrivateAccess, provisioning.id).updated_at == previous_updated_at
+
+
+def test_managed_private_access_cleanup_checkpoint_retries_sqlite_busy_without_replaying_remote(
+    db_session,
+    monkeypatch,
+):
+    user = _user(db_session, email="cleanup-checkpoint-busy@example.test")
+    account = _account(db_session, user, _endpoint(db_session))
+    source = ManagedPrivateAccessService(db_session).iam_sources.resolve(user, account)
+    state = ManagedPrivateAccessStateService(db_session)
+    provisioning = state.claim(user, source)
+    provisioning.iam_managed_policies = ["arn:test:readonly"]
+    state.checkpoint(provisioning)
+
+    detached: list[tuple[str, str]] = []
+
+    class CleanupIAM(FakeIAM):
+        def detach_user_policy(self, username, arn):
+            detached.append((username, arn))
+
+    real_commit = db_session.commit
+    commit_calls = 0
+
+    def busy_once():
+        nonlocal commit_calls
+        commit_calls += 1
+        if commit_calls == 1:
+            original = sqlite3.OperationalError("database is locked")
+            original.sqlite_errorcode = sqlite3.SQLITE_BUSY
+            raise sa.exc.OperationalError("UPDATE", (), original)
+        return real_commit()
+
+    monkeypatch.setattr(db_session, "commit", busy_once)
+
+    ManagedPrivateAccessRemoteCleanupService(
+        db_session,
+        state=state,
+    ).cleanup_iam_resources(provisioning, CleanupIAM())
+
+    assert commit_calls == 2
+    assert detached == [(provisioning.iam_username, "arn:test:readonly")]
+    db_session.expire_all()
+    persisted = db_session.get(ManagedPrivateAccess, provisioning.id)
+    assert persisted.iam_managed_policies == []
 
 
 @pytest.mark.parametrize(
