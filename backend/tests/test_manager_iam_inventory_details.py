@@ -159,3 +159,12 @@ def test_manager_iam_page_routes_share_flat_query_contract() -> None:
         "context_id",
         "execution_endpoint_id",
     }
+
+    for path in (
+        "/api/manager/iam/users",
+        "/api/manager/iam/groups",
+        "/api/manager/iam/roles",
+        "/api/manager/iam/policies",
+    ):
+        assert "get" not in paths[path]
+        assert "post" in paths[path]

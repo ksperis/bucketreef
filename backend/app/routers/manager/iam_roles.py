@@ -56,18 +56,6 @@ def _ensure_role_tag_removed(tag_key: str, current: list[IAMTag]) -> None:
         raise RGWIAMError("IAM role tag deletion did not persist on the storage backend")
 
 
-@router.get("", response_model=list[IAMRole])
-def list_roles(
-    context: S3ExecutionContext = Depends(get_s3_execution_context),
-    _: ManagerActor = Depends(require_iam_capable_manager),
-) -> list[IAMRole]:
-    service = get_iam_service_for_context(context)
-    try:
-        return service.list_roles()
-    except RGWIAMError as exc:
-        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
-
-
 @router.get("/page", response_model=IAMRolePage)
 def list_roles_page(
     query: Annotated[IAMDetailedPageRequest, Depends()],

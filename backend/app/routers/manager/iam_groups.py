@@ -60,19 +60,6 @@ def _annotate_managed_group(item: IAMGroup) -> IAMGroup:
     return item
 
 
-@router.get("", response_model=list[IAMGroup])
-def list_groups(
-    context: S3ExecutionContext = Depends(get_s3_execution_context),
-    db: Session = Depends(get_db),
-    _: ManagerActor = Depends(require_iam_capable_manager),
-) -> list[IAMGroup]:
-    service = get_iam_service_for_context(context)
-    try:
-        return [_annotate_managed_group(group) for group in service.list_groups()]
-    except RGWIAMError as exc:
-        raise_bad_gateway_from_runtime(exc)
-
-
 @router.get("/page", response_model=IAMGroupPage)
 def list_groups_page(
     query: Annotated[IAMDetailedPageRequest, Depends()],

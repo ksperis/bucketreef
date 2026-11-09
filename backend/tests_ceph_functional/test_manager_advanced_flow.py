@@ -372,11 +372,17 @@ def test_manager_iam_roles_and_groups_flow(
 
         assert any(
             entry["name"] == group_name
-            for entry in manager_session.get("/manager/iam/groups", params=_context_params(account_id))
+            for entry in manager_session.get(
+                "/manager/iam/groups/page",
+                params={**_context_params(account_id), "search": group_name},
+            )["items"]
         )
         assert any(
             entry["name"] == role_name
-            for entry in manager_session.get("/manager/iam/roles", params=_context_params(account_id))
+            for entry in manager_session.get(
+                "/manager/iam/roles/page",
+                params={**_context_params(account_id), "search": role_name},
+            )["items"]
         )
 
         group_inline_policies = manager_session.get(

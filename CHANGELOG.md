@@ -39,6 +39,7 @@
 - Canonicalize Admin UI User and UI Group option lists on one bounded pagination/search request with service-owned paginated responses.
 - Reuse one application pagination request across Admin listings, Ceph Admin identity and bucket listings, and endpoint raw health checks.
 - Canonicalize Admin UI User listings on the frontend-supported pagination and typed sort contract, with service-owned paginated responses.
+- Remove the retired non-paginated Manager IAM collection reads for users, groups, roles, and managed policies so the application exposes one canonical cursor-paginated inventory contract.
 
 ### Fixed
 
@@ -53,6 +54,7 @@
 - Deploy the matching backend and frontend together because Browser object-list responses now include the optional `owner` field used by object details.
 - Deploy the matching backend and frontend together because Browser object-list query validation now enforces the frontend's supported `all`, `file`, and `folder` object-type values.
 - Deploy the matching backend and frontend together because detailed Manager IAM group-list responses now include the optional `members` field used by the inventory.
+- Deploy the matching backend and frontend together because Manager IAM collection reads now use only `/users/page`, `/groups/page`, `/roles/page`, and `/policies/page`; the old non-paginated collection GET routes are removed while collection POST routes remain unchanged.
 - Deploy the matching backend and frontend together because Admin Portal request listings now use the standard paginated application response instead of an unpaginated list.
 - Custom deployments using `OIDC_LINK_ATTEMPT_TTL_SECONDS` or `OIDC_BROWSER_COOKIE_NAME` must rename them to `EXTERNAL_IDENTITY_LINK_ATTEMPT_TTL_SECONDS` and `EXTERNAL_IDENTITY_BROWSER_COOKIE_NAME`. In-progress external-identity browser transactions must restart after the cutover.
 - Deploy the matching backend and frontend together because Manager bucket-purge requests now send bucket names in `targets` instead of `buckets`.

@@ -42,6 +42,22 @@ describe("demo IAM mutations", () => {
     });
   });
 
+  it("serves IAM collection reads only through paginated routes", async () => {
+    const state = createSeed();
+
+    for (const segment of ["users", "groups", "roles", "policies"] as const) {
+      expect(iam(request(state, `/manager/iam/${segment}`, "GET"))).toBeUndefined();
+
+      const response = iam(request(state, `/manager/iam/${segment}/page`, "GET"));
+      expect(response?.status).toBe(200);
+      const payload = await response!.json();
+      expect(payload).toMatchObject({
+        items: expect.any(Array),
+      });
+      expect(payload).toHaveProperty("next_marker");
+    }
+  });
+
   it("updates an IAM user with PATCH while keeping its dependent demo state addressable", async () => {
     const state = createSeed();
     const user = state.iam[state.accounts[0].id].users[0];
