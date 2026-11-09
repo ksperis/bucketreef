@@ -14,7 +14,6 @@ from app.services.managed_private_access_errors import (
 )
 from app.services.rgw_iam import (
     RGWIAMService,
-    get_iam_service,
     get_iam_service_for_execution_target,
 )
 from app.services.s3_execution_context import S3ExecutionTarget
@@ -69,7 +68,7 @@ class ManagedPrivateAccessIAMService:
             raise ManagedPrivateAccessForbidden("Source connection access was revoked")
 
         iam_endpoint, iam_region, verify_tls = resolve_connection_iam_options(connection)
-        return get_iam_service(
+        return RGWIAMService(
             connection.access_key_id,
             connection.secret_access_key,
             endpoint=iam_endpoint,

@@ -17,7 +17,7 @@ from app.services.audit_service import AuditService
 from app.services.managed_private_access_query_service import (
     ManagedPrivateAccessQueryService,
 )
-from app.services.rgw_iam import RGWIAMService, get_iam_service
+from app.services.rgw_iam import RGWIAMService
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.s3_user_key_management_service import S3UserKeyManagementService
 from app.utils.s3_endpoint import resolve_iam_client_options
@@ -126,7 +126,7 @@ class AccessKeyExpirationService:
                 "RGW Account credentials are unavailable for expiration enforcement"
             )
         iam_endpoint, region, verify_tls = resolve_iam_client_options(context)
-        iam = get_iam_service(
+        iam = RGWIAMService(
             access_key,
             secret_key,
             endpoint=iam_endpoint,

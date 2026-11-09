@@ -118,7 +118,7 @@ def test_ensure_iam_user_reuses_key_after_expected_create_failure(monkeypatch):
             return None
 
     monkeypatch.setattr(seed, "resolve_s3_endpoint", lambda _account: "https://s3.example.test")
-    monkeypatch.setattr(seed, "get_iam_service", lambda *_args, **_kwargs: _IamService())
+    monkeypatch.setattr(seed, "RGWIAMService", lambda *_args, **_kwargs: _IamService())
 
     assert seed.ensure_iam_user_with_key(account, "demo-user") is key
 
@@ -135,7 +135,7 @@ def test_ensure_iam_user_does_not_mask_unexpected_runtime_errors(monkeypatch):
             raise RuntimeError("unexpected IAM regression")
 
     monkeypatch.setattr(seed, "resolve_s3_endpoint", lambda _account: "https://s3.example.test")
-    monkeypatch.setattr(seed, "get_iam_service", lambda *_args, **_kwargs: _IamService())
+    monkeypatch.setattr(seed, "RGWIAMService", lambda *_args, **_kwargs: _IamService())
 
     with pytest.raises(RuntimeError, match="unexpected IAM regression"):
         seed.ensure_iam_user_with_key(account, "demo-user")

@@ -26,7 +26,7 @@ from app.services.s3_execution_client import s3_execution_request_kwargs
 from app.services.user_associations_service import UserAssociationsService
 from app.services.user_provisioning_service import UserProvisioningService
 from app.services.user_query_service import UserQueryService
-from app.services.rgw_iam import RGWIAMError, get_iam_service
+from app.services.rgw_iam import RGWIAMError, RGWIAMService
 from app.services import s3_client
 from app.models.iam import AccessKey as IAMAccessKey
 from app.utils.s3_endpoint import configured_s3_endpoint, resolve_s3_endpoint
@@ -496,7 +496,7 @@ def ensure_iam_user_with_key(account: S3Account, iam_username: str) -> IAMAccess
     endpoint = resolve_s3_endpoint(account)
     if not endpoint:
         raise RuntimeError(f"No endpoint configured for account {account.name}")
-    iam_service = get_iam_service(access_key, secret_key, endpoint=endpoint)
+    iam_service = RGWIAMService(access_key, secret_key, endpoint=endpoint)
     key: Optional[IAMAccessKey] = None
     try:
         _, key = iam_service.create_user(iam_username, create_key=True)
