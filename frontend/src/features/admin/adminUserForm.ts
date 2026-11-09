@@ -1,7 +1,6 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import type {
   CreateUserPayload,
-  S3UserMembership,
   UiRole,
   UpdateUserPayload,
   User,
@@ -16,16 +15,8 @@ import {
 } from "./adminAccessConfig";
 import {
   accountSelectionsToMemberships,
-  type AdminAccountSelection,
 } from "./adminAccountAssociationModel";
-
-export type AdminUserAssociationSelection = {
-  accounts: AdminAccountSelection[];
-  s3Users: S3UserMembership[];
-  connections: number[];
-  groups: number[];
-  openStack: number[];
-};
+import type { AdminUserAssociationSelection } from "./adminUserAssociationModel";
 
 type AdminUserActorAccess = {
   currentIsAdminLike: boolean;

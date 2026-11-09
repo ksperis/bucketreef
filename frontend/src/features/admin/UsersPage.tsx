@@ -86,9 +86,11 @@ import {
   adminUserRoleAccessPatch,
   adminUserUpdatePayload,
   emptyAdminUserCreateForm,
-  type AdminUserAssociationSelection,
 } from "./adminUserForm";
-import { accountMembershipsToSelections } from "./adminAccountAssociationModel";
+import {
+  adminUserAssociationSelection,
+  type AdminUserAssociationSelection,
+} from "./adminUserAssociationModel";
 
 type UserModalTab = "general" | "authentication" | "associations" | "groups" | "access";
 
@@ -625,14 +627,12 @@ export default function UsersPage() {
     resetAssociationOptionSearches();
     setEditingUser(user);
     setEditForm(nextEditForm);
-    const selectedAccounts = accountMembershipsToSelections(user.account_links);
-    const nextSelectedS3Users = user.s3_user_links.map((link) => ({
-      s3_user_id: Number(link.s3_user_id),
-      allow_manager_browser_data_access: link.allow_manager_browser_data_access,
-    }));
-    const nextSelectedS3Connections = user.s3_connection_details.map((connection) => Number(connection.id));
-    const nextSelectedOpenStackClouds = user.openstack_cloud_details.map((cloud) => Number(cloud.id));
-    const nextSelectedGroups = user.group_details.map((group) => Number(group.id));
+    const associations = adminUserAssociationSelection(user);
+    const selectedAccounts = associations.accounts;
+    const nextSelectedS3Users = associations.s3Users;
+    const nextSelectedS3Connections = associations.connections;
+    const nextSelectedOpenStackClouds = associations.openStack;
+    const nextSelectedGroups = associations.groups;
     const hasAccounts = selectedAccounts.length > 0;
     const hasS3Users = nextSelectedS3Users.length > 0;
     const hasConnections = nextSelectedS3Connections.length > 0;

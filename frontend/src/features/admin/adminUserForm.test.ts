@@ -7,8 +7,8 @@ import {
   adminUserRoleAccessPatch,
   adminUserUpdatePayload,
   emptyAdminUserCreateForm,
-  type AdminUserAssociationSelection,
 } from "./adminUserForm";
+import type { AdminUserAssociationSelection } from "./adminUserAssociationModel";
 
 const associations: AdminUserAssociationSelection = {
   accounts: [{
