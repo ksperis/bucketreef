@@ -66,15 +66,14 @@ import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
 import useAdminEndpointAdminOpsPermissions from "./useAdminEndpointAdminOpsPermissions";
 import useAdminPrincipalCatalogs from "./useAdminPrincipalCatalogs";
 import {
-  adminS3UserCreatePayload,
   adminS3UserForm,
   adminS3UserPayload,
   buildCreateS3UserDraft,
   buildEditS3UserDraft,
   buildImportS3UserDraft,
-  emptyAdminS3UserCreateForm,
   emptyAdminS3UserForm,
 } from "./adminS3UserForm";
+import { adminRgwUserCreatePayload, emptyAdminRgwUserCreateForm } from "./adminRgwCreateForm";
 import {
   deriveAdminAssociationOptions,
   MAX_VISIBLE_ASSOCIATION_OPTIONS,
@@ -129,7 +128,7 @@ export default function S3UsersPage() {
   } = useAdminEndpointAdminOpsPermissions({ formatError: formatEndpointPermissionError });
 
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [createForm, setCreateForm] = useState(emptyAdminS3UserCreateForm);
+  const [createForm, setCreateForm] = useState(emptyAdminRgwUserCreateForm);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -487,7 +486,7 @@ export default function S3UsersPage() {
     setCreating(true);
     setCreateError(null);
     try {
-      await createS3User(adminS3UserCreatePayload(createForm, managedTenantCreationEnabled));
+      await createS3User(adminRgwUserCreatePayload(createForm, managedTenantCreationEnabled));
       setShowCreateModal(false);
       setCreateForm((prev) => ({
         ...prev,
