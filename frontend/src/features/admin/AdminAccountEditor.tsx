@@ -239,7 +239,7 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
                 <FeatureOverrideField title={adminText("Bucket composition statistics")} value={form.draft.allow_bucket_usage_stats}
                   policy={generalSettings.project_feature_policies.bucket_usage_stats} disabled={controller.locked}
                   triState
-                  description={adminText("Shared project capability used by both Manager and Portal.")}
+                  description={adminText("Provides detailed bucket composition statistics in Manager and Portal.")}
                   onChange={value => update("allow_bucket_usage_stats", value)} />
                 <FeatureOverrideField title={adminText("Automatic bucket composition collection")} value={form.draft.allow_bucket_usage_stats_collection}
                   policy={generalSettings.project_collection_policies.bucket_usage_stats} disabled={controller.locked}

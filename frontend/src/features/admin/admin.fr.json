@@ -1269,7 +1269,7 @@
   "S3 connection configuration sections": "Sections de configuration de connexion S3",
   "Admin S3 connections only": "Connexions S3 Admin uniquement",
   "Shared connections are not available in Browser. Browser access requires an eligible private connection.": "Les connexions partagées ne sont pas disponibles dans Browser. L’accès Browser nécessite une connexion privée éligible.",
-  "Shared project capability used by both Manager and Portal.": "Capacité de projet partagée utilisée à la fois par Manager et Portal.",
+  "Provides detailed bucket composition statistics in Manager and Portal.": "Fournit des statistiques détaillées sur la composition des buckets dans Manager et Portal.",
   "Show Portal projects in standalone Browser. File browsing inside Portal remains independent.": "Affiche les projets Portal dans Browser standalone. La navigation de fichiers dans Portal reste indépendante.",
   "Show configured endpoints on the access-key login screen.": "Affiche les endpoints configurés sur l’écran de connexion par clé d’accès.",
   "Show revoked/expired": "Montrer révoqués/expirés",

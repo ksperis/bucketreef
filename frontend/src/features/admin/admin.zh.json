@@ -1310,7 +1310,7 @@
   "S3 connection configuration sections": "S3 连接配置部分",
   "Admin S3 connections only": "仅限管理员 S3 连接",
   "Shared connections are not available in Browser. Browser access requires an eligible private connection.": "共享连接在 Browser 中不可用。Browser 访问需要符合条件的私有连接。",
-  "Shared project capability used by both Manager and Portal.": "Manager 和 Portal 共同使用的共享项目能力。",
+  "Provides detailed bucket composition statistics in Manager and Portal.": "在 Manager 和 Portal 中提供详细的存储桶组成统计信息。",
   "Show Portal projects in standalone Browser. File browsing inside Portal remains independent.": "在独立 Browser 中显示 Portal 项目。Portal 内的文件浏览仍然独立。",
   "Show configured endpoints on the access-key login screen.": "在访问密钥登录页面显示已配置的端点。",
   "Show revoked/expired": "显示已撤销/已过期",
