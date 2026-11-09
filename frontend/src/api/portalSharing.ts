@@ -9,7 +9,6 @@ import client from "./client";
 import type {
   PortalStorageSpaceAccountMemberRole,
   PortalStorageSpaceGrantRole,
-  PortalStorageSpaceRole,
 } from "./portal";
 import type { PaginatedResponse } from "./types";
 import type { UserAvatarDescriptor } from "./users";
@@ -20,20 +19,15 @@ export type PortalStorageSpaceShare = {
   role: PortalStorageSpaceGrantRole;
 };
 
-export type PortalStorageSpaceAccessPerson = {
-  user_id: number | null;
+export type PortalStorageSpaceOwner = {
   email: string;
   display_name: string | null;
-  role: PortalStorageSpaceRole;
-  portal_role: PortalAccountRole | null;
-  access_source: "owner" | "direct" | "group" | "direct_and_group" | null;
-  avatar: UserAvatarDescriptor | null;
 };
 
 export type PortalStorageSpaceAccessSummary = {
   mode: "private" | "all" | "restricted";
   default_account_member_role: PortalStorageSpaceAccountMemberRole | null;
-  owner: PortalStorageSpaceAccessPerson | null;
+  owner: PortalStorageSpaceOwner | null;
   effective_member_count: number;
   explicit_shares: PortalStorageSpaceShare[];
   public_link_count: number;

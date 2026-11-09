@@ -28,20 +28,15 @@ class PortalStorageSpaceShare(ApiModel):
     role: PortalStorageSpaceGrantRole
 
 
-class PortalStorageSpaceAccessPerson(ApiModel):
-    user_id: Optional[int]
+class PortalStorageSpaceOwner(ApiModel):
     email: str
     display_name: Optional[str]
-    role: PortalStorageSpaceRole
-    portal_role: Optional[PortalAccountRole]
-    access_source: Optional[Literal["owner", "direct", "group", "direct_and_group"]]
-    avatar: Optional[UserAvatar]
 
 
 class PortalStorageSpaceAccessSummary(ApiModel):
     mode: Literal["private", "all", "restricted"]
     default_account_member_role: Optional[PortalStorageSpaceAccountMemberRole]
-    owner: Optional[PortalStorageSpaceAccessPerson]
+    owner: Optional[PortalStorageSpaceOwner]
     effective_member_count: int
     explicit_shares: list[PortalStorageSpaceShare]
     public_link_count: int

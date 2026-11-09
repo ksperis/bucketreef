@@ -150,12 +150,8 @@ const accessSummaryFixture = {
   mode: "restricted" as const,
   default_account_member_role: null,
   owner: {
-    user_id: 7,
     email: "manager@example.com",
     display_name: "Manager User",
-    role: "Owner" as const,
-    portal_role: "portal_manager" as const,
-    access_source: "owner" as const,
   },
   effective_member_count: 4,
   explicit_shares: [
