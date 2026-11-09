@@ -55,11 +55,10 @@ import { isAdminLikeRole, readStoredUser } from "../../utils/workspaces";
 import { buildUiTagItems } from "../../utils/uiTags";
 import { buildAccessAuditHref } from "./accessAuditLink";
 import {
-  adminAccountCreatePayload,
   buildCreateAccountDraft,
   buildImportAccountDraft,
-  emptyAdminAccountCreateForm,
 } from "./adminAccountForm";
+import { adminRgwCreatePayload, emptyAdminRgwCreateForm } from "./adminRgwCreateForm";
 import { useAdminI18n } from "./adminI18n";
 import useAdminEndpointAdminOpsPermissions from "./useAdminEndpointAdminOpsPermissions";
 import useAdminPaginatedListState from "./useAdminPaginatedListState";
@@ -97,7 +96,7 @@ export default function S3AccountsPage() {
     initialSort: { field: "name", direction: "asc" },
   });
   const [quickFilterMode, setQuickFilterMode] = useState<TextMatchMode>("contains");
-  const [form, setForm] = useState(emptyAdminAccountCreateForm);
+  const [form, setForm] = useState(emptyAdminRgwCreateForm);
   const {
     items: storageEndpoints,
     loading: loadingEndpoints,
@@ -377,11 +376,11 @@ export default function S3AccountsPage() {
     setActionError(null);
     setActionMessage(null);
     try {
-      await createS3Account(adminAccountCreatePayload(form, managedTenantCreationEnabled));
+      await createS3Account(adminRgwCreatePayload(form, managedTenantCreationEnabled));
       setActionMessage(adminText("RGW account created."));
       const defaultCeph =
         accountCephEndpoints.find((ep) => ep.is_default) || accountCephEndpoints[0];
-      setForm(emptyAdminAccountCreateForm(defaultCeph ? String(defaultCeph.id) : ""));
+      setForm(emptyAdminRgwCreateForm(defaultCeph ? String(defaultCeph.id) : ""));
       await fetchS3Accounts();
       setShowCreateModal(false);
     } catch (err) {

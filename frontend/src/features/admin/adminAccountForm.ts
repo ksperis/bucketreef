@@ -3,42 +3,10 @@ import type {
   S3Account,
   AccountUserLink,
   AccountGroupLink,
-  createS3Account,
   updateS3Account,
 } from "../../api/accounts";
 import { canonicalizeUiTags, normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
 import { buildAdminQuotaSizeEditorValue } from "./adminQuotaForm";
-
-export function emptyAdminAccountCreateForm(storageEndpointId = "") {
-  return {
-    name: "",
-    rgw_tenant: "",
-    email: "",
-    tags: [] as UiTagDefinition[],
-    quota_max_size_gb: "",
-    quota_max_size_unit: "GiB",
-    quota_max_objects: "",
-    storage_endpoint_id: storageEndpointId,
-  };
-}
-
-type AdminAccountCreateForm = ReturnType<typeof emptyAdminAccountCreateForm>;
-
-export function adminAccountCreatePayload(
-  form: AdminAccountCreateForm,
-  managedTenantCreationEnabled: boolean,
-): Parameters<typeof createS3Account>[0] {
-  return {
-    name: form.name.trim(),
-    rgw_tenant: managedTenantCreationEnabled ? form.rgw_tenant.trim() : "",
-    email: form.email.trim() || undefined,
-    tags: normalizeUiTags(form.tags),
-    quota_max_size_gb: form.quota_max_size_gb ? Number(form.quota_max_size_gb) : undefined,
-    quota_max_size_unit: form.quota_max_size_gb ? form.quota_max_size_unit : undefined,
-    quota_max_objects: form.quota_max_objects ? Number(form.quota_max_objects) : undefined,
-    storage_endpoint_id: Number(form.storage_endpoint_id),
-  };
-}
 
 export function buildCreateAccountDraft<
   T extends { tags: UiTagDefinition[]; storage_endpoint_id: string },

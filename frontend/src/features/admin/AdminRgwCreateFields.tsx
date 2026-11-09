@@ -4,20 +4,16 @@ import UiInput from "../../components/ui/UiInput";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import UiTagEditor from "../../components/UiTagEditor";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
-import type { UiTagDefinition } from "../../utils/uiTags";
 import { useI18n } from "../../i18n";
 import { rgwUserNameErrorText } from "../../utils/rgwUserNameMessages";
 import { rgwUserUidFormatError, rgwTenantFormatError } from "../../utils/resourceNames";
 import { rgwAccountNameFormatError } from "../../utils/rgwAccountName";
 import AdminRgwEndpointField from "./AdminRgwEndpointField";
 import AdminQuotaFields from "./AdminQuotaFields";
+import type { AdminRgwCreateForm } from "./adminRgwCreateForm";
 import { useAdminI18n } from "./adminI18n";
 
-type Draft = {
-  name: string; uid?: string; rgw_tenant?: string; email: string; storage_endpoint_id: string;
-  quota_max_size_gb: string; quota_max_size_unit: string; quota_max_objects: string;
-  tags: UiTagDefinition[];
-};
+type Draft = AdminRgwCreateForm & { uid?: string };
 
 export default function AdminRgwCreateFields({kind, value, onChange, errors, busy, endpoint, tags, showTenant = false}: {
   kind: "account" | "user"; value: Draft; onChange: (patch: Partial<Draft>) => void;

@@ -1,12 +1,10 @@
 import type { S3User } from "../../api/s3Users";
 import {
-  adminS3UserCreatePayload,
   adminS3UserForm,
   adminS3UserPayload,
   buildCreateS3UserDraft,
   buildEditS3UserDraft,
   buildImportS3UserDraft,
-  emptyAdminS3UserCreateForm,
   emptyAdminS3UserForm,
 } from "./adminS3UserForm";
 
@@ -143,30 +141,4 @@ describe("adminS3UserForm", () => {
     });
   });
 
-  it("builds the create payload from normalized form values", () => {
-    const form = {
-      ...emptyAdminS3UserCreateForm("10"),
-      name: " RGW User ",
-      uid: " user-a ",
-      rgw_tenant: " tenant-a ",
-      email: " user@example.test ",
-      tags: [{ label: " Team ", color_key: "sky" as const, scope: "standard" as const }],
-      quota_max_size_gb: "2",
-      quota_max_size_unit: "GiB",
-      quota_max_objects: "100",
-    };
-
-    expect(adminS3UserCreatePayload(form, true)).toEqual({
-      name: "RGW User",
-      uid: "user-a",
-      rgw_tenant: "tenant-a",
-      email: "user@example.test",
-      tags: [{ id: undefined, label: "Team", color_key: "sky", scope: "standard" }],
-      quota_max_size_gb: 2,
-      quota_max_size_unit: "GiB",
-      quota_max_objects: 100,
-      storage_endpoint_id: 10,
-    });
-    expect(adminS3UserCreatePayload(form, false).rgw_tenant).toBe("");
-  });
 });
