@@ -64,6 +64,14 @@ describe("Manager i18n", () => {
       .toContain("S3");
   });
 
+  it("localizes personal-access security explanations", () => {
+    const message = "BucketReef creates a dedicated IAM user with AmazonS3FullAccess and a private connection for Browser. The generated secret is stored only on the server and is never sent to this browser.";
+
+    expect(managerText(message, "fr")).toContain("utilisateur IAM dédié");
+    expect(managerText(message, "de")).toContain("dedizierten IAM-Benutzer");
+    expect(managerText(message, "zh")).toContain("专用 IAM 用户");
+  });
+
   it("falls back to English when Manager copy is missing", () => {
     expect(managerText("Unknown Manager copy", "fr")).toBe("Unknown Manager copy");
     expect(managerText("Unknown Manager copy", "de")).toBe("Unknown Manager copy");

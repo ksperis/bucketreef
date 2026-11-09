@@ -1654,5 +1654,9 @@
   "Owner quota": "所有者配额",
   "Account quota usage unavailable.": "账户配额使用量不可用。",
   "User quota usage unavailable.": "用户配额使用量不可用。",
-  "Owner quota usage unavailable.": "所有者配额使用量不可用。"
+  "Owner quota usage unavailable.": "所有者配额使用量不可用。",
+  "BucketReef creates a dedicated IAM user with AmazonS3FullAccess and a private connection for Browser. The generated secret is stored only on the server and is never sent to this browser.": "BucketReef 会创建一个具有 AmazonS3FullAccess 的专用 IAM 用户，并为 Browser 创建私有连接。生成的密钥仅存储在服务器上，绝不会发送到此浏览器。",
+  "BucketReef creates a dedicated IAM user and private connection using the advanced configuration below. The generated secret is stored only on the server and is never sent to this browser.": "BucketReef 会使用下方的高级配置创建专用 IAM 用户和私有连接。生成的密钥仅存储在服务器上，绝不会发送到此浏览器。",
+  "BucketReef creates a new access key for this RGW user and stores it in a private connection for Browser. The generated secret is stored only on the server and is never sent to this browser.": "BucketReef 会为此 RGW 用户创建新的访问密钥，并将其存储在 Browser 的私有连接中。生成的密钥仅存储在服务器上，绝不会发送到此浏览器。",
+  "BucketReef creates a new access key for this RGW user and stores it in a private connection using the advanced configuration below. The generated secret is stored only on the server and is never sent to this browser.": "BucketReef 会为此 RGW 用户创建新的访问密钥，并使用下方的高级配置将其存储在私有连接中。生成的密钥仅存储在服务器上，绝不会发送到此浏览器。"
 }
