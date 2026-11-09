@@ -110,7 +110,6 @@ function buildStorageSpaceDetailWorkspaceData(): PortalStorageSpaceDetailWorkspa
           role: "Manager",
           canBrowse: true,
           canDelete: true,
-          ownerUserId: 7,
           visibility: "shared",
           shareScope: "restricted",
           region: "eu-west-3",
@@ -119,7 +118,6 @@ function buildStorageSpaceDetailWorkspaceData(): PortalStorageSpaceDetailWorkspa
           quotaBytes: 1024,
           objectCount: 12,
           createdAt: "2026-03-10T10:00:00Z",
-          archivedAt: null,
           shareCount: 3,
           icon: { source: "preset", preset: "archive", url: null, updated_at: null },
         }),
@@ -522,11 +520,9 @@ describe("PortalStorageSpaceDetailPage", () => {
     mocks.hookResult.workspace.spaces[0].visibility = "shared";
     mocks.hookResult.workspace.spaces[0].shareScope = "restricted";
     mocks.hookResult.workspace.spaces[0].accountMemberRole = null;
-    mocks.hookResult.workspace.spaces[0].archivedAt = null;
     mocks.hookResult.workspace.spaces[0].objectCount = 12;
     mocks.hookResult.workspace.spaces[0].usedBytes = 512;
     mocks.hookResult.workspace.spaces[0].quotaBytes = 10 * 1024 ** 3;
-    mocks.hookResult.workspace.spaces[0].quotaObjects = 1000;
     mocks.hookResult.workspace.spaces[0].shareCount = 3;
     mocks.hookResult.state.portal_role = "portal_manager";
     mocks.hookResult.state.can_create_external_sharing = true;
@@ -837,7 +833,6 @@ describe("PortalStorageSpaceDetailPage", () => {
 
   it("keeps detailed statistics unavailable for archived spaces without issuing requests", async () => {
     mocks.hookResult.workspace.spaces[0].status = "Archived";
-    mocks.hookResult.workspace.spaces[0].archivedAt = "2026-06-01T10:00:00Z";
 
     await renderPage(["/portal/storage-spaces/research-data?tab=statistics"]);
 
@@ -963,7 +958,6 @@ describe("PortalStorageSpaceDetailPage", () => {
 
   it("keeps archived Storage Space settings read-only", async () => {
     mocks.hookResult.workspace.spaces[0].status = "Archived";
-    mocks.hookResult.workspace.spaces[0].archivedAt = "2026-06-01T10:00:00Z";
     mocks.fetchStorageSpaceSettingsMock.mockResolvedValueOnce({
       versioning_enabled: true,
       versioning_status: "Enabled",
@@ -1427,7 +1421,6 @@ describe("PortalStorageSpaceDetailPage", () => {
 
   it("refreshes workspace data after restoring an archived space", async () => {
     mocks.hookResult.workspace.spaces[0].status = "Archived";
-    mocks.hookResult.workspace.spaces[0].archivedAt = "2026-06-01T10:00:00Z";
 
     await renderPage();
 
@@ -1502,7 +1495,6 @@ describe("PortalStorageSpaceDetailPage", () => {
 
   it("asks to restore an archived non-empty space before cleanup", async () => {
     mocks.hookResult.workspace.spaces[0].status = "Archived";
-    mocks.hookResult.workspace.spaces[0].archivedAt = "2026-06-01T10:00:00Z";
 
     await renderPage();
     await openSettingsTab();
@@ -1513,7 +1505,6 @@ describe("PortalStorageSpaceDetailPage", () => {
 
   it("hides the embedded Browser when the space is archived", async () => {
     mocks.hookResult.workspace.spaces[0].status = "Archived";
-    mocks.hookResult.workspace.spaces[0].archivedAt = "2026-06-01T10:00:00Z";
 
     await renderPage();
 

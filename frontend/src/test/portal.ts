@@ -94,7 +94,6 @@ export function buildPortalWorkspaceSpace(
     nameEditable: true,
     description: "Research Data storage space",
     ownerLabel: null,
-    ownerUserId: null,
     collaborators: [],
     collaboratorCount: 0,
     visibility: "private",
@@ -111,10 +110,8 @@ export function buildPortalWorkspaceSpace(
     createdLabel: "",
     usedBytes: null,
     quotaBytes: null,
-    quotaObjects: null,
     objectCount: null,
     createdAt: null,
-    archivedAt: null,
     shareCount: null,
     icon: {
       source: "preset",

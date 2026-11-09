@@ -36,7 +36,6 @@ const space: PortalWorkspaceSpace = {
   nameEditable: true,
   description: "",
   ownerLabel: "Manager",
-  ownerUserId: 1,
   collaborators: [],
   collaboratorCount: 0,
   visibility: "shared",

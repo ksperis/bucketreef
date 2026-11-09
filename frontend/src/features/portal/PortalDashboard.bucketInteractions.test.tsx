@@ -99,7 +99,6 @@ function buildDashboardWorkspaceData(): PortalDashboardWorkspaceData {
           description: "Research Data shared storage",
           role: "Manager",
           status: "Active",
-          ownerUserId: 7,
           visibility: "shared",
           region: "eu-west-3",
           createdLabel: "May 10, 2023",

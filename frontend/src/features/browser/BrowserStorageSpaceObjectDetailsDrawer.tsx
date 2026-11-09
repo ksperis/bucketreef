@@ -48,7 +48,6 @@ function fallbackSpace(
     nameEditable: false,
     description: bucket?.description ?? "",
     ownerLabel: null,
-    ownerUserId: null,
     collaborators: [],
     collaboratorCount: 0,
     visibility: "private",
@@ -65,10 +64,8 @@ function fallbackSpace(
     createdLabel: bucket?.creation_date ?? "-",
     usedBytes: bucket?.used_bytes ?? null,
     quotaBytes: bucket?.quota_max_size_bytes ?? null,
-    quotaObjects: bucket?.quota_max_objects ?? null,
     objectCount: bucket?.object_count ?? null,
     createdAt: bucket?.creation_date ?? null,
-    archivedAt: null,
     shareCount: null,
     icon: bucket?.icon ?? { source: "preset", preset: "bucket", url: null, updated_at: null },
   };

@@ -29,7 +29,6 @@ export type PortalWorkspaceSpace = {
   nameEditable: boolean;
   description: string;
   ownerLabel: string | null;
-  ownerUserId: number | null;
   collaborators: PortalStorageSpaceCollaboratorPreview[];
   collaboratorCount: number;
   visibility: PortalStorageSpaceVisibility;
@@ -46,10 +45,8 @@ export type PortalWorkspaceSpace = {
   createdLabel: string;
   usedBytes?: number | null;
   quotaBytes?: number | null;
-  quotaObjects?: number | null;
   objectCount?: number | null;
   createdAt?: string | null;
-  archivedAt?: string | null;
   shareCount: number | null;
   icon: StorageSpaceIconDescriptor;
 };
@@ -154,7 +151,6 @@ export function buildPortalWorkspaceModel({
       nameEditable: storageSpace.name_editable,
       description: storageSpace.description ?? t({ en: `${name} storage space`, fr: `Espace de stockage ${name}`, de: `Speicherbereich ${name}`, zh: `${name} 存储空间` }),
       ownerLabel: storageSpace.owner_label,
-      ownerUserId: storageSpace.owner_user_id,
       collaborators: storageSpace.collaborators,
       collaboratorCount: storageSpace.collaborator_count,
       visibility,
@@ -171,10 +167,8 @@ export function buildPortalWorkspaceModel({
       createdLabel: createdLabel(storageSpace.created_at, locale),
       usedBytes: usageSpace?.used_bytes ?? storageSpace.used_bytes ?? null,
       quotaBytes: usageSpace?.quota_max_size_bytes ?? storageSpace.quota_max_size_bytes ?? null,
-      quotaObjects: usageSpace?.quota_max_objects ?? storageSpace.quota_max_objects ?? null,
       objectCount: usageSpace?.object_count ?? storageSpace.object_count ?? null,
       createdAt: storageSpace.created_at,
-      archivedAt: storageSpace.archived_at,
       shareCount: null,
       icon: storageSpace.icon,
     };
