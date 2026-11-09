@@ -15,10 +15,7 @@ import type { PaginatedResponse } from "./types";
 import type { UserAvatarDescriptor } from "./users";
 
 export type PortalStorageSpaceShare = {
-  id: string;
-  storage_space_id: string;
-  storage_space_name: string;
-  user_id: number | null;
+  user_id: number;
   email: string;
   role: PortalStorageSpaceGrantRole;
 };

@@ -2250,17 +2250,11 @@ export function buildBaseRules(): MockRule[] {
           explicit_shares: isOwner
             ? [
                 {
-                  id: `share-${space.id}-alice`,
-                  storage_space_id: space.id,
-                  storage_space_name: space.name,
                   user_id: 4,
                   email: "alice@example.com",
                   role: "Editor",
                 },
                 {
-                  id: `share-${space.id}-bob`,
-                  storage_space_id: space.id,
-                  storage_space_name: space.name,
                   user_id: 5,
                   email: "bob@example.com",
                   role: "Viewer",
@@ -2431,28 +2425,18 @@ export function buildBaseRules(): MockRule[] {
     {
       id: "portal-storage-space-shares",
       path: /^\/portal\/storage-spaces\/[^/]+\/shares$/,
-      body: ({ url }) => {
-        const spaceId = parseStorageSpaceId(url.pathname);
-        const space = PORTAL_STORAGE_SPACES.find((item) => item.id === spaceId) ?? PORTAL_STORAGE_SPACES[0];
-        return [
-          {
-            id: `share-${space.id}-alice`,
-            storage_space_id: space.id,
-            storage_space_name: space.name,
-            user_id: 3,
-            email: "alice@example.com",
-            role: "Editor",
-          },
-          {
-            id: `share-${space.id}-bob`,
-            storage_space_id: space.id,
-            storage_space_name: space.name,
-            user_id: 4,
-            email: "bob@example.com",
-            role: "Viewer",
-          },
-        ];
-      },
+      body: [
+        {
+          user_id: 3,
+          email: "alice@example.com",
+          role: "Editor",
+        },
+        {
+          user_id: 4,
+          email: "bob@example.com",
+          role: "Viewer",
+        },
+      ],
     },
     {
       id: "portal-activity",

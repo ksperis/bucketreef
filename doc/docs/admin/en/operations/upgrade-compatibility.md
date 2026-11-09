@@ -45,7 +45,10 @@ collaborator count used by the dashboard. The computed `window` and
 Portal Storage Space share responses no longer expose the synthetic
 `direction` projection. Visibility already determines whether a caller sees all
 shares or only its own grant, and the bundled frontend never consumed that
-field. Public-link responses now expose only the link identifier, Storage Space
+field. They now identify each explicit grant directly by its required
+`user_id`, email, and role; the route already identifies the Storage Space, so
+the duplicated share ID and Storage Space ID/name projections are removed.
+Public-link responses now expose only the link identifier, Storage Space
 identity, object display name, URL, expiration, and computed status. Exact
 `object_key`, label, creator email, creation timestamp, and revocation timestamp
 remain persisted and continue to drive object matching, lifecycle, and audit
