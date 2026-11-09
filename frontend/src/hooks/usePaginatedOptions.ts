@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { useCallback, useEffect, useState } from "react";
 import type { PaginatedResponse } from "../api/types";
+import { extractApiError } from "../utils/apiError";
 
 export type PaginatedOptionsQuery = {
   page?: number;
@@ -61,7 +62,7 @@ export default function usePaginatedOptions<T>(
       const lastPage = Math.max(1, Math.ceil(response.total / pageSize));
       if (page > lastPage) setPage(lastPage);
     }).catch((cause) => {
-      if (!cancelled) setError(cause instanceof Error ? cause.message : "Unexpected error");
+      if (!cancelled) setError(extractApiError(cause, "Unexpected error"));
     }).finally(() => {
       if (!cancelled) setLoading(false);
     });

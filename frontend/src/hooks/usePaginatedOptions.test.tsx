@@ -1,6 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { ApiError } from "../api/client";
 import usePaginatedOptions from "./usePaginatedOptions";
 
 describe("usePaginatedOptions", () => {
@@ -58,5 +59,25 @@ describe("usePaginatedOptions", () => {
     expect(result.current.page).toBe(1);
     expect(loader).toHaveBeenCalledTimes(callsBeforeSearch + 1);
     expect(loader).toHaveBeenLastCalledWith({ page: 1, page_size: 25, search: "archive" });
+  });
+
+  it("uses the shared API error contract for loader failures", async () => {
+    const loader = vi.fn(async () => {
+      throw new ApiError("Request failed", {
+        response: {
+          status: 422,
+          data: { detail: { message: "Catalog request is invalid." } },
+          headers: {},
+        },
+      });
+    });
+    const { result } = renderHook(() => usePaginatedOptions(loader));
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(result.current.error).toBe("Catalog request is invalid.");
   });
 });
