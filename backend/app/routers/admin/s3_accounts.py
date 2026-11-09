@@ -49,18 +49,6 @@ def get_admin_account_query_service(
     return S3AccountQueryService(db)
 
 
-def get_admin_account_import_service(
-    db: Session = Depends(get_db),
-) -> S3AccountImportService:
-    return S3AccountImportService(db)
-
-
-def get_admin_account_update_service(
-    db: Session = Depends(get_db),
-) -> S3AccountUpdateService:
-    return S3AccountUpdateService(db)
-
-
 def get_admin_account_portal_settings_service(
     db: Session = Depends(get_db),
 ) -> AdminAccountPortalSettingsService:
@@ -172,10 +160,11 @@ def create_account(
 @router.post("/import", response_model=list[S3Account])
 def import_accounts(
     payload: list[S3AccountImport],
-    service: S3AccountImportService = Depends(get_admin_account_import_service),
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> list[S3Account]:
+    service = S3AccountImportService(db)
     try:
         logger.debug("Importing %d accounts", len(payload))
         imported = service.import_accounts(payload)
@@ -198,10 +187,11 @@ def import_accounts(
 def update_account(
     account_id: int,
     payload: S3AccountUpdate,
-    service: S3AccountUpdateService = Depends(get_admin_account_update_service),
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
 ) -> S3Account:
+    service = S3AccountUpdateService(db)
     try:
         logger.debug("Updating account %s", account_id)
         updated = service.update_account(account_id, payload)
