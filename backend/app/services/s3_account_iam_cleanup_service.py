@@ -12,7 +12,7 @@ from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import S3Account, StorageEndpoint
 from app.models.iam import IAMGroup, IAMRole, IAMUser
 from app.services.managed_resource_naming import PORTAL_MANAGED_IAM_GROUP_NAMES
-from app.services.rgw_iam import RGWIAMError, RGWIAMService, get_iam_service
+from app.services.rgw_iam import RGWIAMError, RGWIAMService
 from app.utils.s3_endpoint import resolve_iam_client_options
 from app.utils.storage_endpoint_features import resolve_feature_flags
 
@@ -53,7 +53,7 @@ class S3AccountIamCleanupService:
             raise ValueError("Unable to verify RGW IAM resources; account root credentials are missing.")
         endpoint, region, verify_tls = resolve_iam_client_options(account)
         try:
-            return get_iam_service(
+            return RGWIAMService(
                 access_key,
                 secret_key,
                 endpoint=endpoint,

@@ -837,16 +837,6 @@ class RGWIAMService:
             return None
 
 
-def get_iam_service(
-    access_key: str,
-    secret_key: str,
-    endpoint: Optional[str] = None,
-    region: Optional[str] = None,
-    verify_tls: bool = True,
-) -> RGWIAMService:
-    return RGWIAMService(access_key, secret_key, endpoint=endpoint, region=region, verify_tls=verify_tls)
-
-
 def get_iam_service_for_execution_target(
     context: S3ExecutionTarget,
 ) -> RGWIAMService | None:
@@ -854,7 +844,7 @@ def get_iam_service_for_execution_target(
     if not access_key or not secret_key:
         return None
     endpoint, region, verify_tls = resolve_iam_client_options(context)
-    return get_iam_service(
+    return RGWIAMService(
         access_key,
         secret_key,
         endpoint=endpoint,

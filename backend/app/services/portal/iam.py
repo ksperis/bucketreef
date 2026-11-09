@@ -17,7 +17,7 @@ from app.models.portal_access_keys import PortalAccessKey
 from app.services.managed_resource_naming import portal_iam_username
 from app.services.mappers.portal import portal_access_key_from_active_link, portal_access_key_from_iam_metadata
 from app.services.portal.exceptions import PortalConflictError, PortalOperationError
-from app.services.rgw_iam import RGWIAMGroupAlreadyExistsError, RGWIAMService, get_iam_service
+from app.services.rgw_iam import RGWIAMGroupAlreadyExistsError, RGWIAMService
 from app.utils.account_roles import PortalAccountRoleValue
 from app.utils.s3_endpoint import resolve_s3_client_options
 from app.utils.storage_endpoint_features import resolve_feature_flags
@@ -35,7 +35,7 @@ class PortalIamMixin:
     def _get_iam_service(self, account: S3Account) -> RGWIAMService:
         access_key, secret_key = self._account_credentials(account)
         endpoint, region, _, verify_tls = resolve_s3_client_options(account)
-        return get_iam_service(
+        return RGWIAMService(
             access_key,
             secret_key,
             endpoint=endpoint,

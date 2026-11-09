@@ -774,14 +774,11 @@ def test_policy_fallbacks_and_create_policy_not_supported(monkeypatch):
     service.delete_policy("arn:missing")
 
 
-def test_policy_document_normalization_and_factory(monkeypatch):
+def test_policy_document_normalization(monkeypatch):
     service, _ = _service(monkeypatch)
     assert service._normalize_policy_document({"a": 1}) == {"a": 1}
     assert service._normalize_policy_document('{"a": 1}') == {"a": 1}
     assert service._normalize_policy_document("invalid-json") is None
-
-    monkeypatch.setattr(rgw_iam, "RGWIAMService", lambda *args, **kwargs: "ok")
-    assert rgw_iam.get_iam_service("AK", "SK", endpoint="https://iam.example.test") == "ok"
 
 
 @pytest.mark.parametrize(

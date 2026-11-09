@@ -373,7 +373,7 @@ def test_due_iam_key_is_disabled_and_confirmed(db_session, monkeypatch):
     db_session.commit()
     fake = _FakeIamService()
     monkeypatch.setattr(access_key_expiration_service, "resolve_iam_client_options", lambda _context: ("https://iam.example.test", None, True))
-    monkeypatch.setattr(access_key_expiration_service, "get_iam_service", lambda *_args, **_kwargs: fake)
+    monkeypatch.setattr(access_key_expiration_service, "RGWIAMService", lambda *_args, **_kwargs: fake)
     _patch_audit(monkeypatch)
 
     result = AccessKeyExpirationService(db_session).run_due()
@@ -424,7 +424,7 @@ def test_missing_iam_provider_key_removes_stale_local_record(db_session, monkeyp
     )
     monkeypatch.setattr(
         access_key_expiration_service,
-        "get_iam_service",
+        "RGWIAMService",
         lambda *_args, **_kwargs: fake,
     )
 
@@ -485,7 +485,7 @@ def test_iam_provider_must_confirm_key_is_inactive(db_session, monkeypatch):
     )
     monkeypatch.setattr(
         access_key_expiration_service,
-        "get_iam_service",
+        "RGWIAMService",
         lambda *_args, **_kwargs: fake,
     )
 

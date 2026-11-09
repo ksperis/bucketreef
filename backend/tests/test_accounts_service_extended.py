@@ -653,7 +653,7 @@ def test_account_iam_cleanup_only_wraps_expected_client_initialization_errors(
         raise RGWIAMError("IAM endpoint unavailable")
 
     monkeypatch.setattr(
-        "app.services.s3_account_iam_cleanup_service.get_iam_service",
+        "app.services.s3_account_iam_cleanup_service.RGWIAMService",
         unavailable_iam,
     )
     with pytest.raises(ValueError, match="Unable to initialize RGW IAM cleanup"):
@@ -663,7 +663,7 @@ def test_account_iam_cleanup_only_wraps_expected_client_initialization_errors(
         raise RuntimeError("unexpected IAM runtime regression")
 
     monkeypatch.setattr(
-        "app.services.s3_account_iam_cleanup_service.get_iam_service",
+        "app.services.s3_account_iam_cleanup_service.RGWIAMService",
         internal_runtime_regression,
     )
     with pytest.raises(RuntimeError, match="unexpected IAM runtime regression"):
@@ -673,7 +673,7 @@ def test_account_iam_cleanup_only_wraps_expected_client_initialization_errors(
         raise TypeError("unexpected IAM client bug")
 
     monkeypatch.setattr(
-        "app.services.s3_account_iam_cleanup_service.get_iam_service",
+        "app.services.s3_account_iam_cleanup_service.RGWIAMService",
         broken_iam,
     )
     with pytest.raises(TypeError, match="unexpected IAM client bug"):
