@@ -40,7 +40,6 @@ from app.services.oidc_service import (
     OIDCConfigurationError,
     OIDCProviderNotFoundError,
     OidcService,
-    get_oidc_service,
 )
 from app.services.webauthn_service import WebAuthnSecurityError, WebAuthnService
 from app.utils.request_security import require_trusted_origin
@@ -214,7 +213,7 @@ def external_identity_link_oidc_proof_start(
     service = _link_service(db)
     try:
         proof_identity = service.proof_oidc_identity(attempt_id, browser_hash, provider_id)
-        oidc = get_oidc_service(db)
+        oidc = OidcService(db)
         issuer = oidc.provider_issuer(provider_id)
         if issuer != proof_identity.issuer:
             raise ExternalIdentityLinkError("OIDC proof provider issuer does not match the linked identity")
@@ -477,7 +476,7 @@ def profile_oidc_link_start(
     require_self_service_security_action(request, db, current_user)
     current_session = current_auth_session(request, db)
     _, browser_hash = ensure_external_identity_browser_binding(request, response)
-    oidc = get_oidc_service(db)
+    oidc = OidcService(db)
     try:
         issuer = oidc.provider_issuer(provider_id)
         attempt = ExternalIdentityLinkAttemptService(db).create_profile_attempt(

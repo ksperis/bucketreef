@@ -731,7 +731,7 @@ def test_profile_oidc_link_requires_explicit_self_service_permission(
 
     user = _user(db_session, email="profile-link-policy@example.com")
     credentials = authenticate_ui_client(auth_client, db_session, user, mfa_verified=True)
-    monkeypatch.setattr(auth_identity_link, "get_oidc_service", lambda db: FakeOidcService())
+    monkeypatch.setattr(auth_identity_link, "OidcService", lambda db: FakeOidcService())
     _set_general_setting(db_session, "allow_user_external_identity_link", False)
 
     denied = auth_client.post(
@@ -1226,7 +1226,7 @@ def test_oidc_callback_failure_is_generic_audited_and_never_persists_code_or_sta
         ):
             raise OIDCStateError(f"replayed state={state} code={code}")
 
-    monkeypatch.setattr(auth_router, "get_oidc_service", lambda db: FailingOidcService())
+    monkeypatch.setattr(auth_router, "OidcService", lambda db: FailingOidcService())
     response = auth_client.post(
         "/api/auth/oidc/company/callback",
         json={"code": "secret-code", "state": "secret-state"},
@@ -1273,7 +1273,7 @@ def test_oidc_callback_provider_failures_share_audited_public_error_mapping(
         ):
             raise failure
 
-    monkeypatch.setattr(auth_router, "get_oidc_service", lambda db: FailingOidcService())
+    monkeypatch.setattr(auth_router, "OidcService", lambda db: FailingOidcService())
 
     response = auth_client.post(
         "/api/auth/oidc/company/callback",
@@ -1308,7 +1308,7 @@ def test_oidc_email_collision_creates_an_audited_manual_link_response(auth_clien
         ):
             raise ExternalIdentityLinkRequiredError("link-request-1")
 
-    monkeypatch.setattr(auth_router, "get_oidc_service", lambda db: LinkingOidcService())
+    monkeypatch.setattr(auth_router, "OidcService", lambda db: LinkingOidcService())
     response = auth_client.post(
         "/api/auth/oidc/company/callback",
         json={"code": "code", "state": "state"},
@@ -1358,7 +1358,7 @@ def test_oidc_reauthentication_required_returns_link_attempt_response(
             raise reauthentication_error
 
     cleared_accounts = []
-    monkeypatch.setattr(auth_router, "get_oidc_service", lambda db: ReauthenticationOidcService())
+    monkeypatch.setattr(auth_router, "OidcService", lambda db: ReauthenticationOidcService())
     monkeypatch.setattr(
         auth_router.AuthAttemptContext,
         "clear_rate_limit",

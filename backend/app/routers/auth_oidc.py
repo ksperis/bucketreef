@@ -38,7 +38,6 @@ from app.services.oidc_service import (
     OIDCStateError,
     OIDCLinkContinuationRequiredError,
     OidcService,
-    get_oidc_service,
 )
 from app.utils.http_errors import raise_http_exception_from_exception
 from app.utils.identity_provider_ids import normalize_identity_provider_id
@@ -70,7 +69,7 @@ _OIDC_LOGIN_FAILURE_RESPONSES: dict[type[Exception], tuple[int, str]] = {
 def get_oidc_service_dependency(
     db: Session = Depends(get_db),
 ) -> OidcService:
-    return get_oidc_service(db)
+    return OidcService(db)
 
 
 def _raise_oidc_login_failure(
