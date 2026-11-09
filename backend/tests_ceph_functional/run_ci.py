@@ -192,6 +192,22 @@ def _build_endpoint_payload(source: dict[str, str] | None = None) -> str:
     admin_endpoint = _require_env("CEPH_TEST_RGW_ADMIN_ENDPOINT", source=env)
     region = _env_str("CEPH_TEST_RGW_REGION", "us-east-1", source=env) or "us-east-1"
     verify_tls = _env_bool("CEPH_TEST_LAB_VERIFY_TLS", True, source=env)
+    realm_id = _env_str("CEPH_TEST_RGW_REALM_ID", source=env)
+    zonegroup_id = _env_str("CEPH_TEST_RGW_ZONEGROUP_ID", source=env)
+    zone_id_z1 = _env_str("CEPH_TEST_RGW_ZONE_ID_Z1", source=env)
+    zone_id_z2 = _env_str("CEPH_TEST_RGW_ZONE_ID_Z2", source=env)
+
+    topology_values = (realm_id, zonegroup_id, zone_id_z1)
+    if any(topology_values) and not all(topology_values):
+        raise RuntimeError(
+            "CEPH_TEST_RGW_REALM_ID, CEPH_TEST_RGW_ZONEGROUP_ID, and "
+            "CEPH_TEST_RGW_ZONE_ID_Z1 must be configured together."
+        )
+    if s3_endpoint_z2 and any((*topology_values, zone_id_z2)) and not zone_id_z2:
+        raise RuntimeError(
+            "CEPH_TEST_RGW_ZONE_ID_Z2 is required when the second lab zone is "
+            "configured with RGW multisite metadata."
+        )
 
     common_credentials = {
         "admin_access_key": _require_env("CEPH_TEST_RGW_ADMIN_ACCESS_KEY", source=env),
@@ -205,7 +221,13 @@ def _build_endpoint_payload(source: dict[str, str] | None = None) -> str:
             "must be configured together."
         )
 
-    def _entry(name: str, endpoint_url: str, *, is_default: bool) -> dict[str, object]:
+    def _entry(
+        name: str,
+        endpoint_url: str,
+        *,
+        is_default: bool,
+        zone_id: str | None = None,
+    ) -> dict[str, object]:
         entry = {
             "name": name,
             "endpoint_url": endpoint_url,
@@ -229,6 +251,14 @@ def _build_endpoint_payload(source: dict[str, str] | None = None) -> str:
             },
             "is_default": is_default,
         }
+        if realm_id and zonegroup_id and zone_id:
+            entry.update(
+                {
+                    "realm_id": realm_id,
+                    "zonegroup_id": zonegroup_id,
+                    "zone_id": zone_id,
+                }
+            )
         if ceph_admin_access_key and ceph_admin_secret_key:
             entry.update(
                 {
@@ -241,11 +271,11 @@ def _build_endpoint_payload(source: dict[str, str] | None = None) -> str:
 
     if s3_endpoint_z2:
         payload = [
-            _entry("s3-z1", s3_endpoint, is_default=True),
-            _entry("s3-z2", s3_endpoint_z2, is_default=False),
+            _entry("s3-z1", s3_endpoint, is_default=True, zone_id=zone_id_z1),
+            _entry("s3-z2", s3_endpoint_z2, is_default=False, zone_id=zone_id_z2),
         ]
     else:
-        payload = [_entry("Lab Ceph", s3_endpoint, is_default=True)]
+        payload = [_entry("Lab Ceph", s3_endpoint, is_default=True, zone_id=zone_id_z1)]
     return json.dumps(payload)
 
 
@@ -275,6 +305,7 @@ def _build_app_settings_payload() -> str:
                 "bucket_compare": "default_on",
                 "bucket_integrity_check": "default_on",
                 "ceph_s3_user_keys": "default_on",
+                "managed_private_connection_provisioning": "default_on",
             }
         },
     }

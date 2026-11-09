@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, Protocol
 
+from app.services.rgw_account_root_service import RgwAccountRootService
+
 from .clients import BackendAPIError, BackendSession
 
 
@@ -36,6 +38,20 @@ def _is_rgw_account_verification_error(exc: BackendAPIError) -> bool:
     )
 
 
+def _is_rgw_account_bucket_not_empty(exc: BackendAPIError) -> bool:
+    if exc.status_code != 400:
+        return False
+    payload_text = str(exc.payload).lower() if exc.payload is not None else ""
+    return "bucketnotempty" in payload_text or "bucket not empty" in payload_text
+
+
+def _is_missing_bucket_error(exc: BackendAPIError) -> bool:
+    if exc.status_code == 404:
+        return True
+    payload_text = str(exc.payload).lower() if exc.payload is not None else ""
+    return "nosuchbucket" in payload_text or "no such bucket" in payload_text
+
+
 class RgwCleanupClient(Protocol):
     def delete_user(self, uid: str, tenant: str | None = None) -> None:
         ...
@@ -58,7 +74,7 @@ class ResourceTracker:
     delete_rgw_by_default: bool = True
     rgw_admin_client: RgwCleanupClient | None = None
     accounts: list[tuple[int, bool, str | None]] = field(default_factory=list)
-    buckets: list[tuple[int, str]] = field(default_factory=list)
+    buckets: list[tuple[int, str, int | None, BackendSession | None]] = field(default_factory=list)
     users: list[int] = field(default_factory=list)
     migrations: list[int] = field(default_factory=list)
     ceph_admin_users: list[tuple[str, str | None]] = field(default_factory=list)
@@ -75,8 +91,15 @@ class ResourceTracker:
         flag = delete_rgw if delete_rgw is not None else self.delete_rgw_by_default
         self.accounts.append((account_id, flag, rgw_account_id))
 
-    def track_bucket(self, account_id: int, bucket_name: str) -> None:
-        self.buckets.append((account_id, bucket_name))
+    def track_bucket(
+        self,
+        account_id: int,
+        bucket_name: str,
+        *,
+        execution_endpoint_id: int | None = None,
+        cleanup_session: BackendSession | None = None,
+    ) -> None:
+        self.buckets.append((account_id, bucket_name, execution_endpoint_id, cleanup_session))
 
     def track_user(self, user_id: int) -> None:
         self.users.append(user_id)
@@ -106,8 +129,8 @@ class ResourceTracker:
 
     def discard_bucket(self, account_id: int, bucket_name: str) -> None:
         self.buckets = [
-            (aid, name)
-            for aid, name in self.buckets
+            (aid, name, execution_endpoint_id, cleanup_session)
+            for aid, name, execution_endpoint_id, cleanup_session in self.buckets
             if not (aid == account_id and name == bucket_name)
         ]
 
@@ -180,10 +203,14 @@ class ResourceTracker:
                 errors.append(f"migration {migration_id}: {exc}")
         self.migrations.clear()
 
-        for account_id, bucket_name in reversed(self.buckets):
+        for account_id, bucket_name, execution_endpoint_id, cleanup_session in reversed(self.buckets):
             try:
                 account = self.admin_session.get(f"/admin/accounts/{account_id}")
-                endpoint_id = int(account["storage_endpoint_id"])
+                endpoint_id = (
+                    execution_endpoint_id
+                    if execution_endpoint_id is not None
+                    else int(account["storage_endpoint_id"])
+                )
                 try:
                     self.admin_session.delete(
                         f"/ceph-admin/endpoints/{endpoint_id}/buckets/{bucket_name}",
@@ -194,11 +221,24 @@ class ResourceTracker:
                         },
                         expected_status=(200, 404),
                     )
+                    if cleanup_session is not None:
+                        # A remote/multisite endpoint can report the bucket as
+                        # absent through Ceph Admin while it is still reachable
+                        # through the account data plane. Verify the tracked
+                        # destination explicitly with the session that created it.
+                        self._delete_bucket_through_manager_data_plane(
+                            account_id,
+                            bucket_name,
+                            execution_endpoint_id=execution_endpoint_id,
+                            session=cleanup_session,
+                        )
                 except BackendAPIError as ceph_admin_exc:
                     try:
                         self._delete_bucket_through_manager_data_plane(
                             account_id,
                             bucket_name,
+                            execution_endpoint_id=execution_endpoint_id,
+                            session=cleanup_session,
                         )
                     except (BackendAPIError, RuntimeError) as manager_exc:
                         raise RuntimeError(
@@ -258,6 +298,31 @@ class ResourceTracker:
                 if log:
                     log(f"Deleted account {account_id} (delete_rgw={delete_rgw})")
             except BackendAPIError as exc:
+                retry_after_bucket_cleanup = (
+                    delete_rgw
+                    and bool(rgw_account_id)
+                    and self.rgw_admin_client is not None
+                    and _is_rgw_account_bucket_not_empty(exc)
+                )
+                if retry_after_bucket_cleanup:
+                    try:
+                        self._cleanup_rgw_account_buckets_direct(
+                            account_id,
+                            rgw_account_id or "",
+                            log=log,
+                        )
+                        self.admin_session.delete(
+                            f"/admin/accounts/{account_id}",
+                            params={"delete_rgw": "true"},
+                            expected_status=(204,),
+                        )
+                        if log:
+                            log(
+                                f"Deleted account {account_id} after direct RGW bucket cleanup"
+                            )
+                    except Exception as retry_exc:  # pragma: no cover - cluster dependent
+                        errors.append(f"account {account_id}: {retry_exc}")
+                    continue
                 # Some RGW backends deny tenant deletion checks while DB unlink is still valid.
                 # Retry with delete_rgw=false to avoid leaking UI-side resources.
                 retry_without_rgw = delete_rgw and _is_rgw_account_verification_error(exc)
@@ -343,16 +408,27 @@ class ResourceTracker:
         self,
         account_id: int,
         bucket_name: str,
+        *,
+        execution_endpoint_id: int | None = None,
+        session: BackendSession | None = None,
     ) -> None:
         """Empty a bucket through Browser APIs, then delete it through Manager."""
 
+        manager_session = session or self.admin_session
         context_params = {"context_id": account_id}
+        if execution_endpoint_id is not None:
+            context_params["execution_endpoint_id"] = execution_endpoint_id
 
         while True:
-            payload = self.admin_session.get(
-                f"/browser/buckets/{bucket_name}/versions",
-                params={**context_params, "max_keys": 1000},
-            )
+            try:
+                payload = manager_session.get(
+                    f"/browser/buckets/{bucket_name}/versions",
+                    params={**context_params, "max_keys": 1000},
+                )
+            except BackendAPIError as exc:
+                if _is_missing_bucket_error(exc):
+                    return
+                raise
             entries = [
                 *payload.get("versions", []),
                 *payload.get("delete_markers", []),
@@ -367,7 +443,7 @@ class ResourceTracker:
                 objects.append(item)
             if not objects:
                 break
-            deleted = self.admin_session.post(
+            deleted = manager_session.post(
                 f"/browser/buckets/{bucket_name}/delete",
                 params=context_params,
                 json={"objects": objects},
@@ -376,16 +452,21 @@ class ResourceTracker:
                 raise RuntimeError("Browser version cleanup made no progress")
 
         while True:
-            payload = self.admin_session.get(
-                f"/browser/buckets/{bucket_name}/objects",
-                params={
-                    **context_params,
-                    "max_keys": 1000,
-                    "recursive": "true",
-                    "include_folder_markers": "true",
-                    "force_refresh": "true",
-                },
-            )
+            try:
+                payload = manager_session.get(
+                    f"/browser/buckets/{bucket_name}/objects",
+                    params={
+                        **context_params,
+                        "max_keys": 1000,
+                        "recursive": "true",
+                        "include_folder_markers": "true",
+                        "force_refresh": "true",
+                    },
+                )
+            except BackendAPIError as exc:
+                if _is_missing_bucket_error(exc):
+                    return
+                raise
             objects = [
                 {"key": str(entry["key"])}
                 for entry in payload.get("objects", [])
@@ -393,7 +474,7 @@ class ResourceTracker:
             ]
             if not objects:
                 break
-            deleted = self.admin_session.post(
+            deleted = manager_session.post(
                 f"/browser/buckets/{bucket_name}/delete",
                 params=context_params,
                 json={"objects": objects},
@@ -401,7 +482,7 @@ class ResourceTracker:
             if int((deleted or {}).get("deleted") or 0) <= 0:
                 raise RuntimeError("Browser object cleanup made no progress")
 
-        self.admin_session.delete(
+        manager_session.delete(
             f"/manager/buckets/{bucket_name}",
             params=context_params,
             expected_status=(204, 404),
@@ -489,6 +570,52 @@ class ResourceTracker:
                     log(f"Deleted RGW account user {uid}{suffix} for account {account_id}")
             except Exception:  # pragma: no cover - cluster dependent
                 continue
+
+    def _cleanup_rgw_account_buckets_direct(
+        self,
+        account_id: int,
+        rgw_account_id: str,
+        *,
+        log: Callable[[str], None] | None = None,
+    ) -> None:
+        """Purge buckets still bound to an RGW account after API cleanup missed them."""
+
+        client = self.rgw_admin_client
+        if client is None:
+            return
+        list_buckets = getattr(client, "get_all_buckets", None)
+        delete_bucket = getattr(client, "delete_bucket_operation", None)
+        if not callable(list_buckets) or not callable(delete_bucket):
+            return
+
+        account = self.admin_session.get(f"/admin/accounts/{account_id}")
+        tenant = str(account.get("rgw_tenant") or "").strip() or None
+        root_uid = RgwAccountRootService().root_uid(rgw_account_id)
+        payload = list_buckets(uid=root_uid, with_stats=False, tenant=tenant)
+        if isinstance(payload, dict):
+            raw_buckets = payload.get("buckets") or payload.get("items") or []
+        else:
+            raw_buckets = payload or []
+
+        bucket_names: list[str] = []
+        for item in raw_buckets:
+            if isinstance(item, dict):
+                name = str(item.get("name") or item.get("bucket") or "").strip()
+            else:
+                name = str(item or "").strip()
+            if name:
+                bucket_names.append(name)
+
+        for bucket_name in dict.fromkeys(bucket_names):
+            kwargs: dict[str, Any] = {"purge_objects": True}
+            if tenant:
+                kwargs["tenant"] = tenant
+            _require_cleanup_success(delete_bucket(bucket_name, **kwargs))
+            if log:
+                log(
+                    f"Deleted residual RGW bucket {bucket_name} "
+                    f"for account {rgw_account_id}"
+                )
 
 
 __all__ = ["ResourceTracker"]

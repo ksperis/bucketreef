@@ -73,6 +73,10 @@ Required GitLab variables:
 
 Recommended GitLab variables:
 
+- `CEPH_TEST_LAB_S3_ENDPOINT_Z2` to register a second lab zone
+- `CEPH_TEST_RGW_REALM_ID`, `CEPH_TEST_RGW_ZONEGROUP_ID`,
+  `CEPH_TEST_RGW_ZONE_ID_Z1`, and `CEPH_TEST_RGW_ZONE_ID_Z2` to exercise live
+  Manager RGW multisite endpoint switching when two zones are configured
 - `CEPH_TEST_RGW_REGION` (defaults to `us-east-1`)
 - `CEPH_TEST_LAB_VERIFY_TLS=true`
 - `CEPH_TEST_RGW_VERIFY_TLS=true`
@@ -135,6 +139,7 @@ Ceph-admin entity creation tests are executed only when RGW admin cleanup creden
 - **Admin governance & audit**: validates Admin account usage, dashboard scope/storage/traffic, effective-access audit rights, Manager activity history, and persisted Admin/Manager audit actions with the expected execution context and actor.
 - **Bucket migration**: exercises one-shot and pre-sync migrations for current-only and version-aware buckets, validates replicated object state through the backend API, and requires the migration worker to be enabled on the target backend.
 - **Ceph-admin endpoints & metrics**: validates endpoint discovery, access probes, info, cluster storage and traffic metrics routes.
+- **RGW multisite**: validates live Ceph Admin topology/state/overview diagnostics and, when two endpoints declare the same realm and zonegroup, switches a Manager account context to the peer zone and verifies replicated bucket/object reads.
 - **Ceph-admin accounts**: validates listing/search/detail/update/metrics against dedicated RGW test accounts.
 - **Ceph-admin users**: validates listing/search/detail/config/caps/quota/key lifecycle/metrics on dedicated RGW test users.
 - **Ceph-admin bucket administration**: validates bucket listing, compare and configuration routes (versioning, lifecycle, CORS, policy, tags, ACL, PAB, object-lock, quota, notifications, replication, logging, website, encryption) on dedicated test buckets.

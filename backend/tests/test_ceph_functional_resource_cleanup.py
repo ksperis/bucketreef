@@ -24,6 +24,7 @@ class _AdminSession:
         self.get_calls: list[tuple[str, dict[str, Any]]] = []
         self.account_delete_error: BackendAPIError | None = None
         self.bucket_delete_error: BackendAPIError | None = None
+        self.bucket_read_error: BackendAPIError | None = None
         self.version_items: list[dict[str, Any]] = []
         self.object_items: list[dict[str, Any]] = []
 
@@ -34,6 +35,8 @@ class _AdminSession:
         if path == "/manager/buckets":
             return list(self.bucket_items)
         if path == "/browser/buckets/functional-bucket/versions":
+            if self.bucket_read_error is not None:
+                raise self.bucket_read_error
             items = list(self.version_items)
             self.version_items.clear()
             return {
@@ -55,7 +58,9 @@ class _AdminSession:
             and (params or {}).get("delete_rgw") == "true"
             and self.account_delete_error is not None
         ):
-            raise self.account_delete_error
+            error = self.account_delete_error
+            self.account_delete_error = None
+            raise error
         return {}
 
     def post(self, path: str, *, params=None, json=None, expected_status=(200,)):
@@ -70,10 +75,25 @@ class _RgwAdminClient:
         self.deleted_users: list[tuple[str, str | None]] = []
         self.list_users_calls = 0
         self.users: dict[str, dict[str, Any]] = {}
+        self.account_buckets: list[str] = []
 
-    def delete_bucket_operation(self, bucket: str, *, purge_objects: bool = False):
+    def delete_bucket_operation(
+        self,
+        bucket: str,
+        *,
+        tenant: str | None = None,
+        purge_objects: bool = False,
+    ):
         self.deleted_buckets.append((bucket, purge_objects))
         return _OperationResult()
+
+    def get_all_buckets(
+        self,
+        uid: str | None = None,
+        with_stats: bool = False,
+        tenant: str | None = None,
+    ):
+        return list(self.account_buckets)
 
     def delete_account_operation(self, account_id: str):
         self.deleted_accounts.append(account_id)
@@ -163,6 +183,57 @@ def test_cleanup_falls_back_to_manager_data_plane_when_ceph_admin_delete_fails()
     ) in admin.deleted
 
 
+def test_cleanup_verifies_tracked_multisite_bucket_through_manager_session() -> None:
+    admin = _AdminSession()
+    manager = _AdminSession()
+    tracker = ResourceTracker(admin_session=admin)
+    tracker.track_bucket(
+        7,
+        "functional-bucket",
+        execution_endpoint_id=9,
+        cleanup_session=manager,
+    )
+
+    assert tracker.cleanup() == []
+
+    assert admin.deleted[0][0] == "/ceph-admin/endpoints/9/buckets/functional-bucket"
+    assert (
+        "/manager/buckets/functional-bucket",
+        {"context_id": 7, "execution_endpoint_id": 9},
+        {},
+        (204, 404),
+    ) in manager.deleted
+    assert (
+        "/browser/buckets/functional-bucket/versions",
+        {"context_id": 7, "execution_endpoint_id": 9, "max_keys": 1000},
+    ) in manager.get_calls
+
+
+def test_cleanup_accepts_missing_multisite_bucket_after_ceph_admin_attempt() -> None:
+    admin = _AdminSession()
+    manager = _AdminSession()
+    admin.bucket_delete_error = BackendAPIError(
+        "RGW Admin could not address account bucket",
+        status_code=400,
+        payload={"detail": "Unable to delete RGW bucket"},
+    )
+    manager.bucket_read_error = BackendAPIError(
+        "Unable to list object versions",
+        status_code=502,
+        payload={"detail": "S3OperationError: NoSuchBucket"},
+    )
+    tracker = ResourceTracker(admin_session=admin)
+    tracker.track_bucket(
+        7,
+        "functional-bucket",
+        execution_endpoint_id=9,
+        cleanup_session=manager,
+    )
+
+    assert tracker.cleanup() == []
+    assert manager.deleted == []
+
+
 def test_cleanup_discovers_and_purges_buckets_through_account_scope() -> None:
     admin = _AdminSession()
     admin.bucket_items = [
@@ -243,3 +314,35 @@ def test_cleanup_falls_back_when_rgw_account_verification_is_unavailable() -> No
     ) in admin.deleted
     assert rgw.deleted_users == [("RGW00000000000000007-admin", None)]
     assert rgw.deleted_accounts == ["RGW00000000000000007"]
+
+
+def test_cleanup_retries_account_after_direct_rgw_bucket_purge() -> None:
+    admin = _AdminSession()
+    admin.account_delete_error = BackendAPIError(
+        "Unable to delete account",
+        status_code=400,
+        payload={
+            "detail": (
+                "Unable to delete RGW account RGW00000000000000007: "
+                "RGW admin error 409 code=BucketNotEmpty detail=Upstream service error."
+            )
+        },
+    )
+    rgw = _RgwAdminClient()
+    rgw.account_buckets = ["residual-cross-endpoint-bucket"]
+    tracker = ResourceTracker(admin_session=admin, rgw_admin_client=rgw)
+    tracker.track_account(
+        7,
+        delete_rgw=True,
+        rgw_account_id="RGW00000000000000007",
+    )
+
+    assert tracker.cleanup() == []
+
+    assert rgw.deleted_buckets == [("residual-cross-endpoint-bucket", True)]
+    account_deletes = [
+        item
+        for item in admin.deleted
+        if item[0] == "/admin/accounts/7" and item[1].get("delete_rgw") == "true"
+    ]
+    assert len(account_deletes) == 2
