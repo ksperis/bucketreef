@@ -6,7 +6,9 @@ import type { PortalAccount } from "../../api/portalAccounts";
 import type {
   PortalStorageSpaceAccountMemberRole,
   PortalStorageSpaceCollaboratorPreview,
+  PortalStorageSpaceRole,
   PortalStorageSpaceShareScope,
+  PortalStorageSpaceStatus,
   PortalStorageSpaceSummary,
   PortalStorageSpaceVisibility,
 } from "../../api/portal";
@@ -18,8 +20,6 @@ import { portalDateLabel } from "./portalI18n";
 
 type TFunction = (message: I18nMessage) => string;
 
-export type PortalWorkspaceRole = "Viewer" | "Editor" | "Owner" | "Manager";
-export type PortalWorkspaceStatus = "Active" | "Attention";
 export type PortalWorkspaceAccess = "Private" | "Shared" | "Public" | "Public Read" | "Unavailable";
 export type PortalWorkspaceAlertTone = "info" | "warning" | "danger";
 
@@ -39,11 +39,11 @@ export type PortalWorkspaceSpace = {
   accountMemberRole: PortalStorageSpaceAccountMemberRole | null;
   projectKey: string | null;
   datasetLabel: string | null;
-  role: PortalWorkspaceRole;
+  role: PortalStorageSpaceRole;
   canBrowse: boolean;
   canDelete: boolean;
   canTakeOwnership: boolean;
-  status: PortalWorkspaceStatus | "Archived";
+  status: PortalStorageSpaceStatus;
   access: PortalWorkspaceAccess;
   region: string | null;
   createdLabel: string;
@@ -110,16 +110,6 @@ function prettyName(raw: string): string {
     .join(" ");
 }
 
-function statusFromStorageSpace(space: PortalStorageSpaceSummary): PortalWorkspaceStatus {
-  if (space.status === "Active" || space.status === "Attention") {
-    return space.status;
-  }
-  if (typeof space.status === "string" && ["attention", "warning", "degraded"].includes(space.status.toLowerCase())) {
-    return "Attention";
-  }
-  return "Active";
-}
-
 function createdLabel(raw?: string | null, locale: UiLanguage = "en"): string {
   return portalDateLabel(raw, locale);
 }
@@ -159,9 +149,7 @@ export function buildPortalWorkspaceModel({
     const visibility = storageSpace.visibility;
     const shareScope: PortalStorageSpaceShareScope =
       visibility === "shared" && storageSpace.share_scope === "account" ? "account" : "restricted";
-    const status: PortalWorkspaceStatus | "Archived" = storageSpace.archived_at
-      ? "Archived"
-      : statusFromStorageSpace(storageSpace);
+    const status = storageSpace.status;
     const access: PortalWorkspaceAccess = visibility === "shared" ? "Shared" : "Private";
     return {
       id: storageSpace.id,

@@ -3,14 +3,14 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { ReactNode } from "react";
-import type { PortalStorageSpaceVisibility } from "../../api/portal";
+import type {
+  PortalStorageSpaceRole,
+  PortalStorageSpaceVisibility,
+} from "../../api/portal";
 import PageBanner, { type PageBannerTone } from "../../components/PageBanner";
 import ErrorState from "../../components/errors/ErrorState";
 import type { UiTone } from "../../components/ui/styles";
-import type {
-  PortalWorkspaceRole,
-  PortalWorkspaceSpace,
-} from "./portalWorkspaceModel";
+import type { PortalWorkspaceSpace } from "./portalWorkspaceModel";
 
 export function PortalPageState({
   tone = "info",
@@ -62,7 +62,7 @@ export function portalStorageSpaceStatusTone(space: PortalWorkspaceSpace): UiTon
   return "success";
 }
 
-export function portalRoleTone(role: PortalWorkspaceRole): UiTone {
+export function portalRoleTone(role: PortalStorageSpaceRole): UiTone {
   if (role === "Manager") return "primary";
   if (role === "Owner") return "success";
   if (role === "Editor") return "primary";
