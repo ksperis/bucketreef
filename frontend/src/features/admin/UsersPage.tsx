@@ -88,6 +88,7 @@ import {
   emptyAdminUserCreateForm,
   type AdminUserAssociationSelection,
 } from "./adminUserForm";
+import { accountMembershipsToSelections } from "./adminAccountAssociationModel";
 
 type UserModalTab = "general" | "authentication" | "associations" | "groups" | "access";
 
@@ -624,12 +625,7 @@ export default function UsersPage() {
     resetAssociationOptionSearches();
     setEditingUser(user);
     setEditForm(nextEditForm);
-    const selectedAccounts = user.account_links.map((link) => ({
-      id: Number(link.account_id),
-      manager_role: link.manager_role,
-      portal_role: link.portal_role,
-      allow_manager_browser_data_access: link.allow_manager_browser_data_access,
-    }));
+    const selectedAccounts = accountMembershipsToSelections(user.account_links);
     const nextSelectedS3Users = user.s3_user_links.map((link) => ({
       s3_user_id: Number(link.s3_user_id),
       allow_manager_browser_data_access: link.allow_manager_browser_data_access,

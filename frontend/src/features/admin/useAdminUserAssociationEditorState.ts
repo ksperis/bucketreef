@@ -4,7 +4,7 @@
  */
 import { useCallback, useState } from "react";
 import type { S3UserMembership } from "../../api/users";
-import type { AdminAccountSelection } from "./AdminAccountAssociationsPanel";
+import type { AdminAccountSelection } from "./adminAccountAssociationModel";
 import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
 import useAdminStorageAssociationEditorState, {
   type StorageAssociationTab,

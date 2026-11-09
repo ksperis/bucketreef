@@ -24,10 +24,7 @@ import {
   ManagerAccountRoleSelect,
   PortalAccountRoleSelect,
 } from "./AccountAccessRoleSelectors";
-
-export type AdminAccountSelection = AccountAccessGrant & {
-  id: number;
-};
+import type { AdminAccountSelection } from "./adminAccountAssociationModel";
 
 export type AdminAccountAssociationsState = AdminAssociationPickerState & {
   selected: AdminAccountSelection[];
