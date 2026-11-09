@@ -227,4 +227,40 @@ describe("BrowserWorkspaceSidebar", () => {
     expect(onCreateBucket).toHaveBeenCalledOnce();
     expect(onRetryBuckets).toHaveBeenCalledOnce();
   });
+
+  it("keeps refresh disabled until the bucket context is ready", () => {
+    const onRetryBuckets = vi.fn();
+    render(
+      <BrowserWorkspaceSidebar
+        compact={false}
+        variant="desktop"
+        isPortalContext={false}
+        rows={[]}
+        activeBucketName=""
+        bucketFilter=""
+        loadingBuckets={false}
+        bucketRefreshEnabled={false}
+        bucketError={null}
+        bucketManagementEnabled={false}
+        canLoadMore={false}
+        bucketMenuLoadingMore={false}
+        bucketMenuTotal={0}
+        bucketTotalCount={0}
+        usageSummary={null}
+        usageLoading={false}
+        usageError={null}
+        closeMobile={vi.fn()}
+        onBucketFilterChange={vi.fn()}
+        onRetryBuckets={onRetryBuckets}
+        onCreateBucket={vi.fn()}
+        onSelectBucket={vi.fn()}
+        onLoadMore={vi.fn()}
+      />,
+    );
+
+    const refreshButton = screen.getByRole("button", { name: "Refresh buckets" });
+    expect(refreshButton).toBeDisabled();
+    fireEvent.click(refreshButton);
+    expect(onRetryBuckets).not.toHaveBeenCalled();
+  });
 });

@@ -101,6 +101,30 @@ describe("useBrowserBucketCatalog", () => {
     });
   });
 
+  it("bypasses the bucket cache for an explicit catalogue refresh", async () => {
+    apiMocks.searchBrowserBuckets.mockResolvedValue(bucketPage(["bucket-a"]));
+    const { result } = renderHook(() =>
+      useBrowserBucketCatalog(createOptions()),
+    );
+
+    await waitFor(() => {
+      expect(result.current.selectionReady).toBe(true);
+    });
+    apiMocks.searchBrowserBuckets.mockClear();
+
+    await act(async () => {
+      await result.current.refreshBucketList({ forceRefresh: true });
+    });
+
+    expect(apiMocks.searchBrowserBuckets).toHaveBeenCalledWith(
+      "account-a",
+      expect.objectContaining({
+        forceRefresh: true,
+        page: 1,
+      }),
+    );
+  });
+
   it("falls back to a remembered selection when the URL bucket is invalid", async () => {
     writeBrowserRootContextSelection("account-a", {
       bucketName: "bucket-a",

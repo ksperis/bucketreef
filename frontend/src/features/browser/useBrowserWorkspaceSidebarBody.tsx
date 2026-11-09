@@ -55,6 +55,7 @@ export function useBrowserWorkspaceSidebarBody({
     bucketError,
     bucketFilter,
     bucketManagementEnabled,
+    bucketRefreshEnabled,
     bucketMenuLoadingMore,
     bucketMenuTotal,
     bucketTotalCount,
@@ -104,6 +105,7 @@ export function useBrowserWorkspaceSidebarBody({
         activeBucketName={activeBucketName}
         bucketFilter={bucketFilter}
         loadingBuckets={loadingBuckets}
+        bucketRefreshEnabled={bucketRefreshEnabled}
         bucketError={bucketError}
         bucketManagementEnabled={bucketManagementEnabled}
         canLoadMore={canLoadMore}
@@ -133,6 +135,7 @@ export function useBrowserWorkspaceSidebarBody({
       bucketFilter,
       bucketLabels,
       bucketManagementEnabled,
+      bucketRefreshEnabled,
       bucketMenuLoadingMore,
       bucketMenuTotal,
       bucketTotalCount,

@@ -105,6 +105,8 @@ class BrowserBucketsMixin:
         context: S3ExecutionTarget,
         request: BrowserBucketSearchRequest,
     ) -> PaginatedBrowserBucketsResponse:
+        if request.force_refresh:
+            self.invalidate_bucket_list_cache_for_context(context)
         buckets = self.list_buckets(context)
         query = (request.search or "").strip()
         if query:

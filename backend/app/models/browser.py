@@ -36,6 +36,7 @@ class BrowserBucketSearchRequest(PaginationRequest):
     page_size: int = Field(default=50, ge=1, le=200)
     search: Optional[str] = None
     exact: bool = False
+    force_refresh: bool = False
 
 
 class CreateFolderPayload(ApiModel):

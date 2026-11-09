@@ -37,6 +37,7 @@ type BrowserWorkspaceSidebarProps = {
   activeBucketName: string;
   bucketFilter: string;
   loadingBuckets: boolean;
+  bucketRefreshEnabled?: boolean;
   bucketError: string | null;
   bucketManagementEnabled: boolean;
   canLoadMore: boolean;
@@ -95,6 +96,7 @@ export default function BrowserWorkspaceSidebar({
   activeBucketName,
   bucketFilter,
   loadingBuckets,
+  bucketRefreshEnabled = true,
   bucketError,
   bucketManagementEnabled,
   canLoadMore,
@@ -209,7 +211,7 @@ export default function BrowserWorkspaceSidebar({
             )}
             <UiIconButton
               onClick={onRetryBuckets}
-              disabled={loadingBuckets}
+              disabled={loadingBuckets || !bucketRefreshEnabled}
               label={tr(isPortalContext ? "Refresh spaces" : "Refresh buckets")}
               title={loadingBuckets ? tr("Refreshing") : tr("Refresh")}
               icon={<RefreshIcon className={cx("h-3.5 w-3.5", loadingBuckets ? "animate-spin" : "")} />}
