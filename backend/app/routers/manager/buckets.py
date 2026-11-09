@@ -36,10 +36,7 @@ from app.services.bucket_purge_audit import (
 )
 from app.routers.manager import bucket_config
 from app.services.audit_service import AuditService
-from app.services.bucket_comparison_service import (
-    BucketComparisonService,
-    get_bucket_comparison_service,
-)
+from app.services.bucket_comparison_service import BucketComparisonService
 from app.services.bucket_quota_service import (
     BucketQuotaService,
     get_bucket_quota_service,
@@ -80,6 +77,10 @@ from app.routers.bucket_config_errors import run_bucket_config_action, run_bucke
 router = APIRouter(prefix="/manager/buckets", tags=["manager-buckets"])
 router.include_router(bucket_config.router)
 logger = logging.getLogger(__name__)
+
+
+def get_bucket_comparison_service() -> BucketComparisonService:
+    return BucketComparisonService()
 
 
 def _invalidate_bucket_listing_for_context(context: S3ExecutionContext) -> None:
