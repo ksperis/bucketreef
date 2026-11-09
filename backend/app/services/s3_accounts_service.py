@@ -91,7 +91,3 @@ class S3AccountsService:
             admin=admin,
             endpoint=endpoint,
         )
-
-
-def get_s3_accounts_service(db: Session) -> S3AccountsService:
-    return S3AccountsService(db)

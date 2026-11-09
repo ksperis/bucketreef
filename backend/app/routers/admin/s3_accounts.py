@@ -23,7 +23,7 @@ from app.routers.dependencies import (
     get_audit_service,
     get_current_ui_admin,
 )
-from app.services.s3_accounts_service import S3AccountsService, get_s3_accounts_service
+from app.services.s3_accounts_service import S3AccountsService
 from app.services.s3_account_import_service import S3AccountImportService
 from app.services.s3_account_query_service import S3AccountQueryService
 from app.services.s3_account_update_service import S3AccountUpdateService
@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 def get_admin_accounts_service(
     db: Session = Depends(get_db),
 ) -> S3AccountsService:
-    return get_s3_accounts_service(db)
+    return S3AccountsService(db)
 
 
 def get_admin_account_query_service(

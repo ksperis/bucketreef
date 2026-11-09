@@ -83,7 +83,3 @@ class S3UsersService:
         s3_user = self.query.get_user_record(user_id)
         admin = self.rgw_context.admin_for_user(s3_user)
         self.deletion.delete_user(s3_user, admin, delete_rgw=delete_rgw)
-
-
-def get_s3_users_service(db: Session) -> S3UsersService:
-    return S3UsersService(db)
