@@ -644,7 +644,7 @@ def test_healthcheck_history_pruning_keeps_recent_and_active_rows(db_session, mo
         30,
     )
 
-    HealthCheckPersistenceService(db_session)._prune_history()
+    HealthCheckPersistenceService(db_session).prune_history()
 
     raw_rows = db_session.scalars(select(EndpointHealthCheck)).all()
     rollup_rows = db_session.scalars(select(EndpointHealthRollup)).all()
