@@ -271,11 +271,6 @@ class HealthCheckPersistenceService:
     def prune_history(self) -> None:
         run_db_unit_with_sqlite_retry(self.db, self._prune_history_once)
 
-    def _prune_history(self) -> None:
-        """Backward-compatible wrapper for direct callers and tests."""
-
-        self.prune_history()
-
     def _prune_history_once(self) -> None:
         retention_days = settings.healthcheck_retention_days
         if retention_days == 0:
