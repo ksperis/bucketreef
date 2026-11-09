@@ -1,5 +1,16 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 canonical Portal Storage Space provenance
+
+Migration `0262_canonical_portal_storage_space_origin` converts any historical
+`portal_storage_space_metadata.origin` value outside `portal_generic`,
+`portal_named`, and `imported` to `imported`, preserving the runtime behavior
+previously provided by a compatibility fallback. It then adds a database check
+constraint so future rows cannot reintroduce non-canonical provenance values.
+
+The runtime now consumes the persisted canonical value directly. No operator
+repair is required for legacy or otherwise unsupported values.
+
 ## 2026-11 canonical Portal Storage Space summaries
 
 Portal Storage Space summary responses no longer expose the persisted `origin`

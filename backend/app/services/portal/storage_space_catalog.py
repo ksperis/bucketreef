@@ -122,12 +122,6 @@ class PortalStorageSpaceCatalogMixin:
             candidate = portal_storage_space_bucket_name()
         return candidate
 
-    def _storage_space_origin(self, metadata: PortalStorageSpaceMetadata | None) -> str:
-        value = metadata.origin if metadata and metadata.origin else "imported"
-        if value in {"portal_generic", "portal_named", "imported"}:
-            return value
-        return "imported"
-
     def _storage_space_role(self, access: "AccountAccess") -> PortalStorageSpaceRole:
         if access.portal_role == PortalAccountRole.PORTAL_MANAGER.value:
             return "Manager"

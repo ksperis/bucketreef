@@ -615,7 +615,7 @@ class PortalStorageSpacesMixin:
             external_access_count=external_access_count,
             public_links=public_links,
             storage_space_name=self._display_storage_space_name(bucket_name, metadata),
-            origin=self._storage_space_origin(metadata),
+            origin=metadata.origin,
         )
 
     @staticmethod
