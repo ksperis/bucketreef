@@ -25,7 +25,7 @@ describe.each(cases)("Portal public link dialogs in $language", ({ language, clo
     const onClose = vi.fn();
     const onCreate = vi.fn();
     render(<LanguageProvider>
-      <PortalPublicLinkCreateDialog fileName={link.object_name} path={link.object_key}
+      <PortalPublicLinkCreateDialog fileName={link.object_name} path="reports/report.csv"
         spaceName={link.storage_space_name} expiration="" busy={false} canCreate
         onExpirationChange={vi.fn()} onClose={onClose} onCreate={onCreate} />
     </LanguageProvider>);

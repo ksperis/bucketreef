@@ -6126,11 +6126,11 @@ def test_list_storage_space_shares_uses_db_grants(monkeypatch, db_session):
     owner_shares = service.list_storage_space_shares(owner, owner_access, "research-data")
     viewer_shares = service.list_storage_space_shares(viewer, viewer_access, "research-data")
 
-    assert [(share.email, share.role, share.direction) for share in owner_shares] == [
-        ("viewer@example.com", "Viewer", "by_me"),
+    assert [(share.email, share.role) for share in owner_shares] == [
+        ("viewer@example.com", "Viewer"),
     ]
-    assert [(share.email, share.role, share.direction) for share in viewer_shares] == [
-        ("viewer@example.com", "Viewer", "with_me"),
+    assert [(share.email, share.role) for share in viewer_shares] == [
+        ("viewer@example.com", "Viewer"),
     ]
 
 
@@ -7060,10 +7060,13 @@ def test_public_links_are_scoped_expirable_and_revocable(monkeypatch, db_session
         f"https://portal.example.test/api/portal/public-links/{persisted_link.token}/download"
     )
 
-    assert link.object_key == "raw-data/report.csv"
     assert link.object_name == "report.csv"
     assert link.status == "Active"
     assert link.url == expected_url
+    assert persisted_link.object_key == "raw-data/report.csv"
+    assert persisted_link.label == "Report"
+    assert persisted_link.created_by_email == owner.email
+    assert persisted_link.revoked_at is not None
     assert [(item.id, item.status) for item in links] == [(link.id, "Active")]
     assert [item.url for item in links] == [expected_url]
     assert [(item.id, item.status) for item in revoked] == [(link.id, "Revoked")]

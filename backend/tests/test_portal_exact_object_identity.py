@@ -190,8 +190,9 @@ def test_public_links_persist_filter_and_download_distinct_literal_keys(storage,
     for key in keys:
         response = storage.http.post(url, json={"object_key": key})
         assert response.status_code == 201, response.text
-        assert response.json()["object_key"] == key
-        links[key] = response.json()["id"]
+        payload = response.json()
+        assert "object_key" not in payload
+        links[key] = payload["id"]
     assert [call.kwargs["Key"] for call in storage.sdk.head_object.call_args_list] == keys
     assert [
         row.object_key
@@ -201,8 +202,11 @@ def test_public_links_persist_filter_and_download_distinct_literal_keys(storage,
     for key in keys:
         response = storage.http.get(url, params={"object_key": key})
         assert response.status_code == 200, response.text
-        assert [(item["id"], item["object_key"]) for item in response.json()] == [(links[key], key)]
+        payload = response.json()
+        assert [item["id"] for item in payload] == [links[key]]
+        assert all("object_key" not in item for item in payload)
         persisted = storage.db.get(PortalPublicLink, links[key])
+        assert persisted.object_key == key
         storage.sdk.get_object.reset_mock()
         response = storage.http.get(f"/api/portal/public-links/{persisted.token}/download")
         assert response.status_code == 200, response.text

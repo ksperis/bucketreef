@@ -78,14 +78,9 @@ class PortalPublicLinksMixin:
             id=link.id,
             storage_space_id=storage_space.id,
             storage_space_name=storage_space.name,
-            object_key=link.object_key,
             object_name=self._object_name(link.object_key),
             url=self._public_link_url(link.token),
-            label=link.label,
-            created_by_email=link.created_by_email,
-            created_at=link.created_at,
             expires_at=link.expires_at,
-            revoked_at=link.revoked_at,
             status=self._public_link_status(link, account=account, metadata=metadata),
         )
 

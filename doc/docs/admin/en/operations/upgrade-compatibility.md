@@ -42,6 +42,15 @@ Portal collaborator trend responses now expose only the baseline label and
 collaborator count used by the dashboard. The computed `window` and
 `period_start` projections were not consumed by the bundled frontend.
 
+Portal Storage Space share responses no longer expose the synthetic
+`direction` projection. Visibility already determines whether a caller sees all
+shares or only its own grant, and the bundled frontend never consumed that
+field. Public-link responses now expose only the link identifier, Storage Space
+identity, object display name, URL, expiration, and computed status. Exact
+`object_key`, label, creator email, creation timestamp, and revocation timestamp
+remain persisted and continue to drive object matching, lifecycle, and audit
+behavior internally.
+
 The request-message author ID and role, decision user ID, and execution result
 remain persisted for internal audit, provenance, and workflow diagnostics.
 Deploy the backend and bundled frontend together. No database migration is

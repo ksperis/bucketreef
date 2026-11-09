@@ -2256,8 +2256,6 @@ export function buildBaseRules(): MockRule[] {
                   user_id: 4,
                   email: "alice@example.com",
                   role: "Editor",
-                  direction: "by_me",
-                  activity_label: "2h ago",
                 },
                 {
                   id: `share-${space.id}-bob`,
@@ -2266,8 +2264,6 @@ export function buildBaseRules(): MockRule[] {
                   user_id: 5,
                   email: "bob@example.com",
                   role: "Viewer",
-                  direction: "by_me",
-                  activity_label: "1d ago",
                 },
               ]
             : [],
@@ -2424,14 +2420,9 @@ export function buildBaseRules(): MockRule[] {
             id: 42,
             storage_space_id: space.id,
             storage_space_name: space.name,
-            object_key: "raw-data/2024/03/sample_001.fastq.gz",
             object_name: "sample_001.fastq.gz",
             url: "/api/portal/public-links/docs-token/download",
-            label: "Review link",
-            created_by_email: "storage.user@example.com",
-            created_at: NOW,
             expires_at: "2026-06-10T10:00:00Z",
-            revoked_at: null,
             status: "Active",
           },
         ];
@@ -2451,8 +2442,6 @@ export function buildBaseRules(): MockRule[] {
             user_id: 3,
             email: "alice@example.com",
             role: "Editor",
-            direction: "by_me",
-            activity_label: "2h ago",
           },
           {
             id: `share-${space.id}-bob`,
@@ -2461,8 +2450,6 @@ export function buildBaseRules(): MockRule[] {
             user_id: 4,
             email: "bob@example.com",
             role: "Viewer",
-            direction: "with_me",
-            activity_label: "1d ago",
           },
         ];
       },

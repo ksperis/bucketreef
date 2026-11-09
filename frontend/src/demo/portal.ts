@@ -264,7 +264,7 @@ export function portal(c: DemoRequest): Response | undefined {
       if (Array.isArray(body.initial_shares)) space.shares = body.initial_shares.map((input: { user_id: number; role: string }) => {
         const target = required(candidates.find(u => u.user_id === input.user_id));
         if (input.role !== "Viewer" && input.role !== "Editor") throw new DemoError(422, "Choose Viewer or Editor");
-        return { id: `share-${state.nextId++}`, storage_space_id: space.id, storage_space_name: space.name, user_id: target.user_id, email: target.email, role: input.role, direction: "by_me" };
+        return { id: `share-${state.nextId++}`, storage_space_id: space.id, storage_space_name: space.name, user_id: target.user_id, email: target.email, role: input.role };
       });
       state.spaces.push(space); return json(spaceView(c, space), 201);
     }
@@ -301,14 +301,14 @@ export function portal(c: DemoRequest): Response | undefined {
   if (match[2] === "access-summary" && method === "GET") return json({ mode: space.visibility === "private" ? "private" : space.share_scope === "account" ? "all" : "restricted", default_account_member_role: space.account_member_role,
     owner: space.owner_user_id ? { user_id: space.owner_user_id, email: state.users.find(u => u.id === space.owner_user_id)?.email, role: "Owner", access_source: "owner" } : null,
     effective_member_count: space.share_scope === "account" ? candidates.length : space.shares.length + 1, explicit_shares: space.shares, public_link_count: 1, can_manage_access: writable, can_create_public_links: false });
-  if (match[2] === "public-links" && method === "GET") return json([{ id: 1, storage_space_id: space.id, storage_space_name: space.name, object_key: "README.txt", object_name: "README.txt", url: "#demo-example-only", label: "Example only · not shareable", created_by_email: c.user.email, created_at: state.initializedAt, expires_at: null, status: "Example" }]);
+  if (match[2] === "public-links" && method === "GET") return json([{ id: 1, storage_space_id: space.id, storage_space_name: space.name, object_name: "README.txt", url: "#demo-example-only", expires_at: null, status: "Example" }]);
   if (match[2] === "shares") {
     if (method === "GET") return json(space.shares);
     const target = required(candidates.find(u => u.user_id === Number(match[3] ?? body.user_id) || u.email === body.email));
     if (method === "DELETE") { space.shares = space.shares.filter(s => s.user_id !== target.user_id); return json(space.shares); }
     if (method === "POST" || method === "PUT") {
       if (body.role !== "Viewer" && body.role !== "Editor") throw new DemoError(422, "Choose Viewer or Editor");
-      const share: PortalStorageSpaceShare = { id: `share-${state.nextId++}`, storage_space_id: space.id, storage_space_name: space.name, user_id: target.user_id, email: target.email, role: body.role, direction: "by_me" };
+      const share: PortalStorageSpaceShare = { id: `share-${state.nextId++}`, storage_space_id: space.id, storage_space_name: space.name, user_id: target.user_id, email: target.email, role: body.role };
       space.shares = [...space.shares.filter(s => s.user_id !== target.user_id), share]; return json(share, method === "POST" ? 201 : 200);
     }
   }
