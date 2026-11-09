@@ -1,5 +1,17 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 canonical quota size units
+
+Internal account, RGW user, bucket, and Portal quota write APIs now accept only
+the canonical `MiB`, `GiB`, and `TiB` size units. The bundled frontend uses the
+same shared contract for Admin, Manager, Portal, and bulk bucket operations.
+Inputs such as lowercase `gib`, `GB`, or raw bytes are rejected during request
+validation instead of reaching the later quota conversion step.
+
+Ceph Admin quota forms remain a separate RGW administration contract and still
+support raw bytes (`B`). Deploy the backend and bundled frontend together. No
+database migration is required because persisted quota values are unchanged.
+
 ## 2026-11 canonical onboarding progress resources
 
 Migration `0261_canonical_onboarding_resources` closes the internal onboarding

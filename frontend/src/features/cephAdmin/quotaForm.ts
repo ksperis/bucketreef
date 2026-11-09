@@ -2,8 +2,9 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import { QUOTA_SIZE_UNIT_BYTES, QUOTA_SIZE_UNITS } from "../../utils/quotaUnits";
 
-export const CEPH_ADMIN_QUOTA_UNITS = ["B", "MiB", "GiB", "TiB"] as const;
+export const CEPH_ADMIN_QUOTA_UNITS = ["B", ...QUOTA_SIZE_UNITS] as const;
 export type CephAdminQuotaUnit = (typeof CEPH_ADMIN_QUOTA_UNITS)[number];
 
 export type CephAdminQuotaFormValues = {
@@ -25,9 +26,7 @@ export function validateCephAdminQuotaForm(values: CephAdminQuotaFormValues): { 
 
 const UNIT_FACTORS: Record<CephAdminQuotaUnit, number> = {
   B: 1,
-  MiB: 1024 ** 2,
-  GiB: 1024 ** 3,
-  TiB: 1024 ** 4,
+  ...QUOTA_SIZE_UNIT_BYTES,
 };
 
 export const parseOptionalNonNegativeInteger = (value: string): number | null => {

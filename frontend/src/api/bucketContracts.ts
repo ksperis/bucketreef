@@ -2,6 +2,7 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import type { QuotaSizeUnit } from "../utils/quotaUnits";
 
 export type BucketFeatureTone = "active" | "inactive" | "unknown";
 
@@ -123,7 +124,7 @@ export type BucketProperties = {
 export type BucketQuotaUpdate = {
   enabled: boolean;
   max_size_gb?: number | null;
-  max_size_unit?: string | null;
+  max_size_unit?: QuotaSizeUnit | null;
   max_objects?: number | null;
 };
 

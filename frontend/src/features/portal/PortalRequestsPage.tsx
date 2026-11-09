@@ -9,7 +9,6 @@ import {
   createPortalRequest,
   type PortalRequestedRole,
   type PortalQuotaDirection,
-  type PortalQuotaUnit,
   type PortalSettingChangeRequestCreate,
 } from "../../api/portalRequests";
 import SettingsFormDialog from "../../components/settings/SettingsFormDialog";
@@ -27,6 +26,11 @@ import {
 import { useI18n } from "../../i18n";
 import { extractApiError } from "../../utils/apiError";
 import { formatBytes } from "../../utils/format";
+import {
+  QUOTA_SIZE_UNIT_BYTES,
+  QUOTA_SIZE_UNITS,
+  type QuotaSizeUnit,
+} from "../../utils/quotaUnits";
 import PortalPageTabs, { PortalTabPanel } from "./PortalPageTabs";
 import PortalQuotaChangePreview from "./PortalQuotaChangePreview";
 import PortalRequestsHistory from "./PortalRequestsHistory";
@@ -43,20 +47,13 @@ type CollaboratorAction = "add" | "remove";
 type RequestDialog = "collaborator" | "storage-limit" | "setting" | null;
 type RequestsTab = "request-help" | "history";
 
-const quotaUnits: PortalQuotaUnit[] = ["MiB", "GiB", "TiB"];
-const quotaUnitBytes: Record<PortalQuotaUnit, number> = {
-  MiB: 1024 ** 2,
-  GiB: 1024 ** 3,
-  TiB: 1024 ** 4,
-};
-
 function quotaValueToBytes(
   value: string,
-  unit: PortalQuotaUnit,
+  unit: QuotaSizeUnit,
 ): number | null {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) return null;
-  return parsed * quotaUnitBytes[unit];
+  return parsed * QUOTA_SIZE_UNIT_BYTES[unit];
 }
 
 export default function PortalRequestsPage() {
@@ -83,7 +80,7 @@ export default function PortalRequestsPage() {
   const [quotaDirection, setQuotaDirection] =
     useState<PortalQuotaDirection>("increase");
   const [quotaValue, setQuotaValue] = useState("");
-  const [quotaUnit, setQuotaUnit] = useState<PortalQuotaUnit>("GiB");
+  const [quotaUnit, setQuotaUnit] = useState<QuotaSizeUnit>("GiB");
   const [quotaReason, setQuotaReason] = useState("");
   const summaryAllowsManagedRequests =
     selectedAccount?.portal_role === "portal_manager";
@@ -799,7 +796,7 @@ export default function PortalRequestsPage() {
               label={t({ en: "Unit", fr: "Unité", de: "Einheit", zh: "单位" })}
               value={quotaUnit}
               onChange={(event) =>
-                setQuotaUnit(event.target.value as PortalQuotaUnit)
+                setQuotaUnit(event.target.value as QuotaSizeUnit)
               }
               disabled={
                 requestsDisabled ||
@@ -807,7 +804,7 @@ export default function PortalRequestsPage() {
                 busy === "quota"
               }
             >
-              {quotaUnits.map((unit) => (
+              {QUOTA_SIZE_UNITS.map((unit) => (
                 <option key={unit} value={unit}>
                   {unit}
                 </option>

@@ -9,7 +9,8 @@ import UiInlineMessage from "../../../components/ui/UiInlineMessage";
 import BucketFeatureSection from "./BucketFeatureSection";
 import EndpointFeatureDisabledNotice from "./EndpointFeatureDisabledNotice";
 import { resolveFeatureVisualState } from "./bucketFeatureState";
-import type { BucketQuotaUnit, useBucketQuotaController } from "./useBucketQuotaController";
+import type { QuotaSizeUnit } from "../../../utils/quotaUnits";
+import type { useBucketQuotaController } from "./useBucketQuotaController";
 import { useManagerI18n } from "../managerI18n";
 
 type BucketQuotaController = ReturnType<typeof useBucketQuotaController>;
@@ -96,7 +97,7 @@ export default function BucketQuotaFeature({
             <SettingsSelect
               value={unit}
               aria-label={text("Quota size unit")}
-              onChange={(event) => updateUnit(event.target.value as BucketQuotaUnit)}
+              onChange={(event) => updateUnit(event.target.value as QuotaSizeUnit)}
               className="w-20"
               disabled={!editable}
             >

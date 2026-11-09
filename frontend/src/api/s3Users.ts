@@ -8,6 +8,7 @@ import type { TagDefinitionInput, TagDefinitionSummary } from "./tags";
 import type { UiGroupAvatarDescriptor } from "./groups";
 import type { UserAvatarDescriptor } from "./users";
 import type { AccessKeyMetadata } from "./accessKeyContracts";
+import type { QuotaSizeUnit } from "../utils/quotaUnits";
 
 export type S3User = {
   id: number;
@@ -91,7 +92,7 @@ type CreateS3UserPayload = {
   rgw_tenant: string;
   email?: string | null;
   quota_max_size_gb?: number | null;
-  quota_max_size_unit?: string | null;
+  quota_max_size_unit?: QuotaSizeUnit | null;
   quota_max_objects?: number | null;
   storage_endpoint_id: number;
   tags?: TagDefinitionInput[];
@@ -119,7 +120,7 @@ export type UpdateS3UserPayload = {
   user_links?: S3UserUserLinkInput[];
   group_links?: S3UserGroupLinkInput[];
   quota_max_size_gb?: number | null;
-  quota_max_size_unit?: string | null;
+  quota_max_size_unit?: QuotaSizeUnit | null;
   quota_max_objects?: number | null;
   tags?: TagDefinitionInput[];
   allow_bucket_quota_management?: boolean | null;

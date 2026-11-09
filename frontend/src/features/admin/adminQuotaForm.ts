@@ -2,14 +2,11 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-
-export const ADMIN_QUOTA_UNITS = ["MiB", "GiB", "TiB"] as const;
-
-export type AdminQuotaUnit = (typeof ADMIN_QUOTA_UNITS)[number];
+import type { QuotaSizeUnit } from "../../utils/quotaUnits";
 
 type AdminQuotaSizeEditorValue = {
   value: string;
-  unit: AdminQuotaUnit;
+  unit: QuotaSizeUnit;
 };
 
 export function buildAdminQuotaSizeEditorValue(

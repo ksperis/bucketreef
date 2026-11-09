@@ -5,11 +5,9 @@ import type {
   S3UserUserLinkInput,
   UpdateS3UserPayload,
 } from "../../api/s3Users";
+import type { QuotaSizeUnit } from "../../utils/quotaUnits";
 import { canonicalizeUiTags, normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
-import {
-  buildAdminQuotaSizeEditorValue,
-  type AdminQuotaUnit,
-} from "./adminQuotaForm";
+import { buildAdminQuotaSizeEditorValue } from "./adminQuotaForm";
 
 export function emptyAdminS3UserForm() {
   return {
@@ -19,7 +17,7 @@ export function emptyAdminS3UserForm() {
     user_links: [] as S3UserUserLinkInput[],
     group_links: [] as S3UserGroupLinkInput[],
     quota_max_size_gb: "",
-    quota_max_size_unit: "GiB" as AdminQuotaUnit,
+    quota_max_size_unit: "GiB" as QuotaSizeUnit,
     quota_max_objects: "",
     allow_bucket_quota_management: null as boolean | null,
     allow_access_key_management: null as boolean | null,

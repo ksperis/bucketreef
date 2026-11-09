@@ -8,6 +8,7 @@ from pydantic import Field, field_validator, model_validator
 from app.models.access_key_metadata import AccessKeyMetadata
 from app.models.admin_listing import AdminManagedEntityListingRequest
 from app.models.base import ApiModel, reject_explicit_null_fields
+from app.models.quota import QuotaSizeUnit
 from app.utils.rgw_identifiers import validate_rgw_user_uid, validate_rgw_tenant
 from app.models.pagination import PaginatedResponse
 from app.models.tagging import (
@@ -87,7 +88,7 @@ class S3UserCreate(ApiModel):
     rgw_tenant: str
     email: Optional[str] = None
     quota_max_size_gb: Optional[float] = None
-    quota_max_size_unit: Optional[str] = None
+    quota_max_size_unit: Optional[QuotaSizeUnit] = None
     quota_max_objects: Optional[int] = None
     storage_endpoint_id: int
     tags: RequiredTagDefinitionList = Field(default_factory=list)
@@ -119,7 +120,7 @@ class S3UserUpdate(ApiModel):
     user_links: Optional[list[S3UserUserLinkInput]] = None
     group_links: Optional[list[S3UserGroupLinkInput]] = None
     quota_max_size_gb: Optional[float] = None
-    quota_max_size_unit: Optional[str] = None
+    quota_max_size_unit: Optional[QuotaSizeUnit] = None
     quota_max_objects: Optional[int] = None
     tags: OptionalTagDefinitionList = None
     allow_bucket_quota_management: Optional[bool] = None

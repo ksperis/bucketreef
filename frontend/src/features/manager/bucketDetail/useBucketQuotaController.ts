@@ -8,15 +8,14 @@ import { managerBucketDetails } from "../../../api/bucketDetails";
 import type { BucketQuotaUpdate } from "../../../api/bucketContracts";
 import { updateCephAdminBucketQuota } from "../../../api/cephAdminBucketDetails";
 import { extractApiError } from "../../../utils/apiError";
+import type { QuotaSizeUnit } from "../../../utils/quotaUnits";
 
 const { updateBucketQuota } = managerBucketDetails;
-
-export type BucketQuotaUnit = "MiB" | "GiB" | "TiB";
 
 type BucketQuotaDraft = {
   maxObjects: string;
   maxSize: string;
-  unit: BucketQuotaUnit;
+  unit: QuotaSizeUnit;
 };
 
 type UseBucketQuotaControllerOptions = BucketDetailControllerOptions & {
@@ -173,6 +172,6 @@ export function useBucketQuotaController({
     unit: draft.unit,
     updateMaxObjects: (value: string) => update({ maxObjects: value }),
     updateMaxSize: (value: string) => update({ maxSize: value }),
-    updateUnit: (value: BucketQuotaUnit) => update({ unit: value }),
+    updateUnit: (value: QuotaSizeUnit) => update({ unit: value }),
   };
 }

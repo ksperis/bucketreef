@@ -30,8 +30,8 @@ import {
   type BulkPastePlan,
   type ParsedQuotaInput,
   type PublicAccessBlockOptionKey,
-  type QuotaSizeUnit,
 } from "./bucketBulkOperationsModel";
+import type { QuotaSizeUnit } from "../../utils/quotaUnits";
 
 type OptionSelection<Key extends string> = Partial<Record<Key, boolean>>;
 

@@ -7,6 +7,7 @@ import type { S3AccountSelector } from "./accountParams";
 import { withS3AccountParam } from "./accountParams";
 import type { PaginatedResponse } from "./types";
 import { notifyAdminPendingRequestsRefresh } from "../utils/adminPendingRequestsRefresh";
+import type { QuotaSizeUnit } from "../utils/quotaUnits";
 
 export type PortalAdminRequestType =
   | "portal_user_access"
@@ -16,7 +17,6 @@ export type PortalAdminRequestType =
 export type PortalAdminRequestStatus = "pending" | "processing" | "approved" | "rejected" | "failed";
 export type PortalRequestedRole = "portal_user" | "portal_manager";
 export type PortalQuotaDirection = "increase" | "decrease";
-export type PortalQuotaUnit = "MiB" | "GiB" | "TiB";
 export type PortalSettingChangeMode = "inherit" | "override";
 export type PortalSettingKey =
   | "browser_access_enabled"
@@ -65,7 +65,7 @@ type PortalAccountQuotaChangeRequestCreate = {
   request_type: "account_quota_change";
   direction: PortalQuotaDirection;
   target_quota_value: number;
-  target_quota_unit: PortalQuotaUnit;
+  target_quota_unit: QuotaSizeUnit;
   reason?: string | null;
 };
 
