@@ -6406,7 +6406,7 @@ def test_portal_collaborators_summarize_effective_members_and_visible_external_a
     assert result.summary.collaborator_count == 4
     assert result.summary.external_access_key_count == 1
     assert result.summary.trend is not None
-    assert result.summary.trend.window == "month"
+    assert result.summary.trend.label == "last 30 days"
     assert result.summary.trend.collaborator_count == 3
     assert [(item.email, item.portal_role, item.access_source) for item in result.collaborators] == [
         ("actor-collab@example.com", "portal_manager", "direct"),

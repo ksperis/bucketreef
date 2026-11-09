@@ -38,6 +38,10 @@ Portal request responses also omit the internal execution `result` and
 `decided_by_user_id`. The bundled frontend does not consume either value and
 continues to use `decided_by_email` plus the decision timestamp for display.
 
+Portal collaborator trend responses now expose only the baseline label and
+collaborator count used by the dashboard. The computed `window` and
+`period_start` projections were not consumed by the bundled frontend.
+
 The request-message author ID and role, decision user ID, and execution result
 remain persisted for internal audit, provenance, and workflow diagnostics.
 Deploy the backend and bundled frontend together. No database migration is
