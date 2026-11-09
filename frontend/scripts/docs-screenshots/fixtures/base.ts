@@ -1007,7 +1007,6 @@ const PORTAL_REQUESTS = [
     },
     requester_user_id: 3,
     requester_email: "storage.user@example.com",
-    decided_by_user_id: null,
     decided_by_email: null,
     decided_at: null,
     created_at: "2026-03-08T08:30:00Z",
@@ -1028,7 +1027,6 @@ const PORTAL_REQUESTS = [
     },
     requester_user_id: 3,
     requester_email: "storage.user@example.com",
-    decided_by_user_id: 2,
     decided_by_email: "platform.admin@example.com",
     decided_at: "2026-03-08T09:00:00Z",
     created_at: "2026-03-07T15:15:00Z",
@@ -1036,9 +1034,7 @@ const PORTAL_REQUESTS = [
     messages: [
       {
         id: 1,
-        author_user_id: 2,
         author_email: "platform.admin@example.com",
-        author_role: "admin",
         message: "Approved for the March campaign.",
         created_at: "2026-03-08T09:00:00Z",
       },
@@ -1057,7 +1053,6 @@ const PORTAL_REQUESTS = [
     },
     requester_user_id: 3,
     requester_email: "storage.user@example.com",
-    decided_by_user_id: null,
     decided_by_email: null,
     decided_at: null,
     created_at: "2026-03-08T09:15:00Z",

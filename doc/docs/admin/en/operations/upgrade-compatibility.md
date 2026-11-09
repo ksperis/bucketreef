@@ -34,9 +34,14 @@ and was not consumed by the bundled frontend. Portal request messages likewise
 no longer expose `author_user_id` or `author_role`; the UI identifies message
 authors by email and does not consume either projection.
 
-The request-message author ID and role remain persisted for internal audit and
-provenance. Deploy the backend and bundled frontend together. No database
-migration is required.
+Portal request responses also omit the internal execution `result` and
+`decided_by_user_id`. The bundled frontend does not consume either value and
+continues to use `decided_by_email` plus the decision timestamp for display.
+
+The request-message author ID and role, decision user ID, and execution result
+remain persisted for internal audit, provenance, and workflow diagnostics.
+Deploy the backend and bundled frontend together. No database migration is
+required.
 
 ## 2026-11 canonical quota size units
 
