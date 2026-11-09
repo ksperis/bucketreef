@@ -430,8 +430,8 @@ export default function AdminDashboard() {
       { id: "manager", label: text("manager"), enabled: generalSettings.manager_enabled },
       { id: "browser", label: text("browser"), enabled: generalSettings.browser_enabled },
       { id: "portal", label: text("portal"), enabled: generalSettings.portal_enabled },
-      { id: "ceph_admin", label: text("cephAdmin"), enabled: generalSettings.ceph_admin_enabled, massManagement: true },
-      { id: "storage_ops", label: text("storageOps"), enabled: generalSettings.storage_ops_enabled, massManagement: true },
+      { id: "ceph_admin", label: text("cephAdmin"), enabled: generalSettings.ceph_admin_enabled },
+      { id: "storage_ops", label: text("storageOps"), enabled: generalSettings.storage_ops_enabled },
     ],
     [
       generalSettings.browser_enabled,

@@ -18,8 +18,6 @@ const workspaceDashboardMessages = {
   featureSummary: m("{title} summary", "Résumé : {title}", "Zusammenfassung: {title}", "{title}摘要"),
   enabledCount: m("{count} enabled", "{count} activé(s)", "{count} aktiviert", "已启用 {count} 项"),
   noneEnabled: m("None enabled", "Aucune fonctionnalité activée", "Keine Funktion aktiviert", "尚未启用任何功能"),
-  massManagement: m("Mass management", "Gestion de masse", "Massenverwaltung", "批量管理"),
-  massManagementAbbreviation: m("MM", "MM", "MM", "MM"),
   endpointHealth: m("Endpoint Health", "Santé de l’endpoint", "Endpunktzustand", "端点健康状态"),
   storedEndpointStatus: m(
     "Stored status from the latest endpoint check.",
