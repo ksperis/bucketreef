@@ -2,7 +2,6 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
-import { isApiError } from "../../api/client";
 import {
   announceOnboardingStatus,
   applyOnboardingJourney,
@@ -286,16 +285,10 @@ export default function OnboardingPage() {
   const failure = useCallback(
     (cause: unknown) => {
       if (isRecentWebAuthnRequired(cause)) return t(copy.signIn);
-      if (isApiError(cause)) {
-        return message(
-          extractApiErrorCode(cause) ??
-            (cause.response?.status === 422 ? "invalid_configuration" : "generic"),
-        );
-      }
       return message(
         cause instanceof OnboardingReviewChangedError
           ? "review_changed"
-          : "generic",
+          : extractApiErrorCode(cause) ?? "generic",
       );
     },
     [message, t],
