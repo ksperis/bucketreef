@@ -26,7 +26,7 @@ from app.routers.dependencies import (
 from app.services.s3_user_key_management_service import S3UserKeyManagementService
 from app.services.s3_user_query_service import S3UserQueryService
 from app.services.s3_user_update_service import S3UserUpdateService
-from app.services.s3_users_service import S3UsersService, get_s3_users_service
+from app.services.s3_users_service import S3UsersService
 from app.services.audit_service import AuditService
 from app.services.tags_service import serialize_tag_summaries
 from app.utils.http_errors import raise_http_error_from_value_error
@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 def get_admin_s3_users_service(
     db: Session = Depends(get_db),
 ) -> S3UsersService:
-    return get_s3_users_service(db)
+    return S3UsersService(db)
 
 
 def get_admin_s3_user_query_service(

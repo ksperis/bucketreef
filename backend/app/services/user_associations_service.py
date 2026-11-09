@@ -354,7 +354,3 @@ class UserAssociationsService:
             )
             .limit(1)
         ) is not None
-
-
-def get_user_associations_service(db: Session) -> UserAssociationsService:
-    return UserAssociationsService(db)

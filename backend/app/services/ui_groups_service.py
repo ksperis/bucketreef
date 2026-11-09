@@ -368,6 +368,3 @@ class UiGroupsService:
         if self.db.scalar(statement.limit(1)) is not None:
             raise ValueError("UI group already exists")
         return name
-
-def get_ui_groups_service(db: Session) -> UiGroupsService:
-    return UiGroupsService(db)

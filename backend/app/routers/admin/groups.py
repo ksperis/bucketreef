@@ -27,7 +27,7 @@ from app.services.identity_security_policy import (
 )
 from app.services.ui_group_avatar_service import UiGroupAvatarService
 from app.services.ui_group_query_service import UiGroupQueryService
-from app.services.ui_groups_service import UiGroupsService, get_ui_groups_service
+from app.services.ui_groups_service import UiGroupsService
 from app.utils.http_errors import (
     raise_bad_request_from_value_error,
     raise_http_error_from_value_error,
@@ -39,7 +39,7 @@ router = APIRouter(prefix="/admin/groups", tags=["admin-groups"])
 def get_groups_service_dependency(
     db: Session = Depends(get_db),
 ) -> UiGroupsService:
-    return get_ui_groups_service(db)
+    return UiGroupsService(db)
 
 
 def get_group_query_service_dependency(

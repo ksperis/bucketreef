@@ -30,10 +30,7 @@ from app.routers.identity_security_policy import (
     require_admin_sensitive_action,
 )
 from app.services.audit_service import AuditService
-from app.services.user_associations_service import (
-    UserAssociationsService,
-    get_user_associations_service,
-)
+from app.services.user_associations_service import UserAssociationsService
 from app.services.admin_ldap_user_import_service import AdminLdapUserImportService
 from app.services.ldap_service import (
     LDAPAuthenticationError,
@@ -64,7 +61,7 @@ router = APIRouter(prefix="/admin/users", tags=["admin-users"])
 def get_user_associations_service_dependency(
     db: Session = Depends(get_db),
 ) -> UserAssociationsService:
-    return get_user_associations_service(db)
+    return UserAssociationsService(db)
 
 
 def get_user_update_service_dependency(
