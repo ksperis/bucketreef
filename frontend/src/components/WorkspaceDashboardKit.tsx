@@ -20,7 +20,6 @@ export type WorkspaceDashboardFeature = {
   id: string;
   label: string;
   enabled: boolean;
-  massManagement?: boolean;
 };
 
 export type WorkspaceDashboardFeatureGroup = {
@@ -637,7 +636,6 @@ export function WorkspaceFeatureSummary({ group }: { group: WorkspaceDashboardFe
         {enabledFeatures.length === 0 ? <span className="ui-dashboard-note">{text("noneEnabled")}</span> : enabledFeatures.map((feature) => (
           <UiBadge key={feature.id} tone="primary" className="ui-dashboard-badge">
             {feature.label}
-            {feature.massManagement && <span title={text("massManagement")} className="ui-dashboard-note">{text("massManagementAbbreviation")}</span>}
           </UiBadge>
         ))}
       </div>

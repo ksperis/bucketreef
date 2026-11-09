@@ -351,7 +351,7 @@ describe("AdminDashboard feature summary", () => {
     expect(within(extraSummary).queryByText("Quota alerts")).not.toBeInTheDocument();
   });
 
-  it("shows compact mass-management markers only for enabled mass-management features", async () => {
+  it("shows enabled Ceph Admin and Storage Ops features without extra markers", async () => {
     mocks.generalSettings = buildGeneralSettings({
       manager_enabled: false,
       browser_enabled: false,
@@ -365,8 +365,7 @@ describe("AdminDashboard feature summary", () => {
 
     expect(within(coreSummary).getByText("Ceph Admin")).toBeInTheDocument();
     expect(within(coreSummary).getByText("Storage Ops")).toBeInTheDocument();
-    expect(within(coreSummary).getAllByTitle("Mass management")).toHaveLength(2);
-    expect(within(coreSummary).getAllByText("MM")).toHaveLength(2);
+    expect(within(coreSummary).queryByText("MM")).not.toBeInTheDocument();
   });
 
   it("shows a muted empty state when a feature group has no enabled features", async () => {
