@@ -76,8 +76,12 @@ import AdminRgwUserAccessAssociationsPanel, {
 } from "./AdminRgwUserAccessAssociationsPanel";
 import AdminAccountAssociationsPanel, {
   type AdminAccountAssociationsState,
-  type AdminAccountSelection,
 } from "./AdminAccountAssociationsPanel";
+import {
+  accountMembershipsToSelections,
+  accountSelectionsToMemberships,
+  type AdminAccountSelection,
+} from "./adminAccountAssociationModel";
 import {
   adminGroupForm,
   adminGroupPayload,
@@ -463,21 +467,11 @@ export default function GroupsPage() {
     }));
   const setAccountSelections: Dispatch<SetStateAction<AdminAccountSelection[]>> = (value) =>
     setForm((current) => {
-      const currentSelections: AdminAccountSelection[] = (current.account_links ?? []).map(
-        (link) => ({
-          id: Number(link.account_id),
-          manager_role: link.manager_role,
-          portal_role: link.portal_role,
-          allow_manager_browser_data_access: link.allow_manager_browser_data_access,
-        }),
-      );
+      const currentSelections = accountMembershipsToSelections(current.account_links ?? []);
       const next = typeof value === "function" ? value(currentSelections) : value;
       return {
         ...current,
-        account_links: next.map(({ id, ...access }) => ({
-          account_id: id,
-          ...access,
-        })),
+        account_links: accountSelectionsToMemberships(next),
       };
     });
   const setS3UserLinks: Dispatch<SetStateAction<S3UserMembership[]>> = (value) =>
@@ -559,12 +553,7 @@ export default function GroupsPage() {
     },
   };
   const accountAssociationState: AdminAccountAssociationsState = {
-    selected: (form.account_links ?? []).map((link) => ({
-      id: Number(link.account_id),
-      manager_role: link.manager_role,
-      portal_role: link.portal_role,
-      allow_manager_browser_data_access: link.allow_manager_browser_data_access,
-    })),
+    selected: accountMembershipsToSelections(form.account_links ?? []),
     setSelected: setAccountSelections,
     optionsById: accountOptionsById,
     available: accountOptions.available.map((account) => ({

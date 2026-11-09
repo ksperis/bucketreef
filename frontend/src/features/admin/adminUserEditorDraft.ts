@@ -2,7 +2,7 @@
 import type { AccountAccessGrant } from "../../api/accountAccess";
 import type { CreateUserPayload, S3UserMembership, UpdateUserPayload } from "../../api/users";
 import { canonicalizeStableValue } from "../../utils/stableSignature";
-import type { AdminAccountSelection } from "./AdminAccountAssociationsPanel";
+import type { AdminAccountSelection } from "./adminAccountAssociationModel";
 
 type AdminUserEditorDraftInput = {
   form: CreateUserPayload | UpdateUserPayload;

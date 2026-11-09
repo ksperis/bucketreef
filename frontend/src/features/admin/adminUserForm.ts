@@ -14,7 +14,10 @@ import {
   normalizeManagerToolAccess,
   roleSupportsOperationalAccess,
 } from "./adminAccessConfig";
-import type { AdminAccountSelection } from "./AdminAccountAssociationsPanel";
+import {
+  accountSelectionsToMemberships,
+  type AdminAccountSelection,
+} from "./adminAccountAssociationModel";
 
 export type AdminUserAssociationSelection = {
   accounts: AdminAccountSelection[];
@@ -109,15 +112,6 @@ export function adminUserRoleAccessPatch(
   };
 }
 
-function accountLinks(accounts: AdminAccountSelection[]) {
-  return accounts.map((entry) => ({
-    account_id: Number(entry.id),
-    manager_role: entry.manager_role,
-    portal_role: entry.portal_role,
-    allow_manager_browser_data_access: entry.allow_manager_browser_data_access,
-  }));
-}
-
 export function adminUserCreatePayload(
   form: CreateUserPayload,
   associations: AdminUserAssociationSelection,
@@ -152,7 +146,7 @@ export function adminUserCreatePayload(
       ? normalizeManagerToolAccess(form.manager_tool_access)
       : { ...DEFAULT_MANAGER_TOOL_ACCESS },
     browser_advanced_features_enabled: Boolean(form.browser_advanced_features_enabled),
-    account_links: accountLinks(associations.accounts),
+    account_links: accountSelectionsToMemberships(associations.accounts),
     s3_user_links: associations.s3Users,
     s3_connection_ids: associations.connections,
     group_ids: associations.groups,
@@ -209,7 +203,7 @@ export function adminUserUpdatePayload(
     browser_advanced_features_enabled: Boolean(
       form.browser_advanced_features_enabled ?? user.browser_advanced_features_enabled,
     ),
-    account_links: accountLinks(associations.accounts),
+    account_links: accountSelectionsToMemberships(associations.accounts),
     group_ids: associations.groups,
     s3_user_links: associations.s3Users,
     s3_connection_ids: associations.connections,
