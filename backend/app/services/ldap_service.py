@@ -461,7 +461,3 @@ class LDAPAuthService:
             connection.unbind()
         except Exception:
             LOGGER.debug("Ignoring LDAP unbind failure", exc_info=True)
-
-
-def get_ldap_auth_service(db: Session) -> LDAPAuthService:
-    return LDAPAuthService(db)
