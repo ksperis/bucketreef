@@ -314,6 +314,7 @@ def _build_app_settings_payload() -> str:
 
 def _prepare_environment(backend_root: Path, backend_base_url: str) -> dict[str, str]:
     env = os.environ.copy()
+    database_url_override = _env_str("DATABASE_URL", source=env)
 
     # CI should not rely on a repo-local .env file or partially injected nested auth provider variables.
     if env.get("CI"):
@@ -370,7 +371,7 @@ def _prepare_environment(backend_root: Path, backend_base_url: str) -> dict[str,
         source=env,
     )
 
-    env["DATABASE_URL"] = f"sqlite:///{database_path.resolve().as_posix()}"
+    env["DATABASE_URL"] = database_url_override or f"sqlite:///{database_path.resolve().as_posix()}"
     env["PUBLIC_ORIGIN"] = request_origin
     env["CORS_ORIGINS"] = json.dumps([request_origin])
     env["UI_JWT_KEYS"] = _env_str("UI_JWT_KEYS", json.dumps([_generate_secret()]), source=env) or json.dumps(

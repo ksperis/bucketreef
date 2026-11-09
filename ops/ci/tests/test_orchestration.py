@@ -62,6 +62,18 @@ def test_selected_graph_has_no_dangling_or_optional_needs(paths):
     assert config['ceph-functional-tests']['allow_failure'] is False if 'ceph-functional-tests' in config else True
 
 
+def test_ceph_functional_job_runs_against_postgresql():
+    config = render({**select('qualify', None), 'sha': 'a' * 40, 'parent_id': 10})
+    job = config['ceph-functional-tests']
+
+    assert len(job['services']) == 1
+    assert job['services'][0]['name'].startswith('postgres:16-alpine@sha256:')
+    assert job['services'][0]['alias'] == 'postgres'
+    assert job['variables']['POSTGRES_DB'] == 'bucketreef_ceph_functional'
+    assert job['variables']['DATABASE_URL'].startswith('postgresql://')
+    assert '@postgres:5432/' in job['variables']['DATABASE_URL']
+
+
 def test_pipeline_plan_bootstrap_round_trips_large_plan_without_argv_payload(tmp_path):
     plan = {**select('integration', ['README.md']), 'sha': 'a' * 40, 'parent_id': 10}
     plan['reasons']['large-plan-regression'] = ['x' * 1024 for _ in range(300)]
