@@ -73,7 +73,3 @@ class ManagerObjectListingService:
             is_truncated=bool(response.get("IsTruncated")),
             next_continuation_token=response.get("NextContinuationToken"),
         )
-
-
-def get_manager_object_listing_service() -> ManagerObjectListingService:
-    return ManagerObjectListingService()

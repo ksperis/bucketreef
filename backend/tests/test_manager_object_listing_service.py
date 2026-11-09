@@ -8,10 +8,7 @@ import pytest
 from botocore.exceptions import ClientError
 
 from app.db import S3Account, StorageEndpoint
-from app.services.manager_object_listing_service import (
-    ManagerObjectListingService,
-    get_manager_object_listing_service,
-)
+from app.services.manager_object_listing_service import ManagerObjectListingService
 from app.services.s3_client import S3OperationError
 
 
@@ -138,7 +135,3 @@ def test_list_objects_wraps_errors(monkeypatch):
 
     with pytest.raises(S3OperationError, match="Unable to list objects"):
         service.list_objects("bucket-1", _account())
-
-
-def test_get_manager_object_listing_service_factory():
-    assert isinstance(get_manager_object_listing_service(), ManagerObjectListingService)
