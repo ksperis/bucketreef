@@ -49,7 +49,7 @@ import useLazyListLoader from "../../hooks/useLazyListLoader";
 import { extractApiError } from "../../utils/apiError";
 import { formatBytes, formatCompactNumber } from "../../utils/format";
 import { type TextMatchMode } from "../../utils/textMatch";
-import { canonicalizeUiTags, normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
+import { normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
 import { isAdminLikeRole, readStoredUser } from "../../utils/workspaces";
 import { adminAssociationPanelClass } from "./AdminAssociationPicker";
 import AdminRgwUserAccessAssociationsPanel, {
@@ -66,42 +66,20 @@ import useAdminPaginatedListController from "./useAdminPaginatedListController";
 import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
 import useAdminEndpointAdminOpsPermissions from "./useAdminEndpointAdminOpsPermissions";
 import useAdminPrincipalCatalogs from "./useAdminPrincipalCatalogs";
-import { adminS3UserForm, adminS3UserPayload, emptyAdminS3UserForm } from "./adminS3UserForm";
+import {
+  adminS3UserForm,
+  adminS3UserPayload,
+  buildCreateS3UserDraft,
+  buildEditS3UserDraft,
+  buildImportS3UserDraft,
+  emptyAdminS3UserForm,
+} from "./adminS3UserForm";
 import {
   deriveAdminAssociationOptions,
   MAX_VISIBLE_ASSOCIATION_OPTIONS,
 } from "./adminAssociationOptions";
 
 type EditTab = "general" | "users" | "groups" | "manager";
-
-const buildS3UserFormDraft = <T extends { tags: UiTagDefinition[] }>(form: T) => ({
-  ...form,
-  tags: canonicalizeUiTags(form.tags),
-});
-
-const buildCreateS3UserDraft = <T extends { tags: UiTagDefinition[]; storage_endpoint_id: string }>(
-  form: T,
-  defaultEndpointId: string,
-) => ({
-  createForm: {
-    ...buildS3UserFormDraft(form),
-    storage_endpoint_id:
-      form.storage_endpoint_id === defaultEndpointId ? "" : form.storage_endpoint_id,
-  },
-});
-
-const buildImportS3UserDraft = (
-  importText: string,
-  importEndpointId: string,
-  defaultEndpointId: string,
-) => ({
-  importText,
-  importEndpointId: importEndpointId === defaultEndpointId ? "" : importEndpointId,
-});
-
-const buildEditS3UserDraft = <T extends { tags: UiTagDefinition[] }>(form: T) => ({
-  editForm: buildS3UserFormDraft(form),
-});
 
 export default function S3UsersPage() {
   const { intlLocale, text: adminText } = useAdminI18n();
