@@ -10,6 +10,7 @@ import type { AdminUserAssociationDerivedOptions } from "./useAdminUserAssociati
 import { MAX_VISIBLE_ASSOCIATION_OPTIONS } from "./adminAssociationOptions";
 import type { AdminUserAssociationEditorState } from "./useAdminUserAssociationEditorState";
 import type { StorageAssociationTab } from "./useAdminStorageAssociationEditorState";
+import { s3UserMembershipAdapter } from "./adminRgwUserAccessAssociationModel";
 
 export type AdminUserAssociationEditorResources = {
   accountOptionsById: Map<number, S3AccountSummary>;
@@ -162,15 +163,7 @@ export default function AdminUserAssociationEditorPanels({
       s3Users={{
         selected: editor.s3Users.selected,
         setSelected: editor.s3Users.setSelected,
-        getId: (link) => link.s3_user_id,
-        createLink: (id) => ({
-          s3_user_id: id,
-          allow_manager_browser_data_access: false,
-        }),
-        withAccess: (link, allowed) => ({
-          ...link,
-          allow_manager_browser_data_access: allowed,
-        }),
+        adapter: s3UserMembershipAdapter,
         labelById: resources.s3UserLabelById,
         available: options.s3Users.available,
         visible: options.s3Users.visible,

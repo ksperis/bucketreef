@@ -15,19 +15,17 @@ import {
   resetAdminAssociationPicker,
   type AdminAssociationPickerState,
 } from "./AdminAssociationPicker";
-
-type AdminRgwUserAccessLink = {
-  allow_manager_browser_data_access: boolean;
-};
+import type {
+  AdminRgwUserAccessLink,
+  AdminRgwUserAccessLinkAdapter,
+} from "./adminRgwUserAccessAssociationModel";
 
 export type AdminRgwUserAccessAssociationsState<
   TLink extends AdminRgwUserAccessLink,
 > = AdminAssociationPickerState & {
   selected: TLink[];
   setSelected: Dispatch<SetStateAction<TLink[]>>;
-  getId: (link: TLink) => number;
-  createLink: (id: number) => TLink;
-  withAccess: (link: TLink, allowed: boolean) => TLink;
+  adapter: AdminRgwUserAccessLinkAdapter<TLink>;
   labelById: Map<number, string>;
 };
 
@@ -72,13 +70,14 @@ export default function AdminRgwUserAccessAssociationsPanel<
   normalizeSelection = (links) => links,
   section,
 }: AdminRgwUserAccessAssociationsPanelProps<TLink>) {
+  const { adapter } = state;
   const columns: DataTableColumn<TLink>[] = [
     {
       id: "principal",
       label: primaryLabel,
       primary: true,
       render: (entry) => {
-        const id = state.getId(entry);
+        const id = adapter.getId(entry);
         return state.labelById.get(id) ?? fallbackLabel(id);
       },
     },
@@ -88,7 +87,7 @@ export default function AdminRgwUserAccessAssociationsPanel<
       align: "right",
       mobileRole: "actions",
       render: (entry) => {
-        const id = state.getId(entry);
+        const id = adapter.getId(entry);
         const label = state.labelById.get(id) ?? fallbackLabel(id);
         return (
           <ListActions>
@@ -101,8 +100,8 @@ export default function AdminRgwUserAccessAssociationsPanel<
               onApply={(allowed) =>
                 state.setSelected((current) =>
                   current.map((item) =>
-                    state.getId(item) === id
-                      ? state.withAccess(item, allowed)
+                    adapter.getId(item) === id
+                      ? adapter.withAccess(item, allowed)
                       : item,
                   ),
                 )
@@ -113,7 +112,7 @@ export default function AdminRgwUserAccessAssociationsPanel<
               variant="danger"
               onClick={() =>
                 state.setSelected((current) =>
-                  current.filter((item) => state.getId(item) !== id),
+                  current.filter((item) => adapter.getId(item) !== id),
                 )
               }
             >
@@ -138,7 +137,7 @@ export default function AdminRgwUserAccessAssociationsPanel<
       <DataTableShell
         columns={columns}
         rows={state.selected}
-        rowKey={state.getId}
+        rowKey={adapter.getId}
         status={state.selected.length ? "ready" : "empty"}
         loadingMessage={loadingMessage}
         errorMessage={emptyMessage}
@@ -167,7 +166,7 @@ export default function AdminRgwUserAccessAssociationsPanel<
             state.setSelected((current) =>
               normalizeSelection([
                 ...current,
-                ...state.selections.map(state.createLink),
+                ...state.selections.map(adapter.createLink),
               ]),
             );
             resetAdminAssociationPicker(state);

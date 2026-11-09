@@ -87,6 +87,7 @@ import {
   adminGroupPayload,
   emptyAdminGroupForm,
 } from "./adminGroupForm";
+import { s3UserMembershipAdapter } from "./adminRgwUserAccessAssociationModel";
 
 type GroupModalTab = "general" | "members" | "associations" | "access";
 const groupAvatarIconOptions: Array<{ value: UiGroupAvatarIcon; label: GroupsMessageKey }> = [
@@ -588,15 +589,7 @@ export default function GroupsPage() {
   const s3UserAssociationState: AdminRgwUserAccessAssociationsState<S3UserMembership> = {
     selected: form.s3_user_links ?? [],
     setSelected: setS3UserLinks,
-    getId: (link) => link.s3_user_id,
-    createLink: (id) => ({
-      s3_user_id: id,
-      allow_manager_browser_data_access: false,
-    }),
-    withAccess: (link, allowed) => ({
-      ...link,
-      allow_manager_browser_data_access: allowed,
-    }),
+    adapter: s3UserMembershipAdapter,
     labelById: s3UserLabelById,
     available: s3UserOptions.available.map((s3User) => ({
       id: s3User.id,

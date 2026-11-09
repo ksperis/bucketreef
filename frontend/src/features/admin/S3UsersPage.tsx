@@ -75,6 +75,10 @@ import {
 } from "./adminS3UserForm";
 import { adminRgwUserCreatePayload, emptyAdminRgwUserCreateForm } from "./adminRgwCreateForm";
 import {
+  s3UserGroupLinkAdapter,
+  s3UserUserLinkAdapter,
+} from "./adminRgwUserAccessAssociationModel";
+import {
   deriveAdminAssociationOptions,
   MAX_VISIBLE_ASSOCIATION_OPTIONS,
 } from "./adminAssociationOptions";
@@ -275,15 +279,7 @@ export default function S3UsersPage() {
             ? value(current.user_links)
             : value,
       })),
-    getId: (link) => link.user_id,
-    createLink: (id) => ({
-      user_id: id,
-      allow_manager_browser_data_access: false,
-    }),
-    withAccess: (link, allowed) => ({
-      ...link,
-      allow_manager_browser_data_access: allowed,
-    }),
+    adapter: s3UserUserLinkAdapter,
     labelById: portalUserLabelById,
     available: availablePortalUsers,
     visible: visiblePortalUsers,
@@ -313,15 +309,7 @@ export default function S3UsersPage() {
             ? value(current.group_links)
             : value,
       })),
-    getId: (link) => link.group_id,
-    createLink: (id) => ({
-      group_id: id,
-      allow_manager_browser_data_access: false,
-    }),
-    withAccess: (link, allowed) => ({
-      ...link,
-      allow_manager_browser_data_access: allowed,
-    }),
+    adapter: s3UserGroupLinkAdapter,
     labelById: groupLabelById,
     available: availableGroups,
     visible: visibleGroups,
