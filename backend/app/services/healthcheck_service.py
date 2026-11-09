@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import EndpointHealthCheck, StorageEndpoint
 from app.core.domain_enums import HealthCheckMode, HealthCheckStatus
@@ -59,26 +60,45 @@ class HealthCheckService:
             for endpoint in endpoints
         }
         check_targets = [self._to_check_target(endpoint) for endpoint in endpoints]
+        # End the read snapshot before network probes. In SQLite/WAL mode a
+        # stale read transaction cannot later be promoted safely to a writer.
+        self.db.rollback()
         results = self._run_endpoint_checks(
             check_targets,
             profiles=profiles,
             baselines=baselines,
         )
 
-        notification_service = EndpointHealthNotificationsService(self.db)
-        previous_statuses = notification_service.load_previous_statuses(results)
-        notifications_created = notification_service.create_transition_notifications(
-            results=results,
-            endpoints={int(endpoint.id): endpoint for endpoint in endpoints},
-            previous_statuses=previous_statuses,
+        notifications_created = run_db_unit_with_sqlite_retry(
+            self.db,
+            lambda: self._persist_run_results(results),
         )
-        self._persistence.record_results(results)
+        self._persistence.prune_history()
         return self._serialize_run_result(
             run_started_at=run_started_at,
             total=len(endpoints),
             notifications_created=notifications_created,
             results=results,
         )
+
+    def _persist_run_results(self, results: list[HealthCheckResult]) -> int:
+        endpoint_ids = sorted({int(result.endpoint_id) for result in results})
+        endpoints = {
+            int(endpoint.id): endpoint
+            for endpoint in self.db.scalars(
+                select(StorageEndpoint).where(StorageEndpoint.id.in_(endpoint_ids))
+            ).all()
+        }
+        notification_service = EndpointHealthNotificationsService(self.db)
+        previous_statuses = notification_service.load_previous_statuses(results)
+        notifications_created = notification_service.create_transition_notifications(
+            results=results,
+            endpoints=endpoints,
+            previous_statuses=previous_statuses,
+        )
+        self._persistence.stage_results(results)
+        commit_or_rollback(self.db)
+        return notifications_created
 
     def _run_endpoint_checks(
         self,

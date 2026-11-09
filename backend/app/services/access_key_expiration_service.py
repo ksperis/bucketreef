@@ -7,7 +7,7 @@ from typing import Literal
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
 from app.core.sensitive_data import sanitize_persisted_error
 from app.db import ManagerAccessKeyMetadata, S3Account, S3User
 from app.core.domain_enums import StorageProvider
@@ -19,7 +19,8 @@ from app.services.managed_private_access_query_service import (
 )
 from app.services.rgw_iam import RGWIAMService
 from app.services.s3_execution_context import S3ExecutionContext
-from app.services.s3_user_key_management_service import S3UserKeyManagementService
+from app.services.s3_user_access_key_service import S3UserAccessKeyService
+from app.services.s3_user_rgw_context_service import S3UserRgwContextService
 from app.utils.s3_endpoint import resolve_iam_client_options
 from app.utils.time import utcnow
 
@@ -59,36 +60,44 @@ class AccessKeyExpirationService:
         return AccessKeyExpirationRunResult(status="ok", **counts)
 
     def _process(self, row: ManagerAccessKeyMetadata) -> str:
+        row_id = int(row.id)
+        account_id = row.account_id
+        s3_user_id = row.s3_user_id
         row.expiration_last_attempt_at = utcnow()
         row.expiration_last_error = None
         commit_or_rollback(self.db)
         try:
-            if row.account_id is not None:
-                return self._process_iam(row)
-            if row.s3_user_id is not None:
-                return self._process_s3_user(row)
+            if account_id is not None:
+                return self._process_iam(row_id, int(account_id))
+            if s3_user_id is not None:
+                return self._process_s3_user(row_id, int(s3_user_id))
             raise PermanentExpirationError("Access-key expiration has no valid resource scope")
         except PermanentExpirationError as exc:
-            self._mark_failure(row, exc, state="blocked")
+            self._mark_failure(row_id, exc, state="blocked")
             return "blocked"
         except Exception as exc:  # noqa: BLE001 - each due key must be retried independently
-            self._mark_failure(row, exc, state="retrying")
+            self._mark_failure(row_id, exc, state="retrying")
             return "retried"
 
-    def _process_iam(self, row: ManagerAccessKeyMetadata) -> str:
-        account = self.db.get(S3Account, row.account_id)
+    def _process_iam(self, row_id: int, account_id: int) -> str:
+        row = self.db.get(ManagerAccessKeyMetadata, row_id)
+        account = self.db.get(S3Account, account_id)
+        if row is None:
+            return "missing"
         if account is None:
-            return self._remove_missing(row)
+            return self._remove_missing(row_id)
         principal_name = self._validated_iam_principal(row, account)
         context, iam = self._iam_service_for_account(account)
+        access_key_id = row.access_key_id
+        self.db.rollback()
         if not self._ensure_iam_key_inactive(
             iam,
             principal_name=principal_name,
-            access_key_id=row.access_key_id,
+            access_key_id=access_key_id,
         ):
-            return self._remove_missing(row)
+            return self._remove_missing(row_id)
         self._mark_enforced(
-            row,
+            row_id,
             entity_type="iam_user",
             entity_id=principal_name,
             execution_context=context,
@@ -191,10 +200,13 @@ class AccessKeyExpirationService:
             )
         return True
 
-    def _process_s3_user(self, row: ManagerAccessKeyMetadata) -> str:
-        s3_user = self.db.get(S3User, row.s3_user_id)
+    def _process_s3_user(self, row_id: int, s3_user_id: int) -> str:
+        row = self.db.get(ManagerAccessKeyMetadata, row_id)
+        s3_user = self.db.get(S3User, s3_user_id)
+        if row is None:
+            return "missing"
         if s3_user is None:
-            return self._remove_missing(row)
+            return self._remove_missing(row_id)
         endpoint = s3_user.storage_endpoint
         if endpoint is None or endpoint.provider != StorageProvider.CEPH.value:
             raise PermanentExpirationError("Individual access-key expiration is supported only for Ceph RGW users")
@@ -206,36 +218,57 @@ class AccessKeyExpirationService:
             row.access_key_id,
         ) is not None:
             raise PermanentExpirationError("Managed private-access keys cannot be expired from the generic key inventory")
-        service = S3UserKeyManagementService(self.db)
-        remote = next((key for key in service.list_keys(s3_user.id) if key.access_key_id == row.access_key_id), None)
+        admin = S3UserRgwContextService.admin_for_endpoint(endpoint)
+        access_keys = S3UserAccessKeyService()
+        access_key_id = row.access_key_id
+        execution_context = S3ExecutionContext.from_s3_user(s3_user)
+        self.db.expunge(s3_user)
+        self.db.expunge(endpoint)
+        self.db.rollback()
+        remote = next(
+            (key for key in access_keys.list_keys(s3_user, admin) if key.access_key_id == access_key_id),
+            None,
+        )
         if remote is None:
-            return self._remove_missing(row)
+            return self._remove_missing(row_id)
         if remote.is_active:
-            remote = service.set_key_status(s3_user.id, row.access_key_id, False)
+            remote = access_keys.set_key_status(s3_user, admin, access_key_id, False)
             if remote.is_active:
                 raise RetryableExpirationError(
                     "Provider did not confirm the RGW access key as inactive"
                 )
         self._mark_enforced(
-            row,
+            row_id,
             entity_type="s3_user",
-            entity_id=str(s3_user.id),
-            execution_context=S3ExecutionContext.from_s3_user(s3_user),
+            entity_id=str(s3_user_id),
+            execution_context=execution_context,
         )
         return "enforced"
 
     def _mark_enforced(
         self,
-        row: ManagerAccessKeyMetadata,
+        row_id: int,
         *,
         entity_type: str,
         entity_id: str,
         execution_context: S3ExecutionContext,
     ) -> None:
-        row.expiration_state = "enforced"
-        row.expiration_enforced_at = utcnow()
-        row.expiration_last_error = None
-        commit_or_rollback(self.db)
+        access_key_id: str | None = None
+
+        def persist() -> None:
+            nonlocal access_key_id
+            row = self.db.get(ManagerAccessKeyMetadata, row_id)
+            if row is None:
+                return
+            access_key_id = row.access_key_id
+            row.expiration_state = "enforced"
+            row.expiration_enforced_at = utcnow()
+            row.expiration_last_error = None
+            commit_or_rollback(self.db)
+
+        run_db_unit_with_sqlite_retry(self.db, persist)
+        if access_key_id is None:
+            return
         AuditService(self.db).record_action(
             user=None,
             scope="manager",
@@ -243,28 +276,37 @@ class AccessKeyExpirationService:
             entity_type=entity_type,
             entity_id=entity_id,
             execution_context=execution_context,
-            metadata={"access_key_id": row.access_key_id, "workflow": "scheduler"},
+            metadata={"access_key_id": access_key_id, "workflow": "scheduler"},
             user_email="scheduler@bucketreef.internal",
             user_role="system",
         )
 
     def _mark_failure(
         self,
-        row: ManagerAccessKeyMetadata,
+        row_id: int,
         exc: Exception,
         *,
         state: Literal["retrying", "blocked"],
     ) -> None:
         self.db.rollback()
-        persisted = self.db.get(ManagerAccessKeyMetadata, row.id)
-        if persisted is None:
-            return
-        persisted.expiration_state = state
-        persisted.expiration_last_attempt_at = utcnow()
-        persisted.expiration_last_error = sanitize_persisted_error(exc)
-        commit_or_rollback(self.db)
+        def persist() -> None:
+            row = self.db.get(ManagerAccessKeyMetadata, row_id)
+            if row is None:
+                return
+            row.expiration_state = state
+            row.expiration_last_attempt_at = utcnow()
+            row.expiration_last_error = sanitize_persisted_error(exc)
+            commit_or_rollback(self.db)
 
-    def _remove_missing(self, row: ManagerAccessKeyMetadata) -> str:
-        self.db.delete(row)
-        commit_or_rollback(self.db)
+        run_db_unit_with_sqlite_retry(self.db, persist)
+
+    def _remove_missing(self, row_id: int) -> str:
+        def persist() -> None:
+            row = self.db.get(ManagerAccessKeyMetadata, row_id)
+            if row is None:
+                return
+            self.db.delete(row)
+            commit_or_rollback(self.db)
+
+        run_db_unit_with_sqlite_retry(self.db, persist)
         return "missing"

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import sqlite3
 from dataclasses import replace
 from datetime import timedelta
 import hashlib
@@ -15,7 +16,7 @@ from unittest.mock import patch
 import pytest
 import requests
 from sqlalchemy.dialects import postgresql
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.schema import CreateTable
 from sqlalchemy import event, func, select, text
 from sqlalchemy.orm import Session, sessionmaker
@@ -90,6 +91,12 @@ def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
     monkeypatch.setattr(db_session, "rollback", rollback)
     monkeypatch.setattr(db_session, "commit", commit)
     return rollback_calls
+
+
+def _busy_snapshot_error() -> OperationalError:
+    original = sqlite3.OperationalError("database is locked")
+    original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
+    return OperationalError("COMMIT", (), original)
 
 
 def test_webhook_secret_is_one_time_and_encrypted_at_rest(db_session, monkeypatch):
@@ -694,6 +701,66 @@ def test_worker_signs_exact_body_and_marks_success(db_session, monkeypatch):
     assert delivered.status == "delivered"
     assert delivered.attempt_count == 1
     assert delivered.last_http_status == 204
+
+
+def test_worker_posts_without_transaction_and_busy_persistence_does_not_repost(
+    db_session,
+    monkeypatch,
+):
+    _create_endpoint(
+        db_session,
+        monkeypatch,
+        name="busy-persistence",
+        event_types=["audit.admin.update_ui_user"],
+    )
+    delivery_id = WebhookEventPublisher(db_session).publish_event(
+        event_type="audit.admin.update_ui_user",
+        data={},
+        commit=True,
+    )[0]
+    delivery = db_session.scalars(
+        select(WebhookDelivery).where(WebhookDelivery.delivery_id == delivery_id)
+    ).one()
+    worker_sessions: list[Session] = []
+    fail_once = True
+
+    class BusyOnceSession(Session):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            worker_sessions.append(self)
+
+        def commit(self) -> None:
+            nonlocal fail_once
+            if fail_once:
+                fail_once = False
+                raise _busy_snapshot_error()
+            super().commit()
+
+    worker = WebhookDeliveryWorker(
+        sessionmaker(bind=db_session.get_bind(), class_=BusyOnceSession)
+    )
+    monkeypatch.setattr(
+        "app.services.webhook_worker.validate_webhook_target_url",
+        lambda *_args, **_kwargs: None,
+    )
+    post_calls = 0
+
+    def post(*_args, **_kwargs):
+        nonlocal post_calls
+        post_calls += 1
+        assert worker_sessions
+        assert all(session.in_transaction() is False for session in worker_sessions)
+        return SimpleNamespace(status_code=204, headers={})
+
+    monkeypatch.setattr("app.services.webhook_worker.requests.post", post)
+
+    worker._deliver_one(delivery.id)
+
+    assert post_calls == 1
+    db_session.rollback()
+    persisted = db_session.get(WebhookDelivery, delivery.id)
+    assert persisted.status == "delivered"
+    assert persisted.attempt_count == 1
 
 
 def test_worker_commit_failure_rolls_back_and_leaves_delivery_retriable(

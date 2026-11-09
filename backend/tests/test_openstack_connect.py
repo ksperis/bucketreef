@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
+import sqlite3
 from app.utils.storage_endpoint_features import parse_features_config
 
 import json
@@ -10,6 +11,7 @@ from unittest.mock import Mock
 import pytest
 from pydantic import ValidationError
 from sqlalchemy import select, text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import get_settings
@@ -83,6 +85,102 @@ def connect(db, setup):
     connection = service.authenticate(user, auth.id, OpenStackAuthenticate(cloud_id=cloud.id, method="password", username="person", password="PRIVATE-PASSWORD"))
     ctx = service.activate(user, auth.id, connection.id, "project-a", target["target_id"], None)
     return service, user, auth, connection, ctx
+
+
+def _busy_snapshot_error() -> OperationalError:
+    original = sqlite3.OperationalError("database is locked")
+    original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
+    return OperationalError("COMMIT", (), original)
+
+
+def test_openstack_external_io_has_fresh_snapshot_and_busy_retry_does_not_repeat_it(
+    db_session,
+    setup_cloud,
+    monkeypatch,
+):
+    user, target, cloud = setup_cloud
+    auth, _ = authenticated(db_session, user)
+    service = OpenStackService(db_session)
+    connection = service.authenticate(
+        user,
+        auth.id,
+        OpenStackAuthenticate(
+            cloud_id=cloud.id,
+            method="password",
+            username="person",
+            password="PRIVATE-PASSWORD",
+        ),
+    )
+    connection_id = str(connection.id)
+    project_calls = 0
+    access_calls = 0
+    iam_probe_calls = 0
+
+    def projects(_client, _token):
+        nonlocal project_calls
+        project_calls += 1
+        assert db_session.in_transaction() is False
+        return [{"id": "project-a", "name": "Project A", "domain_id": "domain-a"}]
+
+    def project_access(_client, identity, _project_id):
+        nonlocal access_calls
+        access_calls += 1
+        assert db_session.in_transaction() is False
+        return {
+            "targets": [target.copy()],
+            "credentials": [
+                {
+                    "access": "EC2-ACCESS",
+                    "secret": "PRIVATE-EC2-SECRET",
+                    "expires_at": identity.expires_at,
+                }
+            ],
+        }
+
+    def probe_iam(*_args):
+        nonlocal iam_probe_calls
+        iam_probe_calls += 1
+        assert db_session.in_transaction() is False
+        return True
+
+    monkeypatch.setattr(KeystoneClient, "projects", projects)
+    monkeypatch.setattr(KeystoneClient, "project_access", project_access)
+    monkeypatch.setattr(OpenStackService, "_probe_iam", staticmethod(probe_iam))
+    original_commit = db_session.commit
+    commit_calls = 0
+
+    def commit_with_busy_on_capability() -> None:
+        nonlocal commit_calls
+        commit_calls += 1
+        if commit_calls == 2:
+            raise _busy_snapshot_error()
+        original_commit()
+
+    monkeypatch.setattr(db_session, "commit", commit_with_busy_on_capability)
+
+    context_ref = service.activate(
+        user,
+        auth.id,
+        connection_id,
+        "project-a",
+        target["target_id"],
+        None,
+    )
+
+    assert context_ref.startswith("os-")
+    assert project_calls == 1
+    assert access_calls == 1
+    assert iam_probe_calls == 1
+    assert commit_calls == 3
+    db_session.rollback()
+    credential = db_session.scalar(
+        select(OpenStackProjectCredential).where(
+            OpenStackProjectCredential.context_id
+            == context_ref.removeprefix("os-")
+        )
+    )
+    assert credential is not None
+    assert credential.can_manage_iam is True
 
 
 def test_delete_cloud_cascades_project_state_without_parent_navigation(db_session, setup_cloud):

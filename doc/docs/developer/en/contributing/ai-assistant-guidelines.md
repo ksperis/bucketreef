@@ -218,6 +218,17 @@ flows unless the pathway is explicit, authorized, and audited.
 
 - Respect the architecture: thin routers, then services, then clients.
 - Avoid broad refactors when a smaller coherent change is sufficient.
+- Keep database transactions short and entirely local. Finish the current
+  SQLAlchemy transaction before HTTP, S3, RGW Admin Ops, Keystone, SMTP, or
+  other external I/O, then open a fresh transaction to revalidate and persist
+  the result.
+- Retry database work only when the complete unit is local, replayable, and
+  idempotent. SQLite may replay such a unit for the `SQLITE_BUSY` family,
+  including extended codes such as `SQLITE_BUSY_SNAPSHOT`; external side
+  effects must stay outside the retry callback.
+- PostgreSQL keeps its native transaction and locking behavior. Do not add
+  SQLite retry backoff, isolation changes, or remove useful
+  `SELECT ... FOR UPDATE` locking from PostgreSQL paths.
 - For frontend product work, use
   [Product design guidelines](../frontend/product-design.md),
   [Workspace surface separation](../architecture/workspace-surfaces.md), and

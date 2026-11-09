@@ -2,11 +2,14 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+import sqlite3
 from datetime import timedelta
 from types import SimpleNamespace
 
 import pytest
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import select
+from sqlalchemy.exc import OperationalError
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.db import S3Account, S3User, StorageEndpoint
 from app.db.bucket_usage_stats import BucketUsageStatsSnapshot as SnapshotRow
@@ -51,6 +54,12 @@ def _snapshot_row(*, account_id: int, bucket_name: str, calculated_at) -> Snapsh
         current_noncurrent_distribution=[],
         calculated_at=calculated_at,
     )
+
+
+def _busy_snapshot_error() -> OperationalError:
+    original = sqlite3.OperationalError("database is locked")
+    original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
+    return OperationalError("COMMIT", (), original)
 
 
 def test_collection_selects_only_opted_in_due_buckets_oldest_first(db_session, monkeypatch):
@@ -118,10 +127,12 @@ def test_collection_selects_only_opted_in_due_buckets_oldest_first(db_session, m
 
     class FakeBucketsService:
         def list_buckets(self, context, **_kwargs):
-            if isinstance(context, S3ExecutionContext):
+            assert isinstance(context, S3ExecutionContext)
+            if context.context_kind == "s3_user":
                 assert context.context_id == "s3u-4"
                 return [SimpleNamespace(name="user-missing")]
-            assert context.id == 1
+            assert context.context_kind == "account"
+            assert context.context_id == "1"
             return [SimpleNamespace(name=name) for name in ("fresh", "stale", "missing")]
 
     captured: dict[str, object] = {}
@@ -199,6 +210,110 @@ def test_collection_only_skips_operational_bucket_listing_failures(db_session, m
             factory,
             buckets_service=FailingBucketsService(RuntimeError("unexpected listing bug")),
         ).collect()
+
+
+def test_collection_keeps_s3_io_outside_transaction_and_busy_retry_does_not_repeat_scan(
+    db_session,
+    monkeypatch,
+):
+    endpoint = StorageEndpoint(
+        id=7,
+        name="Ceph main",
+        endpoint_url="https://ceph.example.test",
+        provider="ceph",
+    )
+    account = S3Account(
+        id=1,
+        name="Opted in",
+        rgw_account_id="RGW00000000000000001",
+        rgw_user_uid="RGW00000000000000001-root",
+        rgw_access_key="ak-1",
+        rgw_secret_key="sk-1",
+        storage_endpoint_id=7,
+        allow_bucket_usage_stats_collection=True,
+    )
+    db_session.add_all([endpoint, account])
+    db_session.commit()
+    monkeypatch.setattr(collection_module, "load_app_settings_for_db", lambda _db: AppSettings())
+
+    list_calls = 0
+
+    class FakeBucketsService:
+        def list_buckets(self, context, **_kwargs):
+            nonlocal list_calls
+            list_calls += 1
+            assert db_session.in_transaction() is False
+            assert isinstance(context, S3ExecutionContext)
+            assert context.context_kind == "account"
+            assert context.storage_endpoint is None
+            assert context.session_endpoint == "https://ceph.example.test"
+            return [SimpleNamespace(name="bucket-a")]
+
+    fail_snapshot_commit_once = True
+
+    class BusyOnceSession(Session):
+        def commit(self) -> None:
+            nonlocal fail_snapshot_commit_once
+            has_snapshot_write = any(isinstance(row, SnapshotRow) for row in [*self.new, *self.dirty])
+            if fail_snapshot_commit_once and has_snapshot_write:
+                fail_snapshot_commit_once = False
+                raise _busy_snapshot_error()
+            super().commit()
+
+    factory = sessionmaker(bind=db_session.get_bind(), class_=BusyOnceSession)
+    usage_service = BucketUsageStatsService(factory)
+    scan_calls = 0
+
+    def calculate_bucket(target, **_kwargs):
+        nonlocal scan_calls
+        scan_calls += 1
+        assert db_session.in_transaction() is False
+        return BucketUsageStatsSnapshot(
+            scope_kind=target.scope_kind,
+            scope_id=target.scope_id,
+            scope_name=target.scope_name,
+            bucket_name=target.bucket_name,
+            bucket_tenant=target.bucket_tenant,
+            scan_mode="versions",
+            version_listing_available=True,
+            object_version_count=1,
+            current_version_count=1,
+            noncurrent_version_count=0,
+            delete_marker_count=0,
+            total_bytes=123,
+            current_bytes=123,
+            noncurrent_bytes=0,
+            data_type_distribution=[],
+            storage_class_distribution=[],
+            size_distribution=[],
+            age_distribution=[],
+            current_vs_noncurrent=[],
+            warnings=[],
+            calculated_at=utcnow(),
+        )
+
+    monkeypatch.setattr(usage_service, "calculate_bucket", calculate_bucket)
+
+    result = BucketUsageStatsCollectionService(
+        db_session,
+        factory,
+        buckets_service=FakeBucketsService(),
+        usage_stats_service=usage_service,
+    ).collect()
+
+    assert result.status == "completed"
+    assert list_calls == 1
+    assert scan_calls == 1
+    assert fail_snapshot_commit_once is False
+    db_session.rollback()
+    row = db_session.scalars(
+        select(SnapshotRow).where(
+            SnapshotRow.scope_kind == "manager",
+            SnapshotRow.scope_id == "1",
+            SnapshotRow.bucket_name == "bucket-a",
+        )
+    ).one()
+    assert row.total_bytes == 123
 
 
 def test_bucket_scan_is_skipped_when_bucket_lease_is_already_held(db_session, monkeypatch):

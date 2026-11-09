@@ -16,7 +16,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import get_settings
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import WebhookDelivery, WebhookEndpoint
 from app.services.operation_lease_service import OperationLeaseService, generate_operation_owner
@@ -182,37 +182,74 @@ class WebhookDeliveryWorker:
             if endpoint is None:
                 return
             if (not endpoint.enabled and not delivery.is_test) or not endpoint.signing_secret:
-                self._fail_terminal(
-                    delivery,
+                self._persist_terminal_failure_in_session(
+                    db,
+                    delivery_id,
                     "Webhook endpoint is disabled or has no signing secret",
                 )
-                commit_or_rollback(db)
                 return
 
             try:
                 validate_webhook_target_url(endpoint.url, self._settings)
             except ValueError as exc:
-                self._fail_terminal(delivery, exc)
-                commit_or_rollback(db)
+                self._persist_terminal_failure_in_session(db, delivery_id, exc)
                 return
 
             body, headers = self._delivery_request(delivery, endpoint)
+            endpoint_url = endpoint.url
+            # Exiting this session scope releases the read snapshot before
+            # external I/O. The response is persisted in a fresh session.
 
-            try:
-                response = requests.post(
-                    endpoint.url,
-                    data=body,
-                    headers=headers,
-                    timeout=self._runtime.timeout_seconds,
-                    allow_redirects=False,
-                )
-            except requests.RequestException as exc:
-                self._retry_or_fail(delivery, error=exc)
-                commit_or_rollback(db)
+        try:
+            response = requests.post(
+                endpoint_url,
+                data=body,
+                headers=headers,
+                timeout=self._runtime.timeout_seconds,
+                allow_redirects=False,
+            )
+        except requests.RequestException as exc:
+            self._persist_delivery_failure(delivery_id, exc)
+            return
+
+        self._persist_delivery_response(delivery_id, response)
+
+    def _persist_terminal_failure_in_session(
+        self,
+        db,
+        delivery_id: int,
+        error: object,
+    ) -> None:
+        def persist() -> None:
+            delivery = db.get(WebhookDelivery, delivery_id, populate_existing=True)
+            if delivery is None or delivery.status not in {"pending", "retrying"}:
                 return
-
-            self._apply_delivery_response(delivery, response)
+            self._fail_terminal(delivery, error)
             commit_or_rollback(db)
+
+        run_db_unit_with_sqlite_retry(db, persist)
+
+    def _persist_delivery_failure(self, delivery_id: int, error: object) -> None:
+        with self._session_factory() as db:
+            def persist() -> None:
+                delivery = db.get(WebhookDelivery, delivery_id)
+                if delivery is None or delivery.status not in {"pending", "retrying"}:
+                    return
+                self._retry_or_fail(delivery, error=error)
+                commit_or_rollback(db)
+
+            run_db_unit_with_sqlite_retry(db, persist)
+
+    def _persist_delivery_response(self, delivery_id: int, response: object) -> None:
+        with self._session_factory() as db:
+            def persist() -> None:
+                delivery = db.get(WebhookDelivery, delivery_id)
+                if delivery is None or delivery.status not in {"pending", "retrying"}:
+                    return
+                self._apply_delivery_response(delivery, response)
+                commit_or_rollback(db)
+
+            run_db_unit_with_sqlite_retry(db, persist)
 
     def _retry_or_fail(
         self,
@@ -255,15 +292,18 @@ class WebhookDeliveryWorker:
             return
         cutoff = now - timedelta(days=retention_days)
         with self._session_factory() as db:
-            db.execute(
-                delete(WebhookDelivery)
-                .where(
-                    WebhookDelivery.status.in_(_TERMINAL_STATUSES),
-                    WebhookDelivery.updated_at < cutoff,
+            def purge() -> None:
+                db.execute(
+                    delete(WebhookDelivery)
+                    .where(
+                        WebhookDelivery.status.in_(_TERMINAL_STATUSES),
+                        WebhookDelivery.updated_at < cutoff,
+                    )
+                    .execution_options(synchronize_session=False)
                 )
-                .execution_options(synchronize_session=False)
-            )
-            commit_or_rollback(db)
+                commit_or_rollback(db)
+
+            run_db_unit_with_sqlite_retry(db, purge)
         self._last_purge_at = now
 
     def _retry_after_seconds(self, value: str | None) -> int | None:

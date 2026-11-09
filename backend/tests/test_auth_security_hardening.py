@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import hashlib
+import threading
+import time
 from datetime import timedelta
 from types import SimpleNamespace
 
@@ -12,7 +14,8 @@ from fastapi.testclient import TestClient
 from jose import jwt
 from pwdlib import PasswordHash
 from pwdlib.hashers.bcrypt import BcryptHasher
-from sqlalchemy import select, text
+from sqlalchemy import event, select, text, update
+from sqlalchemy.orm import sessionmaker
 from starlette.requests import Request
 from webauthn.helpers import bytes_to_base64url
 
@@ -1047,6 +1050,174 @@ def test_expired_s3_auth_session_erases_persisted_credentials(db_session):
     assert s3_session.revoked_at is not None
     assert s3_session.access_key_enc is None
     assert s3_session.secret_key_enc is None
+
+
+def _exercise_sqlite_read_to_write_conflict(
+    test_engine,
+    *,
+    statement_prefix: str,
+    writer_statement,
+    target_operation,
+):
+    target_thread_id = threading.get_ident()
+    target_update_ready = threading.Event()
+    writer_has_lock = threading.Event()
+    intercepted_target_update = False
+    writer_errors: list[BaseException] = []
+    session_factory = sessionmaker(bind=test_engine, future=True)
+
+    def hold_target_update_until_writer_has_lock(
+        _connection,
+        _cursor,
+        statement,
+        _parameters,
+        _context,
+        _executemany,
+    ) -> None:
+        nonlocal intercepted_target_update
+        if (
+            threading.get_ident() != target_thread_id
+            or intercepted_target_update
+            or not statement.startswith(statement_prefix)
+        ):
+            return
+        intercepted_target_update = True
+        target_update_ready.set()
+        assert writer_has_lock.wait(timeout=2)
+
+    def hold_concurrent_writer() -> None:
+        try:
+            assert target_update_ready.wait(timeout=2)
+            with session_factory() as writer_db:
+                writer_db.execute(writer_statement)
+                writer_has_lock.set()
+                time.sleep(0.05)
+                writer_db.commit()
+        except BaseException as exc:  # pragma: no cover - surfaced below
+            writer_errors.append(exc)
+            writer_has_lock.set()
+
+    event.listen(test_engine, "before_cursor_execute", hold_target_update_until_writer_has_lock)
+    writer = threading.Thread(target=hold_concurrent_writer, daemon=True)
+    writer.start()
+    try:
+        with session_factory() as target_db:
+            result = target_operation(target_db)
+    finally:
+        writer.join(timeout=2)
+        event.remove(test_engine, "before_cursor_execute", hold_target_update_until_writer_has_lock)
+
+    assert writer.is_alive() is False
+    assert writer_errors == []
+    assert intercepted_target_update is True
+    return result
+
+
+def test_validate_access_recovers_from_sqlite_read_to_write_busy(db_session, test_engine):
+    user = _user(db_session, email="sqlite-auth-busy@example.com")
+    credentials = AuthSessionService(db_session).create_for_user(
+        user,
+        auth_type="password",
+        ip_address="127.0.0.1",
+        user_agent="pytest",
+        mfa_verified=False,
+    )
+    session_id = credentials.session.id
+
+    def validate(target_db):
+        auth_session, principal = AuthSessionService(target_db).validate_access(
+            session_id,
+            expected_type="ui_access",
+        )
+        return auth_session.id, principal.id
+
+    validated_session_id, validated_user_id = _exercise_sqlite_read_to_write_conflict(
+        test_engine,
+        statement_prefix="UPDATE auth_sessions SET last_activity_at",
+        writer_statement=(
+            update(AuthSession)
+            .where(AuthSession.id == session_id)
+            .values(ip_address="concurrent-writer")
+        ),
+        target_operation=validate,
+    )
+
+    assert validated_session_id == session_id
+    assert validated_user_id == user.id
+
+
+def test_refresh_rotation_recovers_from_sqlite_read_to_write_busy(db_session, test_engine):
+    user = _user(db_session, email="sqlite-refresh-busy@example.com")
+    credentials = AuthSessionService(db_session).create_for_user(
+        user,
+        auth_type="password",
+        ip_address="127.0.0.1",
+        user_agent="pytest",
+        mfa_verified=False,
+    )
+
+    replacement = _exercise_sqlite_read_to_write_conflict(
+        test_engine,
+        statement_prefix="UPDATE refresh_tokens SET used_at",
+        writer_statement=(
+            update(User)
+            .where(User.id == user.id)
+            .values(full_name="Concurrent refresh writer")
+        ),
+        target_operation=lambda target_db: AuthSessionService(target_db).rotate(
+            credentials.refresh_token
+        ),
+    )
+
+    assert replacement.refresh_token != credentials.refresh_token
+    db_session.rollback()
+    rows = db_session.scalars(
+        select(RefreshToken).where(RefreshToken.auth_session_id == credentials.session.id)
+    ).all()
+    assert len(rows) == 2
+    assert sum(row.used_at is not None for row in rows) == 1
+
+
+def test_api_token_usage_recovers_from_sqlite_read_to_write_busy(db_session, test_engine):
+    user = _user(
+        db_session,
+        email="sqlite-api-token-busy@example.com",
+        role=UserRole.UI_ADMIN.value,
+    )
+    token, row = ApiTokenService(db_session).create_for_user(
+        user,
+        name="sqlite-busy",
+        scopes=["profile:read"],
+    )
+    claims = decode_typed_token(token, expected_type="api_access")
+    assert claims is not None
+
+    def resolve(target_db):
+        resolved = ApiTokenService(target_db).resolve_and_mark_used(
+            claims,
+            token=token,
+            required_scope="profile:read",
+        )
+        assert resolved is not None
+        resolved_user, resolved_row = resolved
+        return resolved_user.id, resolved_row.id
+
+    resolved_user_id, resolved_row_id = _exercise_sqlite_read_to_write_conflict(
+        test_engine,
+        statement_prefix="UPDATE api_tokens SET last_used_at",
+        writer_statement=(
+            update(User)
+            .where(User.id == user.id)
+            .values(full_name="Concurrent API token writer")
+        ),
+        target_operation=resolve,
+    )
+
+    assert resolved_user_id == user.id
+    assert resolved_row_id == row.id
+    db_session.rollback()
+    db_session.refresh(row)
+    assert row.last_used_at is not None
 
 
 def test_s3_session_principal_conversion_uses_public_service_contract(monkeypatch):

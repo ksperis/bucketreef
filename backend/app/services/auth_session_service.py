@@ -14,7 +14,7 @@ from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
 from app.core.security import (
     create_refresh_token,
     create_s3_access_token,
@@ -28,8 +28,6 @@ from app.utils.time import utcnow
 
 
 _STANDARD_UI_ROLES = {UserRole.UI_USER.value, UserRole.UI_NONE.value}
-
-
 class AuthSessionError(ValueError):
     pass
 
@@ -162,6 +160,12 @@ class AuthSessionService:
         )
 
     def rotate(self, raw_token: str) -> SessionCredentials:
+        return run_db_unit_with_sqlite_retry(
+            self.db,
+            lambda: self._rotate_once(raw_token),
+        )
+
+    def _rotate_once(self, raw_token: str) -> SessionCredentials:
         now = utcnow()
         current = self._require_refresh_token(raw_token)
         session, user, s3_session = self._require_refresh_principal(current, now)
@@ -268,6 +272,12 @@ class AuthSessionService:
         )
 
     def validate_access(self, session_id: str, *, expected_type: str) -> tuple[AuthSession, User | S3Session]:
+        return run_db_unit_with_sqlite_retry(
+            self.db,
+            lambda: self._validate_access_once(session_id, expected_type=expected_type),
+        )
+
+    def _validate_access_once(self, session_id: str, *, expected_type: str) -> tuple[AuthSession, User | S3Session]:
         now = utcnow()
         session = self.db.get(AuthSession, session_id)
         expected_principal = "s3" if expected_type == "s3_access" else "user"

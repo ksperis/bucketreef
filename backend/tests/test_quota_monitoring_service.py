@@ -2,12 +2,13 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+import sqlite3
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
 import pytest
 import sqlalchemy as sa
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from app.db import (
     QuotaAlertState,
@@ -179,6 +180,106 @@ def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
     return rollback_calls
 
 
+def _busy_snapshot_error() -> OperationalError:
+    original = sqlite3.OperationalError("database is locked")
+    original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
+    return OperationalError("COMMIT", (), original)
+
+
+def test_quota_external_io_is_outside_transaction_and_busy_retries_only_db(
+    db_session,
+    monkeypatch,
+):
+    endpoint = _seed_endpoint(db_session)
+    account = _seed_account(db_session, endpoint)
+    recipient = _seed_user(db_session, email="busy-quota@example.test")
+    db_session.add(
+        UserS3Account(
+            user_id=recipient.id,
+            account_id=account.id,
+            manager_role=None,
+            portal_role=PortalAccountRole.PORTAL_MANAGER.value,
+        )
+    )
+    db_session.commit()
+
+    class BoundaryAdmin(_FakeAdminClient):
+        def __init__(self) -> None:
+            super().__init__(
+                usage_bytes=90,
+                usage_objects=90,
+                quota_bytes=100,
+                quota_objects=100,
+            )
+            self.usage_calls = 0
+            self.quota_calls = 0
+
+        def get_all_buckets(self, **kwargs):
+            assert db_session.in_transaction() is False
+            self.usage_calls += 1
+            return super().get_all_buckets(**kwargs)
+
+        def get_account_quota(self, account_id: str):
+            assert db_session.in_transaction() is False
+            self.quota_calls += 1
+            return super().get_account_quota(account_id)
+
+    class BoundaryMailer(_FakeMailer):
+        def send(self, *, recipients: list[str], subject: str, body: str) -> None:
+            assert db_session.in_transaction() is False
+            super().send(recipients=recipients, subject=subject, body=body)
+
+    fake_admin = BoundaryAdmin()
+    fake_mailer = BoundaryMailer()
+    monkeypatch.setattr(
+        quota_monitoring_service,
+        "load_app_settings_for_db",
+        lambda _db: _settings(
+            quota_alerts_enabled=True,
+            usage_history_enabled=False,
+        ),
+    )
+    monkeypatch.setattr(
+        quota_monitoring_service.DataRetentionService,
+        "purge_all",
+        lambda _self: {},
+    )
+    monkeypatch.setattr(
+        quota_monitoring_service,
+        "get_supervision_rgw_client",
+        lambda _endpoint: fake_admin,
+    )
+    monkeypatch.setattr(
+        QuotaMonitoringService,
+        "_resolve_runtime_client",
+        lambda _self, _endpoint, _cache: fake_admin,
+    )
+    monkeypatch.setattr(
+        QuotaAlertEmailService,
+        "build_mailer",
+        lambda _self, _notification_settings: (fake_mailer, None),
+    )
+    original_commit = db_session.commit
+    fail_once = True
+
+    def commit_with_busy_once() -> None:
+        nonlocal fail_once
+        if fail_once:
+            fail_once = False
+            raise _busy_snapshot_error()
+        original_commit()
+
+    monkeypatch.setattr(db_session, "commit", commit_with_busy_once)
+
+    result = QuotaMonitoringService(db_session).run_quota_alerts()
+
+    assert result["alerts_triggered"] == 1
+    assert result["alerts_sent"] == 1
+    assert fake_admin.usage_calls == 1
+    assert fake_admin.quota_calls == 1
+    assert len(fake_mailer.calls) == 1
+
+
 def test_collect_usage_history_skips_when_both_features_disabled(db_session, monkeypatch):
     monkeypatch.setattr(quota_monitoring_service, "load_app_settings_for_db", lambda _db: _settings(quota_alerts_enabled=False, usage_history_enabled=False))
     monkeypatch.setattr(quota_monitoring_service.DataRetentionService, "purge_all", lambda self: {"retention": "ok"})
@@ -270,7 +371,9 @@ def test_usage_history_rolls_back_when_final_commit_fails(db_session, monkeypatc
     with pytest.raises(RuntimeError, match="commit failed"):
         QuotaMonitoringService(db_session).collect_usage_history()
 
-    assert rollback_calls == [None]
+    # The first rollback closes the read snapshot before RGW I/O. The second
+    # restores the failed persistence transaction.
+    assert rollback_calls == [None, None]
     assert db_session.scalar(sa.select(sa.func.count()).select_from(QuotaUsageHourly)) == 0
     assert db_session.scalar(sa.select(sa.func.count()).select_from(QuotaUsageDaily)) == 0
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
 import logging
@@ -11,7 +12,7 @@ from typing import Any, Literal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
 from app.db import QuotaAlertState, S3Account, S3User, StorageEndpoint
 from app.core.domain_enums import StorageProvider
 from app.models.app_settings import AppSettings
@@ -55,6 +56,14 @@ class _QuotaUsageSnapshot:
     quota_size_bytes: int | None
     quota_objects: int | None
     ratio_pct: float | None
+
+
+@dataclass(frozen=True)
+class _QuotaEmailRequest:
+    subject: SubjectContext
+    snapshot: _QuotaUsageSnapshot
+    alert_level: str
+    threshold_percent: int
 
 
 @dataclass
@@ -117,10 +126,43 @@ class QuotaMonitoringService:
         )
         subjects = self._load_subjects(endpoint_map=run.endpoint_map)
         summary["subjects_total"] = len(subjects)
-        for subject in subjects:
-            self._process_subject(subject, run)
+        # Client construction consumes endpoint ORM state but performs no
+        # remote I/O. Build all clients while the read snapshot is active,
+        # then close it before collecting from RGW.
+        for endpoint in run.endpoint_map.values():
+            run.usage_clients[int(endpoint.id)] = self._resolve_usage_client(
+                endpoint,
+                run.usage_clients,
+            )
+            run.runtime_clients[int(endpoint.id)] = self._resolve_runtime_client(
+                endpoint,
+                run.runtime_clients,
+            )
+        self.db.rollback()
 
-        commit_or_rollback(self.db)
+        collected: list[tuple[SubjectContext, _QuotaUsageSnapshot]] = []
+        for subject in subjects:
+            snapshot = self._collect_subject_snapshot(subject, run)
+            if snapshot is not None:
+                collected.append((subject, snapshot))
+
+        summary_before_persistence = deepcopy(run.summary)
+        email_requests = run_db_unit_with_sqlite_retry(
+            self.db,
+            lambda: self._persist_collected(
+                collected,
+                run,
+                summary_before_persistence=summary_before_persistence,
+            ),
+        )
+        for request in email_requests:
+            self._send_alert_email(
+                request.subject,
+                request.snapshot,
+                request.alert_level,
+                request.threshold_percent,
+                run,
+            )
         return self._finish_run(summary)
 
     @staticmethod
@@ -160,16 +202,8 @@ class QuotaMonitoringService:
         alert_states = QuotaAlertStateService(self.db)
         recipients = QuotaAlertRecipientsService(self.db)
         email = QuotaAlertEmailService()
-        states = (
-            alert_states.load_states()
-            if quota_alerts_enabled
-            else {}
-        )
-        recipient_index = (
-            recipients.load()
-            if quota_alerts_enabled
-            else QuotaAlertRecipientIndex()
-        )
+        states: dict[QuotaAlertStateKey, QuotaAlertState] = {}
+        recipient_index = QuotaAlertRecipientIndex()
         mailer = None
         if quota_alerts_enabled:
             mailer, mail_error_reason = email.build_mailer(
@@ -195,35 +229,50 @@ class QuotaMonitoringService:
             mailer=mailer,
         )
 
-    def _process_subject(
+    def _persist_collected(
         self,
-        subject: SubjectContext,
+        collected: list[tuple[SubjectContext, _QuotaUsageSnapshot]],
         run: _QuotaMonitorRun,
-    ) -> None:
-        endpoint = run.endpoint_map[subject.endpoint_id]
-        snapshot = self._collect_subject_snapshot(subject, endpoint, run)
-        if snapshot is None:
-            return
-        if run.mode == "usage_history":
-            self._record_usage_history(subject, snapshot, run)
+        *,
+        summary_before_persistence: dict[str, Any],
+    ) -> list[_QuotaEmailRequest]:
+        run.summary.clear()
+        run.summary.update(deepcopy(summary_before_persistence))
+        run.notifications = UserNotificationsService(self.db)
+        run.history = QuotaUsageHistoryService(self.db)
+        run.alert_states = QuotaAlertStateService(self.db)
+        run.recipients = QuotaAlertRecipientsService(self.db)
         if run.mode == "quota_alerts":
-            self._process_quota_alert(subject, snapshot, run)
-        run.summary["subjects_processed"] += 1
+            run.states = run.alert_states.load_states()
+            run.recipient_index = run.recipients.load()
+        else:
+            run.states = {}
+            run.recipient_index = QuotaAlertRecipientIndex()
+
+        email_requests: list[_QuotaEmailRequest] = []
+        for subject, snapshot in collected:
+            if run.mode == "usage_history":
+                self._record_usage_history(subject, snapshot, run)
+            if run.mode == "quota_alerts":
+                email_request = self._process_quota_alert(subject, snapshot, run)
+                if email_request is not None:
+                    email_requests.append(email_request)
+            run.summary["subjects_processed"] += 1
+        commit_or_rollback(self.db)
+        return email_requests
 
     def _collect_subject_snapshot(
         self,
         subject: SubjectContext,
-        endpoint: StorageEndpoint,
         run: _QuotaMonitorRun,
     ) -> _QuotaUsageSnapshot | None:
-        usage = self._collect_subject_usage(subject, endpoint, run)
+        usage = self._collect_subject_usage(subject, run)
         if usage is None:
             return None
         used_bytes, used_objects, bucket_count = usage
 
         quota_size_bytes, quota_objects = self._collect_subject_quota(
             subject,
-            endpoint,
             run,
         )
         ratio_pct = self._compute_usage_ratio(
@@ -244,13 +293,9 @@ class QuotaMonitoringService:
     def _collect_subject_usage(
         self,
         subject: SubjectContext,
-        endpoint: StorageEndpoint,
         run: _QuotaMonitorRun,
     ) -> tuple[int, int, int] | None:
-        usage_client = self._resolve_usage_client(
-            endpoint,
-            run.usage_clients,
-        )
+        usage_client = run.usage_clients.get(subject.endpoint_id)
         if usage_client is None:
             run.summary["errors"].append(
                 self._subject_issue(
@@ -285,10 +330,9 @@ class QuotaMonitoringService:
     def _collect_subject_quota(
         self,
         subject: SubjectContext,
-        endpoint: StorageEndpoint,
         run: _QuotaMonitorRun,
     ) -> tuple[int | None, int | None]:
-        runtime_client = self._resolve_runtime_client(endpoint, run.runtime_clients)
+        runtime_client = run.runtime_clients.get(subject.endpoint_id)
         if runtime_client is None:
             run.summary["warnings"].append(
                 self._subject_issue(
@@ -360,7 +404,7 @@ class QuotaMonitoringService:
         subject: SubjectContext,
         snapshot: _QuotaUsageSnapshot,
         run: _QuotaMonitorRun,
-    ) -> None:
+    ) -> _QuotaEmailRequest | None:
         threshold_percent = run.settings.quota_notifications.threshold_percent
         transition = run.alert_states.update(
             subject=subject,
@@ -373,7 +417,7 @@ class QuotaMonitoringService:
             QUOTA_ALERT_THRESHOLD,
             QUOTA_ALERT_FULL,
         }:
-            return
+            return None
 
         run.summary["alerts_triggered"] += 1
         content = build_quota_alert_content(
@@ -390,12 +434,11 @@ class QuotaMonitoringService:
         )
         self._create_quota_notifications(subject, content, run)
         self._publish_quota_webhook(subject, transition, content, run)
-        self._send_alert_email(
-            subject,
-            snapshot,
-            transition.next_level,
-            threshold_percent,
-            run,
+        return _QuotaEmailRequest(
+            subject=subject,
+            snapshot=snapshot,
+            alert_level=transition.next_level,
+            threshold_percent=threshold_percent,
         )
 
     @staticmethod
@@ -493,7 +536,10 @@ class QuotaMonitoringService:
             run.summary["email_errors"] += 1
 
     def _finish_run(self, summary: dict[str, Any]) -> dict[str, Any]:
-        summary["retention"] = DataRetentionService(self.db).purge_all()
+        summary["retention"] = run_db_unit_with_sqlite_retry(
+            self.db,
+            lambda: DataRetentionService(self.db).purge_all(),
+        )
         summary["finished_at"] = utcnow().isoformat()
         return summary
 

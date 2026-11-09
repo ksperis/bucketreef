@@ -13,7 +13,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
 from app.db.bucket_usage_stats import BucketUsageStatsSnapshot as BucketUsageStatsSnapshotRow
 from app.models.bucket_usage_stats import (
     BucketUsageStatsAggregate,
@@ -455,6 +455,12 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
         return snapshots
 
     def upsert_snapshot(self, db: Session, snapshot: BucketUsageStatsSnapshot) -> BucketUsageStatsSnapshot:
+        return run_db_unit_with_sqlite_retry(
+            db,
+            lambda: self._upsert_snapshot_once(db, snapshot),
+        )
+
+    def _upsert_snapshot_once(self, db: Session, snapshot: BucketUsageStatsSnapshot) -> BucketUsageStatsSnapshot:
         row = db.scalars(
             select(BucketUsageStatsSnapshotRow).where(
                 BucketUsageStatsSnapshotRow.scope_kind == snapshot.scope_kind,

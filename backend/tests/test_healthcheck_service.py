@@ -1,10 +1,12 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+import sqlite3
 import requests
 import pytest
 from datetime import timedelta
 
 from sqlalchemy import select
+from sqlalchemy.exc import OperationalError
 
 from app.db import (
     EndpointHealthCheck,
@@ -62,6 +64,94 @@ def _seed_endpoint(db_session, *, name: str, endpoint_url: str, is_default: bool
             is_editable=True,
         )
     )
+
+
+def _busy_snapshot_error() -> OperationalError:
+    original = sqlite3.OperationalError("database is locked")
+    original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
+    return OperationalError("COMMIT", (), original)
+
+
+def test_healthcheck_probe_runs_outside_transaction_and_is_not_repeated_on_busy(
+    db_session,
+    monkeypatch,
+):
+    _seed_endpoint(
+        db_session,
+        name="Busy boundary endpoint",
+        endpoint_url="https://busy-boundary.example.test",
+        is_default=True,
+    )
+    db_session.commit()
+    endpoint_id = int(
+        db_session.scalars(
+            select(StorageEndpoint).where(
+                StorageEndpoint.name == "Busy boundary endpoint"
+            )
+        ).one().id
+    )
+    monkeypatch.setattr(
+        healthcheck_service,
+        "load_app_settings_for_db",
+        lambda _db: type(
+            "AppSettings",
+            (),
+            {"general": type("General", (), {"endpoint_status_enabled": True})()},
+        )(),
+    )
+    monkeypatch.setattr(
+        HealthCheckPersistenceService,
+        "prune_history",
+        lambda _self: None,
+    )
+
+    probe_calls = 0
+
+    def run_endpoint_checks(_self, check_targets, *, profiles, baselines):
+        nonlocal probe_calls
+        probe_calls += 1
+        assert db_session.in_transaction() is False
+        assert [target.endpoint_id for target in check_targets] == [endpoint_id]
+        assert endpoint_id in profiles
+        assert endpoint_id in baselines
+        return [
+            HealthCheckResult(
+                endpoint_id=endpoint_id,
+                status=HealthCheckStatus.UP,
+                checked_at=utcnow(),
+                latency_ms=12,
+                http_status=200,
+                error_message=None,
+                check_mode="http",
+            )
+        ]
+
+    monkeypatch.setattr(
+        HealthCheckService,
+        "_run_endpoint_checks",
+        run_endpoint_checks,
+    )
+    original_commit = db_session.commit
+    fail_once = True
+
+    def commit_with_busy_once() -> None:
+        nonlocal fail_once
+        if fail_once:
+            fail_once = False
+            raise _busy_snapshot_error()
+        original_commit()
+
+    monkeypatch.setattr(db_session, "commit", commit_with_busy_once)
+
+    result = HealthCheckService(db_session).run_checks()
+
+    assert probe_calls == 1
+    assert result["total"] == 1
+    db_session.rollback()
+    assert len(db_session.scalars(select(EndpointHealthCheck)).all()) == 1
+    assert len(db_session.scalars(select(EndpointHealthLatest)).all()) == 1
+    assert len(db_session.scalars(select(EndpointHealthRollup)).all()) == 1
+    assert len(db_session.scalars(select(EndpointHealthStatusSegment)).all()) == 1
 
 
 def test_healthcheck_target_uses_canonical_persisted_endpoint_fields(db_session):
@@ -424,7 +514,7 @@ def test_workspace_health_overview_projects_ongoing_and_recent_incidents(db_sess
     assert payload["incidents"][1]["duration_minutes"] == 15
 
 
-def test_healthcheck_projection_rolls_back_when_second_commit_fails(db_session, monkeypatch):
+def test_healthcheck_retention_failure_keeps_atomic_projection_commit(db_session, monkeypatch):
     _seed_endpoint(
         db_session,
         name="Projection rollback endpoint",
@@ -469,9 +559,9 @@ def test_healthcheck_projection_rolls_back_when_second_commit_fails(db_session, 
     assert commit_calls == 2
     assert rollback_calls == [True]
     assert db_session.scalars(select(EndpointHealthCheck)).all()
-    assert db_session.scalars(select(EndpointHealthLatest)).all() == []
-    assert db_session.scalars(select(EndpointHealthRollup)).all() == []
-    assert db_session.scalars(select(EndpointHealthStatusSegment)).all() == []
+    assert db_session.scalars(select(EndpointHealthLatest)).all()
+    assert db_session.scalars(select(EndpointHealthRollup)).all()
+    assert db_session.scalars(select(EndpointHealthStatusSegment)).all()
 
 
 def test_healthcheck_history_pruning_keeps_recent_and_active_rows(db_session, monkeypatch):

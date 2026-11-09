@@ -2,11 +2,19 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from collections.abc import Iterator
+import time
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from typing import Protocol
+from typing import Protocol, TypeVar
 
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
+
+from app.core.database import is_sqlite_busy_error
+
+
+_T = TypeVar("_T")
+SQLITE_BUSY_RETRY_DELAYS_SECONDS = (0.01, 0.025, 0.05)
 
 
 class _CommitRollback(Protocol):
@@ -23,6 +31,38 @@ def commit_or_rollback(db: _CommitRollback) -> None:
     except Exception:
         db.rollback()
         raise
+
+
+def run_db_unit_with_sqlite_retry(
+    db: Session,
+    operation: Callable[[], _T],
+    *,
+    retry_delays: tuple[float, ...] = SQLITE_BUSY_RETRY_DELAYS_SECONDS,
+) -> _T:
+    """Run one replayable DB-only unit and retry SQLite BUSY failures.
+
+    PostgreSQL and other backends execute the operation exactly once. SQLite
+    retries only the SQLITE_BUSY family, including extended errors such as
+    SQLITE_BUSY_SNAPSHOT. The callback must not perform external side effects
+    because the entire unit can be replayed after rollback.
+    """
+
+    if db.get_bind().dialect.name != "sqlite":
+        return operation()
+
+    delays = iter(retry_delays)
+    while True:
+        try:
+            return operation()
+        except OperationalError as exc:
+            if not is_sqlite_busy_error(exc):
+                raise
+            db.rollback()
+            try:
+                delay = next(delays)
+            except StopIteration:
+                raise exc
+            time.sleep(delay)
 
 
 @contextmanager

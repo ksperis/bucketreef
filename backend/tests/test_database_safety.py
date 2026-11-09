@@ -19,9 +19,12 @@ from app.core.config import DEFAULT_SQLITE_DB_PATH, Settings
 from app.core.database import (
     _SQLITE_BUSY_TIMEOUT_MS,
     configure_sqlite_connection,
+    is_sqlite_busy_error,
     is_sqlite_malformed_database_error,
     sqlite_integrity_status,
 )
+from app.core import db_transactions
+from app.core.db_transactions import run_db_unit_with_sqlite_retry
 from app.core.sqlite import begin_sqlite_transaction, configure_sqlite_adapters
 
 
@@ -160,6 +163,105 @@ def test_is_sqlite_malformed_database_error_detects_sqlalchemy_database_error():
     )
 
     assert is_sqlite_malformed_database_error(exc) is True
+
+
+def test_is_sqlite_busy_error_detects_sqlalchemy_database_error():
+    exc = DatabaseError(
+        "UPDATE auth_sessions SET last_activity_at = ?",
+        ("2026-11-09",),
+        sqlite3.OperationalError("database is locked"),
+    )
+    exc.orig.sqlite_errorcode = sqlite3.SQLITE_BUSY
+
+    assert is_sqlite_busy_error(exc) is True
+
+
+def test_sqlite_busy_snapshot_replays_complete_db_unit(tmp_path, monkeypatch):
+    db_path = tmp_path / "busy-snapshot.db"
+    engine = create_engine(
+        f"sqlite:///{db_path.as_posix()}",
+        connect_args={"check_same_thread": False},
+        future=True,
+    )
+    event.listen(engine, "connect", configure_sqlite_connection)
+    event.listen(engine, "begin", begin_sqlite_transaction)
+    observed_codes: list[int | None] = []
+    original_detector = db_transactions.is_sqlite_busy_error
+
+    def record_busy_code(exc: BaseException) -> bool:
+        observed_codes.append(getattr(getattr(exc, "orig", None), "sqlite_errorcode", None))
+        return original_detector(exc)
+
+    monkeypatch.setattr(db_transactions, "is_sqlite_busy_error", record_busy_code)
+    SessionLocal = sessionmaker(bind=engine, future=True)
+    attempts = 0
+    rollbacks = 0
+    try:
+        with engine.begin() as connection:
+            connection.exec_driver_sql("CREATE TABLE busy_test (id INTEGER PRIMARY KEY, value INTEGER NOT NULL)")
+            connection.exec_driver_sql("INSERT INTO busy_test (id, value) VALUES (1, 0)")
+
+        with SessionLocal() as target:
+            original_rollback = target.rollback
+
+            def rollback() -> None:
+                nonlocal rollbacks
+                rollbacks += 1
+                original_rollback()
+
+            monkeypatch.setattr(target, "rollback", rollback)
+
+            def operation() -> int:
+                nonlocal attempts
+                attempts += 1
+                current = target.execute(text("SELECT value FROM busy_test WHERE id = 1")).scalar_one()
+                if attempts == 1:
+                    with SessionLocal() as writer:
+                        writer.execute(text("UPDATE busy_test SET value = value + 1 WHERE id = 1"))
+                        writer.commit()
+                target.execute(
+                    text("UPDATE busy_test SET value = :value WHERE id = 1"),
+                    {"value": current + 10},
+                )
+                target.commit()
+                return current + 10
+
+            assert run_db_unit_with_sqlite_retry(target, operation, retry_delays=(0.0,)) == 11
+
+        with engine.connect() as connection:
+            assert connection.exec_driver_sql("SELECT value FROM busy_test WHERE id = 1").scalar_one() == 11
+        assert attempts == 2
+        assert rollbacks == 1
+        assert observed_codes == [sqlite3.SQLITE_BUSY_SNAPSHOT]
+    finally:
+        engine.dispose()
+
+
+def test_postgresql_db_unit_executes_once_without_sqlite_retry(monkeypatch):
+    class FakePostgresSession:
+        def __init__(self) -> None:
+            self.rollback_calls = 0
+
+        @staticmethod
+        def get_bind():
+            return SimpleNamespace(dialect=SimpleNamespace(name="postgresql"))
+
+        def rollback(self) -> None:
+            self.rollback_calls += 1
+
+    db = FakePostgresSession()
+    calls = 0
+
+    def operation() -> str:
+        nonlocal calls
+        calls += 1
+        return "ok"
+
+    monkeypatch.setattr(db_transactions.time, "sleep", lambda _delay: pytest.fail("PostgreSQL must not back off"))
+
+    assert run_db_unit_with_sqlite_retry(db, operation) == "ok"
+    assert calls == 1
+    assert db.rollback_calls == 0
 
 
 def test_handle_database_errors_returns_actionable_response_for_sqlite_corruption():

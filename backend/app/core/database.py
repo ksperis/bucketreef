@@ -45,6 +45,20 @@ def is_sqlite_malformed_database_error(exc: BaseException) -> bool:
     return False
 
 
+def is_sqlite_busy_error(exc: BaseException) -> bool:
+    """Return whether an exception chain represents SQLite SQLITE_BUSY."""
+
+    current: BaseException | None = exc
+    seen: set[int] = set()
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        error_code = getattr(current, "sqlite_errorcode", None)
+        if isinstance(error_code, int) and error_code & 0xFF == sqlite3.SQLITE_BUSY:
+            return True
+        current = getattr(current, "orig", None) or current.__cause__
+    return False
+
+
 def configure_sqlite_connection(
     dbapi_connection: DBAPIConnection,
     connection_record: ConnectionPoolEntry,
