@@ -8,7 +8,6 @@ from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 
-from app.db import User
 from app.services.access_context_contracts import AccountAccess
 from app.models.portal_sharing import (
     PaginatedPortalStorageSpaceShareCandidates,
@@ -173,17 +172,6 @@ def portal_storage_space_share_candidates(
         raise_portal_error(exc)
 
 
-def _resolve_share_target(payload: PortalStorageSpaceSharePayload, user_queries: UserQueryService) -> User:
-    target = None
-    if payload.user_id is not None:
-        target = user_queries.get_by_id(payload.user_id)
-    elif payload.email:
-        target = user_queries.get_by_email_case_insensitive(payload.email)
-    if not target:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    return target
-
-
 @router.post("/storage-spaces/{space_id}/shares", response_model=PortalStorageSpaceShare, status_code=status.HTTP_201_CREATED)
 def grant_portal_storage_space_share(
     space_id: str,
@@ -194,7 +182,9 @@ def grant_portal_storage_space_share(
     service: PortalService = Depends(get_portal_service_dependency),
 ) -> PortalStorageSpaceShare:
     actor = access.actor
-    target = _resolve_share_target(payload, user_queries)
+    target = user_queries.get_by_id(payload.user_id)
+    if not target:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     try:
         share = service.set_storage_space_share(actor, access, target, space_id, payload.role)
         audit_service.record_action(
