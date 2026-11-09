@@ -2,12 +2,12 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from typing import Optional
+from typing import Callable, Optional
 
 from sqlalchemy import select
 
-from app.core.db_transactions import commit_or_rollback
-from app.db import BucketMigration, User
+from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
+from app.db import BucketMigration, BucketMigrationItem, User
 from app.services.effective_access_service import EffectiveAccessService
 from app.utils.normalize import normalize_optional_string
 from app.utils.time import utcnow
@@ -36,6 +36,88 @@ class BucketMigrationPersistenceMixin:
 
     def _commit(self) -> None:
         commit_or_rollback(self.db)
+
+    def _persist_migration_checkpoint(
+        self,
+        migration_id: int,
+        mutate: Callable[[BucketMigration], None],
+    ) -> BucketMigration:
+        """Persist one replayable migration-only execution checkpoint."""
+
+        def persist_once() -> int:
+            current = self.db.get(BucketMigration, migration_id, populate_existing=True)
+            if current is None:
+                raise RuntimeError("Bucket migration disappeared while persisting execution state")
+            mutate(current)
+            self._commit()
+            return migration_id
+
+        run_db_unit_with_sqlite_retry(self.db, persist_once)
+        current = self.db.get(BucketMigration, migration_id, populate_existing=True)
+        if current is None:  # pragma: no cover - defensive consistency check
+            raise RuntimeError("Bucket migration could not be reloaded after persisting execution state")
+        return current
+
+    def _persist_item_checkpoint(
+        self,
+        migration_id: int,
+        item_id: int,
+        mutate: Callable[[BucketMigration, BucketMigrationItem], None],
+    ) -> tuple[BucketMigration, BucketMigrationItem]:
+        """Persist one replayable DB-only migration item execution checkpoint."""
+
+        def persist_once() -> tuple[int, int]:
+            current_migration = self.db.get(
+                BucketMigration,
+                migration_id,
+                populate_existing=True,
+            )
+            current_item = self.db.get(
+                BucketMigrationItem,
+                item_id,
+                populate_existing=True,
+            )
+            if current_migration is None or current_item is None:
+                raise RuntimeError("Bucket migration item disappeared while persisting execution state")
+            mutate(current_migration, current_item)
+            self._commit()
+            return migration_id, item_id
+
+        run_db_unit_with_sqlite_retry(self.db, persist_once)
+        current_migration = self.db.get(BucketMigration, migration_id, populate_existing=True)
+        current_item = self.db.get(BucketMigrationItem, item_id, populate_existing=True)
+        if current_migration is None or current_item is None:  # pragma: no cover - defensive consistency check
+            raise RuntimeError("Bucket migration item could not be reloaded after persisting execution state")
+        return current_migration, current_item
+
+    def _persist_sync_progress_checkpoint(
+        self,
+        migration_id: int,
+        item_id: int,
+        *,
+        copied_inc: int = 0,
+        deleted_inc: int = 0,
+    ) -> tuple[BucketMigration, BucketMigrationItem]:
+        """Persist counters after completed remote object operations."""
+
+        copied_delta = max(0, int(copied_inc))
+        deleted_delta = max(0, int(deleted_inc))
+
+        def mutate(
+            current_migration: BucketMigration,
+            current_item: BucketMigrationItem,
+        ) -> None:
+            current_item.objects_copied = int(current_item.objects_copied) + copied_delta
+            current_item.objects_deleted = int(current_item.objects_deleted) + deleted_delta
+            heartbeat_at = utcnow()
+            current_item.updated_at = heartbeat_at
+            current_migration.updated_at = heartbeat_at
+
+        return self._persist_item_checkpoint(
+            migration_id,
+            item_id,
+            mutate,
+        )
 
     def _is_context_authorized(self, context_id: str) -> bool:
         if self._authorized_context_ids is None:

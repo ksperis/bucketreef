@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.domain_errors import CompensationFailureError
 from app.core.domain_errors import ResourceNameValidationError
 from app.services.access_context_contracts import ManagerActor
 from app.services.s3_execution_context import S3ExecutionContext
@@ -280,7 +281,16 @@ def create_access_key(
     try:
         key = service.create_access_key(user_name)
         if payload is not None and payload.model_fields_set and context.id is not None:
-            row = metadata_service.set_iam_metadata(context.id, user_name, key.access_key_id, payload)
+            try:
+                row = metadata_service.set_iam_metadata(context.id, user_name, key.access_key_id, payload)
+            except Exception:
+                try:
+                    service.delete_access_key(user_name, key.access_key_id)
+                except Exception as cleanup_exc:
+                    raise CompensationFailureError(
+                        "Unable to persist IAM access-key metadata and remote key cleanup failed"
+                    ) from cleanup_exc
+                raise
             if row is not None:
                 metadata_service.apply_metadata([key], {key.access_key_id: row})
         audit_service.record_action(

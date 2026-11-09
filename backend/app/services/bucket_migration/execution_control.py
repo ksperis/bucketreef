@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from sqlalchemy import select, update
+from sqlalchemy import update
 from typing import Callable, Optional
 
 from app.core.config import get_settings
@@ -48,20 +48,24 @@ class BucketMigrationExecutionControlMixin:
 
         if migration.status in ACTIVE_STATUSES:
             now = utcnow()
-            if migration.status not in {"pause_requested", "cancel_requested"}:
-                self.db.execute(
-                    update(BucketMigration)
-                    .where(
-                        BucketMigration.id == migration.id,
-                        BucketMigration.status.in_(("queued", "running")),
+            migration_id = int(migration.id)
+
+            def mark_running(current: BucketMigration) -> None:
+                if current.status not in ACTIVE_STATUSES:
+                    return
+                if current.status not in {"pause_requested", "cancel_requested"}:
+                    self.db.execute(
+                        update(BucketMigration)
+                        .where(
+                            BucketMigration.id == migration_id,
+                            BucketMigration.status.in_(("queued", "running")),
+                        )
+                        .values(status="running")
+                        .execution_options(synchronize_session=False)
                     )
-                    .values(status="running")
-                    .execution_options(synchronize_session=False)
-                )
-                self._commit()
-                self.db.refresh(migration)
-            migration.updated_at = now
-            self._commit()
+                current.updated_at = now
+
+            migration = self._persist_migration_checkpoint(migration_id, mark_running)
         return migration
 
     @staticmethod
@@ -105,14 +109,27 @@ class BucketMigrationExecutionControlMixin:
         *,
         control_check: Callable[[], str],
     ) -> Optional[BucketMigration]:
+        migration_id = int(migration.id)
+        item_id = int(item.id)
         try:
             self._execution_item = item
             self._revalidate_transfer_preconditions(migration, items=[item])
-            item.status = "running"
-            if item.started_at is None:
-                item.started_at = utcnow()
-            item.updated_at = utcnow()
-            self._commit()
+
+            def mark_item_running(
+                current_migration: BucketMigration,
+                current_item: BucketMigrationItem,
+            ) -> None:
+                current_item.status = "running"
+                if current_item.started_at is None:
+                    current_item.started_at = utcnow()
+                current_item.updated_at = utcnow()
+
+            migration, item = self._persist_item_checkpoint(
+                migration_id,
+                item_id,
+                mark_item_running,
+            )
+            self._execution_item = item
             self._run_item(
                 migration,
                 item,
@@ -127,32 +144,36 @@ class BucketMigrationExecutionControlMixin:
         except Exception as exc:  # noqa: BLE001
             logger.exception(
                 "Bucket migration item failed: migration=%s item=%s",
-                migration.id,
-                item.id,
+                migration_id,
+                item_id,
             )
             self.db.rollback()
-            migration = self.get_migration(migration.id)
-            failed_item = self.db.scalars(
-                select(BucketMigrationItem).where(BucketMigrationItem.id == item.id)
-            ).first()
-            if failed_item is None:
-                return migration
             error_detail = sanitized_error_log_detail(exc)
-            failed_item.status = "failed"
-            failed_item.error_message = truncate_optional_db_text(
-                error_detail,
-                max_chars=DB_ERROR_MESSAGE_MAX_CHARS,
+
+            def mark_item_failed(
+                current_migration: BucketMigration,
+                failed_item: BucketMigrationItem,
+            ) -> None:
+                failed_item.status = "failed"
+                failed_item.error_message = truncate_optional_db_text(
+                    error_detail,
+                    max_chars=DB_ERROR_MESSAGE_MAX_CHARS,
+                )
+                failed_item.finished_at = utcnow()
+                failed_item.updated_at = utcnow()
+                self._add_event(
+                    current_migration,
+                    item=failed_item,
+                    level="error",
+                    message="Item failed.",
+                    metadata={"error": error_detail, "step": failed_item.step},
+                )
+
+            migration, _failed_item = self._persist_item_checkpoint(
+                migration_id,
+                item_id,
+                mark_item_failed,
             )
-            failed_item.finished_at = utcnow()
-            failed_item.updated_at = utcnow()
-            self._add_event(
-                migration,
-                item=failed_item,
-                level="error",
-                message="Item failed.",
-                metadata={"error": error_detail, "step": failed_item.step},
-            )
-            self._commit()
             return migration
 
     def _run_migration_items(
@@ -255,7 +276,11 @@ class BucketMigrationExecutionControlMixin:
             return
         self.db.refresh(migration)
         self._assert_workflow_lease()
-        self._finalize_or_wait_cutover(migration, source_ctx=source_ctx, target_ctx=target_ctx)
+        migration = self._finalize_or_wait_cutover(
+            migration,
+            source_ctx=source_ctx,
+            target_ctx=target_ctx,
+        )
         if migration.status not in ACTIVE_STATUSES:
             self._clear_owned_worker_lease(migration, worker_id=worker_id)
         self._commit()

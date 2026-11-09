@@ -2,7 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
 from typing import Any, Callable, Protocol
 
@@ -185,20 +184,40 @@ class ResourceTracker:
             try:
                 account = self.admin_session.get(f"/admin/accounts/{account_id}")
                 endpoint_id = int(account["storage_endpoint_id"])
-                self.admin_session.delete(
-                    f"/ceph-admin/endpoints/{endpoint_id}/buckets/{bucket_name}",
-                    json={
-                        "confirmation": f"PURGE AND DELETE BUCKET {bucket_name}",
-                        "purge_objects": True,
-                        "bypass_gc": False,
-                    },
-                    expected_status=(200, 404),
-                )
+                try:
+                    self.admin_session.delete(
+                        f"/ceph-admin/endpoints/{endpoint_id}/buckets/{bucket_name}",
+                        json={
+                            "confirmation": f"PURGE AND DELETE BUCKET {bucket_name}",
+                            "purge_objects": True,
+                            "bypass_gc": False,
+                        },
+                        expected_status=(200, 404),
+                    )
+                except BackendAPIError as ceph_admin_exc:
+                    try:
+                        self._delete_bucket_through_manager_data_plane(
+                            account_id,
+                            bucket_name,
+                        )
+                    except (BackendAPIError, RuntimeError) as manager_exc:
+                        raise RuntimeError(
+                            "Manager data-plane bucket cleanup failed after "
+                            f"Ceph Admin cleanup failed: {ceph_admin_exc}"
+                        ) from manager_exc
                 if log:
                     log(f"Deleted bucket {bucket_name} (account {account_id})")
-            except BackendAPIError as exc:
-                payload_text = str(exc.payload).lower() if exc.payload is not None else ""
-                if exc.status_code == 403 and "not authorized for this account" in payload_text:
+            except (BackendAPIError, RuntimeError) as exc:
+                payload_text = (
+                    str(exc.payload).lower()
+                    if isinstance(exc, BackendAPIError) and exc.payload is not None
+                    else ""
+                )
+                if (
+                    isinstance(exc, BackendAPIError)
+                    and exc.status_code == 403
+                    and "not authorized for this account" in payload_text
+                ):
                     # Super-admin tokens can be forbidden on manager-scoped bucket routes.
                     # Account cleanup still handles DB-side teardown.
                     continue
@@ -319,6 +338,74 @@ class ResourceTracker:
         self.ceph_admin_buckets.clear()
 
         return errors
+
+    def _delete_bucket_through_manager_data_plane(
+        self,
+        account_id: int,
+        bucket_name: str,
+    ) -> None:
+        """Empty a bucket through Browser APIs, then delete it through Manager."""
+
+        context_params = {"context_id": account_id}
+
+        while True:
+            payload = self.admin_session.get(
+                f"/browser/buckets/{bucket_name}/versions",
+                params={**context_params, "max_keys": 1000},
+            )
+            entries = [
+                *payload.get("versions", []),
+                *payload.get("delete_markers", []),
+            ]
+            objects = []
+            for entry in entries:
+                if not isinstance(entry, dict) or not entry.get("key"):
+                    continue
+                item = {"key": str(entry["key"])}
+                if entry.get("version_id") is not None:
+                    item["version_id"] = str(entry["version_id"])
+                objects.append(item)
+            if not objects:
+                break
+            deleted = self.admin_session.post(
+                f"/browser/buckets/{bucket_name}/delete",
+                params=context_params,
+                json={"objects": objects},
+            )
+            if int((deleted or {}).get("deleted") or 0) <= 0:
+                raise RuntimeError("Browser version cleanup made no progress")
+
+        while True:
+            payload = self.admin_session.get(
+                f"/browser/buckets/{bucket_name}/objects",
+                params={
+                    **context_params,
+                    "max_keys": 1000,
+                    "recursive": "true",
+                    "include_folder_markers": "true",
+                    "force_refresh": "true",
+                },
+            )
+            objects = [
+                {"key": str(entry["key"])}
+                for entry in payload.get("objects", [])
+                if isinstance(entry, dict) and entry.get("key")
+            ]
+            if not objects:
+                break
+            deleted = self.admin_session.post(
+                f"/browser/buckets/{bucket_name}/delete",
+                params=context_params,
+                json={"objects": objects},
+            )
+            if int((deleted or {}).get("deleted") or 0) <= 0:
+                raise RuntimeError("Browser object cleanup made no progress")
+
+        self.admin_session.delete(
+            f"/manager/buckets/{bucket_name}",
+            params=context_params,
+            expected_status=(204, 404),
+        )
 
     def _cleanup_rgw_account_buckets(
         self,

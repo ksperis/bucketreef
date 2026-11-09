@@ -2,9 +2,12 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+import sqlite3
+
 import pytest
 from pydantic import ValidationError
 from sqlalchemy import select
+from sqlalchemy.exc import OperationalError
 
 from app.core.domain_errors import S3AccountNotFoundError, UiUserNotFoundError
 from app.core.security import get_password_hash
@@ -48,6 +51,12 @@ from tests.portal_iam_test_support import (
 )
 from tests.s3_account_factory import make_s3_account
 from tests.s3_connection_factory import custom_endpoint_fields
+
+
+def _busy_snapshot_error() -> OperationalError:
+    original = sqlite3.OperationalError("database is locked")
+    original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
+    return OperationalError("COMMIT", (), original)
 
 
 def _seed_account(db_session, name: str, rgw_id: str) -> S3Account:
@@ -196,6 +205,37 @@ def test_create_user_and_authenticate(db_session):
     assert authenticated.last_login_at is not None
 
 
+def test_authenticate_password_retries_last_login_on_sqlite_busy(db_session, monkeypatch):
+    user = _seed_user(
+        db_session,
+        "login-busy@example.com",
+        password="verylongpass123",
+    )
+    real_commit = db_session.commit
+    failed = False
+
+    def busy_once():
+        nonlocal failed
+        if not failed and any(
+            isinstance(row, User) and row.id == user.id and row.last_login_at is not None
+            for row in db_session.dirty
+        ):
+            failed = True
+            raise _busy_snapshot_error()
+        return real_commit()
+
+    monkeypatch.setattr(db_session, "commit", busy_once)
+
+    authenticated = UserLoginService(db_session).authenticate_password(
+        user.email,
+        "verylongpass123",
+    )
+
+    assert failed is True
+    assert authenticated is not None
+    assert authenticated.last_login_at is not None
+
+
 def test_user_query_require_by_id_types_missing_user_without_changing_optional_lookup(db_session):
     query = UserQueryService(db_session)
     missing_id = 987654321
@@ -235,6 +275,38 @@ def test_create_user_rolls_back_when_commit_fails(db_session, monkeypatch):
     assert db_session.scalar(
         select(User).where(User.email == "create-rollback@example.com")
     ) is None
+
+
+def test_create_user_retries_sqlite_busy(db_session, monkeypatch):
+    real_flush = db_session.flush
+    failed = False
+
+    def busy_once(*args, **kwargs):
+        nonlocal failed
+        if not failed and any(
+            isinstance(row, User) and row.email == "create-busy@example.com"
+            for row in db_session.new
+        ):
+            failed = True
+            raise _busy_snapshot_error()
+        return real_flush(*args, **kwargs)
+
+    monkeypatch.setattr(db_session, "flush", busy_once)
+
+    created = UserProvisioningService(db_session).create_user(
+        UserCreate(
+            **_create_user_payload(
+                email="create-busy@example.com",
+                full_name="Create Busy",
+            )
+        )
+    )
+
+    assert failed is True
+    assert created.email == "create-busy@example.com"
+    assert db_session.scalar(
+        select(User).where(User.email == "create-busy@example.com")
+    ) is not None
 
 
 def test_password_rehash_login_rolls_back_user_and_session_changes_on_commit_failure(
@@ -416,6 +488,89 @@ def test_update_user_and_link_validations(db_session):
     assert updated.allow_multisite_endpoint_switching is True
     assert updated.quota_alerts_global_watch is False
     assert updated.is_active is False
+
+
+def test_update_user_preserves_unchanged_account_link_timestamp(db_session):
+    user = _seed_user(db_session, "unchanged-link@example.com")
+    account = _seed_account(db_session, "unchanged-link", "RGW-UNCHANGED-LINK")
+    link = UserS3Account(
+        user_id=user.id,
+        account_id=account.id,
+        manager_role=ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value,
+        portal_role=None,
+        allow_manager_browser_data_access=False,
+    )
+    db_session.add(link)
+    db_session.commit()
+    db_session.refresh(link)
+    original_updated_at = link.updated_at
+
+    UserUpdateService(db_session).update_user(
+        user.id,
+        UserUpdate(
+            account_links=[
+                {
+                    "account_id": account.id,
+                    "manager_role": ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value,
+                    "portal_role": None,
+                    "allow_manager_browser_data_access": False,
+                }
+            ]
+        ),
+    )
+
+    db_session.refresh(link)
+    assert link.updated_at == original_updated_at
+
+
+def test_update_user_retries_manager_only_account_link_on_sqlite_busy(
+    db_session,
+    monkeypatch,
+):
+    user = _seed_user(db_session, "manager-link-busy@example.com")
+    account = _seed_account(db_session, "manager-link-busy", "RGW-MANAGER-LINK-BUSY")
+    real_flush = db_session.flush
+    failed = False
+
+    def busy_once(*args, **kwargs):
+        nonlocal failed
+        if not failed and any(
+            isinstance(row, UserS3Account)
+            and row.user_id == user.id
+            and row.account_id == account.id
+            for row in db_session.new
+        ):
+            failed = True
+            raise _busy_snapshot_error()
+        return real_flush(*args, **kwargs)
+
+    monkeypatch.setattr(db_session, "flush", busy_once)
+
+    updated = UserUpdateService(db_session).update_user(
+        user.id,
+        UserUpdate(
+            account_links=[
+                {
+                    "account_id": account.id,
+                    "manager_role": ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value,
+                    "portal_role": None,
+                    "allow_manager_browser_data_access": True,
+                }
+            ]
+        ),
+    )
+
+    assert failed is True
+    assert updated.id == user.id
+    link = db_session.scalar(
+        select(UserS3Account).where(
+            UserS3Account.user_id == user.id,
+            UserS3Account.account_id == account.id,
+        )
+    )
+    assert link is not None
+    assert link.manager_role == ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value
+    assert link.portal_role is None
 
 
 @pytest.mark.parametrize("membership_source", ["direct", "group"])

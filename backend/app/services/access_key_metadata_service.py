@@ -3,13 +3,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Iterable, Optional
 
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
 from app.db import ManagerAccessKeyMetadata, S3Account, S3User
 from app.core.domain_enums import StorageProvider
 from app.models.feature_policy import FeaturePolicy, resolve_feature_policy
@@ -152,7 +153,7 @@ class AccessKeyMetadataService:
         payload: AccessKeyMetadataInput,
     ) -> ManagerAccessKeyMetadata | None:
         return self._set(
-            self._iam_row(account_id, principal_name, access_key_id),
+            lambda: self._iam_row(account_id, principal_name, access_key_id),
             payload,
             account_id=account_id,
             principal_name=principal_name,
@@ -166,7 +167,7 @@ class AccessKeyMetadataService:
         payload: AccessKeyMetadataInput,
     ) -> ManagerAccessKeyMetadata | None:
         return self._set(
-            self._s3_user_row(s3_user_id, access_key_id),
+            lambda: self._s3_user_row(s3_user_id, access_key_id),
             payload,
             s3_user_id=s3_user_id,
             access_key_id=access_key_id,
@@ -174,24 +175,28 @@ class AccessKeyMetadataService:
 
     def _set(
         self,
-        row: Optional[ManagerAccessKeyMetadata],
+        load_row: Callable[[], Optional[ManagerAccessKeyMetadata]],
         payload: AccessKeyMetadataInput,
         **identity: object,
     ) -> ManagerAccessKeyMetadata | None:
-        if row is None:
-            if not self._payload_creates_metadata(payload):
+        def persist_once() -> ManagerAccessKeyMetadata | None:
+            row = load_row()
+            if row is None:
+                if not self._payload_creates_metadata(payload):
+                    return None
+                row = ManagerAccessKeyMetadata(**identity)
+                self.db.add(row)
+            self._apply_metadata_patch(row, payload)
+            delete_row = self._metadata_row_is_empty(row)
+            if delete_row:
+                self.db.delete(row)
+            commit_or_rollback(self.db)
+            if delete_row:
                 return None
-            row = ManagerAccessKeyMetadata(**identity)
-            self.db.add(row)
-        self._apply_metadata_patch(row, payload)
-        delete_row = self._metadata_row_is_empty(row)
-        if delete_row:
-            self.db.delete(row)
-        commit_or_rollback(self.db)
-        if delete_row:
-            return None
-        self.db.refresh(row)
-        return row
+            self.db.refresh(row)
+            return row
+
+        return run_db_unit_with_sqlite_retry(self.db, persist_once)
 
     @staticmethod
     def _payload_creates_metadata(payload: AccessKeyMetadataInput) -> bool:
@@ -224,8 +229,11 @@ class AccessKeyMetadataService:
         return row.name is None and row.notes is None and row.expires_at is None
 
     def _delete_metadata(self, *predicates) -> None:
-        self.db.execute(delete(ManagerAccessKeyMetadata).where(*predicates))
-        commit_or_rollback(self.db)
+        def delete_once() -> None:
+            self.db.execute(delete(ManagerAccessKeyMetadata).where(*predicates))
+            commit_or_rollback(self.db)
+
+        run_db_unit_with_sqlite_retry(self.db, delete_once)
 
     def delete_iam_metadata(self, account_id: int, principal_name: str, access_key_id: str) -> None:
         self._delete_metadata(

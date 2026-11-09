@@ -3,6 +3,7 @@
 import importlib.util as import_util
 import hashlib
 import json
+import sqlite3
 import uuid
 from datetime import date, datetime, timedelta, timezone
 from io import BytesIO
@@ -16,6 +17,7 @@ from alembic.operations import Operations
 from botocore.exceptions import ClientError, EndpointConnectionError
 from botocore.response import StreamingBody
 from fastapi import HTTPException
+from sqlalchemy.exc import OperationalError
 
 from tests.feature_policy_fixtures import portal_settings_fixture
 from tests.storage_endpoint_features import persisted_endpoint_features
@@ -63,6 +65,12 @@ from app.services.access_context_contracts import AccountAccess, AccountCapabili
 from app.services.s3_object_download import S3ObjectDownload
 from app.routers import portal as portal_router
 from app.routers import portal_access_keys as portal_access_keys_router
+
+
+def _busy_snapshot_error() -> OperationalError:
+    original = sqlite3.OperationalError("database is locked")
+    original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
+    return OperationalError("COMMIT", (), original)
 from app.routers import portal_context as portal_context_router
 from app.routers import portal_traffic as portal_traffic_router
 from app.routers import portal_monitoring as portal_monitoring_router
@@ -2369,6 +2377,65 @@ def test_delete_storage_space_marks_bucket_absent_when_delete_races(monkeypatch,
     ) is None
 
 
+def test_delete_storage_space_retries_busy_state_without_replaying_remote_effects(monkeypatch, db_session):
+    account = make_s3_account(db_session, name="portal-delete-busy", rgw_access_key="ROOT-AK", rgw_secret_key="ROOT-SK")
+    owner = User(email="owner-delete-busy@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([account, owner])
+    db_session.commit()
+    db_session.add(
+        PortalStorageSpaceMetadata(
+            account_id=account.id,
+            bucket_name="delete-busy-data",
+            owner_user_id=owner.id,
+            visibility="private",
+        )
+    )
+    db_session.commit()
+
+    service = PortalService(db_session)
+    bucket_delete_calls = []
+    iam_cleanup_calls = []
+    projection_calls = []
+    monkeypatch.setattr(service, "_storage_space_deletion_usage", lambda *_args: (True, 0, 0))
+    monkeypatch.setattr(
+        service,
+        "delete_empty_bucket",
+        lambda *_args, **_kwargs: bucket_delete_calls.append(True) or True,
+    )
+    monkeypatch.setattr(
+        service,
+        "_delete_storage_space_external_iam_credentials",
+        lambda *_args: iam_cleanup_calls.append(True) or 0,
+    )
+    monkeypatch.setattr(
+        service,
+        "_sync_storage_space_user_projections",
+        lambda _account, user_ids: projection_calls.append(set(user_ids)),
+    )
+    real_commit = db_session.commit
+    commit_calls = 0
+
+    def busy_once() -> None:
+        nonlocal commit_calls
+        commit_calls += 1
+        if commit_calls == 1:
+            raise _busy_snapshot_error()
+        real_commit()
+
+    monkeypatch.setattr(db_session, "commit", busy_once)
+
+    result = service.delete_storage_space(owner, _portal_access(account, owner), "delete-busy-data")
+
+    assert result["bucket_already_absent"] is False
+    assert commit_calls == 2
+    assert bucket_delete_calls == [True]
+    assert iam_cleanup_calls == [True]
+    assert projection_calls == [{owner.id}]
+    assert db_session.scalar(
+        sa.select(PortalStorageSpaceMetadata).where(PortalStorageSpaceMetadata.bucket_name == "delete-busy-data")
+    ) is None
+
+
 def test_delete_storage_space_preserves_metadata_when_provider_delete_fails(monkeypatch, db_session):
     account = make_s3_account(db_session, name="portal-delete-access-denied", rgw_access_key="ROOT-AK", rgw_secret_key="ROOT-SK")
     owner = User(email="owner-delete-access-denied@example.com", hashed_password="x", role="ui_user")
@@ -3258,6 +3325,79 @@ def test_create_storage_space_configures_server_access_logging(monkeypatch, db_s
     assert len(logging_calls) == 1
     assert logging_calls[0][0] == account.id
     assert logging_calls[0][2] is portal_settings
+
+
+def test_create_storage_space_retries_busy_metadata_without_replaying_remote_effects(monkeypatch, db_session):
+    account = make_s3_account(db_session, name="portal-storage-busy", rgw_access_key="ROOT-AK", rgw_secret_key="ROOT-SK")
+    user = User(email="portal-storage-busy@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([account, user])
+    db_session.commit()
+
+    access = _portal_access(account, user, portal_role=PortalAccountRole.PORTAL_MANAGER.value, can_manage_buckets=True)
+    service = PortalService(db_session)
+    portal_settings = portal_settings_fixture(server_access_logging_enabled=True)
+    created_buckets: list[str] = []
+    logging_calls: list[str] = []
+    projection_calls: list[str] = []
+    monkeypatch.setattr(service, "get_effective_portal_settings", lambda _account: portal_settings)
+    monkeypatch.setattr(service, "list_storage_spaces", lambda *_args, **_kwargs: [])
+    monkeypatch.setattr(
+        service,
+        "create_bucket",
+        lambda _user, _access, bucket_name, **_kwargs: created_buckets.append(bucket_name),
+    )
+    monkeypatch.setattr(
+        service,
+        "sync_storage_space_server_access_logging",
+        lambda _account, bucket_name, **_kwargs: logging_calls.append(bucket_name),
+    )
+    monkeypatch.setattr(
+        service,
+        "_sync_storage_space_access_projection",
+        lambda _account, metadata: projection_calls.append(metadata.bucket_name),
+    )
+    monkeypatch.setattr(
+        service,
+        "get_storage_space",
+        lambda _user, _access, bucket_name: portal_storage_space_summary(
+            id=bucket_name,
+            name="Busy Research",
+            role="Owner",
+            internal_bucket_name=bucket_name,
+            name_editable=True,
+        ),
+    )
+    real_commit = db_session.commit
+    commit_calls = 0
+
+    def busy_once() -> None:
+        nonlocal commit_calls
+        commit_calls += 1
+        if commit_calls == 1:
+            raise _busy_snapshot_error()
+        real_commit()
+
+    monkeypatch.setattr(db_session, "commit", busy_once)
+
+    storage_space = service.create_storage_space(
+        user,
+        access,
+        name="Busy Research",
+        naming_mode="generic_uuid",
+        visibility="private",
+        share_scope="restricted",
+        account_member_role=None,
+        initial_shares=[],
+    )
+
+    assert storage_space.name == "Busy Research"
+    assert commit_calls == 2
+    assert len(created_buckets) == 1
+    assert logging_calls == created_buckets
+    assert projection_calls == created_buckets
+    assert db_session.scalar(
+        sa.select(sa.func.count()).select_from(PortalStorageSpaceMetadata)
+    ) == 1
 
 
 def test_storage_space_version_cleanup_deletes_noncurrent_versions_and_orphan_markers(db_session):
@@ -5217,6 +5357,66 @@ def test_portal_settings_commit_failure_deletes_new_server_access_log_bucket(mon
     assert remote["source_logging"] == {"space-created": None}
     db_session.expire_all()
     assert db_session.get(S3Account, account.id).portal_settings_override == previous_override
+
+
+def test_portal_settings_retries_busy_persistence_without_replaying_logging_reconcile(monkeypatch, db_session):
+    account = make_s3_account(
+        db_session,
+        name="portal-log-busy",
+        rgw_account_id="rgw-log-busy",
+        rgw_access_key="ROOT-AK",
+        rgw_secret_key="ROOT-SK",
+        portal_settings_override={"server_access_logging_enabled": False},
+    )
+    db_session.add(account)
+    db_session.commit()
+    service = PortalService(db_session)
+    monkeypatch.setattr(
+        service,
+        "_portal_settings",
+        lambda: portal_settings_fixture(server_access_logging_enabled=True),
+    )
+
+    class Snapshot:
+        source_logging = {}
+
+    reconcile_calls = []
+    monkeypatch.setattr(
+        service,
+        "_capture_portal_server_access_logging_state",
+        lambda _account: Snapshot(),
+    )
+    monkeypatch.setattr(
+        service,
+        "_apply_portal_server_access_logging_reconcile",
+        lambda *_args, **_kwargs: reconcile_calls.append(True),
+    )
+    monkeypatch.setattr(
+        service,
+        "_restore_portal_server_access_logging_state",
+        lambda *_args, **_kwargs: pytest.fail("Successful SQLite retry must not restore remote logging state"),
+    )
+    real_commit = db_session.commit
+    commit_calls = 0
+
+    def busy_once() -> None:
+        nonlocal commit_calls
+        commit_calls += 1
+        if commit_calls == 1:
+            raise _busy_snapshot_error()
+        real_commit()
+
+    monkeypatch.setattr(db_session, "commit", busy_once)
+
+    service.update_admin_portal_settings_override(
+        account,
+        PortalSettingsOverride(server_access_logging_enabled=True),
+    )
+
+    assert commit_calls == 2
+    assert reconcile_calls == [True]
+    db_session.refresh(account)
+    assert account.portal_settings_override == {"server_access_logging_enabled": True}
 
 
 def test_portal_settings_update_skips_logging_reconcile_when_logging_state_is_unchanged(
@@ -9076,6 +9276,103 @@ def test_create_external_access_key_commit_failure_compensates_remote_state(
         .select_from(PortalExternalAccessCredential)
         .where(PortalExternalAccessCredential.access_key_id == "AK-EXT-ROLLBACK")
     ) == 0
+
+
+def test_create_external_access_key_retries_busy_local_stage_without_replaying_remote_state(
+    monkeypatch,
+    db_session,
+):
+    account = make_s3_account(
+        db_session,
+        name="portal-account-ext-busy",
+        rgw_access_key="ROOT-AK",
+        rgw_secret_key="ROOT-SK",
+    )
+    user = User(email="portal-owner-ext-busy@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([account, user])
+    db_session.commit()
+    metadata = PortalStorageSpaceMetadata(
+        account_id=account.id,
+        bucket_name="external-busy",
+        owner_user_id=user.id,
+    )
+    db_session.add(metadata)
+    db_session.commit()
+
+    class _FakeIAMService:
+        def __init__(self):
+            self.calls = []
+
+        def create_user(self, name, create_key=False, allow_existing=False):  # noqa: ARG002
+            self.calls.append(("create_user", name))
+            return IAMUser(name=name, user_id="uid-ext-busy"), None
+
+        def put_user_inline_policy(self, user_name, policy_name, policy_document):  # noqa: ARG002
+            self.calls.append(("put_policy", user_name, policy_name))
+
+        def create_access_key(self, user_name):
+            self.calls.append(("create_key", user_name))
+            return IAMAccessKey(
+                access_key_id="AK-EXT-BUSY",
+                secret_access_key="SK-EXT-BUSY",
+                status="Active",
+            )
+
+        def delete_access_key(self, user_name, access_key_id):  # noqa: ARG002
+            pytest.fail("SQLite retry must not compensate a successful remote key creation")
+
+        def delete_user_inline_policy(self, user_name, policy_name):  # noqa: ARG002
+            pytest.fail("SQLite retry must not compensate a successful remote policy creation")
+
+        def delete_user(self, user_name):  # noqa: ARG002
+            pytest.fail("SQLite retry must not compensate a successful remote user creation")
+
+    iam_service = _FakeIAMService()
+    projection_calls = []
+    service = PortalService(db_session)
+    monkeypatch.setattr(service, "_get_iam_service", lambda _account: iam_service)
+    monkeypatch.setattr(
+        service,
+        "get_effective_portal_settings",
+        lambda _account: portal_settings_fixture(allow_portal_user_external_sharing=True),
+    )
+    monkeypatch.setattr(
+        service,
+        "_sync_storage_space_access_projection",
+        lambda _account, meta, **_kwargs: projection_calls.append(meta.bucket_name),
+    )
+    real_flush = db_session.flush
+    flush_calls = 0
+
+    def busy_once(*args, **kwargs):
+        nonlocal flush_calls
+        flush_calls += 1
+        if flush_calls == 1:
+            raise _busy_snapshot_error()
+        return real_flush(*args, **kwargs)
+
+    monkeypatch.setattr(db_session, "flush", busy_once)
+
+    created = service.create_external_access_key(
+        user,
+        _portal_access(account, user),
+        PortalAccessKeyCreate(
+            target_type="external",
+            storage_space_id=metadata.bucket_name,
+            external_email="partner@example.org",
+            permission="read_write",
+        ),
+    )
+
+    assert created.access_key_id == "AK-EXT-BUSY"
+    assert flush_calls == 2
+    assert [call[0] for call in iam_service.calls] == ["create_user", "put_policy", "create_key"]
+    assert projection_calls == ["external-busy"]
+    assert db_session.scalar(
+        sa.select(sa.func.count())
+        .select_from(PortalExternalAccessCredential)
+        .where(PortalExternalAccessCredential.access_key_id == "AK-EXT-BUSY")
+    ) == 1
 
 
 def test_create_external_access_key_reports_compensation_failure(

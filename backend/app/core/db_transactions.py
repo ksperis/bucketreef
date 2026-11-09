@@ -14,7 +14,7 @@ from app.core.database import is_sqlite_busy_error
 
 
 _T = TypeVar("_T")
-SQLITE_BUSY_RETRY_DELAYS_SECONDS = (0.01, 0.025, 0.05)
+SQLITE_BUSY_RETRY_DELAYS_SECONDS = (0.025, 0.05, 0.1, 0.25, 0.5)
 
 
 class _CommitRollback(Protocol):

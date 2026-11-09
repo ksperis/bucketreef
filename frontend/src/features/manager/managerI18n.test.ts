@@ -18,6 +18,12 @@ describe("Manager i18n", () => {
     expect(managerText("Topic '{name}' created.", "fr", { name: "events" })).toBe("Topic « events » créé.");
     expect(managerText("IAM user details", "fr")).toBe("Détails de l’utilisateur IAM");
     expect(managerText("Role tags", "fr")).toBe("Tags du rôle");
+    expect(managerText("Search destination contexts", "fr")).toBe("Rechercher des contextes de destination");
+    expect(managerText("Select page", "fr")).toBe("Sélectionner la page");
+    expect(managerText(
+      "Read-only checks run first. Tests that temporarily change source\n            protections require a separate confirmation. No copy starts from\n            this screen.",
+      "fr",
+    )).toContain("protections de la source");
   });
 
   it("preserves S3 and IAM technical literals", () => {
@@ -42,6 +48,8 @@ describe("Manager i18n", () => {
     expect(managerText("Quota status for {label}", "zh", { label: "存储" })).toBe("存储的配额状态");
     expect(managerText("Migration actions", "de")).toBe("Migrationsaktionen");
     expect(managerText("Migration actions", "zh")).toBe("迁移操作");
+    expect(managerText("Select page", "de")).toBe("Seite auswählen");
+    expect(managerText("Select page", "zh")).toBe("选择本页");
     expect(managerText("Source only ({count})", "de", { count: 3 })).toBe("Nur Quelle (3)");
     expect(managerText("Source only ({count})", "zh", { count: 3 })).toBe("仅源端 (3)");
     expect(managerText("Bucket name is required.", "de")).toBe("Bucket-Name ist erforderlich.");

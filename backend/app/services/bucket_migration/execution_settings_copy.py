@@ -60,9 +60,7 @@ class _BucketSettingsCopyRunner:
             except (S3OperationError, ValueError) as exc:
                 error_detail = sanitized_error_log_detail(exc)
                 failures.append(f"{operation.name}: {error_detail}")
-                self.service._add_event(
-                    self.migration,
-                    item=self.item,
+                self._persist_event(
                     level="error",
                     message=operation.failure_message,
                     metadata={"error": error_detail, "setting": operation.name},
@@ -73,11 +71,45 @@ class _BucketSettingsCopyRunner:
                 "Bucket settings copy failed for supported settings: "
                 + "; ".join(failures[:8])
             )
-        self.service._add_event(
-            self.migration,
-            item=self.item,
+        self._persist_event(
             level="info",
             message="Bucket settings copied.",
+        )
+
+    def _persist_event(
+        self,
+        *,
+        level: str,
+        message: str,
+        metadata: dict[str, str] | None = None,
+    ) -> None:
+        event_kwargs = {
+            "level": level,
+            "message": message,
+        }
+        if metadata is not None:
+            event_kwargs["metadata"] = metadata
+        migration_id = getattr(self.migration, "id", None)
+        item_id = getattr(self.item, "id", None)
+        if migration_id is None or item_id is None:
+            self.service._add_event(
+                self.migration,
+                item=self.item,
+                **event_kwargs,
+            )
+            return
+
+        def persist_event(current_migration, current_item) -> None:
+            self.service._add_event(
+                current_migration,
+                item=current_item,
+                **event_kwargs,
+            )
+
+        self.migration, self.item = self.service._persist_item_checkpoint(
+            int(migration_id),
+            int(item_id),
+            persist_event,
         )
 
     def _operations(self) -> tuple[_SettingCopyOperation, ...]:

@@ -8,6 +8,7 @@ from datetime import timedelta
 from typing import Any, Optional
 
 from app.core.config import get_settings
+from app.core.db_transactions import run_db_unit_with_sqlite_retry
 from app.core.sensitive_data import sanitize_error_detail, sanitized_error_log_detail
 from app.db import BucketMigration, BucketMigrationEvent, BucketMigrationItem
 from app.services.s3_execution_context import S3ExecutionTarget
@@ -35,26 +36,30 @@ class BucketMigrationProgressMixin:
         now = utcnow()
         lease_duration = max(15, int(lease_seconds))
         lease_until = now + timedelta(seconds=lease_duration)
-        updated = self.db.execute(
-            update(BucketMigration)
-            .where(
-                BucketMigration.id == migration_id,
-                BucketMigration.worker_lease_owner == worker_id,
-                or_(BucketMigration.status.in_(ACTIVE_STATUSES), BucketMigration.preparation_status == "checking", BucketMigration.maintenance_status.in_({"queued", "running"})),
-            )
-            .values(
-                {
-                    BucketMigration.worker_lease_until: lease_until,
-                    BucketMigration.updated_at: now,
-                }
-            )
-            .execution_options(synchronize_session=False)
-        ).rowcount
-        if updated == 1:
-            self._commit()
-            return True
-        self.db.rollback()
-        return False
+
+        def renew_once() -> bool:
+            updated = self.db.execute(
+                update(BucketMigration)
+                .where(
+                    BucketMigration.id == migration_id,
+                    BucketMigration.worker_lease_owner == worker_id,
+                    or_(BucketMigration.status.in_(ACTIVE_STATUSES), BucketMigration.preparation_status == "checking", BucketMigration.maintenance_status.in_({"queued", "running"})),
+                )
+                .values(
+                    {
+                        BucketMigration.worker_lease_until: lease_until,
+                        BucketMigration.updated_at: now,
+                    }
+                )
+                .execution_options(synchronize_session=False)
+            ).rowcount
+            if updated == 1:
+                self._commit()
+                return True
+            self.db.rollback()
+            return False
+
+        return run_db_unit_with_sqlite_retry(self.db, renew_once)
 
     def _release_migration_lease(self, migration_id: int, *, worker_id: Optional[str] = None) -> None:
         statement = update(BucketMigration).where(BucketMigration.id == migration_id)
@@ -205,6 +210,8 @@ class BucketMigrationProgressMixin:
                 continue
             try:
                 self._assert_workflow_lease()
+                migration_id = int(migration.id)
+                item_id = int(item.id)
                 expected_policy = item.target_policy_backup
                 if item.target_policy_backup is not None:
                     self._restore_target_write_lock_policy(target_ctx.execution_context, item.target_bucket, item)
@@ -216,25 +223,48 @@ class BucketMigrationProgressMixin:
                         item.target_bucket,
                         expected_policy,
                     )
-                item.target_lock_applied = False
-                item.target_policy_backup = None
-                item.updated_at = utcnow()
-                self._add_event(
-                    migration,
-                    item=item,
-                    level="info",
-                    message="Target write-lock policy released.",
+
+                def persist_release(
+                    current_migration: BucketMigration,
+                    current_item: BucketMigrationItem,
+                ) -> None:
+                    current_item.target_lock_applied = False
+                    current_item.target_policy_backup = None
+                    current_item.updated_at = utcnow()
+                    self._add_event(
+                        current_migration,
+                        item=current_item,
+                        level="info",
+                        message="Target write-lock policy released.",
+                    )
+
+                self._persist_item_checkpoint(
+                    migration_id,
+                    item_id,
+                    persist_release,
                 )
             except Exception as exc:  # noqa: BLE001
+                self.db.rollback()
                 error_detail = sanitized_error_log_detail(exc)
                 errors.append(f"{item.target_bucket}: {error_detail}")
-                self._add_event(
-                    migration,
-                    item=item,
-                    level="warning",
-                    message="Unable to release target write-lock policy.",
-                    metadata={"error": error_detail},
-                )
+                if item.id is not None and migration.id is not None:
+                    def persist_failure(
+                        current_migration: BucketMigration,
+                        current_item: BucketMigrationItem,
+                    ) -> None:
+                        self._add_event(
+                            current_migration,
+                            item=current_item,
+                            level="warning",
+                            message="Unable to release target write-lock policy.",
+                            metadata={"error": error_detail},
+                        )
+
+                    self._persist_item_checkpoint(
+                        int(migration.id),
+                        int(item.id),
+                        persist_failure,
+                    )
         return errors
 
     def _release_source_read_only_policies(
@@ -258,6 +288,8 @@ class BucketMigrationProgressMixin:
                 continue
             try:
                 self._assert_workflow_lease()
+                migration_id = int(migration.id)
+                item_id = int(item.id)
                 expected_policy = item.source_policy_backup
                 self._restore_checked_policy(source_ctx.execution_context, item.source_bucket, expected_policy)
                 if verify_restored:
@@ -266,25 +298,48 @@ class BucketMigrationProgressMixin:
                         item.source_bucket,
                         expected_policy,
                     )
-                item.read_only_applied = False
-                item.source_policy_backup = None
-                item.updated_at = utcnow()
-                self._add_event(
-                    migration,
-                    item=item,
-                    level="info",
-                    message="Source read-only policy restored.",
+
+                def persist_release(
+                    current_migration: BucketMigration,
+                    current_item: BucketMigrationItem,
+                ) -> None:
+                    current_item.read_only_applied = False
+                    current_item.source_policy_backup = None
+                    current_item.updated_at = utcnow()
+                    self._add_event(
+                        current_migration,
+                        item=current_item,
+                        level="info",
+                        message="Source read-only policy restored.",
+                    )
+
+                self._persist_item_checkpoint(
+                    migration_id,
+                    item_id,
+                    persist_release,
                 )
             except Exception as exc:  # noqa: BLE001
+                self.db.rollback()
                 error_detail = sanitized_error_log_detail(exc)
                 errors.append(f"{item.source_bucket}: {error_detail}")
-                self._add_event(
-                    migration,
-                    item=item,
-                    level="warning",
-                    message="Unable to restore source read-only policy.",
-                    metadata={"error": error_detail},
-                )
+                if item.id is not None and migration.id is not None:
+                    def persist_failure(
+                        current_migration: BucketMigration,
+                        current_item: BucketMigrationItem,
+                    ) -> None:
+                        self._add_event(
+                            current_migration,
+                            item=current_item,
+                            level="warning",
+                            message="Unable to restore source read-only policy.",
+                            metadata={"error": error_detail},
+                        )
+
+                    self._persist_item_checkpoint(
+                        int(migration.id),
+                        int(item.id),
+                        persist_failure,
+                    )
         return errors
 
     def _verify_restored_bucket_policy(
@@ -311,45 +366,56 @@ class BucketMigrationProgressMixin:
         *,
         source_ctx: Optional[ResolvedContext] = None,
         target_ctx: Optional[ResolvedContext] = None,
-    ) -> None:
-        migration.status = "canceled"
-        migration.worker_lease_owner = None
-        migration.worker_lease_until = None
-        migration.updated_at = utcnow()
-        for item in migration.items:
-            if item.status in {"pending", "running", "paused", "awaiting_cutover"}:
-                item.status = "canceled"
-                item.finished_at = utcnow()
-                item.updated_at = utcnow()
+    ) -> BucketMigration:
         source_release_errors = self._release_source_read_only_policies(migration, source_ctx, verify_restored=True)
         target_release_errors = self._release_target_write_locks(migration, target_ctx, verify_restored=True)
         release_errors = source_release_errors + target_release_errors
-        if release_errors:
-            migration.error_message = truncate_optional_db_text(
-                f"Migration canceled, but {len(release_errors)} authorization restore error(s): "
-                + " | ".join(release_errors[:3]),
-                max_chars=DB_ERROR_MESSAGE_MAX_CHARS,
-            )
-        else:
-            migration.error_message = None
-        self._add_event(migration, level="info", message="Migration canceled.")
-        self._recompute_counters(migration)
+        migration_id = int(migration.id)
+
+        def persist_canceled(current: BucketMigration) -> None:
+            current.status = "canceled"
+            current.worker_lease_owner = None
+            current.worker_lease_until = None
+            current.updated_at = utcnow()
+            for current_item in current.items:
+                if current_item.status in {"pending", "running", "paused", "awaiting_cutover"}:
+                    current_item.status = "canceled"
+                    current_item.finished_at = utcnow()
+                    current_item.updated_at = utcnow()
+            if release_errors:
+                current.error_message = truncate_optional_db_text(
+                    f"Migration canceled, but {len(release_errors)} authorization restore error(s): "
+                    + " | ".join(release_errors[:3]),
+                    max_chars=DB_ERROR_MESSAGE_MAX_CHARS,
+                )
+            else:
+                current.error_message = None
+            self._add_event(current, level="info", message="Migration canceled.")
+            self._recompute_counters(current)
+
+        return self._persist_migration_checkpoint(migration_id, persist_canceled)
 
     def _ready_for_cutover(self, migration: BucketMigration) -> bool:
         if migration.mode != "pre_sync" or migration.awaiting_items <= 0:
             return False
         return migration.awaiting_items + migration.completed_items == migration.total_items
 
-    def _mark_awaiting_cutover(self, migration: BucketMigration) -> None:
-        migration.status = "awaiting_cutover"
-        migration.worker_lease_owner = None
-        migration.worker_lease_until = None
-        migration.updated_at = utcnow()
-        self._add_event(
-            migration,
-            level="info",
-            message="All items pre-synced; waiting for cutover.",
-        )
+    def _mark_awaiting_cutover(self, migration: BucketMigration) -> BucketMigration:
+        migration_id = int(migration.id)
+
+        def persist_status(current: BucketMigration) -> None:
+            self._recompute_counters(current)
+            current.status = "awaiting_cutover"
+            current.worker_lease_owner = None
+            current.worker_lease_until = None
+            current.updated_at = utcnow()
+            self._add_event(
+                current,
+                level="info",
+                message="All items pre-synced; waiting for cutover.",
+            )
+
+        return self._persist_migration_checkpoint(migration_id, persist_status)
 
     def _has_pending_migration_items(self, migration: BucketMigration) -> bool:
         return any(
@@ -362,32 +428,38 @@ class BucketMigrationProgressMixin:
         migration: BucketMigration,
         *,
         target_ctx: Optional[ResolvedContext],
-    ) -> None:
-        migration.status = (
-            "completed_with_errors" if migration.failed_items > 0 else "completed"
-        )
-        migration.worker_lease_owner = None
-        migration.worker_lease_until = None
-        migration.updated_at = utcnow()
+    ) -> BucketMigration:
         release_errors = self._release_target_write_locks(
             migration,
             target_ctx,
             verify_restored=True,
             preserve_awaiting=True,
         )
-        if release_errors:
-            if migration.status == "completed":
-                migration.status = "completed_with_errors"
-            migration.error_message = truncate_optional_db_text(
-                f"Migration finished with {len(release_errors)} target lock cleanup error(s): "
-                + " | ".join(release_errors[:3]),
-                max_chars=DB_ERROR_MESSAGE_MAX_CHARS,
+
+        migration_id = int(migration.id)
+
+        def persist_status(current: BucketMigration) -> None:
+            self._recompute_counters(current)
+            current.status = (
+                "completed_with_errors" if current.failed_items > 0 else "completed"
             )
-        self._add_event(
-            migration,
-            level="info",
-            message=f"Migration finished with status '{migration.status}'.",
-        )
+            current.worker_lease_owner = None
+            current.worker_lease_until = None
+            current.updated_at = utcnow()
+            if release_errors:
+                current.status = "completed_with_errors"
+                current.error_message = truncate_optional_db_text(
+                    f"Migration finished with {len(release_errors)} target lock cleanup error(s): "
+                    + " | ".join(release_errors[:3]),
+                    max_chars=DB_ERROR_MESSAGE_MAX_CHARS,
+                )
+            self._add_event(
+                current,
+                level="info",
+                message=f"Migration finished with status '{current.status}'.",
+            )
+
+        return self._persist_migration_checkpoint(migration_id, persist_status)
 
     def _finalize_or_wait_cutover(
         self,
@@ -395,25 +467,27 @@ class BucketMigrationProgressMixin:
         *,
         source_ctx: Optional[ResolvedContext] = None,
         target_ctx: Optional[ResolvedContext] = None,
-    ) -> None:
+    ) -> BucketMigration:
         self._recompute_counters(migration)
         if migration.status == "cancel_requested":
-            self._mark_canceled(migration, source_ctx=source_ctx, target_ctx=target_ctx)
-            return
+            return self._mark_canceled(
+                migration,
+                source_ctx=source_ctx,
+                target_ctx=target_ctx,
+            )
         if migration.status == "pause_requested":
             self._mark_paused(migration)
-            return
+            return migration
 
         if self._ready_for_cutover(migration):
-            self._mark_awaiting_cutover(migration)
-            return
+            return self._mark_awaiting_cutover(migration)
 
         if self._has_pending_migration_items(migration):
             migration.status = "running"
             migration.updated_at = utcnow()
-            return
+            return migration
 
-        self._mark_migration_finished(migration, target_ctx=target_ctx)
+        return self._mark_migration_finished(migration, target_ctx=target_ctx)
 
     def _recompute_counters(self, migration: BucketMigration) -> None:
         completed = 0

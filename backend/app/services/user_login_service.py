@@ -5,7 +5,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
 from app.core.security import consume_dummy_password_hash, verify_and_update_password
 from app.db import User
 from app.services.auth_session_service import AuthSessionService
@@ -31,22 +31,42 @@ class UserLoginService:
         valid, updated_hash = verify_and_update_password(password, user.hashed_password)
         if not valid:
             return None
-        if updated_hash:
-            user.hashed_password = updated_hash
-            user.auth_version += 1
-            self.db.add(user)
-            AuthSessionService(self.db).revoke_all_for_user_in_transaction(
-                user,
-                "password_rehashed",
-                increment_version=False,
-            )
 
         logger.debug("Authenticated user id=%s email=%s", user.id, user.email)
-        return self.mark_last_login(user)
+        return self._persist_successful_login(user, updated_hash=updated_hash)
 
     def mark_last_login(self, user: User) -> User:
-        user.last_login_at = utcnow()
-        self.db.add(user)
-        commit_or_rollback(self.db)
-        self.db.refresh(user)
-        return user
+        return self._persist_successful_login(user)
+
+    def _persist_successful_login(
+        self,
+        user: User,
+        *,
+        updated_hash: str | None = None,
+    ) -> User:
+        user_id = int(user.id)
+        logged_in_at = utcnow()
+
+        def persist_once() -> int:
+            current = self.db.get(User, user_id, populate_existing=True)
+            if current is None:
+                raise RuntimeError("Authenticated user disappeared while persisting login activity")
+            if updated_hash:
+                current.hashed_password = updated_hash
+                current.auth_version += 1
+                self.db.add(current)
+                AuthSessionService(self.db).revoke_all_for_user_in_transaction(
+                    current,
+                    "password_rehashed",
+                    increment_version=False,
+                )
+            current.last_login_at = logged_in_at
+            self.db.add(current)
+            commit_or_rollback(self.db)
+            return user_id
+
+        run_db_unit_with_sqlite_retry(self.db, persist_once)
+        current = self.db.get(User, user_id, populate_existing=True)
+        if current is None:  # pragma: no cover - defensive consistency check
+            raise RuntimeError("Authenticated user could not be reloaded after persisting login activity")
+        return current

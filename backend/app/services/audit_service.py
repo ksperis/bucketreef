@@ -10,7 +10,11 @@ from sqlalchemy import String, cast, inspect, or_, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback, rollback_on_error
+from app.core.db_transactions import (
+    commit_or_rollback,
+    rollback_on_error,
+    run_db_unit_with_sqlite_retry,
+)
 from app.core.sensitive_data import sanitize_audit_metadata
 from app.db import AuditLog, User
 from app.models.audit import (
@@ -140,9 +144,13 @@ class AuditService:
 
     def _persist_log(self, payload: AuditLog) -> bool:
         self._ensure_clean_transaction_boundary()
-        self.db.add(payload)
-        try:
+
+        def persist_once() -> None:
+            self.db.add(payload)
             commit_or_rollback(self.db)
+
+        try:
+            run_db_unit_with_sqlite_retry(self.db, persist_once)
         except SQLAlchemyError as exc:
             logger.warning(
                 "Failed to persist audit log for action %s: %s",

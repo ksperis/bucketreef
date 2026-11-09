@@ -6,9 +6,9 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 
-from app.core.db_transactions import rollback_safely
+from app.core.db_transactions import commit_or_rollback, rollback_safely, run_db_unit_with_sqlite_retry
 from app.db import (
     PortalExternalAccessCredential,
     PortalPublicLink as DBPortalPublicLink,
@@ -104,27 +104,51 @@ class PortalStorageSpacesMixin:
                 bucket_name,
                 portal_settings=portal_settings,
             )
-            metadata = self._new_storage_space_metadata(
-                user,
-                access,
-                bucket_name=bucket_name,
-                display_name=name,
-                description=description,
-                visibility=visibility,
-                share_scope=share_scope,
-                account_member_role=account_member_role,
-                project_key=project_key,
-                dataset_label=dataset_label,
-                origin=origin,
-                name_editable=name_editable,
-            )
-            self._register_storage_space_metadata(
-                access.account,
-                metadata,
-                user,
-                validated_initial_shares,
-            )
-            self.db.commit()
+            def persist_metadata_once() -> PortalStorageSpaceMetadata:
+                metadata = self._new_storage_space_metadata(
+                    user,
+                    access,
+                    bucket_name=bucket_name,
+                    display_name=name,
+                    description=description,
+                    visibility=visibility,
+                    share_scope=share_scope,
+                    account_member_role=account_member_role,
+                    project_key=project_key,
+                    dataset_label=dataset_label,
+                    origin=origin,
+                    name_editable=name_editable,
+                )
+                self._register_storage_space_metadata_rows(
+                    metadata,
+                    user,
+                    validated_initial_shares,
+                )
+                commit_or_rollback(self.db)
+                self.db.refresh(metadata)
+                return metadata
+
+            metadata = run_db_unit_with_sqlite_retry(self.db, persist_metadata_once)
+            try:
+                self._sync_storage_space_access_projection(access.account, metadata)
+            except Exception:
+                metadata_id = metadata.id
+
+                def remove_metadata_once() -> None:
+                    self.db.execute(
+                        delete(PortalStorageSpaceGrant).where(
+                            PortalStorageSpaceGrant.storage_space_metadata_id == metadata_id
+                        )
+                    )
+                    self.db.execute(
+                        delete(PortalStorageSpaceMetadata).where(
+                            PortalStorageSpaceMetadata.id == metadata_id
+                        )
+                    )
+                    commit_or_rollback(self.db)
+
+                run_db_unit_with_sqlite_retry(self.db, remove_metadata_once)
+                raise
         except Exception:
             self.db.rollback()
             if bucket_created:
@@ -176,11 +200,19 @@ class PortalStorageSpacesMixin:
         user: User,
         initial_shares: list[PortalStorageSpaceInitialShare],
     ) -> None:
+        self._register_storage_space_metadata_rows(metadata, user, initial_shares)
+        self._sync_storage_space_access_projection(account, metadata)
+
+    def _register_storage_space_metadata_rows(
+        self,
+        metadata: PortalStorageSpaceMetadata,
+        user: User,
+        initial_shares: list[PortalStorageSpaceInitialShare],
+    ) -> None:
         self.db.add(metadata)
         self.db.flush()
         self._add_storage_space_initial_grants(metadata, user, initial_shares)
         self.db.flush()
-        self._sync_storage_space_access_projection(account, metadata)
 
     def _validate_storage_space_creation_access(
         self,
@@ -569,13 +601,19 @@ class PortalStorageSpacesMixin:
                 bucket_name,
                 bucket_exists=bucket_exists,
             )
-            self._delete_storage_space_state(
+            self._delete_storage_space_external_iam_credentials(access.account, metadata)
+            metadata_id = int(metadata.id)
+            public_link_ids = [int(link.id) for link in snapshot.public_links]
+
+            def delete_state_once() -> None:
+                self._delete_storage_space_state(metadata_id, public_link_ids)
+                commit_or_rollback(self.db)
+
+            run_db_unit_with_sqlite_retry(self.db, delete_state_once)
+            self._sync_storage_space_user_projections(
                 access.account,
-                metadata,
-                snapshot.public_links,
                 snapshot.participant_user_ids,
             )
-            self.db.commit()
         except Exception:
             self.db.rollback()
             raise
@@ -657,29 +695,29 @@ class PortalStorageSpacesMixin:
 
     def _delete_storage_space_state(
         self,
-        account: S3Account,
-        metadata: PortalStorageSpaceMetadata,
-        public_links: list[DBPortalPublicLink],
-        participant_user_ids: set[int],
+        metadata_id: int,
+        public_link_ids: list[int],
     ) -> None:
-        self._delete_storage_space_external_iam_credentials(account, metadata)
-        now = utcnow()
-        for link in public_links:
-            link.revoked_at = now
-            self.db.add(link)
+        if public_link_ids:
+            self.db.execute(
+                update(DBPortalPublicLink)
+                .where(DBPortalPublicLink.id.in_(public_link_ids))
+                .values(revoked_at=utcnow())
+            )
         self.db.execute(
             delete(PortalExternalAccessCredential)
-            .where(PortalExternalAccessCredential.storage_space_metadata_id == metadata.id)
+            .where(PortalExternalAccessCredential.storage_space_metadata_id == metadata_id)
             .execution_options(synchronize_session=False)
         )
         self.db.execute(
             delete(PortalStorageSpaceGrant)
-            .where(PortalStorageSpaceGrant.storage_space_metadata_id == metadata.id)
+            .where(PortalStorageSpaceGrant.storage_space_metadata_id == metadata_id)
             .execution_options(synchronize_session=False)
         )
-        self.db.delete(metadata)
-        self.db.flush()
-        self._sync_storage_space_user_projections(account, participant_user_ids)
+        metadata = self.db.get(PortalStorageSpaceMetadata, metadata_id)
+        if metadata is not None:
+            self.db.delete(metadata)
+            self.db.flush()
 
     def _resolve_storage_space_bucket_name(
         self,

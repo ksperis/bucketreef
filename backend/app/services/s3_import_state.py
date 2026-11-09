@@ -8,7 +8,7 @@ from typing import Protocol
 
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
 from app.utils.time import utcnow
 
 
@@ -26,7 +26,10 @@ def checkpoint_s3_import_intent(
     intent: S3ImportIntent,
     phase: str,
 ) -> None:
-    intent.phase = phase
-    intent.updated_at = utcnow()
-    commit_or_rollback(db)
+    def checkpoint_once() -> None:
+        intent.phase = phase
+        intent.updated_at = utcnow()
+        commit_or_rollback(db)
+
+    run_db_unit_with_sqlite_retry(db, checkpoint_once)
     db.refresh(intent)

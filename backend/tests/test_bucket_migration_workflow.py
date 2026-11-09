@@ -5,10 +5,12 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 import io
 import json
+import sqlite3
 
 import pytest
 import sqlalchemy as sa
 from botocore.exceptions import ClientError
+from sqlalchemy.exc import OperationalError
 from app.db import BucketMigration, BucketMigrationItem
 from app.models.bucket_migration import (
     BucketMigrationDiagnostic,
@@ -43,6 +45,12 @@ from tests.test_bucket_migration_service import (
     _bucket_profile_stub,
     _current_only_execution_strategy,
 )
+
+
+def _busy_snapshot_error() -> OperationalError:
+    original = sqlite3.OperationalError("database is locked")
+    original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
+    return OperationalError("COMMIT", (), original)
 
 
 def test_bucket_migration_diagnostic_requires_complete_nullable_metadata():
@@ -404,6 +412,42 @@ def test_policy_intent_precedes_mutation_and_survives_interruption(
     )
 
 
+def test_preparation_effect_clear_retries_sqlite_busy(prepared, db_session, monkeypatch):
+    service, migration, _ = prepared
+    item = migration.items[0]
+    item.preparation_effects = {
+        "source_policy": {
+            "context_id": migration.source_context_id,
+            "bucket": item.source_bucket,
+            "policy": None,
+        }
+    }
+    db_session.commit()
+    real_commit = db_session.commit
+    failed = False
+
+    def busy_once():
+        nonlocal failed
+        if not failed and any(
+            isinstance(row, BucketMigrationItem)
+            and row.preparation_effects is None
+            for row in db_session.dirty
+        ):
+            failed = True
+            raise _busy_snapshot_error()
+        return real_commit()
+
+    monkeypatch.setattr(db_session, "commit", busy_once)
+    service._workflow_migration_id = migration.id
+    service._workflow_worker_id = None
+
+    service._clear_preparation_effect(item, "source_policy")
+
+    assert failed is True
+    db_session.expire_all()
+    assert db_session.get(BucketMigrationItem, item.id).preparation_effects is None
+
+
 def test_policy_roundtrip_types_provider_failure_after_restoration(prepared):
     service, migration, _ = prepared
     item = migration.items[0]
@@ -425,6 +469,247 @@ def test_policy_roundtrip_types_provider_failure_after_restoration(prepared):
 
     assert item.preparation_effects is None
     configuration.delete_policy.assert_called_once()
+
+
+def test_prepare_migration_run_retries_sqlite_busy(prepared, db_session, monkeypatch):
+    service, migration, _ = prepared
+    migration.status = "queued"
+    db_session.commit()
+    real_commit = db_session.commit
+    failed = False
+
+    def busy_once():
+        nonlocal failed
+        if not failed:
+            failed = True
+            raise _busy_snapshot_error()
+        return real_commit()
+
+    monkeypatch.setattr(db_session, "commit", busy_once)
+
+    current = service._prepare_migration_run(
+        migration,
+        worker_id=None,
+        lease_seconds=30,
+    )
+
+    assert failed is True
+    assert current is not None
+    assert current.status == "running"
+
+
+def test_start_command_retries_sqlite_busy(prepared, db_session, monkeypatch):
+    service, migration, _ = prepared
+    service.run_precheck(migration.id, active_checks=True)
+    real_commit = db_session.commit
+    failed = False
+
+    def busy_once():
+        nonlocal failed
+        if not failed:
+            failed = True
+            raise _busy_snapshot_error()
+        return real_commit()
+
+    monkeypatch.setattr(db_session, "commit", busy_once)
+
+    queued = service.start_migration(migration.id, configuration_revision=1)
+
+    assert failed is True
+    assert queued.status == "queued"
+    db_session.expire_all()
+    assert db_session.get(BucketMigration, migration.id).status == "queued"
+
+
+def test_sync_progress_checkpoint_retries_sqlite_busy_without_double_counting(
+    prepared,
+    db_session,
+    monkeypatch,
+):
+    service, migration, _ = prepared
+    item = migration.items[0]
+    real_commit = db_session.commit
+    failed = False
+
+    def busy_once():
+        nonlocal failed
+        if not failed and any(
+            isinstance(row, BucketMigrationItem)
+            and row.id == item.id
+            and row.objects_copied == 3
+            for row in db_session.dirty
+        ):
+            failed = True
+            raise _busy_snapshot_error()
+        return real_commit()
+
+    monkeypatch.setattr(db_session, "commit", busy_once)
+
+    _migration, current_item = service._persist_sync_progress_checkpoint(
+        migration.id,
+        item.id,
+        copied_inc=3,
+        deleted_inc=2,
+    )
+
+    assert failed is True
+    assert current_item.objects_copied == 3
+    assert current_item.objects_deleted == 2
+    db_session.expire_all()
+    stored_item = db_session.get(BucketMigrationItem, item.id)
+    assert stored_item.objects_copied == 3
+    assert stored_item.objects_deleted == 2
+
+
+def test_item_running_checkpoint_retries_without_replaying_execution(
+    prepared,
+    db_session,
+    monkeypatch,
+):
+    service, migration, _ = prepared
+    item = migration.items[0]
+    service._revalidate_transfer_preconditions = Mock()
+    service._run_item = Mock()
+    real_commit = db_session.commit
+    failed = False
+
+    def busy_once():
+        nonlocal failed
+        if not failed and any(
+            isinstance(row, BucketMigrationItem) and row.status == "running"
+            for row in db_session.dirty
+        ):
+            failed = True
+            raise _busy_snapshot_error()
+        return real_commit()
+
+    monkeypatch.setattr(db_session, "commit", busy_once)
+
+    service._execute_migration_item(
+        migration,
+        item,
+        SimpleNamespace(),
+        SimpleNamespace(),
+        control_check=lambda: "run",
+    )
+
+    assert failed is True
+    service._run_item.assert_called_once()
+    db_session.expire_all()
+    assert db_session.get(BucketMigrationItem, item.id).status == "running"
+
+
+def test_target_lock_checkpoint_retries_without_replaying_policy_apply(
+    prepared,
+    db_session,
+    monkeypatch,
+):
+    service, migration, _ = prepared
+    item = migration.items[0]
+    migration.mode = "pre_sync"
+    item.status = "running"
+    item.step = "apply_target_lock"
+    item.target_lock_applied = True
+    item.pre_sync_done = False
+    db_session.commit()
+    service._apply_target_write_lock_policy = Mock()
+    real_commit = db_session.commit
+    failed = False
+
+    def busy_once():
+        nonlocal failed
+        if not failed:
+            failed = True
+            raise _busy_snapshot_error()
+        return real_commit()
+
+    monkeypatch.setattr(db_session, "commit", busy_once)
+
+    _migration, current_item = service._run_apply_target_lock_step(
+        migration,
+        item,
+        service._resolve_context(migration.target_context_id),
+    )
+
+    assert failed is True
+    service._apply_target_write_lock_policy.assert_called_once()
+    assert current_item.step == "pre_sync"
+
+
+def test_target_lock_intent_retries_sqlite_busy_before_policy_apply(
+    prepared,
+    db_session,
+    monkeypatch,
+):
+    service, migration, _ = prepared
+    item = migration.items[0]
+    target = service._resolve_context(migration.target_context_id)
+    service._configuration.get_policy = Mock(return_value=None)
+    service._configuration.put_policy = Mock()
+    real_commit = db_session.commit
+    failed = False
+
+    def busy_once():
+        nonlocal failed
+        if not failed and any(
+            isinstance(row, BucketMigrationItem)
+            and row.id == item.id
+            and row.target_lock_applied
+            for row in db_session.dirty
+        ):
+            failed = True
+            raise _busy_snapshot_error()
+        return real_commit()
+
+    monkeypatch.setattr(db_session, "commit", busy_once)
+
+    service._apply_target_write_lock_policy(target, item.target_bucket, item)
+
+    assert failed is True
+    service._configuration.put_policy.assert_called_once()
+    db_session.expire_all()
+    stored = db_session.get(BucketMigrationItem, item.id)
+    assert stored.target_lock_applied is True
+
+
+def test_source_read_only_intent_retries_sqlite_busy_before_policy_apply(
+    prepared,
+    db_session,
+    monkeypatch,
+):
+    service, migration, _ = prepared
+    item = migration.items[0]
+    source = service._resolve_context(migration.source_context_id)
+    service._configuration.get_policy = Mock(return_value=None)
+    service._configuration.put_policy = Mock()
+    real_commit = db_session.commit
+    failed = False
+
+    def busy_once():
+        nonlocal failed
+        if not failed and any(
+            isinstance(row, BucketMigrationItem)
+            and row.id == item.id
+            and row.read_only_applied
+            for row in db_session.dirty
+        ):
+            failed = True
+            raise _busy_snapshot_error()
+        return real_commit()
+
+    monkeypatch.setattr(db_session, "commit", busy_once)
+
+    service._apply_read_only_policy(
+        source.execution_context,
+        item.source_bucket,
+        item,
+    )
+
+    assert failed is True
+    service._configuration.put_policy.assert_called_once()
+    db_session.expire_all()
+    stored = db_session.get(BucketMigrationItem, item.id)
+    assert stored.read_only_applied is True
 
 
 def test_failed_restoration_blocks_checks_edits_and_start(prepared):
@@ -1122,6 +1407,61 @@ def test_finished_cutover_does_not_wait_for_another_cutover(prepared):
     assert migration.status == "completed"
 
 
+def test_finalize_completed_retries_sqlite_busy(prepared, db_session, monkeypatch):
+    service, migration, _ = prepared
+    migration.status = "running"
+    migration.items[0].status = "completed"
+    service._commit()
+    real_commit = db_session.commit
+    failed = False
+
+    def busy_once():
+        nonlocal failed
+        if not failed:
+            failed = True
+            raise _busy_snapshot_error()
+        return real_commit()
+
+    monkeypatch.setattr(db_session, "commit", busy_once)
+
+    current = service._finalize_or_wait_cutover(migration)
+
+    assert failed is True
+    assert current.status == "completed"
+    db_session.expire_all()
+    assert db_session.get(BucketMigration, migration.id).status == "completed"
+
+
+def test_finalize_awaiting_cutover_retries_sqlite_busy(
+    prepared,
+    db_session,
+    monkeypatch,
+):
+    service, migration, _ = prepared
+    migration.mode = "pre_sync"
+    migration.status = "running"
+    migration.items[0].status = "awaiting_cutover"
+    service._commit()
+    real_commit = db_session.commit
+    failed = False
+
+    def busy_once():
+        nonlocal failed
+        if not failed:
+            failed = True
+            raise _busy_snapshot_error()
+        return real_commit()
+
+    monkeypatch.setattr(db_session, "commit", busy_once)
+
+    current = service._finalize_or_wait_cutover(migration)
+
+    assert failed is True
+    assert current.status == "awaiting_cutover"
+    db_session.expire_all()
+    assert db_session.get(BucketMigration, migration.id).status == "awaiting_cutover"
+
+
 def test_finalize_sanitizes_target_lock_release_errors(prepared):
     service, migration, _ = prepared
     item = migration.items[0]
@@ -1286,6 +1626,131 @@ def test_verified_source_cleanup_keeps_receipt_before_destructive_call(prepared)
         call.kwargs["strategy"] == "version_aware"
         for call in service._cleanup_fingerprint.call_args_list
     )
+
+
+def test_cleanup_verification_checkpoint_retries_without_rehashing(
+    prepared,
+    db_session,
+    monkeypatch,
+):
+    service, migration, _ = prepared
+    item = migration.items[0]
+    migration.status = item.status = "completed"
+    item.target_created_by_migration = True
+    item.target_lock_applied = True
+    item.read_only_applied = True
+    service._commit()
+    source = service._resolve_context(migration.source_context_id)
+    target = service._resolve_context(migration.target_context_id)
+    service._configuration.put_policy = Mock()
+    service._apply_read_only_policy = Mock()
+    service._cleanup_fingerprint = Mock(return_value="verified-sha256")
+    real_commit = db_session.commit
+    failed = False
+
+    def busy_once():
+        nonlocal failed
+        if not failed and any(
+            isinstance(row, BucketMigrationItem)
+            and row.id == item.id
+            and row.cleanup_verification is not None
+            for row in db_session.dirty
+        ):
+            failed = True
+            raise _busy_snapshot_error()
+        return real_commit()
+
+    monkeypatch.setattr(db_session, "commit", busy_once)
+
+    service._verify_source_cleanup_contents(item, source, target, lambda: "run")
+
+    assert failed is True
+    assert service._cleanup_fingerprint.call_count == 2
+    db_session.expire_all()
+    stored = db_session.get(BucketMigrationItem, item.id)
+    assert stored.cleanup_verification["target_sha256"] == "verified-sha256"
+
+
+def test_cleanup_finalization_retries_local_checkpoint_without_restoring_twice(
+    prepared,
+    db_session,
+    monkeypatch,
+):
+    service, migration, _ = prepared
+    item = migration.items[0]
+    item.read_only_applied = True
+    item.source_policy_backup = {"Version": "2012-10-17", "Statement": []}
+    item.target_lock_applied = True
+    item.target_policy_backup = {"Version": "2012-10-17", "Statement": []}
+    service._commit()
+    target = service._resolve_context(migration.target_context_id)
+    service._restore_checked_policy = Mock()
+    real_commit = db_session.commit
+    failed = False
+
+    def busy_once():
+        nonlocal failed
+        if not failed and any(
+            isinstance(row, BucketMigrationItem)
+            and row.id == item.id
+            and row.source_deleted
+            and not row.target_lock_applied
+            for row in db_session.dirty
+        ):
+            failed = True
+            raise _busy_snapshot_error()
+        return real_commit()
+
+    monkeypatch.setattr(db_session, "commit", busy_once)
+
+    service._finalize_verified_source_cleanup(item, target)
+
+    assert failed is True
+    service._restore_checked_policy.assert_called_once()
+    db_session.expire_all()
+    stored = db_session.get(BucketMigrationItem, item.id)
+    assert stored.source_deleted is True
+    assert stored.read_only_applied is False
+    assert stored.target_lock_applied is False
+    assert stored.target_policy_backup is None
+
+
+def test_maintenance_start_retries_sqlite_busy(prepared, db_session, monkeypatch):
+    service, migration, _ = prepared
+    item = migration.items[0]
+    migration.status = item.status = "completed"
+    item.read_only_applied = True
+    service._commit()
+    service.request_maintenance(
+        migration.id,
+        operation="restore_access",
+        confirmed=True,
+    )
+    service._restore_migration_access = Mock(return_value=[])
+    service._resolve_context = Mock(return_value=SimpleNamespace())
+    real_commit = db_session.commit
+    failed = False
+
+    def busy_once():
+        nonlocal failed
+        if not failed and any(
+            isinstance(row, BucketMigration)
+            and row.id == migration.id
+            and row.maintenance_status == "running"
+            for row in db_session.dirty
+        ):
+            failed = True
+            raise _busy_snapshot_error()
+        return real_commit()
+
+    monkeypatch.setattr(db_session, "commit", busy_once)
+
+    service.run_maintenance(migration.id)
+
+    assert failed is True
+    db_session.expire_all()
+    stored = db_session.get(BucketMigration, migration.id)
+    assert stored.maintenance_status == "completed"
 
 
 def test_partial_source_cleanup_blocks_when_protection_was_changed(prepared):

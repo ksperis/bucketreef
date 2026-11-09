@@ -5,7 +5,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import rollback_on_error
+from app.core.db_transactions import rollback_on_error, run_db_unit_with_sqlite_retry
 from app.core.domain_enums import is_admin_ui_role
 from app.core.security import get_password_hash
 from app.db import User
@@ -46,27 +46,32 @@ class UserProvisioningService:
         self.associations = UserAssociationsService(db)
 
     def create_user(self, payload: UserCreate) -> User:
-        with rollback_on_error(self.db):
-            if self.query.get_by_email(payload.email):
-                raise ValueError("User already exists")
+        role = payload.role
 
-            validate_password_policy(payload.password)
-            role = payload.role
+        def create_once() -> int:
+            with rollback_on_error(self.db):
+                if self.query.get_by_email(payload.email):
+                    raise ValueError("User already exists")
 
-            user = User(
-                email=payload.email,
-                full_name=payload.full_name,
-                hashed_password=get_password_hash(payload.password),
-                is_active=True,
-                role=role,
-                **user_create_access_column_values(payload),
-            )
-            self.db.add(user)
-            self.db.flush()
+                validate_password_policy(payload.password)
+                user = User(
+                    email=payload.email,
+                    full_name=payload.full_name,
+                    hashed_password=get_password_hash(payload.password),
+                    is_active=True,
+                    role=role,
+                    **user_create_access_column_values(payload),
+                )
+                self.db.add(user)
+                self.db.flush()
 
-            self.associations.apply_updates(user, payload)
-            self.db.add(user)
-            self.db.commit()
+                self.associations.apply_updates(user, payload)
+                self.db.add(user)
+                self.db.commit()
+                return int(user.id)
+
+        user_id = run_db_unit_with_sqlite_retry(self.db, create_once)
+        user = self.query.require_by_id(user_id)
         self.db.refresh(user)
         logger.debug(
             "Created user id=%s email=%s role=%s",

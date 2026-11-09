@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
 from app.db import S3Account
 from app.models.app_settings import (
     PortalBucketDefaults,
@@ -43,19 +43,27 @@ class PortalSettingsMixin:
         portal_collaborator_addition_delegated: Optional[bool] = None,
     ) -> None:
         payload = override.model_dump(exclude_unset=True, exclude_none=True)
-        account.portal_settings_override = payload or None
-        if delegated_to_portal_managers is not None:
-            account.portal_settings_delegated = delegated_to_portal_managers
-        if portal_collaborator_role_management_delegated is not None:
-            account.portal_collaborator_role_management_delegated = (
-                portal_collaborator_role_management_delegated
-            )
-        if portal_collaborator_addition_delegated is not None:
-            account.portal_collaborator_addition_delegated = (
-                portal_collaborator_addition_delegated
-            )
-        self.db.add(account)
-        commit_or_rollback(self.db)
+        account_id = int(account.id)
+
+        def persist_once() -> None:
+            current = self.db.get(S3Account, account_id)
+            if current is None:
+                raise PortalOperationError("Portal account no longer exists.")
+            current.portal_settings_override = payload or None
+            if delegated_to_portal_managers is not None:
+                current.portal_settings_delegated = delegated_to_portal_managers
+            if portal_collaborator_role_management_delegated is not None:
+                current.portal_collaborator_role_management_delegated = (
+                    portal_collaborator_role_management_delegated
+                )
+            if portal_collaborator_addition_delegated is not None:
+                current.portal_collaborator_addition_delegated = (
+                    portal_collaborator_addition_delegated
+                )
+            self.db.add(current)
+            commit_or_rollback(self.db)
+
+        run_db_unit_with_sqlite_retry(self.db, persist_once)
         self.db.refresh(account)
 
     def _apply_bucket_defaults_override(

@@ -8,6 +8,7 @@ from typing import Optional
 
 from sqlalchemy import or_, select, update
 
+from app.core.db_transactions import run_db_unit_with_sqlite_retry
 from app.db import BucketMigration
 from app.utils.normalize import normalize_optional_string
 from app.utils.s3_endpoint import normalize_s3_endpoint
@@ -56,23 +57,30 @@ class BucketMigrationSchedulingMixin:
         now,
         lease_until,
     ) -> bool:
-        updated = self.db.execute(
-            update(BucketMigration)
-            .where(
-                BucketMigration.id == migration_id,
-                self._runnable_work_condition(),
-                self._available_lease_condition(now),
-            )
-            .values(
-                {
-                    BucketMigration.worker_lease_owner: worker_id,
-                    BucketMigration.worker_lease_until: lease_until,
-                    BucketMigration.updated_at: now,
-                }
-            )
-            .execution_options(synchronize_session=False)
-        ).rowcount
-        return updated == 1
+        def claim_once() -> bool:
+            updated = self.db.execute(
+                update(BucketMigration)
+                .where(
+                    BucketMigration.id == migration_id,
+                    self._runnable_work_condition(),
+                    self._available_lease_condition(now),
+                )
+                .values(
+                    {
+                        BucketMigration.worker_lease_owner: worker_id,
+                        BucketMigration.worker_lease_until: lease_until,
+                        BucketMigration.updated_at: now,
+                    }
+                )
+                .execution_options(synchronize_session=False)
+            ).rowcount
+            if updated == 1:
+                self._commit()
+                return True
+            self.db.rollback()
+            return False
+
+        return run_db_unit_with_sqlite_retry(self.db, claim_once)
 
     def claim_next_runnable_migration_id(
         self, *, worker_id: str, lease_seconds: int
@@ -104,7 +112,6 @@ class BucketMigrationSchedulingMixin:
                 now=now,
                 lease_until=lease_until,
             ):
-                self._commit()
                 if self._claimed_migration_within_endpoint_limit(
                     migration_id,
                     endpoint_keys=endpoint_keys,

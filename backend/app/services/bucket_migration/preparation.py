@@ -10,8 +10,9 @@ from typing import Callable
 from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy import or_, select, update
 
+from app.core.db_transactions import run_db_unit_with_sqlite_retry
 from app.core.sensitive_data import sanitized_error_log_detail
-from app.db import BucketMigration
+from app.db import BucketMigration, BucketMigrationItem
 from app.services.managed_resource_naming import (
     MIGRATION_PROBE_OBJECT_KEY,
     migration_probe_bucket_name,
@@ -72,20 +73,24 @@ class BucketMigrationPreparationMixin:
             .limit(50)
         ).all()
         for migration_id in candidates:
-            changed = self.db.execute(
-                update(BucketMigration)
-                .where(BucketMigration.id == migration_id, *eligible)
-                .values(
-                    {
-                        BucketMigration.worker_lease_owner: worker_id,
-                        BucketMigration.worker_lease_until: now
-                        + timedelta(seconds=max(15, lease_seconds)),
-                        BucketMigration.updated_at: now,
-                    }
-                )
-                .execution_options(synchronize_session=False)
-            ).rowcount
-            self._commit()
+            def claim_once() -> int:
+                changed = self.db.execute(
+                    update(BucketMigration)
+                    .where(BucketMigration.id == migration_id, *eligible)
+                    .values(
+                        {
+                            BucketMigration.worker_lease_owner: worker_id,
+                            BucketMigration.worker_lease_until: now
+                            + timedelta(seconds=max(15, lease_seconds)),
+                            BucketMigration.updated_at: now,
+                        }
+                    )
+                    .execution_options(synchronize_session=False)
+                ).rowcount
+                self._commit()
+                return int(changed or 0)
+
+            changed = run_db_unit_with_sqlite_retry(self.db, claim_once)
             if changed:
                 return migration_id
         return None
@@ -99,26 +104,27 @@ class BucketMigrationPreparationMixin:
         worker_id: str | None,
     ) -> Callable[[dict | None], None]:
         def checkpoint(report: dict | None = None) -> None:
-            self._assert_workflow_lease()
-            row = self.db.execute(
-                select(
-                    BucketMigration.configuration_revision,
-                    BucketMigration.worker_lease_owner,
-                )
-                .where(BucketMigration.id == migration_id)
-            ).one()
-            if row.configuration_revision != revision or (
-                worker_id and row.worker_lease_owner != worker_id
-            ):
-                raise WorkerLeaseLostError(
-                    "Preparation configuration or lease changed"
-                )
-            self._assert_migration_creator_access(migration)
-            if report is not None:
-                migration.precheck_report = dict(report)
-                migration.preparation_completed_items = len(report.get("items", []))
-            migration.updated_at = utcnow()
-            self._commit()
+            report_snapshot = dict(report) if report is not None else None
+
+            def checkpoint_once() -> None:
+                current = self.get_migration(migration_id)
+                self._assert_workflow_lease()
+                if current.configuration_revision != revision or (
+                    worker_id and current.worker_lease_owner != worker_id
+                ):
+                    raise WorkerLeaseLostError(
+                        "Preparation configuration or lease changed"
+                    )
+                self._assert_migration_creator_access(current)
+                if report_snapshot is not None:
+                    current.precheck_report = dict(report_snapshot)
+                    current.preparation_completed_items = len(
+                        report_snapshot.get("items", [])
+                    )
+                current.updated_at = utcnow()
+                self._commit()
+
+            run_db_unit_with_sqlite_retry(self.db, checkpoint_once)
 
         return checkpoint
 
@@ -160,7 +166,7 @@ class BucketMigrationPreparationMixin:
                 raise RuntimeError(
                     "Temporary changes could not be restored. Restore access before checking again."
                 )
-            self._complete_precheck_report(
+            migration = self._complete_precheck_report(
                 migration,
                 report,
                 revision=revision,
@@ -181,10 +187,10 @@ class BucketMigrationPreparationMixin:
         finally:
             self._preparation_checkpoint = None
             self._preparation_item = None
-        migration.worker_lease_owner = None
-        migration.worker_lease_until = None
-        migration.updated_at = utcnow()
-        self._commit()
+        migration = self._release_preparation_lease(
+            migration_id,
+            worker_id=worker_id,
+        )
         return migration
 
     def _complete_precheck_report(
@@ -194,32 +200,42 @@ class BucketMigrationPreparationMixin:
         *,
         revision: int,
         active_checks: bool,
-    ) -> None:
-        report["configuration_revision"] = revision
-        report["active_checks"] = active_checks
-        report["status"] = (
-            "failed"
-            if report.get("errors")
-            else "passed" if active_checks else "pending"
-        )
-        migration.precheck_report = dict(report)
-        migration.preparation_status = (
-            "blocked"
-            if report.get("errors")
-            else "ready" if active_checks else "unverified"
-        )
-        migration.precheck_checked_at = utcnow()
-        migration.error_message = None
-        self._add_event(
-            migration,
-            level="info",
-            message="Preparation checks completed.",
-            metadata={
-                "revision": revision,
-                "errors": report.get("errors", 0),
-                "active_checks": active_checks,
-            },
-        )
+    ):
+        migration_id = int(migration.id)
+        report_snapshot = dict(report)
+
+        def complete_once():
+            current = self.get_migration(migration_id)
+            report_value = dict(report_snapshot)
+            report_value["configuration_revision"] = revision
+            report_value["active_checks"] = active_checks
+            report_value["status"] = (
+                "failed"
+                if report_value.get("errors")
+                else "passed" if active_checks else "pending"
+            )
+            current.precheck_report = report_value
+            current.preparation_status = (
+                "blocked"
+                if report_value.get("errors")
+                else "ready" if active_checks else "unverified"
+            )
+            current.precheck_checked_at = utcnow()
+            current.error_message = None
+            self._add_event(
+                current,
+                level="info",
+                message="Preparation checks completed.",
+                metadata={
+                    "revision": revision,
+                    "errors": report_value.get("errors", 0),
+                    "active_checks": active_checks,
+                },
+            )
+            self._commit()
+            return current
+
+        return run_db_unit_with_sqlite_retry(self.db, complete_once)
 
     def _record_precheck_failure(
         self,
@@ -230,59 +246,102 @@ class BucketMigrationPreparationMixin:
         checked_at,
         revision: int,
     ):
-        migration = self.get_migration(migration_id)
-        if worker_id and migration.worker_lease_owner != worker_id:
-            raise WorkerLeaseLostError("Preparation lease lost") from exc
-        migration.preparation_status = "blocked"
-        migration.error_message = sanitized_error_log_detail(exc)
-        report = dict(
-            migration.precheck_report or create_precheck_report(checked_at=checked_at)
-        )
-        report.update(
-            status="failed",
-            errors=max(1, int(report.get("errors", 0))),
-            configuration_revision=revision,
-        )
-        report["checks"] = [
-            {
-                "code": "preparation_interrupted",
-                "severity": "error",
-                "blocking": True,
-                "scope": "migration",
-                "message": migration.error_message,
-                "impact": None,
-                "remediation": "Restore access if required, then run checks again.",
-                "permission": None,
-                "context_id": None,
-                "bucket": None,
-                "details": None,
-            }
-        ]
-        migration.precheck_report = report
-        return migration
+        error_message = sanitized_error_log_detail(exc)
+
+        def record_once():
+            migration = self.get_migration(migration_id)
+            if worker_id and migration.worker_lease_owner != worker_id:
+                raise WorkerLeaseLostError("Preparation lease lost") from exc
+            migration.preparation_status = "blocked"
+            migration.error_message = error_message
+            report = dict(
+                migration.precheck_report
+                or create_precheck_report(checked_at=checked_at)
+            )
+            report.update(
+                status="failed",
+                errors=max(1, int(report.get("errors", 0))),
+                configuration_revision=revision,
+            )
+            report["checks"] = [
+                {
+                    "code": "preparation_interrupted",
+                    "severity": "error",
+                    "blocking": True,
+                    "scope": "migration",
+                    "message": error_message,
+                    "impact": None,
+                    "remediation": "Restore access if required, then run checks again.",
+                    "permission": None,
+                    "context_id": None,
+                    "bucket": None,
+                    "details": None,
+                }
+            ]
+            migration.precheck_report = report
+            self._commit()
+            return migration
+
+        return run_db_unit_with_sqlite_retry(self.db, record_once)
+
+    def _release_preparation_lease(
+        self,
+        migration_id: int,
+        *,
+        worker_id: str | None,
+    ):
+        def release_once():
+            migration = self.get_migration(migration_id)
+            if worker_id and migration.worker_lease_owner != worker_id:
+                raise WorkerLeaseLostError("Preparation lease lost")
+            migration.worker_lease_owner = None
+            migration.worker_lease_until = None
+            migration.updated_at = utcnow()
+            self._commit()
+            return migration
+
+        return run_db_unit_with_sqlite_retry(self.db, release_once)
 
     def _journal_preparation_effect(self, item, name: str, payload: dict) -> None:
         self._assert_workflow_lease()
         checkpoint = self._preparation_checkpoint
         if checkpoint:
             checkpoint()
-        effects = dict(item.preparation_effects or {})
-        if name in effects:
-            raise RuntimeError(
-                "An earlier temporary change needs restoration before another test"
-            )
-        effects[name] = payload
-        item.preparation_effects = effects
-        item.updated_at = utcnow()
-        self._commit()
+        item_id = int(item.id)
+        payload_snapshot = dict(payload)
+
+        def journal_once() -> None:
+            self._assert_workflow_lease()
+            current = self.db.get(BucketMigrationItem, item_id)
+            if current is None:
+                raise RuntimeError("Migration preparation item disappeared")
+            effects = dict(current.preparation_effects or {})
+            if name in effects:
+                raise RuntimeError(
+                    "An earlier temporary change needs restoration before another test"
+                )
+            effects[name] = dict(payload_snapshot)
+            current.preparation_effects = effects
+            current.updated_at = utcnow()
+            self._commit()
+
+        run_db_unit_with_sqlite_retry(self.db, journal_once)
 
     def _clear_preparation_effect(self, item, name: str) -> None:
-        self._assert_workflow_lease()
-        effects = dict(item.preparation_effects or {})
-        effects.pop(name, None)
-        item.preparation_effects = effects or None
-        item.updated_at = utcnow()
-        self._commit()
+        item_id = int(item.id)
+
+        def clear_once() -> None:
+            self._assert_workflow_lease()
+            current = self.db.get(BucketMigrationItem, item_id)
+            if current is None:
+                raise RuntimeError("Migration preparation item disappeared")
+            effects = dict(current.preparation_effects or {})
+            effects.pop(name, None)
+            current.preparation_effects = effects or None
+            current.updated_at = utcnow()
+            self._commit()
+
+        run_db_unit_with_sqlite_retry(self.db, clear_once)
 
     def _recover_preparation_effects(self, migration) -> None:
         for item in migration.items:
