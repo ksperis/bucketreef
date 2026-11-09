@@ -132,7 +132,3 @@ class BrowserUsageSummaryService:
         if source == "s3_user":
             return self._for_s3_user(context, source=source, label=label)
         return self._for_account(context, source=source, label=label)
-
-
-def get_browser_usage_summary_service(db: Session) -> BrowserUsageSummaryService:
-    return BrowserUsageSummaryService(db)

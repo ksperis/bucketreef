@@ -208,10 +208,3 @@ class KeyRotationService:
             .where(model.storage_endpoint_id == endpoint.id)
             .order_by(model.id.asc())
         ).all()
-
-def get_key_rotation_service(
-    db: Session,
-    *,
-    actor: User | None = None,
-) -> KeyRotationService:
-    return KeyRotationService(db, actor=actor)
