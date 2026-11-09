@@ -11,8 +11,8 @@ from app.models.portal_sharing import (
     PortalCollaboratorSummary,
     PortalCollaboratorTrend,
     PortalPublicLink,
-    PortalStorageSpaceAccessPerson,
     PortalStorageSpaceAccessSummary,
+    PortalStorageSpaceOwner,
     PortalStorageSpaceShare,
     PortalStorageSpaceShareCandidate,
 )
@@ -85,9 +85,7 @@ def test_portal_share_candidate_request_preserves_listing_bounds() -> None:
 def test_portal_sharing_responses_require_complete_canonical_payloads() -> None:
     expected_required = {
         PortalStorageSpaceShare: {"user_id", "email", "role"},
-        PortalStorageSpaceAccessPerson: {
-            "user_id", "email", "display_name", "role", "portal_role", "access_source", "avatar"
-        },
+        PortalStorageSpaceOwner: {"email", "display_name"},
         PortalStorageSpaceAccessSummary: {
             "mode", "default_account_member_role", "owner", "effective_member_count", "explicit_shares",
             "public_link_count", "can_manage_access", "can_create_public_links"

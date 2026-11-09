@@ -28,8 +28,8 @@ from app.models.portal_storage_spaces import (
 from app.models.portal_sharing import (
     PaginatedPortalStorageSpaceShareCandidates,
     PortalShareCandidateListingRequest,
-    PortalStorageSpaceAccessPerson,
     PortalStorageSpaceAccessSummary,
+    PortalStorageSpaceOwner,
     PortalStorageSpaceShare,
     PortalStorageSpaceShareCandidate,
 )
@@ -40,7 +40,6 @@ from app.services.portal.exceptions import (
     PortalNotFoundError,
     PortalOperationError,
 )
-from app.services.user_avatar_service import UserAvatarService
 from app.services.sqlalchemy_pagination import paginate_scalars
 from app.utils.time import utcnow
 
@@ -139,11 +138,10 @@ class PortalSharingMixin:
                 grant.updated_at = utcnow()
             self.db.add(grant)
 
-    def _storage_space_owner_person(
+    def _storage_space_owner_card(
         self,
         metadata: PortalStorageSpaceMetadata | None,
-        account: S3Account,
-    ) -> PortalStorageSpaceAccessPerson | None:
+    ) -> PortalStorageSpaceOwner | None:
         if metadata is None or self._metadata_visibility(metadata) != "private":
             return None
         owner: User | None = None
@@ -153,15 +151,9 @@ class PortalSharingMixin:
             )
         if owner is None:
             raise PortalOperationError("Private Storage Space owner is missing.")
-        member = self._portal_account_member_map(account).get(owner.id)
-        return PortalStorageSpaceAccessPerson(
-            user_id=owner.id,
+        return PortalStorageSpaceOwner(
             email=owner.email,
             display_name=owner.full_name,
-            role="Owner",
-            portal_role=member[1] if member else None,
-            access_source="owner",
-            avatar=UserAvatarService(self.db).descriptor(owner),
         )
 
     def _storage_space_effective_access_user_ids(self, metadata: PortalStorageSpaceMetadata) -> set[int]:
@@ -273,7 +265,7 @@ class PortalSharingMixin:
         return PortalStorageSpaceAccessSummary(
             mode=self._storage_space_access_mode(metadata),
             default_account_member_role=self._metadata_account_member_role(metadata),
-            owner=self._storage_space_owner_person(metadata, access.account),
+            owner=self._storage_space_owner_card(metadata),
             effective_member_count=len(self._storage_space_effective_access_user_ids(metadata)),
             explicit_shares=explicit_shares,
             public_link_count=self._storage_space_public_link_count(

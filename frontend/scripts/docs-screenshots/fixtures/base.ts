@@ -2239,12 +2239,8 @@ export function buildBaseRules(): MockRule[] {
           mode: isOwner ? "restricted" : "private",
           default_account_member_role: null,
           owner: {
-            user_id: 3,
             email: "storage.user@example.com",
             display_name: "Storage User",
-            role: "Owner",
-            account_role: "portal_user",
-            access_source: "owner",
           },
           effective_member_count: isOwner ? 3 : 1,
           explicit_shares: isOwner

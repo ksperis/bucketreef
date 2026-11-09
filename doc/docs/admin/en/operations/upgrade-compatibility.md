@@ -48,6 +48,9 @@ shares or only its own grant, and the bundled frontend never consumed that
 field. They now identify each explicit grant directly by its required
 `user_id`, email, and role; the route already identifies the Storage Space, so
 the duplicated share ID and Storage Space ID/name projections are removed.
+The private-space owner embedded in the access summary is now limited to the
+email and optional display name used by the bundled frontend; redundant user,
+role, access-source, and avatar projections are removed.
 Public-link responses now expose only the link identifier, Storage Space
 identity, object display name, URL, expiration, and computed status. Exact
 `object_key`, label, creator email, creation timestamp, and revocation timestamp
