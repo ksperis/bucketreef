@@ -14,8 +14,6 @@ import type {
 import type { PaginatedResponse } from "./types";
 import type { UserAvatarDescriptor } from "./users";
 
-export type PortalStorageSpaceShareDirection = "with_me" | "by_me";
-
 export type PortalStorageSpaceShare = {
   id: string;
   storage_space_id: string;
@@ -23,7 +21,6 @@ export type PortalStorageSpaceShare = {
   user_id: number | null;
   email: string;
   role: PortalStorageSpaceGrantRole;
-  direction: PortalStorageSpaceShareDirection;
 };
 
 export type PortalStorageSpaceAccessPerson = {
@@ -68,14 +65,9 @@ export type PortalPublicLink = {
   id: number;
   storage_space_id: string;
   storage_space_name: string;
-  object_key: string;
   object_name: string;
   url: string;
-  label: string | null;
-  created_by_email: string | null;
-  created_at: string;
   expires_at: string | null;
-  revoked_at: string | null;
   status: string;
 };
 

@@ -166,7 +166,6 @@ const accessSummaryFixture = {
       user_id: 12,
       email: "viewer@example.com",
       role: "Viewer" as const,
-      direction: "by_me" as const,
     },
   ],
   public_link_count: 2,
@@ -179,24 +178,19 @@ const publicLinksFixture = [
     id: 42,
     storage_space_id: "research-data",
     storage_space_name: "Research Data",
-    object_key: "reports/active.csv",
     object_name: "active.csv",
     url: "https://portal.example.test/api/portal/public-links/active/download",
     status: "Active",
-    created_at: "2026-06-01T10:00:00Z",
     expires_at: "2026-09-01T10:00:00Z",
   }),
   buildPortalPublicLink({
     id: 43,
     storage_space_id: "research-data",
     storage_space_name: "Research Data",
-    object_key: "reports/revoked.csv",
     object_name: "revoked.csv",
     url: "https://portal.example.test/api/portal/public-links/revoked/download",
     status: "Revoked",
-    created_at: "2026-05-01T10:00:00Z",
     expires_at: null,
-    revoked_at: "2026-06-15T10:00:00Z",
   }),
 ];
 
@@ -455,7 +449,7 @@ describe("PortalStorageSpaceDetailPage", () => {
     mocks.grantShareMock.mockResolvedValue({ id: "research-data:13" });
     mocks.listPublicLinksMock.mockResolvedValue(publicLinksFixture);
     mocks.revokePublicLinkMock.mockResolvedValue([
-      { ...publicLinksFixture[0], status: "Revoked", revoked_at: "2026-08-27T10:00:00Z" },
+      { ...publicLinksFixture[0], status: "Revoked" },
       publicLinksFixture[1],
     ]);
     mocks.revokeShareMock.mockResolvedValue([]);
@@ -491,11 +485,9 @@ describe("PortalStorageSpaceDetailPage", () => {
       id: 42,
       storage_space_id: "research-data",
       storage_space_name: "Research Data",
-      object_key: "raw-data/report.csv",
       object_name: "report.csv",
       url: "/api/portal/public-links/token/download",
       status: "Active",
-      created_at: "2026-06-01T10:00:00Z",
       expires_at: null,
     }));
     mocks.createPortalRequestMock.mockResolvedValue({ id: 42, status: "pending" });

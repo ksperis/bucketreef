@@ -108,11 +108,10 @@ describe("StorageSpaceObjectDetailsDrawer", () => {
       id: 7,
       storage_space_id: "space-1",
       storage_space_name: "Research data",
-      object_key: "reports/2026/report.csv",
       object_name: "report.csv",
       url: "/api/portal/public-links/token/download",
       status: "Active",
-      created_at: "2026-08-01T10:00:00Z",
+      expires_at: null,
     });
   });
 

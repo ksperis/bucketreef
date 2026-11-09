@@ -83,7 +83,6 @@ class PortalSharingMixin:
 
     def _storage_space_share_card(
         self,
-        actor: User,
         target: User,
         storage_space_id: str,
         storage_space_name: str,
@@ -96,7 +95,6 @@ class PortalSharingMixin:
             user_id=target.id,
             email=target.email,
             role=role,
-            direction="with_me" if actor.id == target.id else "by_me",
         )
 
     def _validate_initial_storage_space_shares(
@@ -228,7 +226,6 @@ class PortalSharingMixin:
         ).all()
         shares = [
             self._storage_space_share_card(
-                actor,
                 target,
                 storage_space_id,
                 storage_space_name,
@@ -377,14 +374,13 @@ class PortalSharingMixin:
                 continue
             shares.append(
                 self._storage_space_share_card(
-                    user,
                     target,
                     storage_space.id,
                     storage_space.name,
                     grant.role,
                 )
             )
-        return sorted(shares, key=lambda item: (item.direction, item.email.lower()))
+        return sorted(shares, key=lambda item: item.email.lower())
 
     def list_storage_space_share_candidates(
         self,
@@ -628,7 +624,6 @@ class PortalSharingMixin:
         return next(
             (share for share in shares if share.user_id == target.id),
             self._storage_space_share_card(
-                user,
                 target,
                 space_id,
                 self._storage_space_label(bucket_name),

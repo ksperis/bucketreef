@@ -7,9 +7,7 @@ import PortalPublicLinksTable from "./PortalPublicLinksTable";
 const publicLink = buildPortalPublicLink({
   storage_space_id: "space-1",
   storage_space_name: "Research data",
-  object_key: "reports/2026/report.csv",
   url: "https://storage.example.test/public-links/a-very-long-public-link-token-that-must-not-overlap-actions/download",
-  created_at: "2026-08-01T10:00:00Z",
 });
 
 describe("PortalPublicLinksTable", () => {

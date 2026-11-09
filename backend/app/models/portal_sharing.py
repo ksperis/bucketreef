@@ -19,7 +19,6 @@ from app.models.portal_storage_spaces import (
 from app.models.user import UserAvatar
 
 
-PortalStorageSpaceShareDirection = Literal["with_me", "by_me"]
 PortalShareAccessSource = Literal["direct", "group", "direct_and_group"]
 
 
@@ -30,7 +29,6 @@ class PortalStorageSpaceShare(ApiModel):
     user_id: Optional[int]
     email: str
     role: PortalStorageSpaceGrantRole
-    direction: PortalStorageSpaceShareDirection
 
 
 class PortalStorageSpaceAccessPerson(ApiModel):
@@ -138,14 +136,9 @@ class PortalPublicLink(ApiModel):
     id: int
     storage_space_id: str
     storage_space_name: str
-    object_key: str
     object_name: str
     url: str
-    label: Optional[str]
-    created_by_email: Optional[str]
-    created_at: datetime
     expires_at: Optional[datetime]
-    revoked_at: Optional[datetime]
     status: str
 
 

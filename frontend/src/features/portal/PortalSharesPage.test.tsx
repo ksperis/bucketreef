@@ -131,11 +131,9 @@ describe("PortalSharesPage", () => {
         id: 42,
         storage_space_id: "research-data",
         storage_space_name: "Research Data",
-        object_key: "raw-data/report.csv",
         object_name: "report.csv",
         url: "/api/portal/public-links/token/download",
         status: "Active",
-        created_at: "2026-06-01T10:00:00Z",
         expires_at: "2026-06-10T10:00:00Z",
       },
     ]);

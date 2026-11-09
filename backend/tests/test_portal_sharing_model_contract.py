@@ -85,7 +85,7 @@ def test_portal_share_candidate_request_preserves_listing_bounds() -> None:
 def test_portal_sharing_responses_require_complete_canonical_payloads() -> None:
     expected_required = {
         PortalStorageSpaceShare: {
-            "id", "storage_space_id", "storage_space_name", "user_id", "email", "role", "direction"
+            "id", "storage_space_id", "storage_space_name", "user_id", "email", "role"
         },
         PortalStorageSpaceAccessPerson: {
             "user_id", "email", "display_name", "role", "portal_role", "access_source", "avatar"
@@ -111,8 +111,7 @@ def test_portal_sharing_responses_require_complete_canonical_payloads() -> None:
         PortalCollaboratorSummary: {"collaborator_count", "external_access_key_count", "trend"},
         PortalCollaboratorsResponse: {"summary", "collaborators"},
         PortalPublicLink: {
-            "id", "storage_space_id", "storage_space_name", "object_key", "object_name", "url", "label",
-            "created_by_email", "created_at", "expires_at", "revoked_at", "status"
+            "id", "storage_space_id", "storage_space_name", "object_name", "url", "expires_at", "status"
         },
     }
     for model, required in expected_required.items():
