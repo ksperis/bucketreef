@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from types import SimpleNamespace
 
+import pytest
+
 from app.models.app_settings import AppSettings
 from app.models.feature_policy import FeaturePolicy
 from app.services.storage_endpoint_normalization import (
@@ -25,6 +27,13 @@ def _seed_required_endpoint_env(monkeypatch):
     monkeypatch.setenv("CEPH_TEST_CEPH_ADMIN_SECRET_KEY", "ceph-admin-sk")
     monkeypatch.setenv("CEPH_TEST_SUPERVISION_ACCESS_KEY", "supervision-ak")
     monkeypatch.setenv("CEPH_TEST_SUPERVISION_SECRET_KEY", "supervision-sk")
+    for name in (
+        "CEPH_TEST_RGW_REALM_ID",
+        "CEPH_TEST_RGW_ZONEGROUP_ID",
+        "CEPH_TEST_RGW_ZONE_ID_Z1",
+        "CEPH_TEST_RGW_ZONE_ID_Z2",
+    ):
+        monkeypatch.delenv(name, raising=False)
 
 
 def test_ci_endpoint_payload_enables_replication(monkeypatch):
@@ -58,7 +67,13 @@ def test_ci_app_settings_payload_enables_portal_features():
 def test_ci_app_settings_payload_matches_current_schema_and_enables_suite_features():
     settings = AppSettings.model_validate_json(run_ci._build_app_settings_payload())
 
-    for feature in ("bucket_migration", "bucket_compare", "bucket_integrity_check", "ceph_s3_user_keys"):
+    for feature in (
+        "bucket_migration",
+        "bucket_compare",
+        "bucket_integrity_check",
+        "ceph_s3_user_keys",
+        "managed_private_connection_provisioning",
+    ):
         assert getattr(settings.manager.feature_policies, feature) == FeaturePolicy.DEFAULT_ON
     assert settings.general.project_feature_policies.bucket_usage_stats == FeaturePolicy.DEFAULT_ON
 
@@ -102,6 +117,30 @@ def test_ci_endpoint_payload_can_seed_two_lab_zones(monkeypatch):
         "https://s3-z2.example.test",
     ]
     assert payload[0]["admin_access_key"] == payload[1]["admin_access_key"] == "admin-ak"
+
+
+def test_ci_endpoint_payload_can_seed_multisite_topology(monkeypatch):
+    _seed_required_endpoint_env(monkeypatch)
+    monkeypatch.setenv("CEPH_TEST_LAB_S3_ENDPOINT_Z2", "https://s3-z2.example.test")
+    monkeypatch.setenv("CEPH_TEST_RGW_REALM_ID", "realm-a")
+    monkeypatch.setenv("CEPH_TEST_RGW_ZONEGROUP_ID", "zonegroup-a")
+    monkeypatch.setenv("CEPH_TEST_RGW_ZONE_ID_Z1", "zone-a")
+    monkeypatch.setenv("CEPH_TEST_RGW_ZONE_ID_Z2", "zone-b")
+
+    payload = json.loads(run_ci._build_endpoint_payload())
+
+    assert [(item["realm_id"], item["zonegroup_id"], item["zone_id"]) for item in payload] == [
+        ("realm-a", "zonegroup-a", "zone-a"),
+        ("realm-a", "zonegroup-a", "zone-b"),
+    ]
+
+
+def test_ci_endpoint_payload_rejects_partial_multisite_topology(monkeypatch):
+    _seed_required_endpoint_env(monkeypatch)
+    monkeypatch.setenv("CEPH_TEST_RGW_REALM_ID", "realm-a")
+
+    with pytest.raises(RuntimeError, match="must be configured together"):
+        run_ci._build_endpoint_payload()
 
 
 def test_ci_endpoint_payload_can_use_env_storage_endpoints():

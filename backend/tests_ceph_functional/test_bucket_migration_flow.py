@@ -1681,7 +1681,12 @@ def test_bucket_migration_across_explicit_test_endpoints(
     target_bucket = _bucket_name(ceph_test_settings.test_prefix, "cross-dst")
     _create_bucket(source.manager_session, source.account_id, source_bucket)
     resource_tracker.track_bucket(source.account_id, source_bucket)
-    resource_tracker.track_bucket(target.account_id, target_bucket)
+    resource_tracker.track_bucket(
+        target.account_id,
+        target_bucket,
+        execution_endpoint_id=int(target_endpoint),
+        cleanup_session=target.manager_session,
+    )
     _upload_bytes(
         source.manager_session,
         source.account_id,
