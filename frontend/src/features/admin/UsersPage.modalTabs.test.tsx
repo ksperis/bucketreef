@@ -230,6 +230,7 @@ describe("UsersPage modal tabs", () => {
     window.history.replaceState({}, "", "/admin/users");
 
     generalSettingsState.portal_enabled = false;
+    generalSettingsState.openstack_enabled = true;
     generalSettingsState.manager_feature_policies.managed_private_connection_provisioning = "targeted";
     setSessionUserCache({ id: 1, role: "ui_superadmin" });
 
@@ -310,6 +311,15 @@ describe("UsersPage modal tabs", () => {
     beginRecentWebAuthnVerificationMock.mockResolvedValue({ challenge: "challenge" });
     authenticatePasskeyMock.mockResolvedValue({ id: "credential" });
     finishRecentWebAuthnVerificationMock.mockResolvedValue({ mfa_verified_at: "2026-09-02T10:00:00Z" });
+  });
+
+  it("does not load OpenStack association options when OpenStack is disabled", async () => {
+    generalSettingsState.openstack_enabled = false;
+
+    renderPage();
+
+    await waitFor(() => expect(listUsersMock).toHaveBeenCalled());
+    expect(listAdminOpenStackCloudOptionsMock).not.toHaveBeenCalled();
   });
 
   const recentWebAuthnRequiredError = () => new ApiError("Request failed", {

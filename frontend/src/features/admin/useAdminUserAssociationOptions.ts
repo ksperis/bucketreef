@@ -42,12 +42,15 @@ const loadOpenStackClouds = async (
   query: PaginatedOptionsQuery,
 ): Promise<PaginatedResponse<OpenStackCloud>> => listAdminOpenStackCloudOptions(query);
 
-export default function useAdminUserAssociationOptions() {
+export default function useAdminUserAssociationOptions(openStackEnabled = true) {
   const accounts = usePaginatedOptions(loadAccounts, { initialPageSize: 10 });
   const s3Users = usePaginatedOptions(loadS3Users, { initialPageSize: 10 });
   const s3Connections = usePaginatedOptions(loadConnections, { initialPageSize: 10 });
   const groups = usePaginatedOptions(loadGroups, { initialPageSize: 10 });
-  const openStackClouds = usePaginatedOptions(loadOpenStackClouds, { initialPageSize: 10 });
+  const openStackClouds = usePaginatedOptions(loadOpenStackClouds, {
+    enabled: openStackEnabled,
+    initialPageSize: 10,
+  });
   const {
     error: accountsError,
     loaded: accountsLoaded,
