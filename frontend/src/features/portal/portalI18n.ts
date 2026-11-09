@@ -6,24 +6,22 @@ import { intlLocale, type I18nMessage } from "../../i18n";
 import type { UiLanguage } from "../../components/language";
 import { getBackendRelativeTime } from "../../utils/dateTime";
 import type {
+  PortalStorageSpaceRole,
+  PortalStorageSpaceStatus,
   PortalStorageSpaceVisibility,
 } from "../../api/portal";
 import type { PortalCollaboratorStorageSpaceAccessSource } from "../../api/portalCollaborators";
-import type {
-  PortalWorkspaceRole,
-  PortalWorkspaceStatus,
-} from "./portalWorkspaceModel";
 
 type TFunction = (message: I18nMessage) => string;
 
-export function portalRoleLabel(role: PortalWorkspaceRole, t: TFunction): string {
+export function portalRoleLabel(role: PortalStorageSpaceRole, t: TFunction): string {
   if (role === "Manager") return t({ en: "Manager", fr: "Gestionnaire", de: "Manager", zh: "管理员" });
   if (role === "Owner") return t({ en: "Owner", fr: "Propriétaire", de: "Eigentümer", zh: "所有者" });
   if (role === "Editor") return t({ en: "Editor", fr: "Éditeur", de: "Bearbeiter", zh: "编辑者" });
   return t({ en: "Viewer", fr: "Lecteur", de: "Betrachter", zh: "查看者" });
 }
 
-export function portalStatusLabel(status: PortalWorkspaceStatus | "Archived", t: TFunction): string {
+export function portalStatusLabel(status: PortalStorageSpaceStatus, t: TFunction): string {
   if (status === "Archived") return t({ en: "Archived", fr: "Archivé", de: "Archiviert", zh: "已归档" });
   if (status === "Attention") return t({ en: "Attention", fr: "Attention", de: "Achtung", zh: "需要关注" });
   return t({ en: "Active", fr: "Actif", de: "Aktiv", zh: "活跃" });

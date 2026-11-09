@@ -136,4 +136,26 @@ describe("buildPortalWorkspaceModel", () => {
       { access: "Private", status: "Active", visibility: "private" },
     ]);
   });
+
+  it("uses the canonical API status directly", () => {
+    const workspace = buildPortalWorkspaceModel({
+      account: buildPortalAccount(101, { name: "Account 101" }),
+      storageSpaces: [
+        buildPortalStorageSpaceSummary("quota-warning", {
+          status: "Attention",
+        }),
+        buildPortalStorageSpaceSummary("archived-space", {
+          status: "Archived",
+          archived_at: "2026-11-01T00:00:00Z",
+        }),
+      ],
+      usage: null,
+      userEmail: "manager@example.com",
+    });
+
+    expect(workspace.spaces.map((space) => space.status)).toEqual([
+      "Attention",
+      "Archived",
+    ]);
+  });
 });
