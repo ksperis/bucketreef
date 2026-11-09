@@ -338,7 +338,3 @@ class TopicsService:
         )
         updated = self.get_topic_configuration(context, topic_arn)
         return updated or {}
-
-
-def get_topics_service() -> TopicsService:
-    return TopicsService()
