@@ -6,7 +6,8 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
+from app.core.domain_errors import CompensationFailureError
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import (
     AccountIAMUser,
@@ -20,9 +21,12 @@ from app.services.resource_deletion_purge_service import ResourceDeletionPurgeSe
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_account_root_service import RgwAccountRootService
 from app.services.rgw_account_topics_resolver import RgwAccountTopicsResolver
+from app.services import s3_client
+from app.services.s3_client import S3OperationError
 from app.services.s3_account_iam_cleanup_service import S3AccountIamCleanupService
 from app.services.s3_account_metrics_service import S3AccountMetricsService
 from app.services.s3_account_rgw_users_service import S3AccountRgwUsersService
+from app.services.s3_execution_client import s3_execution_request_kwargs
 from app.services.tags_service import TagsService
 from app.utils.storage_endpoint_features import (
     resolve_endpoint_capabilities,
@@ -113,18 +117,106 @@ class S3AccountDeletionService:
         if not deletion.iam_cleanup_completed:
             self._require_remote_account_empty(account, endpoint, admin)
             self.iam_cleanup.prepare(account, endpoint)
-            self._checkpoint(deletion, "iam_cleanup_completed")
+            deletion = self._checkpoint(deletion, "iam_cleanup_completed")
 
         if not deletion.root_user_deleted:
             if self._root_user_exists(account, admin):
                 self._require_remote_account_empty(account, endpoint, admin)
                 self._delete_root_user(account, admin)
-            self._checkpoint(deletion, "root_user_deleted")
+            deletion = self._checkpoint(deletion, "root_user_deleted")
 
         if not deletion.remote_account_deleted:
             if self._load_remote_account(account, admin) is not None:
-                self._delete_remote_account(account, admin)
+                try:
+                    self._delete_remote_account(account, admin)
+                except Exception as exc:
+                    remote_deleted = self._recover_after_failed_remote_account_delete(
+                        account,
+                        deletion,
+                        admin,
+                    )
+                    if remote_deleted:
+                        return
+                    raise
             self._checkpoint(deletion, "remote_account_deleted")
+
+    def _recover_after_failed_remote_account_delete(
+        self,
+        account: S3Account,
+        deletion: S3AccountDeletion,
+        admin: RGWAdminClient,
+    ) -> bool:
+        """Restore the root identity when RGW rejects account deletion.
+
+        The root user has already been deleted and durably checkpointed before
+        this method runs. If the account still exists, restore usable root
+        credentials and reset that checkpoint so a later deletion retry starts
+        from a consistent remote/local state. If RGW actually deleted the
+        account despite returning an error, checkpoint that completed effect.
+        """
+        try:
+            remote = self._load_remote_account(account, admin)
+        except Exception as compensation_error:
+            raise CompensationFailureError(
+                "Unable to delete S3 account. RGW account state could not be "
+                "verified after root-user deletion."
+            ) from compensation_error
+
+        if remote is None:
+            self._checkpoint(deletion, "remote_account_deleted")
+            return True
+
+        try:
+            root_uid, access_key, secret_key = (
+                self.account_roots.ensure_provisioned_credentials(
+                    admin,
+                    rgw_account_id=account.rgw_account_id,
+                    account_name=account.name,
+                    resume=True,
+                    tenant=account.rgw_tenant,
+                )
+            )
+            self._persist_restored_root_identity(
+                account_id=int(account.id),
+                deletion_id=int(deletion.id),
+                root_uid=root_uid,
+                access_key=access_key,
+                secret_key=secret_key,
+            )
+        except Exception as compensation_error:
+            raise CompensationFailureError(
+                "Unable to delete S3 account. RGW root-user restoration also failed."
+            ) from compensation_error
+
+        return False
+
+    def _persist_restored_root_identity(
+        self,
+        *,
+        account_id: int,
+        deletion_id: int,
+        root_uid: str,
+        access_key: str,
+        secret_key: str,
+    ) -> None:
+        def persist_once() -> None:
+            current_account = self.db.get(S3Account, account_id)
+            current_deletion = self.db.get(S3AccountDeletion, deletion_id)
+            if current_account is None or current_deletion is None:
+                raise RuntimeError(
+                    "S3 account deletion state disappeared during root-user restoration"
+                )
+
+            current_account.rgw_user_uid = root_uid
+            current_account.rgw_access_key = access_key
+            current_account.rgw_secret_key = secret_key
+            current_deletion.rgw_user_uid = root_uid
+            current_deletion.root_user_deleted = False
+            current_deletion.remote_account_deleted = False
+            current_deletion.updated_at = utcnow()
+            commit_or_rollback(self.db)
+
+        run_db_unit_with_sqlite_retry(self.db, persist_once)
 
     def _pending_deletion(self, account_id: int) -> S3AccountDeletion | None:
         return self.db.scalar(
@@ -138,28 +230,51 @@ class S3AccountDeletionService:
         account: S3Account,
         endpoint: StorageEndpoint,
     ) -> S3AccountDeletion:
-        deletion = S3AccountDeletion(
-            account_id=account.id,
-            rgw_account_id=account.rgw_account_id,
-            rgw_user_uid=account.rgw_user_uid,
-            rgw_tenant=account.rgw_tenant,
-            storage_endpoint_id=endpoint.id,
-            iam_cleanup_completed=False,
-            root_user_deleted=False,
-            remote_account_deleted=False,
-            created_at=utcnow(),
-            updated_at=utcnow(),
-        )
-        self.db.add(deletion)
-        try:
+        account_id = int(account.id)
+        rgw_account_id = account.rgw_account_id
+        rgw_user_uid = account.rgw_user_uid
+        rgw_tenant = account.rgw_tenant
+        endpoint_id = int(endpoint.id)
+
+        def claim_once() -> int:
+            existing_id = self.db.scalar(
+                select(S3AccountDeletion.id).where(
+                    S3AccountDeletion.account_id == account_id
+                )
+            )
+            if existing_id is not None:
+                return int(existing_id)
+            deletion = S3AccountDeletion(
+                account_id=account_id,
+                rgw_account_id=rgw_account_id,
+                rgw_user_uid=rgw_user_uid,
+                rgw_tenant=rgw_tenant,
+                storage_endpoint_id=endpoint_id,
+                iam_cleanup_completed=False,
+                root_user_deleted=False,
+                remote_account_deleted=False,
+                created_at=utcnow(),
+                updated_at=utcnow(),
+            )
+            self.db.add(deletion)
+            self.db.flush()
+            deletion_id = int(deletion.id)
             commit_or_rollback(self.db)
+            return deletion_id
+
+        try:
+            deletion_id = run_db_unit_with_sqlite_retry(self.db, claim_once)
         except IntegrityError:
-            existing = self._pending_deletion(account.id)
+            self.db.rollback()
+            existing = self._pending_deletion(account_id)
             if existing is None:
                 raise
             self._validate_pending_deletion(existing, account, endpoint)
             return existing
-        self.db.refresh(deletion)
+        deletion = self.db.get(S3AccountDeletion, deletion_id)
+        if deletion is None:  # pragma: no cover - defensive consistency check
+            raise RuntimeError("Pending S3 account deletion could not be reloaded")
+        self._validate_pending_deletion(deletion, account, endpoint)
         return deletion
 
     @staticmethod
@@ -177,11 +292,27 @@ class S3AccountDeletionService:
         ):
             raise ValueError("S3 account identity changed while deletion was pending")
 
-    def _checkpoint(self, deletion: S3AccountDeletion, field: str) -> None:
-        setattr(deletion, field, True)
-        deletion.updated_at = utcnow()
-        commit_or_rollback(self.db)
-        self.db.refresh(deletion)
+    def _checkpoint(
+        self,
+        deletion: S3AccountDeletion,
+        field: str,
+    ) -> S3AccountDeletion:
+        deletion_id = int(deletion.id)
+
+        def checkpoint_once() -> int:
+            current = self.db.get(S3AccountDeletion, deletion_id)
+            if current is None:
+                raise RuntimeError("Pending S3 account deletion disappeared")
+            setattr(current, field, True)
+            current.updated_at = utcnow()
+            commit_or_rollback(self.db)
+            return deletion_id
+
+        run_db_unit_with_sqlite_retry(self.db, checkpoint_once)
+        current = self.db.get(S3AccountDeletion, deletion_id)
+        if current is None:  # pragma: no cover - defensive consistency check
+            raise RuntimeError("Pending S3 account deletion could not be reloaded")
+        return current
 
     def _load_remote_account(
         self,
@@ -228,11 +359,7 @@ class S3AccountDeletionService:
         endpoint_capabilities = resolve_endpoint_capabilities(endpoint)
 
         # Safety: only allow RGW deletion when we can prove the account is empty.
-        _, _, bucket_count = self.metrics.get_usage(account)
-        if bucket_count is None:
-            raise ValueError(
-                "Unable to verify bucket existence; cannot delete the RGW account."
-            )
+        bucket_count = self._verified_bucket_count(account)
         rgw_user_count, _ = self.rgw_users.resolve(
             account_identifier,
             None,
@@ -260,6 +387,36 @@ class S3AccountDeletionService:
                 f"(buckets={bucket_count}, users={rgw_user_count or 0}, topics={rgw_topic_count}); "
                 "remove them first."
             )
+
+    def _verified_bucket_count(self, account: S3Account) -> int:
+        _, _, admin_bucket_count = self.metrics.get_usage(account)
+        if admin_bucket_count is not None and admin_bucket_count > 0:
+            return admin_bucket_count
+
+        access_key, secret_key = account.effective_rgw_credentials()
+        if not access_key or not secret_key:
+            if admin_bucket_count is None:
+                raise ValueError(
+                    "Unable to verify bucket existence; cannot delete the RGW account."
+                )
+            return admin_bucket_count
+
+        try:
+            buckets = s3_client.list_buckets(
+                **s3_execution_request_kwargs(
+                    account,
+                    error_message=(
+                        "S3 account credentials are unavailable for deletion verification"
+                    ),
+                )
+            )
+        except S3OperationError as exc:
+            raise ValueError(
+                "Unable to verify bucket existence through the RGW account credentials; "
+                "cannot delete the RGW account."
+            ) from exc
+
+        return max(admin_bucket_count or 0, len(buckets))
 
     def _root_user_exists(
         self,
@@ -335,29 +492,40 @@ class S3AccountDeletionService:
         *,
         deletion: S3AccountDeletion | None = None,
     ) -> None:
-        try:
+        account_id = int(account.id)
+        deletion_id = int(deletion.id) if deletion is not None else None
+
+        def delete_once() -> None:
+            current_account = self.db.get(S3Account, account_id)
+            if current_account is None:
+                return
             self.db.execute(
-                delete(AccountIAMUser).where(AccountIAMUser.account_id == account.id)
+                delete(AccountIAMUser).where(AccountIAMUser.account_id == account_id)
             )
             self.db.execute(
-                delete(UserS3Account).where(UserS3Account.account_id == account.id)
+                delete(UserS3Account).where(UserS3Account.account_id == account_id)
             )
             self.db.execute(
                 delete(UiGroupS3Account)
-                .where(UiGroupS3Account.account_id == account.id)
+                .where(UiGroupS3Account.account_id == account_id)
                 .execution_options(synchronize_session=False)
             )
             purge = ResourceDeletionPurgeService(self.db)
-            purge.purge_account_derived_data(account.id)
-            purge.purge_execution_context_data(str(account.id))
-            if deletion is not None:
-                self.db.delete(deletion)
-            self.db.delete(account)
+            purge.purge_account_derived_data(account_id)
+            purge.purge_execution_context_data(str(account_id))
+            if deletion_id is not None:
+                current_deletion = self.db.get(S3AccountDeletion, deletion_id)
+                if current_deletion is not None:
+                    self.db.delete(current_deletion)
+            self.db.delete(current_account)
             self.db.flush()
             self.tags.cleanup_orphan_definitions(
                 domain_kinds=[TAG_DOMAIN_ADMIN_MANAGED]
             )
+            commit_or_rollback(self.db)
+
+        try:
+            run_db_unit_with_sqlite_retry(self.db, delete_once)
         except Exception:
             self.db.rollback()
             raise
-        commit_or_rollback(self.db)

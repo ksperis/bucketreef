@@ -36,6 +36,13 @@ def update_account_access_link(
 ) -> None:
     """Apply the mutable metadata shared by direct and group account links."""
 
+    if (
+        row.manager_role == grant.manager_role
+        and row.portal_role == grant.portal_role
+        and row.allow_manager_browser_data_access
+        == grant.allow_manager_browser_data_access
+    ):
+        return
     row.manager_role = grant.manager_role
     row.portal_role = grant.portal_role
     row.allow_manager_browser_data_access = grant.allow_manager_browser_data_access

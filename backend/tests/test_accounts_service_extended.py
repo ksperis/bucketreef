@@ -563,6 +563,11 @@ def test_delete_account_guardrails_and_success(db_session, monkeypatch):
         service.delete_account(account.id, delete_rgw=True)
 
     monkeypatch.setattr(service.deletion.metrics, "get_usage", lambda *args, **kwargs: (0, 0, 0))
+    monkeypatch.setattr(
+        s3_account_deletion_service_module.s3_client,
+        "list_buckets",
+        lambda **_kwargs: [],
+    )
     service.delete_account(account.id, delete_rgw=True)
     assert admin.deleted_accounts == ["RGW-DEL-1"]
     assert db_session.scalar(select(S3Account).where(S3Account.id == account.id)) is None
@@ -630,6 +635,11 @@ def _prepare_account_deletion_checks(service, admin, monkeypatch):
     monkeypatch.setattr(service.rgw_users, "resolve", lambda *args, **kwargs: (0, []))
     monkeypatch.setattr(service.account_topics, "resolve", lambda *args, **kwargs: (0, []))
     monkeypatch.setattr(service.rgw_context, "admin_for_account", lambda *args, **kwargs: admin)
+    monkeypatch.setattr(
+        s3_account_deletion_service_module.s3_client,
+        "list_buckets",
+        lambda **_kwargs: [],
+    )
 
 
 def test_account_iam_cleanup_only_wraps_expected_client_initialization_errors(
@@ -838,6 +848,11 @@ def test_delete_account_uses_scoped_iam_when_account_user_list_is_missing(db_ses
     monkeypatch.setattr(service.deletion.metrics, "get_usage", lambda *args, **kwargs: (0, 0, 0))
     monkeypatch.setattr(service.account_topics, "resolve", lambda *args, **kwargs: (0, []))
     monkeypatch.setattr(service.rgw_context, "admin_for_account", lambda *args, **kwargs: admin)
+    monkeypatch.setattr(
+        s3_account_deletion_service_module.s3_client,
+        "list_buckets",
+        lambda **_kwargs: [],
+    )
     service.deletion.iam_cleanup = S3AccountIamCleanupService(
         db_session,
         iam_factory=lambda _account: _FakeAccountIAM(),

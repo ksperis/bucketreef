@@ -523,9 +523,25 @@ class BucketMigrationPolicyGrantsMixin:
                 "Unable to read source bucket policy before applying read-only protection: "
                 f"{sanitized_error_log_detail(exc)}"
             ) from exc
-        item.source_policy_backup = existing_policy if isinstance(existing_policy, dict) else None
-        item.read_only_applied = True
-        self._commit()
+        source_policy_backup = existing_policy if isinstance(existing_policy, dict) else None
+        item_id = getattr(item, "id", None)
+        migration_id = getattr(item, "migration_id", None)
+        if item_id is None or migration_id is None:
+            item.source_policy_backup = source_policy_backup
+            item.read_only_applied = True
+            self._commit()
+        else:
+            def persist_intent(_migration, current_item: BucketMigrationItem) -> None:
+                current_item.source_policy_backup = source_policy_backup
+                current_item.read_only_applied = True
+
+            _migration, current_item = self._persist_item_checkpoint(
+                int(migration_id),
+                int(item_id),
+                persist_intent,
+            )
+            item.source_policy_backup = current_item.source_policy_backup
+            item.read_only_applied = current_item.read_only_applied
         policy_doc = self._build_read_only_policy(
             source_bucket,
             existing_policy if isinstance(existing_policy, dict) else None,
@@ -561,9 +577,25 @@ class BucketMigrationPolicyGrantsMixin:
                 "Unable to read destination bucket policy before applying write-lock: "
                 f"{sanitized_error_log_detail(exc)}"
             ) from exc
-        item.target_policy_backup = existing_policy if isinstance(existing_policy, dict) else None
-        item.target_lock_applied = True
-        self._commit()
+        target_policy_backup = existing_policy if isinstance(existing_policy, dict) else None
+        item_id = getattr(item, "id", None)
+        migration_id = getattr(item, "migration_id", None)
+        if item_id is None or migration_id is None:
+            item.target_policy_backup = target_policy_backup
+            item.target_lock_applied = True
+            self._commit()
+        else:
+            def persist_intent(_migration, current_item: BucketMigrationItem) -> None:
+                current_item.target_policy_backup = target_policy_backup
+                current_item.target_lock_applied = True
+
+            _migration, current_item = self._persist_item_checkpoint(
+                int(migration_id),
+                int(item_id),
+                persist_intent,
+            )
+            item.target_policy_backup = current_item.target_policy_backup
+            item.target_lock_applied = current_item.target_lock_applied
         lock_policy_doc = self._build_target_write_lock_policy(
             target_bucket,
             existing_policy if isinstance(existing_policy, dict) else None,

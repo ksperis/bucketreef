@@ -5,7 +5,11 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import (
+    commit_or_rollback,
+    rollback_on_error,
+    run_db_unit_with_sqlite_retry,
+)
 from app.core.security import get_password_hash, verify_password
 from app.db import User
 from app.core.domain_enums import is_admin_ui_role
@@ -99,6 +103,72 @@ class UserUpdateService:
         if not admin_role:
             user.quota_alerts_global_watch = False
 
+    def _apply_update_mutations(self, user: User, payload: UserUpdate) -> bool:
+        security_changed = self._apply_identity_updates(user, payload)
+        next_role, role_security_changed = self._apply_role_updates(user, payload)
+        security_changed = security_changed or role_security_changed
+        self._apply_access_updates(user, payload, role=next_role)
+        self._apply_profile_preferences(user, payload)
+        self.associations.apply_updates(user, payload)
+        if security_changed:
+            user.auth_version += 1
+        return security_changed
+
+    @staticmethod
+    def _can_retry_without_portal_side_effects(
+        payload: UserUpdate,
+        portal_roles_before,
+    ) -> bool:
+        retryable_fields = {
+            "email",
+            "full_name",
+            "password",
+            "role",
+            "can_access_ceph_admin",
+            "can_access_storage_ops",
+            "can_create_manual_private_connections",
+            "can_provision_managed_private_connections",
+            "allow_multisite_endpoint_switching",
+            "manager_tool_access",
+            "browser_advanced_features_enabled",
+            "ui_language",
+            "quota_alerts_enabled",
+            "quota_alerts_global_watch",
+            "avatar_preference",
+            "account_links",
+        }
+        if not payload.model_fields_set <= retryable_fields:
+            return False
+        if any(role is not None for role in portal_roles_before.values()):
+            return False
+        if payload.account_links is not None and any(
+            link.portal_role is not None for link in payload.account_links
+        ):
+            return False
+        return True
+
+    def _persist_retryable_update(
+        self,
+        user_id: int,
+        payload: UserUpdate,
+    ) -> tuple[User, bool]:
+        def update_once() -> tuple[int, bool]:
+            with rollback_on_error(self.db):
+                current = self.query.require_by_id(user_id)
+                security_changed = self._apply_update_mutations(current, payload)
+                self.db.add(current)
+                self.db.flush()
+                self.db.commit()
+                return int(current.id), security_changed
+
+        persisted_user_id, security_changed = run_db_unit_with_sqlite_retry(
+            self.db,
+            update_once,
+        )
+        user = self.query.require_by_id(persisted_user_id)
+        self.db.refresh(user)
+        return user, security_changed
+
     def update_user(self, user_id: int, payload: UserUpdate) -> User:
         user = self.query.require_by_id(user_id)
         was_active = user.is_active
@@ -118,23 +188,19 @@ class UserUpdateService:
             user_ids=[user.id],
             account_ids=affected_portal_account_ids,
         )
-        security_changed = self._apply_identity_updates(user, payload)
-        next_role, role_security_changed = self._apply_role_updates(user, payload)
-        security_changed = security_changed or role_security_changed
-        self._apply_access_updates(user, payload, role=next_role)
-        self._apply_profile_preferences(user, payload)
-        self.associations.apply_updates(user, payload)
-        if security_changed:
-            user.auth_version += 1
-        self.db.add(user)
-        self.db.flush()
-        commit_portal_role_changes(
-            self.db,
-            before=portal_roles_before,
-            user_ids=[user.id],
-            account_ids=affected_portal_account_ids,
-        )
-        self.db.refresh(user)
+        if self._can_retry_without_portal_side_effects(payload, portal_roles_before):
+            user, security_changed = self._persist_retryable_update(user_id, payload)
+        else:
+            security_changed = self._apply_update_mutations(user, payload)
+            self.db.add(user)
+            self.db.flush()
+            commit_portal_role_changes(
+                self.db,
+                before=portal_roles_before,
+                user_ids=[user.id],
+                account_ids=affected_portal_account_ids,
+            )
+            self.db.refresh(user)
         if security_changed:
             from app.services.auth_session_service import AuthSessionService
 

@@ -8,7 +8,11 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import rollback_safely
+from app.core.db_transactions import (
+    commit_or_rollback,
+    rollback_safely,
+    run_db_unit_with_sqlite_retry,
+)
 from app.core.domain_errors import CompensationFailureError
 from app.db import S3Account, StorageEndpoint
 from app.models.s3_account import S3AccountCreate
@@ -109,6 +113,15 @@ class S3AccountProvisioningService:
                 resume=resume,
                 tenant=payload.rgw_tenant,
             )
+            remote_account = self._build_provisioned_account(
+                payload,
+                endpoint,
+                rgw_account_id=rgw_account_id,
+                root_uid=root_uid,
+                access_key=access_key,
+                secret_key=secret_key,
+            )
+            self._apply_requested_quota(payload, remote_account)
             account = self._persist_provisioned_account(
                 payload,
                 endpoint,
@@ -117,7 +130,6 @@ class S3AccountProvisioningService:
                 access_key=access_key,
                 secret_key=secret_key,
             )
-            self.db.commit()
         except Exception:
             self.db.rollback()
             raise
@@ -140,6 +152,19 @@ class S3AccountProvisioningService:
                 resume=False,
                 tenant=payload.rgw_tenant,
             )
+            remote_account = self._build_provisioned_account(
+                payload,
+                endpoint,
+                rgw_account_id=rgw_account_id,
+                root_uid=root_uid,
+                access_key=access_key,
+                secret_key=secret_key,
+            )
+            self._apply_requested_quota(payload, remote_account)
+            quota_max_size_gb, quota_max_objects = self.metrics.get_quota(
+                remote_account,
+                admin,
+            )
             account = self._persist_provisioned_account(
                 payload,
                 endpoint,
@@ -148,8 +173,6 @@ class S3AccountProvisioningService:
                 access_key=access_key,
                 secret_key=secret_key,
             )
-            quota_max_size_gb, quota_max_objects = self.metrics.get_quota(account, admin)
-            self.db.commit()
         except Exception as exc:
             rollback_error = rollback_safely(self.db)
             if rollback_error is not None:  # pragma: no cover - defensive database failure
@@ -293,7 +316,39 @@ class S3AccountProvisioningService:
         access_key: str,
         secret_key: str,
     ) -> S3Account:
-        account = S3Account(
+        def persist_once() -> int:
+            account = self._build_provisioned_account(
+                payload,
+                endpoint,
+                rgw_account_id=rgw_account_id,
+                root_uid=root_uid,
+                access_key=access_key,
+                secret_key=secret_key,
+            )
+            self.db.add(account)
+            self.db.flush()
+            self.tags.replace_account_tags(account, payload.tags)
+            account_id = int(account.id)
+            commit_or_rollback(self.db)
+            return account_id
+
+        account_id = run_db_unit_with_sqlite_retry(self.db, persist_once)
+        account = self.db.get(S3Account, account_id)
+        if account is None:  # pragma: no cover - defensive consistency check
+            raise RuntimeError("Persisted S3 account could not be reloaded")
+        return account
+
+    @staticmethod
+    def _build_provisioned_account(
+        payload: S3AccountCreate,
+        endpoint: StorageEndpoint,
+        *,
+        rgw_account_id: str,
+        root_uid: str,
+        access_key: str,
+        secret_key: str,
+    ) -> S3Account:
+        return S3Account(
             name=payload.name,
             rgw_account_id=rgw_account_id,
             rgw_tenant=payload.rgw_tenant,
@@ -302,10 +357,14 @@ class S3AccountProvisioningService:
             rgw_user_uid=root_uid,
             email=payload.email,
             storage_endpoint_id=endpoint.id,
+            storage_endpoint=endpoint,
         )
-        self.db.add(account)
-        self.db.flush()
-        self.tags.replace_account_tags(account, payload.tags)
+
+    def _apply_requested_quota(
+        self,
+        payload: S3AccountCreate,
+        account: S3Account,
+    ) -> None:
         if payload.quota_max_size_gb is not None or payload.quota_max_objects is not None:
             self.quota.update(
                 account,
@@ -313,4 +372,3 @@ class S3AccountProvisioningService:
                 payload.quota_max_objects,
                 payload.quota_max_size_unit,
             )
-        return account

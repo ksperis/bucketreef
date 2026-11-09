@@ -1,11 +1,13 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from datetime import datetime, timedelta
+import sqlite3
 from types import SimpleNamespace
 
 import pytest
 from pydantic import ValidationError
 from sqlalchemy import func, select
+from sqlalchemy.exc import OperationalError
 
 from tests.feature_policy_fixtures import manager_settings_fixture
 from app.db import ManagerAccessKeyMetadata, S3Account, S3User, StorageEndpoint
@@ -17,6 +19,12 @@ from app.services import access_key_metadata_service
 from app.services.access_key_metadata_service import AccessKeyMetadataService
 from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.time import utcnow
+
+
+def _busy_snapshot_error() -> OperationalError:
+    original = sqlite3.OperationalError("database is locked")
+    original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
+    return OperationalError("COMMIT", (), original)
 
 
 def _set_global_feature(monkeypatch, enabled: bool) -> None:
@@ -196,6 +204,35 @@ def test_set_iam_metadata_rolls_back_when_commit_fails(db_session, monkeypatch):
     assert db_session.scalar(select(func.count()).select_from(ManagerAccessKeyMetadata)) == 0
 
 
+def test_set_iam_metadata_retries_sqlite_busy(db_session, monkeypatch):
+    endpoint = _storage_endpoint(db_session)
+    account = _account(db_session, endpoint, enabled=True)
+    db_session.commit()
+    real_commit = db_session.commit
+    commit_calls = 0
+
+    def busy_once() -> None:
+        nonlocal commit_calls
+        commit_calls += 1
+        if commit_calls == 1:
+            raise _busy_snapshot_error()
+        real_commit()
+
+    monkeypatch.setattr(db_session, "commit", busy_once)
+
+    saved = AccessKeyMetadataService(db_session).set_iam_metadata(
+        account.id,
+        "alice",
+        "AK-BUSY",
+        AccessKeyMetadataInput(name="retry-safe"),
+    )
+
+    assert saved is not None
+    assert saved.name == "retry-safe"
+    assert commit_calls == 2
+    assert db_session.scalar(select(func.count()).select_from(ManagerAccessKeyMetadata)) == 1
+
+
 def test_apply_metadata_supports_generated_s3_user_key():
     expires_at = utcnow() + timedelta(hours=1)
     key = S3UserGeneratedKey(access_key_id="AK-GENERATED", secret_access_key="SK-GENERATED")
@@ -254,6 +291,34 @@ def test_delete_s3_user_metadata_rolls_back_when_commit_fails(db_session, monkey
 
     assert rollback_calls == [None]
     assert service.s3_user_metadata(s3_user.id)["AK-ROLLBACK"].name == "preserved"
+
+
+def test_delete_s3_user_metadata_retries_sqlite_busy(db_session, monkeypatch):
+    endpoint = _storage_endpoint(db_session)
+    s3_user = _s3_user(db_session, endpoint, enabled=True)
+    db_session.commit()
+    service = AccessKeyMetadataService(db_session)
+    service.set_s3_user_metadata(
+        s3_user.id,
+        "AK-BUSY-DELETE",
+        AccessKeyMetadataInput(name="retry-delete"),
+    )
+    real_commit = db_session.commit
+    commit_calls = 0
+
+    def busy_once() -> None:
+        nonlocal commit_calls
+        commit_calls += 1
+        if commit_calls == 1:
+            raise _busy_snapshot_error()
+        real_commit()
+
+    monkeypatch.setattr(db_session, "commit", busy_once)
+
+    service.delete_s3_user_metadata(s3_user.id, "AK-BUSY-DELETE")
+
+    assert commit_calls == 2
+    assert service.s3_user_metadata(s3_user.id) == {}
 
 
 def test_expiration_update_preserves_existing_name_and_notes(db_session):

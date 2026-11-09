@@ -30,11 +30,11 @@ class _SyncProgressTracker:
         *,
         migration: BucketMigration,
         item: BucketMigrationItem,
-        commit: Callable[[], None],
+        persist: Callable[..., None],
     ) -> None:
         self.migration = migration
         self.item = item
-        self.commit = commit
+        self.persist = persist
         self.pending_copied = 0
         self.pending_deleted = 0
         self.last_flush = time.monotonic()
@@ -61,12 +61,10 @@ class _SyncProgressTracker:
             if (now - self.last_flush) < SYNC_PROGRESS_FLUSH_INTERVAL_SECONDS:
                 return
 
-        self.item.objects_copied = int(self.item.objects_copied) + self.pending_copied
-        self.item.objects_deleted = int(self.item.objects_deleted) + self.pending_deleted
-        heartbeat_at = utcnow()
-        self.item.updated_at = heartbeat_at
-        self.migration.updated_at = heartbeat_at
-        self.commit()
+        self.persist(
+            copied_inc=self.pending_copied,
+            deleted_inc=self.pending_deleted,
+        )
         self.pending_copied = 0
         self.pending_deleted = 0
         self.last_flush = now
@@ -294,7 +292,11 @@ class _VersionAwareObjectSyncRunner:
         self.progress = _SyncProgressTracker(
             migration=migration,
             item=item,
-            commit=service._commit,
+            persist=lambda **increments: service._persist_sync_progress_checkpoint(
+                int(migration.id),
+                int(item.id),
+                **increments,
+            ),
         )
         self.replication_state = service._load_item_replication_state(item)
         raw_watermark = self.replication_state.get("pre_sync_watermark")
@@ -359,12 +361,23 @@ class _VersionAwareObjectSyncRunner:
 
         self.replay_mode = "cutover_delta"
         self.replication_state["cutover_attempted"] = True
-        self.service._store_item_replication_state(
-            self.item,
-            self.replication_state,
+        replication_state = dict(self.replication_state)
+
+        def mutate(
+            current_migration: BucketMigration,
+            current_item: BucketMigrationItem,
+        ) -> None:
+            self.service._store_item_replication_state(
+                current_item,
+                replication_state,
+            )
+            current_item.updated_at = utcnow()
+
+        self.migration, self.item = self.service._persist_item_checkpoint(
+            int(self.migration.id),
+            int(self.item.id),
+            mutate,
         )
-        self.item.updated_at = utcnow()
-        self.service._commit()
 
     def _purge_target_if_needed(self) -> None:
         if not self.purge_before_replay:
@@ -420,26 +433,48 @@ class _VersionAwareObjectSyncRunner:
             return
         self.replication_state["pre_sync_watermark"] = pre_sync_watermark
         self.replication_state["cutover_attempted"] = False
-        self.service._store_item_replication_state(
-            self.item,
-            self.replication_state,
+        replication_state = dict(self.replication_state)
+
+        def mutate(
+            current_migration: BucketMigration,
+            current_item: BucketMigrationItem,
+        ) -> None:
+            self.service._store_item_replication_state(
+                current_item,
+                replication_state,
+            )
+            current_item.updated_at = utcnow()
+
+        self.migration, self.item = self.service._persist_item_checkpoint(
+            int(self.migration.id),
+            int(self.item.id),
+            mutate,
         )
 
     def _record_completion(self) -> None:
-        self.service._add_event(
-            self.migration,
-            item=self.item,
-            level="info",
-            message="Sync batch completed.",
-            metadata={
-                "copied": self.copied,
-                "deleted": self.deleted,
-                "same_endpoint_copy": self.same_endpoint_copy,
-                "replay_mode": self.replay_mode,
-                "version_aware": True,
-            },
+        def mutate(
+            current_migration: BucketMigration,
+            current_item: BucketMigrationItem,
+        ) -> None:
+            self.service._add_event(
+                current_migration,
+                item=current_item,
+                level="info",
+                message="Sync batch completed.",
+                metadata={
+                    "copied": self.copied,
+                    "deleted": self.deleted,
+                    "same_endpoint_copy": self.same_endpoint_copy,
+                    "replay_mode": self.replay_mode,
+                    "version_aware": True,
+                },
+            )
+
+        self.migration, self.item = self.service._persist_item_checkpoint(
+            int(self.migration.id),
+            int(self.item.id),
+            mutate,
         )
-        self.service._commit()
 
     def _interrupted_result(self) -> tuple[int, int, SyncDiff]:
         return -1, -1, self.service._new_empty_sync_diff()
@@ -475,7 +510,15 @@ class _CurrentObjectSyncRunner:
         self.diff = service._new_empty_sync_diff()
         same_endpoint = service._is_same_endpoint(source_ctx, target_ctx)
         self.same_endpoint_copy = bool(same_endpoint and migration.use_same_endpoint_copy)
-        self.progress = _SyncProgressTracker(migration=migration, item=item, commit=service._commit)
+        self.progress = _SyncProgressTracker(
+            migration=migration,
+            item=item,
+            persist=lambda **increments: service._persist_sync_progress_checkpoint(
+                int(migration.id),
+                int(item.id),
+                **increments,
+            ),
+        )
         self.copied = 0
         self.deleted = 0
         self.copy_batch: list[str] = []
@@ -511,19 +554,28 @@ class _CurrentObjectSyncRunner:
         if self.copied == 0 and self.deleted == 0:
             return 0, 0, self.diff
         self.progress.flush(force=True)
-        self.service._add_event(
-            self.migration,
-            item=self.item,
-            level="info",
-            message="Sync batch completed.",
-            metadata={
-                "copied": self.copied,
-                "deleted": self.deleted,
-                "allow_delete": self.allow_delete,
-                "same_endpoint_copy": self.same_endpoint_copy,
-            },
+        def mutate(
+            current_migration: BucketMigration,
+            current_item: BucketMigrationItem,
+        ) -> None:
+            self.service._add_event(
+                current_migration,
+                item=current_item,
+                level="info",
+                message="Sync batch completed.",
+                metadata={
+                    "copied": self.copied,
+                    "deleted": self.deleted,
+                    "allow_delete": self.allow_delete,
+                    "same_endpoint_copy": self.same_endpoint_copy,
+                },
+            )
+
+        self.migration, self.item = self.service._persist_item_checkpoint(
+            int(self.migration.id),
+            int(self.item.id),
+            mutate,
         )
-        self.service._commit()
         return self.copied, self.deleted, self.diff
 
     def _process_entry(self, entry: BucketDiffEntry) -> bool:

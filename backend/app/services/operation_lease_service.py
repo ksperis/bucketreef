@@ -16,7 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
 from app.db import BackendOperationLease
 from app.utils.normalize import normalize_optional_string
 from app.utils.time import utcnow
@@ -91,65 +91,79 @@ class OperationLeaseService:
     ) -> Optional[OperationLeaseHandle]:
         name = self._normalize_operation_name(operation_name)
         lease_owner = owner or generate_operation_owner()
-        now = utcnow()
         ttl = max(15, int(ttl_seconds))
-        lease_until = now + timedelta(seconds=ttl)
         stored_context = lease_context or None
-        values = {
-            BackendOperationLease.lease_owner: lease_owner,
-            BackendOperationLease.lease_until: lease_until,
-            BackendOperationLease.updated_at: now,
-            BackendOperationLease.lease_context: stored_context,
-        }
 
-        updated = self.db.execute(
-            update(BackendOperationLease)
-            .where(
-                BackendOperationLease.operation_name == name,
-                or_(
-                    BackendOperationLease.lease_until <= now,
-                    BackendOperationLease.lease_owner == lease_owner,
-                ),
+        def acquire_once() -> Optional[OperationLeaseHandle]:
+            now = utcnow()
+            lease_until = now + timedelta(seconds=ttl)
+            values = {
+                BackendOperationLease.lease_owner: lease_owner,
+                BackendOperationLease.lease_until: lease_until,
+                BackendOperationLease.updated_at: now,
+                BackendOperationLease.lease_context: stored_context,
+            }
+            updated = self.db.execute(
+                update(BackendOperationLease)
+                .where(
+                    BackendOperationLease.operation_name == name,
+                    or_(
+                        BackendOperationLease.lease_until <= now,
+                        BackendOperationLease.lease_owner == lease_owner,
+                    ),
+                )
+                .values(values)
+                .execution_options(synchronize_session=False)
+            ).rowcount
+            if updated == 1:
+                commit_or_rollback(self.db)
+                return OperationLeaseHandle(
+                    operation_name=name,
+                    owner=lease_owner,
+                    lease_until=lease_until,
+                )
+
+            self.db.rollback()
+            row = BackendOperationLease(
+                operation_name=name,
+                lease_owner=lease_owner,
+                lease_until=lease_until,
+                updated_at=now,
+                lease_context=stored_context,
             )
-            .values(values)
-            .execution_options(synchronize_session=False)
-        ).rowcount
-        if updated == 1:
-            commit_or_rollback(self.db)
-            return OperationLeaseHandle(operation_name=name, owner=lease_owner, lease_until=lease_until)
+            self.db.add(row)
+            try:
+                commit_or_rollback(self.db)
+            except IntegrityError:
+                return None
+            return OperationLeaseHandle(
+                operation_name=name,
+                owner=lease_owner,
+                lease_until=lease_until,
+            )
 
-        self.db.rollback()
-        row = BackendOperationLease(
-            operation_name=name,
-            lease_owner=lease_owner,
-            lease_until=lease_until,
-            updated_at=now,
-            lease_context=stored_context,
-        )
-        self.db.add(row)
-        try:
-            commit_or_rollback(self.db)
-        except IntegrityError:
-            return None
-        return OperationLeaseHandle(operation_name=name, owner=lease_owner, lease_until=lease_until)
+        return run_db_unit_with_sqlite_retry(self.db, acquire_once)
 
     def release(self, handle: OperationLeaseHandle) -> None:
-        now = utcnow()
-        self.db.execute(
-            update(BackendOperationLease)
-            .where(
-                BackendOperationLease.operation_name == handle.operation_name,
-                BackendOperationLease.lease_owner == handle.owner,
+        def release_once() -> None:
+            now = utcnow()
+            self.db.execute(
+                update(BackendOperationLease)
+                .where(
+                    BackendOperationLease.operation_name == handle.operation_name,
+                    BackendOperationLease.lease_owner == handle.owner,
+                )
+                .values(
+                    {
+                        BackendOperationLease.lease_until: now,
+                        BackendOperationLease.updated_at: now,
+                    }
+                )
+                .execution_options(synchronize_session=False)
             )
-            .values(
-                {
-                    BackendOperationLease.lease_until: now,
-                    BackendOperationLease.updated_at: now,
-                }
-            )
-            .execution_options(synchronize_session=False)
-        )
-        commit_or_rollback(self.db)
+            commit_or_rollback(self.db)
+
+        run_db_unit_with_sqlite_retry(self.db, release_once)
 
     @contextmanager
     def hold(

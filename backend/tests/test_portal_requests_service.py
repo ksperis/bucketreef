@@ -92,6 +92,13 @@ def _seed_user(
     return user
 
 
+def _stored_request_result(db_session, request_id: int) -> dict:
+    row = db_session.get(PortalAdminRequest, request_id)
+    assert row is not None
+    assert row.result is not None
+    return row.result
+
+
 def _portal_access(
     account: S3Account,
     user: User,
@@ -246,10 +253,10 @@ def test_approve_user_access_creates_placeholder_and_portal_link(db_session):
         )
     ).one()
     message = approved.messages[0]
+    result = _stored_request_result(db_session, approved.id)
 
     assert approved.status == "approved"
-    assert approved.result is not None
-    assert approved.result["created_user"] is True
+    assert result["created_user"] is True
     assert target.hashed_password is None
     assert target.role == UserRole.UI_USER.value
     assert link.manager_role is None
@@ -293,6 +300,7 @@ def test_approve_user_access_assigns_requested_portal_manager_role(db_session):
     )
 
     approved = service.approve_request(created.id, admin)
+    result = _stored_request_result(db_session, approved.id)
 
     target = db_session.scalars(
         select(User).where(User.email == "jane.viewer@example.org")
@@ -303,9 +311,8 @@ def test_approve_user_access_assigns_requested_portal_manager_role(db_session):
             UserS3Account.account_id == account.id,
         )
     ).one()
-    assert approved.result is not None
-    assert approved.result["requested_portal_role"] == PortalAccountRole.PORTAL_MANAGER.value
-    assert approved.result["portal_role"] == PortalAccountRole.PORTAL_MANAGER.value
+    assert result["requested_portal_role"] == PortalAccountRole.PORTAL_MANAGER.value
+    assert result["portal_role"] == PortalAccountRole.PORTAL_MANAGER.value
     assert link.portal_role == PortalAccountRole.PORTAL_MANAGER.value
 
 
@@ -327,10 +334,10 @@ def test_approve_user_access_does_not_downgrade_existing_portal_manager(db_sessi
     created = _create_user_request(service, account, requester)
 
     approved = service.approve_request(created.id, admin)
+    result = _stored_request_result(db_session, approved.id)
 
-    assert approved.result is not None
-    assert approved.result["requested_portal_role"] == PortalAccountRole.PORTAL_USER.value
-    assert approved.result["portal_role"] == PortalAccountRole.PORTAL_MANAGER.value
+    assert result["requested_portal_role"] == PortalAccountRole.PORTAL_USER.value
+    assert result["portal_role"] == PortalAccountRole.PORTAL_MANAGER.value
     link = db_session.scalars(
         select(UserS3Account).where(
             UserS3Account.user_id == target.id,
@@ -408,6 +415,7 @@ def test_approve_user_access_preserves_existing_portal_manager_role(db_session):
     created = _create_user_request(service, account, requester)
 
     approved = service.approve_request(created.id, admin)
+    result = _stored_request_result(db_session, approved.id)
 
     link = db_session.scalars(
         select(UserS3Account).where(
@@ -416,8 +424,7 @@ def test_approve_user_access_preserves_existing_portal_manager_role(db_session):
         )
     ).one()
     assert approved.status == "approved"
-    assert approved.result is not None
-    assert approved.result["created_user"] is False
+    assert result["created_user"] is False
     assert link.manager_role == ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value
     assert link.portal_role == PortalAccountRole.PORTAL_USER.value
 
@@ -448,10 +455,10 @@ def test_approve_user_removal_deletes_portal_user_link_only(db_session):
     )
 
     approved = service.approve_request(created.id, admin)
+    result = _stored_request_result(db_session, approved.id)
 
     assert approved.status == "approved"
-    assert approved.result is not None
-    assert approved.result["target_email"] == "jane.viewer@example.org"
+    assert result["target_email"] == "jane.viewer@example.org"
     assert db_session.get(User, target.id) is not None
     assert db_session.scalar(
         select(UserS3Account).where(
@@ -539,6 +546,7 @@ def test_role_change_request_promotes_direct_portal_user(db_session):
     }
 
     approved = service.approve_request(created.id, admin)
+    result = _stored_request_result(db_session, approved.id)
 
     link = db_session.scalars(
         select(UserS3Account).where(
@@ -547,7 +555,7 @@ def test_role_change_request_promotes_direct_portal_user(db_session):
         )
     ).one()
     assert approved.status == "approved"
-    assert approved.result == {
+    assert result == {
         "target_user_id": target.id,
         "target_email": "member@example.org",
         "previous_portal_role": PortalAccountRole.PORTAL_USER.value,
@@ -829,11 +837,11 @@ def test_delegated_role_change_is_applied_immediately(
             portal_role=requested_role,
         ),
     )
+    result = _stored_request_result(db_session, created.id)
 
     assert created.status == "approved"
-    assert created.result is not None
-    assert created.result["previous_portal_role"] == current_role
-    assert created.result["portal_role"] == requested_role
+    assert result["previous_portal_role"] == current_role
+    assert result["portal_role"] == requested_role
     assert (
         db_session.scalars(
             select(UserS3Account).where(
@@ -997,6 +1005,7 @@ def test_approve_quota_change_applies_new_account_quota_and_keeps_object_quota(d
     )
 
     approved = service.approve_request(created.id, admin)
+    result = _stored_request_result(db_session, approved.id)
 
     assert approved.status == "approved"
     assert fake_repository.checked_account_ids == [account.id]
@@ -1083,6 +1092,7 @@ def test_approve_setting_change_preserves_concurrent_project_overrides(db_sessio
     db_session.commit()
 
     approved = service.approve_request(created.id, admin)
+    result = _stored_request_result(db_session, approved.id)
 
     db_session.refresh(account)
     stored = account.portal_settings_override
@@ -1092,7 +1102,7 @@ def test_approve_setting_change_preserves_concurrent_project_overrides(db_sessio
         "browser_access_enabled": True,
     }
     assert approved.status == "approved"
-    assert approved.result == {
+    assert result == {
         "setting": "browser_access_enabled",
         "mode": "override",
         "requested_value": True,

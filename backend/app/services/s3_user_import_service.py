@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
 from app.db import S3User, S3UserImportIntent, StorageEndpoint
 from app.models.s3_user import S3UserImport
 from app.services.app_settings_service import load_app_settings_for_db
@@ -43,6 +43,20 @@ class _PreparedUserImport:
     user_info: dict
 
 
+@dataclass(frozen=True)
+class _StagedLocalUser:
+    intent_id: int
+    storage_endpoint_id: int
+    name: str
+    uid: str
+    tenant: str
+    email: str | None
+    access_key_id: str
+    secret_access_key: str
+    quota_max_size_gb: float | None
+    quota_max_objects: int | None
+
+
 class S3UserImportService:
     """Import existing RGW users into BucketReef-managed S3 user records."""
 
@@ -71,14 +85,8 @@ class S3UserImportService:
                 self._ensure_remote_key(item, intent)
                 claimed.append((item, intent))
 
-            staged = [
-                (item, intent, self._stage_local_user(item, intent))
-                for item, intent in claimed
-            ]
-            for _item, intent, _result in staged:
-                self.db.delete(intent)
-            commit_or_rollback(self.db)
-            return [result for _item, _intent, result in staged]
+            staged = [self._stage_local_user(item, intent) for item, intent in claimed]
+            return self._persist_local_users(staged)
         except Exception:
             self.db.rollback()
             raise
@@ -156,34 +164,42 @@ class S3UserImportService:
         )
 
     def _claim_intent(self, item: _PreparedUserImport) -> S3UserImportIntent:
-        existing = self._pending_intent(item)
-        if existing is not None:
-            self._validate_intent(existing, item)
-            return existing
-
         access_key_id, secret_access_key = new_s3_import_credentials()
-        intent = S3UserImportIntent(
-            storage_endpoint_id=item.endpoint.id,
-            rgw_user_uid=item.uid,
-            rgw_tenant=item.tenant,
-            requested_name=item.source.name,
-            requested_email=item.source.email,
-            access_key_id=access_key_id,
-            secret_access_key=secret_access_key,
-            phase="prepared",
-            created_at=utcnow(),
-            updated_at=utcnow(),
-        )
-        self.db.add(intent)
-        try:
-            commit_or_rollback(self.db)
-        except IntegrityError:
+        created_at = utcnow()
+
+        def claim_once() -> int:
             existing = self._pending_intent(item)
-            if existing is None:
-                raise
-            self._validate_intent(existing, item)
-            return existing
-        self.db.refresh(intent)
+            if existing is not None:
+                self._validate_intent(existing, item)
+                return int(existing.id)
+
+            intent = S3UserImportIntent(
+                storage_endpoint_id=item.endpoint.id,
+                rgw_user_uid=item.uid,
+                rgw_tenant=item.tenant,
+                requested_name=item.source.name,
+                requested_email=item.source.email,
+                access_key_id=access_key_id,
+                secret_access_key=secret_access_key,
+                phase="prepared",
+                created_at=created_at,
+                updated_at=created_at,
+            )
+            self.db.add(intent)
+            try:
+                commit_or_rollback(self.db)
+            except IntegrityError:
+                existing = self._pending_intent(item)
+                if existing is None:
+                    raise
+                self._validate_intent(existing, item)
+                return int(existing.id)
+            return int(intent.id)
+
+        intent_id = run_db_unit_with_sqlite_retry(self.db, claim_once)
+        intent = self.db.get(S3UserImportIntent, intent_id)
+        if intent is None:  # pragma: no cover - defensive consistency check
+            raise RuntimeError("Pending S3 user import intent disappeared")
         return intent
 
     @staticmethod
@@ -223,9 +239,17 @@ class S3UserImportService:
 
         if intent.phase == "prepared":
             while intent.access_key_id in key_ids:
-                intent.access_key_id, intent.secret_access_key = new_s3_import_credentials()
-                intent.updated_at = utcnow()
-                commit_or_rollback(self.db)
+                intent_id = int(intent.id)
+
+                def rotate_colliding_credentials_once() -> None:
+                    current = self.db.get(S3UserImportIntent, intent_id)
+                    if current is None:
+                        raise RuntimeError("Pending S3 user import intent disappeared")
+                    current.access_key_id, current.secret_access_key = new_s3_import_credentials()
+                    current.updated_at = utcnow()
+                    commit_or_rollback(self.db)
+
+                run_db_unit_with_sqlite_retry(self.db, rotate_colliding_credentials_once)
                 self.db.refresh(intent)
             checkpoint_s3_import_intent(self.db, intent, "creating")
 
@@ -268,7 +292,7 @@ class S3UserImportService:
         self,
         item: _PreparedUserImport,
         intent: S3UserImportIntent,
-    ) -> S3UserImportResult:
+    ) -> _StagedLocalUser:
         s3_user = S3User(
             name=item.source.name or item.user_info.get("display_name") or item.uid,
             rgw_user_uid=item.uid,
@@ -278,12 +302,60 @@ class S3UserImportService:
             rgw_secret_key=intent.secret_access_key,
             storage_endpoint_id=item.endpoint.id,
         )
-        self.db.add(s3_user)
-        self.db.flush()
         quota_max_size_gb, quota_max_objects = self.metrics.get_quota(s3_user, item.admin)
-        return S3UserImportResult(
-            s3_user=s3_user,
-            endpoint=item.endpoint,
+        return _StagedLocalUser(
+            intent_id=int(intent.id),
+            storage_endpoint_id=int(item.endpoint.id),
+            name=s3_user.name,
+            uid=s3_user.rgw_user_uid,
+            tenant=s3_user.rgw_tenant,
+            email=s3_user.email,
+            access_key_id=intent.access_key_id,
+            secret_access_key=intent.secret_access_key,
             quota_max_size_gb=quota_max_size_gb,
             quota_max_objects=quota_max_objects,
         )
+
+    def _persist_local_users(
+        self,
+        staged: list[_StagedLocalUser],
+    ) -> list[S3UserImportResult]:
+        def persist_once() -> list[int]:
+            user_ids: list[int] = []
+            for item in staged:
+                s3_user = S3User(
+                    name=item.name,
+                    rgw_user_uid=item.uid,
+                    rgw_tenant=item.tenant,
+                    email=item.email,
+                    rgw_access_key=item.access_key_id,
+                    rgw_secret_key=item.secret_access_key,
+                    storage_endpoint_id=item.storage_endpoint_id,
+                )
+                self.db.add(s3_user)
+                self.db.flush()
+                user_ids.append(int(s3_user.id))
+            for item in staged:
+                intent = self.db.get(S3UserImportIntent, item.intent_id)
+                if intent is None:
+                    raise RuntimeError("Pending S3 user import intent disappeared")
+                self.db.delete(intent)
+            commit_or_rollback(self.db)
+            return user_ids
+
+        user_ids = run_db_unit_with_sqlite_retry(self.db, persist_once)
+        results: list[S3UserImportResult] = []
+        for item, user_id in zip(staged, user_ids, strict=True):
+            s3_user = self.db.get(S3User, user_id)
+            endpoint = self.db.get(StorageEndpoint, item.storage_endpoint_id)
+            if s3_user is None or endpoint is None:  # pragma: no cover - defensive consistency check
+                raise RuntimeError("Persisted S3 user import could not be reloaded")
+            results.append(
+                S3UserImportResult(
+                    s3_user=s3_user,
+                    endpoint=endpoint,
+                    quota_max_size_gb=item.quota_max_size_gb,
+                    quota_max_objects=item.quota_max_objects,
+                )
+            )
+        return results

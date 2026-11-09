@@ -59,13 +59,24 @@ class BucketMigrationItemRunnerMixin:
             control_check,
             lost_lease_message=f"Worker lease lost for migration {migration.id}",
         )
-        if state == "cancel":
-            item.status = "canceled"
-            item.finished_at = utcnow()
-        else:
-            item.status = "paused"
-        item.updated_at = utcnow()
-        self._commit()
+        timestamp = utcnow()
+
+        def persist_interrupted(
+            _current_migration: BucketMigration,
+            current_item: BucketMigrationItem,
+        ) -> None:
+            if state == "cancel":
+                current_item.status = "canceled"
+                current_item.finished_at = timestamp
+            else:
+                current_item.status = "paused"
+            current_item.updated_at = timestamp
+
+        self._persist_item_checkpoint(
+            int(migration.id),
+            int(item.id),
+            persist_interrupted,
+        )
 
     def _store_item_diff(self, item: BucketMigrationItem, diff: Any) -> None:
         item.source_count = diff.source_count
@@ -98,10 +109,22 @@ class BucketMigrationItemRunnerMixin:
             self._stop_interrupted_item(migration, item, control_check)
             return False
 
-        self._store_item_diff(item, diff)
         if bool(diff.different_count or diff.only_source_count or diff.only_target_count):
             self._fail_item_for_final_diff(migration, item, diff)
             return False
+
+        def persist_clean_diff(
+            _current_migration: BucketMigration,
+            current_item: BucketMigrationItem,
+        ) -> None:
+            self._store_item_diff(current_item, diff)
+            current_item.updated_at = utcnow()
+
+        migration, item = self._persist_item_checkpoint(
+            int(migration.id),
+            int(item.id),
+            persist_clean_diff,
+        )
 
         if migration.strong_integrity_check and not self._verify_strong_integrity(migration, item, source_ctx, target_ctx, strategy=strategy, control_check=control_check):
             return False
@@ -114,22 +137,34 @@ class BucketMigrationItemRunnerMixin:
         item: BucketMigrationItem,
         diff: Any,
     ) -> None:
-        item.status = "failed"
-        item.error_message = "Final diff is not clean"
-        item.finished_at = utcnow()
-        item.updated_at = utcnow()
-        self._add_event(
-            migration,
-            item=item,
-            level="error",
-            message="Final diff detected differences.",
-            metadata={
-                "different_count": diff.different_count,
-                "only_source_count": diff.only_source_count,
-                "only_target_count": diff.only_target_count,
-            },
+        timestamp = utcnow()
+
+        def persist_failure(
+            current_migration: BucketMigration,
+            current_item: BucketMigrationItem,
+        ) -> None:
+            self._store_item_diff(current_item, diff)
+            current_item.status = "failed"
+            current_item.error_message = "Final diff is not clean"
+            current_item.finished_at = timestamp
+            current_item.updated_at = timestamp
+            self._add_event(
+                current_migration,
+                item=current_item,
+                level="error",
+                message="Final diff detected differences.",
+                metadata={
+                    "different_count": diff.different_count,
+                    "only_source_count": diff.only_source_count,
+                    "only_target_count": diff.only_target_count,
+                },
+            )
+
+        self._persist_item_checkpoint(
+            int(migration.id),
+            int(item.id),
+            persist_failure,
         )
-        self._commit()
 
     def _verify_strong_integrity(
         self,
@@ -169,16 +204,26 @@ class BucketMigrationItemRunnerMixin:
             )
             return False
 
-        self._add_event(
-            migration,
-            item=item,
-            level="info",
-            message="Strong verification completed for size-only candidates.",
-            metadata={
-                "size_only_count": size_only_count,
-                "verified_count": verified_count,
-                "method_counts": method_counts,
-            },
+        def persist_verified(
+            current_migration: BucketMigration,
+            current_item: BucketMigrationItem,
+        ) -> None:
+            self._add_event(
+                current_migration,
+                item=current_item,
+                level="info",
+                message="Strong verification completed for size-only candidates.",
+                metadata={
+                    "size_only_count": size_only_count,
+                    "verified_count": verified_count,
+                    "method_counts": method_counts,
+                },
+            )
+
+        self._persist_item_checkpoint(
+            int(migration.id),
+            int(item.id),
+            persist_verified,
         )
         return True
 
@@ -192,28 +237,40 @@ class BucketMigrationItemRunnerMixin:
         failed_keys: list[str],
         method_counts: dict[str, int],
     ) -> None:
-        item.status = "failed"
-        item.error_message = (
+        error_message = (
             "Final strong verification failed for "
             f"{len(failed_keys)} object(s) out of {size_only_count} size-only candidate(s); "
             "the source is retained."
         )
-        item.finished_at = utcnow()
-        item.updated_at = utcnow()
-        self._add_event(
-            migration,
-            item=item,
-            level="error",
-            message="Strong copy verification failed. Source retained.",
-            metadata={
-                "size_only_count": size_only_count,
-                "verified_count": verified_count,
-                "failed_count": len(failed_keys),
-                "failed_sample": failed_keys[:20],
-                "method_counts": method_counts,
-            },
+        timestamp = utcnow()
+
+        def persist_failure(
+            current_migration: BucketMigration,
+            current_item: BucketMigrationItem,
+        ) -> None:
+            current_item.status = "failed"
+            current_item.error_message = error_message
+            current_item.finished_at = timestamp
+            current_item.updated_at = timestamp
+            self._add_event(
+                current_migration,
+                item=current_item,
+                level="error",
+                message="Strong copy verification failed. Source retained.",
+                metadata={
+                    "size_only_count": size_only_count,
+                    "verified_count": verified_count,
+                    "failed_count": len(failed_keys),
+                    "failed_sample": failed_keys[:20],
+                    "method_counts": method_counts,
+                },
+            )
+
+        self._persist_item_checkpoint(
+            int(migration.id),
+            int(item.id),
+            persist_failure,
         )
-        self._commit()
 
     def _complete_item_after_verification(
         self,
@@ -227,12 +284,28 @@ class BucketMigrationItemRunnerMixin:
             migration,
             item,
         )
-        item.status = "completed"
-        item.step = "completed"
-        item.finished_at = utcnow()
-        item.updated_at = utcnow()
-        self._add_event(migration, item=item, level="info", message="Item completed with clean diff.")
-        self._commit()
+        timestamp = utcnow()
+
+        def persist_completed(
+            current_migration: BucketMigration,
+            current_item: BucketMigrationItem,
+        ) -> None:
+            current_item.status = "completed"
+            current_item.step = "completed"
+            current_item.finished_at = timestamp
+            current_item.updated_at = timestamp
+            self._add_event(
+                current_migration,
+                item=current_item,
+                level="info",
+                message="Item completed with clean diff.",
+            )
+
+        self._persist_item_checkpoint(
+            int(migration.id),
+            int(item.id),
+            persist_completed,
+        )
 
     def _run_create_bucket_step(
         self,
@@ -262,22 +335,47 @@ class BucketMigrationItemRunnerMixin:
                 versioning=(strategy == "version_aware"),
                 location_constraint=target_ctx.region, object_lock_enabled=object_lock_enabled,
             )
-            item.target_created_by_migration = True
-            self._commit()
+            def persist_created(
+                _current_migration: BucketMigration,
+                current_item: BucketMigrationItem,
+            ) -> None:
+                current_item.target_created_by_migration = True
+                current_item.updated_at = utcnow()
 
-        self._add_event(
-            migration,
-            item=item,
-            level="info",
-            message="Target bucket created.",
-            metadata={"target_bucket": item.target_bucket, "object_lock_enabled": object_lock_enabled},
-        )
-        item.step = (
+            migration, item = self._persist_item_checkpoint(
+                int(migration.id),
+                int(item.id),
+                persist_created,
+            )
+
+        next_step = (
             "copy_bucket_settings"
             if migration.copy_bucket_settings
             else self._next_step_after_target_setup(migration, item)
         )
-        self._commit()
+
+        def persist_target_ready(
+            current_migration: BucketMigration,
+            current_item: BucketMigrationItem,
+        ) -> None:
+            self._add_event(
+                current_migration,
+                item=current_item,
+                level="info",
+                message="Target bucket created.",
+                metadata={
+                    "target_bucket": current_item.target_bucket,
+                    "object_lock_enabled": object_lock_enabled,
+                },
+            )
+            current_item.step = next_step
+            current_item.updated_at = utcnow()
+
+        self._persist_item_checkpoint(
+            int(migration.id),
+            int(item.id),
+            persist_target_ready,
+        )
         return True
 
     def _run_apply_target_lock_step(
@@ -285,7 +383,7 @@ class BucketMigrationItemRunnerMixin:
         migration: BucketMigration,
         item: BucketMigrationItem,
         target_ctx: ResolvedContext,
-    ) -> None:
+    ) -> tuple[BucketMigration, BucketMigrationItem]:
         try:
             self._apply_target_write_lock_policy(target_ctx, item.target_bucket, item)
             item.target_lock_applied = True
@@ -314,20 +412,42 @@ class BucketMigrationItemRunnerMixin:
                         f"Apply error: {sanitized_error_log_detail(exc)}. "
                         f"Restore error: {sanitized_error_log_detail(restore_exc)}"
                     ) from exc
-                item.target_lock_applied = False
-                item.target_policy_backup = None
-                self._commit()
+
+                def persist_restored(
+                    _current_migration: BucketMigration,
+                    current_item: BucketMigrationItem,
+                ) -> None:
+                    current_item.target_lock_applied = False
+                    current_item.target_policy_backup = None
+                    current_item.updated_at = utcnow()
+
+                self._persist_item_checkpoint(
+                    int(migration.id),
+                    int(item.id),
+                    persist_restored,
+                )
             raise
 
-        item.step = "pre_sync" if migration.mode == "pre_sync" and not item.pre_sync_done else "apply_read_only"
-        item.updated_at = utcnow()
-        self._add_event(
-            migration,
-            item=item,
-            level="info",
-            message="Target write-lock policy applied.",
+        next_step = "pre_sync" if migration.mode == "pre_sync" and not item.pre_sync_done else "apply_read_only"
+
+        def persist_applied(
+            current_migration: BucketMigration,
+            current_item: BucketMigrationItem,
+        ) -> None:
+            current_item.step = next_step
+            current_item.updated_at = utcnow()
+            self._add_event(
+                current_migration,
+                item=current_item,
+                level="info",
+                message="Target write-lock policy applied.",
+            )
+
+        return self._persist_item_checkpoint(
+            int(migration.id),
+            int(item.id),
+            persist_applied,
         )
-        self._commit()
 
     def _run_item(
         self,
@@ -341,7 +461,6 @@ class BucketMigrationItemRunnerMixin:
         self._execution_item = item
         if item.target_created_by_migration and migration.lock_target_writes and not item.target_lock_applied:
             self._apply_target_write_lock_policy(target_ctx, item.target_bucket, item)
-            self._commit()
         _MigrationItemExecutionLoop(
             service=self,
             migration=migration,

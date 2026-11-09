@@ -67,9 +67,19 @@ class _MigrationItemExecutionLoop:
         ) < ITEM_HEARTBEAT_PERSIST_INTERVAL_SECONDS:
             return
         heartbeat_at = utcnow()
-        self.migration.updated_at = heartbeat_at
-        self.item.updated_at = heartbeat_at
-        self.service._commit()
+
+        def persist_heartbeat(
+            current_migration: BucketMigration,
+            current_item: BucketMigrationItem,
+        ) -> None:
+            current_migration.updated_at = heartbeat_at
+            current_item.updated_at = heartbeat_at
+
+        self.migration, self.item = self.service._persist_item_checkpoint(
+            int(self.migration.id),
+            int(self.item.id),
+            persist_heartbeat,
+        )
         self.last_heartbeat_persist = now_mono
 
     def _may_continue(self) -> bool:
@@ -78,15 +88,37 @@ class _MigrationItemExecutionLoop:
             lost_lease_message=f"Worker lease lost for migration {self.migration.id}",
         )
         if state == "cancel":
-            self.item.status = "canceled"
-            self.item.finished_at = utcnow()
-            self.item.updated_at = utcnow()
-            self.service._commit()
+            timestamp = utcnow()
+
+            def persist_canceled(
+                _current_migration: BucketMigration,
+                current_item: BucketMigrationItem,
+            ) -> None:
+                current_item.status = "canceled"
+                current_item.finished_at = timestamp
+                current_item.updated_at = timestamp
+
+            self.migration, self.item = self.service._persist_item_checkpoint(
+                int(self.migration.id),
+                int(self.item.id),
+                persist_canceled,
+            )
             return False
         if state == "pause":
-            self.item.status = "paused"
-            self.item.updated_at = utcnow()
-            self.service._commit()
+            timestamp = utcnow()
+
+            def persist_paused(
+                _current_migration: BucketMigration,
+                current_item: BucketMigrationItem,
+            ) -> None:
+                current_item.status = "paused"
+                current_item.updated_at = timestamp
+
+            self.migration, self.item = self.service._persist_item_checkpoint(
+                int(self.migration.id),
+                int(self.item.id),
+                persist_paused,
+            )
             return False
         return True
 
@@ -108,15 +140,27 @@ class _MigrationItemExecutionLoop:
             self.migration,
             self.item,
         )
-        self.item.step = self.service._next_step_after_target_setup(
+        next_step = self.service._next_step_after_target_setup(
             self.migration,
             self.item,
         )
-        self.service._commit()
+
+        def persist_next_step(
+            _current_migration: BucketMigration,
+            current_item: BucketMigrationItem,
+        ) -> None:
+            current_item.step = next_step
+            current_item.updated_at = utcnow()
+
+        self.migration, self.item = self.service._persist_item_checkpoint(
+            int(self.migration.id),
+            int(self.item.id),
+            persist_next_step,
+        )
         return True
 
     def _run_apply_target_lock(self, _strategy: str) -> bool:
-        self.service._run_apply_target_lock_step(
+        self.migration, self.item = self.service._run_apply_target_lock_step(
             self.migration,
             self.item,
             self.target_ctx,
@@ -128,25 +172,44 @@ class _MigrationItemExecutionLoop:
         if synced is None:
             return False
         copied, _deleted, diff = synced
-        self.service._store_item_diff(self.item, diff)
-        self.item.pre_sync_done = True
-        self.item.status = "awaiting_cutover"
-        self.item.step = "awaiting_cutover"
-        self.item.updated_at = utcnow()
-        self.service._add_event(
-            self.migration,
-            item=self.item,
-            level="info",
-            message="Pre-sync completed; waiting for cutover.",
-            metadata={"copied": copied},
+
+        def persist_pre_sync(
+            current_migration: BucketMigration,
+            current_item: BucketMigrationItem,
+        ) -> None:
+            self.service._store_item_diff(current_item, diff)
+            current_item.pre_sync_done = True
+            current_item.status = "awaiting_cutover"
+            current_item.step = "awaiting_cutover"
+            current_item.updated_at = utcnow()
+            self.service._add_event(
+                current_migration,
+                item=current_item,
+                level="info",
+                message="Pre-sync completed; waiting for cutover.",
+                metadata={"copied": copied},
+            )
+
+        self.migration, self.item = self.service._persist_item_checkpoint(
+            int(self.migration.id),
+            int(self.item.id),
+            persist_pre_sync,
         )
-        self.service._commit()
         return False
 
     def _run_awaiting_cutover(self, _strategy: str) -> bool:
-        self.item.status = "awaiting_cutover"
-        self.item.updated_at = utcnow()
-        self.service._commit()
+        def persist_awaiting(
+            _current_migration: BucketMigration,
+            current_item: BucketMigrationItem,
+        ) -> None:
+            current_item.status = "awaiting_cutover"
+            current_item.updated_at = utcnow()
+
+        self.migration, self.item = self.service._persist_item_checkpoint(
+            int(self.migration.id),
+            int(self.item.id),
+            persist_awaiting,
+        )
         return False
 
     def _run_apply_read_only(self, _strategy: str) -> bool:
@@ -155,16 +218,26 @@ class _MigrationItemExecutionLoop:
             self.item.source_bucket,
             self.item,
         )
-        self.item.read_only_applied = True
-        self.item.step = "sync"
-        self.item.updated_at = utcnow()
-        self.service._add_event(
-            self.migration,
-            item=self.item,
-            level="info",
-            message="Read-only policy applied on source bucket.",
+
+        def persist_read_only(
+            current_migration: BucketMigration,
+            current_item: BucketMigrationItem,
+        ) -> None:
+            current_item.read_only_applied = True
+            current_item.step = "sync"
+            current_item.updated_at = utcnow()
+            self.service._add_event(
+                current_migration,
+                item=current_item,
+                level="info",
+                message="Read-only policy applied on source bucket.",
+            )
+
+        self.migration, self.item = self.service._persist_item_checkpoint(
+            int(self.migration.id),
+            int(self.item.id),
+            persist_read_only,
         )
-        self.service._commit()
         return True
 
     def _run_sync(self, _strategy: str) -> bool:
@@ -172,10 +245,20 @@ class _MigrationItemExecutionLoop:
         if synced is None:
             return False
         _copied, _deleted, diff = synced
-        self.service._store_item_diff(self.item, diff)
-        self.item.step = "verify"
-        self.item.updated_at = utcnow()
-        self.service._commit()
+
+        def persist_sync(
+            _current_migration: BucketMigration,
+            current_item: BucketMigrationItem,
+        ) -> None:
+            self.service._store_item_diff(current_item, diff)
+            current_item.step = "verify"
+            current_item.updated_at = utcnow()
+
+        self.migration, self.item = self.service._persist_item_checkpoint(
+            int(self.migration.id),
+            int(self.item.id),
+            persist_sync,
+        )
         return True
 
     def _sync_bucket(self, *, allow_delete: bool) -> Optional[tuple[int, int, Any]]:
@@ -210,10 +293,21 @@ class _MigrationItemExecutionLoop:
         )
 
     def _finish_terminal_step(self, _strategy: str) -> bool:
-        if self.item.status == "running":
-            self.item.status = "completed"
-        if self.item.finished_at is None:
-            self.item.finished_at = utcnow()
-        self.item.updated_at = utcnow()
-        self.service._commit()
+        timestamp = utcnow()
+
+        def persist_completed(
+            _current_migration: BucketMigration,
+            current_item: BucketMigrationItem,
+        ) -> None:
+            if current_item.status == "running":
+                current_item.status = "completed"
+            if current_item.finished_at is None:
+                current_item.finished_at = timestamp
+            current_item.updated_at = timestamp
+
+        self.migration, self.item = self.service._persist_item_checkpoint(
+            int(self.migration.id),
+            int(self.item.id),
+            persist_completed,
+        )
         return False

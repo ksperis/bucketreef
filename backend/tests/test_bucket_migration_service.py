@@ -5,6 +5,7 @@ from app.utils.storage_endpoint_features import parse_features_config
 
 from datetime import datetime, timedelta, timezone
 import io
+import sqlite3
 import time
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -64,6 +65,32 @@ from app.services.s3_client import S3OperationError
 from app.services.webhook_catalog import MIGRATION_EVENT_TYPE
 from app.services.webhook_service import WebhookQueueError, WebhookService
 from tests.storage_endpoint_features import persisted_endpoint_features
+
+
+def _install_in_memory_sync_checkpoints(service, migration, item) -> None:
+    migration.id = getattr(migration, "id", None) or 1
+    item.id = getattr(item, "id", None) or 1
+
+    def persist_item_checkpoint(_migration_id, _item_id, mutate):
+        mutate(migration, item)
+        return migration, item
+
+    def persist_sync_progress_checkpoint(
+        _migration_id,
+        _item_id,
+        *,
+        copied_inc=0,
+        deleted_inc=0,
+    ):
+        item.objects_copied = int(item.objects_copied) + int(copied_inc)
+        item.objects_deleted = int(item.objects_deleted) + int(deleted_inc)
+        timestamp = datetime.now(timezone.utc)
+        item.updated_at = timestamp
+        migration.updated_at = timestamp
+        return migration, item
+
+    service._persist_item_checkpoint = persist_item_checkpoint  # type: ignore[method-assign]
+    service._persist_sync_progress_checkpoint = persist_sync_progress_checkpoint  # type: ignore[method-assign]
 
 
 def _create_user(db_session) -> User:
@@ -491,6 +518,58 @@ def test_create_migration_creates_items_and_defaults(db_session):
     by_source = {item.source_bucket: item for item in migration.items}
     assert by_source["bucket-a"].target_bucket == "mig-bucket-a"
     assert by_source["bucket-b"].target_bucket == "custom-b"
+
+
+def test_create_migration_retries_sqlite_busy(db_session, monkeypatch):
+    user = _create_user(db_session)
+    source = _create_account(
+        db_session,
+        name="source-busy-create",
+        endpoint_url="https://source.example.test",
+        account_id="RGW001",
+    )
+    target = _create_account(
+        db_session,
+        name="target-busy-create",
+        endpoint_url="https://target.example.test",
+        account_id="RGW002",
+    )
+    db_session.commit()
+
+    service = BucketMigrationService(db_session)
+    payload = BucketMigrationCreateRequest(
+        source_context_id=str(source.id),
+        target_context_id=str(target.id),
+        mode="one_shot",
+        buckets=[
+            BucketMigrationBucketMapping(
+                source_bucket="bucket-busy-create",
+                target_bucket="bucket-busy-create-dst",
+            )
+        ],
+    )
+    real_flush = db_session.flush
+    flush_calls = 0
+
+    def busy_once(*args, **kwargs):
+        nonlocal flush_calls
+        flush_calls += 1
+        if flush_calls == 1:
+            original = sqlite3.OperationalError("database is locked")
+            original.sqlite_errorcode = sqlite3.SQLITE_BUSY
+            raise sa.exc.OperationalError("INSERT", (), original)
+        return real_flush(*args, **kwargs)
+
+    monkeypatch.setattr(db_session, "flush", busy_once)
+
+    migration = service.create_migration(payload, user)
+
+    assert flush_calls >= 2
+    assert migration.status == "draft"
+    assert len(migration.items) == 1
+    assert db_session.scalar(sa.select(sa.func.count()).select_from(BucketMigration)) == 1
+    assert db_session.scalar(sa.select(sa.func.count()).select_from(BucketMigrationItem)) == 1
+    assert db_session.scalar(sa.select(sa.func.count()).select_from(BucketMigrationEvent)) == 1
 
 
 @pytest.mark.parametrize(
@@ -3115,6 +3194,7 @@ def test_sync_bucket_uses_stream_copy_when_same_endpoint_copy_option_is_disabled
 
     service._run_copy_actions = _run_copy_actions_stub  # type: ignore[method-assign]
     service._add_event = _add_event_stub  # type: ignore[method-assign]
+    _install_in_memory_sync_checkpoints(service, migration, item)
 
     copied, deleted, _ = service._sync_bucket(
         source_ctx,
@@ -3223,6 +3303,7 @@ def test_sync_bucket_classifies_diff_and_runs_copy_and_delete_batches(db_session
     service._add_event = (  # type: ignore[method-assign]
         lambda *_args, **kwargs: event_metadata.append(kwargs["metadata"])
     )
+    _install_in_memory_sync_checkpoints(service, migration, item)
 
     copied, deleted, diff = service._sync_bucket(
         source_ctx,
@@ -3460,6 +3541,7 @@ def test_sync_bucket_version_aware_cross_endpoint_replays_versions_and_delete_ma
     )
     service._purge_target_bucket_for_replay = lambda *_args, **_kwargs: (2, 1)  # type: ignore[method-assign]
     service._add_event = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
+    _install_in_memory_sync_checkpoints(service, migration, item)
 
     copied, deleted, diff = service._sync_bucket(
         source_ctx,
@@ -3672,6 +3754,7 @@ def test_sync_bucket_version_aware_same_endpoint_uses_copy_source_version_id(db_
     )
     service._purge_target_bucket_for_replay = lambda *_args, **_kwargs: (0, 0)  # type: ignore[method-assign]
     service._add_event = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
+    _install_in_memory_sync_checkpoints(service, migration, item)
 
     copied, deleted, _diff = service._sync_bucket(
         source_ctx,
@@ -3815,6 +3898,7 @@ def test_sync_bucket_version_aware_presync_stores_watermark_and_cutover_replays_
     )
     service._purge_target_bucket_for_replay = lambda *_args, **_kwargs: (0, 0)  # type: ignore[method-assign]
     service._add_event = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
+    _install_in_memory_sync_checkpoints(service, migration, item)
 
     copied_pre, deleted_pre, _ = service._sync_bucket(
         source_ctx,
@@ -3936,6 +4020,7 @@ def test_sync_bucket_version_aware_cutover_fallbacks_purge_before_full_replay(
         service._replay_bucket_versions = replay_versions  # type: ignore[method-assign]
         service._compare_versioned_timelines = compare_timelines  # type: ignore[method-assign]
         service._add_event = add_event  # type: ignore[method-assign]
+        _install_in_memory_sync_checkpoints(service, migration, item)
 
         copied, deleted, _diff = service._sync_bucket(
             source_ctx,
@@ -4707,6 +4792,43 @@ def test_delete_migration_allows_final_statuses_and_draft(db_session):
         assert deleted is None
 
 
+def test_delete_migration_retries_sqlite_busy(db_session, monkeypatch):
+    user = _create_user(db_session)
+    source = _create_account(db_session, name="source", endpoint_url="https://source.example.test", account_id="RGW001")
+    target = _create_account(db_session, name="target", endpoint_url="https://target.example.test", account_id="RGW002")
+    db_session.commit()
+
+    service = BucketMigrationService(db_session)
+    migration = service.create_migration(
+        BucketMigrationCreateRequest(
+            source_context_id=str(source.id),
+            target_context_id=str(target.id),
+            mode="one_shot",
+            buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a", target_bucket="bucket-a-dst")],
+        ),
+        user,
+    )
+    migration_id = int(migration.id)
+    real_commit = db_session.commit
+    failed = False
+
+    def busy_once():
+        nonlocal failed
+        if not failed:
+            failed = True
+            original = sqlite3.OperationalError("database is locked")
+            original.sqlite_errorcode = sqlite3.SQLITE_BUSY
+            raise sa.exc.OperationalError("COMMIT", (), original)
+        return real_commit()
+
+    monkeypatch.setattr(db_session, "commit", busy_once)
+
+    service.delete_migration(migration_id)
+
+    assert failed is True
+    assert db_session.get(BucketMigration, migration_id) is None
+
+
 def test_delete_migration_rejects_non_final_status(db_session):
     user = _create_user(db_session)
     source = _create_account(db_session, name="source", endpoint_url="https://source.example.test", account_id="RGW001")
@@ -5163,11 +5285,13 @@ def test_apply_target_lock_sanitizes_apply_and_restore_failures(db_session):
 
 def test_apply_target_lock_does_not_mask_unexpected_runtime_failure(db_session):
     service = BucketMigrationService(db_session)
-    migration = SimpleNamespace(mode="pre_sync")
+    migration = SimpleNamespace(id=1, mode="pre_sync")
     item = SimpleNamespace(
+        id=1,
         target_bucket="bucket-a-dst",
         target_lock_applied=False,
         target_policy_backup=None,
+        updated_at=None,
     )
     target_ctx = SimpleNamespace(execution_context=object())
     removed: list[str] = []
@@ -5182,6 +5306,12 @@ def test_apply_target_lock_does_not_mask_unexpected_runtime_failure(db_session):
     )
     service._verify_restored_bucket_policy = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
     service._commit = lambda: None  # type: ignore[method-assign]
+
+    def persist_item_checkpoint(_migration_id, _item_id, mutate):
+        mutate(migration, item)
+        return migration, item
+
+    service._persist_item_checkpoint = persist_item_checkpoint  # type: ignore[method-assign]
 
     with pytest.raises(RuntimeError, match="^unexpected lock regression$"):
         service._run_apply_target_lock_step(migration, item, target_ctx)

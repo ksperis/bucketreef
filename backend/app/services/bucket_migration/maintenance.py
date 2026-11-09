@@ -79,14 +79,30 @@ class BucketMigrationMaintenanceMixin:
             )
         )
         for item in migration.items:
-            if not item.source_deleted:
-                item.cleanup_verification = None
-            elif not item.target_lock_applied:
-                # Deletion succeeded; only restoration had failed. A successful
-                # recovery resolves that separate outcome.
-                item.cleanup_error = None
+            clear_verification = not item.source_deleted
+            clear_cleanup_error = item.source_deleted and not item.target_lock_applied
+            if not (clear_verification or clear_cleanup_error):
+                continue
+
+            def persist_item_recovery(_migration, current_item) -> None:
+                if clear_verification:
+                    current_item.cleanup_verification = None
+                if clear_cleanup_error:
+                    # Deletion succeeded; only restoration had failed. A successful
+                    # recovery resolves that separate outcome.
+                    current_item.cleanup_error = None
+                current_item.updated_at = utcnow()
+
+            self._persist_item_checkpoint(
+                int(migration.id),
+                int(item.id),
+                persist_item_recovery,
+            )
         if migration.status == "draft":
-            migration.preparation_status = "stale"
+            migration = self._persist_migration_checkpoint(
+                int(migration.id),
+                lambda current: setattr(current, "preparation_status", "stale"),
+            )
         return errors
 
     @staticmethod
@@ -145,22 +161,26 @@ class BucketMigrationMaintenanceMixin:
         # Recovery helpers retain their errors for the operator; they must not
         # let an expired worker publish over a replacement worker's operation.
         self._assert_workflow_lease()
-        migration.maintenance_status = "failed" if errors else "completed"
-        migration.maintenance_error = " | ".join(errors[:5]) if errors else None
-        migration.worker_lease_owner = None
-        migration.worker_lease_until = None
-        migration.updated_at = utcnow()
-        self._add_event(
-            migration,
-            level="warning" if errors else "info",
-            message=(
-                "Recovery operation needs attention."
-                if errors
-                else "Recovery operation completed."
-            ),
-            metadata={"operation": migration.maintenance_operation},
-        )
-        self._commit()
+        migration_id = int(migration.id)
+
+        def persist_result(current) -> None:
+            current.maintenance_status = "failed" if errors else "completed"
+            current.maintenance_error = " | ".join(errors[:5]) if errors else None
+            current.worker_lease_owner = None
+            current.worker_lease_until = None
+            current.updated_at = utcnow()
+            self._add_event(
+                current,
+                level="warning" if errors else "info",
+                message=(
+                    "Recovery operation needs attention."
+                    if errors
+                    else "Recovery operation completed."
+                ),
+                metadata={"operation": current.maintenance_operation},
+            )
+
+        self._persist_migration_checkpoint(migration_id, persist_result)
 
     def run_maintenance(
         self, migration_id: int, *, worker_id=None, lease_seconds=60
@@ -170,9 +190,12 @@ class BucketMigrationMaintenanceMixin:
             return
         self._bind_workflow_lease(migration_id, worker_id)
         self._assert_migration_creator_access(migration)
-        migration.maintenance_status = "running"
-        migration.updated_at = utcnow()
-        self._commit()
+
+        def mark_running(current) -> None:
+            current.maintenance_status = "running"
+            current.updated_at = utcnow()
+
+        migration = self._persist_migration_checkpoint(migration_id, mark_running)
 
         def check():
             self._assert_workflow_lease()
@@ -370,11 +393,20 @@ class BucketMigrationMaintenanceMixin:
                 raise RuntimeError(
                     "Fresh SHA-256 verification found different contents, tags or version history. The source is retained."
                 )
-            item.cleanup_verification = {
+            verification = {
                 "target_sha256": target_hash,
                 "verified_at": utcnow().isoformat(),
             }
-            self._commit()
+
+            def persist_verification(_migration, current_item) -> None:
+                current_item.cleanup_verification = verification
+                current_item.updated_at = utcnow()
+
+            _migration, item = self._persist_item_checkpoint(
+                int(item.migration_id),
+                int(item.id),
+                persist_verification,
+            )
         return receipt
 
     def _build_source_cleanup_policy(self, item) -> dict:
@@ -425,14 +457,33 @@ class BucketMigrationMaintenanceMixin:
         self._remove_deleted_bucket_ui_tags(source, item.source_bucket)
 
     def _finalize_verified_source_cleanup(self, item, target) -> None:
-        item.source_deleted = True
-        item.read_only_applied = False
-        item.source_policy_backup = None
-        self._commit()
+        migration_id = int(item.migration_id)
+        item_id = int(item.id)
+
+        def persist_source_deleted(_migration, current_item) -> None:
+            current_item.source_deleted = True
+            current_item.read_only_applied = False
+            current_item.source_policy_backup = None
+            current_item.updated_at = utcnow()
+
+        _migration, item = self._persist_item_checkpoint(
+            migration_id,
+            item_id,
+            persist_source_deleted,
+        )
         self._restore_checked_policy(
             target.execution_context,
             item.target_bucket,
             item.target_policy_backup,
         )
-        item.target_lock_applied = False
-        item.target_policy_backup = None
+
+        def persist_target_restored(_migration, current_item) -> None:
+            current_item.target_lock_applied = False
+            current_item.target_policy_backup = None
+            current_item.updated_at = utcnow()
+
+        self._persist_item_checkpoint(
+            migration_id,
+            item_id,
+            persist_target_restored,
+        )

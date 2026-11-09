@@ -10,7 +10,7 @@ from typing import Optional, TYPE_CHECKING
 
 from sqlalchemy import select
 
-from app.core.db_transactions import rollback_safely
+from app.core.db_transactions import rollback_safely, run_db_unit_with_sqlite_retry
 from app.db import PortalExternalAccessCredential, PortalStorageSpaceMetadata, S3Account, User
 from app.core.domain_enums import PortalAccountRole
 from app.models.app_settings import PortalEffectiveSettings
@@ -295,20 +295,24 @@ class PortalAccessKeysMixin:
                 self._external_access_policy(access.account, metadata.bucket_name, permission),
             )
             new_key = iam_service.create_access_key(iam_username)
-            credential = PortalExternalAccessCredential(
-                account_id=access.account.id,
-                storage_space_metadata_id=metadata.id,
-                bucket_name=metadata.bucket_name,
-                created_by_user_id=user.id,
-                external_email=external_email,
-                permission=permission,
-                iam_user_id=iam_user.user_id or iam_user.arn or iam_username,
-                iam_username=iam_user.name or iam_username,
-                access_key_id=new_key.access_key_id,
-                status=new_key.status or "Active",
-            )
-            self.db.add(credential)
-            self.db.flush()
+            def stage_credential_once() -> PortalExternalAccessCredential:
+                credential = PortalExternalAccessCredential(
+                    account_id=access.account.id,
+                    storage_space_metadata_id=metadata.id,
+                    bucket_name=metadata.bucket_name,
+                    created_by_user_id=user.id,
+                    external_email=external_email,
+                    permission=permission,
+                    iam_user_id=iam_user.user_id or iam_user.arn or iam_username,
+                    iam_username=iam_user.name or iam_username,
+                    access_key_id=new_key.access_key_id,
+                    status=new_key.status or "Active",
+                )
+                self.db.add(credential)
+                self.db.flush()
+                return credential
+
+            credential = run_db_unit_with_sqlite_retry(self.db, stage_credential_once)
             projection_attempted = True
             self._sync_storage_space_access_projection(access.account, metadata, sync_participants=False)
             self.db.commit()

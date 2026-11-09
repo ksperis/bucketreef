@@ -2,11 +2,13 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 
 from sqlalchemy import update
 
+from app.core.db_transactions import run_db_unit_with_sqlite_retry
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import BucketMigration, BucketMigrationItem, User
 from app.models.bucket_migration import (
@@ -62,6 +64,57 @@ class BucketMigrationPlanningMixin:
             raise ValueError("This migration changed. Reload it before trying again.")
         for name, value in values.items():
             setattr(migration, name, value)
+
+    def _persist_transition_command(
+        self,
+        migration: BucketMigration,
+        *,
+        values: dict[str, object],
+        mutate: Callable[[BucketMigration], None],
+        allowed_statuses: tuple[str, ...] | None = None,
+    ) -> BucketMigration:
+        """Persist one replayable DB-only command transition."""
+
+        migration_id = int(migration.id)
+        expected_status = str(migration.status)
+        expected_revision = int(migration.configuration_revision)
+        expected_preparation_status = str(migration.preparation_status)
+        expected_maintenance_status = str(migration.maintenance_status)
+
+        def persist_once() -> int:
+            current = self.db.get(
+                BucketMigration,
+                migration_id,
+                populate_existing=True,
+            )
+            if current is None:
+                raise ValueError("Migration not found")
+            if int(current.configuration_revision) != expected_revision:
+                raise ValueError("This migration changed. Reload it before trying again.")
+            if str(current.preparation_status) != expected_preparation_status:
+                raise ValueError("This migration changed. Reload it before trying again.")
+            if str(current.maintenance_status) != expected_maintenance_status:
+                raise ValueError("This migration changed. Reload it before trying again.")
+            if allowed_statuses:
+                if current.status not in allowed_statuses:
+                    raise ValueError("This migration changed. Reload it before trying again.")
+            elif current.status != expected_status:
+                raise ValueError("This migration changed. Reload it before trying again.")
+
+            self._transition_command(
+                current,
+                allowed_statuses=allowed_statuses,
+                **values,
+            )
+            mutate(current)
+            self._commit()
+            return migration_id
+
+        run_db_unit_with_sqlite_retry(self.db, persist_once)
+        current = self.db.get(BucketMigration, migration_id, populate_existing=True)
+        if current is None:  # pragma: no cover - defensive consistency check
+            raise RuntimeError("Bucket migration could not be reloaded after command transition")
+        return current
 
     def _build_bucket_mappings(
         self, payload: BucketMigrationDraftRequest
@@ -262,52 +315,62 @@ class BucketMigrationPlanningMixin:
         self, payload: BucketMigrationCreateRequest, user: User
     ) -> BucketMigration:
         configuration = self._resolve_draft_configuration(payload)
+        created_by_user_id = int(user.id)
+        execution_auth_session_id = self._execution_auth_session_id
+        event_metadata = self._configuration_event_metadata(payload, configuration)
 
-        migration = BucketMigration(
-            execution_auth_session_id=self._execution_auth_session_id,
-            created_by_user_id=user.id,
-            source_context_id=payload.source_context_id,
-            target_context_id=payload.target_context_id,
-            mode=payload.mode,
-            copy_bucket_settings=payload.copy_bucket_settings,
-            strong_integrity_check=payload.strong_integrity_check,
-            lock_target_writes=payload.lock_target_writes,
-            use_same_endpoint_copy=configuration.use_same_endpoint_copy,
-            auto_grant_source_read_for_copy=configuration.auto_grant_source_read_for_copy,
-            status="draft",
-            precheck_report=None,
-            precheck_checked_at=None,
-            parallelism_max=configuration.parallelism,
-            total_items=len(configuration.mappings),
-            completed_items=0,
-            failed_items=0,
-            canceled_items=0,
-            awaiting_items=0,
-            created_at=utcnow(),
-            updated_at=utcnow(),
-        )
-        self.db.add(migration)
-        self.db.flush()
-
-        for source_bucket, target_bucket in configuration.mappings:
-            self.db.add(
-                self._build_draft_item(
-                    migration.id,
-                    source_bucket,
-                    target_bucket,
-                    timestamp=utcnow(),
-                )
+        def persist_once() -> int:
+            timestamp = utcnow()
+            migration = BucketMigration(
+                execution_auth_session_id=execution_auth_session_id,
+                created_by_user_id=created_by_user_id,
+                source_context_id=payload.source_context_id,
+                target_context_id=payload.target_context_id,
+                mode=payload.mode,
+                copy_bucket_settings=payload.copy_bucket_settings,
+                strong_integrity_check=payload.strong_integrity_check,
+                lock_target_writes=payload.lock_target_writes,
+                use_same_endpoint_copy=configuration.use_same_endpoint_copy,
+                auto_grant_source_read_for_copy=configuration.auto_grant_source_read_for_copy,
+                status="draft",
+                precheck_report=None,
+                precheck_checked_at=None,
+                parallelism_max=configuration.parallelism,
+                total_items=len(configuration.mappings),
+                completed_items=0,
+                failed_items=0,
+                canceled_items=0,
+                awaiting_items=0,
+                created_at=timestamp,
+                updated_at=timestamp,
             )
+            self.db.add(migration)
+            self.db.flush()
 
-        self._add_event(
-            migration,
-            level="info",
-            message="Migration created.",
-            metadata=self._configuration_event_metadata(payload, configuration),
-        )
-        self._commit()
-        self.db.refresh(migration)
+            for source_bucket, target_bucket in configuration.mappings:
+                self.db.add(
+                    self._build_draft_item(
+                        migration.id,
+                        source_bucket,
+                        target_bucket,
+                        timestamp=timestamp,
+                    )
+                )
+            self._add_event(
+                migration,
+                level="info",
+                message="Migration created.",
+                metadata=event_metadata,
+            )
+            self._commit()
+            return int(migration.id)
+
+        migration_id = run_db_unit_with_sqlite_retry(self.db, persist_once)
+        migration = self.db.get(BucketMigration, migration_id, populate_existing=True)
+        if migration is None:  # pragma: no cover - defensive consistency check
+            raise RuntimeError("Bucket migration could not be reloaded after creation")
         return migration
+
     def update_draft_migration(
         self, migration_id: int, payload: BucketMigrationUpdateRequest
     ) -> BucketMigration:
@@ -365,14 +428,17 @@ class BucketMigrationPlanningMixin:
         self.db.refresh(migration)
         return migration
     def delete_migration(self, migration_id: int) -> None:
-        migration = self.get_migration(migration_id)
-        if migration.status not in {*FINAL_STATUSES, "draft"}:
-            raise ValueError(
-                "Migration can only be deleted from a final status or from draft"
-            )
-        require_action(migration, "delete")
-        self.db.delete(migration)
-        self._commit()
+        def delete_once() -> None:
+            migration = self.get_migration(migration_id)
+            if migration.status not in {*FINAL_STATUSES, "draft"}:
+                raise ValueError(
+                    "Migration can only be deleted from a final status or from draft"
+                )
+            require_action(migration, "delete")
+            self.db.delete(migration)
+            self._commit()
+
+        run_db_unit_with_sqlite_retry(self.db, delete_once)
 
     def _validate_start_request(
         self,
@@ -437,21 +503,26 @@ class BucketMigrationPlanningMixin:
                     f"Item '{item.source_bucket}' -> '{item.target_bucket}' is not runnable: {exc}"
                 ) from exc
 
-    def _queue_migration_for_start(self, migration: BucketMigration) -> None:
-        self._transition_command(migration, status="queued")
-        migration.worker_lease_owner = None
-        migration.worker_lease_until = None
-        migration.error_message = None
-        migration.updated_at = utcnow()
-        for item in migration.items:
-            if item.status == "paused":
-                item.status = "pending"
-            if item.status == "awaiting_cutover" and migration.mode != "pre_sync":
-                item.status = "pending"
-                item.step = "apply_read_only"
-            item.updated_at = utcnow()
-        self._add_event(migration, level="info", message="Migration queued.")
-        self._commit()
+    def _queue_migration_for_start(self, migration: BucketMigration) -> BucketMigration:
+        def mutate(current: BucketMigration) -> None:
+            current.worker_lease_owner = None
+            current.worker_lease_until = None
+            current.error_message = None
+            current.updated_at = utcnow()
+            for item in current.items:
+                if item.status == "paused":
+                    item.status = "pending"
+                if item.status == "awaiting_cutover" and current.mode != "pre_sync":
+                    item.status = "pending"
+                    item.step = "apply_read_only"
+                item.updated_at = utcnow()
+            self._add_event(current, level="info", message="Migration queued.")
+
+        return self._persist_transition_command(
+            migration,
+            values={"status": "queued"},
+            mutate=mutate,
+        )
 
     def start_migration(
         self,
@@ -468,9 +539,7 @@ class BucketMigrationPlanningMixin:
         )
         self._revalidate_start_preconditions(migration)
         self._validate_start_execution_plan(migration)
-        self._queue_migration_for_start(migration)
-        self.db.refresh(migration)
-        return migration
+        return self._queue_migration_for_start(migration)
 
     def request_pause(self, migration_id: int) -> BucketMigration:
         migration = self.get_migration(migration_id)
@@ -479,16 +548,16 @@ class BucketMigrationPlanningMixin:
                 "Pause is only available while migration is queued or running"
             )
         require_action(migration, "pause")
-        self._transition_command(
+        def mutate(current: BucketMigration) -> None:
+            current.updated_at = utcnow()
+            self._add_event(current, level="info", message="Pause requested.")
+
+        return self._persist_transition_command(
             migration,
             allowed_statuses=("queued", "running", "pause_requested"),
-            status="pause_requested",
+            values={"status": "pause_requested"},
+            mutate=mutate,
         )
-        migration.updated_at = utcnow()
-        self._add_event(migration, level="info", message="Pause requested.")
-        self._commit()
-        self.db.refresh(migration)
-        return migration
 
     def resume_migration(self, migration_id: int) -> BucketMigration:
         migration = self.get_migration(migration_id)
@@ -496,28 +565,34 @@ class BucketMigrationPlanningMixin:
         self._revalidate_transfer_preconditions(migration)
         if migration.status not in {"paused"}:
             raise ValueError("Resume is only available from paused status")
-        self._transition_command(migration, status="queued")
-        migration.worker_lease_owner = None
-        migration.worker_lease_until = None
-        migration.updated_at = utcnow()
-        for item in migration.items:
-            if item.status == "paused":
-                item.status = "pending"
-                item.updated_at = utcnow()
-        self._add_event(migration, level="info", message="Migration resumed.")
-        self._commit()
-        self.db.refresh(migration)
-        return migration
+        def mutate(current: BucketMigration) -> None:
+            current.worker_lease_owner = None
+            current.worker_lease_until = None
+            current.updated_at = utcnow()
+            for item in current.items:
+                if item.status == "paused":
+                    item.status = "pending"
+                    item.updated_at = utcnow()
+            self._add_event(current, level="info", message="Migration resumed.")
+
+        return self._persist_transition_command(
+            migration,
+            values={"status": "queued"},
+            mutate=mutate,
+        )
 
     def stop_migration(self, migration_id: int) -> BucketMigration:
         migration = self.get_migration(migration_id)
         require_action(migration, "stop")
-        self._transition_command(migration, status="cancel_requested")
-        migration.updated_at = utcnow()
-        self._add_event(migration, level="info", message="Stop requested.")
-        self._commit()
-        self.db.refresh(migration)
-        return migration
+        def mutate(current: BucketMigration) -> None:
+            current.updated_at = utcnow()
+            self._add_event(current, level="info", message="Stop requested.")
+
+        return self._persist_transition_command(
+            migration,
+            values={"status": "cancel_requested"},
+            mutate=mutate,
+        )
 
     def continue_after_presync(
         self, migration_id: int, *, confirmed: bool = False
@@ -531,18 +606,23 @@ class BucketMigrationPlanningMixin:
             raise ValueError(
                 "Continue is only available when migration is awaiting cutover"
             )
-        self._transition_command(migration, status="queued")
-        migration.worker_lease_owner = None
-        migration.worker_lease_until = None
-        migration.updated_at = utcnow()
-        for item in migration.items:
-            if item.status == "awaiting_cutover":
-                item.status = "pending"
-                item.step = "apply_read_only"
-                item.updated_at = utcnow()
-        self._add_event(
-            migration, level="info", message="Cutover requested after pre-sync."
+        def mutate(current: BucketMigration) -> None:
+            current.worker_lease_owner = None
+            current.worker_lease_until = None
+            current.updated_at = utcnow()
+            for item in current.items:
+                if item.status == "awaiting_cutover":
+                    item.status = "pending"
+                    item.step = "apply_read_only"
+                    item.updated_at = utcnow()
+            self._add_event(
+                current,
+                level="info",
+                message="Cutover requested after pre-sync.",
+            )
+
+        return self._persist_transition_command(
+            migration,
+            values={"status": "queued"},
+            mutate=mutate,
         )
-        self._commit()
-        self.db.refresh(migration)
-        return migration

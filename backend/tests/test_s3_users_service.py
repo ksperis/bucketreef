@@ -3,10 +3,12 @@
 
 from __future__ import annotations
 from datetime import date, datetime, timezone
+import sqlite3
 from typing import Optional
 
 import pytest
 from sqlalchemy import func, select
+from sqlalchemy.exc import OperationalError
 
 from tests.feature_policy_fixtures import enable_manager_features
 from tests.storage_endpoint_features import persisted_endpoint_features
@@ -52,6 +54,12 @@ from app.services.s3_user_query_service import S3UserQueryService
 from app.services.s3_user_rgw_context_service import S3UserRgwContextService
 from app.services.s3_user_update_service import S3UserUpdateService
 from app.services.s3_users_service import S3UsersService
+
+
+def _busy_snapshot_error() -> OperationalError:
+    original = sqlite3.OperationalError("database is locked")
+    original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
+    return OperationalError("COMMIT", (), original)
 
 
 def test_s3_user_key_management_service_composes_shared_dependencies(db_session):
@@ -369,6 +377,205 @@ def test_import_users_recovers_after_commit_failure_without_recreating_remote_ke
         select(func.count())
         .select_from(S3UserImportIntent)
         .where(S3UserImportIntent.rgw_user_uid == "import-rollback")
+    ) == 0
+
+
+def test_import_users_retries_busy_remote_checkpoint_without_recreating_key(
+    db_session,
+    monkeypatch,
+):
+    endpoint = _seed_ceph_endpoint(db_session)
+    fake = FakeRGWAdmin()
+    fake.remote_users["import-busy"] = {
+        "display_name": "Import Busy",
+        "email": None,
+        "keys": [],
+    }
+    service = _build_service(db_session, monkeypatch, fake)
+    settings = load_app_settings_for_db(db_session)
+    monkeypatch.setattr(
+        "app.services.s3_user_import_service.load_app_settings_for_db",
+        lambda _db: settings,
+    )
+    real_commit = db_session.commit
+    commit_calls = 0
+
+    def busy_remote_checkpoint_once():
+        nonlocal commit_calls
+        commit_calls += 1
+        if commit_calls == 3:
+            raise _busy_snapshot_error()
+        return real_commit()
+
+    monkeypatch.setattr(db_session, "commit", busy_remote_checkpoint_once)
+
+    imported = service.import_users(
+        [S3UserImport(uid="import-busy", storage_endpoint_id=endpoint.id)]
+    )
+
+    assert len(imported) == 1
+    assert len(fake.created_keys) == 1
+    assert commit_calls >= 5
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(S3UserImportIntent)
+        .where(S3UserImportIntent.rgw_user_uid == "import-busy")
+    ) == 0
+
+
+def test_import_users_retries_busy_intent_claim_before_creating_remote_key(
+    db_session,
+    monkeypatch,
+):
+    endpoint = _seed_ceph_endpoint(db_session)
+    fake = FakeRGWAdmin()
+    fake.remote_users["import-claim-busy"] = {
+        "display_name": "Import Claim Busy",
+        "email": None,
+        "keys": [],
+    }
+    service = _build_service(db_session, monkeypatch, fake)
+    settings = load_app_settings_for_db(db_session)
+    monkeypatch.setattr(
+        "app.services.s3_user_import_service.load_app_settings_for_db",
+        lambda _db: settings,
+    )
+    real_commit = db_session.commit
+    commit_calls = 0
+
+    def busy_claim_once():
+        nonlocal commit_calls
+        commit_calls += 1
+        if commit_calls == 1:
+            raise _busy_snapshot_error()
+        return real_commit()
+
+    monkeypatch.setattr(db_session, "commit", busy_claim_once)
+
+    imported = service.import_users(
+        [S3UserImport(uid="import-claim-busy", storage_endpoint_id=endpoint.id)]
+    )
+
+    assert len(imported) == 1
+    assert len(fake.created_keys) == 1
+    assert commit_calls >= 5
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(S3User)
+        .where(S3User.rgw_user_uid == "import-claim-busy")
+    ) == 1
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(S3UserImportIntent)
+        .where(S3UserImportIntent.rgw_user_uid == "import-claim-busy")
+    ) == 0
+
+
+def test_import_users_retries_busy_colliding_credential_rotation_before_remote_create(
+    db_session,
+    monkeypatch,
+):
+    endpoint = _seed_ceph_endpoint(db_session)
+    fake = FakeRGWAdmin()
+    fake.remote_users["import-collision-busy"] = {
+        "display_name": "Import Collision Busy",
+        "email": None,
+        "keys": [
+            {
+                "access_key": "COLLIDING-KEY",
+                "secret_key": "REMOTE-EXISTING-SECRET",
+                "status": "enabled",
+            }
+        ],
+    }
+    service = _build_service(db_session, monkeypatch, fake)
+    settings = load_app_settings_for_db(db_session)
+    monkeypatch.setattr(
+        "app.services.s3_user_import_service.load_app_settings_for_db",
+        lambda _db: settings,
+    )
+    generated_credentials = iter(
+        [
+            ("COLLIDING-KEY", "PENDING-SECRET"),
+            ("ROTATED-FIRST", "ROTATED-FIRST-SECRET"),
+            ("ROTATED-RETRY", "ROTATED-RETRY-SECRET"),
+        ]
+    )
+    monkeypatch.setattr(
+        "app.services.s3_user_import_service.new_s3_import_credentials",
+        lambda: next(generated_credentials),
+    )
+    real_commit = db_session.commit
+    commit_calls = 0
+
+    def busy_rotation_once():
+        nonlocal commit_calls
+        commit_calls += 1
+        if commit_calls == 2:
+            raise _busy_snapshot_error()
+        return real_commit()
+
+    monkeypatch.setattr(db_session, "commit", busy_rotation_once)
+
+    imported = service.import_users(
+        [S3UserImport(uid="import-collision-busy", storage_endpoint_id=endpoint.id)]
+    )
+
+    assert len(imported) == 1
+    stored = db_session.scalar(
+        select(S3User).where(S3User.rgw_user_uid == "import-collision-busy")
+    )
+    assert stored is not None
+    assert stored.rgw_access_key == "ROTATED-RETRY"
+    assert fake.created_keys == ["ROTATED-RETRY"]
+    assert commit_calls >= 6
+
+
+def test_import_users_retries_busy_local_persistence_without_recreating_key(
+    db_session,
+    monkeypatch,
+):
+    endpoint = _seed_ceph_endpoint(db_session)
+    fake = FakeRGWAdmin()
+    fake.remote_users["import-local-busy"] = {
+        "display_name": "Import Local Busy",
+        "email": None,
+        "keys": [],
+    }
+    service = _build_service(db_session, monkeypatch, fake)
+    settings = load_app_settings_for_db(db_session)
+    monkeypatch.setattr(
+        "app.services.s3_user_import_service.load_app_settings_for_db",
+        lambda _db: settings,
+    )
+    real_commit = db_session.commit
+    commit_calls = 0
+
+    def busy_local_persistence_once():
+        nonlocal commit_calls
+        commit_calls += 1
+        if commit_calls == 4:
+            raise _busy_snapshot_error()
+        return real_commit()
+
+    monkeypatch.setattr(db_session, "commit", busy_local_persistence_once)
+
+    imported = service.import_users(
+        [S3UserImport(uid="import-local-busy", storage_endpoint_id=endpoint.id)]
+    )
+
+    assert len(imported) == 1
+    assert len(fake.created_keys) == 1
+    assert commit_calls >= 5
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(S3User)
+        .where(S3User.rgw_user_uid == "import-local-busy")
+    ) == 1
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(S3UserImportIntent)
+        .where(S3UserImportIntent.rgw_user_uid == "import-local-busy")
     ) == 0
 
 

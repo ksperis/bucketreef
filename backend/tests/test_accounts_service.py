@@ -1,11 +1,13 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from datetime import UTC, date, datetime
+import sqlite3
 from typing import Optional
 
 import pytest
 from pydantic import ValidationError
 from sqlalchemy import func, select
+from sqlalchemy.exc import OperationalError
 
 from app.core.domain_errors import CompensationFailureError, S3AccountNotFoundError
 from app.services import s3_account_deletion_service as s3_account_deletion_service_module
@@ -38,6 +40,12 @@ from app.core.domain_enums import StorageProvider, UserRole
 from app.models.s3_account import S3AccountCreate, S3AccountImport, S3AccountUpdate
 from app.services.app_settings_service import load_app_settings_for_db
 from tests.storage_endpoint_features import persisted_endpoint_features
+
+
+def _busy_snapshot_error() -> OperationalError:
+    original = sqlite3.OperationalError("database is locked")
+    original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
+    return OperationalError("COMMIT", (), original)
 
 
 def _seed_ceph_endpoint(
@@ -464,6 +472,39 @@ def test_create_account_with_root(db_session, monkeypatch):
     # No interface user is created; only RGW root keys stored on account
     root_user = db_session.scalar(select(User).where(User.email.like("%-admin")))
     assert root_user is None
+
+
+def test_create_account_retries_local_busy_without_replaying_rgw(
+    db_session,
+    monkeypatch,
+):
+    endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
+    fake_admin = FakeRGWAdmin()
+    svc = _build_service(db_session, monkeypatch, fake_admin)
+    real_commit = db_session.commit
+    failed = False
+
+    def busy_once():
+        nonlocal failed
+        if not failed:
+            failed = True
+            raise _busy_snapshot_error()
+        return real_commit()
+
+    monkeypatch.setattr(db_session, "commit", busy_once)
+
+    created = svc.create_account_with_manager(
+        S3AccountCreate(
+            name="Retry local account persistence",
+            rgw_tenant="",
+            storage_endpoint_id=endpoint.id,
+        )
+    )
+
+    assert failed is True
+    assert created.id is not None
+    assert len(fake_admin.created_accounts) == 1
+    assert len(fake_admin.created_users) == 1
 
 
 def test_create_account_commit_failure_compensates_remote_account(db_session, monkeypatch):
@@ -2042,6 +2083,84 @@ class RetryableRGWDeleteAdmin(FakeRGWDeleteAdmin):
         return [{"id": self.account_id}]
 
 
+class RecoverableRGWDeleteAdmin(RetryableRGWDeleteAdmin):
+    def __init__(self, *, account_id: str, root_uid: str) -> None:
+        super().__init__(account_id=account_id, root_uid=root_uid)
+        self.delete_attempts = 0
+        self.created_users: list[str] = []
+        self.created_keys: list[str] = []
+        self.root_keys: list[dict[str, str]] = []
+
+    def delete_account(self, account_id: str):
+        assert account_id == self.account_id
+        self.delete_attempts += 1
+        if self.delete_attempts == 1:
+            raise RGWAdminError(
+                "bucket not empty",
+                status_code=409,
+                error_code="BucketNotEmpty",
+            )
+        return super().delete_account(account_id)
+
+    def delete_user(self, uid: str, tenant: Optional[str] = None):
+        super().delete_user(uid, tenant=tenant)
+        self.root_keys = []
+
+    def get_user(self, uid: str, tenant: Optional[str] = None, allow_not_found: bool = False):
+        if uid != self.root_uid and allow_not_found:
+            return None
+        payload = super().get_user(uid, tenant=tenant, allow_not_found=allow_not_found)
+        if payload is not None:
+            payload["keys"] = list(self.root_keys)
+        return payload
+
+    def create_user_with_account_id(
+        self,
+        *,
+        uid: str,
+        account_id: str,
+        display_name: str,
+        account_root: bool,
+        tenant: Optional[str] = None,
+    ):
+        assert account_id == self.account_id
+        assert account_root is True
+        assert self.account_exists is True
+        assert self.root_exists is False
+        self.root_uid = uid
+        self.root_exists = True
+        self.created_users.append(uid)
+        return {
+            "uid": uid,
+            "account_id": account_id,
+            "account_root": True,
+            "keys": [],
+        }
+
+    def create_access_key(self, uid: str, tenant: Optional[str] = None):
+        assert uid == self.root_uid
+        key = {
+            "access_key": "RESTORED-ACCESS",
+            "secret_key": "RESTORED-SECRET",
+        }
+        self.root_keys = [key]
+        self.created_keys.append(uid)
+        return {"keys": [key]}
+
+    @staticmethod
+    def extract_keys(payload):
+        return payload.get("keys", []) if isinstance(payload, dict) else []
+
+
+class UnrecoverableRGWDeleteAdmin(RecoverableRGWDeleteAdmin):
+    def create_user_with_account_id(self, **kwargs):
+        raise RGWAdminError(
+            "root recreation failed",
+            status_code=500,
+            error_code="InternalError",
+        )
+
+
 
 def _seed_account_derived_rows(db_session, *, endpoint: StorageEndpoint, account: S3Account) -> None:
     db_session.add_all(
@@ -2289,6 +2408,194 @@ def test_delete_account_calls_rgw_when_flag_true(db_session, monkeypatch):
     assert fake_admin.deleted == ["RGW00000000000000002"]
     assert fake_admin.deleted_users == [("rgw00000000000000002-admin", None)]
     assert db_session.scalar(select(S3Account).where(S3Account.id == account.id)) is None
+
+
+def test_delete_account_cross_checks_empty_admin_bucket_count_with_s3_credentials(
+    db_session,
+    monkeypatch,
+):
+    endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
+    account = S3Account(
+        name="DeleteRGWBucketCrossCheck",
+        rgw_account_id="RGW00000000000000991",
+        rgw_user_uid="rgw00000000000000991-admin",
+        rgw_tenant="",
+        rgw_access_key="AKIA-ACCOUNT",
+        rgw_secret_key="SECRET-ACCOUNT",
+        storage_endpoint_id=endpoint.id,
+    )
+    db_session.add(account)
+    db_session.commit()
+
+    fake_admin = FakeRGWDeleteAdmin()
+    svc = _build_service(db_session, monkeypatch, fake_admin)
+    svc.deletion.metrics.get_usage = lambda _account: (0, 0, 0)  # type: ignore[method-assign]
+    svc.rgw_users.resolve = lambda *_args, **_kwargs: (0, [])  # type: ignore[method-assign]
+    svc.account_topics.resolve = lambda *_args, **_kwargs: (0, [])  # type: ignore[method-assign]
+    monkeypatch.setattr(
+        s3_account_deletion_service_module.s3_client,
+        "list_buckets",
+        lambda **_kwargs: [{"name": "still-owned"}],
+    )
+
+    with pytest.raises(ValueError, match=r"buckets=1"):
+        svc.delete_account(account.id, delete_rgw=True)
+
+    assert fake_admin.deleted_users == []
+    assert fake_admin.deleted == []
+    assert db_session.get(S3Account, account.id) is not None
+
+
+def test_delete_account_retries_busy_checkpoint_without_replaying_root_delete(
+    db_session,
+    monkeypatch,
+):
+    endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
+    account = S3Account(
+        name="DeleteBusyCheckpoint",
+        rgw_account_id="RGW00000000000000992",
+        rgw_user_uid="rgw00000000000000992-admin",
+        rgw_tenant="",
+        storage_endpoint_id=endpoint.id,
+    )
+    db_session.add(account)
+    db_session.commit()
+
+    fake_admin = RetryableRGWDeleteAdmin(
+        account_id=account.rgw_account_id,
+        root_uid=account.rgw_user_uid,
+    )
+    svc = _build_service(db_session, monkeypatch, fake_admin)
+    svc.deletion.metrics.get_usage = lambda _account: (0, 0, 0)  # type: ignore[method-assign]
+    svc.rgw_users.resolve = lambda *_args, **_kwargs: (0, [])  # type: ignore[method-assign]
+    svc.account_topics.resolve = lambda *_args, **_kwargs: (0, [])  # type: ignore[method-assign]
+    real_commit = db_session.commit
+    failed = False
+
+    def busy_root_checkpoint_once():
+        nonlocal failed
+        if not failed and any(
+            isinstance(row, S3AccountDeletion) and row.root_user_deleted
+            for row in db_session.dirty
+        ):
+            failed = True
+            raise _busy_snapshot_error()
+        return real_commit()
+
+    monkeypatch.setattr(db_session, "commit", busy_root_checkpoint_once)
+
+    svc.delete_account(account.id, delete_rgw=True)
+
+    assert failed is True
+    assert fake_admin.deleted_users == [(account.rgw_user_uid, None)]
+    assert fake_admin.deleted == [account.rgw_account_id]
+    assert db_session.get(S3Account, account.id) is None
+
+
+def test_delete_account_restores_root_when_remote_account_delete_fails(
+    db_session,
+    monkeypatch,
+):
+    endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
+    account = S3Account(
+        name="DeleteRestoreRoot",
+        rgw_account_id="RGW00000000000000993",
+        rgw_user_uid="rgw00000000000000993-admin",
+        rgw_tenant="",
+        storage_endpoint_id=endpoint.id,
+    )
+    db_session.add(account)
+    db_session.commit()
+    original_root_uid = account.rgw_user_uid
+    restored_root_uid = RgwAccountRootService().root_uid(account.rgw_account_id)
+
+    fake_admin = RecoverableRGWDeleteAdmin(
+        account_id=account.rgw_account_id,
+        root_uid=account.rgw_user_uid,
+    )
+    svc = _build_service(db_session, monkeypatch, fake_admin)
+    svc.deletion.metrics.get_usage = lambda _account: (0, 0, 0)  # type: ignore[method-assign]
+    svc.rgw_users.resolve = lambda *_args, **_kwargs: (0, [])  # type: ignore[method-assign]
+    svc.account_topics.resolve = lambda *_args, **_kwargs: (0, [])  # type: ignore[method-assign]
+    monkeypatch.setattr(
+        s3_account_deletion_service_module.s3_client,
+        "list_buckets",
+        lambda **_kwargs: [],
+    )
+
+    with pytest.raises(ValueError, match="Unable to delete RGW account"):
+        svc.delete_account(account.id, delete_rgw=True)
+
+    db_session.expire_all()
+    restored = db_session.get(S3Account, account.id)
+    deletion = db_session.scalar(
+        select(S3AccountDeletion).where(S3AccountDeletion.account_id == account.id)
+    )
+    assert restored is not None
+    assert restored.rgw_user_uid == restored_root_uid
+    assert restored.rgw_access_key == "RESTORED-ACCESS"
+    assert restored.rgw_secret_key == "RESTORED-SECRET"
+    assert deletion is not None
+    assert deletion.iam_cleanup_completed is True
+    assert deletion.root_user_deleted is False
+    assert deletion.remote_account_deleted is False
+    assert deletion.rgw_user_uid == restored.rgw_user_uid
+    assert fake_admin.root_exists is True
+    assert fake_admin.created_users == [restored_root_uid]
+    assert fake_admin.created_keys == [restored_root_uid]
+
+    svc.delete_account(account.id, delete_rgw=True)
+
+    assert fake_admin.delete_attempts == 2
+    assert fake_admin.deleted_users == [
+        (original_root_uid, None),
+        (restored_root_uid, None),
+    ]
+    assert fake_admin.deleted == [account.rgw_account_id]
+    assert db_session.get(S3Account, account.id) is None
+    assert db_session.scalar(
+        select(S3AccountDeletion).where(S3AccountDeletion.account_id == account.id)
+    ) is None
+
+
+def test_delete_account_raises_compensation_failure_when_root_restore_fails(
+    db_session,
+    monkeypatch,
+):
+    endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
+    account = S3Account(
+        name="DeleteRestoreRootFails",
+        rgw_account_id="RGW00000000000000994",
+        rgw_user_uid="rgw00000000000000994-admin",
+        rgw_tenant="",
+        storage_endpoint_id=endpoint.id,
+    )
+    db_session.add(account)
+    db_session.commit()
+
+    fake_admin = UnrecoverableRGWDeleteAdmin(
+        account_id=account.rgw_account_id,
+        root_uid=account.rgw_user_uid,
+    )
+    svc = _build_service(db_session, monkeypatch, fake_admin)
+    svc.deletion.metrics.get_usage = lambda _account: (0, 0, 0)  # type: ignore[method-assign]
+    svc.rgw_users.resolve = lambda *_args, **_kwargs: (0, [])  # type: ignore[method-assign]
+    svc.account_topics.resolve = lambda *_args, **_kwargs: (0, [])  # type: ignore[method-assign]
+
+    with pytest.raises(CompensationFailureError, match="root-user restoration"):
+        svc.delete_account(account.id, delete_rgw=True)
+
+    db_session.expire_all()
+    deletion = db_session.scalar(
+        select(S3AccountDeletion).where(S3AccountDeletion.account_id == account.id)
+    )
+    assert db_session.get(S3Account, account.id) is not None
+    assert deletion is not None
+    assert deletion.iam_cleanup_completed is True
+    assert deletion.root_user_deleted is True
+    assert deletion.remote_account_deleted is False
+    assert fake_admin.account_exists is True
+    assert fake_admin.root_exists is False
 
 
 @pytest.mark.parametrize(

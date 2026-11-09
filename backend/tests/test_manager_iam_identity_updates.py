@@ -253,6 +253,10 @@ class _CreateIdentityService:
         key = AccessKey(access_key_id="AKIA-created") if create_key else None
         return IAMUser(name=name), key
 
+    def create_access_key(self, name: str) -> AccessKey:
+        self._record("create_access_key", name)
+        return AccessKey(access_key_id="AKIA-created")
+
     def add_user_to_group(self, group_name: str, user_name: str) -> None:
         self._record("add_user_to_group", group_name, user_name)
 
@@ -433,6 +437,38 @@ def test_user_create_orchestration_continues_rollback_after_cleanup_failure():
         "delete_access_key",
         "delete_user",
     ]
+
+
+def test_create_access_key_compensates_remote_key_when_metadata_persistence_fails(monkeypatch):
+    service = _CreateIdentityService()
+    context = _context()
+
+    class _FailingMetadata:
+        def __init__(self, _db) -> None:
+            pass
+
+        def validate_payload(self, _context, _payload) -> None:
+            return None
+
+        def set_iam_metadata(self, *_args, **_kwargs):
+            raise RuntimeError("metadata persistence failed")
+
+    monkeypatch.setattr(iam_users, "_ensure_unmanaged_user", lambda *_args: None)
+    monkeypatch.setattr(iam_users, "iam_source_reference", lambda _context: None)
+    monkeypatch.setattr(iam_users, "get_iam_service_for_context", lambda _context: service)
+    monkeypatch.setattr(iam_users, "AccessKeyMetadataService", _FailingMetadata)
+
+    with pytest.raises(RuntimeError, match="metadata persistence failed"):
+        iam_users.create_access_key(
+            "alice",
+            AccessKeyMetadataInput(name="backup"),
+            context=context,
+            current_user=object(),
+            audit_service=_Audit(),
+            db=object(),
+        )
+
+    assert [call[0] for call in service.calls] == ["create_access_key", "delete_access_key"]
 
 
 def test_role_create_orchestration_applies_all_policies_and_audits(monkeypatch):

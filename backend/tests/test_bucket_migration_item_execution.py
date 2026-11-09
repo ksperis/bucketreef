@@ -25,6 +25,7 @@ def _migration(**overrides):
 
 def _item(*, step: str):
     return SimpleNamespace(
+        id=201,
         execution_strategy="current_only",
         source_bucket="bucket-a",
         target_bucket="bucket-b",
@@ -38,6 +39,14 @@ def _item(*, step: str):
         finished_at=None,
         updated_at=None,
     )
+
+
+def _install_in_memory_checkpoint(service, migration, item) -> None:
+    def persist_item_checkpoint(_migration_id, _item_id, mutate):
+        mutate(migration, item)
+        return migration, item
+
+    service._persist_item_checkpoint = persist_item_checkpoint  # type: ignore[method-assign]
 
 
 def _diff(*, different_count: int = 0, only_source_count: int = 0):
@@ -63,6 +72,7 @@ def test_run_item_dispatches_step_handlers_in_order(db_session):
     source_ctx = SimpleNamespace(execution_context=object())
     target_ctx = SimpleNamespace(execution_context=object())
     calls: list[object] = []
+    _install_in_memory_checkpoint(service, migration, item)
 
     service._copy_bucket_settings = (  # type: ignore[method-assign]
         lambda *_args, **_kwargs: calls.append("copy_settings")
@@ -114,6 +124,7 @@ def test_run_item_turns_interrupted_sync_into_paused_state(db_session):
     migration = _migration(id=102, parallelism_max=2)
     item = _item(step="sync")
     control_states = iter(["run", "pause"])
+    _install_in_memory_checkpoint(service, migration, item)
     service._sync_bucket = (  # type: ignore[method-assign]
         lambda *_args, **_kwargs: (-1, -1, SimpleNamespace())
     )
@@ -134,11 +145,14 @@ def test_run_item_turns_interrupted_sync_into_paused_state(db_session):
 
 def test_run_item_rejects_unknown_step(db_session):
     service = BucketMigrationService(db_session)
+    migration = _migration(id=103, parallelism_max=1)
+    item = _item(step="unknown")
+    _install_in_memory_checkpoint(service, migration, item)
 
     with pytest.raises(RuntimeError, match="^Unsupported item step: unknown$"):
         service._run_item(
-            _migration(id=103, parallelism_max=1),
-            _item(step="unknown"),
+            migration,
+            item,
             SimpleNamespace(execution_context=object()),
             SimpleNamespace(execution_context=object()),
             control_check=lambda: "run",
@@ -212,6 +226,7 @@ def test_verify_step_fails_non_clean_diff(db_session):
     migration = _migration()
     item = _item(step="verify")
     events: list[dict[str, object]] = []
+    _install_in_memory_checkpoint(service, migration, item)
     service._compare_buckets_streamed = (  # type: ignore[method-assign]
         lambda *_args, **_kwargs: _diff(different_count=1, only_source_count=2)
     )
@@ -254,6 +269,7 @@ def test_verify_step_completes_clean_item_without_source_deletion(db_session):
     target_execution_context = object()
     finalized: list[tuple[object, str]] = []
     events: list[str] = []
+    _install_in_memory_checkpoint(service, migration, item)
     service._compare_buckets_streamed = (  # type: ignore[method-assign]
         lambda *_args, **_kwargs: _diff()
     )
