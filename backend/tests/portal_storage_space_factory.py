@@ -36,7 +36,6 @@ def portal_storage_space_summary(**overrides: Any) -> PortalStorageSpaceSummary:
         "quota_max_objects": None,
         "internal_bucket_name": None,
         "archived_at": None,
-        "origin": "imported",
         "name_editable": False,
         "icon": PortalStorageSpaceIcon(
             source="preset",

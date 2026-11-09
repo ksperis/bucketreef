@@ -70,7 +70,6 @@ export function createDemoSpace(
     quota_max_size_bytes: input.quota_max_size_bytes ?? null,
     quota_max_objects: input.quota_max_objects ?? null,
     archived_at: input.archived_at ?? null,
-    origin: input.origin ?? "imported",
     name_editable: input.name_editable ?? false,
     icon: input.icon ?? { source: "preset", preset: "bucket", url: null, updated_at: null },
     shares: input.shares ?? [],
@@ -362,7 +361,7 @@ export function createSeed(): DemoState {
     accountId: b.accountId, bucketName: b.name, internal_bucket_name: b.name, description: "Shared working files and project deliverables.",
     role: "Editor", visibility: i % 4 === 0 ? "private" : "shared", share_scope: "account", account_member_role: "Editor",
     owner_user_id: i % 4 === 0 ? 3 : null, owner_label: i % 4 === 0 ? users[2].full_name : null,
-    status: "Active", origin: "portal_generic", name_editable: true, created_at: b.creation_date, shares: [],
+    status: "Active", name_editable: true, created_at: b.creation_date, shares: [],
     project_key: accounts.find(a => a.id === b.accountId)!.name, region: "Paris", can_browse: true,
   }));
   const requests: PortalAdminRequest[] = ["account_quota_change", "portal_user_access", "portal_user_access"].map((type, i) => ({
