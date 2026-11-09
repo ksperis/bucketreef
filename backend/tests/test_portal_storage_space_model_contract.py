@@ -12,6 +12,7 @@ import pytest
 from app.db import User
 from app.main import app
 from app.models.portal_storage_spaces import (
+    PortalStorageSpaceCatalogEntry,
     PortalStorageSpaceCollaboratorPreview,
     PortalStorageSpaceCreate,
     PortalStorageSpaceIcon,
@@ -21,6 +22,7 @@ from app.models.portal_storage_spaces import (
     PortalStorageSpaceUpdate,
 )
 from app.routers import portal_storage_spaces
+from tests.portal_storage_space_factory import portal_storage_space_summary
 
 
 PRIVATE_STORAGE_SPACE_ACCESS = {
@@ -156,7 +158,35 @@ def test_portal_storage_space_summary_requires_complete_canonical_payload() -> N
 
     summary_properties = PortalStorageSpaceSummary.model_json_schema()["properties"]
     assert "origin" not in summary_properties
+    assert "owner_user_id" not in summary_properties
+    assert "quota_max_objects" not in summary_properties
     assert "name_editable" in summary_properties
+
+    catalog_schema = PortalStorageSpaceCatalogEntry.model_json_schema()
+    assert set(catalog_schema["required"]) == set(catalog_schema["properties"])
+    assert {"owner_user_id", "quota_max_objects"} <= set(catalog_schema["properties"])
+
+
+def test_portal_storage_space_list_filters_internal_catalogue_fields() -> None:
+    test_app = FastAPI()
+    test_app.include_router(portal_storage_spaces.router, prefix="/api/portal")
+    service = Mock()
+    service.list_storage_spaces.return_value = [
+        portal_storage_space_summary(owner_user_id=7, quota_max_objects=42)
+    ]
+    test_app.dependency_overrides[portal_storage_spaces.get_portal_account_access] = lambda: SimpleNamespace(
+        actor=User(id=1, email="actor@example.com", hashed_password="x", role="ui_user"),
+    )
+    test_app.dependency_overrides[portal_storage_spaces.get_portal_service_dependency] = lambda: service
+
+    with TestClient(test_app) as client:
+        response = client.get("/api/portal/storage-spaces")
+
+    assert response.status_code == 200
+    payload = response.json()[0]
+    assert "owner_user_id" not in payload
+    assert "quota_max_objects" not in payload
+    assert payload["id"] == "space"
 
 
 def test_portal_storage_space_listing_request_rejects_noncanonical_filters() -> None:

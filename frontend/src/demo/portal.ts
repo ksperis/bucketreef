@@ -59,18 +59,23 @@ function spaceView(c: DemoRequest, s: DemoSpace): PortalStorageSpaceSummary {
   const usedBytes = bucketSummary.used_bytes ?? null;
   const objectCount = bucketSummary.object_count ?? null;
   const quotaBytes = bucketSummary.quota_max_size_bytes ?? null;
-  const quotaObjects = bucketSummary.quota_max_objects ?? null;
   const status: PortalStorageSpaceSummary["status"] = s.archived_at
     ? "Archived"
     : usedBytes !== null && quotaBytes !== null && quotaBytes > 0 && usedBytes / quotaBytes >= 0.85
       ? "Attention"
       : "Active";
-  const { accountId: _account, bucketName: _bucket, shares: _shares, ...view } = s;
+  const {
+    accountId: _account,
+    bucketName: _bucket,
+    owner_user_id: _ownerUserId,
+    quota_max_objects: _quotaMaxObjects,
+    shares: _shares,
+    ...view
+  } = s;
   return { ...view,
     used_bytes: usedBytes,
     object_count: objectCount,
     quota_max_size_bytes: quotaBytes,
-    quota_max_objects: quotaObjects,
     role, status, can_browse: true, can_delete: role === "Owner" || role === "Manager", can_take_ownership: false,
     collaborator_count: s.shares.length, collaborators: s.shares.map(share => {
       const userId = required(share.user_id, "Demo Storage Space share is missing a user id");

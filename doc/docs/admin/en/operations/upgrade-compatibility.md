@@ -18,6 +18,11 @@ provenance field. The bundled frontend does not consume that provenance and uses
 the explicit `name_editable` capability for rename behavior. Provenance remains
 stored internally for lifecycle and deletion audit data.
 
+The same summary contract now omits `owner_user_id` and the per-space
+`quota_max_objects` value. Both remain available to backend catalogue workflows
+that need them for audit metadata and usage aggregation, while the bundled
+frontend no longer receives unused internal projections.
+
 Deploy the backend and bundled frontend together. No database migration is
 required because persisted Storage Space metadata is unchanged.
 

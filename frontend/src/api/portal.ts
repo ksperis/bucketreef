@@ -62,7 +62,6 @@ export type PortalStorageSpaceSummary = {
   status: PortalStorageSpaceStatus;
   description: string | null;
   owner_label: string | null;
-  owner_user_id: number | null;
   collaborators: PortalStorageSpaceCollaboratorPreview[];
   collaborator_count: number;
   visibility: PortalStorageSpaceVisibility;
@@ -75,7 +74,6 @@ export type PortalStorageSpaceSummary = {
   used_bytes: number | null;
   object_count: number | null;
   quota_max_size_bytes: number | null;
-  quota_max_objects: number | null;
   internal_bucket_name: string | null;
   archived_at: string | null;
   name_editable: boolean;

@@ -31,7 +31,13 @@ export const personaIds: Record<Persona, number> = { admin: 1, manager: 2, membe
 export type DemoObjectVersion = ObjectMetadata & { version_id: string; body: Blob; imported: boolean; deleted?: boolean };
 export type DemoObject = { key: string; tags: ObjectTag[]; versions: DemoObjectVersion[] };
 export type DemoBucket = Bucket & { accountId: number; endpointId: number; objects: DemoObject[]; config: Record<string, unknown> };
-export type DemoSpace = PortalStorageSpaceSummary & { accountId: number; bucketName: string; shares: PortalStorageSpaceShare[] };
+export type DemoSpace = PortalStorageSpaceSummary & {
+  accountId: number;
+  bucketName: string;
+  owner_user_id: number | null;
+  quota_max_objects: number | null;
+  shares: PortalStorageSpaceShare[];
+};
 export type DemoIam = {
   users: (IAMUser & { rgw?: Partial<CephAdminRgwUserDetail> })[]; groups: IAMGroup[]; roles: IAMRole[]; policies: IamPolicy[];
   keys: Record<string, AccessKey[]>; attachments: Record<string, IamPolicy[]>; inline: Record<string, InlinePolicy[]>;
