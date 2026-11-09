@@ -83,9 +83,7 @@ export function usePortalStorageSpaceAccess({
   const existingAccessRolesByUserId = useMemo(
     () =>
       Object.fromEntries(
-        (accessSummary?.explicit_shares ?? [])
-          .filter((share) => share.user_id != null)
-          .map((share) => [share.user_id as number, share.role]),
+        (accessSummary?.explicit_shares ?? []).map((share) => [share.user_id, share.role]),
       ) as Record<number, PortalStorageSpaceGrantRole>,
     [accessSummary?.explicit_shares],
   );
@@ -207,7 +205,7 @@ export function usePortalStorageSpaceAccess({
   };
 
   const confirmAccessRoleChange = async ({ share, role }: PendingAccessRoleChange) => {
-    if (!space || !accountId || share.user_id == null) return;
+    if (!space || !accountId) return;
     setAccessBusy(true);
     onMessage(null);
     try {
@@ -242,7 +240,7 @@ export function usePortalStorageSpaceAccess({
   };
 
   const confirmAccessRevoke = async (share: PortalStorageSpaceShare) => {
-    if (!space || !accountId || share.user_id == null) return;
+    if (!space || !accountId) return;
     setAccessBusy(true);
     onMessage(null);
     try {

@@ -184,7 +184,7 @@ export default function PortalStorageSpaceCollaboratorsPanel({
             {summary.explicit_shares.length > 0 ? (
               <div className="space-y-2">
                 {summary.explicit_shares.map((share) => (
-                  <div key={share.id} className="grid gap-2 rounded-md border border-[color:var(--ui-border)] px-3 py-2 md:grid-cols-[minmax(0,1fr)_150px_auto] md:items-center">
+                  <div key={share.user_id} className="grid gap-2 rounded-md border border-[color:var(--ui-border)] px-3 py-2 md:grid-cols-[minmax(0,1fr)_150px_auto] md:items-center">
                     <div className="min-w-0">
                       <div className={cx("truncate text-xs font-bold", uiTitleTextClass)}>{share.email}</div>
                       {savedAccessMode === "private" ? (
@@ -193,7 +193,7 @@ export default function PortalStorageSpaceCollaboratorsPanel({
                         </div>
                       ) : null}
                     </div>
-                    {summary.can_manage_access && share.user_id != null && savedAccessMode !== "private" ? (
+                    {summary.can_manage_access && savedAccessMode !== "private" ? (
                       <UiSelect
                         size="compact"
                         className="h-8"
@@ -208,7 +208,7 @@ export default function PortalStorageSpaceCollaboratorsPanel({
                     ) : (
                       <PortalRoleBadge role={share.role} />
                     )}
-                    {summary.can_manage_access && share.user_id != null && savedAccessMode !== "private" ? (
+                    {summary.can_manage_access && savedAccessMode !== "private" ? (
                       <UiButton
                         size="xs"
                         variant="danger"

@@ -160,9 +160,6 @@ const accessSummaryFixture = {
   effective_member_count: 4,
   explicit_shares: [
     {
-      id: "research-data:12",
-      storage_space_id: "research-data",
-      storage_space_name: "Research Data",
       user_id: 12,
       email: "viewer@example.com",
       role: "Viewer" as const,

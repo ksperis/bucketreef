@@ -23,10 +23,7 @@ PortalShareAccessSource = Literal["direct", "group", "direct_and_group"]
 
 
 class PortalStorageSpaceShare(ApiModel):
-    id: str
-    storage_space_id: str
-    storage_space_name: str
-    user_id: Optional[int]
+    user_id: int
     email: str
     role: PortalStorageSpaceGrantRole
 

@@ -264,7 +264,7 @@ export function portal(c: DemoRequest): Response | undefined {
       if (Array.isArray(body.initial_shares)) space.shares = body.initial_shares.map((input: { user_id: number; role: string }) => {
         const target = required(candidates.find(u => u.user_id === input.user_id));
         if (input.role !== "Viewer" && input.role !== "Editor") throw new DemoError(422, "Choose Viewer or Editor");
-        return { id: `share-${state.nextId++}`, storage_space_id: space.id, storage_space_name: space.name, user_id: target.user_id, email: target.email, role: input.role };
+        return { user_id: target.user_id, email: target.email, role: input.role };
       });
       state.spaces.push(space); return json(spaceView(c, space), 201);
     }
@@ -308,7 +308,7 @@ export function portal(c: DemoRequest): Response | undefined {
     if (method === "DELETE") { space.shares = space.shares.filter(s => s.user_id !== target.user_id); return json(space.shares); }
     if (method === "POST" || method === "PUT") {
       if (body.role !== "Viewer" && body.role !== "Editor") throw new DemoError(422, "Choose Viewer or Editor");
-      const share: PortalStorageSpaceShare = { id: `share-${state.nextId++}`, storage_space_id: space.id, storage_space_name: space.name, user_id: target.user_id, email: target.email, role: body.role };
+      const share: PortalStorageSpaceShare = { user_id: target.user_id, email: target.email, role: body.role };
       space.shares = [...space.shares.filter(s => s.user_id !== target.user_id), share]; return json(share, method === "POST" ? 201 : 200);
     }
   }

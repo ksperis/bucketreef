@@ -84,14 +84,9 @@ class PortalSharingMixin:
     def _storage_space_share_card(
         self,
         target: User,
-        storage_space_id: str,
-        storage_space_name: str,
         role: PortalStorageSpaceGrantRole,
     ) -> PortalStorageSpaceShare:
         return PortalStorageSpaceShare(
-            id=f"{storage_space_id}:{target.id}",
-            storage_space_id=storage_space_id,
-            storage_space_name=storage_space_name,
             user_id=target.id,
             email=target.email,
             role=role,
@@ -213,11 +208,7 @@ class PortalSharingMixin:
 
     def _storage_space_explicit_shares(
         self,
-        actor: User,
         metadata: PortalStorageSpaceMetadata,
-        *,
-        storage_space_id: str,
-        storage_space_name: str,
     ) -> list[PortalStorageSpaceShare]:
         rows = self.db.execute(
             select(PortalStorageSpaceGrant, User)
@@ -227,8 +218,6 @@ class PortalSharingMixin:
         shares = [
             self._storage_space_share_card(
                 target,
-                storage_space_id,
-                storage_space_name,
                 grant.role,
             )
             for grant, target in rows
@@ -279,10 +268,7 @@ class PortalSharingMixin:
             and self._metadata_visibility(metadata) == "shared"
         )
         explicit_shares = self._storage_space_explicit_shares(
-            user,
             metadata,
-            storage_space_id=storage_space.id,
-            storage_space_name=storage_space.name,
         )
         return PortalStorageSpaceAccessSummary(
             mode=self._storage_space_access_mode(metadata),
@@ -375,8 +361,6 @@ class PortalSharingMixin:
             shares.append(
                 self._storage_space_share_card(
                     target,
-                    storage_space.id,
-                    storage_space.name,
                     grant.role,
                 )
             )
@@ -625,8 +609,6 @@ class PortalSharingMixin:
             (share for share in shares if share.user_id == target.id),
             self._storage_space_share_card(
                 target,
-                space_id,
-                self._storage_space_label(bucket_name),
                 role,
             ),
         )
