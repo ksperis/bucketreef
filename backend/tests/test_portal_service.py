@@ -6246,8 +6246,8 @@ def test_storage_space_share_candidates_use_effective_portal_members(monkeypatch
     )
 
     assert candidates.total == 1
-    assert [(candidate.email, candidate.portal_role, candidate.access_source, candidate.already_shared) for candidate in candidates.items] == [
-        ("direct-candidates@example.com", "portal_user", "direct", True),
+    assert [(candidate.email, candidate.access_source, candidate.already_shared) for candidate in candidates.items] == [
+        ("direct-candidates@example.com", "direct", True),
     ]
     assert all(candidate.email != outsider.email for candidate in candidates.items)
 

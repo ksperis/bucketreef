@@ -249,7 +249,7 @@ export function PortalShareCandidatePicker({
                   </span>
                 </UiCheckboxField>
                 <div className="settings-description self-center">
-                  {portalAccountRoleLabel(candidate.portal_role, t)} · {portalAccessSourceLabel(candidate.access_source, t)}
+                  {portalAccountRoleLabel("portal_user", t)} · {portalAccessSourceLabel(candidate.access_source, t)}
                 </div>
                 {disabled ? (
                   <UiBadge tone="neutral">

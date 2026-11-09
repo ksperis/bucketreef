@@ -91,7 +91,7 @@ def test_portal_sharing_responses_require_complete_canonical_payloads() -> None:
             "public_link_count", "can_manage_access", "can_create_public_links"
         },
         PortalStorageSpaceShareCandidate: {
-            "user_id", "email", "display_name", "portal_role", "access_source", "already_shared", "avatar"
+            "user_id", "email", "display_name", "access_source", "already_shared"
         },
         PortalCollaborator: {
             "user_id", "email", "display_name", "portal_role", "access_source", "member_since", "avatar",

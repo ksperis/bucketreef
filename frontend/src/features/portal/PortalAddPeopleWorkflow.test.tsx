@@ -14,9 +14,9 @@ const mocks = vi.hoisted(() => ({ list: vi.fn(), grant: vi.fn(), request: vi.fn(
 vi.mock("../../api/portalSharing", () => ({ listPortalStorageSpaceShareCandidates: mocks.list, grantPortalStorageSpaceShare: mocks.grant }));
 vi.mock("../../api/portalRequests", () => ({ createPortalRequest: mocks.request }));
 const candidates = [
-  { user_id: 1, display_name: "Alice", email: "alice@example.test", portal_role: "portal_user", access_source: "direct", already_shared: true },
-  { user_id: 2, display_name: "Bob", email: "bob@example.test", portal_role: "portal_user", access_source: "group", already_shared: false },
-  { user_id: 3, display_name: "Chen", email: "chen@example.test", portal_role: "portal_user", access_source: "direct", already_shared: false },
+  { user_id: 1, display_name: "Alice", email: "alice@example.test", access_source: "direct", already_shared: true },
+  { user_id: 2, display_name: "Bob", email: "bob@example.test", access_source: "group", already_shared: false },
+  { user_id: 3, display_name: "Chen", email: "chen@example.test", access_source: "direct", already_shared: false },
 ];
 const routers: ReturnType<typeof createMemoryRouter>[] = [];
 beforeEach(() => {
