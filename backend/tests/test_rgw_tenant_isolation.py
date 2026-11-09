@@ -196,14 +196,30 @@ def test_cost_and_quota_collectors_preserve_tenants(db_session):
         get_user_quota=lambda uid: calls.append(("quota", uid)) or (10, 2),
     )
     collector = CostCollector(db_session)
-    assert collector._collect_usage_for_endpoint(admin, account.storage_endpoint, date(2026, 10, 14)) == (2, [])
-    assert collector._collect_storage_for_endpoint(admin, account.storage_endpoint, date(2026, 10, 14)) == (2, [])
+    endpoint = account.storage_endpoint
+    subjects = collector._load_subjects(endpoint)
+    for subject in subjects:
+        db_session.expunge(subject.principal)
+    db_session.expunge(endpoint)
+    db_session.rollback()
+    assert collector._collect_usage_for_endpoint(
+        admin,
+        endpoint,
+        date(2026, 10, 14),
+        subjects=subjects,
+    ) == (2, [])
+    assert collector._collect_storage_for_endpoint(
+        admin,
+        endpoint,
+        date(2026, 10, 14),
+        subjects=subjects,
+    ) == (2, [])
     assert ("usage", "customer02$analyst") in calls
     assert ("storage", f"customer01${account.rgw_user_uid}") in calls
     assert ("storage", "customer02$analyst") in calls
     monitor = QuotaMonitoringService(db_session)
-    subjects = monitor._load_subjects(endpoint_map={account.storage_endpoint_id: account.storage_endpoint})
-    user_subject = next(subject for subject in subjects if subject.subject_type == "s3_user")
+    quota_subjects = monitor._load_subjects(endpoint_map={endpoint.id: endpoint})
+    user_subject = next(subject for subject in quota_subjects if subject.subject_type == "s3_user")
     assert monitor._collect_quota(admin, user_subject) == (10, 2)
     assert calls[-1] == ("quota", "customer02$analyst")
 
