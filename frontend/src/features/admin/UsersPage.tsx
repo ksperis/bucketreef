@@ -171,7 +171,7 @@ export default function UsersPage() {
     openStackCloudsCatalog,
     ensureAssociationOptionsForTab,
     resetAssociationOptionSearches,
-  } = useAdminUserAssociationOptions();
+  } = useAdminUserAssociationOptions(openStackEnabled);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [form, setForm] = useState<CreateUserPayload>(emptyAdminUserCreateForm);
