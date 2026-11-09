@@ -1,6 +1,6 @@
 import type { BucketTag } from "../api/bucketContracts";
 import type { CephAdminBucket, CephAdminBucketCompareResult } from "../api/cephAdminBuckets";
-import { bucketView, GiB, newBucket } from "./state";
+import { bucketView, demoStorageSpaceStatus, GiB, newBucket } from "./state";
 import { spaceRole, DemoError, done, json, listing, scopedAccount, scopedBrowserAccount, scopedBrowserBucket, scopedBucket, textField, type DemoRequest } from "./http";
 import { objectListing } from "./objects";
 
@@ -39,7 +39,7 @@ export function buckets(c: DemoRequest): Response | undefined {
         }));
         return listing(cephViews, c, { stats_available: true, stats_warning: null });
       }
-      if (match?.[1] === "browser" && ["member", "project-manager"].includes(c.persona)) views = views.filter(b => state.spaces.some(s => s.bucketName === b.name && spaceRole(c, s) && !s.archived_at)).map(b => { const space = state.spaces.find(s => s.bucketName === b.name)!; return { ...b, display_name: space.name, internal_bucket_name: b.name, workspace_label: "Storage Space", role: spaceRole(c, space), status: space.status }; });
+      if (match?.[1] === "browser" && ["member", "project-manager"].includes(c.persona)) views = views.filter(b => state.spaces.some(s => s.bucketName === b.name && spaceRole(c, s) && !s.archived_at)).map(b => { const space = state.spaces.find(s => s.bucketName === b.name)!; return { ...b, display_name: space.name, internal_bucket_name: b.name, workspace_label: "Storage Space", role: spaceRole(c, space), status: demoStorageSpaceStatus(space, b) }; });
       return match?.[1] === "browser" ? listing(views, c) : json(views);
     }
     if (method === "POST" && match?.[1] === "manager") {

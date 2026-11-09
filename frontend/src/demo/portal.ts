@@ -8,7 +8,7 @@ import {
 } from "../api/portal";
 import type { PortalAdminRequest } from "../api/portalRequests";
 import type { PortalStorageSpaceShare } from "../api/portalSharing";
-import { bucketView, createDemoSpace, createDemoUser, newBucket, settings, type DemoSpace } from "./state";
+import { bucketView, createDemoSpace, createDemoUser, demoStorageSpaceStatus, newBucket, settings, type DemoSpace } from "./state";
 import { accountGrant, spaceRole, DemoError, done, json, required, scopedAccount, textField, type DemoRequest } from "./http";
 
 type PortalAccessIntent = "add" | "role_change";
@@ -59,20 +59,17 @@ function spaceView(c: DemoRequest, s: DemoSpace): PortalStorageSpaceSummary {
   const usedBytes = bucketSummary.used_bytes ?? null;
   const objectCount = bucketSummary.object_count ?? null;
   const quotaBytes = bucketSummary.quota_max_size_bytes ?? null;
-  const status: PortalStorageSpaceSummary["status"] = s.archived_at
-    ? "Archived"
-    : usedBytes !== null && quotaBytes !== null && quotaBytes > 0 && usedBytes / quotaBytes >= 0.85
-      ? "Attention"
-      : "Active";
+  const status = demoStorageSpaceStatus(s, bucketSummary);
   const {
     accountId: _account,
     bucketName: _bucket,
     owner_user_id: _ownerUserId,
-    quota_max_objects: _quotaMaxObjects,
     shares: _shares,
     ...view
   } = s;
   return { ...view,
+    internal_bucket_name: s.bucketName,
+    created_at: bucket.creation_date ?? null,
     used_bytes: usedBytes,
     object_count: objectCount,
     quota_max_size_bytes: quotaBytes,
@@ -265,7 +262,7 @@ export function portal(c: DemoRequest): Response | undefined {
       const bucketName = body.naming_mode === "named_bucket" ? name : `portal-space-${id}`;
       if (state.buckets.some(b => b.name === bucketName)) throw new DemoError(409, "This bucket already exists");
       const bucket = newBucket(bucketName, account); state.buckets.push(bucket);
-      const space: DemoSpace = createDemoSpace({ id: `space-${id}`, name, accountId: account.id, bucketName, internal_bucket_name: bucketName, description: String(body.description ?? ""), role: manager ? "Manager" : "Owner", visibility: body.visibility === "shared" ? "shared" : "private", owner_user_id: body.visibility === "shared" ? null : c.user.id, share_scope: body.share_scope === "restricted" ? "restricted" : "account", account_member_role: body.account_member_role === "Viewer" ? "Viewer" : "Editor", shares: [], status: "Active", created_at: bucket.creation_date ?? null, name_editable: true });
+      const space: DemoSpace = createDemoSpace({ id: `space-${id}`, name, accountId: account.id, bucketName, description: String(body.description ?? ""), visibility: body.visibility === "shared" ? "shared" : "private", owner_user_id: body.visibility === "shared" ? null : c.user.id, share_scope: body.share_scope === "restricted" ? "restricted" : "account", account_member_role: body.account_member_role === "Viewer" ? "Viewer" : "Editor", shares: [], name_editable: true });
       if (Array.isArray(body.initial_shares)) space.shares = body.initial_shares.map((input: { user_id: number; role: string }) => {
         const target = required(candidates.find(u => u.user_id === input.user_id));
         if (input.role !== "Viewer" && input.role !== "Editor") throw new DemoError(422, "Choose Viewer or Editor");

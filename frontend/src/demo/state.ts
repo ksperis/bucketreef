@@ -6,8 +6,14 @@ import type { UiGroup, UiGroupUserDetail } from "../api/groups";
 import type { StorageEndpoint } from "../api/storageEndpoints";
 import type { Bucket } from "../api/bucketContracts";
 import type { ObjectMetadata, ObjectTag } from "../api/browserContracts";
-import type { PortalStorageSpaceSummary } from "../api/portal";
+import type {
+  PortalStorageSpaceAccountMemberRole,
+  PortalStorageSpaceShareScope,
+  PortalStorageSpaceSummary,
+  PortalStorageSpaceVisibility,
+} from "../api/portal";
 import type { PortalStorageSpaceShare } from "../api/portalSharing";
+import type { StorageSpaceIconDescriptor } from "../api/storageSpaceIcons";
 import type { PortalAdminRequest } from "../api/portalRequests";
 import type { AppSettings } from "../api/appSettings";
 import type { IAMUser, AccessKey } from "../api/managerIamUsers";
@@ -31,11 +37,23 @@ export const personaIds: Record<Persona, number> = { admin: 1, manager: 2, membe
 export type DemoObjectVersion = ObjectMetadata & { version_id: string; body: Blob; imported: boolean; deleted?: boolean };
 export type DemoObject = { key: string; tags: ObjectTag[]; versions: DemoObjectVersion[] };
 export type DemoBucket = Bucket & { accountId: number; endpointId: number; objects: DemoObject[]; config: Record<string, unknown> };
-export type DemoSpace = PortalStorageSpaceSummary & {
+export type DemoSpace = {
+  id: string;
+  name: string;
   accountId: number;
   bucketName: string;
+  description: string | null;
+  owner_label: string | null;
   owner_user_id: number | null;
-  quota_max_objects: number | null;
+  visibility: PortalStorageSpaceVisibility;
+  share_scope: PortalStorageSpaceShareScope;
+  account_member_role: PortalStorageSpaceAccountMemberRole | null;
+  project_key: string | null;
+  dataset_label: string | null;
+  region: string | null;
+  archived_at: string | null;
+  name_editable: boolean;
+  icon: StorageSpaceIconDescriptor;
   shares: PortalStorageSpaceShare[];
 };
 export type DemoIam = {
@@ -46,35 +64,22 @@ export type DemoUser = Omit<User, "effective_access">;
 export type DemoConnection = S3Connection & S3ConnectionAdminItem & { demo_backing_account_id: number | null };
 
 export function createDemoSpace(
-  input: Pick<DemoSpace, "id" | "name" | "accountId" | "bucketName" | "internal_bucket_name" | "role"> & Partial<DemoSpace>,
+  input: Pick<DemoSpace, "id" | "name" | "accountId" | "bucketName"> & Partial<DemoSpace>,
 ): DemoSpace {
   return {
     id: input.id,
     name: input.name,
     accountId: input.accountId,
     bucketName: input.bucketName,
-    internal_bucket_name: input.internal_bucket_name,
-    role: input.role,
-    can_browse: input.can_browse ?? true,
-    can_delete: input.can_delete ?? false,
-    can_take_ownership: input.can_take_ownership ?? false,
-    status: input.status ?? "Active",
     description: input.description ?? null,
     owner_label: input.owner_label ?? null,
     owner_user_id: input.owner_user_id ?? null,
-    collaborators: input.collaborators ?? [],
-    collaborator_count: input.collaborator_count ?? 0,
     visibility: input.visibility ?? "private",
     share_scope: input.share_scope ?? "restricted",
     account_member_role: input.account_member_role ?? null,
     project_key: input.project_key ?? null,
     dataset_label: input.dataset_label ?? null,
     region: input.region ?? null,
-    created_at: input.created_at ?? null,
-    used_bytes: input.used_bytes ?? null,
-    object_count: input.object_count ?? null,
-    quota_max_size_bytes: input.quota_max_size_bytes ?? null,
-    quota_max_objects: input.quota_max_objects ?? null,
     archived_at: input.archived_at ?? null,
     name_editable: input.name_editable ?? false,
     icon: input.icon ?? { source: "preset", preset: "bucket", url: null, updated_at: null },
@@ -272,6 +277,18 @@ export function bucketView(bucket: DemoBucket): Bucket {
     })) };
 }
 
+export function demoStorageSpaceStatus(
+  space: Pick<DemoSpace, "archived_at">,
+  bucket: Pick<Bucket, "used_bytes" | "quota_max_size_bytes">,
+): PortalStorageSpaceSummary["status"] {
+  if (space.archived_at) return "Archived";
+  const usedBytes = bucket.used_bytes ?? null;
+  const quotaBytes = bucket.quota_max_size_bytes ?? null;
+  return usedBytes !== null && quotaBytes !== null && quotaBytes > 0 && usedBytes / quotaBytes >= 0.85
+    ? "Attention"
+    : "Active";
+}
+
 export function emptyIam(): DemoIam { return { users: [], groups: [], roles: [], policies: [], keys: {}, attachments: {}, inline: {} }; }
 
 export function createSeed(): DemoState {
@@ -364,11 +381,11 @@ export function createSeed(): DemoState {
   }
   const spaces: DemoSpace[] = buckets.slice(0, 12).map((b, i) => createDemoSpace({
     id: `space-${i + 1}`, name: `${b.name.split("-").at(-1)!.replace(/^./, s => s.toUpperCase())} · ${accounts.find(a => a.id === b.accountId)!.name}`,
-    accountId: b.accountId, bucketName: b.name, internal_bucket_name: b.name, description: "Shared working files and project deliverables.",
-    role: "Editor", visibility: i % 4 === 0 ? "private" : "shared", share_scope: "account", account_member_role: "Editor",
+    accountId: b.accountId, bucketName: b.name, description: "Shared working files and project deliverables.",
+    visibility: i % 4 === 0 ? "private" : "shared", share_scope: "account", account_member_role: "Editor",
     owner_user_id: i % 4 === 0 ? 3 : null, owner_label: i % 4 === 0 ? users[2].full_name : null,
-    status: "Active", name_editable: true, created_at: b.creation_date, shares: [],
-    project_key: accounts.find(a => a.id === b.accountId)!.name, region: "Paris", can_browse: true,
+    name_editable: true, shares: [],
+    project_key: accounts.find(a => a.id === b.accountId)!.name, region: "Paris",
   }));
   const requests: PortalAdminRequest[] = ["account_quota_change", "portal_user_access", "portal_user_access"].map((type, i) => ({
     id: 501 + i, account_id: 101, account_name: accounts[0].name, request_type: type as PortalAdminRequest["request_type"], status: "pending",
