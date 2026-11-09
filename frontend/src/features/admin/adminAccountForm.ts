@@ -1,7 +1,32 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import type { S3Account, AccountUserLink, AccountGroupLink, updateS3Account } from "../../api/accounts";
-import { normalizeUiTags } from "../../utils/uiTags";
+import { canonicalizeUiTags, normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
 import { buildAdminQuotaSizeEditorValue } from "./adminQuotaForm";
+
+export function buildCreateAccountDraft<
+  T extends { tags: UiTagDefinition[]; storage_endpoint_id: string },
+>(form: T, defaultEndpointId: string) {
+  return {
+    form: {
+      ...form,
+      tags: canonicalizeUiTags(form.tags),
+      storage_endpoint_id:
+        form.storage_endpoint_id === defaultEndpointId ? "" : form.storage_endpoint_id,
+    },
+  };
+}
+
+export function buildImportAccountDraft(
+  importText: string,
+  importTenantEndpointId: string,
+  defaultEndpointId: string,
+) {
+  return {
+    importText,
+    importTenantEndpointId:
+      importTenantEndpointId === defaultEndpointId ? "" : importTenantEndpointId,
+  };
+}
 
 export function adminAccountForm(account: S3Account) {
   const quota = buildAdminQuotaSizeEditorValue(account.quota_max_size_gb);

@@ -52,8 +52,9 @@ import { useSettingsBaseline } from "../../components/settings/useSettingsDraft"
 import { classifyApiError, extractApiError } from "../../utils/apiError";
 import { type TextMatchMode } from "../../utils/textMatch";
 import { isAdminLikeRole, readStoredUser } from "../../utils/workspaces";
-import { buildUiTagItems, canonicalizeUiTags, normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
+import { buildUiTagItems, normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
 import { buildAccessAuditHref } from "./accessAuditLink";
+import { buildCreateAccountDraft, buildImportAccountDraft } from "./adminAccountForm";
 import { useAdminI18n } from "./adminI18n";
 import useAdminEndpointAdminOpsPermissions from "./useAdminEndpointAdminOpsPermissions";
 import useAdminPaginatedListState from "./useAdminPaginatedListState";
@@ -137,23 +138,18 @@ export default function S3AccountsPage() {
     const endpoint = accountCephEndpoints.find((candidate) => candidate.is_default) ?? accountCephEndpoints[0];
     return endpoint ? String(endpoint.id) : "";
   }, [accountCephEndpoints]);
-  const createDraft = useMemo(() => ({
-    form: {
-      ...form,
-      tags: canonicalizeUiTags(form.tags),
-      storage_endpoint_id:
-        form.storage_endpoint_id === defaultAccountEndpointId ? "" : form.storage_endpoint_id,
-    },
-  }), [defaultAccountEndpointId, form]);
+  const createDraft = useMemo(
+    () => buildCreateAccountDraft(form, defaultAccountEndpointId),
+    [defaultAccountEndpointId, form],
+  );
   const { accept: acceptCreateDraft, dirty: createDraftDirty } = useSettingsBaseline(
     createDraft,
     createDraft,
   );
-  const importDraft = useMemo(() => ({
-    importText,
-    importTenantEndpointId:
-      importTenantEndpointId === defaultAccountEndpointId ? "" : importTenantEndpointId,
-  }), [defaultAccountEndpointId, importTenantEndpointId, importText]);
+  const importDraft = useMemo(
+    () => buildImportAccountDraft(importText, importTenantEndpointId, defaultAccountEndpointId),
+    [defaultAccountEndpointId, importTenantEndpointId, importText],
+  );
   const { accept: acceptImportDraft, dirty: importDraftDirty } = useSettingsBaseline(
     importDraft,
     importDraft,
