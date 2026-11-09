@@ -240,6 +240,7 @@ def test_ceph_verifier_rejects_partial_ceph_admin_credentials():
 def test_prepare_environment_generates_keyring_settings(monkeypatch, tmp_path):
     _seed_required_endpoint_env(monkeypatch)
     monkeypatch.setenv("CI", "true")
+    monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.delenv("UI_JWT_KEYS", raising=False)
     monkeypatch.delenv("API_JWT_KEYS", raising=False)
     monkeypatch.delenv("CREDENTIAL_KEYS", raising=False)
@@ -254,6 +255,18 @@ def test_prepare_environment_generates_keyring_settings(monkeypatch, tmp_path):
     assert env["CEPH_TEST_REQUEST_ORIGIN"] == "http://127.0.0.1:8765"
     assert env["ACCESS_TOKEN_EXPIRE_MINUTES"] == "15"
     assert env["MFA_RECENT_MINUTES"] == "60"
+    assert env["DATABASE_URL"].startswith("sqlite:///")
+
+
+def test_prepare_environment_preserves_explicit_database_url(monkeypatch, tmp_path):
+    _seed_required_endpoint_env(monkeypatch)
+    monkeypatch.setenv("CI", "true")
+    database_url = "postgresql+psycopg://bucketreef@postgres:5432/bucketreef_functional"
+    monkeypatch.setenv("DATABASE_URL", database_url)
+
+    env = run_ci._prepare_environment(tmp_path, "http://127.0.0.1:8765")
+
+    assert env["DATABASE_URL"] == database_url
 
 
 def test_bootstrap_super_admin_session_exports_cookie_material(monkeypatch, tmp_path):

@@ -16,6 +16,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.db import AuditLog, FirstAdminBootstrap, User
 from app.services import database_initialization
+from app.services.app_settings_service import bootstrap_app_settings_for_db
 from app.services.first_admin_bootstrap_service import (
     FIRST_ADMIN_BOOTSTRAP_ID,
     FirstAdminBootstrapService,
@@ -82,6 +83,7 @@ def test_postgresql_migration_rotation_rollback_and_concurrent_consumption(monke
         assert connection.scalar(sa.select(sa.func.count(User.id))) == 0
 
     with session_factory() as db:
+        bootstrap_app_settings_for_db(db)
         service = FirstAdminBootstrapService(db)
         first = service.issue_token()
         second = service.issue_token()
