@@ -190,9 +190,7 @@ class PortalAdminRequestDecision(ApiModel):
 
 class PortalAdminRequestMessageOut(ApiModel):
     id: int
-    author_user_id: Optional[int]
     author_email: str
-    author_role: Optional[str]
     message: str
     created_at: datetime
 

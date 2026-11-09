@@ -480,9 +480,7 @@ class PortalRequestsService:
             messages=[
                 PortalAdminRequestMessageOut(
                     id=int(message.id),
-                    author_user_id=message.author_user_id,
                     author_email=message.author_email,
-                    author_role=message.author_role,
                     message=message.message,
                     created_at=message.created_at,
                 )

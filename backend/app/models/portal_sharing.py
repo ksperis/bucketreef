@@ -31,7 +31,6 @@ class PortalStorageSpaceShare(ApiModel):
     email: str
     role: PortalStorageSpaceGrantRole
     direction: PortalStorageSpaceShareDirection
-    activity_label: str
 
 
 class PortalStorageSpaceAccessPerson(ApiModel):

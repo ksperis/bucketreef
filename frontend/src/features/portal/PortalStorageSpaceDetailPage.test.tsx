@@ -167,7 +167,6 @@ const accessSummaryFixture = {
       email: "viewer@example.com",
       role: "Viewer" as const,
       direction: "by_me" as const,
-      activity_label: "Active",
     },
   ],
   public_link_count: 2,

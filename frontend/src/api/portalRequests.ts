@@ -86,9 +86,7 @@ type PortalAdminRequestCreate =
 
 export type PortalAdminRequestMessage = {
   id: number;
-  author_user_id: number | null;
   author_email: string;
-  author_role: string | null;
   message: string;
   created_at: string;
 };

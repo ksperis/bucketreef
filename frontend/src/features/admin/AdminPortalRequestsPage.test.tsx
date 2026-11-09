@@ -103,7 +103,6 @@ describe("AdminPortalRequestsPage", () => {
         {
           id: 1,
           author_email: "admin@example.org",
-          author_role: "ui_admin",
           message: "Approved",
           created_at: "2026-07-08T10:10:00Z",
         },
@@ -116,7 +115,6 @@ describe("AdminPortalRequestsPage", () => {
         {
           id: 2,
           author_email: "admin@example.org",
-          author_role: "ui_admin",
           message: "Need more context",
           created_at: "2026-07-08T10:05:00Z",
         },

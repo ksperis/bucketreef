@@ -66,9 +66,7 @@ def test_portal_monitoring_models_require_complete_canonical_payloads() -> None:
 def test_portal_request_models_require_complete_canonical_payloads() -> None:
     assert set(PortalAdminRequestMessageOut.model_json_schema()["required"]) == {
         "id",
-        "author_user_id",
         "author_email",
-        "author_role",
         "message",
         "created_at",
     }
