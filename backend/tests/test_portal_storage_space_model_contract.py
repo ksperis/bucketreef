@@ -154,6 +154,10 @@ def test_portal_storage_space_summary_requires_complete_canonical_payload() -> N
         schema = model.model_json_schema()
         assert set(schema["required"]) == set(schema["properties"])
 
+    summary_properties = PortalStorageSpaceSummary.model_json_schema()["properties"]
+    assert "origin" not in summary_properties
+    assert "name_editable" in summary_properties
+
 
 def test_portal_storage_space_listing_request_rejects_noncanonical_filters() -> None:
     request = PortalStorageSpaceListingRequest()

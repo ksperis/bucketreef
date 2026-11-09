@@ -193,7 +193,6 @@ class PortalStorageSpaceCatalogMixin:
             quota_max_objects=bucket.quota_max_objects,
             internal_bucket_name=bucket.name,
             archived_at=metadata.archived_at if metadata else None,
-            origin=self._storage_space_origin(metadata),
             name_editable=bool(metadata and metadata.name_editable),
             icon=self._storage_space_icon_descriptor(metadata),
         )

@@ -30,7 +30,6 @@ PortalStorageSpaceSort = Literal[
     "-status",
 ]
 PortalStorageSpaceGrantRole = Literal["Viewer", "Editor"]
-PortalStorageSpaceOrigin = Literal["portal_generic", "portal_named", "imported"]
 PortalStorageSpaceNamingMode = Literal["generic_uuid", "named_bucket"]
 PortalStorageSpaceVisibility = Literal["private", "shared"]
 PortalStorageSpaceShareScope = Literal["restricted", "account"]
@@ -99,7 +98,6 @@ class PortalStorageSpaceSummary(ApiModel):
     quota_max_objects: Optional[int]
     internal_bucket_name: Optional[str]
     archived_at: Optional[datetime]
-    origin: PortalStorageSpaceOrigin
     name_editable: bool
     icon: PortalStorageSpaceIcon
 

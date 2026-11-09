@@ -1,5 +1,15 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 canonical Portal Storage Space summaries
+
+Portal Storage Space summary responses no longer expose the persisted `origin`
+provenance field. The bundled frontend does not consume that provenance and uses
+the explicit `name_editable` capability for rename behavior. Provenance remains
+stored internally for lifecycle and deletion audit data.
+
+Deploy the backend and bundled frontend together. No database migration is
+required because persisted Storage Space metadata is unchanged.
+
 ## 2026-11 canonical quota size units
 
 Internal account, RGW user, bucket, and Portal quota write APIs now accept only

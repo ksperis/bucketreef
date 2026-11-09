@@ -78,7 +78,6 @@ export type PortalStorageSpaceSummary = {
   quota_max_objects: number | null;
   internal_bucket_name: string | null;
   archived_at: string | null;
-  origin: "portal_generic" | "portal_named" | "imported";
   name_editable: boolean;
   icon: StorageSpaceIconDescriptor;
 };

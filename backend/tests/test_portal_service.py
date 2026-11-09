@@ -3174,7 +3174,6 @@ def test_create_storage_space_generic_uses_managed_uuid_bucket_and_editable_name
             name="Research Data",
             role="Owner",
             internal_bucket_name=bucket_name,
-            origin="portal_generic",
             name_editable=True,
         ),
     )
@@ -3240,7 +3239,6 @@ def test_create_storage_space_configures_server_access_logging(monkeypatch, db_s
             name="Research Data",
             role="Owner",
             internal_bucket_name=bucket_name,
-            origin="portal_generic",
             name_editable=True,
         ),
     )
@@ -3454,7 +3452,6 @@ def test_portal_user_can_create_storage_space_when_setting_is_enabled(monkeypatc
             name="Research Data",
             role="Owner",
             internal_bucket_name=bucket_name,
-            origin="portal_generic",
             name_editable=True,
         ),
     )
@@ -3785,7 +3782,6 @@ def test_create_storage_space_named_bucket_preserves_exact_name_and_locks_name(m
             name="Research Data",
             role="Owner",
             internal_bucket_name=bucket_name,
-            origin="portal_named",
             name_editable=False,
         ),
     )
@@ -3903,7 +3899,6 @@ def test_import_storage_space_uses_existing_bucket_name_and_locks_name(monkeypat
             name=bucket_name,
             role="Owner",
             internal_bucket_name=bucket_name,
-            origin="imported",
             name_editable=False,
         ),
     )
@@ -3964,7 +3959,6 @@ def test_import_restricted_storage_space_persists_initial_shares(monkeypatch, db
             visibility="shared",
             share_scope="restricted",
             internal_bucket_name=bucket_name,
-            origin="imported",
             name_editable=False,
         ),
     )
@@ -4026,7 +4020,6 @@ def test_update_storage_space_locked_names_reject_rename_but_accept_description(
             role="Owner",
             description=metadata.description,
             internal_bucket_name=bucket_name,
-            origin=origin,
             name_editable=False,
         ),
     )
@@ -4091,7 +4084,6 @@ def test_update_storage_space_allows_rename_when_name_is_editable(monkeypatch, d
             name=metadata.display_name or bucket_name,
             role="Owner",
             internal_bucket_name=bucket_name,
-            origin="portal_generic",
             name_editable=True,
         ),
     )

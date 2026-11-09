@@ -72,7 +72,6 @@ export function buildPortalStorageSpaceSummary(
     quota_max_objects: null,
     internal_bucket_name: id,
     archived_at: null,
-    origin: "portal_generic",
     name_editable: true,
     icon: {
       source: "preset",
