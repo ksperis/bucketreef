@@ -68,7 +68,6 @@ function buildStorageSpacesWorkspaceData(): PortalStorageSpacesWorkspaceData {
           description: "Research Data shared storage",
           role: "Manager",
           status: "Active",
-          access: "Shared",
           ownerUserId: 7,
           visibility: "shared",
           shareScope: "restricted",

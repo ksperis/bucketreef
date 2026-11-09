@@ -518,9 +518,7 @@ describe("PortalStorageSpaceDetailPage", () => {
       url: null,
       updated_at: null,
     };
-    mocks.hookResult.workspace.spaces[0].origin = "portal_generic";
     mocks.hookResult.workspace.spaces[0].status = "Active";
-    mocks.hookResult.workspace.spaces[0].access = "Shared";
     mocks.hookResult.workspace.spaces[0].visibility = "shared";
     mocks.hookResult.workspace.spaces[0].shareScope = "restricted";
     mocks.hookResult.workspace.spaces[0].accountMemberRole = null;
@@ -1195,7 +1193,6 @@ describe("PortalStorageSpaceDetailPage", () => {
 
   it("locks name editing and only saves description for non-renameable spaces", async () => {
     mocks.hookResult.workspace.spaces[0].nameEditable = false;
-    mocks.hookResult.workspace.spaces[0].origin = "imported";
 
     await renderPage();
 
@@ -1526,7 +1523,6 @@ describe("PortalStorageSpaceDetailPage", () => {
 
   it("keeps metadata management but hides files when content browsing is denied", async () => {
     mocks.hookResult.workspace.spaces[0].visibility = "private";
-    mocks.hookResult.workspace.spaces[0].access = "Private";
     mocks.hookResult.workspace.spaces[0].canBrowse = false;
 
     await renderPage();
