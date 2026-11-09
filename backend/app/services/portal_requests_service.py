@@ -651,6 +651,3 @@ class PortalRequestsService:
         if isinstance(payload, PortalSettingChangeRequestCreate):
             return payload.request_type, payload.model_dump(mode="json", exclude={"request_type"}, exclude_none=True)
         raise ValueError("Unsupported Portal request payload")
-
-def get_portal_requests_service(db: Session) -> PortalRequestsService:
-    return PortalRequestsService(db)
