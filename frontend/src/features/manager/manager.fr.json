@@ -1654,5 +1654,9 @@
   "Owner quota": "Quota du propriétaire",
   "Account quota usage unavailable.": "Utilisation du quota du compte indisponible.",
   "User quota usage unavailable.": "Utilisation du quota utilisateur indisponible.",
-  "Owner quota usage unavailable.": "Utilisation du quota du propriétaire indisponible."
+  "Owner quota usage unavailable.": "Utilisation du quota du propriétaire indisponible.",
+  "BucketReef creates a dedicated IAM user with AmazonS3FullAccess and a private connection for Browser. The generated secret is stored only on the server and is never sent to this browser.": "BucketReef crée un utilisateur IAM dédié avec AmazonS3FullAccess et une connexion privée pour Browser. Le secret généré est stocké uniquement sur le serveur et n’est jamais envoyé à ce navigateur.",
+  "BucketReef creates a dedicated IAM user and private connection using the advanced configuration below. The generated secret is stored only on the server and is never sent to this browser.": "BucketReef crée un utilisateur IAM dédié et une connexion privée avec la configuration avancée ci-dessous. Le secret généré est stocké uniquement sur le serveur et n’est jamais envoyé à ce navigateur.",
+  "BucketReef creates a new access key for this RGW user and stores it in a private connection for Browser. The generated secret is stored only on the server and is never sent to this browser.": "BucketReef crée une nouvelle clé d’accès pour cet utilisateur RGW et la stocke dans une connexion privée pour Browser. Le secret généré est stocké uniquement sur le serveur et n’est jamais envoyé à ce navigateur.",
+  "BucketReef creates a new access key for this RGW user and stores it in a private connection using the advanced configuration below. The generated secret is stored only on the server and is never sent to this browser.": "BucketReef crée une nouvelle clé d’accès pour cet utilisateur RGW et la stocke dans une connexion privée avec la configuration avancée ci-dessous. Le secret généré est stocké uniquement sur le serveur et n’est jamais envoyé à ce navigateur."
 }

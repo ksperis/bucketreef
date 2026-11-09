@@ -125,16 +125,24 @@ export function usePortalStorageSpaceManagement({
       navigate("/portal/storage-spaces", { replace: true });
     } catch (err) {
       console.error(err);
+      const detail = extractApiError(
+        err,
+        t({
+          en: "Unable to delete this space.",
+          fr: "Impossible de supprimer cet espace.",
+          de: "Dieser Bereich kann nicht gelöscht werden.",
+          zh: "无法删除此空间。",
+        }),
+      );
       setDeleteError(
-        extractApiError(
-          err,
-          t({
-            en: "Unable to delete this space.",
-            fr: "Impossible de supprimer cet espace.",
-            de: "Dieser Bereich kann nicht gelöscht werden.",
-            zh: "无法删除此空间。",
-          }),
-        ),
+        detail === "Storage Space is not empty. Delete all current files and clean up its history before deleting it."
+          ? t({
+              en: detail,
+              fr: "L’espace de stockage n’est pas vide. Supprimez tous les fichiers actuels et nettoyez son historique avant de le supprimer.",
+              de: "Der Speicherbereich ist nicht leer. Löschen Sie alle aktuellen Dateien und bereinigen Sie seinen Verlauf, bevor Sie ihn löschen.",
+              zh: "存储空间不为空。请删除所有当前文件并清理其历史记录，然后再删除该空间。",
+            })
+          : detail,
       );
     } finally {
       setDeleteBusy(false);

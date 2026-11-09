@@ -12,6 +12,8 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createMemoryRouter, RouterProvider, MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import type { ComponentProps } from "react";
+import { LanguageProvider } from "../../components/language";
+import { CLIENT_STORAGE_KEYS } from "../../utils/clientStorage";
 import {
   buildPortalAccount,
   buildPortalPublicLink,
@@ -301,8 +303,11 @@ function LocationProbe() {
   return <output data-testid="location-probe">{`${location.pathname}${location.search}`}</output>;
 }
 
-async function renderPage(initialEntries: ComponentProps<typeof MemoryRouter>["initialEntries"] = ["/portal/storage-spaces/research-data"]) {
-  const rendered = render(
+async function renderPage(
+  initialEntries: ComponentProps<typeof MemoryRouter>["initialEntries"] = ["/portal/storage-spaces/research-data"],
+  withLanguageProvider = false,
+) {
+  const content = (
     <MemoryRouter initialEntries={initialEntries}>
       <Routes>
         <Route path="/portal/storage-spaces" element={<div>Spaces</div>} />
@@ -310,6 +315,9 @@ async function renderPage(initialEntries: ComponentProps<typeof MemoryRouter>["i
       </Routes>
       <LocationProbe />
     </MemoryRouter>
+  );
+  const rendered = render(
+    withLanguageProvider ? <LanguageProvider>{content}</LanguageProvider> : content,
   );
   await act(async () => {
     await Promise.resolve();
@@ -1461,6 +1469,31 @@ describe("PortalStorageSpaceDetailPage", () => {
     expect(await within(dialog).findByText("Deletion service unavailable")).toBeInTheDocument();
     expect(mocks.hookResult.refreshWorkspaceData).not.toHaveBeenCalled();
     expect(dialog).toBeInTheDocument();
+    expect(consoleErrorSpy).toHaveBeenCalledWith(expect.any(Error));
+    consoleErrorSpy.mockRestore();
+  });
+
+  it("localizes the known non-empty deletion error", async () => {
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mocks.hookResult.workspace.spaces[0].objectCount = 0;
+    mocks.hookResult.workspace.spaces[0].usedBytes = 0;
+    mocks.deleteStorageSpaceMock.mockRejectedValue(
+      new Error("Storage Space is not empty. Delete all current files and clean up its history before deleting it."),
+    );
+    window.localStorage.setItem(CLIENT_STORAGE_KEYS.languagePreference, "fr");
+
+    await renderPage(["/portal/storage-spaces/research-data"], true);
+    fireEvent.click(screen.getByRole("tab", { name: "Réglages" }));
+    await screen.findByRole("heading", { name: "Historique des fichiers" });
+    fireEvent.click(screen.getByRole("button", { name: "Supprimer l’espace" }));
+    const dialog = screen.getByRole("dialog", { name: "Supprimer l'espace" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Supprimer l'espace" }));
+
+    expect(
+      await within(dialog).findByText(
+        "L’espace de stockage n’est pas vide. Supprimez tous les fichiers actuels et nettoyez son historique avant de le supprimer.",
+      ),
+    ).toBeInTheDocument();
     expect(consoleErrorSpy).toHaveBeenCalledWith(expect.any(Error));
     consoleErrorSpy.mockRestore();
   });
