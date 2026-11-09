@@ -28,7 +28,7 @@ from webauthn.helpers.structs import (
 )
 
 from app.core.config import Settings, get_settings
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
 from app.core.domain_errors import ResourceConflictError
 from app.core.security import hash_refresh_token
 from app.db import AuthChallenge, AuthSession, RecoveryCode, User, WebAuthnCredential
@@ -283,31 +283,34 @@ class WebAuthnService:
         *,
         binding_sid: Optional[str] = None,
     ) -> None:
-        now = utcnow()
-        self.db.execute(
-            update(AuthChallenge)
-            .where(
-                AuthChallenge.user_id == user_id,
-                AuthChallenge.purpose == purpose,
-                AuthChallenge.consumed_at.is_(None),
+        def persist_once() -> None:
+            now = utcnow()
+            self.db.execute(
+                update(AuthChallenge)
+                .where(
+                    AuthChallenge.user_id == user_id,
+                    AuthChallenge.purpose == purpose,
+                    AuthChallenge.consumed_at.is_(None),
+                )
+                .values(consumed_at=now)
+                .execution_options(synchronize_session=False)
             )
-            .values(consumed_at=now)
-            .execution_options(synchronize_session=False)
-        )
-        encoded = bytes_to_base64url(challenge)
-        self.db.add(
-            AuthChallenge(
-                id=str(uuid.uuid4()),
-                user_id=user_id,
-                binding_sid=binding_sid,
-                purpose=purpose,
-                challenge_hash=hash_refresh_token(encoded),
-                payload={"challenge": encoded},
-                created_at=now,
-                expires_at=now + timedelta(minutes=5),
+            encoded = bytes_to_base64url(challenge)
+            self.db.add(
+                AuthChallenge(
+                    id=str(uuid.uuid4()),
+                    user_id=user_id,
+                    binding_sid=binding_sid,
+                    purpose=purpose,
+                    challenge_hash=hash_refresh_token(encoded),
+                    payload={"challenge": encoded},
+                    created_at=now,
+                    expires_at=now + timedelta(minutes=5),
+                )
             )
-        )
-        commit_or_rollback(self.db)
+            commit_or_rollback(self.db)
+
+        run_db_unit_with_sqlite_retry(self.db, persist_once)
 
     def _consume_challenge(
         self,

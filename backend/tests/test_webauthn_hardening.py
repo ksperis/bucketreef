@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import func, select
+from sqlalchemy.exc import OperationalError
 from webauthn.helpers import bytes_to_base64url
 
 from app.core.security import get_password_hash
@@ -28,6 +30,12 @@ from app.core.config import get_settings
 from app.services.auth_session_service import AuthSessionService
 from app.services.app_settings_service import bootstrap_app_settings_for_db
 from app.services.webauthn_service import LastRequiredPasskeyError, WebAuthnSecurityError, WebAuthnService
+
+
+def _busy_snapshot_error() -> OperationalError:
+    original = sqlite3.OperationalError("database is locked")
+    original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
+    return OperationalError("COMMIT", (), original)
 
 
 def _user(db_session, *, email: str, role: str = UserRole.UI_USER.value) -> User:
@@ -153,6 +161,30 @@ def test_registration_challenge_store_rolls_back_when_commit_fails(db_session, m
     db_session.expire_all()
     challenges = db_session.scalars(select(AuthChallenge)).all()
     assert [row.id for row in challenges] == [existing.id]
+    assert challenges[0].consumed_at is None
+
+
+def test_registration_challenge_store_retries_sqlite_busy(db_session, monkeypatch):
+    user = _user(db_session, email="challenge-store-busy@example.com")
+    service = WebAuthnService(db_session)
+    real_commit = db_session.commit
+    commit_calls = 0
+
+    def busy_once() -> None:
+        nonlocal commit_calls
+        commit_calls += 1
+        if commit_calls == 1:
+            raise _busy_snapshot_error()
+        real_commit()
+
+    monkeypatch.setattr(db_session, "commit", busy_once)
+
+    service.begin_registration(user, binding_sid="session-busy")
+
+    assert commit_calls == 2
+    challenges = db_session.scalars(select(AuthChallenge)).all()
+    assert len(challenges) == 1
+    assert challenges[0].binding_sid == "session-busy"
     assert challenges[0].consumed_at is None
 
 

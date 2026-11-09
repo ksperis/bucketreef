@@ -377,6 +377,22 @@ class AuthSessionService:
         *,
         csrf_token: str,
     ) -> str:
+        return run_db_unit_with_sqlite_retry(
+            self.db,
+            lambda: self._revoke_with_csrf_once(
+                session_id,
+                reason,
+                csrf_token=csrf_token,
+            ),
+        )
+
+    def _revoke_with_csrf_once(
+        self,
+        session_id: str,
+        reason: str,
+        *,
+        csrf_token: str,
+    ) -> str:
         session = self.db.get(AuthSession, session_id)
         if session is None or not self.validate_csrf(session, csrf_token):
             raise AuthSessionError("Invalid CSRF token")
@@ -433,6 +449,22 @@ class AuthSessionService:
         commit_or_rollback(self.db)
 
     def revoke_by_refresh_token(
+        self,
+        raw_token: str,
+        reason: str,
+        *,
+        csrf_token: Optional[str] = None,
+    ) -> Optional[str]:
+        return run_db_unit_with_sqlite_retry(
+            self.db,
+            lambda: self._revoke_by_refresh_token_once(
+                raw_token,
+                reason,
+                csrf_token=csrf_token,
+            ),
+        )
+
+    def _revoke_by_refresh_token_once(
         self,
         raw_token: str,
         reason: str,

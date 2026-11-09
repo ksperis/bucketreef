@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import sqlite3
 import threading
 import time
 from datetime import timedelta
@@ -15,6 +16,7 @@ from jose import jwt
 from pwdlib import PasswordHash
 from pwdlib.hashers.bcrypt import BcryptHasher
 from sqlalchemy import event, select, text, update
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker
 from starlette.requests import Request
 from webauthn.helpers import bytes_to_base64url
@@ -70,6 +72,12 @@ from app.services.webauthn_service import WebAuthnService
 from app.utils.request_security import client_ip
 from app.utils.time import utcnow
 from tests.auth_test_utils import authenticate_ui_client, clear_ui_client, trusted_origin_headers
+
+
+def _busy_snapshot_error() -> OperationalError:
+    original = sqlite3.OperationalError("database is locked")
+    original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
+    return OperationalError("UPDATE", (), original)
 
 
 @pytest.fixture
@@ -330,6 +338,43 @@ def test_session_service_rejects_invalid_csrf_without_revoking(db_session):
 
     db_session.refresh(credentials.session)
     assert credentials.session.revoked_at is None
+
+
+def test_session_service_retries_sqlite_busy_when_revoking_with_csrf(db_session, monkeypatch):
+    user = _user(db_session, email="session-revoke-retry@example.com")
+    credentials = AuthSessionService(db_session).create_for_user(
+        user,
+        auth_type="password",
+        ip_address="127.0.0.1",
+        user_agent="pytest",
+        mfa_verified=True,
+    )
+    session_id = credentials.session.id
+    original_flush = db_session.flush
+    flush_calls = 0
+
+    def flaky_flush(*args, **kwargs):
+        nonlocal flush_calls
+        flush_calls += 1
+        if flush_calls == 1:
+            raise _busy_snapshot_error()
+        return original_flush(*args, **kwargs)
+
+    monkeypatch.setattr(db_session, "flush", flaky_flush)
+
+    revoked_session_id = AuthSessionService(db_session).revoke_with_csrf(
+        session_id,
+        "logout",
+        csrf_token=credentials.csrf_token,
+    )
+
+    assert revoked_session_id == session_id
+    assert flush_calls >= 2
+    db_session.expire_all()
+    revoked = db_session.get(AuthSession, session_id)
+    assert revoked is not None
+    assert revoked.revoked_at is not None
+    assert revoked.revoke_reason == "logout"
 
 
 def test_user_cannot_revoke_another_users_session(auth_client, db_session):
