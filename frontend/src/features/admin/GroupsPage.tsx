@@ -65,6 +65,7 @@ import useAdminPaginatedListState from "./useAdminPaginatedListState";
 import useAdminPaginatedListController from "./useAdminPaginatedListController";
 import useAdminStorageAssociationEditorState from "./useAdminStorageAssociationEditorState";
 import {
+  buildAdminAssociationLookup,
   deriveAdminAssociationOptions,
   MAX_VISIBLE_ASSOCIATION_OPTIONS,
 } from "./adminAssociationOptions";
@@ -247,24 +248,27 @@ export default function GroupsPage() {
   }, [accounts, editingGroup]);
 
   const s3UserLabelById = useMemo(() => {
-    const map = new Map<number, string>();
-    editingGroup?.s3_user_details.forEach((user) => map.set(user.id, user.name));
-    s3Users.forEach((user) => map.set(user.id, user.name));
-    return map;
+    return buildAdminAssociationLookup(
+      [editingGroup?.s3_user_details ?? [], s3Users],
+      (user) => user.id,
+      (user) => user.name,
+    );
   }, [editingGroup, s3Users]);
 
   const connectionLabelById = useMemo(() => {
-    const map = new Map<number, string>();
-    editingGroup?.s3_connection_details.forEach((connection) => map.set(connection.id, connection.name));
-    connections.forEach((connection) => map.set(connection.id, connection.name));
-    return map;
+    return buildAdminAssociationLookup(
+      [editingGroup?.s3_connection_details ?? [], connections],
+      (connection) => connection.id,
+      (connection) => connection.name,
+    );
   }, [connections, editingGroup]);
 
   const openStackCloudLabelById = useMemo(() => {
-    const map = new Map<number, string>();
-    editingGroup?.openstack_cloud_details.forEach((cloud) => map.set(cloud.id, cloud.name));
-    openStackClouds.forEach((cloud) => map.set(cloud.id, cloud.name));
-    return map;
+    return buildAdminAssociationLookup(
+      [editingGroup?.openstack_cloud_details ?? [], openStackClouds],
+      (cloud) => cloud.id,
+      (cloud) => cloud.name,
+    );
   }, [editingGroup, openStackClouds]);
 
   const resetForm = () => {
@@ -412,9 +416,11 @@ export default function GroupsPage() {
   const selectedConnectionIds = new Set(form.s3_connection_ids ?? []);
   const selectedOpenStackCloudIds = new Set(form.openstack_cloud_ids ?? []);
   const selectedAccountIds = new Set((form.account_links ?? []).map((link) => Number(link.account_id)));
-  const userLabelById = new Map<number, string>();
-  editingGroup?.user_details.forEach((user) => userLabelById.set(user.id, user.email));
-  users.forEach((user) => userLabelById.set(user.id, user.email));
+  const userLabelById = buildAdminAssociationLookup(
+    [editingGroup?.user_details ?? [], users],
+    (user) => user.id,
+    (user) => user.email,
+  );
   const userOptions = deriveAdminAssociationOptions({
     items: users,
     selectedIds: selectedUserIds,

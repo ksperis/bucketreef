@@ -79,6 +79,7 @@ import type { StorageAssociationTab } from "./useAdminStorageAssociationEditorSt
 import useAdminPaginatedListState from "./useAdminPaginatedListState";
 import useAdminPaginatedListController from "./useAdminPaginatedListController";
 import useAdminUserLdapImport from "./useAdminUserLdapImport";
+import { buildAdminAssociationLookup } from "./adminAssociationOptions";
 import {
   adminUserCreatePayload,
   adminUserEditForm,
@@ -260,27 +261,33 @@ export default function UsersPage() {
     [accounts],
   );
   const s3UserOptions = useMemo(() => s3Users.map((u) => ({ id: u.id, label: u.name })), [s3Users]);
-  const s3UserLabelById = useMemo(() => {
-    const map = new Map<number, string>();
-    s3Users.forEach((u) => map.set(u.id, u.name));
-    return map;
-  }, [s3Users]);
+  const s3UserLabelById = useMemo(
+    () => buildAdminAssociationLookup([s3Users], (user) => user.id, (user) => user.name),
+    [s3Users],
+  );
   const s3ConnectionOptions = useMemo(
     () => s3Connections.map((conn) => ({ id: conn.id, label: conn.name })),
     [s3Connections]
   );
   const s3SharedConnectionOptions = s3ConnectionOptions;
-  const s3ConnectionLabelById = useMemo(() => {
-    const map = new Map<number, string>();
-    s3Connections.forEach((conn) => map.set(conn.id, conn.name));
-    return map;
-  }, [s3Connections]);
+  const s3ConnectionLabelById = useMemo(
+    () => buildAdminAssociationLookup(
+      [s3Connections],
+      (connection) => connection.id,
+      (connection) => connection.name,
+    ),
+    [s3Connections],
+  );
   const openStackOptions = useMemo(
     () => openStackClouds.map((cloud) => ({ id: cloud.id, label: cloud.name })),
     [openStackClouds],
   );
   const openStackLabelById = useMemo(
-    () => new Map(openStackClouds.map((cloud) => [cloud.id, cloud.name] as const)),
+    () => buildAdminAssociationLookup(
+      [openStackClouds],
+      (cloud) => cloud.id,
+      (cloud) => cloud.name,
+    ),
     [openStackClouds],
   );
   const associationOptionSources = useMemo(() => ({

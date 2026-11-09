@@ -10,6 +10,20 @@ export type AdminAssociationOption = {
   label: string;
 };
 
+export function buildAdminAssociationLookup<TItem, TValue>(
+  sources: readonly (readonly TItem[])[],
+  getId: (item: TItem) => number,
+  getValue: (item: TItem) => TValue,
+): Map<number, TValue> {
+  const lookup = new Map<number, TValue>();
+  for (const source of sources) {
+    for (const item of source) {
+      lookup.set(getId(item), getValue(item));
+    }
+  }
+  return lookup;
+}
+
 type AssociationOptionsConfig<T> = {
   items: T[];
   selectedIds: ReadonlySet<number>;
