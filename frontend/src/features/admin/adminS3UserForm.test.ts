@@ -2,6 +2,9 @@ import type { S3User } from "../../api/s3Users";
 import {
   adminS3UserForm,
   adminS3UserPayload,
+  buildCreateS3UserDraft,
+  buildEditS3UserDraft,
+  buildImportS3UserDraft,
   emptyAdminS3UserForm,
 } from "./adminS3UserForm";
 
@@ -106,5 +109,35 @@ describe("adminS3UserForm", () => {
     form.email = "   ";
 
     expect(adminS3UserPayload(form, false, false).email).toBeNull();
+  });
+
+  it("normalizes drafts before unsaved-change comparisons", () => {
+    const form = {
+      name: "RGW User",
+      storage_endpoint_id: "10",
+      tags: [
+        { label: " Team ", color_key: "sky" as const, scope: "standard" as const },
+        { label: "env", color_key: "neutral" as const, scope: "standard" as const },
+      ],
+    };
+
+    expect(buildCreateS3UserDraft(form, "10")).toEqual({
+      createForm: {
+        name: "RGW User",
+        storage_endpoint_id: "",
+        tags: [
+          { id: undefined, label: "env", color_key: "neutral", scope: "standard" },
+          { id: undefined, label: "Team", color_key: "sky", scope: "standard" },
+        ],
+      },
+    });
+    expect(buildEditS3UserDraft(form).editForm.tags).toEqual([
+      { id: undefined, label: "env", color_key: "neutral", scope: "standard" },
+      { id: undefined, label: "Team", color_key: "sky", scope: "standard" },
+    ]);
+    expect(buildImportS3UserDraft("user-a", "10", "10")).toEqual({
+      importText: "user-a",
+      importEndpointId: "",
+    });
   });
 });

@@ -5,7 +5,7 @@ import type {
   S3UserUserLinkInput,
   UpdateS3UserPayload,
 } from "../../api/s3Users";
-import { normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
+import { canonicalizeUiTags, normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
 import { buildAdminQuotaSizeEditorValue } from "./adminQuotaForm";
 
 export function emptyAdminS3UserForm() {
@@ -33,6 +33,40 @@ export function emptyAdminS3UserForm() {
 }
 
 type AdminS3UserForm = ReturnType<typeof emptyAdminS3UserForm>;
+
+function buildS3UserFormDraft<T extends { tags: UiTagDefinition[] }>(form: T) {
+  return {
+    ...form,
+    tags: canonicalizeUiTags(form.tags),
+  };
+}
+
+export function buildCreateS3UserDraft<
+  T extends { tags: UiTagDefinition[]; storage_endpoint_id: string },
+>(form: T, defaultEndpointId: string) {
+  return {
+    createForm: {
+      ...buildS3UserFormDraft(form),
+      storage_endpoint_id:
+        form.storage_endpoint_id === defaultEndpointId ? "" : form.storage_endpoint_id,
+    },
+  };
+}
+
+export function buildImportS3UserDraft(
+  importText: string,
+  importEndpointId: string,
+  defaultEndpointId: string,
+) {
+  return {
+    importText,
+    importEndpointId: importEndpointId === defaultEndpointId ? "" : importEndpointId,
+  };
+}
+
+export function buildEditS3UserDraft<T extends { tags: UiTagDefinition[] }>(form: T) {
+  return { editForm: buildS3UserFormDraft(form) };
+}
 
 export function adminS3UserForm(user: S3User): AdminS3UserForm {
   const quota = buildAdminQuotaSizeEditorValue(user.quota_max_size_gb);
