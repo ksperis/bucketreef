@@ -78,8 +78,3 @@ class PortalService(
         self._storage_space_access_sid = PORTAL_STORAGE_SPACE_ACCESS_SID
         self._storage_space_private_sid = PORTAL_STORAGE_SPACE_PRIVATE_SID
         self._storage_space_archived_sid = PORTAL_STORAGE_SPACE_ARCHIVED_SID
-
-
-
-def get_portal_service(db: Session) -> PortalService:
-    return PortalService(db)

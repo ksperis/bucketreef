@@ -548,7 +548,7 @@ def test_manager_and_portal_share_one_sample_account_with_independent_roles(
     )
     monkeypatch.setattr(
         setup_service,
-        "get_portal_service",
+        "PortalService",
         lambda _db: SimpleNamespace(
             get_portal_credentials=lambda *_args, **_kwargs: ("portal-ak", "portal-sk")
         ),
@@ -670,7 +670,7 @@ def test_manager_and_portal_role_axes_remain_independent(
     )
     monkeypatch.setattr(
         setup_service,
-        "get_portal_service",
+        "PortalService",
         lambda _db: SimpleNamespace(
             get_portal_credentials=lambda *_args, **_kwargs: ("portal-ak", "portal-sk")
         ),
