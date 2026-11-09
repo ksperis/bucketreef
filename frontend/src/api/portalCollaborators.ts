@@ -42,9 +42,7 @@ export type PortalCollaboratorAccessReview = {
 };
 
 type PortalCollaboratorTrend = {
-  window: "month" | "week" | "day";
   label: string;
-  period_start: string;
   collaborator_count: number;
 };
 

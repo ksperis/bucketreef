@@ -107,7 +107,7 @@ def test_portal_sharing_responses_require_complete_canonical_payloads() -> None:
         PortalCollaboratorAccessReview: {
             "collaborator", "can_request_project_removal", "can_request_role_change", "space_accesses"
         },
-        PortalCollaboratorTrend: {"window", "label", "period_start", "collaborator_count"},
+        PortalCollaboratorTrend: {"label", "collaborator_count"},
         PortalCollaboratorSummary: {"collaborator_count", "external_access_key_count", "trend"},
         PortalCollaboratorsResponse: {"summary", "collaborators"},
         PortalPublicLink: {

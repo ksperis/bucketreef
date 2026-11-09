@@ -242,9 +242,7 @@ class PortalCollaboratorsMixin:
             )
             if baseline_count > 0 or window == "day":
                 return PortalCollaboratorTrend(
-                    window=window,
                     label=label,
-                    period_start=cutoff.isoformat(),
                     collaborator_count=baseline_count,
                 )
         return None

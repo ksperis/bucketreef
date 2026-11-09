@@ -142,7 +142,7 @@ function buildDashboardWorkspaceData(): PortalDashboardWorkspaceData {
       summary: {
         collaborator_count: 3,
         external_access_key_count: 2,
-        trend: { window: "month", label: "last 30 days", period_start: "2026-05-10", collaborator_count: 2 },
+        trend: { label: "last 30 days", collaborator_count: 2 },
       },
       collaborators: [],
     },
