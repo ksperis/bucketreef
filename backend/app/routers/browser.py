@@ -50,10 +50,7 @@ from app.routers.dependencies import (
 from app.services.app_settings_service import load_app_settings_for_db
 from app.services.audit_service import AuditService
 from app.services.browser_service import BrowserService, get_browser_service
-from app.services.browser_usage_summary_service import (
-    BrowserUsageSummaryService,
-    get_browser_usage_summary_service,
-)
+from app.services.browser_usage_summary_service import BrowserUsageSummaryService
 from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.http_errors import raise_bad_gateway_from_runtime, raise_http_exception_from_exception
@@ -81,7 +78,7 @@ def get_browser_settings(
 
 
 def get_browser_usage_service(db: Session = Depends(get_db)) -> BrowserUsageSummaryService:
-    return get_browser_usage_summary_service(db)
+    return BrowserUsageSummaryService(db)
 
 
 @router.get(
