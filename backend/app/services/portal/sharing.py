@@ -97,7 +97,6 @@ class PortalSharingMixin:
             email=target.email,
             role=role,
             direction="with_me" if actor.id == target.id else "by_me",
-            activity_label="Active",
         )
 
     def _validate_initial_storage_space_shares(

@@ -85,7 +85,7 @@ def test_portal_share_candidate_request_preserves_listing_bounds() -> None:
 def test_portal_sharing_responses_require_complete_canonical_payloads() -> None:
     expected_required = {
         PortalStorageSpaceShare: {
-            "id", "storage_space_id", "storage_space_name", "user_id", "email", "role", "direction", "activity_label"
+            "id", "storage_space_id", "storage_space_name", "user_id", "email", "role", "direction"
         },
         PortalStorageSpaceAccessPerson: {
             "user_id", "email", "display_name", "role", "portal_role", "access_source", "avatar"

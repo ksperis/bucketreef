@@ -26,6 +26,18 @@ frontend no longer receives unused internal projections.
 Deploy the backend and bundled frontend together. No database migration is
 required because persisted Storage Space metadata is unchanged.
 
+## 2026-11 canonical Portal collaboration metadata
+
+Portal Storage Space share responses no longer expose the synthetic
+`activity_label` value, which was always generated as an activity-state label
+and was not consumed by the bundled frontend. Portal request messages likewise
+no longer expose `author_user_id` or `author_role`; the UI identifies message
+authors by email and does not consume either projection.
+
+The request-message author ID and role remain persisted for internal audit and
+provenance. Deploy the backend and bundled frontend together. No database
+migration is required.
+
 ## 2026-11 canonical quota size units
 
 Internal account, RGW user, bucket, and Portal quota write APIs now accept only

@@ -24,7 +24,6 @@ export type PortalStorageSpaceShare = {
   email: string;
   role: PortalStorageSpaceGrantRole;
   direction: PortalStorageSpaceShareDirection;
-  activity_label: string;
 };
 
 export type PortalStorageSpaceAccessPerson = {
