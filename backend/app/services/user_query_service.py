@@ -113,8 +113,9 @@ class UserQueryService:
 
         linked_connection = aliased(S3Connection)
         pattern = f"%{search_value}%"
-        return (
-            statement.outerjoin(UserS3Account, User.id == UserS3Account.user_id)
+        matching_user_ids = (
+            select(User.id)
+            .outerjoin(UserS3Account, User.id == UserS3Account.user_id)
             .outerjoin(S3Account, UserS3Account.account_id == S3Account.id)
             .outerjoin(UserS3User, User.id == UserS3User.user_id)
             .outerjoin(S3User, UserS3User.s3_user_id == S3User.id)
@@ -143,6 +144,7 @@ class UserQueryService:
             )
             .distinct()
         )
+        return statement.where(User.id.in_(matching_user_ids))
 
     @staticmethod
     def _order_columns(
