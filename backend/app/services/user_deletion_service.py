@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import logging
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, select, text, update
 from sqlalchemy.orm import Session
 
+from app.core.db_transactions import run_db_unit_with_sqlite_retry
 from app.core.domain_errors import CompensationFailureError, UiUserNotFoundError
 from app.db import (
     AccountIAMUser,
@@ -14,6 +15,7 @@ from app.db import (
     AuditLog,
     AuthSession,
     BucketMigration,
+    ManagedPrivateAccess,
     PortalIAMRevocation,
     RefreshToken,
     S3Account,
@@ -41,6 +43,23 @@ class UserDeletionService:
     def __init__(self, db: Session) -> None:
         self.db = db
 
+    def _acquire_sqlite_write_transaction(self, user_id: int) -> None:
+        if self.db.get_bind().dialect.name != "sqlite":
+            return
+
+        self.db.rollback()
+
+        def acquire_once() -> None:
+            changed = self.db.execute(
+                text("UPDATE users SET id = id WHERE id = :user_id"),
+                {"user_id": user_id},
+            ).rowcount
+            if changed != 1:
+                self.db.rollback()
+                raise UiUserNotFoundError("User not found")
+
+        run_db_unit_with_sqlite_retry(self.db, acquire_once)
+
     def _created_private_connection_ids(self, user_id: int) -> list[int]:
         created_connection_rows = self.db.execute(
             select(S3Connection.id, S3Connection.is_shared).where(
@@ -59,6 +78,39 @@ class UserDeletionService:
                 f"{created_shared_str}"
             )
         return [row[0] for row in created_connection_rows if not bool(row[1])]
+
+    def _cleanup_managed_private_accesses(self, user: User) -> None:
+        from app.services.managed_private_access_cleanup_service import (
+            ManagedPrivateAccessCleanupService,
+        )
+
+        cleanup = ManagedPrivateAccessCleanupService(self.db)
+        provisionings = list(
+            self.db.scalars(
+                select(ManagedPrivateAccess)
+                .where(ManagedPrivateAccess.owner_user_id == user.id)
+                .order_by(ManagedPrivateAccess.id)
+            ).all()
+        )
+        for provisioning in provisionings:
+            if provisioning.s3_connection_id is not None:
+                cleanup.delete_owned_connection(
+                    user=user,
+                    connection_id=int(provisioning.s3_connection_id),
+                    use_persisted_source=True,
+                )
+                continue
+            if provisioning.state == "cleanup_pending":
+                cleanup.retry_provisioning_cleanup(
+                    user=user,
+                    provisioning_id=int(provisioning.id),
+                )
+                continue
+            if provisioning.state == "failed":
+                continue
+            raise ValueError(
+                "Cannot delete user while managed private access provisioning is still active"
+            )
 
     def _prepare_portal_revocations(
         self,
@@ -151,6 +203,15 @@ class UserDeletionService:
         user_id: int,
         created_private_ids: list[int],
     ) -> None:
+        self.db.execute(
+            delete(ManagedPrivateAccess)
+            .where(
+                ManagedPrivateAccess.owner_user_id == user_id,
+                ManagedPrivateAccess.s3_connection_id.is_(None),
+                ManagedPrivateAccess.state == "failed",
+            )
+            .execution_options(synchronize_session=False)
+        )
         # Remove dependent links/tokens first to satisfy FK constraints on PostgreSQL.
         self.db.execute(
             delete(UserS3Account)
@@ -248,8 +309,18 @@ class UserDeletionService:
         user = self.db.get(User, user_id)
         if not user:
             raise UiUserNotFoundError("User not found")
-        require_no_private_storage_space_ownership(self.db, user_id=user.id)
-        created_private_ids = self._created_private_connection_ids(user.id)
+        self._cleanup_managed_private_accesses(user)
+        self._acquire_sqlite_write_transaction(user_id)
+        user = self.db.get(User, user_id)
+        if not user:
+            self.db.rollback()
+            raise UiUserNotFoundError("User not found")
+        try:
+            require_no_private_storage_space_ownership(self.db, user_id=user.id)
+            created_private_ids = self._created_private_connection_ids(user.id)
+        except Exception:
+            self.db.rollback()
+            raise
         portal_revocations = self._prepare_portal_revocations(user)
         try:
             self._delete_links_and_private_connections(user.id, created_private_ids)

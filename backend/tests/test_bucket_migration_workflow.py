@@ -221,6 +221,32 @@ def test_start_persists_sanitized_precondition_errors(prepared):
     )
 
 
+def test_start_precondition_failure_retries_sqlite_busy(prepared, monkeypatch):
+    service, migration, _ = prepared
+    service.run_precheck(migration.id, active_checks=True)
+    service._revalidate_transfer_preconditions = Mock(
+        side_effect=ValueError("Source versioning changed since preparation")
+    )
+    real_commit = service.db.commit
+    failed = False
+
+    def busy_once():
+        nonlocal failed
+        if not failed:
+            failed = True
+            raise _busy_snapshot_error()
+        return real_commit()
+
+    monkeypatch.setattr(service.db, "commit", busy_once)
+
+    with pytest.raises(ValueError, match="versioning changed"):
+        service.start_migration(migration.id, configuration_revision=1)
+
+    assert failed is True
+    assert migration.preparation_status == "stale"
+    assert migration.precheck_report["checks"][0]["code"] == "start_precondition_changed"
+
+
 def test_immediate_copy_requires_interruption_confirmation(prepared):
     service, migration, _ = prepared
     migration.mode = "one_shot"
@@ -980,6 +1006,40 @@ def test_access_recovery_resolves_restoration_failure_after_source_deletion(prep
     assert migration.maintenance_status == "completed"
     assert item.cleanup_error is None
     assert item.source_deleted and not item.target_lock_applied
+
+
+def test_request_maintenance_retries_sqlite_busy(prepared, monkeypatch):
+    service, migration, _ = prepared
+    item = migration.items[0]
+    migration.status = item.status = "completed"
+    item.read_only_applied = True
+    service._commit()
+    real_transition = service._transition_command
+    transition_calls = 0
+
+    def busy_once(*args, **kwargs):
+        nonlocal transition_calls
+        transition_calls += 1
+        if transition_calls == 1:
+            raise _busy_snapshot_error()
+        return real_transition(*args, **kwargs)
+
+    monkeypatch.setattr(service, "_transition_command", busy_once)
+
+    queued = service.request_maintenance(
+        migration.id,
+        operation="restore_access",
+        confirmed=True,
+    )
+
+    assert transition_calls == 2
+    assert queued.maintenance_status == "queued"
+    assert queued.maintenance_operation == "restore_access"
+    assert [
+        event.message
+        for event in queued.events
+        if event.message == "Recovery operation queued: restore_access."
+    ] == ["Recovery operation queued: restore_access."]
 
 
 def test_empty_source_does_not_claim_content_and_tag_checks_passed(prepared):

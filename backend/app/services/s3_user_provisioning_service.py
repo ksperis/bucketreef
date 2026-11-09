@@ -7,7 +7,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import rollback_safely
+from app.core.db_transactions import rollback_safely, run_db_unit_with_sqlite_retry
 from app.core.domain_errors import CompensationFailureError
 from app.db import S3User, StorageEndpoint
 from app.models.s3_user import S3UserCreate
@@ -74,7 +74,7 @@ class S3UserProvisioningService:
                 uid=uid,
                 tenant=tenant,
             )
-            s3_user = self._persist_created_user(
+            self._apply_initial_quota(
                 payload,
                 endpoint,
                 uid=uid,
@@ -82,7 +82,25 @@ class S3UserProvisioningService:
                 access_key=access_key,
                 secret_key=secret_key,
             )
-            self.db.commit()
+
+            endpoint_id = int(endpoint.id)
+
+            def persist_once() -> int:
+                s3_user = self._persist_created_user(
+                    payload,
+                    endpoint_id=endpoint_id,
+                    uid=uid,
+                    tenant=tenant,
+                    access_key=access_key,
+                    secret_key=secret_key,
+                )
+                self.db.commit()
+                return int(s3_user.id)
+
+            s3_user_id = run_db_unit_with_sqlite_retry(self.db, persist_once)
+            s3_user = self.db.get(S3User, s3_user_id, populate_existing=True)
+            if s3_user is None:  # pragma: no cover - defensive consistency check
+                raise RuntimeError("S3 user could not be reloaded after creation")
         except Exception as exc:
             self._rollback_failed_creation(
                 exc,
@@ -129,8 +147,8 @@ class S3UserProvisioningService:
     def _persist_created_user(
         self,
         payload: S3UserCreate,
-        endpoint: StorageEndpoint,
         *,
+        endpoint_id: int,
         uid: str,
         tenant: str,
         access_key: str,
@@ -143,19 +161,39 @@ class S3UserProvisioningService:
             email=payload.email,
             rgw_access_key=access_key,
             rgw_secret_key=secret_key,
-            storage_endpoint_id=endpoint.id,
+            storage_endpoint_id=endpoint_id,
         )
         self.db.add(s3_user)
         self.db.flush()
         self.tags.replace_s3_user_tags(s3_user, payload.tags)
+        return s3_user
+
+    def _apply_initial_quota(
+        self,
+        payload: S3UserCreate,
+        endpoint: StorageEndpoint,
+        *,
+        uid: str,
+        tenant: str,
+        access_key: str,
+        secret_key: str,
+    ) -> None:
         if payload.quota_max_size_gb is not None or payload.quota_max_objects is not None:
+            remote_user = S3User(
+                name=payload.name,
+                rgw_user_uid=uid,
+                rgw_tenant=tenant,
+                email=payload.email,
+                rgw_access_key=access_key,
+                rgw_secret_key=secret_key,
+                storage_endpoint=endpoint,
+            )
             self.quota.update(
-                s3_user,
+                remote_user,
                 payload.quota_max_size_gb,
                 payload.quota_max_objects,
                 payload.quota_max_size_unit,
             )
-        return s3_user
 
     def _rollback_failed_creation(
         self,

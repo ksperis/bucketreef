@@ -36,25 +36,33 @@ class BucketMigrationPreparationMixin:
         migration = self.get_migration(migration_id)
         self._assert_migration_creator_access(migration)
         require_action(migration, "precheck")
-        self._transition_command(migration, preparation_status="checking")
-        migration.preparation_active_checks = active_checks
-        migration.preparation_completed_items = 0
-        migration.preparation_requested_at = utcnow()
-        migration.precheck_report = None
-        migration.precheck_checked_at = None
-        migration.worker_lease_owner = None
-        migration.worker_lease_until = None
-        migration.error_message = None
-        migration.updated_at = utcnow()
-        self._add_event(
+        requested_at = utcnow()
+
+        def mutate(current: BucketMigration) -> None:
+            current.preparation_active_checks = active_checks
+            current.preparation_completed_items = 0
+            current.preparation_requested_at = requested_at
+            current.precheck_report = None
+            current.precheck_checked_at = None
+            current.worker_lease_owner = None
+            current.worker_lease_until = None
+            current.error_message = None
+            current.updated_at = requested_at
+            self._add_event(
+                current,
+                level="info",
+                message=(
+                    "Active checks queued."
+                    if active_checks
+                    else "Read-only checks queued."
+                ),
+            )
+
+        return self._persist_transition_command(
             migration,
-            level="info",
-            message=(
-                "Active checks queued." if active_checks else "Read-only checks queued."
-            ),
+            values={"preparation_status": "checking"},
+            mutate=mutate,
         )
-        self._commit()
-        return migration
 
     def claim_next_preparation_id(self, *, worker_id: str, lease_seconds: int):
         now = utcnow()

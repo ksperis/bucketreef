@@ -2267,6 +2267,67 @@ def test_start_migration_requires_precheck_passed(db_session):
         assert "Run and pass active checks" in str(exc)
 
 
+def test_request_precheck_retries_sqlite_busy(db_session, monkeypatch):
+    user = _create_user(db_session)
+    source = _create_account(
+        db_session,
+        name="source",
+        endpoint_url="https://source.example.test",
+        account_id="RGW001",
+    )
+    target = _create_account(
+        db_session,
+        name="target",
+        endpoint_url="https://target.example.test",
+        account_id="RGW002",
+    )
+    db_session.commit()
+
+    service = BucketMigrationService(db_session)
+    migration = service.create_migration(
+        BucketMigrationCreateRequest(
+            source_context_id=str(source.id),
+            target_context_id=str(target.id),
+            mode="one_shot",
+            buckets=[
+                BucketMigrationBucketMapping(
+                    source_bucket="bucket-a",
+                    target_bucket="bucket-a-dst",
+                )
+            ],
+        ),
+        user,
+    )
+    migration_id = int(migration.id)
+    real_commit = db_session.commit
+    failed = False
+
+    def busy_once():
+        nonlocal failed
+        if not failed:
+            failed = True
+            original = sqlite3.OperationalError("database is locked")
+            original.sqlite_errorcode = sqlite3.SQLITE_BUSY
+            raise sa.exc.OperationalError("UPDATE", (), original)
+        return real_commit()
+
+    monkeypatch.setattr(db_session, "commit", busy_once)
+
+    queued = service.request_precheck(migration_id, active_checks=True)
+
+    assert failed is True
+    assert queued.preparation_status == "checking"
+    assert queued.preparation_active_checks is True
+    assert queued.preparation_requested_at is not None
+    events = db_session.scalars(
+        sa.select(BucketMigrationEvent).where(
+            BucketMigrationEvent.migration_id == migration_id,
+            BucketMigrationEvent.message == "Active checks queued.",
+        )
+    ).all()
+    assert len(events) == 1
+
+
 def test_precheck_context_resolution_reports_missing_source_and_target_endpoints(db_session):
     service = BucketMigrationService(db_session)
     source_ctx = SimpleNamespace(

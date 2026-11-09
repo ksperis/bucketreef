@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Optional, Tuple
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from app.core.db_transactions import commit_or_rollback, rollback_safely
+from app.core.db_transactions import commit_or_rollback, rollback_safely, run_db_unit_with_sqlite_retry
 from app.db import AccountIAMUser, PortalIAMRevocation, S3Account, User
 from app.core.domain_enums import PortalAccountRole
 from app.models.iam import AccessKey as ModelAccessKey, IAMUser
@@ -90,12 +90,39 @@ class PortalIamMixin:
         link: AccountIAMUser,
         created_key: Optional[ModelAccessKey],
     ) -> AccountIAMUser:
-        if created_key:
-            link.active_access_key = created_key.access_key_id
-            link.active_secret_key = created_key.secret_access_key
-        try:
-            self.db.add(link)
+        link_id = link.id
+        user_id = user.id
+        account_id = account.id
+        iam_user_id = link.iam_user_id
+        iam_username = link.iam_username
+        active_access_key = created_key.access_key_id if created_key else link.active_access_key
+        active_secret_key = created_key.secret_access_key if created_key else link.active_secret_key
+
+        def persist_once() -> AccountIAMUser:
+            if link_id is None:
+                current = AccountIAMUser(
+                    user_id=user_id,
+                    account_id=account_id,
+                    iam_user_id=iam_user_id,
+                    iam_username=iam_username,
+                    active_access_key=active_access_key,
+                    active_secret_key=active_secret_key,
+                )
+            else:
+                current = self.db.get(AccountIAMUser, link_id)
+                if current is None:
+                    raise PortalOperationError("Portal IAM link disappeared while provisioning access")
+                current.iam_user_id = iam_user_id
+                current.iam_username = iam_username
+                current.active_access_key = active_access_key
+                current.active_secret_key = active_secret_key
+            self.db.add(current)
             commit_or_rollback(self.db)
+            self.db.refresh(current)
+            return current
+
+        try:
+            link = run_db_unit_with_sqlite_retry(self.db, persist_once)
         except IntegrityError:
             concurrent_link = self._existing_portal_link(user, account)
             if concurrent_link is None:

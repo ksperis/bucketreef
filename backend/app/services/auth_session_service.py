@@ -603,19 +603,58 @@ class AuthSessionService:
         raw_refresh = create_refresh_token()
         csrf = secrets.token_urlsafe(32)
         session.csrf_token_hash = hash_refresh_token(csrf)
-        refresh = RefreshToken(
-            id=str(uuid.uuid4()),
-            family_id=str(uuid.uuid4()),
-            auth_session_id=session.id,
-            token_hash=hash_refresh_token(raw_refresh),
-            created_at=session.created_at,
-            expires_at=session.absolute_expires_at,
-        )
-        self.db.add_all([session, refresh])
+        refresh_id = str(uuid.uuid4())
+        refresh_family_id = str(uuid.uuid4())
+        refresh_token_hash = hash_refresh_token(raw_refresh)
         if commit:
-            commit_or_rollback(self.db)
-            self.db.refresh(session)
+            session_values = {
+                "id": session.id,
+                "user_id": session.user_id,
+                "s3_session_id": session.s3_session_id,
+                "principal_type": session.principal_type,
+                "auth_type": session.auth_type,
+                "auth_version": session.auth_version,
+                "created_at": session.created_at,
+                "last_activity_at": session.last_activity_at,
+                "idle_expires_at": session.idle_expires_at,
+                "absolute_expires_at": session.absolute_expires_at,
+                "mfa_verified_at": session.mfa_verified_at,
+                "ip_address": session.ip_address,
+                "user_agent": session.user_agent,
+                "csrf_token_hash": session.csrf_token_hash,
+                "revoked_at": session.revoked_at,
+                "revoke_reason": session.revoke_reason,
+            }
+
+            def persist_once() -> str:
+                current = AuthSession(**session_values)
+                refresh = RefreshToken(
+                    id=refresh_id,
+                    family_id=refresh_family_id,
+                    auth_session_id=current.id,
+                    token_hash=refresh_token_hash,
+                    created_at=current.created_at,
+                    expires_at=current.absolute_expires_at,
+                )
+                self.db.add_all([current, refresh])
+                commit_or_rollback(self.db)
+                return current.id
+
+            session_id = run_db_unit_with_sqlite_retry(self.db, persist_once)
+            persisted = self.db.get(AuthSession, session_id, populate_existing=True)
+            if persisted is None:  # pragma: no cover - defensive consistency check
+                raise RuntimeError("Authentication session could not be reloaded")
+            session = persisted
         else:
+            refresh = RefreshToken(
+                id=refresh_id,
+                family_id=refresh_family_id,
+                auth_session_id=session.id,
+                token_hash=refresh_token_hash,
+                created_at=session.created_at,
+                expires_at=session.absolute_expires_at,
+            )
+            self.db.add_all([session, refresh])
             self.db.flush()
         return SessionCredentials(
             access_token=self._access_token(session, user=user, s3_session=s3_session),

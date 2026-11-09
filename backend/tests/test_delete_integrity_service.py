@@ -2,9 +2,11 @@
 # Licensed under the Apache License, Version 2.0
 
 from datetime import UTC, datetime
+import sqlite3
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.exc import OperationalError
 
 from app.core.domain_errors import CompensationFailureError
 from app.db import (
@@ -13,6 +15,7 @@ from app.db import (
     AuthSession,
     AuditLog,
     BucketMigration,
+    ManagedPrivateAccess,
     PortalIAMRevocation,
     RefreshToken,
     S3Connection,
@@ -155,6 +158,138 @@ def test_delete_user_cleans_owned_connections_tokens_and_sessions(db_session):
     assert refresh is not None
 
 
+def test_delete_user_cleans_managed_private_access_before_owned_connection(
+    db_session,
+    monkeypatch,
+):
+    owner = User(
+        email="owner-managed-delete@example.com",
+        hashed_password="x",
+        role=UserRole.UI_USER.value,
+    )
+    db_session.add(owner)
+    db_session.flush()
+    connection = S3Connection(
+        created_by_user_id=owner.id,
+        name="owned-managed-private",
+        **custom_endpoint_fields("https://managed-private.example.test"),
+        access_key_id="AKIA-MANAGED-OWNED",
+        secret_access_key="SECRET-MANAGED-OWNED",
+        server_managed=True,
+    )
+    db_session.add(connection)
+    db_session.flush()
+    provisioning = ManagedPrivateAccess(
+        owner_user_id=owner.id,
+        source_context_type="account",
+        source_context_id=42,
+        remote_principal_type="iam_user",
+        remote_principal_identifier="managed-user",
+        iam_username="managed-user",
+        access_key_id="AKIA-MANAGED-OWNED",
+        s3_connection_id=connection.id,
+        state="active",
+        created_remote_principal=True,
+        created_access_key=True,
+    )
+    db_session.add(provisioning)
+    db_session.commit()
+    owner_id = int(owner.id)
+    connection_id = int(connection.id)
+    provisioning_id = int(provisioning.id)
+    cleanup_calls: list[tuple[int, int, bool]] = []
+
+    def cleanup_managed_connection(
+        service,
+        *,
+        user,
+        connection_id,
+        use_persisted_source=False,
+    ):
+        cleanup_calls.append(
+            (int(user.id), int(connection_id), bool(use_persisted_source))
+        )
+        managed = service.db.get(ManagedPrivateAccess, provisioning_id)
+        row = service.db.get(S3Connection, connection_id)
+        if managed is not None:
+            service.db.delete(managed)
+        if row is not None:
+            service.db.delete(row)
+        service.db.commit()
+        return True
+
+    monkeypatch.setattr(
+        "app.services.managed_private_access_cleanup_service.ManagedPrivateAccessCleanupService.delete_owned_connection",
+        cleanup_managed_connection,
+    )
+
+    UserDeletionService(db_session).delete_user(owner_id)
+
+    assert cleanup_calls == [(owner_id, connection_id, True)]
+    assert db_session.get(User, owner_id) is None
+    assert db_session.get(ManagedPrivateAccess, provisioning_id) is None
+    assert db_session.get(S3Connection, connection_id) is None
+
+
+def test_delete_user_removes_compensated_failed_managed_private_access(db_session):
+    owner = User(
+        email="owner-managed-failed-delete@example.com",
+        hashed_password="x",
+        role=UserRole.UI_USER.value,
+    )
+    db_session.add(owner)
+    db_session.flush()
+    provisioning = ManagedPrivateAccess(
+        owner_user_id=owner.id,
+        source_context_type="account",
+        source_context_id=43,
+        remote_principal_type="iam_user",
+        remote_principal_identifier="failed-managed-user",
+        iam_username="failed-managed-user",
+        state="failed",
+        cleanup_error="provisioning failed after successful compensation",
+    )
+    db_session.add(provisioning)
+    db_session.commit()
+    owner_id = int(owner.id)
+    provisioning_id = int(provisioning.id)
+
+    UserDeletionService(db_session).delete_user(owner_id)
+
+    assert db_session.get(User, owner_id) is None
+    assert db_session.get(ManagedPrivateAccess, provisioning_id) is None
+
+
+def test_delete_user_rejects_in_progress_managed_private_access_without_connection(
+    db_session,
+):
+    owner = User(
+        email="owner-managed-provisioning-delete@example.com",
+        hashed_password="x",
+        role=UserRole.UI_USER.value,
+    )
+    db_session.add(owner)
+    db_session.flush()
+    provisioning = ManagedPrivateAccess(
+        owner_user_id=owner.id,
+        source_context_type="account",
+        source_context_id=44,
+        remote_principal_type="iam_user",
+        remote_principal_identifier="provisioning-managed-user",
+        iam_username="provisioning-managed-user",
+        state="provisioning",
+    )
+    db_session.add(provisioning)
+    db_session.commit()
+    owner_id = int(owner.id)
+
+    with pytest.raises(ValueError, match="managed private access provisioning is still active"):
+        UserDeletionService(db_session).delete_user(owner_id)
+
+    assert db_session.get(User, owner_id) is not None
+    assert db_session.get(ManagedPrivateAccess, provisioning.id) is not None
+
+
 def test_delete_user_nulls_nullable_foreign_keys(db_session):
     user = User(email="delete-fk-user@example.com", hashed_password="x", role=UserRole.UI_ADMIN.value)
     db_session.add(user)
@@ -229,6 +364,47 @@ def _seed_portal_identity_for_user_deletion(db_session, *, suffix: str):
     db_session.add(link)
     db_session.commit()
     return user, account, link
+
+
+def test_delete_user_retries_sqlite_write_intent_before_portal_revocation(
+    db_session,
+    monkeypatch,
+):
+    user, account, link = _seed_portal_identity_for_user_deletion(
+        db_session,
+        suffix="busy-write-intent",
+    )
+    user_id = int(user.id)
+    account_id = int(account.id)
+    fake_iam = FakePortalRevocationIAM(link.iam_username, link.active_access_key)
+    install_portal_revocation_fakes(monkeypatch, fake_iam)
+    real_execute = db_session.execute
+    write_intent_calls = 0
+
+    def busy_write_intent_once(statement, *args, **kwargs):
+        nonlocal write_intent_calls
+        if str(statement).startswith("UPDATE users SET id = id"):
+            write_intent_calls += 1
+            if write_intent_calls == 1:
+                original = sqlite3.OperationalError("database is locked")
+                original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
+                raise OperationalError("UPDATE users SET id = id", (), original)
+        return real_execute(statement, *args, **kwargs)
+
+    monkeypatch.setattr(db_session, "execute", busy_write_intent_once)
+
+    UserDeletionService(db_session).delete_user(user_id)
+
+    assert write_intent_calls == 2
+    assert db_session.get(User, user_id) is None
+    assert db_session.scalar(
+        select(AccountIAMUser).where(
+            AccountIAMUser.user_id == user_id,
+            AccountIAMUser.account_id == account_id,
+        )
+    ) is None
+    assert fake_iam.key_exists is False
+    assert fake_iam.user_exists is False
 
 
 def test_delete_user_commit_failure_restores_portal_iam_identity(
