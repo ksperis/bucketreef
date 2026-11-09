@@ -23,7 +23,6 @@ describe("buildPortalWorkspaceModel", () => {
           used_bytes: 2048,
           object_count: 12,
           internal_bucket_name: "research-data",
-          origin: "portal_generic",
           name_editable: true,
         }),
       ],
@@ -36,14 +35,12 @@ describe("buildPortalWorkspaceModel", () => {
       id: "research-data",
       name: "Research Data",
       internalName: "research-data",
-      origin: "portal_generic",
       nameEditable: true,
       role: "Manager",
       canDelete: true,
       status: "Active",
       ownerUserId: 7,
       visibility: "shared",
-      access: "Shared",
       usedBytes: 2048,
       objectCount: 12,
     });
@@ -131,9 +128,9 @@ describe("buildPortalWorkspaceModel", () => {
       userEmail: "manager@example.com",
     });
 
-    expect(workspace.spaces.map((space) => ({ access: space.access, status: space.status, visibility: space.visibility }))).toEqual([
-      { access: "Shared", status: "Active", visibility: "shared" },
-      { access: "Private", status: "Active", visibility: "private" },
+    expect(workspace.spaces.map((space) => ({ status: space.status, visibility: space.visibility }))).toEqual([
+      { status: "Active", visibility: "shared" },
+      { status: "Active", visibility: "private" },
     ]);
   });
 

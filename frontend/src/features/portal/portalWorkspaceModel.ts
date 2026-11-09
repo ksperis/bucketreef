@@ -20,14 +20,12 @@ import { portalDateLabel } from "./portalI18n";
 
 type TFunction = (message: I18nMessage) => string;
 
-export type PortalWorkspaceAccess = "Private" | "Shared" | "Public" | "Public Read" | "Unavailable";
 export type PortalWorkspaceAlertTone = "info" | "warning" | "danger";
 
 export type PortalWorkspaceSpace = {
   id: string;
   name: string;
   internalName: string | null;
-  origin: "portal_generic" | "portal_named" | "imported";
   nameEditable: boolean;
   description: string;
   ownerLabel: string | null;
@@ -44,7 +42,6 @@ export type PortalWorkspaceSpace = {
   canDelete: boolean;
   canTakeOwnership: boolean;
   status: PortalStorageSpaceStatus;
-  access: PortalWorkspaceAccess;
   region: string | null;
   createdLabel: string;
   usedBytes?: number | null;
@@ -150,12 +147,10 @@ export function buildPortalWorkspaceModel({
     const shareScope: PortalStorageSpaceShareScope =
       visibility === "shared" && storageSpace.share_scope === "account" ? "account" : "restricted";
     const status = storageSpace.status;
-    const access: PortalWorkspaceAccess = visibility === "shared" ? "Shared" : "Private";
     return {
       id: storageSpace.id,
       name: usageSpace?.name ?? name,
       internalName: storageSpace.internal_bucket_name,
-      origin: storageSpace.origin,
       nameEditable: storageSpace.name_editable,
       description: storageSpace.description ?? t({ en: `${name} storage space`, fr: `Espace de stockage ${name}`, de: `Speicherbereich ${name}`, zh: `${name} 存储空间` }),
       ownerLabel: storageSpace.owner_label,
@@ -172,7 +167,6 @@ export function buildPortalWorkspaceModel({
       canDelete: storageSpace.can_delete,
       canTakeOwnership: storageSpace.can_take_ownership,
       status,
-      access,
       region: storageSpace.region,
       createdLabel: createdLabel(storageSpace.created_at, locale),
       usedBytes: usageSpace?.used_bytes ?? storageSpace.used_bytes ?? null,
