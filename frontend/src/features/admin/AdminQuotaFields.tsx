@@ -7,16 +7,20 @@ import { SettingsSection } from "../../components/settings/SettingsLayout";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
 import { useAdminI18n } from "./adminI18n";
+import {
+  ADMIN_QUOTA_UNITS,
+  type AdminQuotaUnit,
+} from "./adminQuotaForm";
 
 type AdminQuotaFieldsProps = {
   storageValue: string;
-  storageUnit: string;
+  storageUnit: AdminQuotaUnit;
   objectValue: string;
   disabled: boolean;
   compact?: boolean;
   errors?: Record<string, string | undefined>;
   onStorageValueChange: (value: string) => void;
-  onStorageUnitChange: (value: string) => void;
+  onStorageUnitChange: (value: AdminQuotaUnit) => void;
   onObjectValueChange: (value: string) => void;
 };
 
@@ -58,11 +62,11 @@ export default function AdminQuotaFields({
             aria-label={adminText("Storage quota unit")}
             value={storageUnit}
             disabled={disabled}
-            onChange={(event) => onStorageUnitChange(event.target.value)}
+            onChange={(event) => onStorageUnitChange(event.target.value as AdminQuotaUnit)}
           >
-            <option value="MiB">MiB</option>
-            <option value="GiB">GiB</option>
-            <option value="TiB">TiB</option>
+            {ADMIN_QUOTA_UNITS.map((unit) => (
+              <option key={unit} value={unit}>{unit}</option>
+            ))}
           </UiSelect>
         </div>
         <UiInput

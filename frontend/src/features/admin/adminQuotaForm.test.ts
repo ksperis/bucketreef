@@ -1,6 +1,13 @@
-import { buildAdminQuotaSizeEditorValue } from "./adminQuotaForm";
+import {
+  ADMIN_QUOTA_UNITS,
+  buildAdminQuotaSizeEditorValue,
+} from "./adminQuotaForm";
 
 describe("buildAdminQuotaSizeEditorValue", () => {
+  it("defines every unit accepted by the quota editor", () => {
+    expect(ADMIN_QUOTA_UNITS).toEqual(["MiB", "GiB", "TiB"]);
+  });
+
   it("keeps missing and whole GiB quota values in GiB", () => {
     expect(buildAdminQuotaSizeEditorValue()).toEqual({ value: "", unit: "GiB" });
     expect(buildAdminQuotaSizeEditorValue(null)).toEqual({ value: "", unit: "GiB" });

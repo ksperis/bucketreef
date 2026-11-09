@@ -69,7 +69,7 @@ describe("adminS3UserForm", () => {
   });
 
   it("builds a privilege-aware update payload from canonical association links", () => {
-    const form = {
+    const form: ReturnType<typeof emptyAdminS3UserForm> = {
       ...emptyAdminS3UserForm(),
       name: "Updated",
       quota_max_size_gb: "2",
