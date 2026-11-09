@@ -5,7 +5,7 @@ from __future__ import annotations
 import sqlalchemy as sa
 from fastapi.testclient import TestClient
 
-from app.db import S3Account, User, UserS3Account
+from app.db import PortalAdminRequest, S3Account, User, UserS3Account
 from app.core.domain_enums import PortalAccountRole, UserRole
 from app.main import app
 from app.routers import dependencies
@@ -388,7 +388,12 @@ def test_admin_request_routes_approve_user_removal(client: TestClient, db_sessio
     assert approve_response.status_code == 200
     approved = approve_response.json()
     assert approved["status"] == "approved"
-    assert approved["result"]["target_email"] == "jane@example.org"
+    assert "result" not in approved
+    assert "decided_by_user_id" not in approved
+    stored_request = db_session.get(PortalAdminRequest, request_id)
+    assert stored_request is not None
+    assert stored_request.result["target_email"] == "jane@example.org"
+    assert stored_request.decided_by_user_id == admin.id
     assert db_session.scalar(
         sa.select(UserS3Account).where(
             UserS3Account.user_id == target.id,

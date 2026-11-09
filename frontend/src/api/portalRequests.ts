@@ -98,11 +98,9 @@ export type PortalAdminRequest = {
   request_type: PortalAdminRequestType;
   status: PortalAdminRequestStatus;
   payload: Record<string, unknown>;
-  result: Record<string, unknown> | null;
   error_message: string | null;
   requester_user_id: number | null;
   requester_email: string;
-  decided_by_user_id: number | null;
   decided_by_email: string | null;
   decided_at: string | null;
   created_at: string;

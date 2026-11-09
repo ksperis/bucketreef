@@ -202,11 +202,9 @@ class PortalAdminRequestOut(ApiModel):
     request_type: PortalAdminRequestType
     status: PortalAdminRequestStatus
     payload: dict[str, Any]
-    result: Optional[dict[str, Any]]
     error_message: Optional[str]
     requester_user_id: Optional[int]
     requester_email: str
-    decided_by_user_id: Optional[int]
     decided_by_email: Optional[str]
     decided_at: Optional[datetime]
     created_at: datetime
