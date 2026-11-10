@@ -8,8 +8,9 @@ from typing import TYPE_CHECKING, Optional, Tuple
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback, rollback_safely, run_db_unit_with_sqlite_retry
+from app.core.db_transactions import commit_or_rollback, rollback_safely, run_replayable_db_unit
 from app.db import AccountIAMUser, PortalIAMRevocation, S3Account, User
 from app.core.domain_enums import PortalAccountRole
 from app.models.iam import AccessKey as ModelAccessKey, IAMUser
@@ -61,10 +62,22 @@ class PortalIamMixin:
         return (len(reasons) == 0), reasons
 
     def _persist_portal_key(self, link: AccountIAMUser, key: ModelAccessKey) -> PortalAccessKey:
-        link.active_access_key = key.access_key_id
-        link.active_secret_key = key.secret_access_key
-        self.db.add(link)
-        commit_or_rollback(self.db)
+        link_id = link.id
+        if link_id is None:
+            raise PortalOperationError("Portal IAM link must be persisted before activating a key")
+        access_key_id = key.access_key_id
+        secret_access_key = key.secret_access_key
+
+        def persist_once(write_db: Session) -> None:
+            current = write_db.get(AccountIAMUser, link_id)
+            if current is None:
+                raise PortalOperationError("Portal IAM link disappeared while activating a key")
+            current.active_access_key = access_key_id
+            current.active_secret_key = secret_access_key
+            write_db.add(current)
+
+        run_replayable_db_unit(self.db, persist_once)
+        self.db.refresh(link)
         return portal_access_key_from_iam_metadata(
             key,
             is_portal=True,
@@ -73,32 +86,25 @@ class PortalIamMixin:
             is_active=True,
         )
 
-    @staticmethod
-    def _set_portal_link_identity(
-        link: AccountIAMUser,
-        iam_user: IAMUser,
-        *,
-        fallback_username: str,
-    ) -> None:
-        link.iam_user_id = iam_user.user_id or iam_user.arn or fallback_username
-        link.iam_username = iam_user.name
-
     def _persist_provisioned_portal_link(
         self,
         user: User,
         account: S3Account,
-        link: AccountIAMUser,
+        link: Optional[AccountIAMUser],
+        iam_user: IAMUser,
         created_key: Optional[ModelAccessKey],
+        *,
+        fallback_username: str,
     ) -> AccountIAMUser:
-        link_id = link.id
-        user_id = user.id
-        account_id = account.id
-        iam_user_id = link.iam_user_id
-        iam_username = link.iam_username
-        active_access_key = created_key.access_key_id if created_key else link.active_access_key
-        active_secret_key = created_key.secret_access_key if created_key else link.active_secret_key
+        link_id = link.id if link is not None else None
+        user_id = int(user.id)
+        account_id = int(account.id)
+        iam_user_id = iam_user.user_id or iam_user.arn or fallback_username
+        iam_username = iam_user.name
+        active_access_key = created_key.access_key_id if created_key else None
+        active_secret_key = created_key.secret_access_key if created_key else None
 
-        def persist_once() -> AccountIAMUser:
+        def persist_once(write_db: Session) -> int:
             if link_id is None:
                 current = AccountIAMUser(
                     user_id=user_id,
@@ -109,20 +115,19 @@ class PortalIamMixin:
                     active_secret_key=active_secret_key,
                 )
             else:
-                current = self.db.get(AccountIAMUser, link_id)
+                current = write_db.get(AccountIAMUser, link_id)
                 if current is None:
                     raise PortalOperationError("Portal IAM link disappeared while provisioning access")
                 current.iam_user_id = iam_user_id
                 current.iam_username = iam_username
                 current.active_access_key = active_access_key
                 current.active_secret_key = active_secret_key
-            self.db.add(current)
-            commit_or_rollback(self.db)
-            self.db.refresh(current)
-            return current
+            write_db.add(current)
+            write_db.flush()
+            return int(current.id)
 
         try:
-            link = run_db_unit_with_sqlite_retry(self.db, persist_once)
+            persisted_id = run_replayable_db_unit(self.db, persist_once)
         except IntegrityError:
             concurrent_link = self._existing_portal_link(user, account)
             if concurrent_link is None:
@@ -132,6 +137,9 @@ class PortalIamMixin:
                 self._persist_portal_key(link, created_key)
             return link
 
+        link = self.db.get(AccountIAMUser, persisted_id, populate_existing=True)
+        if link is None:  # pragma: no cover - defensive consistency check
+            raise PortalOperationError("Persisted Portal IAM link could not be reloaded")
         return link
 
     def _provision_portal_user(
@@ -149,26 +157,13 @@ class PortalIamMixin:
             allow_existing=False,
         )
         try:
-            if link is None:
-                link = AccountIAMUser(
-                    user_id=user.id,
-                    account_id=account.id,
-                    iam_user_id=iam_user.user_id or iam_user.arn or expected_username,
-                    iam_username=iam_user.name,
-                )
-            else:
-                self._set_portal_link_identity(
-                    link,
-                    iam_user,
-                    fallback_username=expected_username,
-                )
-                link.active_access_key = None
-                link.active_secret_key = None
             link = self._persist_provisioned_portal_link(
                 user,
                 account,
                 link,
+                iam_user,
                 created_key,
+                fallback_username=expected_username,
             )
         except Exception as exc:
             rollback_error = rollback_safely(self.db)
