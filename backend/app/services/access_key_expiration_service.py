@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import Literal
 
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
+from app.core.db_transactions import run_replayable_db_unit
 from app.core.sensitive_data import sanitize_persisted_error
 from app.db import ManagerAccessKeyMetadata, S3Account, S3User
 from app.core.domain_enums import StorageProvider
@@ -39,8 +39,12 @@ class AccessKeyExpirationService:
 
     def run_due(self) -> AccessKeyExpirationRunResult:
         now = utcnow()
-        rows = self.db.scalars(
-            select(ManagerAccessKeyMetadata)
+        rows = self.db.execute(
+            select(
+                ManagerAccessKeyMetadata.id,
+                ManagerAccessKeyMetadata.account_id,
+                ManagerAccessKeyMetadata.s3_user_id,
+            )
             .where(
                 ManagerAccessKeyMetadata.expires_at.is_not(None),
                 ManagerAccessKeyMetadata.expires_at <= now,
@@ -53,19 +57,38 @@ class AccessKeyExpirationService:
             .limit(500)
         ).all()
         counts = {"processed": 0, "enforced": 0, "retried": 0, "blocked": 0, "missing": 0}
-        for row in rows:
+        for row_id, account_id, s3_user_id in rows:
             counts["processed"] += 1
-            outcome = self._process(row)
+            outcome = self._process(
+                int(row_id),
+                account_id=account_id,
+                s3_user_id=s3_user_id,
+            )
             counts[outcome] += 1
         return AccessKeyExpirationRunResult(status="ok", **counts)
 
-    def _process(self, row: ManagerAccessKeyMetadata) -> str:
-        row_id = int(row.id)
-        account_id = row.account_id
-        s3_user_id = row.s3_user_id
-        row.expiration_last_attempt_at = utcnow()
-        row.expiration_last_error = None
-        commit_or_rollback(self.db)
+    def _process(
+        self,
+        row_id: int,
+        *,
+        account_id: int | None,
+        s3_user_id: int | None,
+    ) -> str:
+        attempt_at = utcnow()
+
+        def mark_attempt(write_db: Session) -> bool:
+            result = write_db.execute(
+                update(ManagerAccessKeyMetadata)
+                .where(ManagerAccessKeyMetadata.id == row_id)
+                .values(
+                    expiration_last_attempt_at=attempt_at,
+                    expiration_last_error=None,
+                )
+            )
+            return result.rowcount == 1
+
+        if not run_replayable_db_unit(self.db, mark_attempt):
+            return "missing"
         try:
             if account_id is not None:
                 return self._process_iam(row_id, int(account_id))
@@ -253,20 +276,18 @@ class AccessKeyExpirationService:
         entity_id: str,
         execution_context: S3ExecutionContext,
     ) -> None:
-        access_key_id: str | None = None
+        enforced_at = utcnow()
 
-        def persist() -> None:
-            nonlocal access_key_id
-            row = self.db.get(ManagerAccessKeyMetadata, row_id)
+        def persist(write_db: Session) -> str | None:
+            row = write_db.get(ManagerAccessKeyMetadata, row_id)
             if row is None:
-                return
-            access_key_id = row.access_key_id
+                return None
             row.expiration_state = "enforced"
-            row.expiration_enforced_at = utcnow()
+            row.expiration_enforced_at = enforced_at
             row.expiration_last_error = None
-            commit_or_rollback(self.db)
+            return row.access_key_id
 
-        run_db_unit_with_sqlite_retry(self.db, persist)
+        access_key_id = run_replayable_db_unit(self.db, persist)
         if access_key_id is None:
             return
         AuditService(self.db).record_action(
@@ -289,24 +310,25 @@ class AccessKeyExpirationService:
         state: Literal["retrying", "blocked"],
     ) -> None:
         self.db.rollback()
-        def persist() -> None:
-            row = self.db.get(ManagerAccessKeyMetadata, row_id)
+        attempted_at = utcnow()
+        persisted_error = sanitize_persisted_error(exc)
+
+        def persist(write_db: Session) -> None:
+            row = write_db.get(ManagerAccessKeyMetadata, row_id)
             if row is None:
                 return
             row.expiration_state = state
-            row.expiration_last_attempt_at = utcnow()
-            row.expiration_last_error = sanitize_persisted_error(exc)
-            commit_or_rollback(self.db)
+            row.expiration_last_attempt_at = attempted_at
+            row.expiration_last_error = persisted_error
 
-        run_db_unit_with_sqlite_retry(self.db, persist)
+        run_replayable_db_unit(self.db, persist)
 
     def _remove_missing(self, row_id: int) -> str:
-        def persist() -> None:
-            row = self.db.get(ManagerAccessKeyMetadata, row_id)
+        def persist(write_db: Session) -> None:
+            row = write_db.get(ManagerAccessKeyMetadata, row_id)
             if row is None:
                 return
-            self.db.delete(row)
-            commit_or_rollback(self.db)
+            write_db.delete(row)
 
-        run_db_unit_with_sqlite_retry(self.db, persist)
+        run_replayable_db_unit(self.db, persist)
         return "missing"
