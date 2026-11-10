@@ -2,14 +2,12 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-import sqlite3
 from datetime import timedelta
 from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import select
-from sqlalchemy.exc import OperationalError
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import sessionmaker
 
 from app.db import S3Account, S3User, StorageEndpoint
 from app.db.bucket_usage_stats import BucketUsageStatsSnapshot as SnapshotRow
@@ -30,6 +28,7 @@ from app.services.operation_lease_service import (
 from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.time import utcnow
+from tests.db_transaction_test_utils import fail_next_sqlite_statement_with_busy_snapshot
 
 
 def _snapshot_row(*, account_id: int, bucket_name: str, calculated_at) -> SnapshotRow:
@@ -54,12 +53,6 @@ def _snapshot_row(*, account_id: int, bucket_name: str, calculated_at) -> Snapsh
         current_noncurrent_distribution=[],
         calculated_at=calculated_at,
     )
-
-
-def _busy_snapshot_error() -> OperationalError:
-    original = sqlite3.OperationalError("database is locked")
-    original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
-    return OperationalError("COMMIT", (), original)
 
 
 def test_collection_selects_only_opted_in_due_buckets_oldest_first(db_session, monkeypatch):
@@ -249,18 +242,7 @@ def test_collection_keeps_s3_io_outside_transaction_and_busy_retry_does_not_repe
             assert context.session_endpoint == "https://ceph.example.test"
             return [SimpleNamespace(name="bucket-a")]
 
-    fail_snapshot_commit_once = True
-
-    class BusyOnceSession(Session):
-        def commit(self) -> None:
-            nonlocal fail_snapshot_commit_once
-            has_snapshot_write = any(isinstance(row, SnapshotRow) for row in [*self.new, *self.dirty])
-            if fail_snapshot_commit_once and has_snapshot_write:
-                fail_snapshot_commit_once = False
-                raise _busy_snapshot_error()
-            super().commit()
-
-    factory = sessionmaker(bind=db_session.get_bind(), class_=BusyOnceSession)
+    factory = sessionmaker(bind=db_session.get_bind())
     usage_service = BucketUsageStatsService(factory)
     scan_calls = 0
 
@@ -294,17 +276,21 @@ def test_collection_keeps_s3_io_outside_transaction_and_busy_retry_does_not_repe
 
     monkeypatch.setattr(usage_service, "calculate_bucket", calculate_bucket)
 
-    result = BucketUsageStatsCollectionService(
+    with fail_next_sqlite_statement_with_busy_snapshot(
         db_session,
-        factory,
-        buckets_service=FakeBucketsService(),
-        usage_stats_service=usage_service,
-    ).collect()
+        "INSERT INTO bucket_usage_stats_snapshots",
+    ) as statements:
+        result = BucketUsageStatsCollectionService(
+            db_session,
+            factory,
+            buckets_service=FakeBucketsService(),
+            usage_stats_service=usage_service,
+        ).collect()
 
     assert result.status == "completed"
     assert list_calls == 1
     assert scan_calls == 1
-    assert fail_snapshot_commit_once is False
+    assert len(statements) == 2
     db_session.rollback()
     row = db_session.scalars(
         select(SnapshotRow).where(

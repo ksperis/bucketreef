@@ -116,6 +116,7 @@ def test_healthcheck_persistence_redacts_error_messages(db_session):
     )
     db_session.add(endpoint)
     db_session.flush()
+    db_session.commit()
     result = HealthCheckResult(
         endpoint_id=endpoint.id,
         status=HealthCheckStatus.DOWN,

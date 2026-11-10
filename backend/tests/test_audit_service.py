@@ -22,6 +22,7 @@ from app.services.audit_service import (
     audit_metadata_object,
 )
 from app.services.s3_execution_context import S3ExecutionContext
+from tests.db_transaction_test_utils import fail_next_sqlite_statement_with_busy_snapshot
 from tests.s3_account_factory import make_s3_account
 
 
@@ -61,6 +62,23 @@ def test_record_action_persists_account_as_canonical_context(db_session) -> None
     assert log.context_kind == "account"
     assert log.context_id == str(account.id)
     assert log.context_name == "persisted-account"
+
+
+def test_record_action_retries_sqlite_busy_snapshot(db_session) -> None:
+    user = _create_user(db_session)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO audit_logs",
+    ) as statements:
+        AuditService(db_session).record_action(
+            user=user,
+            scope="admin",
+            action="review_ui_consistency",
+        )
+
+    assert len(statements) == 2
+    assert db_session.scalar(select(func.count()).select_from(AuditLog)) == 1
 
 
 def test_record_action_refuses_to_commit_pending_business_change(db_session) -> None:

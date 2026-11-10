@@ -69,7 +69,21 @@ def run_db_unit_with_sqlite_retry(
 def _has_pending_changes(db: Session) -> bool:
     if db.new or db.deleted:
         return True
-    return any(db.is_modified(row, include_collections=True) for row in db.dirty)
+    if any(db.is_modified(row, include_collections=True) for row in db.dirty):
+        return True
+
+    # A flush clears Session.new/dirty while the surrounding transaction is
+    # still uncommitted. SQLAlchemy's root SessionTransaction keeps rollback
+    # snapshots for those flushed ORM changes until that transaction ends.
+    # Checking them here prevents the SQLite isolation helper from silently
+    # rolling back already-flushed business state before opening its writer.
+    transaction = db.get_transaction()
+    if transaction is None:
+        return False
+    return any(
+        bool(getattr(transaction, attribute, None))
+        for attribute in ("_new", "_dirty", "_deleted", "_key_switches")
+    )
 
 
 def _fresh_session_bind(db: Session) -> Engine:

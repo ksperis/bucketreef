@@ -394,6 +394,39 @@ def test_sqlite_replayable_unit_rejects_pending_caller_changes(tmp_path):
         engine.dispose()
 
 
+def test_sqlite_replayable_unit_rejects_flushed_uncommitted_caller_changes(tmp_path):
+    db_path = tmp_path / "replayable-flushed-pending.db"
+    engine = create_engine(
+        f"sqlite:///{db_path.as_posix()}",
+        connect_args={"check_same_thread": False},
+        future=True,
+    )
+    event.listen(engine, "connect", configure_sqlite_connection)
+    event.listen(engine, "begin", begin_sqlite_transaction)
+    SessionLocal = sessionmaker(bind=engine, future=True)
+    try:
+        User.__table__.create(engine)
+        with SessionLocal() as request_db:
+            user = User(
+                email="flushed-pending@example.test",
+                full_name="Flushed Pending",
+                hashed_password="x",
+                is_active=True,
+                role="ui_admin",
+            )
+            request_db.add(user)
+            request_db.flush()
+            assert user.id is not None
+            assert not request_db.new
+
+            with pytest.raises(RuntimeError, match="require a clean caller session"):
+                run_replayable_db_unit(request_db, lambda _write_db: "unexpected")
+
+            assert request_db.get(User, user.id) is user
+    finally:
+        engine.dispose()
+
+
 def test_sqlite_db_unit_default_retry_budget_handles_burst_contention(monkeypatch):
     class FakeSQLiteSession:
         def __init__(self) -> None:
