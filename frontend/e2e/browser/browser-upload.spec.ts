@@ -1,3 +1,6 @@
+import { mkdir, open, rm } from "node:fs/promises";
+import { dirname } from "node:path";
+
 import { expect, test, type Page } from "@playwright/test";
 
 import {
@@ -21,7 +24,7 @@ async function createFolder(page: Page, folderName: string): Promise<void> {
 
 async function uploadFilePayloads(
   page: Page,
-  files: Array<{ name: string; mimeType: string; buffer: Buffer }>,
+  files: string | Array<{ name: string; mimeType: string; buffer: Buffer }>,
 ): Promise<void> {
   const fileChooserPromise = page.waitForEvent("filechooser");
   await page
@@ -61,7 +64,7 @@ test("creates a folder and uploads a file through the browser flow", async ({ pa
   await expect(operationsDialog).toContainText("upload-smoke.txt");
 });
 
-test("uploads multipart directly through a worker authenticated by the API-scoped cookie", async ({ page, baseURL }) => {
+test("uploads multipart directly through a worker authenticated by the API-scoped cookie", async ({ page, baseURL }, testInfo) => {
   await openBucket(page);
   await page.waitForURL(url => url.searchParams.has("ctx"));
   const selector = new URL(page.url()).searchParams.get("ctx")!;
@@ -74,12 +77,21 @@ test("uploads multipart directly through a worker authenticated by the API-scope
   const readCors = page.waitForResponse(response => response.url().includes("/cors?") && response.request().method() === "GET");
   await page.reload();
   expect((await (await readCors).json()).enabled).toBe(true);
-  const workerStarted = page.waitForEvent("worker");
-  await uploadFilePayloads(page, [{ name: "direct-worker-multipart.bin", mimeType: "application/octet-stream", buffer: Buffer.alloc(26 * 1024 * 1024, 42) }]);
-  const worker = await workerStarted;
-  expect(new URL(worker.url()).pathname).toContain("/api/browser/direct-transfer-worker/");
-  expect(new URL(worker.url()).searchParams.get("context_id")).toBe(selector);
-  await expect(getFileButton(page, "direct-worker-multipart.bin")).toBeVisible();
+  const multipartPath = testInfo.outputPath("direct-worker-multipart.bin");
+  await mkdir(dirname(multipartPath), { recursive: true });
+  const multipartFile = await open(multipartPath, "w");
+  await multipartFile.truncate(26 * 1024 * 1024);
+  await multipartFile.close();
+  try {
+    const workerStarted = page.waitForEvent("worker");
+    await uploadFilePayloads(page, multipartPath);
+    const worker = await workerStarted;
+    expect(new URL(worker.url()).pathname).toContain("/api/browser/direct-transfer-worker/");
+    expect(new URL(worker.url()).searchParams.get("context_id")).toBe(selector);
+    await expect(getFileButton(page, "direct-worker-multipart.bin")).toBeVisible();
+  } finally {
+    await rm(multipartPath, { force: true });
+  }
 });
 
 test("keeps root uploads visible after refresh, search, and reload", async ({ page }) => {
