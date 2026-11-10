@@ -7,6 +7,10 @@ from sqlalchemy import select
 
 from app.db import OidcProvider
 from app.services.identity_provider_repository import IdentityProviderRepository
+from tests.db_transaction_test_utils import (
+    fail_next_sqlite_statement_with_busy_snapshot,
+    fail_next_transaction_commit,
+)
 
 
 def _provider(provider_id: str = "ui") -> OidcProvider:
@@ -28,52 +32,97 @@ def _repository(db_session) -> IdentityProviderRepository[OidcProvider]:
     return IdentityProviderRepository(db_session, OidcProvider, {}, "OIDC")
 
 
-def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
-    rollback_calls: list[None] = []
-    original_rollback = db_session.rollback
-
-    def rollback() -> None:
-        rollback_calls.append(None)
-        original_rollback()
-
-    def commit() -> None:
-        raise RuntimeError("commit failed")
-
-    monkeypatch.setattr(db_session, "rollback", rollback)
-    monkeypatch.setattr(db_session, "commit", commit)
-    return rollback_calls
-
-
-def test_update_rolls_back_when_commit_fails(db_session, monkeypatch):
+def test_update_rolls_back_when_commit_fails(db_session):
     provider = _provider()
     db_session.add(provider)
     db_session.commit()
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        _repository(db_session).update(
-            provider.provider_id,
-            lambda current: setattr(current, "display_name", "Changed"),
-        )
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            _repository(db_session).update(
+                provider.provider_id,
+                lambda current: setattr(current, "display_name", "Changed"),
+            )
 
-    assert rollback_calls == [None]
     db_session.expire_all()
     stored = db_session.scalar(select(OidcProvider).where(OidcProvider.provider_id == "ui"))
     assert stored is not None
     assert stored.display_name == "Original"
 
 
-def test_delete_rolls_back_when_commit_fails(db_session, monkeypatch):
+def test_delete_rolls_back_when_commit_fails(db_session):
     provider = _provider()
     db_session.add(provider)
     db_session.commit()
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        _repository(db_session).delete(provider.provider_id)
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            _repository(db_session).delete(provider.provider_id)
 
-    assert rollback_calls == [None]
     db_session.expire_all()
     assert db_session.scalar(
         select(OidcProvider).where(OidcProvider.provider_id == "ui")
     ) is not None
+
+
+def test_create_retries_sqlite_busy_snapshot(db_session):
+    repository = _repository(db_session)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO oidc_providers",
+    ) as matching_statements:
+        created = repository.create(
+            "retry-create",
+            lambda current: (
+                setattr(current, "display_name", "Retry"),
+                setattr(current, "discovery_url", "https://issuer.example.test/.well-known/openid-configuration"),
+                setattr(current, "client_id", "client-id"),
+                setattr(current, "client_secret", "secret"),
+                setattr(current, "redirect_uri", "https://app.example.test/auth/callback"),
+                setattr(current, "scopes", ["openid", "email"]),
+                setattr(current, "enabled", True),
+                setattr(current, "use_pkce", True),
+                setattr(current, "use_nonce", True),
+            ),
+        )
+
+    assert len(matching_statements) == 2
+    assert created.provider_id == "retry-create"
+    assert created.display_name == "Retry"
+
+
+def test_update_retries_sqlite_busy_snapshot(db_session):
+    provider = _provider("retry-update")
+    db_session.add(provider)
+    db_session.commit()
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE oidc_providers",
+    ) as matching_statements:
+        updated = _repository(db_session).update(
+            provider.provider_id,
+            lambda current: setattr(current, "display_name", "Changed"),
+        )
+
+    assert len(matching_statements) == 2
+    assert updated.display_name == "Changed"
+
+
+def test_delete_retries_sqlite_busy_snapshot(db_session):
+    provider = _provider("retry-delete")
+    db_session.add(provider)
+    db_session.commit()
+    provider_id = provider.provider_id
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "DELETE FROM oidc_providers",
+    ) as matching_statements:
+        _repository(db_session).delete(provider_id)
+
+    assert len(matching_statements) == 2
+    assert db_session.scalar(
+        select(OidcProvider).where(OidcProvider.provider_id == provider_id)
+    ) is None
