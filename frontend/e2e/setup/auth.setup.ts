@@ -233,6 +233,10 @@ setup("bootstrap reusable admin and browser auth", async ({ browser, page }) => 
   const passkeyDialog = page.getByRole("dialog", { name: "Add passkey" });
   await passkeyDialog.getByLabel("Passkey name").fill("E2E administrator");
   await passkeyDialog.getByRole("button", { name: "Add passkey" }).click();
+  await expect(page).toHaveURL(/\/(?:login|session-expired)(?:\?.*)?$/);
+  if (/\/session-expired(?:\?.*)?$/.test(page.url())) {
+    await page.getByRole("link", { name: "Sign in again" }).click();
+  }
   await expect(page).toHaveURL(/\/login(?:\?.*)?$/);
 
   await page.locator('input[type="email"]').fill(E2E_ADMIN_EMAIL);
