@@ -5,7 +5,6 @@ from app.utils.storage_endpoint_features import parse_features_config
 
 from datetime import datetime, timedelta, timezone
 import io
-import sqlite3
 import time
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -521,7 +520,7 @@ def test_create_migration_creates_items_and_defaults(db_session):
     assert by_source["bucket-b"].target_bucket == "custom-b"
 
 
-def test_create_migration_retries_sqlite_busy(db_session, monkeypatch):
+def test_create_migration_retries_sqlite_busy(db_session):
     user = _create_user(db_session)
     source = _create_account(
         db_session,
@@ -549,23 +548,13 @@ def test_create_migration_retries_sqlite_busy(db_session, monkeypatch):
             )
         ],
     )
-    real_flush = db_session.flush
-    flush_calls = 0
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO bucket_migrations",
+    ) as statements:
+        migration = service.create_migration(payload, user)
 
-    def busy_once(*args, **kwargs):
-        nonlocal flush_calls
-        flush_calls += 1
-        if flush_calls == 1:
-            original = sqlite3.OperationalError("database is locked")
-            original.sqlite_errorcode = sqlite3.SQLITE_BUSY
-            raise sa.exc.OperationalError("INSERT", (), original)
-        return real_flush(*args, **kwargs)
-
-    monkeypatch.setattr(db_session, "flush", busy_once)
-
-    migration = service.create_migration(payload, user)
-
-    assert flush_calls >= 2
+    assert len(statements) >= 2
     assert migration.status == "draft"
     assert len(migration.items) == 1
     assert db_session.scalar(sa.select(sa.func.count()).select_from(BucketMigration)) == 1
@@ -930,6 +919,71 @@ def test_update_draft_migration_replaces_configuration_and_resets_precheck(db_se
     assert all(item.source_snapshot is None for item in by_source.values())
     assert all(item.execution_strategy is None for item in by_source.values())
     assert any(event.message == "Migration configuration updated." for event in updated.events)
+
+
+def test_update_draft_migration_retries_sqlite_busy(db_session):
+    user = _create_user(db_session)
+    source = _create_account(
+        db_session,
+        name="source-busy-update",
+        endpoint_url="https://source.example.test",
+        account_id="RGW001",
+    )
+    target = _create_account(
+        db_session,
+        name="target-busy-update",
+        endpoint_url="https://target.example.test",
+        account_id="RGW002",
+    )
+    db_session.commit()
+
+    service = BucketMigrationService(db_session)
+    migration = service.create_migration(
+        BucketMigrationCreateRequest(
+            source_context_id=str(source.id),
+            target_context_id=str(target.id),
+            mode="one_shot",
+            buckets=[
+                BucketMigrationBucketMapping(
+                    source_bucket="bucket-busy-update",
+                    target_bucket="bucket-busy-update-dst",
+                )
+            ],
+        ),
+        user,
+    )
+    migration_id = int(migration.id)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE bucket_migrations",
+    ) as statements:
+        updated = service.update_draft_migration(
+            migration_id,
+            BucketMigrationUpdateRequest(
+                configuration_revision=1,
+                source_context_id=str(source.id),
+                target_context_id=str(target.id),
+                mode="one_shot",
+                buckets=[
+                    BucketMigrationBucketMapping(
+                        source_bucket="bucket-busy-update",
+                        target_bucket="bucket-busy-update-new",
+                    )
+                ],
+            ),
+        )
+
+    assert len(statements) >= 2
+    assert updated.configuration_revision == 2
+    assert updated.items[0].target_bucket == "bucket-busy-update-new"
+    events = db_session.scalars(
+        sa.select(BucketMigrationEvent).where(
+            BucketMigrationEvent.migration_id == migration_id,
+            BucketMigrationEvent.message == "Migration configuration updated.",
+        )
+    ).all()
+    assert len(events) == 1
 
 
 def test_update_draft_migration_rejects_cross_account_when_admin_scope_missing_on_one_side(db_session):
@@ -2342,7 +2396,7 @@ def test_start_migration_requires_precheck_passed(db_session):
         assert "Run and pass active checks" in str(exc)
 
 
-def test_request_precheck_retries_sqlite_busy(db_session, monkeypatch):
+def test_request_precheck_retries_sqlite_busy(db_session):
     user = _create_user(db_session)
     source = _create_account(
         db_session,
@@ -2374,23 +2428,13 @@ def test_request_precheck_retries_sqlite_busy(db_session, monkeypatch):
         user,
     )
     migration_id = int(migration.id)
-    real_commit = db_session.commit
-    failed = False
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE bucket_migrations",
+    ) as statements:
+        queued = service.request_precheck(migration_id, active_checks=True)
 
-    def busy_once():
-        nonlocal failed
-        if not failed:
-            failed = True
-            original = sqlite3.OperationalError("database is locked")
-            original.sqlite_errorcode = sqlite3.SQLITE_BUSY
-            raise sa.exc.OperationalError("UPDATE", (), original)
-        return real_commit()
-
-    monkeypatch.setattr(db_session, "commit", busy_once)
-
-    queued = service.request_precheck(migration_id, active_checks=True)
-
-    assert failed is True
+    assert len(statements) >= 2
     assert queued.preparation_status == "checking"
     assert queued.preparation_active_checks is True
     assert queued.preparation_requested_at is not None
@@ -4921,14 +4965,17 @@ def test_delete_migration_allows_final_statuses_and_draft(db_session):
         migration = service.create_migration(payload, user)
         migration.status = status
         db_session.commit()
+        migration_id = int(migration.id)
 
-        service.delete_migration(migration.id)
+        service.delete_migration(migration_id)
 
-        deleted = db_session.scalar(sa.select(BucketMigration).where(BucketMigration.id == migration.id))
+        deleted = db_session.scalar(
+            sa.select(BucketMigration).where(BucketMigration.id == migration_id)
+        )
         assert deleted is None
 
 
-def test_delete_migration_retries_sqlite_busy(db_session, monkeypatch):
+def test_delete_migration_retries_sqlite_busy(db_session):
     user = _create_user(db_session)
     source = _create_account(db_session, name="source", endpoint_url="https://source.example.test", account_id="RGW001")
     target = _create_account(db_session, name="target", endpoint_url="https://target.example.test", account_id="RGW002")
@@ -4945,23 +4992,13 @@ def test_delete_migration_retries_sqlite_busy(db_session, monkeypatch):
         user,
     )
     migration_id = int(migration.id)
-    real_commit = db_session.commit
-    failed = False
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "DELETE FROM bucket_migrations",
+    ) as statements:
+        service.delete_migration(migration_id)
 
-    def busy_once():
-        nonlocal failed
-        if not failed:
-            failed = True
-            original = sqlite3.OperationalError("database is locked")
-            original.sqlite_errorcode = sqlite3.SQLITE_BUSY
-            raise sa.exc.OperationalError("COMMIT", (), original)
-        return real_commit()
-
-    monkeypatch.setattr(db_session, "commit", busy_once)
-
-    service.delete_migration(migration_id)
-
-    assert failed is True
+    assert len(statements) >= 2
     assert db_session.get(BucketMigration, migration_id) is None
 
 

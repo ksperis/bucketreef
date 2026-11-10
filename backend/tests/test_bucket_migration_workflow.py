@@ -5,12 +5,10 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 import io
 import json
-import sqlite3
 
 import pytest
 import sqlalchemy as sa
 from botocore.exceptions import ClientError
-from sqlalchemy.exc import OperationalError
 from app.db import BucketMigration, BucketMigrationItem
 from app.models.bucket_migration import (
     BucketMigrationDiagnostic,
@@ -46,12 +44,6 @@ from tests.test_bucket_migration_service import (
     _current_only_execution_strategy,
 )
 from tests.db_transaction_test_utils import fail_next_sqlite_statement_with_busy_snapshot
-
-
-def _busy_snapshot_error() -> OperationalError:
-    original = sqlite3.OperationalError("database is locked")
-    original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
-    return OperationalError("COMMIT", (), original)
 
 
 def test_bucket_migration_diagnostic_requires_complete_nullable_metadata():
@@ -251,28 +243,20 @@ def test_start_persists_sanitized_precondition_errors(prepared):
     )
 
 
-def test_start_precondition_failure_retries_sqlite_busy(prepared, monkeypatch):
+def test_start_precondition_failure_retries_sqlite_busy(prepared, db_session):
     service, migration, _ = prepared
     service.run_precheck(migration.id, active_checks=True)
     service._revalidate_transfer_preconditions = Mock(
         side_effect=ValueError("Source versioning changed since preparation")
     )
-    real_commit = service.db.commit
-    failed = False
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE bucket_migrations",
+    ) as statements:
+        with pytest.raises(ValueError, match="versioning changed"):
+            service.start_migration(migration.id, configuration_revision=1)
 
-    def busy_once():
-        nonlocal failed
-        if not failed:
-            failed = True
-            raise _busy_snapshot_error()
-        return real_commit()
-
-    monkeypatch.setattr(service.db, "commit", busy_once)
-
-    with pytest.raises(ValueError, match="versioning changed"):
-        service.start_migration(migration.id, configuration_revision=1)
-
-    assert failed is True
+    assert len(statements) >= 2
     assert migration.preparation_status == "stale"
     assert migration.precheck_report["checks"][0]["code"] == "start_precondition_changed"
 
@@ -540,24 +524,16 @@ def test_prepare_migration_run_retries_sqlite_busy(prepared, db_session):
     assert current.status == "running"
 
 
-def test_start_command_retries_sqlite_busy(prepared, db_session, monkeypatch):
+def test_start_command_retries_sqlite_busy(prepared, db_session):
     service, migration, _ = prepared
     service.run_precheck(migration.id, active_checks=True)
-    real_commit = db_session.commit
-    failed = False
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE bucket_migrations",
+    ) as statements:
+        queued = service.start_migration(migration.id, configuration_revision=1)
 
-    def busy_once():
-        nonlocal failed
-        if not failed:
-            failed = True
-            raise _busy_snapshot_error()
-        return real_commit()
-
-    monkeypatch.setattr(db_session, "commit", busy_once)
-
-    queued = service.start_migration(migration.id, configuration_revision=1)
-
-    assert failed is True
+    assert len(statements) >= 2
     assert queued.status == "queued"
     db_session.expire_all()
     assert db_session.get(BucketMigration, migration.id).status == "queued"
@@ -1013,31 +989,23 @@ def test_access_recovery_resolves_restoration_failure_after_source_deletion(prep
     assert item.source_deleted and not item.target_lock_applied
 
 
-def test_request_maintenance_retries_sqlite_busy(prepared, monkeypatch):
+def test_request_maintenance_retries_sqlite_busy(prepared, db_session):
     service, migration, _ = prepared
     item = migration.items[0]
     migration.status = item.status = "completed"
     item.read_only_applied = True
     service._commit()
-    real_transition = service._transition_command
-    transition_calls = 0
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE bucket_migrations",
+    ) as statements:
+        queued = service.request_maintenance(
+            migration.id,
+            operation="restore_access",
+            confirmed=True,
+        )
 
-    def busy_once(*args, **kwargs):
-        nonlocal transition_calls
-        transition_calls += 1
-        if transition_calls == 1:
-            raise _busy_snapshot_error()
-        return real_transition(*args, **kwargs)
-
-    monkeypatch.setattr(service, "_transition_command", busy_once)
-
-    queued = service.request_maintenance(
-        migration.id,
-        operation="restore_access",
-        confirmed=True,
-    )
-
-    assert transition_calls == 2
+    assert len(statements) >= 2
     assert queued.maintenance_status == "queued"
     assert queued.maintenance_operation == "restore_access"
     assert [
