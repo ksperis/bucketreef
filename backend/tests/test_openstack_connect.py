@@ -1,7 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
-import sqlite3
 from app.utils.storage_endpoint_features import parse_features_config
 
 import json
@@ -11,7 +10,6 @@ from unittest.mock import Mock
 import pytest
 from pydantic import ValidationError
 from sqlalchemy import select, text
-from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import get_settings
@@ -31,6 +29,7 @@ from app.services.s3_execution_client import s3_execution_cache_key
 from app.services.browser.sts import browser_sts_enabled
 from app.utils.time import utcnow
 from tests.auth_test_utils import authenticate_ui_client, trusted_origin_headers
+from tests.db_transaction_test_utils import fail_next_sqlite_statement_with_busy_snapshot
 from tests.storage_endpoint_features import persisted_endpoint_features
 
 
@@ -87,10 +86,54 @@ def connect(db, setup):
     return service, user, auth, connection, ctx
 
 
-def _busy_snapshot_error() -> OperationalError:
-    original = sqlite3.OperationalError("database is locked")
-    original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
-    return OperationalError("COMMIT", (), original)
+def test_openstack_authentication_busy_retry_does_not_repeat_keystone(
+    db_session,
+    setup_cloud,
+    monkeypatch,
+):
+    user, _, cloud = setup_cloud
+    auth, _ = authenticated(db_session, user)
+    service = OpenStackService(db_session)
+    authenticate_calls = 0
+
+    def authenticate(_client, _payload, _domain):
+        nonlocal authenticate_calls
+        authenticate_calls += 1
+        assert db_session.in_transaction() is False
+        return KeystoneIdentity(
+            "PRIVATE-KEYSTONE-TOKEN",
+            "keystone-user",
+            "Person",
+            utcnow() + timedelta(minutes=30),
+        )
+
+    monkeypatch.setattr(KeystoneClient, "authenticate", authenticate)
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO openstack_sessions",
+    ) as matching_statements:
+        connection = service.authenticate(
+            user,
+            auth.id,
+            OpenStackAuthenticate(
+                cloud_id=cloud.id,
+                method="password",
+                username="person",
+                password="PRIVATE-PASSWORD",
+            ),
+        )
+
+    assert authenticate_calls == 1
+    assert len(matching_statements) == 2
+    db_session.rollback()
+    session = db_session.scalar(
+        select(OpenStackSession).where(
+            OpenStackSession.connection_id == connection.id,
+            OpenStackSession.auth_session_id == auth.id,
+        )
+    )
+    assert session is not None
+    assert session.token == "PRIVATE-KEYSTONE-TOKEN"
 
 
 def test_openstack_external_io_has_fresh_snapshot_and_busy_retry_does_not_repeat_it(
@@ -146,32 +189,24 @@ def test_openstack_external_io_has_fresh_snapshot_and_busy_retry_does_not_repeat
     monkeypatch.setattr(KeystoneClient, "projects", projects)
     monkeypatch.setattr(KeystoneClient, "project_access", project_access)
     monkeypatch.setattr(OpenStackService, "_probe_iam", staticmethod(probe_iam))
-    original_commit = db_session.commit
-    commit_calls = 0
-
-    def commit_with_busy_on_capability() -> None:
-        nonlocal commit_calls
-        commit_calls += 1
-        if commit_calls == 2:
-            raise _busy_snapshot_error()
-        original_commit()
-
-    monkeypatch.setattr(db_session, "commit", commit_with_busy_on_capability)
-
-    context_ref = service.activate(
-        user,
-        auth.id,
-        connection_id,
-        "project-a",
-        target["target_id"],
-        None,
-    )
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE openstack_project_credentials SET",
+    ) as matching_statements:
+        context_ref = service.activate(
+            user,
+            auth.id,
+            connection_id,
+            "project-a",
+            target["target_id"],
+            None,
+        )
 
     assert context_ref.startswith("os-")
     assert project_calls == 1
     assert access_calls == 1
     assert iam_probe_calls == 1
-    assert commit_calls == 3
+    assert len(matching_statements) == 2
     db_session.rollback()
     credential = db_session.scalar(
         select(OpenStackProjectCredential).where(
