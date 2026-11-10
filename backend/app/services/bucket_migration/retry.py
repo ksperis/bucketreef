@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+from datetime import datetime
 
 from app.core.domain_errors import BucketMigrationItemNotFoundError
 from app.db import BucketMigration, BucketMigrationItem
@@ -28,12 +29,18 @@ class BucketMigrationRetryMixin:
             return "sync"
         return item.step
 
-    def _prepare_item_retry(self, migration: BucketMigration, item: BucketMigrationItem) -> None:
+    def _prepare_item_retry(
+        self,
+        migration: BucketMigration,
+        item: BucketMigrationItem,
+        *,
+        updated_at: datetime,
+    ) -> None:
         item.status = "pending"
         item.step = self._retry_step_for_failed_item(item)
         item.error_message = None
         item.finished_at = None
-        item.updated_at = utcnow()
+        item.updated_at = updated_at
         self._add_event(
             migration,
             item=item,
@@ -42,12 +49,17 @@ class BucketMigrationRetryMixin:
             metadata={"retry_step": item.step},
         )
 
-    def _queue_migration_for_retry(self, migration: BucketMigration, *, message: str) -> None:
-        self._transition_command(migration, status="queued")
+    def _prepare_migration_retry(
+        self,
+        migration: BucketMigration,
+        *,
+        message: str,
+        updated_at: datetime,
+    ) -> None:
         migration.worker_lease_owner = None
         migration.worker_lease_until = None
         migration.error_message = None
-        migration.updated_at = utcnow()
+        migration.updated_at = updated_at
         self._recompute_counters(migration)
         self._add_event(
             migration,
@@ -64,11 +76,30 @@ class BucketMigrationRetryMixin:
 
         require_action(migration, "retry")
         self._revalidate_transfer_preconditions(migration, items=[item])
-        self._prepare_item_retry(migration, item)
-        self._queue_migration_for_retry(migration, message=f"Retry requested for bucket '{item.source_bucket}'.")
-        self._commit()
-        self.db.refresh(migration)
-        return migration
+        item_id = int(item.id)
+        source_bucket = str(item.source_bucket)
+        updated_at = utcnow()
+
+        def mutate(current: BucketMigration) -> None:
+            current_item = self._find_migration_item(current, item_id)
+            if current_item.status != "failed":
+                raise ValueError("Retry is only available for failed bucket items")
+            self._prepare_item_retry(
+                current,
+                current_item,
+                updated_at=updated_at,
+            )
+            self._prepare_migration_retry(
+                current,
+                message=f"Retry requested for bucket '{source_bucket}'.",
+                updated_at=updated_at,
+            )
+
+        return self._persist_transition_command(
+            migration,
+            values={"status": "queued"},
+            mutate=mutate,
+        )
 
     def retry_failed_items(self, migration_id: int) -> tuple[BucketMigration, int]:
         migration = self.get_migration(migration_id)
@@ -79,13 +110,32 @@ class BucketMigrationRetryMixin:
 
         require_action(migration, "retry")
         self._revalidate_transfer_preconditions(migration, items=failed_items)
-        for item in failed_items:
-            self._prepare_item_retry(migration, item)
+        failed_item_ids = tuple(int(item.id) for item in failed_items)
+        retried_count = len(failed_item_ids)
+        updated_at = utcnow()
 
-        self._queue_migration_for_retry(
+        def mutate(current: BucketMigration) -> None:
+            current_items = [
+                self._find_migration_item(current, item_id)
+                for item_id in failed_item_ids
+            ]
+            if any(item.status != "failed" for item in current_items):
+                raise ValueError("One or more failed bucket items changed. Reload and retry.")
+            for current_item in current_items:
+                self._prepare_item_retry(
+                    current,
+                    current_item,
+                    updated_at=updated_at,
+                )
+            self._prepare_migration_retry(
+                current,
+                message=f"Retry requested for {retried_count} failed bucket item(s).",
+                updated_at=updated_at,
+            )
+
+        current = self._persist_transition_command(
             migration,
-            message=f"Retry requested for {len(failed_items)} failed bucket item(s).",
+            values={"status": "queued"},
+            mutate=mutate,
         )
-        self._commit()
-        self.db.refresh(migration)
-        return migration, len(failed_items)
+        return current, retried_count
