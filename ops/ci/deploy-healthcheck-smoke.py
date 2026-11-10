@@ -7,6 +7,7 @@ import argparse
 from app.core.database import SessionLocal
 from app.db import EndpointHealthLatest, StorageEndpoint
 from app.services.app_settings_service import load_app_settings
+from app.utils.storage_endpoint_features import normalize_features
 
 PROBE_NAME = "QuickStart scheduled healthcheck smoke"
 
@@ -21,6 +22,7 @@ def main() -> int:
             # Bypass the Admin creation hook to prove that the actual cron runs.
             db.add(StorageEndpoint(
                 name=PROBE_NAME, endpoint_url="http://frontend:8080", provider="other",
+                features=normalize_features("other", {}),
                 is_default=False, is_editable=True,
             ))
             db.commit()
