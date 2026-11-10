@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import ResourceConflictError, ResourceNotFoundError
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import run_replayable_db_unit
 from app.utils.time import utcnow
 
 
@@ -55,17 +55,26 @@ class IdentityProviderRepository(Generic[_PersistedProviderT]):
         apply: Callable[[_PersistedProviderT], None],
     ) -> _PersistedProviderT:
         self._require_environment_mutable(provider_id)
-        if self._get(provider_id) is not None:
-            raise IdentityProviderAlreadyExistsError(f"{self.provider_label} provider already exists")
+        persisted_at = utcnow()
 
-        provider = self.model(provider_id=provider_id)
-        apply(provider)
-        self.db.add(provider)
+        def create_once(write_db: Session) -> None:
+            if self._get_from(write_db, provider_id) is not None:
+                raise IdentityProviderAlreadyExistsError(f"{self.provider_label} provider already exists")
+            provider = self.model(provider_id=provider_id)
+            apply(provider)
+            if hasattr(provider, "created_at"):
+                provider.created_at = persisted_at
+            if hasattr(provider, "updated_at"):
+                provider.updated_at = persisted_at
+            write_db.add(provider)
+
         try:
-            commit_or_rollback(self.db)
+            run_replayable_db_unit(self.db, create_once)
         except IntegrityError as exc:
             raise IdentityProviderAlreadyExistsError(f"{self.provider_label} provider already exists") from exc
-        self.db.refresh(provider)
+        provider = self._get(provider_id)
+        if provider is None:  # pragma: no cover - defensive consistency check
+            raise IdentityProviderNotFoundError(f"{self.provider_label} provider not found after creation")
         return provider
 
     def update(
@@ -73,20 +82,38 @@ class IdentityProviderRepository(Generic[_PersistedProviderT]):
         provider_id: str,
         apply: Callable[[_PersistedProviderT], None],
     ) -> _PersistedProviderT:
-        provider = self._get_mutable(provider_id)
-        apply(provider)
-        provider.updated_at = utcnow()
-        commit_or_rollback(self.db)
-        self.db.refresh(provider)
+        self._require_environment_mutable(provider_id)
+        updated_at = utcnow()
+
+        def update_once(write_db: Session) -> None:
+            provider = self._get_from(write_db, provider_id)
+            if provider is None:
+                raise IdentityProviderNotFoundError(f"{self.provider_label} provider not found")
+            apply(provider)
+            provider.updated_at = updated_at
+
+        run_replayable_db_unit(self.db, update_once)
+        provider = self._get(provider_id)
+        if provider is None:  # pragma: no cover - defensive consistency check
+            raise IdentityProviderNotFoundError(f"{self.provider_label} provider not found after update")
         return provider
 
     def delete(self, provider_id: str) -> None:
-        provider = self._get_mutable(provider_id)
-        self.db.delete(provider)
-        commit_or_rollback(self.db)
+        self._require_environment_mutable(provider_id)
+
+        def delete_once(write_db: Session) -> None:
+            provider = self._get_from(write_db, provider_id)
+            if provider is None:
+                raise IdentityProviderNotFoundError(f"{self.provider_label} provider not found")
+            write_db.delete(provider)
+
+        run_replayable_db_unit(self.db, delete_once)
 
     def _get(self, provider_id: str) -> _PersistedProviderT | None:
-        return self.db.scalar(
+        return self._get_from(self.db, provider_id)
+
+    def _get_from(self, db: Session, provider_id: str) -> _PersistedProviderT | None:
+        return db.scalar(
             select(self.model)
             .where(self.model.provider_id == provider_id)
             .limit(1)
