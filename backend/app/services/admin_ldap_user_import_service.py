@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import rollback_on_error
+from app.core.db_transactions import run_replayable_db_unit
 from app.core.security import create_ldap_import_selection_token, decode_typed_token
 from app.db import AuthSession, ExternalIdentity, User
 from app.models.admin_ldap_import import (
@@ -131,27 +132,59 @@ class AdminLdapUserImportService:
             dn=str(claims["ldap_dn"]),
             subject=str(claims["ldap_subject"]),
         )
-        mapping = self._identity_mapping(identity)
-        with rollback_on_error(self.db):
+        persisted_at = utcnow()
+        external_identity_id = str(uuid.uuid4())
+
+        def persist_import_once(write_db: Session) -> int:
+            service = AdminLdapUserImportService(write_db, self.ldap)
+            mapping = service._identity_mapping(identity)
             if request.action == "create":
                 if mapping is not None:
                     if mapping.revoked_at is not None:
                         raise ValueError("LDAP identity is revoked; explicitly restore its existing link")
                     raise ValueError("LDAP identity is already linked to a UI user")
                 assert request.create is not None
-                imported = self._create_user(identity, request.create)
+                imported = service._create_user(
+                    identity,
+                    request.create,
+                    external_identity_id=external_identity_id,
+                    created_at=persisted_at,
+                )
             else:
                 assert request.target_user_id is not None
-                target = self.user_queries.require_by_id(request.target_user_id)
+                target = service.user_queries.require_by_id(request.target_user_id)
                 if request.action == "restore":
-                    imported = self._restore_identity(identity, target, mapping)
+                    imported = service._restore_identity(
+                        identity,
+                        target,
+                        mapping,
+                        revoked_at=persisted_at,
+                    )
                 else:
-                    imported = self._link_identity(identity, target, mapping)
-            self.db.commit()
-        self.db.refresh(imported)
+                    imported = service._link_identity(
+                        identity,
+                        target,
+                        mapping,
+                        external_identity_id=external_identity_id,
+                        created_at=persisted_at,
+                    )
+            write_db.flush()
+            return int(imported.id)
+
+        imported_id = run_replayable_db_unit(self.db, persist_import_once)
+        imported = self.db.get(User, imported_id, populate_existing=True)
+        if imported is None:  # pragma: no cover - defensive consistency check
+            raise RuntimeError("Imported LDAP user could not be reloaded")
         return imported, identity.provider
 
-    def _create_user(self, identity: LDAPIdentity, payload: LDAPImportCreatePayload) -> User:
+    def _create_user(
+        self,
+        identity: LDAPIdentity,
+        payload: LDAPImportCreatePayload,
+        *,
+        external_identity_id: str,
+        created_at: datetime,
+    ) -> User:
         email = payload.email.lower()
         if self.user_queries.get_by_email_case_insensitive(email):
             raise ValueError("A UI user with this email already exists; link the LDAP identity instead")
@@ -168,7 +201,7 @@ class AdminLdapUserImportService:
         self.db.flush()
 
         external_identity = ExternalIdentity(
-            id=str(uuid.uuid4()),
+            id=external_identity_id,
             user_id=user.id,
             provider_type="ldap",
             provider_id=identity.provider,
@@ -176,7 +209,7 @@ class AdminLdapUserImportService:
             subject=identity.subject,
             email=identity.email,
             email_verified=False,
-            created_at=utcnow(),
+            created_at=created_at,
             link_source="administrator",
         )
         self.db.add(external_identity)
@@ -191,6 +224,9 @@ class AdminLdapUserImportService:
         identity: LDAPIdentity,
         target: User,
         mapping: ExternalIdentity | None,
+        *,
+        external_identity_id: str,
+        created_at: datetime,
     ) -> User:
         if mapping is not None:
             if mapping.revoked_at is not None:
@@ -199,7 +235,7 @@ class AdminLdapUserImportService:
                 raise ValueError("LDAP identity is already linked to this UI user")
             raise ValueError("LDAP identity is already linked to another UI user")
         row = ExternalIdentity(
-            id=str(uuid.uuid4()),
+            id=external_identity_id,
             user_id=target.id,
             provider_type="ldap",
             provider_id=identity.provider,
@@ -207,7 +243,7 @@ class AdminLdapUserImportService:
             subject=identity.subject,
             email=identity.email,
             email_verified=False,
-            created_at=utcnow(),
+            created_at=created_at,
             link_source="administrator",
         )
         target.auth_version += 1
@@ -216,6 +252,7 @@ class AdminLdapUserImportService:
             target,
             "external_identity_changed",
             increment_version=False,
+            now=created_at,
         )
         return target
 
@@ -224,6 +261,8 @@ class AdminLdapUserImportService:
         identity: LDAPIdentity,
         target: User,
         mapping: ExternalIdentity | None,
+        *,
+        revoked_at: datetime,
     ) -> User:
         if mapping is None or mapping.revoked_at is None:
             raise ValueError("LDAP identity does not have a revoked link to restore")
@@ -238,5 +277,6 @@ class AdminLdapUserImportService:
             target,
             "external_identity_restored",
             increment_version=False,
+            now=revoked_at,
         )
         return target
