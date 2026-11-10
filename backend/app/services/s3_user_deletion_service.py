@@ -6,7 +6,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
+from app.core.db_transactions import run_replayable_db_unit
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import S3User, S3UserDeletion, UiGroupS3User, UserS3User
 from app.services.resource_deletion_purge_service import ResourceDeletionPurgeService
@@ -130,8 +130,10 @@ class S3UserDeletionService:
             if mode == _DELETE_ACCESS_KEY
             else None
         )
+        created_at = utcnow()
+        updated_at = utcnow()
 
-        def claim_once() -> int:
+        def claim_once(write_db: Session) -> int:
             deletion = S3UserDeletion(
                 s3_user_id=s3_user_id,
                 mode=mode,
@@ -139,22 +141,27 @@ class S3UserDeletionService:
                 rgw_tenant=rgw_tenant,
                 access_key_id=access_key_id,
                 remote_completed=False,
-                created_at=utcnow(),
-                updated_at=utcnow(),
+                created_at=created_at,
+                updated_at=updated_at,
             )
-            self.db.add(deletion)
-            commit_or_rollback(self.db)
+            write_db.add(deletion)
+            write_db.flush()
             return int(deletion.id)
 
         try:
-            deletion_id = run_db_unit_with_sqlite_retry(self.db, claim_once)
+            deletion_id = run_replayable_db_unit(self.db, claim_once)
         except IntegrityError:
+            self.db.rollback()
             existing = self._pending_deletion(s3_user_id)
             if existing is None:
                 raise
             self._validate_pending_deletion(existing, s3_user, mode=mode)
             return existing
-        deletion = self.db.get(S3UserDeletion, deletion_id)
+        deletion = self.db.get(
+            S3UserDeletion,
+            deletion_id,
+            populate_existing=True,
+        )
         if deletion is None:  # pragma: no cover - defensive consistency check
             raise RuntimeError("S3 user deletion claim could not be reloaded")
         return deletion
@@ -163,16 +170,15 @@ class S3UserDeletionService:
         deletion_id = int(deletion.id)
         updated_at = utcnow()
 
-        def persist_once() -> None:
-            row = self.db.get(S3UserDeletion, deletion_id)
+        def persist_once(write_db: Session) -> None:
+            row = write_db.get(S3UserDeletion, deletion_id)
             if row is None:  # pragma: no cover - defensive consistency check
                 raise RuntimeError("S3 user deletion checkpoint could not be reloaded")
             row.remote_completed = True
             row.updated_at = updated_at
-            commit_or_rollback(self.db)
 
-        run_db_unit_with_sqlite_retry(self.db, persist_once)
-        self.db.refresh(deletion)
+        run_replayable_db_unit(self.db, persist_once)
+        self.db.get(S3UserDeletion, deletion_id, populate_existing=True)
 
     @staticmethod
     def _validate_pending_deletion(
@@ -248,26 +254,37 @@ class S3UserDeletionService:
         *,
         deletion: S3UserDeletion | None = None,
     ) -> None:
-        try:
-            self.db.execute(
+        s3_user_id = int(s3_user.id)
+        deletion_id = int(deletion.id) if deletion is not None else None
+        if self.db.get_bind().dialect.name == "sqlite" and s3_user in self.db:
+            self.db.expunge(s3_user)
+
+        def delete_once(write_db: Session) -> None:
+            current_user = write_db.get(S3User, s3_user_id)
+            if current_user is None:
+                return
+            write_db.execute(
                 delete(UserS3User)
-                .where(UserS3User.s3_user_id == s3_user.id)
+                .where(UserS3User.s3_user_id == s3_user_id)
                 .execution_options(synchronize_session=False)
             )
-            self.db.execute(
+            write_db.execute(
                 delete(UiGroupS3User)
-                .where(UiGroupS3User.s3_user_id == s3_user.id)
+                .where(UiGroupS3User.s3_user_id == s3_user_id)
                 .execution_options(synchronize_session=False)
             )
-            purge = ResourceDeletionPurgeService(self.db)
-            purge.purge_s3_user_derived_data(s3_user.id)
-            purge.purge_execution_context_data(f"s3u-{s3_user.id}")
-            if deletion is not None:
-                self.db.delete(deletion)
-            self.db.delete(s3_user)
-            self.db.flush()
-            self.tags.cleanup_orphan_definitions(domain_kinds=[TAG_DOMAIN_ADMIN_MANAGED])
-        except Exception:
-            self.db.rollback()
-            raise
-        commit_or_rollback(self.db)
+            purge = ResourceDeletionPurgeService(write_db)
+            purge.purge_s3_user_derived_data(s3_user_id)
+            purge.purge_execution_context_data(f"s3u-{s3_user_id}")
+            if deletion_id is not None:
+                current_deletion = write_db.get(S3UserDeletion, deletion_id)
+                if current_deletion is not None:
+                    write_db.delete(current_deletion)
+            write_db.delete(current_user)
+            write_db.flush()
+            tags = self.tags if write_db is self.db else TagsService(write_db)
+            tags.cleanup_orphan_definitions(
+                domain_kinds=[TAG_DOMAIN_ADMIN_MANAGED]
+            )
+
+        run_replayable_db_unit(self.db, delete_once)
