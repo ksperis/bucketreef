@@ -319,39 +319,44 @@ class WebAuthnService:
         *,
         binding_sid: Optional[str] = None,
     ) -> bytes:
-        now = utcnow()
-        row = self.db.scalar(
-            select(AuthChallenge)
-            .where(
-                AuthChallenge.user_id == user_id,
-                AuthChallenge.purpose == purpose,
-                AuthChallenge.consumed_at.is_(None),
-                AuthChallenge.expires_at > now,
-                AuthChallenge.binding_sid == binding_sid,
+        def consume_once() -> tuple[object, str]:
+            now = utcnow()
+            row = self.db.scalar(
+                select(AuthChallenge)
+                .where(
+                    AuthChallenge.user_id == user_id,
+                    AuthChallenge.purpose == purpose,
+                    AuthChallenge.consumed_at.is_(None),
+                    AuthChallenge.expires_at > now,
+                    AuthChallenge.binding_sid == binding_sid,
+                )
+                .order_by(AuthChallenge.created_at.desc())
+                .limit(1)
             )
-            .order_by(AuthChallenge.created_at.desc())
-            .limit(1)
-        )
-        if not row:
-            raise WebAuthnSecurityError("WebAuthn challenge is unavailable")
-        claimed = self.db.execute(
-            update(AuthChallenge)
-            .where(
-                AuthChallenge.id == row.id,
-                AuthChallenge.consumed_at.is_(None),
-                AuthChallenge.expires_at > now,
+            if not row:
+                raise WebAuthnSecurityError("WebAuthn challenge is unavailable")
+            payload = row.payload
+            challenge_hash = row.challenge_hash
+            claimed = self.db.execute(
+                update(AuthChallenge)
+                .where(
+                    AuthChallenge.id == row.id,
+                    AuthChallenge.consumed_at.is_(None),
+                    AuthChallenge.expires_at > now,
+                )
+                .values(consumed_at=now)
             )
-            .values(consumed_at=now)
-        )
-        if claimed.rowcount != 1:
-            self.db.rollback()
-            raise WebAuthnSecurityError("WebAuthn challenge has already been consumed")
-        commit_or_rollback(self.db)
-        payload = row.payload
+            if claimed.rowcount != 1:
+                self.db.rollback()
+                raise WebAuthnSecurityError("WebAuthn challenge has already been consumed")
+            commit_or_rollback(self.db)
+            return payload, challenge_hash
+
+        payload, challenge_hash = run_db_unit_with_sqlite_retry(self.db, consume_once)
         encoded = payload.get("challenge") if isinstance(payload, dict) else None
         if not isinstance(encoded, str):
             raise WebAuthnSecurityError("WebAuthn challenge payload is invalid")
-        if hash_refresh_token(encoded) != row.challenge_hash:
+        if hash_refresh_token(encoded) != challenge_hash:
             raise WebAuthnSecurityError("WebAuthn challenge integrity check failed")
         return base64url_to_bytes(encoded)
 
