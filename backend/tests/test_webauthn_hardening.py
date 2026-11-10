@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import func, select
-from sqlalchemy.exc import OperationalError
 from webauthn.helpers import bytes_to_base64url
 
 from app.core.security import get_password_hash
@@ -30,12 +28,10 @@ from app.core.config import get_settings
 from app.services.auth_session_service import AuthSessionService
 from app.services.app_settings_service import bootstrap_app_settings_for_db
 from app.services.webauthn_service import LastRequiredPasskeyError, WebAuthnSecurityError, WebAuthnService
-
-
-def _busy_snapshot_error() -> OperationalError:
-    original = sqlite3.OperationalError("database is locked")
-    original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
-    return OperationalError("COMMIT", (), original)
+from tests.db_transaction_test_utils import (
+    fail_next_sqlite_statement_with_busy_snapshot,
+    fail_next_transaction_commit,
+)
 
 
 def _user(db_session, *, email: str, role: str = UserRole.UI_USER.value) -> User:
@@ -147,41 +143,31 @@ def test_registration_options_require_user_verification_and_none_attestation(db_
     assert challenge.expires_at > challenge.created_at
 
 
-def test_registration_challenge_store_rolls_back_when_commit_fails(db_session, monkeypatch):
+def test_registration_challenge_store_rolls_back_when_commit_fails(db_session):
     user = _user(db_session, email="challenge-store-rollback@example.com")
     service = WebAuthnService(db_session)
     service.begin_registration(user, binding_sid="session-existing")
     existing = db_session.scalars(select(AuthChallenge)).one()
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service.begin_registration(user, binding_sid="session-new")
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        service.begin_registration(user, binding_sid="session-new")
-
-    assert rollback_calls == [None]
     db_session.expire_all()
     challenges = db_session.scalars(select(AuthChallenge)).all()
     assert [row.id for row in challenges] == [existing.id]
     assert challenges[0].consumed_at is None
 
 
-def test_registration_challenge_store_retries_sqlite_busy(db_session, monkeypatch):
+def test_registration_challenge_store_retries_sqlite_busy(db_session):
     user = _user(db_session, email="challenge-store-busy@example.com")
     service = WebAuthnService(db_session)
-    real_commit = db_session.commit
-    commit_calls = 0
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO auth_challenges",
+    ) as statements:
+        service.begin_registration(user, binding_sid="session-busy")
 
-    def busy_once() -> None:
-        nonlocal commit_calls
-        commit_calls += 1
-        if commit_calls == 1:
-            raise _busy_snapshot_error()
-        real_commit()
-
-    monkeypatch.setattr(db_session, "commit", busy_once)
-
-    service.begin_registration(user, binding_sid="session-busy")
-
-    assert commit_calls == 2
+    assert len(statements) == 2
     challenges = db_session.scalars(select(AuthChallenge)).all()
     assert len(challenges) == 1
     assert challenges[0].binding_sid == "session-busy"
@@ -204,46 +190,36 @@ def test_registration_challenge_is_single_use_and_bound_to_the_ui_session(db_ses
         service._consume_challenge(user.id, "webauthn_register", binding_sid="session-a")
 
 
-def test_registration_challenge_consume_rolls_back_when_commit_fails(db_session, monkeypatch):
+def test_registration_challenge_consume_rolls_back_when_commit_fails(db_session):
     user = _user(db_session, email="challenge-consume-rollback@example.com")
     service = WebAuthnService(db_session)
     service.begin_registration(user, binding_sid="session-a")
     challenge = db_session.scalars(select(AuthChallenge)).one()
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service._consume_challenge(user.id, "webauthn_register", binding_sid="session-a")
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        service._consume_challenge(user.id, "webauthn_register", binding_sid="session-a")
-
-    assert rollback_calls == [None]
     db_session.expire_all()
     assert db_session.get(AuthChallenge, challenge.id).consumed_at is None
 
 
-def test_registration_challenge_consume_retries_sqlite_busy(db_session, monkeypatch):
+def test_registration_challenge_consume_retries_sqlite_busy(db_session):
     user = _user(db_session, email="challenge-consume-busy@example.com")
     service = WebAuthnService(db_session)
     service.begin_registration(user, binding_sid="session-busy")
-    user_id = user.id
-    real_execute = db_session.execute
-    execute_calls = 0
-
-    def busy_once(statement, *args, **kwargs):
-        nonlocal execute_calls
-        execute_calls += 1
-        if execute_calls == 1:
-            raise _busy_snapshot_error()
-        return real_execute(statement, *args, **kwargs)
-
-    monkeypatch.setattr(db_session, "execute", busy_once)
-
-    challenge = service._consume_challenge(
-        user_id,
-        "webauthn_register",
-        binding_sid="session-busy",
-    )
+    user_id = int(user.id)
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE auth_challenges",
+    ) as statements:
+        challenge = service._consume_challenge(
+            user_id,
+            "webauthn_register",
+            binding_sid="session-busy",
+        )
 
     assert len(challenge) == 32
-    assert execute_calls == 2
+    assert len(statements) == 2
     db_session.expire_all()
     row = db_session.scalars(select(AuthChallenge)).one()
     assert row.consumed_at is not None
