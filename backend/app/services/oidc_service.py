@@ -22,7 +22,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import OIDCProviderSettings, Settings, get_settings
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import run_replayable_db_unit
 from app.core.domain_errors import ResourceNotFoundError
 from app.db import OidcAuthorizationCode, OidcLoginState, OidcProviderIssuerPin
 from app.models.oidc import OIDCProviderInfo
@@ -144,21 +144,27 @@ class OidcService:
         params["code_challenge_method"] = "S256"
         params["code_challenge"] = self._build_code_challenge(code_verifier)
 
-        record = OidcLoginState(
-            state=state_token,
-            provider=provider_key,
-            issuer=issuer,
-            code_verifier=code_verifier,
-            nonce=nonce,
-            redirect_path=redirect_path,
-            redirect_uri=redirect_uri,
-            browser_secret_hash=browser_secret_hash,
-            purpose=purpose,
-            link_attempt_id=link_attempt_id,
-            require_auth_time=require_auth_time,
-        )
-        self.db.add(record)
-        commit_or_rollback(self.db)
+        created_at = utcnow()
+
+        def persist_state(write_db: Session) -> None:
+            write_db.add(
+                OidcLoginState(
+                    state=state_token,
+                    provider=provider_key,
+                    issuer=issuer,
+                    code_verifier=code_verifier,
+                    nonce=nonce,
+                    redirect_path=redirect_path,
+                    redirect_uri=redirect_uri,
+                    browser_secret_hash=browser_secret_hash,
+                    purpose=purpose,
+                    link_attempt_id=link_attempt_id,
+                    require_auth_time=require_auth_time,
+                    created_at=created_at,
+                )
+            )
+
+        run_replayable_db_unit(self.db, persist_state)
 
         url = f"{authorization_endpoint}?{urlencode(params)}"
         return {
@@ -281,13 +287,11 @@ class OidcService:
             raise OIDCStateError("OIDC state requires revalidation")
         ttl = timedelta(seconds=self.settings.oidc_state_ttl_seconds)
         if login_state.created_at < utcnow() - ttl:
-            self.db.delete(login_state)
-            commit_or_rollback(self.db)
+            self._delete_login_state(state, provider_key)
             raise OIDCStateError("OIDC state expired")
         redirect_uri = login_state.redirect_uri or provider.redirect_uri
         if request_origin is not None and self._origin_from_url(redirect_uri) != request_origin.rstrip("/"):
-            self.db.delete(login_state)
-            commit_or_rollback(self.db)
+            self._delete_login_state(state, provider_key)
             raise OIDCStateError("OIDC state origin mismatch")
         claimed = _ClaimedLoginState(
             redirect_uri=redirect_uri,
@@ -302,18 +306,33 @@ class OidcService:
         )
         # Claim the state before any network call. A concurrent callback can no
         # longer exchange the same authorization response.
-        deleted = self.db.execute(
-            delete(OidcLoginState)
-            .where(
-                OidcLoginState.state == state,
-                OidcLoginState.provider == provider_key,
-            )
-            .execution_options(synchronize_session=False)
-        ).rowcount
-        commit_or_rollback(self.db)
+        def claim_once(write_db: Session) -> int:
+            return write_db.execute(
+                delete(OidcLoginState)
+                .where(
+                    OidcLoginState.state == state,
+                    OidcLoginState.provider == provider_key,
+                )
+                .execution_options(synchronize_session=False)
+            ).rowcount
+
+        deleted = run_replayable_db_unit(self.db, claim_once)
         if deleted != 1:
             raise OIDCStateError("OIDC state has already been consumed")
         return claimed
+
+    def _delete_login_state(self, state: str, provider_key: str) -> None:
+        def delete_once(write_db: Session) -> None:
+            write_db.execute(
+                delete(OidcLoginState)
+                .where(
+                    OidcLoginState.state == state,
+                    OidcLoginState.provider == provider_key,
+                )
+                .execution_options(synchronize_session=False)
+            )
+
+        run_replayable_db_unit(self.db, delete_once)
 
     def _exchange_authorization_code(
         self,
@@ -570,16 +589,27 @@ class OidcService:
         except ValueError as exc:
             raise OIDCConfigurationError("OIDC provider issuer is missing") from exc
         row = self.db.get(OidcProviderIssuerPin, provider_key)
-        if row is None:
-            row = OidcProviderIssuerPin(
-                provider_id=provider_key,
-                issuer=issuer,
-            )
-            self.db.add(row)
-            commit_or_rollback(self.db)
+        if row is not None:
+            if row.issuer != issuer:
+                raise OIDCConfigurationError("OIDC provider issuer no longer matches its pinned issuer")
             return issuer
-        if row.issuer != issuer:
-            raise OIDCConfigurationError("OIDC provider issuer no longer matches its pinned issuer")
+
+        def pin_once(write_db: Session) -> None:
+            existing = write_db.get(OidcProviderIssuerPin, provider_key)
+            if existing is None:
+                write_db.add(
+                    OidcProviderIssuerPin(
+                        provider_id=provider_key,
+                        issuer=issuer,
+                    )
+                )
+                return
+            if existing.issuer != issuer:
+                raise OIDCConfigurationError(
+                    "OIDC provider issuer no longer matches its pinned issuer"
+                )
+
+        run_replayable_db_unit(self.db, pin_once)
         return issuer
 
     def _validate_auth_time(self, claims: dict[str, Any], state_created_at: Any) -> None:
@@ -619,37 +649,46 @@ class OidcService:
         return base64.urlsafe_b64encode(digest).rstrip(b"=").decode()
 
     def _purge_expired_states(self) -> None:
-        cutoff = utcnow() - timedelta(seconds=self.settings.oidc_state_ttl_seconds)
-        self.db.execute(
-            delete(OidcLoginState)
-            .where(OidcLoginState.created_at < cutoff)
-            .execution_options(synchronize_session="auto")
-        )
-        self.db.execute(
-            delete(OidcAuthorizationCode)
-            .where(OidcAuthorizationCode.expires_at <= utcnow())
-            .execution_options(synchronize_session="auto")
-        )
-        commit_or_rollback(self.db)
+        now = utcnow()
+        cutoff = now - timedelta(seconds=self.settings.oidc_state_ttl_seconds)
+
+        def purge_once(write_db: Session) -> None:
+            write_db.execute(
+                delete(OidcLoginState)
+                .where(OidcLoginState.created_at < cutoff)
+                .execution_options(synchronize_session=False)
+            )
+            write_db.execute(
+                delete(OidcAuthorizationCode)
+                .where(OidcAuthorizationCode.expires_at <= now)
+                .execution_options(synchronize_session=False)
+            )
+
+        run_replayable_db_unit(self.db, purge_once)
 
     def _claim_authorization_code(self, provider_key: str, code: str) -> None:
         now = utcnow()
         digest = hashlib.sha256(f"{provider_key}\x00{code}".encode()).hexdigest()
-        self.db.execute(
-            delete(OidcAuthorizationCode)
-            .where(OidcAuthorizationCode.expires_at <= now)
-            .execution_options(synchronize_session="auto")
-        )
-        self.db.add(
-            OidcAuthorizationCode(
-                id=str(uuid.uuid4()),
-                provider=provider_key,
-                code_hash=digest,
-                created_at=now,
-                expires_at=now + timedelta(seconds=self.settings.oidc_state_ttl_seconds),
+        authorization_code_id = str(uuid.uuid4())
+        expires_at = now + timedelta(seconds=self.settings.oidc_state_ttl_seconds)
+
+        def claim_once(write_db: Session) -> None:
+            write_db.execute(
+                delete(OidcAuthorizationCode)
+                .where(OidcAuthorizationCode.expires_at <= now)
+                .execution_options(synchronize_session=False)
             )
-        )
+            write_db.add(
+                OidcAuthorizationCode(
+                    id=authorization_code_id,
+                    provider=provider_key,
+                    code_hash=digest,
+                    created_at=now,
+                    expires_at=expires_at,
+                )
+            )
+
         try:
-            commit_or_rollback(self.db)
+            run_replayable_db_unit(self.db, claim_once)
         except IntegrityError as exc:
             raise OIDCStateError("OIDC authorization code has already been consumed") from exc

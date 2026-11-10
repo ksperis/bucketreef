@@ -29,6 +29,10 @@ from app.services.oidc_service import (
     OidcService,
 )
 from app.utils.time import utcnow
+from tests.db_transaction_test_utils import (
+    fail_next_sqlite_statement_with_busy_snapshot,
+    fail_next_transaction_commit,
+)
 
 OIDC_ISSUER = "https://issuer.example.test"
 
@@ -124,24 +128,31 @@ def test_provider_issuer_rolls_back_when_commit_fails(db_session, monkeypatch):
         "_get_metadata",
         lambda *args, **kwargs: {"issuer": OIDC_ISSUER},
     )
-    original_rollback = db_session.rollback
-    rollback_calls: list[None] = []
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service.provider_issuer("google")
 
-    def rollback() -> None:
-        rollback_calls.append(None)
-        original_rollback()
-
-    def commit() -> None:
-        raise RuntimeError("commit failed")
-
-    monkeypatch.setattr(db_session, "rollback", rollback)
-    monkeypatch.setattr(db_session, "commit", commit)
-
-    with pytest.raises(RuntimeError, match="commit failed"):
-        service.provider_issuer("google")
-
-    assert rollback_calls == [None]
+    db_session.expire_all()
     assert db_session.get(OidcProviderIssuerPin, "google") is None
+
+
+def test_provider_issuer_retries_sqlite_busy_snapshot(db_session, monkeypatch):
+    service, _ = _service(db_session)
+    monkeypatch.setattr(
+        service,
+        "_get_metadata",
+        lambda *args, **kwargs: {"issuer": OIDC_ISSUER},
+    )
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO oidc_provider_issuer_pins",
+    ) as statements:
+        assert service.provider_issuer("google") == OIDC_ISSUER
+
+    assert len(statements) == 2
+    db_session.expire_all()
+    assert db_session.get(OidcProviderIssuerPin, "google").issuer == OIDC_ISSUER
 
 
 def test_provider_issuer_does_not_commit_matching_existing_pin(db_session, monkeypatch):
@@ -213,6 +224,31 @@ def test_start_login_generates_authorization_url_and_persists_state(db_session, 
     assert db_session.scalar(
         select(OidcLoginState).where(OidcLoginState.state == "expired-state")
     ) is None
+
+
+def test_start_login_retries_sqlite_busy_snapshot_without_regenerating_state(db_session, monkeypatch):
+    service, _ = _service(db_session)
+    monkeypatch.setattr(
+        service,
+        "_get_metadata",
+        lambda *args, **kwargs: {
+            "issuer": OIDC_ISSUER,
+            "authorization_endpoint": "https://issuer.example.test/auth",
+        },
+    )
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO oidc_login_states",
+    ) as statements:
+        result = service.start_login("google", "/manager")
+
+    assert len(statements) == 2
+    db_session.expire_all()
+    states = db_session.scalars(
+        select(OidcLoginState).where(OidcLoginState.state == result["state"])
+    ).all()
+    assert len(states) == 1
 
 
 def test_start_login_selects_redirect_uri_for_trusted_public_origin(db_session, monkeypatch):
@@ -319,6 +355,55 @@ def test_complete_login_invalid_and_expired_state(db_session):
     assert db_session.scalar(
         select(OidcLoginState).where(OidcLoginState.state == "expired")
     ) is None
+
+
+def test_claim_login_state_retries_sqlite_busy_snapshot(db_session):
+    service, _ = _service(db_session)
+    db_session.add(
+        OidcLoginState(
+            state="busy-claim",
+            provider="google",
+            issuer=OIDC_ISSUER,
+            code_verifier="verifier",
+            nonce="nonce",
+            redirect_path="/manager",
+        )
+    )
+    db_session.commit()
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "DELETE FROM oidc_login_states",
+    ) as statements:
+        claimed = service._claim_login_state(
+            "google",
+            _provider(),
+            "busy-claim",
+            request_origin=None,
+            browser_secret_hash=None,
+        )
+
+    assert claimed.redirect_path == "/manager"
+    assert len(statements) == 2
+    db_session.expire_all()
+    assert db_session.get(OidcLoginState, "busy-claim") is None
+
+
+def test_claim_authorization_code_retries_sqlite_busy_snapshot(db_session):
+    service, _ = _service(db_session)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO oidc_authorization_codes",
+    ) as statements:
+        service._claim_authorization_code("google", "busy-code")
+
+    assert len(statements) == 2
+    db_session.expire_all()
+    rows = db_session.scalars(
+        select(OidcAuthorizationCode).where(OidcAuthorizationCode.provider == "google")
+    ).all()
+    assert len(rows) == 1
 
 
 def test_complete_login_token_endpoint_errors(db_session, monkeypatch):
