@@ -4,12 +4,14 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 from contextlib import contextmanager
 from types import SimpleNamespace
 
 import pytest
 from pydantic import ValidationError
 from sqlalchemy import func, select
+from sqlalchemy.exc import OperationalError
 
 from app.db import AppSetting
 from app.models import app_settings as app_settings_models
@@ -67,6 +69,12 @@ def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
     monkeypatch.setattr(db_session, "rollback", rollback)
     monkeypatch.setattr(db_session, "commit", commit)
     return rollback_calls
+
+
+def _busy_snapshot_error() -> OperationalError:
+    original = sqlite3.OperationalError("database is locked")
+    original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
+    return OperationalError("COMMIT", (), original)
 
 
 def test_rgw_account_id_prefix_defaults_to_80_and_requires_one_to_three_digits():
@@ -282,6 +290,34 @@ def test_app_settings_save_rolls_back_when_commit_fails(monkeypatch, tmp_path, d
         app_settings_service.save_app_settings_for_db(db_session, changed)
 
     assert rollback_calls == [None]
+    db_session.expire_all()
+    persisted = app_settings_service.load_app_settings_for_db(db_session)
+    assert persisted.general.browser_enabled is False
+
+
+def test_app_settings_save_retries_sqlite_busy(monkeypatch, tmp_path, db_session):
+    settings_path = tmp_path / "app_settings.json"
+    monkeypatch.setattr(app_settings_service, "_settings_path", lambda: settings_path)
+    monkeypatch.setattr(app_settings_service, "get_settings", lambda: _runtime_settings())
+    app_settings_service.bootstrap_app_settings_for_db(db_session)
+    real_commit = db_session.commit
+    commit_calls = 0
+
+    def busy_once() -> None:
+        nonlocal commit_calls
+        commit_calls += 1
+        if commit_calls == 1:
+            raise _busy_snapshot_error()
+        real_commit()
+
+    monkeypatch.setattr(db_session, "commit", busy_once)
+
+    changed = AppSettings()
+    changed.general.browser_enabled = False
+    saved = app_settings_service.save_app_settings_for_db(db_session, changed)
+
+    assert saved.general.browser_enabled is False
+    assert commit_calls == 2
     db_session.expire_all()
     persisted = app_settings_service.load_app_settings_for_db(db_session)
     assert persisted.general.browser_enabled is False

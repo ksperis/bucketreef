@@ -10,7 +10,7 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.core.config import get_settings
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
 from app.db import AppSetting
 from app.models.app_settings import AppSettings, GeneralFeatureLock, GeneralFeatureLocks
 from app.utils.time import utcnow
@@ -110,27 +110,31 @@ def _get_persisted_settings_row(db) -> AppSetting | None:
 
 
 def _save_persisted_settings_to_db(db, settings: AppSettings) -> None:
-    now = utcnow()
     payload = _settings_to_payload(settings)
-    row = _get_persisted_settings_row(db)
-    if row is None:
-        row = AppSetting(
-            key=APP_SETTINGS_DB_KEY,
-            payload=payload,
-            created_at=now,
-            updated_at=now,
-        )
-        db.add(row)
-        try:
-            commit_or_rollback(db)
-            return
-        except IntegrityError:
-            row = _get_persisted_settings_row(db)
-            if row is None:
-                raise
-    row.payload = payload
-    row.updated_at = now
-    commit_or_rollback(db)
+
+    def persist_once() -> None:
+        now = utcnow()
+        row = _get_persisted_settings_row(db)
+        if row is None:
+            row = AppSetting(
+                key=APP_SETTINGS_DB_KEY,
+                payload=payload,
+                created_at=now,
+                updated_at=now,
+            )
+            db.add(row)
+            try:
+                commit_or_rollback(db)
+                return
+            except IntegrityError:
+                row = _get_persisted_settings_row(db)
+                if row is None:
+                    raise
+        row.payload = payload
+        row.updated_at = now
+        commit_or_rollback(db)
+
+    run_db_unit_with_sqlite_retry(db, persist_once)
 
 
 def _load_persisted_settings_from_db(db) -> AppSettings:
