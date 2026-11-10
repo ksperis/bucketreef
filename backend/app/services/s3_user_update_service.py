@@ -6,7 +6,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import rollback_safely
+from app.core.db_transactions import rollback_safely, run_replayable_db_unit
 from app.core.domain_errors import CompensationFailureError
 from app.db import S3User
 from app.models.s3_user import S3User as S3UserSchema, S3UserUpdate
@@ -65,7 +65,6 @@ class S3UserUpdateService:
         quota_update_attempted = False
 
         try:
-            self._apply_local_updates(s3_user, payload)
             if quota_requested:
                 quota_update_attempted = True
                 self.quota.update(
@@ -74,8 +73,17 @@ class S3UserUpdateService:
                     payload.quota_max_objects,
                     payload.quota_max_size_unit,
                 )
-            self.db.add(s3_user)
-            self.db.commit()
+
+            def persist_local_update_once(write_db: Session) -> None:
+                write_service = S3UserUpdateService(write_db)
+                write_user = write_service.repository.get(user_id)
+                write_service.repository.ensure_not_pending_deletion(user_id)
+                write_service._validate_update(write_user, payload)
+                write_service._apply_local_updates(write_user, payload)
+                write_db.add(write_user)
+                write_db.flush()
+
+            run_replayable_db_unit(self.db, persist_local_update_once)
         except Exception as exc:
             self._rollback_failed_update(
                 exc,
@@ -84,8 +92,8 @@ class S3UserUpdateService:
             )
             raise
 
-        self.db.refresh(s3_user)
-        return self._serialize_updated_user(s3_user)
+        persisted_user = self.repository.get(user_id)
+        return self._serialize_updated_user(persisted_user)
 
     def _validate_update(self, s3_user: S3User, payload: S3UserUpdate) -> None:
         app_settings = load_app_settings_for_db(self.db)
