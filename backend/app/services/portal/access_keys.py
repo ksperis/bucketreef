@@ -10,7 +10,7 @@ from typing import Optional, TYPE_CHECKING
 
 from sqlalchemy import select
 
-from app.core.db_transactions import rollback_safely, run_db_unit_with_sqlite_retry
+from app.core.db_transactions import rollback_safely, run_replayable_db_unit
 from app.db import PortalExternalAccessCredential, PortalStorageSpaceMetadata, S3Account, User
 from app.core.domain_enums import PortalAccountRole
 from app.models.app_settings import PortalEffectiveSettings
@@ -286,6 +286,7 @@ class PortalAccessKeysMixin:
         iam_username = self._external_username(access.account, metadata, external_email)
         iam_user: Optional[IAMUser] = None
         new_key: Optional[ModelAccessKey] = None
+        credential_id: int | None = None
         projection_attempted = False
         try:
             iam_user, _ = iam_service.create_user(iam_username, create_key=False, allow_existing=False)
@@ -295,27 +296,45 @@ class PortalAccessKeysMixin:
                 self._external_access_policy(access.account, metadata.bucket_name, permission),
             )
             new_key = iam_service.create_access_key(iam_username)
-            def stage_credential_once() -> PortalExternalAccessCredential:
+            account_id = int(access.account.id)
+            metadata_id = int(metadata.id)
+            bucket_name = str(metadata.bucket_name)
+            created_by_user_id = int(user.id)
+            persisted_iam_user_id = iam_user.user_id or iam_user.arn or iam_username
+            persisted_iam_username = iam_user.name or iam_username
+            access_key_id = str(new_key.access_key_id)
+            status = new_key.status or "Active"
+            persisted_at = utcnow()
+
+            def stage_credential_once(write_db) -> int:
                 credential = PortalExternalAccessCredential(
-                    account_id=access.account.id,
-                    storage_space_metadata_id=metadata.id,
-                    bucket_name=metadata.bucket_name,
-                    created_by_user_id=user.id,
+                    account_id=account_id,
+                    storage_space_metadata_id=metadata_id,
+                    bucket_name=bucket_name,
+                    created_by_user_id=created_by_user_id,
                     external_email=external_email,
                     permission=permission,
-                    iam_user_id=iam_user.user_id or iam_user.arn or iam_username,
-                    iam_username=iam_user.name or iam_username,
-                    access_key_id=new_key.access_key_id,
-                    status=new_key.status or "Active",
+                    iam_user_id=persisted_iam_user_id,
+                    iam_username=persisted_iam_username,
+                    access_key_id=access_key_id,
+                    status=status,
+                    created_at=persisted_at,
+                    updated_at=persisted_at,
                 )
-                self.db.add(credential)
-                self.db.flush()
-                return credential
+                write_db.add(credential)
+                write_db.flush()
+                return int(credential.id)
 
-            credential = run_db_unit_with_sqlite_retry(self.db, stage_credential_once)
+            credential_id = run_replayable_db_unit(self.db, stage_credential_once)
+            credential = self.db.get(
+                PortalExternalAccessCredential,
+                credential_id,
+                populate_existing=True,
+            )
+            if credential is None:  # pragma: no cover - defensive consistency check
+                raise PortalOperationError("External Portal access could not be reloaded.")
             projection_attempted = True
             self._sync_storage_space_access_projection(access.account, metadata, sync_participants=False)
-            self.db.commit()
         except Exception as exc:
             rollback_error = rollback_safely(self.db)
             if rollback_error is not None:  # pragma: no cover - defensive database failure
@@ -323,6 +342,22 @@ class PortalAccessKeysMixin:
                     "Unable to roll back failed external Portal access creation: %s",
                     rollback_error,
                 )
+            local_rollback_failed = False
+            if credential_id is not None and rollback_error is None:
+                try:
+                    def remove_credential_once(write_db) -> None:
+                        current = write_db.get(PortalExternalAccessCredential, credential_id)
+                        if current is not None:
+                            write_db.delete(current)
+
+                    run_replayable_db_unit(self.db, remove_credential_once)
+                except Exception as rollback_exc:  # pragma: no cover - defensive database failure
+                    logger.error(
+                        "Unable to remove failed external Portal credential %s: %s",
+                        credential_id,
+                        rollback_exc,
+                    )
+                    local_rollback_failed = True
             projection_rollback_failed = False
             if projection_attempted:
                 try:
@@ -343,7 +378,12 @@ class PortalAccessKeysMixin:
                 iam_user=iam_user,
                 new_key=new_key,
             )
-            if rollback_error is not None or projection_rollback_failed or iam_rollback_failed:
+            if (
+                rollback_error is not None
+                or local_rollback_failed
+                or projection_rollback_failed
+                or iam_rollback_failed
+            ):
                 raise PortalOperationError(
                     "Unable to create external Portal access. Local or remote rollback also failed."
                 ) from exc
