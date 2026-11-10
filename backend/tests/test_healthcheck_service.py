@@ -1,12 +1,10 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-import sqlite3
 import requests
 import pytest
 from datetime import timedelta
 
 from sqlalchemy import select
-from sqlalchemy.exc import OperationalError
 
 from app.db import (
     EndpointHealthCheck,
@@ -30,6 +28,7 @@ from app.services.healthcheck_persistence_service import HealthCheckPersistenceS
 from app.services.healthcheck_query_service import HealthCheckQueryService
 from app.services.healthcheck_service import HealthCheckService
 from app.utils.time import utcnow
+from tests.db_transaction_test_utils import fail_next_sqlite_statement_with_busy_snapshot
 from tests.storage_endpoint_features import persisted_endpoint_features
 
 
@@ -64,12 +63,6 @@ def _seed_endpoint(db_session, *, name: str, endpoint_url: str, is_default: bool
             is_editable=True,
         )
     )
-
-
-def _busy_snapshot_error() -> OperationalError:
-    original = sqlite3.OperationalError("database is locked")
-    original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
-    return OperationalError("COMMIT", (), original)
 
 
 def test_healthcheck_probe_runs_outside_transaction_and_is_not_repeated_on_busy(
@@ -131,21 +124,14 @@ def test_healthcheck_probe_runs_outside_transaction_and_is_not_repeated_on_busy(
         "_run_endpoint_checks",
         run_endpoint_checks,
     )
-    original_commit = db_session.commit
-    fail_once = True
-
-    def commit_with_busy_once() -> None:
-        nonlocal fail_once
-        if fail_once:
-            fail_once = False
-            raise _busy_snapshot_error()
-        original_commit()
-
-    monkeypatch.setattr(db_session, "commit", commit_with_busy_once)
-
-    result = HealthCheckService(db_session).run_checks()
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO endpoint_health_checks",
+    ) as statements:
+        result = HealthCheckService(db_session).run_checks()
 
     assert probe_calls == 1
+    assert len(statements) == 2
     assert result["total"] == 1
     db_session.rollback()
     assert len(db_session.scalars(select(EndpointHealthCheck)).all()) == 1
@@ -534,30 +520,15 @@ def test_healthcheck_retention_failure_keeps_atomic_projection_commit(db_session
         error_message=None,
         check_mode="http",
     )
-    original_commit = db_session.commit
-    original_rollback = db_session.rollback
-    commit_calls = 0
-    rollback_calls = []
+    monkeypatch.setattr(
+        HealthCheckPersistenceService,
+        "_prune_history_once",
+        lambda _self, _cutoff: (_ for _ in ()).throw(RuntimeError("prune failed")),
+    )
 
-    def fail_second_commit():
-        nonlocal commit_calls
-        commit_calls += 1
-        if commit_calls == 2:
-            raise RuntimeError("commit failed")
-        original_commit()
-
-    def recording_rollback():
-        rollback_calls.append(True)
-        original_rollback()
-
-    monkeypatch.setattr(db_session, "commit", fail_second_commit)
-    monkeypatch.setattr(db_session, "rollback", recording_rollback)
-
-    with pytest.raises(RuntimeError, match="commit failed"):
+    with pytest.raises(RuntimeError, match="prune failed"):
         HealthCheckPersistenceService(db_session).record_results([result])
 
-    assert commit_calls == 2
-    assert rollback_calls == [True]
     assert db_session.scalars(select(EndpointHealthCheck)).all()
     assert db_session.scalars(select(EndpointHealthLatest)).all()
     assert db_session.scalars(select(EndpointHealthRollup)).all()

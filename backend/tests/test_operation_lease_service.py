@@ -14,22 +14,10 @@ from app.services.operation_lease_service import (
     bucket_usage_stats_bucket_operation_name,
 )
 from app.utils.time import utcnow
-
-
-def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
-    rollback_calls: list[None] = []
-    original_rollback = db_session.rollback
-
-    def rollback() -> None:
-        rollback_calls.append(None)
-        original_rollback()
-
-    def commit() -> None:
-        raise RuntimeError("commit failed")
-
-    monkeypatch.setattr(db_session, "rollback", rollback)
-    monkeypatch.setattr(db_session, "commit", commit)
-    return rollback_calls
+from tests.db_transaction_test_utils import (
+    fail_next_sqlite_statement_with_busy_snapshot,
+    fail_next_transaction_commit,
+)
 
 
 def test_operation_lease_acquire_conflict_release_and_reacquire(db_session):
@@ -109,21 +97,38 @@ def test_operation_lease_same_owner_renews(db_session):
     assert db_session.scalar(sa.select(sa.func.count()).select_from(BackendOperationLease)) == 1
 
 
-def test_operation_lease_renewal_rolls_back_when_commit_fails(db_session, monkeypatch):
+def test_operation_lease_renewal_rolls_back_when_commit_fails(db_session):
     service = OperationLeaseService(db_session)
     first = service.acquire("quota-monitor:rollback-renewal", ttl_seconds=60, owner="backend-a")
     assert first is not None
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        service.acquire("quota-monitor:rollback-renewal", ttl_seconds=120, owner="backend-a")
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service.acquire("quota-monitor:rollback-renewal", ttl_seconds=120, owner="backend-a")
 
-    assert rollback_calls == [None]
     db_session.expire_all()
     row = db_session.get(BackendOperationLease, "quota-monitor:rollback-renewal")
     assert row is not None
     assert row.lease_owner == "backend-a"
     assert row.lease_until == first.lease_until
+
+
+def test_operation_lease_acquire_retries_sqlite_busy_snapshot(db_session):
+    service = OperationLeaseService(db_session)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO backend_operation_leases",
+    ) as statements:
+        handle = service.acquire("healthchecks:busy-retry", ttl_seconds=60, owner="backend-a")
+
+    assert len(statements) == 2
+    assert handle is not None
+    assert db_session.scalar(
+        sa.select(sa.func.count()).select_from(BackendOperationLease).where(
+            BackendOperationLease.operation_name == "healthchecks:busy-retry"
+        )
+    ) == 1
 
 
 def test_operation_lease_persists_structured_context(db_session):
@@ -169,16 +174,15 @@ def test_operation_lease_hold_releases_after_success(db_session):
     assert service.current_owner("usage-history:collect") is None
 
 
-def test_operation_lease_release_rolls_back_when_commit_fails(db_session, monkeypatch):
+def test_operation_lease_release_rolls_back_when_commit_fails(db_session):
     service = OperationLeaseService(db_session)
     handle = service.acquire("usage-history:rollback-release", ttl_seconds=60, owner="backend-a")
     assert handle is not None
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        service.release(handle)
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service.release(handle)
 
-    assert rollback_calls == [None]
     assert service.current_owner("usage-history:rollback-release") == "backend-a"
 
 

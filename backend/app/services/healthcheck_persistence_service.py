@@ -12,8 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.db_transactions import (
     add_and_flush_in_savepoint,
-    commit_or_rollback,
-    run_db_unit_with_sqlite_retry,
+    run_replayable_db_unit,
 )
 from app.core.sensitive_data import sanitize_persisted_error
 from app.db import (
@@ -41,15 +40,11 @@ class HealthCheckPersistenceService:
         self.db = db
 
     def record_results(self, results: list[HealthCheckResult]) -> None:
-        run_db_unit_with_sqlite_retry(
+        run_replayable_db_unit(
             self.db,
-            lambda: self._record_results_once(results),
+            lambda write_db: HealthCheckPersistenceService(write_db).stage_results(results),
         )
         self.prune_history()
-
-    def _record_results_once(self, results: list[HealthCheckResult]) -> None:
-        self.stage_results(results)
-        commit_or_rollback(self.db)
 
     def stage_results(self, results: list[HealthCheckResult]) -> None:
         """Stage raw and derived health rows without committing the transaction."""
@@ -269,13 +264,25 @@ class HealthCheckPersistenceService:
         entry.updated_at = utcnow()
 
     def prune_history(self) -> None:
-        run_db_unit_with_sqlite_retry(self.db, self._prune_history_once)
-
-    def _prune_history_once(self) -> None:
         retention_days = settings.healthcheck_retention_days
         if retention_days == 0:
             return
         cutoff = utcnow() - timedelta(days=retention_days)
+        deleted_raw, deleted_rollups, deleted_segments = run_replayable_db_unit(
+            self.db,
+            lambda write_db: HealthCheckPersistenceService(write_db)._prune_history_once(cutoff),
+        )
+        total_deleted = deleted_raw + deleted_rollups + deleted_segments
+        if total_deleted:
+            logger.info(
+                "Pruned health metrics rows before %s (raw=%s rollups=%s segments=%s)",
+                cutoff.isoformat(),
+                deleted_raw,
+                deleted_rollups,
+                deleted_segments,
+            )
+
+    def _prune_history_once(self, cutoff: datetime) -> tuple[int, int, int]:
         deleted_raw = self.db.execute(
             delete(EndpointHealthCheck)
             .where(EndpointHealthCheck.checked_at < cutoff)
@@ -294,13 +301,4 @@ class HealthCheckPersistenceService:
             )
             .execution_options(synchronize_session=False)
         ).rowcount or 0
-        total_deleted = deleted_raw + deleted_rollups + deleted_segments
-        if total_deleted:
-            logger.info(
-                "Pruned health metrics rows before %s (raw=%s rollups=%s segments=%s)",
-                cutoff.isoformat(),
-                deleted_raw,
-                deleted_rollups,
-                deleted_segments,
-            )
-        commit_or_rollback(self.db)
+        return deleted_raw, deleted_rollups, deleted_segments

@@ -11,9 +11,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.db_transactions import (
-    commit_or_rollback,
     rollback_on_error,
-    run_db_unit_with_sqlite_retry,
+    run_replayable_db_unit,
 )
 from app.core.sensitive_data import sanitize_audit_metadata
 from app.db import AuditLog, User
@@ -145,12 +144,33 @@ class AuditService:
     def _persist_log(self, payload: AuditLog) -> bool:
         self._ensure_clean_transaction_boundary()
 
-        def persist_once() -> None:
-            self.db.add(payload)
-            commit_or_rollback(self.db)
+        payload_values = {
+            "user_id": payload.user_id,
+            "user_email": payload.user_email,
+            "user_role": payload.user_role,
+            "scope": payload.scope,
+            "action": payload.action,
+            "entity_type": payload.entity_type,
+            "entity_id": payload.entity_id,
+            "context_kind": payload.context_kind,
+            "context_id": payload.context_id,
+            "context_name": payload.context_name,
+            "status": payload.status,
+            "message": payload.message,
+            "audit_metadata": payload.audit_metadata,
+            "request_id": payload.request_id,
+            "ip_address": payload.ip_address,
+            "user_agent": payload.user_agent,
+        }
+
+        def persist_once(write_db: Session) -> tuple[int, Any]:
+            row = AuditLog(**payload_values)
+            write_db.add(row)
+            write_db.flush()
+            return int(row.id), row.created_at
 
         try:
-            run_db_unit_with_sqlite_retry(self.db, persist_once)
+            persisted_id, created_at = run_replayable_db_unit(self.db, persist_once)
         except SQLAlchemyError as exc:
             logger.warning(
                 "Failed to persist audit log for action %s: %s",
@@ -158,6 +178,8 @@ class AuditService:
                 exc,
             )
             return False
+        payload.id = persisted_id
+        payload.created_at = created_at
         return True
 
     def _publish_webhook(

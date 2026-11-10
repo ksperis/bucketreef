@@ -13,7 +13,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
+from app.core.db_transactions import run_replayable_db_unit
 from app.db.bucket_usage_stats import BucketUsageStatsSnapshot as BucketUsageStatsSnapshotRow
 from app.models.bucket_usage_stats import (
     BucketUsageStatsAggregate,
@@ -455,9 +455,9 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
         return snapshots
 
     def upsert_snapshot(self, db: Session, snapshot: BucketUsageStatsSnapshot) -> BucketUsageStatsSnapshot:
-        return run_db_unit_with_sqlite_retry(
+        return run_replayable_db_unit(
             db,
-            lambda: self._upsert_snapshot_once(db, snapshot),
+            lambda write_db: self._upsert_snapshot_once(write_db, snapshot),
         )
 
     def _upsert_snapshot_once(self, db: Session, snapshot: BucketUsageStatsSnapshot) -> BucketUsageStatsSnapshot:
@@ -494,8 +494,7 @@ class BucketUsageStatsService(LongRunningS3ClientMixin):
         row.current_noncurrent_distribution = [entry.model_dump(mode="json") for entry in snapshot.current_vs_noncurrent]
         row.warnings = list(snapshot.warnings) if snapshot.warnings else None
         row.calculated_at = snapshot.calculated_at
-        commit_or_rollback(db)
-        db.refresh(row)
+        db.flush()
         return self._snapshot_from_row(row)
 
     def calculate_and_persist(
