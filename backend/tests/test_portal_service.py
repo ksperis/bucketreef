@@ -7413,52 +7413,49 @@ def _public_link_write_context(monkeypatch, db_session, *, suffix):
     return account, owner, service, access
 
 
-def _fail_commit_and_track_rollback(db_session, monkeypatch):
-    rollback_calls = []
-    original_rollback = db_session.rollback
-
-    def track_rollback():
-        rollback_calls.append(None)
-        original_rollback()
-
-    def fail_commit():
-        raise RuntimeError("commit failed")
-
-    monkeypatch.setattr(db_session, "rollback", track_rollback)
-    monkeypatch.setattr(db_session, "commit", fail_commit)
-    return rollback_calls
-
-
-def test_public_link_creation_rolls_back_failed_commit(monkeypatch, db_session):
+def test_public_link_creation_retries_busy_snapshot_without_replaying_s3_head(
+    monkeypatch,
+    db_session,
+):
     _account, owner, service, access = _public_link_write_context(
         monkeypatch,
         db_session,
-        suffix="create-rollback",
+        suffix="create-busy-snapshot",
     )
     monkeypatch.setattr(service, "_portal_object_client", lambda *_args, **_kwargs: object())
-    monkeypatch.setattr(service, "_head_storage_space_object", lambda *_args, **_kwargs: None)
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+    head_calls = []
+    monkeypatch.setattr(
+        service,
+        "_head_storage_space_object",
+        lambda *_args, **_kwargs: head_calls.append(None),
+    )
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        service.create_storage_space_public_link(
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO portal_public_links",
+    ) as matching_statements:
+        created = service.create_storage_space_public_link(
             owner,
             access,
             "research-data",
             object_key="raw-data/report.csv",
         )
 
-    assert rollback_calls == [None]
-    assert db_session.scalar(sa.select(sa.func.count()).select_from(PortalPublicLink)) == 0
+    assert len(matching_statements) == 2
+    assert head_calls == [None]
+    persisted = db_session.scalars(sa.select(PortalPublicLink)).one()
+    assert persisted.id == created.id
+    assert persisted.object_key == "raw-data/report.csv"
 
 
-def test_public_link_revocation_rolls_back_failed_commit(monkeypatch, db_session):
+def test_public_link_revocation_retries_busy_snapshot(monkeypatch, db_session):
     account, owner, service, access = _public_link_write_context(
         monkeypatch,
         db_session,
-        suffix="revoke-rollback",
+        suffix="revoke-busy-snapshot",
     )
     link = PortalPublicLink(
-        token="revoke-rollback-token",
+        token="revoke-busy-snapshot-token",
         account_id=account.id,
         bucket_name="research-data",
         object_key="raw-data/report.csv",
@@ -7467,18 +7464,26 @@ def test_public_link_revocation_rolls_back_failed_commit(monkeypatch, db_session
     )
     db_session.add(link)
     db_session.commit()
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        service.revoke_storage_space_public_link(owner, access, "research-data", link.id)
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE portal_public_links",
+    ) as matching_statements:
+        revoked = service.revoke_storage_space_public_link(
+            owner,
+            access,
+            "research-data",
+            link.id,
+        )
 
-    assert rollback_calls == [None]
+    assert len(matching_statements) == 2
+    assert [(item.id, item.status) for item in revoked] == [(link.id, "Revoked")]
     db_session.expire_all()
     persisted_link = db_session.scalar(
         sa.select(PortalPublicLink).where(PortalPublicLink.id == link.id)
     )
     assert persisted_link is not None
-    assert persisted_link.revoked_at is None
+    assert persisted_link.revoked_at is not None
 
 
 def test_public_link_creation_rejects_missing_objects(monkeypatch, db_session):

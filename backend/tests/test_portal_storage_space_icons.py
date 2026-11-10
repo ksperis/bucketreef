@@ -13,6 +13,7 @@ from app.routers import dependencies
 from app.services.access_context_contracts import AccountAccess, AccountCapabilities
 from app.services.portal_service import PortalService
 
+from tests.db_transaction_test_utils import fail_next_sqlite_statement_with_busy_snapshot
 from tests.s3_account_factory import make_s3_account
 
 
@@ -68,22 +69,6 @@ def _setup_space(db_session):
     return account, manager, member, metadata
 
 
-def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
-    rollback_calls: list[None] = []
-    original_rollback = db_session.rollback
-
-    def rollback() -> None:
-        rollback_calls.append(None)
-        original_rollback()
-
-    def commit() -> None:
-        raise RuntimeError("commit failed")
-
-    monkeypatch.setattr(db_session, "rollback", rollback)
-    monkeypatch.setattr(db_session, "commit", commit)
-    return rollback_calls
-
-
 def test_portal_manager_can_choose_icon_and_action_is_audited(client: TestClient, db_session):
     account, manager, _member, metadata = _setup_space(db_session)
     app.dependency_overrides[dependencies.require_portal_enabled] = lambda: None
@@ -116,15 +101,15 @@ def test_portal_manager_can_choose_icon_and_action_is_audited(client: TestClient
     assert "database" in str(audit.audit_metadata or {})
 
 
-def test_icon_choice_rolls_back_when_commit_fails(db_session, monkeypatch):
+def test_icon_choice_retries_busy_snapshot(db_session):
     account, manager, _member, metadata = _setup_space(db_session)
     access = _portal_access(account, manager, PortalAccountRole.PORTAL_MANAGER.value)
-    original_preset = metadata.icon_preset
-    original_updated_at = metadata.icon_updated_at
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        PortalService(db_session).set_storage_space_icon_choice(
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE portal_storage_space_metadata",
+    ) as matching_statements:
+        result = PortalService(db_session).set_storage_space_icon_choice(
             manager,
             access,
             metadata.bucket_name,
@@ -132,12 +117,14 @@ def test_icon_choice_rolls_back_when_commit_fails(db_session, monkeypatch):
             preset="database",
         )
 
-    assert rollback_calls == [None]
+    assert len(matching_statements) == 2
+    assert result.source == "preset"
+    assert result.preset == "database"
     db_session.expire_all()
     stored = db_session.get(PortalStorageSpaceMetadata, metadata.id)
     assert stored.icon_source == "preset"
-    assert stored.icon_preset == original_preset
-    assert stored.icon_updated_at == original_updated_at
+    assert stored.icon_preset == "database"
+    assert stored.icon_updated_at is not None
 
 
 def test_uploaded_icon_is_validated_served_with_versioned_private_cache_and_audited(
@@ -200,29 +187,34 @@ def test_uploaded_icon_is_validated_served_with_versioned_private_cache_and_audi
     assert "1 MiB" in oversized.json()["detail"]
 
 
-def test_icon_upload_rolls_back_when_commit_fails(db_session, monkeypatch):
+def test_icon_upload_retries_busy_snapshot(db_session):
     account, manager, _member, metadata = _setup_space(db_session)
     access = _portal_access(account, manager, PortalAccountRole.PORTAL_MANAGER.value)
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+    image = _png()
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        PortalService(db_session).store_storage_space_icon_image(
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE portal_storage_space_metadata",
+    ) as matching_statements:
+        result = PortalService(db_session).store_storage_space_icon_image(
             manager,
             access,
             metadata.bucket_name,
-            _png(),
+            image,
             "image/png",
         )
 
-    assert rollback_calls == [None]
+    assert len(matching_statements) == 2
+    assert result.source == "uploaded"
     db_session.expire_all()
     stored = db_session.get(PortalStorageSpaceMetadata, metadata.id)
-    assert stored.icon_image is None
-    assert stored.icon_content_type is None
-    assert stored.icon_source == "preset"
+    assert stored.icon_image == image
+    assert stored.icon_content_type == "image/png"
+    assert stored.icon_source == "uploaded"
+    assert stored.icon_updated_at is not None
 
 
-def test_icon_removal_rolls_back_when_commit_fails(db_session, monkeypatch):
+def test_icon_removal_retries_busy_snapshot(db_session):
     account, manager, _member, metadata = _setup_space(db_session)
     image = _png()
     metadata.icon_source = "uploaded"
@@ -231,21 +223,25 @@ def test_icon_removal_rolls_back_when_commit_fails(db_session, monkeypatch):
     db_session.add(metadata)
     db_session.commit()
     access = _portal_access(account, manager, PortalAccountRole.PORTAL_MANAGER.value)
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        PortalService(db_session).remove_storage_space_icon_image(
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE portal_storage_space_metadata",
+    ) as matching_statements:
+        result = PortalService(db_session).remove_storage_space_icon_image(
             manager,
             access,
             metadata.bucket_name,
         )
 
-    assert rollback_calls == [None]
+    assert len(matching_statements) == 2
+    assert result.source == "preset"
     db_session.expire_all()
     stored = db_session.get(PortalStorageSpaceMetadata, metadata.id)
-    assert stored.icon_image == image
-    assert stored.icon_content_type == "image/png"
-    assert stored.icon_source == "uploaded"
+    assert stored.icon_image is None
+    assert stored.icon_content_type is None
+    assert stored.icon_source == "preset"
+    assert stored.icon_updated_at is not None
 
 
 def test_portal_user_cannot_configure_icons_but_can_fetch_visible_space_icon(
