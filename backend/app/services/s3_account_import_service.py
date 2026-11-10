@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import add_and_flush_in_savepoint, run_replayable_db_unit
 from app.db import S3Account, S3AccountImportIntent, StorageEndpoint
 from app.models.s3_account import S3Account as S3AccountSchema, S3AccountImport
 from app.services.app_settings_service import load_app_settings_for_db
@@ -35,6 +35,19 @@ class _PreparedAccountImport:
     root_uid: str
     root_display_name: str
     rgw_tenant: str
+
+
+@dataclass(frozen=True)
+class _StagedLocalAccount:
+    intent_id: int
+    storage_endpoint_id: int
+    name: str
+    rgw_account_id: str
+    rgw_tenant: str
+    access_key_id: str
+    secret_access_key: str
+    root_uid: str
+    email: str | None
 
 
 class S3AccountImportService:
@@ -65,25 +78,60 @@ class S3AccountImportService:
                 self._ensure_remote_credentials(item, intent)
                 claimed.append((item, intent))
 
-            accounts: list[
-                tuple[S3Account, StorageEndpoint, S3AccountImportIntent]
-            ] = []
-            for item, intent in claimed:
-                account = S3Account(
+            staged = [
+                _StagedLocalAccount(
+                    intent_id=int(intent.id),
+                    storage_endpoint_id=int(intent.storage_endpoint_id),
                     name=intent.account_name,
                     rgw_account_id=intent.rgw_account_id,
                     rgw_tenant=intent.rgw_tenant,
-                    rgw_access_key=intent.access_key_id,
-                    rgw_secret_key=intent.secret_access_key,
-                    rgw_user_uid=intent.root_uid,
+                    access_key_id=intent.access_key_id,
+                    secret_access_key=intent.secret_access_key,
+                    root_uid=intent.root_uid,
                     email=intent.requested_email,
-                    storage_endpoint_id=intent.storage_endpoint_id,
                 )
-                self.db.add(account)
-                accounts.append((account, item.endpoint, intent))
+                for _item, intent in claimed
+            ]
+            return self._persist_local_accounts(staged)
+        except Exception:
+            self.db.rollback()
+            raise
 
-            self.db.flush()
-            created = [
+    def _persist_local_accounts(
+        self,
+        staged: list[_StagedLocalAccount],
+    ) -> list[S3AccountSchema]:
+        def persist_once(write_db: Session) -> list[int]:
+            account_ids: list[int] = []
+            for item in staged:
+                account = S3Account(
+                    name=item.name,
+                    rgw_account_id=item.rgw_account_id,
+                    rgw_tenant=item.rgw_tenant,
+                    rgw_access_key=item.access_key_id,
+                    rgw_secret_key=item.secret_access_key,
+                    rgw_user_uid=item.root_uid,
+                    email=item.email,
+                    storage_endpoint_id=item.storage_endpoint_id,
+                )
+                write_db.add(account)
+                write_db.flush()
+                account_ids.append(int(account.id))
+            for item in staged:
+                intent = write_db.get(S3AccountImportIntent, item.intent_id)
+                if intent is None:
+                    raise RuntimeError("Pending S3 account import intent disappeared")
+                write_db.delete(intent)
+            return account_ids
+
+        account_ids = run_replayable_db_unit(self.db, persist_once)
+        created: list[S3AccountSchema] = []
+        for item, account_id in zip(staged, account_ids, strict=True):
+            account = self.db.get(S3Account, account_id)
+            endpoint = self.db.get(StorageEndpoint, item.storage_endpoint_id)
+            if account is None or endpoint is None:  # pragma: no cover - defensive consistency check
+                raise RuntimeError("Persisted S3 account import could not be reloaded")
+            created.append(
                 s3_account_from_db(
                     account,
                     quota_max_size_gb=None,
@@ -94,15 +142,8 @@ class S3AccountImportService:
                     storage_endpoint_capabilities=self.rgw_context.endpoint_capabilities(endpoint),
                     tags=[],
                 )
-                for account, endpoint, _intent in accounts
-            ]
-            for _account, _endpoint, intent in accounts:
-                self.db.delete(intent)
-            commit_or_rollback(self.db)
-            return created
-        except Exception:
-            self.db.rollback()
-            raise
+            )
+        return created
 
     def _prepare_imports(self, imports: list[S3AccountImport]) -> list[_PreparedAccountImport]:
         app_settings = load_app_settings_for_db(self.db)
@@ -177,8 +218,14 @@ class S3AccountImportService:
             rgw_tenant=rgw_tenant,
         )
 
-    def _pending_intent(self, rgw_account_id: str) -> S3AccountImportIntent | None:
-        return self.db.scalar(
+    def _pending_intent(
+        self,
+        rgw_account_id: str,
+        *,
+        db: Session | None = None,
+    ) -> S3AccountImportIntent | None:
+        query_db = db or self.db
+        return query_db.scalar(
             select(S3AccountImportIntent).where(
                 S3AccountImportIntent.rgw_account_id == rgw_account_id
             )
@@ -204,32 +251,66 @@ class S3AccountImportService:
         else:
             credential_action = "create_key" if root is not None else "create_root"
             access_key, secret_key = new_s3_import_credentials()
+        created_at = utcnow()
+        endpoint_id = int(item.endpoint.id)
+        rgw_account_id = item.source.rgw_account_id
+        rgw_tenant = item.rgw_tenant
+        root_uid = item.root_uid
+        account_name = item.account_name
+        requested_name = item.source.name
+        requested_email = item.source.email
 
-        intent = S3AccountImportIntent(
-            storage_endpoint_id=item.endpoint.id,
-            rgw_account_id=item.source.rgw_account_id,
-            rgw_tenant=item.rgw_tenant,
-            root_uid=item.root_uid,
-            account_name=item.account_name,
-            requested_name=item.source.name,
-            requested_email=item.source.email,
-            credential_action=credential_action,
-            access_key_id=access_key,
-            secret_access_key=secret_key,
-            phase="prepared",
-            created_at=utcnow(),
-            updated_at=utcnow(),
-        )
-        self.db.add(intent)
-        try:
-            commit_or_rollback(self.db)
-        except IntegrityError:
-            existing = self._pending_intent(item.source.rgw_account_id)
-            if existing is None:
-                raise
-            self._validate_intent(existing, item)
-            return existing
-        self.db.refresh(intent)
+        def claim_once(write_db: Session) -> int:
+            existing = self._pending_intent(rgw_account_id, db=write_db)
+            if existing is not None:
+                self._validate_intent_values(
+                    existing,
+                    endpoint_id=endpoint_id,
+                    rgw_account_id=rgw_account_id,
+                    rgw_tenant=rgw_tenant,
+                    root_uid=root_uid,
+                    requested_name=requested_name,
+                    requested_email=requested_email,
+                )
+                return int(existing.id)
+
+            intent = S3AccountImportIntent(
+                storage_endpoint_id=endpoint_id,
+                rgw_account_id=rgw_account_id,
+                rgw_tenant=rgw_tenant,
+                root_uid=root_uid,
+                account_name=account_name,
+                requested_name=requested_name,
+                requested_email=requested_email,
+                credential_action=credential_action,
+                access_key_id=access_key,
+                secret_access_key=secret_key,
+                phase="prepared",
+                created_at=created_at,
+                updated_at=created_at,
+            )
+            try:
+                add_and_flush_in_savepoint(write_db, intent)
+            except IntegrityError:
+                existing = self._pending_intent(rgw_account_id, db=write_db)
+                if existing is None:
+                    raise
+                self._validate_intent_values(
+                    existing,
+                    endpoint_id=endpoint_id,
+                    rgw_account_id=rgw_account_id,
+                    rgw_tenant=rgw_tenant,
+                    root_uid=root_uid,
+                    requested_name=requested_name,
+                    requested_email=requested_email,
+                )
+                return int(existing.id)
+            return int(intent.id)
+
+        intent_id = run_replayable_db_unit(self.db, claim_once)
+        intent = self.db.get(S3AccountImportIntent, intent_id)
+        if intent is None:  # pragma: no cover - defensive consistency check
+            raise RuntimeError("Pending S3 account import intent disappeared")
         return intent
 
     @staticmethod
@@ -237,13 +318,34 @@ class S3AccountImportService:
         intent: S3AccountImportIntent,
         item: _PreparedAccountImport,
     ) -> None:
+        S3AccountImportService._validate_intent_values(
+            intent,
+            endpoint_id=int(item.endpoint.id),
+            rgw_account_id=item.source.rgw_account_id,
+            rgw_tenant=item.rgw_tenant,
+            root_uid=item.root_uid,
+            requested_name=item.source.name,
+            requested_email=item.source.email,
+        )
+
+    @staticmethod
+    def _validate_intent_values(
+        intent: S3AccountImportIntent,
+        *,
+        endpoint_id: int,
+        rgw_account_id: str,
+        rgw_tenant: str,
+        root_uid: str,
+        requested_name: str | None,
+        requested_email: str | None,
+    ) -> None:
         if (
-            intent.storage_endpoint_id != item.endpoint.id
-            or intent.rgw_account_id != item.source.rgw_account_id
-            or intent.rgw_tenant != item.rgw_tenant
-            or intent.root_uid != item.root_uid
-            or intent.requested_name != item.source.name
-            or intent.requested_email != item.source.email
+            intent.storage_endpoint_id != endpoint_id
+            or intent.rgw_account_id != rgw_account_id
+            or intent.rgw_tenant != rgw_tenant
+            or intent.root_uid != root_uid
+            or intent.requested_name != requested_name
+            or intent.requested_email != requested_email
         ):
             raise ValueError(
                 "S3 account import is already pending with different request metadata"
@@ -319,9 +421,19 @@ class S3AccountImportService:
                 and intent.access_key_id
                 in RgwUserKeyParser.access_key_ids(item.admin.extract_keys(root))
             ):
-                intent.access_key_id, intent.secret_access_key = new_s3_import_credentials()
-                intent.updated_at = utcnow()
-                commit_or_rollback(self.db)
+                intent_id = int(intent.id)
+                access_key_id, secret_access_key = new_s3_import_credentials()
+                updated_at = utcnow()
+
+                def rotate_colliding_credentials_once(write_db: Session) -> None:
+                    current = write_db.get(S3AccountImportIntent, intent_id)
+                    if current is None:
+                        raise RuntimeError("Pending S3 account import intent disappeared")
+                    current.access_key_id = access_key_id
+                    current.secret_access_key = secret_access_key
+                    current.updated_at = updated_at
+
+                run_replayable_db_unit(self.db, rotate_colliding_credentials_once)
                 self.db.refresh(intent)
                 root = self._load_root(item)
             checkpoint_s3_import_intent(self.db, intent, "creating")

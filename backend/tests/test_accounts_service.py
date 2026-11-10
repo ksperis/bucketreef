@@ -9,6 +9,10 @@ from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.exc import OperationalError
 
+from tests.db_transaction_test_utils import (
+    fail_next_sqlite_statement_with_busy_snapshot,
+    fail_next_transaction_commit,
+)
 from app.core.domain_errors import CompensationFailureError, S3AccountNotFoundError
 from app.services import s3_account_deletion_service as s3_account_deletion_service_module
 from app.services.rgw_admin import RGWAdminError
@@ -1468,27 +1472,16 @@ def test_import_account_recovers_after_commit_failure_without_recreating_root(
     fake_admin = FakeRGWAdminImportCreatesRoot()
     svc = _build_import_service(db_session, monkeypatch, fake_admin)
     account_id = "RGW98765432109876544"
-    real_commit = db_session.commit
-    commit_calls = 0
-
-    def fail_commit():
-        nonlocal commit_calls
-        commit_calls += 1
-        if commit_calls == failure_call:
-            raise RuntimeError("simulated account import commit failure")
-        return real_commit()
-
-    monkeypatch.setattr(db_session, "commit", fail_commit)
-
-    with pytest.raises(RuntimeError, match="simulated account import commit failure"):
-        svc.import_accounts(
-            [
-                S3AccountImport(
-                    rgw_account_id=account_id,
-                    storage_endpoint_id=endpoint.id,
-                )
-            ]
-        )
+    with fail_next_transaction_commit(db_session, occurrence=failure_call):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            svc.import_accounts(
+                [
+                    S3AccountImport(
+                        rgw_account_id=account_id,
+                        storage_endpoint_id=endpoint.id,
+                    )
+                ]
+            )
 
     intent = db_session.scalar(
         select(S3AccountImportIntent).where(
@@ -1505,7 +1498,6 @@ def test_import_account_recovers_after_commit_failure_without_recreating_root(
         select(S3Account).where(S3Account.rgw_account_id == account_id)
     ) is None
 
-    monkeypatch.setattr(db_session, "commit", real_commit)
     imported = svc.import_accounts(
         [
             S3AccountImport(
@@ -1525,6 +1517,73 @@ def test_import_account_recovers_after_commit_failure_without_recreating_root(
     assert db_session.scalar(
         select(func.count()).select_from(S3AccountImportIntent)
     ) == 0
+
+
+def test_import_account_retries_busy_intent_claim_without_recreating_root(
+    db_session,
+    monkeypatch,
+):
+    endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
+    fake_admin = FakeRGWAdminImportCreatesRoot()
+    svc = _build_import_service(db_session, monkeypatch, fake_admin)
+    account_id = "RGW98765432109876549"
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO s3_account_import_intents",
+    ) as matching_statements:
+        imported = svc.import_accounts(
+            [S3AccountImport(rgw_account_id=account_id, storage_endpoint_id=endpoint.id)]
+        )
+
+    assert len(imported) == 1
+    assert len(matching_statements) == 2
+    assert fake_admin.created_users == [(f"{account_id}-admin", account_id)]
+
+
+def test_import_account_retries_busy_remote_checkpoint_without_recreating_root(
+    db_session,
+    monkeypatch,
+):
+    endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
+    fake_admin = FakeRGWAdminImportCreatesRoot()
+    svc = _build_import_service(db_session, monkeypatch, fake_admin)
+    account_id = "RGW98765432109876550"
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE s3_account_import_intents",
+        occurrence=2,
+    ) as matching_statements:
+        imported = svc.import_accounts(
+            [S3AccountImport(rgw_account_id=account_id, storage_endpoint_id=endpoint.id)]
+        )
+
+    assert len(imported) == 1
+    assert len(matching_statements) == 3
+    assert fake_admin.created_users == [(f"{account_id}-admin", account_id)]
+
+
+def test_import_account_retries_busy_local_persistence_without_recreating_root(
+    db_session,
+    monkeypatch,
+):
+    endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
+    fake_admin = FakeRGWAdminImportCreatesRoot()
+    svc = _build_import_service(db_session, monkeypatch, fake_admin)
+    account_id = "RGW98765432109876551"
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO s3_accounts",
+    ) as matching_statements:
+        imported = svc.import_accounts(
+            [S3AccountImport(rgw_account_id=account_id, storage_endpoint_id=endpoint.id)]
+        )
+
+    assert len(imported) == 1
+    assert len(matching_statements) == 2
+    assert fake_admin.created_users == [(f"{account_id}-admin", account_id)]
 
 
 def test_import_account_rejects_pending_access_key_secret_collision(
@@ -1652,25 +1711,15 @@ def test_pending_tenanted_account_import_finishes_after_tenant_creation_is_disab
         "app.services.s3_account_import_service.load_app_settings_for_db",
         lambda _db: settings,
     )
-    real_commit = db_session.commit
-    commit_calls = 0
-
-    def fail_remote_checkpoint_commit():
-        nonlocal commit_calls
-        commit_calls += 1
-        if commit_calls == 3:
-            raise RuntimeError("simulated account remote checkpoint failure")
-        return real_commit()
-
-    monkeypatch.setattr(db_session, "commit", fail_remote_checkpoint_commit)
     payload = S3AccountImport(
         rgw_account_id=account_id,
         rgw_tenant="research",
         storage_endpoint_id=endpoint.id,
     )
 
-    with pytest.raises(RuntimeError, match="simulated account remote checkpoint failure"):
-        svc.import_accounts([payload])
+    with fail_next_transaction_commit(db_session, occurrence=3):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            svc.import_accounts([payload])
 
     intent = db_session.scalar(
         select(S3AccountImportIntent).where(
@@ -1683,7 +1732,6 @@ def test_pending_tenanted_account_import_finishes_after_tenant_creation_is_disab
     assert fake_admin.created_users == [(f"{account_id}-admin", account_id)]
 
     settings.general.allow_managed_rgw_tenant_creation = False
-    monkeypatch.setattr(db_session, "commit", real_commit)
     imported = svc.import_accounts([payload])
 
     assert len(imported) == 1
@@ -1770,6 +1818,51 @@ def test_import_account_never_combines_credentials_from_different_keys(db_sessio
     ]
 
 
+def test_import_account_retries_busy_credential_rotation_with_same_candidate(
+    db_session,
+    monkeypatch,
+):
+    endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
+    fake_admin = FakeRGWAdminImportSplitKeys()
+    svc = _build_import_service(db_session, monkeypatch, fake_admin)
+    account_id = "RGW11111111111111111"
+    generated_credentials = iter(
+        [
+            ("ACCESS-ONLY", "PENDING-SECRET"),
+            ("ROTATED-ACCOUNT", "ROTATED-ACCOUNT-SECRET"),
+            ("UNUSED-RETRY", "UNUSED-RETRY-SECRET"),
+        ]
+    )
+    monkeypatch.setattr(
+        "app.services.s3_account_import_service.new_s3_import_credentials",
+        lambda: next(generated_credentials),
+    )
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE s3_account_import_intents",
+    ) as matching_statements:
+        imported = svc.import_accounts(
+            [S3AccountImport(rgw_account_id=account_id, storage_endpoint_id=endpoint.id)]
+        )
+
+    assert len(imported) == 1
+    stored = db_session.scalar(
+        select(S3Account).where(S3Account.rgw_account_id == account_id)
+    )
+    assert stored is not None
+    assert stored.rgw_access_key == "ROTATED-ACCOUNT"
+    assert fake_admin.created_keys == [
+        (
+            f"{account_id}-admin",
+            None,
+            "ROTATED-ACCOUNT",
+            "ROTATED-ACCOUNT-SECRET",
+        )
+    ]
+    assert len(matching_statements) == 4
+
+
 @pytest.mark.parametrize(
     ("failure_call", "expected_phase"),
     [(3, "creating"), (4, "remote_created")],
@@ -1785,22 +1878,11 @@ def test_import_account_key_creation_recovers_after_commit_failure(
     svc = _build_import_service(db_session, monkeypatch, fake_admin)
     account_id = "RGW11111111111111111"
 
-    real_commit = db_session.commit
-    commit_calls = 0
-
-    def fail_commit():
-        nonlocal commit_calls
-        commit_calls += 1
-        if commit_calls == failure_call:
-            raise RuntimeError("simulated account import commit failure")
-        return real_commit()
-
-    monkeypatch.setattr(db_session, "commit", fail_commit)
-
-    with pytest.raises(RuntimeError, match="simulated account import commit failure"):
-        svc.import_accounts(
-            [S3AccountImport(rgw_account_id=account_id, storage_endpoint_id=endpoint.id)]
-        )
+    with fail_next_transaction_commit(db_session, occurrence=failure_call):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            svc.import_accounts(
+                [S3AccountImport(rgw_account_id=account_id, storage_endpoint_id=endpoint.id)]
+            )
 
     assert fake_admin.deleted_users == []
     assert fake_admin.deleted_access_keys == []
@@ -1817,7 +1899,6 @@ def test_import_account_key_creation_recovers_after_commit_failure(
         select(S3Account).where(S3Account.rgw_account_id == account_id)
     ) is None
 
-    monkeypatch.setattr(db_session, "commit", real_commit)
     imported = svc.import_accounts(
         [S3AccountImport(rgw_account_id=account_id, storage_endpoint_id=endpoint.id)]
     )

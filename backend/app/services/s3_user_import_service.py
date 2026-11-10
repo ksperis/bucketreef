@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
+from app.core.db_transactions import add_and_flush_in_savepoint, run_replayable_db_unit
 from app.db import S3User, S3UserImportIntent, StorageEndpoint
 from app.models.s3_user import S3UserImport
 from app.services.app_settings_service import load_app_settings_for_db
@@ -154,8 +154,10 @@ class S3UserImportService:
         endpoint_id: int,
         uid: str,
         tenant: str,
+        db: Session | None = None,
     ) -> S3UserImportIntent | None:
-        return self.db.scalar(
+        query_db = db or self.db
+        return query_db.scalar(
             select(S3UserImportIntent).where(
                 S3UserImportIntent.storage_endpoint_id == endpoint_id,
                 S3UserImportIntent.rgw_tenant == tenant,
@@ -166,37 +168,65 @@ class S3UserImportService:
     def _claim_intent(self, item: _PreparedUserImport) -> S3UserImportIntent:
         access_key_id, secret_access_key = new_s3_import_credentials()
         created_at = utcnow()
+        endpoint_id = int(item.endpoint.id)
+        uid = item.uid
+        tenant = item.tenant
+        requested_name = item.source.name
+        requested_email = item.source.email
 
-        def claim_once() -> int:
-            existing = self._pending_intent(item)
+        def claim_once(write_db: Session) -> int:
+            existing = self._pending_intent_for_identity(
+                endpoint_id=endpoint_id,
+                uid=uid,
+                tenant=tenant,
+                db=write_db,
+            )
             if existing is not None:
-                self._validate_intent(existing, item)
+                self._validate_intent_values(
+                    existing,
+                    endpoint_id=endpoint_id,
+                    uid=uid,
+                    tenant=tenant,
+                    requested_name=requested_name,
+                    requested_email=requested_email,
+                )
                 return int(existing.id)
 
             intent = S3UserImportIntent(
-                storage_endpoint_id=item.endpoint.id,
-                rgw_user_uid=item.uid,
-                rgw_tenant=item.tenant,
-                requested_name=item.source.name,
-                requested_email=item.source.email,
+                storage_endpoint_id=endpoint_id,
+                rgw_user_uid=uid,
+                rgw_tenant=tenant,
+                requested_name=requested_name,
+                requested_email=requested_email,
                 access_key_id=access_key_id,
                 secret_access_key=secret_access_key,
                 phase="prepared",
                 created_at=created_at,
                 updated_at=created_at,
             )
-            self.db.add(intent)
             try:
-                commit_or_rollback(self.db)
+                add_and_flush_in_savepoint(write_db, intent)
             except IntegrityError:
-                existing = self._pending_intent(item)
+                existing = self._pending_intent_for_identity(
+                    endpoint_id=endpoint_id,
+                    uid=uid,
+                    tenant=tenant,
+                    db=write_db,
+                )
                 if existing is None:
                     raise
-                self._validate_intent(existing, item)
+                self._validate_intent_values(
+                    existing,
+                    endpoint_id=endpoint_id,
+                    uid=uid,
+                    tenant=tenant,
+                    requested_name=requested_name,
+                    requested_email=requested_email,
+                )
                 return int(existing.id)
             return int(intent.id)
 
-        intent_id = run_db_unit_with_sqlite_retry(self.db, claim_once)
+        intent_id = run_replayable_db_unit(self.db, claim_once)
         intent = self.db.get(S3UserImportIntent, intent_id)
         if intent is None:  # pragma: no cover - defensive consistency check
             raise RuntimeError("Pending S3 user import intent disappeared")
@@ -204,12 +234,31 @@ class S3UserImportService:
 
     @staticmethod
     def _validate_intent(intent: S3UserImportIntent, item: _PreparedUserImport) -> None:
+        S3UserImportService._validate_intent_values(
+            intent,
+            endpoint_id=int(item.endpoint.id),
+            uid=item.uid,
+            tenant=item.tenant,
+            requested_name=item.source.name,
+            requested_email=item.source.email,
+        )
+
+    @staticmethod
+    def _validate_intent_values(
+        intent: S3UserImportIntent,
+        *,
+        endpoint_id: int,
+        uid: str,
+        tenant: str,
+        requested_name: str | None,
+        requested_email: str | None,
+    ) -> None:
         if (
-            intent.storage_endpoint_id != item.endpoint.id
-            or intent.rgw_user_uid != item.uid
-            or intent.rgw_tenant != item.tenant
-            or intent.requested_name != item.source.name
-            or intent.requested_email != item.source.email
+            intent.storage_endpoint_id != endpoint_id
+            or intent.rgw_user_uid != uid
+            or intent.rgw_tenant != tenant
+            or intent.requested_name != requested_name
+            or intent.requested_email != requested_email
         ):
             raise ValueError(
                 "S3 user import is already pending with different request metadata"
@@ -240,16 +289,18 @@ class S3UserImportService:
         if intent.phase == "prepared":
             while intent.access_key_id in key_ids:
                 intent_id = int(intent.id)
+                access_key_id, secret_access_key = new_s3_import_credentials()
+                updated_at = utcnow()
 
-                def rotate_colliding_credentials_once() -> None:
-                    current = self.db.get(S3UserImportIntent, intent_id)
+                def rotate_colliding_credentials_once(write_db: Session) -> None:
+                    current = write_db.get(S3UserImportIntent, intent_id)
                     if current is None:
                         raise RuntimeError("Pending S3 user import intent disappeared")
-                    current.access_key_id, current.secret_access_key = new_s3_import_credentials()
-                    current.updated_at = utcnow()
-                    commit_or_rollback(self.db)
+                    current.access_key_id = access_key_id
+                    current.secret_access_key = secret_access_key
+                    current.updated_at = updated_at
 
-                run_db_unit_with_sqlite_retry(self.db, rotate_colliding_credentials_once)
+                run_replayable_db_unit(self.db, rotate_colliding_credentials_once)
                 self.db.refresh(intent)
             checkpoint_s3_import_intent(self.db, intent, "creating")
 
@@ -320,7 +371,7 @@ class S3UserImportService:
         self,
         staged: list[_StagedLocalUser],
     ) -> list[S3UserImportResult]:
-        def persist_once() -> list[int]:
+        def persist_once(write_db: Session) -> list[int]:
             user_ids: list[int] = []
             for item in staged:
                 s3_user = S3User(
@@ -332,18 +383,17 @@ class S3UserImportService:
                     rgw_secret_key=item.secret_access_key,
                     storage_endpoint_id=item.storage_endpoint_id,
                 )
-                self.db.add(s3_user)
-                self.db.flush()
+                write_db.add(s3_user)
+                write_db.flush()
                 user_ids.append(int(s3_user.id))
             for item in staged:
-                intent = self.db.get(S3UserImportIntent, item.intent_id)
+                intent = write_db.get(S3UserImportIntent, item.intent_id)
                 if intent is None:
                     raise RuntimeError("Pending S3 user import intent disappeared")
-                self.db.delete(intent)
-            commit_or_rollback(self.db)
+                write_db.delete(intent)
             return user_ids
 
-        user_ids = run_db_unit_with_sqlite_retry(self.db, persist_once)
+        user_ids = run_replayable_db_unit(self.db, persist_once)
         results: list[S3UserImportResult] = []
         for item, user_id in zip(staged, user_ids, strict=True):
             s3_user = self.db.get(S3User, user_id)
