@@ -65,6 +65,7 @@ from app.services.s3_client import S3OperationError
 from app.services.webhook_catalog import MIGRATION_EVENT_TYPE
 from app.services.webhook_service import WebhookQueueError, WebhookService
 from tests.storage_endpoint_features import persisted_endpoint_features
+from tests.db_transaction_test_utils import fail_next_sqlite_statement_with_busy_snapshot
 
 
 def _install_in_memory_sync_checkpoints(service, migration, item) -> None:
@@ -1117,6 +1118,80 @@ def test_claim_next_runnable_migration_assigns_exclusive_lease(db_session):
     assert claimed_by_worker_2 is None
     assert migration.worker_lease_owner == "worker-1"
     assert migration.worker_lease_until is not None
+
+
+def test_claim_next_runnable_migration_retries_sqlite_busy_snapshot(db_session):
+    user = _create_user(db_session)
+    source = _create_account(db_session, name="source", endpoint_url="https://source.example.test", account_id="RGW001")
+    target = _create_account(db_session, name="target", endpoint_url="https://target.example.test", account_id="RGW002")
+    db_session.commit()
+
+    service = BucketMigrationService(db_session)
+    migration = service.create_migration(
+        BucketMigrationCreateRequest(
+            source_context_id=str(source.id),
+            target_context_id=str(target.id),
+            mode="one_shot",
+            buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a", target_bucket="bucket-a-dst")],
+        ),
+        user,
+    )
+    migration.status = "queued"
+    db_session.commit()
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session, "UPDATE bucket_migrations"
+    ) as statements:
+        claimed = service.claim_next_runnable_migration_id(
+            worker_id="worker-1", lease_seconds=120
+        )
+
+    db_session.expire_all()
+    persisted = service.get_migration(migration.id)
+    assert claimed == migration.id
+    assert persisted.worker_lease_owner == "worker-1"
+    assert len(statements) >= 2
+
+
+def test_migration_lease_renew_and_release_retry_sqlite_busy_snapshot(db_session):
+    user = _create_user(db_session)
+    source = _create_account(db_session, name="source", endpoint_url="https://source.example.test", account_id="RGW001")
+    target = _create_account(db_session, name="target", endpoint_url="https://target.example.test", account_id="RGW002")
+    db_session.commit()
+
+    service = BucketMigrationService(db_session)
+    migration = service.create_migration(
+        BucketMigrationCreateRequest(
+            source_context_id=str(source.id),
+            target_context_id=str(target.id),
+            mode="one_shot",
+            buckets=[BucketMigrationBucketMapping(source_bucket="bucket-a", target_bucket="bucket-a-dst")],
+        ),
+        user,
+    )
+    migration.status = "queued"
+    migration.worker_lease_owner = "worker-1"
+    migration.worker_lease_until = datetime.now(timezone.utc) + timedelta(seconds=60)
+    db_session.commit()
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session, "UPDATE bucket_migrations"
+    ) as renew_statements:
+        assert service._renew_migration_lease(
+            migration.id, worker_id="worker-1", lease_seconds=120
+        )
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session, "UPDATE bucket_migrations"
+    ) as release_statements:
+        service._release_migration_lease(migration.id, worker_id="worker-1")
+
+    db_session.expire_all()
+    persisted = service.get_migration(migration.id)
+    assert persisted.worker_lease_owner is None
+    assert persisted.worker_lease_until is None
+    assert len(renew_statements) >= 2
+    assert len(release_statements) >= 2
 
 
 def test_claim_next_runnable_migration_reclaims_expired_lease(db_session):

@@ -45,6 +45,7 @@ from tests.test_bucket_migration_service import (
     _bucket_profile_stub,
     _current_only_execution_strategy,
 )
+from tests.db_transaction_test_utils import fail_next_sqlite_statement_with_busy_snapshot
 
 
 def _busy_snapshot_error() -> OperationalError:
@@ -174,6 +175,35 @@ def test_check_is_queued_persisted_and_never_starts(prepared, db_session):
     service._precheck_policy_roundtrip.assert_not_called()
     service._precheck_destination.assert_not_called()
     assert not available_actions(detail)["start"]["enabled"]
+
+
+def test_preparation_lease_claim_and_release_retry_sqlite_busy_snapshot(
+    prepared, db_session
+):
+    service, migration, _ = prepared
+    migration.preparation_status = "checking"
+    migration.preparation_requested_at = utcnow()
+    db_session.commit()
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session, "UPDATE bucket_migrations"
+    ) as claim_statements:
+        claimed = service.claim_next_preparation_id(
+            worker_id="check", lease_seconds=60
+        )
+
+    assert claimed == migration.id
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session, "UPDATE bucket_migrations"
+    ) as release_statements:
+        released = service._release_preparation_lease(
+            migration.id, worker_id="check"
+        )
+
+    assert released.worker_lease_owner is None
+    assert released.worker_lease_until is None
+    assert len(claim_statements) >= 2
+    assert len(release_statements) >= 2
 
 
 def test_active_checks_require_explicit_start_and_current_revision(prepared):

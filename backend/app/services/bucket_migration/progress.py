@@ -8,7 +8,7 @@ from datetime import timedelta
 from typing import Any, Optional
 
 from app.core.config import get_settings
-from app.core.db_transactions import run_db_unit_with_sqlite_retry
+from app.core.db_transactions import run_replayable_db_unit
 from app.core.sensitive_data import sanitize_error_detail, sanitized_error_log_detail
 from app.db import BucketMigration, BucketMigrationEvent, BucketMigrationItem
 from app.services.s3_execution_context import S3ExecutionTarget
@@ -37,8 +37,8 @@ class BucketMigrationProgressMixin:
         lease_duration = max(15, int(lease_seconds))
         lease_until = now + timedelta(seconds=lease_duration)
 
-        def renew_once() -> bool:
-            updated = self.db.execute(
+        def renew_once(write_db) -> bool:
+            updated = write_db.execute(
                 update(BucketMigration)
                 .where(
                     BucketMigration.id == migration_id,
@@ -53,26 +53,25 @@ class BucketMigrationProgressMixin:
                 )
                 .execution_options(synchronize_session=False)
             ).rowcount
-            if updated == 1:
-                self._commit()
-                return True
-            self.db.rollback()
-            return False
+            return updated == 1
 
-        return run_db_unit_with_sqlite_retry(self.db, renew_once)
+        return run_replayable_db_unit(self.db, renew_once)
 
     def _release_migration_lease(self, migration_id: int, *, worker_id: Optional[str] = None) -> None:
-        statement = update(BucketMigration).where(BucketMigration.id == migration_id)
-        if worker_id:
-            statement = statement.where(BucketMigration.worker_lease_owner == worker_id)
-        self.db.execute(
-            statement.values(
-                {
-                    BucketMigration.worker_lease_owner: None,
-                    BucketMigration.worker_lease_until: None,
-                }
-            ).execution_options(synchronize_session=False)
-        )
+        def release_once(write_db) -> None:
+            statement = update(BucketMigration).where(BucketMigration.id == migration_id)
+            if worker_id:
+                statement = statement.where(BucketMigration.worker_lease_owner == worker_id)
+            write_db.execute(
+                statement.values(
+                    {
+                        BucketMigration.worker_lease_owner: None,
+                        BucketMigration.worker_lease_until: None,
+                    }
+                ).execution_options(synchronize_session=False)
+            )
+
+        run_replayable_db_unit(self.db, release_once)
 
     def fail_migration_fatal(
         self,
