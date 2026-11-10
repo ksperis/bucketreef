@@ -16,6 +16,10 @@ from app.services.access_key_expiration_service import (
     RetryableExpirationError,
 )
 from app.utils.time import utcnow
+from tests.db_transaction_test_utils import (
+    fail_next_sqlite_statement_with_busy_snapshot,
+    fail_next_transaction_commit,
+)
 
 
 class _FakeAuditService:
@@ -134,18 +138,6 @@ def _patch_s3_user_keys(monkeypatch, fake: _FakeS3UserAccessKeyService) -> None:
     )
 
 
-def _track_rollback(db_session, monkeypatch) -> list[None]:
-    rollback_calls: list[None] = []
-    original_rollback = db_session.rollback
-
-    def rollback() -> None:
-        rollback_calls.append(None)
-        original_rollback()
-
-    monkeypatch.setattr(db_session, "rollback", rollback)
-    return rollback_calls
-
-
 def test_due_rgw_user_key_is_disabled_even_after_resource_opt_out(db_session, monkeypatch):
     endpoint = _endpoint(db_session)
     s3_user = _s3_user(db_session, endpoint)
@@ -169,23 +161,44 @@ def test_due_rgw_user_key_is_disabled_even_after_resource_opt_out(db_session, mo
     assert audit_context.context_id == f"s3u-{s3_user.id}"
 
 
+def test_enforced_persistence_retries_sqlite_busy_without_repeating_provider_call(
+    db_session,
+    monkeypatch,
+):
+    endpoint = _endpoint(db_session)
+    s3_user = _s3_user(db_session, endpoint)
+    row = _due_s3_user_row(db_session, s3_user)
+    fake = _FakeS3UserAccessKeyService(db_session, active=True)
+    _patch_s3_user_keys(monkeypatch, fake)
+    _patch_audit(monkeypatch)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE manager_access_key_metadata SET expiration_state",
+    ) as statements:
+        result = AccessKeyExpirationService(db_session).run_due()
+
+    db_session.refresh(row)
+    assert result.enforced == 1
+    assert row.expiration_state == "enforced"
+    assert len(statements) == 2
+    assert fake.calls == [
+        ("list", s3_user.id),
+        ("set", s3_user.id, "AK-SECONDARY", False),
+    ]
+
+
 def test_attempt_commit_failure_rolls_back_before_provider_call(db_session, monkeypatch):
     endpoint = _endpoint(db_session)
     s3_user = _s3_user(db_session, endpoint)
     row = _due_s3_user_row(db_session, s3_user)
     fake = _FakeS3UserAccessKeyService(db_session, active=True)
     _patch_s3_user_keys(monkeypatch, fake)
-    rollback_calls = _track_rollback(db_session, monkeypatch)
 
-    def fail_commit() -> None:
-        raise RuntimeError("commit failed")
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            AccessKeyExpirationService(db_session).run_due()
 
-    monkeypatch.setattr(db_session, "commit", fail_commit)
-
-    with pytest.raises(RuntimeError, match="commit failed"):
-        AccessKeyExpirationService(db_session).run_due()
-
-    assert rollback_calls == [None]
     assert fake.calls == []
     db_session.expire_all()
     persisted = db_session.get(ManagerAccessKeyMetadata, row.id)
@@ -281,30 +294,17 @@ def test_failure_state_commit_failure_restores_session(db_session, monkeypatch):
     row = _due_s3_user_row(db_session, s3_user)
     fake = _FakeS3UserAccessKeyService(db_session, failure=ValueError("temporary provider outage"))
     _patch_s3_user_keys(monkeypatch, fake)
-    rollback_calls = _track_rollback(db_session, monkeypatch)
-    original_commit = db_session.commit
-    commit_calls = 0
 
-    def fail_second_commit() -> None:
-        nonlocal commit_calls
-        commit_calls += 1
-        if commit_calls == 2:
-            raise RuntimeError("commit failed")
-        original_commit()
+    with fail_next_transaction_commit(db_session, occurrence=2):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            AccessKeyExpirationService(db_session).run_due()
 
-    monkeypatch.setattr(db_session, "commit", fail_second_commit)
-
-    with pytest.raises(RuntimeError, match="commit failed"):
-        AccessKeyExpirationService(db_session).run_due()
-
-    assert commit_calls == 2
-    # The first rollback deliberately closes the read snapshot before RGW I/O.
-    # The remaining two come from failure recovery and the failed persistence commit.
-    assert rollback_calls == [None, None, None]
+    assert fake.calls == [("list", s3_user.id)]
     db_session.expire_all()
     persisted = db_session.get(ManagerAccessKeyMetadata, row.id)
     assert persisted is not None
     assert persisted.expiration_state == "scheduled"
+    assert persisted.expiration_last_attempt_at is not None
     assert persisted.expiration_last_error is None
 
 
