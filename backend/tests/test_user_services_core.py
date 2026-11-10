@@ -49,6 +49,10 @@ from tests.portal_iam_test_support import (
     FakePortalRevocationIAM,
     install_portal_revocation_fakes,
 )
+from tests.db_transaction_test_utils import (
+    fail_next_sqlite_statement_with_busy_snapshot,
+    fail_next_transaction_commit,
+)
 from tests.s3_account_factory import make_s3_account
 from tests.s3_connection_factory import custom_endpoint_fields
 
@@ -205,33 +209,19 @@ def test_create_user_and_authenticate(db_session):
     assert authenticated.last_login_at is not None
 
 
-def test_authenticate_password_retries_last_login_on_sqlite_busy(db_session, monkeypatch):
+def test_authenticate_password_retries_last_login_on_sqlite_busy(db_session):
     user = _seed_user(
         db_session,
         "login-busy@example.com",
         password="verylongpass123",
     )
-    real_commit = db_session.commit
-    failed = False
+    with fail_next_sqlite_statement_with_busy_snapshot(db_session, "UPDATE users") as statements:
+        authenticated = UserLoginService(db_session).authenticate_password(
+            user.email,
+            "verylongpass123",
+        )
 
-    def busy_once():
-        nonlocal failed
-        if not failed and any(
-            isinstance(row, User) and row.id == user.id and row.last_login_at is not None
-            for row in db_session.dirty
-        ):
-            failed = True
-            raise _busy_snapshot_error()
-        return real_commit()
-
-    monkeypatch.setattr(db_session, "commit", busy_once)
-
-    authenticated = UserLoginService(db_session).authenticate_password(
-        user.email,
-        "verylongpass123",
-    )
-
-    assert failed is True
+    assert len(statements) == 2
     assert authenticated is not None
     assert authenticated.last_login_at is not None
 
@@ -328,28 +318,15 @@ def test_password_rehash_login_rolls_back_user_and_session_changes_on_commit_fai
     )
     original_hash = user.hashed_password
     original_auth_version = user.auth_version
-    original_rollback = db_session.rollback
-    rollback_calls: list[None] = []
-
     monkeypatch.setattr(
         "app.services.user_login_service.verify_and_update_password",
         lambda *_args, **_kwargs: (True, "replacement-hash"),
     )
 
-    def rollback() -> None:
-        rollback_calls.append(None)
-        original_rollback()
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            UserLoginService(db_session).authenticate_password(user.email, "supersecret1234")
 
-    def commit() -> None:
-        raise RuntimeError("commit failed")
-
-    monkeypatch.setattr(db_session, "rollback", rollback)
-    monkeypatch.setattr(db_session, "commit", commit)
-
-    with pytest.raises(RuntimeError, match="commit failed"):
-        UserLoginService(db_session).authenticate_password(user.email, "supersecret1234")
-
-    assert rollback_calls == [None]
     db_session.expire_all()
     stored_user = db_session.get(User, user.id)
     stored_session = db_session.get(AuthSession, credentials.session.id)
