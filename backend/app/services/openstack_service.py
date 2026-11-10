@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
+from app.core.db_transactions import commit_or_rollback, run_replayable_db_unit
 from app.db import AuthSession, User
 from app.db.openstack import OpenStackCloud, OpenStackConnection, OpenStackProjectContext, OpenStackProjectCredential, OpenStackSession
 from app.models.execution_context import (
@@ -235,54 +235,64 @@ class OpenStackService:
         expected_version = cloud.config_version
         self.db.rollback()
         identity = KeystoneClient(auth_url).authenticate(payload, default_domain)
+        identity_user_id = str(identity.user_id)
+        identity_name = str(identity.name)
+        identity_token = str(identity.token)
+        identity_expires_at = identity.expires_at
+        new_connection_id = str(uuid4())
+        new_connection_created_at = utcnow()
+        new_session_id = str(uuid4())
 
-        def persist() -> str:
-            current_user = self.db.get(User, user_id, populate_existing=True)
+        def persist(write_db: Session) -> str:
+            scoped = self if write_db is self.db else OpenStackService(write_db)
+            current_user = write_db.get(User, user_id, populate_existing=True)
             if current_user is None:
                 raise OpenStackError("reauthentication_required", "The BucketReef session is no longer active")
-            auth = self._auth(current_user, auth_id, lock=True)
-            self.db.scalar(
+            auth = scoped._auth(current_user, auth_id, lock=True)
+            write_db.scalar(
                 select(OpenStackCloud)
                 .where(OpenStackCloud.id == cloud_id)
                 .with_for_update()
                 .execution_options(populate_existing=True)
             )
-            current_cloud = self.cloud(current_user, cloud_id)
+            current_cloud = scoped.cloud(current_user, cloud_id)
             if current_cloud.config_version != expected_version:
                 raise OpenStackError("configuration_changed", "OpenStack configuration changed; reconnect")
-            connection = self.db.scalar(select(OpenStackConnection).where(
+            connection = write_db.scalar(select(OpenStackConnection).where(
                 OpenStackConnection.user_id == user_id,
                 OpenStackConnection.cloud_id == cloud_id,
-                OpenStackConnection.keystone_user_id == identity.user_id,
+                OpenStackConnection.keystone_user_id == identity_user_id,
             ))
             if connection is None:
                 connection = OpenStackConnection(
+                    id=new_connection_id,
                     user_id=user_id,
                     cloud_id=cloud_id,
-                    keystone_user_id=identity.user_id,
-                    display_name=identity.name,
+                    keystone_user_id=identity_user_id,
+                    display_name=identity_name,
+                    created_at=new_connection_created_at,
                 )
-                self.db.add(connection)
-                self.db.flush()
-            for old in self.db.scalars(select(OpenStackSession).where(
+                write_db.add(connection)
+                write_db.flush()
+            for old in write_db.scalars(select(OpenStackSession).where(
                 OpenStackSession.connection_id == connection.id,
                 OpenStackSession.auth_session_id == auth_id,
             )).all():
-                self.db.delete(old)
-            self.db.flush()
-            self.db.add(OpenStackSession(
+                write_db.delete(old)
+            write_db.flush()
+            write_db.add(OpenStackSession(
+                id=new_session_id,
                 connection_id=connection.id,
                 auth_session_id=auth_id,
-                token=identity.token,
+                token=identity_token,
                 cloud_version=expected_version,
-                expires_at=min(identity.expires_at, auth.absolute_expires_at),
+                expires_at=min(identity_expires_at, auth.absolute_expires_at),
             ))
             connection_id = str(connection.id)
-            commit_or_rollback(self.db)
             return connection_id
 
-        connection_id = run_db_unit_with_sqlite_retry(self.db, persist)
-        connection = self.db.get(OpenStackConnection, connection_id)
+        connection_id = run_replayable_db_unit(self.db, persist)
+        connection = self.db.get(OpenStackConnection, connection_id, populate_existing=True)
         if connection is None:
             raise OpenStackError("connection_not_found", "OpenStack connection not found", 404)
         return connection
@@ -587,68 +597,84 @@ class OpenStackService:
         project = access["project"]
         target = self._select_project_target(access, target_id)
         key = self._select_project_credential(access, access_key)
-        def persist_context() -> tuple[str, str]:
-            current_user = self.db.get(User, user_id, populate_existing=True)
+        cloud_id = int(initial.cloud_id)
+        project_name = str(project["name"])
+        target_region_id = str(target["region_id"])
+        target_endpoint_url = str(target["endpoint_url"])
+        target_endpoint_name = str(target["service_name"] or target["region_id"])
+        target_interface = str(target["interface"])
+        target_service_type = str(target["service_type"])
+        key_access = str(key["access"])
+        key_secret = key["secret"]
+        key_expires_at = key["expires_at"]
+        validated_at = utcnow()
+        new_context_id = str(uuid4())
+        new_credential_id = str(uuid4())
+
+        def persist_context(write_db: Session) -> tuple[str, str]:
+            scoped = self if write_db is self.db else OpenStackService(write_db)
+            current_user = write_db.get(User, user_id, populate_existing=True)
             if current_user is None:
                 raise OpenStackError("reauthentication_required", "The BucketReef session is no longer active")
-            self._auth(current_user, auth_id, lock=True)
-            self.db.scalar(
+            scoped._auth(current_user, auth_id, lock=True)
+            write_db.scalar(
                 select(OpenStackCloud)
-                .where(OpenStackCloud.id == initial.cloud_id)
+                .where(OpenStackCloud.id == cloud_id)
                 .with_for_update()
                 .execution_options(populate_existing=True)
             )
-            connection = self.owned(current_user, connection_id)
-            session = self._session(current_user, auth_id, connection, expected_id=session_id)
-            context = self.db.scalar(select(OpenStackProjectContext).where(
+            connection = scoped.owned(current_user, connection_id)
+            session = scoped._session(current_user, auth_id, connection, expected_id=session_id)
+            context = write_db.scalar(select(OpenStackProjectContext).where(
                 OpenStackProjectContext.connection_id == connection.id,
                 OpenStackProjectContext.project_id == project_id,
                 OpenStackProjectContext.target_id == target_id,
             ))
             if context is None:
                 context = OpenStackProjectContext(
+                    id=new_context_id,
                     connection_id=connection.id,
                     project_id=project_id,
-                    project_name=project["name"],
-                    target_id=target["target_id"],
-                    region_id=target["region_id"],
-                    endpoint_url=target["endpoint_url"],
-                    endpoint_name=target["service_name"] or target["region_id"],
-                    endpoint_interface=target["interface"],
-                    service_type=target["service_type"],
+                    project_name=project_name,
+                    target_id=target_id,
+                    region_id=target_region_id,
+                    endpoint_url=target_endpoint_url,
+                    endpoint_name=target_endpoint_name,
+                    endpoint_interface=target_interface,
+                    service_type=target_service_type,
                 )
-                self.db.add(context)
-                self.db.flush()
+                write_db.add(context)
+                write_db.flush()
             else:
-                context.project_name = project["name"]
-                context.region_id = target["region_id"]
-                context.endpoint_url = target["endpoint_url"]
-                context.endpoint_name = target["service_name"] or target["region_id"]
-                context.endpoint_interface = target["interface"]
-                context.service_type = target["service_type"]
-            self.db.execute(delete(OpenStackProjectCredential).where(
+                context.project_name = project_name
+                context.region_id = target_region_id
+                context.endpoint_url = target_endpoint_url
+                context.endpoint_name = target_endpoint_name
+                context.endpoint_interface = target_interface
+                context.service_type = target_service_type
+            write_db.execute(delete(OpenStackProjectCredential).where(
                 OpenStackProjectCredential.session_id == session.id,
                 OpenStackProjectCredential.context_id == context.id,
             ))
             credential = OpenStackProjectCredential(
+                id=new_credential_id,
                 session_id=session.id,
                 context_id=context.id,
-                access_key=key["access"],
-                secret_key=key["secret"],
-                expires_at=min(key["expires_at"], session.expires_at),
-                validated_at=utcnow(),
+                access_key=key_access,
+                secret_key=key_secret,
+                expires_at=min(key_expires_at, session.expires_at),
+                validated_at=validated_at,
                 can_manage_iam=False,
             )
-            self.db.add(credential)
-            self.db.flush()
+            write_db.add(credential)
+            write_db.flush()
             context_id = str(context.id)
             credential_id = str(credential.id)
-            commit_or_rollback(self.db)
             return context_id, credential_id
 
-        context_id, credential_id = run_db_unit_with_sqlite_retry(self.db, persist_context)
-        context = self.db.get(OpenStackProjectContext, context_id)
-        credential = self.db.get(OpenStackProjectCredential, credential_id)
+        context_id, credential_id = run_replayable_db_unit(self.db, persist_context)
+        context = self.db.get(OpenStackProjectContext, context_id, populate_existing=True)
+        credential = self.db.get(OpenStackProjectCredential, credential_id, populate_existing=True)
         if context is None or credential is None:
             raise OpenStackError("reauthentication_required", "Reconnect to OpenStack")
         execution = self._execution(context, credential, auth_id)
@@ -667,20 +693,20 @@ class OpenStackService:
             verify_tls,
         )
 
-        def persist_capability() -> None:
-            current_user = self.db.get(User, user_id, populate_existing=True)
+        def persist_capability(write_db: Session) -> None:
+            scoped = self if write_db is self.db else OpenStackService(write_db)
+            current_user = write_db.get(User, user_id, populate_existing=True)
             if current_user is None:
                 raise OpenStackError("reauthentication_required", "The BucketReef session is no longer active")
-            self._auth(current_user, auth_id, lock=True)
-            connection = self.owned(current_user, connection_id)
-            self._session(current_user, auth_id, connection, expected_id=session_id)
-            current = self.db.get(OpenStackProjectCredential, credential_id)
+            scoped._auth(current_user, auth_id, lock=True)
+            connection = scoped.owned(current_user, connection_id)
+            scoped._session(current_user, auth_id, connection, expected_id=session_id)
+            current = write_db.get(OpenStackProjectCredential, credential_id)
             if current is None or current.context_id != context_id:
                 raise OpenStackError("reauthentication_required", "Reconnect to OpenStack")
             current.can_manage_iam = can_manage_iam
-            commit_or_rollback(self.db)
 
-        run_db_unit_with_sqlite_retry(self.db, persist_capability)
+        run_replayable_db_unit(self.db, persist_capability)
         return f"os-{context_id}"
 
     @staticmethod
