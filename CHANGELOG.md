@@ -57,7 +57,7 @@
 
 - Display the S3 object owner in Browser object details by requesting owner data from object listings and preserving it through the backend/frontend contract.
 - Refresh Browser bucket state reliably after external S3 changes and avoid stale bucket listings in the workspace.
-- Harden SQLite contention recovery for backend transactions and authentication session security writes, and keep Admin user search compatible with PostgreSQL.
+- Harden SQLite contention recovery for backend transactions, authentication session security writes, and authentication rate-limit cleanup during bootstrap, and keep Admin user search compatible with PostgreSQL.
 - Keep resource deletion, provisioning, bucket-migration, and managed-private-access recovery paths consistent under SQLite contention and transient RGW concurrency errors without replaying remote side effects.
 - Skip disabled OpenStack association requests and keep access/deletion feedback localized in the frontend.
 - Extend live Ceph functional qualification and run the release qualification path against PostgreSQL.

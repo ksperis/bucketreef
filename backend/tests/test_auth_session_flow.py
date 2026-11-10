@@ -1,10 +1,12 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
+import sqlite3
 from types import SimpleNamespace
 
 import pytest
 from botocore.exceptions import ClientError
 from sqlalchemy import func, select
+from sqlalchemy.exc import OperationalError
 
 from app.core.security import get_password_hash
 from app.db import AuthRateLimit, AuditLog, S3Account, S3Session, StorageEndpoint, UserS3Account, User
@@ -528,6 +530,40 @@ def test_auth_rate_limit_clear_account_rolls_back_when_commit_fails(db_session, 
 
     assert rollback_calls == [True]
     assert db_session.scalar(select(func.count()).select_from(AuthRateLimit)) == before
+
+
+def test_auth_rate_limit_clear_account_retries_sqlite_busy(db_session, monkeypatch):
+    service = AuthRateLimitService(db_session)
+    service.record_failure(account="clear-busy@example.com", ip_address="198.51.100.52")
+    assert db_session.scalar(select(func.count()).select_from(AuthRateLimit)) == 2
+
+    original_execute = db_session.execute
+    original_rollback = db_session.rollback
+    execute_calls = 0
+    rollback_calls = 0
+
+    def busy_once(statement, *args, **kwargs):
+        nonlocal execute_calls
+        execute_calls += 1
+        if execute_calls == 1:
+            original = sqlite3.OperationalError("database is locked")
+            original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
+            raise OperationalError("DELETE", (), original)
+        return original_execute(statement, *args, **kwargs)
+
+    def recording_rollback():
+        nonlocal rollback_calls
+        rollback_calls += 1
+        original_rollback()
+
+    monkeypatch.setattr(db_session, "execute", busy_once)
+    monkeypatch.setattr(db_session, "rollback", recording_rollback)
+
+    service.clear_account(account="clear-busy@example.com", ip_address="198.51.100.52")
+
+    assert execute_calls == 2
+    assert rollback_calls == 1
+    assert db_session.scalar(select(func.count()).select_from(AuthRateLimit)) == 1
 
 
 def test_trusted_proxy_rate_limits_real_clients_and_ignores_injected_leftmost_xff(
