@@ -7,7 +7,11 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.db_transactions import commit_or_rollback, rollback_on_error
+from app.core.db_transactions import (
+    commit_or_rollback,
+    rollback_on_error,
+    run_replayable_db_unit,
+)
 from app.core.domain_enums import (
     MANAGED_SERVICE_IDENTITY_KINDS,
     SERVICE_IDENTITY_KINDS,
@@ -119,10 +123,15 @@ class StorageEndpointsService:
                 logger.info("Endpoint %s identity reconciliation deferred; retry from endpoint settings.", endpoint.id)
 
     def update_endpoint_tags(self, endpoint_id: int, payload: StorageEndpointTagsUpdate) -> StorageEndpointSchema:
-        endpoint = self.repository.get(endpoint_id)
-        self.tags.replace_storage_endpoint_tags(endpoint, payload.tags)
-        commit_or_rollback(self.db)
-        self.db.refresh(endpoint)
+        def update_once(write_db: Session) -> int:
+            endpoint = StorageEndpointRepository(write_db).get(endpoint_id)
+            TagsService(write_db).replace_storage_endpoint_tags(endpoint, payload.tags)
+            return int(endpoint.id)
+
+        persisted_id = run_replayable_db_unit(self.db, update_once)
+        endpoint = self.db.get(StorageEndpoint, persisted_id, populate_existing=True)
+        if endpoint is None:  # pragma: no cover - defensive consistency check
+            raise StorageEndpointNotFoundError("Endpoint not found.")
         return self.query.serialize_endpoint(endpoint)
 
     def _commit_endpoint(self, endpoint: StorageEndpoint) -> None:
@@ -269,16 +278,26 @@ class StorageEndpointsService:
         endpoint = self.repository.get(endpoint_id)
         if endpoint.is_default:
             return self.query.serialize_endpoint(endpoint)
-        self.db.execute(
-            update(StorageEndpoint)
-            .where(StorageEndpoint.is_default.is_(True), StorageEndpoint.id != endpoint.id)
-            .values(is_default=False)
-            .execution_options(synchronize_session=False)
-        )
-        endpoint.is_default = True
-        self.db.add(endpoint)
-        commit_or_rollback(self.db)
-        self.db.refresh(endpoint)
+
+        def set_default_once(write_db: Session) -> int:
+            current = StorageEndpointRepository(write_db).get(endpoint_id)
+            if not current.is_default:
+                write_db.execute(
+                    update(StorageEndpoint)
+                    .where(
+                        StorageEndpoint.is_default.is_(True),
+                        StorageEndpoint.id != current.id,
+                    )
+                    .values(is_default=False)
+                    .execution_options(synchronize_session=False)
+                )
+                current.is_default = True
+            return int(current.id)
+
+        persisted_id = run_replayable_db_unit(self.db, set_default_once)
+        endpoint = self.db.get(StorageEndpoint, persisted_id, populate_existing=True)
+        if endpoint is None:  # pragma: no cover - defensive consistency check
+            raise StorageEndpointNotFoundError("Endpoint not found.")
         return self.query.serialize_endpoint(endpoint)
 
     def _env_endpoint_name(self) -> str:
