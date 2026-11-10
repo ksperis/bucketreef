@@ -2,16 +2,19 @@
 # Licensed under the Apache License, Version 2.0
 import logging
 from typing import Optional
+from uuid import uuid4
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, text, update
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.db_transactions import (
+    acquire_sqlite_write_transaction,
     commit_or_rollback,
     rollback_on_error,
     run_replayable_db_unit,
 )
+from app.core.domain_errors import StorageEndpointNotFoundError
 from app.core.domain_enums import (
     MANAGED_SERVICE_IDENTITY_KINDS,
     SERVICE_IDENTITY_KINDS,
@@ -38,6 +41,7 @@ from app.services.endpoint_service_identity_reconciliation_policy import (
 )
 from app.services.storage_endpoint_env_sync import StorageEndpointEnvSyncService
 from app.services.storage_endpoint_normalization import (
+    NormalizedEndpointState,
     normalize_storage_endpoint_state,
     normalize_storage_endpoint_update,
 )
@@ -139,6 +143,70 @@ class StorageEndpointsService:
         commit_or_rollback(self.db)
         self.db.refresh(endpoint)
 
+    def _acquire_endpoint_write_transaction(self, endpoint_id: int) -> bool:
+        def acquire_once(write_db: Session) -> bool:
+            changed = write_db.execute(
+                text("UPDATE storage_endpoints SET id = id WHERE id = :endpoint_id"),
+                {"endpoint_id": endpoint_id},
+            ).rowcount
+            if changed != 1:
+                raise StorageEndpointNotFoundError("Endpoint not found.")
+            return True
+
+        return acquire_sqlite_write_transaction(self.db, acquire_once) is True
+
+    def _prepare_endpoint_update(
+        self,
+        endpoint_id: int,
+        payload: StorageEndpointUpdate,
+    ) -> tuple[StorageEndpoint, NormalizedEndpointState]:
+        endpoint = self.repository.get(endpoint_id)
+        if not endpoint.is_editable:
+            raise ValueError("This endpoint is protected and cannot be edited.")
+        state = normalize_storage_endpoint_update(endpoint, payload)
+        ensure_unique_storage_endpoint_name(
+            self.db,
+            state.name,
+            exclude_id=endpoint.id,
+        )
+        ensure_unique_storage_endpoint_url(
+            self.db,
+            state.endpoint_url,
+            exclude_id=endpoint.id,
+        )
+        return endpoint, state
+
+    def _ensure_endpoint_deletable(self, endpoint: StorageEndpoint) -> None:
+        if not endpoint.is_editable:
+            raise ValueError("This endpoint is protected and cannot be deleted.")
+        linked_accounts = self.db.scalar(
+            select(func.count())
+            .select_from(S3Account)
+            .where(S3Account.storage_endpoint_id == endpoint.id)
+        )
+        linked_users = self.db.scalar(
+            select(func.count())
+            .select_from(S3User)
+            .where(S3User.storage_endpoint_id == endpoint.id)
+        )
+        linked_connections = self.db.scalar(
+            select(func.count())
+            .select_from(S3Connection)
+            .where(S3Connection.storage_endpoint_id == endpoint.id)
+        )
+        if any((linked_accounts, linked_users, linked_connections)):
+            raise ValueError(
+                "Unable to delete this endpoint: "
+                f"accounts={linked_accounts}, users={linked_users}, "
+                f"connections={linked_connections}."
+            )
+        if any(
+            intent.key_type
+            not in ("endpoint_runtime", "endpoint_supervision", "ceph_admin")
+            for intent in endpoint.key_rotation_intents
+        ):
+            raise ValueError("Finish pending key rotations before deleting the endpoint.")
+
     def create_endpoint(
         self,
         payload: StorageEndpointCreate,
@@ -147,14 +215,28 @@ class StorageEndpointsService:
     ) -> StorageEndpointSchema:
         self._ensure_env_editable()
         state = normalize_storage_endpoint_state(payload)
-        ensure_unique_storage_endpoint_name(self.db, state.name)
-        ensure_unique_storage_endpoint_url(self.db, state.endpoint_url)
-        endpoint = StorageEndpoint(name=state.name, endpoint_url=state.endpoint_url)
-        apply_storage_endpoint_state(endpoint, state)
-        endpoint.is_default = False
-        endpoint.is_editable = True
+        identity_namespace = uuid4().hex
+
+        def create_once(write_db: Session) -> int:
+            ensure_unique_storage_endpoint_name(write_db, state.name)
+            ensure_unique_storage_endpoint_url(write_db, state.endpoint_url)
+            endpoint = StorageEndpoint(
+                name=state.name,
+                endpoint_url=state.endpoint_url,
+                identity_namespace=identity_namespace,
+            )
+            apply_storage_endpoint_state(endpoint, state)
+            endpoint.is_default = False
+            endpoint.is_editable = True
+            write_db.add(endpoint)
+            write_db.flush()
+            return int(endpoint.id)
+
         # Durable endpoint IDs are required before any remote validation or provisioning.
-        self._commit_endpoint(endpoint)
+        endpoint_id = run_replayable_db_unit(self.db, create_once)
+        endpoint = self.db.get(StorageEndpoint, endpoint_id, populate_existing=True)
+        if endpoint is None:  # pragma: no cover - defensive consistency check
+            raise StorageEndpointNotFoundError("Endpoint not found.")
         if endpoint.provider == "ceph":
             from app.services.endpoint_service_identities import EndpointServiceIdentityService
             EndpointServiceIdentityService(
@@ -184,29 +266,30 @@ class StorageEndpointsService:
         )
         lease, handle = identities.lease(endpoint)
         try:
-            # lease() refreshes the target; validation and mutation must use that locked state.
-            if not endpoint.is_editable:
-                raise ValueError("This endpoint is protected and cannot be edited.")
-            state = normalize_storage_endpoint_update(endpoint, payload)
-            ensure_unique_storage_endpoint_name(
-                self.db,
-                state.name,
-                exclude_id=endpoint.id,
-            )
-            ensure_unique_storage_endpoint_url(
-                self.db,
-                state.endpoint_url,
-                exclude_id=endpoint.id,
-            )
+            # lease() refreshes the target. SQLite additionally becomes the writer
+            # before any identity workflow can perform external side effects.
+            self._acquire_endpoint_write_transaction(endpoint_id)
+            endpoint, state = self._prepare_endpoint_update(endpoint_id, payload)
+            revoked_kinds: list[str] = []
             if state.service_identity_mode == "external" or state.provider != StorageProvider.CEPH:
                 for kind in MANAGED_SERVICE_IDENTITY_KINDS:
                     identity = endpoint.service_identity(kind)
                     if identity is not None and identity.mode == "managed":
                         if not identities.revoke(endpoint, kind):
                             raise ValueError("Managed identity revocation is pending; retry before changing identity mode.")
-                        identity.mode = "external"
+                        revoked_kinds.append(kind)
             if state.provider != StorageProvider.CEPH and not identities.revoke(endpoint, "ceph_admin"):
                 raise ValueError("Ceph Admin revocation is pending; retry before changing provider.")
+
+            # A revoke can commit its local revocation checkpoint before RGW I/O.
+            # Re-acquire SQLite write intent and revalidate the latest endpoint
+            # state before persisting the non-replayable workflow result.
+            if self._acquire_endpoint_write_transaction(endpoint_id):
+                endpoint, state = self._prepare_endpoint_update(endpoint_id, payload)
+            for kind in revoked_kinds:
+                identity = endpoint.service_identity(kind)
+                if identity is not None:
+                    identity.mode = "external"
             apply_storage_endpoint_state(endpoint, state)
             self._commit_endpoint(endpoint)
             if endpoint.provider == "ceph":
@@ -246,25 +329,18 @@ class StorageEndpointsService:
         lease, handle = identities.lease(endpoint)
         try:
             with rollback_on_error(self.db):
-                # lease() refreshes the target; all checks and the deletion commit stay locked.
-                if not endpoint.is_editable:
-                    raise ValueError("This endpoint is protected and cannot be deleted.")
-                linked_accounts = self.db.scalar(
-                    select(func.count()).select_from(S3Account).where(S3Account.storage_endpoint_id == endpoint.id)
-                )
-                linked_users = self.db.scalar(
-                    select(func.count()).select_from(S3User).where(S3User.storage_endpoint_id == endpoint.id)
-                )
-                linked_connections = self.db.scalar(
-                    select(func.count()).select_from(S3Connection).where(S3Connection.storage_endpoint_id == endpoint.id)
-                )
-                if any((linked_accounts, linked_users, linked_connections)):
-                    raise ValueError(f"Unable to delete this endpoint: accounts={linked_accounts}, users={linked_users}, connections={linked_connections}.")
-                if any(intent.key_type not in ("endpoint_runtime", "endpoint_supervision", "ceph_admin") for intent in endpoint.key_rotation_intents):
-                    raise ValueError("Finish pending key rotations before deleting the endpoint.")
+                self._acquire_endpoint_write_transaction(endpoint_id)
+                endpoint = self.repository.get(endpoint_id)
+                self._ensure_endpoint_deletable(endpoint)
                 for kind in SERVICE_IDENTITY_KINDS:
                     if not identities.revoke(endpoint, kind):
                         raise ValueError("Managed identity revocation is pending; retry before deleting the endpoint.")
+
+                # Identity revocation can release the SQLite writer while RGW I/O
+                # runs. Re-acquire it and re-check references before deleting.
+                if self._acquire_endpoint_write_transaction(endpoint_id):
+                    endpoint = self.repository.get(endpoint_id)
+                    self._ensure_endpoint_deletable(endpoint)
                 ResourceDeletionPurgeService(self.db).purge_endpoint_derived_data(endpoint.id)
                 self.db.delete(endpoint)
                 self.db.flush()
@@ -351,16 +427,29 @@ class StorageEndpointsService:
                 ),
             )
         )
-        entry = StorageEndpoint(
-            name=state.name,
-            endpoint_url=state.endpoint_url,
-            is_default=True,
-            is_editable=True,
-        )
-        apply_storage_endpoint_state(entry, state)
-        self.db.add(entry)
-        commit_or_rollback(self.db)
-        self.db.refresh(entry)
+        identity_namespace = uuid4().hex
+
+        def create_default_once(write_db: Session) -> int | None:
+            if write_db.scalar(select(func.count()).select_from(StorageEndpoint)) > 0:
+                return None
+            entry = StorageEndpoint(
+                name=state.name,
+                endpoint_url=state.endpoint_url,
+                identity_namespace=identity_namespace,
+                is_default=True,
+                is_editable=True,
+            )
+            apply_storage_endpoint_state(entry, state)
+            write_db.add(entry)
+            write_db.flush()
+            return int(entry.id)
+
+        entry_id = run_replayable_db_unit(self.db, create_default_once)
+        if entry_id is None:
+            return None
+        entry = self.db.get(StorageEndpoint, entry_id, populate_existing=True)
+        if entry is None:  # pragma: no cover - defensive consistency check
+            raise StorageEndpointNotFoundError("Endpoint not found.")
         from app.core.runtime_surfaces import endpoint_identity_management_enabled
         if endpoint_identity_management_enabled(settings) and entry.admin_access_key and entry.admin_secret_key:
             self.reconcile_identities(entry.id)
