@@ -10,6 +10,10 @@ import pytest
 from sqlalchemy import func, select
 from sqlalchemy.exc import OperationalError
 
+from tests.db_transaction_test_utils import (
+    fail_next_sqlite_statement_with_busy_snapshot,
+    fail_next_transaction_commit,
+)
 from tests.feature_policy_fixtures import enable_manager_features
 from tests.storage_endpoint_features import persisted_endpoint_features
 from app.core.domain_errors import (
@@ -317,27 +321,16 @@ def test_import_users_recovers_after_commit_failure_without_recreating_remote_ke
         "app.services.s3_user_import_service.load_app_settings_for_db",
         lambda _db: settings,
     )
-    real_commit = db_session.commit
-    commit_calls = 0
-
-    def fail_commit():
-        nonlocal commit_calls
-        commit_calls += 1
-        if commit_calls == failure_call:
-            raise RuntimeError("simulated import commit failure")
-        return real_commit()
-
-    monkeypatch.setattr(db_session, "commit", fail_commit)
-
-    with pytest.raises(RuntimeError, match="simulated import commit failure"):
-        service.import_users(
-            [
-                S3UserImport(
-                    uid="import-rollback",
-                    storage_endpoint_id=endpoint.id,
-                )
-            ]
-        )
+    with fail_next_transaction_commit(db_session, occurrence=failure_call):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service.import_users(
+                [
+                    S3UserImport(
+                        uid="import-rollback",
+                        storage_endpoint_id=endpoint.id,
+                    )
+                ]
+            )
 
     intent = db_session.scalar(
         select(S3UserImportIntent).where(
@@ -356,7 +349,6 @@ def test_import_users_recovers_after_commit_failure_without_recreating_remote_ke
         .where(S3User.rgw_user_uid == "import-rollback")
     ) == 0
 
-    monkeypatch.setattr(db_session, "commit", real_commit)
     imported = service.import_users(
         [
             S3UserImport(
@@ -397,25 +389,18 @@ def test_import_users_retries_busy_remote_checkpoint_without_recreating_key(
         "app.services.s3_user_import_service.load_app_settings_for_db",
         lambda _db: settings,
     )
-    real_commit = db_session.commit
-    commit_calls = 0
-
-    def busy_remote_checkpoint_once():
-        nonlocal commit_calls
-        commit_calls += 1
-        if commit_calls == 3:
-            raise _busy_snapshot_error()
-        return real_commit()
-
-    monkeypatch.setattr(db_session, "commit", busy_remote_checkpoint_once)
-
-    imported = service.import_users(
-        [S3UserImport(uid="import-busy", storage_endpoint_id=endpoint.id)]
-    )
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE s3_user_import_intents",
+        occurrence=2,
+    ) as matching_statements:
+        imported = service.import_users(
+            [S3UserImport(uid="import-busy", storage_endpoint_id=endpoint.id)]
+        )
 
     assert len(imported) == 1
     assert len(fake.created_keys) == 1
-    assert commit_calls >= 5
+    assert len(matching_statements) == 3
     assert db_session.scalar(
         select(func.count())
         .select_from(S3UserImportIntent)
@@ -440,25 +425,17 @@ def test_import_users_retries_busy_intent_claim_before_creating_remote_key(
         "app.services.s3_user_import_service.load_app_settings_for_db",
         lambda _db: settings,
     )
-    real_commit = db_session.commit
-    commit_calls = 0
-
-    def busy_claim_once():
-        nonlocal commit_calls
-        commit_calls += 1
-        if commit_calls == 1:
-            raise _busy_snapshot_error()
-        return real_commit()
-
-    monkeypatch.setattr(db_session, "commit", busy_claim_once)
-
-    imported = service.import_users(
-        [S3UserImport(uid="import-claim-busy", storage_endpoint_id=endpoint.id)]
-    )
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO s3_user_import_intents",
+    ) as matching_statements:
+        imported = service.import_users(
+            [S3UserImport(uid="import-claim-busy", storage_endpoint_id=endpoint.id)]
+        )
 
     assert len(imported) == 1
     assert len(fake.created_keys) == 1
-    assert commit_calls >= 5
+    assert len(matching_statements) == 2
     assert db_session.scalar(
         select(func.count())
         .select_from(S3User)
@@ -505,30 +482,22 @@ def test_import_users_retries_busy_colliding_credential_rotation_before_remote_c
         "app.services.s3_user_import_service.new_s3_import_credentials",
         lambda: next(generated_credentials),
     )
-    real_commit = db_session.commit
-    commit_calls = 0
-
-    def busy_rotation_once():
-        nonlocal commit_calls
-        commit_calls += 1
-        if commit_calls == 2:
-            raise _busy_snapshot_error()
-        return real_commit()
-
-    monkeypatch.setattr(db_session, "commit", busy_rotation_once)
-
-    imported = service.import_users(
-        [S3UserImport(uid="import-collision-busy", storage_endpoint_id=endpoint.id)]
-    )
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE s3_user_import_intents",
+    ) as matching_statements:
+        imported = service.import_users(
+            [S3UserImport(uid="import-collision-busy", storage_endpoint_id=endpoint.id)]
+        )
 
     assert len(imported) == 1
     stored = db_session.scalar(
         select(S3User).where(S3User.rgw_user_uid == "import-collision-busy")
     )
     assert stored is not None
-    assert stored.rgw_access_key == "ROTATED-RETRY"
-    assert fake.created_keys == ["ROTATED-RETRY"]
-    assert commit_calls >= 6
+    assert stored.rgw_access_key == "ROTATED-FIRST"
+    assert fake.created_keys == ["ROTATED-FIRST"]
+    assert len(matching_statements) == 4
 
 
 def test_import_users_retries_busy_local_persistence_without_recreating_key(
@@ -548,25 +517,17 @@ def test_import_users_retries_busy_local_persistence_without_recreating_key(
         "app.services.s3_user_import_service.load_app_settings_for_db",
         lambda _db: settings,
     )
-    real_commit = db_session.commit
-    commit_calls = 0
-
-    def busy_local_persistence_once():
-        nonlocal commit_calls
-        commit_calls += 1
-        if commit_calls == 4:
-            raise _busy_snapshot_error()
-        return real_commit()
-
-    monkeypatch.setattr(db_session, "commit", busy_local_persistence_once)
-
-    imported = service.import_users(
-        [S3UserImport(uid="import-local-busy", storage_endpoint_id=endpoint.id)]
-    )
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO s3_users",
+    ) as matching_statements:
+        imported = service.import_users(
+            [S3UserImport(uid="import-local-busy", storage_endpoint_id=endpoint.id)]
+        )
 
     assert len(imported) == 1
     assert len(fake.created_keys) == 1
-    assert commit_calls >= 5
+    assert len(matching_statements) == 2
     assert db_session.scalar(
         select(func.count())
         .select_from(S3User)
@@ -731,22 +692,11 @@ def test_pending_tenanted_import_can_finish_after_tenant_creation_is_disabled(
         "app.services.s3_user_import_service.load_app_settings_for_db",
         lambda _db: settings,
     )
-    real_commit = db_session.commit
-    commit_calls = 0
-
-    def fail_remote_checkpoint_commit():
-        nonlocal commit_calls
-        commit_calls += 1
-        if commit_calls == 3:
-            raise RuntimeError("simulated remote checkpoint commit failure")
-        return real_commit()
-
-    monkeypatch.setattr(db_session, "commit", fail_remote_checkpoint_commit)
-
-    with pytest.raises(RuntimeError, match="simulated remote checkpoint commit failure"):
-        service.import_users(
-            [S3UserImport(uid="team_a$analyst", storage_endpoint_id=endpoint.id)]
-        )
+    with fail_next_transaction_commit(db_session, occurrence=3):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service.import_users(
+                [S3UserImport(uid="team_a$analyst", storage_endpoint_id=endpoint.id)]
+            )
 
     intent = db_session.scalar(
         select(S3UserImportIntent).where(
@@ -761,7 +711,6 @@ def test_pending_tenanted_import_can_finish_after_tenant_creation_is_disabled(
     assert fake.key_creations == [("team_a", "analyst")]
 
     settings.general.allow_managed_rgw_tenant_creation = False
-    monkeypatch.setattr(db_session, "commit", real_commit)
     imported = service.import_users(
         [S3UserImport(uid="team_a$analyst", storage_endpoint_id=endpoint.id)]
     )

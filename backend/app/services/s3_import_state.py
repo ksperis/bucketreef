@@ -8,11 +8,12 @@ from typing import Protocol
 
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
+from app.core.db_transactions import run_replayable_db_unit
 from app.utils.time import utcnow
 
 
 class S3ImportIntent(Protocol):
+    id: int
     phase: str
     updated_at: datetime
 
@@ -26,10 +27,16 @@ def checkpoint_s3_import_intent(
     intent: S3ImportIntent,
     phase: str,
 ) -> None:
-    def checkpoint_once() -> None:
-        intent.phase = phase
-        intent.updated_at = utcnow()
-        commit_or_rollback(db)
+    intent_id = int(intent.id)
+    intent_type = type(intent)
+    updated_at = utcnow()
 
-    run_db_unit_with_sqlite_retry(db, checkpoint_once)
+    def checkpoint_once(write_db: Session) -> None:
+        current = write_db.get(intent_type, intent_id)
+        if current is None:
+            raise RuntimeError("Pending S3 import intent disappeared")
+        current.phase = phase
+        current.updated_at = updated_at
+
+    run_replayable_db_unit(db, checkpoint_once)
     db.refresh(intent)

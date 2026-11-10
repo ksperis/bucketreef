@@ -12,15 +12,23 @@ from sqlalchemy.orm import Session
 
 
 @contextmanager
-def fail_next_transaction_commit(db: Session) -> Iterator[None]:
-    """Fail the next real transaction commit on the session's engine."""
+def fail_next_transaction_commit(
+    db: Session,
+    *,
+    occurrence: int = 1,
+) -> Iterator[None]:
+    """Fail one selected real transaction commit on the session's engine."""
 
     bind = db.get_bind()
+    commit_count = 0
 
     def fail_commit(_connection) -> None:
-        raise RuntimeError("commit failed")
+        nonlocal commit_count
+        commit_count += 1
+        if commit_count == occurrence:
+            raise RuntimeError("commit failed")
 
-    event.listen(bind, "commit", fail_commit, once=True)
+    event.listen(bind, "commit", fail_commit)
     try:
         yield
     finally:
@@ -31,8 +39,10 @@ def fail_next_transaction_commit(db: Session) -> Iterator[None]:
 def fail_next_sqlite_statement_with_busy_snapshot(
     db: Session,
     statement_prefix: str,
+    *,
+    occurrence: int = 1,
 ) -> Iterator[list[str]]:
-    """Fail the first matching SQL statement with SQLITE_BUSY_SNAPSHOT."""
+    """Fail one selected matching SQL statement with SQLITE_BUSY_SNAPSHOT."""
 
     bind = db.get_bind()
     matching_statements: list[str] = []
@@ -41,7 +51,7 @@ def fail_next_sqlite_statement_with_busy_snapshot(
         if not statement.startswith(statement_prefix):
             return
         matching_statements.append(statement)
-        if len(matching_statements) == 1:
+        if len(matching_statements) == occurrence:
             original = sqlite3.OperationalError("database is locked")
             original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
             raise OperationalError(statement, (), original)
