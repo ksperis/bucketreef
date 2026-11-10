@@ -406,6 +406,7 @@ def test_disabled_account_resource_policy_masks_override_but_not_principal_grant
             allow_manager_browser_data_access=True,
         )
     )
+    db_session.commit()
     settings = AppSettings()
     settings.manager.feature_policies.rgw_multisite_endpoint_switching = "disabled"
     save_app_settings_for_db(db_session, settings)
