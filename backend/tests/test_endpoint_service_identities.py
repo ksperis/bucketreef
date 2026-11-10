@@ -23,6 +23,10 @@ from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_runtime_rgw_client
 from app.services.storage_endpoint_query_service import StorageEndpointQueryService
 from app.services.storage_endpoints_service import StorageEndpointsService
+from tests.db_transaction_test_utils import (
+    fail_next_sqlite_statement_with_busy_snapshot,
+    fail_next_transaction_commit,
+)
 from tests.service_identity_helpers import service_identity, set_service_identity_credentials
 from tests.storage_endpoint_features import persisted_endpoint_features
 
@@ -167,6 +171,33 @@ def test_partial_remote_failure_resumes_persisted_key(identities):
     rgw.fail_create = False
     service.reconcile(endpoint)
     assert identity.status == "ready" and identity.access_key == access
+
+
+def test_identity_validation_retries_sqlite_busy_without_replaying_rgw_check(
+    identities,
+    db_session,
+):
+    service, endpoint, rgw = identities
+    service.reconcile(endpoint)
+    identity = endpoint.service_identity("runtime")
+    assert identity is not None
+    rgw.calls.clear()
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE endpoint_service_identities",
+    ) as matching_statements:
+        validated = service._validate_service_identity(
+            endpoint,
+            identity,
+            "runtime",
+            rgw,
+            managed=True,
+        )
+
+    assert validated.status == "ready"
+    assert len(matching_statements) == 2
+    assert len([call for call in rgw.calls if call[0] == "list"]) == 1
 
 
 def test_admin_failure_preserves_ready_runtime_and_supervision(identities, db_session):
@@ -904,30 +935,13 @@ def test_absent_remote_principal_can_be_revoked_without_users_write(identities):
 
 
 def test_ready_checkpoint_commit_failure_rolls_back_and_reuses_remote_identity(
-    identities, db_session, monkeypatch
+    identities, db_session
 ):
-    from sqlalchemy.exc import OperationalError
-
     service, endpoint, rgw = identities
-    commit = db_session.commit
-    failed = False
 
-    def fail_ready_checkpoint():
-        nonlocal failed
-        if not failed and any(
-            isinstance(row, EndpointServiceIdentity)
-            and row.kind == "runtime"
-            and row.status == "ready"
-            for row in db_session.dirty
-        ):
-            failed = True
-            raise OperationalError("commit", {}, Exception("injected"))
-        return commit()
-
-    monkeypatch.setattr(db_session, "commit", fail_ready_checkpoint)
-
-    with pytest.raises(OperationalError):
-        service.reconcile(endpoint, locked=True)
+    with fail_next_transaction_commit(db_session, occurrence=3):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service.reconcile(endpoint, locked=True)
 
     identity = endpoint.service_identity("runtime")
     assert identity is not None
@@ -941,7 +955,6 @@ def test_ready_checkpoint_commit_failure_rolls_back_and_reuses_remote_identity(
     ) == 0
     assert len([call for call in rgw.calls if call[0] == "create" and call[1] == uid]) == 1
 
-    monkeypatch.setattr(db_session, "commit", commit)
     service.reconcile(endpoint, locked=True)
 
     assert identity.status == "ready"
@@ -951,13 +964,7 @@ def test_ready_checkpoint_commit_failure_rolls_back_and_reuses_remote_identity(
 def test_ready_checkpoint_retries_sqlite_busy_without_replaying_remote_validation(
     identities, db_session, monkeypatch
 ):
-    import sqlite3
-
-    from sqlalchemy.exc import OperationalError
-
     service, endpoint, _ = identities
-    commit = db_session.commit
-    failed = False
     validated_kinds: list[str] = []
     functional_check = service.validation.functional_check
 
@@ -965,27 +972,16 @@ def test_ready_checkpoint_retries_sqlite_busy_without_replaying_remote_validatio
         validated_kinds.append(kind)
         return functional_check(endpoint, kind=kind, **kwargs)
 
-    def fail_ready_checkpoint_once():
-        nonlocal failed
-        if not failed and any(
-            isinstance(row, EndpointServiceIdentity)
-            and row.kind == "runtime"
-            and row.status == "ready"
-            for row in db_session.dirty
-        ):
-            failed = True
-            original = sqlite3.OperationalError("database is locked")
-            original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
-            raise OperationalError("COMMIT", (), original)
-        return commit()
-
     monkeypatch.setattr(service.validation, "functional_check", track_functional_check)
-    monkeypatch.setattr(db_session, "commit", fail_ready_checkpoint_once)
-
-    service.reconcile(endpoint, locked=True)
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE endpoint_service_identities",
+        occurrence=2,
+    ) as matching_statements:
+        service.reconcile(endpoint, locked=True)
 
     identity = endpoint.service_identity("runtime")
-    assert failed
+    assert len(matching_statements) >= 3
     assert identity is not None and identity.status == "ready"
     assert validated_kinds.count("runtime") == 1
 

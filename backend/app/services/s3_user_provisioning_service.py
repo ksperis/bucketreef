@@ -7,7 +7,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import rollback_safely, run_db_unit_with_sqlite_retry
+from app.core.db_transactions import rollback_safely, run_replayable_db_unit
 from app.core.domain_errors import CompensationFailureError
 from app.db import S3User, StorageEndpoint
 from app.models.s3_user import S3UserCreate
@@ -85,7 +85,7 @@ class S3UserProvisioningService:
 
             endpoint_id = int(endpoint.id)
 
-            def persist_once() -> int:
+            def persist_once(write_db: Session) -> int:
                 s3_user = self._persist_created_user(
                     payload,
                     endpoint_id=endpoint_id,
@@ -93,11 +93,11 @@ class S3UserProvisioningService:
                     tenant=tenant,
                     access_key=access_key,
                     secret_key=secret_key,
+                    db=write_db,
                 )
-                self.db.commit()
                 return int(s3_user.id)
 
-            s3_user_id = run_db_unit_with_sqlite_retry(self.db, persist_once)
+            s3_user_id = run_replayable_db_unit(self.db, persist_once)
             s3_user = self.db.get(S3User, s3_user_id, populate_existing=True)
             if s3_user is None:  # pragma: no cover - defensive consistency check
                 raise RuntimeError("S3 user could not be reloaded after creation")
@@ -153,7 +153,9 @@ class S3UserProvisioningService:
         tenant: str,
         access_key: str,
         secret_key: str,
+        db: Session | None = None,
     ) -> S3User:
+        write_db = db or self.db
         s3_user = S3User(
             name=payload.name,
             rgw_user_uid=uid,
@@ -163,9 +165,10 @@ class S3UserProvisioningService:
             rgw_secret_key=secret_key,
             storage_endpoint_id=endpoint_id,
         )
-        self.db.add(s3_user)
-        self.db.flush()
-        self.tags.replace_s3_user_tags(s3_user, payload.tags)
+        write_db.add(s3_user)
+        write_db.flush()
+        tags_service = self.tags if write_db is self.db else TagsService(write_db)
+        tags_service.replace_s3_user_tags(s3_user, payload.tags)
         return s3_user
 
     def _apply_initial_quota(

@@ -1080,11 +1080,9 @@ def test_create_user_persists_credentials(db_session, monkeypatch):
     assert record.storage_endpoint_id == endpoint.id
 
 
-@pytest.mark.parametrize("busy_phase", ["flush", "commit"])
 def test_create_user_retries_sqlite_busy_without_replaying_remote_create(
     db_session,
     monkeypatch,
-    busy_phase,
 ):
     endpoint = _seed_ceph_endpoint(db_session)
     fake = FakeRGWAdmin()
@@ -1107,39 +1105,29 @@ def test_create_user_retries_sqlite_busy_without_replaying_remote_create(
     monkeypatch.setattr(fake, "create_user", tracked_create_user)
     monkeypatch.setattr(fake, "set_user_quota", tracked_set_user_quota)
 
-    real_db_call = getattr(db_session, busy_phase)
-    failed = False
-
-    def busy_once(*args, **kwargs):
-        nonlocal failed
-        if not failed:
-            failed = True
-            original = sqlite3.OperationalError("database is locked")
-            original.sqlite_errorcode = sqlite3.SQLITE_BUSY
-            raise OperationalError(busy_phase.upper(), (), original)
-        return real_db_call(*args, **kwargs)
-
-    monkeypatch.setattr(db_session, busy_phase, busy_once)
-
-    created = service.create_user(
-        S3UserCreate(
-            name="Busy create",
-            uid=f"busy-create-{busy_phase}",
-            rgw_tenant="",
-            storage_endpoint_id=endpoint.id,
-            quota_max_objects=123,
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO s3_users",
+    ) as matching_statements:
+        created = service.create_user(
+            S3UserCreate(
+                name="Busy create",
+                uid="busy-create",
+                rgw_tenant="",
+                storage_endpoint_id=endpoint.id,
+                quota_max_objects=123,
+            )
         )
-    )
 
-    assert failed is True
+    assert len(matching_statements) == 2
     assert create_calls == 1
     assert quota_calls == 1
     assert fake.deleted_users == []
-    assert created.rgw_user_uid == f"busy-create-{busy_phase}"
+    assert created.rgw_user_uid == "busy-create"
     assert db_session.scalar(
         select(func.count())
         .select_from(S3User)
-        .where(S3User.rgw_user_uid == f"busy-create-{busy_phase}")
+        .where(S3User.rgw_user_uid == "busy-create")
     ) == 1
 
 
@@ -1148,20 +1136,16 @@ def test_create_user_commit_failure_compensates_remote_user(db_session, monkeypa
     fake = FakeRGWAdmin()
     service = _build_service(db_session, monkeypatch, fake)
 
-    def fail_commit():
-        raise RuntimeError("simulated user create commit failure")
-
-    monkeypatch.setattr(db_session, "commit", fail_commit)
-
-    with pytest.raises(RuntimeError, match="simulated user create commit failure"):
-        service.create_user(
-            S3UserCreate(
-                name="Rollback create",
-                uid="rollback-create",
-                rgw_tenant="",
-                storage_endpoint_id=endpoint.id,
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service.create_user(
+                S3UserCreate(
+                    name="Rollback create",
+                    uid="rollback-create",
+                    rgw_tenant="",
+                    storage_endpoint_id=endpoint.id,
+                )
             )
-        )
 
     assert fake.deleted_users == ["rollback-create"]
     assert "rollback-create" not in fake.remote_users
@@ -1226,21 +1210,16 @@ def test_create_tenanted_user_commit_failure_compensates_exact_remote_user(
         lambda _db: settings,
     )
 
-    monkeypatch.setattr(
-        db_session,
-        "commit",
-        lambda: (_ for _ in ()).throw(RuntimeError("simulated tenant commit failure")),
-    )
-
-    with pytest.raises(RuntimeError, match="simulated tenant commit failure"):
-        service.create_user(
-            S3UserCreate(
-                name="Tenant rollback",
-                uid="tenant-rollback",
-                rgw_tenant="team_a",
-                storage_endpoint_id=endpoint.id,
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service.create_user(
+                S3UserCreate(
+                    name="Tenant rollback",
+                    uid="tenant-rollback",
+                    rgw_tenant="team_a",
+                    storage_endpoint_id=endpoint.id,
+                )
             )
-        )
 
     assert fake.deleted_users == ["tenant-rollback"]
     assert ("team_a", "tenant-rollback") not in fake.principals
@@ -1251,10 +1230,6 @@ def test_create_user_reports_remote_compensation_failure(db_session, monkeypatch
     fake = FakeRGWAdmin()
     service = _build_service(db_session, monkeypatch, fake)
 
-    def fail_commit():
-        raise RuntimeError("simulated user create commit failure")
-
-    monkeypatch.setattr(db_session, "commit", fail_commit)
     monkeypatch.setattr(
         fake,
         "delete_user",
@@ -1263,21 +1238,22 @@ def test_create_user_reports_remote_compensation_failure(db_session, monkeypatch
         ),
     )
 
-    with pytest.raises(
-        CompensationFailureError,
-        match="Local or RGW rollback also failed",
-    ) as raised:
-        service.create_user(
-            S3UserCreate(
-                name="Cleanup failure",
-                uid="cleanup-failure",
-                rgw_tenant="",
-                storage_endpoint_id=endpoint.id,
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(
+            CompensationFailureError,
+            match="Local or RGW rollback also failed",
+        ) as raised:
+            service.create_user(
+                S3UserCreate(
+                    name="Cleanup failure",
+                    uid="cleanup-failure",
+                    rgw_tenant="",
+                    storage_endpoint_id=endpoint.id,
+                )
             )
-        )
 
     assert isinstance(raised.value.__cause__, RuntimeError)
-    assert str(raised.value.__cause__) == "simulated user create commit failure"
+    assert str(raised.value.__cause__) == "commit failed"
     assert "cleanup-failure" in fake.remote_users
 
 
