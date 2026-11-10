@@ -362,6 +362,7 @@ class _VersionAwareObjectSyncRunner:
         self.replay_mode = "cutover_delta"
         self.replication_state["cutover_attempted"] = True
         replication_state = dict(self.replication_state)
+        updated_at = utcnow()
 
         def mutate(
             current_migration: BucketMigration,
@@ -371,7 +372,7 @@ class _VersionAwareObjectSyncRunner:
                 current_item,
                 replication_state,
             )
-            current_item.updated_at = utcnow()
+            current_item.updated_at = updated_at
 
         self.migration, self.item = self.service._persist_item_checkpoint(
             int(self.migration.id),
@@ -434,6 +435,7 @@ class _VersionAwareObjectSyncRunner:
         self.replication_state["pre_sync_watermark"] = pre_sync_watermark
         self.replication_state["cutover_attempted"] = False
         replication_state = dict(self.replication_state)
+        updated_at = utcnow()
 
         def mutate(
             current_migration: BucketMigration,
@@ -443,7 +445,7 @@ class _VersionAwareObjectSyncRunner:
                 current_item,
                 replication_state,
             )
-            current_item.updated_at = utcnow()
+            current_item.updated_at = updated_at
 
         self.migration, self.item = self.service._persist_item_checkpoint(
             int(self.migration.id),

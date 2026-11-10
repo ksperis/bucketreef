@@ -2,11 +2,14 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+from contextlib import contextmanager
+from collections.abc import Iterator
 from typing import Callable, Optional
 
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
+from app.core.db_transactions import commit_or_rollback, run_replayable_db_unit
 from app.db import BucketMigration, BucketMigrationItem, User
 from app.services.effective_access_service import EffectiveAccessService
 from app.utils.normalize import normalize_optional_string
@@ -15,6 +18,20 @@ from .execution_signals import WorkerLeaseLostError
 
 
 class BucketMigrationPersistenceMixin:
+    @contextmanager
+    def _using_db_session(self, db: Session, *, replay_timestamp=None) -> Iterator[None]:
+        """Route mixin-local DB work through the transaction-owned session."""
+
+        previous_db = self.db
+        previous_replay_timestamp = getattr(self, "_db_replay_timestamp", None)
+        self.db = db
+        self._db_replay_timestamp = replay_timestamp
+        try:
+            yield
+        finally:
+            self.db = previous_db
+            self._db_replay_timestamp = previous_replay_timestamp
+
     def _bind_workflow_lease(self, migration_id: int, worker_id: str | None) -> None:
         self._workflow_migration_id = migration_id
         self._workflow_worker_id = worker_id
@@ -44,15 +61,26 @@ class BucketMigrationPersistenceMixin:
     ) -> BucketMigration:
         """Persist one replayable migration-only execution checkpoint."""
 
-        def persist_once() -> int:
-            current = self.db.get(BucketMigration, migration_id, populate_existing=True)
-            if current is None:
-                raise RuntimeError("Bucket migration disappeared while persisting execution state")
-            mutate(current)
-            self._commit()
+        replay_timestamp = utcnow()
+
+        def persist_once(write_db: Session) -> int:
+            with self._using_db_session(
+                write_db,
+                replay_timestamp=replay_timestamp,
+            ):
+                current = write_db.get(
+                    BucketMigration,
+                    migration_id,
+                    populate_existing=True,
+                )
+                if current is None:
+                    raise RuntimeError(
+                        "Bucket migration disappeared while persisting execution state"
+                    )
+                mutate(current)
             return migration_id
 
-        run_db_unit_with_sqlite_retry(self.db, persist_once)
+        run_replayable_db_unit(self.db, persist_once)
         current = self.db.get(BucketMigration, migration_id, populate_existing=True)
         if current is None:  # pragma: no cover - defensive consistency check
             raise RuntimeError("Bucket migration could not be reloaded after persisting execution state")
@@ -66,24 +94,31 @@ class BucketMigrationPersistenceMixin:
     ) -> tuple[BucketMigration, BucketMigrationItem]:
         """Persist one replayable DB-only migration item execution checkpoint."""
 
-        def persist_once() -> tuple[int, int]:
-            current_migration = self.db.get(
-                BucketMigration,
-                migration_id,
-                populate_existing=True,
-            )
-            current_item = self.db.get(
-                BucketMigrationItem,
-                item_id,
-                populate_existing=True,
-            )
-            if current_migration is None or current_item is None:
-                raise RuntimeError("Bucket migration item disappeared while persisting execution state")
-            mutate(current_migration, current_item)
-            self._commit()
+        replay_timestamp = utcnow()
+
+        def persist_once(write_db: Session) -> tuple[int, int]:
+            with self._using_db_session(
+                write_db,
+                replay_timestamp=replay_timestamp,
+            ):
+                current_migration = write_db.get(
+                    BucketMigration,
+                    migration_id,
+                    populate_existing=True,
+                )
+                current_item = write_db.get(
+                    BucketMigrationItem,
+                    item_id,
+                    populate_existing=True,
+                )
+                if current_migration is None or current_item is None:
+                    raise RuntimeError(
+                        "Bucket migration item disappeared while persisting execution state"
+                    )
+                mutate(current_migration, current_item)
             return migration_id, item_id
 
-        run_db_unit_with_sqlite_retry(self.db, persist_once)
+        run_replayable_db_unit(self.db, persist_once)
         current_migration = self.db.get(BucketMigration, migration_id, populate_existing=True)
         current_item = self.db.get(BucketMigrationItem, item_id, populate_existing=True)
         if current_migration is None or current_item is None:  # pragma: no cover - defensive consistency check
@@ -102,6 +137,7 @@ class BucketMigrationPersistenceMixin:
 
         copied_delta = max(0, int(copied_inc))
         deleted_delta = max(0, int(deleted_inc))
+        heartbeat_at = utcnow()
 
         def mutate(
             current_migration: BucketMigration,
@@ -109,7 +145,6 @@ class BucketMigrationPersistenceMixin:
         ) -> None:
             current_item.objects_copied = int(current_item.objects_copied) + copied_delta
             current_item.objects_deleted = int(current_item.objects_deleted) + deleted_delta
-            heartbeat_at = utcnow()
             current_item.updated_at = heartbeat_at
             current_migration.updated_at = heartbeat_at
 

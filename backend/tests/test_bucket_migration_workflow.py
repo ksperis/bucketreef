@@ -527,29 +527,22 @@ def test_policy_roundtrip_types_provider_failure_after_restoration(prepared):
     configuration.delete_policy.assert_called_once()
 
 
-def test_prepare_migration_run_retries_sqlite_busy(prepared, db_session, monkeypatch):
+def test_prepare_migration_run_retries_sqlite_busy(prepared, db_session):
     service, migration, _ = prepared
     migration.status = "queued"
     db_session.commit()
-    real_commit = db_session.commit
-    failed = False
 
-    def busy_once():
-        nonlocal failed
-        if not failed:
-            failed = True
-            raise _busy_snapshot_error()
-        return real_commit()
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE bucket_migrations",
+    ) as statements:
+        current = service._prepare_migration_run(
+            migration,
+            worker_id=None,
+            lease_seconds=30,
+        )
 
-    monkeypatch.setattr(db_session, "commit", busy_once)
-
-    current = service._prepare_migration_run(
-        migration,
-        worker_id=None,
-        lease_seconds=30,
-    )
-
-    assert failed is True
+    assert len(statements) >= 2
     assert current is not None
     assert current.status == "running"
 
@@ -580,35 +573,22 @@ def test_start_command_retries_sqlite_busy(prepared, db_session, monkeypatch):
 def test_sync_progress_checkpoint_retries_sqlite_busy_without_double_counting(
     prepared,
     db_session,
-    monkeypatch,
 ):
     service, migration, _ = prepared
     item = migration.items[0]
-    real_commit = db_session.commit
-    failed = False
 
-    def busy_once():
-        nonlocal failed
-        if not failed and any(
-            isinstance(row, BucketMigrationItem)
-            and row.id == item.id
-            and row.objects_copied == 3
-            for row in db_session.dirty
-        ):
-            failed = True
-            raise _busy_snapshot_error()
-        return real_commit()
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE bucket_migration_items",
+    ) as statements:
+        _migration, current_item = service._persist_sync_progress_checkpoint(
+            migration.id,
+            item.id,
+            copied_inc=3,
+            deleted_inc=2,
+        )
 
-    monkeypatch.setattr(db_session, "commit", busy_once)
-
-    _migration, current_item = service._persist_sync_progress_checkpoint(
-        migration.id,
-        item.id,
-        copied_inc=3,
-        deleted_inc=2,
-    )
-
-    assert failed is True
+    assert len(statements) >= 2
     assert current_item.objects_copied == 3
     assert current_item.objects_deleted == 2
     db_session.expire_all()
@@ -620,36 +600,25 @@ def test_sync_progress_checkpoint_retries_sqlite_busy_without_double_counting(
 def test_item_running_checkpoint_retries_without_replaying_execution(
     prepared,
     db_session,
-    monkeypatch,
 ):
     service, migration, _ = prepared
     item = migration.items[0]
     service._revalidate_transfer_preconditions = Mock()
     service._run_item = Mock()
-    real_commit = db_session.commit
-    failed = False
 
-    def busy_once():
-        nonlocal failed
-        if not failed and any(
-            isinstance(row, BucketMigrationItem) and row.status == "running"
-            for row in db_session.dirty
-        ):
-            failed = True
-            raise _busy_snapshot_error()
-        return real_commit()
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE bucket_migration_items",
+    ) as statements:
+        service._execute_migration_item(
+            migration,
+            item,
+            SimpleNamespace(),
+            SimpleNamespace(),
+            control_check=lambda: "run",
+        )
 
-    monkeypatch.setattr(db_session, "commit", busy_once)
-
-    service._execute_migration_item(
-        migration,
-        item,
-        SimpleNamespace(),
-        SimpleNamespace(),
-        control_check=lambda: "run",
-    )
-
-    assert failed is True
+    assert len(statements) >= 2
     service._run_item.assert_called_once()
     db_session.expire_all()
     assert db_session.get(BucketMigrationItem, item.id).status == "running"
@@ -658,7 +627,6 @@ def test_item_running_checkpoint_retries_without_replaying_execution(
 def test_target_lock_checkpoint_retries_without_replaying_policy_apply(
     prepared,
     db_session,
-    monkeypatch,
 ):
     service, migration, _ = prepared
     item = migration.items[0]
@@ -669,25 +637,18 @@ def test_target_lock_checkpoint_retries_without_replaying_policy_apply(
     item.pre_sync_done = False
     db_session.commit()
     service._apply_target_write_lock_policy = Mock()
-    real_commit = db_session.commit
-    failed = False
 
-    def busy_once():
-        nonlocal failed
-        if not failed:
-            failed = True
-            raise _busy_snapshot_error()
-        return real_commit()
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE bucket_migration_items",
+    ) as statements:
+        _migration, current_item = service._run_apply_target_lock_step(
+            migration,
+            item,
+            service._resolve_context(migration.target_context_id),
+        )
 
-    monkeypatch.setattr(db_session, "commit", busy_once)
-
-    _migration, current_item = service._run_apply_target_lock_step(
-        migration,
-        item,
-        service._resolve_context(migration.target_context_id),
-    )
-
-    assert failed is True
+    assert len(statements) >= 2
     service._apply_target_write_lock_policy.assert_called_once()
     assert current_item.step == "pre_sync"
 
@@ -695,34 +656,22 @@ def test_target_lock_checkpoint_retries_without_replaying_policy_apply(
 def test_target_lock_intent_retries_sqlite_busy_before_policy_apply(
     prepared,
     db_session,
-    monkeypatch,
 ):
     service, migration, _ = prepared
     item = migration.items[0]
     target = service._resolve_context(migration.target_context_id)
     service._configuration.get_policy = Mock(return_value=None)
     service._configuration.put_policy = Mock()
-    real_commit = db_session.commit
-    failed = False
 
-    def busy_once():
-        nonlocal failed
-        if not failed and any(
-            isinstance(row, BucketMigrationItem)
-            and row.id == item.id
-            and row.target_lock_applied
-            for row in db_session.dirty
-        ):
-            failed = True
-            raise _busy_snapshot_error()
-        return real_commit()
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE bucket_migration_items",
+    ) as statements:
+        service._apply_target_write_lock_policy(target, item.target_bucket, item)
 
-    monkeypatch.setattr(db_session, "commit", busy_once)
-
-    service._apply_target_write_lock_policy(target, item.target_bucket, item)
-
-    assert failed is True
+    assert len(statements) >= 2
     service._configuration.put_policy.assert_called_once()
+    assert not db_session.is_modified(item, include_collections=True)
     db_session.expire_all()
     stored = db_session.get(BucketMigrationItem, item.id)
     assert stored.target_lock_applied is True
@@ -731,38 +680,26 @@ def test_target_lock_intent_retries_sqlite_busy_before_policy_apply(
 def test_source_read_only_intent_retries_sqlite_busy_before_policy_apply(
     prepared,
     db_session,
-    monkeypatch,
 ):
     service, migration, _ = prepared
     item = migration.items[0]
     source = service._resolve_context(migration.source_context_id)
     service._configuration.get_policy = Mock(return_value=None)
     service._configuration.put_policy = Mock()
-    real_commit = db_session.commit
-    failed = False
 
-    def busy_once():
-        nonlocal failed
-        if not failed and any(
-            isinstance(row, BucketMigrationItem)
-            and row.id == item.id
-            and row.read_only_applied
-            for row in db_session.dirty
-        ):
-            failed = True
-            raise _busy_snapshot_error()
-        return real_commit()
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE bucket_migration_items",
+    ) as statements:
+        service._apply_read_only_policy(
+            source.execution_context,
+            item.source_bucket,
+            item,
+        )
 
-    monkeypatch.setattr(db_session, "commit", busy_once)
-
-    service._apply_read_only_policy(
-        source.execution_context,
-        item.source_bucket,
-        item,
-    )
-
-    assert failed is True
+    assert len(statements) >= 2
     service._configuration.put_policy.assert_called_once()
+    assert not db_session.is_modified(item, include_collections=True)
     db_session.expire_all()
     stored = db_session.get(BucketMigrationItem, item.id)
     assert stored.read_only_applied is True
@@ -936,12 +873,12 @@ def test_prepare_migration_run_does_not_overwrite_pause_after_stale_read(
         now = utcnow()
         if not injected:
             injected = True
-            service.db.execute(
-                sa.update(BucketMigration)
-                .where(BucketMigration.id == migration.id)
-                .values(status="pause_requested")
-                .execution_options(synchronize_session=False)
-            )
+            with service.db.get_bind().begin() as connection:
+                connection.execute(
+                    sa.update(BucketMigration)
+                    .where(BucketMigration.id == migration.id)
+                    .values(status="pause_requested")
+                )
         return now
 
     monkeypatch.setattr(
@@ -1493,30 +1430,24 @@ def test_finished_cutover_does_not_wait_for_another_cutover(prepared):
     service, migration, _ = prepared
     migration.status = "running"
     migration.items[0].status = "completed"
+    service._commit()
     service._finalize_or_wait_cutover(migration)
     assert migration.status == "completed"
 
 
-def test_finalize_completed_retries_sqlite_busy(prepared, db_session, monkeypatch):
+def test_finalize_completed_retries_sqlite_busy(prepared, db_session):
     service, migration, _ = prepared
     migration.status = "running"
     migration.items[0].status = "completed"
     service._commit()
-    real_commit = db_session.commit
-    failed = False
 
-    def busy_once():
-        nonlocal failed
-        if not failed:
-            failed = True
-            raise _busy_snapshot_error()
-        return real_commit()
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE bucket_migrations",
+    ) as statements:
+        current = service._finalize_or_wait_cutover(migration)
 
-    monkeypatch.setattr(db_session, "commit", busy_once)
-
-    current = service._finalize_or_wait_cutover(migration)
-
-    assert failed is True
+    assert len(statements) >= 2
     assert current.status == "completed"
     db_session.expire_all()
     assert db_session.get(BucketMigration, migration.id).status == "completed"
@@ -1525,28 +1456,20 @@ def test_finalize_completed_retries_sqlite_busy(prepared, db_session, monkeypatc
 def test_finalize_awaiting_cutover_retries_sqlite_busy(
     prepared,
     db_session,
-    monkeypatch,
 ):
     service, migration, _ = prepared
     migration.mode = "pre_sync"
     migration.status = "running"
     migration.items[0].status = "awaiting_cutover"
     service._commit()
-    real_commit = db_session.commit
-    failed = False
 
-    def busy_once():
-        nonlocal failed
-        if not failed:
-            failed = True
-            raise _busy_snapshot_error()
-        return real_commit()
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE bucket_migrations",
+    ) as statements:
+        current = service._finalize_or_wait_cutover(migration)
 
-    monkeypatch.setattr(db_session, "commit", busy_once)
-
-    current = service._finalize_or_wait_cutover(migration)
-
-    assert failed is True
+    assert len(statements) >= 2
     assert current.status == "awaiting_cutover"
     db_session.expire_all()
     assert db_session.get(BucketMigration, migration.id).status == "awaiting_cutover"
@@ -1721,7 +1644,6 @@ def test_verified_source_cleanup_keeps_receipt_before_destructive_call(prepared)
 def test_cleanup_verification_checkpoint_retries_without_rehashing(
     prepared,
     db_session,
-    monkeypatch,
 ):
     service, migration, _ = prepared
     item = migration.items[0]
@@ -1735,26 +1657,14 @@ def test_cleanup_verification_checkpoint_retries_without_rehashing(
     service._configuration.put_policy = Mock()
     service._apply_read_only_policy = Mock()
     service._cleanup_fingerprint = Mock(return_value="verified-sha256")
-    real_commit = db_session.commit
-    failed = False
 
-    def busy_once():
-        nonlocal failed
-        if not failed and any(
-            isinstance(row, BucketMigrationItem)
-            and row.id == item.id
-            and row.cleanup_verification is not None
-            for row in db_session.dirty
-        ):
-            failed = True
-            raise _busy_snapshot_error()
-        return real_commit()
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE bucket_migration_items",
+    ) as statements:
+        service._verify_source_cleanup_contents(item, source, target, lambda: "run")
 
-    monkeypatch.setattr(db_session, "commit", busy_once)
-
-    service._verify_source_cleanup_contents(item, source, target, lambda: "run")
-
-    assert failed is True
+    assert len(statements) >= 2
     assert service._cleanup_fingerprint.call_count == 2
     db_session.expire_all()
     stored = db_session.get(BucketMigrationItem, item.id)
@@ -1764,7 +1674,6 @@ def test_cleanup_verification_checkpoint_retries_without_rehashing(
 def test_cleanup_finalization_retries_local_checkpoint_without_restoring_twice(
     prepared,
     db_session,
-    monkeypatch,
 ):
     service, migration, _ = prepared
     item = migration.items[0]
@@ -1775,27 +1684,15 @@ def test_cleanup_finalization_retries_local_checkpoint_without_restoring_twice(
     service._commit()
     target = service._resolve_context(migration.target_context_id)
     service._restore_checked_policy = Mock()
-    real_commit = db_session.commit
-    failed = False
 
-    def busy_once():
-        nonlocal failed
-        if not failed and any(
-            isinstance(row, BucketMigrationItem)
-            and row.id == item.id
-            and row.source_deleted
-            and not row.target_lock_applied
-            for row in db_session.dirty
-        ):
-            failed = True
-            raise _busy_snapshot_error()
-        return real_commit()
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE bucket_migration_items",
+        occurrence=2,
+    ) as statements:
+        service._finalize_verified_source_cleanup(item, target)
 
-    monkeypatch.setattr(db_session, "commit", busy_once)
-
-    service._finalize_verified_source_cleanup(item, target)
-
-    assert failed is True
+    assert len(statements) >= 3
     service._restore_checked_policy.assert_called_once()
     db_session.expire_all()
     stored = db_session.get(BucketMigrationItem, item.id)
@@ -1805,7 +1702,7 @@ def test_cleanup_finalization_retries_local_checkpoint_without_restoring_twice(
     assert stored.target_policy_backup is None
 
 
-def test_maintenance_start_retries_sqlite_busy(prepared, db_session, monkeypatch):
+def test_maintenance_start_retries_sqlite_busy(prepared, db_session):
     service, migration, _ = prepared
     item = migration.items[0]
     migration.status = item.status = "completed"
@@ -1818,26 +1715,15 @@ def test_maintenance_start_retries_sqlite_busy(prepared, db_session, monkeypatch
     )
     service._restore_migration_access = Mock(return_value=[])
     service._resolve_context = Mock(return_value=SimpleNamespace())
-    real_commit = db_session.commit
-    failed = False
 
-    def busy_once():
-        nonlocal failed
-        if not failed and any(
-            isinstance(row, BucketMigration)
-            and row.id == migration.id
-            and row.maintenance_status == "running"
-            for row in db_session.dirty
-        ):
-            failed = True
-            raise _busy_snapshot_error()
-        return real_commit()
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE bucket_migrations",
+    ) as statements:
+        service.run_maintenance(migration.id)
 
-    monkeypatch.setattr(db_session, "commit", busy_once)
-
-    service.run_maintenance(migration.id)
-
-    assert failed is True
+    assert len(statements) >= 3
+    service._restore_migration_access.assert_called_once()
     db_session.expire_all()
     stored = db_session.get(BucketMigration, migration.id)
     assert stored.maintenance_status == "completed"
