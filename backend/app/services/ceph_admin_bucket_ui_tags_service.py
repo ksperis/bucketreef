@@ -143,8 +143,8 @@ class CephAdminBucketUiTagsWorkflow:
         self._validate_targets(payload, targets)
         shared_mutation = self._has_shared_mutation(payload, targets)
         try:
-            with self.tags.transaction():
-                self.tags.mutate(
+            self.tags.run_replayable_unit(
+                lambda tags: tags.mutate(
                     domain_kind=TAG_DOMAIN_BUCKET_UI_CEPH_ADMIN,
                     actor_user_id=self.actor_user_id,
                     targets=targets,
@@ -156,6 +156,7 @@ class CephAdminBucketUiTagsWorkflow:
                     remove_tag_ids=payload.remove_tag_ids,
                     remove_all=payload.remove_all,
                 )
+            )
             # Persist the tag mutation before recording the best-effort audit event.
             if shared_mutation:
                 self.record_shared_mutation(len(set(targets)))
@@ -171,14 +172,15 @@ class CephAdminBucketUiTagsWorkflow:
         payload: CephAdminBucketUiTagDefinitionPatch,
     ) -> BucketUiTagDefinitionSummary:
         try:
-            with self.tags.transaction():
-                result = self.tags.update_definition(
+            result = self.tags.run_replayable_unit(
+                lambda tags: tags.update_definition(
                     domain_kind=TAG_DOMAIN_BUCKET_UI_CEPH_ADMIN,
                     actor_user_id=self.actor_user_id,
                     tag_id=tag_id,
                     color_key=payload.color_key,
                     visibility=payload.visibility,
                 )
+            )
         except IntegrityError as exc:
             raise ResourceConflictError(
                 "A Ceph Admin UI tag already reserves this name."

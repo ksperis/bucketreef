@@ -67,21 +67,23 @@ def _endpoint(db_session, name: str) -> StorageEndpoint:
     return endpoint
 
 
-def test_bucket_ui_tag_transaction_commits_success_and_rolls_back_failure(db_session):
+def test_bucket_ui_tag_replayable_unit_commits_success_and_rolls_back_failure(db_session):
     service = BucketUiTagsService(db_session)
     committed = _user(8100, "transaction-committed@example.test")
 
-    with service.transaction():
-        db_session.add(committed)
+    service.run_replayable_unit(lambda tags: tags.db.add(committed))
 
-    assert db_session.get(User, committed.id) is committed
+    assert db_session.get(User, committed.id).email == committed.email
 
     rolled_back = _user(8103, "transaction-rolled-back@example.test")
+
+    def fail(tags: BucketUiTagsService) -> None:
+        tags.db.add(rolled_back)
+        tags.db.flush()
+        raise RuntimeError("mutation failed")
+
     with pytest.raises(RuntimeError, match="mutation failed"):
-        with service.transaction():
-            db_session.add(rolled_back)
-            db_session.flush()
-            raise RuntimeError("mutation failed")
+        service.run_replayable_unit(fail)
 
     assert db_session.get(User, rolled_back.id) is None
 

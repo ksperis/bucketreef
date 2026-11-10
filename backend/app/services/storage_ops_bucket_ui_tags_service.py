@@ -133,12 +133,15 @@ class StorageOpsBucketUiTagsWorkflow:
         payload: StorageOpsBucketUiTagPatchRequest,
         buckets: BucketsService,
     ) -> BucketUiTagCatalogResponse:
+        # Resolve and verify the S3 inventory before entering the replayable
+        # database unit. Remote I/O must never be repeated by a SQLite retry.
+        targets = self._targets(payload, buckets)
         try:
-            with self.tags.transaction():
-                self.tags.mutate(
+            self.tags.run_replayable_unit(
+                lambda tags: tags.mutate(
                     domain_kind=TAG_DOMAIN_BUCKET_UI_STORAGE_OPS,
                     actor_user_id=self.actor_user_id,
-                    targets=self._targets(payload, buckets),
+                    targets=targets,
                     add_tag_ids=payload.add_tag_ids,
                     create_tags=[
                         (item.label, item.color_key, "private")
@@ -147,6 +150,7 @@ class StorageOpsBucketUiTagsWorkflow:
                     remove_tag_ids=payload.remove_tag_ids,
                     remove_all=payload.remove_all,
                 )
+            )
         except IntegrityError as exc:
             raise ResourceConflictError(
                 "A Storage Ops UI tag already reserves this name."
@@ -158,11 +162,12 @@ class StorageOpsBucketUiTagsWorkflow:
         tag_id: int,
         payload: StorageOpsBucketUiTagDefinitionPatch,
     ) -> BucketUiTagDefinitionSummary:
-        with self.tags.transaction():
-            result = self.tags.update_definition(
+        result = self.tags.run_replayable_unit(
+            lambda tags: tags.update_definition(
                 domain_kind=TAG_DOMAIN_BUCKET_UI_STORAGE_OPS,
                 actor_user_id=self.actor_user_id,
                 tag_id=tag_id,
                 color_key=payload.color_key,
             )
+        )
         return result.definition
