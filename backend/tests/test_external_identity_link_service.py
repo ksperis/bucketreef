@@ -10,6 +10,10 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
+from tests.db_transaction_test_utils import (
+    fail_next_sqlite_statement_with_busy_snapshot,
+    fail_next_transaction_commit,
+)
 from app.core.domain_errors import ExternalIdentityConflictError
 from app.core.security import get_password_hash
 from app.db import (
@@ -116,6 +120,24 @@ def test_link_attempt_normalizes_provider_type(db_session):
     )
 
     assert attempt.provider_type == "oidc"
+
+
+def test_link_attempt_creation_retries_busy_snapshot(db_session):
+    user = _user(db_session, email="attempt-retry@example.test")
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO external_identity_link_attempts",
+    ) as matching_statements:
+        attempt = _attempt(db_session, user, subject="attempt-retry-subject")
+
+    assert len(matching_statements) == 2
+    assert attempt.subject == "attempt-retry-subject"
+    assert db_session.scalars(
+        select(ExternalIdentityLinkAttempt).where(
+            ExternalIdentityLinkAttempt.subject == "attempt-retry-subject"
+        )
+    ).all() == [attempt]
 
 
 def test_profile_oidc_link_redirect_path_is_limited_to_internal_profile_routes():
@@ -228,6 +250,59 @@ def test_password_and_linked_ldap_can_prove_target_account(db_session, monkeypat
     assert status.stage == "confirm"
 
 
+def test_ldap_proof_sqlite_retry_does_not_repeat_external_authentication(
+    db_session,
+    monkeypatch,
+):
+    user = _user(db_session, email="ldap-proof-retry@example.test")
+    db_session.add(
+        ExternalIdentity(
+            id=str(uuid.uuid4()),
+            user_id=user.id,
+            provider_type="ldap",
+            provider_id="corp",
+            subject="uid=retry,dc=example,dc=test",
+            email=user.email,
+            email_verified=False,
+        )
+    )
+    db_session.commit()
+    attempt = _attempt(db_session, user, subject="ldap-proof-retry-target")
+    ldap_calls = 0
+
+    class FakeLdapService:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def verify_credentials(self, provider_id, username, password):
+            nonlocal ldap_calls
+            ldap_calls += 1
+            assert (provider_id, username, password) == ("corp", "retry", "ldap-password")
+            return LDAPIdentity(
+                provider="corp",
+                subject="uid=retry,dc=example,dc=test",
+                dn="uid=retry,dc=example,dc=test",
+            )
+
+    monkeypatch.setattr("app.services.external_identity_link_service.LDAPAuthService", FakeLdapService)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE external_identity_link_attempts",
+    ) as matching_statements:
+        status = ExternalIdentityLinkService(db_session).verify_ldap(
+            attempt.id,
+            BROWSER_HASH,
+            provider_id="corp",
+            username="retry",
+            password="ldap-password",
+        )
+
+    assert len(matching_statements) == 2
+    assert ldap_calls == 1
+    assert status.stage == "confirm"
+
+
 def test_admin_fallback_creates_review_request_and_stops_local_flow(db_session):
     user = _user(db_session, email="fallback@example.test")
     attempt = _attempt(db_session, user)
@@ -278,37 +353,52 @@ def test_admin_fallback_creates_review_request_and_stops_local_flow(db_session):
     assert "subject" not in notification.payload
 
 
-def test_admin_fallback_rolls_back_request_and_attempt_when_commit_fails(
-    db_session,
-    monkeypatch,
-):
-    user = _user(db_session, email="fallback-request-rollback@example.test")
-    attempt = _attempt(db_session, user, subject="fallback-request-rollback-subject")
-    original_expiry = attempt.expires_at
-    original_rollback = db_session.rollback
-    rollback_calls = []
-    commit_calls = 0
+def test_admin_fallback_retries_busy_snapshot_as_one_database_unit(db_session):
+    user = _user(db_session, email="fallback-retry@example.test")
+    _user(
+        db_session,
+        email="fallback-retry-superadmin@example.test",
+        role=UserRole.UI_SUPERADMIN.value,
+    )
+    attempt = _attempt(db_session, user, subject="fallback-retry-subject")
 
-    def failing_commit():
-        nonlocal commit_calls
-        commit_calls += 1
-        raise RuntimeError("commit failed")
-
-    def recording_rollback():
-        rollback_calls.append(True)
-        original_rollback()
-
-    monkeypatch.setattr(db_session, "commit", failing_commit)
-    monkeypatch.setattr(db_session, "rollback", recording_rollback)
-
-    with pytest.raises(RuntimeError, match="commit failed"):
-        ExternalIdentityLinkAttemptService(db_session).request_admin_approval(
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE external_identity_link_attempts",
+    ) as matching_statements:
+        request = ExternalIdentityLinkAttemptService(db_session).request_admin_approval(
             attempt.id,
             BROWSER_HASH,
         )
 
-    assert commit_calls == 1
-    assert rollback_calls == [True]
+    assert len(matching_statements) == 2
+    db_session.expire_all()
+    persisted_attempt = db_session.get(ExternalIdentityLinkAttempt, attempt.id)
+    assert persisted_attempt is not None and persisted_attempt.status == "admin_requested"
+    assert db_session.scalars(
+        select(ExternalIdentityLinkRequest).where(
+            ExternalIdentityLinkRequest.id == request.id
+        )
+    ).all() == [request]
+    notifications = db_session.scalars(
+        select(UserNotification).where(
+            UserNotification.event_key.like(f"identity_link_request:{request.id}:%")
+        )
+    ).all()
+    assert len(notifications) == 1
+
+
+def test_admin_fallback_rolls_back_request_and_attempt_when_commit_fails(db_session):
+    user = _user(db_session, email="fallback-request-rollback@example.test")
+    attempt = _attempt(db_session, user, subject="fallback-request-rollback-subject")
+    original_expiry = attempt.expires_at
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            ExternalIdentityLinkAttemptService(db_session).request_admin_approval(
+                attempt.id,
+                BROWSER_HASH,
+            )
+
     db_session.expire_all()
     restored_attempt = db_session.get(ExternalIdentityLinkAttempt, attempt.id)
     assert restored_attempt is not None and restored_attempt.status == "pending"
@@ -347,10 +437,52 @@ def test_admin_fallback_rejection_reaches_terminal_link_state(db_session):
     assert notification.payload["status"] == "rejected"
 
 
-def test_admin_link_approval_rolls_back_identity_and_credentials_on_commit_failure(
-    db_session,
-    monkeypatch,
-):
+def test_admin_link_decision_retries_busy_snapshot_without_duplicates(db_session):
+    user = _user(
+        db_session,
+        email="approval-retry@example.test",
+        role=UserRole.UI_ADMIN.value,
+    )
+    attempt = _attempt(db_session, user, subject="approval-retry-subject")
+    request = ExternalIdentityLinkAttemptService(db_session).request_admin_approval(
+        attempt.id,
+        BROWSER_HASH,
+    )
+    superadmin = _user(
+        db_session,
+        email="approval-retry-superadmin@example.test",
+        role=UserRole.UI_SUPERADMIN.value,
+    )
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE external_identity_link_requests",
+    ) as matching_statements:
+        decided = ExternalIdentityLinkRequestService(db_session).decide(
+            request.id,
+            superadmin=superadmin,
+            approve=True,
+        )
+
+    assert len(matching_statements) == 2
+    assert decided.status == "approved"
+    identities = db_session.scalars(
+        select(ExternalIdentity).where(
+            ExternalIdentity.subject == "approval-retry-subject"
+        )
+    ).all()
+    assert len(identities) == 1
+    notifications = db_session.scalars(
+        select(UserNotification).where(
+            UserNotification.event_key.like(
+                f"external_identity_link_decision:{request.id}:approved:%"
+            )
+        )
+    ).all()
+    assert len(notifications) == 1
+
+
+def test_admin_link_approval_rolls_back_identity_and_credentials_on_commit_failure(db_session):
     user = _user(
         db_session,
         email="approval-rollback@example.test",
@@ -377,27 +509,14 @@ def test_admin_link_approval_rolls_back_identity_and_credentials_on_commit_failu
         role=UserRole.UI_SUPERADMIN.value,
     )
     original_version = user.auth_version
-    original_rollback = db_session.rollback
-    rollback_calls = []
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            ExternalIdentityLinkRequestService(db_session).decide(
+                request.id,
+                superadmin=superadmin,
+                approve=True,
+            )
 
-    def failing_commit():
-        raise RuntimeError("commit failed")
-
-    def recording_rollback():
-        rollback_calls.append(True)
-        original_rollback()
-
-    monkeypatch.setattr(db_session, "commit", failing_commit)
-    monkeypatch.setattr(db_session, "rollback", recording_rollback)
-
-    with pytest.raises(RuntimeError, match="commit failed"):
-        ExternalIdentityLinkRequestService(db_session).decide(
-            request.id,
-            superadmin=superadmin,
-            approve=True,
-        )
-
-    assert rollback_calls == [True]
     db_session.expire_all()
     restored_request = db_session.get(type(request), request.id)
     restored_attempt = db_session.get(ExternalIdentityLinkAttempt, attempt.id)
