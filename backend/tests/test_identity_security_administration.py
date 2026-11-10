@@ -34,6 +34,7 @@ from app.services.auth_session_service import AuthSessionService
 from app.services.mfa_reset_service import MfaResetService
 from app.utils.time import utcnow
 from tests.auth_test_utils import authenticate_ui_client, clear_ui_client, trusted_origin_headers
+from tests.db_transaction_test_utils import fail_next_transaction_commit
 from tests.s3_connection_factory import custom_endpoint_fields
 from tests.service_identity_helpers import service_identity
 from tests.storage_endpoint_features import persisted_endpoint_features
@@ -174,7 +175,7 @@ def test_common_mfa_reset_removes_all_factors_sessions_and_tokens(db_session):
     assert token.revoked_at is not None
 
 
-def test_common_mfa_reset_rolls_back_all_changes_when_commit_fails(db_session, monkeypatch):
+def test_common_mfa_reset_rolls_back_all_changes_when_commit_fails(db_session):
     target = _user(db_session, email="reset-rollback@example.com", role=UserRole.UI_ADMIN.value)
     passkey = WebAuthnCredential(
         id="reset-rollback-passkey",
@@ -214,23 +215,10 @@ def test_common_mfa_reset_rolls_back_all_changes_when_commit_fails(db_session, m
         scopes=["profile:read"],
     )
     previous_version = target.auth_version
-    original_rollback = db_session.rollback
-    rollback_calls = []
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            MfaResetService(db_session).reset(target, reason="test_failed_mfa_reset")
 
-    def failing_commit():
-        raise RuntimeError("commit failed")
-
-    def recording_rollback():
-        rollback_calls.append(True)
-        original_rollback()
-
-    monkeypatch.setattr(db_session, "commit", failing_commit)
-    monkeypatch.setattr(db_session, "rollback", recording_rollback)
-
-    with pytest.raises(RuntimeError, match="commit failed"):
-        MfaResetService(db_session).reset(target, reason="test_failed_mfa_reset")
-
-    assert rollback_calls == [True]
     db_session.expire_all()
     restored_target = db_session.get(User, target.id)
     restored_session = db_session.get(type(session), session.id)

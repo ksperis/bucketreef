@@ -13,8 +13,7 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings, get_settings
 from app.core.db_transactions import (
     add_and_flush_in_savepoint,
-    commit_or_rollback,
-    run_db_unit_with_sqlite_retry,
+    run_replayable_db_unit,
 )
 from app.db import AuthRateLimit
 from app.utils.time import utcnow
@@ -52,45 +51,54 @@ class AuthRateLimitService:
     def record_failure(self, *, account: str, ip_address: str) -> None:
         now = utcnow()
         window = self._window_start(now)
-        for key in (
+        keys = (
             self._key("account_ip", account.lower(), ip_address),
             self._key("ip", ip_address),
-        ):
-            changed = self.db.execute(
-                update(AuthRateLimit)
-                .where(AuthRateLimit.bucket_key == key, AuthRateLimit.window_started_at == window)
-                .values(attempts=AuthRateLimit.attempts + 1, updated_at=now)
-            )
-            if changed.rowcount == 0:
-                try:
-                    add_and_flush_in_savepoint(
-                        self.db,
-                        AuthRateLimit(
-                            id=str(uuid.uuid4()),
-                            bucket_key=key,
-                            window_started_at=window,
-                            attempts=1,
-                            updated_at=now,
+        )
+
+        def persist(write_db: Session) -> None:
+            for key in keys:
+                changed = write_db.execute(
+                    update(AuthRateLimit)
+                    .where(
+                        AuthRateLimit.bucket_key == key,
+                        AuthRateLimit.window_started_at == window,
+                    )
+                    .values(attempts=AuthRateLimit.attempts + 1, updated_at=now)
+                )
+                if changed.rowcount == 0:
+                    try:
+                        add_and_flush_in_savepoint(
+                            write_db,
+                            AuthRateLimit(
+                                id=str(uuid.uuid4()),
+                                bucket_key=key,
+                                window_started_at=window,
+                                attempts=1,
+                                updated_at=now,
+                            ),
                         )
-                    )
-                except IntegrityError:
-                    self.db.execute(
-                        update(AuthRateLimit)
-                        .where(AuthRateLimit.bucket_key == key, AuthRateLimit.window_started_at == window)
-                        .values(attempts=AuthRateLimit.attempts + 1, updated_at=now)
-                    )
-        commit_or_rollback(self.db)
+                    except IntegrityError:
+                        write_db.execute(
+                            update(AuthRateLimit)
+                            .where(
+                                AuthRateLimit.bucket_key == key,
+                                AuthRateLimit.window_started_at == window,
+                            )
+                            .values(attempts=AuthRateLimit.attempts + 1, updated_at=now)
+                        )
+
+        run_replayable_db_unit(self.db, persist)
 
     def clear_account(self, *, account: str, ip_address: str) -> None:
         key = self._key("account_ip", account.lower(), ip_address)
 
-        def clear_once() -> None:
-            self.db.execute(
+        def clear_once(write_db: Session) -> None:
+            write_db.execute(
                 delete(AuthRateLimit).where(AuthRateLimit.bucket_key == key)
             )
-            commit_or_rollback(self.db)
 
-        run_db_unit_with_sqlite_retry(self.db, clear_once)
+        run_replayable_db_unit(self.db, clear_once)
 
     def _window_start(self, now: datetime) -> datetime:
         timestamp = int(now.timestamp())

@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 from botocore.exceptions import ClientError
-from sqlalchemy import func, select
+from sqlalchemy import event, func, select
 from sqlalchemy.exc import OperationalError
 
 from app.core.security import get_password_hash
@@ -20,6 +20,7 @@ from app.services.auth_rate_limit_service import AuthRateLimitService
 from app.services import session_service as session_module
 from app.services.rgw_iam import RGWIAMError
 from tests.auth_test_utils import trusted_origin_headers
+from tests.db_transaction_test_utils import fail_next_transaction_commit
 from tests.router_test_utils import effective_routes
 from tests.s3_account_factory import make_s3_account
 from tests.storage_endpoint_features import persisted_endpoint_features
@@ -86,7 +87,7 @@ def _mock_external(monkeypatch, *, iam_allowed: bool) -> None:
     monkeypatch.setattr(session_module, "get_iam_client", lambda *args, **kwargs: FakeIAMClient())
 
 
-def test_session_replacement_rolls_back_atomically_when_commit_fails(db_session, monkeypatch):
+def test_session_replacement_rolls_back_atomically_when_commit_fails(db_session):
     service = session_module.SessionService(db_session)
     first = service.create_session(
         access_key="AKIA-ATOMIC",
@@ -97,31 +98,18 @@ def test_session_replacement_rolls_back_atomically_when_commit_fails(db_session,
         user_uid="iam-user",
         capabilities=SessionCapabilities(),
     )
-    original_rollback = db_session.rollback
-    rollback_calls: list[None] = []
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service.create_session(
+                access_key="AKIA-ATOMIC",
+                secret_key="new-secret",
+                actor_type="account_user",
+                account_id="RGW00000000000000001",
+                account_name="tenant-alpha",
+                user_uid="iam-user",
+                capabilities=SessionCapabilities(),
+            )
 
-    def rollback() -> None:
-        rollback_calls.append(None)
-        original_rollback()
-
-    def commit() -> None:
-        raise RuntimeError("commit failed")
-
-    monkeypatch.setattr(db_session, "rollback", rollback)
-    monkeypatch.setattr(db_session, "commit", commit)
-
-    with pytest.raises(RuntimeError, match="commit failed"):
-        service.create_session(
-            access_key="AKIA-ATOMIC",
-            secret_key="new-secret",
-            actor_type="account_user",
-            account_id="RGW00000000000000001",
-            account_name="tenant-alpha",
-            user_uid="iam-user",
-            capabilities=SessionCapabilities(),
-        )
-
-    assert rollback_calls == [None]
     sessions = db_session.scalars(
         select(S3Session).where(
             S3Session.access_key_hash == service._hash_key("AKIA-ATOMIC")
@@ -485,84 +473,52 @@ def test_login_rate_limit_returns_429_after_max_failed_attempts(monkeypatch, cli
     assert event.user_agent == "pytest-rate-limit"
 
 
-def test_auth_rate_limit_record_failure_rolls_back_when_commit_fails(db_session, monkeypatch):
+def test_auth_rate_limit_record_failure_rolls_back_when_commit_fails(db_session):
     service = AuthRateLimitService(db_session)
-    original_rollback = db_session.rollback
-    rollback_calls = []
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service.record_failure(account="rollback@example.com", ip_address="198.51.100.50")
 
-    def failing_commit():
-        raise RuntimeError("commit failed")
-
-    def recording_rollback():
-        rollback_calls.append(True)
-        original_rollback()
-
-    monkeypatch.setattr(db_session, "commit", failing_commit)
-    monkeypatch.setattr(db_session, "rollback", recording_rollback)
-
-    with pytest.raises(RuntimeError, match="commit failed"):
-        service.record_failure(account="rollback@example.com", ip_address="198.51.100.50")
-
-    assert rollback_calls == [True]
     assert db_session.scalar(select(func.count()).select_from(AuthRateLimit)) == 0
 
 
-def test_auth_rate_limit_clear_account_rolls_back_when_commit_fails(db_session, monkeypatch):
+def test_auth_rate_limit_clear_account_rolls_back_when_commit_fails(db_session):
     service = AuthRateLimitService(db_session)
     service.record_failure(account="clear-rollback@example.com", ip_address="198.51.100.51")
     before = db_session.scalar(select(func.count()).select_from(AuthRateLimit))
     assert before == 2
-    original_rollback = db_session.rollback
-    rollback_calls = []
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service.clear_account(account="clear-rollback@example.com", ip_address="198.51.100.51")
 
-    def failing_commit():
-        raise RuntimeError("commit failed")
-
-    def recording_rollback():
-        rollback_calls.append(True)
-        original_rollback()
-
-    monkeypatch.setattr(db_session, "commit", failing_commit)
-    monkeypatch.setattr(db_session, "rollback", recording_rollback)
-
-    with pytest.raises(RuntimeError, match="commit failed"):
-        service.clear_account(account="clear-rollback@example.com", ip_address="198.51.100.51")
-
-    assert rollback_calls == [True]
     assert db_session.scalar(select(func.count()).select_from(AuthRateLimit)) == before
 
 
-def test_auth_rate_limit_clear_account_retries_sqlite_busy(db_session, monkeypatch):
+def test_auth_rate_limit_clear_account_retries_sqlite_busy(db_session):
     service = AuthRateLimitService(db_session)
     service.record_failure(account="clear-busy@example.com", ip_address="198.51.100.52")
     assert db_session.scalar(select(func.count()).select_from(AuthRateLimit)) == 2
 
-    original_execute = db_session.execute
-    original_rollback = db_session.rollback
     execute_calls = 0
-    rollback_calls = 0
 
-    def busy_once(statement, *args, **kwargs):
+    def busy_once(_connection, _cursor, statement, _parameters, _context, _executemany):
         nonlocal execute_calls
+        if not statement.startswith("DELETE FROM auth_rate_limits"):
+            return
         execute_calls += 1
         if execute_calls == 1:
             original = sqlite3.OperationalError("database is locked")
             original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
             raise OperationalError("DELETE", (), original)
-        return original_execute(statement, *args, **kwargs)
 
-    def recording_rollback():
-        nonlocal rollback_calls
-        rollback_calls += 1
-        original_rollback()
-
-    monkeypatch.setattr(db_session, "execute", busy_once)
-    monkeypatch.setattr(db_session, "rollback", recording_rollback)
-
-    service.clear_account(account="clear-busy@example.com", ip_address="198.51.100.52")
+    bind = db_session.get_bind()
+    event.listen(bind, "before_cursor_execute", busy_once)
+    try:
+        service.clear_account(account="clear-busy@example.com", ip_address="198.51.100.52")
+    finally:
+        event.remove(bind, "before_cursor_execute", busy_once)
 
     assert execute_calls == 2
-    assert rollback_calls == 1
     assert db_session.scalar(select(func.count()).select_from(AuthRateLimit)) == 1
 
 
