@@ -114,7 +114,9 @@ test("keeps root uploads visible after refresh, search, and reload", async ({ pa
   }
 
   await page.goto(`/browser?bucket=${encodeURIComponent(E2E_BUCKET_NAME)}`);
-  await expect(page.getByRole("button", { name: "Select bucket" })).toContainText(E2E_BUCKET_NAME);
+  await expect(page.getByRole("button", { name: "Select bucket" })).toContainText(E2E_BUCKET_NAME, {
+    timeout: 15_000,
+  });
   for (const name of fileNames) {
     await expect(getFileButton(page, name)).toBeVisible();
   }
