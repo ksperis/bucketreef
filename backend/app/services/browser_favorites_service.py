@@ -3,9 +3,10 @@
 from uuid import uuid4
 
 from sqlalchemy import delete, func, select, update
+from sqlalchemy.orm import Session
 
 from app.core.domain_errors import BrowserFavoriteConflictError, BrowserFavoriteNotFoundError
-from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
+from app.core.db_transactions import run_replayable_db_unit
 from app.db.browser_favorite import BrowserFavorite
 from app.models.browser_favorites import BrowserFavoriteInput, BrowserFavoriteOut
 from app.utils.time import utcnow
@@ -30,9 +31,10 @@ class BrowserFavoritesService:
     def create(self, user, payload: BrowserFavoriteInput):
         user_id = user.id
         favorite_id = str(uuid4())
+        favorite_values = payload.model_dump()
 
-        def create_once() -> BrowserFavoriteOut:
-            favorite_count = self.db.scalar(
+        def create_once(write_db: Session) -> BrowserFavoriteOut:
+            favorite_count = write_db.scalar(
                 select(func.count()).select_from(BrowserFavorite).where(
                     BrowserFavorite.user_id == user_id
                 )
@@ -42,22 +44,22 @@ class BrowserFavoritesService:
             row = BrowserFavorite(
                 id=favorite_id,
                 user_id=user_id,
-                **payload.model_dump(),
+                **favorite_values,
                 revision=1,
             )
-            self.db.add(row)
-            self.db.flush()
-            output = self.output(row)
-            commit_or_rollback(self.db)
-            return output
+            write_db.add(row)
+            write_db.flush()
+            return self.output(row)
 
-        return run_db_unit_with_sqlite_retry(self.db, create_once)
+        return run_replayable_db_unit(self.db, create_once)
 
     def mutate(self, user, favorite_id, revision, payload: BrowserFavoriteInput | None = None):
         user_id = user.id
+        payload_values = payload.model_dump() if payload is not None else None
+        updated_at = utcnow()
 
-        def mutate_once() -> None:
-            owned = self.db.scalar(
+        def mutate_once(write_db: Session) -> None:
+            owned = write_db.scalar(
                 select(BrowserFavorite).where(
                     BrowserFavorite.id == favorite_id,
                     BrowserFavorite.user_id == user_id,
@@ -72,24 +74,22 @@ class BrowserFavoritesService:
             )
             statement = (
                 delete(BrowserFavorite).where(*predicate)
-                if payload is None
+                if payload_values is None
                 else update(BrowserFavorite)
                 .where(*predicate)
                 .values(
-                    **payload.model_dump(),
+                    **payload_values,
                     revision=revision + 1,
-                    updated_at=utcnow(),
+                    updated_at=updated_at,
                 )
             )
-            result = self.db.execute(statement.execution_options(synchronize_session=False))
+            result = write_db.execute(statement.execution_options(synchronize_session=False))
             if result.rowcount != 1:
-                self.db.rollback()
                 raise BrowserFavoriteConflictError(
                     "This favorite changed in another browser. Refresh before editing it."
                 )
-            commit_or_rollback(self.db)
 
-        run_db_unit_with_sqlite_retry(self.db, mutate_once)
+        run_replayable_db_unit(self.db, mutate_once)
         if payload is None:
             return None
         row = self.db.get(BrowserFavorite, favorite_id)

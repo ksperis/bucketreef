@@ -5,7 +5,7 @@ from __future__ import annotations
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import run_replayable_db_unit
 from app.db import COST_MODEL_SINGLETON_ID, CostEndpointOverride, CostModel, StorageEndpoint
 from app.models.cost import CostEndpointOverride as CostEndpointOverrideModel
 from app.models.cost import CostGlobalModel, CostSettings
@@ -44,50 +44,53 @@ class CostSettingsService:
     def save_settings(self, payload: CostSettings) -> CostSettings:
         requested = {item.storage_endpoint_id: item for item in payload.endpoint_overrides}
         requested_endpoint_ids = set(requested)
-        if requested_endpoint_ids:
-            existing_endpoint_ids = set(
-                self.db.scalars(
-                    select(StorageEndpoint.id).where(StorageEndpoint.id.in_(requested_endpoint_ids))
-                ).all()
-            )
-            missing = requested_endpoint_ids - existing_endpoint_ids
-            if missing:
-                raise ValueError(f"Unknown storage endpoint id: {min(missing)}")
-
-        if payload.model is None:
-            self.db.execute(delete(CostEndpointOverride))
-            model = self.db.get(CostModel, COST_MODEL_SINGLETON_ID)
-            if model is not None:
-                self.db.delete(model)
-            commit_or_rollback(self.db)
-            return self.get_settings()
-
         now = utcnow()
-        model = self.db.get(CostModel, COST_MODEL_SINGLETON_ID)
-        if model is None:
-            model = CostModel(id=COST_MODEL_SINGLETON_ID, created_at=now, updated_at=now)
-            self.db.add(model)
-        _apply_cost_payload(model, payload.model)
-        model.updated_at = now
 
-        existing_overrides = {
-            row.storage_endpoint_id: row
-            for row in self.db.scalars(select(CostEndpointOverride)).all()
-        }
-        for endpoint_id, row in existing_overrides.items():
-            if endpoint_id not in requested:
-                self.db.delete(row)
-        for endpoint_id, item in requested.items():
-            row = existing_overrides.get(endpoint_id)
-            if row is None:
-                row = CostEndpointOverride(
-                    storage_endpoint_id=endpoint_id,
-                    created_at=now,
-                    updated_at=now,
+        def persist(write_db: Session) -> None:
+            if requested_endpoint_ids:
+                existing_endpoint_ids = set(
+                    write_db.scalars(
+                        select(StorageEndpoint.id).where(
+                            StorageEndpoint.id.in_(requested_endpoint_ids)
+                        )
+                    ).all()
                 )
-                self.db.add(row)
-            _apply_cost_payload(row, item)
-            row.updated_at = now
+                missing = requested_endpoint_ids - existing_endpoint_ids
+                if missing:
+                    raise ValueError(f"Unknown storage endpoint id: {min(missing)}")
 
-        commit_or_rollback(self.db)
+            if payload.model is None:
+                write_db.execute(delete(CostEndpointOverride))
+                model = write_db.get(CostModel, COST_MODEL_SINGLETON_ID)
+                if model is not None:
+                    write_db.delete(model)
+                return
+
+            model = write_db.get(CostModel, COST_MODEL_SINGLETON_ID)
+            if model is None:
+                model = CostModel(id=COST_MODEL_SINGLETON_ID, created_at=now, updated_at=now)
+                write_db.add(model)
+            _apply_cost_payload(model, payload.model)
+            model.updated_at = now
+
+            existing_overrides = {
+                row.storage_endpoint_id: row
+                for row in write_db.scalars(select(CostEndpointOverride)).all()
+            }
+            for endpoint_id, row in existing_overrides.items():
+                if endpoint_id not in requested:
+                    write_db.delete(row)
+            for endpoint_id, item in requested.items():
+                row = existing_overrides.get(endpoint_id)
+                if row is None:
+                    row = CostEndpointOverride(
+                        storage_endpoint_id=endpoint_id,
+                        created_at=now,
+                        updated_at=now,
+                    )
+                    write_db.add(row)
+                _apply_cost_payload(row, item)
+                row.updated_at = now
+
+        run_replayable_db_unit(self.db, persist)
         return self.get_settings()
