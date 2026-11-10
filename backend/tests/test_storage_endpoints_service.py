@@ -56,6 +56,10 @@ from app.utils.storage_endpoint_features import (
     validate_persisted_features,
 )
 from app.utils.time import utcnow
+from tests.db_transaction_test_utils import (
+    fail_next_sqlite_statement_with_busy_snapshot,
+    fail_next_transaction_commit,
+)
 from tests.service_identity_helpers import service_identity
 from tests.storage_endpoint_features import persisted_endpoint_features
 
@@ -116,22 +120,6 @@ def _create_ceph_endpoint_with_full_credentials(db_session, name: str = "ceph-fu
 def isolate_remote_identity_lifecycle(monkeypatch):
     # Lifecycle behavior is covered by test_endpoint_service_identities, with a fake RGW.
     monkeypatch.setattr("app.services.endpoint_service_identities.EndpointServiceIdentityService.reconcile", lambda *args, **kwargs: [])
-
-
-def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
-    rollback_calls: list[None] = []
-    original_rollback = db_session.rollback
-
-    def rollback() -> None:
-        rollback_calls.append(None)
-        original_rollback()
-
-    def commit() -> None:
-        raise RuntimeError("commit failed")
-
-    monkeypatch.setattr(db_session, "rollback", rollback)
-    monkeypatch.setattr(db_session, "commit", commit)
-    return rollback_calls
 
 
 def test_get_endpoint_uses_typed_not_found_error(db_session):
@@ -1112,28 +1100,39 @@ def test_sync_env_endpoints_rolls_back_failed_env_unlock(db_session, monkeypatch
         "",
         raising=False,
     )
-    commit = db_session.commit
-    rollback = db_session.rollback
-    rollback_calls = 0
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            StorageEndpointsService(db_session).sync_env_endpoints()
 
-    def fail_commit():
-        raise RuntimeError("simulated ENV unlock commit failure")
-
-    def track_rollback():
-        nonlocal rollback_calls
-        rollback_calls += 1
-        return rollback()
-
-    monkeypatch.setattr(db_session, "commit", fail_commit)
-    monkeypatch.setattr(db_session, "rollback", track_rollback)
-
-    with pytest.raises(RuntimeError, match="ENV unlock commit failure"):
-        StorageEndpointsService(db_session).sync_env_endpoints()
-
-    assert rollback_calls == 1
-    monkeypatch.setattr(db_session, "commit", commit)
     db_session.refresh(endpoint)
     assert endpoint.is_editable is False
+
+
+def test_sync_env_endpoints_retries_busy_snapshot_when_unlocking_removed_inventory(db_session, monkeypatch):
+    endpoint = StorageEndpoint(
+        name="former-env-busy",
+        endpoint_url="https://former-env-busy.example.test",
+        provider=StorageProvider.CEPH.value,
+        is_default=True,
+        is_editable=False,
+    )
+    db_session.add(endpoint)
+    db_session.commit()
+    monkeypatch.setattr(
+        "app.services.storage_endpoints_service.settings.env_storage_endpoints",
+        "",
+        raising=False,
+    )
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE storage_endpoints",
+    ) as matching_statements:
+        assert StorageEndpointsService(db_session).sync_env_endpoints() == []
+
+    assert len(matching_statements) == 2
+    db_session.refresh(endpoint)
+    assert endpoint.is_editable is True
 
 
 def test_environment_storage_endpoint_rejects_unknown_fields(db_session, monkeypatch):
@@ -1529,19 +1528,62 @@ def test_update_endpoint_tags_normalizes_and_serializes_tags(db_session):
 def test_update_endpoint_tags_rolls_back_when_commit_fails(db_session, monkeypatch):
     endpoint = _create_ceph_endpoint(db_session, name="ceph-tags-rollback")
     service = StorageEndpointsService(db_session)
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        service.update_endpoint_tags(
-            endpoint.id,
-            StorageEndpointTagsUpdate(tags=["prod"]),
-        )
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service.update_endpoint_tags(
+                endpoint.id,
+                StorageEndpointTagsUpdate(tags=["prod"]),
+            )
 
-    assert rollback_calls == [None]
     db_session.expire_all()
     persisted = db_session.get(StorageEndpoint, endpoint.id)
     assert persisted is not None
     assert service.tags.get_storage_endpoint_tags(persisted) == []
+
+
+def test_update_endpoint_tags_retries_busy_snapshot_without_duplicates(db_session):
+    endpoint = _create_ceph_endpoint(db_session, name="ceph-tags-busy")
+    service = StorageEndpointsService(db_session)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO tag_definitions",
+    ) as matching_statements:
+        updated = service.update_endpoint_tags(
+            endpoint.id,
+            StorageEndpointTagsUpdate(tags=["prod", "rgw-a"]),
+        )
+
+    assert len(matching_statements) == 3
+    assert [tag.label for tag in updated.tags] == ["prod", "rgw-a"]
+    db_session.expire_all()
+    persisted = db_session.get(StorageEndpoint, endpoint.id)
+    assert persisted is not None
+    assert [
+        tag.label for tag in service.tags.get_storage_endpoint_tags(persisted)
+    ] == ["prod", "rgw-a"]
+
+
+def test_set_default_endpoint_retries_busy_snapshot_atomically(db_session):
+    first = _create_ceph_endpoint(db_session, name="default-before")
+    second = _create_ceph_endpoint(db_session, name="default-after")
+    second.is_default = False
+    db_session.commit()
+    service = StorageEndpointsService(db_session)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE storage_endpoints SET is_default",
+    ) as matching_statements:
+        updated = service.set_default_endpoint(second.id)
+
+    assert len(matching_statements) >= 2
+    assert updated.id == second.id
+    defaults = db_session.scalars(
+        select(StorageEndpoint.id).where(StorageEndpoint.is_default.is_(True))
+    ).all()
+    assert defaults == [second.id]
 
 
 def test_detect_features_types_missing_stored_endpoint(db_session):

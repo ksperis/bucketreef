@@ -7,12 +7,12 @@ from __future__ import annotations
 import logging
 from dataclasses import replace
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import commit_or_rollback, run_replayable_db_unit
 from app.core.domain_enums import (
     MANAGED_SERVICE_IDENTITY_KINDS,
     SERVICE_IDENTITY_KINDS,
@@ -68,14 +68,26 @@ class StorageEndpointEnvSyncService:
             lease.release(handle)
 
     def _unlock_removed_env_inventory(self) -> None:
-        env_locked_endpoints = self.db.scalars(
-            select(StorageEndpoint).where(StorageEndpoint.is_editable.is_(False))
-        ).all()
-        for endpoint in env_locked_endpoints:
-            endpoint.is_editable = True
-            self.db.add(endpoint)
-        if env_locked_endpoints:
-            commit_or_rollback(self.db)
+        env_locked_endpoint_ids = list(
+            self.db.scalars(
+                select(StorageEndpoint.id).where(StorageEndpoint.is_editable.is_(False))
+            ).all()
+        )
+        if not env_locked_endpoint_ids:
+            return
+
+        def unlock_once(write_db: Session) -> None:
+            write_db.execute(
+                update(StorageEndpoint)
+                .where(
+                    StorageEndpoint.id.in_(env_locked_endpoint_ids),
+                    StorageEndpoint.is_editable.is_(False),
+                )
+                .values(is_editable=True)
+                .execution_options(synchronize_session=False)
+            )
+
+        run_replayable_db_unit(self.db, unlock_once)
 
     def _sync(
         self,
