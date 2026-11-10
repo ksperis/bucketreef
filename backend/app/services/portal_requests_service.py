@@ -3,12 +3,13 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, NoReturn, Optional
 
 from sqlalchemy import String, cast, or_, select
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import run_replayable_db_unit
 from app.core.domain_errors import ResourceConflictError, ResourceNotFoundError
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import PortalAdminRequest, PortalAdminRequestMessage, S3Account, User
@@ -89,27 +90,80 @@ class PortalRequestsService:
             S3AccountRgwContextService(db)
         )
         self.collaborator_requests = PortalCollaboratorRequestsService(db)
-        self.notifications = PortalRequestNotificationService(db)
-
-    def _commit(self) -> None:
-        commit_or_rollback(self.db)
-
-    def _commit_request(self, row: PortalAdminRequest) -> None:
-        self._commit()
-        self.db.refresh(row)
 
     @staticmethod
     def _apply_request_decision(
         row: PortalAdminRequest,
-        actor: User,
+        *,
+        actor_id: int,
+        actor_email: str,
         status: str,
+        decided_at: datetime,
     ) -> None:
-        now = utcnow()
         row.status = status
-        row.decided_by_user_id = int(actor.id)
-        row.decided_by_email = actor.email
-        row.decided_at = now
-        row.updated_at = now
+        row.decided_by_user_id = actor_id
+        row.decided_by_email = actor_email
+        row.decided_at = decided_at
+        row.updated_at = decided_at
+
+    @staticmethod
+    def _load_request_from(db: Session, request_id: int) -> PortalAdminRequest:
+        row = db.scalar(
+            select(PortalAdminRequest).where(PortalAdminRequest.id == int(request_id))
+        )
+        if not row:
+            raise PortalRequestNotFound("Request not found")
+        return row
+
+    @staticmethod
+    def _append_message(
+        row: PortalAdminRequest,
+        *,
+        author_user_id: int,
+        author_email: str,
+        author_role: str,
+        message: str,
+        created_at: datetime,
+    ) -> None:
+        clean_message = " ".join(str(message).split())
+        if not clean_message:
+            return
+        row.messages.append(
+            PortalAdminRequestMessage(
+                request_id=int(row.id),
+                author_user_id=author_user_id,
+                author_email=author_email,
+                author_role=author_role,
+                message=clean_message,
+                created_at=created_at,
+            )
+        )
+
+    def _notify_admins(self, request_id: int) -> None:
+        def persist_once(write_db: Session) -> None:
+            row = self._load_request_from(write_db, request_id)
+            PortalRequestNotificationService(write_db).notify_admins(row)
+
+        run_replayable_db_unit(self.db, persist_once)
+
+    def _notify_requester(
+        self,
+        request_id: int,
+        *,
+        title: str,
+        message: str,
+        event_suffix: str,
+    ) -> None:
+        def persist_once(write_db: Session) -> None:
+            row = self._load_request_from(write_db, request_id)
+            PortalRequestNotificationService(write_db).notify_requester(
+                row,
+                title=title,
+                message=message,
+                event_suffix=event_suffix,
+            )
+
+        run_replayable_db_unit(self.db, persist_once)
 
     def create_request(
         self,
@@ -122,18 +176,28 @@ class PortalRequestsService:
             access,
             payload,
         )
-        row = PortalAdminRequest(
-            account_id=int(access.account.id),
-            requester_user_id=int(actor.id),
-            requester_email=actor.email,
-            request_type=request_type,
-            status="pending",
-            payload=dict(payload_data),
-            created_at=utcnow(),
-            updated_at=utcnow(),
-        )
-        self.db.add(row)
-        self._commit_request(row)
+        account_id = int(access.account.id)
+        requester_user_id = int(actor.id)
+        requester_email = actor.email
+        created_at = utcnow()
+
+        def create_once(write_db: Session) -> int:
+            row = PortalAdminRequest(
+                account_id=account_id,
+                requester_user_id=requester_user_id,
+                requester_email=requester_email,
+                request_type=request_type,
+                status="pending",
+                payload=dict(payload_data),
+                created_at=created_at,
+                updated_at=created_at,
+            )
+            write_db.add(row)
+            write_db.flush()
+            return int(row.id)
+
+        request_id = run_replayable_db_unit(self.db, create_once)
+        row = self._load_request(request_id)
         delegated_execution = self.collaborator_requests.is_delegated_execution(
             access,
             request_type=request_type,
@@ -154,9 +218,8 @@ class PortalRequestsService:
         )
         if delegated_execution:
             return self._execute_delegated_request(row, actor)
-        self.notifications.notify_admins(row)
-        self._commit()
-        return self.to_out(row)
+        self._notify_admins(request_id)
+        return self.to_out(self._load_request(request_id))
 
     def _prepare_create_request(
         self,
@@ -234,13 +297,13 @@ class PortalRequestsService:
         self.db.rollback()
         failed = self._finalize_failed_request(request_id, actor, detail)
         if notify_requester:
-            self.notifications.notify_requester(
-                failed,
+            self._notify_requester(
+                request_id,
                 title="Portal request failed",
                 message="Your Portal request could not be completed after approval.",
                 event_suffix="failed",
             )
-            self._commit()
+            failed = self._load_request(request_id)
 
         metadata: dict[str, Any] = {"request_type": failed.request_type}
         if execution is not None:
@@ -324,18 +387,35 @@ class PortalRequestsService:
         actor: User,
         message: str,
     ) -> PortalAdminRequestOut:
+        actor_id = int(actor.id)
+        actor_email = actor.email
+        actor_role = actor.role
+        message_at = utcnow()
+
+        def persist_once(write_db: Session) -> int:
+            row = self._load_request_from(write_db, request_id)
+            self._append_message(
+                row,
+                author_user_id=actor_id,
+                author_email=actor_email,
+                author_role=actor_role,
+                message=message,
+                created_at=message_at,
+            )
+            row.updated_at = message_at
+            write_db.add(row)
+            write_db.flush()
+            return int(row.id)
+
+        run_replayable_db_unit(self.db, persist_once)
         row = self._load_request(request_id)
-        self._add_message(row, actor, message)
-        row.updated_at = utcnow()
-        self.db.add(row)
-        self._commit_request(row)
-        self.notifications.notify_requester(
-            row,
+        self._notify_requester(
+            request_id,
             title="Message on your Portal request",
-            message=f"{actor.email} replied to your Portal request.",
+            message=f"{actor_email} replied to your Portal request.",
             event_suffix=f"message:{row.messages[-1].id if row.messages else 'latest'}",
         )
-        self._commit()
+        row = self._load_request(request_id)
         AuditService(self.db).record_action(
             user=actor,
             scope="admin",
@@ -354,20 +434,42 @@ class PortalRequestsService:
         *,
         message: Optional[str] = None,
     ) -> PortalAdminRequestOut:
+        actor_id = int(actor.id)
+        actor_email = actor.email
+        actor_role = actor.role
+        decided_at = utcnow()
+
+        def reject_once(write_db: Session) -> int:
+            row = self._load_request_from(write_db, request_id)
+            self._ensure_pending(row)
+            self._apply_request_decision(
+                row,
+                actor_id=actor_id,
+                actor_email=actor_email,
+                status="rejected",
+                decided_at=decided_at,
+            )
+            if message:
+                self._append_message(
+                    row,
+                    author_user_id=actor_id,
+                    author_email=actor_email,
+                    author_role=actor_role,
+                    message=message,
+                    created_at=decided_at,
+                )
+            write_db.add(row)
+            return int(row.id)
+
+        run_replayable_db_unit(self.db, reject_once)
         row = self._load_request(request_id)
-        self._ensure_pending(row)
-        self._apply_request_decision(row, actor, "rejected")
-        if message:
-            self._add_message(row, actor, message)
-        self.db.add(row)
-        self._commit_request(row)
-        self.notifications.notify_requester(
-            row,
+        self._notify_requester(
+            request_id,
             title="Portal request rejected",
             message="Your Portal request was rejected by a storage admin.",
             event_suffix="rejected",
         )
-        self._commit()
+        row = self._load_request(request_id)
         AuditService(self.db).record_action(
             user=actor,
             scope="admin",
@@ -386,12 +488,18 @@ class PortalRequestsService:
         *,
         message: Optional[str] = None,
     ) -> PortalAdminRequestOut:
+        processing_at = utcnow()
+
+        def mark_processing_once(write_db: Session) -> int:
+            row = self._load_request_from(write_db, request_id)
+            self._ensure_pending(row)
+            row.status = "processing"
+            row.updated_at = processing_at
+            write_db.add(row)
+            return int(row.id)
+
+        run_replayable_db_unit(self.db, mark_processing_once)
         row = self._load_request(request_id)
-        self._ensure_pending(row)
-        row.status = "processing"
-        row.updated_at = utcnow()
-        self.db.add(row)
-        self._commit_request(row)
 
         try:
             result = self._execute_request(row)
@@ -411,13 +519,13 @@ class PortalRequestsService:
             result,
             message=message,
         )
-        self.notifications.notify_requester(
-            approved,
+        self._notify_requester(
+            request_id,
             title="Portal request approved",
             message="Your Portal request was approved and applied.",
             event_suffix="approved",
         )
-        self._commit()
+        approved = self._load_request(request_id)
         AuditService(self.db).record_action(
             user=actor,
             scope="admin",
@@ -435,12 +543,24 @@ class PortalRequestsService:
         actor: User,
         detail: str,
     ) -> PortalAdminRequest:
-        row = self._load_request(request_id)
-        self._apply_request_decision(row, actor, "failed")
-        row.error_message = detail
-        self.db.add(row)
-        self._commit()
-        return row
+        actor_id = int(actor.id)
+        actor_email = actor.email
+        decided_at = utcnow()
+
+        def finalize_once(write_db: Session) -> None:
+            row = self._load_request_from(write_db, request_id)
+            self._apply_request_decision(
+                row,
+                actor_id=actor_id,
+                actor_email=actor_email,
+                status="failed",
+                decided_at=decided_at,
+            )
+            row.error_message = detail
+            write_db.add(row)
+
+        run_replayable_db_unit(self.db, finalize_once)
+        return self._load_request(request_id)
 
     def _finalize_approved_request(
         self,
@@ -450,15 +570,36 @@ class PortalRequestsService:
         *,
         message: Optional[str] = None,
     ) -> PortalAdminRequest:
-        row = self._load_request(request_id)
-        self._apply_request_decision(row, actor, "approved")
-        row.result = dict(result)
-        row.error_message = None
-        if message:
-            self._add_message(row, actor, message)
-        self.db.add(row)
-        self._commit_request(row)
-        return row
+        actor_id = int(actor.id)
+        actor_email = actor.email
+        actor_role = actor.role
+        decided_at = utcnow()
+        stored_result = dict(result)
+
+        def finalize_once(write_db: Session) -> None:
+            row = self._load_request_from(write_db, request_id)
+            self._apply_request_decision(
+                row,
+                actor_id=actor_id,
+                actor_email=actor_email,
+                status="approved",
+                decided_at=decided_at,
+            )
+            row.result = dict(stored_result)
+            row.error_message = None
+            if message:
+                self._append_message(
+                    row,
+                    author_user_id=actor_id,
+                    author_email=actor_email,
+                    author_role=actor_role,
+                    message=message,
+                    created_at=decided_at,
+                )
+            write_db.add(row)
+
+        run_replayable_db_unit(self.db, finalize_once)
+        return self._load_request(request_id)
 
     def to_out(self, row: PortalAdminRequest) -> PortalAdminRequestOut:
         return PortalAdminRequestOut(
@@ -609,12 +750,7 @@ class PortalRequestsService:
             raise ValueError("Requested quota cannot be lower than the space already used")
 
     def _load_request(self, request_id: int) -> PortalAdminRequest:
-        row = self.db.scalar(
-            select(PortalAdminRequest).where(PortalAdminRequest.id == int(request_id))
-        )
-        if not row:
-            raise PortalRequestNotFound("Request not found")
-        return row
+        return self._load_request_from(self.db, request_id)
 
     def _ensure_pending(self, row: PortalAdminRequest) -> None:
         if row.status != "pending":
@@ -623,21 +759,6 @@ class PortalRequestsService:
             if row.status in REQUEST_FINAL_STATUSES:
                 raise PortalRequestConflict("Request has already been decided")
             raise PortalRequestConflict("Request cannot be modified")
-
-    def _add_message(self, row: PortalAdminRequest, actor: User, message: str) -> None:
-        clean_message = " ".join(str(message).split())
-        if not clean_message:
-            return
-        row.messages.append(
-            PortalAdminRequestMessage(
-                request_id=int(row.id),
-                author_user_id=int(actor.id),
-                author_email=actor.email,
-                author_role=actor.role,
-                message=clean_message,
-                created_at=utcnow(),
-            )
-        )
 
     def _normalize_create_payload(self, payload: PortalAdminRequestCreate) -> tuple[str, dict[str, Any]]:
         if isinstance(payload, PortalUserRemovalRequestCreate):
