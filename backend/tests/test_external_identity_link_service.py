@@ -588,7 +588,6 @@ def test_confirm_revokes_existing_credentials_and_creates_replacement_session(db
 
 def test_confirm_rolls_back_identity_and_replacement_credentials_when_commit_fails(
     db_session,
-    monkeypatch,
 ):
     user = _user(
         db_session,
@@ -614,32 +613,16 @@ def test_confirm_rolls_back_identity_and_replacement_credentials_when_commit_fai
     attempt.mfa_verified_at = utcnow()
     db_session.add(attempt)
     db_session.commit()
-    original_rollback = db_session.rollback
-    rollback_calls = []
-    commit_calls = 0
 
-    def failing_commit():
-        nonlocal commit_calls
-        commit_calls += 1
-        raise RuntimeError("commit failed")
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            ExternalIdentityLinkService(db_session).confirm(
+                attempt.id,
+                BROWSER_HASH,
+                ip_address="127.0.0.1",
+                user_agent="pytest",
+            )
 
-    def recording_rollback():
-        rollback_calls.append(True)
-        original_rollback()
-
-    monkeypatch.setattr(db_session, "commit", failing_commit)
-    monkeypatch.setattr(db_session, "rollback", recording_rollback)
-
-    with pytest.raises(RuntimeError, match="commit failed"):
-        ExternalIdentityLinkService(db_session).confirm(
-            attempt.id,
-            BROWSER_HASH,
-            ip_address="127.0.0.1",
-            user_agent="pytest",
-        )
-
-    assert commit_calls == 1
-    assert rollback_calls == [True]
     db_session.expire_all()
     restored_user = db_session.get(User, user.id)
     restored_attempt = db_session.get(ExternalIdentityLinkAttempt, attempt.id)
@@ -660,6 +643,78 @@ def test_confirm_rolls_back_identity_and_replacement_credentials_when_commit_fai
             UserNotification.event_key.like("external_identity_linked:%")
         )
     ).all() == []
+
+
+def test_confirm_retries_sqlite_busy_snapshot_without_duplicate_state(db_session):
+    user = _user(
+        db_session,
+        email="confirm-busy@example.test",
+        role=UserRole.UI_ADMIN.value,
+    )
+    original_version = user.auth_version
+    old_credentials = AuthSessionService(db_session).create_for_user(
+        user,
+        auth_type="test",
+        ip_address="127.0.0.1",
+        user_agent="pytest",
+        mfa_verified=True,
+    )
+    _, api_token = ApiTokenService(db_session).create_for_user(
+        user,
+        name="confirm busy token",
+        scopes=["profile:read"],
+    )
+    attempt = _attempt(db_session, user, subject="confirm-busy-subject")
+    attempt.proof_method = "password"
+    attempt.proof_verified_at = utcnow()
+    attempt.mfa_verified_at = utcnow()
+    db_session.add(attempt)
+    db_session.commit()
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO user_notifications",
+    ) as statements:
+        completion = ExternalIdentityLinkService(db_session).confirm(
+            attempt.id,
+            BROWSER_HASH,
+            ip_address="127.0.0.1",
+            user_agent="pytest",
+        )
+
+    db_session.expire_all()
+    restored_user = db_session.get(User, user.id)
+    restored_attempt = db_session.get(ExternalIdentityLinkAttempt, attempt.id)
+    restored_old_session = db_session.get(AuthSession, old_credentials.session.id)
+    db_session.refresh(api_token)
+    sessions = db_session.scalars(
+        select(AuthSession).where(AuthSession.user_id == user.id)
+    ).all()
+    identities = db_session.scalars(
+        select(ExternalIdentity).where(
+            ExternalIdentity.user_id == user.id,
+            ExternalIdentity.subject == "confirm-busy-subject",
+        )
+    ).all()
+    notifications = db_session.scalars(
+        select(UserNotification).where(
+            UserNotification.event_key.like("external_identity_linked:%")
+        )
+    ).all()
+
+    assert len(statements) == 2
+    assert restored_user is not None
+    assert restored_user.auth_version == original_version + 1
+    assert restored_attempt is not None and restored_attempt.status == "completed"
+    assert restored_attempt.consumed_at is not None
+    assert restored_old_session is not None and restored_old_session.revoked_at is not None
+    assert api_token.revoked_at is not None
+    assert len(sessions) == 2
+    assert sum(session.revoked_at is None for session in sessions) == 1
+    assert completion.credentials.session.id in {session.id for session in sessions}
+    assert len(identities) == 1
+    assert identities[0].id == completion.identity.id
+    assert len(notifications) == 1
 
 
 def test_ldap_link_can_be_confirmed_after_proving_target_local_password(db_session):

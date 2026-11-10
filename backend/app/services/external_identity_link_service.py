@@ -11,12 +11,16 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
-from app.core.db_transactions import commit_or_rollback, run_replayable_db_unit
+from app.core.db_transactions import run_replayable_db_unit
 from app.core.security import verify_password
 from app.db import ExternalIdentity, ExternalIdentityLinkRequest, ExternalIdentityLinkAttempt, User
 from app.models.external_identity_link import ExternalIdentityLinkProofMethod, ExternalIdentityLinkStatus
 from app.services.audit_service import AuditService
-from app.services.auth_session_service import AuthSessionService, SessionCredentials
+from app.services.auth_session_service import (
+    AuthSessionService,
+    PreparedAuthSession,
+    SessionCredentials,
+)
 from app.services.external_identity_link_attempt_service import ExternalIdentityLinkAttemptService
 from app.services.external_identity_link_contracts import (
     ExternalIdentityLinkError,
@@ -273,31 +277,78 @@ class ExternalIdentityLinkService:
         ip_address: Optional[str],
         user_agent: Optional[str],
     ) -> ExternalIdentityLinkCompletion:
-        attempt = self.attempts.require_attempt(attempt_id, browser_secret_hash, for_update=True)
-        user = self.attempts.require_user(attempt)
-        if self._stage(attempt, user) != "confirm" or not attempt.subject:
-            raise ExternalIdentityLinkError("External identity link attempt is not ready for confirmation")
-
         now = utcnow()
-        identity = self._upsert_confirmed_identity(attempt, user, now)
-        self._approve_matching_link_requests(attempt, user, now)
-        credentials = self._replace_user_credentials_after_link(
-            attempt,
-            user,
-            ip_address=ip_address,
-            user_agent=user_agent,
+        identity_id = str(uuid.uuid4())
+        prepared_session = AuthSessionService.prepare_auth_session(created_at=now)
+
+        def persist_once(write_db: Session) -> ExternalIdentityLinkCompletion:
+            service = ExternalIdentityLinkService(write_db, self.settings)
+            attempt = service.attempts.require_attempt(
+                attempt_id,
+                browser_secret_hash,
+                for_update=True,
+            )
+            user = service.attempts.require_user(attempt)
+            if service._stage(attempt, user, now=now) != "confirm" or not attempt.subject:
+                raise ExternalIdentityLinkError(
+                    "External identity link attempt is not ready for confirmation"
+                )
+            identity = service._upsert_confirmed_identity(
+                attempt,
+                user,
+                now,
+                identity_id=identity_id,
+            )
+            service._approve_matching_link_requests(attempt, user, now)
+            credentials = service._replace_user_credentials_after_link(
+                attempt,
+                user,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                now=now,
+                prepared_session=prepared_session,
+            )
+            attempt.status = "completed"
+            attempt.consumed_at = now
+            write_db.add(attempt)
+            service._notify_identity_linked(attempt, user, identity, now)
+            write_db.flush()
+            return ExternalIdentityLinkCompletion(
+                credentials=credentials,
+                user=user,
+                identity=identity,
+                redirect_path=attempt.redirect_path,
+            )
+
+        completion = run_replayable_db_unit(self.db, persist_once)
+        if self.db.get_bind().dialect.name != "sqlite":
+            self.db.refresh(completion.identity)
+            return completion
+
+        user = self.db.get(User, completion.user.id, populate_existing=True)
+        identity = self.db.get(
+            ExternalIdentity,
+            completion.identity.id,
+            populate_existing=True,
         )
-        attempt.status = "completed"
-        attempt.consumed_at = now
-        self.db.add(attempt)
-        self._notify_identity_linked(attempt, user, identity, now)
-        commit_or_rollback(self.db)
-        self.db.refresh(identity)
+        session = self.db.get(
+            type(completion.credentials.session),
+            completion.credentials.session.id,
+            populate_existing=True,
+        )
+        if user is None or identity is None or session is None:  # pragma: no cover
+            raise RuntimeError("External identity link completion could not be reloaded")
+        credentials = SessionCredentials(
+            access_token=completion.credentials.access_token,
+            refresh_token=completion.credentials.refresh_token,
+            csrf_token=completion.credentials.csrf_token,
+            session=session,
+        )
         return ExternalIdentityLinkCompletion(
             credentials=credentials,
             user=user,
             identity=identity,
-            redirect_path=attempt.redirect_path,
+            redirect_path=completion.redirect_path,
         )
 
     def _upsert_confirmed_identity(
@@ -305,6 +356,8 @@ class ExternalIdentityLinkService:
         attempt: ExternalIdentityLinkAttempt,
         user: User,
         now: datetime,
+        *,
+        identity_id: str,
     ) -> ExternalIdentity:
         conditions = [
             ExternalIdentity.provider_type == attempt.provider_type,
@@ -326,7 +379,7 @@ class ExternalIdentityLinkService:
             identity.email_verified = attempt.email_verified
         else:
             identity = ExternalIdentity(
-                id=str(uuid.uuid4()),
+                id=identity_id,
                 user_id=user.id,
                 provider_type=attempt.provider_type,
                 provider_id=attempt.provider_id,
@@ -374,6 +427,8 @@ class ExternalIdentityLinkService:
         *,
         ip_address: Optional[str],
         user_agent: Optional[str],
+        now: datetime,
+        prepared_session: PreparedAuthSession,
     ) -> SessionCredentials:
         user.auth_version += 1
         self.db.add(user)
@@ -382,6 +437,7 @@ class ExternalIdentityLinkService:
             user,
             "external_identity_changed",
             increment_version=False,
+            now=now,
         )
         return sessions.create_for_user_in_transaction(
             user,
@@ -389,6 +445,7 @@ class ExternalIdentityLinkService:
             ip_address=ip_address,
             user_agent=user_agent,
             mfa_verified=attempt.mfa_verified_at is not None,
+            prepared=prepared_session,
         )
 
     def _notify_identity_linked(
@@ -453,7 +510,13 @@ class ExternalIdentityLinkService:
             expires_at=attempt.expires_at,
         )
 
-    def _stage(self, attempt: ExternalIdentityLinkAttempt, user: User) -> str:
+    def _stage(
+        self,
+        attempt: ExternalIdentityLinkAttempt,
+        user: User,
+        *,
+        now: Optional[datetime] = None,
+    ) -> str:
         if attempt.status == "completed":
             return "completed"
         if attempt.status == "admin_requested":
@@ -468,16 +531,22 @@ class ExternalIdentityLinkService:
             return "proof"
         webauthn = WebAuthnService(self.db, self.settings)
         has_passkey = webauthn.has_credentials(user.id)
-        if (has_passkey or passkey_required_for_role(self.db, user.role)) and not self._has_recent_mfa(
-            attempt.mfa_verified_at
-        ):
+        if (
+            has_passkey or passkey_required_for_role(self.db, user.role)
+        ) and not self._has_recent_mfa(attempt.mfa_verified_at, now=now):
             return "mfa" if has_passkey else "mfa_enrollment"
         return "confirm"
 
-    def _has_recent_mfa(self, verified_at: Optional[datetime]) -> bool:
+    def _has_recent_mfa(
+        self,
+        verified_at: Optional[datetime],
+        *,
+        now: Optional[datetime] = None,
+    ) -> bool:
         return bool(
             verified_at
-            and verified_at >= utcnow() - timedelta(minutes=self.settings.mfa_recent_minutes)
+            and verified_at
+            >= (now or utcnow()) - timedelta(minutes=self.settings.mfa_recent_minutes)
         )
 
     def _proof_methods(self, user: User) -> list[ExternalIdentityLinkProofMethod]:
