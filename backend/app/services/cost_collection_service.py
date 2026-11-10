@@ -13,8 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.core.db_transactions import (
     add_and_flush_in_savepoint,
-    commit_or_rollback,
-    run_db_unit_with_sqlite_retry,
+    run_replayable_db_unit,
 )
 from app.db import CostStorageDaily, CostUsageDaily, S3Account, S3User, StorageEndpoint
 from app.core.domain_enums import (
@@ -142,6 +141,7 @@ class CostCollector:
             )
             storage_records += created_storage_records
             errors.extend(storage_errors)
+        retention_now = utcnow()
         return CostCollectionResult(
             day=day.isoformat(),
             endpoints=endpoints_count,
@@ -149,9 +149,13 @@ class CostCollector:
             storage_records=storage_records,
             errors=errors,
             retention=DataRetentionResult.model_validate(
-                run_db_unit_with_sqlite_retry(
+                run_replayable_db_unit(
                     self.db,
-                    lambda: DataRetentionService(self.db).purge_all(),
+                    lambda write_db: DataRetentionService(
+                        write_db,
+                        commit_on_success=False,
+                        reference_now=retention_now,
+                    ).purge_all(),
                 )
             ),
         )
@@ -409,7 +413,8 @@ class CostCollector:
             row.collected_at = collected_at
 
         self._upsert_daily_row(
-            find_existing=lambda: self._find_daily_row(
+            find_existing=lambda write_db: self._find_daily_row(
+                write_db,
                 CostUsageDaily,
                 source=_COST_USAGE_SOURCE,
                 day=day,
@@ -448,7 +453,8 @@ class CostCollector:
             row.collected_at = collected_at
 
         self._upsert_daily_row(
-            find_existing=lambda: self._find_daily_row(
+            find_existing=lambda write_db: self._find_daily_row(
+                write_db,
                 CostStorageDaily,
                 source=_COST_STORAGE_SOURCE,
                 day=day,
@@ -472,43 +478,47 @@ class CostCollector:
     def _upsert_daily_row(
         self,
         *,
-        find_existing: Callable[[], _DailyCostRow | None],
+        find_existing: Callable[[Session], _DailyCostRow | None],
         build_row: Callable[[datetime], _DailyCostRow],
         update_existing: Callable[[_DailyCostRow, datetime], None],
     ) -> None:
-        run_db_unit_with_sqlite_retry(
+        collected_at = utcnow()
+        run_replayable_db_unit(
             self.db,
-            lambda: self._upsert_daily_row_once(
+            lambda write_db: self._upsert_daily_row_once(
+                write_db,
                 find_existing=find_existing,
                 build_row=build_row,
                 update_existing=update_existing,
+                collected_at=collected_at,
             ),
         )
 
     def _upsert_daily_row_once(
         self,
+        write_db: Session,
         *,
-        find_existing: Callable[[], _DailyCostRow | None],
+        find_existing: Callable[[Session], _DailyCostRow | None],
         build_row: Callable[[datetime], _DailyCostRow],
         update_existing: Callable[[_DailyCostRow, datetime], None],
+        collected_at: datetime,
     ) -> None:
-        existing = find_existing()
-        collected_at = utcnow()
+        existing = find_existing(write_db)
         if existing is not None:
             update_existing(existing, collected_at)
         else:
             row = build_row(collected_at)
             try:
-                add_and_flush_in_savepoint(self.db, row)
+                add_and_flush_in_savepoint(write_db, row)
             except IntegrityError:
-                existing = find_existing()
+                existing = find_existing(write_db)
                 if existing is None:
                     raise
                 update_existing(existing, collected_at)
-        commit_or_rollback(self.db)
 
     def _find_daily_row(
         self,
+        db: Session,
         model: type[_DailyCostRow],
         *,
         source: str,
@@ -517,7 +527,7 @@ class CostCollector:
         s3_account_id: Optional[int],
         s3_user_id: Optional[int],
     ) -> _DailyCostRow | None:
-        return self.db.scalar(
+        return db.scalar(
             select(model)
             .where(
                 model.day == day,

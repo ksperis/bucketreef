@@ -12,7 +12,7 @@ from typing import Any, Literal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
+from app.core.db_transactions import run_replayable_db_unit
 from app.db import QuotaAlertState, S3Account, S3User, StorageEndpoint
 from app.core.domain_enums import StorageProvider
 from app.models.app_settings import AppSettings
@@ -147,9 +147,10 @@ class QuotaMonitoringService:
                 collected.append((subject, snapshot))
 
         summary_before_persistence = deepcopy(run.summary)
-        email_requests = run_db_unit_with_sqlite_retry(
+        email_requests = run_replayable_db_unit(
             self.db,
-            lambda: self._persist_collected(
+            lambda write_db: self._persist_collected(
+                write_db,
                 collected,
                 run,
                 summary_before_persistence=summary_before_persistence,
@@ -231,6 +232,7 @@ class QuotaMonitoringService:
 
     def _persist_collected(
         self,
+        write_db: Session,
         collected: list[tuple[SubjectContext, _QuotaUsageSnapshot]],
         run: _QuotaMonitorRun,
         *,
@@ -238,10 +240,10 @@ class QuotaMonitoringService:
     ) -> list[_QuotaEmailRequest]:
         run.summary.clear()
         run.summary.update(deepcopy(summary_before_persistence))
-        run.notifications = UserNotificationsService(self.db)
-        run.history = QuotaUsageHistoryService(self.db)
-        run.alert_states = QuotaAlertStateService(self.db)
-        run.recipients = QuotaAlertRecipientsService(self.db)
+        run.notifications = UserNotificationsService(write_db)
+        run.history = QuotaUsageHistoryService(write_db)
+        run.alert_states = QuotaAlertStateService(write_db)
+        run.recipients = QuotaAlertRecipientsService(write_db)
         if run.mode == "quota_alerts":
             run.states = run.alert_states.load_states()
             run.recipient_index = run.recipients.load()
@@ -254,11 +256,15 @@ class QuotaMonitoringService:
             if run.mode == "usage_history":
                 self._record_usage_history(subject, snapshot, run)
             if run.mode == "quota_alerts":
-                email_request = self._process_quota_alert(subject, snapshot, run)
+                email_request = self._process_quota_alert(
+                    subject,
+                    snapshot,
+                    run,
+                    write_db=write_db,
+                )
                 if email_request is not None:
                     email_requests.append(email_request)
             run.summary["subjects_processed"] += 1
-        commit_or_rollback(self.db)
         return email_requests
 
     def _collect_subject_snapshot(
@@ -404,6 +410,8 @@ class QuotaMonitoringService:
         subject: SubjectContext,
         snapshot: _QuotaUsageSnapshot,
         run: _QuotaMonitorRun,
+        *,
+        write_db: Session,
     ) -> _QuotaEmailRequest | None:
         threshold_percent = run.settings.quota_notifications.threshold_percent
         transition = run.alert_states.update(
@@ -433,7 +441,13 @@ class QuotaMonitoringService:
             checked_at=run.now,
         )
         self._create_quota_notifications(subject, content, run)
-        self._publish_quota_webhook(subject, transition, content, run)
+        self._publish_quota_webhook(
+            subject,
+            transition,
+            content,
+            run,
+            write_db=write_db,
+        )
         return _QuotaEmailRequest(
             subject=subject,
             snapshot=snapshot,
@@ -472,9 +486,11 @@ class QuotaMonitoringService:
         transition: QuotaAlertTransition,
         content: QuotaAlertContent,
         run: _QuotaMonitorRun,
+        *,
+        write_db: Session,
     ) -> None:
         try:
-            WebhookEventPublisher(self.db).publish_event_in_current_transaction(
+            WebhookEventPublisher(write_db).publish_event_in_current_transaction(
                 event_type=QUOTA_THRESHOLD_EVENT_TYPE,
                 data={
                     **content.payload,
@@ -536,9 +552,14 @@ class QuotaMonitoringService:
             run.summary["email_errors"] += 1
 
     def _finish_run(self, summary: dict[str, Any]) -> dict[str, Any]:
-        summary["retention"] = run_db_unit_with_sqlite_retry(
+        retention_now = utcnow()
+        summary["retention"] = run_replayable_db_unit(
             self.db,
-            lambda: DataRetentionService(self.db).purge_all(),
+            lambda write_db: DataRetentionService(
+                write_db,
+                commit_on_success=False,
+                reference_now=retention_now,
+            ).purge_all(),
         )
         summary["finished_at"] = utcnow().isoformat()
         return summary
