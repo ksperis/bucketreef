@@ -27,7 +27,12 @@ from app.db import (
     StorageEndpoint,
     User,
 )
-from app.core.domain_enums import HealthCheckStatus, StorageProvider, UserRole
+from app.core.domain_enums import (
+    SERVICE_IDENTITY_KINDS,
+    HealthCheckStatus,
+    StorageProvider,
+    UserRole,
+)
 from app.models.storage_endpoint import (
     StorageEndpointFeatureDetectionRequest,
     StorageEndpointCreate,
@@ -501,6 +506,29 @@ def test_create_update_and_serialize_endpoint_force_path_style(db_session):
     assert persisted.force_path_style is False
 
 
+def test_create_endpoint_retries_busy_snapshot_without_duplicate(db_session):
+    service = StorageEndpointsService(db_session)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO storage_endpoints",
+    ) as matching_statements:
+        created = service.create_endpoint(
+            StorageEndpointCreate(
+                name="Create Busy",
+                endpoint_url="https://create-busy.example.test",
+                provider=StorageProvider.OTHER,
+            )
+        )
+
+    assert len(matching_statements) == 2
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(StorageEndpoint)
+        .where(StorageEndpoint.id == created.id)
+    ) == 1
+
+
 def test_update_and_serialize_ceph_multisite_topology(db_session):
     service = StorageEndpointsService(db_session)
     endpoint = _create_ceph_endpoint(db_session, name="ceph-multisite")
@@ -585,6 +613,39 @@ def test_update_endpoint_rechecks_editability_after_lease_refresh(
     db_session.refresh(endpoint)
     assert endpoint.name == original_name
     assert endpoint.is_editable is False
+
+
+def test_update_endpoint_retries_sqlite_write_intent_without_replaying_revocation(
+    db_session,
+    monkeypatch,
+):
+    from app.services.endpoint_service_identities import EndpointServiceIdentityService
+
+    endpoint = _create_ceph_endpoint(db_session, name="ceph-update-busy-intent")
+    revoked_kinds: list[str] = []
+
+    def revoke_once(_self, _endpoint, kind):
+        revoked_kinds.append(kind)
+        return True
+
+    monkeypatch.setattr(EndpointServiceIdentityService, "revoke", revoke_once)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE storage_endpoints SET id = id",
+    ) as matching_statements:
+        updated = StorageEndpointsService(db_session).update_endpoint(
+            endpoint.id,
+            StorageEndpointUpdate(
+                service_identity_mode="external",
+                runtime_access_key="AKIA-EXTERNAL-RUNTIME",
+                runtime_secret_key="SECRET-EXTERNAL-RUNTIME",
+            ),
+        )
+
+    assert len(matching_statements) >= 3
+    assert revoked_kinds == ["runtime"]
+    assert updated.provider == StorageProvider.CEPH
 
 
 def test_external_mode_still_requires_runtime_for_enabled_features(db_session):
@@ -1586,6 +1647,26 @@ def test_set_default_endpoint_retries_busy_snapshot_atomically(db_session):
     assert defaults == [second.id]
 
 
+def test_ensure_default_endpoint_retries_busy_snapshot_without_duplicate(
+    db_session,
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "app.services.storage_endpoints_service.configured_s3_endpoint",
+        lambda: "https://seed-busy.example.test",
+    )
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO storage_endpoints",
+    ) as matching_statements:
+        created = StorageEndpointsService(db_session).ensure_default_endpoint()
+
+    assert created is not None
+    assert len(matching_statements) == 2
+    assert db_session.scalar(select(func.count()).select_from(StorageEndpoint)) == 1
+
+
 def test_detect_features_types_missing_stored_endpoint(db_session):
     service = StorageEndpointsService(db_session)
 
@@ -2198,6 +2279,33 @@ def test_delete_endpoint_blocks_when_references_exist(db_session):
         assert False, "delete_endpoint should have raised when references exist"
     except ValueError as exc:
         assert "Unable to delete this endpoint" in str(exc)
+
+
+def test_delete_endpoint_retries_sqlite_write_intent_without_replaying_revocation(
+    db_session,
+    monkeypatch,
+):
+    from app.services.endpoint_service_identities import EndpointServiceIdentityService
+
+    endpoint = _create_ceph_endpoint(db_session, name="ceph-delete-busy-intent")
+    endpoint_id = int(endpoint.id)
+    revoked_kinds: list[str] = []
+
+    def revoke_once(_self, _endpoint, kind):
+        revoked_kinds.append(kind)
+        return True
+
+    monkeypatch.setattr(EndpointServiceIdentityService, "revoke", revoke_once)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE storage_endpoints SET id = id",
+    ) as matching_statements:
+        StorageEndpointsService(db_session).delete_endpoint(endpoint_id)
+
+    assert len(matching_statements) >= 3
+    assert revoked_kinds == list(SERVICE_IDENTITY_KINDS)
+    assert db_session.get(StorageEndpoint, endpoint_id) is None
 
 
 def test_delete_endpoint_purges_derived_database_rows(db_session):
