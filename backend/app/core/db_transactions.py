@@ -86,6 +86,47 @@ def _has_pending_changes(db: Session) -> bool:
     )
 
 
+def acquire_sqlite_write_transaction(
+    db: Session,
+    operation: Callable[[Session], _T],
+    *,
+    retry_delays: tuple[float, ...] = SQLITE_BUSY_RETRY_DELAYS_SECONDS,
+) -> _T | None:
+    """Acquire SQLite write intent in the caller transaction before external I/O.
+
+    PostgreSQL and other backends are left completely untouched. SQLite ends a
+    stale read-only request transaction, then runs a caller-provided local
+    write such as a no-op UPDATE under SQLITE_BUSY retry. A successful write
+    transaction deliberately remains open so later non-replayable external
+    side effects and their local database changes can share one transaction.
+
+    The callback must only acquire database write intent. It must not commit,
+    roll back, or perform external side effects. Callers remain responsible
+    for committing or rolling back the transaction after their workflow.
+    """
+
+    if db.get_bind().dialect.name != "sqlite":
+        return None
+
+    if _has_pending_changes(db):
+        raise RuntimeError(
+            "SQLite write-intent acquisition requires a clean caller session"
+        )
+
+    # Request-scoped sessions commonly hold a read snapshot from authentication
+    # or validation. End it before trying to become the writer.
+    db.rollback()
+    try:
+        return run_db_unit_with_sqlite_retry(
+            db,
+            lambda: operation(db),
+            retry_delays=retry_delays,
+        )
+    except BaseException:
+        db.rollback()
+        raise
+
+
 def _fresh_session_bind(db: Session) -> Engine:
     bind = db.get_bind()
     if isinstance(bind, Engine):

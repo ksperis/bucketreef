@@ -24,7 +24,11 @@ from app.core.database import (
     sqlite_integrity_status,
 )
 from app.core import db_transactions
-from app.core.db_transactions import run_db_unit_with_sqlite_retry, run_replayable_db_unit
+from app.core.db_transactions import (
+    acquire_sqlite_write_transaction,
+    run_db_unit_with_sqlite_retry,
+    run_replayable_db_unit,
+)
 from app.core.sqlite import begin_sqlite_transaction, configure_sqlite_adapters
 from app.db import User
 
@@ -265,6 +269,24 @@ def test_postgresql_db_unit_executes_once_without_sqlite_retry(monkeypatch):
     assert db.rollback_calls == 0
 
 
+def test_postgresql_write_transaction_acquisition_is_noop(monkeypatch):
+    class FakePostgresSession:
+        @staticmethod
+        def get_bind():
+            return SimpleNamespace(dialect=SimpleNamespace(name="postgresql"))
+
+        @staticmethod
+        def rollback() -> None:
+            pytest.fail("PostgreSQL transaction state must stay untouched")
+
+    db = FakePostgresSession()
+
+    assert acquire_sqlite_write_transaction(
+        db,
+        lambda _db: pytest.fail("PostgreSQL must not run SQLite write intent"),
+    ) is None
+
+
 def test_postgresql_replayable_unit_keeps_caller_session_and_executes_once(monkeypatch):
     class FakePostgresSession:
         def __init__(self) -> None:
@@ -423,6 +445,104 @@ def test_sqlite_replayable_unit_rejects_flushed_uncommitted_caller_changes(tmp_p
                 run_replayable_db_unit(request_db, lambda _write_db: "unexpected")
 
             assert request_db.get(User, user.id) is user
+    finally:
+        engine.dispose()
+
+
+def test_sqlite_write_transaction_acquisition_retries_busy_snapshot_and_stays_open(tmp_path):
+    db_path = tmp_path / "write-intent-busy-snapshot.db"
+    engine = create_engine(
+        f"sqlite:///{db_path.as_posix()}",
+        connect_args={"check_same_thread": False},
+        future=True,
+    )
+    event.listen(engine, "connect", configure_sqlite_connection)
+    event.listen(engine, "begin", begin_sqlite_transaction)
+    SessionLocal = sessionmaker(bind=engine, future=True)
+    attempts = 0
+    try:
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                "CREATE TABLE write_intent_test (id INTEGER PRIMARY KEY, value INTEGER NOT NULL)"
+            )
+            connection.exec_driver_sql(
+                "INSERT INTO write_intent_test (id, value) VALUES (1, 0)"
+            )
+
+        with SessionLocal() as request_db:
+            # Simulate request reads performed before the mixed DB/external-I/O workflow.
+            assert request_db.execute(
+                text("SELECT value FROM write_intent_test WHERE id = 1")
+            ).scalar_one() == 0
+
+            def acquire_once(write_db) -> int:
+                nonlocal attempts
+                attempts += 1
+                current = write_db.execute(
+                    text("SELECT value FROM write_intent_test WHERE id = 1")
+                ).scalar_one()
+                if attempts == 1:
+                    with SessionLocal() as concurrent_writer:
+                        concurrent_writer.execute(
+                            text(
+                                "UPDATE write_intent_test "
+                                "SET value = value + 1 WHERE id = 1"
+                            )
+                        )
+                        concurrent_writer.commit()
+                write_db.execute(
+                    text("UPDATE write_intent_test SET id = id WHERE id = 1")
+                )
+                return current
+
+            assert acquire_sqlite_write_transaction(
+                request_db,
+                acquire_once,
+                retry_delays=(0.0,),
+            ) == 1
+            assert request_db.in_transaction() is True
+            request_db.execute(
+                text("UPDATE write_intent_test SET value = value + 10 WHERE id = 1")
+            )
+            request_db.commit()
+
+        with engine.connect() as connection:
+            assert connection.exec_driver_sql(
+                "SELECT value FROM write_intent_test WHERE id = 1"
+            ).scalar_one() == 11
+        assert attempts == 2
+    finally:
+        engine.dispose()
+
+
+def test_sqlite_write_transaction_acquisition_rejects_pending_changes(tmp_path):
+    db_path = tmp_path / "write-intent-pending.db"
+    engine = create_engine(
+        f"sqlite:///{db_path.as_posix()}",
+        connect_args={"check_same_thread": False},
+        future=True,
+    )
+    event.listen(engine, "connect", configure_sqlite_connection)
+    event.listen(engine, "begin", begin_sqlite_transaction)
+    SessionLocal = sessionmaker(bind=engine, future=True)
+    try:
+        with SessionLocal() as request_db:
+            request_db.add(
+                User(
+                    email="write-intent-pending@example.test",
+                    full_name="Write Intent Pending",
+                    hashed_password="x",
+                    is_active=True,
+                    role="ui_admin",
+                )
+            )
+            with pytest.raises(RuntimeError, match="requires a clean caller session"):
+                acquire_sqlite_write_transaction(
+                    request_db,
+                    lambda _db: pytest.fail("write intent must not run"),
+                )
+
+            assert len(request_db.new) == 1
     finally:
         engine.dispose()
 

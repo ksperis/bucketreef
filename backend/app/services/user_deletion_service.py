@@ -7,7 +7,7 @@ import logging
 from sqlalchemy import delete, select, text, update
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import run_db_unit_with_sqlite_retry
+from app.core.db_transactions import acquire_sqlite_write_transaction
 from app.core.domain_errors import CompensationFailureError, UiUserNotFoundError
 from app.db import (
     AccountIAMUser,
@@ -44,21 +44,15 @@ class UserDeletionService:
         self.db = db
 
     def _acquire_sqlite_write_transaction(self, user_id: int) -> None:
-        if self.db.get_bind().dialect.name != "sqlite":
-            return
-
-        self.db.rollback()
-
-        def acquire_once() -> None:
-            changed = self.db.execute(
+        def acquire_once(write_db: Session) -> None:
+            changed = write_db.execute(
                 text("UPDATE users SET id = id WHERE id = :user_id"),
                 {"user_id": user_id},
             ).rowcount
             if changed != 1:
-                self.db.rollback()
                 raise UiUserNotFoundError("User not found")
 
-        run_db_unit_with_sqlite_retry(self.db, acquire_once)
+        acquire_sqlite_write_transaction(self.db, acquire_once)
 
     def _created_private_connection_ids(self, user_id: int) -> list[int]:
         created_connection_rows = self.db.execute(
