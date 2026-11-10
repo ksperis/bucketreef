@@ -28,7 +28,7 @@ from webauthn.helpers.structs import (
 )
 
 from app.core.config import Settings, get_settings
-from app.core.db_transactions import commit_or_rollback, run_replayable_db_unit
+from app.core.db_transactions import run_replayable_db_unit
 from app.core.domain_errors import ResourceConflictError
 from app.core.security import hash_refresh_token
 from app.db import AuthChallenge, AuthSession, RecoveryCode, User, WebAuthnCredential
@@ -101,8 +101,9 @@ class WebAuthnService:
         name: str,
         binding_sid: Optional[str] = None,
     ) -> WebAuthnCredential:
+        user_id = int(user.id)
         challenge = self._consume_challenge(
-            user.id,
+            user_id,
             "webauthn_register",
             binding_sid=binding_sid,
         )
@@ -123,20 +124,38 @@ class WebAuthnService:
             not isinstance(transport, str) for transport in transports
         ):
             raise WebAuthnSecurityError("Invalid WebAuthn transport list")
-        row = WebAuthnCredential(
-            id=str(uuid.uuid4()),
-            user_id=user.id,
-            credential_id=bytes_to_base64url(verified.credential_id),
-            public_key=bytes_to_base64url(verified.credential_public_key),
-            sign_count=verified.sign_count,
-            transports=list(transports),
-            name=(name or "Passkey").strip()[:128] or "Passkey",
-            created_at=utcnow(),
+        row_id = str(uuid.uuid4())
+        credential_id = bytes_to_base64url(verified.credential_id)
+        public_key = bytes_to_base64url(verified.credential_public_key)
+        sign_count = verified.sign_count
+        credential_name = (name or "Passkey").strip()[:128] or "Passkey"
+        created_at = utcnow()
+
+        def persist_once(write_db: Session) -> None:
+            write_user = write_db.get(User, user_id)
+            if write_user is None:
+                raise WebAuthnSecurityError("User is unavailable")
+            row = WebAuthnCredential(
+                id=row_id,
+                user_id=user_id,
+                credential_id=credential_id,
+                public_key=public_key,
+                sign_count=sign_count,
+                transports=list(transports),
+                name=credential_name,
+                created_at=created_at,
+            )
+            write_user.auth_version += 1
+            write_db.add_all([row, write_user])
+
+        run_replayable_db_unit(self.db, persist_once)
+        row = self.db.scalar(
+            select(WebAuthnCredential)
+            .where(WebAuthnCredential.id == row_id)
+            .execution_options(populate_existing=True)
         )
-        user.auth_version += 1
-        self.db.add_all([row, user])
-        commit_or_rollback(self.db)
-        self.db.refresh(row)
+        if row is None:
+            raise WebAuthnSecurityError("Passkey registration was not persisted")
         return row
 
     def begin_authentication(self, user: User, *, binding_sid: Optional[str] = None) -> dict[str, Any]:
@@ -169,15 +188,16 @@ class WebAuthnService:
         credential: dict[str, Any],
         binding_sid: Optional[str] = None,
     ) -> WebAuthnCredential:
+        user_id = int(user.id)
         challenge = self._consume_challenge(
-            user.id,
+            user_id,
             "webauthn_authenticate",
             binding_sid=binding_sid,
         )
         credential_id = str(credential.get("id") or "")
         row = self.db.scalar(
             select(WebAuthnCredential).where(
-                WebAuthnCredential.user_id == user.id,
+                WebAuthnCredential.user_id == user_id,
                 WebAuthnCredential.credential_id == credential_id,
                 WebAuthnCredential.revoked_at.is_(None),
             )
@@ -198,75 +218,118 @@ class WebAuthnService:
             raise WebAuthnSecurityError("Invalid WebAuthn authentication response") from exc
         if row.sign_count > 0 and verified.new_sign_count <= row.sign_count:
             raise WebAuthnSecurityError("WebAuthn signature counter replay detected")
-        row.sign_count = verified.new_sign_count
-        row.last_used_at = utcnow()
-        self.db.add(row)
-        commit_or_rollback(self.db)
-        self.db.refresh(row)
-        return row
+        new_sign_count = verified.new_sign_count
+        last_used_at = utcnow()
+
+        def persist_once(write_db: Session) -> str:
+            current = write_db.scalar(
+                select(WebAuthnCredential).where(
+                    WebAuthnCredential.user_id == user_id,
+                    WebAuthnCredential.credential_id == credential_id,
+                    WebAuthnCredential.revoked_at.is_(None),
+                )
+            )
+            if current is None:
+                raise WebAuthnSecurityError("Passkey is not registered")
+            if current.sign_count > 0 and new_sign_count <= current.sign_count:
+                raise WebAuthnSecurityError("WebAuthn signature counter replay detected")
+            current.sign_count = new_sign_count
+            current.last_used_at = last_used_at
+            write_db.add(current)
+            return current.id
+
+        row_id = run_replayable_db_unit(self.db, persist_once)
+        persisted = self.db.scalar(
+            select(WebAuthnCredential)
+            .where(WebAuthnCredential.id == row_id)
+            .execution_options(populate_existing=True)
+        )
+        if persisted is None:
+            raise WebAuthnSecurityError("Passkey authentication was not persisted")
+        return persisted
 
     def issue_recovery_codes(self, user: User) -> list[str]:
-        self.db.execute(
-            delete(RecoveryCode)
-            .where(RecoveryCode.user_id == user.id)
-            .execution_options(synchronize_session=False)
-        )
+        user_id = int(user.id)
         codes = [f"{secrets.token_hex(4)}-{secrets.token_hex(4)}" for _ in range(10)]
         now = utcnow()
-        self.db.add_all(
-            [
-                RecoveryCode(
-                    id=str(uuid.uuid4()),
-                    user_id=user.id,
-                    code_hash=self._recovery_hash(user.id, code),
-                    created_at=now,
-                )
-                for code in codes
-            ]
-        )
-        commit_or_rollback(self.db)
+        staged_rows = [
+            (str(uuid.uuid4()), self._recovery_hash(user_id, code))
+            for code in codes
+        ]
+
+        def persist_once(write_db: Session) -> None:
+            write_db.execute(
+                delete(RecoveryCode)
+                .where(RecoveryCode.user_id == user_id)
+                .execution_options(synchronize_session=False)
+            )
+            write_db.add_all(
+                [
+                    RecoveryCode(
+                        id=row_id,
+                        user_id=user_id,
+                        code_hash=code_hash,
+                        created_at=now,
+                    )
+                    for row_id, code_hash in staged_rows
+                ]
+            )
+
+        run_replayable_db_unit(self.db, persist_once)
         return codes
 
     def consume_recovery_code(self, user: User, code: str) -> bool:
+        user_id = int(user.id)
+        code_hash = self._recovery_hash(user_id, code)
         now = utcnow()
-        result = self.db.execute(
-            update(RecoveryCode)
-            .where(
-                RecoveryCode.user_id == user.id,
-                RecoveryCode.code_hash == self._recovery_hash(user.id, code),
-                RecoveryCode.consumed_at.is_(None),
+
+        def consume_once(write_db: Session) -> int:
+            result = write_db.execute(
+                update(RecoveryCode)
+                .where(
+                    RecoveryCode.user_id == user_id,
+                    RecoveryCode.code_hash == code_hash,
+                    RecoveryCode.consumed_at.is_(None),
+                )
+                .values(consumed_at=now)
             )
-            .values(consumed_at=now)
-        )
-        commit_or_rollback(self.db)
-        return result.rowcount == 1
+            return result.rowcount
+
+        return run_replayable_db_unit(self.db, consume_once) == 1
 
     def revoke_credential(self, user: User, credential_id: str) -> None:
-        row = self.db.scalar(
-            select(WebAuthnCredential).where(
-                WebAuthnCredential.id == credential_id,
-                WebAuthnCredential.user_id == user.id,
-                WebAuthnCredential.revoked_at.is_(None),
+        user_id = int(user.id)
+        revoked_at = utcnow()
+
+        def revoke_once(write_db: Session) -> None:
+            row = write_db.scalar(
+                select(WebAuthnCredential).where(
+                    WebAuthnCredential.id == credential_id,
+                    WebAuthnCredential.user_id == user_id,
+                    WebAuthnCredential.revoked_at.is_(None),
+                )
             )
-        )
-        if not row:
-            raise WebAuthnSecurityError("Passkey not found")
-        remaining = self.db.scalar(
-            select(WebAuthnCredential.id)
-            .where(
-                WebAuthnCredential.user_id == user.id,
-                WebAuthnCredential.revoked_at.is_(None),
-                WebAuthnCredential.id != row.id,
+            if row is None:
+                raise WebAuthnSecurityError("Passkey not found")
+            write_user = write_db.get(User, user_id)
+            if write_user is None:
+                raise WebAuthnSecurityError("User is unavailable")
+            remaining = write_db.scalar(
+                select(WebAuthnCredential.id)
+                .where(
+                    WebAuthnCredential.user_id == user_id,
+                    WebAuthnCredential.revoked_at.is_(None),
+                    WebAuthnCredential.id != row.id,
+                )
+                .limit(1)
             )
-            .limit(1)
-        )
-        if remaining is None:
-            if passkey_required_for_role(self.db, user.role):
+            if remaining is None and passkey_required_for_role(write_db, write_user.role):
                 raise LastRequiredPasskeyError("This account must keep at least one passkey")
-        row.revoked_at = utcnow()
-        user.auth_version += 1
-        self.db.add_all([row, user])
-        commit_or_rollback(self.db)
+            row.revoked_at = revoked_at
+            write_user.auth_version += 1
+            write_db.add_all([row, write_user])
+
+        run_replayable_db_unit(self.db, revoke_once)
 
     def is_recent(self, auth_session: AuthSession) -> bool:
         return bool(
