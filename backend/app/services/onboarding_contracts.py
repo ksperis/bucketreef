@@ -4,7 +4,7 @@ from app.models.onboarding import OnboardingDraft
 
 
 REQUIRED_FEATURES = {
-    "manager": ("manager_enabled",),
+    "manager": ("manager_enabled", "browser_enabled", "browser_manager_enabled"),
     "portal": ("portal_enabled", "browser_enabled", "browser_portal_enabled"),
     "private_connection": (
         "browser_enabled",

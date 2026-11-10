@@ -948,6 +948,48 @@ def test_ready_checkpoint_commit_failure_rolls_back_and_reuses_remote_identity(
     assert len([call for call in rgw.calls if call[0] == "create" and call[1] == uid]) == 1
 
 
+def test_ready_checkpoint_retries_sqlite_busy_without_replaying_remote_validation(
+    identities, db_session, monkeypatch
+):
+    import sqlite3
+
+    from sqlalchemy.exc import OperationalError
+
+    service, endpoint, _ = identities
+    commit = db_session.commit
+    failed = False
+    validated_kinds: list[str] = []
+    functional_check = service.validation.functional_check
+
+    def track_functional_check(endpoint, *, kind, **kwargs):
+        validated_kinds.append(kind)
+        return functional_check(endpoint, kind=kind, **kwargs)
+
+    def fail_ready_checkpoint_once():
+        nonlocal failed
+        if not failed and any(
+            isinstance(row, EndpointServiceIdentity)
+            and row.kind == "runtime"
+            and row.status == "ready"
+            for row in db_session.dirty
+        ):
+            failed = True
+            original = sqlite3.OperationalError("database is locked")
+            original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
+            raise OperationalError("COMMIT", (), original)
+        return commit()
+
+    monkeypatch.setattr(service.validation, "functional_check", track_functional_check)
+    monkeypatch.setattr(db_session, "commit", fail_ready_checkpoint_once)
+
+    service.reconcile(endpoint, locked=True)
+
+    identity = endpoint.service_identity("runtime")
+    assert failed
+    assert identity is not None and identity.status == "ready"
+    assert validated_kinds.count("runtime") == 1
+
+
 def test_revocation_final_commit_failure_restores_pending_checkpoint(
     identities, db_session, monkeypatch
 ):

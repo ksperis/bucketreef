@@ -11,7 +11,11 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import add_and_flush_in_savepoint, commit_or_rollback
+from app.core.db_transactions import (
+    add_and_flush_in_savepoint,
+    commit_or_rollback,
+    run_db_unit_with_sqlite_retry,
+)
 from app.core.domain_enums import ManagedServiceIdentityKind, ServiceIdentityKind
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import AppSetting, EndpointServiceIdentity, StorageEndpoint, User
@@ -225,17 +229,30 @@ class EndpointServiceIdentityService:
         uid, tenant = extract_rgw_user_identity(payload)
         if not uid:
             raise ValueError(f"{kind} user could not be identified by RGW.")
-        identity.rgw_uid = rgw_qualified_uid(uid, tenant)
+        validated_uid = rgw_qualified_uid(uid, tenant)
         self.validation.functional_check(
             endpoint,
             kind=identity.kind,
-            rgw_uid=identity.rgw_uid,
+            rgw_uid=validated_uid,
             access_key=identity.access_key,
             secret_key=identity.secret_key,
         )
-        identity.status, identity.last_error = "ready", None
-        identity.last_reconciled_at = utcnow()
-        commit_or_rollback(self.db)
+        identity_id = identity.id
+        if identity_id is None:
+            raise ValueError("Service identity was not persisted before validation.")
+        reconciled_at = utcnow()
+
+        def persist_ready() -> EndpointServiceIdentity:
+            current = self.db.get(EndpointServiceIdentity, identity_id)
+            if current is None:
+                raise ValueError("Service identity no longer exists.")
+            current.rgw_uid = validated_uid
+            current.status, current.last_error = "ready", None
+            current.last_reconciled_at = reconciled_at
+            commit_or_rollback(self.db)
+            return current
+
+        identity = run_db_unit_with_sqlite_retry(self.db, persist_ready)
         self._audit(endpoint, identity, "validated")
         return identity
 
