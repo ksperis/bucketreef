@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from contextlib import nullcontext
 import json
+import sqlite3
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -223,6 +224,38 @@ def test_onboarding_checkpoint_rolls_back_when_commit_fails(guided, db_session, 
     db_session.expire_all()
     persisted = guided.get(user, journey.id)
     assert persisted.resources == {}
+
+
+def test_onboarding_checkpoint_retries_sqlite_busy(guided, db_session, monkeypatch):
+    user = actor(db_session)
+    journey = save(guided, user, manager=True)
+    row = guided.get(user, journey.id)
+    real_commit = db_session.commit
+    failed = False
+
+    def busy_once():
+        nonlocal failed
+        if not failed and any(
+            isinstance(candidate, OnboardingJourney)
+            and candidate.id == journey.id
+            and candidate.resources.get("rgw_account_id") == "RGW80000000000000001"
+            for candidate in db_session.dirty
+        ):
+            failed = True
+            original = sqlite3.OperationalError("database is locked")
+            original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
+            raise sa.exc.OperationalError("UPDATE", (), original)
+        return real_commit()
+
+    monkeypatch.setattr(db_session, "commit", busy_once)
+
+    guided.checkpoint(row, rgw_account_id="RGW80000000000000001")
+
+    assert failed is True
+    assert row.resources["rgw_account_id"] == "RGW80000000000000001"
+    db_session.expire_all()
+    persisted = guided.get(user, journey.id)
+    assert persisted.resources["rgw_account_id"] == "RGW80000000000000001"
 
 
 def test_apply_requires_explicit_service_identity_mode():
@@ -584,6 +617,10 @@ def test_manager_and_portal_share_one_sample_account_with_independent_roles(
     assert link.manager_role == "account_administrator"
     assert link.portal_role == "portal_manager"
     assert link.allow_manager_browser_data_access is True
+    app_settings = settings_service.load_app_settings_for_db(db_session)
+    assert app_settings.general.manager_enabled is True
+    assert app_settings.general.browser_enabled is True
+    assert app_settings.general.browser_manager_enabled is True
     assert result.links["manager"] == f"/manager/buckets?ctx={account.id}"
     assert result.links["portal"] == f"/portal/storage-spaces?project={account.id}"
 
@@ -1021,6 +1058,7 @@ def test_required_features_are_minimal_and_supported(guided, db_session):
         "ceph_admin_enabled",
         "browser_enabled",
         "browser_root_enabled",
+        "browser_manager_enabled",
         "browser_portal_enabled",
     }
     with pytest.raises(ValueError, match="Unsupported"):

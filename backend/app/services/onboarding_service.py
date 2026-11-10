@@ -11,7 +11,7 @@ from uuid import UUID
 from sqlalchemy import select
 
 from app.core.config import get_settings
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
 from app.db import OnboardingJourney, OnboardingPreference, S3Account, StorageEndpoint, User
 from app.core.domain_enums import StorageProvider, is_admin_ui_role, is_superadmin_ui_role
 from app.models.onboarding import (
@@ -418,13 +418,25 @@ class OnboardingService:
         if canonical.get("account_id") is not None:
             canonical.pop("rgw_account_id", None)
             canonical.pop("account_name", None)
-        row.resources = OnboardingResources.model_validate(canonical).model_dump(
+        persisted_resources = OnboardingResources.model_validate(canonical).model_dump(
             mode="json",
             exclude_none=True,
         )
-        row.pending_step = None
-        row.updated_at = utcnow()
-        commit_or_rollback(self.db)
+        row_id = row.id
+        updated_at = utcnow()
+
+        def persist_once() -> None:
+            with self.db.no_autoflush:
+                current = self.db.get(OnboardingJourney, row_id)
+            if current is None:
+                raise OnboardingError("journey_not_found", 404)
+            current.resources = persisted_resources
+            current.pending_step = None
+            current.updated_at = updated_at
+            commit_or_rollback(self.db)
+
+        run_db_unit_with_sqlite_retry(self.db, persist_once)
+        self.db.refresh(row)
 
     def checkpoint_endpoint(self, row, endpoint_id: int) -> None:
         draft = self.draft(row).model_copy(

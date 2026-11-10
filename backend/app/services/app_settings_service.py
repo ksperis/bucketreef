@@ -230,7 +230,8 @@ def enable_onboarding_features(db, fields: tuple[str, ...]) -> list[str]:
     """
     allowed = {
         "manager_enabled", "portal_enabled", "ceph_admin_enabled",
-        "browser_enabled", "browser_root_enabled", "browser_portal_enabled",
+        "browser_enabled", "browser_root_enabled", "browser_manager_enabled",
+        "browser_portal_enabled",
     }
     if not set(fields) <= allowed:
         raise ValueError("Unsupported onboarding feature")
