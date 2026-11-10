@@ -235,64 +235,37 @@ def test_user_query_require_by_id_types_missing_user_without_changing_optional_l
         query.require_by_id(missing_id)
 
 
-def test_create_user_rolls_back_when_commit_fails(db_session, monkeypatch):
+def test_create_user_rolls_back_when_commit_fails(db_session):
     service = UserProvisioningService(db_session)
-    original_rollback = db_session.rollback
-    rollback_calls: list[None] = []
-
-    def rollback() -> None:
-        rollback_calls.append(None)
-        original_rollback()
-
-    def commit() -> None:
-        raise RuntimeError("commit failed")
-
-    monkeypatch.setattr(db_session, "rollback", rollback)
-    monkeypatch.setattr(db_session, "commit", commit)
-
-    with pytest.raises(RuntimeError, match="commit failed"):
-        service.create_user(
-            UserCreate(
-                **_create_user_payload(
-                    email="create-rollback@example.com",
-                    full_name="Create Rollback",
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service.create_user(
+                UserCreate(
+                    **_create_user_payload(
+                        email="create-rollback@example.com",
+                        full_name="Create Rollback",
+                    )
                 )
             )
-        )
 
-    assert rollback_calls == [None]
     db_session.expire_all()
     assert db_session.scalar(
         select(User).where(User.email == "create-rollback@example.com")
     ) is None
 
 
-def test_create_user_retries_sqlite_busy(db_session, monkeypatch):
-    real_flush = db_session.flush
-    failed = False
-
-    def busy_once(*args, **kwargs):
-        nonlocal failed
-        if not failed and any(
-            isinstance(row, User) and row.email == "create-busy@example.com"
-            for row in db_session.new
-        ):
-            failed = True
-            raise _busy_snapshot_error()
-        return real_flush(*args, **kwargs)
-
-    monkeypatch.setattr(db_session, "flush", busy_once)
-
-    created = UserProvisioningService(db_session).create_user(
-        UserCreate(
-            **_create_user_payload(
-                email="create-busy@example.com",
-                full_name="Create Busy",
+def test_create_user_retries_sqlite_busy(db_session):
+    with fail_next_sqlite_statement_with_busy_snapshot(db_session, "INSERT INTO users") as statements:
+        created = UserProvisioningService(db_session).create_user(
+            UserCreate(
+                **_create_user_payload(
+                    email="create-busy@example.com",
+                    full_name="Create Busy",
+                )
             )
         )
-    )
 
-    assert failed is True
+    assert len(statements) == 2
     assert created.email == "create-busy@example.com"
     assert db_session.scalar(
         select(User).where(User.email == "create-busy@example.com")
@@ -502,42 +475,28 @@ def test_update_user_preserves_unchanged_account_link_timestamp(db_session):
 
 def test_update_user_retries_manager_only_account_link_on_sqlite_busy(
     db_session,
-    monkeypatch,
 ):
     user = _seed_user(db_session, "manager-link-busy@example.com")
     account = _seed_account(db_session, "manager-link-busy", "RGW-MANAGER-LINK-BUSY")
-    real_flush = db_session.flush
-    failed = False
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO user_s3_accounts",
+    ) as statements:
+        updated = UserUpdateService(db_session).update_user(
+            user.id,
+            UserUpdate(
+                account_links=[
+                    {
+                        "account_id": account.id,
+                        "manager_role": ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value,
+                        "portal_role": None,
+                        "allow_manager_browser_data_access": True,
+                    }
+                ]
+            ),
+        )
 
-    def busy_once(*args, **kwargs):
-        nonlocal failed
-        if not failed and any(
-            isinstance(row, UserS3Account)
-            and row.user_id == user.id
-            and row.account_id == account.id
-            for row in db_session.new
-        ):
-            failed = True
-            raise _busy_snapshot_error()
-        return real_flush(*args, **kwargs)
-
-    monkeypatch.setattr(db_session, "flush", busy_once)
-
-    updated = UserUpdateService(db_session).update_user(
-        user.id,
-        UserUpdate(
-            account_links=[
-                {
-                    "account_id": account.id,
-                    "manager_role": ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value,
-                    "portal_role": None,
-                    "allow_manager_browser_data_access": True,
-                }
-            ]
-        ),
-    )
-
-    assert failed is True
+    assert len(statements) == 2
     assert updated.id == user.id
     link = db_session.scalar(
         select(UserS3Account).where(

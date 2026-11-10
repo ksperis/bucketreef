@@ -5,7 +5,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import rollback_on_error, run_db_unit_with_sqlite_retry
+from app.core.db_transactions import run_replayable_db_unit
 from app.core.domain_enums import is_admin_ui_role
 from app.core.security import get_password_hash
 from app.db import User
@@ -47,30 +47,36 @@ class UserProvisioningService:
 
     def create_user(self, payload: UserCreate) -> User:
         role = payload.role
+        staged_password_hash: str | None = None
+        if self.db.get_bind().dialect.name == "sqlite":
+            validate_password_policy(payload.password)
+            staged_password_hash = get_password_hash(payload.password)
 
-        def create_once() -> int:
-            with rollback_on_error(self.db):
-                if self.query.get_by_email(payload.email):
-                    raise ValueError("User already exists")
-
+        def create_once(write_db: Session) -> int:
+            query = UserQueryService(write_db)
+            if query.get_by_email(payload.email):
+                raise ValueError("User already exists")
+            password_hash = staged_password_hash
+            if password_hash is None:
                 validate_password_policy(payload.password)
-                user = User(
-                    email=payload.email,
-                    full_name=payload.full_name,
-                    hashed_password=get_password_hash(payload.password),
-                    is_active=True,
-                    role=role,
-                    **user_create_access_column_values(payload),
-                )
-                self.db.add(user)
-                self.db.flush()
+                password_hash = get_password_hash(payload.password)
+            user = User(
+                email=payload.email,
+                full_name=payload.full_name,
+                hashed_password=password_hash,
+                is_active=True,
+                role=role,
+                **user_create_access_column_values(payload),
+            )
+            write_db.add(user)
+            write_db.flush()
 
-                self.associations.apply_updates(user, payload)
-                self.db.add(user)
-                self.db.commit()
-                return int(user.id)
+            UserAssociationsService(write_db).apply_updates(user, payload)
+            write_db.add(user)
+            write_db.flush()
+            return int(user.id)
 
-        user_id = run_db_unit_with_sqlite_retry(self.db, create_once)
+        user_id = run_replayable_db_unit(self.db, create_once)
         user = self.query.require_by_id(user_id)
         self.db.refresh(user)
         logger.debug(
