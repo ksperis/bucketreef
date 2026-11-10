@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
+from app.core.db_transactions import run_replayable_db_unit
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import EndpointHealthCheck, StorageEndpoint
 from app.core.domain_enums import HealthCheckMode, HealthCheckStatus
@@ -69,9 +69,9 @@ class HealthCheckService:
             baselines=baselines,
         )
 
-        notifications_created = run_db_unit_with_sqlite_retry(
+        notifications_created = run_replayable_db_unit(
             self.db,
-            lambda: self._persist_run_results(results),
+            lambda write_db: self._persist_run_results(write_db, results),
         )
         self._persistence.prune_history()
         return self._serialize_run_result(
@@ -81,23 +81,26 @@ class HealthCheckService:
             results=results,
         )
 
-    def _persist_run_results(self, results: list[HealthCheckResult]) -> int:
+    def _persist_run_results(
+        self,
+        write_db: Session,
+        results: list[HealthCheckResult],
+    ) -> int:
         endpoint_ids = sorted({int(result.endpoint_id) for result in results})
         endpoints = {
             int(endpoint.id): endpoint
-            for endpoint in self.db.scalars(
+            for endpoint in write_db.scalars(
                 select(StorageEndpoint).where(StorageEndpoint.id.in_(endpoint_ids))
             ).all()
         }
-        notification_service = EndpointHealthNotificationsService(self.db)
+        notification_service = EndpointHealthNotificationsService(write_db)
         previous_statuses = notification_service.load_previous_statuses(results)
         notifications_created = notification_service.create_transition_notifications(
             results=results,
             endpoints=endpoints,
             previous_statuses=previous_statuses,
         )
-        self._persistence.stage_results(results)
-        commit_or_rollback(self.db)
+        HealthCheckPersistenceService(write_db).stage_results(results)
         return notifications_created
 
     def _run_endpoint_checks(
