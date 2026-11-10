@@ -33,6 +33,10 @@ from app.services.access_context_contracts import AccountAccess, AccountCapabili
 
 from app.services.portal_service import PortalService
 from app.services.portal_requests_service import PortalRequestConflict, PortalRequestExecutionError, PortalRequestsService
+from tests.db_transaction_test_utils import (
+    fail_next_sqlite_statement_with_busy_snapshot,
+    fail_next_transaction_commit,
+)
 from tests.s3_account_factory import make_s3_account
 
 
@@ -165,30 +169,57 @@ def test_portal_request_creation_lists_only_requester_and_notifies_admin(db_sess
 
 def test_portal_request_creation_rolls_back_session_when_commit_fails(
     db_session,
-    monkeypatch,
 ):
     account = _seed_account(db_session)
     requester = _seed_user(db_session, email="requester@example.org")
     service = PortalRequestsService(db_session)
-    original_rollback = db_session.rollback
-    rollback_calls = 0
 
-    def fail_commit():
-        raise RuntimeError("commit failed")
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            _create_user_request(service, account, requester)
 
-    def track_rollback():
-        nonlocal rollback_calls
-        rollback_calls += 1
-        original_rollback()
-
-    monkeypatch.setattr(db_session, "commit", fail_commit)
-    monkeypatch.setattr(db_session, "rollback", track_rollback)
-
-    with pytest.raises(RuntimeError, match="commit failed"):
-        _create_user_request(service, account, requester)
-
-    assert rollback_calls == 1
     assert db_session.scalars(select(PortalAdminRequest)).all() == []
+
+
+def test_portal_request_creation_retries_sqlite_busy_snapshot(db_session):
+    account = _seed_account(db_session)
+    requester = _seed_user(db_session, email="requester@example.org")
+    admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
+    service = PortalRequestsService(db_session)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO portal_admin_requests",
+    ) as matching:
+        created = _create_user_request(service, account, requester)
+
+    requests = db_session.scalars(select(PortalAdminRequest)).all()
+    notifications = db_session.scalars(
+        select(UserNotification).where(UserNotification.user_id == admin.id)
+    ).all()
+    assert len(matching) == 2
+    assert [row.id for row in requests] == [created.id]
+    assert len(notifications) == 1
+
+
+def test_portal_request_notification_retries_sqlite_busy_snapshot(db_session):
+    account = _seed_account(db_session)
+    requester = _seed_user(db_session, email="requester@example.org")
+    admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
+    service = PortalRequestsService(db_session)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO user_notifications",
+    ) as matching:
+        created = _create_user_request(service, account, requester)
+
+    notifications = db_session.scalars(
+        select(UserNotification).where(UserNotification.user_id == admin.id)
+    ).all()
+    assert len(matching) == 2
+    assert created.status == "pending"
+    assert len(notifications) == 1
 
 
 def test_admin_search_matches_structured_request_payload(db_session):
@@ -262,6 +293,43 @@ def test_approve_user_access_creates_placeholder_and_portal_link(db_session):
     assert link.manager_role is None
     assert link.portal_role == PortalAccountRole.PORTAL_USER.value
     assert message.message == "Done"
+
+
+@pytest.mark.parametrize("failure_occurrence", [1, 2])
+def test_portal_request_approval_retries_db_checkpoint_without_replaying_execution(
+    db_session,
+    monkeypatch,
+    failure_occurrence,
+):
+    account = _seed_account(db_session)
+    requester = _seed_user(db_session, email="requester@example.org")
+    admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
+    service = PortalRequestsService(db_session)
+    created = _create_user_request(service, account, requester)
+    execution_calls = 0
+
+    def execute_once(_row):
+        nonlocal execution_calls
+        execution_calls += 1
+        return {"executed": True}
+
+    monkeypatch.setattr(service, "_execute_request", execute_once)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE portal_admin_requests SET",
+        occurrence=failure_occurrence,
+    ) as matching:
+        approved = service.approve_request(created.id, admin, message="Done")
+
+    stored = db_session.get(PortalAdminRequest, created.id)
+    assert stored is not None
+    assert execution_calls == 1
+    assert len(matching) >= failure_occurrence + 1
+    assert approved.status == "approved"
+    assert stored.status == "approved"
+    assert stored.result == {"executed": True}
+    assert [item.message for item in stored.messages] == ["Done"]
 
 
 def test_approve_user_access_rolls_back_placeholder_when_assignment_fails(
