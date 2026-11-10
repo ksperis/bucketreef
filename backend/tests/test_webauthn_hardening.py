@@ -219,6 +219,36 @@ def test_registration_challenge_consume_rolls_back_when_commit_fails(db_session,
     assert db_session.get(AuthChallenge, challenge.id).consumed_at is None
 
 
+def test_registration_challenge_consume_retries_sqlite_busy(db_session, monkeypatch):
+    user = _user(db_session, email="challenge-consume-busy@example.com")
+    service = WebAuthnService(db_session)
+    service.begin_registration(user, binding_sid="session-busy")
+    user_id = user.id
+    real_execute = db_session.execute
+    execute_calls = 0
+
+    def busy_once(statement, *args, **kwargs):
+        nonlocal execute_calls
+        execute_calls += 1
+        if execute_calls == 1:
+            raise _busy_snapshot_error()
+        return real_execute(statement, *args, **kwargs)
+
+    monkeypatch.setattr(db_session, "execute", busy_once)
+
+    challenge = service._consume_challenge(
+        user_id,
+        "webauthn_register",
+        binding_sid="session-busy",
+    )
+
+    assert len(challenge) == 32
+    assert execute_calls == 2
+    db_session.expire_all()
+    row = db_session.scalars(select(AuthChallenge)).one()
+    assert row.consumed_at is not None
+
+
 def test_registration_verification_uses_exact_origin_rp_and_user_verification(db_session, monkeypatch):
     user = _user(db_session, email="registration-origin@example.com")
     service = WebAuthnService(db_session)
