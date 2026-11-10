@@ -113,12 +113,14 @@ class BucketMigrationItemRunnerMixin:
             self._fail_item_for_final_diff(migration, item, diff)
             return False
 
+        verified_at = utcnow()
+
         def persist_clean_diff(
             _current_migration: BucketMigration,
             current_item: BucketMigrationItem,
         ) -> None:
             self._store_item_diff(current_item, diff)
-            current_item.updated_at = utcnow()
+            current_item.updated_at = verified_at
 
         migration, item = self._persist_item_checkpoint(
             int(migration.id),
@@ -335,12 +337,14 @@ class BucketMigrationItemRunnerMixin:
                 versioning=(strategy == "version_aware"),
                 location_constraint=target_ctx.region, object_lock_enabled=object_lock_enabled,
             )
+            created_at = utcnow()
+
             def persist_created(
                 _current_migration: BucketMigration,
                 current_item: BucketMigrationItem,
             ) -> None:
                 current_item.target_created_by_migration = True
-                current_item.updated_at = utcnow()
+                current_item.updated_at = created_at
 
             migration, item = self._persist_item_checkpoint(
                 int(migration.id),
@@ -353,6 +357,7 @@ class BucketMigrationItemRunnerMixin:
             if migration.copy_bucket_settings
             else self._next_step_after_target_setup(migration, item)
         )
+        target_ready_at = utcnow()
 
         def persist_target_ready(
             current_migration: BucketMigration,
@@ -369,7 +374,7 @@ class BucketMigrationItemRunnerMixin:
                 },
             )
             current_item.step = next_step
-            current_item.updated_at = utcnow()
+            current_item.updated_at = target_ready_at
 
         self._persist_item_checkpoint(
             int(migration.id),
@@ -413,13 +418,15 @@ class BucketMigrationItemRunnerMixin:
                         f"Restore error: {sanitized_error_log_detail(restore_exc)}"
                     ) from exc
 
+                restored_at = utcnow()
+
                 def persist_restored(
                     _current_migration: BucketMigration,
                     current_item: BucketMigrationItem,
                 ) -> None:
                     current_item.target_lock_applied = False
                     current_item.target_policy_backup = None
-                    current_item.updated_at = utcnow()
+                    current_item.updated_at = restored_at
 
                 self._persist_item_checkpoint(
                     int(migration.id),
@@ -429,13 +436,14 @@ class BucketMigrationItemRunnerMixin:
             raise
 
         next_step = "pre_sync" if migration.mode == "pre_sync" and not item.pre_sync_done else "apply_read_only"
+        applied_at = utcnow()
 
         def persist_applied(
             current_migration: BucketMigration,
             current_item: BucketMigrationItem,
         ) -> None:
             current_item.step = next_step
-            current_item.updated_at = utcnow()
+            current_item.updated_at = applied_at
             self._add_event(
                 current_migration,
                 item=current_item,

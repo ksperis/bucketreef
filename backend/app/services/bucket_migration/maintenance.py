@@ -92,6 +92,7 @@ class BucketMigrationMaintenanceMixin:
             clear_cleanup_error = item.source_deleted and not item.target_lock_applied
             if not (clear_verification or clear_cleanup_error):
                 continue
+            recovered_at = utcnow()
 
             def persist_item_recovery(_migration, current_item) -> None:
                 if clear_verification:
@@ -100,7 +101,7 @@ class BucketMigrationMaintenanceMixin:
                     # Deletion succeeded; only restoration had failed. A successful
                     # recovery resolves that separate outcome.
                     current_item.cleanup_error = None
-                current_item.updated_at = utcnow()
+                current_item.updated_at = recovered_at
 
             self._persist_item_checkpoint(
                 int(migration.id),
@@ -171,13 +172,14 @@ class BucketMigrationMaintenanceMixin:
         # let an expired worker publish over a replacement worker's operation.
         self._assert_workflow_lease()
         migration_id = int(migration.id)
+        finished_at = utcnow()
 
         def persist_result(current) -> None:
             current.maintenance_status = "failed" if errors else "completed"
             current.maintenance_error = " | ".join(errors[:5]) if errors else None
             current.worker_lease_owner = None
             current.worker_lease_until = None
-            current.updated_at = utcnow()
+            current.updated_at = finished_at
             self._add_event(
                 current,
                 level="warning" if errors else "info",
@@ -199,10 +201,11 @@ class BucketMigrationMaintenanceMixin:
             return
         self._bind_workflow_lease(migration_id, worker_id)
         self._assert_migration_creator_access(migration)
+        started_at = utcnow()
 
         def mark_running(current) -> None:
             current.maintenance_status = "running"
-            current.updated_at = utcnow()
+            current.updated_at = started_at
 
         migration = self._persist_migration_checkpoint(migration_id, mark_running)
 
@@ -402,14 +405,15 @@ class BucketMigrationMaintenanceMixin:
                 raise RuntimeError(
                     "Fresh SHA-256 verification found different contents, tags or version history. The source is retained."
                 )
+            verified_at = utcnow()
             verification = {
                 "target_sha256": target_hash,
-                "verified_at": utcnow().isoformat(),
+                "verified_at": verified_at.isoformat(),
             }
 
             def persist_verification(_migration, current_item) -> None:
                 current_item.cleanup_verification = verification
-                current_item.updated_at = utcnow()
+                current_item.updated_at = verified_at
 
             _migration, item = self._persist_item_checkpoint(
                 int(item.migration_id),
@@ -468,12 +472,13 @@ class BucketMigrationMaintenanceMixin:
     def _finalize_verified_source_cleanup(self, item, target) -> None:
         migration_id = int(item.migration_id)
         item_id = int(item.id)
+        source_deleted_at = utcnow()
 
         def persist_source_deleted(_migration, current_item) -> None:
             current_item.source_deleted = True
             current_item.read_only_applied = False
             current_item.source_policy_backup = None
-            current_item.updated_at = utcnow()
+            current_item.updated_at = source_deleted_at
 
         _migration, item = self._persist_item_checkpoint(
             migration_id,
@@ -485,11 +490,12 @@ class BucketMigrationMaintenanceMixin:
             item.target_bucket,
             item.target_policy_backup,
         )
+        target_restored_at = utcnow()
 
         def persist_target_restored(_migration, current_item) -> None:
             current_item.target_lock_applied = False
             current_item.target_policy_backup = None
-            current_item.updated_at = utcnow()
+            current_item.updated_at = target_restored_at
 
         self._persist_item_checkpoint(
             migration_id,

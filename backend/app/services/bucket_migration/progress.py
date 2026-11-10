@@ -222,6 +222,7 @@ class BucketMigrationProgressMixin:
                         item.target_bucket,
                         expected_policy,
                     )
+                released_at = utcnow()
 
                 def persist_release(
                     current_migration: BucketMigration,
@@ -229,7 +230,7 @@ class BucketMigrationProgressMixin:
                 ) -> None:
                     current_item.target_lock_applied = False
                     current_item.target_policy_backup = None
-                    current_item.updated_at = utcnow()
+                    current_item.updated_at = released_at
                     self._add_event(
                         current_migration,
                         item=current_item,
@@ -297,6 +298,7 @@ class BucketMigrationProgressMixin:
                         item.source_bucket,
                         expected_policy,
                     )
+                restored_at = utcnow()
 
                 def persist_release(
                     current_migration: BucketMigration,
@@ -304,7 +306,7 @@ class BucketMigrationProgressMixin:
                 ) -> None:
                     current_item.read_only_applied = False
                     current_item.source_policy_backup = None
-                    current_item.updated_at = utcnow()
+                    current_item.updated_at = restored_at
                     self._add_event(
                         current_migration,
                         item=current_item,
@@ -370,17 +372,18 @@ class BucketMigrationProgressMixin:
         target_release_errors = self._release_target_write_locks(migration, target_ctx, verify_restored=True)
         release_errors = source_release_errors + target_release_errors
         migration_id = int(migration.id)
+        canceled_at = utcnow()
 
         def persist_canceled(current: BucketMigration) -> None:
             current.status = "canceled"
             current.worker_lease_owner = None
             current.worker_lease_until = None
-            current.updated_at = utcnow()
+            current.updated_at = canceled_at
             for current_item in current.items:
                 if current_item.status in {"pending", "running", "paused", "awaiting_cutover"}:
                     current_item.status = "canceled"
-                    current_item.finished_at = utcnow()
-                    current_item.updated_at = utcnow()
+                    current_item.finished_at = canceled_at
+                    current_item.updated_at = canceled_at
             if release_errors:
                 current.error_message = truncate_optional_db_text(
                     f"Migration canceled, but {len(release_errors)} authorization restore error(s): "
@@ -395,19 +398,24 @@ class BucketMigrationProgressMixin:
         return self._persist_migration_checkpoint(migration_id, persist_canceled)
 
     def _ready_for_cutover(self, migration: BucketMigration) -> bool:
-        if migration.mode != "pre_sync" or migration.awaiting_items <= 0:
+        if migration.mode != "pre_sync":
             return False
-        return migration.awaiting_items + migration.completed_items == migration.total_items
+        awaiting = sum(item.status == "awaiting_cutover" for item in migration.items)
+        if awaiting <= 0:
+            return False
+        completed = sum(item.status == "completed" for item in migration.items)
+        return awaiting + completed == len(migration.items)
 
     def _mark_awaiting_cutover(self, migration: BucketMigration) -> BucketMigration:
         migration_id = int(migration.id)
+        awaiting_at = utcnow()
 
         def persist_status(current: BucketMigration) -> None:
             self._recompute_counters(current)
             current.status = "awaiting_cutover"
             current.worker_lease_owner = None
             current.worker_lease_until = None
-            current.updated_at = utcnow()
+            current.updated_at = awaiting_at
             self._add_event(
                 current,
                 level="info",
@@ -436,6 +444,7 @@ class BucketMigrationProgressMixin:
         )
 
         migration_id = int(migration.id)
+        finished_at = utcnow()
 
         def persist_status(current: BucketMigration) -> None:
             self._recompute_counters(current)
@@ -444,7 +453,7 @@ class BucketMigrationProgressMixin:
             )
             current.worker_lease_owner = None
             current.worker_lease_until = None
-            current.updated_at = utcnow()
+            current.updated_at = finished_at
             if release_errors:
                 current.status = "completed_with_errors"
                 current.error_message = truncate_optional_db_text(
@@ -467,7 +476,6 @@ class BucketMigrationProgressMixin:
         source_ctx: Optional[ResolvedContext] = None,
         target_ctx: Optional[ResolvedContext] = None,
     ) -> BucketMigration:
-        self._recompute_counters(migration)
         if migration.status == "cancel_requested":
             return self._mark_canceled(
                 migration,
@@ -482,6 +490,7 @@ class BucketMigrationProgressMixin:
             return self._mark_awaiting_cutover(migration)
 
         if self._has_pending_migration_items(migration):
+            self._recompute_counters(migration)
             migration.status = "running"
             migration.updated_at = utcnow()
             return migration
@@ -525,7 +534,7 @@ class BucketMigrationProgressMixin:
                 safe_metadata = normalized_metadata
             else:
                 safe_metadata = {"value": normalized_metadata}
-        created_at = utcnow()
+        created_at = getattr(self, "_db_replay_timestamp", None) or utcnow()
         entry = BucketMigrationEvent(
             migration_id=migration.id,
             item_id=item.id if item else None,

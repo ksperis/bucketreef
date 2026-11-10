@@ -5007,6 +5007,7 @@ def test_sync_bucket_updates_object_counters_incrementally(db_session):
     )
     item = migration.items[0]
     item.execution_strategy = _current_only_execution_strategy()
+    db_session.commit()
 
     source_ctx = SimpleNamespace(
         context_id=str(source.id),
@@ -5045,25 +5046,26 @@ def test_sync_bucket_updates_object_counters_incrementally(db_session):
     service._add_event = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
 
     commit_calls = {"count": 0}
-    original_commit = db_session.commit
 
-    def _counting_commit():
+    def _counting_commit(_connection):
         commit_calls["count"] += 1
-        original_commit()
 
-    db_session.commit = _counting_commit  # type: ignore[assignment]
-    copied, deleted, _diff = service._sync_bucket(
-        source_ctx,
-        target_ctx,
-        source_bucket="bucket-a",
-        target_bucket="bucket-a-dst",
-        allow_delete=False,
-        parallelism_max=8,
-        migration=migration,
-        item=item,
-        control_check=lambda: "run",
-    )
-    db_session.commit = original_commit  # type: ignore[assignment]
+    bind = db_session.get_bind()
+    sa.event.listen(bind, "commit", _counting_commit)
+    try:
+        copied, deleted, _diff = service._sync_bucket(
+            source_ctx,
+            target_ctx,
+            source_bucket="bucket-a",
+            target_bucket="bucket-a-dst",
+            allow_delete=False,
+            parallelism_max=8,
+            migration=migration,
+            item=item,
+            control_check=lambda: "run",
+        )
+    finally:
+        sa.event.remove(bind, "commit", _counting_commit)
 
     db_session.refresh(migration)
     db_session.refresh(item)
@@ -5093,6 +5095,7 @@ def test_sync_bucket_force_flushes_progress_when_pause_is_requested(db_session):
     )
     item = migration.items[0]
     item.execution_strategy = _current_only_execution_strategy()
+    db_session.commit()
 
     source_ctx = SimpleNamespace(
         context_id=str(source.id),

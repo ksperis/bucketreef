@@ -7,6 +7,7 @@ from copy import deepcopy
 from typing import Any, Optional
 
 from botocore.exceptions import BotoCoreError, ClientError
+from sqlalchemy.orm.attributes import set_committed_value
 
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import BucketMigrationItem
@@ -540,8 +541,16 @@ class BucketMigrationPolicyGrantsMixin:
                 int(item_id),
                 persist_intent,
             )
-            item.source_policy_backup = current_item.source_policy_backup
-            item.read_only_applied = current_item.read_only_applied
+            set_committed_value(
+                item,
+                "source_policy_backup",
+                current_item.source_policy_backup,
+            )
+            set_committed_value(
+                item,
+                "read_only_applied",
+                current_item.read_only_applied,
+            )
         policy_doc = self._build_read_only_policy(
             source_bucket,
             existing_policy if isinstance(existing_policy, dict) else None,
@@ -594,8 +603,16 @@ class BucketMigrationPolicyGrantsMixin:
                 int(item_id),
                 persist_intent,
             )
-            item.target_policy_backup = current_item.target_policy_backup
-            item.target_lock_applied = current_item.target_lock_applied
+            set_committed_value(
+                item,
+                "target_policy_backup",
+                current_item.target_policy_backup,
+            )
+            set_committed_value(
+                item,
+                "target_lock_applied",
+                current_item.target_lock_applied,
+            )
         lock_policy_doc = self._build_target_write_lock_policy(
             target_bucket,
             existing_policy if isinstance(existing_policy, dict) else None,

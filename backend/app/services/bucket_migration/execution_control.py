@@ -114,6 +114,7 @@ class BucketMigrationExecutionControlMixin:
         try:
             self._execution_item = item
             self._revalidate_transfer_preconditions(migration, items=[item])
+            started_at = utcnow()
 
             def mark_item_running(
                 current_migration: BucketMigration,
@@ -121,8 +122,8 @@ class BucketMigrationExecutionControlMixin:
             ) -> None:
                 current_item.status = "running"
                 if current_item.started_at is None:
-                    current_item.started_at = utcnow()
-                current_item.updated_at = utcnow()
+                    current_item.started_at = started_at
+                current_item.updated_at = started_at
 
             migration, item = self._persist_item_checkpoint(
                 migration_id,
@@ -149,6 +150,7 @@ class BucketMigrationExecutionControlMixin:
             )
             self.db.rollback()
             error_detail = sanitized_error_log_detail(exc)
+            failed_at = utcnow()
 
             def mark_item_failed(
                 current_migration: BucketMigration,
@@ -159,8 +161,8 @@ class BucketMigrationExecutionControlMixin:
                     error_detail,
                     max_chars=DB_ERROR_MESSAGE_MAX_CHARS,
                 )
-                failed_item.finished_at = utcnow()
-                failed_item.updated_at = utcnow()
+                failed_item.finished_at = failed_at
+                failed_item.updated_at = failed_at
                 self._add_event(
                     current_migration,
                     item=failed_item,
