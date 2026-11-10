@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import exists, func, or_, select
 
-from app.core.db_transactions import rollback_safely
+from app.core.db_transactions import run_replayable_db_unit
 from app.db import (
     PortalPublicLink as DBPortalPublicLink,
     PortalStorageSpaceGrant,
@@ -558,37 +558,118 @@ class PortalSharingMixin:
         if portal_role != PortalAccountRole.PORTAL_USER.value:
             raise PortalBadRequestError("Only Portal users can receive an explicit team Storage Space role.")
         grant = self._storage_space_grant(metadata.id, target.id)
-        if grant is None:
-            grant = PortalStorageSpaceGrant(
-                storage_space_metadata_id=metadata.id,
-                user_id=target.id,
-                role=role,
-                created_by_user_id=user.id,
+        account_id = access.account.id
+        metadata_id = metadata.id
+        target_id = target.id
+        actor_id = user.id
+        changed_at = utcnow()
+        previous_grant = (
+            None
+            if grant is None
+            else (
+                grant.id,
+                grant.role,
+                grant.created_by_user_id,
+                grant.created_at,
+                grant.updated_at,
             )
-        else:
-            grant.role = role
-            grant.updated_at = utcnow()
-        self.db.add(grant)
-        projection_attempted = False
+        )
+
+        def persist_grant(write_db):
+            current_metadata = write_db.get(PortalStorageSpaceMetadata, metadata_id)
+            if (
+                current_metadata is None
+                or current_metadata.account_id != account_id
+                or current_metadata.bucket_name != bucket_name
+                or current_metadata.archived_at is not None
+                or self._metadata_visibility(current_metadata) != "shared"
+            ):
+                raise PortalConflictError("Storage space access changed. Refresh and retry.")
+            current_grant = write_db.scalar(
+                select(PortalStorageSpaceGrant).where(
+                    PortalStorageSpaceGrant.storage_space_metadata_id == metadata_id,
+                    PortalStorageSpaceGrant.user_id == target_id,
+                )
+            )
+            if previous_grant is None:
+                if current_grant is not None:
+                    raise PortalConflictError("Storage space share changed. Refresh and retry.")
+                current_grant = PortalStorageSpaceGrant(
+                    storage_space_metadata_id=metadata_id,
+                    user_id=target_id,
+                    role=role,
+                    created_by_user_id=actor_id,
+                    created_at=changed_at,
+                    updated_at=changed_at,
+                )
+                write_db.add(current_grant)
+            else:
+                previous_id, previous_role, _creator_id, _created_at, previous_updated_at = previous_grant
+                if (
+                    current_grant is None
+                    or current_grant.id != previous_id
+                    or current_grant.role != previous_role
+                    or current_grant.updated_at != previous_updated_at
+                ):
+                    raise PortalConflictError("Storage space share changed. Refresh and retry.")
+                current_grant.role = role
+                current_grant.updated_at = changed_at
+            write_db.flush()
+            return current_grant.id
+
+        persisted_grant_id = run_replayable_db_unit(self.db, persist_grant)
+        account = self.db.get(S3Account, account_id)
+        metadata = self.db.get(PortalStorageSpaceMetadata, metadata_id)
+        if account is None or metadata is None:
+            raise PortalOperationError("Storage space metadata is missing.")
         try:
-            self.db.flush()
-            projection_attempted = True
-            self._sync_storage_space_access_projection(access.account, metadata, extra_user_ids={target.id})
-            self.db.commit()
+            self._sync_storage_space_access_projection(account, metadata, extra_user_ids={target_id})
         except Exception as exc:
-            rollback_error = rollback_safely(self.db)
-            if rollback_error is not None:  # pragma: no cover - defensive database failure
+            rollback_error = None
+
+            def restore_grant(write_db):
+                current_grant = write_db.scalar(
+                    select(PortalStorageSpaceGrant).where(
+                        PortalStorageSpaceGrant.storage_space_metadata_id == metadata_id,
+                        PortalStorageSpaceGrant.user_id == target_id,
+                    )
+                )
+                if (
+                    current_grant is None
+                    or current_grant.id != persisted_grant_id
+                    or current_grant.role != role
+                    or current_grant.updated_at != changed_at
+                ):
+                    raise PortalConflictError("Storage space share changed during projection rollback.")
+                if previous_grant is None:
+                    write_db.delete(current_grant)
+                    return
+                _, previous_role, creator_id, created_at, updated_at = previous_grant
+                current_grant.role = previous_role
+                current_grant.created_by_user_id = creator_id
+                current_grant.created_at = created_at
+                current_grant.updated_at = updated_at
+
+            try:
+                run_replayable_db_unit(self.db, restore_grant)
+            except Exception as compensation_exc:  # pragma: no cover - defensive database failure
+                rollback_error = compensation_exc
                 logger.error(
                     "Unable to roll back failed Storage Space share update: %s",
                     rollback_error,
                 )
             projection_rollback_failed = False
-            if projection_attempted and rollback_error is None:
-                projection_rollback_failed = self._restore_storage_space_access_projection(
-                    access.account,
-                    metadata,
-                    extra_user_ids={target.id},
-                )
+            if rollback_error is None:
+                account = self.db.get(S3Account, account_id)
+                metadata = self.db.get(PortalStorageSpaceMetadata, metadata_id)
+                if account is None or metadata is None:
+                    projection_rollback_failed = True
+                else:
+                    projection_rollback_failed = self._restore_storage_space_access_projection(
+                        account,
+                        metadata,
+                        extra_user_ids={target_id},
+                    )
             if rollback_error is not None or projection_rollback_failed:
                 raise PortalOperationError(
                     "Unable to update Storage Space share. Local or remote rollback also failed."
@@ -618,29 +699,96 @@ class PortalSharingMixin:
         if metadata is None:
             raise PortalOperationError("Storage space metadata is missing.")
         grant = self._storage_space_grant(metadata.id, target.id)
-        projection_attempted = False
+        if grant is None:
+            return self.list_storage_space_shares(user, access, space_id)
+        account_id = access.account.id
+        metadata_id = metadata.id
+        target_id = target.id
+        previous_grant = (
+            grant.id,
+            grant.role,
+            grant.created_by_user_id,
+            grant.created_at,
+            grant.updated_at,
+        )
+
+        def delete_grant(write_db):
+            current_metadata = write_db.get(PortalStorageSpaceMetadata, metadata_id)
+            if (
+                current_metadata is None
+                or current_metadata.account_id != account_id
+                or current_metadata.bucket_name != bucket_name
+                or current_metadata.archived_at is not None
+            ):
+                raise PortalConflictError("Storage space access changed. Refresh and retry.")
+            current_grant = write_db.scalar(
+                select(PortalStorageSpaceGrant).where(
+                    PortalStorageSpaceGrant.storage_space_metadata_id == metadata_id,
+                    PortalStorageSpaceGrant.user_id == target_id,
+                )
+            )
+            previous_id, previous_role, _creator_id, _created_at, previous_updated_at = previous_grant
+            if (
+                current_grant is None
+                or current_grant.id != previous_id
+                or current_grant.role != previous_role
+                or current_grant.updated_at != previous_updated_at
+            ):
+                raise PortalConflictError("Storage space share changed. Refresh and retry.")
+            write_db.delete(current_grant)
+
+        run_replayable_db_unit(self.db, delete_grant)
+        account = self.db.get(S3Account, account_id)
+        metadata = self.db.get(PortalStorageSpaceMetadata, metadata_id)
+        if account is None or metadata is None:
+            raise PortalOperationError("Storage space metadata is missing.")
         try:
-            if grant is not None:
-                self.db.delete(grant)
-                self.db.flush()
-            if grant is not None:
-                projection_attempted = True
-                self._sync_storage_space_access_projection(access.account, metadata, extra_user_ids={target.id})
-            self.db.commit()
+            self._sync_storage_space_access_projection(account, metadata, extra_user_ids={target_id})
         except Exception as exc:
-            rollback_error = rollback_safely(self.db)
-            if rollback_error is not None:  # pragma: no cover - defensive database failure
+            rollback_error = None
+
+            def restore_grant(write_db):
+                current_grant = write_db.scalar(
+                    select(PortalStorageSpaceGrant).where(
+                        PortalStorageSpaceGrant.storage_space_metadata_id == metadata_id,
+                        PortalStorageSpaceGrant.user_id == target_id,
+                    )
+                )
+                if current_grant is not None:
+                    raise PortalConflictError("Storage space share changed during projection rollback.")
+                grant_id, grant_role, creator_id, created_at, updated_at = previous_grant
+                write_db.add(
+                    PortalStorageSpaceGrant(
+                        id=grant_id,
+                        storage_space_metadata_id=metadata_id,
+                        user_id=target_id,
+                        role=grant_role,
+                        created_by_user_id=creator_id,
+                        created_at=created_at,
+                        updated_at=updated_at,
+                    )
+                )
+
+            try:
+                run_replayable_db_unit(self.db, restore_grant)
+            except Exception as compensation_exc:  # pragma: no cover - defensive database failure
+                rollback_error = compensation_exc
                 logger.error(
                     "Unable to roll back failed Storage Space share revocation: %s",
                     rollback_error,
                 )
             projection_rollback_failed = False
-            if projection_attempted and rollback_error is None:
-                projection_rollback_failed = self._restore_storage_space_access_projection(
-                    access.account,
-                    metadata,
-                    extra_user_ids={target.id},
-                )
+            if rollback_error is None:
+                account = self.db.get(S3Account, account_id)
+                metadata = self.db.get(PortalStorageSpaceMetadata, metadata_id)
+                if account is None or metadata is None:
+                    projection_rollback_failed = True
+                else:
+                    projection_rollback_failed = self._restore_storage_space_access_projection(
+                        account,
+                        metadata,
+                        extra_user_ids={target_id},
+                    )
             if rollback_error is not None or projection_rollback_failed:
                 raise PortalOperationError(
                     "Unable to revoke Storage Space share. Local or remote rollback also failed."

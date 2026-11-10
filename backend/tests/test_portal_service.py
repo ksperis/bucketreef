@@ -4521,15 +4521,12 @@ def test_storage_space_share_reports_projection_compensation_failure(monkeypatch
 
     def projection(*_args, **_kwargs):
         calls.append(None)
+        if len(calls) == 1:
+            raise RuntimeError("simulated projection failure")
         if len(calls) == 2:
             raise RuntimeError("simulated projection compensation failure")
 
     monkeypatch.setattr(service, "_sync_storage_space_access_projection", projection)
-    monkeypatch.setattr(
-        db_session,
-        "commit",
-        lambda: (_ for _ in ()).throw(RuntimeError("simulated share commit failure")),
-    )
     access = _portal_access(
         account,
         owner,
@@ -4544,7 +4541,7 @@ def test_storage_space_share_reports_projection_compensation_failure(monkeypatch
         service.set_storage_space_share(owner, access, target, "research-data", "Viewer")
 
     assert isinstance(raised.value.__cause__, RuntimeError)
-    assert str(raised.value.__cause__) == "simulated share commit failure"
+    assert str(raised.value.__cause__) == "simulated projection failure"
     assert len(calls) == 2
 
 @pytest.mark.parametrize(
@@ -7081,7 +7078,7 @@ def test_set_storage_space_share_rolls_back_db_grant_when_projection_fails(monke
     ).all() == []
 
 
-def test_set_storage_space_share_commit_failure_restores_projection(monkeypatch, db_session):
+def test_set_storage_space_share_retries_busy_snapshot_before_projection(monkeypatch, db_session):
     account = make_s3_account(db_session, name="portal-share-commit-rollback", rgw_access_key="ROOT-AK", rgw_secret_key="ROOT-SK")
     owner = User(email="owner-share-commit-rollback@example.com", hashed_password="x", role="ui_user")
     target = User(email="target-share-commit-rollback@example.com", hashed_password="x", role="ui_user")
@@ -7131,17 +7128,18 @@ def test_set_storage_space_share_commit_failure_restores_projection(monkeypatch,
         )
 
     monkeypatch.setattr(service, "_sync_storage_space_access_projection", record_projection)
-    monkeypatch.setattr(
-        db_session,
-        "commit",
-        lambda: (_ for _ in ()).throw(RuntimeError("simulated share commit failure")),
-    )
     access = _portal_access(account, owner, portal_role=PortalAccountRole.PORTAL_MANAGER.value, can_manage_buckets=True)
 
-    with pytest.raises(RuntimeError, match="simulated share commit failure"):
-        service.set_storage_space_share(owner, access, target, "research-data", "Viewer")
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO portal_storage_space_grants",
+    ) as matching_statements:
+        share = service.set_storage_space_share(owner, access, target, "research-data", "Viewer")
 
-    assert projection_states == [1, 0]
+    assert len(matching_statements) == 2
+    assert share.user_id == target.id
+    assert share.role == "Viewer"
+    assert projection_states == [1]
     assert db_session.scalar(
         sa.select(sa.func.count())
         .select_from(PortalStorageSpaceGrant)
@@ -7149,10 +7147,10 @@ def test_set_storage_space_share_commit_failure_restores_projection(monkeypatch,
             PortalStorageSpaceGrant.storage_space_metadata_id == metadata.id,
             PortalStorageSpaceGrant.user_id == target.id,
         )
-    ) == 0
+    ) == 1
 
 
-def test_revoke_storage_space_share_commit_failure_restores_projection(monkeypatch, db_session):
+def test_revoke_storage_space_share_retries_busy_snapshot_before_projection(monkeypatch, db_session):
     account = make_s3_account(db_session, name="portal-share-revoke-rollback", rgw_access_key="ROOT-AK", rgw_secret_key="ROOT-SK")
     owner = User(email="owner-share-revoke-rollback@example.com", hashed_password="x", role="ui_user")
     target = User(email="target-share-revoke-rollback@example.com", hashed_password="x", role="ui_user")
@@ -7211,17 +7209,17 @@ def test_revoke_storage_space_share_commit_failure_restores_projection(monkeypat
         )
 
     monkeypatch.setattr(service, "_sync_storage_space_access_projection", record_projection)
-    monkeypatch.setattr(
-        db_session,
-        "commit",
-        lambda: (_ for _ in ()).throw(RuntimeError("simulated revoke commit failure")),
-    )
     access = _portal_access(account, owner, portal_role=PortalAccountRole.PORTAL_MANAGER.value, can_manage_buckets=True)
 
-    with pytest.raises(RuntimeError, match="simulated revoke commit failure"):
-        service.revoke_storage_space_share(owner, access, target, "research-data")
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "DELETE FROM portal_storage_space_grants",
+    ) as matching_statements:
+        shares = service.revoke_storage_space_share(owner, access, target, "research-data")
 
-    assert projection_states == [0, 1]
+    assert len(matching_statements) == 2
+    assert shares == []
+    assert projection_states == [0]
     assert db_session.scalar(
         sa.select(sa.func.count())
         .select_from(PortalStorageSpaceGrant)
@@ -7229,7 +7227,98 @@ def test_revoke_storage_space_share_commit_failure_restores_projection(monkeypat
             PortalStorageSpaceGrant.storage_space_metadata_id == metadata.id,
             PortalStorageSpaceGrant.user_id == target.id,
         )
-    ) == 1
+    ) == 0
+
+
+def test_revoke_storage_space_share_restores_db_before_projection_compensation(
+    monkeypatch,
+    db_session,
+):
+    account = make_s3_account(
+        db_session,
+        name="portal-share-revoke-projection-rollback",
+        rgw_access_key="ROOT-AK",
+        rgw_secret_key="ROOT-SK",
+    )
+    owner = User(email="owner-revoke-projection@example.com", hashed_password="x", role="ui_user")
+    target = User(email="target-revoke-projection@example.com", hashed_password="x", role="ui_user")
+    db_session.add_all([account, owner, target])
+    db_session.commit()
+    db_session.add(
+        UserS3Account(
+            user_id=target.id,
+            account_id=account.id,
+            manager_role=None,
+            portal_role=PortalAccountRole.PORTAL_USER.value,
+        )
+    )
+    metadata = PortalStorageSpaceMetadata(
+        account_id=account.id,
+        bucket_name="research-data",
+        display_name="Research Data",
+        visibility="shared",
+    )
+    db_session.add(metadata)
+    db_session.flush()
+    grant = PortalStorageSpaceGrant(
+        storage_space_metadata_id=metadata.id,
+        user_id=target.id,
+        role="Editor",
+        created_by_user_id=owner.id,
+    )
+    db_session.add(grant)
+    db_session.commit()
+    grant_id = grant.id
+    service = PortalService(db_session)
+    monkeypatch.setattr(
+        service,
+        "list_storage_spaces",
+        lambda *_args, **_kwargs: [
+            portal_storage_space_summary(
+                id="research-data",
+                name="Research Data",
+                role="Owner",
+                internal_bucket_name="research-data",
+            )
+        ],
+    )
+    projection_states = []
+
+    def fail_then_restore_projection(*_args, **_kwargs):
+        projection_states.append(
+            db_session.scalar(
+                sa.select(sa.func.count())
+                .select_from(PortalStorageSpaceGrant)
+                .where(
+                    PortalStorageSpaceGrant.storage_space_metadata_id == metadata.id,
+                    PortalStorageSpaceGrant.user_id == target.id,
+                )
+            )
+        )
+        if len(projection_states) == 1:
+            raise RuntimeError("projection failed")
+
+    monkeypatch.setattr(
+        service,
+        "_sync_storage_space_access_projection",
+        fail_then_restore_projection,
+    )
+    access = _portal_access(
+        account,
+        owner,
+        portal_role=PortalAccountRole.PORTAL_MANAGER.value,
+        can_manage_buckets=True,
+    )
+
+    with pytest.raises(RuntimeError, match="projection failed"):
+        service.revoke_storage_space_share(owner, access, target, "research-data")
+
+    assert projection_states == [0, 1]
+    db_session.expire_all()
+    restored = db_session.get(PortalStorageSpaceGrant, grant_id)
+    assert restored is not None
+    assert restored.role == "Editor"
+    assert restored.created_by_user_id == owner.id
 
 
 def test_storage_space_share_mutations_resync_bucket_policy(monkeypatch, db_session):
