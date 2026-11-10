@@ -14,7 +14,7 @@ from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
-from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
+from app.core.db_transactions import run_replayable_db_unit
 from app.core.security import (
     create_refresh_token,
     create_s3_access_token,
@@ -160,59 +160,77 @@ class AuthSessionService:
         )
 
     def rotate(self, raw_token: str) -> SessionCredentials:
-        return run_db_unit_with_sqlite_retry(
-            self.db,
-            lambda: self._rotate_once(raw_token),
-        )
-
-    def _rotate_once(self, raw_token: str) -> SessionCredentials:
         now = utcnow()
-        current = self._require_refresh_token(raw_token)
-        session, user, s3_session = self._require_refresh_principal(current, now)
-        self._claim_refresh_token(current, now)
-        return self._issue_rotated_credentials(
-            current,
-            session,
-            user=user,
-            s3_session=s3_session,
-            now=now,
-        )
+        next_raw = create_refresh_token()
+        next_csrf = secrets.token_urlsafe(32)
+        next_id = str(uuid.uuid4())
+        next_hash = hash_refresh_token(next_raw)
 
-    def _require_refresh_token(self, raw_token: str) -> RefreshToken:
+        result = run_replayable_db_unit(
+            self.db,
+            lambda write_db: AuthSessionService(write_db, settings=self.settings)._rotate_once(
+                raw_token,
+                now=now,
+                next_raw=next_raw,
+                next_csrf=next_csrf,
+                next_id=next_id,
+                next_hash=next_hash,
+            ),
+        )
+        if isinstance(result, AuthSessionError):
+            raise result
+        if self.db.get_bind().dialect.name == "sqlite":
+            persisted = self.db.get(AuthSession, result.session.id, populate_existing=True)
+            if persisted is None:  # pragma: no cover - defensive consistency check
+                raise RuntimeError("Authentication session could not be reloaded")
+            result = SessionCredentials(
+                access_token=result.access_token,
+                refresh_token=result.refresh_token,
+                csrf_token=result.csrf_token,
+                session=persisted,
+            )
+        return result
+
+    def _rotate_once(
+        self,
+        raw_token: str,
+        *,
+        now: datetime,
+        next_raw: str,
+        next_csrf: str,
+        next_id: str,
+        next_hash: str,
+    ) -> SessionCredentials | AuthSessionError:
         current = self.db.scalar(
             select(RefreshToken)
             .where(RefreshToken.token_hash == hash_refresh_token(raw_token or ""))
             .limit(1)
         )
         if current is None:
-            raise AuthSessionError("Invalid refresh token")
+            return AuthSessionError("Invalid refresh token")
         if current.used_at is not None or current.revoked_at is not None:
-            self.revoke_family(current.family_id, "refresh_replay")
-            raise RefreshReplayError("Refresh token replay detected")
-        return current
+            self._revoke_family_in_transaction(current.family_id, "refresh_replay", now)
+            return RefreshReplayError("Refresh token replay detected")
 
-    def _require_refresh_principal(
-        self,
-        current: RefreshToken,
-        now: datetime,
-    ) -> tuple[AuthSession, Optional[User], Optional[S3Session]]:
         session = self.db.get(AuthSession, current.auth_session_id)
         if session is None or not self._is_session_active(session, now) or current.expires_at <= now:
-            self.revoke_session(current.auth_session_id, "expired")
-            raise AuthSessionError("Session expired")
+            if session is not None:
+                self._revoke_session_in_transaction(session, "expired", now)
+            return AuthSessionError("Session expired")
+
+        user: Optional[User] = None
+        s3_session: Optional[S3Session] = None
         if session.user_id is not None:
             user = self.db.get(User, session.user_id)
             if not user or not user.is_active or user.auth_version != session.auth_version:
-                self.revoke_session(session.id, "principal_changed")
-                raise AuthSessionError("User is unavailable")
-            return session, user, None
-        s3_session = self.db.get(S3Session, session.s3_session_id)
-        if not self._is_s3_session_active(s3_session, now):
-            self.revoke_session(session.id, "s3_session_expired")
-            raise AuthSessionError("S3 session expired")
-        return session, None, s3_session
+                self._revoke_session_in_transaction(session, "principal_changed", now)
+                return AuthSessionError("User is unavailable")
+        else:
+            s3_session = self.db.get(S3Session, session.s3_session_id)
+            if not self._is_s3_session_active(s3_session, now):
+                self._revoke_session_in_transaction(session, "s3_session_expired", now)
+                return AuthSessionError("S3 session expired")
 
-    def _claim_refresh_token(self, current: RefreshToken, now: datetime) -> None:
         claimed = self.db.execute(
             update(RefreshToken)
             .where(
@@ -223,9 +241,20 @@ class AuthSessionService:
             .values(used_at=now)
         )
         if claimed.rowcount != 1:
-            self.db.rollback()
-            self.revoke_family(current.family_id, "refresh_replay")
-            raise RefreshReplayError("Refresh token replay detected")
+            self._revoke_family_in_transaction(current.family_id, "refresh_replay", now)
+            return RefreshReplayError("Refresh token replay detected")
+
+        return self._issue_rotated_credentials(
+            current,
+            session,
+            user=user,
+            s3_session=s3_session,
+            now=now,
+            next_raw=next_raw,
+            next_csrf=next_csrf,
+            next_id=next_id,
+            next_hash=next_hash,
+        )
 
     def _issue_rotated_credentials(
         self,
@@ -235,15 +264,17 @@ class AuthSessionService:
         user: Optional[User],
         s3_session: Optional[S3Session],
         now: datetime,
+        next_raw: str,
+        next_csrf: str,
+        next_id: str,
+        next_hash: str,
     ) -> SessionCredentials:
-        next_raw = create_refresh_token()
-        next_csrf = secrets.token_urlsafe(32)
         next_row = RefreshToken(
-            id=str(uuid.uuid4()),
+            id=next_id,
             family_id=current.family_id,
             auth_session_id=session.id,
             parent_id=current.id,
-            token_hash=hash_refresh_token(next_raw),
+            token_hash=next_hash,
             created_at=now,
             expires_at=session.absolute_expires_at,
         )
@@ -263,7 +294,6 @@ class AuthSessionService:
                 s3_session.absolute_expires_at,
             )
         self.db.add_all([current, session])
-        commit_or_rollback(self.db)
         return SessionCredentials(
             access_token=self._access_token(session, user=user, s3_session=s3_session),
             refresh_token=next_raw,
@@ -272,33 +302,54 @@ class AuthSessionService:
         )
 
     def validate_access(self, session_id: str, *, expected_type: str) -> tuple[AuthSession, User | S3Session]:
-        return run_db_unit_with_sqlite_retry(
-            self.db,
-            lambda: self._validate_access_once(session_id, expected_type=expected_type),
-        )
-
-    def _validate_access_once(self, session_id: str, *, expected_type: str) -> tuple[AuthSession, User | S3Session]:
         now = utcnow()
+        result = run_replayable_db_unit(
+            self.db,
+            lambda write_db: AuthSessionService(write_db, settings=self.settings)._validate_access_once(
+                session_id,
+                expected_type=expected_type,
+                now=now,
+            ),
+        )
+        if isinstance(result, AuthSessionError):
+            raise result
+        session, principal = result
+        if self.db.get_bind().dialect.name == "sqlite":
+            persisted_session = self.db.get(AuthSession, session.id, populate_existing=True)
+            principal_model = User if session.user_id is not None else S3Session
+            persisted_principal = self.db.get(principal_model, principal.id, populate_existing=True)
+            if persisted_session is None or persisted_principal is None:  # pragma: no cover
+                raise RuntimeError("Authentication session principal could not be reloaded")
+            return persisted_session, persisted_principal
+        return session, principal
+
+    def _validate_access_once(
+        self,
+        session_id: str,
+        *,
+        expected_type: str,
+        now: datetime,
+    ) -> tuple[AuthSession, User | S3Session] | AuthSessionError:
         session = self.db.get(AuthSession, session_id)
         expected_principal = "s3" if expected_type == "s3_access" else "user"
         if session is None:
-            raise AuthSessionError("Session expired or invalid")
+            return AuthSessionError("Session expired or invalid")
         if not self._is_session_active(session, now):
-            self.revoke_session(session.id, "expired")
-            raise AuthSessionError("Session expired or invalid")
+            self._revoke_session_in_transaction(session, "expired", now)
+            return AuthSessionError("Session expired or invalid")
         if session.principal_type != expected_principal:
-            self.revoke_session(session.id, "principal_type_mismatch")
-            raise AuthSessionError("Session expired or invalid")
+            self._revoke_session_in_transaction(session, "principal_type_mismatch", now)
+            return AuthSessionError("Session expired or invalid")
         if session.user_id is not None:
             principal = self.db.get(User, session.user_id)
             if not principal or not principal.is_active or principal.auth_version != session.auth_version:
-                self.revoke_session(session.id, "principal_changed")
-                raise AuthSessionError("Session expired or invalid")
+                self._revoke_session_in_transaction(session, "principal_changed", now)
+                return AuthSessionError("Session expired or invalid")
         else:
             principal = self.db.get(S3Session, session.s3_session_id)
             if not self._is_s3_session_active(principal, now):
-                self.revoke_session(session.id, "s3_session_expired")
-                raise AuthSessionError("Session expired or invalid")
+                self._revoke_session_in_transaction(session, "s3_session_expired", now)
+                return AuthSessionError("Session expired or invalid")
             principal.last_used_at = now
             principal.idle_expires_at = min(
                 now + timedelta(minutes=self.settings.s3_session_idle_minutes),
@@ -310,7 +361,6 @@ class AuthSessionService:
             session.absolute_expires_at,
         )
         self.db.add_all([session, principal])
-        commit_or_rollback(self.db)
         return session, principal
 
     def validate_access_token(
@@ -338,18 +388,34 @@ class AuthSessionService:
         return bool(token) and secrets.compare_digest(hash_refresh_token(token), session.csrf_token_hash)
 
     def mark_webauthn_verified(self, session: AuthSession) -> AuthSession:
-        session.auth_type = "webauthn"
-        session.mfa_verified_at = utcnow()
-        self.db.add(session)
-        commit_or_rollback(self.db)
-        self.db.refresh(session)
-        return session
+        session_id = session.id
+        now = utcnow()
+
+        def mark_once(write_db: Session) -> str:
+            current = write_db.get(AuthSession, session_id)
+            if current is None:
+                raise AuthSessionError("Session expired or invalid")
+            current.auth_type = "webauthn"
+            current.mfa_verified_at = now
+            write_db.add(current)
+            return current.id
+
+        run_replayable_db_unit(self.db, mark_once)
+        persisted = self.db.get(AuthSession, session_id, populate_existing=True)
+        if persisted is None:  # pragma: no cover - defensive consistency check
+            raise RuntimeError("Authentication session could not be reloaded")
+        return persisted
 
     def revoke_session(self, session_id: str, reason: str) -> None:
-        session = self.db.get(AuthSession, session_id)
-        if session is None:
-            return
-        self._revoke_session_row(session, reason)
+        now = utcnow()
+
+        def revoke_once(write_db: Session) -> None:
+            service = AuthSessionService(write_db, settings=self.settings)
+            session = write_db.get(AuthSession, session_id)
+            if session is not None:
+                service._revoke_session_in_transaction(session, reason, now)
+
+        run_replayable_db_unit(self.db, revoke_once)
 
     def revoke_for_user(
         self,
@@ -357,18 +423,29 @@ class AuthSessionService:
         session_id: str,
         reason: str,
     ) -> Optional[AuthSession]:
-        session = self.db.scalar(
-            select(AuthSession)
-            .where(
-                AuthSession.id == session_id,
-                AuthSession.user_id == user_id,
+        now = utcnow()
+
+        def revoke_once(write_db: Session) -> Optional[AuthSession]:
+            service = AuthSessionService(write_db, settings=self.settings)
+            session = write_db.scalar(
+                select(AuthSession)
+                .where(
+                    AuthSession.id == session_id,
+                    AuthSession.user_id == user_id,
+                )
+                .limit(1)
             )
-            .limit(1)
-        )
-        if session is None:
+            if session is None:
+                return None
+            service._revoke_session_in_transaction(session, reason, now)
+            return session
+
+        revoked = run_replayable_db_unit(self.db, revoke_once)
+        if revoked is None:
             return None
-        self._revoke_session_row(session, reason)
-        return session
+        if self.db.get_bind().dialect.name == "sqlite":
+            return self.db.get(AuthSession, revoked.id, populate_existing=True)
+        return revoked
 
     def revoke_with_csrf(
         self,
@@ -377,12 +454,14 @@ class AuthSessionService:
         *,
         csrf_token: str,
     ) -> str:
-        return run_db_unit_with_sqlite_retry(
+        now = utcnow()
+        return run_replayable_db_unit(
             self.db,
-            lambda: self._revoke_with_csrf_once(
+            lambda write_db: AuthSessionService(write_db, settings=self.settings)._revoke_with_csrf_once(
                 session_id,
                 reason,
                 csrf_token=csrf_token,
+                now=now,
             ),
         )
 
@@ -392,15 +471,20 @@ class AuthSessionService:
         reason: str,
         *,
         csrf_token: str,
+        now: datetime,
     ) -> str:
         session = self.db.get(AuthSession, session_id)
         if session is None or not self.validate_csrf(session, csrf_token):
             raise AuthSessionError("Invalid CSRF token")
-        self._revoke_session_row(session, reason)
+        self._revoke_session_in_transaction(session, reason, now)
         return session.id
 
-    def _revoke_session_row(self, session: AuthSession, reason: str) -> None:
-        now = utcnow()
+    def _revoke_session_in_transaction(
+        self,
+        session: AuthSession,
+        reason: str,
+        now: datetime,
+    ) -> None:
         session.revoked_at = session.revoked_at or now
         session.revoke_reason = session.revoke_reason or reason
         self.db.add(session)
@@ -418,10 +502,23 @@ class AuthSessionService:
         if session.s3_session_id:
             self._erase_s3_session(session.s3_session_id, reason, now)
         self.db.add(session)
-        commit_or_rollback(self.db)
 
     def revoke_family(self, family_id: str, reason: str) -> None:
         now = utcnow()
+        run_replayable_db_unit(
+            self.db,
+            lambda write_db: AuthSessionService(
+                write_db,
+                settings=self.settings,
+            )._revoke_family_in_transaction(family_id, reason, now),
+        )
+
+    def _revoke_family_in_transaction(
+        self,
+        family_id: str,
+        reason: str,
+        now: datetime,
+    ) -> None:
         session_ids = list(
             self.db.scalars(
                 select(RefreshToken.auth_session_id)
@@ -446,7 +543,6 @@ class AuthSessionService:
         # authentication locks this same AuthSession before storing its token.
         self.db.flush()
         erase_openstack_sessions(self.db, session_ids)
-        commit_or_rollback(self.db)
 
     def revoke_by_refresh_token(
         self,
@@ -455,12 +551,14 @@ class AuthSessionService:
         *,
         csrf_token: Optional[str] = None,
     ) -> Optional[str]:
-        return run_db_unit_with_sqlite_retry(
+        now = utcnow()
+        return run_replayable_db_unit(
             self.db,
-            lambda: self._revoke_by_refresh_token_once(
+            lambda write_db: AuthSessionService(write_db, settings=self.settings)._revoke_by_refresh_token_once(
                 raw_token,
                 reason,
                 csrf_token=csrf_token,
+                now=now,
             ),
         )
 
@@ -470,6 +568,7 @@ class AuthSessionService:
         reason: str,
         *,
         csrf_token: Optional[str] = None,
+        now: datetime,
     ) -> Optional[str]:
         row = self.db.scalar(
             select(RefreshToken)
@@ -483,19 +582,27 @@ class AuthSessionService:
             return None
         if csrf_token is not None and not self.validate_csrf(session, csrf_token):
             raise AuthSessionError("Invalid CSRF token")
-        self.revoke_family(row.family_id, reason)
+        self._revoke_family_in_transaction(row.family_id, reason, now)
         return session.id
 
     def revoke_all_for_user(self, user: User, reason: str, *, increment_version: bool = True) -> None:
-        def revoke_once() -> None:
-            self.revoke_all_for_user_in_transaction(
-                user,
+        user_id = int(user.id)
+        now = utcnow()
+
+        def revoke_once(write_db: Session) -> None:
+            write_user = write_db.get(User, user_id)
+            if write_user is None:
+                return
+            AuthSessionService(write_db, settings=self.settings).revoke_all_for_user_in_transaction(
+                write_user,
                 reason,
                 increment_version=increment_version,
+                now=now,
             )
-            commit_or_rollback(self.db)
 
-        run_db_unit_with_sqlite_retry(self.db, revoke_once)
+        run_replayable_db_unit(self.db, revoke_once)
+        if increment_version and self.db.get_bind().dialect.name == "sqlite":
+            self.db.refresh(user)
 
     def revoke_all_for_user_in_transaction(
         self,
@@ -503,9 +610,10 @@ class AuthSessionService:
         reason: str,
         *,
         increment_version: bool = True,
+        now: Optional[datetime] = None,
     ) -> None:
         """Revoke user sessions/tokens without committing the surrounding transaction."""
-        now = utcnow()
+        now = now or utcnow()
         if increment_version:
             user.auth_version += 1
             self.db.add(user)
@@ -576,6 +684,15 @@ class AuthSessionService:
     def cleanup_expired(self) -> int:
         """Revoke expired rows and irreversibly erase dormant S3 credentials."""
         now = utcnow()
+        return run_replayable_db_unit(
+            self.db,
+            lambda write_db: AuthSessionService(
+                write_db,
+                settings=self.settings,
+            )._cleanup_expired_once(now),
+        )
+
+    def _cleanup_expired_once(self, now: datetime) -> int:
         expired_s3 = self.db.scalars(
             select(S3Session).where(
                 S3Session.revoked_at.is_(None),
@@ -624,7 +741,6 @@ class AuthSessionService:
             row.revoked_at = now
             row.revoke_reason = "expired"
             self.db.add(row)
-        commit_or_rollback(self.db)
         return len(expired_auth) + len(expired_s3)
 
     def _persist_new_session(
@@ -661,7 +777,7 @@ class AuthSessionService:
                 "revoke_reason": session.revoke_reason,
             }
 
-            def persist_once() -> str:
+            def persist_once(write_db: Session) -> str:
                 current = AuthSession(**session_values)
                 refresh = RefreshToken(
                     id=refresh_id,
@@ -671,11 +787,10 @@ class AuthSessionService:
                     created_at=current.created_at,
                     expires_at=current.absolute_expires_at,
                 )
-                self.db.add_all([current, refresh])
-                commit_or_rollback(self.db)
+                write_db.add_all([current, refresh])
                 return current.id
 
-            session_id = run_db_unit_with_sqlite_retry(self.db, persist_once)
+            session_id = run_replayable_db_unit(self.db, persist_once)
             persisted = self.db.get(AuthSession, session_id, populate_existing=True)
             if persisted is None:  # pragma: no cover - defensive consistency check
                 raise RuntimeError("Authentication session could not be reloaded")

@@ -849,12 +849,18 @@ def test_ui_revocation_precedes_erasure_and_blocks_late_authentication(db_sessio
     from app.db import RefreshToken
     from app.services.openstack_sessions import erase_openstack_sessions
 
-    service, user, auth, _, _ = connect(db_session, setup_cloud)
+    _service, user, auth, _, _ = connect(db_session, setup_cloud)
     family = db_session.scalar(select(RefreshToken.family_id).where(RefreshToken.auth_session_id == auth.id))
+    user_id = int(user.id)
+    auth_id = str(auth.id)
+    cloud_id = int(setup_cloud[2].id)
+
     def erase_after_revocation(db, auth_ids):
+        late_user = db.get(User, user_id)
+        assert late_user is not None
         with pytest.raises(OpenStackError, match="no longer active"):
-            service.authenticate(user, auth.id, OpenStackAuthenticate(
-                cloud_id=setup_cloud[2].id, method="token", token="late-token",
+            OpenStackService(db).authenticate(late_user, auth_id, OpenStackAuthenticate(
+                cloud_id=cloud_id, method="token", token="late-token",
             ))
         erase_openstack_sessions(db, auth_ids)
     monkeypatch.setattr("app.services.auth_session_service.erase_openstack_sessions", erase_after_revocation)
@@ -862,7 +868,7 @@ def test_ui_revocation_precedes_erasure_and_blocks_late_authentication(db_sessio
     if revoke == "family":
         sessions.revoke_family(family, "refresh_replay")
     elif revoke == "one":
-        sessions.revoke_session(auth.id, "test")
+        sessions.revoke_session(auth_id, "test")
     else:
         sessions.revoke_all_for_user(user, "test")
     assert db_session.scalar(select(OpenStackSession.token)) is None
