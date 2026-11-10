@@ -14,7 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import run_replayable_db_unit
 from app.core.runtime_surfaces import ceph_admin_only_runtime
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.core.security import get_password_hash
@@ -89,14 +89,6 @@ class FirstAdminBootstrapService:
     def _has_users(self) -> bool:
         return int(self.db.scalar(select(func.count(User.id))) or 0) != 0
 
-    def _commit_or_unavailable(self) -> None:
-        try:
-            commit_or_rollback(self.db)
-        except IntegrityError as exc:
-            raise FirstAdminBootstrapUnavailableError(
-                "First administrator bootstrap is unavailable"
-            ) from exc
-
     def _passkey_enrollment_required(self) -> bool:
         return bool(
             load_app_settings_for_db(
@@ -126,52 +118,50 @@ class FirstAdminBootstrapService:
             raise FirstAdminBootstrapError(
                 "Bootstrap token lifetime must be between 1 and 60 minutes"
             )
-        if self._has_users():
-            raise FirstAdminBootstrapUnavailableError(
-                "The database already contains users"
-            )
-
         now = utcnow()
         expires_at = now + timedelta(minutes=ttl_minutes)
         token = secrets.token_urlsafe(32)
         digest = self._digest(token)
-        row = self.db.get(FirstAdminBootstrap, FIRST_ADMIN_BOOTSTRAP_ID)
-        try:
+
+        def persist_once(write_db: Session) -> None:
+            if int(write_db.scalar(select(func.count(User.id))) or 0) != 0:
+                raise FirstAdminBootstrapUnavailableError(
+                    "The database already contains users"
+                )
+            row = write_db.get(FirstAdminBootstrap, FIRST_ADMIN_BOOTSTRAP_ID)
             if row is None:
-                self.db.add(
+                write_db.add(
                     FirstAdminBootstrap(
                         id=FIRST_ADMIN_BOOTSTRAP_ID,
                         token_digest=digest,
                         expires_at=expires_at,
                     )
                 )
-                self.db.flush()
-            else:
-                changed = self.db.execute(
-                    update(FirstAdminBootstrap)
-                    .where(
-                        FirstAdminBootstrap.id == FIRST_ADMIN_BOOTSTRAP_ID,
-                        FirstAdminBootstrap.consumed_at.is_(None),
-                        self._empty_users_predicate(),
-                    )
-                    .values(
-                        token_digest=digest,
-                        expires_at=expires_at,
-                    )
+                write_db.flush()
+                return
+            changed = write_db.execute(
+                update(FirstAdminBootstrap)
+                .where(
+                    FirstAdminBootstrap.id == FIRST_ADMIN_BOOTSTRAP_ID,
+                    FirstAdminBootstrap.consumed_at.is_(None),
+                    self._empty_users_predicate(),
                 )
-                if changed.rowcount != 1:
-                    raise FirstAdminBootstrapUnavailableError(
-                        "First administrator bootstrap is unavailable"
-                    )
+                .values(
+                    token_digest=digest,
+                    expires_at=expires_at,
+                )
+            )
+            if changed.rowcount != 1:
+                raise FirstAdminBootstrapUnavailableError(
+                    "First administrator bootstrap is unavailable"
+                )
+
+        try:
+            run_replayable_db_unit(self.db, persist_once)
         except IntegrityError as exc:
-            self.db.rollback()
             raise FirstAdminBootstrapUnavailableError(
                 "First administrator bootstrap is unavailable"
             ) from exc
-        except Exception:
-            self.db.rollback()
-            raise
-        self._commit_or_unavailable()
 
         AuditService(self.db).record_action(
             user=None,
@@ -197,43 +187,57 @@ class FirstAdminBootstrapService:
         normalized_email = self._normalize_email(email)
         self._validate_password(password)
         now = utcnow()
-        row = self.db.get(FirstAdminBootstrap, FIRST_ADMIN_BOOTSTRAP_ID)
         actual_digest = self._digest(token)
-        expected_digest = row.token_digest if row and row.token_digest else "0" * 64
-        token_matches = secrets.compare_digest(actual_digest, expected_digest)
-        if (
-            not token_matches
-            or row is None
-            or row.consumed_at is not None
-            or row.expires_at is None
-            or row.expires_at <= now
-        ):
-            raise FirstAdminBootstrapUnavailableError(
-                "First administrator bootstrap is unavailable"
-            )
         passkey_enrollment_required = self._passkey_enrollment_required()
+        normalized_name = self._normalize_full_name(full_name)
+        password_hash = get_password_hash(password)
 
-        changed = self.db.execute(
-            update(FirstAdminBootstrap)
-            .where(
-                FirstAdminBootstrap.id == FIRST_ADMIN_BOOTSTRAP_ID,
-                FirstAdminBootstrap.token_digest == actual_digest,
-                FirstAdminBootstrap.consumed_at.is_(None),
-                FirstAdminBootstrap.expires_at > now,
-                self._empty_users_predicate(),
+        def persist_once(write_db: Session) -> int:
+            row = write_db.get(FirstAdminBootstrap, FIRST_ADMIN_BOOTSTRAP_ID)
+            expected_digest = row.token_digest if row and row.token_digest else "0" * 64
+            if (
+                not secrets.compare_digest(actual_digest, expected_digest)
+                or row is None
+                or row.consumed_at is not None
+                or row.expires_at is None
+                or row.expires_at <= now
+            ):
+                raise FirstAdminBootstrapUnavailableError(
+                    "First administrator bootstrap is unavailable"
+                )
+            changed = write_db.execute(
+                update(FirstAdminBootstrap)
+                .where(
+                    FirstAdminBootstrap.id == FIRST_ADMIN_BOOTSTRAP_ID,
+                    FirstAdminBootstrap.token_digest == actual_digest,
+                    FirstAdminBootstrap.consumed_at.is_(None),
+                    FirstAdminBootstrap.expires_at > now,
+                    self._empty_users_predicate(),
+                )
+                .values(token_digest=None, consumed_at=now)
             )
-            .values(token_digest=None, consumed_at=now)
-        )
-        if changed.rowcount != 1:
-            self.db.rollback()
+            if changed.rowcount != 1:
+                raise FirstAdminBootstrapUnavailableError(
+                    "First administrator bootstrap is unavailable"
+                )
+            user = self._new_user(
+                normalized_email,
+                normalized_name,
+                password_hash=password_hash,
+            )
+            write_db.add(user)
+            write_db.flush()
+            return int(user.id)
+
+        try:
+            user_id = run_replayable_db_unit(self.db, persist_once)
+        except IntegrityError as exc:
             raise FirstAdminBootstrapUnavailableError(
                 "First administrator bootstrap is unavailable"
-            )
+            ) from exc
 
-        return self._complete_admin_creation(
-            normalized_email=normalized_email,
-            full_name=full_name,
-            password=password,
+        self._record_created_admin(
+            user_id=user_id,
             action="first_admin_bootstrap_completed",
             method="web",
             passkey_enrollment_required=passkey_enrollment_required,
@@ -241,6 +245,7 @@ class FirstAdminBootstrapService:
             user_agent=user_agent,
             request_id=request_id,
         )
+        return CreatedFirstAdmin(user_id=user_id, email=normalized_email)
 
     def create_from_cli(
         self,
@@ -265,18 +270,26 @@ class FirstAdminBootstrapService:
         passkey_enrollment_required = self._passkey_enrollment_required()
 
         now = utcnow()
-        row = self.db.get(FirstAdminBootstrap, FIRST_ADMIN_BOOTSTRAP_ID)
-        try:
+        normalized_name = self._normalize_full_name(full_name)
+        password_hash = get_password_hash(password)
+
+        def persist_once(write_db: Session) -> int:
+            if int(write_db.scalar(select(func.count(User.id))) or 0) != 0:
+                raise FirstAdminBootstrapUnavailableError(
+                    "The database already contains users; "
+                    "create administrators through the UI"
+                )
+            row = write_db.get(FirstAdminBootstrap, FIRST_ADMIN_BOOTSTRAP_ID)
             if row is None:
-                self.db.add(
+                write_db.add(
                     FirstAdminBootstrap(
                         id=FIRST_ADMIN_BOOTSTRAP_ID,
                         consumed_at=now,
                     )
                 )
-                self.db.flush()
+                write_db.flush()
             else:
-                changed = self.db.execute(
+                changed = write_db.execute(
                     update(FirstAdminBootstrap)
                     .where(
                         FirstAdminBootstrap.id == FIRST_ADMIN_BOOTSTRAP_ID,
@@ -289,54 +302,42 @@ class FirstAdminBootstrapService:
                     raise FirstAdminBootstrapUnavailableError(
                         "First administrator bootstrap is unavailable"
                     )
+            user = self._new_user(
+                normalized_email,
+                normalized_name,
+                password_hash=password_hash,
+            )
+            write_db.add(user)
+            write_db.flush()
+            return int(user.id)
 
+        try:
+            user_id = run_replayable_db_unit(self.db, persist_once)
         except IntegrityError as exc:
-            self.db.rollback()
             raise FirstAdminBootstrapUnavailableError(
                 "First administrator bootstrap is unavailable"
             ) from exc
-        except Exception:
-            self.db.rollback()
-            raise
 
-        return self._complete_admin_creation(
-            normalized_email=normalized_email,
-            full_name=full_name,
-            password=password,
+        self._record_created_admin(
+            user_id=user_id,
             action="operator_create_first_superadmin",
             method="cli",
             passkey_enrollment_required=passkey_enrollment_required,
         )
+        return CreatedFirstAdmin(user_id=user_id, email=normalized_email)
 
-    def _complete_admin_creation(
+    def _record_created_admin(
         self,
         *,
-        normalized_email: str,
-        full_name: Optional[str],
-        password: str,
+        user_id: int,
         action: str,
         method: str,
         passkey_enrollment_required: bool,
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
         request_id: Optional[str] = None,
-    ) -> CreatedFirstAdmin:
-        try:
-            user = self._new_user(normalized_email, full_name, password)
-            self.db.add(user)
-            self.db.flush()
-            user_id = int(user.id)
-        except IntegrityError as exc:
-            self.db.rollback()
-            raise FirstAdminBootstrapUnavailableError(
-                "First administrator bootstrap is unavailable"
-            ) from exc
-        except Exception:
-            self.db.rollback()
-            raise
-        self._commit_or_unavailable()
-
-        user = self.db.get(User, user_id)
+    ) -> None:
+        user = self.db.get(User, user_id, populate_existing=True)
         AuditService(self.db).record_action(
             user=user,
             scope="security",
@@ -351,19 +352,18 @@ class FirstAdminBootstrapService:
             user_agent=user_agent,
             request_id=request_id,
         )
-        return CreatedFirstAdmin(user_id=user_id, email=normalized_email)
 
     def _new_user(
         self,
         email: str,
         full_name: Optional[str],
-        password: str,
+        *,
+        password_hash: str,
     ) -> User:
-        normalized_name = FirstAdminBootstrapService._normalize_full_name(full_name)
         return User(
             email=email,
-            full_name=normalized_name,
-            hashed_password=get_password_hash(password),
+            full_name=full_name,
+            hashed_password=password_hash,
             role=UserRole.UI_SUPERADMIN.value,
             is_active=True,
             auth_version=1,
