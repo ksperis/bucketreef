@@ -11,7 +11,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
-from app.core.db_transactions import add_and_flush_in_savepoint, commit_or_rollback
+from app.core.db_transactions import (
+    add_and_flush_in_savepoint,
+    commit_or_rollback,
+    run_db_unit_with_sqlite_retry,
+)
 from app.db import AuthRateLimit
 from app.utils.time import utcnow
 
@@ -79,10 +83,14 @@ class AuthRateLimitService:
 
     def clear_account(self, *, account: str, ip_address: str) -> None:
         key = self._key("account_ip", account.lower(), ip_address)
-        self.db.execute(
-            delete(AuthRateLimit).where(AuthRateLimit.bucket_key == key)
-        )
-        commit_or_rollback(self.db)
+
+        def clear_once() -> None:
+            self.db.execute(
+                delete(AuthRateLimit).where(AuthRateLimit.bucket_key == key)
+            )
+            commit_or_rollback(self.db)
+
+        run_db_unit_with_sqlite_retry(self.db, clear_once)
 
     def _window_start(self, now: datetime) -> datetime:
         timestamp = int(now.timestamp())
