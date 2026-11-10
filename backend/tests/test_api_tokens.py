@@ -18,6 +18,7 @@ from app.routers import browser as browser_router
 from app.routers.dependencies_internal import auth_session
 from app.services.api_token_service import ApiTokenService
 from tests.auth_test_utils import authenticate_ui_client, clear_ui_client, trusted_origin_headers
+from tests.db_transaction_test_utils import fail_next_transaction_commit
 
 
 @pytest.fixture
@@ -48,45 +49,27 @@ def _create_user(db_session, *, email: str, password: str, role: str) -> User:
     return user
 
 
-def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
-    rollback_calls: list[None] = []
-    original_rollback = db_session.rollback
-
-    def rollback() -> None:
-        rollback_calls.append(None)
-        original_rollback()
-
-    def commit() -> None:
-        raise RuntimeError("commit failed")
-
-    monkeypatch.setattr(db_session, "rollback", rollback)
-    monkeypatch.setattr(db_session, "commit", commit)
-    return rollback_calls
-
-
-def test_api_token_create_rolls_back_when_commit_fails(db_session, monkeypatch):
+def test_api_token_create_rolls_back_when_commit_fails(db_session):
     admin = _create_user(
         db_session,
         email="api-create-rollback@example.com",
         password="supersecret",
         role=UserRole.UI_ADMIN.value,
     )
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            ApiTokenService(db_session).create_for_user(
+                admin,
+                name="rollback",
+                scopes=["profile:read"],
+            )
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        ApiTokenService(db_session).create_for_user(
-            admin,
-            name="rollback",
-            scopes=["profile:read"],
-        )
-
-    assert rollback_calls == [None]
     assert db_session.scalar(
         select(ApiToken).where(ApiToken.name == "rollback")
     ) is None
 
 
-def test_api_token_revoke_rolls_back_when_commit_fails(db_session, monkeypatch):
+def test_api_token_revoke_rolls_back_when_commit_fails(db_session):
     admin = _create_user(
         db_session,
         email="api-revoke-rollback@example.com",
@@ -99,12 +82,10 @@ def test_api_token_revoke_rolls_back_when_commit_fails(db_session, monkeypatch):
         name="revoke-rollback",
         scopes=["profile:read"],
     )
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service.revoke_for_user(user_id=admin.id, token_id=row.id)
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        service.revoke_for_user(user_id=admin.id, token_id=row.id)
-
-    assert rollback_calls == [None]
     db_session.expire_all()
     stored = db_session.get(ApiToken, row.id)
     assert stored is not None

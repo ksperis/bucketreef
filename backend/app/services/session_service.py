@@ -10,7 +10,7 @@ from typing import Optional
 from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy import select
 
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import run_replayable_db_unit
 from app.core.security import decrypt_secret, encrypt_secret
 from app.core.config import get_settings
 from app.db import S3Session
@@ -51,32 +51,44 @@ class SessionService:
         user_uid: Optional[str],
         capabilities: SessionCapabilities,
     ) -> ManagerSessionPrincipal:
-        self._cleanup_existing_sessions(access_key)
-
         now = utcnow()
         settings = get_settings()
         absolute_expires_at = now + timedelta(minutes=settings.s3_session_absolute_minutes)
-        session = S3Session(
-            id=str(uuid.uuid4()),
-            access_key_enc=encrypt_secret(access_key),
-            secret_key_enc=encrypt_secret(secret_key),
-            access_key_hash=self._hash_key(access_key),
-            actor_type=actor_type,
-            role=UserRole.UI_USER.value,
-            account_id=account_id,
-            account_name=account_name,
-            user_uid=user_uid,
-            capabilities=capabilities.model_dump(mode="json"),
-            created_at=now,
-            last_used_at=now,
-            idle_expires_at=min(
-                now + timedelta(minutes=settings.s3_session_idle_minutes),
-                absolute_expires_at,
-            ),
-            absolute_expires_at=absolute_expires_at,
-        )
-        self.db.add(session)
-        commit_or_rollback(self.db)
+        session_id = str(uuid.uuid4())
+        access_key_enc = encrypt_secret(access_key)
+        secret_key_enc = encrypt_secret(secret_key)
+        access_key_hash = self._hash_key(access_key)
+        serialized_capabilities = capabilities.model_dump(mode="json")
+
+        def persist(write_db) -> None:
+            write_service = self if write_db is self.db else SessionService(write_db)
+            write_service._cleanup_existing_sessions(access_key)
+            write_db.add(
+                S3Session(
+                    id=session_id,
+                    access_key_enc=access_key_enc,
+                    secret_key_enc=secret_key_enc,
+                    access_key_hash=access_key_hash,
+                    actor_type=actor_type,
+                    role=UserRole.UI_USER.value,
+                    account_id=account_id,
+                    account_name=account_name,
+                    user_uid=user_uid,
+                    capabilities=serialized_capabilities,
+                    created_at=now,
+                    last_used_at=now,
+                    idle_expires_at=min(
+                        now + timedelta(minutes=settings.s3_session_idle_minutes),
+                        absolute_expires_at,
+                    ),
+                    absolute_expires_at=absolute_expires_at,
+                )
+            )
+
+        run_replayable_db_unit(self.db, persist)
+        session = self.db.get(S3Session, session_id)
+        if session is None:  # pragma: no cover - defensive database invariant
+            raise RuntimeError("Created S3 session could not be reloaded")
         return self.to_principal(session)
 
     def introspect_credentials(
