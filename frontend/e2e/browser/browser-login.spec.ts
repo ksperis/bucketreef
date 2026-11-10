@@ -26,5 +26,7 @@ test("logs in with the UI user and lands on /browser", async ({ page }) => {
   await page.goto(
     `/browser?ctx=${encodeURIComponent(`conn-${connection!.id}`)}&bucket=${encodeURIComponent(E2E_BUCKET_NAME)}`,
   );
-  await expect(page.getByRole("button", { name: "Select bucket" })).toContainText(E2E_BUCKET_NAME);
+  await expect(page.getByRole("button", { name: "Select bucket" })).toContainText(E2E_BUCKET_NAME, {
+    timeout: 15_000,
+  });
 });

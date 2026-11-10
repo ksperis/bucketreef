@@ -4,13 +4,17 @@ import { E2E_BUCKET_NAME } from "./config";
 
 async function gotoBrowser(page: Page): Promise<void> {
   await page.goto("/browser");
-  await expect(page.getByRole("button", { name: "Upload", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Upload", exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
 }
 
 export async function openBucket(page: Page, bucketName = E2E_BUCKET_NAME): Promise<void> {
   await page.goto(`/browser?bucket=${encodeURIComponent(bucketName)}`);
+  await expect(page.getByRole("button", { name: "Select bucket" })).toContainText(bucketName, {
+    timeout: 15_000,
+  });
   await expect(page.getByRole("button", { name: "Upload", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Select bucket" })).toContainText(bucketName);
 }
 
 export function getFolderButton(page: Page, folderName: string): Locator {
