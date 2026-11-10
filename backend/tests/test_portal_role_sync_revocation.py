@@ -10,6 +10,7 @@ from app.db import AccountIAMUser, PortalIAMRevocation, User, UserS3Account
 from app.services.portal.exceptions import PortalConflictError
 from app.services.portal_role_sync import commit_portal_role_changes
 from app.services.portal_service import PortalService
+from tests.db_transaction_test_utils import fail_next_sqlite_statement_with_busy_snapshot
 from tests.portal_iam_test_support import (
     FakePortalRevocationIAM,
     install_portal_revocation_fakes,
@@ -237,6 +238,50 @@ def test_role_removal_cleanup_failure_is_pending_and_retryable(monkeypatch, db_s
     ) is None
     assert fake_iam.key_exists is False
     assert fake_iam.user_exists is False
+
+
+def test_pending_revocation_sqlite_retry_does_not_replay_remote_cleanup(monkeypatch, db_session):
+    account, user, association, iam_link = _seed_portal_identity(
+        db_session,
+        suffix="sqlite-finalize-retry",
+        portal_role=PortalAccountRole.PORTAL_USER.value,
+    )
+    fake_iam = FakePortalRevocationIAM(iam_link.iam_username, iam_link.active_access_key)
+    install_portal_revocation_fakes(monkeypatch, fake_iam)
+    db_session.delete(association)
+    db_session.delete(iam_link)
+    db_session.add(
+        PortalIAMRevocation(
+            user_id=user.id,
+            account_id=account.id,
+            iam_user_id=iam_link.iam_user_id,
+            iam_username=iam_link.iam_username,
+        )
+    )
+    db_session.commit()
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "DELETE FROM portal_iam_revocations",
+    ) as matching_statements:
+        assert PortalService(db_session)._finalize_portal_iam_revocation(
+            user_id=int(user.id),
+            account_id=int(account.id),
+        ) is True
+
+    assert len(matching_statements) == 2
+    assert [call for call in fake_iam.calls if call[0] == "delete_access_key"] == [
+        ("delete_access_key", iam_link.iam_username, iam_link.active_access_key),
+    ]
+    assert [call for call in fake_iam.calls if call[0] == "delete_user"] == [
+        ("delete_user", iam_link.iam_username),
+    ]
+    assert db_session.scalar(
+        select(PortalIAMRevocation).where(
+            PortalIAMRevocation.user_id == user.id,
+            PortalIAMRevocation.account_id == account.id,
+        )
+    ) is None
 
 
 def test_pending_revocation_blocks_portal_role_restoration(monkeypatch, db_session):

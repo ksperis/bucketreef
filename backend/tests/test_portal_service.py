@@ -9889,26 +9889,66 @@ def test_external_access_key_status_commit_failure_restores_iam_and_projection(
         projection_states.append(credential.status)
 
     monkeypatch.setattr(service, "_sync_storage_space_access_projection", record_projection)
-    monkeypatch.setattr(
-        db_session,
-        "commit",
-        lambda: (_ for _ in ()).throw(RuntimeError("simulated external status commit failure")),
-    )
-
-    with pytest.raises(RuntimeError, match="simulated external status commit failure"):
-        service.update_access_key_status(
-            user,
-            _portal_access(account, user),
-            "AK-EXT-STATUS-ROLLBACK",
-            False,
-        )
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service.update_access_key_status(
+                user,
+                _portal_access(account, user),
+                "AK-EXT-STATUS-ROLLBACK",
+                False,
+            )
 
     assert iam_service.status_updates == [
         ("portal-ext-status-rollback", "AK-EXT-STATUS-ROLLBACK", "Inactive"),
         ("portal-ext-status-rollback", "AK-EXT-STATUS-ROLLBACK", "Active"),
     ]
-    assert projection_states == ["Inactive", "Active"]
+    assert projection_states == []
     assert credential.status == "Active"
+
+
+def test_external_access_key_status_sqlite_retry_does_not_replay_iam_or_projection(
+    monkeypatch,
+    db_session,
+):
+    account, user, _metadata, credential = _external_credential_fixture(
+        db_session,
+        suffix="status-busy-retry",
+    )
+
+    class _FakeIAMService:
+        def __init__(self):
+            self.status_updates = []
+
+        def update_access_key_status(self, user_name, access_key_id, status_value):
+            self.status_updates.append((user_name, access_key_id, status_value))
+
+    iam_service = _FakeIAMService()
+    projection_states = []
+    service = PortalService(db_session)
+    monkeypatch.setattr(service, "_get_iam_service", lambda _account: iam_service)
+    monkeypatch.setattr(
+        service,
+        "_sync_storage_space_access_projection",
+        lambda *_args, **_kwargs: projection_states.append("projected"),
+    )
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE portal_external_access_credentials",
+    ) as matching_statements:
+        updated = service.update_access_key_status(
+            user,
+            _portal_access(account, user),
+            credential.access_key_id,
+            False,
+        )
+
+    assert updated.is_active is False
+    assert len(matching_statements) == 2
+    assert iam_service.status_updates == [
+        (credential.iam_username, credential.access_key_id, "Inactive"),
+    ]
+    assert projection_states == ["projected"]
 
 
 def test_external_access_key_pending_revocation_rejects_status_changes(db_session):
@@ -9949,24 +9989,19 @@ def test_external_access_key_delete_commit_failure_restores_iam_and_projection(m
         "_sync_storage_space_access_projection",
         lambda *_args, **_kwargs: projection_states.append(credential.status),
     )
-    monkeypatch.setattr(
-        db_session,
-        "commit",
-        lambda: (_ for _ in ()).throw(RuntimeError("simulated external delete commit failure")),
-    )
-
-    with pytest.raises(RuntimeError, match="simulated external delete commit failure"):
-        service.delete_access_key(
-            user,
-            _portal_access(account, user),
-            credential.access_key_id,
-        )
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service.delete_access_key(
+                user,
+                _portal_access(account, user),
+                credential.access_key_id,
+            )
 
     assert iam_service.status_updates == [
         (credential.iam_username, credential.access_key_id, "Inactive"),
         (credential.iam_username, credential.access_key_id, "Active"),
     ]
-    assert projection_states == ["RevocationPending", "Active"]
+    assert projection_states == []
     assert credential.status == "Active"
     assert credential.revoked_at is None
 
@@ -10070,32 +10105,20 @@ def test_external_access_key_final_commit_failure_keeps_retryable_state(monkeypa
     service = PortalService(db_session)
     monkeypatch.setattr(service, "_get_iam_service", lambda _account: iam_service)
     monkeypatch.setattr(service, "_sync_storage_space_access_projection", lambda *_args, **_kwargs: None)
-    real_commit = db_session.commit
-    commit_calls = 0
-
-    def fail_final_commit():
-        nonlocal commit_calls
-        commit_calls += 1
-        if commit_calls == 2:
-            raise RuntimeError("simulated final revocation commit failure")
-        real_commit()
-
-    monkeypatch.setattr(db_session, "commit", fail_final_commit)
-
-    with pytest.raises(RuntimeError, match="local revocation is pending") as raised:
-        service.delete_access_key(
-            user,
-            _portal_access(account, user),
-            credential.access_key_id,
-        )
+    with fail_next_transaction_commit(db_session, occurrence=2):
+        with pytest.raises(RuntimeError, match="local revocation is pending") as raised:
+            service.delete_access_key(
+                user,
+                _portal_access(account, user),
+                credential.access_key_id,
+            )
 
     assert isinstance(raised.value.__cause__, RuntimeError)
-    assert str(raised.value.__cause__) == "simulated final revocation commit failure"
+    assert str(raised.value.__cause__) == "commit failed"
     db_session.refresh(credential)
     assert credential.status == "RevocationPending"
     assert credential.revoked_at is None
 
-    monkeypatch.setattr(db_session, "commit", real_commit)
     calls_before_retry = len(iam_service.calls)
     service.delete_access_key(
         user,
@@ -10107,6 +10130,59 @@ def test_external_access_key_final_commit_failure_keeps_retryable_state(monkeypa
     assert credential.status == "Inactive"
     assert credential.revoked_at is not None
     assert not any(call[0] == "update" for call in iam_service.calls[calls_before_retry:])
+
+
+def test_external_access_key_finalization_sqlite_retry_does_not_replay_remote_cleanup(
+    monkeypatch,
+    db_session,
+):
+    account, user, _metadata, credential = _external_credential_fixture(
+        db_session,
+        suffix="final-busy-retry",
+        status="RevocationPending",
+    )
+
+    class _FakeIAMService:
+        def __init__(self):
+            self.calls = []
+
+        def update_access_key_status(self, user_name, access_key_id, status_value):  # noqa: ARG002
+            pytest.fail("pending revocation must not update IAM key status")
+
+        def delete_access_key(self, user_name, access_key_id):
+            self.calls.append(("delete_key", user_name, access_key_id))
+
+        def delete_user_inline_policy(self, user_name, policy_name):
+            self.calls.append(("delete_policy", user_name, policy_name))
+
+        def delete_user(self, user_name):
+            self.calls.append(("delete_user", user_name))
+
+    iam_service = _FakeIAMService()
+    service = PortalService(db_session)
+    monkeypatch.setattr(service, "_get_iam_service", lambda _account: iam_service)
+    monkeypatch.setattr(service, "_sync_storage_space_access_projection", lambda *_args, **_kwargs: None)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE portal_external_access_credentials",
+    ) as matching_statements:
+        deleted = service.delete_access_key(
+            user,
+            _portal_access(account, user),
+            credential.access_key_id,
+        )
+
+    assert deleted is not None
+    assert len(matching_statements) == 2
+    assert [call[0] for call in iam_service.calls] == [
+        "delete_key",
+        "delete_policy",
+        "delete_user",
+    ]
+    db_session.refresh(credential)
+    assert credential.status == "Inactive"
+    assert credential.revoked_at is not None
 
 
 def test_bucket_policy_principals_include_active_external_credentials(db_session):
