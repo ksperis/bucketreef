@@ -20,6 +20,10 @@ from fastapi import HTTPException
 from sqlalchemy.exc import OperationalError
 
 from tests.feature_policy_fixtures import portal_settings_fixture
+from tests.db_transaction_test_utils import (
+    fail_next_sqlite_statement_with_busy_snapshot,
+    fail_next_transaction_commit,
+)
 from tests.storage_endpoint_features import persisted_endpoint_features
 from app.db import (
     AuditLog,
@@ -911,21 +915,13 @@ def test_portal_user_creation_retries_busy_link_without_replaying_remote_create(
         IAMUser(name=username, user_id="managed-busy-uid"),
         IAMAccessKey(access_key_id="AK-BUSY", secret_access_key="SK-BUSY"),
     )
-    real_commit = db_session.commit
-    commit_calls = 0
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO account_iam_users",
+    ) as matching_statements:
+        link, iam_user, created = service._ensure_portal_user(user, account, iam_service)
 
-    def busy_once() -> None:
-        nonlocal commit_calls
-        commit_calls += 1
-        if commit_calls == 1:
-            raise _busy_snapshot_error()
-        real_commit()
-
-    monkeypatch.setattr(db_session, "commit", busy_once)
-
-    link, iam_user, created = service._ensure_portal_user(user, account, iam_service)
-
-    assert commit_calls == 2
+    assert len(matching_statements) == 2
     iam_service.create_user.assert_called_once_with(
         username,
         create_key=True,
@@ -963,14 +959,9 @@ def test_portal_user_creation_commit_failure_compensates_remote_user(
         IAMAccessKey(access_key_id="AK-ROLLBACK", secret_access_key="SK-ROLLBACK"),
     )
 
-    monkeypatch.setattr(
-        db_session,
-        "commit",
-        lambda: (_ for _ in ()).throw(RuntimeError("simulated portal link commit failure")),
-    )
-
-    with pytest.raises(RuntimeError, match="simulated portal link commit failure"):
-        service._ensure_portal_user(user, account, iam_service)
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service._ensure_portal_user(user, account, iam_service)
 
     iam_service.delete_access_key.assert_called_once_with(username, "AK-ROLLBACK")
     iam_service.delete_user.assert_called_once_with(username)
@@ -1004,20 +995,15 @@ def test_portal_user_creation_reports_remote_compensation_failure(
     )
     iam_service.delete_user.side_effect = RuntimeError("simulated IAM cleanup failure")
 
-    monkeypatch.setattr(
-        db_session,
-        "commit",
-        lambda: (_ for _ in ()).throw(RuntimeError("simulated portal link commit failure")),
-    )
-
-    with pytest.raises(
-        RuntimeError,
-        match="Local or IAM rollback also failed",
-    ) as raised:
-        service._ensure_portal_user(user, account, iam_service)
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(
+            RuntimeError,
+            match="Local or IAM rollback also failed",
+        ) as raised:
+            service._ensure_portal_user(user, account, iam_service)
 
     assert isinstance(raised.value.__cause__, RuntimeError)
-    assert str(raised.value.__cause__) == "simulated portal link commit failure"
+    assert str(raised.value.__cause__) == "commit failed"
     iam_service.delete_access_key.assert_called_once_with(username, "AK-CLEANUP-FAILURE")
     iam_service.delete_user.assert_called_once_with(username)
 
@@ -1080,14 +1066,9 @@ def test_portal_key_replacement_commit_failure_keeps_previous_remote_key(
             self.deleted.append(access_key_id)
 
     iam_service = FakeIAM()
-    monkeypatch.setattr(
-        db_session,
-        "commit",
-        lambda: (_ for _ in ()).throw(RuntimeError("simulated portal key commit failure")),
-    )
-
-    with pytest.raises(RuntimeError, match="simulated portal key commit failure"):
-        service._ensure_active_key(link, iam_service)
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service._ensure_active_key(link, iam_service)
 
     assert iam_service.deleted == ["AK-NEW"]
     assert link.active_access_key == "AK-OLD"
@@ -1131,15 +1112,14 @@ def test_portal_key_replacement_persists_before_stale_key_cleanup(
             events.append(f"delete:{access_key_id}")
 
     iam_service = FakeIAM()
-    real_commit = db_session.commit
-
-    def tracked_commit():
+    def tracked_commit(_connection):
         events.append("commit")
-        real_commit()
-
-    monkeypatch.setattr(db_session, "commit", tracked_commit)
-
-    active = service._ensure_active_key(link, iam_service)
+    bind = db_session.get_bind()
+    sa.event.listen(bind, "commit", tracked_commit)
+    try:
+        active = service._ensure_active_key(link, iam_service)
+    finally:
+        sa.event.remove(bind, "commit", tracked_commit)
 
     assert active.access_key_id == "AK-NEW"
     assert active.secret_access_key == "SK-NEW"
@@ -1219,20 +1199,15 @@ def test_portal_key_replacement_reports_cleanup_failure(db_session, monkeypatch)
             raise RuntimeError("simulated new key cleanup failure")
 
     iam_service = FakeIAM()
-    monkeypatch.setattr(
-        db_session,
-        "commit",
-        lambda: (_ for _ in ()).throw(RuntimeError("simulated portal key commit failure")),
-    )
-
-    with pytest.raises(
-        RuntimeError,
-        match="Local or IAM rollback also failed",
-    ) as raised:
-        service._ensure_active_key(link, iam_service)
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(
+            RuntimeError,
+            match="Local or IAM rollback also failed",
+        ) as raised:
+            service._ensure_active_key(link, iam_service)
 
     assert isinstance(raised.value.__cause__, RuntimeError)
-    assert str(raised.value.__cause__) == "simulated portal key commit failure"
+    assert str(raised.value.__cause__) == "commit failed"
 
 
 def test_manager_group_access_is_protected_before_policy_update(monkeypatch, db_session):
@@ -5330,17 +5305,12 @@ def test_portal_settings_commit_failure_restores_existing_server_access_logging(
         "rollback",
         lambda: (rollback_calls.append(True), real_rollback())[1],
     )
-    monkeypatch.setattr(
-        db_session,
-        "commit",
-        Mock(side_effect=RuntimeError("simulated database commit failure")),
-    )
-
-    with pytest.raises(RuntimeError, match="simulated database commit failure"):
-        service.update_admin_portal_settings_override(
-            account,
-            PortalSettingsOverride(server_access_logging_enabled=True),
-        )
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service.update_admin_portal_settings_override(
+                account,
+                PortalSettingsOverride(server_access_logging_enabled=True),
+            )
 
     assert rollback_calls == [True]
     assert remote["source_logging"] == previous_source_logging
@@ -5384,19 +5354,12 @@ def test_portal_settings_commit_failure_deletes_new_server_access_log_bucket(mon
         source_logging={"space-created": None},
         log_bucket_exists=False,
     )
-    real_rollback = db_session.rollback
-    monkeypatch.setattr(db_session, "rollback", real_rollback)
-    monkeypatch.setattr(
-        db_session,
-        "commit",
-        Mock(side_effect=RuntimeError("simulated database commit failure")),
-    )
-
-    with pytest.raises(RuntimeError, match="simulated database commit failure"):
-        service.update_admin_portal_settings_override(
-            account,
-            PortalSettingsOverride(server_access_logging_enabled=True),
-        )
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service.update_admin_portal_settings_override(
+                account,
+                PortalSettingsOverride(server_access_logging_enabled=True),
+            )
 
     log_bucket = service._portal_server_access_log_bucket_name(account)
     assert remote["created"] == [log_bucket]
@@ -5444,24 +5407,16 @@ def test_portal_settings_retries_busy_persistence_without_replaying_logging_reco
         "_restore_portal_server_access_logging_state",
         lambda *_args, **_kwargs: pytest.fail("Successful SQLite retry must not restore remote logging state"),
     )
-    real_commit = db_session.commit
-    commit_calls = 0
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE s3_accounts",
+    ) as matching_statements:
+        service.update_admin_portal_settings_override(
+            account,
+            PortalSettingsOverride(server_access_logging_enabled=True),
+        )
 
-    def busy_once() -> None:
-        nonlocal commit_calls
-        commit_calls += 1
-        if commit_calls == 1:
-            raise _busy_snapshot_error()
-        real_commit()
-
-    monkeypatch.setattr(db_session, "commit", busy_once)
-
-    service.update_admin_portal_settings_override(
-        account,
-        PortalSettingsOverride(server_access_logging_enabled=True),
-    )
-
-    assert commit_calls == 2
+    assert len(matching_statements) == 2
     assert reconcile_calls == [True]
     db_session.refresh(account)
     assert account.portal_settings_override == {"server_access_logging_enabled": True}
