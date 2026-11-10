@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from urllib.parse import quote
 
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import run_replayable_db_unit
 from app.db import PortalStorageSpaceMetadata, User
 from app.core.domain_enums import PortalAccountRole
 from app.models.portal_storage_spaces import (
@@ -93,18 +93,28 @@ class PortalStorageSpaceIconsMixin:
         if access.portal_role != PortalAccountRole.PORTAL_MANAGER.value:
             raise PortalForbiddenError("Only project managers can configure Storage Space icons.")
         metadata = self._visible_storage_space_icon_metadata(user, access, space_id)
-        if source == "uploaded":
-            if not metadata.icon_image:
-                raise ValueError("Upload a Storage Space image before selecting it.")
-        else:
-            if preset not in STORAGE_SPACE_ICON_PRESETS:
-                raise ValueError("Select a valid Storage Space pictogram.")
-            metadata.icon_preset = preset
-        metadata.icon_source = source
-        metadata.icon_updated_at = utcnow()
-        self.db.add(metadata)
-        commit_or_rollback(self.db)
-        self.db.refresh(metadata)
+        if source != "uploaded" and preset not in STORAGE_SPACE_ICON_PRESETS:
+            raise ValueError("Select a valid Storage Space pictogram.")
+        metadata_id = metadata.id
+        updated_at = utcnow()
+
+        def persist_choice(write_db):
+            current_metadata = write_db.get(PortalStorageSpaceMetadata, metadata_id)
+            if current_metadata is None:
+                raise PortalNotFoundError("Storage space icon not found or not allowed.")
+            if source == "uploaded":
+                if not current_metadata.icon_image:
+                    raise ValueError("Upload a Storage Space image before selecting it.")
+            else:
+                current_metadata.icon_preset = preset
+            current_metadata.icon_source = source
+            current_metadata.icon_updated_at = updated_at
+            write_db.add(current_metadata)
+
+        run_replayable_db_unit(self.db, persist_choice)
+        metadata = self.db.get(PortalStorageSpaceMetadata, metadata_id)
+        if metadata is None:
+            raise PortalNotFoundError("Storage space icon not found or not allowed.")
         return self._storage_space_icon_descriptor(metadata)
 
     def store_storage_space_icon_image(
@@ -119,13 +129,23 @@ class PortalStorageSpaceIconsMixin:
             raise PortalForbiddenError("Only project managers can configure Storage Space icons.")
         metadata = self._visible_storage_space_icon_metadata(user, access, space_id)
         detected_type = validate_avatar_image(payload, content_type)
-        metadata.icon_image = payload
-        metadata.icon_content_type = detected_type
-        metadata.icon_source = "uploaded"
-        metadata.icon_updated_at = utcnow()
-        self.db.add(metadata)
-        commit_or_rollback(self.db)
-        self.db.refresh(metadata)
+        metadata_id = metadata.id
+        updated_at = utcnow()
+
+        def persist_image(write_db):
+            current_metadata = write_db.get(PortalStorageSpaceMetadata, metadata_id)
+            if current_metadata is None:
+                raise PortalNotFoundError("Storage space icon not found or not allowed.")
+            current_metadata.icon_image = payload
+            current_metadata.icon_content_type = detected_type
+            current_metadata.icon_source = "uploaded"
+            current_metadata.icon_updated_at = updated_at
+            write_db.add(current_metadata)
+
+        run_replayable_db_unit(self.db, persist_image)
+        metadata = self.db.get(PortalStorageSpaceMetadata, metadata_id)
+        if metadata is None:
+            raise PortalNotFoundError("Storage space icon not found or not allowed.")
         return self._storage_space_icon_descriptor(metadata)
 
     def remove_storage_space_icon_image(
@@ -137,13 +157,23 @@ class PortalStorageSpaceIconsMixin:
         if access.portal_role != PortalAccountRole.PORTAL_MANAGER.value:
             raise PortalForbiddenError("Only project managers can configure Storage Space icons.")
         metadata = self._visible_storage_space_icon_metadata(user, access, space_id)
-        metadata.icon_image = None
-        metadata.icon_content_type = None
-        metadata.icon_source = "preset"
-        metadata.icon_updated_at = utcnow()
-        self.db.add(metadata)
-        commit_or_rollback(self.db)
-        self.db.refresh(metadata)
+        metadata_id = metadata.id
+        updated_at = utcnow()
+
+        def remove_image(write_db):
+            current_metadata = write_db.get(PortalStorageSpaceMetadata, metadata_id)
+            if current_metadata is None:
+                raise PortalNotFoundError("Storage space icon not found or not allowed.")
+            current_metadata.icon_image = None
+            current_metadata.icon_content_type = None
+            current_metadata.icon_source = "preset"
+            current_metadata.icon_updated_at = updated_at
+            write_db.add(current_metadata)
+
+        run_replayable_db_unit(self.db, remove_image)
+        metadata = self.db.get(PortalStorageSpaceMetadata, metadata_id)
+        if metadata is None:
+            raise PortalNotFoundError("Storage space icon not found or not allowed.")
         return self._storage_space_icon_descriptor(metadata)
 
     def storage_space_icon_image(

@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 
 from app.core.config import get_settings
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import run_replayable_db_unit
 from app.core.domain_enums import PortalAccountRole
 from app.db import (
     PortalPublicLink as DBPortalPublicLink,
@@ -150,19 +150,31 @@ class PortalPublicLinksMixin:
         client = self._portal_object_client(user, access.account)
         self._head_storage_space_object(client, bucket_name, space_id, object_key)
         token = secrets.token_urlsafe(32)
-        link = DBPortalPublicLink(
-            token=token,
-            account_id=access.account.id,
-            bucket_name=bucket_name,
-            object_key=object_key,
-            label=label,
-            created_by_user_id=user.id,
-            created_by_email=user.email,
-            expires_at=expires_at,
-        )
-        self.db.add(link)
-        commit_or_rollback(self.db)
-        self.db.refresh(link)
+        account_id = access.account.id
+        created_by_user_id = user.id
+        created_by_email = user.email
+        metadata_id = metadata.id
+
+        def persist_link(write_db):
+            link = DBPortalPublicLink(
+                token=token,
+                account_id=account_id,
+                bucket_name=bucket_name,
+                object_key=object_key,
+                label=label,
+                created_by_user_id=created_by_user_id,
+                created_by_email=created_by_email,
+                expires_at=expires_at,
+            )
+            write_db.add(link)
+            write_db.flush()
+            return link.id
+
+        link_id = run_replayable_db_unit(self.db, persist_link)
+        link = self.db.get(DBPortalPublicLink, link_id)
+        metadata = self.db.get(PortalStorageSpaceMetadata, metadata_id)
+        if link is None or metadata is None:
+            raise PortalNotFoundError("Public link storage space not found.")
         return self._public_link_card(
             link,
             storage_space,
@@ -192,9 +204,23 @@ class PortalPublicLinksMixin:
         )
         if link is None:
             raise PortalNotFoundError("Public link not found.")
-        link.revoked_at = utcnow()
-        self.db.add(link)
-        commit_or_rollback(self.db)
+        account_id = access.account.id
+        revoked_at = utcnow()
+
+        def revoke_link(write_db):
+            current_link = write_db.scalar(
+                select(DBPortalPublicLink).where(
+                    DBPortalPublicLink.id == link_id,
+                    DBPortalPublicLink.account_id == account_id,
+                    DBPortalPublicLink.bucket_name == bucket_name,
+                )
+            )
+            if current_link is None:
+                raise PortalNotFoundError("Public link not found.")
+            current_link.revoked_at = revoked_at
+            write_db.add(current_link)
+
+        run_replayable_db_unit(self.db, revoke_link)
         return self.list_storage_space_public_links(user, access, space_id, include_revoked=True)
 
     def download_public_link(self, token: str) -> S3ObjectDownload:
