@@ -1513,20 +1513,16 @@ def test_update_user_commit_failure_restores_remote_quota_and_local_fields(
     original_quota = (5 * 1024**3, 250)
     fake.quota_by_uid["quota-rollback"] = original_quota
 
-    def fail_commit():
-        raise RuntimeError("simulated user update commit failure")
-
-    monkeypatch.setattr(db_session, "commit", fail_commit)
-
-    with pytest.raises(RuntimeError, match="simulated user update commit failure"):
-        S3UserUpdateService(db_session).update_user(
-            created.id,
-            S3UserUpdate(
-                name="Changed locally",
-                quota_max_size_gb=12,
-                quota_max_objects=900,
-            ),
-        )
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            S3UserUpdateService(db_session).update_user(
+                created.id,
+                S3UserUpdate(
+                    name="Changed locally",
+                    quota_max_size_gb=12,
+                    quota_max_objects=900,
+                ),
+            )
 
     assert fake.quota_by_uid["quota-rollback"] == original_quota
     db_session.expire_all()
@@ -1590,6 +1586,60 @@ def test_update_user_quota_failure_after_remote_mutation_restores_snapshot(
     assert record.name == "Quota remote failure"
 
 
+def test_update_user_sqlite_retry_does_not_repeat_remote_quota_update(
+    db_session,
+    monkeypatch,
+):
+    endpoint = _seed_ceph_endpoint(db_session)
+    fake = FakeRGWAdmin()
+    service = _build_service(db_session, monkeypatch, fake)
+    created = service.create_user(
+        S3UserCreate(
+            name="Quota retry",
+            uid="quota-busy-retry",
+            rgw_tenant="",
+            storage_endpoint_id=endpoint.id,
+        )
+    )
+    fake.quota_by_uid["quota-busy-retry"] = (4 * 1024**3, 200)
+    real_set_user_quota = fake.set_user_quota
+    quota_update_calls = 0
+
+    def count_quota_update(uid, max_size_bytes=None, max_objects=None, enabled=True):
+        nonlocal quota_update_calls
+        quota_update_calls += 1
+        return real_set_user_quota(
+            uid,
+            max_size_bytes=max_size_bytes,
+            max_objects=max_objects,
+            enabled=enabled,
+        )
+
+    monkeypatch.setattr(fake, "set_user_quota", count_quota_update)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE s3_users",
+    ) as matching_statements:
+        updated = S3UserUpdateService(db_session).update_user(
+            created.id,
+            S3UserUpdate(
+                name="Quota retry persisted",
+                quota_max_size_gb=9,
+                quota_max_objects=600,
+            ),
+        )
+
+    assert len(matching_statements) == 2
+    assert quota_update_calls == 1
+    assert fake.quota_by_uid["quota-busy-retry"] == (9 * 1024**3, 600)
+    assert updated.name == "Quota retry persisted"
+    db_session.expire_all()
+    record = db_session.get(S3User, created.id)
+    assert record is not None
+    assert record.name == "Quota retry persisted"
+
+
 def test_update_user_reports_quota_compensation_failure(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session)
     fake = FakeRGWAdmin()
@@ -1618,27 +1668,24 @@ def test_update_user_reports_quota_compensation_failure(db_session, monkeypatch)
             enabled=enabled,
         )
 
-    def fail_commit():
-        raise RuntimeError("simulated user update commit failure")
-
     monkeypatch.setattr(fake, "set_user_quota", fail_restore)
-    monkeypatch.setattr(db_session, "commit", fail_commit)
 
-    with pytest.raises(
-        CompensationFailureError,
-        match="Local or RGW rollback also failed",
-    ) as raised:
-        S3UserUpdateService(db_session).update_user(
-            created.id,
-            S3UserUpdate(
-                quota_max_size_gb=7,
-                quota_max_objects=700,
-            ),
-        )
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(
+            CompensationFailureError,
+            match="Local or RGW rollback also failed",
+        ) as raised:
+            S3UserUpdateService(db_session).update_user(
+                created.id,
+                S3UserUpdate(
+                    quota_max_size_gb=7,
+                    quota_max_objects=700,
+                ),
+            )
 
     assert calls == 2
     assert isinstance(raised.value.__cause__, RuntimeError)
-    assert str(raised.value.__cause__) == "simulated user update commit failure"
+    assert str(raised.value.__cause__) == "commit failed"
     assert fake.quota_by_uid["quota-compensation-failure"] == (7 * 1024**3, 700)
 
 
