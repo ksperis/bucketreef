@@ -7,8 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.db_transactions import (
     commit_or_rollback,
-    rollback_on_error,
-    run_db_unit_with_sqlite_retry,
+    run_replayable_db_unit,
 )
 from app.core.security import get_password_hash, verify_password
 from app.db import User
@@ -49,7 +48,13 @@ class UserUpdateService:
         self.query = UserQueryService(db)
         self.associations = UserAssociationsService(db)
 
-    def _apply_identity_updates(self, user: User, payload: UserUpdate) -> bool:
+    def _apply_identity_updates(
+        self,
+        user: User,
+        payload: UserUpdate,
+        *,
+        password_hash: str | None = None,
+    ) -> bool:
         security_changed = False
         if payload.email and payload.email != user.email:
             existing = self.query.get_by_email(payload.email)
@@ -61,8 +66,10 @@ class UserUpdateService:
             normalized_name = (payload.full_name or "").strip()
             user.full_name = normalized_name or None
         if payload.password:
-            validate_password_policy(payload.password)
-            user.hashed_password = get_password_hash(payload.password)
+            if password_hash is None:
+                validate_password_policy(payload.password)
+                password_hash = get_password_hash(payload.password)
+            user.hashed_password = password_hash
             security_changed = True
         return security_changed
 
@@ -103,8 +110,18 @@ class UserUpdateService:
         if not admin_role:
             user.quota_alerts_global_watch = False
 
-    def _apply_update_mutations(self, user: User, payload: UserUpdate) -> bool:
-        security_changed = self._apply_identity_updates(user, payload)
+    def _apply_update_mutations(
+        self,
+        user: User,
+        payload: UserUpdate,
+        *,
+        password_hash: str | None = None,
+    ) -> bool:
+        security_changed = self._apply_identity_updates(
+            user,
+            payload,
+            password_hash=password_hash,
+        )
         next_role, role_security_changed = self._apply_role_updates(user, payload)
         security_changed = security_changed or role_security_changed
         self._apply_access_updates(user, payload, role=next_role)
@@ -152,16 +169,24 @@ class UserUpdateService:
         user_id: int,
         payload: UserUpdate,
     ) -> tuple[User, bool]:
-        def update_once() -> tuple[int, bool]:
-            with rollback_on_error(self.db):
-                current = self.query.require_by_id(user_id)
-                security_changed = self._apply_update_mutations(current, payload)
-                self.db.add(current)
-                self.db.flush()
-                self.db.commit()
-                return int(current.id), security_changed
+        staged_password_hash: str | None = None
+        if self.db.get_bind().dialect.name == "sqlite" and payload.password:
+            validate_password_policy(payload.password)
+            staged_password_hash = get_password_hash(payload.password)
 
-        persisted_user_id, security_changed = run_db_unit_with_sqlite_retry(
+        def update_once(write_db: Session) -> tuple[int, bool]:
+            write_service = UserUpdateService(write_db)
+            current = write_service.query.require_by_id(user_id)
+            security_changed = write_service._apply_update_mutations(
+                current,
+                payload,
+                password_hash=staged_password_hash,
+            )
+            write_db.add(current)
+            write_db.flush()
+            return int(current.id), security_changed
+
+        persisted_user_id, security_changed = run_replayable_db_unit(
             self.db,
             update_once,
         )
