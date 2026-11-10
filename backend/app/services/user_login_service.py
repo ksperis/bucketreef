@@ -5,7 +5,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
+from app.core.db_transactions import run_replayable_db_unit
 from app.core.security import consume_dummy_password_hash, verify_and_update_password
 from app.db import User
 from app.services.auth_session_service import AuthSessionService
@@ -47,25 +47,24 @@ class UserLoginService:
         user_id = int(user.id)
         logged_in_at = utcnow()
 
-        def persist_once() -> int:
-            current = self.db.get(User, user_id, populate_existing=True)
+        def persist_once(write_db: Session) -> int:
+            current = write_db.get(User, user_id, populate_existing=True)
             if current is None:
                 raise RuntimeError("Authenticated user disappeared while persisting login activity")
             if updated_hash:
                 current.hashed_password = updated_hash
                 current.auth_version += 1
-                self.db.add(current)
-                AuthSessionService(self.db).revoke_all_for_user_in_transaction(
+                write_db.add(current)
+                AuthSessionService(write_db).revoke_all_for_user_in_transaction(
                     current,
                     "password_rehashed",
                     increment_version=False,
                 )
             current.last_login_at = logged_in_at
-            self.db.add(current)
-            commit_or_rollback(self.db)
+            write_db.add(current)
             return user_id
 
-        run_db_unit_with_sqlite_retry(self.db, persist_once)
+        run_replayable_db_unit(self.db, persist_once)
         current = self.db.get(User, user_id, populate_existing=True)
         if current is None:  # pragma: no cover - defensive consistency check
             raise RuntimeError("Authenticated user could not be reloaded after persisting login activity")
