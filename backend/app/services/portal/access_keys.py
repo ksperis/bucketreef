@@ -463,22 +463,39 @@ class PortalAccessKeysMixin:
         action: str,
     ) -> None:
         iam_service = self._get_iam_service(account)
-        previous_status = credential.status
-        metadata = credential.storage_space
+        credential_id = int(credential.id)
+        iam_username = str(credential.iam_username)
+        access_key_id = str(credential.access_key_id)
+        previous_status = str(credential.status)
+        previous_updated_at = credential.updated_at
+        metadata_id = int(credential.storage_space_metadata_id)
+        persisted_at = utcnow()
         remote_update_attempted = False
         projection_attempted = False
+        local_persisted = False
         try:
             if previous_status != remote_status:
                 iam_service.update_access_key_status(
-                    credential.iam_username,
-                    credential.access_key_id,
+                    iam_username,
+                    access_key_id,
                     remote_status,
                 )
                 remote_update_attempted = True
-            credential.status = persisted_status
-            credential.updated_at = utcnow()
-            self.db.add(credential)
-            self.db.flush()
+
+            def persist_status_once(write_db) -> None:
+                current = write_db.get(PortalExternalAccessCredential, credential_id)
+                if current is None or current.revoked_at is not None:
+                    raise PortalConflictError("External Portal access no longer exists.")
+                if current.status != previous_status:
+                    raise PortalConflictError(
+                        "External Portal access changed while its status was being updated. Retry the operation."
+                    )
+                current.status = persisted_status
+                current.updated_at = persisted_at
+
+            run_replayable_db_unit(self.db, persist_status_once)
+            local_persisted = True
+            metadata = self.db.get(PortalStorageSpaceMetadata, metadata_id)
             if metadata is not None:
                 projection_attempted = True
                 self._sync_storage_space_access_projection(
@@ -486,34 +503,66 @@ class PortalAccessKeysMixin:
                     metadata,
                     sync_participants=False,
                 )
-            self.db.commit()
         except Exception as exc:
             rollback_error = rollback_safely(self.db)
             if rollback_error is not None:  # pragma: no cover - defensive database failure
                 logger.error("Unable to roll back failed %s: %s", action, rollback_error)
+            local_rollback_failed = False
+            if local_persisted and rollback_error is None:
+                try:
+                    def restore_status_once(write_db) -> None:
+                        current = write_db.get(PortalExternalAccessCredential, credential_id)
+                        if current is None:
+                            return
+                        if current.status != persisted_status or current.updated_at != persisted_at:
+                            raise PortalConflictError(
+                                "External Portal access changed while a failed status update was being restored."
+                            )
+                        current.status = previous_status
+                        current.updated_at = previous_updated_at
+
+                    run_replayable_db_unit(self.db, restore_status_once)
+                except Exception as rollback_exc:  # pragma: no cover - defensive database failure
+                    logger.error(
+                        "Unable to restore external Portal access-key database status %s: %s",
+                        access_key_id,
+                        rollback_exc,
+                    )
+                    local_rollback_failed = True
             remote_rollback_failed = False
             if remote_update_attempted:
                 try:
                     iam_service.update_access_key_status(
-                        credential.iam_username,
-                        credential.access_key_id,
+                        iam_username,
+                        access_key_id,
                         previous_status,
                     )
                 except Exception as rollback_exc:  # pragma: no cover - defensive remote failure
                     logger.error(
                         "Unable to restore external IAM access-key status %s: %s",
-                        credential.access_key_id,
+                        access_key_id,
                         rollback_exc,
                     )
                     remote_rollback_failed = True
             projection_rollback_failed = False
-            if projection_attempted and metadata is not None and rollback_error is None:
-                projection_rollback_failed = self._restore_storage_space_access_projection(
-                    account,
-                    metadata,
-                    sync_participants=False,
-                )
-            if rollback_error is not None or remote_rollback_failed or projection_rollback_failed:
+            if (
+                projection_attempted
+                and rollback_error is None
+                and not local_rollback_failed
+            ):
+                restored_metadata = self.db.get(PortalStorageSpaceMetadata, metadata_id)
+                if restored_metadata is not None:
+                    projection_rollback_failed = self._restore_storage_space_access_projection(
+                        account,
+                        restored_metadata,
+                        sync_participants=False,
+                    )
+            if (
+                rollback_error is not None
+                or local_rollback_failed
+                or remote_rollback_failed
+                or projection_rollback_failed
+            ):
                 raise PortalOperationError(
                     f"Unable to {action}. Local or remote rollback also failed."
                 ) from exc
@@ -601,12 +650,26 @@ class PortalAccessKeysMixin:
                 raise PortalOperationError(
                     "External Portal access revocation is pending because remote cleanup failed. Retry deletion."
                 )
-            external.status = "Inactive"
-            external.revoked_at = utcnow()
-            external.updated_at = utcnow()
-            self.db.add(external)
+            credential_id = int(external.id)
+            revoked_at = utcnow()
+            updated_at = utcnow()
+
+            def finalize_revocation_once(write_db) -> None:
+                current = write_db.get(PortalExternalAccessCredential, credential_id)
+                if current is None:
+                    raise PortalConflictError("External Portal access no longer exists.")
+                if current.revoked_at is not None:
+                    return
+                if current.status != _EXTERNAL_REVOCATION_PENDING_STATUS:
+                    raise PortalConflictError(
+                        "External Portal access changed while revocation was being finalized. Retry deletion."
+                    )
+                current.status = "Inactive"
+                current.revoked_at = revoked_at
+                current.updated_at = updated_at
+
             try:
-                self.db.commit()
+                run_replayable_db_unit(self.db, finalize_revocation_once)
             except Exception as exc:
                 self.db.rollback()
                 raise PortalOperationError(

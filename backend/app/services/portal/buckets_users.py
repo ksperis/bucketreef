@@ -8,6 +8,7 @@ from typing import Optional, TYPE_CHECKING
 
 from sqlalchemy import select
 
+from app.core.db_transactions import run_replayable_db_unit
 from app.db import AccountIAMUser, PortalIAMRevocation, S3Account, User
 from app.core.domain_enums import PortalAccountRole
 from app.models.app_settings import PortalEffectiveSettings
@@ -178,16 +179,40 @@ class PortalBucketsUsersMixin:
         account = self.db.get(S3Account, account_id)
         if account is None:
             raise PortalOperationError("Portal IAM revocation account no longer exists")
+        pending_id = int(pending.id)
+        pending_iam_user_id = str(pending.iam_user_id)
+        pending_iam_username = pending.iam_username
         try:
-            if pending.iam_username:
+            if pending_iam_username:
                 self._delete_portal_iam_user(
                     self._get_iam_service(account),
-                    pending.iam_username,
+                    pending_iam_username,
                 )
             self._sync_account_storage_space_bucket_policies(account)
             self._sync_portal_server_access_log_bucket_policy_if_present(account)
-            self.db.delete(pending)
-            self.db.commit()
+
+            def remove_pending_revocation_once(write_db) -> bool:
+                current = write_db.scalar(
+                    select(PortalIAMRevocation).where(
+                        PortalIAMRevocation.user_id == user_id,
+                        PortalIAMRevocation.account_id == account_id,
+                    )
+                )
+                if current is None:
+                    return True
+                if (
+                    int(current.id) != pending_id
+                    or str(current.iam_user_id) != pending_iam_user_id
+                    or current.iam_username != pending_iam_username
+                ):
+                    return False
+                write_db.delete(current)
+                return True
+
+            if not run_replayable_db_unit(self.db, remove_pending_revocation_once):
+                raise PortalOperationError(
+                    "Portal IAM revocation changed while cleanup was running. Retry reconciliation."
+                )
         except Exception as exc:
             self.db.rollback()
             raise PortalOperationError(
