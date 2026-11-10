@@ -44,6 +44,16 @@ class SessionCredentials:
     session: AuthSession
 
 
+@dataclass(frozen=True)
+class PreparedAuthSession:
+    session_id: str
+    created_at: datetime
+    refresh_token: str
+    csrf_token: str
+    refresh_id: str
+    refresh_family_id: str
+
+
 class AuthSessionService:
     def __init__(self, db: Session, settings: Optional[Settings] = None) -> None:
         self.db = db
@@ -75,6 +85,7 @@ class AuthSessionService:
         ip_address: Optional[str],
         user_agent: Optional[str],
         mfa_verified: bool,
+        prepared: Optional[PreparedAuthSession] = None,
     ) -> SessionCredentials:
         """Create UI session rows without committing the surrounding transaction."""
         return self._create_user_session(
@@ -84,6 +95,23 @@ class AuthSessionService:
             user_agent=user_agent,
             mfa_verified=mfa_verified,
             commit=False,
+            prepared=prepared,
+        )
+
+    @staticmethod
+    def prepare_auth_session(
+        *,
+        created_at: Optional[datetime] = None,
+    ) -> PreparedAuthSession:
+        """Prepare stable session material for a replayable surrounding transaction."""
+
+        return PreparedAuthSession(
+            session_id=str(uuid.uuid4()),
+            created_at=created_at or utcnow(),
+            refresh_token=create_refresh_token(),
+            csrf_token=secrets.token_urlsafe(32),
+            refresh_id=str(uuid.uuid4()),
+            refresh_family_id=str(uuid.uuid4()),
         )
 
     def _create_user_session(
@@ -95,11 +123,13 @@ class AuthSessionService:
         user_agent: Optional[str],
         mfa_verified: bool,
         commit: bool,
+        prepared: Optional[PreparedAuthSession] = None,
     ) -> SessionCredentials:
-        now = utcnow()
+        prepared = prepared or self.prepare_auth_session()
+        now = prepared.created_at
         absolute = now + timedelta(minutes=self.settings.ui_session_absolute_minutes)
         row = AuthSession(
-            id=str(uuid.uuid4()),
+            id=prepared.session_id,
             user_id=user.id,
             principal_type="user",
             auth_type=auth_type,
@@ -113,7 +143,12 @@ class AuthSessionService:
             user_agent=user_agent,
             csrf_token_hash="",
         )
-        return self._persist_new_session(row, user=user, commit=commit)
+        return self._persist_new_session(
+            row,
+            user=user,
+            commit=commit,
+            prepared=prepared,
+        )
 
     def create_for_s3_session(
         self,
@@ -122,13 +157,14 @@ class AuthSessionService:
         ip_address: Optional[str],
         user_agent: Optional[str],
     ) -> SessionCredentials:
-        now = utcnow()
+        prepared = self.prepare_auth_session()
+        now = prepared.created_at
         absolute = min(
             s3_session.absolute_expires_at,
             now + timedelta(minutes=self.settings.s3_session_absolute_minutes),
         )
         row = AuthSession(
-            id=str(uuid.uuid4()),
+            id=prepared.session_id,
             s3_session_id=s3_session.id,
             principal_type="s3",
             auth_type="s3",
@@ -141,7 +177,11 @@ class AuthSessionService:
             user_agent=user_agent,
             csrf_token_hash="",
         )
-        return self._persist_new_session(row, s3_session=s3_session)
+        return self._persist_new_session(
+            row,
+            s3_session=s3_session,
+            prepared=prepared,
+        )
 
     def create_for_s3_session_id(
         self,
@@ -750,12 +790,13 @@ class AuthSessionService:
         user: Optional[User] = None,
         s3_session: Optional[S3Session] = None,
         commit: bool = True,
+        prepared: PreparedAuthSession,
     ) -> SessionCredentials:
-        raw_refresh = create_refresh_token()
-        csrf = secrets.token_urlsafe(32)
+        raw_refresh = prepared.refresh_token
+        csrf = prepared.csrf_token
         session.csrf_token_hash = hash_refresh_token(csrf)
-        refresh_id = str(uuid.uuid4())
-        refresh_family_id = str(uuid.uuid4())
+        refresh_id = prepared.refresh_id
+        refresh_family_id = prepared.refresh_family_id
         refresh_token_hash = hash_refresh_token(raw_refresh)
         if commit:
             session_values = {
