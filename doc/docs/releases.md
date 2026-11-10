@@ -48,11 +48,21 @@ Current release dates come from the changelog; reconstructed historical dates re
 Compare v0.2.18 → v0.3.0: [GitHub](https://github.com/ksperis/bucketreef/compare/v0.2.18...v0.3.0)
 
 
+### Added
+
+- Add experimental OpenStack/Keystone project integration with Admin cloud configuration and principal associations, session-bound project contexts, Keystone-discovered S3 regions, Manager/Browser workspace selection, and server-side import of existing project EC2 credentials as durable private S3 connections.
+- Add read-only Ceph Admin RGW multisite diagnostics for topology, metadata/data synchronization state, journal inspection, bucket observations, and scoped exports without exposing synchronization credentials or mutation operations.
+- Add RGW multisite execution-destination switching across Manager and standalone Browser for compatible Accounts, RGW Users, and S3 Connections, with endpoint topology metadata plus principal- and resource-level grants.
+- Add secure external-identity account linking for OIDC and LDAP with browser-bound reauthentication, immutable provider-subject binding, explicit Admin approval fallback, a self-link permission, and Admin LDAP user import.
+- Enable native S3 bucket settings in Advanced Browser using the authorized Browser storage identity, while preserving IAM enforcement and auditing mutations.
+- Add a dedicated browser-only persona to the static demo to showcase standalone Browser access through an owned private S3 connection.
+
 ### Changed
 
-- Add a dedicated S3 browser user to the static demo to showcase standalone Browser access through an owned private S3 connection.
 - Simplify Manager IAM user, group, and role inventories by moving ARN details to identity editors, compacting managed and inline policy summaries, and showing compact group member previews in detailed listings.
 - Align embedded Manager IAM user/group association and access-key tables on the shared compact list toolbar, with local actions and counts in one row and no redundant ARN columns in membership tables.
+- Modernize Manager and Ceph Admin bucket overviews with clickable feature-state cards, bucket tags, effective owner/account/user quota headroom, and direct links into usage composition and metrics views.
+- Make Manager and Portal dashboard ranking rows navigable and expose Manager usage-composition deep links from dashboard data-type summaries.
 - Simplify Admin Portal requests to the essential search/status/type controls and move request pagination into the shared table footer.
 - Rename the external-identity link TTL and browser-binding cookie settings to provider-neutral names now that the shared flow covers both OIDC and LDAP.
 - Canonicalize bucket-purge application requests on a single `targets` field across Manager, Storage Ops, and Ceph Admin.
@@ -92,12 +102,15 @@ Compare v0.2.18 → v0.3.0: [GitHub](https://github.com/ksperis/bucketreef/compa
 - Display the S3 object owner in Browser object details by requesting owner data from object listings and preserving it through the backend/frontend contract.
 - Refresh Browser bucket state reliably after external S3 changes and avoid stale bucket listings in the workspace.
 - Harden SQLite contention recovery for backend transactions and authentication session security writes, and keep Admin user search compatible with PostgreSQL.
+- Keep resource deletion, provisioning, bucket-migration, and managed-private-access recovery paths consistent under SQLite contention and transient RGW concurrency errors without replaying remote side effects.
 - Skip disabled OpenStack association requests and keep access/deletion feedback localized in the frontend.
 - Extend live Ceph functional qualification and run the release qualification path against PostgreSQL.
 
 ### Upgrade notes
 
+- Apply the normal Alembic upgrade path before starting the matching backend. Migrations `0194` through `0262` add OpenStack/Keystone state, RGW multisite execution destinations and grants, secure OIDC/LDAP linking and LDAP import state, then canonicalize persisted application payloads, deletion/import workflows, health/onboarding state, and PostgreSQL schema drift repairs.
 - Deploy the backend and bundled frontend from the same release. Internal application route and payload changes in 0.3.0 are coordinated within BucketReef and are not considered breaking external contracts.
+- OpenStack remains experimental and disabled by default. Deployments enabling it must allow the intended Keystone/S3 hosts through `OPENSTACK_ALLOWED_HOSTS`; `FEATURE_OPENSTACK_ENABLED` can force the connector off at deployment level, and private targets remain blocked unless `OPENSTACK_ALLOW_PRIVATE_TARGETS=true` is explicitly configured.
 - Deploy the matching backend and frontend together because Admin UI User list sorting now rejects retired sort aliases outside the current UI contract.
 - Deploy the matching backend and frontend together because Admin S3 Account and RGW User list query validation now accepts only the supported sort fields and directions.
 - Deploy the matching backend and frontend together because Admin UI Group and S3 Connection list query validation now accepts only the supported sort fields and directions.
