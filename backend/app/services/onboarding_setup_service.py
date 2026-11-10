@@ -251,7 +251,8 @@ class OnboardingSetupService:
             )
 
         connection_name = self._unique_connection_name(actor.id)
-        connection = S3ConnectionsService(self.db).create(
+        connection_service = S3ConnectionsService(self.db)
+        create_plan = connection_service.prepare_private_create(
             actor.id,
             S3ConnectionCreate(
                 name=connection_name,
@@ -261,9 +262,15 @@ class OnboardingSetupService:
                 access_browser=True,
                 access_manager=True,
             ),
-            commit=False,
         )
-        self.progress.checkpoint(row, connection_id=connection.id)
+
+        def persist_connection(write_db):
+            connection_id = S3ConnectionsService(write_db).persist_prepared_create(
+                create_plan
+            )
+            return {"connection_id": connection_id}
+
+        self.progress.checkpoint_with_local_write(row, persist_connection)
         self.progress.audit(
             actor,
             "private_connection_created",

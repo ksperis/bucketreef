@@ -3,15 +3,17 @@
 """Simplified first-run setup; authorization remains owned by EffectiveAccessService."""
 from __future__ import annotations
 
+from collections.abc import Callable
 from contextlib import contextmanager
 from hashlib import sha256
 import json
 from uuid import UUID
 
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
+from app.core.db_transactions import commit_or_rollback, run_replayable_db_unit
 from app.db import OnboardingJourney, OnboardingPreference, S3Account, StorageEndpoint, User
 from app.core.domain_enums import StorageProvider, is_admin_ui_role, is_superadmin_ui_role
 from app.models.onboarding import (
@@ -408,42 +410,70 @@ class OnboardingService:
             self.audit(actor, "save", row.id)
             return self.output(actor, row)
 
-    def checkpoint(self, row, **resources):
+    @staticmethod
+    def _checkpoint_resources(current, updates):
         canonical = {
-            **self.resources(row).model_dump(mode="json", exclude_none=True),
-            **resources,
+            **OnboardingService.resources(current).model_dump(
+                mode="json", exclude_none=True
+            ),
+            **updates,
         }
         if canonical.get("endpoint_created") is True:
             canonical.pop("endpoint_name", None)
         if canonical.get("account_id") is not None:
             canonical.pop("rgw_account_id", None)
             canonical.pop("account_name", None)
-        persisted_resources = OnboardingResources.model_validate(canonical).model_dump(
-            mode="json",
-            exclude_none=True,
+        return OnboardingResources.model_validate(canonical).model_dump(
+            mode="json", exclude_none=True
         )
+
+    def _checkpoint(
+        self,
+        row,
+        *,
+        resources: dict[str, object],
+        draft: dict[str, object] | None = None,
+        local_write: Callable[[Session], dict[str, object]] | None = None,
+    ) -> None:
         row_id = row.id
         updated_at = utcnow()
 
-        def persist_once() -> None:
-            with self.db.no_autoflush:
-                current = self.db.get(OnboardingJourney, row_id)
+        def persist_once(write_db: Session) -> None:
+            local_resources = local_write(write_db) if local_write is not None else {}
+            current = write_db.get(OnboardingJourney, row_id)
             if current is None:
                 raise OnboardingError("journey_not_found", 404)
-            current.resources = persisted_resources
+            current.resources = self._checkpoint_resources(
+                current,
+                {**resources, **local_resources},
+            )
+            if draft is not None:
+                current.draft = draft
             current.pending_step = None
             current.updated_at = updated_at
-            commit_or_rollback(self.db)
 
-        run_db_unit_with_sqlite_retry(self.db, persist_once)
+        run_replayable_db_unit(self.db, persist_once)
         self.db.refresh(row)
+
+    def checkpoint(self, row, **resources):
+        self._checkpoint(row, resources=resources)
 
     def checkpoint_endpoint(self, row, endpoint_id: int) -> None:
         draft = self.draft(row).model_copy(
             update={"endpoint_id": endpoint_id, "endpoint_url": ""}
         )
-        row.draft = draft.model_dump(mode="json")
-        self.checkpoint(row, endpoint_created=True)
+        self._checkpoint(
+            row,
+            resources={"endpoint_created": True},
+            draft=draft.model_dump(mode="json"),
+        )
+
+    def checkpoint_with_local_write(
+        self,
+        row,
+        local_write: Callable[[Session], dict[str, object]],
+    ) -> None:
+        self._checkpoint(row, resources={}, local_write=local_write)
 
     def audit(self, actor, action, identifier, *, status="success", **metadata):
         account_id = metadata.get("account_id")
