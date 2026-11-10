@@ -8,7 +8,7 @@ from typing import Optional
 
 from sqlalchemy import or_, select, update
 
-from app.core.db_transactions import run_db_unit_with_sqlite_retry
+from app.core.db_transactions import run_replayable_db_unit
 from app.db import BucketMigration
 from app.utils.normalize import normalize_optional_string
 from app.utils.s3_endpoint import normalize_s3_endpoint
@@ -57,8 +57,8 @@ class BucketMigrationSchedulingMixin:
         now,
         lease_until,
     ) -> bool:
-        def claim_once() -> bool:
-            updated = self.db.execute(
+        def claim_once(write_db) -> bool:
+            updated = write_db.execute(
                 update(BucketMigration)
                 .where(
                     BucketMigration.id == migration_id,
@@ -74,13 +74,9 @@ class BucketMigrationSchedulingMixin:
                 )
                 .execution_options(synchronize_session=False)
             ).rowcount
-            if updated == 1:
-                self._commit()
-                return True
-            self.db.rollback()
-            return False
+            return updated == 1
 
-        return run_db_unit_with_sqlite_retry(self.db, claim_once)
+        return run_replayable_db_unit(self.db, claim_once)
 
     def claim_next_runnable_migration_id(
         self, *, worker_id: str, lease_seconds: int
@@ -126,7 +122,6 @@ class BucketMigrationSchedulingMixin:
                     worker_id,
                 )
                 self._release_migration_lease(migration_id, worker_id=worker_id)
-                self._commit()
                 endpoint_usage = self._active_endpoint_usage(now=utcnow())
                 continue
             self.db.rollback()

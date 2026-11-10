@@ -10,7 +10,7 @@ from typing import Callable
 from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy import or_, select, update
 
-from app.core.db_transactions import run_db_unit_with_sqlite_retry
+from app.core.db_transactions import run_db_unit_with_sqlite_retry, run_replayable_db_unit
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import BucketMigration, BucketMigrationItem
 from app.services.managed_resource_naming import (
@@ -81,8 +81,8 @@ class BucketMigrationPreparationMixin:
             .limit(50)
         ).all()
         for migration_id in candidates:
-            def claim_once() -> int:
-                changed = self.db.execute(
+            def claim_once(write_db) -> int:
+                changed = write_db.execute(
                     update(BucketMigration)
                     .where(BucketMigration.id == migration_id, *eligible)
                     .values(
@@ -95,10 +95,9 @@ class BucketMigrationPreparationMixin:
                     )
                     .execution_options(synchronize_session=False)
                 ).rowcount
-                self._commit()
                 return int(changed or 0)
 
-            changed = run_db_unit_with_sqlite_retry(self.db, claim_once)
+            changed = run_replayable_db_unit(self.db, claim_once)
             if changed:
                 return migration_id
         return None
@@ -298,17 +297,21 @@ class BucketMigrationPreparationMixin:
         *,
         worker_id: str | None,
     ):
-        def release_once():
-            migration = self.get_migration(migration_id)
+        released_at = utcnow()
+
+        def release_once(write_db):
+            migration = write_db.get(BucketMigration, migration_id)
+            if migration is None:
+                raise RuntimeError("Bucket migration disappeared while releasing preparation lease")
             if worker_id and migration.worker_lease_owner != worker_id:
                 raise WorkerLeaseLostError("Preparation lease lost")
             migration.worker_lease_owner = None
             migration.worker_lease_until = None
-            migration.updated_at = utcnow()
-            self._commit()
-            return migration
+            migration.updated_at = released_at
+            return migration_id
 
-        return run_db_unit_with_sqlite_retry(self.db, release_once)
+        run_replayable_db_unit(self.db, release_once)
+        return self.get_migration(migration_id)
 
     def _journal_preparation_effect(self, item, name: str, payload: dict) -> None:
         self._assert_workflow_lease()
