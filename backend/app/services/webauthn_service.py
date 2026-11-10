@@ -28,7 +28,7 @@ from webauthn.helpers.structs import (
 )
 
 from app.core.config import Settings, get_settings
-from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
+from app.core.db_transactions import commit_or_rollback, run_replayable_db_unit
 from app.core.domain_errors import ResourceConflictError
 from app.core.security import hash_refresh_token
 from app.db import AuthChallenge, AuthSession, RecoveryCode, User, WebAuthnCredential
@@ -283,9 +283,14 @@ class WebAuthnService:
         *,
         binding_sid: Optional[str] = None,
     ) -> None:
-        def persist_once() -> None:
-            now = utcnow()
-            self.db.execute(
+        now = utcnow()
+        encoded = bytes_to_base64url(challenge)
+        challenge_id = str(uuid.uuid4())
+        challenge_hash = hash_refresh_token(encoded)
+        expires_at = now + timedelta(minutes=5)
+
+        def persist_once(write_db: Session) -> None:
+            write_db.execute(
                 update(AuthChallenge)
                 .where(
                     AuthChallenge.user_id == user_id,
@@ -295,22 +300,20 @@ class WebAuthnService:
                 .values(consumed_at=now)
                 .execution_options(synchronize_session=False)
             )
-            encoded = bytes_to_base64url(challenge)
-            self.db.add(
+            write_db.add(
                 AuthChallenge(
-                    id=str(uuid.uuid4()),
+                    id=challenge_id,
                     user_id=user_id,
                     binding_sid=binding_sid,
                     purpose=purpose,
-                    challenge_hash=hash_refresh_token(encoded),
+                    challenge_hash=challenge_hash,
                     payload={"challenge": encoded},
                     created_at=now,
-                    expires_at=now + timedelta(minutes=5),
+                    expires_at=expires_at,
                 )
             )
-            commit_or_rollback(self.db)
 
-        run_db_unit_with_sqlite_retry(self.db, persist_once)
+        run_replayable_db_unit(self.db, persist_once)
 
     def _consume_challenge(
         self,
@@ -319,9 +322,10 @@ class WebAuthnService:
         *,
         binding_sid: Optional[str] = None,
     ) -> bytes:
-        def consume_once() -> tuple[object, str]:
-            now = utcnow()
-            row = self.db.scalar(
+        now = utcnow()
+
+        def consume_once(write_db: Session) -> tuple[object, str]:
+            row = write_db.scalar(
                 select(AuthChallenge)
                 .where(
                     AuthChallenge.user_id == user_id,
@@ -337,7 +341,7 @@ class WebAuthnService:
                 raise WebAuthnSecurityError("WebAuthn challenge is unavailable")
             payload = row.payload
             challenge_hash = row.challenge_hash
-            claimed = self.db.execute(
+            claimed = write_db.execute(
                 update(AuthChallenge)
                 .where(
                     AuthChallenge.id == row.id,
@@ -347,12 +351,10 @@ class WebAuthnService:
                 .values(consumed_at=now)
             )
             if claimed.rowcount != 1:
-                self.db.rollback()
                 raise WebAuthnSecurityError("WebAuthn challenge has already been consumed")
-            commit_or_rollback(self.db)
             return payload, challenge_hash
 
-        payload, challenge_hash = run_db_unit_with_sqlite_retry(self.db, consume_once)
+        payload, challenge_hash = run_replayable_db_unit(self.db, consume_once)
         encoded = payload.get("challenge") if isinstance(payload, dict) else None
         if not isinstance(encoded, str):
             raise WebAuthnSecurityError("WebAuthn challenge payload is invalid")
