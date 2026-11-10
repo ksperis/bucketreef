@@ -2,13 +2,12 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-import sqlite3
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
 import pytest
 import sqlalchemy as sa
-from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy.exc import IntegrityError
 
 from app.db import (
     QuotaAlertState,
@@ -40,6 +39,10 @@ from app.services.rgw_admin import RGWAdminError
 from app.services.quota_subject import SubjectContext
 from app.services.webhook_catalog import QUOTA_THRESHOLD_EVENT_TYPE
 from app.services.webhook_service import WebhookQueueError, WebhookService
+from tests.db_transaction_test_utils import (
+    fail_next_sqlite_statement_with_busy_snapshot,
+    fail_next_transaction_commit,
+)
 
 
 class _FakeAdminClient:
@@ -164,28 +167,6 @@ def _seed_user(
     return user
 
 
-def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
-    rollback_calls: list[None] = []
-    original_rollback = db_session.rollback
-
-    def rollback() -> None:
-        rollback_calls.append(None)
-        original_rollback()
-
-    def commit() -> None:
-        raise RuntimeError("commit failed")
-
-    monkeypatch.setattr(db_session, "rollback", rollback)
-    monkeypatch.setattr(db_session, "commit", commit)
-    return rollback_calls
-
-
-def _busy_snapshot_error() -> OperationalError:
-    original = sqlite3.OperationalError("database is locked")
-    original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
-    return OperationalError("COMMIT", (), original)
-
-
 def test_quota_external_io_is_outside_transaction_and_busy_retries_only_db(
     db_session,
     monkeypatch,
@@ -259,25 +240,18 @@ def test_quota_external_io_is_outside_transaction_and_busy_retries_only_db(
         "build_mailer",
         lambda _self, _notification_settings: (fake_mailer, None),
     )
-    original_commit = db_session.commit
-    fail_once = True
-
-    def commit_with_busy_once() -> None:
-        nonlocal fail_once
-        if fail_once:
-            fail_once = False
-            raise _busy_snapshot_error()
-        original_commit()
-
-    monkeypatch.setattr(db_session, "commit", commit_with_busy_once)
-
-    result = QuotaMonitoringService(db_session).run_quota_alerts()
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO quota_alert_states",
+    ) as matching_statements:
+        result = QuotaMonitoringService(db_session).run_quota_alerts()
 
     assert result["alerts_triggered"] == 1
     assert result["alerts_sent"] == 1
     assert fake_admin.usage_calls == 1
     assert fake_admin.quota_calls == 1
     assert len(fake_mailer.calls) == 1
+    assert len(matching_statements) == 2
 
 
 def test_collect_usage_history_skips_when_both_features_disabled(db_session, monkeypatch):
@@ -366,14 +340,10 @@ def test_usage_history_rolls_back_when_final_commit_fails(db_session, monkeypatc
             AssertionError("History-only runs must not load alert recipients")
         ),
     )
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            QuotaMonitoringService(db_session).collect_usage_history()
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        QuotaMonitoringService(db_session).collect_usage_history()
-
-    # The first rollback closes the read snapshot before RGW I/O. The second
-    # restores the failed persistence transaction.
-    assert rollback_calls == [None, None]
     assert db_session.scalar(sa.select(sa.func.count()).select_from(QuotaUsageHourly)) == 0
     assert db_session.scalar(sa.select(sa.func.count()).select_from(QuotaUsageDaily)) == 0
 
@@ -1175,6 +1145,7 @@ def test_quota_webhook_does_not_mask_unexpected_publisher_failure(
                 severity="warning",
             ),
             SimpleNamespace(now=datetime(2026, 1, 12, 8, 0, 0, tzinfo=UTC)),
+            write_db=db_session,
         )
 
 

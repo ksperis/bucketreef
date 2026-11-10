@@ -21,20 +21,31 @@ from app.utils.time import utcnow
 
 
 class DataRetentionService:
-    def __init__(self, db: Session) -> None:
+    def __init__(
+        self,
+        db: Session,
+        *,
+        commit_on_success: bool = True,
+        reference_now: datetime | None = None,
+    ) -> None:
         self.db = db
         self.settings = get_settings()
+        self.commit_on_success = commit_on_success
+        self.reference_now = reference_now
+
+    def _now(self) -> datetime:
+        return self.reference_now or utcnow()
 
     def _hourly_cutoff(self) -> datetime | None:
         days = self.settings.quota_history_hourly_retention_days
         if days <= 0:
             return None
-        return (utcnow() - timedelta(days=days))
+        return self._now() - timedelta(days=days)
 
     def _daily_cutoff(self, retention_days: int) -> date | None:
         if retention_days <= 0:
             return None
-        return (utcnow().date() - timedelta(days=retention_days))
+        return self._now().date() - timedelta(days=retention_days)
 
     def _delete_rows(self, model, *filters) -> int:
         result = self.db.execute(
@@ -110,7 +121,7 @@ class DataRetentionService:
             UserNotification,
             UserNotification.created_at < cutoff,
         )
-        if deleted:
+        if deleted and self.commit_on_success:
             commit_or_rollback(self.db)
         return {
             "user_notifications": {
@@ -126,7 +137,7 @@ class DataRetentionService:
         result = {**quota_result, **cost_result}
         quota = result["quota_history"]
         cost = result["cost_history"]
-        if (
+        if self.commit_on_success and (
             quota["deleted_hourly"]
             or quota["deleted_daily"]
             or cost["deleted_usage_daily"]

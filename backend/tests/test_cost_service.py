@@ -1,6 +1,5 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-import sqlite3
 from types import SimpleNamespace
 
 from fastapi import HTTPException
@@ -10,7 +9,6 @@ from datetime import date, datetime, timedelta
 
 import pytest
 from sqlalchemy import func, select
-from sqlalchemy.exc import OperationalError
 
 from app.core.domain_errors import CostSubjectNotFoundError
 from app.db import CostEndpointOverride, CostModel, CostStorageDaily, CostUsageDaily, S3Account, S3User, StorageEndpoint, User
@@ -28,6 +26,10 @@ from app.services.cost_calculations import parse_cost_month, validate_ops_breakd
 from app.services.rgw_admin import RGWAdminError
 from app.services.cost_service import CostService
 from app.services.s3_execution_context import S3ExecutionContext
+from tests.db_transaction_test_utils import (
+    fail_next_sqlite_statement_with_busy_snapshot,
+    fail_next_transaction_commit,
+)
 from tests.storage_endpoint_features import persisted_endpoint_features
 
 
@@ -73,28 +75,6 @@ def _enabled_cost_settings() -> AppSettings:
     settings = AppSettings()
     settings.general.cost_enabled = True
     return settings
-
-
-def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
-    rollback_calls: list[None] = []
-    original_rollback = db_session.rollback
-
-    def rollback() -> None:
-        rollback_calls.append(None)
-        original_rollback()
-
-    def commit() -> None:
-        raise RuntimeError("commit failed")
-
-    monkeypatch.setattr(db_session, "rollback", rollback)
-    monkeypatch.setattr(db_session, "commit", commit)
-    return rollback_calls
-
-
-def _busy_snapshot_error() -> OperationalError:
-    original = sqlite3.OperationalError("database is locked")
-    original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
-    return OperationalError("COMMIT", (), original)
 
 
 def test_cost_collection_keeps_rgw_outside_transaction_and_retries_only_upsert(
@@ -159,24 +139,17 @@ def test_cost_collection_keeps_rgw_outside_transaction_and_retries_only_upsert(
             },
         },
     )
-    original_commit = db_session.commit
-    fail_once = True
-
-    def commit_with_busy_once() -> None:
-        nonlocal fail_once
-        if fail_once:
-            fail_once = False
-            raise _busy_snapshot_error()
-        original_commit()
-
-    monkeypatch.setattr(db_session, "commit", commit_with_busy_once)
-
-    result = CostCollector(db_session).collect_daily(date(2026, 9, 25))
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO cost_usage_daily",
+    ) as matching_statements:
+        result = CostCollector(db_session).collect_daily(date(2026, 9, 25))
 
     assert result.usage_records == 1
     assert result.storage_records == 1
     assert fake_admin.usage_calls == 1
     assert fake_admin.bucket_calls == 1
+    assert len(matching_statements) == 2
     db_session.rollback()
     assert db_session.scalar(
         select(func.count()).select_from(CostUsageDaily).where(
@@ -560,21 +533,20 @@ def test_cost_daily_upsert_rolls_back_when_commit_fails(db_session, monkeypatch)
     endpoint = _seed_endpoint(db_session)
     account = _seed_account(db_session, endpoint.id)
     collector = CostCollector(db_session)
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        collector._upsert_usage(
-            day=date(2026, 1, 1),
-            endpoint_id=endpoint.id,
-            s3_account_id=account.id,
-            s3_user_id=None,
-            bytes_in=1,
-            bytes_out=2,
-            ops_total=3,
-            ops_breakdown={"get": 3},
-        )
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            collector._upsert_usage(
+                day=date(2026, 1, 1),
+                endpoint_id=endpoint.id,
+                s3_account_id=account.id,
+                s3_user_id=None,
+                bytes_in=1,
+                bytes_out=2,
+                ops_total=3,
+                ops_breakdown={"get": 3},
+            )
 
-    assert rollback_calls == [None]
     assert db_session.scalar(select(func.count()).select_from(CostUsageDaily)) == 0
 
 
