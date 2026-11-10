@@ -69,8 +69,7 @@ class ManagedPrivateAccessRemoteCleanupService:
                 provisioning.source_context_id,
                 provisioning.access_key_id,
             )
-            provisioning.created_access_key = False
-            self.state.checkpoint(provisioning)
+            self.state.checkpoint(provisioning, created_access_key=False)
 
     def cleanup_iam_resources(
         self,
@@ -84,14 +83,13 @@ class ManagedPrivateAccessRemoteCleanupService:
             try:
                 operation()
                 on_success()
-                self.state.checkpoint(provisioning)
             except Exception as exc:
                 errors.append(sanitized_error_log_detail(exc))
 
         if provisioning.created_access_key and provisioning.access_key_id:
             attempt(
                 lambda: iam.delete_access_key(username, provisioning.access_key_id or ""),
-                lambda: setattr(provisioning, "created_access_key", False),
+                lambda: self.state.checkpoint(provisioning, created_access_key=False),
             )
         for name in reversed(provisioning.iam_inline_policy_names):
             attempt(
@@ -123,7 +121,7 @@ class ManagedPrivateAccessRemoteCleanupService:
         if provisioning.created_remote_principal:
             attempt(
                 lambda: iam.delete_user(username),
-                lambda: setattr(provisioning, "created_remote_principal", False),
+                lambda: self.state.checkpoint(provisioning, created_remote_principal=False),
             )
         if errors:
             raise ManagedPrivateAccessError("; ".join(errors))

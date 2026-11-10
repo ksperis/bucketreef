@@ -2,7 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 
 from __future__ import annotations
-import sqlite3
 from types import SimpleNamespace
 
 import pytest
@@ -43,7 +42,6 @@ from app.services.managed_private_access_cleanup_service import (
     ManagedPrivateAccessCleanupService,
 )
 from app.services.managed_private_access_iam_service import ManagedPrivateAccessIAMService
-from app.services import managed_private_access_cleanup_service as cleanup_service_module
 from app.services.managed_private_access_policy_service import ManagedPrivateAccessPolicyService
 from app.services.managed_private_access_service import ManagedPrivateAccessService
 from app.services.managed_private_access_remote_cleanup_service import (
@@ -57,6 +55,10 @@ from app.services.managed_resource_naming import PORTAL_MANAGED_IAM_GROUP_NAMES
 from app.services import app_settings_service
 from app.services.s3_connections_service import S3ConnectionsService
 from app.services.s3_execution_context import S3ExecutionContext
+from tests.db_transaction_test_utils import (
+    fail_next_sqlite_statement_with_busy_snapshot,
+    fail_next_transaction_commit,
+)
 
 
 class FakeIAM:
@@ -210,22 +212,6 @@ def test_managed_private_access_policy_only_wraps_expected_iam_errors(db_session
 
     with pytest.raises(RuntimeError, match="unexpected IAM validation bug"):
         service.validate_iam_provisioning_request(BrokenIAM(), _payload())
-
-
-def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
-    rollback_calls: list[None] = []
-    original_rollback = db_session.rollback
-
-    def rollback() -> None:
-        rollback_calls.append(None)
-        original_rollback()
-
-    def commit() -> None:
-        raise RuntimeError("commit failed")
-
-    monkeypatch.setattr(db_session, "rollback", rollback)
-    monkeypatch.setattr(db_session, "commit", commit)
-    return rollback_calls
 
 
 def _disable_capability_probe(monkeypatch):
@@ -715,59 +701,45 @@ def test_claim_constraint_rejects_concurrent_active_source(db_session):
         state.claim(user, source)
 
 
-def test_managed_private_access_claim_retries_sqlite_busy(db_session, monkeypatch):
+def test_managed_private_access_claim_retries_sqlite_busy(db_session):
     user = _user(db_session, email="claim-busy@example.test")
     account = _account(db_session, user, _endpoint(db_session))
     source = ManagedPrivateAccessService(db_session).iam_sources.resolve(user, account)
     state = ManagedPrivateAccessStateService(db_session)
-    real_commit = db_session.commit
-    commit_calls = 0
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO managed_private_accesses",
+    ) as statements:
+        provisioning = state.claim(user, source)
 
-    def busy_once():
-        nonlocal commit_calls
-        commit_calls += 1
-        if commit_calls == 1:
-            original = sqlite3.OperationalError("database is locked")
-            original.sqlite_errorcode = sqlite3.SQLITE_BUSY
-            raise sa.exc.OperationalError("INSERT", (), original)
-        return real_commit()
-
-    monkeypatch.setattr(db_session, "commit", busy_once)
-
-    provisioning = state.claim(user, source)
-
-    assert commit_calls == 2
+    assert len(statements) == 2
     assert provisioning.state == "provisioning"
     assert db_session.scalar(sa.select(sa.func.count()).select_from(ManagedPrivateAccess)) == 1
 
 
-def test_managed_private_access_claim_rolls_back_when_commit_fails(db_session, monkeypatch):
+def test_managed_private_access_claim_rolls_back_when_commit_fails(db_session):
     user = _user(db_session, email="claim-rollback@example.test")
     account = _account(db_session, user, _endpoint(db_session))
     source = ManagedPrivateAccessService(db_session).iam_sources.resolve(user, account)
     state = ManagedPrivateAccessStateService(db_session)
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            state.claim(user, source)
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        state.claim(user, source)
-
-    assert rollback_calls == [None]
     assert db_session.scalar(sa.select(sa.func.count()).select_from(ManagedPrivateAccess)) == 0
 
 
-def test_managed_private_access_checkpoint_rolls_back_when_commit_fails(db_session, monkeypatch):
+def test_managed_private_access_checkpoint_rolls_back_when_commit_fails(db_session):
     user = _user(db_session, email="checkpoint-rollback@example.test")
     account = _account(db_session, user, _endpoint(db_session))
     source = ManagedPrivateAccessService(db_session).iam_sources.resolve(user, account)
     state = ManagedPrivateAccessStateService(db_session)
     provisioning = state.claim(user, source)
     previous_updated_at = provisioning.updated_at
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            state.checkpoint(provisioning)
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        state.checkpoint(provisioning)
-
-    assert rollback_calls == [None]
     db_session.expire_all()
     assert db_session.get(ManagedPrivateAccess, provisioning.id).updated_at == previous_updated_at
 
@@ -781,8 +753,7 @@ def test_managed_private_access_cleanup_checkpoint_retries_sqlite_busy_without_r
     source = ManagedPrivateAccessService(db_session).iam_sources.resolve(user, account)
     state = ManagedPrivateAccessStateService(db_session)
     provisioning = state.claim(user, source)
-    provisioning.iam_managed_policies = ["arn:test:readonly"]
-    state.checkpoint(provisioning)
+    state.checkpoint(provisioning, iam_managed_policies=["arn:test:readonly"])
 
     detached: list[tuple[str, str]] = []
 
@@ -790,26 +761,16 @@ def test_managed_private_access_cleanup_checkpoint_retries_sqlite_busy_without_r
         def detach_user_policy(self, username, arn):
             detached.append((username, arn))
 
-    real_commit = db_session.commit
-    commit_calls = 0
-
-    def busy_once():
-        nonlocal commit_calls
-        commit_calls += 1
-        if commit_calls == 1:
-            original = sqlite3.OperationalError("database is locked")
-            original.sqlite_errorcode = sqlite3.SQLITE_BUSY
-            raise sa.exc.OperationalError("UPDATE", (), original)
-        return real_commit()
-
-    monkeypatch.setattr(db_session, "commit", busy_once)
-
-    ManagedPrivateAccessRemoteCleanupService(
+    with fail_next_sqlite_statement_with_busy_snapshot(
         db_session,
-        state=state,
-    ).cleanup_iam_resources(provisioning, CleanupIAM())
+        "UPDATE managed_private_accesses",
+    ) as statements:
+        ManagedPrivateAccessRemoteCleanupService(
+            db_session,
+            state=state,
+        ).cleanup_iam_resources(provisioning, CleanupIAM())
 
-    assert commit_calls == 2
+    assert len(statements) == 2
     assert detached == [(provisioning.iam_username, "arn:test:readonly")]
     db_session.expire_all()
     persisted = db_session.get(ManagedPrivateAccess, provisioning.id)
@@ -826,7 +787,6 @@ def test_managed_private_access_cleanup_checkpoint_retries_sqlite_busy_without_r
 )
 def test_managed_private_access_state_transition_rolls_back_when_commit_fails(
     db_session,
-    monkeypatch,
     method_name,
     args,
 ):
@@ -835,12 +795,10 @@ def test_managed_private_access_state_transition_rolls_back_when_commit_fails(
     source = ManagedPrivateAccessService(db_session).iam_sources.resolve(user, account)
     state = ManagedPrivateAccessStateService(db_session)
     provisioning = state.claim(user, source)
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            getattr(state, method_name)(provisioning, *args)
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        getattr(state, method_name)(provisioning, *args)
-
-    assert rollback_calls == [None]
     db_session.expire_all()
     persisted = db_session.get(ManagedPrivateAccess, provisioning.id)
     assert persisted.state == "provisioning"
@@ -857,19 +815,18 @@ def test_managed_private_access_activation_rolls_back_when_commit_fails(
     destination = service.destinations.resolve(source)
     provisioning = ManagedPrivateAccessStateService(db_session).claim(user, source)
     _disable_capability_probe(monkeypatch)
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        service.connection.activate(
-            user=user,
-            provisioning=provisioning,
-            destination=destination,
-            payload=_payload(),
-            access_key_id="AK-MANAGED",
-            secret_access_key="NEVER-IN-RESPONSE",
-        )
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service.connection.activate(
+                user=user,
+                provisioning=provisioning,
+                destination=destination,
+                payload=_payload(),
+                access_key_id="AK-MANAGED",
+                secret_access_key="NEVER-IN-RESPONSE",
+            )
 
-    assert rollback_calls == [None]
     assert db_session.scalar(sa.select(sa.func.count()).select_from(S3Connection)) == 0
     db_session.expire_all()
     persisted = db_session.get(ManagedPrivateAccess, provisioning.id)
@@ -960,11 +917,13 @@ def test_failed_compensation_is_durable_cleanup_pending(db_session, monkeypatch)
     assert "managed_private_access.cleanup_pending" in actions
 
     fake.cleanup_fails = False
-    service.cleanup.retry_provisioning_cleanup(user=user, provisioning_id=provisioning.id)
+    provisioning_id = int(provisioning.id)
+    iam_username = provisioning.iam_username
+    service.cleanup.retry_provisioning_cleanup(user=user, provisioning_id=provisioning_id)
     assert db_session.scalar(
-        sa.select(ManagedPrivateAccess).where(ManagedPrivateAccess.id == provisioning.id)
+        sa.select(ManagedPrivateAccess).where(ManagedPrivateAccess.id == provisioning_id)
     ) is None
-    assert fake.deleted_keys == [(provisioning.iam_username, "AK-MANAGED")]
+    assert fake.deleted_keys == [(iam_username, "AK-MANAGED")]
     retry_audit = db_session.scalars(
         sa.select(AuditLog).where(AuditLog.action == "managed_private_access.compensation.retry.success")
     ).one()
@@ -1149,23 +1108,13 @@ def test_managed_iam_connection_delete_recovers_after_final_commit_failure(
     result = service.provision_iam(user=user, context=account, payload=_payload())
     connection_id = result.connection.id
     provisioning_id = result.provisioning_id
-    original_commit = cleanup_service_module.commit_or_rollback
 
-    def fail_final_commit(db):
-        db.rollback()
-        raise RuntimeError("final cleanup commit failed")
-
-    monkeypatch.setattr(
-        cleanup_service_module,
-        "commit_or_rollback",
-        fail_final_commit,
-    )
-
-    with pytest.raises(RuntimeError, match="final cleanup commit failed"):
-        service.cleanup.delete_owned_connection(
-            user=user,
-            connection_id=connection_id,
-        )
+    with fail_next_transaction_commit(db_session, occurrence=7):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service.cleanup.delete_owned_connection(
+                user=user,
+                connection_id=connection_id,
+            )
 
     db_session.expire_all()
     provisioning = db_session.get(ManagedPrivateAccess, provisioning_id)
@@ -1179,11 +1128,6 @@ def test_managed_iam_connection_delete_recovers_after_final_commit_failure(
 
     deleted_keys = list(fake.deleted_keys)
     deleted_users = list(fake.deleted_users)
-    monkeypatch.setattr(
-        cleanup_service_module,
-        "commit_or_rollback",
-        original_commit,
-    )
 
     assert service.cleanup.delete_owned_connection(
         user=user,

@@ -7,9 +7,9 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import run_replayable_db_unit
 from app.core.sensitive_data import sanitized_error_log_detail
-from app.db import ManagedPrivateAccess, User
+from app.db import ManagedPrivateAccess, S3Connection, User
 from app.services.managed_private_access_audit_service import (
     ManagedPrivateAccessAuditService,
 )
@@ -29,6 +29,7 @@ from app.services.managed_private_access_state_service import (
 )
 from app.services.resource_deletion_purge_service import ResourceDeletionPurgeService
 from app.services.tags_service import TagsService
+from app.utils.time import utcnow
 
 
 class ManagedPrivateAccessCleanupService:
@@ -83,24 +84,51 @@ class ManagedPrivateAccessCleanupService:
         except ValueError as exc:
             raise ManagedPrivateAccessConflict(str(exc)) from exc
 
-        connection.is_active = False
+        provisioning_id = int(provisioning.id)
+        persisted_connection_id = int(connection.id)
+        deleting_at = utcnow()
+
+        def mark_deleting_once(write_db: Session) -> None:
+            current_provisioning = write_db.get(ManagedPrivateAccess, provisioning_id)
+            current_connection = write_db.get(S3Connection, persisted_connection_id)
+            if current_provisioning is None or current_connection is None:
+                raise RuntimeError("Managed private access disappeared while starting cleanup")
+            current_provisioning.state = "deleting"
+            current_provisioning.updated_at = deleting_at
+            current_connection.is_active = False
+
+        run_replayable_db_unit(self.db, mark_deleting_once)
+        self.db.refresh(provisioning)
+        self.db.refresh(connection)
         self._cleanup_remote_or_pending(
             provisioning,
             user=user,
             use_persisted_source=use_persisted_source,
             pending_message="Remote cleanup failed; the managed access remains recorded for remediation",
+            mark_deleting=False,
         )
 
-        self.db.delete(provisioning)
         domain_kind, _owner_user_id = self.tags.resolve_connection_domain(connection)
-        purge.purge_execution_context_data(context_id)
-        self.db.delete(connection)
-        self.db.flush()
-        self.tags.cleanup_orphan_definitions(domain_kinds=[domain_kind])
-        commit_or_rollback(self.db)
+        audit_snapshot = {
+            column.name: getattr(provisioning, column.name)
+            for column in ManagedPrivateAccess.__table__.columns
+        }
+
+        def delete_local_once(write_db: Session) -> None:
+            current_provisioning = write_db.get(ManagedPrivateAccess, provisioning_id)
+            current_connection = write_db.get(S3Connection, persisted_connection_id)
+            if current_provisioning is None or current_connection is None:
+                raise RuntimeError("Managed private access disappeared before local cleanup")
+            write_db.delete(current_provisioning)
+            ResourceDeletionPurgeService(write_db).purge_execution_context_data(context_id)
+            write_db.delete(current_connection)
+            write_db.flush()
+            TagsService(write_db).cleanup_orphan_definitions(domain_kinds=[domain_kind])
+
+        run_replayable_db_unit(self.db, delete_local_once)
         self.audit.record(
             user,
-            provisioning,
+            ManagedPrivateAccess(**audit_snapshot),
             "managed_private_access.delete.success",
             connection_id=connection_id,
         )
@@ -140,11 +168,21 @@ class ManagedPrivateAccessCleanupService:
             pending_message="Remote cleanup still requires remediation",
         )
 
-        self.db.delete(provisioning)
-        commit_or_rollback(self.db)
+        audit_snapshot = {
+            column.name: getattr(provisioning, column.name)
+            for column in ManagedPrivateAccess.__table__.columns
+        }
+
+        def delete_local_once(write_db: Session) -> None:
+            current = write_db.get(ManagedPrivateAccess, provisioning_id)
+            if current is None:
+                raise RuntimeError("Managed private access disappeared before cleanup completion")
+            write_db.delete(current)
+
+        run_replayable_db_unit(self.db, delete_local_once)
         self.audit.record(
             user,
-            provisioning,
+            ManagedPrivateAccess(**audit_snapshot),
             "managed_private_access.compensation.retry.success",
         )
 
@@ -155,8 +193,10 @@ class ManagedPrivateAccessCleanupService:
         user: User,
         use_persisted_source: bool = False,
         pending_message: str,
+        mark_deleting: bool = True,
     ) -> None:
-        self.state.mark_deleting(provisioning)
+        if mark_deleting:
+            self.state.mark_deleting(provisioning)
         try:
             self.remote.cleanup(
                 provisioning,

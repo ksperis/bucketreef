@@ -7,7 +7,7 @@ from __future__ import annotations
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
+from app.core.db_transactions import run_replayable_db_unit
 from app.db import ManagedPrivateAccess, User
 from app.services.managed_private_access_errors import ManagedPrivateAccessConflict
 from app.services.managed_private_access_sources import ManagedPrivateAccessSource
@@ -38,9 +38,9 @@ class ManagedPrivateAccessStateService:
         source: ManagedPrivateAccessSource,
     ) -> ManagedPrivateAccess:
         owner_user_id = int(user.id)
+        now = utcnow()
 
-        def claim_once() -> int:
-            now = utcnow()
+        def claim_once(write_db: Session) -> int:
             row = ManagedPrivateAccess(
                 owner_user_id=owner_user_id,
                 source_context_type=source.kind,
@@ -52,12 +52,12 @@ class ManagedPrivateAccessStateService:
                 created_at=now,
                 updated_at=now,
             )
-            self.db.add(row)
-            commit_or_rollback(self.db)
+            write_db.add(row)
+            write_db.flush()
             return int(row.id)
 
         try:
-            row_id = run_db_unit_with_sqlite_retry(self.db, claim_once)
+            row_id = run_replayable_db_unit(self.db, claim_once)
         except IntegrityError as exc:
             raise ManagedPrivateAccessConflict(
                 "A managed private access operation already exists for this execution context"
@@ -67,40 +67,43 @@ class ManagedPrivateAccessStateService:
             raise RuntimeError("Managed private access claim could not be reloaded")
         return row
 
-    def checkpoint(self, provisioning: ManagedPrivateAccess) -> None:
+    def checkpoint(
+        self,
+        provisioning: ManagedPrivateAccess,
+        **changes: object,
+    ) -> None:
         row_id = int(provisioning.id)
-        snapshot = {
-            field_name: getattr(provisioning, field_name)
-            for field_name in self._CHECKPOINT_FIELDS
-        }
+        invalid_fields = set(changes) - set(self._CHECKPOINT_FIELDS)
+        if invalid_fields:
+            raise ValueError(
+                "Unsupported managed private access checkpoint fields: "
+                + ", ".join(sorted(invalid_fields))
+            )
+        snapshot: dict[str, object] = {}
+        for field_name in self._CHECKPOINT_FIELDS:
+            value = changes.get(field_name, getattr(provisioning, field_name))
+            snapshot[field_name] = list(value) if isinstance(value, list) else value
         updated_at = utcnow()
 
-        def persist_once() -> None:
-            with self.db.no_autoflush:
-                row = self.db.get(ManagedPrivateAccess, row_id)
+        def persist_once(write_db: Session) -> None:
+            row = write_db.get(ManagedPrivateAccess, row_id)
             if row is None:  # pragma: no cover - defensive consistency check
                 raise RuntimeError("Managed private access checkpoint could not be reloaded")
             for field_name, value in snapshot.items():
                 setattr(row, field_name, value)
             row.updated_at = updated_at
-            commit_or_rollback(self.db)
 
-        run_db_unit_with_sqlite_retry(self.db, persist_once)
+        run_replayable_db_unit(self.db, persist_once)
         self.db.refresh(provisioning)
 
     def mark_failed(self, provisioning: ManagedPrivateAccess, error: str) -> None:
-        provisioning.state = "failed"
-        provisioning.cleanup_error = error
-        self.checkpoint(provisioning)
+        self.checkpoint(provisioning, state="failed", cleanup_error=error)
 
     def mark_deleting(self, provisioning: ManagedPrivateAccess) -> None:
-        provisioning.state = "deleting"
-        self.checkpoint(provisioning)
+        self.checkpoint(provisioning, state="deleting")
 
     def mark_cleanup_pending(self, provisioning: ManagedPrivateAccess, error: str) -> None:
-        provisioning.state = "cleanup_pending"
-        provisioning.cleanup_error = error
-        self.checkpoint(provisioning)
+        self.checkpoint(provisioning, state="cleanup_pending", cleanup_error=error)
 
     def append_list_value(
         self,
@@ -111,7 +114,7 @@ class ManagedPrivateAccessStateService:
         values = list(getattr(provisioning, field_name))
         if value not in values:
             values.append(value)
-        setattr(provisioning, field_name, values)
+        self.checkpoint(provisioning, **{field_name: values})
 
     def remove_list_value(
         self,
@@ -124,4 +127,4 @@ class ManagedPrivateAccessStateService:
             for item in getattr(provisioning, field_name)
             if item != value
         ]
-        setattr(provisioning, field_name, values)
+        self.checkpoint(provisioning, **{field_name: values})
