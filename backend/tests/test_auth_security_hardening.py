@@ -884,10 +884,7 @@ def test_external_identity_service_types_missing_revoke_and_restore(db_session):
         service.restore_identity(identity.id)
 
 
-def test_external_identity_revoke_rolls_back_related_security_state_on_commit_failure(
-    db_session,
-    monkeypatch,
-):
+def test_external_identity_revoke_rolls_back_related_security_state_on_commit_failure(db_session):
     user = _user(
         db_session,
         email="identity-rollback@example.com",
@@ -918,23 +915,10 @@ def test_external_identity_revoke_rolls_back_related_security_state_on_commit_fa
         scopes=["profile:read"],
     )
     original_version = user.auth_version
-    original_rollback = db_session.rollback
-    rollback_calls = []
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            ExternalIdentityUserService(db_session).revoke_identity(identity.id)
 
-    def failing_commit():
-        raise RuntimeError("commit failed")
-
-    def recording_rollback():
-        rollback_calls.append(True)
-        original_rollback()
-
-    monkeypatch.setattr(db_session, "commit", failing_commit)
-    monkeypatch.setattr(db_session, "rollback", recording_rollback)
-
-    with pytest.raises(RuntimeError, match="commit failed"):
-        ExternalIdentityUserService(db_session).revoke_identity(identity.id)
-
-    assert rollback_calls == [True]
     db_session.expire_all()
     restored_identity = db_session.get(ExternalIdentity, identity.id)
     restored_user = db_session.get(User, user.id)
@@ -949,6 +933,53 @@ def test_external_identity_revoke_rolls_back_related_security_state_on_commit_fa
             UserNotification.event_key.like("external_identity_revoked:identity-rollback:%")
         )
     ).all() == []
+
+
+def test_external_identity_revoke_retries_busy_snapshot_without_duplicate_notification(db_session):
+    user = _user(
+        db_session,
+        email="identity-retry@example.com",
+        role=UserRole.UI_ADMIN.value,
+    )
+    identity = ExternalIdentity(
+        id="identity-retry",
+        user_id=user.id,
+        provider_type="oidc",
+        provider_id="company",
+        issuer="https://issuer.example.test",
+        subject="identity-retry-subject",
+        email=user.email,
+        email_verified=True,
+    )
+    db_session.add(identity)
+    db_session.commit()
+    credentials = AuthSessionService(db_session).create_for_user(
+        user,
+        auth_type="password",
+        ip_address="127.0.0.1",
+        user_agent="pytest",
+        mfa_verified=True,
+    )
+    original_version = user.auth_version
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE external_identities",
+    ) as matching_statements:
+        revoked = ExternalIdentityUserService(db_session).revoke_identity(identity.id)
+
+    assert len(matching_statements) == 2
+    assert revoked.revoked_at is not None
+    db_session.refresh(user)
+    db_session.refresh(credentials.session)
+    assert user.auth_version == original_version + 1
+    assert credentials.session.revoked_at is not None
+    notifications = db_session.scalars(
+        select(UserNotification).where(
+            UserNotification.event_key.like("external_identity_revoked:identity-retry:%")
+        )
+    ).all()
+    assert len(notifications) == 1
 
 
 def test_profile_name_edit_is_disabled_by_default_and_can_be_enabled(auth_client, db_session):

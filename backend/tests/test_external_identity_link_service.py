@@ -860,6 +860,30 @@ def test_provision_identity_normalizes_provider_type_and_subject(db_session):
     assert identity.subject == "uid=normalized,dc=example,dc=test"
 
 
+def test_provision_identity_retries_busy_snapshot_without_duplicate_identity(db_session):
+    user = _user(db_session, email="identity-provision-retry@example.test")
+    original_auth_version = user.auth_version
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO external_identities",
+    ) as matching_statements:
+        identity, created = ExternalIdentityUserService(db_session).provision_identity(
+            user=user,
+            provider_type="ldap",
+            provider_id="corp",
+            subject="uid=provision-retry,dc=example,dc=test",
+        )
+
+    assert len(matching_statements) == 2
+    assert created is True
+    db_session.refresh(user)
+    assert user.auth_version == original_auth_version + 1
+    assert db_session.scalars(
+        select(ExternalIdentity).where(ExternalIdentity.id == identity.id)
+    ).all() == [identity]
+
+
 def test_provision_identity_types_explicit_restore_conflict(db_session):
     user = _user(db_session, email="identity-revoked@example.test")
     db_session.add(
