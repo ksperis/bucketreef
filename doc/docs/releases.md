@@ -105,6 +105,7 @@ Compare v0.2.18 → v0.3.0: [GitHub](https://github.com/ksperis/bucketreef/compa
 - Keep resource deletion, provisioning, bucket-migration, and managed-private-access recovery paths consistent under SQLite contention and transient RGW concurrency errors without replaying remote side effects.
 - Skip disabled OpenStack association requests and keep access/deletion feedback localized in the frontend.
 - Extend live Ceph functional qualification and run the release qualification path against PostgreSQL.
+- Update the scheduler runtime to patched Alpine curl/libcurl 8.23.0 or newer, resolving CVE-2026-92392 detected by release image scanning.
 
 ### Upgrade notes
 
