@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import sqlite3
 import threading
 import time
 from datetime import timedelta
@@ -16,7 +15,6 @@ from jose import jwt
 from pwdlib import PasswordHash
 from pwdlib.hashers.bcrypt import BcryptHasher
 from sqlalchemy import event, select, text, update
-from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker
 from starlette.requests import Request
 from webauthn.helpers import bytes_to_base64url
@@ -72,12 +70,10 @@ from app.services.webauthn_service import WebAuthnService
 from app.utils.request_security import client_ip
 from app.utils.time import utcnow
 from tests.auth_test_utils import authenticate_ui_client, clear_ui_client, trusted_origin_headers
-
-
-def _busy_snapshot_error() -> OperationalError:
-    original = sqlite3.OperationalError("database is locked")
-    original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
-    return OperationalError("UPDATE", (), original)
+from tests.db_transaction_test_utils import (
+    fail_next_sqlite_statement_with_busy_snapshot,
+    fail_next_transaction_commit,
+)
 
 
 @pytest.fixture
@@ -340,7 +336,7 @@ def test_session_service_rejects_invalid_csrf_without_revoking(db_session):
     assert credentials.session.revoked_at is None
 
 
-def test_session_service_retries_sqlite_busy_when_revoking_with_csrf(db_session, monkeypatch):
+def test_session_service_retries_sqlite_busy_when_revoking_with_csrf(db_session):
     user = _user(db_session, email="session-revoke-retry@example.com")
     credentials = AuthSessionService(db_session).create_for_user(
         user,
@@ -350,26 +346,18 @@ def test_session_service_retries_sqlite_busy_when_revoking_with_csrf(db_session,
         mfa_verified=True,
     )
     session_id = credentials.session.id
-    original_flush = db_session.flush
-    flush_calls = 0
-
-    def flaky_flush(*args, **kwargs):
-        nonlocal flush_calls
-        flush_calls += 1
-        if flush_calls == 1:
-            raise _busy_snapshot_error()
-        return original_flush(*args, **kwargs)
-
-    monkeypatch.setattr(db_session, "flush", flaky_flush)
-
-    revoked_session_id = AuthSessionService(db_session).revoke_with_csrf(
-        session_id,
-        "logout",
-        csrf_token=credentials.csrf_token,
-    )
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE auth_sessions SET revoked_at",
+    ) as statements:
+        revoked_session_id = AuthSessionService(db_session).revoke_with_csrf(
+            session_id,
+            "logout",
+            csrf_token=credentials.csrf_token,
+        )
 
     assert revoked_session_id == session_id
-    assert flush_calls >= 2
+    assert len(statements) == 2
     db_session.expire_all()
     revoked = db_session.get(AuthSession, session_id)
     assert revoked is not None
@@ -377,7 +365,7 @@ def test_session_service_retries_sqlite_busy_when_revoking_with_csrf(db_session,
     assert revoked.revoke_reason == "logout"
 
 
-def test_session_service_retries_sqlite_busy_when_revoking_all_for_user(db_session, monkeypatch):
+def test_session_service_retries_sqlite_busy_when_revoking_all_for_user(db_session):
     user = _user(db_session, email="session-revoke-all-retry@example.com")
     credentials = AuthSessionService(db_session).create_for_user(
         user,
@@ -387,25 +375,17 @@ def test_session_service_retries_sqlite_busy_when_revoking_all_for_user(db_sessi
         mfa_verified=True,
     )
     session_id = credentials.session.id
-    original_flush = db_session.flush
-    flush_calls = 0
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE auth_sessions SET revoked_at",
+    ) as statements:
+        AuthSessionService(db_session).revoke_all_for_user(
+            user,
+            "mfa_changed",
+            increment_version=False,
+        )
 
-    def flaky_flush(*args, **kwargs):
-        nonlocal flush_calls
-        flush_calls += 1
-        if flush_calls == 1:
-            raise _busy_snapshot_error()
-        return original_flush(*args, **kwargs)
-
-    monkeypatch.setattr(db_session, "flush", flaky_flush)
-
-    AuthSessionService(db_session).revoke_all_for_user(
-        user,
-        "mfa_changed",
-        increment_version=False,
-    )
-
-    assert flush_calls >= 2
+    assert len(statements) == 2
     db_session.expire_all()
     revoked = db_session.get(AuthSession, session_id)
     assert revoked is not None
@@ -523,6 +503,7 @@ def test_profile_webauthn_step_up_renews_current_session_without_issuing_tokens(
             name="Step-up passkey",
         )
     )
+    db_session.commit()
     credentials = authenticate_ui_client(auth_client, db_session, superadmin)
     credentials.session.auth_type = "recovery_code"
     credentials.session.mfa_verified_at = utcnow() - timedelta(minutes=get_settings().mfa_recent_minutes + 1)
@@ -610,6 +591,7 @@ def test_profile_webauthn_step_up_rejects_missing_csrf_wrong_session_and_replay(
             name="Binding passkey",
         )
     )
+    db_session.commit()
     first = authenticate_ui_client(auth_client, db_session, user, mfa_verified=False)
     first_headers = trusted_origin_headers(csrf_token=first.csrf_token)
 
@@ -1299,6 +1281,57 @@ def test_refresh_rotation_recovers_from_sqlite_read_to_write_busy(db_session, te
     assert sum(row.used_at is not None for row in rows) == 1
 
 
+def test_refresh_rotation_reuses_staged_values_across_sqlite_retry(db_session, monkeypatch):
+    user = _user(db_session, email="sqlite-refresh-staged@example.com")
+    credentials = AuthSessionService(db_session).create_for_user(
+        user,
+        auth_type="password",
+        ip_address="127.0.0.1",
+        user_agent="pytest",
+        mfa_verified=False,
+    )
+    fixed_now = utcnow()
+    calls = {"refresh": 0, "csrf": 0, "uuid": 0, "now": 0}
+
+    def staged_refresh() -> str:
+        calls["refresh"] += 1
+        return "staged-refresh-token"
+
+    def staged_csrf(_size: int) -> str:
+        calls["csrf"] += 1
+        return "staged-csrf-token"
+
+    def staged_uuid():
+        calls["uuid"] += 1
+        return "00000000-0000-0000-0000-000000000123"
+
+    def staged_now():
+        calls["now"] += 1
+        return fixed_now
+
+    monkeypatch.setattr("app.services.auth_session_service.create_refresh_token", staged_refresh)
+    monkeypatch.setattr(
+        "app.services.auth_session_service.secrets",
+        SimpleNamespace(token_urlsafe=staged_csrf),
+    )
+    monkeypatch.setattr(
+        "app.services.auth_session_service.uuid",
+        SimpleNamespace(uuid4=staged_uuid),
+    )
+    monkeypatch.setattr("app.services.auth_session_service.utcnow", staged_now)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO refresh_tokens",
+    ) as statements:
+        replacement = AuthSessionService(db_session).rotate(credentials.refresh_token)
+
+    assert len(statements) == 2
+    assert calls == {"refresh": 1, "csrf": 1, "uuid": 1, "now": 1}
+    assert replacement.refresh_token == "staged-refresh-token"
+    assert replacement.csrf_token == "staged-csrf-token"
+
+
 def test_api_token_usage_recovers_from_sqlite_read_to_write_busy(db_session, test_engine):
     user = _user(
         db_session,
@@ -1393,7 +1426,7 @@ def test_expired_s3_credentials_are_erased_by_startup_cleanup(db_session):
     assert s3_session.secret_key_enc is None
 
 
-def test_startup_cleanup_rolls_back_when_commit_fails(db_session, monkeypatch):
+def test_startup_cleanup_rolls_back_when_commit_fails(db_session):
     now = utcnow()
     s3_session = S3Session(
         id="s3-session-startup-cleanup-rollback",
@@ -1411,23 +1444,10 @@ def test_startup_cleanup_rolls_back_when_commit_fails(db_session, monkeypatch):
     db_session.add(s3_session)
     db_session.commit()
 
-    original_rollback = db_session.rollback
-    rollback_calls = []
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            AuthSessionService(db_session).cleanup_expired()
 
-    def failing_commit():
-        raise RuntimeError("commit failed")
-
-    def recording_rollback():
-        rollback_calls.append(True)
-        original_rollback()
-
-    monkeypatch.setattr(db_session, "commit", failing_commit)
-    monkeypatch.setattr(db_session, "rollback", recording_rollback)
-
-    with pytest.raises(RuntimeError, match="commit failed"):
-        AuthSessionService(db_session).cleanup_expired()
-
-    assert rollback_calls == [True]
     db_session.expire_all()
     restored = db_session.get(S3Session, s3_session.id)
     assert restored is not None
