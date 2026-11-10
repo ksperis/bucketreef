@@ -8,6 +8,10 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy import func, select
 
+from tests.db_transaction_test_utils import (
+    fail_next_sqlite_statement_with_busy_snapshot,
+    fail_next_transaction_commit,
+)
 from app.utils.time import utcnow
 
 from app.db import (
@@ -45,22 +49,6 @@ def _seed_endpoint_and_account(db_session) -> tuple[StorageEndpoint, S3Account]:
     db_session.commit()
     db_session.refresh(account)
     return endpoint, account
-
-
-def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
-    rollback_calls: list[None] = []
-    original_rollback = db_session.rollback
-
-    def rollback() -> None:
-        rollback_calls.append(None)
-        original_rollback()
-
-    def commit() -> None:
-        raise RuntimeError("commit failed")
-
-    monkeypatch.setattr(db_session, "rollback", rollback)
-    monkeypatch.setattr(db_session, "commit", commit)
-    return rollback_calls
 
 
 def test_purge_all_removes_old_quota_and_cost_rows(db_session):
@@ -254,10 +242,7 @@ def test_purge_all_with_zero_retention_disables_purge(db_session):
     assert db_session.scalar(select(func.count()).select_from(CostStorageDaily)) == 1
 
 
-def test_purge_all_rolls_back_quota_and_cost_deletes_when_commit_fails(
-    db_session,
-    monkeypatch,
-):
+def test_purge_all_rolls_back_quota_and_cost_deletes_when_commit_fails(db_session):
     endpoint, account = _seed_endpoint_and_account(db_session)
     now = utcnow()
     old_hour = now.replace(minute=0, second=0, microsecond=0) - timedelta(days=45)
@@ -294,14 +279,47 @@ def test_purge_all_rolls_back_quota_and_cost_deletes_when_commit_fails(
         quota_history_daily_retention_days=0,
         cost_daily_retention_days=365,
     )
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service.purge_all()
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        service.purge_all()
-
-    assert rollback_calls == [None]
     assert db_session.scalar(select(func.count()).select_from(QuotaUsageHourly)) == 1
     assert db_session.scalar(select(func.count()).select_from(CostUsageDaily)) == 1
+
+
+def test_purge_all_retries_busy_snapshot_from_fresh_sqlite_transaction(db_session):
+    endpoint, account = _seed_endpoint_and_account(db_session)
+    now = utcnow()
+    db_session.add(
+        QuotaUsageHourly(
+            hour_ts=now.replace(minute=0, second=0, microsecond=0) - timedelta(days=45),
+            storage_endpoint_id=endpoint.id,
+            s3_account_id=account.id,
+            s3_user_id=None,
+            used_bytes=1,
+            used_objects=1,
+            usage_ratio_pct=1.0,
+            collected_at=now,
+        )
+    )
+    db_session.commit()
+
+    service = DataRetentionService(db_session, reference_now=now)
+    service.settings = SimpleNamespace(
+        quota_history_hourly_retention_days=30,
+        quota_history_daily_retention_days=0,
+        cost_daily_retention_days=0,
+    )
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "DELETE FROM quota_usage_hourly",
+    ) as matching_statements:
+        result = service.purge_all()
+
+    assert len(matching_statements) == 2
+    assert result["quota_history"]["deleted_hourly"] == 1
+    assert db_session.scalar(select(func.count()).select_from(QuotaUsageHourly)) == 0
 
 
 def test_purge_user_notifications_removes_read_and_unread_rows_after_cutoff(
@@ -404,7 +422,7 @@ def test_purge_user_notifications_zero_retention_preserves_rows(db_session):
     assert db_session.scalar(select(func.count()).select_from(UserNotification)) == 1
 
 
-def test_purge_user_notifications_rolls_back_when_commit_fails(db_session, monkeypatch):
+def test_purge_user_notifications_rolls_back_when_commit_fails(db_session):
     user = User(
         email="notification-retention-rollback@example.test",
         hashed_password="x",
@@ -429,10 +447,46 @@ def test_purge_user_notifications_rolls_back_when_commit_fails(db_session, monke
 
     service = DataRetentionService(db_session)
     service.settings = SimpleNamespace(user_notifications_retention_days=90)
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service.purge_user_notifications()
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        service.purge_user_notifications()
-
-    assert rollback_calls == [None]
     assert db_session.scalar(select(func.count()).select_from(UserNotification)) == 1
+
+
+def test_purge_user_notifications_retries_busy_snapshot(db_session):
+    now = utcnow()
+    user = User(
+        email="notification-retention-retry@example.test",
+        hashed_password="x",
+        role=UserRole.UI_USER.value,
+        is_active=True,
+    )
+    db_session.add(user)
+    db_session.flush()
+    db_session.add(
+        UserNotification(
+            user_id=user.id,
+            notification_type="test",
+            severity="info",
+            title="Retry purge",
+            message="Retry purge notification",
+            event_key="retention:retry",
+            payload={},
+            created_at=now - timedelta(days=91),
+        )
+    )
+    db_session.commit()
+
+    service = DataRetentionService(db_session, reference_now=now)
+    service.settings = SimpleNamespace(user_notifications_retention_days=90)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "DELETE FROM user_notifications",
+    ) as matching_statements:
+        result = service.purge_user_notifications()
+
+    assert len(matching_statements) == 2
+    assert result["user_notifications"]["deleted"] == 1
+    assert db_session.scalar(select(func.count()).select_from(UserNotification)) == 0

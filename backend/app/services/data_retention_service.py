@@ -9,7 +9,7 @@ from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import commit_or_rollback, run_replayable_db_unit
 from app.db import (
     CostStorageDaily,
     CostUsageDaily,
@@ -105,7 +105,7 @@ class DataRetentionService:
             }
         }
 
-    def purge_user_notifications(self) -> dict[str, Any]:
+    def _purge_user_notifications_in_transaction(self) -> dict[str, Any]:
         retention_days = self.settings.user_notifications_retention_days
         if retention_days <= 0:
             return {
@@ -116,13 +116,11 @@ class DataRetentionService:
                 }
             }
 
-        cutoff = utcnow() - timedelta(days=retention_days)
+        cutoff = self._now() - timedelta(days=retention_days)
         deleted = self._delete_rows(
             UserNotification,
             UserNotification.created_at < cutoff,
         )
-        if deleted and self.commit_on_success:
-            commit_or_rollback(self.db)
         return {
             "user_notifications": {
                 "retention_days": retention_days,
@@ -131,10 +129,47 @@ class DataRetentionService:
             }
         }
 
-    def purge_all(self) -> dict[str, Any]:
+    def purge_user_notifications(self) -> dict[str, Any]:
+        if self.commit_on_success and self.db.get_bind().dialect.name == "sqlite":
+            reference_now = self._now()
+
+            def purge_once(write_db: Session) -> dict[str, Any]:
+                service = DataRetentionService(
+                    write_db,
+                    commit_on_success=False,
+                    reference_now=reference_now,
+                )
+                service.settings = self.settings
+                return service._purge_user_notifications_in_transaction()
+
+            return run_replayable_db_unit(self.db, purge_once)
+
+        result = self._purge_user_notifications_in_transaction()
+        if self.commit_on_success and result["user_notifications"]["deleted"]:
+            commit_or_rollback(self.db)
+        return result
+
+    def _purge_all_in_transaction(self) -> dict[str, Any]:
         quota_result = self._purge_quota_history()
         cost_result = self._purge_cost_daily()
-        result = {**quota_result, **cost_result}
+        return {**quota_result, **cost_result}
+
+    def purge_all(self) -> dict[str, Any]:
+        if self.commit_on_success and self.db.get_bind().dialect.name == "sqlite":
+            reference_now = self._now()
+
+            def purge_once(write_db: Session) -> dict[str, Any]:
+                service = DataRetentionService(
+                    write_db,
+                    commit_on_success=False,
+                    reference_now=reference_now,
+                )
+                service.settings = self.settings
+                return service._purge_all_in_transaction()
+
+            return run_replayable_db_unit(self.db, purge_once)
+
+        result = self._purge_all_in_transaction()
         quota = result["quota_history"]
         cost = result["cost_history"]
         if self.commit_on_success and (
