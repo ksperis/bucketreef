@@ -4810,7 +4810,7 @@ def test_retry_item_queues_failed_bucket_item(db_session):
     db_session.commit()
 
     service = BucketMigrationService(db_session)
-    service._revalidate_transfer_preconditions = lambda *_args, **_kwargs: None
+    service._revalidate_transfer_preconditions = Mock()
     payload = BucketMigrationCreateRequest(
         source_context_id=str(source.id),
         target_context_id=str(target.id),
@@ -4832,16 +4832,28 @@ def test_retry_item_queues_failed_bucket_item(db_session):
     completed_item.step = "completed"
     db_session.commit()
 
-    updated = service.retry_item(migration.id, failed_item.id)
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE bucket_migration_items",
+    ) as statements:
+        updated = service.retry_item(migration.id, failed_item.id)
     updated_by_source = {item.source_bucket: item for item in updated.items}
     item = updated_by_source["bucket-a"]
 
+    assert len(statements) >= 2
+    service._revalidate_transfer_preconditions.assert_called_once()
     assert updated.status == "queued"
     assert item.status == "pending"
     assert item.step == "sync"
     assert item.error_message is None
     assert item.finished_at is None
     assert updated_by_source["bucket-b"].status == "completed"
+    retry_events = [
+        event
+        for event in updated.events
+        if event.message == "Retry requested for bucket item."
+    ]
+    assert len(retry_events) == 1
 
 
 def test_retry_failed_items_queues_all_failed_bucket_items(db_session):
@@ -4851,7 +4863,7 @@ def test_retry_failed_items_queues_all_failed_bucket_items(db_session):
     db_session.commit()
 
     service = BucketMigrationService(db_session)
-    service._revalidate_transfer_preconditions = lambda *_args, **_kwargs: None
+    service._revalidate_transfer_preconditions = Mock()
     payload = BucketMigrationCreateRequest(
         source_context_id=str(source.id),
         target_context_id=str(target.id),
@@ -4871,14 +4883,26 @@ def test_retry_failed_items_queues_all_failed_bucket_items(db_session):
     migration.items[1].error_message = "policy denied"
     db_session.commit()
 
-    updated, retried_count = service.retry_failed_items(migration.id)
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE bucket_migration_items",
+    ) as statements:
+        updated, retried_count = service.retry_failed_items(migration.id)
 
+    assert len(statements) >= 2
+    service._revalidate_transfer_preconditions.assert_called_once()
     assert retried_count == 2
     assert updated.status == "queued"
     assert updated.items[0].status == "pending"
     assert updated.items[0].step == "sync"
     assert updated.items[1].status == "pending"
     assert updated.items[1].step == "apply_read_only"
+    retry_events = [
+        event
+        for event in updated.events
+        if event.message == "Retry requested for bucket item."
+    ]
+    assert len(retry_events) == 2
 
 
 
