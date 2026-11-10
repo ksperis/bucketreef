@@ -8,6 +8,7 @@ Current release dates come from the changelog; reconstructed historical dates re
 
 | Version | Date | Notes | Publications |
 | --- | --- | --- | --- |
+| [0.3.0](#release-0-3-0) | 2026-11-10 (changelog) | Changelog | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.3.0) |
 | [0.2.18](#release-0-2-18) | 2026-10-24 (changelog) | Changelog | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.2.18) |
 | [0.2.17](#release-0-2-17) | 2026-10-19 (changelog) | Changelog | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.2.17) |
 | [0.2.16](#release-0-2-16) | 2026-10-17 (changelog) | Changelog | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.2.16) |
@@ -39,6 +40,76 @@ Current release dates come from the changelog; reconstructed historical dates re
 | [0.1.2](#release-0-1-2) | 2026-01-09 (commit) | Reconstructed | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.1.2) |
 | [0.1.1](#release-0-1-1) | 2026-01-06 (commit) | Reconstructed | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.1.1) |
 | [0.1.0](#release-0-1-0) | 2026-01-06 (commit) | Reconstructed | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.1.0) |
+
+## 0.3.0 {#release-0-3-0}
+
+[GitHub release](https://github.com/ksperis/bucketreef/releases/tag/v0.3.0)
+
+Compare v0.2.18 → v0.3.0: [GitHub](https://github.com/ksperis/bucketreef/compare/v0.2.18...v0.3.0)
+
+
+### Changed
+
+- Add a dedicated S3 browser user to the static demo to showcase standalone Browser access through an owned private S3 connection.
+- Simplify Manager IAM user, group, and role inventories by moving ARN details to identity editors, compacting managed and inline policy summaries, and showing compact group member previews in detailed listings.
+- Align embedded Manager IAM user/group association and access-key tables on the shared compact list toolbar, with local actions and counts in one row and no redundant ARN columns in membership tables.
+- Simplify Admin Portal requests to the essential search/status/type controls and move request pagination into the shared table footer.
+- Rename the external-identity link TTL and browser-binding cookie settings to provider-neutral names now that the shared flow covers both OIDC and LDAP.
+- Canonicalize bucket-purge application requests on a single `targets` field across Manager, Storage Ops, and Ceph Admin.
+- Canonicalize bucket-integrity application requests on `targets` and remove the retired frontend bucket-name payload wrapper.
+- Simplify bucket usage-statistics request models around the shared scope options and stop sending obsolete bodies to single-bucket stream routes.
+- Share bucket-comparison scope validation between Manager and Ceph Admin request models.
+- Reuse the Admin Browser settings contract from Browser runtime API types instead of maintaining a duplicate frontend shape.
+- Reuse the shared RGW bucket-reference contract for Ceph Admin bucket index-check targets in the frontend.
+- Generalize the frontend SSE API transport naming and reuse one stream-options contract across bucket, Ceph Admin, Storage Ops, and Portal operations.
+- Share one neutral bucket-listing parameter contract between Ceph Admin, Storage Ops, and the common bucket-operation helpers.
+- Reuse the canonical IAM inline-policy contract for managed private-access provisioning instead of maintaining a duplicate frontend shape.
+- Reuse one cost-history point contract for subject details and aggregate analytics.
+- Reuse the canonical presigned-URL response contract for object and multipart-part signing across backend and frontend.
+- Reuse the backend-aligned public storage-endpoint contract for login settings and private S3 connection endpoint selection.
+- Reuse the shared settings-form action contract in Portal Storage Space identity and Manager bucket feature dialogs instead of maintaining bespoke form footers.
+- Route API-token and managed private-access creation through the shared settings form instead of duplicating dialog form/action markup.
+- Route the Portal Storage Space icon editor through the shared settings form while preserving localized actions and dirty-state protection.
+- Reuse one backend cost-history point contract for subject details and aggregate analytics.
+- Reuse one bucket-usage point contract across storage and Ceph Admin metrics in backend and frontend.
+- Share identity-provider field-lock metadata between OIDC and LDAP settings contracts.
+- Reuse one access-key status update contract across IAM, RGW user, Portal, and Ceph Admin routes.
+- Reuse the canonical bucket tags and website contracts for both reads and writes.
+- Canonicalize Browser object-list requests on one strict backend model and reject unsupported object-type filters instead of silently treating them as `all`.
+- Canonicalize Admin access-audit list and CSV filters on shared backend request models instead of rebuilding the same filter set in each route.
+- Canonicalize Admin S3 Account and RGW User list requests on shared pagination/search controls with typed sort fields and service-owned paginated responses.
+- Canonicalize Admin UI Group and S3 Connection list requests on shared pagination/sort controls, with typed sort fields and service-owned pagination.
+- Canonicalize Admin Usage History and Cost subject list requests on typed pagination/sort contracts instead of rebuilding query parameters across router and service layers.
+- Canonicalize Admin Portal request listings on the shared pagination/search contract and pass the request object through the service layer.
+- Canonicalize Admin OpenStack cloud options on the shared pagination/search request passed through the service layer.
+- Canonicalize Admin UI User and UI Group option lists on one bounded pagination/search request with service-owned paginated responses.
+- Reuse one application pagination request across Admin listings, Ceph Admin identity and bucket listings, and endpoint raw health checks.
+- Canonicalize Admin UI User listings on the frontend-supported pagination and typed sort contract, with service-owned paginated responses.
+- Remove the retired non-paginated Manager IAM collection reads for users, groups, roles, and managed policies so the application exposes one canonical cursor-paginated inventory contract.
+
+### Fixed
+
+- Display the S3 object owner in Browser object details by requesting owner data from object listings and preserving it through the backend/frontend contract.
+- Refresh Browser bucket state reliably after external S3 changes and avoid stale bucket listings in the workspace.
+- Harden SQLite contention recovery for backend transactions and authentication session security writes, and keep Admin user search compatible with PostgreSQL.
+- Skip disabled OpenStack association requests and keep access/deletion feedback localized in the frontend.
+- Extend live Ceph functional qualification and run the release qualification path against PostgreSQL.
+
+### Upgrade notes
+
+- Deploy the backend and bundled frontend from the same release. Internal application route and payload changes in 0.3.0 are coordinated within BucketReef and are not considered breaking external contracts.
+- Deploy the matching backend and frontend together because Admin UI User list sorting now rejects retired sort aliases outside the current UI contract.
+- Deploy the matching backend and frontend together because Admin S3 Account and RGW User list query validation now accepts only the supported sort fields and directions.
+- Deploy the matching backend and frontend together because Admin UI Group and S3 Connection list query validation now accepts only the supported sort fields and directions.
+- Deploy the matching backend and frontend together because Admin Usage History and Cost subject list query validation now accepts only the supported granularity, subject type, sort fields, and sort directions.
+- Deploy the matching backend and frontend together because Browser object-list responses now include the optional `owner` field used by object details.
+- Deploy the matching backend and frontend together because Browser object-list query validation now enforces the frontend's supported `all`, `file`, and `folder` object-type values.
+- Deploy the matching backend and frontend together because detailed Manager IAM group-list responses now include the optional `members` field used by the inventory.
+- Deploy the matching backend and frontend together because Manager IAM collection reads now use only `/users/page`, `/groups/page`, `/roles/page`, and `/policies/page`; the old non-paginated collection GET routes are removed while collection POST routes remain unchanged.
+- Deploy the matching backend and frontend together because Admin Portal request listings now use the standard paginated application response instead of an unpaginated list.
+- Custom deployments using `OIDC_LINK_ATTEMPT_TTL_SECONDS` or `OIDC_BROWSER_COOKIE_NAME` must rename them to `EXTERNAL_IDENTITY_LINK_ATTEMPT_TTL_SECONDS` and `EXTERNAL_IDENTITY_BROWSER_COOKIE_NAME`. In-progress external-identity browser transactions must restart after the cutover.
+- Deploy the matching backend and frontend together because Manager bucket-purge requests now send bucket names in `targets` instead of `buckets`.
+- Deploy the matching backend and frontend together because Manager bucket-integrity requests now send bucket names in `targets` instead of `buckets`.
 
 ## 0.2.18 {#release-0-2-18}
 

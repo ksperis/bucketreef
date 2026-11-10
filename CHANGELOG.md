@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.3.0 - 2026-11-10
+
 ### Changed
 
 - Add a dedicated S3 browser user to the static demo to showcase standalone Browser access through an owned private S3 connection.
@@ -44,9 +46,14 @@
 ### Fixed
 
 - Display the S3 object owner in Browser object details by requesting owner data from object listings and preserving it through the backend/frontend contract.
+- Refresh Browser bucket state reliably after external S3 changes and avoid stale bucket listings in the workspace.
+- Harden SQLite contention recovery for backend transactions and authentication session security writes, and keep Admin user search compatible with PostgreSQL.
+- Skip disabled OpenStack association requests and keep access/deletion feedback localized in the frontend.
+- Extend live Ceph functional qualification and run the release qualification path against PostgreSQL.
 
 ### Upgrade notes
 
+- Deploy the backend and bundled frontend from the same release. Internal application route and payload changes in 0.3.0 are coordinated within BucketReef and are not considered breaking external contracts.
 - Deploy the matching backend and frontend together because Admin UI User list sorting now rejects retired sort aliases outside the current UI contract.
 - Deploy the matching backend and frontend together because Admin S3 Account and RGW User list query validation now accepts only the supported sort fields and directions.
 - Deploy the matching backend and frontend together because Admin UI Group and S3 Connection list query validation now accepts only the supported sort fields and directions.
