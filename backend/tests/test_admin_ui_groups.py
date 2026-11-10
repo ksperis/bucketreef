@@ -32,6 +32,10 @@ from app.services.ui_group_avatar_service import UiGroupAvatarService
 from app.services.ui_groups_service import UiGroupsService
 from app.services.user_output_service import UserOutputService
 from tests.auth_test_utils import authenticate_ui_client, trusted_origin_headers
+from tests.db_transaction_test_utils import (
+    fail_next_sqlite_statement_with_busy_snapshot,
+    fail_next_transaction_commit,
+)
 from tests.s3_account_factory import make_s3_account
 from tests.s3_connection_factory import custom_endpoint_fields
 from tests.storage_endpoint_features import persisted_endpoint_features
@@ -472,7 +476,6 @@ def test_ui_group_avatar_supports_presets_upload_and_initials_fallback(client: T
 def test_ui_group_avatar_upload_rolls_back_when_commit_fails(
     client: TestClient,
     db_session,
-    monkeypatch,
 ):
     created = client.post(
         "/api/admin/groups",
@@ -481,33 +484,49 @@ def test_ui_group_avatar_upload_rolls_back_when_commit_fails(
     assert created.status_code == 201, created.text
     group = db_session.get(UiGroup, created.json()["id"])
     assert group is not None
-    original_rollback = db_session.rollback
-    rollback_calls: list[None] = []
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            UiGroupAvatarService(db_session).store_uploaded_image(
+                group,
+                PNG_1X1,
+                "image/png",
+            )
 
-    def rollback() -> None:
-        rollback_calls.append(None)
-        original_rollback()
-
-    def commit() -> None:
-        raise RuntimeError("commit failed")
-
-    monkeypatch.setattr(db_session, "rollback", rollback)
-    monkeypatch.setattr(db_session, "commit", commit)
-
-    with pytest.raises(RuntimeError, match="commit failed"):
-        UiGroupAvatarService(db_session).store_uploaded_image(
-            group,
-            PNG_1X1,
-            "image/png",
-        )
-
-    assert rollback_calls == [None]
     db_session.expire_all()
     stored = db_session.get(UiGroup, group.id)
     assert stored is not None
     assert stored.avatar_image is None
     assert stored.avatar_content_type is None
     assert stored.avatar_source == "initials"
+
+
+def test_ui_group_avatar_upload_retries_sqlite_busy_snapshot(
+    client: TestClient,
+    db_session,
+):
+    created = client.post(
+        "/api/admin/groups",
+        json=_group_create_payload(name="Busy Avatar Group"),
+    )
+    assert created.status_code == 201, created.text
+    group = db_session.get(UiGroup, created.json()["id"])
+    assert group is not None
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE ui_groups SET",
+    ) as statements:
+        UiGroupAvatarService(db_session).store_uploaded_image(
+            group,
+            PNG_1X1,
+            "image/png",
+        )
+
+    assert len(statements) == 2
+    db_session.refresh(group)
+    assert group.avatar_image == PNG_1X1
+    assert group.avatar_content_type == "image/png"
+    assert group.avatar_source == "uploaded"
 
 
 def test_ui_group_patch_clears_nullable_description_and_stale_avatar_icon(client: TestClient, db_session):

@@ -6,14 +6,13 @@ import re
 
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import run_replayable_db_unit
 from app.core.domain_errors import AvatarNotFoundError
 from app.db import UiGroup
 from app.models.ui_group import UiGroupAvatar, UiGroupAvatarIcon, UiGroupAvatarSource
 from app.services.avatar_image_service import (
     ALLOWED_AVATAR_CONTENT_TYPES,
-    clear_avatar_image,
-    store_avatar_image,
+    validate_avatar_image,
 )
 from app.utils.time import utcnow
 
@@ -81,20 +80,38 @@ class UiGroupAvatarService:
         group.avatar_updated_at = utcnow()
 
     def store_uploaded_image(self, group: UiGroup, payload: bytes, content_type: str | None) -> None:
-        store_avatar_image(group, payload, content_type)
-        group.avatar_source = "uploaded"
-        self._persist(group)
+        group_id = int(group.id)
+        normalized_content_type = validate_avatar_image(payload, content_type)
+        updated_at = utcnow()
+
+        def persist(write_db: Session) -> None:
+            target = write_db.get(UiGroup, group_id)
+            if target is None:
+                raise ValueError("UI group does not exist")
+            target.avatar_content_type = normalized_content_type
+            target.avatar_image = payload
+            target.avatar_updated_at = updated_at
+            target.avatar_source = "uploaded"
+
+        run_replayable_db_unit(self.db, persist)
+        self.db.get(UiGroup, group_id, populate_existing=True)
 
     def remove_uploaded_image(self, group: UiGroup) -> None:
-        clear_avatar_image(group)
-        if group.avatar_source == "uploaded":
-            group.avatar_source = "initials"
-        self._persist(group)
+        group_id = int(group.id)
+        updated_at = utcnow()
 
-    def _persist(self, group: UiGroup) -> None:
-        self.db.add(group)
-        commit_or_rollback(self.db)
-        self.db.refresh(group)
+        def persist(write_db: Session) -> None:
+            target = write_db.get(UiGroup, group_id)
+            if target is None:
+                raise ValueError("UI group does not exist")
+            target.avatar_image = None
+            target.avatar_content_type = None
+            target.avatar_updated_at = updated_at
+            if target.avatar_source == "uploaded":
+                target.avatar_source = "initials"
+
+        run_replayable_db_unit(self.db, persist)
+        self.db.get(UiGroup, group_id, populate_existing=True)
 
     def image(self, group_id: int) -> tuple[bytes, str, str]:
         group = self.db.get(UiGroup, group_id)

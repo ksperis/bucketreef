@@ -9,7 +9,7 @@ from sqlalchemy import delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import add_and_flush_in_savepoint, commit_or_rollback
+from app.core.db_transactions import add_and_flush_in_savepoint, run_replayable_db_unit
 from app.db import User, UserNotification
 from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, UserRole
 from app.models.user_notification import UserNotificationOut, UserNotificationsResponse
@@ -134,21 +134,28 @@ class UserNotificationsService:
         notification_ids: Optional[list[int]] = None,
         mark_all: bool = False,
     ) -> int:
-        visible = self._visible_notifications_statement(user).where(
-            UserNotification.read_at.is_(None)
-        )
-        if not mark_all:
-            ids = [int(item) for item in notification_ids or [] if int(item) > 0]
-            if not ids:
-                return 0
-            visible = visible.where(UserNotification.id.in_(ids))
-
+        user_id = int(user.id)
+        ids = [int(item) for item in notification_ids or [] if int(item) > 0]
+        if not mark_all and not ids:
+            return 0
         now = utcnow()
-        rows = self.db.scalars(visible).all()
-        for row in rows:
-            row.read_at = now
-        commit_or_rollback(self.db)
-        return len(rows)
+
+        def persist(write_db: Session) -> int:
+            target_user = write_db.get(User, user_id)
+            if target_user is None:
+                return 0
+            service = UserNotificationsService(write_db)
+            visible = service._visible_notifications_statement(target_user).where(
+                UserNotification.read_at.is_(None)
+            )
+            if not mark_all:
+                visible = visible.where(UserNotification.id.in_(ids))
+            rows = write_db.scalars(visible).all()
+            for row in rows:
+                row.read_at = now
+            return len(rows)
+
+        return run_replayable_db_unit(self.db, persist)
 
     def unread_count_for_user(self, user: User) -> int:
         return int(
@@ -169,23 +176,30 @@ class UserNotificationsService:
         notification_id: Optional[int] = None,
         read_only: bool = False,
     ) -> int:
-        visible = self._visible_notifications_statement(user)
-        if notification_id is not None:
-            visible = visible.where(UserNotification.id == int(notification_id))
-        elif read_only:
-            visible = visible.where(UserNotification.read_at.isnot(None))
-        else:
+        if notification_id is None and not read_only:
             return 0
+        user_id = int(user.id)
+        target_notification_id = int(notification_id) if notification_id is not None else None
 
-        visible_ids = visible.with_only_columns(UserNotification.id)
-        deleted = self.db.execute(
-            delete(UserNotification)
-            .where(UserNotification.id.in_(visible_ids))
-            .execution_options(synchronize_session=False)
-        ).rowcount
-        if deleted:
-            commit_or_rollback(self.db)
-        return int(deleted or 0)
+        def persist(write_db: Session) -> int:
+            target_user = write_db.get(User, user_id)
+            if target_user is None:
+                return 0
+            service = UserNotificationsService(write_db)
+            visible = service._visible_notifications_statement(target_user)
+            if target_notification_id is not None:
+                visible = visible.where(UserNotification.id == target_notification_id)
+            else:
+                visible = visible.where(UserNotification.read_at.isnot(None))
+            visible_ids = visible.with_only_columns(UserNotification.id)
+            deleted = write_db.execute(
+                delete(UserNotification)
+                .where(UserNotification.id.in_(visible_ids))
+                .execution_options(synchronize_session=False)
+            ).rowcount
+            return int(deleted or 0)
+
+        return run_replayable_db_unit(self.db, persist)
 
     def _visible_notifications_statement(self, user: User):
         statement = select(UserNotification).where(UserNotification.user_id == user.id)

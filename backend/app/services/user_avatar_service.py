@@ -9,16 +9,16 @@ from urllib.parse import urlparse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import run_replayable_db_unit
 from app.core.domain_errors import AvatarNotFoundError
 from app.db import UiGroupS3Account, User, UserS3Account, UserUiGroup
 from app.core.domain_enums import PortalAccountRole, is_admin_ui_role
 from app.models.user import UserAvatar, UserAvatarPreference
 from app.services.avatar_image_service import (
     ALLOWED_AVATAR_CONTENT_TYPES,
-    clear_avatar_image,
-    store_avatar_image,
+    validate_avatar_image,
 )
+from app.utils.time import utcnow
 
 
 PORTAL_ACCOUNT_ROLES = {
@@ -126,20 +126,38 @@ class UserAvatarService:
         user.avatar_preference = preference
 
     def store_uploaded_image(self, user: User, payload: bytes, content_type: str | None) -> None:
-        store_avatar_image(user, payload, content_type)
-        user.avatar_preference = "uploaded"
-        self._persist(user)
+        user_id = int(user.id)
+        normalized_content_type = validate_avatar_image(payload, content_type)
+        updated_at = utcnow()
+
+        def persist(write_db: Session) -> None:
+            target = write_db.get(User, user_id)
+            if target is None:
+                raise ValueError("User does not exist")
+            target.avatar_content_type = normalized_content_type
+            target.avatar_image = payload
+            target.avatar_updated_at = updated_at
+            target.avatar_preference = "uploaded"
+
+        run_replayable_db_unit(self.db, persist)
+        self.db.get(User, user_id, populate_existing=True)
 
     def remove_uploaded_image(self, user: User) -> None:
-        clear_avatar_image(user)
-        if user.avatar_preference == "uploaded":
-            user.avatar_preference = "auto"
-        self._persist(user)
+        user_id = int(user.id)
+        updated_at = utcnow()
 
-    def _persist(self, user: User) -> None:
-        self.db.add(user)
-        commit_or_rollback(self.db)
-        self.db.refresh(user)
+        def persist(write_db: Session) -> None:
+            target = write_db.get(User, user_id)
+            if target is None:
+                raise ValueError("User does not exist")
+            target.avatar_image = None
+            target.avatar_content_type = None
+            target.avatar_updated_at = updated_at
+            if target.avatar_preference == "uploaded":
+                target.avatar_preference = "auto"
+
+        run_replayable_db_unit(self.db, persist)
+        self.db.get(User, user_id, populate_existing=True)
 
     def image_for_viewer(self, viewer: User, target_user_id: int) -> tuple[bytes, str, str]:
         target = self.db.scalars(
