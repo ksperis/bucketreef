@@ -2,7 +2,6 @@
 # Licensed under the Apache License, Version 2.0
 from contextlib import nullcontext
 import json
-import sqlite3
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -45,6 +44,10 @@ from app.services.storage_endpoints_service import StorageEndpointsService
 from app.utils.storage_endpoint_features import resolve_feature_flags
 from app.utils.time import utcnow
 from tests.service_identity_helpers import service_identity
+from tests.db_transaction_test_utils import (
+    fail_next_sqlite_statement_with_busy_snapshot,
+    fail_next_transaction_commit,
+)
 from tests.s3_account_factory import make_s3_account
 from tests.storage_endpoint_features import persisted_endpoint_features
 from tests.test_endpoint_service_identities import FakeRGW, SERVICE_CAPS
@@ -215,47 +218,52 @@ def test_onboarding_checkpoint_rolls_back_when_commit_fails(guided, db_session, 
     user = actor(db_session)
     journey = save(guided, user, manager=True)
     row = guided.get(user, journey.id)
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        guided.checkpoint(row, account_id=42)
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            guided.checkpoint(row, account_id=42)
 
-    assert rollback_calls == [None]
     db_session.expire_all()
     persisted = guided.get(user, journey.id)
     assert persisted.resources == {}
 
 
-def test_onboarding_checkpoint_retries_sqlite_busy(guided, db_session, monkeypatch):
+def test_onboarding_checkpoint_retries_sqlite_busy(guided, db_session):
     user = actor(db_session)
     journey = save(guided, user, manager=True)
     row = guided.get(user, journey.id)
-    real_commit = db_session.commit
-    failed = False
 
-    def busy_once():
-        nonlocal failed
-        if not failed and any(
-            isinstance(candidate, OnboardingJourney)
-            and candidate.id == journey.id
-            and candidate.resources.get("rgw_account_id") == "RGW80000000000000001"
-            for candidate in db_session.dirty
-        ):
-            failed = True
-            original = sqlite3.OperationalError("database is locked")
-            original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
-            raise sa.exc.OperationalError("UPDATE", (), original)
-        return real_commit()
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session, "UPDATE onboarding_journeys"
+    ) as matching_statements:
+        guided.checkpoint(row, rgw_account_id="RGW80000000000000001")
 
-    monkeypatch.setattr(db_session, "commit", busy_once)
-
-    guided.checkpoint(row, rgw_account_id="RGW80000000000000001")
-
-    assert failed is True
+    assert len(matching_statements) == 2
     assert row.resources["rgw_account_id"] == "RGW80000000000000001"
     db_session.expire_all()
     persisted = guided.get(user, journey.id)
     assert persisted.resources["rgw_account_id"] == "RGW80000000000000001"
+
+
+def test_onboarding_endpoint_checkpoint_retries_sqlite_busy(guided, db_session):
+    user = actor(db_session)
+    journey = save(
+        guided,
+        user,
+        endpoint_url="https://storage.example.test",
+        private_connection=True,
+    )
+    row = guided.get(user, journey.id)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session, "UPDATE onboarding_journeys"
+    ) as matching_statements:
+        guided.checkpoint_endpoint(row, 42)
+
+    assert len(matching_statements) == 2
+    assert row.draft["endpoint_id"] == 42
+    assert row.draft["endpoint_url"] == ""
+    assert row.resources["endpoint_created"] is True
 
 
 def test_apply_requires_explicit_service_identity_mode():
@@ -1033,6 +1041,42 @@ def test_configured_apply_is_idempotent_and_does_not_duplicate_private_connectio
     )
     assert second.configured
     assert db_session.get(OnboardingJourney, second.id).resources == first_resources
+    assert db_session.scalar(sa.select(sa.func.count()).select_from(S3Connection)) == 1
+
+
+def test_private_connection_checkpoint_retries_sqlite_busy_atomically(
+    guided, db_session, monkeypatch
+):
+    user = actor(db_session)
+    ep = endpoint(db_session)
+    probe_calls = 0
+
+    def probe_once(_service, connection):
+        nonlocal probe_calls
+        probe_calls += 1
+        connection.capabilities = {"can_manage_iam": False}
+
+    monkeypatch.setattr(S3ConnectionsService, "_refresh_detected_capabilities", probe_once)
+    journey = save(guided, user, endpoint_id=ep.id, private_connection=True)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session, "UPDATE onboarding_journeys"
+    ) as matching_statements:
+        result = apply(
+            guided,
+            user,
+            journey,
+            service_identity_mode="managed",
+            private_access_key="private-ak",
+            private_secret_key="private-sk",
+        )
+
+    assert result.configured
+    assert len(matching_statements) >= 2
+    assert probe_calls == 1
+    persisted = db_session.get(OnboardingJourney, journey.id, populate_existing=True)
+    connection_id = persisted.resources["connection_id"]
+    assert db_session.get(S3Connection, connection_id) is not None
     assert db_session.scalar(sa.select(sa.func.count()).select_from(S3Connection)) == 1
 
 

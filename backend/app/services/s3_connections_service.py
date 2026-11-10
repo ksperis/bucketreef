@@ -3,6 +3,7 @@
 
 from collections.abc import Collection, Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from typing import Any, Optional
 
 from sqlalchemy import select, update
@@ -39,6 +40,7 @@ from app.services.managed_private_access_query_service import (
 )
 from app.services.tags_service import TagsService
 from app.utils.connection_rgw_identity import normalize_connection_rgw_identity
+from app.utils.s3_connection_capabilities import DEFAULT_S3_CONNECTION_CAPABILITIES
 from app.utils.time import utcnow
 
 
@@ -74,6 +76,14 @@ _PRIVATE_SERVER_MANAGED_IMMUTABLE_FIELDS = (
 _PRIVATE_MANAGED_SOURCE_IMMUTABLE_FIELDS = (
     S3_CONNECTION_ENDPOINT_FIELDS | _CONNECTION_CREDENTIAL_FIELDS
 )
+
+
+@dataclass(frozen=True)
+class S3ConnectionCreatePlan:
+    """Prepared local connection state whose persistence is safe to replay."""
+
+    values: dict[str, Any]
+    tags: tuple[dict[str, str], ...]
 
 
 class S3ConnectionsService:
@@ -279,6 +289,47 @@ class S3ConnectionsService:
         self._persist_created_connection(row, payload.tags, commit=commit)
         return self.queries.serialize(row)
 
+    def prepare_private_create(
+        self,
+        user_id: int,
+        payload: S3ConnectionCreate,
+    ) -> S3ConnectionCreatePlan:
+        """Resolve and probe a private connection before replayable DB persistence."""
+
+        access_manager, access_browser = self._resolve_access_flags(
+            access_manager=payload.access_manager,
+            access_browser=payload.access_browser,
+        )
+        values = self._new_connection_values(
+            user_id,
+            payload,
+            enforce_manual_endpoint_policy=True,
+            is_shared=False,
+            access_manager=access_manager,
+            access_browser=access_browser,
+        )
+        probe = DBS3Connection(
+            **values,
+            capabilities=dict(DEFAULT_S3_CONNECTION_CAPABILITIES),
+        )
+        self._refresh_detected_capabilities(probe)
+        return S3ConnectionCreatePlan(
+            values={**values, "capabilities": dict(probe.capabilities)},
+            tags=tuple(tag.model_dump(mode="json") for tag in payload.tags),
+        )
+
+    def persist_prepared_create(self, plan: S3ConnectionCreatePlan) -> int:
+        """Persist a prepared connection without repeating external capability probes."""
+
+        row = DBS3Connection(**plan.values)
+        self._persist_created_connection(
+            row,
+            list(plan.tags),
+            commit=False,
+            refresh_capabilities=False,
+        )
+        return int(row.id)
+
     def _new_connection_row(
         self,
         created_by_user_id: int,
@@ -289,6 +340,27 @@ class S3ConnectionsService:
         access_manager: bool,
         access_browser: bool,
     ) -> DBS3Connection:
+        return DBS3Connection(
+            **self._new_connection_values(
+                created_by_user_id,
+                payload,
+                enforce_manual_endpoint_policy=enforce_manual_endpoint_policy,
+                is_shared=is_shared,
+                access_manager=access_manager,
+                access_browser=access_browser,
+            )
+        )
+
+    def _new_connection_values(
+        self,
+        created_by_user_id: int,
+        payload: S3ConnectionCreationPayload,
+        *,
+        enforce_manual_endpoint_policy: bool,
+        is_shared: bool,
+        access_manager: bool,
+        access_browser: bool,
+    ) -> dict[str, Any]:
         endpoint_plan = self.endpoint_planner.plan(
             None,
             payload,
@@ -299,7 +371,7 @@ class S3ConnectionsService:
             payload.rgw_tenant,
             payload.rgw_account_id,
         )
-        return DBS3Connection(
+        return dict(
             created_by_user_id=created_by_user_id,
             name=payload.name,
             **endpoint_plan.persistence_values(),
@@ -322,6 +394,7 @@ class S3ConnectionsService:
         tags: object,
         *,
         commit: bool,
+        refresh_capabilities: bool = True,
     ) -> None:
         conflict_key = (row.created_by_user_id, row.name, row.is_shared)
         with self._write_transaction(
@@ -332,7 +405,8 @@ class S3ConnectionsService:
             self.db.add(row)
             self.db.flush()
             self.tags.replace_connection_tags(row, tags)
-            self._refresh_detected_capabilities(row)
+            if refresh_capabilities:
+                self._refresh_detected_capabilities(row)
             if not commit:
                 self.db.flush()
         if commit:
