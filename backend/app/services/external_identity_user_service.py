@@ -9,7 +9,7 @@ from typing import NoReturn, Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import run_replayable_db_unit
 from app.core.domain_errors import ExternalIdentityConflictError, ExternalIdentityNotFoundError
 from app.db import ExternalIdentity, User
 from app.core.domain_enums import UserRole
@@ -101,58 +101,75 @@ class ExternalIdentityUserService:
         )
 
     def revoke_identity(self, identity_id: str, *, reason: str = "identity_revoked") -> ExternalIdentity:
-        identity = self.db.get(ExternalIdentity, identity_id)
-        if not identity or identity.revoked_at is not None:
-            raise ExternalIdentityNotFoundError("External identity not found")
         now = utcnow()
-        identity.revoked_at = now
-        user = self.db.get(User, identity.user_id)
-        if user:
-            user.auth_version += 1
-            self.db.add(user)
-            UserNotificationsService(self.db).create_notifications(
-                user_ids=[user.id],
-                notification_type="identity_changed",
-                severity="warning",
-                title="External identity removed",
-                message=f"The external identity from {identity.provider_id} was removed from your account.",
-                subject_type=None,
-                event_key=f"external_identity_revoked:{identity.id}:{now.isoformat()}",
-                payload={
-                    "identity_id": identity.id,
-                    "provider_type": identity.provider_type,
-                    "provider_id": identity.provider_id,
-                },
-                created_at=now,
-            )
-        self.db.add(identity)
-        if user:
-            AuthSessionService(self.db).revoke_all_for_user_in_transaction(
-                user,
-                reason,
-                increment_version=False,
-            )
-        commit_or_rollback(self.db)
-        self.db.refresh(identity)
+
+        def revoke_once(write_db: Session) -> None:
+            identity = write_db.get(ExternalIdentity, identity_id)
+            if not identity or identity.revoked_at is not None:
+                raise ExternalIdentityNotFoundError("External identity not found")
+            identity.revoked_at = now
+            user = write_db.get(User, identity.user_id)
+            if user:
+                user.auth_version += 1
+                write_db.add(user)
+                UserNotificationsService(write_db).create_notifications(
+                    user_ids=[user.id],
+                    notification_type="identity_changed",
+                    severity="warning",
+                    title="External identity removed",
+                    message=(
+                        f"The external identity from {identity.provider_id} was removed "
+                        "from your account."
+                    ),
+                    subject_type=None,
+                    event_key=f"external_identity_revoked:{identity.id}:{now.isoformat()}",
+                    payload={
+                        "identity_id": identity.id,
+                        "provider_type": identity.provider_type,
+                        "provider_id": identity.provider_id,
+                    },
+                    created_at=now,
+                )
+                AuthSessionService(write_db).revoke_all_for_user_in_transaction(
+                    user,
+                    reason,
+                    increment_version=False,
+                    now=now,
+                )
+            write_db.add(identity)
+            write_db.flush()
+
+        run_replayable_db_unit(self.db, revoke_once)
+        identity = self.db.get(ExternalIdentity, identity_id, populate_existing=True)
+        if identity is None:  # pragma: no cover - defensive consistency check
+            raise RuntimeError("External identity could not be reloaded")
         return identity
 
     def restore_identity(self, identity_id: str, *, reason: str = "identity_restored") -> ExternalIdentity:
-        identity = self.db.get(ExternalIdentity, identity_id)
-        if not identity or identity.revoked_at is None:
-            raise ExternalIdentityNotFoundError("Revoked external identity not found")
-        identity.revoked_at = None
-        user = self.db.get(User, identity.user_id)
-        if not user:
-            raise ValueError("External identity target does not exist")
-        user.auth_version += 1
-        self.db.add_all([identity, user])
-        AuthSessionService(self.db).revoke_all_for_user_in_transaction(
-            user,
-            reason,
-            increment_version=False,
-        )
-        commit_or_rollback(self.db)
-        self.db.refresh(identity)
+        now = utcnow()
+
+        def restore_once(write_db: Session) -> None:
+            identity = write_db.get(ExternalIdentity, identity_id)
+            if not identity or identity.revoked_at is None:
+                raise ExternalIdentityNotFoundError("Revoked external identity not found")
+            identity.revoked_at = None
+            user = write_db.get(User, identity.user_id)
+            if not user:
+                raise ValueError("External identity target does not exist")
+            user.auth_version += 1
+            write_db.add_all([identity, user])
+            AuthSessionService(write_db).revoke_all_for_user_in_transaction(
+                user,
+                reason,
+                increment_version=False,
+                now=now,
+            )
+            write_db.flush()
+
+        run_replayable_db_unit(self.db, restore_once)
+        identity = self.db.get(ExternalIdentity, identity_id, populate_existing=True)
+        if identity is None:  # pragma: no cover - defensive consistency check
+            raise RuntimeError("External identity could not be reloaded")
         return identity
 
     def provision_identity(
@@ -176,54 +193,82 @@ class ExternalIdentityUserService:
         normalized_issuer = normalize_oidc_issuer(issuer) if provider_kind == "oidc" else None
         if not normalized_subject:
             raise ValueError("External subject is required")
-        existing = self.queries.find_mapping(
-            provider_kind,
-            provider_key,
-            normalized_subject,
-            issuer=normalized_issuer,
-            include_revoked=True,
-        )
-        if existing:
-            if existing.user_id != user.id:
-                raise ExternalIdentityConflictError("External identity subject belongs to another user")
-            if existing.revoked_at is None:
-                return existing, False
-            if not restore:
-                raise ExternalIdentityConflictError(
-                    "External identity is revoked; explicit restoration is required"
-                )
-            return self.restore_identity(existing.id, reason="external_identity_restored"), True
+        user_id = int(user.id)
+        identity_id = str(uuid.uuid4())
+        created_at = utcnow()
+        normalized_email = normalize_optional_email(email)
 
-        identity = ExternalIdentity(
-            id=str(uuid.uuid4()),
-            user_id=user.id,
-            provider_type=provider_kind,
-            provider_id=provider_key,
-            issuer=normalized_issuer,
-            subject=normalized_subject,
-            email=normalize_optional_email(email),
-            email_verified=email_verified,
-            created_at=utcnow(),
-            link_source=link_source,
-        )
-        user.auth_version += 1
-        self.db.add_all([identity, user])
-        self.link_requests.close_pending(
-            provider_type=provider_kind,
-            provider_id=provider_key,
-            issuer=normalized_issuer,
-            subject=normalized_subject,
-            user_id=user.id,
-            source=link_source,
-        )
-        AuthSessionService(self.db).revoke_all_for_user_in_transaction(
-            user,
-            "external_identity_changed",
-            increment_version=False,
-        )
-        commit_or_rollback(self.db)
-        self.db.refresh(identity)
-        return identity, True
+        def provision_once(write_db: Session) -> tuple[str, bool]:
+            service = ExternalIdentityUserService(write_db)
+            write_user = write_db.get(User, user_id)
+            if write_user is None:
+                raise ValueError("External identity target does not exist")
+            existing = service.queries.find_mapping(
+                provider_kind,
+                provider_key,
+                normalized_subject,
+                issuer=normalized_issuer,
+                include_revoked=True,
+            )
+            if existing:
+                if existing.user_id != write_user.id:
+                    raise ExternalIdentityConflictError(
+                        "External identity subject belongs to another user"
+                    )
+                if existing.revoked_at is None:
+                    return existing.id, False
+                if not restore:
+                    raise ExternalIdentityConflictError(
+                        "External identity is revoked; explicit restoration is required"
+                    )
+                existing.revoked_at = None
+                write_user.auth_version += 1
+                write_db.add_all([existing, write_user])
+                AuthSessionService(write_db).revoke_all_for_user_in_transaction(
+                    write_user,
+                    "external_identity_restored",
+                    increment_version=False,
+                    now=created_at,
+                )
+                write_db.flush()
+                return existing.id, True
+
+            identity = ExternalIdentity(
+                id=identity_id,
+                user_id=write_user.id,
+                provider_type=provider_kind,
+                provider_id=provider_key,
+                issuer=normalized_issuer,
+                subject=normalized_subject,
+                email=normalized_email,
+                email_verified=email_verified,
+                created_at=created_at,
+                link_source=link_source,
+            )
+            write_user.auth_version += 1
+            write_db.add_all([identity, write_user])
+            service.link_requests.close_pending(
+                provider_type=provider_kind,
+                provider_id=provider_key,
+                issuer=normalized_issuer,
+                subject=normalized_subject,
+                user_id=write_user.id,
+                source=link_source,
+            )
+            AuthSessionService(write_db).revoke_all_for_user_in_transaction(
+                write_user,
+                "external_identity_changed",
+                increment_version=False,
+                now=created_at,
+            )
+            write_db.flush()
+            return identity.id, True
+
+        persisted_id, created = run_replayable_db_unit(self.db, provision_once)
+        identity = self.db.get(ExternalIdentity, persisted_id, populate_existing=True)
+        if identity is None:  # pragma: no cover - defensive consistency check
+            raise RuntimeError("External identity could not be reloaded")
+        return identity, created
 
     def _get_or_create(
         self,
@@ -299,17 +344,29 @@ class ExternalIdentityUserService:
         full_name: Optional[str],
         picture_url: Optional[str],
     ) -> User:
-        user = self.db.get(User, identity.user_id)
-        if not user:
-            raise ValueError("External identity target does not exist")
-        identity.last_login_at = utcnow()
-        if picture_url and user.picture_url != picture_url:
-            user.picture_url = picture_url
-        if full_name and not user.full_name:
-            user.full_name = full_name
-        self.db.add_all([identity, user])
-        commit_or_rollback(self.db)
-        self.db.refresh(user)
+        identity_id = identity.id
+        last_login_at = utcnow()
+
+        def reuse_once(write_db: Session) -> int:
+            write_identity = write_db.get(ExternalIdentity, identity_id)
+            if write_identity is None or write_identity.revoked_at is not None:
+                raise ValueError("External identity has been revoked")
+            user = write_db.get(User, write_identity.user_id)
+            if not user:
+                raise ValueError("External identity target does not exist")
+            write_identity.last_login_at = last_login_at
+            if picture_url and user.picture_url != picture_url:
+                user.picture_url = picture_url
+            if full_name and not user.full_name:
+                user.full_name = full_name
+            write_db.add_all([write_identity, user])
+            write_db.flush()
+            return int(user.id)
+
+        user_id = run_replayable_db_unit(self.db, reuse_once)
+        user = self.db.get(User, user_id, populate_existing=True)
+        if user is None:  # pragma: no cover - defensive consistency check
+            raise RuntimeError("External identity user could not be reloaded")
         return user
 
     def _resolve_existing_email_user(
@@ -463,32 +520,41 @@ class ExternalIdentityUserService:
         picture_url: Optional[str],
     ) -> User:
         generated_email = email or self._generated_email(provider_type, provider_id, subject)
-        user = User(
-            email=generated_email,
-            full_name=full_name,
-            picture_url=picture_url,
-            hashed_password=None,
-            is_active=True,
-            role=UserRole.UI_NONE.value,
-            auth_version=1,
-        )
-        self.db.add(user)
-        self.db.flush()
-        identity = ExternalIdentity(
-            id=str(uuid.uuid4()),
-            user_id=user.id,
-            provider_type=provider_type,
-            provider_id=provider_id,
-            issuer=issuer,
-            subject=subject,
-            email=email,
-            email_verified=email_verified,
-            created_at=utcnow(),
-            link_source="jit",
-        )
-        self.db.add(identity)
-        commit_or_rollback(self.db)
-        self.db.refresh(user)
+        identity_id = str(uuid.uuid4())
+        created_at = utcnow()
+
+        def create_once(write_db: Session) -> int:
+            user = User(
+                email=generated_email,
+                full_name=full_name,
+                picture_url=picture_url,
+                hashed_password=None,
+                is_active=True,
+                role=UserRole.UI_NONE.value,
+                auth_version=1,
+            )
+            write_db.add(user)
+            write_db.flush()
+            identity = ExternalIdentity(
+                id=identity_id,
+                user_id=user.id,
+                provider_type=provider_type,
+                provider_id=provider_id,
+                issuer=issuer,
+                subject=subject,
+                email=email,
+                email_verified=email_verified,
+                created_at=created_at,
+                link_source="jit",
+            )
+            write_db.add(identity)
+            write_db.flush()
+            return int(user.id)
+
+        user_id = run_replayable_db_unit(self.db, create_once)
+        user = self.db.get(User, user_id, populate_existing=True)
+        if user is None:  # pragma: no cover - defensive consistency check
+            raise RuntimeError("JIT external identity user could not be reloaded")
         return user
 
     def _can_trust_email_link(

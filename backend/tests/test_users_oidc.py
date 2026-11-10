@@ -7,6 +7,7 @@ from datetime import timedelta
 import pytest
 from sqlalchemy import func, select
 
+from tests.db_transaction_test_utils import fail_next_sqlite_statement_with_busy_snapshot
 from app.db import AuditLog, ExternalIdentity, ExternalIdentityLinkRequest, User, UserNotification
 from app.core.domain_enums import UserRole
 from app.services.external_identity_user_service import (
@@ -41,6 +42,32 @@ def test_get_or_create_oidc_user_creates_new_user(db_session):
     assert identity.email_verified is True
     assert user.full_name == "OIDC User"
     assert user.hashed_password is None
+
+
+def test_get_or_create_oidc_user_retries_jit_insert_from_fresh_sqlite_snapshot(db_session):
+    service = ExternalIdentityUserService(db_session)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO users",
+    ) as matching_statements:
+        user, created = service.get_or_create_oidc_user(
+            provider="Google",
+            issuer=OIDC_ISSUER,
+            subject="jit-retry-subject",
+            email="jit-retry@example.com",
+            full_name="JIT Retry",
+            picture_url=None,
+        )
+
+    assert len(matching_statements) == 2
+    assert created is True
+    assert db_session.scalars(select(User).where(User.id == user.id)).all() == [user]
+    identities = db_session.scalars(
+        select(ExternalIdentity).where(ExternalIdentity.user_id == user.id)
+    ).all()
+    assert len(identities) == 1
+    assert identities[0].subject == "jit-retry-subject"
 
 
 def test_get_or_create_oidc_user_requires_approval_for_existing_email(db_session):
