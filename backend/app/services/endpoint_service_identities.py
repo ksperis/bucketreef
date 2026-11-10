@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.core.db_transactions import (
     add_and_flush_in_savepoint,
     commit_or_rollback,
-    run_db_unit_with_sqlite_retry,
+    run_replayable_db_unit,
 )
 from app.core.domain_enums import ManagedServiceIdentityKind, ServiceIdentityKind
 from app.core.sensitive_data import sanitized_error_log_detail
@@ -242,17 +242,23 @@ class EndpointServiceIdentityService:
             raise ValueError("Service identity was not persisted before validation.")
         reconciled_at = utcnow()
 
-        def persist_ready() -> EndpointServiceIdentity:
-            current = self.db.get(EndpointServiceIdentity, identity_id)
+        def persist_ready(write_db: Session) -> int:
+            current = write_db.get(EndpointServiceIdentity, identity_id)
             if current is None:
                 raise ValueError("Service identity no longer exists.")
             current.rgw_uid = validated_uid
             current.status, current.last_error = "ready", None
             current.last_reconciled_at = reconciled_at
-            commit_or_rollback(self.db)
-            return current
+            return identity_id
 
-        identity = run_db_unit_with_sqlite_retry(self.db, persist_ready)
+        run_replayable_db_unit(self.db, persist_ready)
+        identity = self.db.get(
+            EndpointServiceIdentity,
+            identity_id,
+            populate_existing=True,
+        )
+        if identity is None:  # pragma: no cover - defensive consistency check
+            raise RuntimeError("Validated service identity could not be reloaded")
         self._audit(endpoint, identity, "validated")
         return identity
 

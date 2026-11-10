@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.db_transactions import (
     commit_or_rollback,
     rollback_safely,
-    run_db_unit_with_sqlite_retry,
+    run_replayable_db_unit,
 )
 from app.core.domain_errors import CompensationFailureError
 from app.db import S3Account, StorageEndpoint
@@ -316,24 +316,32 @@ class S3AccountProvisioningService:
         access_key: str,
         secret_key: str,
     ) -> S3Account:
-        def persist_once() -> int:
-            account = self._build_provisioned_account(
-                payload,
-                endpoint,
+        endpoint_id = int(endpoint.id)
+        name = payload.name
+        rgw_tenant = payload.rgw_tenant
+        email = payload.email
+        tags = list(payload.tags)
+
+        def persist_once(write_db: Session) -> int:
+            account = S3Account(
+                name=name,
                 rgw_account_id=rgw_account_id,
-                root_uid=root_uid,
-                access_key=access_key,
-                secret_key=secret_key,
+                rgw_tenant=rgw_tenant,
+                rgw_access_key=access_key,
+                rgw_secret_key=secret_key,
+                rgw_user_uid=root_uid,
+                email=email,
+                storage_endpoint_id=endpoint_id,
             )
-            self.db.add(account)
-            self.db.flush()
-            self.tags.replace_account_tags(account, payload.tags)
+            write_db.add(account)
+            write_db.flush()
+            tags_service = self.tags if write_db is self.db else TagsService(write_db)
+            tags_service.replace_account_tags(account, tags)
             account_id = int(account.id)
-            commit_or_rollback(self.db)
             return account_id
 
-        account_id = run_db_unit_with_sqlite_retry(self.db, persist_once)
-        account = self.db.get(S3Account, account_id)
+        account_id = run_replayable_db_unit(self.db, persist_once)
+        account = self.db.get(S3Account, account_id, populate_existing=True)
         if account is None:  # pragma: no cover - defensive consistency check
             raise RuntimeError("Persisted S3 account could not be reloaded")
         return account

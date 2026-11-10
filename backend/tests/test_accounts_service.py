@@ -486,27 +486,19 @@ def test_create_account_retries_local_busy_without_replaying_rgw(
     endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
     fake_admin = FakeRGWAdmin()
     svc = _build_service(db_session, monkeypatch, fake_admin)
-    real_commit = db_session.commit
-    failed = False
-
-    def busy_once():
-        nonlocal failed
-        if not failed:
-            failed = True
-            raise _busy_snapshot_error()
-        return real_commit()
-
-    monkeypatch.setattr(db_session, "commit", busy_once)
-
-    created = svc.create_account_with_manager(
-        S3AccountCreate(
-            name="Retry local account persistence",
-            rgw_tenant="",
-            storage_endpoint_id=endpoint.id,
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO s3_accounts",
+    ) as matching_statements:
+        created = svc.create_account_with_manager(
+            S3AccountCreate(
+                name="Retry local account persistence",
+                rgw_tenant="",
+                storage_endpoint_id=endpoint.id,
+            )
         )
-    )
 
-    assert failed is True
+    assert len(matching_statements) == 2
     assert created.id is not None
     assert len(fake_admin.created_accounts) == 1
     assert len(fake_admin.created_users) == 1
@@ -519,19 +511,15 @@ def test_create_account_commit_failure_compensates_remote_account(db_session, mo
     account_id = "RGW90000000000000001"
     monkeypatch.setattr(svc.provisioning, "_generate_account_id", lambda: account_id)
 
-    def fail_commit():
-        raise RuntimeError("simulated account create commit failure")
-
-    monkeypatch.setattr(db_session, "commit", fail_commit)
-
-    with pytest.raises(RuntimeError, match="simulated account create commit failure"):
-        svc.create_account_with_manager(
-            S3AccountCreate(
-                name="Rollback remote account",
-                rgw_tenant="",
-                storage_endpoint_id=endpoint.id,
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            svc.create_account_with_manager(
+                S3AccountCreate(
+                    name="Rollback remote account",
+                    rgw_tenant="",
+                    storage_endpoint_id=endpoint.id,
+                )
             )
-        )
 
     assert fake_admin.deleted_users == [(f"{account_id}-admin", None)]
     assert fake_admin.deleted_accounts == [account_id]
@@ -547,8 +535,7 @@ def test_create_account_local_failure_compensates_remote_account(db_session, mon
     account_id = "RGW90000000000000002"
     monkeypatch.setattr(svc.provisioning, "_generate_account_id", lambda: account_id)
     monkeypatch.setattr(
-        svc.provisioning.tags,
-        "replace_account_tags",
+        "app.services.s3_account_provisioning_service.TagsService.replace_account_tags",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
             RuntimeError("simulated local tag failure")
         ),
@@ -577,10 +564,6 @@ def test_create_account_reports_remote_compensation_failure(db_session, monkeypa
     account_id = "RGW90000000000000003"
     monkeypatch.setattr(svc.provisioning, "_generate_account_id", lambda: account_id)
 
-    def fail_commit():
-        raise RuntimeError("simulated account create commit failure")
-
-    monkeypatch.setattr(db_session, "commit", fail_commit)
     monkeypatch.setattr(
         fake_admin,
         "delete_account",
@@ -589,20 +572,21 @@ def test_create_account_reports_remote_compensation_failure(db_session, monkeypa
         ),
     )
 
-    with pytest.raises(
-        CompensationFailureError,
-        match="Local or RGW rollback also failed",
-    ) as raised:
-        svc.create_account_with_manager(
-            S3AccountCreate(
-                name="Cleanup failure",
-                rgw_tenant="",
-                storage_endpoint_id=endpoint.id,
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(
+            CompensationFailureError,
+            match="Local or RGW rollback also failed",
+        ) as raised:
+            svc.create_account_with_manager(
+                S3AccountCreate(
+                    name="Cleanup failure",
+                    rgw_tenant="",
+                    storage_endpoint_id=endpoint.id,
+                )
             )
-        )
 
     assert isinstance(raised.value.__cause__, RuntimeError)
-    assert str(raised.value.__cause__) == "simulated account create commit failure"
+    assert str(raised.value.__cause__) == "commit failed"
     assert fake_admin.deleted_users == [(f"{account_id}-admin", None)]
 
 
@@ -924,15 +908,9 @@ def test_ensure_provisioned_account_commit_failure_keeps_remote_for_retry(
         rgw_tenant="",
         storage_endpoint_id=endpoint.id,
     )
-    real_commit = db_session.commit
-
-    def fail_commit():
-        raise RuntimeError("simulated resumable account commit failure")
-
-    monkeypatch.setattr(db_session, "commit", fail_commit)
-
-    with pytest.raises(RuntimeError, match="simulated resumable account commit failure"):
-        svc.ensure_provisioned_account(payload, account_id)
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            svc.ensure_provisioned_account(payload, account_id)
 
     assert fake_admin.account_exists is True
     assert fake_admin.root_exists is True
@@ -940,7 +918,6 @@ def test_ensure_provisioned_account_commit_failure_keeps_remote_for_retry(
         select(S3Account).where(S3Account.rgw_account_id == account_id)
     ) is None
 
-    monkeypatch.setattr(db_session, "commit", real_commit)
     retried = svc.ensure_provisioned_account(payload, account_id)
 
     assert retried.rgw_account_id == account_id
