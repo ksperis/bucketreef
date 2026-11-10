@@ -487,12 +487,15 @@ class AuthSessionService:
         return session.id
 
     def revoke_all_for_user(self, user: User, reason: str, *, increment_version: bool = True) -> None:
-        self.revoke_all_for_user_in_transaction(
-            user,
-            reason,
-            increment_version=increment_version,
-        )
-        commit_or_rollback(self.db)
+        def revoke_once() -> None:
+            self.revoke_all_for_user_in_transaction(
+                user,
+                reason,
+                increment_version=increment_version,
+            )
+            commit_or_rollback(self.db)
+
+        run_db_unit_with_sqlite_retry(self.db, revoke_once)
 
     def revoke_all_for_user_in_transaction(
         self,

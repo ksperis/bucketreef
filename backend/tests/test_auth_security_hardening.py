@@ -377,6 +377,42 @@ def test_session_service_retries_sqlite_busy_when_revoking_with_csrf(db_session,
     assert revoked.revoke_reason == "logout"
 
 
+def test_session_service_retries_sqlite_busy_when_revoking_all_for_user(db_session, monkeypatch):
+    user = _user(db_session, email="session-revoke-all-retry@example.com")
+    credentials = AuthSessionService(db_session).create_for_user(
+        user,
+        auth_type="password",
+        ip_address="127.0.0.1",
+        user_agent="pytest",
+        mfa_verified=True,
+    )
+    session_id = credentials.session.id
+    original_flush = db_session.flush
+    flush_calls = 0
+
+    def flaky_flush(*args, **kwargs):
+        nonlocal flush_calls
+        flush_calls += 1
+        if flush_calls == 1:
+            raise _busy_snapshot_error()
+        return original_flush(*args, **kwargs)
+
+    monkeypatch.setattr(db_session, "flush", flaky_flush)
+
+    AuthSessionService(db_session).revoke_all_for_user(
+        user,
+        "mfa_changed",
+        increment_version=False,
+    )
+
+    assert flush_calls >= 2
+    db_session.expire_all()
+    revoked = db_session.get(AuthSession, session_id)
+    assert revoked is not None
+    assert revoked.revoked_at is not None
+    assert revoked.revoke_reason == "mfa_changed"
+
+
 def test_user_cannot_revoke_another_users_session(auth_client, db_session):
     user = _user(db_session, email="session-owner-a@example.com")
     other = _user(db_session, email="session-owner-b@example.com")
