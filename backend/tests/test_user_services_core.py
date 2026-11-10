@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import OperationalError
 
 from app.core.domain_errors import S3AccountNotFoundError, UiUserNotFoundError
-from app.core.security import get_password_hash
+from app.core.security import get_password_hash, verify_password
 from app.db import (
     AccountIAMUser,
     AuthSession,
@@ -867,7 +867,7 @@ def test_update_current_user_password_paths(db_session):
     assert updated.ui_language == "fr"
 
 
-def test_update_current_user_rolls_back_profile_and_password_when_commit_fails(db_session, monkeypatch):
+def test_update_current_user_rolls_back_profile_and_password_when_commit_fails(db_session):
     user = _seed_user(
         db_session,
         "profile-rollback@example.com",
@@ -877,31 +877,18 @@ def test_update_current_user_rolls_back_profile_and_password_when_commit_fails(d
     original_name = user.full_name
     original_hash = user.hashed_password
     original_auth_version = user.auth_version
-    original_rollback = db_session.rollback
-    rollback_calls: list[None] = []
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            UserUpdateService(db_session).update_current_user(
+                user,
+                UserSelfUpdate(
+                    full_name="Changed profile",
+                    ui_language="fr",
+                    current_password="initialpass123",
+                    new_password="nextpass12345",
+                ),
+            )
 
-    def rollback() -> None:
-        rollback_calls.append(None)
-        original_rollback()
-
-    def commit() -> None:
-        raise RuntimeError("commit failed")
-
-    monkeypatch.setattr(db_session, "rollback", rollback)
-    monkeypatch.setattr(db_session, "commit", commit)
-
-    with pytest.raises(RuntimeError, match="commit failed"):
-        UserUpdateService(db_session).update_current_user(
-            user,
-            UserSelfUpdate(
-                full_name="Changed profile",
-                ui_language="fr",
-                current_password="initialpass123",
-                new_password="nextpass12345",
-            ),
-        )
-
-    assert rollback_calls == [None]
     db_session.expire_all()
     stored = db_session.get(User, user.id)
     assert stored is not None
@@ -909,6 +896,52 @@ def test_update_current_user_rolls_back_profile_and_password_when_commit_fails(d
     assert stored.ui_language is None
     assert stored.hashed_password == original_hash
     assert stored.auth_version == original_auth_version
+
+
+def test_update_current_user_retries_sqlite_busy_without_rehashing_password(
+    db_session,
+    monkeypatch,
+):
+    user = _seed_user(
+        db_session,
+        "profile-busy@example.com",
+        role=UserRole.UI_USER.value,
+        password="initialpass123",
+    )
+    original_auth_version = user.auth_version
+    real_get_password_hash = get_password_hash
+    hash_calls = 0
+
+    def staged_hash(password: str) -> str:
+        nonlocal hash_calls
+        hash_calls += 1
+        return real_get_password_hash(password)
+
+    monkeypatch.setattr(
+        "app.services.user_update_service.get_password_hash",
+        staged_hash,
+    )
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE users SET",
+    ) as statements:
+        updated = UserUpdateService(db_session).update_current_user(
+            user,
+            UserSelfUpdate(
+                full_name="Busy Profile",
+                ui_language="fr",
+                current_password="initialpass123",
+                new_password="nextpass12345",
+            ),
+        )
+
+    assert len(statements) == 2
+    assert hash_calls == 1
+    assert updated.full_name == "Busy Profile"
+    assert updated.ui_language == "fr"
+    assert updated.auth_version == original_auth_version + 1
+    assert verify_password("nextpass12345", updated.hashed_password)
 
 
 def test_paginate_users_and_detached_user_use_canonical_preload(db_session, monkeypatch):

@@ -5,10 +5,7 @@ import logging
 
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import (
-    commit_or_rollback,
-    run_replayable_db_unit,
-)
+from app.core.db_transactions import run_replayable_db_unit
 from app.core.security import get_password_hash, verify_password
 from app.db import User
 from app.core.domain_enums import is_admin_ui_role
@@ -258,7 +255,12 @@ class UserUpdateService:
             )
 
     @staticmethod
-    def _apply_current_user_password(user: User, payload: UserSelfUpdate) -> bool:
+    def _apply_current_user_password(
+        user: User,
+        payload: UserSelfUpdate,
+        *,
+        password_hash: str | None = None,
+    ) -> bool:
         current_password = payload.current_password
         new_password = payload.new_password
         if current_password is None and new_password is None:
@@ -269,25 +271,53 @@ class UserUpdateService:
             raise ValueError("Password change is unavailable for this account")
         if not verify_password(current_password, user.hashed_password):
             raise ValueError("Current password is incorrect")
-        validate_password_policy(new_password)
-        user.hashed_password = get_password_hash(new_password)
+        if password_hash is None:
+            validate_password_policy(new_password)
+            password_hash = get_password_hash(new_password)
+        user.hashed_password = password_hash
         user.auth_version += 1
         return True
 
     def update_current_user(self, user: User, payload: UserSelfUpdate) -> User:
-        update_fields = payload.model_fields_set
-        if "full_name" in update_fields:
-            normalized_name = (payload.full_name or "").strip()
-            user.full_name = normalized_name or None
-        self._apply_profile_preferences(user, payload)
-        if payload.ui_preferences is not None:
-            user.ui_preferences = payload.ui_preferences.model_dump(exclude_none=True)
+        user_id = int(user.id)
+        staged_password_hash: str | None = None
+        current_password = payload.current_password
+        new_password = payload.new_password
+        if current_password is not None or new_password is not None:
+            if not current_password or not new_password:
+                raise ValueError("Both current_password and new_password are required")
+            if not user.hashed_password:
+                raise ValueError("Password change is unavailable for this account")
+            if not verify_password(current_password, user.hashed_password):
+                raise ValueError("Current password is incorrect")
+            validate_password_policy(new_password)
+            staged_password_hash = get_password_hash(new_password)
 
-        password_changed = self._apply_current_user_password(user, payload)
+        def update_once(write_db: Session) -> tuple[int, bool]:
+            write_service = UserUpdateService(write_db)
+            current = write_service.query.require_by_id(user_id)
+            update_fields = payload.model_fields_set
+            if "full_name" in update_fields:
+                normalized_name = (payload.full_name or "").strip()
+                current.full_name = normalized_name or None
+            write_service._apply_profile_preferences(current, payload)
+            if payload.ui_preferences is not None:
+                current.ui_preferences = payload.ui_preferences.model_dump(exclude_none=True)
+            password_changed = write_service._apply_current_user_password(
+                current,
+                payload,
+                password_hash=staged_password_hash,
+            )
+            write_db.add(current)
+            return int(current.id), password_changed
 
-        self.db.add(user)
-        commit_or_rollback(self.db)
-        self.db.refresh(user)
+        persisted_user_id, password_changed = run_replayable_db_unit(
+            self.db,
+            update_once,
+        )
+        user = self.db.get(User, persisted_user_id, populate_existing=True)
+        if user is None:
+            raise ValueError("User does not exist")
         if password_changed:
             from app.services.auth_session_service import AuthSessionService
 
