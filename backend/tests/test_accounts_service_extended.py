@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import select
 
+from tests.db_transaction_test_utils import fail_next_transaction_commit
 from tests.feature_policy_fixtures import enable_manager_features
 from app.db import S3Account, S3AccountDeletion, StorageEndpoint, User, UserS3Account
 from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, StorageProvider, UserRole
@@ -779,25 +780,9 @@ def test_delete_account_recovers_when_iam_checkpoint_commit_fails(
         iam_factory=lambda _account: iam,
     )
     _prepare_account_deletion_checks(service, admin, monkeypatch)
-    original_commit = s3_account_deletion_service_module.commit_or_rollback
-    commit_calls = 0
-
-    def fail_iam_checkpoint(db):
-        nonlocal commit_calls
-        commit_calls += 1
-        if commit_calls == 2:
-            db.rollback()
-            raise RuntimeError("simulated IAM checkpoint commit failure")
-        original_commit(db)
-
-    monkeypatch.setattr(
-        s3_account_deletion_service_module,
-        "commit_or_rollback",
-        fail_iam_checkpoint,
-    )
-
-    with pytest.raises(RuntimeError, match="simulated IAM checkpoint commit failure"):
-        service.delete_account(account.id, delete_rgw=True)
+    with fail_next_transaction_commit(db_session, occurrence=2):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service.delete_account(account.id, delete_rgw=True)
 
     db_session.expire_all()
     deletion = db_session.scalar(
@@ -813,11 +798,6 @@ def test_delete_account_recovers_when_iam_checkpoint_commit_fails(
     assert admin.deleted_users == []
     assert admin.deleted_accounts == []
 
-    monkeypatch.setattr(
-        s3_account_deletion_service_module,
-        "commit_or_rollback",
-        original_commit,
-    )
     service.delete_account(account.id, delete_rgw=True)
 
     assert [call for call in iam.calls if call[0] == "delete_group"] == [

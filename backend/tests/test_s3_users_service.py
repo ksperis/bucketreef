@@ -3,12 +3,10 @@
 
 from __future__ import annotations
 from datetime import date, datetime, timezone
-import sqlite3
 from typing import Optional
 
 import pytest
 from sqlalchemy import func, select
-from sqlalchemy.exc import OperationalError
 
 from tests.db_transaction_test_utils import (
     fail_next_sqlite_statement_with_busy_snapshot,
@@ -48,7 +46,6 @@ from app.models.s3_user import (
 )
 from app.services import (
     s3_client,
-    s3_user_deletion_service as s3_user_deletion_service_module,
 )
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.app_settings_service import load_app_settings_for_db
@@ -58,12 +55,7 @@ from app.services.s3_user_query_service import S3UserQueryService
 from app.services.s3_user_rgw_context_service import S3UserRgwContextService
 from app.services.s3_user_update_service import S3UserUpdateService
 from app.services.s3_users_service import S3UsersService
-
-
-def _busy_snapshot_error() -> OperationalError:
-    original = sqlite3.OperationalError("database is locked")
-    original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
-    return OperationalError("COMMIT", (), original)
+from app.services.tags_service import TagsService
 
 
 def test_s3_user_key_management_service_composes_shared_dependencies(db_session):
@@ -1924,11 +1916,19 @@ def test_delete_user_with_delete_rgw_checks_buckets_then_deletes(db_session, mon
     assert db_session.get(S3User, created.id) is None
 
 
-@pytest.mark.parametrize("busy_commit_call", [1, 2])
+@pytest.mark.parametrize(
+    ("fault_name", "statement_prefix"),
+    [
+        ("claim", "INSERT INTO s3_user_deletions"),
+        ("checkpoint", "UPDATE s3_user_deletions"),
+        ("local-delete", "DELETE FROM s3_users"),
+    ],
+)
 def test_delete_remote_user_retries_sqlite_busy_without_replaying_remote_delete(
     db_session,
     monkeypatch,
-    busy_commit_call,
+    fault_name,
+    statement_prefix,
 ):
     endpoint = _seed_ceph_endpoint(db_session)
     fake = FakeRGWAdmin()
@@ -1936,26 +1936,19 @@ def test_delete_remote_user_retries_sqlite_busy_without_replaying_remote_delete(
     created = service.create_user(
         S3UserCreate(
             name="Busy delete",
-            uid=f"busy-delete-{busy_commit_call}",
+            uid=f"busy-delete-{fault_name}",
             rgw_tenant="",
             storage_endpoint_id=endpoint.id,
         )
     )
     monkeypatch.setattr(s3_client, "list_buckets", lambda **_kwargs: [])
-    real_commit = db_session.commit
-    commit_calls = 0
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        statement_prefix,
+    ) as matching_statements:
+        service.delete_user(created.id, delete_rgw=True)
 
-    def busy_once():
-        nonlocal commit_calls
-        commit_calls += 1
-        if commit_calls == busy_commit_call:
-            raise _busy_snapshot_error()
-        return real_commit()
-
-    monkeypatch.setattr(db_session, "commit", busy_once)
-
-    service.delete_user(created.id, delete_rgw=True)
-
+    assert len(matching_statements) == 2
     assert fake.deleted_users == [created.rgw_user_uid]
     assert db_session.get(S3User, created.id) is None
     assert db_session.scalar(
@@ -1988,25 +1981,9 @@ def test_delete_user_key_cleanup_recovers_after_commit_failure_without_replay(
     s3_user = db_session.get(S3User, created.id)
     assert s3_user is not None
     access_key = s3_user.rgw_access_key
-    original_commit = s3_user_deletion_service_module.commit_or_rollback
-    commit_calls = 0
-
-    def fail_selected_commit(db):
-        nonlocal commit_calls
-        commit_calls += 1
-        if commit_calls == failure_call:
-            db.rollback()
-            raise RuntimeError("simulated deletion commit failure")
-        original_commit(db)
-
-    monkeypatch.setattr(
-        s3_user_deletion_service_module,
-        "commit_or_rollback",
-        fail_selected_commit,
-    )
-
-    with pytest.raises(RuntimeError, match="simulated deletion commit failure"):
-        service.delete_user(created.id, delete_rgw=False)
+    with fail_next_transaction_commit(db_session, occurrence=failure_call):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service.delete_user(created.id, delete_rgw=False)
 
     db_session.expire_all()
     persisted = db_session.get(S3User, created.id)
@@ -2029,11 +2006,6 @@ def test_delete_user_key_cleanup_recovers_after_commit_failure_without_replay(
     with pytest.raises(ValueError, match="deletion is pending"):
         key_service.create_access_key_entry(created.id)
 
-    monkeypatch.setattr(
-        s3_user_deletion_service_module,
-        "commit_or_rollback",
-        original_commit,
-    )
     service.delete_user(created.id, delete_rgw=False)
 
     assert fake.deleted_keys == [access_key]
@@ -2075,25 +2047,9 @@ def test_delete_remote_user_recovers_after_commit_failure_without_replay(
 
     monkeypatch.setattr(fake, "get_user", get_user_with_real_missing_contract)
     monkeypatch.setattr(s3_client, "list_buckets", lambda **_kwargs: [])
-    original_commit = s3_user_deletion_service_module.commit_or_rollback
-    commit_calls = 0
-
-    def fail_selected_commit(db):
-        nonlocal commit_calls
-        commit_calls += 1
-        if commit_calls == failure_call:
-            db.rollback()
-            raise RuntimeError("simulated deletion commit failure")
-        original_commit(db)
-
-    monkeypatch.setattr(
-        s3_user_deletion_service_module,
-        "commit_or_rollback",
-        fail_selected_commit,
-    )
-
-    with pytest.raises(RuntimeError, match="simulated deletion commit failure"):
-        service.delete_user(created.id, delete_rgw=True)
+    with fail_next_transaction_commit(db_session, occurrence=failure_call):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service.delete_user(created.id, delete_rgw=True)
 
     db_session.expire_all()
     deletion = db_session.scalar(
@@ -2104,11 +2060,6 @@ def test_delete_remote_user_recovers_after_commit_failure_without_replay(
     assert deletion.remote_completed is expected_remote_completed
     assert fake.deleted_users == [created.rgw_user_uid]
 
-    monkeypatch.setattr(
-        s3_user_deletion_service_module,
-        "commit_or_rollback",
-        original_commit,
-    )
     service.delete_user(created.id, delete_rgw=True)
 
     assert fake.deleted_users == [created.rgw_user_uid]
@@ -2319,9 +2270,9 @@ def test_delete_user_rolls_back_partial_local_cleanup_on_failure(db_session, mon
     db_session.commit()
     monkeypatch.setattr(fake, "delete_access_key", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(
-        service.deletion.tags,
+        TagsService,
         "cleanup_orphan_definitions",
-        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("tag cleanup failed")),
+        lambda _self, **_kwargs: (_ for _ in ()).throw(RuntimeError("tag cleanup failed")),
     )
 
     with pytest.raises(RuntimeError, match="tag cleanup failed"):

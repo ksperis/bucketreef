@@ -1,13 +1,11 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from datetime import UTC, date, datetime
-import sqlite3
 from typing import Optional
 
 import pytest
 from pydantic import ValidationError
 from sqlalchemy import func, select
-from sqlalchemy.exc import OperationalError
 
 from tests.db_transaction_test_utils import (
     fail_next_sqlite_statement_with_busy_snapshot,
@@ -45,12 +43,6 @@ from app.core.domain_enums import StorageProvider, UserRole
 from app.models.s3_account import S3AccountCreate, S3AccountImport, S3AccountUpdate
 from app.services.app_settings_service import load_app_settings_for_db
 from tests.storage_endpoint_features import persisted_endpoint_features
-
-
-def _busy_snapshot_error() -> OperationalError:
-    original = sqlite3.OperationalError("database is locked")
-    original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
-    return OperationalError("COMMIT", (), original)
 
 
 def _seed_ceph_endpoint(
@@ -2425,9 +2417,9 @@ def test_delete_account_rolls_back_partial_local_cleanup_on_failure(db_session, 
 
     svc = _build_service(db_session, monkeypatch, FakeRGWDeleteAdmin())
     monkeypatch.setattr(
-        svc.deletion.tags,
+        s3_account_deletion_service_module.TagsService,
         "cleanup_orphan_definitions",
-        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("tag cleanup failed")),
+        lambda _self, **_kwargs: (_ for _ in ()).throw(RuntimeError("tag cleanup failed")),
     )
 
     with pytest.raises(RuntimeError, match="tag cleanup failed"):
@@ -2531,8 +2523,13 @@ def test_delete_account_calls_rgw_when_flag_true(db_session, monkeypatch):
     svc.rgw_users.resolve = lambda account_id, tenant, admin, **kwargs: (0, [])  # type: ignore[method-assign]
     svc.account_topics.resolve = lambda account_id, admin, endpoint_id: (0, [])  # type: ignore[method-assign]
 
-    svc.delete_account(account.id, delete_rgw=True)
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "DELETE FROM s3_accounts",
+    ) as matching_statements:
+        svc.delete_account(account.id, delete_rgw=True)
 
+    assert len(matching_statements) == 2
     assert fake_admin.deleted == ["RGW00000000000000002"]
     assert fake_admin.deleted_users == [("rgw00000000000000002-admin", None)]
     assert db_session.scalar(select(S3Account).where(S3Account.id == account.id)) is None
@@ -2597,24 +2594,14 @@ def test_delete_account_retries_busy_checkpoint_without_replaying_root_delete(
     svc.deletion.metrics.get_usage = lambda _account: (0, 0, 0)  # type: ignore[method-assign]
     svc.rgw_users.resolve = lambda *_args, **_kwargs: (0, [])  # type: ignore[method-assign]
     svc.account_topics.resolve = lambda *_args, **_kwargs: (0, [])  # type: ignore[method-assign]
-    real_commit = db_session.commit
-    failed = False
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE s3_account_deletions",
+        occurrence=2,
+    ) as matching_statements:
+        svc.delete_account(account.id, delete_rgw=True)
 
-    def busy_root_checkpoint_once():
-        nonlocal failed
-        if not failed and any(
-            isinstance(row, S3AccountDeletion) and row.root_user_deleted
-            for row in db_session.dirty
-        ):
-            failed = True
-            raise _busy_snapshot_error()
-        return real_commit()
-
-    monkeypatch.setattr(db_session, "commit", busy_root_checkpoint_once)
-
-    svc.delete_account(account.id, delete_rgw=True)
-
-    assert failed is True
+    assert sum("root_user_deleted" in statement for statement in matching_statements) == 2
     assert fake_admin.deleted_users == [(account.rgw_user_uid, None)]
     assert fake_admin.deleted == [account.rgw_account_id]
     assert db_session.get(S3Account, account.id) is None
@@ -2690,25 +2677,9 @@ def test_delete_account_resumes_after_remote_delete_when_account_listing_is_forb
         "list_buckets",
         lambda **_kwargs: [],
     )
-    original_commit = s3_account_deletion_service_module.commit_or_rollback
-    commit_calls = 0
-
-    def fail_remote_deleted_checkpoint(db):
-        nonlocal commit_calls
-        commit_calls += 1
-        if commit_calls == 4:
-            db.rollback()
-            raise RuntimeError("simulated remote deletion checkpoint failure")
-        original_commit(db)
-
-    monkeypatch.setattr(
-        s3_account_deletion_service_module,
-        "commit_or_rollback",
-        fail_remote_deleted_checkpoint,
-    )
-
-    with pytest.raises(RuntimeError, match="checkpoint failure"):
-        svc.delete_account(account.id, delete_rgw=True)
+    with fail_next_transaction_commit(db_session, occurrence=4):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            svc.delete_account(account.id, delete_rgw=True)
 
     assert fake_admin.account_exists is False
     db_session.expire_all()
@@ -2727,12 +2698,6 @@ def test_delete_account_resumes_after_remote_delete_when_account_listing_is_forb
         )
 
     monkeypatch.setattr(fake_admin, "list_accounts", forbidden_list_accounts)
-    monkeypatch.setattr(
-        s3_account_deletion_service_module,
-        "commit_or_rollback",
-        original_commit,
-    )
-
     svc.delete_account(account.id, delete_rgw=True)
 
     assert fake_admin.deleted == [account.rgw_account_id]
@@ -2773,9 +2738,14 @@ def test_delete_account_restores_root_when_remote_account_delete_fails(
         lambda **_kwargs: [],
     )
 
-    with pytest.raises(ValueError, match="Unable to delete RGW account"):
-        svc.delete_account(account.id, delete_rgw=True)
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE s3_accounts",
+    ) as matching_statements:
+        with pytest.raises(ValueError, match="Unable to delete RGW account"):
+            svc.delete_account(account.id, delete_rgw=True)
 
+    assert len(matching_statements) == 2
     db_session.expire_all()
     restored = db_session.get(S3Account, account.id)
     deletion = db_session.scalar(
@@ -2882,25 +2852,9 @@ def test_delete_account_recovers_after_commit_failure_without_remote_replay(
     svc.deletion.metrics.get_usage = lambda _account: (0, 0, 0)  # type: ignore[method-assign]
     svc.rgw_users.resolve = lambda *_args, **_kwargs: (0, [])  # type: ignore[method-assign]
     svc.account_topics.resolve = lambda *_args, **_kwargs: (0, [])  # type: ignore[method-assign]
-    original_commit = s3_account_deletion_service_module.commit_or_rollback
-    commit_calls = 0
-
-    def fail_selected_commit(db):
-        nonlocal commit_calls
-        commit_calls += 1
-        if commit_calls == failure_call:
-            db.rollback()
-            raise RuntimeError("simulated account deletion commit failure")
-        original_commit(db)
-
-    monkeypatch.setattr(
-        s3_account_deletion_service_module,
-        "commit_or_rollback",
-        fail_selected_commit,
-    )
-
-    with pytest.raises(RuntimeError, match="simulated account deletion commit failure"):
-        svc.delete_account(account.id, delete_rgw=True)
+    with fail_next_transaction_commit(db_session, occurrence=failure_call):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            svc.delete_account(account.id, delete_rgw=True)
 
     db_session.expire_all()
     deletion = db_session.scalar(
@@ -2922,11 +2876,6 @@ def test_delete_account_recovers_after_commit_failure_without_remote_replay(
     with pytest.raises(ValueError, match="deletion is pending"):
         svc.delete_account(account.id, delete_rgw=False)
 
-    monkeypatch.setattr(
-        s3_account_deletion_service_module,
-        "commit_or_rollback",
-        original_commit,
-    )
     svc.delete_account(account.id, delete_rgw=True)
 
     assert fake_admin.deleted_users == [(root_uid, None)]
