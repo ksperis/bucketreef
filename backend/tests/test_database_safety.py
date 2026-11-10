@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import create_engine, event, text
-from sqlalchemy.exc import DatabaseError
+from sqlalchemy.exc import DatabaseError, OperationalError
 from sqlalchemy.orm import sessionmaker
 from starlette.requests import Request
 
@@ -262,6 +262,39 @@ def test_postgresql_db_unit_executes_once_without_sqlite_retry(monkeypatch):
     assert run_db_unit_with_sqlite_retry(db, operation) == "ok"
     assert calls == 1
     assert db.rollback_calls == 0
+
+
+def test_sqlite_db_unit_default_retry_budget_handles_burst_contention(monkeypatch):
+    class FakeSQLiteSession:
+        def __init__(self) -> None:
+            self.rollback_calls = 0
+
+        @staticmethod
+        def get_bind():
+            return SimpleNamespace(dialect=SimpleNamespace(name="sqlite"))
+
+        def rollback(self) -> None:
+            self.rollback_calls += 1
+
+    db = FakeSQLiteSession()
+    calls = 0
+    delays: list[float] = []
+
+    def operation() -> str:
+        nonlocal calls
+        calls += 1
+        if calls <= 6:
+            original = sqlite3.OperationalError("database is locked")
+            original.sqlite_errorcode = sqlite3.SQLITE_BUSY
+            raise OperationalError("UPDATE", (), original)
+        return "ok"
+
+    monkeypatch.setattr(db_transactions.time, "sleep", delays.append)
+
+    assert run_db_unit_with_sqlite_retry(db, operation) == "ok"
+    assert calls == 7
+    assert db.rollback_calls == 6
+    assert delays == [0.025, 0.05, 0.1, 0.25, 0.5, 1.0]
 
 
 def test_handle_database_errors_returns_actionable_response_for_sqlite_corruption():

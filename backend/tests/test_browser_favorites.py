@@ -1,11 +1,13 @@
 from importlib import util
 from pathlib import Path
+import sqlite3
 
 import pytest
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from alembic.script import ScriptDirectory
-from sqlalchemy import create_engine, inspect, select, text
+from sqlalchemy import create_engine, func, inspect, select, text
+from sqlalchemy.exc import OperationalError
 
 from app.db import User
 from app.db.browser_favorite import BrowserFavorite
@@ -13,6 +15,12 @@ from app.main import app
 from app.models.browser_favorites import BrowserFavoriteInput
 from app.routers import dependencies
 from app.services.browser_favorites_service import BrowserFavoritesService
+
+
+def _busy_snapshot_error() -> OperationalError:
+    original = sqlite3.OperationalError("database is locked")
+    original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
+    return OperationalError("COMMIT", (), original)
 
 
 def login(db, email):
@@ -78,6 +86,30 @@ def test_favorite_create_rolls_back_when_commit_fails(db_session, monkeypatch):
     ).all() == []
 
 
+def test_favorite_create_retries_sqlite_busy_commit(db_session, monkeypatch):
+    user = login(db_session, "create-busy@example.test")
+    service = BrowserFavoritesService(db_session)
+    original_commit = db_session.commit
+    commit_calls = 0
+
+    def commit() -> None:
+        nonlocal commit_calls
+        commit_calls += 1
+        if commit_calls == 1:
+            raise _busy_snapshot_error()
+        original_commit()
+
+    monkeypatch.setattr(db_session, "commit", commit)
+
+    created = service.create(user, BrowserFavoriteInput.model_validate(payload()))
+
+    assert commit_calls == 2
+    assert created.revision == 1
+    assert db_session.scalar(
+        select(func.count()).select_from(BrowserFavorite).where(BrowserFavorite.user_id == user.id)
+    ) == 1
+
+
 def test_favorite_mutation_rolls_back_when_commit_fails(db_session, monkeypatch):
     user = login(db_session, "mutate-rollback@example.test")
     service = BrowserFavoritesService(db_session)
@@ -109,6 +141,35 @@ def test_favorite_mutation_rolls_back_when_commit_fails(db_session, monkeypatch)
     assert stored is not None
     assert stored.name == "Mes fichiers"
     assert stored.revision == 1
+
+
+def test_favorite_mutation_retries_sqlite_busy_commit(db_session, monkeypatch):
+    user = login(db_session, "mutate-busy@example.test")
+    service = BrowserFavoritesService(db_session)
+    created = service.create(user, BrowserFavoriteInput.model_validate(payload()))
+    original_commit = db_session.commit
+    commit_calls = 0
+
+    def commit() -> None:
+        nonlocal commit_calls
+        commit_calls += 1
+        if commit_calls == 1:
+            raise _busy_snapshot_error()
+        original_commit()
+
+    monkeypatch.setattr(db_session, "commit", commit)
+
+    updated = service.mutate(
+        user,
+        created.id,
+        created.revision,
+        BrowserFavoriteInput.model_validate(payload(name="Renamed")),
+    )
+
+    assert commit_calls == 2
+    assert updated is not None
+    assert updated.name == "Renamed"
+    assert updated.revision == 2
 
 
 def test_favorites_reject_secrets_and_obsolete_view_fields(client, db_session):
