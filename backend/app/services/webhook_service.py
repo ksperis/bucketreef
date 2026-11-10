@@ -16,7 +16,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import run_replayable_db_unit
 from app.core.runtime_surfaces import runtime_surface_enabled
 from app.core.sensitive_data import sanitize_audit_metadata
 from app.db import WebhookDelivery, WebhookEndpoint, WebhookEndpointSubscription
@@ -155,57 +155,72 @@ class WebhookService:
         validate_webhook_target_url(payload.url, self.settings)
         event_types = self._validate_event_types(payload.event_types)
         secret = _new_signing_secret()
-        row = WebhookEndpoint(
-            name=payload.name,
-            url=payload.url,
-            enabled=payload.enabled,
-            signing_secret=secret,
-            created_at=utcnow(),
-            updated_at=utcnow(),
-        )
-        self.db.add(row)
+        now = utcnow()
+
+        def create_once(write_db: Session) -> int:
+            row = WebhookEndpoint(
+                name=payload.name,
+                url=payload.url,
+                enabled=payload.enabled,
+                signing_secret=secret,
+                created_at=now,
+                updated_at=now,
+            )
+            write_db.add(row)
+            write_db.flush()
+            self._replace_subscriptions(write_db, row, event_types)
+            return int(row.id)
+
         try:
-            self.db.flush()
-            self._replace_subscriptions(row, event_types)
+            endpoint_id = run_replayable_db_unit(self.db, create_once)
         except IntegrityError as exc:
-            self.db.rollback()
             raise ValueError("A webhook endpoint with this name already exists") from exc
-        self._commit_endpoint_change()
-        self.db.refresh(row)
+        row = self.query.get_endpoint_record(endpoint_id)
         out = self.query.serialize_endpoint(row)
         return WebhookEndpointCreated(**out.model_dump(), signing_secret=secret)
 
     def update_endpoint(self, endpoint_id: int, payload: WebhookEndpointPayload) -> WebhookEndpointOut:
-        row = self.query.get_endpoint_record(endpoint_id)
         validate_webhook_target_url(payload.url, self.settings)
         event_types = self._validate_event_types(payload.event_types)
-        if payload.enabled and not row.signing_secret:
-            raise ValueError("Rotate the signing secret before enabling this endpoint")
-        row.name = payload.name
-        row.url = payload.url
-        row.enabled = payload.enabled
-        row.updated_at = utcnow()
+        updated_at = utcnow()
+
+        def update_once(write_db: Session) -> int:
+            row = WebhookQueryService(write_db).get_endpoint_record(endpoint_id)
+            if payload.enabled and not row.signing_secret:
+                raise ValueError("Rotate the signing secret before enabling this endpoint")
+            row.name = payload.name
+            row.url = payload.url
+            row.enabled = payload.enabled
+            row.updated_at = updated_at
+            self._replace_subscriptions(write_db, row, event_types)
+            return int(row.id)
+
         try:
-            self._replace_subscriptions(row, event_types)
+            persisted_id = run_replayable_db_unit(self.db, update_once)
         except IntegrityError as exc:
-            self.db.rollback()
             raise ValueError("A webhook endpoint with this name already exists") from exc
-        self._commit_endpoint_change()
-        self.db.refresh(row)
+        row = self.query.get_endpoint_record(persisted_id)
         return self.query.serialize_endpoint(row)
 
     def delete_endpoint(self, endpoint_id: int) -> None:
-        row = self.query.get_endpoint_record(endpoint_id)
-        self.db.delete(row)
-        commit_or_rollback(self.db)
+        def delete_once(write_db: Session) -> None:
+            row = WebhookQueryService(write_db).get_endpoint_record(endpoint_id)
+            write_db.delete(row)
+
+        run_replayable_db_unit(self.db, delete_once)
 
     def rotate_secret(self, endpoint_id: int) -> WebhookSecretRotation:
-        row = self.query.get_endpoint_record(endpoint_id)
         secret = _new_signing_secret()
-        row.signing_secret = secret
-        row.updated_at = utcnow()
-        commit_or_rollback(self.db)
-        return WebhookSecretRotation(endpoint_id=row.id, signing_secret=secret)
+        updated_at = utcnow()
+
+        def rotate_once(write_db: Session) -> int:
+            row = WebhookQueryService(write_db).get_endpoint_record(endpoint_id)
+            row.signing_secret = secret
+            row.updated_at = updated_at
+            return int(row.id)
+
+        persisted_id = run_replayable_db_unit(self.db, rotate_once)
+        return WebhookSecretRotation(endpoint_id=persisted_id, signing_secret=secret)
 
     def enqueue_test(self, endpoint_id: int) -> WebhookTestResponse:
         row = self.query.get_endpoint_record(endpoint_id)
@@ -227,12 +242,6 @@ class WebhookService:
             raise RuntimeError("Unable to queue webhook test delivery")
         return WebhookTestResponse(delivery_id=ids[0], status="queued")
 
-    def _commit_endpoint_change(self) -> None:
-        try:
-            commit_or_rollback(self.db)
-        except IntegrityError as exc:
-            raise ValueError("A webhook endpoint with this name already exists") from exc
-
     def _validate_event_types(self, event_types: Iterable[str]) -> list[str]:
         normalized = []
         for raw in event_types:
@@ -248,16 +257,21 @@ class WebhookService:
             raise ValueError(f"Unknown webhook event type: {unknown[0]}")
         return normalized
 
-    def _replace_subscriptions(self, row: WebhookEndpoint, event_types: list[str]) -> None:
+    @staticmethod
+    def _replace_subscriptions(
+        db: Session,
+        row: WebhookEndpoint,
+        event_types: list[str],
+    ) -> None:
         if row.id is None:
-            self.db.flush()
-        self.db.execute(
+            db.flush()
+        db.execute(
             delete(WebhookEndpointSubscription)
             .where(WebhookEndpointSubscription.endpoint_id == row.id)
             .execution_options(synchronize_session=False)
         )
         for event_type in event_types:
-            self.db.add(
+            db.add(
                 WebhookEndpointSubscription(
                     endpoint_id=row.id,
                     event_type=event_type,
@@ -270,6 +284,7 @@ class WebhookEventPublisher:
 
     def _event_endpoints(
         self,
+        db: Session,
         event_type: str,
         forced_ids: list[int],
     ) -> list[WebhookEndpoint]:
@@ -292,20 +307,21 @@ class WebhookEventPublisher:
                 )
                 .distinct()
             )
-        return self.db.scalars(statement.order_by(WebhookEndpoint.id.asc())).all()
+        return db.scalars(statement.order_by(WebhookEndpoint.id.asc())).all()
 
     def _queue_delivery(
         self,
         *,
+        db: Session,
         endpoint: WebhookEndpoint,
+        delivery_id: str,
         event_id: str,
         event_type: str,
         payload: dict[str, Any],
         occurred_at: datetime,
         is_test: bool,
     ) -> str:
-        delivery_id = str(uuid.uuid4())
-        self.db.add(
+        db.add(
             WebhookDelivery(
                 delivery_id=delivery_id,
                 event_id=event_id,
@@ -385,23 +401,36 @@ class WebhookEventPublisher:
             data=data,
         )
         forced_ids = sorted({int(item) for item in endpoint_ids or [] if int(item) > 0})
-        try:
-            delivery_ids = [
-                self._queue_delivery(
-                    endpoint=endpoint,
-                    event_id=event_id,
-                    event_type=event_type,
-                    payload=payload,
-                    occurred_at=occurred_at,
-                    is_test=is_test,
+        delivery_ids_by_endpoint: dict[int, str] = {}
+
+        def queue_once(write_db: Session) -> list[str]:
+            delivery_ids: list[str] = []
+            for endpoint in self._event_endpoints(write_db, event_type, forced_ids):
+                endpoint_id = int(endpoint.id)
+                delivery_id = delivery_ids_by_endpoint.get(endpoint_id)
+                if delivery_id is None:
+                    delivery_id = str(uuid.uuid4())
+                    delivery_ids_by_endpoint[endpoint_id] = delivery_id
+                delivery_ids.append(
+                    self._queue_delivery(
+                        db=write_db,
+                        endpoint=endpoint,
+                        delivery_id=delivery_id,
+                        event_id=event_id,
+                        event_type=event_type,
+                        payload=payload,
+                        occurred_at=occurred_at,
+                        is_test=is_test,
+                    )
                 )
-                for endpoint in self._event_endpoints(event_type, forced_ids)
-            ]
-            if commit and delivery_ids:
-                commit_or_rollback(self.db)
+            return delivery_ids
+
+        try:
+            if commit:
+                return run_replayable_db_unit(self.db, queue_once)
+            return queue_once(self.db)
         except SQLAlchemyError as exc:
             raise WebhookQueueError("Unable to queue webhook event") from exc
-        return delivery_ids
 
     def publish_event_in_current_transaction(
         self,
