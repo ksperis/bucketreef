@@ -46,13 +46,11 @@ class ManagedPrivateAccessCredentialService:
             )
 
         iam.create_user(username, create_key=False)
-        provisioning.created_remote_principal = True
-        self.state.checkpoint(provisioning)
+        self.state.checkpoint(provisioning, created_remote_principal=True)
 
         for group_name in payload.groups:
             iam.add_user_to_group(group_name, username)
             self.state.append_list_value(provisioning, "iam_groups", group_name)
-            self.state.checkpoint(provisioning)
         for policy_arn in payload.managed_policies:
             iam.attach_user_policy(username, policy_arn)
             self.state.append_list_value(
@@ -60,7 +58,6 @@ class ManagedPrivateAccessCredentialService:
                 "iam_managed_policies",
                 policy_arn,
             )
-            self.state.checkpoint(provisioning)
         for inline in payload.inline_policies:
             iam.put_user_inline_policy(username, inline.name, inline.document)
             self.state.append_list_value(
@@ -68,16 +65,17 @@ class ManagedPrivateAccessCredentialService:
                 "iam_inline_policy_names",
                 inline.name,
             )
-            self.state.checkpoint(provisioning)
 
         key = iam.create_access_key(username)
         if not key.access_key_id or not key.secret_access_key:
             raise ManagedPrivateAccessError(
                 "RGW IAM did not return complete access credentials"
             )
-        provisioning.access_key_id = key.access_key_id
-        provisioning.created_access_key = True
-        self.state.checkpoint(provisioning)
+        self.state.checkpoint(
+            provisioning,
+            access_key_id=key.access_key_id,
+            created_access_key=True,
+        )
         return key.access_key_id, key.secret_access_key
 
     def provision_rgw_user(
@@ -87,7 +85,9 @@ class ManagedPrivateAccessCredentialService:
         source_id: int,
     ) -> tuple[str, str]:
         key = S3UserKeyManagementService(self.db).create_access_key_entry(source_id)
-        provisioning.access_key_id = key.access_key_id
-        provisioning.created_access_key = True
-        self.state.checkpoint(provisioning)
+        self.state.checkpoint(
+            provisioning,
+            access_key_id=key.access_key_id,
+            created_access_key=True,
+        )
         return key.access_key_id, key.secret_access_key

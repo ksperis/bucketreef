@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import run_replayable_db_unit
 from app.db import ManagedPrivateAccess, S3Account, S3Connection, User
 from app.models.managed_private_access import (
     ManagedIAMPrivateAccessRequest,
@@ -98,8 +98,13 @@ class ManagedPrivateAccessConnectionService:
         secret_access_key: str,
     ) -> ManagedPrivateAccessResult:
         rgw_user_uid, rgw_tenant, rgw_account_id = self._rgw_identity(provisioning)
-        connection = S3Connection(
-            created_by_user_id=user.id,
+        provisioning_id = int(provisioning.id)
+        created_by_user_id = int(user.id)
+        created_at = utcnow()
+        updated_at = utcnow()
+        provisioning_updated_at = utcnow()
+        connection_values = dict(
+            created_by_user_id=created_by_user_id,
             name=payload.connection_name,
             is_shared=False,
             is_active=True,
@@ -112,20 +117,36 @@ class ManagedPrivateAccessConnectionService:
             **destination.persistence_values(),
             access_key_id=access_key_id,
             secret_access_key=secret_access_key,
-            created_at=utcnow(),
-            updated_at=utcnow(),
+            created_at=created_at,
+            updated_at=updated_at,
         )
-        self.db.add(connection)
-        self.db.flush()
-        refresh_connection_detected_capabilities(connection)
-        provisioning.s3_connection_id = connection.id
-        provisioning.state = "active"
-        provisioning.cleanup_error = None
-        provisioning.updated_at = utcnow()
-        commit_or_rollback(self.db)
-        self.db.refresh(connection)
+        probe_connection = S3Connection(**connection_values)
+        refresh_connection_detected_capabilities(probe_connection)
+        capabilities = probe_connection.capabilities
+
+        def persist_once(write_db: Session) -> int:
+            current_provisioning = write_db.get(ManagedPrivateAccess, provisioning_id)
+            if current_provisioning is None:
+                raise RuntimeError("Managed private access disappeared before activation")
+            connection = S3Connection(
+                **connection_values,
+                capabilities=capabilities,
+            )
+            write_db.add(connection)
+            write_db.flush()
+            current_provisioning.s3_connection_id = connection.id
+            current_provisioning.state = "active"
+            current_provisioning.cleanup_error = None
+            current_provisioning.updated_at = provisioning_updated_at
+            return int(connection.id)
+
+        connection_id = run_replayable_db_unit(self.db, persist_once)
+        connection = self.db.get(S3Connection, connection_id, populate_existing=True)
+        if connection is None:  # pragma: no cover - defensive consistency check
+            raise RuntimeError("Managed private access connection could not be reloaded")
+        self.db.refresh(provisioning)
         result = ManagedPrivateAccessResult(
-            provisioning_id=provisioning.id,
+            provisioning_id=provisioning_id,
             status="active",
             connection=self.connection_queries.serialize(connection),
         )
