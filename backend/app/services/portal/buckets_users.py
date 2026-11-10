@@ -6,9 +6,9 @@ from __future__ import annotations
 import logging
 from typing import Optional, TYPE_CHECKING
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 
-from app.core.db_transactions import run_replayable_db_unit
+from app.core.db_transactions import acquire_sqlite_write_transaction, run_replayable_db_unit
 from app.db import AccountIAMUser, PortalIAMRevocation, S3Account, User
 from app.core.domain_enums import PortalAccountRole
 from app.models.app_settings import PortalEffectiveSettings
@@ -30,6 +30,17 @@ logger = logging.getLogger(__name__)
 
 
 class PortalBucketsUsersMixin:
+    def _acquire_portal_user_revocation_write_transaction(self, user_id: int) -> bool:
+        def acquire_once(write_db) -> bool:
+            changed = write_db.execute(
+                update(User).where(User.id == user_id).values(id=User.id)
+            ).rowcount
+            if changed != 1:
+                raise PortalOperationError("Portal user no longer exists")
+            return True
+
+        return acquire_sqlite_write_transaction(self.db, acquire_once) is True
+
     @staticmethod
     def _restore_portal_iam_key_statuses(
         iam_service: RGWIAMService,
@@ -458,13 +469,34 @@ class PortalBucketsUsersMixin:
         """Durably revoke one stale Portal IAM identity outside a role transaction."""
         from app.services.portal_ownership import require_no_private_storage_space_ownership
 
+        target_id = int(target.id)
+        account_id = int(account.id)
         require_no_private_storage_space_ownership(
             self.db,
-            user_id=target.id,
-            account_id=account.id,
+            user_id=target_id,
+            account_id=account_id,
         )
-        preparation = self._prepare_portal_iam_revocation(target, account)
+        write_acquired = self._acquire_portal_user_revocation_write_transaction(target_id)
+        if write_acquired:
+            target = self.db.get(User, target_id, populate_existing=True)
+            account = self.db.get(S3Account, account_id, populate_existing=True)
+            if target is None or account is None:
+                self.db.rollback()
+                raise PortalOperationError("Portal revocation target no longer exists")
+            require_no_private_storage_space_ownership(
+                self.db,
+                user_id=target_id,
+                account_id=account_id,
+            )
+        try:
+            preparation = self._prepare_portal_iam_revocation(target, account)
+        except Exception:
+            if write_acquired:
+                self.db.rollback()
+            raise
         if preparation is None:
+            if write_acquired:
+                self.db.rollback()
             return
         try:
             self.db.commit()
@@ -476,6 +508,6 @@ class PortalBucketsUsersMixin:
                 ) from exc
             raise
         self._finalize_portal_iam_revocation(
-            user_id=int(target.id),
-            account_id=int(account.id),
+            user_id=target_id,
+            account_id=account_id,
         )
