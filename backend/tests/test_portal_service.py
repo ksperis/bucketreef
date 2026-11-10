@@ -1988,6 +1988,65 @@ def test_portal_manager_can_take_private_storage_space_ownership(monkeypatch, db
     assert policy_calls == ["private-space"]
 
 
+def test_take_private_storage_space_ownership_retries_sqlite_write_intent_before_remote_projection(
+    monkeypatch,
+    db_session,
+):
+    account = make_s3_account(db_session, name="take-private-owner-sqlite")
+    previous_owner = User(email="previous-owner-sqlite@example.test", hashed_password="x", role="ui_user")
+    manager = User(email="taking-manager-sqlite@example.test", hashed_password="x", role="ui_user")
+    db_session.add_all([account, previous_owner, manager])
+    db_session.commit()
+    metadata = PortalStorageSpaceMetadata(
+        account_id=account.id,
+        bucket_name="private-space-sqlite",
+        display_name="Private space SQLite",
+        visibility="private",
+        owner_user_id=previous_owner.id,
+    )
+    db_session.add(metadata)
+    db_session.commit()
+
+    service = PortalService(db_session)
+    projection_calls = []
+    policy_calls = []
+    sentinel = object()
+    monkeypatch.setattr(service, "_resolve_storage_space_bucket_name", lambda *_args, **_kwargs: "private-space-sqlite")
+    monkeypatch.setattr(
+        service,
+        "_sync_storage_space_user_projections",
+        lambda _account, user_ids: projection_calls.append(set(user_ids)),
+    )
+    monkeypatch.setattr(
+        service,
+        "_sync_storage_space_bucket_policy",
+        lambda _account, bucket_name, _metadata: policy_calls.append(bucket_name),
+    )
+    monkeypatch.setattr(service, "get_storage_space", lambda *_args, **_kwargs: sentinel)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE portal_storage_space_metadata SET id=",
+    ) as matching_statements:
+        result = service.take_private_storage_space_ownership(
+            manager,
+            _portal_access(
+                account,
+                manager,
+                portal_role=PortalAccountRole.PORTAL_MANAGER.value,
+                can_manage_buckets=True,
+            ),
+            "private-space-sqlite",
+        )
+
+    db_session.refresh(metadata)
+    assert len(matching_statements) == 2
+    assert result is sentinel
+    assert metadata.owner_user_id == manager.id
+    assert projection_calls == [{previous_owner.id, manager.id}]
+    assert policy_calls == ["private-space-sqlite"]
+
+
 def test_private_owner_cannot_lose_final_portal_role(db_session):
     account = make_s3_account(db_session, name="owned-role-guard")
     owner = User(email="guarded-owner@example.test", hashed_password="x", role="ui_user")
@@ -4475,6 +4534,78 @@ def test_update_storage_space_commit_failure_restores_projection(monkeypatch, db
 
     assert projection_states == ["After", "Before"]
     assert metadata.description == "Before"
+
+
+def test_update_storage_space_retries_sqlite_write_intent_before_remote_projection(
+    monkeypatch,
+    db_session,
+):
+    account = make_s3_account(
+        db_session,
+        name="portal-storage-update-sqlite",
+        rgw_access_key="ROOT-AK",
+        rgw_secret_key="ROOT-SK",
+    )
+    user = User(
+        email="portal-storage-update-sqlite@example.com",
+        hashed_password="x",
+        role="ui_user",
+    )
+    db_session.add_all([account, user])
+    db_session.commit()
+    metadata = PortalStorageSpaceMetadata(
+        account_id=account.id,
+        bucket_name="shared-data-sqlite",
+        display_name="Shared Data SQLite",
+        description="Before",
+        visibility="shared",
+        share_scope="restricted",
+    )
+    db_session.add(metadata)
+    db_session.commit()
+
+    access = _portal_access(
+        account,
+        user,
+        portal_role=PortalAccountRole.PORTAL_MANAGER.value,
+        can_manage_buckets=True,
+    )
+    service = PortalService(db_session)
+    projection_states = []
+    monkeypatch.setattr(service, "_require_storage_space_manager", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(service, "_resolve_storage_space_bucket_name", lambda *_args, **_kwargs: "shared-data-sqlite")
+    monkeypatch.setattr(
+        service,
+        "_sync_storage_space_access_projection",
+        lambda _account, metadata_arg, **_kwargs: projection_states.append(metadata_arg.description),
+    )
+    monkeypatch.setattr(
+        service,
+        "get_storage_space",
+        lambda _user, _access, bucket_name: portal_storage_space_summary(
+            id=bucket_name,
+            name=metadata.display_name or bucket_name,
+            role="Manager",
+            description=metadata.description,
+            visibility=metadata.visibility,
+            internal_bucket_name=bucket_name,
+        ),
+    )
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE portal_storage_space_metadata SET id=",
+    ) as matching_statements:
+        updated = service.update_storage_space(
+            user,
+            access,
+            "shared-data-sqlite",
+            PortalStorageSpaceUpdate(description="After"),
+        )
+
+    assert len(matching_statements) == 2
+    assert updated.description == "After"
+    assert projection_states == ["After"]
 
 
 def test_storage_space_share_reports_projection_compensation_failure(monkeypatch, db_session):

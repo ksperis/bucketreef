@@ -8,7 +8,11 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy import delete, func, select, update
 
-from app.core.db_transactions import rollback_safely, run_replayable_db_unit
+from app.core.db_transactions import (
+    acquire_sqlite_write_transaction,
+    rollback_safely,
+    run_replayable_db_unit,
+)
 from app.db import (
     PortalExternalAccessCredential,
     PortalPublicLink as DBPortalPublicLink,
@@ -58,6 +62,19 @@ class _StorageSpaceDeletionSnapshot:
 
 
 class PortalStorageSpacesMixin:
+    def _acquire_storage_space_write_transaction(self, metadata_id: int) -> bool:
+        def acquire_once(write_db) -> bool:
+            changed = write_db.execute(
+                update(PortalStorageSpaceMetadata)
+                .where(PortalStorageSpaceMetadata.id == metadata_id)
+                .values(id=PortalStorageSpaceMetadata.id)
+            ).rowcount
+            if changed != 1:
+                raise PortalNotFoundError("Storage space not found or not allowed.")
+            return True
+
+        return acquire_sqlite_write_transaction(self.db, acquire_once) is True
+
     def create_storage_space(
         self,
         user: User,
@@ -384,9 +401,25 @@ class PortalStorageSpacesMixin:
         metadata = self._storage_space_metadata(access.account, bucket_name)
         if metadata is None:
             raise PortalOperationError("Storage space metadata is missing.")
-        previous_participant_user_ids = self._storage_space_participant_user_ids(metadata)
+        metadata_id = int(metadata.id)
+        previous_participant_user_ids: set[int] = set()
         projection_attempted = False
         try:
+            if self._acquire_storage_space_write_transaction(metadata_id):
+                metadata = self.db.get(
+                    PortalStorageSpaceMetadata,
+                    metadata_id,
+                    populate_existing=True,
+                )
+                if metadata is None or metadata.bucket_name != bucket_name:
+                    raise PortalNotFoundError("Storage space not found or not allowed.")
+                self._require_storage_space_manager(
+                    user,
+                    access,
+                    bucket_name,
+                    include_archived=True,
+                )
+            previous_participant_user_ids = self._storage_space_participant_user_ids(metadata)
             self._apply_storage_space_update(
                 metadata,
                 bucket_name=bucket_name,
@@ -503,13 +536,24 @@ class PortalStorageSpacesMixin:
         metadata = self._storage_space_metadata(access.account, bucket_name)
         if metadata is None or self._metadata_visibility(metadata) != "private":
             raise PortalForbiddenError("Ownership applies only to private Storage Spaces.")
-        previous_owner_id = metadata.owner_user_id
-        if previous_owner_id == user.id:
-            raise PortalForbiddenError("You already own this private Storage Space.")
-        metadata.owner_user_id = user.id
-        metadata.updated_at = utcnow()
-        self.db.add(metadata)
+        metadata_id = int(metadata.id)
         try:
+            if self._acquire_storage_space_write_transaction(metadata_id):
+                metadata = self.db.get(
+                    PortalStorageSpaceMetadata,
+                    metadata_id,
+                    populate_existing=True,
+                )
+                if metadata is None or metadata.bucket_name != bucket_name:
+                    raise PortalNotFoundError("Storage space not found or not allowed.")
+                if self._metadata_visibility(metadata) != "private":
+                    raise PortalForbiddenError("Ownership applies only to private Storage Spaces.")
+            previous_owner_id = metadata.owner_user_id
+            if previous_owner_id == user.id:
+                raise PortalForbiddenError("You already own this private Storage Space.")
+            metadata.owner_user_id = user.id
+            metadata.updated_at = utcnow()
+            self.db.add(metadata)
             self.db.flush()
             affected_user_ids = {user.id}
             if previous_owner_id is not None:

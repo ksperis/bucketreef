@@ -284,6 +284,38 @@ def test_pending_revocation_sqlite_retry_does_not_replay_remote_cleanup(monkeypa
     ) is None
 
 
+def test_direct_portal_revocation_retries_sqlite_write_intent_before_remote_changes(
+    monkeypatch,
+    db_session,
+):
+    account, user, _association, iam_link = _seed_portal_identity(
+        db_session,
+        suffix="sqlite-direct-revoke",
+        portal_role=PortalAccountRole.PORTAL_USER.value,
+    )
+    iam_username = iam_link.iam_username
+    access_key = iam_link.active_access_key
+    fake_iam = FakePortalRevocationIAM(iam_username, access_key)
+    install_portal_revocation_fakes(monkeypatch, fake_iam)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE users SET id=",
+    ) as matching_statements:
+        PortalService(db_session).revoke_portal_user(user, account)
+
+    assert len(matching_statements) == 2
+    assert [call for call in fake_iam.calls if call[0] == "update_access_key_status"] == [
+        ("update_access_key_status", iam_username, access_key, "Inactive"),
+    ]
+    assert [call for call in fake_iam.calls if call[0] == "delete_access_key"] == [
+        ("delete_access_key", iam_username, access_key),
+    ]
+    assert [call for call in fake_iam.calls if call[0] == "delete_user"] == [
+        ("delete_user", iam_username),
+    ]
+
+
 def test_pending_revocation_blocks_portal_role_restoration(monkeypatch, db_session):
     account, user, association, iam_link = _seed_portal_identity(
         db_session,
