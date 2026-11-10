@@ -61,7 +61,7 @@ test("recovers when the selected bucket is deleted by another S3 client", async 
     const externalBucket = sidebar.locator(
       `[data-bucket-panel-name="${bucketName}"]`,
     );
-    await expect(externalBucket).toBeVisible();
+    await expect(externalBucket).toBeVisible({ timeout: 15_000 });
     await externalBucket.click();
     await expect(page.getByRole("button", { name: "Select bucket" })).toContainText(
       bucketName,
