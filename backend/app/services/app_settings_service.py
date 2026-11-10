@@ -10,7 +10,7 @@ from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.core.config import get_settings
-from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
+from app.core.db_transactions import add_and_flush_in_savepoint, run_replayable_db_unit
 from app.db import AppSetting
 from app.models.app_settings import AppSettings, GeneralFeatureLock, GeneralFeatureLocks
 from app.utils.time import utcnow
@@ -36,6 +36,10 @@ _PERSISTED_ENV_DEFAULT_PATHS = {
 
 class AppSettingsLoadError(RuntimeError):
     """Expected failure while loading persisted application settings."""
+
+
+class _SettingsConcurrentWrite(RuntimeError):
+    """Internal signal used to restart an optimistic settings update."""
 
 
 def _settings_path() -> Path | None:
@@ -111,10 +115,10 @@ def _get_persisted_settings_row(db) -> AppSetting | None:
 
 def _save_persisted_settings_to_db(db, settings: AppSettings) -> None:
     payload = _settings_to_payload(settings)
+    now = utcnow()
 
-    def persist_once() -> None:
-        now = utcnow()
-        row = _get_persisted_settings_row(db)
+    def persist_once(write_db) -> None:
+        row = _get_persisted_settings_row(write_db)
         if row is None:
             row = AppSetting(
                 key=APP_SETTINGS_DB_KEY,
@@ -122,19 +126,16 @@ def _save_persisted_settings_to_db(db, settings: AppSettings) -> None:
                 created_at=now,
                 updated_at=now,
             )
-            db.add(row)
             try:
-                commit_or_rollback(db)
-                return
+                add_and_flush_in_savepoint(write_db, row)
             except IntegrityError:
-                row = _get_persisted_settings_row(db)
+                row = _get_persisted_settings_row(write_db)
                 if row is None:
                     raise
         row.payload = payload
         row.updated_at = now
-        commit_or_rollback(db)
 
-    run_db_unit_with_sqlite_retry(db, persist_once)
+    run_replayable_db_unit(db, persist_once)
 
 
 def _load_persisted_settings_from_db(db) -> AppSettings:
@@ -241,39 +242,45 @@ def enable_onboarding_features(db, fields: tuple[str, ...]) -> list[str]:
             lock = getattr(locks, field, None)
             if lock and lock.forced and lock.value is False:
                 raise ValueError(f"Feature locked by {lock.source}")
-        _load_persisted_settings_from_db(db)
-        row = db.scalars(
-            select(AppSetting)
-            .where(AppSetting.key == APP_SETTINGS_DB_KEY)
-            .execution_options(populate_existing=True)
-        ).one()
-        previous_updated_at = row.updated_at
-        settings = _parse_settings_payload(row.payload)
-        changed = []
-        for field in fields:
-            lock = getattr(locks, field, None)
-            if lock and lock.forced:
-                continue
-            if not getattr(settings.general, field):
-                setattr(settings.general, field, True)
-                changed.append(field)
-        if not changed:
-            return []
-        updated = db.execute(
-            update(AppSetting)
-            .where(
-                AppSetting.key == APP_SETTINGS_DB_KEY,
-                AppSetting.updated_at == previous_updated_at,
-            )
-            .values(
-                payload=_settings_to_payload(settings),
-                updated_at=utcnow(),
-            )
-            .execution_options(synchronize_session=False)
-        ).rowcount
-        if updated:
-            commit_or_rollback(db)
-            db.expire(row)
+        updated_at = utcnow()
+
+        def persist_once(write_db) -> list[str]:
+            _load_persisted_settings_from_db(write_db)
+            row = write_db.scalars(
+                select(AppSetting)
+                .where(AppSetting.key == APP_SETTINGS_DB_KEY)
+                .execution_options(populate_existing=True)
+            ).one()
+            previous_updated_at = row.updated_at
+            settings = _parse_settings_payload(row.payload)
+            changed = []
+            for field in fields:
+                lock = getattr(locks, field, None)
+                if lock and lock.forced:
+                    continue
+                if not getattr(settings.general, field):
+                    setattr(settings.general, field, True)
+                    changed.append(field)
+            if not changed:
+                return []
+            updated = write_db.execute(
+                update(AppSetting)
+                .where(
+                    AppSetting.key == APP_SETTINGS_DB_KEY,
+                    AppSetting.updated_at == previous_updated_at,
+                )
+                .values(
+                    payload=_settings_to_payload(settings),
+                    updated_at=updated_at,
+                )
+                .execution_options(synchronize_session=False)
+            ).rowcount
+            if not updated:
+                raise _SettingsConcurrentWrite
             return changed
-        db.rollback()
+
+        try:
+            return run_replayable_db_unit(db, persist_once)
+        except _SettingsConcurrentWrite:
+            continue
     raise ValueError("Settings changed concurrently; refresh and retry")
