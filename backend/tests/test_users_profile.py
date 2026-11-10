@@ -16,6 +16,10 @@ from app.models.app_settings import AppSettings
 from app.routers import dependencies
 from app.services.user_avatar_service import UserAvatarService
 from uuid import uuid4
+from tests.db_transaction_test_utils import (
+    fail_next_sqlite_statement_with_busy_snapshot,
+    fail_next_transaction_commit,
+)
 from tests.s3_account_factory import make_s3_account
 
 
@@ -129,31 +133,34 @@ def test_users_me_uploads_serves_and_deletes_profile_avatar(client, db_session):
     assert client.get(f"/api/users/{user.id}/avatar").status_code == 404
 
 
-def test_user_avatar_upload_rolls_back_when_commit_fails(db_session, monkeypatch):
+def test_user_avatar_upload_rolls_back_when_commit_fails(db_session):
     user = _seed_user(db_session, hashed_password=get_password_hash("old-password"))
-    original_rollback = db_session.rollback
-    rollback_calls: list[None] = []
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            UserAvatarService(db_session).store_uploaded_image(user, PNG_1X1, "image/png")
 
-    def rollback() -> None:
-        rollback_calls.append(None)
-        original_rollback()
-
-    def commit() -> None:
-        raise RuntimeError("commit failed")
-
-    monkeypatch.setattr(db_session, "rollback", rollback)
-    monkeypatch.setattr(db_session, "commit", commit)
-
-    with pytest.raises(RuntimeError, match="commit failed"):
-        UserAvatarService(db_session).store_uploaded_image(user, PNG_1X1, "image/png")
-
-    assert rollback_calls == [None]
     db_session.expire_all()
     stored = db_session.get(User, user.id)
     assert stored is not None
     assert stored.avatar_image is None
     assert stored.avatar_content_type is None
     assert stored.avatar_preference == "auto"
+
+
+def test_user_avatar_upload_retries_sqlite_busy_snapshot(db_session):
+    user = _seed_user(db_session, hashed_password=get_password_hash("old-password"))
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE users SET",
+    ) as statements:
+        UserAvatarService(db_session).store_uploaded_image(user, PNG_1X1, "image/png")
+
+    assert len(statements) == 2
+    db_session.refresh(user)
+    assert user.avatar_image == PNG_1X1
+    assert user.avatar_content_type == "image/png"
+    assert user.avatar_preference == "uploaded"
 
 
 def test_avatar_upload_rejects_unsupported_content(client, db_session):
