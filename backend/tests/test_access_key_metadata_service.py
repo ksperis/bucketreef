@@ -1,14 +1,16 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from datetime import datetime, timedelta
-import sqlite3
 from types import SimpleNamespace
 
 import pytest
 from pydantic import ValidationError
 from sqlalchemy import func, select
-from sqlalchemy.exc import OperationalError
 
+from tests.db_transaction_test_utils import (
+    fail_next_sqlite_statement_with_busy_snapshot,
+    fail_next_transaction_commit,
+)
 from tests.feature_policy_fixtures import manager_settings_fixture
 from app.db import ManagerAccessKeyMetadata, S3Account, S3User, StorageEndpoint
 from app.core.domain_enums import StorageProvider
@@ -19,13 +21,6 @@ from app.services import access_key_metadata_service
 from app.services.access_key_metadata_service import AccessKeyMetadataService
 from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.time import utcnow
-
-
-def _busy_snapshot_error() -> OperationalError:
-    original = sqlite3.OperationalError("database is locked")
-    original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
-    return OperationalError("COMMIT", (), original)
-
 
 def _set_global_feature(monkeypatch, enabled: bool) -> None:
     settings = manager_settings_fixture(
@@ -75,22 +70,6 @@ def _s3_user(db_session, endpoint: StorageEndpoint, *, enabled: bool) -> S3User:
     db_session.add(user)
     db_session.flush()
     return user
-
-
-def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
-    rollback_calls: list[None] = []
-    original_rollback = db_session.rollback
-
-    def rollback() -> None:
-        rollback_calls.append(None)
-        original_rollback()
-
-    def commit() -> None:
-        raise RuntimeError("commit failed")
-
-    monkeypatch.setattr(db_session, "rollback", rollback)
-    monkeypatch.setattr(db_session, "commit", commit)
-    return rollback_calls
 
 
 def test_access_key_metadata_requires_global_and_resource_opt_in(db_session, monkeypatch):
@@ -186,51 +165,66 @@ def test_iam_metadata_follows_principal_rename(db_session):
     assert renamed["AK-1"].notes == "renamed principal"
 
 
-def test_set_iam_metadata_rolls_back_when_commit_fails(db_session, monkeypatch):
+def test_set_iam_metadata_rolls_back_when_commit_fails(db_session):
     endpoint = _storage_endpoint(db_session)
     account = _account(db_session, endpoint, enabled=True)
     db_session.commit()
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        AccessKeyMetadataService(db_session).set_iam_metadata(
-            account.id,
-            "alice",
-            "AK-ROLLBACK",
-            AccessKeyMetadataInput(name="temporary"),
-        )
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            AccessKeyMetadataService(db_session).set_iam_metadata(
+                account.id,
+                "alice",
+                "AK-ROLLBACK",
+                AccessKeyMetadataInput(name="temporary"),
+            )
 
-    assert rollback_calls == [None]
     assert db_session.scalar(select(func.count()).select_from(ManagerAccessKeyMetadata)) == 0
 
 
-def test_set_iam_metadata_retries_sqlite_busy(db_session, monkeypatch):
+def test_set_iam_metadata_retries_sqlite_busy(db_session):
     endpoint = _storage_endpoint(db_session)
     account = _account(db_session, endpoint, enabled=True)
     db_session.commit()
-    real_commit = db_session.commit
-    commit_calls = 0
 
-    def busy_once() -> None:
-        nonlocal commit_calls
-        commit_calls += 1
-        if commit_calls == 1:
-            raise _busy_snapshot_error()
-        real_commit()
-
-    monkeypatch.setattr(db_session, "commit", busy_once)
-
-    saved = AccessKeyMetadataService(db_session).set_iam_metadata(
-        account.id,
-        "alice",
-        "AK-BUSY",
-        AccessKeyMetadataInput(name="retry-safe"),
-    )
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO manager_access_key_metadata",
+    ) as matching_statements:
+        saved = AccessKeyMetadataService(db_session).set_iam_metadata(
+            account.id,
+            "alice",
+            "AK-BUSY",
+            AccessKeyMetadataInput(name="retry-safe"),
+        )
 
     assert saved is not None
     assert saved.name == "retry-safe"
-    assert commit_calls == 2
+    assert len(matching_statements) == 2
     assert db_session.scalar(select(func.count()).select_from(ManagerAccessKeyMetadata)) == 1
+
+
+def test_rename_iam_principal_metadata_retries_sqlite_busy(db_session):
+    endpoint = _storage_endpoint(db_session)
+    account = _account(db_session, endpoint, enabled=True)
+    db_session.commit()
+    service = AccessKeyMetadataService(db_session)
+    service.set_iam_metadata(
+        account.id,
+        "alice",
+        "AK-BUSY-RENAME",
+        AccessKeyMetadataInput(name="retry-rename"),
+    )
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE manager_access_key_metadata",
+    ) as matching_statements:
+        service.rename_iam_principal_metadata(account.id, "alice", "alice-renamed")
+
+    assert len(matching_statements) == 2
+    assert service.iam_metadata(account.id, "alice") == {}
+    assert service.iam_metadata(account.id, "alice-renamed")["AK-BUSY-RENAME"].name == "retry-rename"
 
 
 def test_apply_metadata_supports_generated_s3_user_key():
@@ -274,7 +268,7 @@ def test_s3_user_metadata_round_trip_and_delete(db_session):
     assert service.s3_user_metadata(s3_user.id) == {}
 
 
-def test_delete_s3_user_metadata_rolls_back_when_commit_fails(db_session, monkeypatch):
+def test_delete_s3_user_metadata_rolls_back_when_commit_fails(db_session):
     endpoint = _storage_endpoint(db_session)
     s3_user = _s3_user(db_session, endpoint, enabled=True)
     db_session.commit()
@@ -284,16 +278,15 @@ def test_delete_s3_user_metadata_rolls_back_when_commit_fails(db_session, monkey
         "AK-ROLLBACK",
         AccessKeyMetadataInput(name="preserved"),
     )
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        service.delete_s3_user_metadata(s3_user.id, "AK-ROLLBACK")
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service.delete_s3_user_metadata(s3_user.id, "AK-ROLLBACK")
 
-    assert rollback_calls == [None]
     assert service.s3_user_metadata(s3_user.id)["AK-ROLLBACK"].name == "preserved"
 
 
-def test_delete_s3_user_metadata_retries_sqlite_busy(db_session, monkeypatch):
+def test_delete_s3_user_metadata_retries_sqlite_busy(db_session):
     endpoint = _storage_endpoint(db_session)
     s3_user = _s3_user(db_session, endpoint, enabled=True)
     db_session.commit()
@@ -303,21 +296,14 @@ def test_delete_s3_user_metadata_retries_sqlite_busy(db_session, monkeypatch):
         "AK-BUSY-DELETE",
         AccessKeyMetadataInput(name="retry-delete"),
     )
-    real_commit = db_session.commit
-    commit_calls = 0
 
-    def busy_once() -> None:
-        nonlocal commit_calls
-        commit_calls += 1
-        if commit_calls == 1:
-            raise _busy_snapshot_error()
-        real_commit()
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "DELETE FROM manager_access_key_metadata",
+    ) as matching_statements:
+        service.delete_s3_user_metadata(s3_user.id, "AK-BUSY-DELETE")
 
-    monkeypatch.setattr(db_session, "commit", busy_once)
-
-    service.delete_s3_user_metadata(s3_user.id, "AK-BUSY-DELETE")
-
-    assert commit_calls == 2
+    assert len(matching_statements) == 2
     assert service.s3_user_metadata(s3_user.id) == {}
 
 

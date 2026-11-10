@@ -7,16 +7,16 @@ import hmac
 import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from datetime import timedelta
+from datetime import datetime, timedelta
 from email.utils import parsedate_to_datetime
 from typing import Optional
 
 import requests
 from sqlalchemy import delete, select
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import get_settings
-from app.core.db_transactions import commit_or_rollback, run_db_unit_with_sqlite_retry
+from app.core.db_transactions import run_replayable_db_unit
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import WebhookDelivery, WebhookEndpoint
 from app.services.operation_lease_service import OperationLeaseService, generate_operation_owner
@@ -148,16 +148,22 @@ class WebhookDeliveryWorker:
             "X-BucketReef-Signature": f"v1={signature}",
         }
 
-    def _apply_delivery_response(self, delivery: WebhookDelivery, response: object) -> None:
+    def _apply_delivery_response(
+        self,
+        delivery: WebhookDelivery,
+        response: object,
+        *,
+        now: datetime | None = None,
+    ) -> None:
+        persisted_at = now or utcnow()
         status_code = int(getattr(response, "status_code", 0) or 0)
         delivery.last_http_status = status_code or None
         if 200 <= status_code < 300:
-            now = utcnow()
             delivery.status = "delivered"
             delivery.attempt_count = int(delivery.attempt_count) + 1
             delivery.last_error = None
-            delivery.delivered_at = now
-            delivery.updated_at = now
+            delivery.delivered_at = persisted_at
+            delivery.updated_at = persisted_at
             return
 
         if status_code in _RETRYABLE_HTTP or status_code == 503 or status_code >= 500:
@@ -167,11 +173,12 @@ class WebhookDeliveryWorker:
                 delivery,
                 error=f"HTTP {status_code}",
                 retry_after_seconds=retry_after,
+                now=persisted_at,
             )
             return
 
         delivery.attempt_count = int(delivery.attempt_count) + 1
-        self._fail_terminal(delivery, f"HTTP {status_code}")
+        self._fail_terminal(delivery, f"HTTP {status_code}", now=persisted_at)
 
     def _deliver_one(self, delivery_id: int) -> None:
         with self._session_factory() as db:
@@ -216,40 +223,41 @@ class WebhookDeliveryWorker:
 
     def _persist_terminal_failure_in_session(
         self,
-        db,
+        db: Session,
         delivery_id: int,
         error: object,
     ) -> None:
-        def persist() -> None:
-            delivery = db.get(WebhookDelivery, delivery_id, populate_existing=True)
+        persisted_at = utcnow()
+
+        def persist(write_db: Session) -> None:
+            delivery = write_db.get(WebhookDelivery, delivery_id, populate_existing=True)
             if delivery is None or delivery.status not in {"pending", "retrying"}:
                 return
-            self._fail_terminal(delivery, error)
-            commit_or_rollback(db)
+            self._fail_terminal(delivery, error, now=persisted_at)
 
-        run_db_unit_with_sqlite_retry(db, persist)
+        run_replayable_db_unit(db, persist)
 
     def _persist_delivery_failure(self, delivery_id: int, error: object) -> None:
+        persisted_at = utcnow()
         with self._session_factory() as db:
-            def persist() -> None:
-                delivery = db.get(WebhookDelivery, delivery_id)
+            def persist(write_db: Session) -> None:
+                delivery = write_db.get(WebhookDelivery, delivery_id)
                 if delivery is None or delivery.status not in {"pending", "retrying"}:
                     return
-                self._retry_or_fail(delivery, error=error)
-                commit_or_rollback(db)
+                self._retry_or_fail(delivery, error=error, now=persisted_at)
 
-            run_db_unit_with_sqlite_retry(db, persist)
+            run_replayable_db_unit(db, persist)
 
     def _persist_delivery_response(self, delivery_id: int, response: object) -> None:
+        persisted_at = utcnow()
         with self._session_factory() as db:
-            def persist() -> None:
-                delivery = db.get(WebhookDelivery, delivery_id)
+            def persist(write_db: Session) -> None:
+                delivery = write_db.get(WebhookDelivery, delivery_id)
                 if delivery is None or delivery.status not in {"pending", "retrying"}:
                     return
-                self._apply_delivery_response(delivery, response)
-                commit_or_rollback(db)
+                self._apply_delivery_response(delivery, response, now=persisted_at)
 
-            run_db_unit_with_sqlite_retry(db, persist)
+            run_replayable_db_unit(db, persist)
 
     def _retry_or_fail(
         self,
@@ -257,11 +265,13 @@ class WebhookDeliveryWorker:
         *,
         error: object,
         retry_after_seconds: int | None = None,
+        now: datetime | None = None,
     ) -> None:
+        persisted_at = now or utcnow()
         attempts = int(delivery.attempt_count) + 1
         delivery.attempt_count = attempts
         if attempts >= self._runtime.max_attempts:
-            self._fail_terminal(delivery, error)
+            self._fail_terminal(delivery, error, now=persisted_at)
             return
         exponent = max(0, attempts - 1)
         delay = min(
@@ -270,18 +280,23 @@ class WebhookDeliveryWorker:
         )
         if retry_after_seconds is not None:
             delay = min(max(delay, retry_after_seconds), self._runtime.retry_max_seconds)
-        now = utcnow()
         delivery.status = "retrying"
-        delivery.next_attempt_at = now + timedelta(seconds=delay)
+        delivery.next_attempt_at = persisted_at + timedelta(seconds=delay)
         delivery.last_error = self._safe_error(error)
-        delivery.updated_at = now
+        delivery.updated_at = persisted_at
 
-    def _fail_terminal(self, delivery: WebhookDelivery, error: object) -> None:
-        now = utcnow()
+    def _fail_terminal(
+        self,
+        delivery: WebhookDelivery,
+        error: object,
+        *,
+        now: datetime | None = None,
+    ) -> None:
+        persisted_at = now or utcnow()
         delivery.status = "failed"
         delivery.last_error = self._safe_error(error)
-        delivery.updated_at = now
-        delivery.next_attempt_at = now
+        delivery.updated_at = persisted_at
+        delivery.next_attempt_at = persisted_at
 
     def _purge_if_due(self) -> None:
         retention_days = self._runtime.retention_days
@@ -292,8 +307,8 @@ class WebhookDeliveryWorker:
             return
         cutoff = now - timedelta(days=retention_days)
         with self._session_factory() as db:
-            def purge() -> None:
-                db.execute(
+            def purge(write_db: Session) -> None:
+                write_db.execute(
                     delete(WebhookDelivery)
                     .where(
                         WebhookDelivery.status.in_(_TERMINAL_STATUSES),
@@ -301,9 +316,8 @@ class WebhookDeliveryWorker:
                     )
                     .execution_options(synchronize_session=False)
                 )
-                commit_or_rollback(db)
 
-            run_db_unit_with_sqlite_retry(db, purge)
+            run_replayable_db_unit(db, purge)
         self._last_purge_at = now
 
     def _retry_after_seconds(self, value: str | None) -> int | None:

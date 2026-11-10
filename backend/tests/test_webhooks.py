@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import ast
-import sqlite3
 from dataclasses import replace
 from datetime import timedelta
 import hashlib
@@ -16,7 +15,7 @@ from unittest.mock import patch
 import pytest
 import requests
 from sqlalchemy.dialects import postgresql
-from sqlalchemy.exc import OperationalError, SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.schema import CreateTable
 from sqlalchemy import event, func, select, text
 from sqlalchemy.orm import Session, sessionmaker
@@ -46,6 +45,10 @@ from app.services.webhook_service import (
 )
 from app.services.webhook_worker import WebhookDeliveryWorker
 from app.utils.time import utcnow
+from tests.db_transaction_test_utils import (
+    fail_next_sqlite_statement_with_busy_snapshot,
+    fail_next_transaction_commit,
+)
 
 
 def test_webhook_endpoint_payload_requires_complete_state() -> None:
@@ -91,13 +94,6 @@ def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
     monkeypatch.setattr(db_session, "rollback", rollback)
     monkeypatch.setattr(db_session, "commit", commit)
     return rollback_calls
-
-
-def _busy_snapshot_error() -> OperationalError:
-    original = sqlite3.OperationalError("database is locked")
-    original.sqlite_errorcode = sqlite3.SQLITE_BUSY_SNAPSHOT
-    return OperationalError("COMMIT", (), original)
-
 
 def test_webhook_secret_is_one_time_and_encrypted_at_rest(db_session, monkeypatch):
     created = _create_endpoint(
@@ -722,22 +718,14 @@ def test_worker_posts_without_transaction_and_busy_persistence_does_not_repost(
         select(WebhookDelivery).where(WebhookDelivery.delivery_id == delivery_id)
     ).one()
     worker_sessions: list[Session] = []
-    fail_once = True
 
-    class BusyOnceSession(Session):
+    class TrackingSession(Session):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             worker_sessions.append(self)
 
-        def commit(self) -> None:
-            nonlocal fail_once
-            if fail_once:
-                fail_once = False
-                raise _busy_snapshot_error()
-            super().commit()
-
     worker = WebhookDeliveryWorker(
-        sessionmaker(bind=db_session.get_bind(), class_=BusyOnceSession)
+        sessionmaker(bind=db_session.get_bind(), class_=TrackingSession)
     )
     monkeypatch.setattr(
         "app.services.webhook_worker.validate_webhook_target_url",
@@ -754,9 +742,14 @@ def test_worker_posts_without_transaction_and_busy_persistence_does_not_repost(
 
     monkeypatch.setattr("app.services.webhook_worker.requests.post", post)
 
-    worker._deliver_one(delivery.id)
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE webhook_deliveries",
+    ) as matching_statements:
+        worker._deliver_one(delivery.id)
 
     assert post_calls == 1
+    assert len(matching_statements) == 2
     db_session.rollback()
     persisted = db_session.get(WebhookDelivery, delivery.id)
     assert persisted.status == "delivered"
@@ -782,23 +775,7 @@ def test_worker_commit_failure_rolls_back_and_leaves_delivery_retriable(
         select(WebhookDelivery).where(WebhookDelivery.delivery_id == delivery_id)
     ).one()
 
-    failure_state = {"enabled": True}
-    rollback_calls: list[None] = []
-
-    class FailingCommitSession(Session):
-
-        def commit(self) -> None:
-            if failure_state["enabled"]:
-                raise RuntimeError("simulated worker commit failure")
-            super().commit()
-
-        def rollback(self) -> None:
-            rollback_calls.append(None)
-            super().rollback()
-
-    worker = WebhookDeliveryWorker(
-        sessionmaker(bind=db_session.get_bind(), class_=FailingCommitSession)
-    )
+    worker = WebhookDeliveryWorker(sessionmaker(bind=db_session.get_bind()))
     monkeypatch.setattr(
         "app.services.webhook_worker.validate_webhook_target_url",
         lambda *_args, **_kwargs: None,
@@ -806,17 +783,16 @@ def test_worker_commit_failure_rolls_back_and_leaves_delivery_retriable(
 
     with patch("app.services.webhook_worker.requests.post") as post:
         post.return_value = SimpleNamespace(status_code=204, headers={})
-        with pytest.raises(RuntimeError, match="simulated worker commit failure"):
-            worker._deliver_one(delivery.id)
+        with fail_next_transaction_commit(db_session):
+            with pytest.raises(RuntimeError, match="commit failed"):
+                worker._deliver_one(delivery.id)
 
-        assert rollback_calls == [None]
         db_session.rollback()
         pending = db_session.get(WebhookDelivery, delivery.id)
         assert pending.status == "pending"
         assert pending.attempt_count == 0
 
         db_session.rollback()
-        failure_state["enabled"] = False
         worker._deliver_one(delivery.id)
 
     db_session.rollback()
