@@ -11,7 +11,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import commit_or_rollback, run_replayable_db_unit
 from app.core.security import verify_password
 from app.db import ExternalIdentity, ExternalIdentityLinkRequest, ExternalIdentityLinkAttempt, User
 from app.models.external_identity_link import ExternalIdentityLinkProofMethod, ExternalIdentityLinkStatus
@@ -63,36 +63,47 @@ class ExternalIdentityLinkService:
         picture_url: Optional[str],
         email_verified: bool,
     ) -> ExternalIdentityLinkStatus:
-        attempt = self.attempts.require_attempt(attempt_id, browser_secret_hash, for_update=True)
-        if attempt.status != "pending" or attempt.consumed_at is not None:
-            raise ExternalIdentityLinkError("External identity link attempt is unavailable")
-        if attempt.provider_type != "oidc":
-            raise ExternalIdentityLinkError("OIDC identity cannot continue this link attempt")
         provider_key = normalize_link_provider_id(provider_id)
         normalized_issuer = normalize_link_oidc_issuer(issuer)
-        if attempt.provider_id != provider_key or attempt.issuer != normalized_issuer:
-            raise ExternalIdentityLinkError("OIDC link identity does not match the requested provider")
+        normalized_email = normalize_optional_email(email)
 
-        existing = self.db.scalar(
-            select(ExternalIdentity).where(
-                ExternalIdentity.provider_type == "oidc",
-                ExternalIdentity.issuer == normalized_issuer,
-                ExternalIdentity.subject == subject,
+        def persist_once(write_db: Session) -> None:
+            service = ExternalIdentityLinkService(write_db, self.settings)
+            attempt = service.attempts.require_attempt(
+                attempt_id,
+                browser_secret_hash,
+                for_update=True,
             )
-        )
-        if existing:
-            if existing.user_id != attempt.user_id:
-                raise ExternalIdentityLinkError("OIDC identity belongs to another user")
-            if existing.revoked_at is not None:
-                raise ExternalIdentityLinkError("OIDC identity is revoked")
-        attempt.subject = subject
-        attempt.email = normalize_optional_email(email)
-        attempt.email_verified = email_verified
-        attempt.display_name = full_name
-        attempt.picture_url = picture_url
-        self.db.add(attempt)
-        commit_or_rollback(self.db)
-        return self._status_model(attempt, self.attempts.require_user(attempt))
+            if attempt.status != "pending" or attempt.consumed_at is not None:
+                raise ExternalIdentityLinkError("External identity link attempt is unavailable")
+            if attempt.provider_type != "oidc":
+                raise ExternalIdentityLinkError("OIDC identity cannot continue this link attempt")
+            if attempt.provider_id != provider_key or attempt.issuer != normalized_issuer:
+                raise ExternalIdentityLinkError(
+                    "OIDC link identity does not match the requested provider"
+                )
+            existing = write_db.scalar(
+                select(ExternalIdentity).where(
+                    ExternalIdentity.provider_type == "oidc",
+                    ExternalIdentity.issuer == normalized_issuer,
+                    ExternalIdentity.subject == subject,
+                )
+            )
+            if existing:
+                if existing.user_id != attempt.user_id:
+                    raise ExternalIdentityLinkError("OIDC identity belongs to another user")
+                if existing.revoked_at is not None:
+                    raise ExternalIdentityLinkError("OIDC identity is revoked")
+            attempt.subject = subject
+            attempt.email = normalized_email
+            attempt.email_verified = email_verified
+            attempt.display_name = full_name
+            attempt.picture_url = picture_url
+            write_db.add(attempt)
+            write_db.flush()
+
+        run_replayable_db_unit(self.db, persist_once)
+        return self.status(attempt_id, browser_secret_hash)
 
     def verify_password(
         self,
@@ -104,9 +115,28 @@ class ExternalIdentityLinkService:
         user = self.attempts.require_user(attempt)
         if not user.hashed_password or not verify_password(password, user.hashed_password):
             raise ExternalIdentityLinkError("Invalid account password")
-        self._mark_proof(attempt, "password")
-        commit_or_rollback(self.db)
-        return self._status_model(attempt, user)
+        expected_user_id = int(user.id)
+        expected_password_hash = user.hashed_password
+        proof_verified_at = utcnow()
+
+        def persist_once(write_db: Session) -> None:
+            service = ExternalIdentityLinkService(write_db, self.settings)
+            write_attempt = service.attempts.require_attempt(
+                attempt_id,
+                browser_secret_hash,
+                for_update=True,
+            )
+            write_user = service.attempts.require_user(write_attempt)
+            if (
+                int(write_user.id) != expected_user_id
+                or write_user.hashed_password != expected_password_hash
+            ):
+                raise ExternalIdentityLinkError("Invalid account password")
+            service._mark_proof(write_attempt, "password", now=proof_verified_at)
+            write_db.flush()
+
+        run_replayable_db_unit(self.db, persist_once)
+        return self.status(attempt_id, browser_secret_hash)
 
     def verify_ldap(
         self,
@@ -118,23 +148,41 @@ class ExternalIdentityLinkService:
         password: str,
     ) -> ExternalIdentityLinkStatus:
         attempt = self.attempts.require_attempt(attempt_id, browser_secret_hash, for_update=True)
-        user = self.attempts.require_user(attempt)
+        self.attempts.require_user(attempt)
         ldap = LDAPAuthService(self.db, settings=self.settings)
         identity = ldap.verify_credentials(provider_id, username, password)
-        linked = self.db.scalar(
-            select(ExternalIdentity).where(
-                ExternalIdentity.user_id == user.id,
-                ExternalIdentity.provider_type == "ldap",
-                ExternalIdentity.provider_id == identity.provider,
-                ExternalIdentity.subject == identity.subject,
-                ExternalIdentity.revoked_at.is_(None),
+        proof_verified_at = utcnow()
+
+        def persist_once(write_db: Session) -> None:
+            service = ExternalIdentityLinkService(write_db, self.settings)
+            attempt = service.attempts.require_attempt(
+                attempt_id,
+                browser_secret_hash,
+                for_update=True,
             )
-        )
-        if linked is None:
-            raise ExternalIdentityLinkError("LDAP identity is not linked to the target account")
-        self._mark_proof(attempt, f"ldap:{identity.provider}")
-        commit_or_rollback(self.db)
-        return self._status_model(attempt, user)
+            user = service.attempts.require_user(attempt)
+            linked = write_db.scalar(
+                select(ExternalIdentity).where(
+                    ExternalIdentity.user_id == user.id,
+                    ExternalIdentity.provider_type == "ldap",
+                    ExternalIdentity.provider_id == identity.provider,
+                    ExternalIdentity.subject == identity.subject,
+                    ExternalIdentity.revoked_at.is_(None),
+                )
+            )
+            if linked is None:
+                raise ExternalIdentityLinkError(
+                    "LDAP identity is not linked to the target account"
+                )
+            service._mark_proof(
+                attempt,
+                f"ldap:{identity.provider}",
+                now=proof_verified_at,
+            )
+            write_db.flush()
+
+        run_replayable_db_unit(self.db, persist_once)
+        return self.status(attempt_id, browser_secret_hash)
 
     def verify_oidc_proof(
         self,
@@ -145,23 +193,44 @@ class ExternalIdentityLinkService:
         issuer: str,
         subject: str,
     ) -> ExternalIdentityLinkStatus:
-        attempt = self.attempts.require_attempt(attempt_id, browser_secret_hash, for_update=True)
-        user = self.attempts.require_user(attempt)
         provider_key = normalize_link_provider_id(provider_id)
-        linked = self.db.scalar(
-            select(ExternalIdentity).where(
-                ExternalIdentity.user_id == user.id,
-                ExternalIdentity.provider_type == "oidc",
-                ExternalIdentity.provider_id == provider_key,
-                ExternalIdentity.issuer == normalize_link_oidc_issuer(issuer),
-                ExternalIdentity.subject == subject,
-                ExternalIdentity.revoked_at.is_(None),
+        normalized_issuer = normalize_link_oidc_issuer(issuer)
+        proof_verified_at = utcnow()
+
+        def persist_once(write_db: Session) -> int:
+            service = ExternalIdentityLinkService(write_db, self.settings)
+            attempt = service.attempts.require_attempt(
+                attempt_id,
+                browser_secret_hash,
+                for_update=True,
             )
-        )
-        if linked is None:
-            raise ExternalIdentityLinkError("OIDC proof identity is not linked to the target account")
-        self._mark_proof(attempt, f"oidc:{provider_key}")
-        commit_or_rollback(self.db)
+            user = service.attempts.require_user(attempt)
+            linked = write_db.scalar(
+                select(ExternalIdentity).where(
+                    ExternalIdentity.user_id == user.id,
+                    ExternalIdentity.provider_type == "oidc",
+                    ExternalIdentity.provider_id == provider_key,
+                    ExternalIdentity.issuer == normalized_issuer,
+                    ExternalIdentity.subject == subject,
+                    ExternalIdentity.revoked_at.is_(None),
+                )
+            )
+            if linked is None:
+                raise ExternalIdentityLinkError(
+                    "OIDC proof identity is not linked to the target account"
+                )
+            service._mark_proof(
+                attempt,
+                f"oidc:{provider_key}",
+                now=proof_verified_at,
+            )
+            write_db.flush()
+            return int(user.id)
+
+        user_id = run_replayable_db_unit(self.db, persist_once)
+        user = self.db.get(User, user_id, populate_existing=True)
+        if user is None:  # pragma: no cover - defensive consistency check
+            raise RuntimeError("Target user could not be reloaded")
         AuditService(self.db).record_action(
             user=user,
             scope="security",
@@ -170,21 +239,31 @@ class ExternalIdentityLinkService:
             entity_id=attempt.id,
             metadata={"method": "oidc", "provider_id": provider_key},
         )
-        return self._status_model(attempt, user)
+        return self.status(attempt_id, browser_secret_hash)
 
     def mark_mfa_verified(
         self,
         attempt_id: str,
         browser_secret_hash: Optional[str],
     ) -> ExternalIdentityLinkStatus:
-        attempt = self.attempts.require_attempt(attempt_id, browser_secret_hash, for_update=True)
-        user = self.attempts.require_user(attempt)
-        if attempt.proof_verified_at is None:
-            raise ExternalIdentityLinkError("Account proof is required before MFA")
-        attempt.mfa_verified_at = utcnow()
-        self.db.add(attempt)
-        commit_or_rollback(self.db)
-        return self._status_model(attempt, user)
+        mfa_verified_at = utcnow()
+
+        def persist_once(write_db: Session) -> None:
+            service = ExternalIdentityLinkService(write_db, self.settings)
+            attempt = service.attempts.require_attempt(
+                attempt_id,
+                browser_secret_hash,
+                for_update=True,
+            )
+            service.attempts.require_user(attempt)
+            if attempt.proof_verified_at is None:
+                raise ExternalIdentityLinkError("Account proof is required before MFA")
+            attempt.mfa_verified_at = mfa_verified_at
+            write_db.add(attempt)
+            write_db.flush()
+
+        run_replayable_db_unit(self.db, persist_once)
+        return self.status(attempt_id, browser_secret_hash)
 
     def confirm(
         self,
@@ -429,9 +508,15 @@ class ExternalIdentityLinkService:
                     seen.add(key)
         return methods
 
-    def _mark_proof(self, attempt: ExternalIdentityLinkAttempt, method: str) -> None:
+    def _mark_proof(
+        self,
+        attempt: ExternalIdentityLinkAttempt,
+        method: str,
+        *,
+        now: Optional[datetime] = None,
+    ) -> None:
         if attempt.status != "pending" or attempt.consumed_at is not None or not attempt.subject:
             raise ExternalIdentityLinkError("External identity link attempt is unavailable")
         attempt.proof_method = method
-        attempt.proof_verified_at = utcnow()
+        attempt.proof_verified_at = now or utcnow()
         self.db.add(attempt)

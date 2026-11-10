@@ -9,7 +9,7 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import run_replayable_db_unit
 from app.db import ExternalIdentity, ExternalIdentityLinkAttempt, ExternalIdentityLinkRequest, User
 from app.core.domain_enums import UserRole
 from app.services.auth_session_service import AuthSessionService
@@ -35,28 +35,52 @@ class ExternalIdentityLinkRequestService:
         reason: Optional[str] = None,
     ) -> ExternalIdentityLinkRequest:
         now = utcnow()
-        request = self._require_pending(request_id, now)
-        request.status = "approved" if approve else "rejected"
-        request.decided_at = now
-        request.decided_by_user_id = superadmin.id
-        request.decision_reason = normalize_optional_string(reason)
-        user = self.db.get(User, request.user_id)
-        if not user:
-            raise ValueError("Target user no longer exists")
-        if approve:
-            self._create_approved_identity(request, user, now)
-        self._sync_attempt_decision(request, approve=approve)
-        request.decision_source = "administrator"
-        self.db.add(request)
-        self._notify_decision(request, user, now, approve=approve)
-        if approve:
-            AuthSessionService(self.db).revoke_all_for_user_in_transaction(
-                user,
-                "external_identity_changed",
-                increment_version=False,
-            )
-        commit_or_rollback(self.db)
-        self.db.refresh(request)
+        superadmin_id = int(superadmin.id)
+        decision_reason = normalize_optional_string(reason)
+        identity_id = str(uuid.uuid4()) if approve else None
+
+        def decide_once(write_db: Session) -> str:
+            service = ExternalIdentityLinkRequestService(write_db)
+            write_superadmin = write_db.get(User, superadmin_id)
+            if write_superadmin is None:
+                raise ValueError("Administrator no longer exists")
+            request = service._require_pending(request_id, now)
+            request.status = "approved" if approve else "rejected"
+            request.decided_at = now
+            request.decided_by_user_id = write_superadmin.id
+            request.decision_reason = decision_reason
+            user = write_db.get(User, request.user_id)
+            if not user:
+                raise ValueError("Target user no longer exists")
+            if approve:
+                service._create_approved_identity(
+                    request,
+                    user,
+                    now,
+                    identity_id=identity_id,
+                )
+            service._sync_attempt_decision(request, approve=approve)
+            request.decision_source = "administrator"
+            write_db.add(request)
+            service._notify_decision(request, user, now, approve=approve)
+            if approve:
+                AuthSessionService(write_db).revoke_all_for_user_in_transaction(
+                    user,
+                    "external_identity_changed",
+                    increment_version=False,
+                    now=now,
+                )
+            write_db.flush()
+            return request.id
+
+        persisted_id = run_replayable_db_unit(self.db, decide_once)
+        request = self.db.get(
+            ExternalIdentityLinkRequest,
+            persisted_id,
+            populate_existing=True,
+        )
+        if request is None:  # pragma: no cover - defensive consistency check
+            raise RuntimeError("External identity link request could not be reloaded")
         return request
 
     def request(
@@ -73,20 +97,38 @@ class ExternalIdentityLinkRequestService:
         full_name: Optional[str],
         picture_url: Optional[str],
     ) -> ExternalIdentityLinkRequest:
-        request = self.request_in_transaction(
-            user=user,
-            provider_type=provider_type,
-            provider_id=provider_id,
-            issuer=issuer,
-            subject=subject,
-            email=email,
-            email_verified=email_verified,
-            request_source=request_source,
-            full_name=full_name,
-            picture_url=picture_url,
+        user_id = int(user.id)
+        now = utcnow()
+        request_id = str(uuid.uuid4())
+
+        def request_once(write_db: Session) -> str:
+            write_user = write_db.get(User, user_id)
+            if write_user is None:
+                raise ValueError("Target user no longer exists")
+            request = ExternalIdentityLinkRequestService(write_db).request_in_transaction(
+                user=write_user,
+                provider_type=provider_type,
+                provider_id=provider_id,
+                issuer=issuer,
+                subject=subject,
+                email=email,
+                email_verified=email_verified,
+                request_source=request_source,
+                full_name=full_name,
+                picture_url=picture_url,
+                now=now,
+                request_id=request_id,
+            )
+            return request.id
+
+        persisted_id = run_replayable_db_unit(self.db, request_once)
+        request = self.db.get(
+            ExternalIdentityLinkRequest,
+            persisted_id,
+            populate_existing=True,
         )
-        commit_or_rollback(self.db)
-        self.db.refresh(request)
+        if request is None:  # pragma: no cover - defensive consistency check
+            raise RuntimeError("External identity link request could not be reloaded")
         return request
 
     def request_in_transaction(
@@ -102,9 +144,12 @@ class ExternalIdentityLinkRequestService:
         request_source: Optional[str] = None,
         full_name: Optional[str],
         picture_url: Optional[str],
+        now: Optional[datetime] = None,
+        request_id: Optional[str] = None,
     ) -> ExternalIdentityLinkRequest:
         """Create or refresh a link request without committing the caller transaction."""
-        now = utcnow()
+        now = now or utcnow()
+        request_id = request_id or str(uuid.uuid4())
         existing = self._find(
             provider_type=provider_type,
             provider_id=provider_id,
@@ -139,6 +184,7 @@ class ExternalIdentityLinkRequestService:
             full_name=full_name,
             picture_url=picture_url,
             now=now,
+            request_id=request_id,
         )
         self.db.add(request)
         self.db.flush()
@@ -193,6 +239,7 @@ class ExternalIdentityLinkRequestService:
         request: ExternalIdentityLinkRequest,
         user: User,
         now: datetime,
+        identity_id: Optional[str],
     ) -> None:
         if self.queries.find_mapping(
             request.provider_type,
@@ -203,7 +250,7 @@ class ExternalIdentityLinkRequestService:
         ):
             raise ValueError("External identity is already linked")
         identity = ExternalIdentity(
-            id=str(uuid.uuid4()),
+            id=identity_id or str(uuid.uuid4()),
             user_id=request.user_id,
             provider_type=request.provider_type,
             provider_id=request.provider_id,
@@ -329,6 +376,7 @@ class ExternalIdentityLinkRequestService:
         full_name: Optional[str],
         picture_url: Optional[str],
         now: datetime,
+        request_id: str,
     ) -> ExternalIdentityLinkRequest:
         if existing:
             existing.status = "pending"
@@ -348,7 +396,7 @@ class ExternalIdentityLinkRequestService:
             existing.picture_url = picture_url
             return existing
         return ExternalIdentityLinkRequest(
-            id=str(uuid.uuid4()),
+            id=request_id,
             user_id=user.id,
             provider_type=provider_type,
             provider_id=provider_id,

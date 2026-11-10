@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import run_replayable_db_unit
 from app.db import ExternalIdentityLinkAttempt, ExternalIdentityLinkRequest, User
 from app.services.external_identity_link_contracts import (
     ExternalIdentityLinkError,
@@ -49,28 +49,38 @@ class ExternalIdentityLinkAttemptService:
         provider_kind = self._normalize_provider_type(provider_type)
         provider_key = normalize_link_provider_id(provider_id)
         normalized_issuer = normalize_link_oidc_issuer(issuer) if provider_kind == "oidc" else None
+        user_id = int(user.id)
+        attempt_id = str(uuid.uuid4())
         now = utcnow()
-        row = ExternalIdentityLinkAttempt(
-            id=str(uuid.uuid4()),
-            user_id=user.id,
-            provider_type=provider_kind,
-            provider_id=provider_key,
-            issuer=normalized_issuer,
-            subject=subject,
-            email=normalize_optional_email(email),
-            email_verified=email_verified,
-            display_name=display_name,
-            picture_url=picture_url,
-            source="login_collision",
-            browser_secret_hash=browser_secret_hash,
-            status="pending",
-            redirect_path=redirect_path,
-            created_at=now,
-            expires_at=now + timedelta(seconds=self.settings.external_identity_link_attempt_ttl_seconds),
-        )
-        self.db.add(row)
-        commit_or_rollback(self.db)
-        self.db.refresh(row)
+        normalized_email = normalize_optional_email(email)
+
+        def create_once(write_db: Session) -> None:
+            row = ExternalIdentityLinkAttempt(
+                id=attempt_id,
+                user_id=user_id,
+                provider_type=provider_kind,
+                provider_id=provider_key,
+                issuer=normalized_issuer,
+                subject=subject,
+                email=normalized_email,
+                email_verified=email_verified,
+                display_name=display_name,
+                picture_url=picture_url,
+                source="login_collision",
+                browser_secret_hash=browser_secret_hash,
+                status="pending",
+                redirect_path=redirect_path,
+                created_at=now,
+                expires_at=now
+                + timedelta(seconds=self.settings.external_identity_link_attempt_ttl_seconds),
+            )
+            write_db.add(row)
+            write_db.flush()
+
+        run_replayable_db_unit(self.db, create_once)
+        row = self.db.get(ExternalIdentityLinkAttempt, attempt_id, populate_existing=True)
+        if row is None:  # pragma: no cover - defensive consistency check
+            raise RuntimeError("External identity link attempt could not be reloaded")
         return row
 
     def create_profile_attempt(
@@ -86,26 +96,36 @@ class ExternalIdentityLinkAttemptService:
         if not browser_secret_hash:
             raise ExternalIdentityLinkError("External identity browser binding is required")
         provider_key = normalize_link_provider_id(provider_id)
+        user_id = int(user.id)
+        attempt_id = str(uuid.uuid4())
         now = utcnow()
-        row = ExternalIdentityLinkAttempt(
-            id=str(uuid.uuid4()),
-            user_id=user.id,
-            provider_type="oidc",
-            provider_id=provider_key,
-            issuer=normalize_link_oidc_issuer(issuer),
-            source="profile",
-            browser_secret_hash=browser_secret_hash,
-            proof_method="session_step_up",
-            proof_verified_at=now,
-            mfa_verified_at=mfa_verified_at,
-            status="pending",
-            redirect_path=redirect_path,
-            created_at=now,
-            expires_at=now + timedelta(seconds=self.settings.external_identity_link_attempt_ttl_seconds),
-        )
-        self.db.add(row)
-        commit_or_rollback(self.db)
-        self.db.refresh(row)
+        normalized_issuer = normalize_link_oidc_issuer(issuer)
+
+        def create_once(write_db: Session) -> None:
+            row = ExternalIdentityLinkAttempt(
+                id=attempt_id,
+                user_id=user_id,
+                provider_type="oidc",
+                provider_id=provider_key,
+                issuer=normalized_issuer,
+                source="profile",
+                browser_secret_hash=browser_secret_hash,
+                proof_method="session_step_up",
+                proof_verified_at=now,
+                mfa_verified_at=mfa_verified_at,
+                status="pending",
+                redirect_path=redirect_path,
+                created_at=now,
+                expires_at=now
+                + timedelta(seconds=self.settings.external_identity_link_attempt_ttl_seconds),
+            )
+            write_db.add(row)
+            write_db.flush()
+
+        run_replayable_db_unit(self.db, create_once)
+        row = self.db.get(ExternalIdentityLinkAttempt, attempt_id, populate_existing=True)
+        if row is None:  # pragma: no cover - defensive consistency check
+            raise RuntimeError("External identity link attempt could not be reloaded")
         return row
 
     def request_admin_approval(
@@ -113,30 +133,48 @@ class ExternalIdentityLinkAttemptService:
         attempt_id: str,
         browser_secret_hash: Optional[str],
     ) -> ExternalIdentityLinkRequest:
-        attempt = self.require_attempt(attempt_id, browser_secret_hash, for_update=True)
-        user = self.require_user(attempt)
-        if attempt.status != "pending" or attempt.consumed_at is not None:
-            raise ExternalIdentityLinkError("External identity link attempt is unavailable")
-        if not attempt.subject:
-            raise ExternalIdentityLinkError("External identity must be validated before requesting approval")
-        request = ExternalIdentityLinkRequestService(self.db).request_in_transaction(
-            user=user,
-            provider_type=attempt.provider_type,
-            provider_id=attempt.provider_id,
-            issuer=attempt.issuer,
-            subject=attempt.subject,
-            email=attempt.email or user.email,
-            email_verified=attempt.email_verified,
-            request_source=attempt.source,
-            full_name=attempt.display_name,
-            picture_url=attempt.picture_url,
+        request_id = str(uuid.uuid4())
+        request_now = utcnow()
+
+        def request_once(write_db: Session) -> str:
+            service = ExternalIdentityLinkAttemptService(write_db, self.settings)
+            attempt = service.require_attempt(attempt_id, browser_secret_hash, for_update=True)
+            user = service.require_user(attempt)
+            if attempt.status != "pending" or attempt.consumed_at is not None:
+                raise ExternalIdentityLinkError("External identity link attempt is unavailable")
+            if not attempt.subject:
+                raise ExternalIdentityLinkError(
+                    "External identity must be validated before requesting approval"
+                )
+            request = ExternalIdentityLinkRequestService(write_db).request_in_transaction(
+                user=user,
+                provider_type=attempt.provider_type,
+                provider_id=attempt.provider_id,
+                issuer=attempt.issuer,
+                subject=attempt.subject,
+                email=attempt.email or user.email,
+                email_verified=attempt.email_verified,
+                request_source=attempt.source,
+                full_name=attempt.display_name,
+                picture_url=attempt.picture_url,
+                now=request_now,
+                request_id=request_id,
+            )
+            attempt.status = "admin_requested"
+            if request.expires_at > attempt.expires_at:
+                attempt.expires_at = request.expires_at
+            write_db.add(attempt)
+            write_db.flush()
+            return request.id
+
+        persisted_id = run_replayable_db_unit(self.db, request_once)
+        request = self.db.get(
+            ExternalIdentityLinkRequest,
+            persisted_id,
+            populate_existing=True,
         )
-        attempt.status = "admin_requested"
-        if request.expires_at > attempt.expires_at:
-            attempt.expires_at = request.expires_at
-        self.db.add(attempt)
-        commit_or_rollback(self.db)
-        self.db.refresh(request)
+        if request is None:  # pragma: no cover - defensive consistency check
+            raise RuntimeError("External identity link request could not be reloaded")
         return request
 
     def require_attempt(
