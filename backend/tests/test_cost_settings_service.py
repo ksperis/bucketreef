@@ -10,6 +10,10 @@ from app.db import CostEndpointOverride, CostModel, StorageEndpoint
 from app.models.cost import CostEndpointOverride as CostEndpointOverridePayload
 from app.models.cost import CostGlobalModel, CostSettings
 from app.services.cost_settings_service import CostSettingsService
+from tests.db_transaction_test_utils import (
+    fail_next_sqlite_statement_with_busy_snapshot,
+    fail_next_transaction_commit,
+)
 
 
 def _endpoint(db_session, name: str = "ceph-cost") -> StorageEndpoint:
@@ -43,22 +47,6 @@ def _override(endpoint_id: int, price: str = "1") -> CostEndpointOverridePayload
         ingress_gb_price=Decimal(price),
         requests_per_1000_price=Decimal(price),
     )
-
-
-def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
-    rollback_calls: list[None] = []
-    original_rollback = db_session.rollback
-
-    def rollback() -> None:
-        rollback_calls.append(None)
-        original_rollback()
-
-    def commit() -> None:
-        raise RuntimeError("commit failed")
-
-    monkeypatch.setattr(db_session, "rollback", rollback)
-    monkeypatch.setattr(db_session, "commit", commit)
-    return rollback_calls
 
 
 def test_cost_settings_round_trip_global_model_and_complete_endpoint_override(db_session):
@@ -140,26 +128,24 @@ def test_cost_settings_clear_model_also_clears_endpoint_overrides(db_session):
     assert db_session.scalar(sa.select(sa.func.count()).select_from(CostEndpointOverride)) == 0
 
 
-def test_cost_settings_save_rolls_back_when_commit_fails(db_session, monkeypatch):
+def test_cost_settings_save_rolls_back_when_commit_fails(db_session):
     endpoint = _endpoint(db_session)
     service = CostSettingsService(db_session)
     service.save_settings(
         CostSettings(model=_global_model(), endpoint_overrides=[_override(endpoint.id)])
     )
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
-
     changed_model = _global_model().model_copy(
         update={"storage_gb_month_price": Decimal("9.000000")}
     )
-    with pytest.raises(RuntimeError, match="commit failed"):
-        service.save_settings(
-            CostSettings(
-                model=changed_model,
-                endpoint_overrides=[_override(endpoint.id, "7")],
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service.save_settings(
+                CostSettings(
+                    model=changed_model,
+                    endpoint_overrides=[_override(endpoint.id, "7")],
+                )
             )
-        )
 
-    assert rollback_calls == [None]
     db_session.expire_all()
     saved = service.get_settings()
     assert saved.model is not None
@@ -167,22 +153,47 @@ def test_cost_settings_save_rolls_back_when_commit_fails(db_session, monkeypatch
     assert saved.endpoint_overrides[0].storage_gb_month_price == Decimal("1.000000")
 
 
-def test_cost_settings_clear_rolls_back_when_commit_fails(db_session, monkeypatch):
+def test_cost_settings_clear_rolls_back_when_commit_fails(db_session):
     endpoint = _endpoint(db_session)
     service = CostSettingsService(db_session)
     service.save_settings(
         CostSettings(model=_global_model(), endpoint_overrides=[_override(endpoint.id)])
     )
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service.save_settings(CostSettings(model=None, endpoint_overrides=[]))
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        service.save_settings(CostSettings(model=None, endpoint_overrides=[]))
-
-    assert rollback_calls == [None]
     db_session.expire_all()
     saved = service.get_settings()
     assert saved.model is not None
     assert len(saved.endpoint_overrides) == 1
+
+
+def test_cost_settings_save_retries_sqlite_busy_snapshot(db_session):
+    endpoint = _endpoint(db_session)
+    service = CostSettingsService(db_session)
+    service.save_settings(
+        CostSettings(model=_global_model(), endpoint_overrides=[_override(endpoint.id)])
+    )
+    changed_model = _global_model().model_copy(
+        update={"storage_gb_month_price": Decimal("9.000000")}
+    )
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE cost_models",
+    ) as statements:
+        saved = service.save_settings(
+            CostSettings(
+                model=changed_model,
+                endpoint_overrides=[_override(endpoint.id, "7")],
+            )
+        )
+
+    assert len(statements) == 2
+    assert saved.model is not None
+    assert saved.model.storage_gb_month_price == Decimal("9.000000")
+    assert saved.endpoint_overrides[0].storage_gb_month_price == Decimal("7.000000")
 
 
 def test_cost_settings_reject_unknown_endpoint(db_session):
