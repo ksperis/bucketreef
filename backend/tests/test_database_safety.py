@@ -24,8 +24,9 @@ from app.core.database import (
     sqlite_integrity_status,
 )
 from app.core import db_transactions
-from app.core.db_transactions import run_db_unit_with_sqlite_retry
+from app.core.db_transactions import run_db_unit_with_sqlite_retry, run_replayable_db_unit
 from app.core.sqlite import begin_sqlite_transaction, configure_sqlite_adapters
+from app.db import User
 
 
 def _request(path: str = "/api/migrations/retry") -> Request:
@@ -262,6 +263,135 @@ def test_postgresql_db_unit_executes_once_without_sqlite_retry(monkeypatch):
     assert run_db_unit_with_sqlite_retry(db, operation) == "ok"
     assert calls == 1
     assert db.rollback_calls == 0
+
+
+def test_postgresql_replayable_unit_keeps_caller_session_and_executes_once(monkeypatch):
+    class FakePostgresSession:
+        def __init__(self) -> None:
+            self.commit_calls = 0
+            self.rollback_calls = 0
+
+        @staticmethod
+        def get_bind():
+            return SimpleNamespace(dialect=SimpleNamespace(name="postgresql"))
+
+        def commit(self) -> None:
+            self.commit_calls += 1
+
+        def rollback(self) -> None:
+            self.rollback_calls += 1
+
+    db = FakePostgresSession()
+    seen_sessions: list[object] = []
+
+    def operation(operation_db) -> str:
+        seen_sessions.append(operation_db)
+        return "ok"
+
+    monkeypatch.setattr(
+        db_transactions.time,
+        "sleep",
+        lambda _delay: pytest.fail("PostgreSQL must not back off"),
+    )
+
+    assert run_replayable_db_unit(db, operation) == "ok"
+    assert seen_sessions == [db]
+    assert db.commit_calls == 1
+    assert db.rollback_calls == 0
+
+
+def test_sqlite_replayable_unit_uses_fresh_session_for_each_retry(tmp_path):
+    db_path = tmp_path / "replayable-busy-snapshot.db"
+    engine = create_engine(
+        f"sqlite:///{db_path.as_posix()}",
+        connect_args={"check_same_thread": False},
+        future=True,
+    )
+    event.listen(engine, "connect", configure_sqlite_connection)
+    event.listen(engine, "begin", begin_sqlite_transaction)
+    SessionLocal = sessionmaker(bind=engine, future=True)
+    attempts = 0
+    attempt_sessions: list[object] = []
+    try:
+        with engine.begin() as connection:
+            connection.exec_driver_sql(
+                "CREATE TABLE replayable_test (id INTEGER PRIMARY KEY, value INTEGER NOT NULL)"
+            )
+            connection.exec_driver_sql(
+                "INSERT INTO replayable_test (id, value) VALUES (1, 0)"
+            )
+
+        with SessionLocal() as request_db:
+            # Simulate the request-scoped authentication/lookup snapshot that
+            # exists before the isolated write unit starts.
+            assert request_db.execute(
+                text("SELECT value FROM replayable_test WHERE id = 1")
+            ).scalar_one() == 0
+
+            def operation(write_db) -> int:
+                nonlocal attempts
+                attempts += 1
+                # Keep references alive so object IDs cannot be recycled
+                # between retry attempts.
+                attempt_sessions.append(write_db)
+                current = write_db.execute(
+                    text("SELECT value FROM replayable_test WHERE id = 1")
+                ).scalar_one()
+                if attempts == 1:
+                    with SessionLocal() as concurrent_writer:
+                        concurrent_writer.execute(
+                            text("UPDATE replayable_test SET value = value + 1 WHERE id = 1")
+                        )
+                        concurrent_writer.commit()
+                write_db.execute(
+                    text("UPDATE replayable_test SET value = :value WHERE id = 1"),
+                    {"value": current + 10},
+                )
+                return current + 10
+
+            assert run_replayable_db_unit(
+                request_db,
+                operation,
+                retry_delays=(0.0,),
+            ) == 11
+
+        with engine.connect() as connection:
+            assert connection.exec_driver_sql(
+                "SELECT value FROM replayable_test WHERE id = 1"
+            ).scalar_one() == 11
+        assert attempts == 2
+        assert attempt_sessions[0] is not attempt_sessions[1]
+    finally:
+        engine.dispose()
+
+
+def test_sqlite_replayable_unit_rejects_pending_caller_changes(tmp_path):
+    db_path = tmp_path / "replayable-pending.db"
+    engine = create_engine(
+        f"sqlite:///{db_path.as_posix()}",
+        connect_args={"check_same_thread": False},
+        future=True,
+    )
+    event.listen(engine, "connect", configure_sqlite_connection)
+    event.listen(engine, "begin", begin_sqlite_transaction)
+    SessionLocal = sessionmaker(bind=engine, future=True)
+    try:
+        with SessionLocal() as request_db:
+            request_db.add(
+                User(
+                    email="pending@example.test",
+                    full_name="Pending",
+                    hashed_password="x",
+                    is_active=True,
+                    role="ui_admin",
+                )
+            )
+            with pytest.raises(RuntimeError, match="require a clean caller session"):
+                run_replayable_db_unit(request_db, lambda _write_db: "unexpected")
+
+            assert len(request_db.new) == 1
+    finally:
+        engine.dispose()
 
 
 def test_sqlite_db_unit_default_retry_budget_handles_burst_contention(monkeypatch):

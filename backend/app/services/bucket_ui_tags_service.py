@@ -2,13 +2,13 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Iterable, Iterator, Literal, Sequence
+from typing import Callable, Iterable, Literal, Sequence, TypeVar
 
 from sqlalchemy import delete, or_, select, tuple_
 from sqlalchemy.orm import Session
 
+from app.core.db_transactions import run_replayable_db_unit
 from app.core.domain_errors import ResourceConflictError, ResourceNotFoundError
 from app.db import BucketUiTagAssignment, TagDefinition
 from app.models.bucket_ui_tags import (
@@ -30,6 +30,7 @@ from app.utils.tagging import (
 
 _BucketUiTagDomain = Literal["bucket_ui_ceph_admin", "bucket_ui_storage_ops"]
 _ASSIGNMENT_TARGET_BATCH_SIZE = 200
+_T = TypeVar("_T")
 
 
 def matches_bucket_ui_tag_filter(
@@ -80,16 +81,17 @@ class BucketUiTagsService:
         self.db = db
         self.tags = TagsService(db)
 
-    @contextmanager
-    def transaction(self) -> Iterator[None]:
-        """Commit UI-tag persistence on success and roll it back on failure."""
+    def run_replayable_unit(
+        self,
+        operation: Callable[["BucketUiTagsService"], _T],
+    ) -> _T:
+        """Run one DB-only tag mutation with the database retry policy."""
 
-        try:
-            yield
-            self.db.commit()
-        except BaseException:
-            self.db.rollback()
-            raise
+        def persist(write_db: Session) -> _T:
+            service = self if write_db is self.db else BucketUiTagsService(write_db)
+            return operation(service)
+
+        return run_replayable_db_unit(self.db, persist)
 
     @staticmethod
     def _validate_domain(domain_kind: str) -> _BucketUiTagDomain:
@@ -493,5 +495,6 @@ class BucketUiTagsService:
     def cleanup_deleted_bucket(self, target: PhysicalBucketTarget) -> None:
         """Persist UI-tag cleanup after a bucket was deleted outside this transaction."""
 
-        with self.transaction():
-            self.remove_all_namespaces_for_bucket(target)
+        self.run_replayable_unit(
+            lambda tags: tags.remove_all_namespaces_for_bucket(target)
+        )

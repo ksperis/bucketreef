@@ -7,6 +7,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from typing import Protocol, TypeVar
 
+from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
@@ -58,6 +59,76 @@ def run_db_unit_with_sqlite_retry(
             if not is_sqlite_busy_error(exc):
                 raise
             db.rollback()
+            try:
+                delay = next(delays)
+            except StopIteration:
+                raise exc
+            time.sleep(delay)
+
+
+def _has_pending_changes(db: Session) -> bool:
+    if db.new or db.deleted:
+        return True
+    return any(db.is_modified(row, include_collections=True) for row in db.dirty)
+
+
+def _fresh_session_bind(db: Session) -> Engine:
+    bind = db.get_bind()
+    if isinstance(bind, Engine):
+        return bind
+    if isinstance(bind, Connection):
+        return bind.engine
+    raise RuntimeError("Replayable SQLite units require an Engine-backed SQLAlchemy session")
+
+
+def run_replayable_db_unit(
+    db: Session,
+    operation: Callable[[Session], _T],
+    *,
+    retry_delays: tuple[float, ...] = SQLITE_BUSY_RETRY_DELAYS_SECONDS,
+) -> _T:
+    """Persist one DB-only unit with provider-specific transaction semantics.
+
+    PostgreSQL and other non-SQLite backends keep using the caller's Session
+    and execute exactly once, preserving existing locking and transaction
+    behavior. SQLite first ends any read-only request transaction, then owns a
+    fresh Session for every attempt so SQLITE_BUSY, including
+    SQLITE_BUSY_SNAPSHOT, can replay the complete local unit from a new
+    snapshot.
+
+    The callback must contain database work only. External side effects must
+    happen before or after this helper because SQLite may replay the callback.
+    """
+
+    if db.get_bind().dialect.name != "sqlite":
+        try:
+            result = operation(db)
+            db.commit()
+            return result
+        except BaseException:
+            db.rollback()
+            raise
+
+    if _has_pending_changes(db):
+        raise RuntimeError(
+            "Replayable SQLite units require a clean caller session before opening "
+            "an isolated write transaction"
+        )
+
+    # Request-scoped sessions commonly contain an authentication or lookup
+    # read transaction. End that snapshot before opening the isolated writer.
+    db.rollback()
+    bind = _fresh_session_bind(db)
+    delays = iter(retry_delays)
+
+    while True:
+        try:
+            with Session(bind=bind, autoflush=False, expire_on_commit=False) as attempt_db:
+                with attempt_db.begin():
+                    return operation(attempt_db)
+        except OperationalError as exc:
+            if not is_sqlite_busy_error(exc):
+                raise
             try:
                 delay = next(delays)
             except StopIteration:
