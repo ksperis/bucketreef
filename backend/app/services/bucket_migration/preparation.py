@@ -3,14 +3,16 @@
 """Durable preparation jobs. Preparing a draft never queues a transfer."""
 from __future__ import annotations
 
+from copy import deepcopy
 from datetime import timedelta
 from contextlib import nullcontext
 from typing import Callable
 
 from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy import or_, select, update
+from sqlalchemy.orm.attributes import set_committed_value
 
-from app.core.db_transactions import run_db_unit_with_sqlite_retry, run_replayable_db_unit
+from app.core.db_transactions import run_replayable_db_unit
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import BucketMigration, BucketMigrationItem
 from app.services.managed_resource_naming import (
@@ -110,11 +112,16 @@ class BucketMigrationPreparationMixin:
         revision: int,
         worker_id: str | None,
     ) -> Callable[[dict | None], None]:
-        def checkpoint(report: dict | None = None) -> None:
-            report_snapshot = dict(report) if report is not None else None
+        def checkpoint(
+            report: dict | None = None,
+            *,
+            item_plan: dict | None = None,
+        ) -> None:
+            report_snapshot = deepcopy(report) if report is not None else None
+            item_plan_snapshot = deepcopy(item_plan) if item_plan is not None else None
+            checkpoint_at = utcnow()
 
-            def checkpoint_once() -> None:
-                current = self.get_migration(migration_id)
+            def validate(current: BucketMigration) -> None:
                 self._assert_workflow_lease()
                 if current.configuration_revision != revision or (
                     worker_id and current.worker_lease_owner != worker_id
@@ -123,15 +130,53 @@ class BucketMigrationPreparationMixin:
                         "Preparation configuration or lease changed"
                     )
                 self._assert_migration_creator_access(current)
+
+            def update_progress(current: BucketMigration) -> None:
                 if report_snapshot is not None:
-                    current.precheck_report = dict(report_snapshot)
+                    current.precheck_report = deepcopy(report_snapshot)
                     current.preparation_completed_items = len(
                         report_snapshot.get("items", [])
                     )
-                current.updated_at = utcnow()
-                self._commit()
+                current.updated_at = checkpoint_at
 
-            run_db_unit_with_sqlite_retry(self.db, checkpoint_once)
+            if item_plan_snapshot is None:
+                def persist_migration(current: BucketMigration) -> None:
+                    validate(current)
+                    update_progress(current)
+
+                self._persist_migration_checkpoint(
+                    migration_id,
+                    persist_migration,
+                )
+                return
+
+            item_id = int(item_plan_snapshot["item_id"])
+
+            def persist_item_plan(
+                current: BucketMigration,
+                current_item: BucketMigrationItem,
+            ) -> None:
+                validate(current)
+                if int(current_item.migration_id) != migration_id:
+                    raise WorkerLeaseLostError(
+                        "Preparation item no longer belongs to this migration"
+                    )
+                current_item.source_count = item_plan_snapshot.get("source_count")
+                current_item.target_count = item_plan_snapshot.get("target_count")
+                current_item.source_snapshot = deepcopy(
+                    item_plan_snapshot.get("source_snapshot")
+                )
+                current_item.execution_strategy = item_plan_snapshot.get(
+                    "execution_strategy"
+                )
+                current_item.updated_at = item_plan_snapshot["updated_at"]
+                update_progress(current)
+
+            self._persist_item_checkpoint(
+                migration_id,
+                item_id,
+                persist_item_plan,
+            )
 
         return checkpoint
 
@@ -150,19 +195,35 @@ class BucketMigrationPreparationMixin:
         if active_checks is None:
             active_checks = migration.preparation_active_checks
         self._preparation_active_checks = active_checks
-        migration.preparation_status = "checking"
-        migration.preparation_active_checks = active_checks
-        migration.preparation_completed_items = 0
         checked_at = utcnow()
-        checkpoint = self._build_preparation_checkpoint(
-            migration,
-            migration_id=migration_id,
-            revision=revision,
-            worker_id=worker_id,
-        )
 
-        self._preparation_checkpoint = checkpoint
+        def persist_checking(current: BucketMigration) -> None:
+            self._assert_workflow_lease()
+            if current.configuration_revision != revision or (
+                worker_id and current.worker_lease_owner != worker_id
+            ):
+                raise WorkerLeaseLostError(
+                    "Preparation configuration or lease changed"
+                )
+            self._assert_migration_creator_access(current)
+            current.preparation_status = "checking"
+            current.preparation_active_checks = active_checks
+            current.preparation_completed_items = 0
+            current.updated_at = checked_at
+
+        self._preparation_checkpoint = None
         try:
+            migration = self._persist_migration_checkpoint(
+                migration_id,
+                persist_checking,
+            )
+            checkpoint = self._build_preparation_checkpoint(
+                migration,
+                migration_id=migration_id,
+                revision=revision,
+                worker_id=worker_id,
+            )
+            self._preparation_checkpoint = checkpoint
             checkpoint()
             self._recover_preparation_effects(migration)
             report = self._precheck_planner.run(
@@ -209,11 +270,16 @@ class BucketMigrationPreparationMixin:
         active_checks: bool,
     ):
         migration_id = int(migration.id)
-        report_snapshot = dict(report)
+        report_snapshot = deepcopy(report)
+        completed_at = utcnow()
 
-        def complete_once():
-            current = self.get_migration(migration_id)
-            report_value = dict(report_snapshot)
+        def complete_once(current: BucketMigration) -> None:
+            self._assert_workflow_lease()
+            if current.configuration_revision != revision:
+                raise WorkerLeaseLostError(
+                    "Preparation configuration changed before completion"
+                )
+            report_value = deepcopy(report_snapshot)
             report_value["configuration_revision"] = revision
             report_value["active_checks"] = active_checks
             report_value["status"] = (
@@ -227,7 +293,7 @@ class BucketMigrationPreparationMixin:
                 if report_value.get("errors")
                 else "ready" if active_checks else "unverified"
             )
-            current.precheck_checked_at = utcnow()
+            current.precheck_checked_at = completed_at
             current.error_message = None
             self._add_event(
                 current,
@@ -239,10 +305,8 @@ class BucketMigrationPreparationMixin:
                     "active_checks": active_checks,
                 },
             )
-            self._commit()
-            return current
 
-        return run_db_unit_with_sqlite_retry(self.db, complete_once)
+        return self._persist_migration_checkpoint(migration_id, complete_once)
 
     def _record_precheck_failure(
         self,
@@ -255,8 +319,7 @@ class BucketMigrationPreparationMixin:
     ):
         error_message = sanitized_error_log_detail(exc)
 
-        def record_once():
-            migration = self.get_migration(migration_id)
+        def record_once(migration: BucketMigration) -> None:
             if worker_id and migration.worker_lease_owner != worker_id:
                 raise WorkerLeaseLostError("Preparation lease lost") from exc
             migration.preparation_status = "blocked"
@@ -286,10 +349,8 @@ class BucketMigrationPreparationMixin:
                 }
             ]
             migration.precheck_report = report
-            self._commit()
-            return migration
 
-        return run_db_unit_with_sqlite_retry(self.db, record_once)
+        return self._persist_migration_checkpoint(migration_id, record_once)
 
     def _release_preparation_lease(
         self,
@@ -319,40 +380,62 @@ class BucketMigrationPreparationMixin:
         if checkpoint:
             checkpoint()
         item_id = int(item.id)
-        payload_snapshot = dict(payload)
+        migration_id = int(item.migration_id)
+        payload_snapshot = deepcopy(payload)
+        updated_at = utcnow()
 
-        def journal_once() -> None:
+        def journal_once(
+            _migration: BucketMigration,
+            current: BucketMigrationItem,
+        ) -> None:
             self._assert_workflow_lease()
-            current = self.db.get(BucketMigrationItem, item_id)
-            if current is None:
-                raise RuntimeError("Migration preparation item disappeared")
             effects = dict(current.preparation_effects or {})
             if name in effects:
                 raise RuntimeError(
                     "An earlier temporary change needs restoration before another test"
                 )
-            effects[name] = dict(payload_snapshot)
+            effects[name] = deepcopy(payload_snapshot)
             current.preparation_effects = effects
-            current.updated_at = utcnow()
-            self._commit()
+            current.updated_at = updated_at
 
-        run_db_unit_with_sqlite_retry(self.db, journal_once)
+        _migration, current = self._persist_item_checkpoint(
+            migration_id,
+            item_id,
+            journal_once,
+        )
+        set_committed_value(
+            item,
+            "preparation_effects",
+            deepcopy(current.preparation_effects),
+        )
+        set_committed_value(item, "updated_at", current.updated_at)
 
     def _clear_preparation_effect(self, item, name: str) -> None:
         item_id = int(item.id)
+        migration_id = int(item.migration_id)
+        updated_at = utcnow()
 
-        def clear_once() -> None:
+        def clear_once(
+            _migration: BucketMigration,
+            current: BucketMigrationItem,
+        ) -> None:
             self._assert_workflow_lease()
-            current = self.db.get(BucketMigrationItem, item_id)
-            if current is None:
-                raise RuntimeError("Migration preparation item disappeared")
             effects = dict(current.preparation_effects or {})
             effects.pop(name, None)
             current.preparation_effects = effects or None
-            current.updated_at = utcnow()
-            self._commit()
+            current.updated_at = updated_at
 
-        run_db_unit_with_sqlite_retry(self.db, clear_once)
+        _migration, current = self._persist_item_checkpoint(
+            migration_id,
+            item_id,
+            clear_once,
+        )
+        set_committed_value(
+            item,
+            "preparation_effects",
+            deepcopy(current.preparation_effects),
+        )
+        set_committed_value(item, "updated_at", current.updated_at)
 
     def _recover_preparation_effects(self, migration) -> None:
         for item in migration.items:
