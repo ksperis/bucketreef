@@ -80,21 +80,6 @@ def _create_endpoint(
     )
 
 
-def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
-    rollback_calls: list[None] = []
-    original_rollback = db_session.rollback
-
-    def rollback() -> None:
-        rollback_calls.append(None)
-        original_rollback()
-
-    def commit() -> None:
-        raise RuntimeError("commit failed")
-
-    monkeypatch.setattr(db_session, "rollback", rollback)
-    monkeypatch.setattr(db_session, "commit", commit)
-    return rollback_calls
-
 def test_webhook_secret_is_one_time_and_encrypted_at_rest(db_session, monkeypatch):
     created = _create_endpoint(
         db_session,
@@ -160,51 +145,113 @@ def test_webhook_list_endpoints_loads_subscriptions_in_one_query(db_session, mon
 
 def test_webhook_create_rolls_back_when_commit_fails(db_session, monkeypatch):
     monkeypatch.setattr("app.services.webhook_service.validate_webhook_target_url", lambda *_args, **_kwargs: None)
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        WebhookService(db_session).create_endpoint(
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            WebhookService(db_session).create_endpoint(
+                WebhookEndpointPayload(
+                    name="failed-create",
+                    url="https://hooks.example.test/failed-create",
+                    enabled=True,
+                    event_types=["*"],
+                )
+            )
+
+    assert db_session.scalar(select(func.count()).select_from(WebhookEndpoint)) == 0
+
+
+def test_webhook_create_retries_busy_snapshot_without_duplicate_subscriptions(db_session, monkeypatch):
+    monkeypatch.setattr("app.services.webhook_service.validate_webhook_target_url", lambda *_args, **_kwargs: None)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO webhook_endpoints",
+    ) as matching_statements:
+        created = WebhookService(db_session).create_endpoint(
             WebhookEndpointPayload(
-                name="failed-create",
-                url="https://hooks.example.test/failed-create",
+                name="busy-create",
+                url="https://hooks.example.test/busy-create",
                 enabled=True,
-                event_types=["*"],
+                event_types=["*", "audit.admin.update_ui_user"],
             )
         )
 
-    assert rollback_calls == [None]
-    assert db_session.scalar(select(func.count()).select_from(WebhookEndpoint)) == 0
+    assert len(matching_statements) == 2
+    assert db_session.scalar(select(func.count()).select_from(WebhookEndpoint)) == 1
+    assert db_session.scalar(
+        select(func.count())
+        .select_from(WebhookEndpointSubscription)
+        .where(WebhookEndpointSubscription.endpoint_id == created.id)
+    ) == 1
 
 
 def test_webhook_update_rolls_back_when_commit_fails(db_session, monkeypatch):
     created = _create_endpoint(db_session, monkeypatch, name="before-update", event_types=["*"])
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        WebhookService(db_session).update_endpoint(
-            created.id,
-            WebhookEndpointPayload(
-                name="after-update",
-                url="https://hooks.example.test/after-update",
-                enabled=True,
-                event_types=["*"],
-            ),
-        )
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            WebhookService(db_session).update_endpoint(
+                created.id,
+                WebhookEndpointPayload(
+                    name="after-update",
+                    url="https://hooks.example.test/after-update",
+                    enabled=True,
+                    event_types=["*"],
+                ),
+            )
 
-    assert rollback_calls == [None]
     db_session.expire_all()
     assert db_session.get(WebhookEndpoint, created.id).name == "before-update"
 
 
+def test_webhook_update_retries_busy_snapshot_without_duplicate_subscriptions(db_session, monkeypatch):
+    created = _create_endpoint(db_session, monkeypatch, name="busy-update-before", event_types=["*"])
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "DELETE FROM webhook_endpoint_subscriptions",
+    ) as matching_statements:
+        updated = WebhookService(db_session).update_endpoint(
+            created.id,
+            WebhookEndpointPayload(
+                name="busy-update-after",
+                url="https://hooks.example.test/busy-update-after",
+                enabled=True,
+                event_types=["audit.admin.update_ui_user"],
+            ),
+        )
+
+    assert len(matching_statements) == 2
+    assert updated.name == "busy-update-after"
+    subscriptions = db_session.scalars(
+        select(WebhookEndpointSubscription).where(
+            WebhookEndpointSubscription.endpoint_id == created.id
+        )
+    ).all()
+    assert [row.event_type for row in subscriptions] == ["audit.admin.update_ui_user"]
+
+
 def test_webhook_delete_rolls_back_when_commit_fails(db_session, monkeypatch):
     created = _create_endpoint(db_session, monkeypatch, name="delete-failure", event_types=["*"])
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
 
-    with pytest.raises(RuntimeError, match="commit failed"):
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            WebhookService(db_session).delete_endpoint(created.id)
+
+    assert db_session.get(WebhookEndpoint, created.id) is not None
+
+
+def test_webhook_delete_retries_busy_snapshot(db_session, monkeypatch):
+    created = _create_endpoint(db_session, monkeypatch, name="busy-delete", event_types=["*"])
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "DELETE FROM webhook_endpoints",
+    ) as matching_statements:
         WebhookService(db_session).delete_endpoint(created.id)
 
-    assert rollback_calls == [None]
-    assert db_session.get(WebhookEndpoint, created.id) is not None
+    assert len(matching_statements) == 2
+    assert db_session.get(WebhookEndpoint, created.id) is None
 
 
 def test_webhook_delete_cascades_persisted_children(db_session, monkeypatch):
@@ -238,29 +285,75 @@ def test_webhook_secret_rotation_rolls_back_when_commit_fails(db_session, monkey
     created = _create_endpoint(db_session, monkeypatch, name="rotate-failure", event_types=["*"])
     endpoint = db_session.get(WebhookEndpoint, created.id)
     original_secret = endpoint.signing_secret
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        WebhookService(db_session).rotate_secret(created.id)
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            WebhookService(db_session).rotate_secret(created.id)
 
-    assert rollback_calls == [None]
     db_session.expire_all()
     assert db_session.get(WebhookEndpoint, created.id).signing_secret == original_secret
 
 
+def test_webhook_secret_rotation_retries_busy_snapshot_with_stable_secret(db_session, monkeypatch):
+    created = _create_endpoint(db_session, monkeypatch, name="busy-rotate", event_types=["*"])
+    generated_secrets: list[str] = []
+
+    def generate_secret() -> str:
+        secret = f"stable-secret-{len(generated_secrets) + 1}"
+        generated_secrets.append(secret)
+        return secret
+
+    monkeypatch.setattr("app.services.webhook_service._new_signing_secret", generate_secret)
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE webhook_endpoints",
+    ) as matching_statements:
+        rotated = WebhookService(db_session).rotate_secret(created.id)
+
+    assert len(matching_statements) == 2
+    assert generated_secrets == ["stable-secret-1"]
+    assert rotated.signing_secret == "stable-secret-1"
+    db_session.expire_all()
+    assert db_session.get(WebhookEndpoint, created.id).signing_secret == "stable-secret-1"
+
+
 def test_webhook_event_publish_rolls_back_when_commit_fails(db_session, monkeypatch):
     _create_endpoint(db_session, monkeypatch, name="publish-failure", event_types=["*"])
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        WebhookEventPublisher(db_session).publish_event(
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            WebhookEventPublisher(db_session).publish_event(
+                event_type="audit.admin.update_ui_user",
+                data={"entity_id": "42"},
+                commit=True,
+            )
+
+    assert db_session.scalar(select(func.count()).select_from(WebhookDelivery)) == 0
+
+
+def test_webhook_event_publish_retries_busy_snapshot_without_duplicate_deliveries(db_session, monkeypatch):
+    first = _create_endpoint(db_session, monkeypatch, name="busy-publish-1", event_types=["*"])
+    second = _create_endpoint(db_session, monkeypatch, name="busy-publish-2", event_types=["*"])
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO webhook_deliveries",
+    ) as matching_statements:
+        delivery_ids = WebhookEventPublisher(db_session).publish_event(
             event_type="audit.admin.update_ui_user",
             data={"entity_id": "42"},
             commit=True,
         )
 
-    assert rollback_calls == [None]
-    assert db_session.scalar(select(func.count()).select_from(WebhookDelivery)) == 0
+    assert len(matching_statements) >= 2
+    assert len(delivery_ids) == 2
+    assert len(set(delivery_ids)) == 2
+    deliveries = db_session.scalars(
+        select(WebhookDelivery).where(WebhookDelivery.delivery_id.in_(delivery_ids))
+    ).all()
+    assert len(deliveries) == 2
+    assert {row.endpoint_id for row in deliveries} == {first.id, second.id}
+    assert len({row.event_id for row in deliveries}) == 1
 
 
 def test_webhook_event_publisher_types_database_queue_failures(db_session, monkeypatch):
