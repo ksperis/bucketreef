@@ -16,6 +16,10 @@ from app.core.domain_enums import UserRole
 from app.models.admin_ldap_import import LDAPImportRequest
 from app.services.admin_ldap_user_import_service import AdminLdapUserImportService
 from app.services.ldap_service import LDAPIdentity
+from tests.db_transaction_test_utils import (
+    fail_next_sqlite_statement_with_busy_snapshot,
+    fail_next_transaction_commit,
+)
 
 
 class FakeLdapService:
@@ -70,28 +74,12 @@ def _service(db_session, identity: LDAPIdentity) -> AdminLdapUserImportService:
     )
 
 
-def _fail_commit_and_track_rollback(db_session, monkeypatch) -> list[None]:
-    rollback_calls: list[None] = []
-    original_rollback = db_session.rollback
-
-    def rollback() -> None:
-        rollback_calls.append(None)
-        original_rollback()
-
-    def commit() -> None:
-        raise RuntimeError("commit failed")
-
-    monkeypatch.setattr(db_session, "rollback", rollback)
-    monkeypatch.setattr(db_session, "commit", commit)
-    return rollback_calls
-
-
 def test_create_ldap_user_creates_passwordless_user_and_identity_atomically(db_session):
     actor = _actor(db_session)
     identity = _identity()
     group = UiGroup(name="LDAP imported users")
     db_session.add(group)
-    db_session.flush()
+    db_session.commit()
     session = SimpleNamespace(id="admin-session")
     service = _service(db_session, identity)
     request = LDAPImportRequest.model_validate(
@@ -138,7 +126,7 @@ def test_create_ldap_user_creates_passwordless_user_and_identity_atomically(db_s
     assert membership.group_id == group.id
 
 
-def test_create_ldap_user_rolls_back_all_rows_when_commit_fails(db_session, monkeypatch):
+def test_create_ldap_user_rolls_back_all_rows_when_commit_fails(db_session):
     actor = _actor(db_session)
     identity = _identity()
     session = SimpleNamespace(id="admin-session")
@@ -161,12 +149,10 @@ def test_create_ldap_user_rolls_back_all_rows_when_commit_fails(db_session, monk
             },
         }
     )
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service.import_user(request, actor=actor, session=session)
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        service.import_user(request, actor=actor, session=session)
-
-    assert rollback_calls == [None]
     assert db_session.scalar(select(User).where(User.email == "rollback-create@example.com")) is None
     assert db_session.scalar(
         select(ExternalIdentity).where(ExternalIdentity.subject == identity.subject)
@@ -250,7 +236,7 @@ def test_link_ldap_identity_preserves_target_and_revokes_credentials(db_session)
     assert api_token.revoked_at is not None
 
 
-def test_link_ldap_identity_rolls_back_credentials_when_commit_fails(db_session, monkeypatch):
+def test_link_ldap_identity_rolls_back_credentials_when_commit_fails(db_session):
     actor = _actor(db_session)
     target = User(
         email="rollback-link@example.test",
@@ -282,15 +268,16 @@ def test_link_ldap_identity_rolls_back_credentials_when_commit_fails(db_session,
         action="link",
         target_user_id=target.id,
     )
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
+    target_id = int(target.id)
+    auth_session_id = str(auth_session.id)
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        service.import_user(request, actor=actor, session=session)
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service.import_user(request, actor=actor, session=session)
 
-    assert rollback_calls == [None]
     db_session.expire_all()
-    persisted_target = db_session.get(User, target.id)
-    persisted_session = db_session.get(AuthSession, auth_session.id)
+    persisted_target = db_session.get(User, target_id)
+    persisted_session = db_session.get(AuthSession, auth_session_id)
     assert persisted_target is not None
     assert persisted_target.auth_version == 4
     assert persisted_session is not None
@@ -298,6 +285,47 @@ def test_link_ldap_identity_rolls_back_credentials_when_commit_fails(db_session,
     assert db_session.scalar(
         select(ExternalIdentity).where(ExternalIdentity.subject == identity.subject)
     ) is None
+
+
+def test_create_ldap_user_sqlite_retry_does_not_repeat_directory_read(db_session):
+    actor = _actor(db_session)
+    identity = _identity()
+    session = SimpleNamespace(id="admin-session")
+    ldap = FakeLdapService(identity)
+    service = AdminLdapUserImportService(db_session, ldap)
+    request = LDAPImportRequest.model_validate(
+        {
+            "selection_token": _selection(actor, session.id, identity),
+            "action": "create",
+            "create": {
+                "email": "busy-retry@example.com",
+                "role": "ui_user",
+                "can_access_ceph_admin": False,
+                "can_access_storage_ops": False,
+                "can_create_manual_private_connections": False,
+                "can_provision_managed_private_connections": False,
+                "allow_multisite_endpoint_switching": False,
+                "manager_tool_access": {},
+                "browser_advanced_features_enabled": False,
+                "group_ids": [],
+            },
+        }
+    )
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO users",
+    ) as matching_statements:
+        created, provider_id = service.import_user(
+            request,
+            actor=actor,
+            session=session,
+        )
+
+    assert provider_id == identity.provider
+    assert created.email == "busy-retry@example.com"
+    assert len(matching_statements) == 2
+    assert ldap.calls == [(identity.provider, identity.dn, identity.subject)]
 
 
 def test_link_ldap_identity_uses_typed_missing_target_error(db_session):
