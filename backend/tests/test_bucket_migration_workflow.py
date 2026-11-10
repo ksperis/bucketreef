@@ -280,6 +280,7 @@ def test_start_precondition_failure_retries_sqlite_busy(prepared, monkeypatch):
 def test_immediate_copy_requires_interruption_confirmation(prepared):
     service, migration, _ = prepared
     migration.mode = "one_shot"
+    service._commit()
     service.run_precheck(migration.id, active_checks=True)
     with pytest.raises(ValueError, match="interruption"):
         service.start_migration(migration.id, configuration_revision=1)
@@ -342,6 +343,7 @@ def test_failed_destination_existence_probe_blocks_precheck(prepared):
 def test_destination_checks_run_without_write_lock(prepared):
     service, migration, _ = prepared
     migration.lock_target_writes = False
+    service._commit()
     service.run_precheck(migration.id, active_checks=True)
     service._precheck_destination.assert_called_once()
 
@@ -358,6 +360,7 @@ def test_changed_destination_blocks_start(prepared):
 def test_same_endpoint_copy_aggregates_success(prepared):
     service, migration, _ = prepared
     migration.use_same_endpoint_copy = True
+    service._commit()
     service._is_same_endpoint = Mock(return_value=True)
     service._precheck_same_endpoint_copy_source_access = Mock(return_value="validated")
     service.run_precheck(migration.id, active_checks=True)
@@ -468,7 +471,7 @@ def test_policy_intent_precedes_mutation_and_survives_interruption(
     )
 
 
-def test_preparation_effect_clear_retries_sqlite_busy(prepared, db_session, monkeypatch):
+def test_preparation_effect_clear_retries_sqlite_busy(prepared, db_session):
     service, migration, _ = prepared
     item = migration.items[0]
     item.preparation_effects = {
@@ -479,27 +482,17 @@ def test_preparation_effect_clear_retries_sqlite_busy(prepared, db_session, monk
         }
     }
     db_session.commit()
-    real_commit = db_session.commit
-    failed = False
-
-    def busy_once():
-        nonlocal failed
-        if not failed and any(
-            isinstance(row, BucketMigrationItem)
-            and row.preparation_effects is None
-            for row in db_session.dirty
-        ):
-            failed = True
-            raise _busy_snapshot_error()
-        return real_commit()
-
-    monkeypatch.setattr(db_session, "commit", busy_once)
     service._workflow_migration_id = migration.id
     service._workflow_worker_id = None
 
-    service._clear_preparation_effect(item, "source_policy")
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE bucket_migration_items",
+    ) as statements:
+        service._clear_preparation_effect(item, "source_policy")
 
-    assert failed is True
+    assert len(statements) >= 2
+    assert item.preparation_effects is None
     db_session.expire_all()
     assert db_session.get(BucketMigrationItem, item.id).preparation_effects is None
 
@@ -792,6 +785,51 @@ def test_precheck_progress_checkpoint_persists_completed_item_count(prepared):
     assert progress_counts == [1]
     assert checked.preparation_completed_items == 1
     assert checked.preparation_status == "ready"
+
+
+def test_precheck_item_plan_checkpoint_retries_without_replaying_planner(
+    prepared,
+    db_session,
+):
+    service, migration, _ = prepared
+    planner_calls = 0
+
+    def run_planner(_migration, *, checked_at, on_progress):
+        nonlocal planner_calls
+        planner_calls += 1
+        report = {
+            "checked_at": checked_at.isoformat(),
+            "items": [{"bucket": "source-bucket"}],
+            "errors": 0,
+        }
+        on_progress(
+            report,
+            item_plan={
+                "item_id": migration.items[0].id,
+                "source_count": 12,
+                "target_count": 3,
+                "source_snapshot": {"versioning": {"enabled": False}},
+                "execution_strategy": "current_only",
+                "updated_at": checked_at,
+            },
+        )
+        return report
+
+    service._precheck_planner.run = Mock(side_effect=run_planner)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE bucket_migration_items",
+    ) as statements:
+        checked = service.run_precheck(migration.id, active_checks=True)
+
+    assert len(statements) >= 2
+    assert planner_calls == 1
+    assert checked.preparation_status == "ready"
+    item = checked.items[0]
+    assert item.source_count == 12
+    assert item.target_count == 3
+    assert item.execution_strategy == "current_only"
 
 
 def test_created_destination_provenance_allows_retry_only_for_own_bucket(prepared):
@@ -1271,6 +1309,7 @@ def test_active_destination_probe_exercises_multipart_tags_and_cleanup(prepared)
     service, migration, _ = prepared
     item = migration.items[0]
     migration.lock_target_writes = False
+    service._commit()
     source = service._resolve_context(migration.source_context_id)
     target = service._resolve_context(migration.target_context_id)
     client = Mock()
@@ -1395,6 +1434,7 @@ def test_probe_interruption_leaves_durable_cleanup_intent(prepared):
     service, migration, _ = prepared
     item = migration.items[0]
     migration.lock_target_writes = False
+    service._commit()
     service._buckets.create_bucket = Mock(side_effect=KeyboardInterrupt())
     source = service._resolve_context(migration.source_context_id)
     target = service._resolve_context(migration.target_context_id)

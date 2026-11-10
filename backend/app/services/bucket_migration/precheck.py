@@ -196,7 +196,7 @@ class BucketMigrationPrecheckPlanner:
         checked_at: Any,
         probe_policy: Any,
         same_endpoint_copy_enabled: bool,
-    ) -> PlannedPrecheckItem:
+    ) -> tuple[PlannedPrecheckItem, dict[str, Any]]:
         checks, add_check = self._create_item_check_collector(
             source_ctx,
             target_ctx,
@@ -229,22 +229,27 @@ class BucketMigrationPrecheckPlanner:
             same_endpoint_copy_enabled=same_endpoint_copy_enabled,
             add_check=add_check,
         )
-        self._store_item_plan(
-            item,
+        item_plan = self._build_item_plan(
+            item_id=int(item.id),
             checked_at=checked_at,
-            source_profile=source.profile,
-            strategy=source_plan.strategy,
-        )
-        return build_planned_item_report(
-            item=item,
             source_object_count=source.object_count,
             target_object_count=target.object_count,
             source_profile=source.profile,
-            target_profile=target.profile,
             strategy=source_plan.strategy,
-            unsupported_features=source_plan.unsupported_features,
-            checks=checks,
-            copy_bucket_settings=migration.copy_bucket_settings,
+        )
+        return (
+            build_planned_item_report(
+                item=item,
+                source_object_count=source.object_count,
+                target_object_count=target.object_count,
+                source_profile=source.profile,
+                target_profile=target.profile,
+                strategy=source_plan.strategy,
+                unsupported_features=source_plan.unsupported_features,
+                checks=checks,
+                copy_bucket_settings=migration.copy_bucket_settings,
+            ),
+            item_plan,
         )
 
     def _inspect_item_buckets(
@@ -268,8 +273,6 @@ class BucketMigrationPrecheckPlanner:
             probe_policy=probe_policy,
             add_check=add_check,
         )
-        item.source_count = source.object_count
-        item.target_count = target.object_count
         return source, target
 
     @staticmethod
@@ -314,17 +317,24 @@ class BucketMigrationPrecheckPlanner:
 
         return checks, add_check
 
-    def _store_item_plan(
-        self,
-        item: Any,
+    @staticmethod
+    def _build_item_plan(
         *,
+        item_id: int,
         checked_at: Any,
+        source_object_count: int | None,
+        target_object_count: int | None,
         source_profile: dict[str, Any] | None,
         strategy: str,
-    ) -> None:
-        item.source_snapshot = source_profile
-        item.execution_strategy = strategy
-        item.updated_at = checked_at
+    ) -> dict[str, Any]:
+        return {
+            "item_id": item_id,
+            "source_count": source_object_count,
+            "target_count": target_object_count,
+            "source_snapshot": source_profile,
+            "execution_strategy": strategy,
+            "updated_at": checked_at,
+        }
 
     def run(
         self, migration: Any, *, checked_at: Any, on_progress=None
@@ -354,7 +364,7 @@ class BucketMigrationPrecheckPlanner:
             if on_progress:
                 on_progress(report)
             self._service._preparation_item = item
-            planned = self._plan_item(
+            planned, item_plan = self._plan_item(
                 source_ctx,
                 target_ctx,
                 item,
@@ -369,7 +379,7 @@ class BucketMigrationPrecheckPlanner:
             )
             report["items"].append(planned.report)
             if on_progress:
-                on_progress(report)
+                on_progress(report, item_plan=item_plan)
             aggregation.add(planned)
 
         return finalize_precheck_report(
