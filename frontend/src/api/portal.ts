@@ -12,7 +12,7 @@ import { filenameFromContentDisposition } from "./contentDisposition";
 import { lastNonEmptyPathSegment } from "../utils/pathSegments";
 import {
   buildJsonPostRequestInit,
-  resolveApiBaseUrl,
+  buildSseUrl,
   streamApiResultWithSse,
   type SseStreamOptions,
 } from "./sseApiStream";
@@ -457,20 +457,15 @@ export function streamPortalDeletedPrefixRestore(
   prefix: string,
   options?: PortalDeletedPrefixRestoreStreamOptions
 ): Promise<PortalDeletedPrefixRestoreResult> {
-  const baseUrl = resolveApiBaseUrl();
   const queryParams = withS3AccountParam(undefined, accountId) ?? {};
-  const query = new URLSearchParams();
-  Object.entries(queryParams).forEach(([key, value]) => {
-    if (value !== undefined && value !== null) {
-      query.set(key, String(value));
-    }
-  });
-  const suffix = query.toString() ? `?${query.toString()}` : "";
   return streamApiResultWithSse<
     PortalDeletedPrefixRestoreProgress,
     PortalDeletedPrefixRestoreResult
   >({
-    url: `${baseUrl}/portal/storage-spaces/${encodeURIComponent(spaceId)}/trash/restore-prefix/stream${suffix}`,
+    url: buildSseUrl(
+      `/portal/storage-spaces/${encodeURIComponent(spaceId)}/trash/restore-prefix/stream`,
+      queryParams,
+    ),
     options,
     requestInit: buildJsonPostRequestInit({ prefix }),
     streamFailedLabel: "Deleted folder restoration stream failed",
@@ -500,20 +495,15 @@ export function streamPortalStorageSpaceVersionCleanup(
   payload: { confirmation: string },
   options?: PortalStorageSpaceVersionCleanupStreamOptions
 ): Promise<PortalStorageSpaceVersionCleanupResult> {
-  const baseUrl = resolveApiBaseUrl();
   const queryParams = withS3AccountParam(undefined, accountId) ?? {};
-  const query = new URLSearchParams();
-  Object.entries(queryParams).forEach(([key, value]) => {
-    if (value !== undefined && value !== null) {
-      query.set(key, String(value));
-    }
-  });
-  const suffix = query.toString() ? `?${query.toString()}` : "";
   return streamApiResultWithSse<
     PortalStorageSpaceVersionCleanupProgress,
     PortalStorageSpaceVersionCleanupResult
   >({
-    url: `${baseUrl}/portal/storage-spaces/${encodeURIComponent(spaceId)}/versions/cleanup/stream${suffix}`,
+    url: buildSseUrl(
+      `/portal/storage-spaces/${encodeURIComponent(spaceId)}/versions/cleanup/stream`,
+      queryParams,
+    ),
     options,
     requestInit: buildJsonPostRequestInit(payload),
     streamFailedLabel: "Storage Space history cleanup stream failed",

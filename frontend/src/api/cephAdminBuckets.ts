@@ -13,7 +13,7 @@ import {
   type BucketListingParams,
 } from "./bucketListingTransport";
 import {
-  resolveApiBaseUrl,
+  buildSseUrl,
   streamApiResultWithSse,
   type SseStreamOptions,
 } from "./sseApiStream";
@@ -143,12 +143,9 @@ export async function streamCephAdminBuckets(
   params?: BucketListingParams,
   options?: SseStreamOptions<CephAdminListingStreamProgress>
 ): Promise<PaginatedCephAdminBucketsResponse> {
-  const baseUrl = resolveApiBaseUrl();
   const query = buildBucketListingQuery(params);
-  const queryText = query.toString();
-  const url = `${baseUrl}/ceph-admin/endpoints/${endpointId}/buckets/stream${queryText ? `?${queryText}` : ""}`;
   return streamApiResultWithSse<CephAdminListingStreamProgress, PaginatedCephAdminBucketsResponse>({
-    url,
+    url: buildSseUrl(`/ceph-admin/endpoints/${endpointId}/buckets/stream`, query),
     options,
     streamFailedLabel: "Advanced search stream failed",
     missingResultMessage: "Advanced search stream ended without a result payload",

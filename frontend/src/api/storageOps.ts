@@ -54,7 +54,7 @@ import {
   type BucketListingParams,
 } from "./bucketListingTransport";
 import {
-  resolveApiBaseUrl,
+  buildSseUrl,
   streamApiResultWithSse,
   type SseStreamOptions,
 } from "./sseApiStream";
@@ -159,12 +159,9 @@ export async function streamStorageOpsBuckets(
   params?: BucketListingParams,
   options?: SseStreamOptions<CephAdminListingStreamProgress>
 ): Promise<PaginatedStorageOpsBucketsResponse> {
-  const baseUrl = resolveApiBaseUrl();
   const query = buildBucketListingQuery(params);
-  const queryText = query.toString();
-  const url = `${baseUrl}/storage-ops/buckets/stream${queryText ? `?${queryText}` : ""}`;
   return streamApiResultWithSse<CephAdminListingStreamProgress, PaginatedStorageOpsBucketsResponse>({
-    url,
+    url: buildSseUrl("/storage-ops/buckets/stream", query),
     options,
     streamFailedLabel: "Advanced search stream failed",
     missingResultMessage: "Advanced search stream ended without a result payload",

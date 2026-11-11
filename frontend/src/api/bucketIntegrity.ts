@@ -9,7 +9,7 @@ import type {
 } from "./bucketOperation";
 import {
   buildJsonPostRequestInit,
-  resolveApiBaseUrl,
+  buildSseUrl,
   streamApiResultWithSse,
   type SseStreamOptions,
 } from "./sseApiStream";
@@ -84,10 +84,8 @@ export function streamManagerBucketIntegrityCheck(
   payload: BucketIntegrityPayload,
   options?: BucketIntegrityStreamOptions
 ): Promise<BucketIntegrityResult> {
-  const baseUrl = resolveApiBaseUrl();
-  const query = new URLSearchParams({ context_id: String(contextId) });
   return streamApiResultWithSse<BucketIntegrityProgress, BucketIntegrityResult>({
-    url: `${baseUrl}/manager/bucket-integrity/stream?${query.toString()}`,
+    url: buildSseUrl("/manager/bucket-integrity/stream", { context_id: contextId }),
     options,
     requestInit: buildJsonPostRequestInit(payload),
     streamFailedLabel: "Bucket integrity check stream failed",
@@ -100,9 +98,10 @@ export function streamCephAdminBucketIntegrityCheck(
   payload: BucketIntegrityRgwTargetPayload,
   options?: BucketIntegrityStreamOptions
 ): Promise<BucketIntegrityResult> {
-  const baseUrl = resolveApiBaseUrl();
   return streamApiResultWithSse<BucketIntegrityProgress, BucketIntegrityResult>({
-    url: `${baseUrl}/ceph-admin/endpoints/${endpointId}/buckets/integrity-check/stream`,
+    url: buildSseUrl(
+      `/ceph-admin/endpoints/${endpointId}/buckets/integrity-check/stream`,
+    ),
     options,
     requestInit: buildJsonPostRequestInit(payload),
     streamFailedLabel: "Bucket integrity check stream failed",
@@ -114,9 +113,8 @@ export function streamStorageOpsBucketIntegrityCheck(
   payload: BucketIntegrityTargetPayload,
   options?: BucketIntegrityStreamOptions
 ): Promise<BucketIntegrityResult> {
-  const baseUrl = resolveApiBaseUrl();
   return streamApiResultWithSse<BucketIntegrityProgress, BucketIntegrityResult>({
-    url: `${baseUrl}/storage-ops/buckets/integrity-check/stream`,
+    url: buildSseUrl("/storage-ops/buckets/integrity-check/stream"),
     options,
     requestInit: buildJsonPostRequestInit(payload),
     streamFailedLabel: "Bucket integrity check stream failed",

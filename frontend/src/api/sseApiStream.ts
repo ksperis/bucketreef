@@ -22,9 +22,25 @@ type OpenSseStreamParams = {
   requestInit?: RequestInit;
 };
 
-export function resolveApiBaseUrl(): string {
+function resolveApiBaseUrl(): string {
   const base = typeof client.defaults.baseURL === "string" && client.defaults.baseURL.trim() ? client.defaults.baseURL : "/api";
   return base.endsWith("/") ? base.slice(0, -1) : base;
+}
+
+export function buildSseUrl(
+  path: string,
+  params?: URLSearchParams | Record<string, unknown>,
+): string {
+  const query = params instanceof URLSearchParams ? params : new URLSearchParams();
+  if (params && !(params instanceof URLSearchParams)) {
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        query.set(key, String(value));
+      }
+    });
+  }
+  const queryText = query.toString();
+  return `${resolveApiBaseUrl()}${path}${queryText ? `?${queryText}` : ""}`;
 }
 
 export function buildJsonPostRequestInit(payload: unknown): RequestInit {

@@ -9,7 +9,7 @@ import type {
 } from "./bucketOperation";
 import {
   buildJsonPostRequestInit,
-  resolveApiBaseUrl,
+  buildSseUrl,
   streamApiResultWithSse,
   type SseStreamOptions,
 } from "./sseApiStream";
@@ -94,10 +94,8 @@ export function streamManagerBucketPurge(
   payload: BucketPurgePayload,
   options?: BucketPurgeStreamOptions
 ): Promise<BucketPurgeResult> {
-  const baseUrl = resolveApiBaseUrl();
-  const query = new URLSearchParams({ context_id: String(contextId) });
   return streamApiResultWithSse<BucketPurgeProgress, BucketPurgeResult>({
-    url: `${baseUrl}/manager/bucket-purge/stream?${query.toString()}`,
+    url: buildSseUrl("/manager/bucket-purge/stream", { context_id: contextId }),
     options,
     requestInit: buildJsonPostRequestInit(payload),
     streamFailedLabel: "Bucket purge stream failed",
@@ -111,10 +109,11 @@ export function streamManagerBucketDeleteWithPurge(
   payload: BucketDeleteWithPurgePayload,
   options?: BucketPurgeStreamOptions
 ): Promise<BucketPurgeResult> {
-  const baseUrl = resolveApiBaseUrl();
-  const query = new URLSearchParams({ context_id: String(contextId) });
   return streamApiResultWithSse<BucketPurgeProgress, BucketPurgeResult>({
-    url: `${baseUrl}/manager/buckets/${encodeURIComponent(bucketName)}/delete/stream?${query.toString()}`,
+    url: buildSseUrl(
+      `/manager/buckets/${encodeURIComponent(bucketName)}/delete/stream`,
+      { context_id: contextId },
+    ),
     options,
     requestInit: buildJsonPostRequestInit(payload),
     streamFailedLabel: "Bucket deletion stream failed",
@@ -127,9 +126,8 @@ export function streamCephAdminBucketPurge(
   payload: BucketPurgeRgwTargetPayload,
   options?: BucketPurgeStreamOptions
 ): Promise<BucketPurgeResult> {
-  const baseUrl = resolveApiBaseUrl();
   return streamApiResultWithSse<BucketPurgeProgress, BucketPurgeResult>({
-    url: `${baseUrl}/ceph-admin/endpoints/${endpointId}/buckets/purge/stream`,
+    url: buildSseUrl(`/ceph-admin/endpoints/${endpointId}/buckets/purge/stream`),
     options,
     requestInit: buildJsonPostRequestInit(payload),
     streamFailedLabel: "Bucket purge stream failed",
@@ -141,9 +139,8 @@ export function streamStorageOpsBucketPurge(
   payload: BucketPurgeTargetPayload,
   options?: BucketPurgeStreamOptions
 ): Promise<BucketPurgeResult> {
-  const baseUrl = resolveApiBaseUrl();
   return streamApiResultWithSse<BucketPurgeProgress, BucketPurgeResult>({
-    url: `${baseUrl}/storage-ops/buckets/purge/stream`,
+    url: buildSseUrl("/storage-ops/buckets/purge/stream"),
     options,
     requestInit: buildJsonPostRequestInit(payload),
     streamFailedLabel: "Bucket purge stream failed",
