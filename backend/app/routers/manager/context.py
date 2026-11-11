@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.domain_enums import ManagedPrivateAccessActiveState
-from app.core.domain_errors import S3AccountNotFoundError, S3ConnectionNotFoundError, S3UserNotFoundError
+from app.core.domain_errors import S3ConnectionNotFoundError, S3UserNotFoundError
 from app.db import User
 from app.services.access_context_contracts import ManagerActor, ManagerSessionPrincipal
 from app.models.app_settings import AppSettings
@@ -34,7 +34,6 @@ from app.services.resource_name_validation import naming_validation_profile
 from app.services.access_key_metadata_service import AccessKeyMetadataService
 from app.services.connection_identity_service import ConnectionIdentityService
 from app.services.s3_account_metrics_service import S3AccountMetricsService
-from app.services.s3_account_repository import S3AccountRepository
 from app.services.s3_connection_query_service import S3ConnectionQueryService
 from app.services.s3_user_metrics_service import S3UserMetricsService
 from app.services.s3_user_query_service import S3UserQueryService
@@ -321,14 +320,6 @@ def _manager_limits(
             max_buckets=max_buckets,
         )
 
-    s3_account = context.source_account
-    if s3_account is None and context.id is not None:
-        try:
-            s3_account = S3AccountRepository(db).get(context.id)
-        except S3AccountNotFoundError:
-            s3_account = None
-    if s3_account is None:
-        return _ManagerLimits()
     (
         quota_max_size_gb,
         quota_max_objects,
@@ -336,7 +327,7 @@ def _manager_limits(
         max_users,
         max_roles,
         max_groups,
-    ) = S3AccountMetricsService().get_limits(s3_account)
+    ) = S3AccountMetricsService().get_limits(context)
     return _ManagerLimits(
         quota_max_size_gb=quota_max_size_gb,
         quota_max_objects=quota_max_objects,

@@ -12,6 +12,7 @@ from app.routers.admin import s3_accounts as admin_accounts_router
 from app.routers.manager import bucket_config_core as manager_bucket_config_core
 from app.routers.manager import buckets as manager_buckets_router
 from app.services.s3_deletion import BucketNotEmptyError
+from app.services.s3_execution_context import S3ExecutionContext
 
 
 class _FakeAuditService:
@@ -195,7 +196,7 @@ def test_manager_create_bucket_passes_versioning_and_location(client: TestClient
     )
     account.id = 11
 
-    app.dependency_overrides[manager_buckets_router.get_s3_execution_context] = lambda: account
+    app.dependency_overrides[manager_buckets_router.get_s3_execution_context] = lambda: S3ExecutionContext.from_account(account)
     app.dependency_overrides[manager_buckets_router.get_buckets_service] = lambda: FakeBucketService()
     app.dependency_overrides[manager_buckets_router.get_audit_service] = lambda: _FakeAuditService()
 
@@ -245,7 +246,7 @@ def test_manager_delete_bucket_returns_structured_not_empty_error(client: TestCl
     )
     account.id = 11
 
-    app.dependency_overrides[manager_buckets_router.get_s3_execution_context] = lambda: account
+    app.dependency_overrides[manager_buckets_router.get_s3_execution_context] = lambda: S3ExecutionContext.from_account(account)
     app.dependency_overrides[manager_buckets_router.get_buckets_service] = lambda: FakeBucketService()
     app.dependency_overrides[manager_buckets_router.get_audit_service] = lambda: _FakeAuditService()
 
@@ -273,7 +274,7 @@ def test_manager_delete_bucket_returns_no_content(client: TestClient):
     )
     account.id = 11
 
-    app.dependency_overrides[manager_buckets_router.get_s3_execution_context] = lambda: account
+    app.dependency_overrides[manager_buckets_router.get_s3_execution_context] = lambda: S3ExecutionContext.from_account(account)
     app.dependency_overrides[manager_buckets_router.get_buckets_service] = lambda: FakeBucketService()
     app.dependency_overrides[manager_buckets_router.get_audit_service] = lambda: _FakeAuditService()
 
@@ -300,7 +301,7 @@ def test_manager_get_bucket_versioning_returns_status(client: TestClient):
     )
     account.id = 12
 
-    app.dependency_overrides[manager_buckets_router.get_s3_execution_context] = lambda: account
+    app.dependency_overrides[manager_buckets_router.get_s3_execution_context] = lambda: S3ExecutionContext.from_account(account)
     app.dependency_overrides[manager_bucket_config_core.get_bucket_configuration_service] = lambda: FakeBucketService()
 
     response = client.get("/api/manager/buckets/demo-bucket/versioning")

@@ -37,6 +37,7 @@ from app.services.s3_account_metrics_service import S3AccountMetricsService
 from app.services.s3_account_quota_service import S3AccountQuotaService
 from app.services.s3_account_repository import S3AccountRepository
 from app.services.s3_account_rgw_context_service import S3AccountRgwContextService
+from app.services.s3_execution_context import S3ExecutionContext
 from app.services.sqlalchemy_pagination import paginate_scalars
 from app.utils.size_units import size_to_bytes
 from app.utils.time import utcnow
@@ -656,7 +657,9 @@ class PortalRequestsService:
         target_value = payload.target_quota_value
         target_unit = payload.target_quota_unit
         target_bytes = size_to_bytes(target_value, target_unit)
-        current_size_gb, current_objects = self.account_metrics.get_quota(row.account)
+        current_size_gb, current_objects = self.account_metrics.get_quota(
+            S3ExecutionContext.from_account(row.account)
+        )
         current_bytes = size_to_bytes(current_size_gb, "GiB") if current_size_gb is not None else None
         if current_bytes is not None and target_bytes is not None:
             if direction == "increase" and target_bytes <= current_bytes:

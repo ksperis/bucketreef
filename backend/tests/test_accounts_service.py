@@ -22,6 +22,7 @@ from app.services.s3_account_rgw_context_service import S3AccountRgwContextServi
 from app.services.s3_account_update_service import S3AccountUpdateService
 from app.services.s3_accounts_service import S3AccountsService
 from app.services.s3_account_query_service import S3AccountQueryService
+from app.services.s3_execution_context import S3ExecutionContext
 from app.db import (
     CostStorageDaily,
     CostUsageDaily,
@@ -403,7 +404,7 @@ def test_account_metrics_usage_uses_runtime_without_monitoring_feature(db_sessio
 
     service = _build_service(db_session, monkeypatch, FakeAdmin())
 
-    assert service.metrics.get_usage(account) == (96, 5, 2)
+    assert service.metrics.get_usage(S3ExecutionContext.from_account(account)) == (96, 5, 2)
     assert admin_calls == [
         {"account_id": None, "uid": "usage-account-admin", "with_stats": True}
     ]
@@ -441,7 +442,7 @@ def test_account_metrics_usage_uses_root_bucket_count_for_explicit_tenant(
 
     service = _build_service(db_session, monkeypatch, FakeAdmin())
 
-    assert service.metrics.get_usage(account) == (128, 4, 1)
+    assert service.metrics.get_usage(S3ExecutionContext.from_account(account)) == (128, 4, 1)
 
 def test_create_account_with_root(db_session, monkeypatch):
     endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
@@ -1069,7 +1070,14 @@ def test_account_metrics_limits_return_quota_and_entity_limits(db_session, monke
         lambda _endpoint: fake_admin,
     )
 
-    assert S3AccountMetricsService().get_limits(account) == (10, 2_000, 8, 20, 12, 6)
+    assert S3AccountMetricsService().get_limits(S3ExecutionContext.from_account(account)) == (
+        10,
+        2_000,
+        8,
+        20,
+        12,
+        6,
+    )
 
 
 def test_account_metrics_limits_do_not_repeat_lookup_without_embedded_quota(db_session, monkeypatch):
@@ -1094,7 +1102,14 @@ def test_account_metrics_limits_do_not_repeat_lookup_without_embedded_quota(db_s
         lambda _endpoint: fake_admin,
     )
 
-    assert S3AccountMetricsService().get_limits(account) == (None, None, 5, None, None, None)
+    assert S3AccountMetricsService().get_limits(S3ExecutionContext.from_account(account)) == (
+        None,
+        None,
+        5,
+        None,
+        None,
+        None,
+    )
 
 
 class FakeRGWAdminImport:
