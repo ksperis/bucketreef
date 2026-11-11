@@ -7,7 +7,7 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.core.db_transactions import run_replayable_db_unit
-from app.db import ManagedPrivateAccess, S3Account, S3Connection, User
+from app.db import ManagedPrivateAccess, S3Account, S3Connection, StorageEndpoint, User
 from app.models.managed_private_access import (
     ManagedIAMPrivateAccessRequest,
     ManagedPrivateAccessResult,
@@ -32,6 +32,7 @@ from app.services.s3_connection_capabilities_service import (
 from app.services.s3_connection_query_service import S3ConnectionQueryService
 from app.utils.connection_rgw_identity import normalize_connection_rgw_identity
 from app.utils.rgw_payloads import extract_rgw_user_identity
+from app.utils.s3_connection_capabilities import DEFAULT_S3_CONNECTION_CAPABILITIES
 from app.utils.time import utcnow
 
 
@@ -120,7 +121,15 @@ class ManagedPrivateAccessConnectionService:
             created_at=created_at,
             updated_at=updated_at,
         )
-        probe_connection = S3Connection(**connection_values)
+        probe_connection = S3Connection(
+            **connection_values,
+            capabilities=dict(DEFAULT_S3_CONNECTION_CAPABILITIES),
+        )
+        if destination.storage_endpoint_id is not None:
+            probe_connection.storage_endpoint = self.db.get(
+                StorageEndpoint,
+                destination.storage_endpoint_id,
+            )
         refresh_connection_detected_capabilities(probe_connection)
         capabilities = probe_connection.capabilities
 
