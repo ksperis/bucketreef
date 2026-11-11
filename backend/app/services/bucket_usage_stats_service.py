@@ -38,7 +38,11 @@ from app.services.operation_lease_service import (
     bucket_usage_stats_bucket_operation_name,
 )
 from app.services.s3_client import S3OperationError
-from app.services.s3_execution_context import ResolvedS3BucketNameMixin, S3ExecutionTarget
+from app.services.s3_execution_context import (
+    ResolvedS3BucketNameMixin,
+    ResolvedS3BucketTarget,
+    S3ExecutionTarget,
+)
 from app.utils.normalize import normalize_optional_string
 from app.utils.s3_errors import format_s3_error, is_s3_feature_unsupported
 from app.utils.time import utcnow
@@ -64,6 +68,28 @@ class BucketUsageStatsResolvedTarget(ResolvedS3BucketNameMixin):
     scope_name: str | None = None
     context_id: str | None = None
     context_name: str | None = None
+
+    @classmethod
+    def from_bucket_target(
+        cls,
+        target: ResolvedS3BucketTarget,
+        *,
+        scope_kind: str,
+        scope_id: str,
+        scope_name: str | None = None,
+        bucket_tenant: str = "",
+    ) -> BucketUsageStatsResolvedTarget:
+        return cls(
+            context=target.context,
+            bucket_name=target.bucket_name,
+            request_bucket_name=target.request_bucket_name,
+            scope_kind=scope_kind,
+            scope_id=scope_id,
+            scope_name=scope_name,
+            bucket_tenant=bucket_tenant,
+            context_id=target.context_id,
+            context_name=target.context_name,
+        )
 
 
 @dataclass(frozen=True)

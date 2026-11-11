@@ -26,8 +26,7 @@ from app.services.ceph_admin_bucket_listing_cache import get_cached_rgw_bucket_e
 from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_bucket_metadata import extract_bucket_identity
 from app.routers.dependencies import get_current_ceph_admin
-from app.services.s3_execution_context import build_ceph_admin_s3_context
-from app.services.rgw_bucket_target import RgwBucketTarget
+from app.services.s3_execution_context import ResolvedS3BucketTarget
 from app.services.bucket_usage_stats_service import (
     BucketUsageStatsAggregateTarget,
     BucketUsageStatsResolvedTarget,
@@ -43,19 +42,17 @@ def _target_for_bucket(
     ctx: CephAdminContext,
     reference: RgwBucketReference,
 ) -> BucketUsageStatsResolvedTarget:
-    context = build_ceph_admin_s3_context(ctx)
-    context_id = f"ceph-admin-{ctx.endpoint.id}"
-    target = RgwBucketTarget.create(ctx.endpoint.id, reference.tenant, reference.name)
-    return BucketUsageStatsResolvedTarget(
-        context=context,
-        bucket_name=target.name,
-        bucket_tenant=target.tenant,
-        request_bucket_name=target.s3_name,
+    target = ResolvedS3BucketTarget.from_ceph_admin(
+        ctx,
+        tenant=reference.tenant,
+        bucket_name=reference.name,
+    )
+    return BucketUsageStatsResolvedTarget.from_bucket_target(
+        target,
         scope_kind="ceph_admin",
         scope_id=str(ctx.endpoint.id),
         scope_name=ctx.endpoint.name,
-        context_id=context_id,
-        context_name=ctx.endpoint.name,
+        bucket_tenant=reference.tenant,
     )
 
 

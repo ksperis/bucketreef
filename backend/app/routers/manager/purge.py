@@ -36,12 +36,7 @@ def stream_manager_bucket_purge(
     require_bucket_management_context(context)
     options = BucketPurgeOptions(parallelism=payload.parallelism, include_versions=payload.include_versions)
     targets = [
-        ResolvedS3BucketTarget(
-            context=context,
-            bucket_name=bucket_name,
-            context_id=context.context_id,
-            context_name=context.name,
-        )
+        ResolvedS3BucketTarget.from_context(context, bucket_name)
         for bucket_name in bucket_names
     ]
     base_metadata = {

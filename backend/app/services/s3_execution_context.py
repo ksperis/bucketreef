@@ -9,6 +9,7 @@ from typing import Any, Callable, Literal, Optional, Protocol, TypeGuard
 from app.db import S3Account, S3Connection, S3User, StorageEndpoint
 from app.services.access_context_contracts import AccountCapabilities
 from app.models.portal_storage_spaces import PortalStorageSpaceSummary
+from app.services.rgw_bucket_target import RgwBucketTarget
 from app.utils.s3_connection_endpoint import resolve_connection_endpoint
 
 
@@ -204,6 +205,37 @@ class ResolvedS3BucketTarget(ResolvedS3BucketNameMixin):
     request_bucket_name: str | None = None
     context_id: str | None = None
     context_name: str | None = None
+
+    @classmethod
+    def from_context(
+        cls,
+        context: S3ExecutionContext,
+        bucket_name: str,
+    ) -> ResolvedS3BucketTarget:
+        return cls(
+            context=context,
+            bucket_name=bucket_name,
+            context_id=context.context_id,
+            context_name=context.name,
+        )
+
+    @classmethod
+    def from_ceph_admin(
+        cls,
+        source: CephAdminS3ContextSource,
+        *,
+        tenant: object,
+        bucket_name: object,
+    ) -> ResolvedS3BucketTarget:
+        context = build_ceph_admin_s3_context(source)
+        target = RgwBucketTarget.create(source.endpoint.id, tenant, bucket_name)
+        return cls(
+            context=context,
+            bucket_name=target.name,
+            request_bucket_name=target.s3_name,
+            context_id=context.context_id,
+            context_name=source.endpoint.name,
+        )
 
 
 def is_ceph_admin_execution_context(

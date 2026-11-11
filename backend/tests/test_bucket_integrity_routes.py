@@ -321,7 +321,7 @@ def test_storage_ops_integrity_route_resolves_authorized_manager_contexts(monkey
 
     def fake_get_s3_execution_context(*, request, context_ref, actor, db):
         captured.setdefault("account_refs", []).append(context_ref)
-        return SimpleNamespace(name="S3 User 1")
+        return SimpleNamespace(context_id=context_ref, name="S3 User 1")
 
     monkeypatch.setattr(storage_ops_integrity, "stream_resolved_bucket_integrity_check", fake_stream)
     monkeypatch.setattr(storage_ops_integrity, "get_s3_execution_context", fake_get_s3_execution_context)

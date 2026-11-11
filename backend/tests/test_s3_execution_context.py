@@ -2,7 +2,51 @@
 # Licensed under the Apache License, Version 2.0
 from types import SimpleNamespace
 
-from app.services.s3_execution_context import S3ExecutionContext, build_ceph_admin_s3_context
+from app.services.s3_execution_context import (
+    ResolvedS3BucketTarget,
+    S3ExecutionContext,
+    build_ceph_admin_s3_context,
+)
+
+
+def test_resolved_bucket_target_from_context_preserves_execution_identity() -> None:
+    context = S3ExecutionContext(
+        context_id="conn-9",
+        context_kind="connection",
+        name="connection-a",
+        access_key="AKIA-CONNECTION",
+        secret_key="SECRET-CONNECTION",
+    )
+
+    target = ResolvedS3BucketTarget.from_context(context, "bucket-a")
+
+    assert target.context is context
+    assert target.bucket_name == "bucket-a"
+    assert target.request_bucket_name is None
+    assert target.context_id == "conn-9"
+    assert target.context_name == "connection-a"
+
+
+def test_resolved_bucket_target_from_ceph_admin_qualifies_tenant_bucket() -> None:
+    endpoint = SimpleNamespace(id=7, name="Ceph RGW")
+    source = SimpleNamespace(
+        endpoint=endpoint,
+        access_key="AKIA-ADMIN",
+        secret_key="SECRET-ADMIN",
+    )
+
+    target = ResolvedS3BucketTarget.from_ceph_admin(
+        source,
+        tenant="tenant_a",
+        bucket_name="bucket-a",
+    )
+
+    assert target.bucket_name == "bucket-a"
+    assert target.request_bucket_name == "tenant_a:bucket-a"
+    assert target.context_id == "ceph-admin-7"
+    assert target.context_name == "Ceph RGW"
+    assert target.context.storage_endpoint is endpoint
+    assert target.context.effective_rgw_credentials() == ("AKIA-ADMIN", "SECRET-ADMIN")
 
 
 def test_build_ceph_admin_s3_context_preserves_endpoint_identity_and_credentials() -> None:

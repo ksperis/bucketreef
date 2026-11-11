@@ -31,20 +31,18 @@ from app.services.bucket_usage_stats_service import (
 )
 from app.services.buckets_service import BucketsService, get_buckets_service
 from app.services.s3_client import S3OperationError
-from app.services.s3_execution_context import S3ExecutionContext
+from app.services.s3_execution_context import ResolvedS3BucketTarget, S3ExecutionContext
 
 router = APIRouter(tags=["manager-bucket-usage-stats"])
 logger = logging.getLogger(__name__)
 
 def _target_for_bucket(context: S3ExecutionContext, bucket_name: str) -> BucketUsageStatsResolvedTarget:
-    return BucketUsageStatsResolvedTarget(
-        context=context,
-        bucket_name=bucket_name,
+    target = ResolvedS3BucketTarget.from_context(context, bucket_name)
+    return BucketUsageStatsResolvedTarget.from_bucket_target(
+        target,
         scope_kind="manager",
         scope_id=context.context_id,
         scope_name=context.name,
-        context_id=context.context_id,
-        context_name=context.name,
     )
 
 
