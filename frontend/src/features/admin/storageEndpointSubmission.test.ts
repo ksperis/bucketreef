@@ -96,14 +96,19 @@ describe("feature-dependent Ceph service credentials", () => {
     expect(result.errors).toHaveProperty("supervision_access_key");
   });
 
-  it("keeps both write-only stored pairs during an external metadata edit", () => {
+  it("keeps all write-only stored pairs during an external metadata edit", () => {
     const form = createEmptyForm();
     Object.assign(form, { name: "Ceph", endpoint_url: "https://ceph.example.test", service_identity_mode: "external",
-      admin_access_key: "ADMIN", has_admin_secret: true, has_runtime_secret: true, has_supervision_secret: true });
+      has_admin_secret: true, has_runtime_secret: true, has_supervision_secret: true });
     const result = buildStorageEndpointSubmission(form, true);
     expect(result.errors).toBeUndefined();
+    expect(result.payload).not.toHaveProperty("admin_access_key");
+    expect(result.payload).not.toHaveProperty("admin_secret_key");
     expect(result.payload).not.toHaveProperty("runtime_access_key");
     expect(result.payload).not.toHaveProperty("supervision_access_key");
+
+    form.admin_access_key = "REPLACEMENT";
+    expect(buildStorageEndpointSubmission(form, true).errors).toHaveProperty("admin_secret_key");
   });
   it("saves a manual Ceph Admin pair independently of managed Runtime/Supervision", () => {
     const form = createEmptyForm();
@@ -119,7 +124,7 @@ describe("feature-dependent Ceph service credentials", () => {
   it("preserves the stored Ceph Admin pair while disabling authorization", () => {
     const form = createEmptyForm();
     Object.assign(form, { name: "Ceph", endpoint_url: "https://ceph.example.test", has_ceph_admin_secret: true,
-      admin_access_key: "ADMIN", has_admin_secret: true });
+      has_admin_secret: true });
     const result = buildStorageEndpointSubmission(form, true);
     expect(result.payload).toHaveProperty("ceph_admin_allowed", false);
     expect(result.payload).not.toHaveProperty("ceph_admin_access_key");

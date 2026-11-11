@@ -149,7 +149,6 @@ export function EndpointHttpStatusBadge({
 export function resolveCredentialCheckView({
   accessKey,
   secretKey,
-  storedAccessKey,
   hasStoredSecret,
   reuseStoredCredentials = false,
   endpointReady,
@@ -159,7 +158,6 @@ export function resolveCredentialCheckView({
 }: {
   accessKey: string;
   secretKey: string;
-  storedAccessKey?: string | null;
   hasStoredSecret: boolean;
   reuseStoredCredentials?: boolean;
   endpointReady: boolean;
@@ -171,15 +169,10 @@ export function resolveCredentialCheckView({
   const normalizedSecretKey = secretKey.trim();
   if (!normalizedAccessKey && !normalizedSecretKey && !reuseStoredCredentials) return null;
 
-  const canReuseStoredSecret = Boolean(
-    hasStoredSecret &&
-      normalizedAccessKey &&
-      normalizedAccessKey === (storedAccessKey ?? "").trim(),
-  );
   const canReuseStoredPair = Boolean(
     reuseStoredCredentials && hasStoredSecret && !normalizedAccessKey && !normalizedSecretKey,
   );
-  if (!canReuseStoredPair && (!normalizedAccessKey || (!normalizedSecretKey && !canReuseStoredSecret))) {
+  if (!canReuseStoredPair && (!normalizedAccessKey || !normalizedSecretKey)) {
     return { status: "incomplete", message: incompleteMessage };
   }
   if (!endpointReady) {

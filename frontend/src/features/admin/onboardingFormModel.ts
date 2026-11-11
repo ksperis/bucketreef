@@ -176,13 +176,11 @@ export function resolveOnboardingEndpointState({
 
 export function buildOnboardingEndpointValidationPayload({
   draft,
-  selectedEndpoint,
   identityMode,
   state,
   credentials,
 }: {
   draft: OnboardingDraft;
-  selectedEndpoint: StorageEndpoint | null;
   identityMode: OnboardingIdentityMode;
   state: OnboardingEndpointState;
   credentials: OnboardingCredentialDraft;
@@ -196,8 +194,7 @@ export function buildOnboardingEndpointValidationPayload({
     verify_tls: state.validationVerifyTls,
     check_http: true,
     admin_access_key: state.needsAdmin
-      ? credentials.adminAccessKey.trim() ||
-        (state.storedAdminCredentials ? selectedEndpoint?.admin_access_key ?? null : null)
+      ? credentials.adminAccessKey.trim() || null
       : null,
     admin_secret_key: state.needsAdmin
       ? credentials.adminSecretKey.trim() || null

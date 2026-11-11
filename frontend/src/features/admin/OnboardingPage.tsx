@@ -235,7 +235,6 @@ export default function OnboardingPage() {
     () =>
       buildOnboardingEndpointValidationPayload({
         draft,
-        selectedEndpoint,
         identityMode,
         state: endpointState,
         credentials: credentialDraft,
@@ -245,7 +244,6 @@ export default function OnboardingPage() {
       draft,
       endpointState,
       identityMode,
-      selectedEndpoint,
     ],
   );
   const endpointValidation = useStorageEndpointLiveValidation({

@@ -88,7 +88,6 @@ class StorageEndpointFeatureDetector:
         *,
         stored_access_key: Optional[str] = None,
         stored_secret_key: Optional[str] = None,
-        reuse_matching_access_secret: bool = True,
     ) -> _FeatureDetectionCredentials:
         normalized_access_key = normalize_optional_string(access_key)
         secret_value = (
@@ -104,13 +103,6 @@ class StorageEndpointFeatureDetector:
             and stored_secret_key
         ):
             normalized_access_key = stored_access_key
-            normalized_secret_key = stored_secret_key
-        if (
-            reuse_matching_access_secret
-            and normalized_access_key
-            and not normalized_secret_key
-            and normalized_access_key == (stored_access_key or "")
-        ):
             normalized_secret_key = stored_secret_key
         return _FeatureDetectionCredentials(
             normalized_access_key,
@@ -195,7 +187,6 @@ class StorageEndpointFeatureDetector:
         kind: str,
         *,
         allow_reuse: bool,
-        reuse_matching_access_secret: bool = True,
     ) -> _FeatureDetectionCredentials:
         stored_access_key, stored_secret_key = self._stored_identity_credentials(
             stored_endpoint,
@@ -207,7 +198,6 @@ class StorageEndpointFeatureDetector:
             getattr(payload, f"{kind}_secret_key"),
             stored_access_key=stored_access_key,
             stored_secret_key=stored_secret_key,
-            reuse_matching_access_secret=reuse_matching_access_secret,
         )
 
     def _context(
@@ -251,7 +241,6 @@ class StorageEndpointFeatureDetector:
                 stored_endpoint,
                 "ceph_admin",
                 allow_reuse=allow_stored_secret_reuse,
-                reuse_matching_access_secret=False,
             ),
         )
 

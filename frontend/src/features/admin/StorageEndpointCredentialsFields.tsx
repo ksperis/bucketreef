@@ -37,11 +37,10 @@ type Props = {
   onReconcile?: () => void;
   reconciling?: boolean;
   configurationDirty?: boolean;
-  storedAdminAccessKey?: string | null;
 };
 
 /** Each operational identity has its own credentials and validation. */
-function CredentialFields({ kind, label, required = false, form, setForm, readOnly, editing, errors, storedAdminAccessKey }: Props & {
+function CredentialFields({ kind, label, required = false, form, setForm, readOnly, editing, errors }: Props & {
   kind: CredentialKind;
   label: string;
   required?: boolean;
@@ -50,36 +49,31 @@ function CredentialFields({ kind, label, required = false, form, setForm, readOn
   const access = `${kind}_access_key` as const;
   const secret = `${kind}_secret_key` as const;
   const stored = `has_${kind}_secret` as const;
-  const storedServicePair = kind !== "admin" && editing && form[stored];
-  const replacementHint = storedServicePair
+  const storedPair = editing && form[stored];
+  const replacingPair = Boolean(form[access].trim() || form[secret].trim());
+  const replacementHint = storedPair && !replacingPair
     ? text("leaveKeysEmpty")
     : undefined;
   const replacementHintId = useId();
-  const canReuseAdminSecret = kind === "admin" && editing && form[stored]
-    && form[access].trim() === storedAdminAccessKey?.trim();
-  const secretHint = replacementHint ? undefined : canReuseAdminSecret
-    ? text("leaveSecretEmpty")
-    : required ? text("enterSecretForIdentity") : undefined;
+  const pairRequired = (required && !storedPair) || replacingPair;
+  const secretHint = replacementHint ? undefined : pairRequired ? text("enterSecretForIdentity") : undefined;
   const change = (field: typeof access | typeof secret, value: string) => {
     setForm(previous => ({ ...previous, [field]: value }));
   };
   return <div className="settings-fields">
-    {readOnly && kind !== "admin" ? <div className="settings-stack">
+    {readOnly ? <div className="settings-stack">
       <p className="settings-label">{text("credentialsFor", { label })}</p>
       <div className="settings-readonly">{form[stored] ? text("configuredValuesHidden") : text("notConfigured")}</div>
     </div> :
     <div className="settings-fields sm:grid-cols-2">
-      <UiInput label={text("accessKey", { label })} value={form[access]} readOnly={readOnly} required={required && !storedServicePair}
+      <UiInput label={text("accessKey", { label })} value={form[access]} required={pairRequired}
         aria-describedby={replacementHint ? replacementHintId : undefined}
         error={errors[access]} onChange={event => change(access, event.target.value)} />
-      {readOnly ? <div className="settings-stack">
-        <p className="settings-label">{text("secretKey", { label })}</p>
-        <div className="settings-readonly">{form[stored] ? text("storedValueHidden") : text("notConfigured")}</div>
-      </div> : <UiInput label={text("secretKey", { label })} type="password" autoComplete="new-password"
-        value={form[secret]} required={required && !storedServicePair && !canReuseAdminSecret} error={errors[secret]}
+      <UiInput label={text("secretKey", { label })} type="password" autoComplete="new-password"
+        value={form[secret]} required={pairRequired} error={errors[secret]}
         aria-describedby={replacementHint ? replacementHintId : undefined}
         hint={secretHint}
-        onChange={event => change(secret, event.target.value)} />}
+        onChange={event => change(secret, event.target.value)} />
     </div>}
     {replacementHint && !readOnly && <p id={replacementHintId} className="settings-description">{replacementHint}</p>}
   </div>;
@@ -106,7 +100,7 @@ function savedStatusLabel(identity: ServiceIdentity | undefined, text: StorageEn
   return labels[identity.status];
 }
 
-function ExternalCredentialFields(props: Props & { kind: "runtime" | "supervision" | "ceph_admin"; label: string; required: boolean }) {
+function ExternalCredentialFields(props: Props & { kind: CredentialKind; label: string; required: boolean }) {
   const { text } = useStorageEndpointI18n();
   const { kind, label, form, errors } = props;
   const [replacing, setReplacing] = useState(false);
@@ -222,7 +216,7 @@ export default function StorageEndpointCredentialsFields(props: Props) {
       <div className="settings-stack">
         {adminCheck && <div className="flex flex-wrap items-center gap-2"><CredentialStatusBadge {...adminCheck} /></div>}
         {adminCheck?.status === "misconfigured" && adminCheck.message && <UiInlineMessage tone="error">{adminCheck.message}</UiInlineMessage>}
-        <CredentialFields {...props} kind="admin" label={text("adminLabel")} required={required.runtime || (form.service_identity_mode === "managed" && required.supervision)} />
+        <ExternalCredentialFields {...props} kind="admin" label={text("adminLabel")} required={required.runtime || (form.service_identity_mode === "managed" && required.supervision)} />
         {adminCheck?.status === "valid" && permissions && <UiDetails className="settings-stack"
           defaultOpen={!permissions.users_read || !permissions.users_write || !permissions.accounts_read || !permissions.accounts_write}>
           <summary className="settings-label">{text("adminOpsPermissions")}</summary>
