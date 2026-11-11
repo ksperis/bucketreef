@@ -29,7 +29,6 @@ from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import (
     ResolvedS3BucketTarget,
     S3ExecutionContext,
-    S3ExecutionTarget,
 )
 from app.utils.time import utcnow
 
