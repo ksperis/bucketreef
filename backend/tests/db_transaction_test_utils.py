@@ -61,3 +61,33 @@ def fail_next_sqlite_statement_with_busy_snapshot(
         yield matching_statements
     finally:
         event.remove(bind, "before_cursor_execute", fail_once)
+
+
+@contextmanager
+def fail_next_sqlite_statement_with_operational_error(
+    db: Session,
+    statement_prefix: str,
+    *,
+    occurrence: int = 1,
+) -> Iterator[list[str]]:
+    """Fail one selected matching SQL statement with a non-retryable DB error."""
+
+    bind = db.get_bind()
+    matching_statements: list[str] = []
+
+    def fail_once(_connection, _cursor, statement, _parameters, _context, _executemany) -> None:
+        if not statement.startswith(statement_prefix):
+            return
+        matching_statements.append(statement)
+        if len(matching_statements) == occurrence:
+            raise OperationalError(
+                statement,
+                (),
+                sqlite3.OperationalError("injected database failure"),
+            )
+
+    event.listen(bind, "before_cursor_execute", fail_once)
+    try:
+        yield matching_statements
+    finally:
+        event.remove(bind, "before_cursor_execute", fail_once)

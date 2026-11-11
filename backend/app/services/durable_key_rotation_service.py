@@ -14,7 +14,7 @@ from app.core.domain_enums import (
     MANAGED_SERVICE_IDENTITY_KINDS,
     SERVICE_IDENTITY_ROTATION_KEY_TYPES,
 )
-from app.core.db_transactions import commit_or_rollback
+from app.core.db_transactions import run_replayable_db_unit
 from app.db import (
     EndpointServiceIdentity,
     KeyRotationIntent,
@@ -67,30 +67,76 @@ class DurableKeyRotationService:
         self.identities = identity_service or EndpointServiceIdentityService(db, actor=actor)
         self.identity_validation = self.identities.validation
 
-    def _audit(
+    def _audit_checkpoint(
         self,
-        endpoint: StorageEndpoint,
-        intent: KeyRotationIntent,
+        *,
+        endpoint_id: int,
+        key_type: str,
+        target_id: int,
+        actor_email: str,
+        phase: str,
         action: str,
     ) -> None:
         AuditService(self.db).record_action(
-            user=self.actor, user_email=intent.actor_email if self.actor is None else None,
-            scope="admin", action=f"key_rotation.{action}", entity_type="storage_endpoint", entity_id=str(endpoint.id),
-            metadata={"endpoint_id": endpoint.id, "key_type": intent.key_type, "target_id": intent.target_id,
-                      "account_id": intent.target_id if intent.key_type == "account" else None,
-                      "executor": "admin_ops", "workflow": "key-rotation", "phase": intent.phase},
+            user=self.actor,
+            user_email=actor_email if self.actor is None else None,
+            scope="admin",
+            action=f"key_rotation.{action}",
+            entity_type="storage_endpoint",
+            entity_id=str(endpoint_id),
+            metadata={
+                "endpoint_id": endpoint_id,
+                "key_type": key_type,
+                "target_id": target_id,
+                "account_id": target_id if key_type == "account" else None,
+                "executor": "admin_ops",
+                "workflow": "key-rotation",
+                "phase": phase,
+            },
         )
 
-    def _commit_checkpoint(
-        self,
-        endpoint: StorageEndpoint,
-        intent: KeyRotationIntent,
-        action: str,
-    ) -> None:
-        """Persist one durable rotation checkpoint before auditing it."""
+    @staticmethod
+    def _target_model(key_type: str):
+        if key_type in IDENTITY_TYPES:
+            return EndpointServiceIdentity
+        if key_type == "account":
+            return S3Account
+        if key_type == "s3_user":
+            return S3User
+        return StorageEndpoint
 
-        commit_or_rollback(self.db)
-        self._audit(endpoint, intent, action)
+    @classmethod
+    def _target_from_db(
+        cls,
+        db: Session,
+        endpoint_id: int,
+        key_type: str,
+        target_id: int,
+        *,
+        populate_existing: bool = False,
+    ) -> RotationTarget:
+        model = cls._target_model(key_type)
+        target = db.get(model, target_id, populate_existing=populate_existing)
+        owner_endpoint_id = (
+            target.id
+            if isinstance(target, StorageEndpoint)
+            else target.endpoint_id
+            if isinstance(target, EndpointServiceIdentity)
+            else target.storage_endpoint_id
+            if target is not None
+            else None
+        )
+        if target is None or owner_endpoint_id != endpoint_id:
+            raise ValueError("Rotation target no longer belongs to this endpoint.")
+        if key_type in SERVICE_TYPES and (
+            target.kind != SERVICE_TYPES[key_type] or target.mode != "managed"
+        ):
+            raise ValueError("Only managed service identities can be rotated.")
+        if key_type == "ceph_admin" and (
+            target.kind != "ceph_admin" or target.mode != "external"
+        ):
+            raise ValueError("Ceph Admin rotation requires the configured external identity.")
+        return target
 
     def _target(
         self,
@@ -98,19 +144,13 @@ class DurableKeyRotationService:
         key_type: str,
         target_id: int,
     ) -> RotationTarget:
-        model = EndpointServiceIdentity if key_type in IDENTITY_TYPES else S3Account if key_type == "account" else S3User if key_type == "s3_user" else StorageEndpoint
-        target = self.db.scalar(
-            select(model)
-            .where(model.id == target_id)
-            .execution_options(populate_existing=True)
+        return self._target_from_db(
+            self.db,
+            endpoint.id,
+            key_type,
+            target_id,
+            populate_existing=True,
         )
-        if target is None or ((target.id if model == StorageEndpoint else target.endpoint_id if model == EndpointServiceIdentity else target.storage_endpoint_id) != endpoint.id):
-            raise ValueError("Rotation target no longer belongs to this endpoint.")
-        if key_type in SERVICE_TYPES and (target.kind != SERVICE_TYPES[key_type] or target.mode != "managed"):
-            raise ValueError("Only managed service identities can be rotated.")
-        if key_type == "ceph_admin" and (target.kind != "ceph_admin" or target.mode != "external"):
-            raise ValueError("Ceph Admin rotation requires the configured external identity.")
-        return target
 
     @staticmethod
     def _credentials(target: RotationTarget) -> tuple[str | None, str | None]:
@@ -368,22 +408,45 @@ class DurableKeyRotationService:
         )
         self._require_current_access_key(admin, payload, old_access)
 
-        intent = KeyRotationIntent(
-            endpoint_id=endpoint.id,
+        endpoint_id = endpoint.id
+        target_id = target.id
+        actor_email = self.actor.email if self.actor else "system"
+        prepared_at = utcnow()
+        intent_values = {
+            "endpoint_id": endpoint_id,
+            "key_type": key_type,
+            "target_id": target_id,
+            "rgw_uid": uid,
+            "tenant": tenant,
+            "rgw_endpoint": resolve_rgw_admin_api_endpoint(endpoint),
+            "old_access_key": old_access,
+            "new_access_key": secrets.token_hex(10).upper(),
+            "new_secret_key": secrets.token_urlsafe(32),
+            "deactivate_only": deactivate_only,
+            "phase": "prepared",
+            "actor_email": actor_email,
+            "created_at": prepared_at,
+            "updated_at": prepared_at,
+        }
+
+        def persist_prepared(write_db: Session) -> int:
+            persisted = KeyRotationIntent(**intent_values)
+            write_db.add(persisted)
+            write_db.flush()
+            return int(persisted.id)
+
+        intent_id = run_replayable_db_unit(self.db, persist_prepared)
+        self._audit_checkpoint(
+            endpoint_id=endpoint_id,
             key_type=key_type,
-            target_id=target.id,
-            rgw_uid=uid,
-            tenant=tenant,
-            rgw_endpoint=resolve_rgw_admin_api_endpoint(endpoint),
-            old_access_key=old_access,
-            new_access_key=secrets.token_hex(10).upper(),
-            new_secret_key=secrets.token_urlsafe(32),
-            deactivate_only=deactivate_only,
+            target_id=target_id,
+            actor_email=actor_email,
             phase="prepared",
-            actor_email=self.actor.email if self.actor else "system",
+            action="prepared",
         )
-        self.db.add(intent)
-        self._commit_checkpoint(endpoint, intent, "prepared")
+        intent = self.db.get(KeyRotationIntent, intent_id, populate_existing=True)
+        if intent is None:  # pragma: no cover - defensive consistency check
+            raise RuntimeError("Rotation intent could not be reloaded after preparation.")
         return intent
 
     def _validate_pending_intent(
@@ -493,14 +556,58 @@ class DurableKeyRotationService:
             intent.new_access_key,
             intent.new_secret_key,
         )
-        self._replace_credentials(
-            target,
-            intent.new_access_key,
-            intent.new_secret_key,
+        endpoint_id = endpoint.id
+        target_id = target.id
+        intent_id = intent.id
+        actor_email = intent.actor_email
+        new_access_key = intent.new_access_key
+        new_secret_key = intent.new_secret_key
+
+        def persist_activated(write_db: Session) -> None:
+            persisted_intent = write_db.get(KeyRotationIntent, intent_id)
+            if persisted_intent is None:
+                raise ValueError("Pending rotation no longer exists.")
+            if (
+                persisted_intent.new_access_key != new_access_key
+                or persisted_intent.new_secret_key != new_secret_key
+            ):
+                raise ValueError("Pending rotation candidate changed unexpectedly.")
+            persisted_target = self._target_from_db(
+                write_db,
+                endpoint_id,
+                key_type,
+                target_id,
+            )
+            self._replace_credentials(
+                persisted_target,
+                new_access_key,
+                new_secret_key,
+            )
+            persisted_intent.phase = "activated"
+            persisted_intent.last_error = None
+            write_db.flush()
+
+        run_replayable_db_unit(self.db, persist_activated)
+        self._audit_checkpoint(
+            endpoint_id=endpoint_id,
+            key_type=key_type,
+            target_id=target_id,
+            actor_email=actor_email,
+            phase="activated",
+            action="activated",
         )
-        intent.phase, intent.last_error = "activated", None
-        self._commit_checkpoint(endpoint, intent, "activated")
+        self._target_from_db(
+            self.db,
+            endpoint_id,
+            key_type,
+            target_id,
+            populate_existing=True,
+        )
+        intent = self.db.get(KeyRotationIntent, intent_id, populate_existing=True)
+        if intent is None:  # pragma: no cover - defensive consistency check
+            raise RuntimeError("Rotation intent could not be reloaded after activation.")
         if key_type == "endpoint_admin":
+            self.db.get(StorageEndpoint, endpoint_id, populate_existing=True)
             return self.identities.client_factory(endpoint)
         return admin
 
@@ -579,35 +686,40 @@ class DurableKeyRotationService:
         exc: BaseException,
     ) -> None:
         self.db.rollback()
-        persisted = pending_rotation(self.db, endpoint.id, key_type, target_id)
-        if persisted is not None:
-            persisted.last_error = (
-                "Rotation pending; check credentials, permissions and RGW connectivity, "
-                "then retry rotation."
-            )
+        endpoint_id = endpoint.id
+        pending_error = (
+            "Rotation pending; check credentials, permissions and RGW connectivity, "
+            "then retry rotation."
+        )
+        validation_error = (
+            "Service rotation validation failed; check credentials and permissions, "
+            "then retry."
+        )
 
+        def persist_failure(write_db: Session) -> bool:
+            persisted = pending_rotation(write_db, endpoint_id, key_type, target_id)
+            if persisted is not None:
+                persisted.last_error = pending_error
+            if key_type in SERVICE_TYPES and isinstance(exc, ReplacementValidationError):
+                persisted_target = write_db.get(EndpointServiceIdentity, target_id)
+                if persisted_target is not None:
+                    persisted_target.last_error = validation_error
+                    persisted_target.status = "error"
+            if persisted is not None or (
+                key_type in SERVICE_TYPES and isinstance(exc, ReplacementValidationError)
+            ):
+                write_db.flush()
+            return persisted is not None
+
+        run_replayable_db_unit(self.db, persist_failure)
         if key_type not in SERVICE_TYPES:
-            if persisted is not None:
-                commit_or_rollback(self.db)
             return
-        target = self.db.get(EndpointServiceIdentity, target_id)
+        target = self.db.get(EndpointServiceIdentity, target_id, populate_existing=True)
         if target is None:
-            if persisted is not None:
-                commit_or_rollback(self.db)
             return
         if isinstance(exc, ManagedIdentityKeyDriftError):
-            # record_key_drift commits the shared session, including the pending
-            # rotation error above, before it records the audit event.
             self.identities.record_key_drift(endpoint, target, exc)
             return
-        if isinstance(exc, ReplacementValidationError):
-            target.last_error = (
-                "Service rotation validation failed; check credentials and permissions, "
-                "then retry."
-            )
-            target.status = "error"
-        if persisted is not None or isinstance(exc, ReplacementValidationError):
-            commit_or_rollback(self.db)
 
     @staticmethod
     def _validate_rotation_request(key_type: str, *, deactivate_only: bool) -> None:
@@ -657,12 +769,47 @@ class DurableKeyRotationService:
         target: RotationTarget,
         intent: KeyRotationIntent,
     ) -> None:
-        self.db.delete(intent)
+        endpoint_id = endpoint.id
+        target_id = target.id
+        intent_id = intent.id
+        actor_email = intent.actor_email
+        phase = intent.phase
+        reconciled_at = utcnow()
+
+        def persist_completed(write_db: Session) -> None:
+            persisted_intent = write_db.get(KeyRotationIntent, intent_id)
+            if persisted_intent is None:
+                raise ValueError("Pending rotation no longer exists.")
+            if key_type in IDENTITY_TYPES:
+                persisted_target = self._target_from_db(
+                    write_db,
+                    endpoint_id,
+                    key_type,
+                    target_id,
+                )
+                persisted_target.last_error = None
+                persisted_target.status = "ready"
+                persisted_target.last_reconciled_at = reconciled_at
+            write_db.delete(persisted_intent)
+            write_db.flush()
+
+        run_replayable_db_unit(self.db, persist_completed)
+        self._audit_checkpoint(
+            endpoint_id=endpoint_id,
+            key_type=key_type,
+            target_id=target_id,
+            actor_email=actor_email,
+            phase=phase,
+            action="completed",
+        )
         if key_type in IDENTITY_TYPES:
-            target.last_error = None
-            target.status = "ready"
-            target.last_reconciled_at = utcnow()
-        self._commit_checkpoint(endpoint, intent, "completed")
+            self._target_from_db(
+                self.db,
+                endpoint_id,
+                key_type,
+                target_id,
+                populate_existing=True,
+            )
 
     def rotate(
         self,
