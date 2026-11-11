@@ -7,9 +7,10 @@ from dataclasses import dataclass
 import logging
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
+from app.core.db_transactions import acquire_sqlite_write_transaction
 from app.core.domain_errors import CompensationFailureError
 from app.db import AccountIAMUser, PortalIAMRevocation, S3Account, User
 from app.services.effective_access_service import EffectiveAccessService
@@ -23,6 +24,15 @@ from app.utils.account_roles import (
 
 PortalRoleMap = dict[tuple[int, int], PortalAccountRoleValue | None]
 logger = logging.getLogger(__name__)
+
+
+def acquire_portal_role_write_transaction(db: Session) -> None:
+    """Become the SQLite writer before local role mutations and Portal IAM I/O."""
+
+    def acquire_once(write_db: Session) -> None:
+        write_db.execute(text("UPDATE users SET id = id WHERE 0"))
+
+    acquire_sqlite_write_transaction(db, acquire_once)
 
 
 def effective_portal_account_ids(db: Session, user: User) -> list[int]:

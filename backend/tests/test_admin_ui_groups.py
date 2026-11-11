@@ -279,6 +279,28 @@ def test_ui_group_create_rolls_back_when_commit_fails(db_session, monkeypatch):
     ) == 0
 
 
+def test_ui_group_create_retries_sqlite_write_intent_before_mutation(db_session):
+    payload = UiGroupCreate(
+        name="Busy group",
+        can_access_ceph_admin=False,
+        can_access_storage_ops=False,
+        can_create_manual_private_connections=False,
+        can_provision_managed_private_connections=False,
+        allow_multisite_endpoint_switching=False,
+        manager_tool_access={},
+        browser_advanced_features_enabled=False,
+    )
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE users SET id =",
+    ) as statements:
+        group = UiGroupsService(db_session).create_group(payload)
+
+    assert len(statements) == 2
+    assert db_session.get(UiGroup, group.id) is not None
+
+
 def test_ui_groups_service_get_group_raises_typed_not_found(db_session):
     with pytest.raises(UiGroupNotFoundError, match="UI group not found"):
         UiGroupsService(db_session).get_group(987654321)

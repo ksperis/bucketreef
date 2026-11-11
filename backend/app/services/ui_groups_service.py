@@ -35,6 +35,7 @@ from app.services.association_sync import (
 from app.services.association_validation import ensure_association_ids_exist, ensure_shared_s3_connections
 from app.services.manager_tool_access import manager_tool_column_values
 from app.services.portal_role_sync import (
+    acquire_portal_role_write_transaction,
     capture_effective_portal_roles,
     commit_portal_role_changes,
 )
@@ -81,6 +82,7 @@ class UiGroupsService:
             user_ids=affected_user_ids,
             account_ids=affected_account_ids,
         )
+        acquire_portal_role_write_transaction(self.db)
         manager_tool_access = payload.manager_tool_access
         now = utcnow()
         group = UiGroup(
@@ -121,6 +123,7 @@ class UiGroupsService:
             user_ids=affected_user_ids,
             account_ids=affected_account_ids,
         )
+        acquire_portal_role_write_transaction(self.db)
         self._apply_group_update(group, payload)
         group.updated_at = utcnow()
         self.db.add(group)
@@ -196,6 +199,7 @@ class UiGroupsService:
             user_ids=affected_user_ids,
             account_ids=affected_account_ids,
         )
+        acquire_portal_role_write_transaction(self.db)
         self.db.delete(group)
         self.db.flush()
         commit_portal_role_changes(

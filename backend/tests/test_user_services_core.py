@@ -563,11 +563,24 @@ def test_deactivating_user_revokes_existing_portal_iam_identity(
     )
     install_portal_revocation_fakes(monkeypatch, fake_iam)
 
-    updated = UserUpdateService(db_session).update_user(user.id, UserUpdate(is_active=False))
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE users SET id =",
+    ) as statements:
+        updated = UserUpdateService(db_session).update_user(user.id, UserUpdate(is_active=False))
 
+    assert len(statements) == 2
     assert updated.is_active is False
     assert fake_iam.key_exists is False
     assert fake_iam.user_exists is False
+    assert [call for call in fake_iam.calls if call[0] == "update_access_key_status"] == [
+        (
+            "update_access_key_status",
+            f"portal-{membership_source}",
+            f"AK-{membership_source}",
+            "Inactive",
+        )
+    ]
     assert (
         db_session.scalars(
             select(AccountIAMUser).where(

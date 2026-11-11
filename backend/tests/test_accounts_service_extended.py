@@ -5,7 +5,10 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import select
 
-from tests.db_transaction_test_utils import fail_next_transaction_commit
+from tests.db_transaction_test_utils import (
+    fail_next_sqlite_statement_with_busy_snapshot,
+    fail_next_transaction_commit,
+)
 from tests.feature_policy_fixtures import enable_manager_features
 from app.db import S3Account, S3AccountDeletion, StorageEndpoint, User, UserS3Account
 from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, StorageProvider, UserRole
@@ -389,30 +392,35 @@ def test_update_account_adds_and_removes_links_with_quota_request(db_session, mo
     monkeypatch.setattr(service.quota, "update", lambda *args, **kwargs: quota_calls.append(args))
     monkeypatch.setattr(service.metrics, "get_quota", lambda *args, **kwargs: (12.5, 42))
 
-    updated = service.update_account(
-        account.id,
-        S3AccountUpdate(
-            quota_max_size_gb=1.0,
-            quota_max_objects=100,
-            user_links=[
-                AccountUserLinkInput(
-                    user_id=keep_user.id,
-                    manager_role=ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value,
-                    portal_role=None,
-                    allow_manager_browser_data_access=False,
-                ),
-                AccountUserLinkInput(
-                    user_id=add_user.id,
-                    manager_role=None,
-                    portal_role=PortalAccountRole.PORTAL_USER.value,
-                    allow_manager_browser_data_access=False,
-                ),
-            ],
-        ),
-    )
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE users SET id =",
+    ) as statements:
+        updated = service.update_account(
+            account.id,
+            S3AccountUpdate(
+                quota_max_size_gb=1.0,
+                quota_max_objects=100,
+                user_links=[
+                    AccountUserLinkInput(
+                        user_id=keep_user.id,
+                        manager_role=ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value,
+                        portal_role=None,
+                        allow_manager_browser_data_access=False,
+                    ),
+                    AccountUserLinkInput(
+                        user_id=add_user.id,
+                        manager_role=None,
+                        portal_role=PortalAccountRole.PORTAL_USER.value,
+                        allow_manager_browser_data_access=False,
+                    ),
+                ],
+            ),
+        )
+    assert len(statements) == 2
     assert updated.quota_max_size_gb == 12.5
     assert updated.quota_max_objects == 42
-    assert quota_calls
+    assert len(quota_calls) == 1
     assert sorted(link.user_id for link in updated.user_links) == sorted([keep_user.id, add_user.id])
     # Non-admin UI role should be normalized to UI_USER on assignment
     db_session.refresh(add_user)
