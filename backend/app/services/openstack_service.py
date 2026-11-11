@@ -11,7 +11,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback, run_replayable_db_unit
+from app.core.db_transactions import run_replayable_db_unit
 from app.db import AuthSession, User
 from app.db.openstack import OpenStackCloud, OpenStackConnection, OpenStackProjectContext, OpenStackProjectCredential, OpenStackSession
 from app.models.execution_context import (
@@ -191,17 +191,47 @@ class OpenStackService:
             raise OpenStackError("connection_not_found", "OpenStack connection not found", 404)
         return row
 
-    def _session(self, user: User, auth_id: str, connection: OpenStackConnection, *, expected_id: str | None = None) -> OpenStackSession:
+    def _session(
+        self,
+        user: User,
+        auth_id: str,
+        connection: OpenStackConnection,
+        *,
+        expected_id: str | None = None,
+        persist_expiration: bool = True,
+    ) -> OpenStackSession:
         self._auth(user, auth_id)
         self.cloud(user, connection.cloud_id)
         row = self.db.scalar(select(OpenStackSession).where(
             OpenStackSession.connection_id == connection.id, OpenStackSession.auth_session_id == auth_id,
         ).execution_options(populate_existing=True))
-        if row is not None and row.expires_at <= utcnow() and row.token:
-            self.db.execute(delete(OpenStackProjectCredential).where(OpenStackProjectCredential.session_id == row.id))
-            row.token = None
-            commit_or_rollback(self.db)
-        if not row or not row.token or row.cloud_version != connection.cloud.config_version or row.expires_at <= utcnow() or (expected_id is not None and row.id != expected_id):
+        now = utcnow()
+        if (
+            persist_expiration
+            and row is not None
+            and row.expires_at <= now
+            and row.token
+        ):
+            session_id = str(row.id)
+
+            def persist_expiration_cleanup(write_db: Session) -> None:
+                current = write_db.get(OpenStackSession, session_id)
+                if (
+                    current is None
+                    or not current.token
+                    or current.expires_at > now
+                ):
+                    return
+                write_db.execute(
+                    delete(OpenStackProjectCredential).where(
+                        OpenStackProjectCredential.session_id == session_id
+                    )
+                )
+                current.token = None
+
+            run_replayable_db_unit(self.db, persist_expiration_cleanup)
+            row = self.db.get(OpenStackSession, session_id, populate_existing=True)
+        if not row or not row.token or row.cloud_version != connection.cloud.config_version or row.expires_at <= now or (expected_id is not None and row.id != expected_id):
             raise OpenStackError("reauthentication_required", "Reconnect to OpenStack")
         return row
 
@@ -650,7 +680,13 @@ class OpenStackService:
                 .execution_options(populate_existing=True)
             )
             connection = scoped.owned(current_user, connection_id)
-            session = scoped._session(current_user, auth_id, connection, expected_id=session_id)
+            session = scoped._session(
+                current_user,
+                auth_id,
+                connection,
+                expected_id=session_id,
+                persist_expiration=False,
+            )
             context = write_db.scalar(select(OpenStackProjectContext).where(
                 OpenStackProjectContext.connection_id == connection.id,
                 OpenStackProjectContext.project_id == project_id,
@@ -726,7 +762,13 @@ class OpenStackService:
                 raise OpenStackError("reauthentication_required", "The BucketReef session is no longer active")
             scoped._auth(current_user, auth_id, lock=True)
             connection = scoped.owned(current_user, connection_id)
-            scoped._session(current_user, auth_id, connection, expected_id=session_id)
+            scoped._session(
+                current_user,
+                auth_id,
+                connection,
+                expected_id=session_id,
+                persist_expiration=False,
+            )
             current = write_db.get(OpenStackProjectCredential, credential_id)
             if current is None or current.context_id != context_id:
                 raise OpenStackError("reauthentication_required", "Reconnect to OpenStack")
@@ -812,8 +854,14 @@ class OpenStackService:
         )
         now = utcnow()
         if credential is not None and credential.expires_at <= now:
-            self.db.delete(credential)
-            commit_or_rollback(self.db)
+            credential_id = str(credential.id)
+
+            def persist_expired_credential_cleanup(write_db: Session) -> None:
+                current = write_db.get(OpenStackProjectCredential, credential_id)
+                if current is not None and current.expires_at <= now:
+                    write_db.delete(current)
+
+            run_replayable_db_unit(self.db, persist_expired_credential_cleanup)
             credential = None
         if credential is None or not credential.secret_key or credential.expires_at <= utcnow():
             raise OpenStackError(
@@ -832,53 +880,98 @@ class OpenStackService:
     ) -> None:
         if credential.validated_at > utcnow() - timedelta(seconds=60):
             return
-        session_id, key_id = session.id, credential.access_key
+        user_id = int(user.id)
+        connection_id = str(context.connection.id)
+        context_id = str(context.id)
+        project_id = str(context.project_id)
+        target_id = str(context.target_id)
+        target_region_id = str(context.region_id)
+        target_endpoint_url = str(context.endpoint_url)
+        target_interface = str(context.endpoint_interface)
+        target_service_type = str(context.service_type)
+        session_id = str(session.id)
+        credential_id = str(credential.id)
+        key_id = str(credential.access_key)
+        secret_key = credential.secret_key
         access = self.project_access(
             user,
             auth_id,
-            context.connection.id,
-            context.project_id,
+            connection_id,
+            project_id,
         )
         key = next(
             (
                 item
                 for item in access["credentials"]
-                if item["access"] == key_id and item["secret"] == credential.secret_key
+                if item["access"] == key_id and item["secret"] == secret_key
             ),
             None,
         )
-        if key is None:
-            self.db.delete(credential)
-            commit_or_rollback(self.db)
-            raise OpenStackError(
-                "reauthentication_required",
-                "EC2 credential changed; select a valid credential",
-            )
         target = next(
-            (item for item in access["targets"] if item["target_id"] == context.target_id),
+            (item for item in access["targets"] if item["target_id"] == target_id),
             None,
         )
         target_matches = target is not None and all(
             (
-                target["region_id"] == context.region_id,
-                target["endpoint_url"] == context.endpoint_url,
-                target["interface"] == context.endpoint_interface,
-                target["service_type"] == context.service_type,
+                target["region_id"] == target_region_id,
+                target["endpoint_url"] == target_endpoint_url,
+                target["interface"] == target_interface,
+                target["service_type"] == target_service_type,
             )
         )
-        if not target_matches:
-            self.db.delete(credential)
-            commit_or_rollback(self.db)
+        validated_at = utcnow()
+        key_expires_at = key["expires_at"] if key is not None else None
+
+        def persist_revalidation(write_db: Session) -> str:
+            scoped = self if write_db is self.db else OpenStackService(write_db)
+            current_user = write_db.get(User, user_id, populate_existing=True)
+            if current_user is None:
+                raise OpenStackError(
+                    "reauthentication_required",
+                    "The BucketReef session is no longer active",
+                )
+            scoped._auth(current_user, auth_id, lock=True)
+            connection = scoped.owned(current_user, connection_id)
+            scoped._session(
+                current_user,
+                auth_id,
+                connection,
+                expected_id=session_id,
+                persist_expiration=False,
+            )
+            current = write_db.get(OpenStackProjectCredential, credential_id)
+            if (
+                current is None
+                or str(current.session_id) != session_id
+                or str(current.context_id) != context_id
+                or current.access_key != key_id
+                or current.secret_key != secret_key
+            ):
+                raise OpenStackError(
+                    "reauthentication_required",
+                    "Reconnect to OpenStack and select this project",
+                )
+            if key is None:
+                write_db.delete(current)
+                return "credential_changed"
+            if not target_matches:
+                write_db.delete(current)
+                return "target_changed"
+            current.validated_at = validated_at
+            current.expires_at = min(current.expires_at, key_expires_at)
+            return "valid"
+
+        revalidation = run_replayable_db_unit(self.db, persist_revalidation)
+        if revalidation == "credential_changed":
+            raise OpenStackError(
+                "reauthentication_required",
+                "EC2 credential changed; select a valid credential",
+            )
+        if revalidation == "target_changed":
             raise OpenStackError(
                 "reauthentication_required",
                 "OpenStack S3 region changed; select the project again",
             )
-        self._auth(user, auth_id, lock=True)
-        self._session(user, auth_id, context.connection, expected_id=session_id)
-        self.db.refresh(credential)
-        credential.validated_at = utcnow()
-        credential.expires_at = min(credential.expires_at, key["expires_at"])
-        commit_or_rollback(self.db)
 
     def _attach_execution_guard(
         self,

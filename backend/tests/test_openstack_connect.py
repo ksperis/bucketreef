@@ -728,6 +728,77 @@ def test_expired_revalidation_fails_closed_and_never_switches_key(db_session, se
     assert db_session.scalar(select(OpenStackProjectCredential.id)) is None
 
 
+def test_revalidation_delete_retries_sqlite_busy_without_repeating_keystone(
+    db_session, setup_cloud, monkeypatch
+):
+    service, user, auth, _, ctx = connect(db_session, setup_cloud)
+    credential = db_session.scalar(select(OpenStackProjectCredential))
+    credential.validated_at = utcnow() - timedelta(seconds=61)
+    db_session.commit()
+    access_calls = 0
+
+    def project_access(_client, identity, _project):
+        nonlocal access_calls
+        access_calls += 1
+        return {
+            "targets": [setup_cloud[1].copy()],
+            "credentials": [
+                {
+                    "access": "OTHER",
+                    "secret": "other",
+                    "expires_at": identity.expires_at,
+                }
+            ],
+        }
+
+    monkeypatch.setattr(KeystoneClient, "project_access", project_access)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session, "DELETE FROM openstack_project_credentials"
+    ) as matching_statements:
+        with pytest.raises(OpenStackError, match="EC2 credential changed"):
+            service.resolve(user, auth.id, ctx)
+
+    assert access_calls == 1
+    assert len(matching_statements) == 2
+    assert db_session.scalar(select(OpenStackProjectCredential.id)) is None
+
+
+def test_revalidation_update_retries_sqlite_busy_without_repeating_keystone(
+    db_session, setup_cloud, monkeypatch
+):
+    service, user, auth, _, ctx = connect(db_session, setup_cloud)
+    credential = db_session.scalar(select(OpenStackProjectCredential))
+    credential.validated_at = utcnow() - timedelta(seconds=61)
+    db_session.commit()
+    access_calls = 0
+
+    def project_access(_client, identity, _project):
+        nonlocal access_calls
+        access_calls += 1
+        return {
+            "targets": [setup_cloud[1].copy()],
+            "credentials": [
+                {
+                    "access": "EC2-ACCESS",
+                    "secret": "PRIVATE-EC2-SECRET",
+                    "expires_at": identity.expires_at,
+                }
+            ],
+        }
+
+    monkeypatch.setattr(KeystoneClient, "project_access", project_access)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session, "UPDATE openstack_project_credentials SET"
+    ) as matching_statements:
+        execution = service.resolve(user, auth.id, ctx)
+
+    assert execution.access_key == "EC2-ACCESS"
+    assert access_calls == 1
+    assert len(matching_statements) == 2
+
+
 def test_key_selection_and_catalog_target_are_explicit(db_session, setup_cloud, monkeypatch):
     service, user, auth, connection, _ = connect(db_session, setup_cloud)
     monkeypatch.setattr(KeystoneClient, "project_access", lambda self, identity, project: {
@@ -1055,6 +1126,23 @@ def test_cloud_expiration_erases_secrets_on_access(db_session, setup_cloud):
     assert db_session.scalar(select(OpenStackSession.token)) is None
 
 
+def test_cloud_expiration_cleanup_retries_sqlite_busy(db_session, setup_cloud):
+    service, user, auth, _, ctx = connect(db_session, setup_cloud)
+    session = db_session.scalar(select(OpenStackSession))
+    session.expires_at = utcnow() - timedelta(seconds=1)
+    db_session.commit()
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session, "UPDATE openstack_sessions SET token="
+    ) as matching_statements:
+        with pytest.raises(OpenStackError):
+            service.resolve(user, auth.id, ctx)
+
+    assert len(matching_statements) == 2
+    assert db_session.scalar(select(OpenStackProjectCredential.id)) is None
+    assert db_session.scalar(select(OpenStackSession.token)) is None
+
+
 @pytest.mark.parametrize("cleanup", ["access", "scheduled"])
 def test_project_credential_expiration_erases_secret_without_ending_ui_session(db_session, setup_cloud, cleanup):
     service, user, auth, _, ctx = connect(db_session, setup_cloud)
@@ -1066,6 +1154,26 @@ def test_project_credential_expiration_erases_secret_without_ending_ui_session(d
     else:
         with pytest.raises(OpenStackError, match="Reconnect"):
             service.resolve(user, auth.id, ctx)
+    assert db_session.scalar(select(OpenStackProjectCredential.id)) is None
+    assert db_session.get(AuthSession, auth.id).revoked_at is None
+    assert db_session.scalar(select(OpenStackSession.token)) is not None
+
+
+def test_project_credential_expiration_cleanup_retries_sqlite_busy(
+    db_session, setup_cloud
+):
+    service, user, auth, _, ctx = connect(db_session, setup_cloud)
+    credential = db_session.scalar(select(OpenStackProjectCredential))
+    credential.expires_at = utcnow() - timedelta(seconds=1)
+    db_session.commit()
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session, "DELETE FROM openstack_project_credentials"
+    ) as matching_statements:
+        with pytest.raises(OpenStackError, match="Reconnect"):
+            service.resolve(user, auth.id, ctx)
+
+    assert len(matching_statements) == 2
     assert db_session.scalar(select(OpenStackProjectCredential.id)) is None
     assert db_session.get(AuthSession, auth.id).revoked_at is None
     assert db_session.scalar(select(OpenStackSession.token)) is not None
