@@ -9,6 +9,7 @@
 - Harden QuickStart and guided onboarding so fresh deployments can initialize endpoint service identities and application settings reliably against existing S3/RGW endpoints.
 - Reduce SQLite write contention across authentication, Portal, OpenStack, storage endpoint and service-identity workflows, webhooks, background persistence, bucket migration, provisioning, and deletion paths by isolating write units and durable checkpoints without replaying remote side effects.
 - Retry SQLite busy conditions safely for credential-key rotation and Ceph Admin tag updates, while preserving transaction boundaries around migration and rotation checkpoints.
+- Preserve managed storage-endpoint resolution and default capability state when probing newly provisioned private S3 connections outside replayable SQLite transactions.
 
 ## 0.3.0 - 2026-11-10
 

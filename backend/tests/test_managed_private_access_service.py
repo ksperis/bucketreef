@@ -834,6 +834,49 @@ def test_managed_private_access_activation_rolls_back_when_commit_fails(
     assert persisted.s3_connection_id is None
 
 
+def test_managed_private_access_activation_attaches_managed_endpoint_for_capability_probe(
+    db_session,
+    monkeypatch,
+):
+    user = _user(db_session, email="probe-endpoint@example.test")
+    endpoint = _endpoint(db_session)
+    account = _account(db_session, user, endpoint)
+    service = ManagedPrivateAccessService(db_session)
+    source = service.iam_sources.resolve(user, account)
+    destination = service.destinations.resolve(source)
+    provisioning = ManagedPrivateAccessStateService(db_session).claim(user, source)
+    probed: dict[str, object] = {}
+
+    def capture_probe(row):
+        probed["endpoint_id"] = row.storage_endpoint.id
+        probed["endpoint_url"] = row.storage_endpoint.endpoint_url
+        probed["capabilities"] = row.capabilities
+        return False
+
+    monkeypatch.setattr(
+        "app.services.s3_connection_capabilities_service.probe_connection_can_manage_iam",
+        capture_probe,
+    )
+
+    result = service.connection.activate(
+        user=user,
+        provisioning=provisioning,
+        destination=destination,
+        payload=_payload(),
+        access_key_id="AK-MANAGED",
+        secret_access_key="NEVER-IN-RESPONSE",
+    )
+
+    assert result.status == "active"
+    assert probed == {
+        "endpoint_id": endpoint.id,
+        "endpoint_url": endpoint.endpoint_url,
+        "capabilities": {"can_manage_iam": False},
+    }
+    connection = db_session.get(S3Connection, result.connection.id)
+    assert connection.storage_endpoint_id == endpoint.id
+
+
 def test_failed_local_creation_compensates_remote_resources(db_session, monkeypatch):
     user = _user(db_session, email="compensate@example.test")
     account = _account(db_session, user, _endpoint(db_session))
