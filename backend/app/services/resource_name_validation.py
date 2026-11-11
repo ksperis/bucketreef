@@ -3,38 +3,38 @@
 from __future__ import annotations
 
 from app.core.domain_errors import ResourceNameValidationError
-from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.resource_names import IAMEntity, NamingValidationProfile, validate_inline_policy_name, validate_topic_name
 from app.utils.s3_connection_endpoint import resolve_connection_details
 
 
-def execution_context_provider(context: S3ExecutionTarget) -> str | None:
+def execution_context_provider(context: S3ExecutionContext) -> str | None:
     endpoint = context.storage_endpoint
     if endpoint is not None:
         return endpoint.provider
-    connection = context.source_connection if isinstance(context, S3ExecutionContext) else None
+    connection = context.source_connection
     if connection is not None:
         return resolve_connection_details(connection).provider
     return None
 
 
-def naming_validation_profile(context: S3ExecutionTarget) -> NamingValidationProfile:
+def naming_validation_profile(context: S3ExecutionContext) -> NamingValidationProfile:
     return "ceph" if execution_context_provider(context) == "ceph" else "standard"
 
 
-def validate_inline_policy_request(name: str, entity: IAMEntity, context: S3ExecutionTarget, *, loc: tuple = ("body", "name")) -> None:
+def validate_inline_policy_request(name: str, entity: IAMEntity, context: S3ExecutionContext, *, loc: tuple = ("body", "name")) -> None:
     try:
         validate_inline_policy_name(name, entity, naming_validation_profile(context))
     except ValueError as exc:
         raise ResourceNameValidationError(str(exc), loc=loc) from exc
 
 
-def validate_inline_policy_requests(policies: list, entity: IAMEntity, context: S3ExecutionTarget) -> None:
+def validate_inline_policy_requests(policies: list, entity: IAMEntity, context: S3ExecutionContext) -> None:
     for index, policy in enumerate(policies):
         validate_inline_policy_request(policy.name, entity, context, loc=("body", "inline_policies", index, "name"))
 
 
-def validate_topic_request(name: str, configuration: dict | None, context: S3ExecutionTarget) -> None:
+def validate_topic_request(name: str, configuration: dict | None, context: S3ExecutionContext) -> None:
     try:
         validate_topic_name(name, provider=execution_context_provider(context), configuration=configuration)
     except ValueError as exc:

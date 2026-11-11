@@ -7,25 +7,32 @@ import pytest
 from fastapi import HTTPException
 from pydantic import ValidationError
 
-from app.db import S3Account, StorageEndpoint
+from app.db import StorageEndpoint
 from app.core.domain_enums import StorageProvider
 from app.models.topic import Topic, TopicConfiguration, TopicCreate, TopicPolicy
 from app.routers.manager import topics as topics_router
 from app.services import sns_client
+from app.services.s3_execution_context import S3ExecutionContext
 from app.services.topics_service import TopicsService
 
 
-def _account(provider: str | None = None) -> S3Account:
-    account = S3Account(rgw_access_key="AKIA_TEST", rgw_secret_key="SECRET_TEST")
-    account.storage_endpoint = StorageEndpoint(
+def _account(provider: str | None = None) -> S3ExecutionContext:
+    endpoint = StorageEndpoint(
         name=f"{provider or StorageProvider.OTHER.value}-sns",
         endpoint_url="https://ceph-sns.example.test",
         provider=provider or StorageProvider.OTHER.value,
     )
-    return account
+    return S3ExecutionContext(
+        context_id="test",
+        context_kind="account",
+        name="SNS test",
+        access_key="AKIA_TEST",
+        secret_key="SECRET_TEST",
+        storage_endpoint=endpoint,
+    )
 
 
-def _ceph_account() -> S3Account:
+def _ceph_account() -> S3ExecutionContext:
     return _account(StorageProvider.CEPH.value)
 
 
