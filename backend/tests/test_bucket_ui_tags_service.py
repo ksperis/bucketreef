@@ -41,6 +41,7 @@ from app.utils.tagging import (
     TAG_DOMAIN_BUCKET_UI_STORAGE_OPS,
     TAG_DOMAIN_ADMIN_MANAGED,
 )
+from tests.db_transaction_test_utils import fail_next_sqlite_statement_with_busy_snapshot
 
 
 def _user(identifier: int, email: str) -> User:
@@ -412,6 +413,65 @@ def test_bucket_ui_tag_routes_persist_ceph_visibility_and_reject_forged_storage_
                 ]
             }
         )
+
+
+def test_ceph_admin_bucket_ui_tag_patch_retries_sqlite_busy_without_replaying_side_effects(
+    client,
+    db_session,
+):
+    owner = _user(8246, "sqlite-busy-owner@example.test")
+    endpoint = _endpoint(db_session, "ui-tags-sqlite-busy")
+    db_session.add(owner)
+    db_session.commit()
+
+    bucket_info_calls = 0
+
+    class FakeRgwAdmin:
+        def get_bucket_info(self, bucket, **_kwargs):
+            nonlocal bucket_info_calls
+            bucket_info_calls += 1
+            return {"bucket": bucket}
+
+    audit_calls = 0
+
+    class CountingAuditService:
+        def record_action(self, **_kwargs):
+            nonlocal audit_calls
+            audit_calls += 1
+
+    ctx = SimpleNamespace(
+        endpoint=endpoint,
+        actor=owner,
+        audit_service=CountingAuditService(),
+        rgw_admin=FakeRgwAdmin(),
+    )
+    app.dependency_overrides[dependencies.require_ceph_admin_enabled] = lambda: None
+    app.dependency_overrides[ceph_dependencies.get_ceph_admin_context] = lambda: ctx
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO bucket_ui_tag_assignments",
+    ) as matching_statements:
+        response = client.patch(
+            f"/api/ceph-admin/endpoints/{endpoint.id}/bucket-ui-tags",
+            json={
+                "targets": [{"name": "bucket-a", "tenant": ""}],
+                "create_tags": [
+                    {"label": "Shared", "color_key": "amber", "visibility": "shared"},
+                ],
+            },
+        )
+
+    assert response.status_code == 200, response.text
+    assert len(matching_statements) == 2
+    assert bucket_info_calls == 1
+    assert audit_calls == 1
+    assert db_session.scalar(
+        sa.select(sa.func.count()).select_from(BucketUiTagAssignment).where(
+            BucketUiTagAssignment.storage_endpoint_id == endpoint.id,
+            BucketUiTagAssignment.bucket_name == "bucket-a",
+        )
+    ) == 1
 
 
 def test_bucket_ui_tag_definition_routes_update_settings_and_enforce_visibility(
