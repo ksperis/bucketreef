@@ -432,7 +432,7 @@ describe("GroupsPage", () => {
     expect(memberStack).toHaveAccessibleDescription(/UI user: member-7@example\.com — Roles: User/);
   });
 
-  it("preserves an existing portal role while hiding its column when Portal is disabled", async () => {
+  it("keeps Portal roles editable from Admin when the local Portal surface is disabled", async () => {
     listGroupsMock.mockResolvedValue({
       items: [
         {
@@ -469,7 +469,7 @@ describe("GroupsPage", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Associations" }));
 
     expect(screen.getByRole("columnheader", { name: "Manager role" })).toBeInTheDocument();
-    expect(screen.queryByRole("columnheader", { name: /Portal role/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /Portal role/ })).toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "Access roles" })).not.toBeInTheDocument();
 
     const managerRoleSelect = screen.getByRole<HTMLSelectElement>("combobox", {
@@ -477,9 +477,11 @@ describe("GroupsPage", () => {
     });
     expect(managerRoleSelect).toHaveValue("");
     expect(managerRoleSelect).toBeEnabled();
-    expect(
-      screen.queryByRole("combobox", { name: "Portal role for production-account" }),
-    ).not.toBeInTheDocument();
+    const portalRoleSelect = screen.getByRole<HTMLSelectElement>("combobox", {
+      name: "Portal role for production-account",
+    });
+    expect(portalRoleSelect).toHaveValue("portal_user");
+    expect(portalRoleSelect).toBeEnabled();
 
     fireEvent.click(screen.getByRole("tab", { name: "General" }));
     fireEvent.change(screen.getByLabelText("Description"), { target: { value: "Updated description" } });
@@ -501,7 +503,7 @@ describe("GroupsPage", () => {
     );
   });
 
-  it("keeps the required group Manager role while Portal is off", async () => {
+  it("allows a group association to use Portal access without a Manager role", async () => {
     listGroupsMock.mockResolvedValue({
       items: [
         {
@@ -532,14 +534,19 @@ describe("GroupsPage", () => {
     });
     fireEvent.click(screen.getByRole("tab", { name: "Associations" }));
     expect(screen.getByRole("columnheader", { name: "Manager role" })).toBeInTheDocument();
-    expect(screen.queryByRole("columnheader", { name: /Portal role/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /Portal role/ })).toBeInTheDocument();
     const managerRoleSelect = screen.getByRole("combobox", {
       name: "Manager role for acc-1",
     });
     expect(managerRoleSelect).toHaveValue("account_administrator");
     expect(
       within(managerRoleSelect).getByRole("option", { name: "No Manager access" }),
-    ).toBeDisabled();
+    ).toBeEnabled();
+    fireEvent.change(managerRoleSelect, { target: { value: "" } });
+    const portalRoleSelect = screen.getByRole("combobox", { name: "Portal role for acc-1" });
+    fireEvent.change(portalRoleSelect, { target: { value: "portal_manager" } });
+    expect(managerRoleSelect).toHaveValue("");
+    expect(portalRoleSelect).toHaveValue("portal_manager");
   });
 
   it("creates a group with default rights off, members, associations, and Manager tool access", async () => {
@@ -577,13 +584,14 @@ describe("GroupsPage", () => {
     const portalRoleSelect = screen.getByRole<HTMLSelectElement>("combobox", {
       name: "Portal role for acc-1",
     });
-    expect(managerRoleSelect).toHaveValue("account_administrator");
+    expect(managerRoleSelect).toHaveValue("");
     expect(Array.from(managerRoleSelect.options).map((option) => option.value)).toEqual([
       "",
       "account_administrator",
     ]);
     expect(portalRoleSelect).toHaveValue("");
-    expect(portalRoleSelect).toBeDisabled();
+    expect(portalRoleSelect).toBeEnabled();
+    fireEvent.change(managerRoleSelect, { target: { value: "account_administrator" } });
     fireEvent.click(screen.getByRole("button", { name: "Add selected" }));
     fireEvent.click(screen.getByRole("tab", { name: "S3 Users" }));
     fireEvent.click(screen.getByRole("button", { name: "Add RGW users" }));

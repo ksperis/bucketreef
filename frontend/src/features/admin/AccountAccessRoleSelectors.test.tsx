@@ -8,7 +8,6 @@ describe("AccountAccessRoleSelectors", () => {
     render(
       <AccountAccessRoleSelectors
         label="Research Archive"
-        portalEnabled
         value={{ manager_role: null, portal_role: "portal_user", allow_manager_browser_data_access: false }}
         onChange={vi.fn()}
       />,
@@ -22,7 +21,6 @@ describe("AccountAccessRoleSelectors", () => {
     render(
       <AccountAccessRoleSelectors
         label="Research Archive"
-        portalEnabled
         value={{ manager_role: "account_administrator", portal_role: "portal_user", allow_manager_browser_data_access: false }}
         onChange={vi.fn()}
       />,
@@ -36,29 +34,32 @@ describe("AccountAccessRoleSelectors", () => {
     ).toHaveClass("bg-sky-50", "font-semibold");
   });
 
-  it("explains why a preserved Portal role is read-only", () => {
+  it("keeps Portal roles editable independently of local surface state", () => {
+    const onChange = vi.fn();
     render(
       <AccountAccessRoleSelectors
         label="Research Archive"
-        portalEnabled={false}
         value={{ manager_role: null, portal_role: "portal_manager", allow_manager_browser_data_access: false }}
-        onChange={vi.fn()}
+        onChange={onChange}
       />,
     );
 
-    expect(screen.getByText("Portal · read-only")).toBeInTheDocument();
-    expect(
-      screen.getByText("Portal is off; existing roles are preserved."),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("combobox", { name: "Portal role for Research Archive" }),
-    ).toBeDisabled();
+    const portalSelect = screen.getByRole("combobox", {
+      name: "Portal role for Research Archive",
+    });
+    expect(portalSelect).toBeEnabled();
     const managerSelect = screen.getByRole("combobox", {
       name: "Manager role for Research Archive",
     });
     expect(
       within(managerSelect).getByRole("option", { name: "No Manager access" }),
-    ).toBeDisabled();
+    ).toBeEnabled();
+    fireEvent.change(portalSelect, { target: { value: "portal_user" } });
+    expect(onChange).toHaveBeenCalledWith({
+      manager_role: null,
+      portal_role: "portal_user",
+      allow_manager_browser_data_access: false,
+    });
   });
 
   it("shows the required-role message only when validation is requested", () => {
@@ -66,7 +67,6 @@ describe("AccountAccessRoleSelectors", () => {
     render(
       <AccountAccessRoleSelectors
         label="Research Archive"
-        portalEnabled
         value={{ manager_role: "account_administrator", portal_role: null, allow_manager_browser_data_access: false }}
         onChange={onChange}
       />,
@@ -86,7 +86,6 @@ describe("AccountAccessRoleSelectors", () => {
     render(
       <AccountAccessRoleSelectors
         label="Empty association"
-        portalEnabled
         value={{ manager_role: null, portal_role: null, allow_manager_browser_data_access: false }}
         onChange={vi.fn()}
       />,
@@ -98,7 +97,6 @@ describe("AccountAccessRoleSelectors", () => {
     render(
       <AccountAccessRoleSelectors
         label="Selected empty association"
-        portalEnabled
         value={{ manager_role: null, portal_role: null, allow_manager_browser_data_access: false }}
         onChange={vi.fn()}
         showValidation
@@ -109,12 +107,11 @@ describe("AccountAccessRoleSelectors", () => {
     ).toBeInTheDocument();
   });
 
-  it("prevents clearing the Manager role while Portal is off", () => {
+  it("allows a Manager-only grant to be cleared before choosing another role", () => {
     const onChange = vi.fn();
     render(
       <AccountAccessRoleSelectors
         label="Empty association"
-        portalEnabled={false}
         value={{ manager_role: "account_administrator", portal_role: null, allow_manager_browser_data_access: false }}
         onChange={onChange}
       />,
@@ -125,10 +122,14 @@ describe("AccountAccessRoleSelectors", () => {
     });
     expect(
       within(managerSelect).getByRole("option", { name: "No Manager access" }),
-    ).toBeDisabled();
+    ).toBeEnabled();
 
     fireEvent.change(managerSelect, { target: { value: "" } });
-    expect(onChange).not.toHaveBeenCalled();
+    expect(onChange).toHaveBeenCalledWith({
+      manager_role: null,
+      portal_role: null,
+      allow_manager_browser_data_access: false,
+    });
   });
 
   it("emits only API grant fields when the displayed value contains row metadata", () => {
@@ -143,7 +144,6 @@ describe("AccountAccessRoleSelectors", () => {
     render(
       <AccountAccessRoleSelectors
         label={value.label}
-        portalEnabled
         value={value}
         onChange={onChange}
       />,

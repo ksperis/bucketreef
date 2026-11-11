@@ -20,7 +20,6 @@ type UserAssociationsTabsProps = {
   activeTab: StorageAssociationTab;
   onTabChange: (tab: StorageAssociationTab) => void;
   maxVisibleOptions: number;
-  showPortalRole: boolean;
   accounts: AdminAccountAssociationsState;
   s3Users: AdminRgwUserAccessAssociationsState<S3UserMembership>;
   connections: AdminSimpleIdAssociationsState;
@@ -31,7 +30,6 @@ export default function UserAssociationsTabs({
   activeTab,
   onTabChange,
   maxVisibleOptions,
-  showPortalRole,
   accounts,
   s3Users,
   connections,
@@ -51,7 +49,6 @@ export default function UserAssociationsTabs({
             <AdminAccountAssociationsPanel
               accounts={accounts}
               maxVisibleOptions={maxVisibleOptions}
-              showPortalRole={showPortalRole}
               labels={{
                 account: text("account"),
                 managerRole: text("managerRole"),

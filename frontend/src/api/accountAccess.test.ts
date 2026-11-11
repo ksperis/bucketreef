@@ -34,14 +34,9 @@ describe("account access roles", () => {
     ).toBe(true);
   });
 
-  it("uses explicit feature-dependent defaults for new associations", () => {
-    expect(defaultAccountAccessGrant(true)).toEqual({
+  it("starts new associations without an implicit role", () => {
+    expect(defaultAccountAccessGrant()).toEqual({
       manager_role: null,
-      portal_role: null,
-      allow_manager_browser_data_access: false,
-    });
-    expect(defaultAccountAccessGrant(false)).toEqual({
-      manager_role: "account_administrator",
       portal_role: null,
       allow_manager_browser_data_access: false,
     });

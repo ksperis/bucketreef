@@ -10,13 +10,8 @@ export type AccountAccessGrant = {
 const ACCOUNT_ACCESS_REQUIRED_MESSAGE =
   "Choose at least one role for this association.";
 
-const PORTAL_DISABLED_ACCOUNT_ACCESS_REQUIRED_MESSAGE =
-  "Choose a Manager role; Portal is off.";
-
-export function getAccountAccessRequiredMessage(portalEnabled: boolean): string {
-  return portalEnabled
-    ? ACCOUNT_ACCESS_REQUIRED_MESSAGE
-    : PORTAL_DISABLED_ACCOUNT_ACCESS_REQUIRED_MESSAGE;
+export function getAccountAccessRequiredMessage(): string {
+  return ACCOUNT_ACCESS_REQUIRED_MESSAGE;
 }
 
 export const MANAGER_ACCOUNT_ROLE_OPTIONS: Array<{
@@ -52,8 +47,6 @@ export function hasAccountAccessRole(grant: AccountAccessGrant): boolean {
   return grant.manager_role !== null || grant.portal_role !== null;
 }
 
-export function defaultAccountAccessGrant(portalEnabled: boolean): AccountAccessGrant {
-  return portalEnabled
-    ? { manager_role: null, portal_role: null, allow_manager_browser_data_access: false }
-    : { manager_role: "account_administrator", portal_role: null, allow_manager_browser_data_access: false };
+export function defaultAccountAccessGrant(): AccountAccessGrant {
+  return { manager_role: null, portal_role: null, allow_manager_browser_data_access: false };
 }

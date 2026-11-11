@@ -146,7 +146,6 @@ export default function UsersPage() {
   const currentIsSuperAdmin = isSuperAdminRole(currentUser?.role);
   const cephAdminFeatureEnabled = generalSettings.ceph_admin_enabled;
   const openStackEnabled = generalSettings.openstack_enabled;
-  const showPortalRole = Boolean(generalSettings.portal_enabled);
   const principalEditRequest = useAdminPrincipalEditRequest();
   const {
     accounts,
@@ -322,7 +321,6 @@ export default function UsersPage() {
     s3ConnectionCatalog: s3ConnectionsCatalog,
     openStackCatalog: openStackCloudsCatalog,
     groupCatalog: groupsCatalog,
-    showPortalRole,
     openStackEnabled,
     ensureAssociationOptionsForTab,
   };
@@ -577,7 +575,7 @@ export default function UsersPage() {
     if (createAssociations.accounts.selected.some((entry) => !hasAccountAccessRole(entry))) {
       setCreateModalTab("associations");
       createAssociations.setTab("accounts");
-      setActionError(getAccountAccessRequiredMessage(showPortalRole));
+      setActionError(getAccountAccessRequiredMessage());
       return;
     }
     const associations: AdminUserAssociationSelection = {
@@ -702,7 +700,7 @@ export default function UsersPage() {
     if (editAssociations.accounts.selected.some((entry) => !hasAccountAccessRole(entry))) {
       setEditModalTab("associations");
       editAssociations.setTab("accounts");
-      setActionError(getAccountAccessRequiredMessage(showPortalRole));
+      setActionError(getAccountAccessRequiredMessage());
       return;
     }
     savingRef.current = true;

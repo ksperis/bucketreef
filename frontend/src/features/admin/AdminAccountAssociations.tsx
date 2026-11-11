@@ -58,11 +58,10 @@ export const accountGroupAssociations: Adapter<AccountGroupLink> = {
 };
 
 /** The two association types share presentation, selection and load-error recovery. */
-export default function AdminAccountAssociations<T extends AccountAccessGrant>({ adapter, links, onChange, portalEnabled, disabled, onPendingChange }: {
+export default function AdminAccountAssociations<T extends AccountAccessGrant>({ adapter, links, onChange, disabled, onPendingChange }: {
   adapter: Adapter<T>;
   links: T[];
   onChange: (links: T[]) => void;
-  portalEnabled: boolean;
   disabled: boolean;
   onPendingChange: (pending: boolean) => void;
 }) {
@@ -78,7 +77,7 @@ export default function AdminAccountAssociations<T extends AccountAccessGrant>({
     onPendingChange(selected.length > 0 || advancedDirty);
     return () => onPendingChange(false);
   }, [selected.length, advancedDirty, onPendingChange]);
-  const access = (id: number) => choices[id] ?? defaultAccountAccessGrant(portalEnabled);
+  const access = (id: number) => choices[id] ?? defaultAccountAccessGrant();
   const linkedIds = new Set(links.map(adapter.id));
   const available = catalogue.items.filter(principal => !linkedIds.has(principal.id));
   const cancel = () => { setOpen(false); setSelected([]); setSelectedPrincipals({}); setChoices({}); catalogue.setSearch(""); };
@@ -94,13 +93,13 @@ export default function AdminAccountAssociations<T extends AccountAccessGrant>({
   const columns: DataTableColumn<T>[] = [
     { id: "principal", label: adapter.singular, primary: true, cellClassName: "min-w-[220px] max-w-[320px]",
       render: link => <><span className="break-words">{label(link)}</span>
-        <AccountAccessRoleValidationMessage id={errorId(link)} value={link} portalEnabled={portalEnabled} /></> },
+        <AccountAccessRoleValidationMessage id={errorId(link)} value={link} /></> },
     { id: "manager", label: "Manager role", render: link => <ManagerAccountRoleSelect label={label(link)} value={link}
-      onChange={grant => changeAccess(link, grant)} portalEnabled={portalEnabled} fieldClassName="w-full md:w-52"
+      onChange={grant => changeAccess(link, grant)} fieldClassName="w-full md:w-52"
       showLabel={false} invalid={!hasAccountAccessRole(link)} describedBy={!hasAccountAccessRole(link) ? errorId(link) : undefined} /> },
-    ...(portalEnabled ? [{ id: "portal", label: "Portal role", render: (link: T) => <PortalAccountRoleSelect label={label(link)} value={link}
-      onChange={grant => changeAccess(link, grant)} portalEnabled={portalEnabled} fieldClassName="w-full md:w-44"
-      showLabel={false} invalid={!hasAccountAccessRole(link)} describedBy={!hasAccountAccessRole(link) ? errorId(link) : undefined} /> }] : []),
+    { id: "portal", label: "Portal role", render: (link: T) => <PortalAccountRoleSelect label={label(link)} value={link}
+      onChange={grant => changeAccess(link, grant)} fieldClassName="w-full md:w-44"
+      showLabel={false} invalid={!hasAccountAccessRole(link)} describedBy={!hasAccountAccessRole(link) ? errorId(link) : undefined} /> },
     { id: "actions", label: "Actions", mobileRole: "actions", align: "right", render: link => <ListActions>
       {link.manager_role && <AdminAssociationAdvancedSettings targetLabel={label(link)} associationKind="account"
         allowManagerBrowserDataAccess={link.allow_manager_browser_data_access} disabled={disabled} onDirtyChange={setAdvancedDirty}
@@ -134,7 +133,6 @@ export default function AdminAccountAssociations<T extends AccountAccessGrant>({
               selected: selected.includes(principal.id),
               access: access(principal.id),
             }))}
-            portalEnabled={portalEnabled}
             onToggle={(id) => {
               const principal = available.find((item) => item.id === id);
               const wasSelected = selected.includes(id);

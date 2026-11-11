@@ -299,11 +299,7 @@ if runtime_surface_enabled(settings, "admin"):
     app.include_router(admin_key_rotation.router, prefix=settings.api_prefix)
     app.include_router(admin_onboarding.router, prefix=settings.api_prefix)
     app.include_router(admin_healthchecks.router, prefix=settings.api_prefix)
-    app.include_router(
-        admin_portal_requests.router,
-        prefix=settings.api_prefix,
-        dependencies=[Depends(require_portal_enabled)],
-    )
+    app.include_router(admin_portal_requests.router, prefix=settings.api_prefix)
     app.include_router(admin_identity_security.router, prefix=settings.api_prefix)
     app.include_router(admin_navigation.router, prefix=settings.api_prefix)
     app.include_router(admin_production_readiness.router, prefix=settings.api_prefix)

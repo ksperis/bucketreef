@@ -120,7 +120,6 @@ export default function GroupsPage() {
     failure: (error: unknown) => extractApiError(error, text("verificationFailed")),
   }), [locale, text]);
   const { runWithStepUp, verificationDialog } = useRecentWebAuthnStepUp(stepUpLabels);
-  const showPortalRole = Boolean(generalSettings.portal_enabled);
   const principalEditRequest = useAdminPrincipalEditRequest();
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
@@ -348,7 +347,7 @@ export default function GroupsPage() {
     if ((form.account_links ?? []).some((link) => !hasAccountAccessRole(link))) {
       setModalTab("associations");
       setAssociationTab("accounts");
-      setActionError(getAccountAccessRequiredMessage(showPortalRole));
+      setActionError(getAccountAccessRequiredMessage());
       return;
     }
     const payload = adminGroupPayload(form, {
@@ -686,7 +685,6 @@ export default function GroupsPage() {
             <AdminAccountAssociationsPanel
               accounts={accountAssociationState}
               maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
-              showPortalRole={showPortalRole}
               labels={{
                 account: text("account"),
                 managerRole: text("managerRole"),

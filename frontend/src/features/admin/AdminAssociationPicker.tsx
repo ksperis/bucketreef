@@ -238,7 +238,6 @@ type AdminAssociationAccessPickerTableProps = {
   title: string;
   principalLabel: string;
   options: readonly AdminAssociationAccessPickerOption[];
-  portalEnabled: boolean;
   onToggle: (id: number) => void;
   onAccessChange: (id: number, access: AccountAccessGrant) => void;
 };
@@ -251,7 +250,6 @@ export function AdminAssociationAccessPickerTable({
   title,
   principalLabel,
   options,
-  portalEnabled,
   onToggle,
   onAccessChange,
 }: AdminAssociationAccessPickerTableProps) {
@@ -294,14 +292,12 @@ export function AdminAssociationAccessPickerTable({
                     <AccountAccessRoleValidationMessage
                       id={errorId}
                       value={option.access}
-                      portalEnabled={portalEnabled}
                     />
                   ) : null}
                 </td>
                 <td>
                   <ManagerAccountRoleSelect
                     label={option.label}
-                    portalEnabled={portalEnabled}
                     value={option.access}
                     onChange={(access) => onAccessChange(option.id, access)}
                     showLabel={false}
@@ -313,7 +309,6 @@ export function AdminAssociationAccessPickerTable({
                 <td>
                   <PortalAccountRoleSelect
                     label={option.label}
-                    portalEnabled={portalEnabled}
                     value={option.access}
                     onChange={(access) => onAccessChange(option.id, access)}
                     showLabel={false}

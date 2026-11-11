@@ -167,6 +167,41 @@ print(json.dumps(sorted(app.openapi()["paths"])))
     assert "/api/auth/session" in paths
 
 
+def test_admin_profile_keeps_portal_control_plane_without_mounting_portal_runtime() -> None:
+    env = os.environ.copy()
+    env.update(
+        {
+            "APP_ENV": "test",
+            "DEPLOYMENT_PROFILE": "admin",
+            "FEATURE_ADMIN_ENABLED": "true",
+            "FEATURE_CEPH_ADMIN_ENABLED": "false",
+            "FEATURE_STORAGE_OPS_ENABLED": "false",
+            "FEATURE_MANAGER_ENABLED": "false",
+            "FEATURE_PORTAL_ENABLED": "false",
+            "FEATURE_BROWSER_ENABLED": "false",
+            "SCHEDULED_JOBS_ENABLED": "false",
+        }
+    )
+    code = """
+import json
+from app.main import app
+print(json.dumps(sorted(app.openapi()["paths"])))
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=os.path.dirname(os.path.dirname(__file__)),
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    paths = json.loads(result.stdout.strip().splitlines()[-1])
+
+    assert "/api/admin/portal-requests" in paths
+    assert any(path.startswith("/api/admin/") for path in paths)
+    assert not any(path == "/api/portal" or path.startswith("/api/portal/") for path in paths)
+
+
 @pytest.mark.parametrize("profile", ["admin-no-ceph-admin", "ceph-admin-high-security"])
 def test_removed_deployment_profiles_are_rejected(profile):
     with pytest.raises(ValidationError, match="deployment_profile"):

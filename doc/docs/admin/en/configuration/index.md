@@ -376,9 +376,13 @@ LDAP providers are persisted separately in their own database tables.
 `FEATURE_PORTAL_ENABLED` can force the Portal surface on or off. Account access
 uses two independent axes: `manager_role` is `account_administrator` or `null`,
 and `portal_role` is `portal_user`, `portal_manager`, or `null`. At least one
-axis is required. Disabling Portal prevents new Portal selections but does not
-rewrite or remove existing Portal roles; new links default to Manager
-administrator while the feature is off and to Portal user while it is on.
+axis is required. The Admin control plane can assign either axis independently,
+including when its own runtime does not mount `/portal`. New associations start
+without an implicit role and require an explicit Manager or Portal selection.
+`FEATURE_PORTAL_ENABLED=false` prevents the local runtime from exposing Portal;
+it does not remove stored Portal roles or disable Admin-owned Portal settings
+and request management. In an `admin` / `user` split, the paired `user` runtime
+enforces its own Portal feature lock when those stored roles are used.
 
 The code-owned `bkr-portal-user` IAM group policy grants only
 `s3:ListAllMyBuckets` and `sts:GetSessionToken`. The code-owned

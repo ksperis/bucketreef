@@ -570,7 +570,7 @@ describe("UsersPage modal tabs", () => {
     expect(screen.queryAllByRole("alert")).toHaveLength(0);
   });
 
-  it("preserves an existing portal role while hiding its column when Portal is disabled", async () => {
+  it("keeps Portal roles editable from Admin when the local Portal surface is disabled", async () => {
     listUsersMock.mockResolvedValue({
       items: [
         {
@@ -627,7 +627,7 @@ describe("UsersPage modal tabs", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Associations" }));
 
     expect(screen.getByRole("columnheader", { name: "Manager role" })).toBeInTheDocument();
-    expect(screen.queryByRole("columnheader", { name: /Portal role/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /Portal role/ })).toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "Access roles" })).not.toBeInTheDocument();
 
     const managerRoleSelect = screen.getByRole<HTMLSelectElement>("combobox", {
@@ -635,9 +635,11 @@ describe("UsersPage modal tabs", () => {
     });
     expect(managerRoleSelect).toHaveValue("");
     expect(managerRoleSelect).toBeEnabled();
-    expect(
-      screen.queryByRole("combobox", { name: "Portal role for acc-1" }),
-    ).not.toBeInTheDocument();
+    const portalRoleSelect = screen.getByRole<HTMLSelectElement>("combobox", {
+      name: "Portal role for acc-1",
+    });
+    expect(portalRoleSelect).toHaveValue("portal_manager");
+    expect(portalRoleSelect).toBeEnabled();
 
     fireEvent.click(screen.getByRole("tab", { name: "Profile and preferences" }));
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "assoc.updated@example.com" } });
@@ -689,8 +691,9 @@ describe("UsersPage modal tabs", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Associations" }));
 
     expect(screen.getByRole("columnheader", { name: "Manager role" })).toBeInTheDocument();
-    expect(screen.queryByRole("columnheader", { name: /Portal role/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /Portal role/ })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Manager role for acc-1" })).toBeEnabled();
+    expect(screen.getByRole("combobox", { name: "Portal role for acc-1" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Remove" })).toBeEnabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Advanced" }));
@@ -715,7 +718,7 @@ describe("UsersPage modal tabs", () => {
     });
   });
 
-  it("keeps the required user Manager role while Portal is off", async () => {
+  it("allows a user association to use Portal access without a Manager role", async () => {
     listUsersMock.mockResolvedValue({
       items: [
         {
@@ -746,7 +749,12 @@ describe("UsersPage modal tabs", () => {
     expect(managerRoleSelect).toHaveValue("account_administrator");
     expect(
       within(managerRoleSelect).getByRole("option", { name: "No Manager access" }),
-    ).toBeDisabled();
+    ).toBeEnabled();
+    fireEvent.change(managerRoleSelect, { target: { value: "" } });
+    const portalRoleSelect = screen.getByRole("combobox", { name: "Portal role for acc-1" });
+    fireEvent.change(portalRoleSelect, { target: { value: "portal_user" } });
+    expect(managerRoleSelect).toHaveValue("");
+    expect(portalRoleSelect).toHaveValue("portal_user");
   });
 
   it("imports an LDAP directory entry without a local password", async () => {
@@ -872,9 +880,10 @@ describe("UsersPage modal tabs", () => {
       "",
       "account_administrator",
     ]);
-    expect(managerRoleSelect).toHaveValue("account_administrator");
+    expect(managerRoleSelect).toHaveValue("");
     expect(portalRoleSelect).toHaveValue("");
-    expect(portalRoleSelect).toBeDisabled();
+    expect(portalRoleSelect).toBeEnabled();
+    fireEvent.change(managerRoleSelect, { target: { value: "account_administrator" } });
     fireEvent.click(screen.getByRole("checkbox", { name: "acc-1" }));
     fireEvent.click(screen.getByRole("button", { name: "Add selected" }));
 
@@ -932,6 +941,9 @@ describe("UsersPage modal tabs", () => {
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret-123456" } });
     fireEvent.click(screen.getByRole("tab", { name: "Associations" }));
     fireEvent.click(screen.getByRole("button", { name: "Add accounts" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "Portal role for acc-1" }), {
+      target: { value: "portal_user" },
+    });
     fireEvent.click(await screen.findByRole("checkbox", { name: "acc-1" }));
     fireEvent.click(screen.getByRole("button", { name: "Add selected" }));
     fireEvent.click(screen.getByRole("button", { name: "Create" }));

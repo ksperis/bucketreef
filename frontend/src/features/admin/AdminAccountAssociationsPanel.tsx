@@ -53,7 +53,6 @@ type AdminAccountAssociationsLabels = {
 type AdminAccountAssociationsPanelProps = {
   accounts: AdminAccountAssociationsState;
   maxVisibleOptions: number;
-  showPortalRole: boolean;
   labels: AdminAccountAssociationsLabels;
   normalizeSelection?: (links: AdminAccountSelection[]) => AdminAccountSelection[];
 };
@@ -61,11 +60,10 @@ type AdminAccountAssociationsPanelProps = {
 export default function AdminAccountAssociationsPanel({
   accounts,
   maxVisibleOptions,
-  showPortalRole,
   labels,
   normalizeSelection = (links) => links,
 }: AdminAccountAssociationsPanelProps) {
-  const defaultAccess = defaultAccountAccessGrant(showPortalRole);
+  const defaultAccess = defaultAccountAccessGrant();
   const hasInvalidPendingSelection = accounts.selections.some(
     (accountId) =>
       !hasAccountAccessRole(accounts.accountAccessChoice[accountId] ?? defaultAccess),
@@ -85,7 +83,6 @@ export default function AdminAccountAssociationsPanel({
             <AccountAccessRoleValidationMessage
               id={accessErrorId}
               value={entry}
-              portalEnabled={showPortalRole}
             />
           </>
         );
@@ -102,7 +99,6 @@ export default function AdminAccountAssociationsPanel({
         return (
           <ManagerAccountRoleSelect
             label={label}
-            portalEnabled={showPortalRole}
             value={entry}
             onChange={(value) =>
               accounts.setSelected((current) =>
@@ -118,8 +114,7 @@ export default function AdminAccountAssociationsPanel({
         );
       },
     },
-    ...(showPortalRole
-      ? [{
+    {
           id: "portal-role",
           label: labels.portalRole,
           render: (entry: AdminAccountSelection) => {
@@ -130,7 +125,6 @@ export default function AdminAccountAssociationsPanel({
             return (
               <PortalAccountRoleSelect
                 label={label}
-                portalEnabled={showPortalRole}
                 value={entry}
                 onChange={(value) =>
                   accounts.setSelected((current) =>
@@ -145,8 +139,7 @@ export default function AdminAccountAssociationsPanel({
               />
             );
           },
-        } satisfies DataTableColumn<AdminAccountSelection>]
-      : []),
+        } satisfies DataTableColumn<AdminAccountSelection>,
     {
       id: "actions",
       label: labels.actions,
@@ -247,7 +240,6 @@ export default function AdminAccountAssociationsPanel({
                 access: accounts.accountAccessChoice[accountId] ?? defaultAccess,
               };
             })}
-            portalEnabled={showPortalRole}
             onToggle={accounts.toggleSelection}
             onAccessChange={(accountId, value) =>
               accounts.setAccountAccessChoice((current) => ({

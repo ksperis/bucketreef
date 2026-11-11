@@ -38,7 +38,6 @@ type EditTab = "general" | "users" | "groups" | "manager" | "portal";
 type EditorState = { dirty: boolean; busy: boolean };
 type Props = {
   account: S3Account | S3AccountSummary;
-  portalEnabled: boolean;
   canManageManagerFeatures: boolean;
   onClose: () => void;
   onSaved: () => Promise<void>;
@@ -70,7 +69,7 @@ export default function AdminAccountEditor(props: Props) {
   </WorkflowPage>;
 }
 
-function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures, onClose, onSaved, onStateChange }: Props & { account: S3Account }) {
+function LoadedAccountEditor({ account, canManageManagerFeatures, onClose, onSaved, onStateChange }: Props & { account: S3Account }) {
   const { locale, intlLocale, text: adminText } = useAdminI18n();
   const { t: projectSettingsText } = useI18n();
   const adminBreadcrumbs = useAdminPageBreadcrumbs();
@@ -129,7 +128,7 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
     if (invalidUsers || invalidGroups || userPending || groupPending) {
       setTab(invalidUsers || userPending ? "users" : "groups");
       setError(invalidUsers || invalidGroups
-        ? adminText(getAccountAccessRequiredMessage(portalEnabled))
+        ? adminText(getAccountAccessRequiredMessage())
         : adminText("Add the selected UI {kind}, or cancel their selection, before saving.", {
             kind: adminText(userPending ? "users" : "groups"),
           }));
@@ -165,8 +164,6 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
     onStateChange({ dirty, busy: controller.locked });
     return () => onStateChange({ dirty: false, busy: false });
   }, [dirty, controller.locked, onStateChange]);
-  useEffect(() => { if (!portalEnabled && tab === "portal") setTab("general"); }, [portalEnabled, tab]);
-
   return <>
     <WorkflowPage title={adminText("Edit {name}", { name: account.name })}
       description={adminText("Manage quotas, usage, UI associations, Manager features, and Portal overrides for this account.")}
@@ -180,7 +177,7 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
       <WorkflowTabs<EditTab> activeTab={tab} onTabChange={next => { if (!controller.locked) setTab(next); }}
         ariaLabel={adminText("RGW account configuration sections")} idPrefix="admin-rgw-account-edit" panelClassName="mt-3 min-w-0"
         tabs={[{ id: "general", label: adminText("General") }, { id: "users", label: adminText("Linked UI users") }, { id: "groups", label: adminText("Linked UI groups") },
-          { id: "manager", label: adminText("Manager features"), visible: canManageManagerFeatures }, { id: "portal", label: adminText("Portal settings"), visible: portalEnabled }]
+          { id: "manager", label: adminText("Manager features"), visible: canManageManagerFeatures }, { id: "portal", label: adminText("Portal settings") }]
           .map(item => ({ ...item, id: item.id as EditTab, disabled: controller.locked }))}>
         <div hidden={tab === "portal"}>
           <SettingsForm label={adminText("Edit RGW account")} formRef={formRef} onSubmit={controller.submit} busy={controller.locked}
@@ -250,11 +247,11 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
             </div></div>
             <div hidden={tab !== "users"} className={adminAssociationPanelClass}>
               <AdminAccountAssociations adapter={accountUserAssociations} links={form.draft.user_links} onChange={value => update("user_links", value)}
-                portalEnabled={portalEnabled} disabled={controller.locked} onPendingChange={setUserPending} />
+                disabled={controller.locked} onPendingChange={setUserPending} />
             </div>
             <div hidden={tab !== "groups"} className={adminAssociationPanelClass}>
               <AdminAccountAssociations adapter={accountGroupAssociations} links={form.draft.group_links} onChange={value => update("group_links", value)}
-                portalEnabled={portalEnabled} disabled={controller.locked} onPendingChange={setGroupPending} />
+                disabled={controller.locked} onPendingChange={setGroupPending} />
             </div>
             {canManageManagerFeatures && <div hidden={tab !== "manager"}>
               <AdminManagerFeatureOverrides
@@ -267,10 +264,10 @@ function LoadedAccountEditor({ account, portalEnabled, canManageManagerFeatures,
             </div>}
           </SettingsForm>
         </div>
-        {portalEnabled && <div hidden={tab !== "portal"}>
+        <div hidden={tab !== "portal"}>
           <ProjectSettingsEditor accountId={account.id} projectName={account.name} adapter={portalAdapter} admin navigationGuard={false}
             t={projectSettingsText} locale={locale} disabled={controller.locked} onDirtyChange={setPortalDirty} onBusyChange={setPortalBusy} />
-        </div>}
+        </div>
       </WorkflowTabs>
     </WorkflowPage>
     {controller.confirmationDialog}
