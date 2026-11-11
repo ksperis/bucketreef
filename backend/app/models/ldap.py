@@ -10,11 +10,11 @@ from app.models.base import ApiModel
 from app.models.identity_provider import IdentityProviderFieldLock
 from app.utils.identity_provider_ids import normalize_identity_provider_id
 from app.utils.ldap_validation import (
-    normalize_optional_ldap_string,
-    normalize_required_ldap_string,
-    validate_ldap_import_search_filter,
-    validate_ldap_url,
-    validate_ldap_user_filter,
+    LDAPImportSearchFilter,
+    LDAPOptionalString,
+    LDAPRequiredString,
+    LDAPUrl,
+    LDAPUserFilter,
 )
 
 LDAP_USERNAME_MAX_LENGTH = 256
@@ -87,19 +87,19 @@ class LDAPProviderAdminItem(ApiModel):
 
 class LDAPProviderAdminPayload(ApiModel):
     provider_id: str
-    display_name: str
-    url: str
-    bind_dn: Optional[str]
-    bind_password: Optional[str] = None
-    user_base_dn: str
-    user_filter: str
-    import_search_filter: Optional[str] = None
-    email_attribute: str
-    name_attribute: Optional[str]
-    subject_attribute: Optional[str]
+    display_name: LDAPRequiredString
+    url: LDAPUrl
+    bind_dn: LDAPOptionalString
+    bind_password: LDAPOptionalString = None
+    user_base_dn: LDAPRequiredString
+    user_filter: LDAPUserFilter
+    import_search_filter: LDAPImportSearchFilter = None
+    email_attribute: LDAPRequiredString
+    name_attribute: LDAPOptionalString
+    subject_attribute: LDAPOptionalString
     start_tls: bool
     tls_verify: bool
-    tls_ca_file: Optional[str]
+    tls_ca_file: LDAPOptionalString
     allow_legacy_tls: bool
     timeout_seconds: float = Field(..., gt=0, le=60)
     enabled: bool
@@ -108,30 +108,6 @@ class LDAPProviderAdminPayload(ApiModel):
     clear_bind_password: bool = False
 
     normalize_provider_id = field_validator("provider_id", mode="before")(normalize_identity_provider_id)
-
-    normalize_required_strings = field_validator(
-        "display_name",
-        "url",
-        "user_base_dn",
-        "user_filter",
-        "email_attribute",
-        mode="before",
-    )(normalize_required_ldap_string)
-
-    normalize_optional_strings = field_validator(
-        "bind_dn",
-        "bind_password",
-        "import_search_filter",
-        "name_attribute",
-        "subject_attribute",
-        "tls_ca_file",
-        mode="before",
-    )(normalize_optional_ldap_string)
-
-    validate_url = field_validator("url")(validate_ldap_url)
-
-    validate_user_filter = field_validator("user_filter")(validate_ldap_user_filter)
-    validate_import_search_filter = field_validator("import_search_filter")(validate_ldap_import_search_filter)
 
     @model_validator(mode="after")
     def validate_transport(self):

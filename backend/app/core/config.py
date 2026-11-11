@@ -13,12 +13,12 @@ from pydantic_settings import BaseSettings
 from app.core.domain_enums import LDAPLinkingPolicy, OIDCLinkingPolicy
 from app.utils.identity_provider_ids import normalize_identity_provider_map
 from app.utils.ldap_validation import (
+    LDAPImportSearchFilter,
+    LDAPOptionalString,
     LDAP_PROVIDER_DEFAULT_USER_FILTER,
-    normalize_optional_ldap_string,
-    normalize_required_ldap_string,
-    validate_ldap_import_search_filter,
-    validate_ldap_url,
-    validate_ldap_user_filter,
+    LDAPRequiredString,
+    LDAPUrl,
+    LDAPUserFilter,
 )
 from app.utils.oidc_validation import normalize_trusted_email_domains
 
@@ -87,48 +87,24 @@ class OIDCProviderSettings(BaseModel):
 class LDAPProviderSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    display_name: str
-    url: str
-    bind_dn: Optional[str] = None
-    bind_password: Optional[str] = None
-    user_base_dn: str
-    user_filter: str = LDAP_PROVIDER_DEFAULT_USER_FILTER
-    import_search_filter: Optional[str] = None
-    email_attribute: str = "mail"
-    name_attribute: Optional[str] = "displayName"
-    subject_attribute: Optional[str] = None
+    display_name: LDAPRequiredString
+    url: LDAPUrl
+    bind_dn: LDAPOptionalString = None
+    bind_password: LDAPOptionalString = None
+    user_base_dn: LDAPRequiredString
+    user_filter: LDAPUserFilter = LDAP_PROVIDER_DEFAULT_USER_FILTER
+    import_search_filter: LDAPImportSearchFilter = None
+    email_attribute: LDAPRequiredString = "mail"
+    name_attribute: LDAPOptionalString = "displayName"
+    subject_attribute: LDAPOptionalString = None
     start_tls: bool = False
     tls_verify: bool = True
-    tls_ca_file: Optional[str] = None
+    tls_ca_file: LDAPOptionalString = None
     allow_legacy_tls: bool = False
     timeout_seconds: float = Field(5.0, gt=0, le=60)
     enabled: bool = True
     allow_insecure: bool = False
     linking_policy: LDAPLinkingPolicy = "manual"
-
-    normalize_required_strings = field_validator(
-        "display_name",
-        "url",
-        "user_base_dn",
-        "user_filter",
-        "email_attribute",
-        mode="before",
-    )(normalize_required_ldap_string)
-
-    normalize_optional_strings = field_validator(
-        "bind_dn",
-        "bind_password",
-        "import_search_filter",
-        "name_attribute",
-        "subject_attribute",
-        "tls_ca_file",
-        mode="before",
-    )(normalize_optional_ldap_string)
-
-    validate_url = field_validator("url")(validate_ldap_url)
-
-    validate_user_filter = field_validator("user_filter")(validate_ldap_user_filter)
-    validate_import_search_filter = field_validator("import_search_filter")(validate_ldap_import_search_filter)
 
     @model_validator(mode="after")
     def validate_transport(self):
