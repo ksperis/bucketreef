@@ -476,6 +476,10 @@ def test_admin_usage_stats_latest_aggregates_managed_account_scopes(client: Test
 
     class FakeBucketService:
         def list_buckets(self, account, **_kwargs):
+            assert db_session.in_transaction() is False
+            assert isinstance(account, S3ExecutionContext)
+            assert account.storage_endpoint is None
+            assert account.session_endpoint == "https://ceph.example.test"
             if account.id == 1:
                 return [type("Bucket", (), {"name": "bucket-a"})(), type("Bucket", (), {"name": "bucket-missing"})()]
             return [type("Bucket", (), {"name": "bucket-b"})()]
@@ -577,4 +581,6 @@ def test_admin_usage_stats_stream_builds_manager_scope_targets(client: TestClien
     assert [target.bucket_name for target in targets] == ["bucket-1", "bucket-2"]
     assert [target.scope_kind for target in targets] == ["manager", "manager"]
     assert [target.scope_id for target in targets] == ["1", "2"]
+    assert all(isinstance(target.context, S3ExecutionContext) for target in targets)
+    assert all(target.context.storage_endpoint is None for target in targets)
     assert captured["parallelism"] == 5
