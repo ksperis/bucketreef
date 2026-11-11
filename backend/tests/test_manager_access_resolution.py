@@ -30,6 +30,7 @@ from app.routers.dependencies_internal import feature_gates
 from app.services.bucket_migration_service import BucketMigrationService
 from app.services.effective_access_service import EffectiveAccessService
 from app.utils.time import utcnow
+from tests.db_transaction_test_utils import fail_next_sqlite_statement_with_busy_snapshot
 from tests.s3_account_factory import make_s3_account
 from tests.s3_connection_factory import custom_endpoint_fields
 
@@ -233,6 +234,47 @@ def test_migration_worker_revalidates_and_records_revocation(db_session, princip
     ).one()
     assert event.level == "error"
     assert event.event_metadata == {"revoked_context_ids": [f"conn-{connection.id}"]}
+
+
+def test_migration_worker_revocation_retries_sqlite_busy_snapshot(
+    db_session,
+    principal,
+):
+    user, group, membership = principal
+    connection = _connection(db_session, user, is_shared=True)
+    db_session.add(
+        UiGroupS3Connection(group_id=group.id, s3_connection_id=connection.id)
+    )
+    migration = BucketMigration(
+        created_by_user_id=user.id,
+        source_context_id=f"conn-{connection.id}",
+        target_context_id=f"conn-{connection.id}",
+        status="running",
+    )
+    db_session.add(migration)
+    db_session.commit()
+    worker = BucketMigrationService(db_session)
+    worker._assert_migration_creator_access(migration)
+
+    db_session.delete(membership)
+    db_session.commit()
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE bucket_migrations",
+    ) as statements:
+        with pytest.raises(PermissionError, match="creator access has been revoked"):
+            worker._assert_migration_creator_access(migration)
+
+    assert len(statements) >= 2
+    db_session.expire_all()
+    stored = db_session.get(BucketMigration, migration.id)
+    assert stored.status == "failed"
+    assert db_session.scalar(
+        sa.select(sa.func.count())
+        .select_from(BucketMigrationEvent)
+        .where(BucketMigrationEvent.migration_id == migration.id)
+    ) == 1
 
 
 def test_migration_api_resolves_group_grants_and_observes_revocation(client, db_session, principal, monkeypatch):

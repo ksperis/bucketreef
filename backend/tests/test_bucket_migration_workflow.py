@@ -1483,6 +1483,44 @@ def test_finalize_awaiting_cutover_retries_sqlite_busy(
     assert db_session.get(BucketMigration, migration.id).status == "awaiting_cutover"
 
 
+def test_finalize_pause_retries_sqlite_busy(prepared, db_session):
+    service, migration, _ = prepared
+    migration.status = "pause_requested"
+    migration.items[0].status = "running"
+    service._commit()
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE bucket_migrations",
+    ) as statements:
+        current = service._finalize_or_wait_cutover(migration)
+
+    assert len(statements) >= 2
+    assert current.status == "paused"
+    db_session.expire_all()
+    stored = db_session.get(BucketMigration, migration.id)
+    assert stored.status == "paused"
+    assert stored.items[0].status == "paused"
+
+
+def test_finalize_running_checkpoint_retries_sqlite_busy(prepared, db_session):
+    service, migration, _ = prepared
+    migration.status = "running"
+    migration.items[0].status = "pending"
+    service._commit()
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE bucket_migrations",
+    ) as statements:
+        current = service._finalize_or_wait_cutover(migration)
+
+    assert len(statements) >= 2
+    assert current.status == "running"
+    db_session.expire_all()
+    assert db_session.get(BucketMigration, migration.id).status == "running"
+
+
 def test_finalize_sanitizes_target_lock_release_errors(prepared):
     service, migration, _ = prepared
     item = migration.items[0]
@@ -1514,6 +1552,7 @@ def test_finalize_honors_pause_requested_after_item_stops(prepared):
     item = migration.items[0]
     migration.status = "pause_requested"
     item.status = "paused"
+    service._commit()
 
     service._finalize_or_wait_cutover(migration)
 
@@ -1708,6 +1747,39 @@ def test_cleanup_finalization_retries_local_checkpoint_without_restoring_twice(
     assert stored.read_only_applied is False
     assert stored.target_lock_applied is False
     assert stored.target_policy_backup is None
+
+
+def test_failed_target_cleanup_retries_local_checkpoint_without_redeleting(
+    prepared,
+    db_session,
+):
+    service, migration, _ = prepared
+    item = migration.items[0]
+    item.status = "failed"
+    item.execution_strategy = _current_only_execution_strategy()
+    item.target_created_by_migration = True
+    item.target_lock_applied = True
+    service._commit()
+    source = service._resolve_context(migration.source_context_id)
+    target = service._resolve_context(migration.target_context_id)
+    service._delete_maintenance_bucket = Mock()
+    service._remove_deleted_bucket_ui_tags = Mock()
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE bucket_migration_items",
+    ) as statements:
+        service._cleanup_failed_target(item, source, target, lambda: "run")
+
+    assert len(statements) >= 2
+    service._delete_maintenance_bucket.assert_called_once()
+    service._remove_deleted_bucket_ui_tags.assert_called_once()
+    db_session.expire_all()
+    stored = db_session.get(BucketMigrationItem, item.id)
+    assert stored.target_created_by_migration is False
+    assert stored.target_lock_applied is False
+    assert stored.target_policy_backup is None
+    assert stored.cleanup_error is None
 
 
 def test_maintenance_start_retries_sqlite_busy(prepared, db_session):

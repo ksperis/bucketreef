@@ -530,7 +530,6 @@ class BucketMigrationPolicyGrantsMixin:
         if item_id is None or migration_id is None:
             item.source_policy_backup = source_policy_backup
             item.read_only_applied = True
-            self._commit()
         else:
             def persist_intent(_migration, current_item: BucketMigrationItem) -> None:
                 current_item.source_policy_backup = source_policy_backup
@@ -592,7 +591,6 @@ class BucketMigrationPolicyGrantsMixin:
         if item_id is None or migration_id is None:
             item.target_policy_backup = target_policy_backup
             item.target_lock_applied = True
-            self._commit()
         else:
             def persist_intent(_migration, current_item: BucketMigrationItem) -> None:
                 current_item.target_policy_backup = target_policy_backup

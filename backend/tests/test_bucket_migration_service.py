@@ -5582,6 +5582,57 @@ def test_fail_migration_fatal_marks_failed_and_releases_lease(db_session, monkey
 
 
 
+def test_fail_migration_fatal_retries_sqlite_busy_snapshot(db_session):
+    migration = BucketMigration(
+        source_context_id="10",
+        target_context_id="20",
+        mode="one_shot",
+        copy_bucket_settings=False,
+        lock_target_writes=True,
+        use_same_endpoint_copy=False,
+        auto_grant_source_read_for_copy=False,
+        status="running",
+        parallelism_max=4,
+        total_items=1,
+        worker_lease_owner="worker-1",
+    )
+    db_session.add(migration)
+    db_session.flush()
+    item = BucketMigrationItem(
+        migration_id=migration.id,
+        source_bucket="bucket-a",
+        target_bucket="bucket-a-dst",
+        status="running",
+        step="sync",
+    )
+    db_session.add(item)
+    db_session.commit()
+
+    service = BucketMigrationService(db_session)
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE bucket_migrations",
+    ) as statements:
+        service.fail_migration_fatal(
+            migration.id,
+            error=RuntimeError("boom"),
+            worker_id="worker-1",
+        )
+
+    assert len(statements) >= 2
+    db_session.expire_all()
+    stored = db_session.get(BucketMigration, migration.id)
+    stored_item = db_session.get(BucketMigrationItem, item.id)
+    assert stored.status == "failed"
+    assert stored.worker_lease_owner is None
+    assert stored_item.status == "failed"
+    assert db_session.scalar(
+        sa.select(sa.func.count())
+        .select_from(BucketMigrationEvent)
+        .where(BucketMigrationEvent.migration_id == migration.id)
+    ) == 1
+
+
 def test_fail_migration_fatal_is_idempotent_for_final_status(db_session):
     migration = BucketMigration(
         source_context_id="10",

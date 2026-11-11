@@ -42,8 +42,8 @@ class BucketMigrationExecutionControlMixin:
             migration = self.get_migration(migration.id)
 
         if migration.status in {*FINAL_STATUSES, "awaiting_cutover"}:
-            if self._clear_owned_worker_lease(migration, worker_id=worker_id):
-                self._commit()
+            if worker_id and migration.worker_lease_owner == worker_id:
+                self._release_migration_lease(migration.id, worker_id=worker_id)
             return None
 
         if migration.status in ACTIVE_STATUSES:
@@ -68,18 +68,6 @@ class BucketMigrationExecutionControlMixin:
             migration = self._persist_migration_checkpoint(migration_id, mark_running)
         return migration
 
-    @staticmethod
-    def _clear_owned_worker_lease(
-        migration: BucketMigration,
-        *,
-        worker_id: Optional[str],
-    ) -> bool:
-        if not worker_id or migration.worker_lease_owner != worker_id:
-            return False
-        migration.worker_lease_owner = None
-        migration.worker_lease_until = None
-        return True
-
     def _stop_for_control_state(
         self,
         migration: BucketMigration,
@@ -92,11 +80,9 @@ class BucketMigrationExecutionControlMixin:
             return True
         if state == "cancel":
             self._mark_canceled(migration, source_ctx=source_ctx, target_ctx=target_ctx)
-            self._commit()
             return True
         if state == "pause":
             self._mark_paused(migration)
-            self._commit()
             return True
         return False
 
@@ -202,8 +188,8 @@ class BucketMigrationExecutionControlMixin:
             if item.status in {"completed", "failed", "canceled"}:
                 continue
             if migration.mode == "pre_sync" and migration.status == "awaiting_cutover":
-                if self._clear_owned_worker_lease(migration, worker_id=worker_id):
-                    self._commit()
+                if worker_id and migration.worker_lease_owner == worker_id:
+                    self._release_migration_lease(migration.id, worker_id=worker_id)
                 return None
 
             migration = self._execute_migration_item(
@@ -283,6 +269,3 @@ class BucketMigrationExecutionControlMixin:
             source_ctx=source_ctx,
             target_ctx=target_ctx,
         )
-        if migration.status not in ACTIVE_STATUSES:
-            self._clear_owned_worker_lease(migration, worker_id=worker_id)
-        self._commit()
