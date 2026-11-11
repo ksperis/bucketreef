@@ -347,11 +347,12 @@ def test_browser_usage_summary_uses_live_s3_user_usage(client, db_session, monke
 
     class FakeS3UserMetricsService:
         def get_usage(self, received):  # noqa: ANN001
-            assert received.id == s3_user.id
+            assert received is account
+            assert received.s3_user_id == s3_user.id
             return 40, 4, 1
 
         def get_quota(self, received):  # noqa: ANN001
-            assert received.id == s3_user.id
+            assert received is account
             return 1.0, 100
 
     monkeypatch.setattr(
@@ -390,7 +391,8 @@ def test_browser_usage_summary_hides_s3_user_when_live_usage_is_unavailable(clie
 
     class FakeS3UserMetricsService:
         def get_usage(self, received):  # noqa: ANN001
-            assert received.id == s3_user.id
+            assert received is account
+            assert received.s3_user_id == s3_user.id
             return None, None, None
 
         def get_quota(self, received):  # noqa: ANN001

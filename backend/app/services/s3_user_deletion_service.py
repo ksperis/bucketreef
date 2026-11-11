@@ -11,6 +11,7 @@ from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import S3User, S3UserDeletion, UiGroupS3User, UserS3User
 from app.services.resource_deletion_purge_service import ResourceDeletionPurgeService
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
+from app.services.s3_execution_context import S3ExecutionContext
 from app.services.s3_user_metrics_service import S3UserMetricsService
 from app.services.tags_service import TagsService
 from app.utils.rgw_payloads import require_rgw_user_identity
@@ -240,7 +241,9 @@ class S3UserDeletionService:
             raise ValueError(f"Unable to delete interface access key: {exc}") from exc
 
     def _require_no_remote_buckets(self, s3_user: S3User) -> None:
-        bucket_count = self.metrics.get_interface_bucket_count(s3_user)
+        bucket_count = self.metrics.get_interface_bucket_count(
+            S3ExecutionContext.from_s3_user(s3_user)
+        )
         if bucket_count is None:
             raise ValueError("Unable to verify owned buckets; cannot delete the RGW user.")
         if bucket_count > 0:

@@ -5,11 +5,10 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from app.core.domain_errors import StorageEndpointNotFoundError
-from app.db import S3User
 from app.services import s3_client
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_runtime_rgw_client
+from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.quota_stats import (
     bytes_to_gb,
     extract_rgw_user_positive_limit,
@@ -26,23 +25,34 @@ from app.utils.usage_stats import aggregate_bucket_usage
 logger = logging.getLogger(__name__)
 
 class S3UserMetricsService:
-    """Read RGW usage, quota, and limits for a persisted S3 user."""
+    """Read RGW usage, quota, and limits for an S3 user execution context."""
 
     @staticmethod
-    def _runtime_client(s3_user: S3User) -> RGWAdminClient:
-        endpoint = s3_user.storage_endpoint
+    def runtime_client(
+        context: S3ExecutionContext,
+        *,
+        allow_missing: bool = False,
+    ) -> Optional[RGWAdminClient]:
+        endpoint = context.storage_endpoint
         if endpoint is None:
-            raise StorageEndpointNotFoundError("Storage endpoint not found for S3 user.")
-        return get_endpoint_runtime_rgw_client(endpoint)
+            if allow_missing:
+                return None
+            raise ValueError("storage endpoint is not available for S3 user context")
+        try:
+            return get_endpoint_runtime_rgw_client(endpoint)
+        except (ValueError, RGWAdminError):
+            if allow_missing:
+                return None
+            raise
 
     @staticmethod
-    def get_interface_bucket_count(s3_user: S3User) -> Optional[int]:
-        access_key = (s3_user.rgw_access_key or "").strip()
-        secret_key = (s3_user.rgw_secret_key or "").strip()
+    def get_interface_bucket_count(context: S3ExecutionContext) -> Optional[int]:
+        access_key = (context.access_key or "").strip()
+        secret_key = (context.secret_key or "").strip()
         if not access_key or not secret_key:
             return None
         try:
-            endpoint, region, force_path_style, verify_tls = resolve_s3_client_options(s3_user)
+            endpoint, region, force_path_style, verify_tls = resolve_s3_client_options(context)
             buckets = s3_client.list_buckets(
                 access_key=access_key,
                 secret_key=secret_key,
@@ -55,25 +65,28 @@ class S3UserMetricsService:
                 [bucket for bucket in buckets if isinstance(bucket, dict) and bucket.get("name")]
             )
         except s3_client.S3OperationError as exc:
-            logger.warning("Unable to list buckets for user %s: %s", s3_user.rgw_user_uid, exc)
+            logger.warning("Unable to list buckets for user %s: %s", context.rgw_user_uid, exc)
             return None
 
     def get_usage(
         self,
-        s3_user: S3User,
+        context: S3ExecutionContext,
     ) -> tuple[Optional[int], Optional[int], Optional[int]]:
+        admin = self.runtime_client(context, allow_missing=True)
+        uid = context.rgw_user_uid
+        if not admin or not uid:
+            return None, None, None
         try:
-            admin = self._runtime_client(s3_user)
-            tenant = s3_user.rgw_tenant
+            tenant = context.rgw_tenant
             payload = admin.get_all_buckets(
-                uid=s3_user.rgw_user_uid,
+                uid=uid,
                 with_stats=True,
                 **({"tenant": tenant} if tenant else {}),
             )
         except (RGWAdminError, ValueError) as exc:
             logger.warning(
                 "Unable to list buckets with stats for user %s: %s",
-                s3_user.rgw_user_uid,
+                uid,
                 exc,
             )
             return None, None, None
@@ -81,45 +94,51 @@ class S3UserMetricsService:
 
     def get_quota(
         self,
-        s3_user: S3User,
+        context: S3ExecutionContext,
         admin: Optional[RGWAdminClient] = None,
     ) -> tuple[Optional[float], Optional[int]]:
-        try:
-            rgw_admin = admin or self._runtime_client(s3_user)
-        except ValueError as exc:
-            logger.warning("Unable to resolve RGW admin for %s: %s", s3_user.rgw_user_uid, exc)
+        rgw_admin = admin or self.runtime_client(context, allow_missing=True)
+        if not rgw_admin:
+            return None, None
+        return self.get_quota_with_admin(context.rgw_user_uid, context.rgw_tenant, rgw_admin)
+
+    @staticmethod
+    def get_quota_with_admin(
+        rgw_user_uid: Optional[str],
+        rgw_tenant: Optional[str],
+        admin: RGWAdminClient,
+    ) -> tuple[Optional[float], Optional[int]]:
+        if not rgw_user_uid:
             return None, None
         try:
-            tenant = s3_user.rgw_tenant
-            max_size_bytes, max_objects = rgw_admin.get_user_quota(
-                s3_user.rgw_user_uid,
-                tenant=tenant or None,
+            max_size_bytes, max_objects = admin.get_user_quota(
+                rgw_user_uid,
+                tenant=rgw_tenant or None,
             )
         except (RGWAdminError, ValueError) as exc:
-            logger.warning("Unable to fetch S3 user quota for %s: %s", s3_user.rgw_user_uid, exc)
+            logger.warning("Unable to fetch S3 user quota for %s: %s", rgw_user_uid, exc)
             return None, None
         return bytes_to_gb(max_size_bytes), max_objects
 
     def get_limits(
         self,
-        s3_user: S3User,
+        context: S3ExecutionContext,
     ) -> tuple[Optional[float], Optional[int], Optional[int]]:
-        try:
-            rgw_admin = self._runtime_client(s3_user)
-        except ValueError as exc:
-            logger.warning("Unable to resolve RGW admin for %s: %s", s3_user.rgw_user_uid, exc)
+        rgw_admin = self.runtime_client(context, allow_missing=True)
+        uid = context.rgw_user_uid
+        if not rgw_admin or not uid:
             return None, None, None
         try:
-            tenant = s3_user.rgw_tenant
+            tenant = context.rgw_tenant
             payload = rgw_admin.get_user(
-                s3_user.rgw_user_uid,
+                uid,
                 tenant=tenant or None,
                 allow_not_found=True,
             ) or {}
             if payload:
-                require_rgw_user_identity(payload, s3_user.rgw_user_uid, tenant)
+                require_rgw_user_identity(payload, uid, tenant)
         except (RGWAdminError, ValueError) as exc:
-            logger.warning("Unable to fetch S3 user limits for %s: %s", s3_user.rgw_user_uid, exc)
+            logger.warning("Unable to fetch S3 user limits for %s: %s", uid, exc)
             return None, None, None
         max_size_bytes, max_objects = extract_rgw_user_quota_limits(payload)
         return (

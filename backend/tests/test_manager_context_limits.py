@@ -108,7 +108,6 @@ def test_manager_context_loads_limits_on_explicit_request(db_session, monkeypatc
 
 
 def test_manager_context_loads_s3_user_limits_through_focused_services(db_session, monkeypatch):
-    s3_user = SimpleNamespace(id=17)
     context = S3ExecutionContext(
         context_id="s3u-17",
         context_kind="s3_user",
@@ -117,14 +116,12 @@ def test_manager_context_loads_s3_user_limits_through_focused_services(db_sessio
         secret_key="SK-USER",
         s3_user_id=17,
     )
-    query = SimpleNamespace(get_user_record=lambda user_id: s3_user if user_id == 17 else None)
     metrics = SimpleNamespace(
-        get_limits=lambda source: (4.5, 900, 5) if source is s3_user else (None, None, None)
+        get_limits=lambda source: (4.5, 900, 5) if source is context else (None, None, None)
     )
-    monkeypatch.setattr(context_router, "S3UserQueryService", lambda _db: query)
     monkeypatch.setattr(context_router, "S3UserMetricsService", lambda: metrics)
 
-    limits = context_router._manager_limits(context, db_session, include_limits=True)
+    limits = context_router._manager_limits(context, include_limits=True)
 
     assert limits.quota_max_size_gb == 4.5
     assert limits.quota_max_objects == 900

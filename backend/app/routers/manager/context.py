@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.domain_enums import ManagedPrivateAccessActiveState
-from app.core.domain_errors import S3ConnectionNotFoundError, S3UserNotFoundError
+from app.core.domain_errors import S3ConnectionNotFoundError
 from app.db import User
 from app.services.access_context_contracts import ManagerActor, ManagerSessionPrincipal
 from app.models.app_settings import AppSettings
@@ -36,7 +36,6 @@ from app.services.connection_identity_service import ConnectionIdentityService
 from app.services.s3_account_metrics_service import S3AccountMetricsService
 from app.services.s3_connection_query_service import S3ConnectionQueryService
 from app.services.s3_user_metrics_service import S3UserMetricsService
-from app.services.s3_user_query_service import S3UserQueryService
 from app.services.effective_access_contracts import ResolvedUserAccess
 from app.services.effective_access_service import EffectiveAccessService
 from app.services.managed_private_access_policy_service import (
@@ -298,22 +297,15 @@ def _manager_private_access_state(
 
 def _manager_limits(
     context: S3ExecutionContext,
-    db: Session,
     *,
     include_limits: bool,
 ) -> _ManagerLimits:
     if not include_limits or context.context_kind == "connection":
         return _ManagerLimits()
     if context.context_kind == "s3_user":
-        s3_user = context.source_s3_user
-        if s3_user is None and context.s3_user_id is not None:
-            try:
-                s3_user = S3UserQueryService(db).get_user_record(context.s3_user_id)
-            except S3UserNotFoundError:
-                s3_user = None
-        if s3_user is None:
-            return _ManagerLimits()
-        quota_max_size_gb, quota_max_objects, max_buckets = S3UserMetricsService().get_limits(s3_user)
+        quota_max_size_gb, quota_max_objects, max_buckets = S3UserMetricsService().get_limits(
+            context
+        )
         return _ManagerLimits(
             quota_max_size_gb=quota_max_size_gb,
             quota_max_objects=quota_max_objects,
@@ -455,7 +447,6 @@ def get_manager_context(
     availability = _manager_feature_availability(context, actor, db, resolved_access)
     limits = _manager_limits(
         context,
-        db,
         include_limits=include_limits,
     )
     feature_states = _manager_feature_states(

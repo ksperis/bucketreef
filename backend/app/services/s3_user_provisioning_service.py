@@ -112,7 +112,11 @@ class S3UserProvisioningService:
             raise
 
         self.db.refresh(s3_user)
-        quota_max_size_gb, quota_max_objects = self.metrics.get_quota(s3_user, admin)
+        quota_max_size_gb, quota_max_objects = self.metrics.get_quota_with_admin(
+            uid,
+            tenant,
+            admin,
+        )
         return S3UserProvisioningResult(
             s3_user=s3_user,
             endpoint=endpoint,
