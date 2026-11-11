@@ -70,7 +70,6 @@ export default function S3AccountsPage() {
   const { text: adminText } = useAdminI18n();
   const adminBreadcrumbs = useAdminPageBreadcrumbs();
   const { generalSettings } = useGeneralSettings();
-  const portalEnabled = generalSettings.portal_enabled;
   const managedTenantCreationEnabled = generalSettings.allow_managed_rgw_tenant_creation;
   const [creating, setCreating] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -675,7 +674,7 @@ export default function S3AccountsPage() {
       )}
 
       {isSuperAdmin && editingS3Account && <AdminAccountEditor key={editingS3Account.id}
-        account={editingS3Account} portalEnabled={portalEnabled}
+        account={editingS3Account}
         canManageManagerFeatures={canManageManagerFeatures}
         onClose={closeAccountEditor} onSaved={accountSaved} onStateChange={setEditorState} />}
       {accountSwitchGuard.confirmationDialog}

@@ -150,16 +150,6 @@ function AdminUsageHistoryRoute() {
   }} />;
 }
 
-function AdminPortalSettingsRoute() {
-  const { generalSettings } = useGeneralSettings();
-  return generalSettings.portal_enabled ? <AdminPortalSettingsPage /> : <FeatureDisabledPage feature={{
-    en: "Portal",
-    fr: "Portail",
-    de: "Portal",
-    zh: "Portal",
-  }} />;
-}
-
 function AdminOpenStackRoute() {
   const { generalSettings } = useGeneralSettings();
   return generalSettings.openstack_enabled
@@ -234,7 +224,7 @@ export function createAppRoutes(runtimeSurfaces: RuntimeSurfaces = DEFAULT_RUNTI
                   <Route path="authentication-settings/ldap/new" element={<AuthProviderPage kind="ldap" />} />
                   <Route path="authentication-settings/ldap/providers/:providerId" element={<AuthProviderPage kind="ldap" />} />
                   <Route path="manager-settings" element={<ManagerSettingsPage />} />
-                  <Route path="portal-settings" element={<AdminPortalSettingsRoute />} />
+                  <Route path="portal-settings" element={<AdminPortalSettingsPage />} />
                   <Route path="browser-settings" element={<BrowserSettingsPage />} />
                   <Route path="webhook-settings" element={<WebhookSettingsPage />} />
                   <Route path="webhook-settings/new" element={<WebhookEndpointPage />} />

@@ -131,7 +131,6 @@ describe("AdminAssociationPicker", () => {
       <AdminAssociationAccessPickerTable
         title="Available accounts"
         principalLabel="Account"
-        portalEnabled
         options={[
           {
             id: 1,

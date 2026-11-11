@@ -41,6 +41,13 @@ authentication/profile APIs still exist where required by each profile and are
 omitted from the diagram for clarity. Admin API-token management and the
 first-administrator web bootstrap are not mounted on the `user` runtime.
 
+The Administration pool remains the control plane for shared user/account
+associations, including `portal_user` and `portal_manager` roles, per-account
+Portal settings, and Portal requests. Its local `FEATURE_PORTAL_ENABLED=false`
+lock only means that `/portal` is not mounted on the Administration runtime.
+The stored roles and settings are shared through PostgreSQL and are consumed by
+the `user` runtime, where the Portal surface is enabled.
+
 Ceph RGW is intentionally shown as one external dependency. User runtimes use
 S3/IAM according to the selected execution context. Administration runtimes use
 RGW Admin Ops only for features that require it; do not grant write caps merely

@@ -41,7 +41,6 @@ function pageLink(page: WorkspacePageContract, text: AdminNavText) {
 const identityText: AdminNavText = interpolateText;
 
 export const buildAdminNav = (
-  portalEnabled: boolean,
   browserEnabled: boolean,
   openStackEnabled: boolean,
   costEnabled: boolean,
@@ -72,8 +71,6 @@ export const buildAdminNav = (
     },
     {
       ...pageLink(ADMIN_PAGE_CONTRACTS["portal-settings"], text),
-      disabled: !portalEnabled,
-      disabledHint: !portalEnabled ? text("Portal feature is disabled in General settings.") : undefined,
     },
     {
       ...pageLink(ADMIN_PAGE_CONTRACTS["cost-settings"], text),
@@ -161,24 +158,20 @@ export const buildAdminNav = (
     {
       label: text("Audit & Reporting"),
       links: [
-        ...(portalEnabled
-          ? [
-              {
-                ...pageLink(ADMIN_PAGE_CONTRACTS["portal-requests"], text),
-                badge: portalRequestCount > 0 ? String(portalRequestCount) : undefined,
-                badgeAriaLabel:
-                  portalRequestCount > 0
-                    ? text(
-                        portalRequestCount === 1
-                          ? "{count} pending Portal request"
-                          : "{count} pending Portal requests",
-                        { count: portalRequestCount },
-                      )
-                    : undefined,
-                badgeTone: "attention" as const,
-              },
-            ]
-          : []),
+        {
+          ...pageLink(ADMIN_PAGE_CONTRACTS["portal-requests"], text),
+          badge: portalRequestCount > 0 ? String(portalRequestCount) : undefined,
+          badgeAriaLabel:
+            portalRequestCount > 0
+              ? text(
+                  portalRequestCount === 1
+                    ? "{count} pending Portal request"
+                    : "{count} pending Portal requests",
+                  { count: portalRequestCount },
+                )
+              : undefined,
+          badgeTone: "attention" as const,
+        },
         ...(costEnabled
           ? [
               {
@@ -221,7 +214,6 @@ export default function AdminLayout() {
   const canConfigureApp = isSuperAdminRole(currentUser?.role);
   const { text } = useAdminI18n();
   const adminNav = buildAdminNav(
-    generalSettings.portal_enabled,
     generalSettings.browser_enabled,
     generalSettings.openstack_enabled,
     generalSettings.cost_enabled,

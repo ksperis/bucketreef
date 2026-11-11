@@ -515,13 +515,14 @@ describe("AccountsPage modal tabs", () => {
     const portalRoleSelect = screen.getByRole<HTMLSelectElement>("combobox", {
       name: "Portal role for ui7@example.com",
     });
-    expect(managerRoleSelect).toHaveValue("account_administrator");
+    expect(managerRoleSelect).toHaveValue("");
     expect(Array.from(managerRoleSelect.options).map((option) => option.value)).toEqual([
       "",
       "account_administrator",
     ]);
     expect(portalRoleSelect).toHaveValue("");
-    expect(portalRoleSelect).toBeDisabled();
+    expect(portalRoleSelect).toBeEnabled();
+    fireEvent.change(managerRoleSelect, { target: { value: "account_administrator" } });
     fireEvent.click(await screen.findByRole("checkbox", { name: "ui7@example.com" }));
     fireEvent.click(screen.getByRole("button", { name: "Add selected" }));
 
@@ -576,7 +577,8 @@ describe("AccountsPage modal tabs", () => {
       "",
       "account_administrator",
     ]);
-    expect(portalRoleSelect).toBeDisabled();
+    expect(portalRoleSelect).toBeEnabled();
+    fireEvent.change(managerRoleSelect, { target: { value: "account_administrator" } });
     fireEvent.click(await screen.findByRole("checkbox", { name: "Research Group" }));
     fireEvent.click(screen.getByRole("button", { name: "Add selected" }));
 
@@ -673,7 +675,7 @@ describe("AccountsPage modal tabs", () => {
     );
   }, 15_000); // Covers both association dialogs and their save on shared CI runners.
 
-  it("preserves an existing portal role while hiding its column when Portal is disabled", async () => {
+  it("keeps Portal roles editable from Admin when the local Portal surface is disabled", async () => {
     listS3AccountsMock.mockResolvedValueOnce({
       items: [
         {
@@ -732,7 +734,7 @@ describe("AccountsPage modal tabs", () => {
     fireEvent.click(await screen.findByRole("tab", { name: "Linked UI users" }));
 
     expect(screen.getByRole("columnheader", { name: "Manager role" })).toBeInTheDocument();
-    expect(screen.queryByRole("columnheader", { name: /Portal role/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /Portal role/ })).toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "Access roles" })).not.toBeInTheDocument();
 
     const managerRoleSelect = screen.getByRole<HTMLSelectElement>("combobox", {
@@ -740,9 +742,11 @@ describe("AccountsPage modal tabs", () => {
     });
     expect(managerRoleSelect).toHaveValue("");
     expect(managerRoleSelect).toBeEnabled();
-    expect(
-      screen.queryByRole("combobox", { name: "Portal role for ui7@example.com" }),
-    ).not.toBeInTheDocument();
+    const portalRoleSelect = screen.getByRole<HTMLSelectElement>("combobox", {
+      name: "Portal role for ui7@example.com",
+    });
+    expect(portalRoleSelect).toHaveValue("portal_manager");
+    expect(portalRoleSelect).toBeEnabled();
 
     fireEvent.click(screen.getByRole("tab", { name: "General" }));
     fireEvent.change(screen.getByLabelText("Object quota"), { target: { value: "5" } });
@@ -766,7 +770,7 @@ describe("AccountsPage modal tabs", () => {
     );
   });
 
-  it("keeps the required account-principal Manager role while Portal is off", async () => {
+  it("allows an account principal to use Portal access without a Manager role", async () => {
     const accountWithManagerLink = {
       id: 1,
       name: "acc-1",
@@ -807,14 +811,19 @@ describe("AccountsPage modal tabs", () => {
     fireEvent.click((await screen.findAllByRole("button", { name: "Edit" }))[0]);
     fireEvent.click(await screen.findByRole("tab", { name: "Linked UI users" }));
     expect(screen.getByRole("columnheader", { name: "Manager role" })).toBeInTheDocument();
-    expect(screen.queryByRole("columnheader", { name: /Portal role/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /Portal role/ })).toBeInTheDocument();
     const managerRoleSelect = screen.getByRole("combobox", {
       name: "Manager role for ui7@example.com",
     });
     expect(managerRoleSelect).toHaveValue("account_administrator");
     expect(
       within(managerRoleSelect).getByRole("option", { name: "No Manager access" }),
-    ).toBeDisabled();
+    ).toBeEnabled();
+    fireEvent.change(managerRoleSelect, { target: { value: "" } });
+    const portalRoleSelect = screen.getByRole("combobox", { name: "Portal role for ui7@example.com" });
+    fireEvent.change(portalRoleSelect, { target: { value: "portal_manager" } });
+    expect(managerRoleSelect).toHaveValue("");
+    expect(portalRoleSelect).toHaveValue("portal_manager");
   });
 
   it("submits Manager feature grants from the account edit tab", async () => {
@@ -916,15 +925,14 @@ describe("AccountsPage modal tabs", () => {
     expect(screen.queryByText("Bucket management")).not.toBeInTheDocument();
   });
 
-  it("hides portal overrides tab when the portal feature is disabled", async () => {
+  it("keeps portal overrides available from Admin when the local Portal surface is disabled", async () => {
     renderPage();
 
     await screen.findByText("acc-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
-
-    await screen.findByRole("tabpanel", { name: "General" });
-    expect(screen.queryByRole("tab", { name: "Portal settings" })).not.toBeInTheDocument();
-    expect(fetchAccountPortalSettingsMock).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByRole("tab", { name: "Portal settings" }));
+    expect(fetchAccountPortalSettingsMock).toHaveBeenCalledWith(1);
+    expect(await screen.findByText("Private Storage Space creation")).toBeInTheDocument();
   });
 
   it("saves account portal overrides from the portal tab", async () => {
@@ -1035,7 +1043,7 @@ describe("AccountsPage modal tabs", () => {
     expect(screen.getByRole("group", { name: "Tag settings for gold" })).toBeInTheDocument();
   });
 
-  it("defaults a new link to account administrator when Portal is unavailable", async () => {
+  it("creates a Portal-only link from Admin when the local Portal surface is disabled", async () => {
     renderPage();
 
     await screen.findByText("acc-1");
@@ -1049,10 +1057,11 @@ describe("AccountsPage modal tabs", () => {
     if (!userRow) {
       throw new Error("User row not found");
     }
-    expect(within(userRow).getByRole("combobox", { name: "Manager role for ui7@example.com" })).toHaveValue(
-      "account_administrator",
-    );
-    expect(within(userRow).getByRole("combobox", { name: "Portal role for ui7@example.com" })).toBeDisabled();
+    expect(within(userRow).getByRole("combobox", { name: "Manager role for ui7@example.com" })).toHaveValue("");
+    const portalRoleSelect = within(userRow).getByRole("combobox", { name: "Portal role for ui7@example.com" });
+    expect(portalRoleSelect).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Add selected" })).toBeDisabled();
+    fireEvent.change(portalRoleSelect, { target: { value: "portal_manager" } });
     fireEvent.click(screen.getByRole("button", { name: "Add selected" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
@@ -1068,8 +1077,8 @@ describe("AccountsPage modal tabs", () => {
         user_links: expect.arrayContaining([
           expect.objectContaining({
             user_id: 7,
-            manager_role: "account_administrator",
-            portal_role: null,
+            manager_role: null,
+            portal_role: "portal_manager",
           }),
         ]),
       })
@@ -1604,6 +1613,9 @@ describe("AccountsPage modal tabs", () => {
     expect(screen.queryByText("No results.")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     fireEvent.click(await screen.findByRole("checkbox", { name: label }));
+    fireEvent.change(screen.getByRole("combobox", { name: `Manager role for ${label}` }), {
+      target: { value: "account_administrator" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Back to accounts" }));
     fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
     fireEvent.click(screen.getByRole("tab", { name: "General" }));

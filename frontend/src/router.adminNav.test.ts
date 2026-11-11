@@ -19,8 +19,8 @@ function getConnectionsLink(label: string, options: Parameters<typeof buildAdmin
 
 describe("buildAdminNav", () => {
   it("exposes Production readiness in Settings only to superadmins", () => {
-    const superadminNav = buildAdminNav(true, true, false, false, false, false, true);
-    const adminNav = buildAdminNav(true, true, false, false, false, false, false);
+    const superadminNav = buildAdminNav(true, false, false, false, false, true);
+    const adminNav = buildAdminNav(true, false, false, false, false, false);
     const productionReadinessLink = superadminNav
       .find((section) => section.label === "Settings")
       ?.links.find((link) => link.label === "Production readiness");
@@ -35,28 +35,28 @@ describe("buildAdminNav", () => {
   });
 
   it("sets explicit hint for disabled Browser settings link", () => {
-    const browserLink = getSettingsLink("Browser", [true, false, false, false, false, false, true]);
+    const browserLink = getSettingsLink("Browser", [false, false, false, false, false, true]);
 
     expect(browserLink?.disabled).toBe(true);
     expect(browserLink?.disabledHint).toBe("Browser feature is disabled in General settings.");
   });
 
   it("does not set hint when Browser settings link is enabled", () => {
-    const browserLink = getSettingsLink("Browser", [true, true, false, true, false, false, true]);
+    const browserLink = getSettingsLink("Browser", [true, false, true, false, false, true]);
 
     expect(browserLink?.disabled).toBe(false);
     expect(browserLink?.disabledHint).toBeUndefined();
   });
 
-  it("sets explicit hint for disabled Portal settings link", () => {
-    const portalLink = getSettingsLink("Portal", [false, true, false, false, false, false, true]);
+  it("keeps Portal settings available from the Admin control plane", () => {
+    const portalLink = getSettingsLink("Portal", [true, false, false, false, false, true]);
 
-    expect(portalLink?.disabled).toBe(true);
-    expect(portalLink?.disabledHint).toBe("Portal feature is disabled in General settings.");
+    expect(portalLink?.disabled).toBeUndefined();
+    expect(portalLink?.disabledHint).toBeUndefined();
   });
 
   it("disables Cost settings when the Cost feature is inactive", () => {
-    const costLink = getSettingsLink("Cost", [true, true, false, false, false, false, true]);
+    const costLink = getSettingsLink("Cost", [true, false, false, false, false, true]);
 
     expect(costLink?.disabled).toBe(true);
     expect(costLink?.disabledHint).toBe("Cost feature is disabled in General settings.");
@@ -65,22 +65,22 @@ describe("buildAdminNav", () => {
   });
 
   it("enables Cost settings when the Cost feature is active", () => {
-    const costLink = getSettingsLink("Cost", [true, true, false, true, false, false, true]);
+    const costLink = getSettingsLink("Cost", [true, false, true, false, false, true]);
 
     expect(costLink?.disabled).toBe(false);
     expect(costLink?.disabledHint).toBeUndefined();
   });
 
   it("uses the same dedicated Cost icon for reporting and Cost settings", () => {
-    const reportingLink = getAuditReportingLink("Cost", [true, true, false, true, false, false, true]);
-    const settingsLink = getSettingsLink("Cost", [true, true, false, true, false, false, true]);
+    const reportingLink = getAuditReportingLink("Cost", [true, false, true, false, false, true]);
+    const settingsLink = getSettingsLink("Cost", [true, false, true, false, false, true]);
 
     expect(reportingLink?.iconName).toBe("cost");
     expect(settingsLink?.iconName).toBe("cost");
   });
 
   it("uses distinct icons for Webhooks, Access audit, and Audit trail", () => {
-    const options: Parameters<typeof buildAdminNav> = [true, true, false, true, false, false, true];
+    const options: Parameters<typeof buildAdminNav> = [true, false, true, false, false, true];
 
     expect(getSettingsLink("Webhooks", options)?.iconName).toBe("webhook");
     expect(getAuditReportingLink("Access audit", options)?.iconName).toBe("access-audit");
@@ -88,20 +88,20 @@ describe("buildAdminNav", () => {
   });
 
   it("does not expose API Tokens in settings navigation", () => {
-    const apiTokensLink = getSettingsLink("API tokens", [true, true, false, true, false, true, true]);
+    const apiTokensLink = getSettingsLink("API tokens", [true, false, true, false, true, true]);
 
     expect(apiTokensLink).toBeUndefined();
   });
 
   it("exposes Authentication in settings navigation", () => {
-    const authenticationLink = getSettingsLink("Authentication", [true, true, false, false, false, false, true]);
+    const authenticationLink = getSettingsLink("Authentication", [true, false, false, false, false, true]);
 
     expect(authenticationLink?.to).toBe("/admin/authentication-settings");
     expect(authenticationLink?.iconName).toBe("shield");
   });
 
   it("places OpenStack clouds in Connections with a dedicated icon", () => {
-    const options: Parameters<typeof buildAdminNav> = [true, true, true, false, false, false, true];
+    const options: Parameters<typeof buildAdminNav> = [true, true, false, false, false, true];
     const openStackLink = getConnectionsLink("OpenStack Clouds", options);
 
     expect(openStackLink?.to).toBe("/admin/openstack");
@@ -110,20 +110,20 @@ describe("buildAdminNav", () => {
   });
 
   it("hides OpenStack clouds when the feature is disabled", () => {
-    const options: Parameters<typeof buildAdminNav> = [true, true, false, false, false, false, true];
+    const options: Parameters<typeof buildAdminNav> = [true, false, false, false, false, true];
 
     expect(getConnectionsLink("OpenStack Clouds", options)).toBeUndefined();
   });
 
   it("uses the Manager tools icon in settings navigation", () => {
-    const managerLink = getSettingsLink("Manager", [true, true, false, false, false, false, true]);
+    const managerLink = getSettingsLink("Manager", [true, false, false, false, false, true]);
 
     expect(managerLink?.to).toBe("/admin/manager-settings");
     expect(managerLink?.iconName).toBe("tools");
   });
 
   it("places Production readiness with the deployment settings", () => {
-    const settingsSection = buildAdminNav(true, true, false, false, false, false, true).find(
+    const settingsSection = buildAdminNav(true, false, false, false, false, true).find(
       (section) => section.label === "Settings",
     );
 
@@ -141,7 +141,7 @@ describe("buildAdminNav", () => {
   });
 
   it("groups external connection inventories together", () => {
-    const connectionsSection = buildAdminNav(true, true, true, false, false, false, true).find(
+    const connectionsSection = buildAdminNav(true, true, false, false, false, true).find(
       (section) => section.label === "Connections",
     );
 
@@ -152,7 +152,7 @@ describe("buildAdminNav", () => {
   });
 
   it("groups identity administration with a dedicated security icon", () => {
-    const identityAccess = buildAdminNav(true, true, false, false, false, false, true).find(
+    const identityAccess = buildAdminNav(true, false, false, false, false, true).find(
       (section) => section.label === "Identity & Access"
     );
 
@@ -167,7 +167,6 @@ describe("buildAdminNav", () => {
   it("adds exact pending request badges and hides zero counts", () => {
     const populated = buildAdminNav(
       true,
-      true,
       false,
       false,
       false,
@@ -177,7 +176,6 @@ describe("buildAdminNav", () => {
       { identity_link_requests: 2, portal_requests: 5 },
     );
     const empty = buildAdminNav(
-      true,
       true,
       false,
       false,
@@ -216,9 +214,8 @@ describe("buildAdminNav", () => {
     ).toBeUndefined();
   });
 
-  it("keeps Portal Requests hidden when Portal is disabled even with pending requests", () => {
+  it("keeps Portal Requests available in the Admin control plane", () => {
     const adminNav = buildAdminNav(
-      false,
       true,
       false,
       false,
@@ -233,11 +230,11 @@ describe("buildAdminNav", () => {
       adminNav
         .find((section) => section.label === "Audit & Reporting")
         ?.links.find((link) => link.label === "Portal Requests"),
-    ).toBeUndefined();
+    ).toMatchObject({ to: "/admin/portal-requests", badge: "5" });
   });
 
   it("keeps settings collapsed until the admin settings route asks for expansion", () => {
-    const baseArgs = [true, true, false, false, false, false, true] as const;
+    const baseArgs = [true, false, false, false, false, true] as const;
 
     const settingsSection = buildAdminNav(...baseArgs).find((section) => section.label === "Settings");
     expect(settingsSection?.id).toBe("settings");
@@ -247,23 +244,21 @@ describe("buildAdminNav", () => {
   });
 
   it("exposes Usage History only when usage history is enabled", () => {
-    const enabledLink = getAuditReportingLink("Usage History", [true, true, false, false, true, false, true]);
-    const disabledLink = getAuditReportingLink("Usage History", [true, true, false, false, false, false, true]);
+    const enabledLink = getAuditReportingLink("Usage History", [true, false, false, true, false, true]);
+    const disabledLink = getAuditReportingLink("Usage History", [true, false, false, false, false, true]);
 
     expect(enabledLink?.to).toBe("/admin/usage-history");
     expect(disabledLink).toBeUndefined();
   });
 
-  it("exposes Portal Requests only when Portal is enabled", () => {
-    const enabledLink = getAuditReportingLink("Portal Requests", [true, true, false, false, false, false, true]);
-    const disabledLink = getAuditReportingLink("Portal Requests", [false, true, false, false, false, false, true]);
+  it("exposes Portal Requests independently of the user runtime surface", () => {
+    const link = getAuditReportingLink("Portal Requests", [true, false, false, false, false, true]);
 
-    expect(enabledLink?.to).toBe("/admin/portal-requests");
-    expect(disabledLink).toBeUndefined();
+    expect(link?.to).toBe("/admin/portal-requests");
   });
 
   it("groups metrics after managed tenant links and cost with audit reporting", () => {
-    const adminNav = buildAdminNav(true, true, false, true, true, false, true);
+    const adminNav = buildAdminNav(true, false, true, true, false, true);
     const dashboard = adminNav[0];
     const setup = adminNav.find((section) => section.label === "Setup");
     const managedTenants = adminNav.find((section) => section.label === "Managed Tenants");
@@ -290,7 +285,6 @@ describe("buildAdminNav", () => {
   it("keeps the shared Dashboard icon when the Admin label is localized", () => {
     const adminNav = buildAdminNav(
       true,
-      true,
       false,
       false,
       false,
@@ -310,7 +304,7 @@ describe("buildAdminNav", () => {
   });
 
   it("hides Getting started after onboarding is complete or dismissed", () => {
-    const adminNav = buildAdminNav(true, true, false, false, false, false, true, false, null, false);
+    const adminNav = buildAdminNav(true, false, false, false, false, true, false, null, false);
 
     expect(adminNav[0]?.label).toBeUndefined();
     expect(adminNav[0]?.links.map((link) => link.label)).toEqual(["Dashboard"]);

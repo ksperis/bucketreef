@@ -69,7 +69,6 @@ export type AdminUserAssociationEditorResources = {
     setPage: (page: number) => void;
     setPageSize: (pageSize: number) => void;
   };
-  showPortalRole: boolean;
   openStackEnabled: boolean;
   ensureAssociationOptionsForTab: (
     tab: StorageAssociationTab,
@@ -132,7 +131,6 @@ export default function AdminUserAssociationEditorPanels({
         }
       }}
       maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
-      showPortalRole={resources.showPortalRole}
       accounts={{
         selected: editor.accounts.selected,
         setSelected: editor.accounts.setSelected,
