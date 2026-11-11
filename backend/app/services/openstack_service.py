@@ -98,23 +98,44 @@ class OpenStackService:
 
     def save_cloud(self, payload: OpenStackCloudWrite, cloud_id: int | None = None) -> OpenStackCloud:
         self.require_enabled()
-        cloud = self.db.scalar(select(OpenStackCloud).where(OpenStackCloud.id == cloud_id).with_for_update().execution_options(populate_existing=True)) if cloud_id is not None else OpenStackCloud()
-        if cloud is None:
-            raise OpenStackError("cloud_not_found", "OpenStack cloud not found", 404)
         values = payload.model_dump()
-        # Invalidate before changing trust or grants, even when a cloud is merely disabled.
-        if cloud_id is not None:
-            self.db.expire(cloud, ["connections"])
-            cloud.config_version += 1
-            for connection in cloud.connections:
-                self._erase_connection(connection)
-        for name, value in values.items():
-            setattr(cloud, name, value)
-        self.db.add(cloud)
+
+        def persist(write_db: Session) -> int:
+            scoped = self if write_db is self.db else OpenStackService(write_db)
+            cloud = (
+                write_db.scalar(
+                    select(OpenStackCloud)
+                    .where(OpenStackCloud.id == cloud_id)
+                    .with_for_update()
+                    .execution_options(populate_existing=True)
+                )
+                if cloud_id is not None
+                else OpenStackCloud()
+            )
+            if cloud is None:
+                raise OpenStackError(
+                    "cloud_not_found", "OpenStack cloud not found", 404
+                )
+            # Invalidate before changing trust or grants, even when a cloud is
+            # merely disabled.
+            if cloud_id is not None:
+                write_db.expire(cloud, ["connections"])
+                cloud.config_version += 1
+                for connection in cloud.connections:
+                    scoped._erase_connection(connection)
+            for name, value in values.items():
+                setattr(cloud, name, value)
+            write_db.add(cloud)
+            write_db.flush()
+            return int(cloud.id)
+
         try:
-            commit_or_rollback(self.db)
+            persisted_id = run_replayable_db_unit(self.db, persist)
         except IntegrityError:
             raise OpenStackError("cloud_conflict", "OpenStack cloud name already exists", 409) from None
+        cloud = self.db.get(OpenStackCloud, persisted_id, populate_existing=True)
+        if cloud is None:  # pragma: no cover - defensive consistency check
+            raise OpenStackError("cloud_not_found", "OpenStack cloud not found", 404)
         return cloud
 
     def invalidate_user_access(self, user_ids: set[int], cloud_ids: set[int]) -> None:
@@ -140,11 +161,16 @@ class OpenStackService:
 
     def delete_cloud(self, cloud_id: int) -> None:
         self.require_enabled()
-        cloud = self.db.get(OpenStackCloud, cloud_id)
-        if cloud is None:
-            raise OpenStackError("cloud_not_found", "OpenStack cloud not found", 404)
-        self.db.delete(cloud)
-        commit_or_rollback(self.db)
+
+        def persist(write_db: Session) -> None:
+            cloud = write_db.get(OpenStackCloud, cloud_id)
+            if cloud is None:
+                raise OpenStackError(
+                    "cloud_not_found", "OpenStack cloud not found", 404
+                )
+            write_db.delete(cloud)
+
+        run_replayable_db_unit(self.db, persist)
 
     def _auth(self, user: User, auth_id: str, *, lock: bool = False) -> AuthSession:
         statement = select(AuthSession).where(AuthSession.id == auth_id).execution_options(populate_existing=True)
@@ -964,9 +990,20 @@ class OpenStackService:
 
     def disconnect(self, user: User, auth_id: str, connection_id: str, *, forget: bool = False) -> None:
         self.require_enabled()
-        self._auth(user, auth_id, lock=True)
-        connection = self.owned(user, connection_id)
-        self._erase_connection(connection, None if forget else auth_id)
-        if forget:
-            self.db.delete(connection)
-        commit_or_rollback(self.db)
+        user_id = int(user.id)
+
+        def persist(write_db: Session) -> None:
+            scoped = self if write_db is self.db else OpenStackService(write_db)
+            current_user = write_db.get(User, user_id, populate_existing=True)
+            if current_user is None:
+                raise OpenStackError(
+                    "reauthentication_required",
+                    "The BucketReef session is no longer active",
+                )
+            scoped._auth(current_user, auth_id, lock=True)
+            connection = scoped.owned(current_user, connection_id)
+            scoped._erase_connection(connection, None if forget else auth_id)
+            if forget:
+                write_db.delete(connection)
+
+        run_replayable_db_unit(self.db, persist)

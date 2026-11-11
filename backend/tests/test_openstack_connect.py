@@ -29,7 +29,10 @@ from app.services.s3_execution_client import s3_execution_cache_key
 from app.services.browser.sts import browser_sts_enabled
 from app.utils.time import utcnow
 from tests.auth_test_utils import authenticate_ui_client, trusted_origin_headers
-from tests.db_transaction_test_utils import fail_next_sqlite_statement_with_busy_snapshot
+from tests.db_transaction_test_utils import (
+    fail_next_sqlite_statement_with_busy_snapshot,
+    fail_next_transaction_commit,
+)
 from tests.storage_endpoint_features import persisted_endpoint_features
 
 
@@ -220,6 +223,7 @@ def test_openstack_external_io_has_fresh_snapshot_and_busy_retry_does_not_repeat
 
 def test_delete_cloud_cascades_project_state_without_parent_navigation(db_session, setup_cloud):
     service, _, _, connection, context_ref = connect(db_session, setup_cloud)
+    connection_id = connection.id
     context_id = context_ref.removeprefix("os-")
 
     assert db_session.scalar(
@@ -229,7 +233,7 @@ def test_delete_cloud_cascades_project_state_without_parent_navigation(db_sessio
     service.delete_cloud(setup_cloud[2].id)
 
     assert db_session.scalar(
-        select(OpenStackConnection.id).where(OpenStackConnection.id == connection.id)
+        select(OpenStackConnection.id).where(OpenStackConnection.id == connection_id)
     ) is None
     assert db_session.scalar(
         select(OpenStackProjectContext.id).where(OpenStackProjectContext.id == context_id)
@@ -239,32 +243,64 @@ def test_delete_cloud_cascades_project_state_without_parent_navigation(db_sessio
     ) is None
 
 
-def test_save_cloud_rolls_back_when_commit_fails(db_session, monkeypatch):
-    rollback_calls: list[None] = []
-    original_rollback = db_session.rollback
+def test_delete_cloud_retries_sqlite_busy(db_session, setup_cloud):
+    cloud_id = setup_cloud[2].id
 
-    def rollback() -> None:
-        rollback_calls.append(None)
-        original_rollback()
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session, "DELETE FROM openstack_clouds"
+    ) as matching_statements:
+        OpenStackService(db_session).delete_cloud(cloud_id)
 
-    def commit() -> None:
-        raise RuntimeError("commit failed")
+    assert len(matching_statements) == 2
+    assert db_session.get(OpenStackCloud, cloud_id) is None
 
-    monkeypatch.setattr(db_session, "rollback", rollback)
-    monkeypatch.setattr(db_session, "commit", commit)
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        OpenStackService(db_session).save_cloud(
+def test_save_cloud_retries_sqlite_busy_without_duplicate(db_session):
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session, "INSERT INTO openstack_clouds"
+    ) as matching_statements:
+        cloud = OpenStackService(db_session).save_cloud(
             OpenStackCloudWrite(
-                name="Commit failure",
-                auth_url="https://commit-failure.example.test/v3",
+                name="Busy cloud",
+                auth_url="https://busy.example.test/v3",
             )
         )
 
-    assert rollback_calls == [None]
+    assert len(matching_statements) == 2
+    assert db_session.scalar(
+        select(OpenStackCloud.id).where(OpenStackCloud.name == "Busy cloud")
+    ) == cloud.id
+
+
+def test_save_cloud_rolls_back_when_commit_fails(db_session):
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            OpenStackService(db_session).save_cloud(
+                OpenStackCloudWrite(
+                    name="Commit failure",
+                    auth_url="https://commit-failure.example.test/v3",
+                )
+            )
+
+    db_session.rollback()
     assert db_session.scalar(
         select(OpenStackCloud).where(OpenStackCloud.name == "Commit failure")
     ) is None
+
+
+def test_disconnect_retries_sqlite_busy_without_restoring_secrets(
+    db_session, setup_cloud
+):
+    service, user, auth, connection, _ = connect(db_session, setup_cloud)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session, "UPDATE openstack_sessions SET token="
+    ) as matching_statements:
+        service.disconnect(user, auth.id, connection.id)
+
+    assert len(matching_statements) == 2
+    assert db_session.scalar(select(OpenStackProjectCredential.id)) is None
+    assert db_session.scalar(select(OpenStackSession.token)) is None
 
 
 def test_connected_projects_are_candidates_and_reuse_previously_activated_context(db_session, setup_cloud):
