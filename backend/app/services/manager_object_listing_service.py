@@ -10,11 +10,11 @@ from app.models.manager_object_listing import ListObjectsResponse, S3Object
 from app.services.object_listing_identity import is_current_folder_marker
 from app.services.s3_client import S3OperationError, get_s3_client
 from app.services.s3_execution_client import s3_execution_request_kwargs
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 
 
 class ManagerObjectListingService:
-    def _client(self, context: S3ExecutionTarget):
+    def _client(self, context: S3ExecutionContext):
         request_kwargs = s3_execution_request_kwargs(
             context,
             error_message="Execution context credentials are missing",
@@ -24,7 +24,7 @@ class ManagerObjectListingService:
     def list_objects(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         prefix: str = "",
         continuation_token: Optional[str] = None,
         max_keys: int = 1000,
