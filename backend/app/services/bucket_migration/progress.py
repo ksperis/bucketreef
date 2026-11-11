@@ -80,55 +80,67 @@ class BucketMigrationProgressMixin:
         error: Exception,
         worker_id: Optional[str] = None,
     ) -> None:
-        try:
-            migration = self.db.scalars(
-                select(BucketMigration).where(BucketMigration.id == migration_id)
-            ).first()
-            if not migration or (worker_id and migration.worker_lease_owner != worker_id):
-                return
+        now = utcnow()
+        error_text = sanitized_error_log_detail(error or "unknown fatal error")
 
-            now = utcnow()
-            if migration.maintenance_status in {"queued", "running"}:
-                migration.maintenance_status = "failed"
-                migration.maintenance_error = sanitized_error_log_detail(error)
-                migration.worker_lease_owner = None
-                migration.worker_lease_until = None
-                migration.updated_at = now
-                self._commit()
-                return
-            if migration.status in FINAL_STATUSES:
-                if worker_id and migration.worker_lease_owner == worker_id:
+        def persist_failure(write_db) -> None:
+            with self._using_db_session(
+                write_db,
+                replay_timestamp=now,
+            ):
+                migration = write_db.get(
+                    BucketMigration,
+                    migration_id,
+                    populate_existing=True,
+                )
+                if not migration or (
+                    worker_id and migration.worker_lease_owner != worker_id
+                ):
+                    return
+
+                if migration.maintenance_status in {"queued", "running"}:
+                    migration.maintenance_status = "failed"
+                    migration.maintenance_error = error_text
                     migration.worker_lease_owner = None
                     migration.worker_lease_until = None
                     migration.updated_at = now
-                    self._commit()
-                return
+                    return
 
-            error_text = sanitized_error_log_detail(error or "unknown fatal error")
-            migration.status = "failed"
-            migration.worker_lease_owner = None
-            migration.worker_lease_until = None
-            migration.error_message = truncate_optional_db_text(
-                f"Fatal migration worker error: {error_text}",
-                max_chars=DB_ERROR_MESSAGE_MAX_CHARS,
-            )
-            migration.updated_at = now
-            for item in migration.items:
-                if item.status == "running":
-                    item.status = "failed"
-                    if not item.error_message:
-                        item.error_message = "Migration stopped due to fatal worker error."
-                    item.finished_at = now
-                    item.updated_at = now
+                if migration.status in FINAL_STATUSES:
+                    if worker_id and migration.worker_lease_owner == worker_id:
+                        migration.worker_lease_owner = None
+                        migration.worker_lease_until = None
+                        migration.updated_at = now
+                    return
 
-            self._add_event(
-                migration,
-                level="error",
-                message="Migration failed due to fatal worker error.",
-                metadata={"error": error_text},
-            )
-            self._recompute_counters(migration)
-            self._commit()
+                migration.status = "failed"
+                migration.worker_lease_owner = None
+                migration.worker_lease_until = None
+                migration.error_message = truncate_optional_db_text(
+                    f"Fatal migration worker error: {error_text}",
+                    max_chars=DB_ERROR_MESSAGE_MAX_CHARS,
+                )
+                migration.updated_at = now
+                for item in migration.items:
+                    if item.status == "running":
+                        item.status = "failed"
+                        if not item.error_message:
+                            item.error_message = (
+                                "Migration stopped due to fatal worker error."
+                            )
+                        item.finished_at = now
+                        item.updated_at = now
+
+                self._add_event(
+                    migration,
+                    level="error",
+                    message="Migration failed due to fatal worker error.",
+                    metadata={"error": error_text},
+                )
+                self._recompute_counters(migration)
+
+        try:
+            run_replayable_db_unit(self.db, persist_failure)
         except Exception:  # noqa: BLE001
             self.db.rollback()
             logger.exception(
@@ -171,17 +183,23 @@ class BucketMigrationProgressMixin:
             return "pause"
         return "run"
 
-    def _mark_paused(self, migration: BucketMigration) -> None:
-        migration.status = "paused"
-        migration.worker_lease_owner = None
-        migration.worker_lease_until = None
-        migration.updated_at = utcnow()
-        for item in migration.items:
-            if item.status == "running":
-                item.status = "paused"
-                item.updated_at = utcnow()
-        self._add_event(migration, level="info", message="Migration paused.")
-        self._recompute_counters(migration)
+    def _mark_paused(self, migration: BucketMigration) -> BucketMigration:
+        migration_id = int(migration.id)
+        paused_at = utcnow()
+
+        def persist_paused(current: BucketMigration) -> None:
+            current.status = "paused"
+            current.worker_lease_owner = None
+            current.worker_lease_until = None
+            current.updated_at = paused_at
+            for current_item in current.items:
+                if current_item.status == "running":
+                    current_item.status = "paused"
+                    current_item.updated_at = paused_at
+            self._add_event(current, level="info", message="Migration paused.")
+            self._recompute_counters(current)
+
+        return self._persist_migration_checkpoint(migration_id, persist_paused)
 
     def _release_target_write_locks(
         self,
@@ -483,17 +501,24 @@ class BucketMigrationProgressMixin:
                 target_ctx=target_ctx,
             )
         if migration.status == "pause_requested":
-            self._mark_paused(migration)
-            return migration
+            return self._mark_paused(migration)
 
         if self._ready_for_cutover(migration):
             return self._mark_awaiting_cutover(migration)
 
         if self._has_pending_migration_items(migration):
-            self._recompute_counters(migration)
-            migration.status = "running"
-            migration.updated_at = utcnow()
-            return migration
+            migration_id = int(migration.id)
+            running_at = utcnow()
+
+            def persist_running(current: BucketMigration) -> None:
+                self._recompute_counters(current)
+                current.status = "running"
+                current.updated_at = running_at
+
+            return self._persist_migration_checkpoint(
+                migration_id,
+                persist_running,
+            )
 
         return self._mark_migration_finished(migration, target_ctx=target_ctx)
 

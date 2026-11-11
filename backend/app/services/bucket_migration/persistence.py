@@ -182,28 +182,39 @@ class BucketMigrationPersistenceMixin:
         return EffectiveAccessService(self.db).build_bucket_migration_scope(user, auth_session_id=self._execution_auth_session_id).allowed_context_ids
 
     def _assert_migration_creator_access(self, migration: BucketMigration) -> None:
+        request_auth_session_id: str | None = None
         if str(migration.source_context_id).startswith("os-") or str(migration.target_context_id).startswith("os-"):
             self._execution_auth_session_id = self._request_auth_session_id or migration.execution_auth_session_id
             if self._request_auth_session_id:
-                migration.execution_auth_session_id = self._request_auth_session_id
+                request_auth_session_id = self._request_auth_session_id
         allowed = self._creator_allowed_context_ids(migration)
         required = {str(migration.source_context_id), str(migration.target_context_id)}
         if required <= allowed:
+            if request_auth_session_id:
+                migration.execution_auth_session_id = request_auth_session_id
             return
         missing = sorted(required - allowed)
         # A preparation or cleanup failure must not erase the transfer outcome.
         if migration.status == "draft" or migration.maintenance_status in {"queued", "running"}:
             raise PermissionError("Migration creator access has been revoked for context(s): " + ", ".join(missing))
-        migration.status = "failed"
-        migration.error_message = "Migration access revoked for context(s): " + ", ".join(missing)
-        migration.updated_at = utcnow()
-        self._add_event(
-            migration,
-            level="error",
-            message="Migration stopped because creator access was revoked.",
-            metadata={"revoked_context_ids": missing},
-        )
-        self._commit()
+        migration_id = int(migration.id)
+        failed_at = utcnow()
+        error_message = "Migration access revoked for context(s): " + ", ".join(missing)
+
+        def persist_revocation(current: BucketMigration) -> None:
+            if request_auth_session_id:
+                current.execution_auth_session_id = request_auth_session_id
+            current.status = "failed"
+            current.error_message = error_message
+            current.updated_at = failed_at
+            self._add_event(
+                current,
+                level="error",
+                message="Migration stopped because creator access was revoked.",
+                metadata={"revoked_context_ids": missing},
+            )
+
+        self._persist_migration_checkpoint(migration_id, persist_revocation)
         raise PermissionError("Migration creator access has been revoked")
 
     def _is_account_context_id(self, context_id: str) -> bool:

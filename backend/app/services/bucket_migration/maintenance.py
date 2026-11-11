@@ -131,18 +131,27 @@ class BucketMigrationMaintenanceMixin:
             )
         if not item.target_lock_applied:
             self._apply_target_write_lock_policy(target, item.target_bucket, item)
-        item.cleanup_error = None
-        self._commit()
         self._delete_maintenance_bucket(target, item.target_bucket, check)
         if self._precheck_bucket_exists(target, item.target_bucket) is not False:
             raise RuntimeError("Destination removal could not be verified")
         self._remove_deleted_bucket_ui_tags(target, item.target_bucket)
-        item.target_created_by_migration = False
-        item.target_lock_applied = False
-        item.target_policy_backup = None
-        item.replication_state = None
-        item.pre_sync_done = False
-        item.step = "create_bucket"
+        cleaned_at = utcnow()
+
+        def persist_cleanup(_migration, current_item) -> None:
+            current_item.cleanup_error = None
+            current_item.target_created_by_migration = False
+            current_item.target_lock_applied = False
+            current_item.target_policy_backup = None
+            current_item.replication_state = None
+            current_item.pre_sync_done = False
+            current_item.step = "create_bucket"
+            current_item.updated_at = cleaned_at
+
+        self._persist_item_checkpoint(
+            int(item.migration_id),
+            int(item.id),
+            persist_cleanup,
+        )
 
     def _run_cleanup_maintenance(self, migration, source, target, check: Callable[[], str]) -> list[str]:
         errors: list[str] = []
@@ -160,11 +169,22 @@ class BucketMigrationMaintenanceMixin:
                 raise
             except Exception as exc:
                 self.db.rollback()
-                item.cleanup_error = sanitized_error_log_detail(exc)
-                errors.append(f"{item.source_bucket}: {item.cleanup_error}")
+                cleanup_error = sanitized_error_log_detail(exc)
+                errors.append(f"{item.source_bucket}: {cleanup_error}")
+            else:
+                cleanup_error = None
             self._assert_workflow_lease()
-            item.updated_at = utcnow()
-            self._commit()
+            updated_at = utcnow()
+
+            def persist_result(_migration, current_item) -> None:
+                current_item.cleanup_error = cleanup_error
+                current_item.updated_at = updated_at
+
+            self._persist_item_checkpoint(
+                int(migration.id),
+                int(item.id),
+                persist_result,
+            )
         return errors
 
     def _finish_maintenance_run(self, migration, errors: list[str]) -> None:
@@ -396,7 +416,6 @@ class BucketMigrationMaintenanceMixin:
                     "Verified destination changed since deletion began. Source cleanup is blocked."
                 )
         else:
-            self._commit()
             self._apply_read_only_policy(source.execution_context, item.source_bucket, item)
             source_hash = self._cleanup_fingerprint(
                 source, item.source_bucket, strategy=strategy, check=check
