@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any, Callable, TypeVar
 
 from app.core.domain_errors import BucketConfigValidationError
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 from app.models.bucket import (
     Bucket,
     BucketAcl,
@@ -63,7 +63,7 @@ def bucket_config_audit_metadata(
 def apply_bucket_config_update(
     *,
     service: BucketConfigurationService,
-    context: S3ExecutionTarget,
+    context: S3ExecutionContext,
     bucket_name: str,
     action: Callable[..., tuple[_T, dict[str, Any]]],
     audit_recorder: Callable[[dict[str, Any]], None],
@@ -82,7 +82,7 @@ def apply_bucket_config_update(
 def apply_bucket_config_delete(
     *,
     service: BucketConfigurationService,
-    context: S3ExecutionTarget,
+    context: S3ExecutionContext,
     bucket_name: str,
     action: Callable[..., None],
     audit_recorder: Callable[[dict[str, Any]], None],
@@ -100,7 +100,7 @@ def apply_bucket_config_delete(
 def get_bucket_config_stats(
     *,
     service: BucketsService,
-    context: S3ExecutionTarget,
+    context: S3ExecutionContext,
     bucket_name: str,
     with_stats: bool,
 ) -> Bucket:
@@ -110,7 +110,7 @@ def get_bucket_config_stats(
 def create_bucket_config(
     *,
     service: BucketsService,
-    context: S3ExecutionTarget,
+    context: S3ExecutionContext,
     payload: BucketCreate,
 ) -> dict[str, Any]:
     location_constraint = payload.location_constraint
@@ -129,7 +129,7 @@ def create_bucket_config(
 def delete_bucket_config(
     *,
     service: BucketsService,
-    context: S3ExecutionTarget,
+    context: S3ExecutionContext,
     bucket_name: str,
     force: bool = False,
 ) -> None:
@@ -139,7 +139,7 @@ def delete_bucket_config(
 def update_bucket_quota_config(
     *,
     service: BucketQuotaService,
-    context: S3ExecutionTarget,
+    context: S3ExecutionContext,
     bucket_name: str,
     payload: BucketQuotaUpdate,
 ) -> dict[str, Any]:
@@ -147,11 +147,11 @@ def update_bucket_quota_config(
     return payload.model_dump(exclude_none=True)
 
 
-def get_bucket_properties_config(*, service: BucketConfigurationService, context: S3ExecutionTarget, bucket_name: str) -> BucketProperties:
+def get_bucket_properties_config(*, service: BucketConfigurationService, context: S3ExecutionContext, bucket_name: str) -> BucketProperties:
     return service.get_bucket_properties(bucket_name, context)
 
 
-def get_bucket_versioning_config(*, service: BucketConfigurationService, context: S3ExecutionTarget, bucket_name: str) -> BucketVersioningStatus:
+def get_bucket_versioning_config(*, service: BucketConfigurationService, context: S3ExecutionContext, bucket_name: str) -> BucketVersioningStatus:
     status_value = service.get_bucket_versioning_status(bucket_name, context)
     return BucketVersioningStatus(status=status_value, enabled=status_value == "Enabled")
 
@@ -159,7 +159,7 @@ def get_bucket_versioning_config(*, service: BucketConfigurationService, context
 def update_bucket_versioning_config(
     *,
     service: BucketConfigurationService,
-    context: S3ExecutionTarget,
+    context: S3ExecutionContext,
     bucket_name: str,
     payload: BucketVersioningUpdate,
 ) -> tuple[None, dict[str, Any]]:
@@ -167,14 +167,14 @@ def update_bucket_versioning_config(
     return None, {"enabled": payload.enabled}
 
 
-def get_bucket_object_lock_config(*, service: BucketConfigurationService, context: S3ExecutionTarget, bucket_name: str) -> BucketObjectLock:
+def get_bucket_object_lock_config(*, service: BucketConfigurationService, context: S3ExecutionContext, bucket_name: str) -> BucketObjectLock:
     return service.get_object_lock(bucket_name, context)
 
 
 def put_bucket_object_lock_config(
     *,
     service: BucketConfigurationService,
-    context: S3ExecutionTarget,
+    context: S3ExecutionContext,
     bucket_name: str,
     payload: BucketObjectLockUpdate,
 ) -> tuple[BucketObjectLock, dict[str, Any]]:
@@ -183,7 +183,7 @@ def put_bucket_object_lock_config(
 
 
 def get_bucket_encryption_config(
-    *, service: BucketConfigurationService, context: S3ExecutionTarget, bucket_name: str
+    *, service: BucketConfigurationService, context: S3ExecutionContext, bucket_name: str
 ) -> BucketEncryptionConfiguration:
     return service.get_bucket_encryption(bucket_name, context)
 
@@ -191,7 +191,7 @@ def get_bucket_encryption_config(
 def put_bucket_encryption_config(
     *,
     service: BucketConfigurationService,
-    context: S3ExecutionTarget,
+    context: S3ExecutionContext,
     bucket_name: str,
     payload: BucketEncryptionConfiguration,
 ) -> tuple[BucketEncryptionConfiguration, dict[str, Any]]:
@@ -199,11 +199,11 @@ def put_bucket_encryption_config(
     return result, {"rules_count": len(payload.rules)}
 
 
-def delete_bucket_encryption_config(*, service: BucketConfigurationService, context: S3ExecutionTarget, bucket_name: str) -> None:
+def delete_bucket_encryption_config(*, service: BucketConfigurationService, context: S3ExecutionContext, bucket_name: str) -> None:
     service.delete_bucket_encryption(bucket_name, context)
 
 
-def get_bucket_policy_config(*, service: BucketConfigurationService, context: S3ExecutionTarget, bucket_name: str) -> BucketPolicyOut:
+def get_bucket_policy_config(*, service: BucketConfigurationService, context: S3ExecutionContext, bucket_name: str) -> BucketPolicyOut:
     policy = service.get_policy(bucket_name, context)
     return BucketPolicyOut(policy=policy)
 
@@ -211,7 +211,7 @@ def get_bucket_policy_config(*, service: BucketConfigurationService, context: S3
 def put_bucket_policy_config(
     *,
     service: BucketConfigurationService,
-    context: S3ExecutionTarget,
+    context: S3ExecutionContext,
     bucket_name: str,
     payload: BucketPolicyIn,
 ) -> tuple[BucketPolicyOut, dict[str, Any]]:
@@ -219,18 +219,18 @@ def put_bucket_policy_config(
     return BucketPolicyOut(policy=payload.policy), {"policy_length": len(payload.policy or "")}
 
 
-def delete_bucket_policy_config(*, service: BucketConfigurationService, context: S3ExecutionTarget, bucket_name: str) -> None:
+def delete_bucket_policy_config(*, service: BucketConfigurationService, context: S3ExecutionContext, bucket_name: str) -> None:
     service.delete_policy(bucket_name, context)
 
 
-def get_bucket_acl_config(*, service: BucketConfigurationService, context: S3ExecutionTarget, bucket_name: str) -> BucketAcl:
+def get_bucket_acl_config(*, service: BucketConfigurationService, context: S3ExecutionContext, bucket_name: str) -> BucketAcl:
     return service.get_bucket_acl(bucket_name, context)
 
 
 def put_bucket_acl_config(
     *,
     service: BucketConfigurationService,
-    context: S3ExecutionTarget,
+    context: S3ExecutionContext,
     bucket_name: str,
     payload: BucketAclUpdate,
 ) -> tuple[BucketAcl, dict[str, Any]]:
@@ -239,7 +239,7 @@ def put_bucket_acl_config(
 
 
 def get_bucket_public_access_block_config(
-    *, service: BucketConfigurationService, context: S3ExecutionTarget, bucket_name: str
+    *, service: BucketConfigurationService, context: S3ExecutionContext, bucket_name: str
 ) -> BucketPublicAccessBlock:
     return service.get_public_access_block(bucket_name, context)
 
@@ -247,7 +247,7 @@ def get_bucket_public_access_block_config(
 def put_bucket_public_access_block_config(
     *,
     service: BucketConfigurationService,
-    context: S3ExecutionTarget,
+    context: S3ExecutionContext,
     bucket_name: str,
     payload: BucketPublicAccessBlockUpdate,
 ) -> tuple[BucketPublicAccessBlock, dict[str, Any]]:
@@ -255,14 +255,14 @@ def put_bucket_public_access_block_config(
     return result, payload.model_dump()
 
 
-def get_bucket_lifecycle_config(*, service: BucketConfigurationService, context: S3ExecutionTarget, bucket_name: str) -> BucketLifecycleConfig:
+def get_bucket_lifecycle_config(*, service: BucketConfigurationService, context: S3ExecutionContext, bucket_name: str) -> BucketLifecycleConfig:
     return service.get_lifecycle(bucket_name, context)
 
 
 def put_bucket_lifecycle_config(
     *,
     service: BucketConfigurationService,
-    context: S3ExecutionTarget,
+    context: S3ExecutionContext,
     bucket_name: str,
     payload: BucketLifecycleConfig,
 ) -> tuple[BucketLifecycleConfig, dict[str, Any]]:
@@ -270,11 +270,11 @@ def put_bucket_lifecycle_config(
     return result, {"rules_count": len(payload.rules)}
 
 
-def delete_bucket_lifecycle_config(*, service: BucketConfigurationService, context: S3ExecutionTarget, bucket_name: str) -> None:
+def delete_bucket_lifecycle_config(*, service: BucketConfigurationService, context: S3ExecutionContext, bucket_name: str) -> None:
     service.delete_lifecycle(bucket_name, context)
 
 
-def get_bucket_cors_config(*, service: BucketConfigurationService, context: S3ExecutionTarget, bucket_name: str) -> BucketCors:
+def get_bucket_cors_config(*, service: BucketConfigurationService, context: S3ExecutionContext, bucket_name: str) -> BucketCors:
     cors = service.get_bucket_cors(bucket_name, context)
     return BucketCors(rules=cors)
 
@@ -282,7 +282,7 @@ def get_bucket_cors_config(*, service: BucketConfigurationService, context: S3Ex
 def put_bucket_cors_config(
     *,
     service: BucketConfigurationService,
-    context: S3ExecutionTarget,
+    context: S3ExecutionContext,
     bucket_name: str,
     payload: BucketCorsUpdate,
 ) -> tuple[BucketCors, dict[str, Any]]:
@@ -290,12 +290,12 @@ def put_bucket_cors_config(
     return BucketCors(rules=payload.rules), {"rules_count": len(payload.rules)}
 
 
-def delete_bucket_cors_config(*, service: BucketConfigurationService, context: S3ExecutionTarget, bucket_name: str) -> None:
+def delete_bucket_cors_config(*, service: BucketConfigurationService, context: S3ExecutionContext, bucket_name: str) -> None:
     service.delete_cors(bucket_name, context)
 
 
 def get_bucket_notifications_config(
-    *, service: BucketConfigurationService, context: S3ExecutionTarget, bucket_name: str
+    *, service: BucketConfigurationService, context: S3ExecutionContext, bucket_name: str
 ) -> BucketNotificationConfiguration:
     return service.get_bucket_notifications(bucket_name, context)
 
@@ -303,7 +303,7 @@ def get_bucket_notifications_config(
 def put_bucket_notifications_config(
     *,
     service: BucketConfigurationService,
-    context: S3ExecutionTarget,
+    context: S3ExecutionContext,
     bucket_name: str,
     payload: BucketNotificationConfiguration,
 ) -> tuple[BucketNotificationConfiguration, dict[str, Any]]:
@@ -312,12 +312,12 @@ def put_bucket_notifications_config(
     return result, {"keys": list(configuration.keys())}
 
 
-def delete_bucket_notifications_config(*, service: BucketConfigurationService, context: S3ExecutionTarget, bucket_name: str) -> None:
+def delete_bucket_notifications_config(*, service: BucketConfigurationService, context: S3ExecutionContext, bucket_name: str) -> None:
     service.delete_bucket_notifications(bucket_name, context)
 
 
 def get_bucket_replication_config(
-    *, service: BucketConfigurationService, context: S3ExecutionTarget, bucket_name: str
+    *, service: BucketConfigurationService, context: S3ExecutionContext, bucket_name: str
 ) -> BucketReplicationConfiguration:
     return service.get_bucket_replication(bucket_name, context)
 
@@ -325,7 +325,7 @@ def get_bucket_replication_config(
 def put_bucket_replication_config(
     *,
     service: BucketConfigurationService,
-    context: S3ExecutionTarget,
+    context: S3ExecutionContext,
     bucket_name: str,
     payload: BucketReplicationConfiguration,
 ) -> tuple[BucketReplicationConfiguration, dict[str, Any]]:
@@ -336,18 +336,18 @@ def put_bucket_replication_config(
     return result, {"rules_count": rules_count}
 
 
-def delete_bucket_replication_config(*, service: BucketConfigurationService, context: S3ExecutionTarget, bucket_name: str) -> None:
+def delete_bucket_replication_config(*, service: BucketConfigurationService, context: S3ExecutionContext, bucket_name: str) -> None:
     service.delete_bucket_replication(bucket_name, context)
 
 
-def get_bucket_logging_config(*, service: BucketConfigurationService, context: S3ExecutionTarget, bucket_name: str) -> BucketLoggingConfiguration:
+def get_bucket_logging_config(*, service: BucketConfigurationService, context: S3ExecutionContext, bucket_name: str) -> BucketLoggingConfiguration:
     return service.get_bucket_logging(bucket_name, context)
 
 
 def put_bucket_logging_config(
     *,
     service: BucketConfigurationService,
-    context: S3ExecutionTarget,
+    context: S3ExecutionContext,
     bucket_name: str,
     payload: BucketLoggingConfiguration,
 ) -> tuple[BucketLoggingConfiguration, dict[str, Any]]:
@@ -355,18 +355,18 @@ def put_bucket_logging_config(
     return result, payload.model_dump(exclude_none=True)
 
 
-def delete_bucket_logging_config(*, service: BucketConfigurationService, context: S3ExecutionTarget, bucket_name: str) -> None:
+def delete_bucket_logging_config(*, service: BucketConfigurationService, context: S3ExecutionContext, bucket_name: str) -> None:
     service.delete_bucket_logging(bucket_name, context)
 
 
-def get_bucket_website_config(*, service: BucketConfigurationService, context: S3ExecutionTarget, bucket_name: str) -> BucketWebsiteConfiguration:
+def get_bucket_website_config(*, service: BucketConfigurationService, context: S3ExecutionContext, bucket_name: str) -> BucketWebsiteConfiguration:
     return service.get_bucket_website(bucket_name, context)
 
 
 def put_bucket_website_config(
     *,
     service: BucketConfigurationService,
-    context: S3ExecutionTarget,
+    context: S3ExecutionContext,
     bucket_name: str,
     payload: BucketWebsiteConfiguration,
 ) -> tuple[BucketWebsiteConfiguration, dict[str, Any]]:
@@ -374,11 +374,11 @@ def put_bucket_website_config(
     return result, payload.model_dump(exclude_none=True)
 
 
-def delete_bucket_website_config(*, service: BucketConfigurationService, context: S3ExecutionTarget, bucket_name: str) -> None:
+def delete_bucket_website_config(*, service: BucketConfigurationService, context: S3ExecutionContext, bucket_name: str) -> None:
     service.delete_bucket_website(bucket_name, context)
 
 
-def get_bucket_tags_config(*, service: BucketConfigurationService, context: S3ExecutionTarget, bucket_name: str) -> BucketTags:
+def get_bucket_tags_config(*, service: BucketConfigurationService, context: S3ExecutionContext, bucket_name: str) -> BucketTags:
     tags = service.get_bucket_tags(bucket_name, context)
     return BucketTags(tags=tags)
 
@@ -386,7 +386,7 @@ def get_bucket_tags_config(*, service: BucketConfigurationService, context: S3Ex
 def put_bucket_tags_config(
     *,
     service: BucketConfigurationService,
-    context: S3ExecutionTarget,
+    context: S3ExecutionContext,
     bucket_name: str,
     payload: BucketTags,
 ) -> tuple[BucketTags, dict[str, Any]]:
@@ -395,5 +395,5 @@ def put_bucket_tags_config(
     return BucketTags(tags=payload.tags), {"tags": tags, "count": len(payload.tags)}
 
 
-def delete_bucket_tags_config(*, service: BucketConfigurationService, context: S3ExecutionTarget, bucket_name: str) -> None:
+def delete_bucket_tags_config(*, service: BucketConfigurationService, context: S3ExecutionContext, bucket_name: str) -> None:
     service.delete_bucket_tags(bucket_name, context)
