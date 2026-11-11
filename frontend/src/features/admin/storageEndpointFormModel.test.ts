@@ -115,8 +115,8 @@ describe("storage endpoint form model", () => {
       longitude: null,
       verify_tls: true,
       provider: "ceph",
-      admin_access_key: null,
-      has_admin_secret: false,
+      admin_access_key: "ADMIN-AK",
+      has_admin_secret: true,
       ceph_admin_active: false,
       service_identities: [],
       ceph_admin_allowed: false,
@@ -133,7 +133,12 @@ describe("storage endpoint form model", () => {
       updated_at: "2026-10-30T00:00:00Z",
     } satisfies StorageEndpoint;
 
-    expect(createFormFromEndpoint(endpoint).multisite_enabled).toBe(true);
+    expect(createFormFromEndpoint(endpoint)).toEqual(expect.objectContaining({
+      multisite_enabled: true,
+      admin_access_key: "",
+      admin_secret_key: "",
+      has_admin_secret: true,
+    }));
     expect(createFormFromEndpoint({ ...endpoint, realm_id: null, zonegroup_id: null, zone_id: null }).multisite_enabled).toBe(false);
   });
 });

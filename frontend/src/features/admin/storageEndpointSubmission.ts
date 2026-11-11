@@ -9,7 +9,7 @@ import {
 export type EndpointFieldErrors = Partial<Record<keyof FormState, string>>;
 type Submission = { payload: StorageEndpointPayload; errors?: never } | { payload?: never; errors: EndpointFieldErrors };
 
-/** Keep validation and the endpoint's existing credential update semantics together. */
+/** Keep validation and atomic credential replacement semantics together. */
 export function buildStorageEndpointSubmission(form: FormState, editing: boolean, storedIdentities?: StorageEndpoint["service_identities"]): Submission {
   const errors: EndpointFieldErrors = {};
   const aws = form.provider === "aws";
@@ -82,25 +82,18 @@ export function buildStorageEndpointSubmission(form: FormState, editing: boolean
       const secret = form[secretField].trim();
       const replacingManaged = (kind === "runtime" || kind === "supervision") && replacementRequired(kind);
       const storedCredentials = editing && form[`has_${kind}_secret`] && !replacingManaged;
-      if (kind !== "admin" && storedCredentials && !access && !secret) {
+      if (storedCredentials && !access && !secret) {
         continue;
       }
-      if (kind !== "admin" && Boolean(access) !== Boolean(secret)) {
+      if (Boolean(access) !== Boolean(secret)) {
         if (!access) errors[accessField] = `${label} access key is required when replacing stored credentials.`;
         if (!secret) errors[secretField] = `${label} secret key is required when replacing stored credentials.`;
-        continue;
-      }
-      if (kind === "admin" && Boolean(access) !== Boolean(secret) && !(access && editing && form.has_admin_secret)) {
-        if (!access) errors[accessField] = "Admin access key is required when supplying credentials.";
-        if (!secret) errors[secretField] = "Admin secret key is required when supplying credentials.";
         continue;
       }
       if (required && !access) errors[accessField] = `${label} access key is required when ${reason}.`;
       if (required && !storedCredentials && !secret) errors[secretField] = `${label} secret key is required when ${reason}.`;
       payload[accessField] = access || null;
-      // Admin Ops keeps its historical access-key-visible edit contract. Service
-      // identities replace their write-only credential pair atomically.
-      if (kind !== "admin" || !editing || !access || secret) payload[secretField] = secret || null;
+      payload[secretField] = secret || null;
     }
   }
   return Object.keys(errors).length ? { errors } : { payload };

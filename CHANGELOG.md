@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Changed
+
+- Canonicalize Storage Endpoint credential replacement so Admin, Runtime, Supervision, and Ceph Admin identities all reuse a stored pair only when both edit fields are blank, and require both fields for an explicit replacement.
+
+### Upgrade notes
+
+- Deploy the matching backend and bundled frontend together because Storage Endpoint feature detection and onboarding no longer support the historical Admin access-key-only edit fallback. No database migration is required.
+
 ## 0.3.1 - 2026-11-11
 
 ### Fixed

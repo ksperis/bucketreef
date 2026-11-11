@@ -185,9 +185,8 @@ export default function StorageEndpointsPage() {
   const supervisionAccessKey = form.supervision_access_key.trim();
   const supervisionSecretKey = form.supervision_secret_key.trim();
   const hasAdminCredentials = Boolean(
-    adminAccessKey &&
-      (adminSecretKey ||
-        (form.has_admin_secret && adminAccessKey === (editingEndpoint?.admin_access_key ?? "").trim()))
+    (adminAccessKey && adminSecretKey) ||
+      (editingId != null && form.has_admin_secret && !adminAccessKey && !adminSecretKey)
   );
   const hasSupervisionCredentials = Boolean(
     (supervisionAccessKey && supervisionSecretKey) ||
@@ -631,8 +630,8 @@ export default function StorageEndpointsPage() {
     : resolveCredentialCheckView({
         accessKey: form.admin_access_key,
         secretKey: form.admin_secret_key,
-        storedAccessKey: editingEndpoint?.admin_access_key,
         hasStoredSecret: form.has_admin_secret,
+        reuseStoredCredentials: editingId != null,
         endpointReady: endpointReadyForCredentialCheck,
         checking: featureDetectBusy,
         check: credentialChecks.admin,
@@ -819,7 +818,6 @@ export default function StorageEndpointsPage() {
               readOnly={configurationReadOnly} editing={editingId !== null} cephAdminEnabled={cephAdminConfigEnabled} cephAdminActive={editingEndpoint?.ceph_admin_active}
               usersWrite={adminUsersWrite}
               identities={editingEndpoint?.service_identities} reconciling={saving} configurationDirty={hasConfigurationChanges}
-              storedAdminAccessKey={editingEndpoint?.admin_access_key}
               onReconcile={editingId !== null && canEditEndpoints ? () => {
                 if (hasConfigurationChanges || mutationPending.current) return;
                 mutationPending.current = true;

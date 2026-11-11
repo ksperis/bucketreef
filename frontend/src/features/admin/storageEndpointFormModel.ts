@@ -419,7 +419,7 @@ export function createFormFromEndpoint(endpoint: StorageEndpoint): FormState {
     ceph_admin_secret_key: "",
     has_ceph_admin_secret: Boolean(endpoint.service_identities.find(identity => identity.kind === "ceph_admin")?.credentials_configured),
     ceph_admin_allowed: Boolean(endpoint.ceph_admin_allowed),
-    admin_access_key: endpoint.admin_access_key ?? "",
+    admin_access_key: "",
     admin_secret_key: "",
     supervision_access_key: "",
     supervision_secret_key: "",

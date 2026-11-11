@@ -2,8 +2,10 @@
 import { describe, expect, it } from "vitest";
 import type { OnboardingDraft } from "../../api/onboarding";
 import type { StorageEndpointFeatureDetectionResult } from "../../api/storageEndpoints";
+import { buildStorageEndpoint } from "../../test/storageEndpoints";
 import {
   buildOnboardingApplyCredentials,
+  buildOnboardingEndpointValidationPayload,
   countOnboardingSelections,
   createOnboardingCredentialDraft,
   createOnboardingDraft,
@@ -213,6 +215,31 @@ describe("onboarding form model", () => {
       private_access_key: "private-access",
       private_secret_key: "private-secret",
     });
+  });
+
+  it("validates a stored Admin pair without echoing its access key", () => {
+    const selectedEndpoint = buildStorageEndpoint(3, {
+      endpoint_url: "https://ceph.example.test",
+      force_path_style: true,
+      admin_access_key: "stored-admin-access",
+      has_admin_secret: true,
+    });
+    const draft = createOnboardingDraft(selectedEndpoint);
+    const state = resolveOnboardingEndpointState({
+      draft,
+      selectedEndpoint,
+      identityMode: "managed",
+    });
+
+    expect(buildOnboardingEndpointValidationPayload({
+      draft,
+      identityMode: "managed",
+      state,
+      credentials: createOnboardingCredentialDraft(),
+    })).toEqual(expect.objectContaining({
+      admin_access_key: null,
+      admin_secret_key: null,
+    }));
   });
 
   it("centralizes readiness and account provisioning permissions", () => {

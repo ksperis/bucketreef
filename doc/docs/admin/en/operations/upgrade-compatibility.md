@@ -1,5 +1,20 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 canonical Storage Endpoint credential replacement
+
+Storage Endpoint editing and onboarding now use one credential-pair contract
+for Admin, Runtime, Supervision, and Ceph Admin identities. Leaving both fields
+blank reuses a complete stored pair when the endpoint target is unchanged.
+Supplying replacement credentials requires both the access key and secret key.
+
+Admin access keys are no longer pre-populated in edit forms or echoed by
+onboarding validation. Feature detection no longer accepts the historical
+access-key-only payload that matched a submitted Admin access key to the stored
+secret.
+
+Deploy the backend and bundled frontend together. No database migration is
+required because persisted Storage Endpoint credentials are unchanged.
+
 ## 2026-11 canonical Portal Storage Space provenance
 
 Migration `0262_canonical_portal_storage_space_origin` converts any historical

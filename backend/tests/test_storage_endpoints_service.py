@@ -2606,7 +2606,7 @@ def test_delete_endpoint_purges_derived_database_rows(db_session):
     )
 
 
-def test_detect_features_reuses_stored_secrets_in_edit_mode(db_session, monkeypatch):
+def test_detect_features_reuses_stored_credential_pairs_in_edit_mode(db_session, monkeypatch):
     endpoint = _create_ceph_endpoint_with_full_credentials(db_session, name="ceph-edit-detect")
     runtime = endpoint.service_identity("runtime")
     supervision = endpoint.service_identity("supervision")
@@ -2687,7 +2687,6 @@ def test_detect_features_reuses_stored_secrets_in_edit_mode(db_session, monkeypa
         StorageEndpointFeatureDetectionRequest(
             endpoint_id=endpoint.id,
             endpoint_url=endpoint.endpoint_url,
-            admin_access_key=endpoint.admin_access_key,
         )
     )
 
@@ -2738,7 +2737,6 @@ def test_detect_features_never_reuses_stored_secrets_for_a_changed_target(
         "endpoint_url": endpoint.endpoint_url,
         "region": endpoint.region,
         "verify_tls": endpoint.verify_tls,
-        "admin_access_key": endpoint.admin_access_key,
     }
     payload.update(target_override)
 
@@ -2747,8 +2745,8 @@ def test_detect_features_never_reuses_stored_secrets_for_a_changed_target(
     )
 
     assert result.admin is False
-    assert result.credential_checks.admin.status == "incomplete"
-    assert result.admin_error == "Admin detection requires both access key and secret key."
+    assert result.credential_checks.admin.status == "not_configured"
+    assert result.admin_error is None
 
 
 @pytest.mark.parametrize("invalid", [

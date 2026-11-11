@@ -453,10 +453,10 @@ describe("StorageEndpointsPage tags", () => {
     expect(screen.getByText("✓ Bucket stats · available")).toBeInTheDocument();
     expect(screen.getByText("! Usage data · no values")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Retry configuration" })).not.toBeInTheDocument();
-    expect(screen.getAllByText(/Leave both fields empty to keep the current keys/)).toHaveLength(2);
+    expect(screen.getAllByText(/Leave both fields empty to keep the current keys/)).toHaveLength(3);
     expect(detectStorageEndpointFeaturesMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        admin_access_key: "admin-key",
+        admin_access_key: null,
         admin_secret_key: null,
         supervision_access_key: null,
         supervision_secret_key: null,
@@ -465,6 +465,7 @@ describe("StorageEndpointsPage tags", () => {
       })
     );
 
+    fireEvent.click(screen.getByRole("button", { name: "Replace Admin keys" }));
     fireEvent.change(screen.getByLabelText("Admin access key"), { target: { value: "replacement-admin-key" } });
     expect(screen.getAllByText("Complete both keys").length).toBeGreaterThan(0);
     expect(screen.getByLabelText("Admin secret key")).toBeRequired();
@@ -731,6 +732,7 @@ describe("StorageEndpointsPage tags", () => {
     fireEvent.click(retry);
     expect(await screen.findByText("RGW retry failed")).toBeVisible();
     expect(reconcileEndpointIdentitiesMock).toHaveBeenCalledWith(7);
+    fireEvent.click(screen.getByRole("button", { name: "Replace Admin keys" }));
     fireEvent.change(screen.getByLabelText("Admin access key"), { target: { value: "replacement-admin" } });
     expect(screen.queryByRole("button", { name: "Retry configuration" })).not.toBeInTheDocument();
     expect(reconcileEndpointIdentitiesMock).toHaveBeenCalledTimes(1);
@@ -952,6 +954,8 @@ describe("StorageEndpointsPage tags", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Credentials" }));
     await waitFor(() => expect(detectStorageEndpointFeaturesMock).toHaveBeenCalledTimes(1));
 
+    fireEvent.click(screen.getByRole("button", { name: "Replace Admin keys" }));
+    fireEvent.change(screen.getByLabelText("Admin access key"), { target: { value: "replacement-access" } });
     fireEvent.change(screen.getByLabelText("Admin secret key"), { target: { value: "replacement-secret" } });
     expect(await screen.findAllByText("Access validated")).toHaveLength(3);
 
@@ -1021,10 +1025,8 @@ describe("StorageEndpointsPage tags", () => {
     expect(screen.queryByRole("button", { name: "Save tags" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "Credentials" }));
-    expect(screen.getByLabelText("Admin access key")).toHaveAttribute("readonly");
-    expect(screen.getByLabelText("Admin access key")).toBeEnabled();
-    expect(screen.getAllByText("Stored — value hidden", { selector: "div" })).toHaveLength(1);
-    expect(screen.getAllByText("Configured — values hidden", { selector: "div" })).toHaveLength(2);
+    expect(screen.queryByLabelText("Admin access key")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Configured — values hidden", { selector: "div" })).toHaveLength(3);
     expect(screen.queryByLabelText("Admin secret key")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Supervision access key")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Runtime access key")).not.toBeInTheDocument();
