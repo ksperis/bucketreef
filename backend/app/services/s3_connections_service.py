@@ -6,10 +6,11 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from sqlalchemy import select, update
+from sqlalchemy import select, text, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.core.db_transactions import acquire_sqlite_write_transaction
 from app.core.domain_errors import S3ConnectionConflictError
 from app.db.s3_connection import S3Connection as DBS3Connection
 from app.models.s3_connection import (
@@ -105,6 +106,8 @@ class S3ConnectionsService:
         name_conflict_key: tuple[int, str, bool, int | None] | None = None,
     ) -> Iterator[None]:
         try:
+            if commit:
+                self._acquire_sqlite_write_transaction()
             yield
             if commit:
                 self.db.commit()
@@ -123,6 +126,14 @@ class S3ConnectionsService:
             if commit:
                 self.db.rollback()
             raise
+
+    def _acquire_sqlite_write_transaction(self) -> None:
+        def acquire_once(write_db: Session) -> None:
+            write_db.execute(
+                text("UPDATE s3_connections SET id = id WHERE 0")
+            )
+
+        acquire_sqlite_write_transaction(self.db, acquire_once)
 
     def create_admin_shared(
         self,
