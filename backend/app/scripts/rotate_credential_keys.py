@@ -9,6 +9,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from app.core.config import get_settings
 from app.core.database import SessionLocal
+from app.core.db_transactions import run_replayable_db_unit
 from app.core.logging_security import configure_secure_logging
 from app.core.security import (
     clear_credential_keys_override,
@@ -58,6 +59,26 @@ def _rotate_session_fields(session: Session) -> int:
     return updated
 
 
+def _rotate_credentials_unit(session: Session) -> int:
+    updated = 0
+    updated += _rotate_encrypted_fields(
+        session,
+        StorageEndpoint,
+        ["admin_secret_key"],
+    )
+    updated += _rotate_encrypted_fields(session, EndpointServiceIdentity, ["secret_key"])
+    updated += _rotate_encrypted_fields(session, S3Account, ["rgw_secret_key"])
+    updated += _rotate_encrypted_fields(session, AccountIAMUser, ["active_secret_key"])
+    updated += _rotate_encrypted_fields(session, S3User, ["rgw_secret_key"])
+    updated += _rotate_encrypted_fields(session, S3Connection, ["secret_access_key", "session_token"])
+    updated += _rotate_encrypted_fields(session, LdapProvider, ["bind_password"])
+    updated += _rotate_encrypted_fields(session, OidcProvider, ["client_secret"])
+    updated += _rotate_encrypted_fields(session, OpenStackSession, ["token"])
+    updated += _rotate_encrypted_fields(session, OpenStackProjectCredential, ["secret_key"])
+    updated += _rotate_session_fields(session)
+    return updated
+
+
 def rotate_credentials(*, new_key: str) -> int:
     settings = get_settings()
     old_keys = list(settings.credential_keys)
@@ -66,27 +87,7 @@ def rotate_credentials(*, new_key: str) -> int:
 
     session = SessionLocal()
     try:
-        updated = 0
-        updated += _rotate_encrypted_fields(
-            session,
-            StorageEndpoint,
-            ["admin_secret_key"],
-        )
-        updated += _rotate_encrypted_fields(session, EndpointServiceIdentity, ["secret_key"])
-        updated += _rotate_encrypted_fields(session, S3Account, ["rgw_secret_key"])
-        updated += _rotate_encrypted_fields(session, AccountIAMUser, ["active_secret_key"])
-        updated += _rotate_encrypted_fields(session, S3User, ["rgw_secret_key"])
-        updated += _rotate_encrypted_fields(session, S3Connection, ["secret_access_key", "session_token"])
-        updated += _rotate_encrypted_fields(session, LdapProvider, ["bind_password"])
-        updated += _rotate_encrypted_fields(session, OidcProvider, ["client_secret"])
-        updated += _rotate_encrypted_fields(session, OpenStackSession, ["token"])
-        updated += _rotate_encrypted_fields(session, OpenStackProjectCredential, ["secret_key"])
-        updated += _rotate_session_fields(session)
-        session.commit()
-        return updated
-    except Exception:
-        session.rollback()
-        raise
+        return run_replayable_db_unit(session, _rotate_credentials_unit)
     finally:
         session.close()
         clear_credential_keys_override()
