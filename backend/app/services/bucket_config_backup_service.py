@@ -9,7 +9,7 @@ from typing import Any
 
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.models.bucket_listing import BucketListingSummary
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 from app.models.bucket_config_backup import (
     BucketConfigBackupBucket,
     BucketConfigBackupFeature,
@@ -47,7 +47,7 @@ class BucketConfigBackupService:
     def build_backup(
         self,
         *,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
         bucket_targets: list[BucketConfigBackupResolvedTarget],
         features: list[BucketConfigBackupFeature],
         source: BucketConfigBackupSource,
@@ -74,7 +74,7 @@ class BucketConfigBackupService:
     def _build_bucket_backup(
         self,
         *,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
         target: BucketConfigBackupResolvedTarget,
         features: list[BucketConfigBackupFeature],
         quota_loader: QuotaSnapshotLoader | None,
@@ -102,7 +102,7 @@ class BucketConfigBackupService:
 
     def _load_feature(
         self,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
         bucket_name: str,
         feature: BucketConfigBackupFeature,
         quota_loader: QuotaSnapshotLoader | None,
@@ -132,7 +132,7 @@ class BucketConfigBackupService:
 
     def _load_quota(
         self,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
         bucket_name: str,
         quota_loader: QuotaSnapshotLoader | None,
     ) -> dict[str, int | None]:
