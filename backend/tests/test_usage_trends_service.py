@@ -38,16 +38,20 @@ def test_usage_history_filters_follow_explicit_context_kind(model, context_kind)
 
 
 @pytest.mark.parametrize("model", [QuotaUsageDaily, QuotaUsageHourly])
-def test_persisted_account_and_execution_context_use_identical_history_filters(model):
+def test_context_built_from_persisted_account_uses_account_history_filters(model):
     account = S3Account(id=42, name="Selected account", storage_endpoint_id=7)
     context = S3ExecutionContext.from_account(account)
 
-    persisted = execution_context_usage_trend_filters(account, model)
-    resolved = execution_context_usage_trend_filters(context, model)
+    filters = execution_context_usage_trend_filters(context, model)
 
-    assert persisted is not None and resolved is not None
-    assert len(persisted) == len(resolved)
-    assert all(actual.compare(required) for actual, required in zip(resolved, persisted))
+    expected = [
+        model.storage_endpoint_id == 7,
+        model.s3_account_id == 42,
+        model.s3_user_id.is_(None),
+    ]
+    assert filters is not None
+    assert len(filters) == len(expected)
+    assert all(actual.compare(required) for actual, required in zip(filters, expected))
 
 
 @pytest.mark.parametrize(

@@ -619,7 +619,9 @@ def test_manager_usage_trends_falls_back_per_metric(db_session, monkeypatch):
     )
     db_session.commit()
 
-    payload = manager_stats_router.account_usage_trends(context=account, _={}, db=db_session)
+    payload = manager_stats_router.account_usage_trends(
+        context=S3ExecutionContext.from_account(account), _={}, db=db_session
+    )
 
     assert payload.storage is not None
     assert payload.storage.window == "month"
@@ -646,7 +648,9 @@ def test_manager_usage_trends_returns_empty_when_history_disabled(db_session, mo
     db_session.add_all([endpoint, account])
     db_session.commit()
 
-    payload = manager_stats_router.account_usage_trends(context=account, _={}, db=db_session)
+    payload = manager_stats_router.account_usage_trends(
+        context=S3ExecutionContext.from_account(account), _={}, db=db_session
+    )
 
     assert payload.model_dump(exclude_none=True) == {}
 

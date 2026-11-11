@@ -31,6 +31,7 @@ from app.services.bucket_usage_stats_service import (
 )
 from app.services.feature_policy_service import bucket_usage_stats_state
 from app.services.portal_service import PortalService
+from app.services.s3_execution_context import S3ExecutionContext
 from app.services.usage_history_service import UsageHistoryService
 from app.services.usage_trends_service import (
     build_execution_context_usage_trends,
@@ -78,7 +79,8 @@ def portal_usage_trends(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Storage metrics are disabled for this endpoint")
     if not load_app_settings_for_db(db).general.usage_history_enabled:
         return UsageTrendsResponse()
-    return build_execution_context_usage_trends(db, access.account, reference_date=utcnow().date())
+    context = S3ExecutionContext.from_account(access.account, context_kind="portal_account")
+    return build_execution_context_usage_trends(db, context, reference_date=utcnow().date())
 
 
 @router.get("/usage-stats/latest", response_model=BucketUsageStatsAggregateResponse)
@@ -123,11 +125,12 @@ def portal_usage_history_trends(
     service = UsageHistoryService(db)
     if not load_app_settings_for_db(db).general.usage_history_enabled:
         return service.empty_trends(window=window, unavailable_reason="Usage history is disabled.")
-    if execution_context_usage_trend_filters(access.account, QuotaUsageDaily) is None:
+    context = S3ExecutionContext.from_account(access.account, context_kind="portal_account")
+    if execution_context_usage_trend_filters(context, QuotaUsageDaily) is None:
         return service.empty_trends(window=window, unavailable_reason="Usage history trends are unavailable for this context.")
     return service.aggregate_trends(
         window=window,
-        extra_filter_builder=lambda model: execution_context_usage_trend_filters(access.account, model) or [],
+        extra_filter_builder=lambda model: execution_context_usage_trend_filters(context, model) or [],
     )
 
 
