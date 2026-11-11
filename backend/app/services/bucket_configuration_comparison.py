@@ -5,18 +5,18 @@ from typing import Any, Optional, Protocol
 
 from app.models.bucket import BucketLoggingConfiguration, BucketProperties, BucketTag
 from app.models.bucket_compare import BucketConfigDiff, BucketConfigDiffSection
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.jsonable import model_to_jsonable
 
 
 class BucketConfigurationReader(Protocol):
-    def get_bucket_properties(self, name: str, execution_context: S3ExecutionTarget) -> BucketProperties: ...
+    def get_bucket_properties(self, name: str, execution_context: S3ExecutionContext) -> BucketProperties: ...
 
-    def get_policy(self, name: str, execution_context: S3ExecutionTarget) -> Optional[dict]: ...
+    def get_policy(self, name: str, execution_context: S3ExecutionContext) -> Optional[dict]: ...
 
-    def get_bucket_logging(self, name: str, execution_context: S3ExecutionTarget) -> BucketLoggingConfiguration: ...
+    def get_bucket_logging(self, name: str, execution_context: S3ExecutionContext) -> BucketLoggingConfiguration: ...
 
-    def get_bucket_tags(self, name: str, execution_context: S3ExecutionTarget) -> list[BucketTag]: ...
+    def get_bucket_tags(self, name: str, execution_context: S3ExecutionContext) -> list[BucketTag]: ...
 
 
 _SECTION_SPECS = (
@@ -44,9 +44,9 @@ def _selected_sections(include_sections: Optional[set[str]]) -> set[str]:
 def _read_configuration_values(
     reader: BucketConfigurationReader,
     source_bucket: str,
-    source_context: S3ExecutionTarget,
+    source_context: S3ExecutionContext,
     target_bucket: str,
-    target_context: S3ExecutionTarget,
+    target_context: S3ExecutionContext,
     selected_sections: set[str],
 ) -> dict[str, tuple[Any, Any]]:
     values: dict[str, tuple[Any, Any]] = {}
@@ -127,9 +127,9 @@ def _build_configuration_diff(
 def compare_bucket_configuration(
     reader: BucketConfigurationReader,
     source_bucket: str,
-    source_context: S3ExecutionTarget,
+    source_context: S3ExecutionContext,
     target_bucket: str,
-    target_context: S3ExecutionTarget,
+    target_context: S3ExecutionContext,
     *,
     include_sections: Optional[set[str]] = None,
 ) -> BucketConfigDiff:

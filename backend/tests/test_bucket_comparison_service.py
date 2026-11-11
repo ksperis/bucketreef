@@ -7,7 +7,6 @@ from unittest.mock import Mock
 import pytest
 from botocore.exceptions import ClientError
 
-from app.db import S3Account
 from app.models.bucket import (
     BucketLoggingConfiguration,
     BucketProperties,
@@ -24,14 +23,17 @@ from app.services.bucket_configuration_service import BucketConfigurationService
 from app.services.bucket_content_comparison import BucketCompareObjectEntry
 from app.services.buckets_service import BucketsService
 from app.services.s3_client import S3OperationError
+from app.services.s3_execution_context import S3ExecutionContext
 
 
-def _build_account(name: str) -> S3Account:
-    return S3Account(
+def _build_account(name: str) -> S3ExecutionContext:
+    return S3ExecutionContext(
+        context_id=name,
+        context_kind="account",
         name=name,
         rgw_account_id="RGW00000000000000001",
-        rgw_access_key="AKIA_TEST",
-        rgw_secret_key="SECRET_TEST",
+        access_key="AKIA_TEST",
+        secret_key="SECRET_TEST",
     )
 
 
