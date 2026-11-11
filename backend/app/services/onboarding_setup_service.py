@@ -2,9 +2,10 @@
 # Licensed under the Apache License, Version 2.0
 """Setup orchestration for the guided administrator onboarding."""
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-from app.core.db_transactions import commit_or_rollback
-from app.db import S3Account, S3Connection, UserS3Account
+from app.core.db_transactions import run_replayable_db_unit
+from app.db import OnboardingJourney, S3Account, S3Connection, UserS3Account
 from app.models.onboarding import OnboardingApply
 from app.models.s3_account import S3AccountCreate
 from app.models.s3_connection import S3ConnectionCreate
@@ -53,6 +54,34 @@ class OnboardingSetupService:
             raise OnboardingError("private_credentials_required")
         return access, secret
 
+    def _set_pending_step(self, row, step: str) -> None:
+        row_id = row.id
+
+        def persist_once(write_db: Session) -> None:
+            current = write_db.get(OnboardingJourney, row_id)
+            if current is None:
+                raise OnboardingError("journey_not_found", 404)
+            current.pending_step = step
+
+        run_replayable_db_unit(self.db, persist_once)
+        self.db.refresh(row)
+
+    def _mark_configured(self, row) -> None:
+        row_id = row.id
+        configured_at = utcnow()
+        updated_at = utcnow()
+
+        def persist_once(write_db: Session) -> None:
+            current = write_db.get(OnboardingJourney, row_id)
+            if current is None:
+                raise OnboardingError("journey_not_found", 404)
+            current.configured_at = configured_at
+            current.updated_at = updated_at
+            current.pending_step = None
+
+        run_replayable_db_unit(self.db, persist_once)
+        self.db.refresh(row)
+
     def configure(self, actor, row, payload):
         draft = self.progress.draft(row)
         endpoint = self.endpoint_setup.prepare(actor, row, draft, payload)
@@ -93,10 +122,7 @@ class OnboardingSetupService:
         if features:
             self.progress.audit(actor, "features_enabled", row.id, features=features)
 
-        row.configured_at = utcnow()
-        row.updated_at = utcnow()
-        row.pending_step = None
-        commit_or_rollback(self.db)
+        self._mark_configured(row)
         self.progress.audit(
             actor,
             "configured",
@@ -140,8 +166,7 @@ class OnboardingSetupService:
             account_name = self._unique_account_name(identifier)
             self.progress.checkpoint(row, account_name=account_name)
 
-        row.pending_step = "account"
-        commit_or_rollback(self.db)
+        self._set_pending_step(row, "account")
         account = S3AccountProvisioningService(self.db).ensure_provisioned_account(
             S3AccountCreate(
                 name=account_name,
@@ -199,9 +224,21 @@ class OnboardingSetupService:
             )
         ).one()
         if draft.manager and not link.allow_manager_browser_data_access:
-            link.allow_manager_browser_data_access = True
-            link.updated_at = utcnow()
-            commit_or_rollback(self.db)
+            actor_id = actor.id
+            account_id = account.id
+            updated_at = utcnow()
+
+            def persist_manager_browser_access(write_db: Session) -> None:
+                current = write_db.scalars(
+                    select(UserS3Account).where(
+                        UserS3Account.user_id == actor_id,
+                        UserS3Account.account_id == account_id,
+                    )
+                ).one()
+                current.allow_manager_browser_data_access = True
+                current.updated_at = updated_at
+
+            run_replayable_db_unit(self.db, persist_manager_browser_access)
         self.progress.audit(
             actor,
             "access_assigned",

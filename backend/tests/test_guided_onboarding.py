@@ -291,6 +291,113 @@ def test_onboarding_endpoint_checkpoint_retries_sqlite_busy(guided, db_session):
     assert row.resources["endpoint_created"] is True
 
 
+def test_onboarding_account_pending_step_retries_before_remote_provisioning(
+    guided, db_session, monkeypatch
+):
+    user = actor(db_session)
+    ep = endpoint(db_session)
+    journey = save(guided, user, endpoint_id=ep.id, manager=True)
+    row = guided.get(user, journey.id)
+    guided.checkpoint(
+        row,
+        rgw_account_id="RGW80000000000000001",
+        account_name="sample-account",
+    )
+    account = make_s3_account(
+        db_session,
+        name="sample-account",
+        storage_endpoint_id=ep.id,
+        rgw_account_id="RGW80000000000000001",
+    )
+    db_session.add(account)
+    db_session.commit()
+    provision_calls = 0
+
+    def ensure_account(_payload, _rgw_account_id):
+        nonlocal provision_calls
+        provision_calls += 1
+        return account
+
+    monkeypatch.setattr(
+        setup_service,
+        "S3AccountProvisioningService",
+        lambda _db: SimpleNamespace(ensure_provisioned_account=ensure_account),
+    )
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session, "UPDATE onboarding_journeys"
+    ) as matching_statements:
+        setup_service.OnboardingSetupService(guided)._account(user, row, ep)
+
+    assert len(matching_statements) >= 3
+    assert provision_calls == 1
+    persisted = db_session.get(OnboardingJourney, journey.id, populate_existing=True)
+    assert persisted.pending_step is None
+    assert persisted.resources["account_id"] == account.id
+
+
+def test_onboarding_manager_browser_access_retries_sqlite_busy_without_reassigning(
+    guided, db_session, monkeypatch
+):
+    user = actor(db_session)
+    ep = endpoint(db_session)
+    account = make_s3_account(
+        db_session,
+        name="sample-account",
+        storage_endpoint_id=ep.id,
+        rgw_account_id="RGW80000000000000002",
+    )
+    db_session.add(account)
+    db_session.flush()
+    link = UserS3Account(
+        user_id=user.id,
+        account_id=account.id,
+        manager_role="account_administrator",
+        allow_manager_browser_data_access=False,
+    )
+    db_session.add(link)
+    db_session.commit()
+    assignment_calls = 0
+    service = setup_service.OnboardingSetupService(guided)
+
+    def assign_account(*_args, **_kwargs):
+        nonlocal assignment_calls
+        assignment_calls += 1
+
+    monkeypatch.setattr(service.user_associations, "assign_account", assign_account)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session, "UPDATE user_s3_accounts"
+    ) as matching_statements:
+        service._assign_account_access(
+            user,
+            SimpleNamespace(id=str(uuid4())),
+            SimpleNamespace(manager=True, portal=False),
+            account,
+        )
+
+    assert len(matching_statements) == 2
+    assert assignment_calls == 1
+    persisted = db_session.get(UserS3Account, link.id, populate_existing=True)
+    assert persisted.allow_manager_browser_data_access is True
+
+
+def test_onboarding_mark_configured_retries_sqlite_busy(guided, db_session):
+    user = actor(db_session)
+    journey = save(guided, user, manager=True)
+    row = guided.get(user, journey.id)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session, "UPDATE onboarding_journeys"
+    ) as matching_statements:
+        setup_service.OnboardingSetupService(guided)._mark_configured(row)
+
+    assert len(matching_statements) == 2
+    persisted = db_session.get(OnboardingJourney, journey.id, populate_existing=True)
+    assert persisted.configured_at is not None
+    assert persisted.pending_step is None
+
+
 def test_apply_requires_explicit_service_identity_mode():
     with pytest.raises(ValidationError, match="service_identity_mode"):
         OnboardingApply(
