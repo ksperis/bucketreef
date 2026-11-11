@@ -16,7 +16,7 @@ from app.services.managed_private_access_errors import (
 )
 from app.services.managed_private_access_sources import ManagedPrivateAccessSource, source_ids
 from app.services.managed_resource_naming import managed_private_iam_username
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.s3_connection_capabilities import s3_connection_can_manage_iam
 from app.utils.storage_endpoint_features import resolve_feature_flags
 
@@ -31,7 +31,7 @@ class ManagedPrivateAccessIAMSourceService:
     def resolve(
         self,
         user: User,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
     ) -> ManagedPrivateAccessSource:
         effective = self.access.resolve_user(user)
         connection_id, s3_user_id, account_id = source_ids(context)

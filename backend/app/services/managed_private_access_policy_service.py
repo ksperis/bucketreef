@@ -21,7 +21,7 @@ from app.services.managed_private_access_rgw_user_source_service import (
 )
 from app.services.managed_resource_naming import PORTAL_MANAGED_IAM_GROUP_NAMES
 from app.services.rgw_iam import RGWIAMError, RGWIAMService
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 
 
 AMAZON_S3_FULL_ACCESS_POLICY_ARN = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
@@ -73,7 +73,7 @@ class ManagedPrivateAccessPolicyService:
     def rgw_user_provisioning_available(
         self,
         user: User,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         *,
         resolved: ResolvedUserAccess | None = None,
     ) -> bool:

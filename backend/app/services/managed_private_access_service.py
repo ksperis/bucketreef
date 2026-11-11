@@ -56,7 +56,7 @@ from app.services.managed_private_access_rgw_user_source_service import (
 from app.services.managed_private_access_state_service import (
     ManagedPrivateAccessStateService,
 )
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 
 
 class ManagedPrivateAccessService:
@@ -110,7 +110,7 @@ class ManagedPrivateAccessService:
         self,
         *,
         user: User,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         payload: ManagedIAMPrivateAccessRequest,
     ) -> ManagedPrivateAccessResult:
         self.policy.ensure_managed_private_connection_provisioning_allowed(user)
@@ -161,7 +161,7 @@ class ManagedPrivateAccessService:
         self,
         *,
         user: User,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         payload: ManagedRGWUserPrivateAccessRequest,
     ) -> ManagedPrivateAccessResult:
         self.policy.ensure_managed_private_connection_provisioning_allowed(user)

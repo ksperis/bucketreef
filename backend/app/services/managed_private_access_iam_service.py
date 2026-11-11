@@ -16,7 +16,7 @@ from app.services.rgw_iam import (
     RGWIAMService,
     get_iam_service_for_execution_target,
 )
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.s3_connection_endpoint import resolve_connection_iam_options
 
 
@@ -33,7 +33,7 @@ class ManagedPrivateAccessIAMService:
         self.access = access or EffectiveAccessService(db)
 
     @staticmethod
-    def for_context(context: S3ExecutionTarget) -> RGWIAMService:
+    def for_context(context: S3ExecutionContext) -> RGWIAMService:
         service = get_iam_service_for_execution_target(context)
         if service is None:
             raise ManagedPrivateAccessError(
@@ -55,7 +55,7 @@ class ManagedPrivateAccessIAMService:
             account = self.db.get(S3Account, provisioning.source_context_id)
             if account is None:
                 raise ManagedPrivateAccessError("Source account not found")
-            return self.for_context(account)
+            return self.for_context(self._account_context(account))
 
         if provisioning.source_context_type != "connection":
             raise ManagedPrivateAccessError("Invalid IAM source context")
@@ -85,7 +85,7 @@ class ManagedPrivateAccessIAMService:
             account = self.db.get(S3Account, provisioning.source_context_id)
             if account is None:
                 raise ManagedPrivateAccessError("Source account not found")
-            return self.for_context(account)
+            return self.for_context(self._account_context(account))
 
         if provisioning.source_context_type != "connection":
             raise ManagedPrivateAccessError("Invalid IAM source context")
@@ -100,4 +100,13 @@ class ManagedPrivateAccessIAMService:
             endpoint=iam_endpoint,
             region=iam_region,
             verify_tls=verify_tls,
+        )
+
+    @staticmethod
+    def _account_context(account: S3Account) -> S3ExecutionContext:
+        access_key, secret_key = account.effective_rgw_credentials()
+        return S3ExecutionContext.from_account(
+            account,
+            access_key=access_key,
+            secret_key=secret_key,
         )

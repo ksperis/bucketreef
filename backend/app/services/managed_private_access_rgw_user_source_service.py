@@ -19,7 +19,7 @@ from app.services.managed_private_access_errors import (
 from app.services.managed_private_access_sources import ManagedPrivateAccessSource, source_ids
 from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_principal_scope import resolve_target_tenant
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.rgw_payloads import rgw_qualified_uid
 from app.utils.storage_endpoint_features import resolve_feature_flags
 
@@ -34,7 +34,7 @@ class ManagedPrivateAccessRGWUserSourceService:
     def resolve(
         self,
         user: User,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
     ) -> ManagedPrivateAccessSource:
         _, s3_user_id, _ = source_ids(context)
         if not isinstance(s3_user_id, int) or s3_user_id <= 0:
