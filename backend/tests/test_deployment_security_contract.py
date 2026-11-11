@@ -24,6 +24,16 @@ def test_backend_python_runtime_matches_ci_toolchain_lock():
     assert f"pyenv local {python_version}" in _read("backend/README.md")
 
 
+def test_backend_runtime_packages_documented_postgresql_driver():
+    requirements = _read("backend/requirements.txt").splitlines()
+    dockerfile = _read("backend/Dockerfile")
+
+    assert any(line.startswith("psycopg[binary]==") for line in requirements)
+    assert "pip install --no-cache-dir -r requirements.txt" in dockerfile
+    for example in ("backend/.env.example", "deploy/bundle/.env.example"):
+        assert "postgresql+psycopg://" in _read(example)
+
+
 def test_runtime_images_are_fixed_non_root_and_read_only_compatible():
     backend = _read("backend/Dockerfile")
     frontend = _read("frontend/Dockerfile")
