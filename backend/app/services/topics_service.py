@@ -11,7 +11,7 @@ from app.core.domain_enums import StorageProvider
 from app.models.topic import Topic
 from app.services import sns_client
 from app.services.s3_execution_client import require_s3_execution_credentials_with_error
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 from app.services.sns_client import SNSOperationError
 from app.utils.s3_endpoint import resolve_s3_client_options
 
@@ -54,14 +54,14 @@ class TopicsService:
     }
     _CEPH_NOTIFICATION_ENDPOINT_KEYS = {"EndpointAddress", "EndpointArgs", "EndpointTopic"}
 
-    def _context_credentials(self, context: S3ExecutionTarget) -> tuple[str, str]:
+    def _context_credentials(self, context: S3ExecutionContext) -> tuple[str, str]:
         return require_s3_execution_credentials_with_error(
             context,
-            error_message="S3ExecutionTarget is missing SNS credentials",
+            error_message="Execution context is missing SNS credentials",
             error_type=SNSOperationError,
         )
 
-    def _client_kwargs(self, context: S3ExecutionTarget) -> dict:
+    def _client_kwargs(self, context: S3ExecutionContext) -> dict:
         endpoint, region, _, verify_tls = resolve_s3_client_options(context)
         if not endpoint:
             raise SNSOperationError("S3 endpoint is not configured for this context")
@@ -76,7 +76,7 @@ class TopicsService:
             return arn.split(":")[-1]
         return arn
 
-    def _is_ceph_endpoint(self, context: S3ExecutionTarget) -> bool:
+    def _is_ceph_endpoint(self, context: S3ExecutionContext) -> bool:
         endpoint = context.storage_endpoint
         return endpoint is not None and endpoint.provider == StorageProvider.CEPH.value
 
@@ -237,7 +237,7 @@ class TopicsService:
             )
         return items
 
-    def list_topics(self, context: S3ExecutionTarget) -> list[Topic]:
+    def list_topics(self, context: S3ExecutionContext) -> list[Topic]:
         access_key, secret_key = self._context_credentials(context)
         client_kwargs = self._client_kwargs(context)
         if self._is_ceph_endpoint(context):
@@ -263,7 +263,7 @@ class TopicsService:
 
     def create_topic(
         self,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         name: str,
         configuration: Optional[dict] = None,
     ) -> Topic:
@@ -284,17 +284,17 @@ class TopicsService:
         )
         return self._topic_from_attributes(arn, attrs)
 
-    def delete_topic(self, context: S3ExecutionTarget, topic_arn: str) -> None:
+    def delete_topic(self, context: S3ExecutionContext, topic_arn: str) -> None:
         access_key, secret_key = self._context_credentials(context)
         sns_client.delete_topic(topic_arn, access_key=access_key, secret_key=secret_key, **self._client_kwargs(context))
 
-    def get_topic_policy(self, context: S3ExecutionTarget, topic_arn: str) -> Optional[dict]:
+    def get_topic_policy(self, context: S3ExecutionContext, topic_arn: str) -> Optional[dict]:
         access_key, secret_key = self._context_credentials(context)
         return sns_client.get_topic_policy(
             topic_arn, access_key=access_key, secret_key=secret_key, **self._client_kwargs(context)
         )
 
-    def set_topic_policy(self, context: S3ExecutionTarget, topic_arn: str, policy: dict) -> dict:
+    def set_topic_policy(self, context: S3ExecutionContext, topic_arn: str, policy: dict) -> dict:
         access_key, secret_key = self._context_credentials(context)
         sns_client.set_topic_policy(
             topic_arn, policy, access_key=access_key, secret_key=secret_key, **self._client_kwargs(context)
@@ -302,7 +302,7 @@ class TopicsService:
         updated = self.get_topic_policy(context, topic_arn)
         return updated or {}
 
-    def get_topic_configuration(self, context: S3ExecutionTarget, topic_arn: str) -> dict:
+    def get_topic_configuration(self, context: S3ExecutionContext, topic_arn: str) -> dict:
         access_key, secret_key = self._context_credentials(context)
         attrs = sns_client.get_topic_attributes(
             topic_arn, access_key=access_key, secret_key=secret_key, **self._client_kwargs(context)
@@ -312,7 +312,7 @@ class TopicsService:
 
     def set_topic_configuration(
         self,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         topic_arn: str,
         configuration: Optional[dict],
     ) -> dict:

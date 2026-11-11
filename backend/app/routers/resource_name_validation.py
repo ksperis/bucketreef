@@ -12,7 +12,7 @@ from app.services.resource_name_validation import (
     validate_inline_policy_requests as validate_inline_policy_requests_service,
     validate_topic_request as validate_topic_request_service,
 )
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.resource_names import IAMEntity
 
 
@@ -25,7 +25,7 @@ def raise_resource_name_validation_error(exc: ResourceNameValidationError) -> No
 def validate_inline_policy_request(
     name: str,
     entity: IAMEntity,
-    context: S3ExecutionTarget,
+    context: S3ExecutionContext,
     *,
     loc: tuple = ("body", "name"),
 ) -> None:
@@ -38,7 +38,7 @@ def validate_inline_policy_request(
 def validate_inline_policy_requests(
     policies: list,
     entity: IAMEntity,
-    context: S3ExecutionTarget,
+    context: S3ExecutionContext,
 ) -> None:
     try:
         validate_inline_policy_requests_service(policies, entity, context)
@@ -49,7 +49,7 @@ def validate_inline_policy_requests(
 def validate_topic_request(
     name: str,
     configuration: dict | None,
-    context: S3ExecutionTarget,
+    context: S3ExecutionContext,
 ) -> None:
     try:
         validate_topic_request_service(name, configuration, context)
