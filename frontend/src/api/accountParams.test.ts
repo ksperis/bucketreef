@@ -5,6 +5,7 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 
 import {
+  buildS3AccountRequestConfig,
   buildS3ContextRequestConfig,
   normalizeS3AccountId,
   normalizeS3ExecutionContextId,
@@ -51,5 +52,12 @@ describe("account parameter helpers", () => {
       params: { feature: "versioning", context_id: "conn-7" },
     });
     expect(buildS3ContextRequestConfig(" ")).toEqual({ params: undefined });
+  });
+
+  it("builds a request config around account parameters", () => {
+    expect(buildS3AccountRequestConfig(7, { feature: "usage" })).toEqual({
+      params: { feature: "usage", account_id: 7 },
+    });
+    expect(buildS3AccountRequestConfig(null)).toEqual({ params: undefined });
   });
 });

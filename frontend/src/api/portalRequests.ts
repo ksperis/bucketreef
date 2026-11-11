@@ -4,7 +4,7 @@
  */
 import client from "./client";
 import type { S3AccountSelector } from "./accountParams";
-import { withS3AccountParam } from "./accountParams";
+import { buildS3AccountRequestConfig } from "./accountParams";
 import type { PaginatedResponse } from "./types";
 import { notifyAdminPendingRequestsRefresh } from "../utils/adminPendingRequestsRefresh";
 import type { QuotaSizeUnit } from "../utils/quotaUnits";
@@ -121,9 +121,13 @@ export async function listPortalRequests(
   accountId: S3AccountSelector,
   options?: { status?: PortalAdminRequestStatus }
 ): Promise<PortalAdminRequest[]> {
-  const { data } = await client.get<PortalAdminRequest[]>("/portal/requests", {
-    params: withS3AccountParam(options?.status ? { status: options.status } : undefined, accountId),
-  });
+  const { data } = await client.get<PortalAdminRequest[]>(
+    "/portal/requests",
+    buildS3AccountRequestConfig(
+      accountId,
+      options?.status ? { status: options.status } : undefined,
+    ),
+  );
   return data;
 }
 
@@ -131,9 +135,11 @@ export async function createPortalRequest(
   accountId: S3AccountSelector,
   payload: PortalAdminRequestCreate
 ): Promise<PortalAdminRequest> {
-  const { data } = await client.post<PortalAdminRequest>("/portal/requests", payload, {
-    params: withS3AccountParam(undefined, accountId),
-  });
+  const { data } = await client.post<PortalAdminRequest>(
+    "/portal/requests",
+    payload,
+    buildS3AccountRequestConfig(accountId),
+  );
   return data;
 }
 

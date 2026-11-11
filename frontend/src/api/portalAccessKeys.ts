@@ -2,7 +2,10 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { S3AccountSelector, withS3AccountParam } from "./accountParams";
+import {
+  buildS3AccountRequestConfig,
+  type S3AccountSelector,
+} from "./accountParams";
 import client from "./client";
 
 export type PortalAccessKey = {
@@ -49,9 +52,10 @@ export type PortalAccessKeysState = {
 export async function fetchPortalAccessKeysState(
   accountId: S3AccountSelector,
 ): Promise<PortalAccessKeysState> {
-  const { data } = await client.get<PortalAccessKeysState>("/portal/access-keys", {
-    params: withS3AccountParam(undefined, accountId),
-  });
+  const { data } = await client.get<PortalAccessKeysState>(
+    "/portal/access-keys",
+    buildS3AccountRequestConfig(accountId),
+  );
   return data;
 }
 
@@ -62,7 +66,7 @@ export async function createPortalAccessKey(
   const { data } = await client.post<PortalAccessKey>(
     "/portal/access-keys",
     payload,
-    { params: withS3AccountParam(undefined, accountId) },
+    buildS3AccountRequestConfig(accountId),
   );
   return data;
 }
@@ -75,7 +79,7 @@ export async function updatePortalAccessKeyStatus(
   const { data } = await client.put<PortalAccessKey>(
     `/portal/access-keys/${encodeURIComponent(accessKeyId)}/status`,
     { active },
-    { params: withS3AccountParam(undefined, accountId) },
+    buildS3AccountRequestConfig(accountId),
   );
   return data;
 }
@@ -84,7 +88,8 @@ export async function deletePortalAccessKey(
   accountId: S3AccountSelector,
   accessKeyId: string,
 ): Promise<void> {
-  await client.delete(`/portal/access-keys/${encodeURIComponent(accessKeyId)}`, {
-    params: withS3AccountParam(undefined, accountId),
-  });
+  await client.delete(
+    `/portal/access-keys/${encodeURIComponent(accessKeyId)}`,
+    buildS3AccountRequestConfig(accountId),
+  );
 }

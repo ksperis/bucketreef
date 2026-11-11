@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { S3AccountSelector } from "./accountParams";
-import { withS3AccountParam } from "./accountParams";
+import { buildS3AccountRequestConfig } from "./accountParams";
 import client, { LONG_RUNNING_REQUEST_TIMEOUT_MS } from "./client";
 import { filenameFromContentDisposition } from "./contentDisposition";
 
@@ -85,9 +85,10 @@ export async function fetchPortalActivity(
   const baseParams: Record<string, string | number> = {};
   if (options?.spaceId) baseParams.space_id = options.spaceId;
   if (options?.limit) baseParams.limit = options.limit;
-  const { data } = await client.get<PortalActivityItem[]>("/portal/activity", {
-    params: withS3AccountParam(baseParams, accountId),
-  });
+  const { data } = await client.get<PortalActivityItem[]>(
+    "/portal/activity",
+    buildS3AccountRequestConfig(accountId, baseParams),
+  );
   return data;
 }
 
@@ -113,7 +114,7 @@ export async function fetchPortalServerAccessLogPage(
   if (options.advancedFilter) baseParams.advanced_filter = options.advancedFilter;
   const { data } = await client.get<PortalServerAccessLogPage>(
     "/portal/access-logs/page",
-    { params: withS3AccountParam(baseParams, accountId) },
+    buildS3AccountRequestConfig(accountId, baseParams),
   );
   return data;
 }
@@ -135,7 +136,7 @@ export async function downloadPortalServerAccessRawLogs(
   };
   if (options.spaceId) baseParams.space_id = options.spaceId;
   const response = await client.get<Blob>("/portal/access-logs/raw", {
-    params: withS3AccountParam(baseParams, accountId),
+    ...buildS3AccountRequestConfig(accountId, baseParams),
     responseType: "blob",
     timeout: LONG_RUNNING_REQUEST_TIMEOUT_MS,
   });
@@ -156,8 +157,9 @@ export async function fetchPortalAlerts(
   accountId: S3AccountSelector,
   limit = 50,
 ): Promise<PortalAlert[]> {
-  const { data } = await client.get<PortalAlert[]>("/portal/alerts", {
-    params: withS3AccountParam({ limit }, accountId),
-  });
+  const { data } = await client.get<PortalAlert[]>(
+    "/portal/alerts",
+    buildS3AccountRequestConfig(accountId, { limit }),
+  );
   return data;
 }

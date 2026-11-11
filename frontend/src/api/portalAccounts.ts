@@ -4,7 +4,7 @@
  */
 import type { PortalAccountRole } from "./accountAccess";
 import type { S3AccountSelector } from "./accountParams";
-import { withS3AccountParam } from "./accountParams";
+import { buildS3AccountRequestConfig } from "./accountParams";
 import type { FeatureState, PortalSettings, PortalSettingsOverride } from "./appSettings";
 import client, { timeoutForRequestProfile } from "./client";
 
@@ -67,18 +67,20 @@ export async function listPortalAccounts(options?: {
 export async function fetchPortalState(
   accountId: S3AccountSelector,
 ): Promise<PortalState> {
-  const { data } = await client.get<PortalState>("/portal/state", {
-    params: withS3AccountParam(undefined, accountId),
-  });
+  const { data } = await client.get<PortalState>(
+    "/portal/state",
+    buildS3AccountRequestConfig(accountId),
+  );
   return data;
 }
 
 export async function fetchPortalProjectSettings(
   accountId: S3AccountSelector,
 ): Promise<PortalProjectSettings> {
-  const { data } = await client.get<PortalProjectSettings>("/portal/settings", {
-    params: withS3AccountParam(undefined, accountId),
-  });
+  const { data } = await client.get<PortalProjectSettings>(
+    "/portal/settings",
+    buildS3AccountRequestConfig(accountId),
+  );
   return data;
 }
 
@@ -89,7 +91,7 @@ export async function updatePortalProjectSettings(
   const { data } = await client.patch<PortalProjectSettings>(
     "/portal/settings",
     payload,
-    { params: withS3AccountParam(undefined, accountId) },
+    buildS3AccountRequestConfig(accountId),
   );
   return data;
 }

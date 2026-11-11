@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { S3AccountSelector } from "./accountParams";
-import { withS3AccountParam } from "./accountParams";
+import { buildS3AccountRequestConfig } from "./accountParams";
 import type {
   BucketUsageStatsAggregateResponse,
   BucketUsageStatsSnapshot,
@@ -50,9 +50,10 @@ type PortalStorageSpaceUsageStatsResponse = {
 export async function fetchPortalUsage(
   accountId: S3AccountSelector,
 ): Promise<PortalUsage> {
-  const { data } = await client.get<PortalUsage>("/portal/usage", {
-    params: withS3AccountParam(undefined, accountId),
-  });
+  const { data } = await client.get<PortalUsage>(
+    "/portal/usage",
+    buildS3AccountRequestConfig(accountId),
+  );
   return data;
 }
 
@@ -61,7 +62,7 @@ export async function fetchPortalUsageTrends(
 ): Promise<ManagerUsageTrendsResponse> {
   const { data } = await client.get<ManagerUsageTrendsResponse>(
     "/portal/usage-trends",
-    { params: withS3AccountParam(undefined, accountId) },
+    buildS3AccountRequestConfig(accountId),
   );
   return data;
 }
@@ -71,7 +72,7 @@ export async function getPortalUsageStatsAggregate(
 ): Promise<BucketUsageStatsAggregateResponse> {
   const { data } = await client.get<BucketUsageStatsAggregateResponse>(
     "/portal/usage-stats/latest",
-    { params: withS3AccountParam(undefined, accountId) },
+    buildS3AccountRequestConfig(accountId),
   );
   return data;
 }
@@ -82,7 +83,7 @@ export async function fetchPortalStorageSpaceUsageStats(
 ): Promise<PortalStorageSpaceUsageStatsResponse> {
   const { data } = await client.get<PortalStorageSpaceUsageStatsResponse>(
     `/portal/storage-spaces/${encodeURIComponent(spaceId)}/usage-stats`,
-    { params: withS3AccountParam(undefined, accountId) },
+    buildS3AccountRequestConfig(accountId),
   );
   return data;
 }
@@ -93,7 +94,7 @@ export async function fetchPortalUsageHistoryTrends(
 ): Promise<UsageHistoryTrendResponse> {
   const { data } = await client.get<UsageHistoryTrendResponse>(
     "/portal/usage-history-trends",
-    { params: withS3AccountParam({ window }, accountId) },
+    buildS3AccountRequestConfig(accountId, { window }),
   );
   return data;
 }
@@ -107,9 +108,9 @@ export async function fetchPortalTraffic(
   if (bucket) {
     baseParams.bucket = bucket;
   }
-  const params = withS3AccountParam(baseParams, accountId);
-  const { data } = await client.get<ManagerTrafficStats>("/portal/traffic", {
-    params,
-  });
+  const { data } = await client.get<ManagerTrafficStats>(
+    "/portal/traffic",
+    buildS3AccountRequestConfig(accountId, baseParams),
+  );
   return data;
 }
