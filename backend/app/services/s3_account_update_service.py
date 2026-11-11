@@ -23,6 +23,7 @@ from app.services.s3_account_metrics_service import S3AccountMetricsService
 from app.services.s3_account_quota_service import S3AccountQuotaService
 from app.services.s3_account_repository import S3AccountRepository
 from app.services.s3_account_rgw_context_service import S3AccountRgwContextService
+from app.services.s3_execution_context import S3ExecutionContext
 from app.services.tags_service import TagsService
 from app.utils.storage_endpoint_features import resolve_feature_flags
 
@@ -153,7 +154,9 @@ class S3AccountUpdateService:
             [],
         )
         endpoint = self.rgw_context.resolve_storage_endpoint(account.storage_endpoint_id)
-        quota_max_size_gb, quota_max_objects = self.metrics.get_quota(account)
+        quota_max_size_gb, quota_max_objects = self.metrics.get_quota(
+            S3ExecutionContext.from_account(account)
+        )
 
         return s3_account_from_db(
             account,

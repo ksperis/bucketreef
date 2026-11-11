@@ -33,6 +33,7 @@ from app.services.s3_account_metrics_service import S3AccountMetricsService
 from app.services.s3_account_repository import S3AccountRepository
 from app.services.s3_account_rgw_context_service import S3AccountRgwContextService
 from app.services.s3_account_rgw_users_service import S3AccountRgwUsersService
+from app.services.s3_execution_context import S3ExecutionContext
 from app.services.sqlalchemy_pagination import paginate_scalars
 from app.services.tags_service import TagsService
 from app.utils.name_ordering import name_order_by
@@ -112,18 +113,19 @@ class S3AccountQueryService:
         user_links: list[AccountUserLink],
         group_links: list[AccountGroupLink],
     ) -> S3AccountSchema:
+        execution_context = S3ExecutionContext.from_account(account)
         endpoint = self.rgw_context.resolve_storage_endpoint(account.storage_endpoint_id)
         endpoint_capabilities = self.rgw_context.endpoint_capabilities(endpoint)
         used_bytes = used_objects = bucket_count = None
         rgw_user_count = rgw_user_uids = rgw_topic_count = rgw_topics = None
         quota_max_size_gb = quota_max_objects = None
         if include_usage_stats:
-            used_bytes, used_objects, bucket_count = self.metrics.get_usage(account)
+            used_bytes, used_objects, bucket_count = self.metrics.get_usage(execution_context)
         admin = None
         if include_quota or include_rgw_details:
             admin = self.rgw_context.admin_for_account(account, allow_missing=True)
         if include_quota and admin:
-            quota_max_size_gb, quota_max_objects = self.metrics.get_quota(account, admin)
+            quota_max_size_gb, quota_max_objects = self.metrics.get_quota(execution_context, admin)
         if include_rgw_details and admin:
             rgw_user_count, rgw_user_uids = self.rgw_users.resolve(
                 account.rgw_account_id,
@@ -239,14 +241,15 @@ class S3AccountQueryService:
 
     def get_account_detail(self, account_id: int, include_usage: bool = False) -> S3AccountSchema:
         account = self.repository.get(account_id)
+        execution_context = S3ExecutionContext.from_account(account)
         user_links = self.associations.load_user_links([account.id]).get(account.id, [])
         group_links = self.associations.load_group_links([account.id]).get(account.id, [])
         used_bytes = used_objects = bucket_count = None
         if include_usage:
-            used_bytes, used_objects, bucket_count = self.metrics.get_usage(account)
+            used_bytes, used_objects, bucket_count = self.metrics.get_usage(execution_context)
         admin = self.rgw_context.admin_for_account(account, allow_missing=True)
         rgw_user_count = rgw_user_uids = rgw_topic_count = rgw_topics = None
-        quota_max_size_gb, quota_max_objects = self.metrics.get_quota(account, admin)
+        quota_max_size_gb, quota_max_objects = self.metrics.get_quota(execution_context, admin)
         endpoint = self.rgw_context.resolve_storage_endpoint(account.storage_endpoint_id)
         endpoint_capabilities = self.rgw_context.endpoint_capabilities(endpoint)
         if admin:

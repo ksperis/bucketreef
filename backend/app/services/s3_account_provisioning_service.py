@@ -161,8 +161,8 @@ class S3AccountProvisioningService:
                 secret_key=secret_key,
             )
             self._apply_requested_quota(payload, remote_account)
-            quota_max_size_gb, quota_max_objects = self.metrics.get_quota(
-                remote_account,
+            quota_max_size_gb, quota_max_objects = self.metrics.get_quota_with_admin(
+                remote_account.rgw_account_id,
                 admin,
             )
             account = self._persist_provisioned_account(

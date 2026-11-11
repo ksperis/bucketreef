@@ -32,6 +32,7 @@ from app.services.s3_account_iam_cleanup_service import S3AccountIamCleanupServi
 from app.services.s3_account_metrics_service import S3AccountMetricsService
 from app.services.s3_account_rgw_users_service import S3AccountRgwUsersService
 from app.services.s3_execution_client import s3_execution_request_kwargs
+from app.services.s3_execution_context import S3ExecutionContext
 from app.services.tags_service import TagsService
 from app.utils.storage_endpoint_features import (
     resolve_endpoint_capabilities,
@@ -411,7 +412,7 @@ class S3AccountDeletionService:
             )
 
     def _verified_bucket_count(self, account: S3Account) -> int:
-        _, _, admin_bucket_count = self.metrics.get_usage(account)
+        _, _, admin_bucket_count = self.metrics.get_usage(S3ExecutionContext.from_account(account))
         if admin_bucket_count is not None and admin_bucket_count > 0:
             return admin_bucket_count
 

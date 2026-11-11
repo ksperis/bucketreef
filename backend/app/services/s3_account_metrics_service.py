@@ -7,7 +7,7 @@ from typing import Optional
 
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_runtime_rgw_client
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.quota_stats import (
     bytes_to_gb,
     extract_rgw_account_positive_limit,
@@ -21,16 +21,16 @@ logger = logging.getLogger(__name__)
 
 
 class S3AccountMetricsService:
-    """Read RGW usage, quota, and account limits for an account execution target."""
+    """Read RGW usage, quota, and account limits for an account execution context."""
 
     @staticmethod
     def runtime_client(
-        account: S3ExecutionTarget,
+        context: S3ExecutionContext,
         *,
         allow_missing: bool = False,
     ) -> Optional[RGWAdminClient]:
         try:
-            return get_endpoint_runtime_rgw_client(account.storage_endpoint)
+            return get_endpoint_runtime_rgw_client(context.storage_endpoint)
         except (ValueError, RGWAdminError):
             if allow_missing:
                 return None
@@ -38,22 +38,22 @@ class S3AccountMetricsService:
 
     def get_usage(
         self,
-        account: S3ExecutionTarget,
+        context: S3ExecutionContext,
     ) -> tuple[Optional[int], Optional[int], Optional[int]]:
-        admin = self.runtime_client(account, allow_missing=True)
+        admin = self.runtime_client(context, allow_missing=True)
         if not admin:
             return None, None, None
         try:
-            uid = account.rgw_user_uid
+            uid = context.rgw_user_uid
             if not uid:
                 return None, None, None
             payload = admin.get_all_buckets(
                 uid=uid,
                 with_stats=True,
-                **({"tenant": account.rgw_tenant} if account.rgw_tenant else {}),
+                **({"tenant": context.rgw_tenant} if context.rgw_tenant else {}),
             )
         except RGWAdminError as exc:
-            logger.warning("Unable to list buckets for account %s: %s", account.rgw_account_id, exc)
+            logger.warning("Unable to list buckets for account %s: %s", context.rgw_account_id, exc)
             return None, None, None
         used_bytes, used_objects, bucket_count = aggregate_bucket_usage(
             extract_bucket_list(payload)
@@ -62,34 +62,41 @@ class S3AccountMetricsService:
 
     def get_quota(
         self,
-        account: S3ExecutionTarget,
+        context: S3ExecutionContext,
         admin: Optional[RGWAdminClient] = None,
     ) -> tuple[Optional[float], Optional[int]]:
-        rgw_admin = admin or self.runtime_client(account, allow_missing=True)
+        rgw_admin = admin or self.runtime_client(context, allow_missing=True)
         if not rgw_admin:
             return None, None
+        return self.get_quota_with_admin(context.rgw_account_id, rgw_admin)
+
+    @staticmethod
+    def get_quota_with_admin(
+        rgw_account_id: Optional[str],
+        admin: RGWAdminClient,
+    ) -> tuple[Optional[float], Optional[int]]:
         try:
-            max_size_bytes, max_objects = rgw_admin.get_account_quota(account.rgw_account_id)
+            max_size_bytes, max_objects = admin.get_account_quota(rgw_account_id)
         except RGWAdminError as exc:
-            logger.warning("Unable to fetch account quota for %s: %s", account.rgw_account_id, exc)
+            logger.warning("Unable to fetch account quota for %s: %s", rgw_account_id, exc)
             return None, None
         return bytes_to_gb(max_size_bytes), max_objects
 
     def get_limits(
         self,
-        account: S3ExecutionTarget,
+        context: S3ExecutionContext,
     ) -> tuple[Optional[float], Optional[int], Optional[int], Optional[int], Optional[int], Optional[int]]:
-        rgw_admin = self.runtime_client(account, allow_missing=True)
+        rgw_admin = self.runtime_client(context, allow_missing=True)
         if not rgw_admin:
             return None, None, None, None, None, None
         try:
             payload = rgw_admin.get_account(
-                account.rgw_account_id,
+                context.rgw_account_id,
                 allow_not_found=True,
                 allow_not_implemented=True,
             ) or {}
         except RGWAdminError as exc:
-            logger.warning("Unable to fetch account limits for %s: %s", account.rgw_account_id, exc)
+            logger.warning("Unable to fetch account limits for %s: %s", context.rgw_account_id, exc)
             return None, None, None, None, None, None
         max_size_bytes, max_objects = extract_rgw_account_quota_limits(payload)
         return (
