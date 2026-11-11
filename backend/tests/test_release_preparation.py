@@ -85,6 +85,8 @@ def test_baselines_are_deterministic_and_immutable(tmp_path):
     manifest = json.loads((tmp_path / "0.3.1/manifest.json").read_text())
     assert manifest["version"] == "0.3.1"
     assert manifest["alembic_revision"]
+    for filename in ("sqlite.sql", "postgresql.sql"):
+        assert all(line == line.rstrip() for line in (tmp_path / "0.3.1" / filename).read_text().splitlines())
     (tmp_path / "0.3.1/sqlite.sql").write_text("changed")
     with pytest.raises(ValueError, match="refusing to overwrite"):
         baseline(ROOT, "0.3.1", check=False, destination=tmp_path / "0.3.1")
