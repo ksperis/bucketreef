@@ -13,6 +13,7 @@ from app.routers.dependencies import get_portal_account_access
 from app.routers.portal_common import get_portal_service_dependency
 from app.services.portal_service import PortalService
 from app.services.rgw_admin import RGWAdminError
+from app.services.s3_execution_context import S3ExecutionContext
 from app.services.traffic_service import TrafficService, TrafficWindow
 from app.utils.http_errors import raise_bad_gateway_from_runtime, raise_http_exception_from_exception
 from app.utils.storage_endpoint_features import resolve_feature_flags
@@ -43,7 +44,9 @@ def portal_traffic(
         bucket = None
         bucket_filters = allowed_buckets
     try:
-        traffic_service = TrafficService(account)
+        traffic_service = TrafficService(
+            S3ExecutionContext.from_account(account, context_kind="portal_account")
+        )
     except ValueError as exc:
         raise_bad_gateway_from_runtime(exc)
     try:

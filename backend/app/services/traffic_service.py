@@ -10,7 +10,7 @@ from enum import Enum
 from typing import Any, Dict, Iterable, Optional
 
 from app.core.sensitive_data import sanitized_error_log_detail
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_supervision import get_supervision_rgw_client
 from app.utils.numbers import int_or_zero
@@ -399,13 +399,13 @@ def aggregate_usage(
 class TrafficService:
     def __init__(
         self,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
         admin_client: Optional[RGWAdminClient] = None,
     ) -> None:
         self.execution_context = execution_context
         self.admin_client = admin_client or self._admin_for_execution_context(execution_context)
 
-    def _admin_for_execution_context(self, execution_context: S3ExecutionTarget) -> RGWAdminClient:
+    def _admin_for_execution_context(self, execution_context: S3ExecutionContext) -> RGWAdminClient:
         endpoint = execution_context.storage_endpoint
         if endpoint is None:
             raise ValueError("Supervision credentials are not configured for this endpoint")

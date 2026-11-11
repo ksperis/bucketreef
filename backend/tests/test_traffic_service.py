@@ -186,7 +186,7 @@ def test_traffic_service_aggregates_usage_entries():
         ]
     }
     fake_client = FakeRGWClient([payload])
-    service = TrafficService(account, admin_client=fake_client)
+    service = TrafficService(S3ExecutionContext.from_account(account), admin_client=fake_client)
     reference = datetime(2024, 3, 10, 12, 0, tzinfo=timezone.utc)
 
     result = service.get_traffic(TrafficWindow.DAY, now=reference)
@@ -208,7 +208,7 @@ def test_traffic_service_preserves_explicit_account_tenant():
     account = _make_account()
     account.rgw_tenant = "team_a"
     fake_client = FakeRGWClient([{"entries": []}])
-    service = TrafficService(account, admin_client=fake_client)
+    service = TrafficService(S3ExecutionContext.from_account(account), admin_client=fake_client)
 
     service.get_traffic(
         TrafficWindow.DAY,
@@ -269,7 +269,7 @@ def test_traffic_service_aggregates_multiple_bucket_filters():
         ]
     }
     fake_client = FakeRGWClient([payload])
-    service = TrafficService(account, admin_client=fake_client)
+    service = TrafficService(S3ExecutionContext.from_account(account), admin_client=fake_client)
     reference = datetime(2024, 3, 10, 12, 0, tzinfo=timezone.utc)
 
     result = service.get_traffic(TrafficWindow.DAY, bucket_filters={"alpha", "beta"}, now=reference)
@@ -279,10 +279,10 @@ def test_traffic_service_aggregates_multiple_bucket_filters():
     assert {entry["bucket"] for entry in result["bucket_rankings"]} == {"alpha", "beta"}
 
 
-def test_traffic_service_requires_credentials():
+def test_traffic_service_requires_supervision_endpoint():
     account = S3Account(name="broken", rgw_access_key=None, rgw_secret_key=None)
     with pytest.raises(ValueError):
-        TrafficService(account)
+        TrafficService(S3ExecutionContext.from_account(account))
 
 
 def test_usage_client_uses_supervision_endpoint_when_admin_is_disabled(monkeypatch):
@@ -312,7 +312,7 @@ def test_usage_client_uses_supervision_endpoint_when_admin_is_disabled(monkeypat
         fake_get_supervision_rgw_client,
     )
 
-    service = TrafficService(account)
+    service = TrafficService(S3ExecutionContext.from_account(account))
 
     assert service.admin_client is expected_client
     assert captured["endpoint"] is endpoint
@@ -337,7 +337,7 @@ def test_traffic_service_uses_admin_style_targets():
         ]
     }
     fake_client = FakeRGWClient([payload_with_data])
-    service = TrafficService(account, admin_client=fake_client)
+    service = TrafficService(S3ExecutionContext.from_account(account), admin_client=fake_client)
     reference = datetime(2024, 3, 10, 12, 0, tzinfo=timezone.utc)
     result = service.get_traffic(TrafficWindow.DAY, now=reference)
 
@@ -352,7 +352,7 @@ def test_traffic_service_raises_last_error_when_no_payload_available():
     account = _make_account()
     failure = RGWAdminError("RGW admin error 403: forbidden")
     fake_client = FakeRGWClient([failure, failure])
-    service = TrafficService(account, admin_client=fake_client)
+    service = TrafficService(S3ExecutionContext.from_account(account), admin_client=fake_client)
     reference = datetime(2024, 3, 10, 12, 0, tzinfo=timezone.utc)
     with pytest.raises(RGWAdminError):
         service.get_traffic(TrafficWindow.DAY, now=reference)
@@ -375,7 +375,7 @@ def test_traffic_service_passes_bucket_filter():
         ]
     }
     fake_client = FakeRGWClient([payload])
-    service = TrafficService(account, admin_client=fake_client)
+    service = TrafficService(S3ExecutionContext.from_account(account), admin_client=fake_client)
     reference = datetime(2024, 3, 10, 12, 0, tzinfo=timezone.utc)
 
     service.get_traffic(TrafficWindow.DAY, bucket="alpha", now=reference)
@@ -397,7 +397,7 @@ def test_traffic_service_requests_entries_only():
         ]
     }
     fake_client = FakeRGWClient([payload])
-    service = TrafficService(account, admin_client=fake_client)
+    service = TrafficService(S3ExecutionContext.from_account(account), admin_client=fake_client)
     reference = datetime(2024, 3, 10, 12, 0, tzinfo=timezone.utc)
 
     result = service.get_traffic(TrafficWindow.DAY, now=reference)
@@ -420,7 +420,7 @@ def test_traffic_service_summary_only_payload_has_no_timeline():
         ]
     }
     fake_client = FakeRGWClient([summary_only_payload, summary_only_payload])
-    service = TrafficService(account, admin_client=fake_client)
+    service = TrafficService(S3ExecutionContext.from_account(account), admin_client=fake_client)
     reference = datetime(2024, 3, 10, 12, 0, tzinfo=timezone.utc)
 
     result = service.get_traffic(TrafficWindow.DAY, now=reference)
@@ -458,7 +458,7 @@ def test_traffic_service_week_window_returns_daily_series():
         ]
     }
     fake_client = FakeRGWClient([payload])
-    service = TrafficService(account, admin_client=fake_client)
+    service = TrafficService(S3ExecutionContext.from_account(account), admin_client=fake_client)
     reference = datetime(2024, 3, 10, 12, 0, tzinfo=timezone.utc)
 
     result = service.get_traffic(TrafficWindow.WEEK, now=reference)
@@ -495,7 +495,7 @@ def test_traffic_service_month_window_returns_daily_series():
         ]
     }
     fake_client = FakeRGWClient([payload])
-    service = TrafficService(account, admin_client=fake_client)
+    service = TrafficService(S3ExecutionContext.from_account(account), admin_client=fake_client)
     reference = datetime(2024, 3, 10, 12, 0, tzinfo=timezone.utc)
 
     result = service.get_traffic(TrafficWindow.MONTH, now=reference)
