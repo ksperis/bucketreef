@@ -4,7 +4,6 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.db import S3Account
 from app.models.bucket import (
     Bucket,
     BucketLifecycleConfig,
@@ -28,6 +27,16 @@ from app.services.bucket_config_backup_service import (
 )
 from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionContext
+
+
+def _execution_context() -> S3ExecutionContext:
+    return S3ExecutionContext(
+        context_id="account-a",
+        context_kind="account",
+        name="account-a",
+        access_key=None,
+        secret_key=None,
+    )
 
 
 class FakeBucketsService:
@@ -145,7 +154,7 @@ def test_bucket_config_backup_captures_feature_errors():
     service = BucketConfigBackupService(FailingPolicyService())
 
     backup = service.build_backup(
-        execution_context=S3Account(name="account-a"),
+        execution_context=_execution_context(),
         bucket_targets=[BucketConfigBackupResolvedTarget(name="bucket-a", request_name="bucket-a")],
         features=["policy", "tags"],
         source=BucketConfigBackupSource(surface="ceph-admin", endpoint_id=7, endpoint_name="Archive"),
@@ -165,7 +174,7 @@ def test_bucket_config_backup_sanitizes_feature_errors():
             )
 
     backup = BucketConfigBackupService(FailingPolicyService()).build_backup(
-        execution_context=S3Account(name="account-a"),
+        execution_context=_execution_context(),
         bucket_targets=[BucketConfigBackupResolvedTarget(name="bucket-a", request_name="bucket-a")],
         features=["policy"],
         source=BucketConfigBackupSource(
@@ -187,7 +196,7 @@ def test_bucket_config_backup_does_not_mask_unexpected_feature_errors():
 
     with pytest.raises(RuntimeError, match="unexpected backup regression"):
         BucketConfigBackupService(FailingPolicyService()).build_backup(
-            execution_context=S3Account(name="account-a"),
+            execution_context=_execution_context(),
             bucket_targets=[
                 BucketConfigBackupResolvedTarget(
                     name="bucket-a",
@@ -208,7 +217,7 @@ def test_bucket_config_backup_captures_typed_quota_loader_errors():
         raise BucketConfigBackupFeatureError("quota unavailable")
 
     backup = BucketConfigBackupService(FakeBucketsService()).build_backup(
-        execution_context=S3Account(name="account-a"),
+        execution_context=_execution_context(),
         bucket_targets=[
             BucketConfigBackupResolvedTarget(
                 name="bucket-a",
