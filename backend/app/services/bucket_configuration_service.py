@@ -4,7 +4,7 @@ from typing import Any, Optional
 import logging
 
 from app.services.s3_execution_context import (
-    S3ExecutionTarget,
+    S3ExecutionContext,
     is_ceph_admin_execution_context,
 )
 from app.services.s3_execution_client import (
@@ -68,7 +68,7 @@ class BucketConfigurationService:
 
     def _bucket_client_kwargs(
         self,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
         bucket_name: str,
     ) -> dict:
         if (
@@ -81,7 +81,7 @@ class BucketConfigurationService:
             )
         return s3_execution_request_kwargs(execution_context)
 
-    def get_bucket_tags(self, name: str, execution_context: S3ExecutionTarget) -> list[BucketTag]:
+    def get_bucket_tags(self, name: str, execution_context: S3ExecutionContext) -> list[BucketTag]:
         tags_raw = s3_bucket_metadata.get_bucket_tags(
             name,
             **self._bucket_client_kwargs(execution_context, name),
@@ -96,7 +96,7 @@ class BucketConfigurationService:
             tags.append(BucketTag(key=key, value=str(entry.get("value") or "")))
         return tags
 
-    def set_versioning(self, name: str, execution_context: S3ExecutionTarget, enabled: bool) -> None:
+    def set_versioning(self, name: str, execution_context: S3ExecutionContext, enabled: bool) -> None:
         s3_client.set_bucket_versioning(
             name,
             enabled=enabled,
@@ -109,7 +109,7 @@ class BucketConfigurationService:
             enabled,
         )
 
-    def get_bucket_properties(self, name: str, execution_context: S3ExecutionTarget) -> BucketProperties:
+    def get_bucket_properties(self, name: str, execution_context: S3ExecutionContext) -> BucketProperties:
         versioning_status = s3_client.get_bucket_versioning(
             name, **self._bucket_client_kwargs(execution_context, name)
         )
@@ -146,23 +146,23 @@ class BucketConfigurationService:
             cors_rules=cors_rules,
         )
 
-    def get_bucket_versioning_status(self, name: str, execution_context: S3ExecutionTarget) -> str | None:
+    def get_bucket_versioning_status(self, name: str, execution_context: S3ExecutionContext) -> str | None:
         return s3_client.get_bucket_versioning(
             name, **self._bucket_client_kwargs(execution_context, name)
         )
 
-    def get_bucket_object_lock(self, name: str, execution_context: S3ExecutionTarget) -> BucketObjectLock | None:
+    def get_bucket_object_lock(self, name: str, execution_context: S3ExecutionContext) -> BucketObjectLock | None:
         object_lock_raw = s3_bucket_security.get_bucket_object_lock(
             name, **self._bucket_client_kwargs(execution_context, name)
         )
         return self._object_lock_from_raw(object_lock_raw)
 
-    def get_bucket_cors(self, name: str, execution_context: S3ExecutionTarget) -> list[dict]:
+    def get_bucket_cors(self, name: str, execution_context: S3ExecutionContext) -> list[dict]:
         return s3_bucket_access.get_bucket_cors(
             name, **self._bucket_client_kwargs(execution_context, name)
         )
 
-    def get_bucket_encryption(self, name: str, execution_context: S3ExecutionTarget) -> BucketEncryptionConfiguration:
+    def get_bucket_encryption(self, name: str, execution_context: S3ExecutionContext) -> BucketEncryptionConfiguration:
         rules = s3_bucket_security.get_bucket_encryption(
             name,
             **self._bucket_client_kwargs(execution_context, name),
@@ -172,7 +172,7 @@ class BucketConfigurationService:
     def set_bucket_encryption(
         self,
         name: str,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
         rules: list[dict],
     ) -> BucketEncryptionConfiguration:
         if not rules:
@@ -188,13 +188,13 @@ class BucketConfigurationService:
         )
         return self.get_bucket_encryption(name, execution_context)
 
-    def delete_bucket_encryption(self, name: str, execution_context: S3ExecutionTarget) -> None:
+    def delete_bucket_encryption(self, name: str, execution_context: S3ExecutionContext) -> None:
         s3_bucket_security.delete_bucket_encryption(
             name,
             **self._bucket_client_kwargs(execution_context, name),
         )
 
-    def get_public_access_block(self, name: str, execution_context: S3ExecutionTarget) -> BucketPublicAccessBlock:
+    def get_public_access_block(self, name: str, execution_context: S3ExecutionContext) -> BucketPublicAccessBlock:
         config_raw = s3_bucket_security.get_bucket_public_access_block(
             name,
             **self._bucket_client_kwargs(execution_context, name),
@@ -209,7 +209,7 @@ class BucketConfigurationService:
     def set_public_access_block(
         self,
         name: str,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
         payload: BucketPublicAccessBlockUpdate,
     ) -> BucketPublicAccessBlock:
         config = {
@@ -236,32 +236,32 @@ class BucketConfigurationService:
             restrict_public_buckets=None,
         )
 
-    def get_policy(self, name: str, execution_context: S3ExecutionTarget) -> Optional[dict]:
+    def get_policy(self, name: str, execution_context: S3ExecutionContext) -> Optional[dict]:
         return s3_bucket_access.get_bucket_policy(
             name, **self._bucket_client_kwargs(execution_context, name)
         )
 
-    def put_policy(self, name: str, execution_context: S3ExecutionTarget, policy: dict) -> None:
+    def put_policy(self, name: str, execution_context: S3ExecutionContext, policy: dict) -> None:
         s3_bucket_access.put_bucket_policy(
             name, policy=policy, **self._bucket_client_kwargs(execution_context, name)
         )
 
-    def delete_policy(self, name: str, execution_context: S3ExecutionTarget) -> None:
+    def delete_policy(self, name: str, execution_context: S3ExecutionContext) -> None:
         s3_bucket_access.delete_bucket_policy(
             name, **self._bucket_client_kwargs(execution_context, name)
         )
 
-    def set_cors(self, name: str, execution_context: S3ExecutionTarget, rules: list[dict]) -> None:
+    def set_cors(self, name: str, execution_context: S3ExecutionContext, rules: list[dict]) -> None:
         s3_bucket_access.put_bucket_cors(
             name, rules=rules, **self._bucket_client_kwargs(execution_context, name)
         )
 
-    def delete_cors(self, name: str, execution_context: S3ExecutionTarget) -> None:
+    def delete_cors(self, name: str, execution_context: S3ExecutionContext) -> None:
         s3_bucket_access.delete_bucket_cors(
             name, **self._bucket_client_kwargs(execution_context, name)
         )
 
-    def get_lifecycle(self, name: str, execution_context: S3ExecutionTarget) -> BucketLifecycleConfig:
+    def get_lifecycle(self, name: str, execution_context: S3ExecutionContext) -> BucketLifecycleConfig:
         rules = s3_bucket_metadata.get_bucket_lifecycle(
             name,
             **self._bucket_client_kwargs(execution_context, name),
@@ -271,7 +271,7 @@ class BucketConfigurationService:
     def set_lifecycle(
         self,
         name: str,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
         rules: list[dict],
     ) -> BucketLifecycleConfig:
         if not rules:
@@ -287,7 +287,7 @@ class BucketConfigurationService:
             raise s3_client.S3OperationError(f"Unable to set lifecycle rules: {exc}") from exc
         return self.get_lifecycle(name, execution_context)
 
-    def delete_lifecycle(self, name: str, execution_context: S3ExecutionTarget) -> None:
+    def delete_lifecycle(self, name: str, execution_context: S3ExecutionContext) -> None:
         s3_bucket_metadata.delete_bucket_lifecycle(
             name, **self._bucket_client_kwargs(execution_context, name)
         )
@@ -307,12 +307,12 @@ class BucketConfigurationService:
             except s3_client.S3OperationError as exc:
                 raise s3_client.S3OperationError(f"Unable to delete bucket lifecycle: {exc}") from exc
 
-    def set_bucket_tags(self, name: str, execution_context: S3ExecutionTarget, tags: list[dict]) -> None:
+    def set_bucket_tags(self, name: str, execution_context: S3ExecutionContext, tags: list[dict]) -> None:
         s3_bucket_metadata.put_bucket_tags(
             name, tags=tags, **self._bucket_client_kwargs(execution_context, name)
         )
 
-    def delete_bucket_tags(self, name: str, execution_context: S3ExecutionTarget) -> None:
+    def delete_bucket_tags(self, name: str, execution_context: S3ExecutionContext) -> None:
         s3_bucket_metadata.delete_bucket_tags(
             name, **self._bucket_client_kwargs(execution_context, name)
         )
@@ -320,7 +320,7 @@ class BucketConfigurationService:
     def get_bucket_notifications(
         self,
         name: str,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
     ) -> BucketNotificationConfiguration:
         config = s3_bucket_metadata.get_bucket_notifications(
             name,
@@ -331,7 +331,7 @@ class BucketConfigurationService:
     def get_bucket_replication(
         self,
         name: str,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
     ) -> BucketReplicationConfiguration:
         config = s3_bucket_replication.get_bucket_replication(
             name,
@@ -356,7 +356,7 @@ class BucketConfigurationService:
     def set_bucket_replication(
         self,
         name: str,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
         payload: BucketReplicationConfiguration,
     ) -> BucketReplicationConfiguration:
         configuration = self._validate_bucket_replication_configuration(payload.configuration)
@@ -367,7 +367,7 @@ class BucketConfigurationService:
         )
         return self.get_bucket_replication(name, execution_context)
 
-    def delete_bucket_replication(self, name: str, execution_context: S3ExecutionTarget) -> None:
+    def delete_bucket_replication(self, name: str, execution_context: S3ExecutionContext) -> None:
         s3_bucket_replication.delete_bucket_replication(
             name,
             **self._bucket_client_kwargs(execution_context, name),
@@ -376,7 +376,7 @@ class BucketConfigurationService:
     def set_bucket_notifications(
         self,
         name: str,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
         configuration: dict,
     ) -> BucketNotificationConfiguration:
         s3_bucket_metadata.put_bucket_notifications(
@@ -386,7 +386,7 @@ class BucketConfigurationService:
         )
         return self.get_bucket_notifications(name, execution_context)
 
-    def delete_bucket_notifications(self, name: str, execution_context: S3ExecutionTarget) -> None:
+    def delete_bucket_notifications(self, name: str, execution_context: S3ExecutionContext) -> None:
         s3_bucket_metadata.put_bucket_notifications(
             name,
             config={},
@@ -396,7 +396,7 @@ class BucketConfigurationService:
     def get_bucket_logging(
         self,
         name: str,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
     ) -> BucketLoggingConfiguration:
         config = s3_bucket_metadata.get_bucket_logging(
             name,
@@ -417,7 +417,7 @@ class BucketConfigurationService:
     def set_bucket_logging(
         self,
         name: str,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
         payload: BucketLoggingConfiguration,
     ) -> BucketLoggingConfiguration:
         if not payload.enabled:
@@ -444,7 +444,7 @@ class BucketConfigurationService:
         )
         return self.get_bucket_logging(name, execution_context)
 
-    def delete_bucket_logging(self, name: str, execution_context: S3ExecutionTarget) -> None:
+    def delete_bucket_logging(self, name: str, execution_context: S3ExecutionContext) -> None:
         s3_bucket_metadata.put_bucket_logging(
             name,
             logging_config=None,
@@ -454,7 +454,7 @@ class BucketConfigurationService:
     def get_bucket_website(
         self,
         name: str,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
     ) -> BucketWebsiteConfiguration:
         config = s3_bucket_access.get_bucket_website(
             name,
@@ -497,7 +497,7 @@ class BucketConfigurationService:
     def set_bucket_website(
         self,
         name: str,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
         payload: BucketWebsiteConfiguration,
     ) -> BucketWebsiteConfiguration:
         config: dict = {}
@@ -529,13 +529,13 @@ class BucketConfigurationService:
         )
         return self.get_bucket_website(name, execution_context)
 
-    def delete_bucket_website(self, name: str, execution_context: S3ExecutionTarget) -> None:
+    def delete_bucket_website(self, name: str, execution_context: S3ExecutionContext) -> None:
         s3_bucket_access.delete_bucket_website(
             name,
             **self._bucket_client_kwargs(execution_context, name),
         )
 
-    def get_bucket_acl(self, name: str, execution_context: S3ExecutionTarget) -> BucketAcl:
+    def get_bucket_acl(self, name: str, execution_context: S3ExecutionContext) -> BucketAcl:
         acl_raw = s3_bucket_security.get_bucket_acl(
             name, **self._bucket_client_kwargs(execution_context, name)
         )
@@ -563,7 +563,7 @@ class BucketConfigurationService:
     def set_bucket_acl(
         self,
         name: str,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
         payload: BucketAclUpdate,
     ) -> BucketAcl:
         s3_bucket_security.put_bucket_acl(
@@ -573,7 +573,7 @@ class BucketConfigurationService:
         )
         return self.get_bucket_acl(name, execution_context)
 
-    def get_object_lock(self, name: str, execution_context: S3ExecutionTarget) -> BucketObjectLock:
+    def get_object_lock(self, name: str, execution_context: S3ExecutionContext) -> BucketObjectLock:
         config = s3_bucket_security.get_bucket_object_lock(
             name,
             **self._bucket_client_kwargs(execution_context, name),
@@ -588,7 +588,7 @@ class BucketConfigurationService:
     def set_object_lock(
         self,
         name: str,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
         payload: BucketObjectLockUpdate,
     ) -> BucketObjectLock:
         current_config = s3_bucket_security.get_bucket_object_lock(

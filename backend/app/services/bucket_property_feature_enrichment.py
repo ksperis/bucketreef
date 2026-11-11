@@ -13,7 +13,7 @@ from app.models.bucket import (
     BucketPublicAccessBlock,
 )
 from app.services.s3_client import S3OperationError
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 
 BUCKET_PROPERTY_FEATURES = frozenset(
     {"versioning", "object_lock", "block_public_access", "lifecycle_rules", "cors"}
@@ -21,24 +21,24 @@ BUCKET_PROPERTY_FEATURES = frozenset(
 
 
 class BucketPropertyFeatureReader(Protocol):
-    def get_bucket_properties(self, name: str, execution_context: S3ExecutionTarget) -> BucketProperties: ...
+    def get_bucket_properties(self, name: str, execution_context: S3ExecutionContext) -> BucketProperties: ...
 
-    def get_bucket_versioning_status(self, name: str, execution_context: S3ExecutionTarget) -> str | None: ...
+    def get_bucket_versioning_status(self, name: str, execution_context: S3ExecutionContext) -> str | None: ...
 
-    def get_bucket_object_lock(self, name: str, execution_context: S3ExecutionTarget) -> BucketObjectLock | None: ...
+    def get_bucket_object_lock(self, name: str, execution_context: S3ExecutionContext) -> BucketObjectLock | None: ...
 
-    def get_public_access_block(self, name: str, execution_context: S3ExecutionTarget) -> BucketPublicAccessBlock: ...
+    def get_public_access_block(self, name: str, execution_context: S3ExecutionContext) -> BucketPublicAccessBlock: ...
 
-    def get_lifecycle(self, name: str, execution_context: S3ExecutionTarget) -> BucketLifecycleConfig: ...
+    def get_lifecycle(self, name: str, execution_context: S3ExecutionContext) -> BucketLifecycleConfig: ...
 
-    def get_bucket_cors(self, name: str, execution_context: S3ExecutionTarget) -> list[dict]: ...
+    def get_bucket_cors(self, name: str, execution_context: S3ExecutionContext) -> list[dict]: ...
 
 
 @dataclass(frozen=True)
 class BucketPropertiesContext:
     bucket_name: str
     reader: BucketPropertyFeatureReader
-    execution_context: S3ExecutionTarget
+    execution_context: S3ExecutionContext
     uses_bundle: bool
     properties: BucketProperties | None
     unavailable: bool
@@ -47,7 +47,7 @@ class BucketPropertiesContext:
 def load_bucket_properties_context(
     reader: BucketPropertyFeatureReader,
     bucket_name: str,
-    execution_context: S3ExecutionTarget,
+    execution_context: S3ExecutionContext,
     *,
     uses_bundle: bool,
 ) -> BucketPropertiesContext:

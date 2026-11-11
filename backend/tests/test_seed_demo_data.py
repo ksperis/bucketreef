@@ -206,7 +206,18 @@ def test_ensure_account_returns_provisioned_account_directly():
 
 
 def test_create_account_data_falls_back_to_account_client_when_iam_provisioning_fails(monkeypatch):
-    account = SimpleNamespace(id=7, name="Demo", rgw_account_id="rgw-demo")
+    account = SimpleNamespace(
+        id=7,
+        name="Demo",
+        rgw_account_id="rgw-demo",
+        rgw_user_uid="demo-root",
+        rgw_tenant="",
+        rgw_access_key="ROOT-AK",
+        rgw_secret_key="ROOT-SK",
+        email="demo@example.com",
+        storage_endpoint_id=None,
+        storage_endpoint=None,
+    )
     bucket_creates: list[tuple[str, int]] = []
     object_puts: list[dict] = []
     user_links: list[tuple[int, int, str, None]] = []

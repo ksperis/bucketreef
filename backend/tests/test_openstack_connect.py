@@ -1025,10 +1025,10 @@ def test_long_running_guard_stops_after_logout_and_migration_resolves_same_sessi
     from app.services.effective_access_service import EffectiveAccessService
     assert ctx in EffectiveAccessService(db_session).build_bucket_migration_scope(user, auth_session_id=auth.id).allowed_context_ids
     migration = BucketMigrationService(db_session, execution_auth_session_id=auth.id)
-    assert migration._context_to_execution_target(ctx).execution_auth_session_id == auth.id
+    assert migration._context_to_execution_context(ctx).execution_auth_session_id == auth.id
     AuthSessionService(db_session).revoke_session(auth.id, "test")
     with pytest.raises(OpenStackError): execution.access_validator()
-    with pytest.raises(OpenStackError): migration._context_to_execution_target(ctx)
+    with pytest.raises(OpenStackError): migration._context_to_execution_context(ctx)
     assert ctx not in EffectiveAccessService(db_session).build_bucket_migration_scope(user, auth_session_id=auth.id).allowed_context_ids
 
 

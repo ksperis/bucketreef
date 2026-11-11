@@ -30,7 +30,7 @@ from app.services.bucket_property_feature_enrichment import (
     unavailable_feature_status,
 )
 from app.services.s3_client import S3OperationError
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 
 
 ALLOWED_BUCKET_FEATURES = {
@@ -48,21 +48,21 @@ ALLOWED_BUCKET_FEATURES = {
 
 
 class BucketFeatureReader(BucketPropertyFeatureReader, Protocol):
-    def get_bucket_tags(self, name: str, execution_context: S3ExecutionTarget) -> list[BucketTag]: ...
+    def get_bucket_tags(self, name: str, execution_context: S3ExecutionContext) -> list[BucketTag]: ...
 
-    def get_bucket_website(self, name: str, execution_context: S3ExecutionTarget) -> BucketWebsiteConfiguration: ...
+    def get_bucket_website(self, name: str, execution_context: S3ExecutionContext) -> BucketWebsiteConfiguration: ...
 
-    def get_policy(self, name: str, execution_context: S3ExecutionTarget) -> dict | None: ...
+    def get_policy(self, name: str, execution_context: S3ExecutionContext) -> dict | None: ...
 
-    def get_bucket_logging(self, name: str, execution_context: S3ExecutionTarget) -> BucketLoggingConfiguration: ...
+    def get_bucket_logging(self, name: str, execution_context: S3ExecutionContext) -> BucketLoggingConfiguration: ...
 
-    def get_bucket_notifications(self, name: str, execution_context: S3ExecutionTarget) -> BucketNotificationConfiguration: ...
+    def get_bucket_notifications(self, name: str, execution_context: S3ExecutionContext) -> BucketNotificationConfiguration: ...
 
 
 def _load_bucket_tags(
     reader: BucketFeatureReader,
     bucket_name: str,
-    execution_context: S3ExecutionTarget,
+    execution_context: S3ExecutionContext,
     *,
     requested: bool,
 ) -> list[BucketTag] | None:
@@ -77,7 +77,7 @@ def _load_bucket_tags(
 def _enrich_property_features(
     reader: BucketFeatureReader,
     bucket_name: str,
-    execution_context: S3ExecutionTarget,
+    execution_context: S3ExecutionContext,
     requested: set[str],
     feature_map: dict[str, BucketFeatureStatus],
 ) -> None:
@@ -106,7 +106,7 @@ def _enrich_property_features(
 def _enrich_static_website(
     reader: BucketFeatureReader,
     bucket_name: str,
-    execution_context: S3ExecutionTarget,
+    execution_context: S3ExecutionContext,
     feature_map: dict[str, BucketFeatureStatus],
 ) -> None:
     try:
@@ -127,7 +127,7 @@ def _enrich_static_website(
 def _enrich_bucket_policy(
     reader: BucketFeatureReader,
     bucket_name: str,
-    execution_context: S3ExecutionTarget,
+    execution_context: S3ExecutionContext,
     feature_map: dict[str, BucketFeatureStatus],
 ) -> None:
     try:
@@ -143,7 +143,7 @@ def _enrich_bucket_policy(
 def _enrich_access_logging(
     reader: BucketFeatureReader,
     bucket_name: str,
-    execution_context: S3ExecutionTarget,
+    execution_context: S3ExecutionContext,
     feature_map: dict[str, BucketFeatureStatus],
 ) -> None:
     try:
@@ -159,7 +159,7 @@ def _enrich_access_logging(
 def _enrich_notifications(
     reader: BucketFeatureReader,
     bucket_name: str,
-    execution_context: S3ExecutionTarget,
+    execution_context: S3ExecutionContext,
     feature_map: dict[str, BucketFeatureStatus],
     *,
     sns_feature_enabled: bool,
@@ -180,7 +180,7 @@ def _enrich_notifications(
 def _enrich_independent_features(
     reader: BucketFeatureReader,
     bucket_name: str,
-    execution_context: S3ExecutionTarget,
+    execution_context: S3ExecutionContext,
     requested: set[str],
     feature_map: dict[str, BucketFeatureStatus],
     *,
@@ -205,7 +205,7 @@ def _enrich_independent_features(
 def enrich_bucket_features(
     reader: BucketFeatureReader,
     buckets: list[Bucket],
-    execution_context: S3ExecutionTarget,
+    execution_context: S3ExecutionContext,
     include: set[str],
 ) -> list[Bucket]:
     requested = {key for key in include if key in ALLOWED_BUCKET_FEATURES}

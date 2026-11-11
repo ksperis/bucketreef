@@ -134,8 +134,8 @@ class BucketUsageStatsCollectionService:
         *,
         cutoff,
     ) -> list[tuple[float, BucketUsageStatsResolvedTarget]]:
-        execution_target = resource.execution_context()
-        buckets = self.buckets_service.list_buckets(execution_target, include=set(), with_stats=False)
+        execution_context = resource.execution_context()
+        buckets = self.buckets_service.list_buckets(execution_context, include=set(), with_stats=False)
         bucket_names = list(dict.fromkeys(bucket.name for bucket in buckets if bucket.name))
         if not bucket_names:
             return []
@@ -169,7 +169,7 @@ class BucketUsageStatsCollectionService:
                 (
                     priority,
                     BucketUsageStatsResolvedTarget.from_bucket_target(
-                        ResolvedS3BucketTarget.from_context(execution_target, bucket_name),
+                        ResolvedS3BucketTarget.from_context(execution_context, bucket_name),
                         scope_kind="manager",
                         scope_id=scope_id,
                         scope_name=resource.name,

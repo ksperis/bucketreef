@@ -15,14 +15,19 @@ from tests.service_identity_helpers import service_identity
 from tests.storage_endpoint_features import persisted_endpoint_features
 
 
-def _build_account() -> S3Account:
-    return S3Account(
+def _build_context() -> S3ExecutionContext:
+    account = S3Account(
         name="account-lazy-stats",
         rgw_tenant="",
         rgw_account_id="RGW00000000000000001",
         rgw_user_uid="custom-root-01",
         rgw_access_key="AKIA_TEST",
         rgw_secret_key="SECRET_TEST",
+    )
+    return S3ExecutionContext.from_account(
+        account,
+        access_key=account.rgw_access_key,
+        secret_key=account.rgw_secret_key,
     )
 
 
@@ -49,7 +54,7 @@ def test_bucket_configuration_is_owned_by_dedicated_service():
 
 
 def test_live_stats_client_uses_admin_ops_without_monitoring_feature(monkeypatch):
-    account = _build_account()
+    account = _build_context()
     endpoint = StorageEndpoint(
         name="Ceph admin ops",
         endpoint_url="https://rgw.example.test",
@@ -81,7 +86,7 @@ def test_live_stats_client_uses_admin_ops_without_monitoring_feature(monkeypatch
 
 def test_list_buckets_skips_admin_stats_when_disabled(monkeypatch):
     service = BucketsService()
-    account = _build_account()
+    account = _build_context()
     monkeypatch.setattr(s3_client, "list_buckets", lambda **kwargs: [{"name": "bucket-a"}])
 
     calls = {"admin": 0}
@@ -105,7 +110,7 @@ def test_list_buckets_skips_admin_stats_when_disabled(monkeypatch):
 
 def test_list_buckets_exposes_resolved_tenant(monkeypatch):
     service = BucketsService()
-    account = _build_account()
+    account = _build_context()
     account.rgw_tenant = "tenant-a"
     monkeypatch.setattr(s3_client, "list_buckets", lambda **kwargs: [{"name": "bucket-a"}])
 
@@ -116,7 +121,7 @@ def test_list_buckets_exposes_resolved_tenant(monkeypatch):
 
 def test_list_buckets_fetches_admin_stats_when_enabled(monkeypatch):
     service = BucketsService()
-    account = _build_account()
+    account = _build_context()
     monkeypatch.setattr(s3_client, "list_buckets", lambda **kwargs: [{"name": "bucket-a"}])
 
     calls: list[dict] = []
@@ -201,7 +206,7 @@ def test_list_buckets_uses_persisted_tenant_connection_identity_for_admin_stats(
 
 def test_list_buckets_indexes_admin_stats_by_name_alias(monkeypatch):
     service = BucketsService()
-    account = _build_account()
+    account = _build_context()
     monkeypatch.setattr(s3_client, "list_buckets", lambda **kwargs: [{"name": "bucket-a"}])
     monkeypatch.setattr(
         service,
@@ -222,7 +227,7 @@ def test_list_buckets_indexes_admin_stats_by_name_alias(monkeypatch):
 
 def test_list_buckets_keeps_s3_results_when_admin_stats_fail(monkeypatch):
     service = BucketsService()
-    account = _build_account()
+    account = _build_context()
     monkeypatch.setattr(
         s3_client,
         "list_buckets",
@@ -243,7 +248,7 @@ def test_list_buckets_keeps_s3_results_when_admin_stats_fail(monkeypatch):
 
 def test_list_buckets_propagates_unexpected_admin_stats_runtime_errors(monkeypatch):
     service = BucketsService()
-    account = _build_account()
+    account = _build_context()
     monkeypatch.setattr(s3_client, "list_buckets", lambda **kwargs: [{"name": "bucket-a"}])
     monkeypatch.setattr(
         service,
@@ -257,7 +262,7 @@ def test_list_buckets_propagates_unexpected_admin_stats_runtime_errors(monkeypat
 
 def test_get_bucket_stats_skips_admin_for_bucket_outside_s3_scope(monkeypatch):
     service = BucketsService()
-    account = _build_account()
+    account = _build_context()
     monkeypatch.setattr(s3_client, "list_buckets", lambda **kwargs: [{"name": "bucket-a"}])
     monkeypatch.setattr(
         service,
@@ -274,7 +279,7 @@ def test_get_bucket_stats_skips_admin_for_bucket_outside_s3_scope(monkeypatch):
 
 def test_get_bucket_stats_uses_single_scoped_admin_lookup(monkeypatch):
     service = BucketsService()
-    account = _build_account()
+    account = _build_context()
     monkeypatch.setattr(s3_client, "list_buckets", lambda **kwargs: [{"name": "bucket-a"}])
 
     calls: list[tuple[str, dict]] = []
@@ -302,7 +307,7 @@ def test_get_bucket_stats_uses_single_scoped_admin_lookup(monkeypatch):
 
 def test_get_bucket_stats_propagates_unexpected_admin_runtime_errors(monkeypatch):
     service = BucketsService()
-    account = _build_account()
+    account = _build_context()
     monkeypatch.setattr(s3_client, "list_buckets", lambda **kwargs: [{"name": "bucket-a"}])
 
     class BrokenAdmin:
@@ -317,7 +322,7 @@ def test_get_bucket_stats_propagates_unexpected_admin_runtime_errors(monkeypatch
 
 def test_list_buckets_prefers_quota_max_size_bytes_when_both_units_are_present(monkeypatch):
     service = BucketsService()
-    account = _build_account()
+    account = _build_context()
     monkeypatch.setattr(s3_client, "list_buckets", lambda **kwargs: [{"name": "bucket-a"}])
 
     max_size_bytes = 10 * 1024 * 1024 * 1024
@@ -348,7 +353,7 @@ def test_list_buckets_prefers_quota_max_size_bytes_when_both_units_are_present(m
 
 def test_list_buckets_ignores_disabled_bucket_quota(monkeypatch):
     service = BucketsService()
-    account = _build_account()
+    account = _build_context()
     monkeypatch.setattr(s3_client, "list_buckets", lambda **kwargs: [{"name": "bucket-a"}])
     monkeypatch.setattr(
         service,
@@ -373,7 +378,7 @@ def test_list_buckets_ignores_disabled_bucket_quota(monkeypatch):
 
 def test_list_buckets_versioning_only_avoids_bundle_properties(monkeypatch):
     service = BucketsService()
-    account = _build_account()
+    account = _build_context()
     monkeypatch.setattr(s3_client, "list_buckets", lambda **kwargs: [{"name": "bucket-a"}])
 
     calls = {"versioning": 0}
@@ -411,7 +416,7 @@ def test_list_buckets_versioning_only_avoids_bundle_properties(monkeypatch):
 
 def test_list_buckets_multiple_prop_features_use_bundle_properties(monkeypatch):
     service = BucketsService()
-    account = _build_account()
+    account = _build_context()
     monkeypatch.setattr(s3_client, "list_buckets", lambda **kwargs: [{"name": "bucket-a"}])
     monkeypatch.setattr(service, "_admin_bucket_list", lambda *args, **kwargs: [])
 
@@ -450,7 +455,7 @@ def test_list_buckets_multiple_prop_features_use_bundle_properties(monkeypatch):
 
 def test_list_buckets_notifications_feature_statuses(monkeypatch):
     service = BucketsService()
-    account = _build_account()
+    account = _build_context()
     monkeypatch.setattr(
         s3_client,
         "list_buckets",
@@ -490,7 +495,7 @@ def test_list_buckets_notifications_feature_statuses(monkeypatch):
 
 def test_list_buckets_notifications_propagates_unexpected_runtime_error(monkeypatch):
     service = BucketsService()
-    account = _build_account()
+    account = _build_context()
     monkeypatch.setattr(s3_client, "list_buckets", lambda **kwargs: [{"name": "bucket-failing"}])
     monkeypatch.setattr(service, "_admin_bucket_list", lambda *args, **kwargs: [])
 
@@ -509,7 +514,7 @@ def test_list_buckets_notifications_propagates_unexpected_runtime_error(monkeypa
 
 def test_list_buckets_notifications_unavailable_when_sns_disabled(monkeypatch):
     service = BucketsService()
-    account = _build_account()
+    account = _build_context()
     account.storage_endpoint = StorageEndpoint(
         name="Ceph no SNS",
         endpoint_url="http://127.0.0.1:9000",

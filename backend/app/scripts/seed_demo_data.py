@@ -23,6 +23,7 @@ from app.models.user import ManagerToolAccess, UserCreate
 from app.services.buckets_service import BucketsService
 from app.services.s3_account_provisioning_service import S3AccountProvisioningService
 from app.services.s3_execution_client import s3_execution_request_kwargs
+from app.services.s3_execution_context import S3ExecutionContext
 from app.services.user_associations_service import UserAssociationsService
 from app.services.user_provisioning_service import UserProvisioningService
 from app.services.user_query_service import UserQueryService
@@ -561,7 +562,12 @@ def _ensure_seed_bucket(
                 endpoint=endpoint,
             )
         else:
-            buckets_service.create_bucket(bucket_plan.name, account)
+            context = S3ExecutionContext.from_account(
+                account,
+                access_key=account.rgw_access_key,
+                secret_key=account.rgw_secret_key,
+            )
+            buckets_service.create_bucket(bucket_plan.name, context)
         logger.info("  created bucket %s", bucket_plan.name)
         return True
     except Exception as exc:
