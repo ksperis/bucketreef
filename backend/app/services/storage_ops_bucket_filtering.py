@@ -17,6 +17,7 @@ from app.services.bucket_listing_rule_matching import (
     match_bucket_feature_rule,
     match_bucket_field_rule,
 )
+from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.normalize import normalize_text
 
 
@@ -208,7 +209,7 @@ def apply_storage_ops_advanced_filter(
     parsed_filter: BucketFilterQuery | None,
     *,
     service: BucketConfigurationService,
-    context,
+    context: S3ExecutionContext,
 ) -> list[StorageOpsBucketSummary]:
     if not parsed_filter or not parsed_filter.rules or not buckets:
         return buckets

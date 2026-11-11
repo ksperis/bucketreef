@@ -723,7 +723,7 @@ def test_storage_ops_feature_param_filter_prefilters_base_candidates(monkeypatch
         buckets,
         parsed_filter,
         service=SimpleNamespace(),
-        context=SimpleNamespace(),
+        context=_source_context("1"),
     )
     assert [bucket.name for bucket in result] == ["alpha"]
     assert captured["bucket_names"] == ["alpha"]
@@ -798,7 +798,7 @@ def test_storage_ops_bucket_identity_is_endpoint_scoped_and_shared_across_contex
         buckets,
         parsed_filter,
         service=SimpleNamespace(),
-        context=SimpleNamespace(),
+        context=_source_context("1"),
     )
 
     assert [bucket.context_id for bucket in result] == ["account-1", "conn-2"]
@@ -868,7 +868,7 @@ def test_storage_ops_context_filters_match_context_kind_and_endpoint():
         buckets,
         parsed_filter,
         service=SimpleNamespace(),
-        context=SimpleNamespace(),
+        context=_source_context("1"),
     )
     assert [bucket.bucket_name for bucket in result] == ["alpha"]
 
@@ -910,7 +910,7 @@ def test_storage_ops_context_filters_match_context_id():
         buckets,
         parsed_filter,
         service=SimpleNamespace(),
-        context=SimpleNamespace(),
+        context=_source_context("1"),
     )
     assert [bucket.bucket_name for bucket in result] == ["beta"]
 
@@ -967,7 +967,7 @@ def test_storage_ops_lifecycle_rule_status_filter_uses_context_lifecycle_lookup(
         buckets,
         parsed_filter,
         service=FakeBucketsService(),
-        context=SimpleNamespace(),
+        context=_source_context("1"),
     )
     assert [bucket.bucket_name for bucket in result] == ["alpha"]
 
@@ -1020,7 +1020,7 @@ def test_storage_ops_sse_detail_filter_uses_context_encryption_lookup():
         buckets,
         parsed_filter,
         service=FakeBucketsService(),
-        context=SimpleNamespace(),
+        context=_source_context("1"),
     )
     assert [bucket.bucket_name for bucket in result] == ["beta"]
 
@@ -1064,7 +1064,7 @@ def test_storage_ops_context_filters_match_s3_user_kind():
         buckets,
         parsed_filter,
         service=SimpleNamespace(),
-        context=SimpleNamespace(),
+        context=_source_context("1"),
     )
     assert [bucket.bucket_name for bucket in result] == ["gamma"]
 
