@@ -36,7 +36,7 @@ from app.services.manager_ceph_management_access_service import (
     ManagerCephManagementDecision,
     ManagerCephManagementOperation,
 )
-from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 from app.services.rgw_supervision import has_supervision_credentials
 from app.utils.normalize import normalize_optional_string
 from app.utils.storage_endpoint_features import resolve_feature_flags
@@ -307,7 +307,7 @@ def require_manager_feature_rules_enabled(user: User = Depends(get_current_user)
 
 def _manager_ceph_management_decision(
     operation: ManagerCephManagementOperation,
-    context: S3ExecutionTarget,
+    context: S3ExecutionContext,
     user: User | None,
     db: Session,
 ) -> ManagerCephManagementDecision:
@@ -320,7 +320,7 @@ def _manager_ceph_management_decision(
 
 
 def is_manager_bucket_quota_available(
-    context: S3ExecutionTarget,
+    context: S3ExecutionContext,
     user: Optional[User] = None,
     db: Session | None = None,
 ) -> bool:
@@ -331,9 +331,9 @@ def is_manager_bucket_quota_available(
 
 def require_manager_bucket_quota(
     user: User = Depends(get_current_user),
-    context: S3ExecutionTarget = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     db: Session = Depends(get_db),
-) -> S3ExecutionTarget:
+) -> S3ExecutionContext:
     decision = _manager_ceph_management_decision("bucket_quota", context, user, db)
     if not decision.allowed:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=decision.reason)
@@ -341,7 +341,7 @@ def require_manager_bucket_quota(
 
 
 def is_manager_rgw_access_key_management_available(
-    context: S3ExecutionTarget,
+    context: S3ExecutionContext,
     user: Optional[User] = None,
     db: Session | None = None,
 ) -> bool:
@@ -352,9 +352,9 @@ def is_manager_rgw_access_key_management_available(
 
 def require_manager_rgw_access_key_management(
     user: User = Depends(get_current_user),
-    context: S3ExecutionTarget = Depends(get_s3_execution_context),
+    context: S3ExecutionContext = Depends(get_s3_execution_context),
     db: Session = Depends(get_db),
-) -> S3ExecutionTarget:
+) -> S3ExecutionContext:
     decision = _manager_ceph_management_decision("rgw_access_keys", context, user, db)
     if not decision.allowed:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=decision.reason)

@@ -24,7 +24,7 @@ from app.services.effective_access_contracts import ResolvedUserAccess
 from app.services.effective_access_service import EffectiveAccessService
 from app.services.manager_tool_access import MANAGER_TOOL_ROLES
 from app.services.rgw_admin import get_rgw_admin_client
-from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 from app.services.storage_endpoint_admin_permissions import (
     resolve_storage_endpoint_admin_ops_permissions,
 )
@@ -80,7 +80,7 @@ class ManagerCephManagementAccessService:
 
     def _resolve_account_quota_resource(
         self,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
         *,
         effective: ResolvedUserAccess,
         policies: ManagerFeaturePolicies,
@@ -105,14 +105,12 @@ class ManagerCephManagementAccessService:
     def _resolve_s3_user_resource(
         self,
         operation: ManagerCephManagementOperation,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
         *,
         effective: ResolvedUserAccess,
         policies: ManagerFeaturePolicies,
         label: str,
     ) -> S3User | ManagerCephManagementDecision:
-        if not isinstance(execution_context, S3ExecutionContext):
-            return self._deny(f"{label} is not available for this context")
         s3_user_id = execution_context.s3_user_id
         if not isinstance(s3_user_id, int) or s3_user_id <= 0:
             return self._deny(f"{label} is not available for this context")
@@ -145,17 +143,13 @@ class ManagerCephManagementAccessService:
     def _resolve_resource(
         self,
         operation: ManagerCephManagementOperation,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
         *,
         effective: ResolvedUserAccess,
         policies: ManagerFeaturePolicies,
         label: str,
     ) -> S3Account | S3User | ManagerCephManagementDecision:
-        context_kind = (
-            execution_context.context_kind
-            if isinstance(execution_context, S3ExecutionContext)
-            else "account"
-        )
+        context_kind = execution_context.context_kind
         if context_kind == "account" and operation == "bucket_quota":
             return self._resolve_account_quota_resource(
                 execution_context,
@@ -179,7 +173,7 @@ class ManagerCephManagementAccessService:
         *,
         surface: ManagerCephManagementSurface,
         actor: User | None,
-        execution_context: S3ExecutionTarget | None,
+        execution_context: S3ExecutionContext | None,
     ) -> ManagerCephManagementDecision:
         label = self._label(operation)
         if surface != "manager":
