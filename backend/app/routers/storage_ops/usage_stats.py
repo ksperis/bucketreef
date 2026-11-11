@@ -16,6 +16,7 @@ from app.routers.dependencies import get_s3_execution_context, get_current_stora
 from app.services.bucket_usage_stats_service import (
     BucketUsageStatsResolvedTarget,
 )
+from app.services.s3_execution_context import ResolvedS3BucketTarget
 
 router = APIRouter(prefix="/storage-ops/buckets/usage-stats", tags=["storage-ops-bucket-usage-stats"])
 logger = logging.getLogger(__name__)
@@ -37,16 +38,12 @@ def stream_storage_ops_bucket_usage_stats(
             actor=user,
             db=db,
         )
-        resolved_context_id = context.context_id
         targets.append(
-            BucketUsageStatsResolvedTarget(
-                context=context,
-                bucket_name=target.bucket_name,
+            BucketUsageStatsResolvedTarget.from_bucket_target(
+                ResolvedS3BucketTarget.from_context(context, target.bucket_name),
                 scope_kind="manager",
-                scope_id=resolved_context_id,
+                scope_id=context.context_id,
                 scope_name=context.name,
-                context_id=resolved_context_id,
-                context_name=context.name,
             )
         )
     return stream_resolved_bucket_usage_stats(

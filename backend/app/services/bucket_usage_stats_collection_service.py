@@ -26,7 +26,11 @@ from app.services.feature_policy_service import (
     bucket_usage_stats_state,
 )
 from app.services.s3_client import S3OperationError
-from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
+from app.services.s3_execution_context import (
+    ResolvedS3BucketTarget,
+    S3ExecutionContext,
+    S3ExecutionTarget,
+)
 from app.utils.time import utcnow
 
 
@@ -165,14 +169,11 @@ class BucketUsageStatsCollectionService:
             due.append(
                 (
                     priority,
-                    BucketUsageStatsResolvedTarget(
-                        context=execution_target,
-                        bucket_name=bucket_name,
+                    BucketUsageStatsResolvedTarget.from_bucket_target(
+                        ResolvedS3BucketTarget.from_context(execution_target, bucket_name),
                         scope_kind="manager",
                         scope_id=scope_id,
                         scope_name=resource.name,
-                        context_id=scope_id,
-                        context_name=resource.name,
                     ),
                 )
             )
