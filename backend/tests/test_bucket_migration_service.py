@@ -61,6 +61,7 @@ from app.services.bucket_migration.worker import BucketMigrationWorker
 from app.services.bucket_migration_service import BucketMigrationService
 from app.services.app_settings_service import bootstrap_app_settings_for_db
 from app.services.s3_client import S3OperationError
+from app.services.s3_execution_context import S3ExecutionContext
 from app.services.webhook_catalog import MIGRATION_EVENT_TYPE
 from app.services.webhook_service import WebhookQueueError, WebhookService
 from tests.storage_endpoint_features import persisted_endpoint_features
@@ -1541,7 +1542,7 @@ def test_source_copy_grant_candidates_use_canonical_account_root_uid(db_session)
     service = BucketMigrationService(db_session)
     target_ctx = ResolvedContext(
         context_id=str(target.id),
-        execution_context=target,
+        execution_context=S3ExecutionContext.from_account(target),
         endpoint="https://target.example.test",
         region="us-east-1",
         force_path_style=False,
@@ -1560,7 +1561,12 @@ def test_source_copy_grant_candidates_reject_trimmed_connection_context(db_sessi
     service = BucketMigrationService(db_session)
     target_ctx = SimpleNamespace(
         context_id=" conn-7 ",
-        execution_context=SimpleNamespace(
+        execution_context=S3ExecutionContext(
+            context_id="conn-7",
+            context_kind="connection",
+            name="target-connection",
+            access_key=None,
+            secret_key=None,
             rgw_account_id="RGW002",
             rgw_user_uid="target-root",
         ),
@@ -1582,7 +1588,7 @@ def test_endpoint_capabilities_reject_invalid_persisted_features(db_session):
     service = BucketMigrationService(db_session)
     context = ResolvedContext(
         context_id=str(account.id),
-        execution_context=account,
+        execution_context=S3ExecutionContext.from_account(account),
         endpoint=account.storage_endpoint.endpoint_url,
         region=account.storage_endpoint.region,
         force_path_style=False,
@@ -1609,13 +1615,13 @@ def test_precheck_same_endpoint_copy_source_access_can_use_temporary_auto_grant(
     db_session.add(recovery)
     db_session.commit()
     service._preparation_item = recovery.items[0]
-    source_ctx = SimpleNamespace(context_id=str(source.id), execution_context=source)
+    source_ctx = SimpleNamespace(
+        context_id=str(source.id),
+        execution_context=S3ExecutionContext.from_account(source),
+    )
     target_ctx = SimpleNamespace(
         context_id=f"s3u-{target_user.id}",
-        execution_context=SimpleNamespace(
-            rgw_account_id=None,
-            rgw_user_uid=target_user.rgw_user_uid,
-        ),
+        execution_context=S3ExecutionContext.from_s3_user(target_user),
     )
 
     class _SourceClient:
