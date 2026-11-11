@@ -3,7 +3,7 @@
 import logging
 
 from app.core.sensitive_data import sanitized_error_log_detail
-from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 from app.services.s3_execution_client import s3_execution_request_kwargs
 from app.services.bucket_configuration_service import BucketConfigurationService
 from app.services import bucket_feature_enrichment
@@ -32,8 +32,8 @@ class BucketsService:
     def __init__(self, configuration: BucketConfigurationService | None = None) -> None:
         self.configuration = configuration or BucketConfigurationService()
 
-    def _rgw_runtime_for_context(self, execution_context: S3ExecutionTarget):
-        if isinstance(execution_context, S3ExecutionContext) and execution_context.context_kind == "openstack_project":
+    def _rgw_runtime_for_context(self, execution_context: S3ExecutionContext):
+        if execution_context.context_kind == "openstack_project":
             raise BucketStatsUnavailableError(
                 "Runtime Read Ops are not available for OpenStack project contexts"
             )
@@ -53,7 +53,7 @@ class BucketsService:
 
     def _admin_bucket_list(
         self,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
         with_stats: bool = True,
     ) -> list[dict]:
         uid = resolve_target_admin_uid(execution_context)
@@ -74,12 +74,12 @@ class BucketsService:
         return extract_bucket_list(payload)
 
     @staticmethod
-    def _context_label(execution_context: S3ExecutionTarget) -> str | int | None:
+    def _context_label(execution_context: S3ExecutionContext) -> str | int | None:
         return execution_context.rgw_account_id or execution_context.id
 
     def _admin_stats_by_bucket(
         self,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
         *,
         with_stats: bool,
     ) -> dict[str, dict]:
@@ -153,7 +153,7 @@ class BucketsService:
 
     def list_buckets(
         self,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
         include: set[str] | None = None,
         with_stats: bool = True,
     ) -> list[Bucket]:
@@ -217,7 +217,7 @@ class BucketsService:
     def get_bucket_stats(
         self,
         bucket_name: str,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
         with_stats: bool = True,
     ) -> Bucket:
         normalized_bucket = (bucket_name or "").strip()
@@ -270,7 +270,7 @@ class BucketsService:
     def create_bucket(
         self,
         name: str,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
         versioning: bool = False,
         location_constraint: str | None = None,
         object_lock_enabled: bool = False,
@@ -300,7 +300,7 @@ class BucketsService:
     def delete_bucket(
         self,
         name: str,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
         force: bool = False,
     ) -> None:
         s3_deletion.delete_bucket(

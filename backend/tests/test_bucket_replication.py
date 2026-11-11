@@ -14,6 +14,7 @@ from app.routers.ceph_admin import bucket_config_rules as ceph_admin_buckets_rou
 from app.routers.manager import bucket_config_rules as manager_bucket_config_rules
 from app.routers.manager import buckets as manager_buckets_router
 from app.services.bucket_configuration_service import BucketConfigurationService
+from app.services.s3_execution_context import S3ExecutionContext
 from tests.storage_endpoint_features import persisted_endpoint_features
 
 
@@ -35,7 +36,7 @@ def _build_endpoint(endpoint_id: int = 1, *, replication_enabled: bool = True) -
     return endpoint
 
 
-def _build_account(*, replication_enabled: bool = True) -> S3Account:
+def _build_context(*, replication_enabled: bool = True) -> S3ExecutionContext:
     account = S3Account(
         name="acc",
         rgw_account_id="RGW00000000000000011",
@@ -44,20 +45,29 @@ def _build_account(*, replication_enabled: bool = True) -> S3Account:
     )
     account.id = 11
     account.storage_endpoint = _build_endpoint(replication_enabled=replication_enabled)
-    return account
+    return S3ExecutionContext.from_account(
+        account,
+        access_key=account.rgw_access_key,
+        secret_key=account.rgw_secret_key,
+    )
 
 
 def test_manager_put_bucket_replication_returns_200(client: TestClient):
     captured: dict[str, object] = {}
 
     class FakeService:
-        def set_bucket_replication(self, name: str, account: S3Account, payload: BucketReplicationConfiguration):
+        def set_bucket_replication(
+            self,
+            name: str,
+            context: S3ExecutionContext,
+            payload: BucketReplicationConfiguration,
+        ):
             captured["name"] = name
-            captured["account_id"] = account.id
+            captured["account_id"] = context.id
             captured["configuration"] = payload.configuration
             return BucketReplicationConfiguration(configuration=payload.configuration)
 
-    app.dependency_overrides[manager_buckets_router.get_s3_execution_context] = _build_account
+    app.dependency_overrides[manager_buckets_router.get_s3_execution_context] = _build_context
     app.dependency_overrides[manager_bucket_config_rules.get_bucket_configuration_service] = lambda: FakeService()
     app.dependency_overrides[manager_buckets_router.get_audit_service] = lambda: _FakeAuditService()
 
@@ -89,10 +99,15 @@ def test_manager_put_bucket_replication_returns_200(client: TestClient):
 
 def test_manager_put_bucket_replication_rejects_zone(client: TestClient):
     class FakeService:
-        def set_bucket_replication(self, name: str, account: S3Account, payload: BucketReplicationConfiguration):
+        def set_bucket_replication(
+            self,
+            name: str,
+            context: S3ExecutionContext,
+            payload: BucketReplicationConfiguration,
+        ):
             raise ValueError("Destination.Zone is not supported in V1.")
 
-    app.dependency_overrides[manager_buckets_router.get_s3_execution_context] = _build_account
+    app.dependency_overrides[manager_buckets_router.get_s3_execution_context] = _build_context
     app.dependency_overrides[manager_bucket_config_rules.get_bucket_configuration_service] = lambda: FakeService()
     app.dependency_overrides[manager_buckets_router.get_audit_service] = lambda: _FakeAuditService()
 
@@ -118,10 +133,17 @@ def test_manager_put_bucket_replication_rejects_zone(client: TestClient):
 
 def test_manager_put_bucket_replication_requires_endpoint_feature(client: TestClient):
     class FakeService:
-        def set_bucket_replication(self, name: str, account: S3Account, payload: BucketReplicationConfiguration):
+        def set_bucket_replication(
+            self,
+            name: str,
+            context: S3ExecutionContext,
+            payload: BucketReplicationConfiguration,
+        ):
             raise AssertionError("service should not be called")
 
-    app.dependency_overrides[manager_buckets_router.get_s3_execution_context] = lambda: _build_account(replication_enabled=False)
+    app.dependency_overrides[manager_buckets_router.get_s3_execution_context] = lambda: _build_context(
+        replication_enabled=False
+    )
     app.dependency_overrides[manager_bucket_config_rules.get_bucket_configuration_service] = lambda: FakeService()
     app.dependency_overrides[manager_buckets_router.get_audit_service] = lambda: _FakeAuditService()
 
@@ -141,11 +163,11 @@ def test_manager_delete_bucket_replication_returns_204(client: TestClient):
     captured: dict[str, object] = {}
 
     class FakeService:
-        def delete_bucket_replication(self, name: str, account: S3Account) -> None:
+        def delete_bucket_replication(self, name: str, context: S3ExecutionContext) -> None:
             captured["name"] = name
-            captured["account_id"] = account.id
+            captured["account_id"] = context.id
 
-    app.dependency_overrides[manager_buckets_router.get_s3_execution_context] = _build_account
+    app.dependency_overrides[manager_buckets_router.get_s3_execution_context] = _build_context
     app.dependency_overrides[manager_bucket_config_rules.get_bucket_configuration_service] = lambda: FakeService()
     app.dependency_overrides[manager_buckets_router.get_audit_service] = lambda: _FakeAuditService()
 
@@ -173,7 +195,7 @@ def test_buckets_service_set_bucket_replication_rejects_destination_zone():
     )
 
     with pytest.raises(ValueError, match="Destination.Zone is not supported in V1."):
-        service.set_bucket_replication("demo-bucket", _build_account(), payload)
+        service.set_bucket_replication("demo-bucket", _build_context(), payload)
 
 
 def test_ceph_admin_put_bucket_replication_invalidates_listing_cache(monkeypatch: pytest.MonkeyPatch):
@@ -185,7 +207,12 @@ def test_ceph_admin_put_bucket_replication_invalidates_listing_cache(monkeypatch
         lambda endpoint_id: invalidated.append(endpoint_id),
     )
 
-    def fake_set_bucket_replication(self, name: str, account: S3Account, payload: BucketReplicationConfiguration):
+    def fake_set_bucket_replication(
+        self,
+        name: str,
+        context: S3ExecutionContext,
+        payload: BucketReplicationConfiguration,
+    ):
         assert name == "demo-bucket"
         return BucketReplicationConfiguration(configuration=payload.configuration)
 

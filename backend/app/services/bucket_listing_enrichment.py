@@ -45,7 +45,7 @@ from app.services.listing_progress import (
     build_listing_progress_callback,
 )
 from app.services.s3_client import S3OperationError
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.cancellation import invoke_cancel_check
 from app.utils.normalize import normalize_optional_string
 
@@ -125,7 +125,7 @@ def _project_requested_details(
 def _enrich_website_configuration(
     bucket: BucketListingSummary,
     service: BucketConfigurationService,
-    execution_context: S3ExecutionTarget,
+    execution_context: S3ExecutionContext,
     *,
     wants_feature: bool,
     detail_keys: set[str],
@@ -160,7 +160,7 @@ def _enrich_website_configuration(
 def _enrich_policy_configuration(
     bucket: BucketListingSummary,
     service: BucketConfigurationService,
-    execution_context: S3ExecutionTarget,
+    execution_context: S3ExecutionContext,
     *,
     wants_feature: bool,
     detail_keys: set[str],
@@ -194,7 +194,7 @@ def _enrich_policy_configuration(
 def _enrich_logging_configuration(
     bucket: BucketListingSummary,
     service: BucketConfigurationService,
-    execution_context: S3ExecutionTarget,
+    execution_context: S3ExecutionContext,
     *,
     wants_feature: bool,
     detail_keys: set[str],
@@ -228,7 +228,7 @@ def _enrich_logging_configuration(
 def _enrich_notification_configuration(
     bucket: BucketListingSummary,
     service: BucketConfigurationService,
-    execution_context: S3ExecutionTarget,
+    execution_context: S3ExecutionContext,
     *,
     sns_feature_enabled: bool,
     wants_feature: bool,
@@ -263,7 +263,7 @@ def _enrich_notification_configuration(
 def _enrich_encryption_configuration(
     bucket: BucketListingSummary,
     service: BucketConfigurationService,
-    execution_context: S3ExecutionTarget,
+    execution_context: S3ExecutionContext,
     *,
     wants_feature: bool,
     detail_keys: set[str],
@@ -401,7 +401,7 @@ class _BucketEnrichmentPlan:
         requested: set[str],
         *,
         include_tags: bool,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
     ) -> "_BucketEnrichmentPlan":
         selected = set(requested)
         property_details = selected & _COLUMN_DETAIL_PROPS_KEYS
@@ -432,7 +432,7 @@ class _BucketEnricher:
         *,
         plan: _BucketEnrichmentPlan,
         service: BucketConfigurationService,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
         bucket_name_resolver: Callable[[BucketListingSummary], str],
     ) -> None:
         self.plan = plan
@@ -579,7 +579,7 @@ def enrich_buckets(
     requested: set[str],
     include_tags: bool,
     service: BucketConfigurationService,
-    execution_context: S3ExecutionTarget,
+    execution_context: S3ExecutionContext,
     *,
     progress: ListingProgressEmitter | None = None,
     progress_stage: str = "bucket_enrichment",
