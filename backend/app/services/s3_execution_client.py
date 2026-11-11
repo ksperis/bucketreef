@@ -7,14 +7,13 @@ from typing import Any
 from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import (
     S3ExecutionContext,
-    S3ExecutionTarget,
     is_ceph_admin_execution_context,
 )
 from app.services.rgw_bucket_target import split_explicit_rgw_s3_bucket_name
 from app.utils.s3_endpoint import resolve_s3_client_kwargs
 
 
-DEFAULT_S3_EXECUTION_CREDENTIALS_ERROR = "S3ExecutionTarget is missing admin credentials"
+DEFAULT_S3_EXECUTION_CREDENTIALS_ERROR = "S3 execution context is missing credentials"
 
 
 class S3ExecutionCredentialsError(RuntimeError):
@@ -22,7 +21,7 @@ class S3ExecutionCredentialsError(RuntimeError):
 
 
 def require_s3_execution_credentials(
-    execution_context: S3ExecutionTarget,
+    execution_context: S3ExecutionContext,
     *,
     error_message: str,
 ) -> tuple[str, str]:
@@ -33,7 +32,7 @@ def require_s3_execution_credentials(
 
 
 def require_s3_execution_credentials_with_error(
-    execution_context: S3ExecutionTarget,
+    execution_context: S3ExecutionContext,
     *,
     error_message: str,
     error_type: type[Exception],
@@ -47,7 +46,7 @@ def require_s3_execution_credentials_with_error(
         raise error_type(str(exc)) from exc
 
 
-def s3_execution_client_kwargs(execution_context: S3ExecutionTarget) -> dict[str, Any]:
+def s3_execution_client_kwargs(execution_context: S3ExecutionContext) -> dict[str, Any]:
     return {
         **resolve_s3_client_kwargs(execution_context),
         "session_token": execution_context.session_token(),
@@ -55,7 +54,7 @@ def s3_execution_client_kwargs(execution_context: S3ExecutionTarget) -> dict[str
 
 
 def s3_execution_request_kwargs(
-    execution_context: S3ExecutionTarget,
+    execution_context: S3ExecutionContext,
     *,
     error_message: str = DEFAULT_S3_EXECUTION_CREDENTIALS_ERROR,
 ) -> dict[str, Any]:
@@ -72,7 +71,7 @@ def s3_execution_request_kwargs(
 
 
 def s3_execution_bucket_request_kwargs(
-    execution_context: S3ExecutionTarget,
+    execution_context: S3ExecutionContext,
     bucket_name: str,
     *,
     error_message: str = DEFAULT_S3_EXECUTION_CREDENTIALS_ERROR,
@@ -90,21 +89,13 @@ def s3_execution_bucket_request_kwargs(
     return kwargs
 
 
-def s3_execution_cache_key(execution_context: S3ExecutionTarget) -> str:
+def s3_execution_cache_key(execution_context: S3ExecutionContext) -> str:
     """Fingerprint the explicit execution identity and full S3 client configuration."""
-    if isinstance(execution_context, S3ExecutionContext):
-        identity = (execution_context.context_kind, execution_context.context_id)
-        execution_auth_session_id = execution_context.execution_auth_session_id
-        openstack_session_id = execution_context.openstack_session_id
-    else:
-        identity = ("account", str(execution_context.id))
-        execution_auth_session_id = None
-        openstack_session_id = None
     payload = json.dumps(
         [
-            identity,
-            execution_auth_session_id,
-            openstack_session_id,
+            (execution_context.context_kind, execution_context.context_id),
+            execution_context.execution_auth_session_id,
+            execution_context.openstack_session_id,
             execution_context.rgw_tenant,
             execution_context.effective_rgw_credentials(),
             s3_execution_client_kwargs(execution_context),

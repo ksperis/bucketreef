@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable, Literal, Optional, Protocol, TypeGuard
+from typing import Any, Callable, Literal, Optional, Protocol
 
 from app.db import S3Account, S3Connection, S3User, StorageEndpoint
 from app.services.access_context_contracts import AccountCapabilities
@@ -186,9 +186,6 @@ def build_ceph_admin_s3_context(
     )
 
 
-S3ExecutionTarget = S3Account | S3ExecutionContext
-
-
 class ResolvedS3BucketNameMixin:
     bucket_name: str
     request_bucket_name: str | None
@@ -239,9 +236,6 @@ class ResolvedS3BucketTarget(ResolvedS3BucketNameMixin):
 
 
 def is_ceph_admin_execution_context(
-    execution_context: S3ExecutionTarget,
-) -> TypeGuard[S3ExecutionContext]:
-    return (
-        isinstance(execution_context, S3ExecutionContext)
-        and execution_context.context_kind == "ceph_admin"
-    )
+    execution_context: S3ExecutionContext,
+) -> bool:
+    return execution_context.context_kind == "ceph_admin"

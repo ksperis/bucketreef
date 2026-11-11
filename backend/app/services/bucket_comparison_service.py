@@ -36,7 +36,7 @@ class BucketComparisonOutcome:
 class BucketComparisonService(LongRunningS3ClientMixin):
     """Compare bucket contents and configuration, then remediate content differences."""
 
-    s3_credentials_error_message = "S3ExecutionTarget is missing admin credentials"
+    s3_credentials_error_message = "S3 execution context is missing credentials"
 
     def __init__(self, configuration_reader: Optional[BucketConfigurationReader] = None) -> None:
         self._configuration_reader = configuration_reader or BucketConfigurationService()

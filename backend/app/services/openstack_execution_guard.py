@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.db import User
 from app.services.keystone_client import OpenStackError
 from app.services.s3_execution_client import s3_execution_cache_key
-from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 
 
 OpenStackContextResolver = Callable[[Session, User, str, str], S3ExecutionContext]
@@ -42,8 +42,8 @@ def make_openstack_validator(
     return validate
 
 
-def guard_openstack_client(context: S3ExecutionTarget, client):
-    validator = context.access_validator if isinstance(context, S3ExecutionContext) else None
+def guard_openstack_client(context: S3ExecutionContext, client):
+    validator = context.access_validator
     if validator is not None:
         def before_send(**kwargs):
             validator()

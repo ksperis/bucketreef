@@ -1,8 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from dataclasses import replace
-from types import SimpleNamespace
-
 import pytest
 
 from app.db import S3Account, StorageEndpoint
@@ -19,7 +17,13 @@ from app.services.s3_execution_context import S3ExecutionContext
 
 
 def test_require_s3_execution_credentials_preserves_requested_error() -> None:
-    account = SimpleNamespace(effective_rgw_credentials=lambda: (None, None))
+    account = S3ExecutionContext(
+        context_id="42",
+        context_kind="account",
+        name="missing-credentials",
+        access_key=None,
+        secret_key=None,
+    )
 
     with pytest.raises(S3ExecutionCredentialsError, match="custom credentials error"):
         require_s3_execution_credentials(
@@ -29,7 +33,13 @@ def test_require_s3_execution_credentials_preserves_requested_error() -> None:
 
 
 def test_require_s3_execution_credentials_with_error_preserves_cause() -> None:
-    account = SimpleNamespace(effective_rgw_credentials=lambda: (None, None))
+    account = S3ExecutionContext(
+        context_id="42",
+        context_kind="account",
+        name="missing-credentials",
+        access_key=None,
+        secret_key=None,
+    )
 
     with pytest.raises(S3OperationError, match="custom credentials error") as raised:
         require_s3_execution_credentials_with_error(
@@ -56,13 +66,17 @@ def test_require_s3_execution_credentials_with_error_preserves_unexpected_failur
 
 
 def test_s3_execution_client_kwargs_includes_session_overrides() -> None:
-    account = SimpleNamespace(
-        storage_endpoint=None,
+    account = S3ExecutionContext(
+        context_id="42",
+        context_kind="account",
+        name="session-overrides",
+        access_key="access-key",
+        secret_key="secret-key",
         session_endpoint="https://s3.example.test",
         session_region="us-east-2",
         session_force_path_style=True,
         session_verify_tls=False,
-        session_token=lambda: "session-token",
+        session_token_value="session-token",
     )
 
     assert s3_execution_client_kwargs(account) == {
@@ -75,14 +89,17 @@ def test_s3_execution_client_kwargs_includes_session_overrides() -> None:
 
 
 def test_s3_execution_request_kwargs_includes_credentials_and_client_options() -> None:
-    account = SimpleNamespace(
-        effective_rgw_credentials=lambda: ("access-key", "secret-key"),
-        storage_endpoint=None,
+    account = S3ExecutionContext(
+        context_id="42",
+        context_kind="account",
+        name="request-options",
+        access_key="access-key",
+        secret_key="secret-key",
         session_endpoint="https://s3.example.test",
         session_region="us-east-2",
         session_force_path_style=True,
         session_verify_tls=False,
-        session_token=lambda: "session-token",
+        session_token_value="session-token",
     )
 
     assert s3_execution_request_kwargs(
@@ -100,11 +117,17 @@ def test_s3_execution_request_kwargs_includes_credentials_and_client_options() -
 
 
 def test_s3_execution_request_kwargs_uses_default_credentials_error() -> None:
-    account = SimpleNamespace(effective_rgw_credentials=lambda: (None, None))
+    account = S3ExecutionContext(
+        context_id="42",
+        context_kind="account",
+        name="missing-credentials",
+        access_key=None,
+        secret_key=None,
+    )
 
     with pytest.raises(
         S3OperationError,
-        match="S3ExecutionTarget is missing admin credentials",
+        match="S3 execution context is missing credentials",
     ) as raised:
         s3_execution_request_kwargs(account)
 
@@ -121,7 +144,7 @@ def test_s3_execution_request_kwargs_preserves_unexpected_credential_failure() -
         s3_execution_request_kwargs(BrokenContext())
 
 
-def test_s3_execution_cache_key_matches_account_and_explicit_context() -> None:
+def test_s3_execution_cache_key_ignores_display_name() -> None:
     account = S3Account(
         id=42,
         name="cache-account",
@@ -140,7 +163,6 @@ def test_s3_execution_cache_key_matches_account_and_explicit_context() -> None:
         account, access_key=access_key, secret_key=secret_key,
     )
 
-    assert s3_execution_cache_key(account) == s3_execution_cache_key(context)
     assert s3_execution_cache_key(context) == s3_execution_cache_key(
         replace(context, name="renamed-account"),
     )

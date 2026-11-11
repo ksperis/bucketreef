@@ -17,7 +17,7 @@ from tests.execution_context_factory import make_s3_execution_context
 @pytest.mark.parametrize(
     ("service", "message"),
     [
-        (BucketComparisonService(), "S3ExecutionTarget is missing admin credentials"),
+        (BucketComparisonService(), "S3 execution context is missing credentials"),
         (BucketPurgeService(), "S3 execution context is missing credentials"),
         (BucketIntegrityCheckService(), "S3 execution context is missing credentials"),
         (BucketUsageStatsService(), "S3 execution context is missing credentials"),
