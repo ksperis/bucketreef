@@ -11,10 +11,45 @@ import {
   defaultFeaturesForProvider,
   normalizeAwsRegion,
   parseCoordinateInput,
+  resolveStorageEndpointCredentialPair,
 } from "./storageEndpointFormModel";
 import type { StorageEndpoint } from "../../api/storageEndpoints";
 
 describe("storage endpoint form model", () => {
+  it("centralizes complete, partial, and stored credential-pair state", () => {
+    const form = createEmptyForm();
+    expect(resolveStorageEndpointCredentialPair(form, "admin", true)).toEqual(expect.objectContaining({
+      accessKey: "",
+      secretKey: "",
+      replacementStarted: false,
+      replacementComplete: false,
+      reuseStoredPair: false,
+      configured: false,
+    }));
+
+    form.has_admin_secret = true;
+    expect(resolveStorageEndpointCredentialPair(form, "admin", true)).toEqual(expect.objectContaining({
+      reuseStoredPair: true,
+      configured: true,
+    }));
+
+    form.admin_access_key = " replacement-access ";
+    expect(resolveStorageEndpointCredentialPair(form, "admin", true)).toEqual(expect.objectContaining({
+      accessKey: "replacement-access",
+      replacementStarted: true,
+      replacementComplete: false,
+      reuseStoredPair: false,
+      configured: false,
+    }));
+
+    form.admin_secret_key = " replacement-secret ";
+    expect(resolveStorageEndpointCredentialPair(form, "admin", true)).toEqual(expect.objectContaining({
+      secretKey: "replacement-secret",
+      replacementComplete: true,
+      configured: true,
+    }));
+  });
+
   it("normalizes AWS regions and resolves partition endpoints", () => {
     expect(normalizeAwsRegion(" EU-West-3 ")).toBe("eu-west-3");
     expect(normalizeAwsRegion(" ")).toBe("us-east-1");

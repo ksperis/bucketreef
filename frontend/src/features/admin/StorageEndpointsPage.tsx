@@ -45,6 +45,7 @@ import {
   defaultFeaturesForProvider,
   EMPTY_STORAGE_ENDPOINT_FORM,
   normalizeAwsRegion,
+  resolveStorageEndpointCredentialPair,
   serviceIdentityRequirements,
   type FeaturesState,
   type FormState,
@@ -176,25 +177,13 @@ export default function StorageEndpointsPage() {
     };
   }, [configurationReadOnly, editingId, showForm]);
   const endpointUrl = form.endpoint_url.trim();
-  const adminAccessKey = form.admin_access_key.trim();
-  const adminSecretKey = form.admin_secret_key.trim();
-  const cephAdminAccessKey = form.ceph_admin_access_key.trim();
-  const cephAdminSecretKey = form.ceph_admin_secret_key.trim();
-  const runtimeAccessKey = form.runtime_access_key.trim();
-  const runtimeSecretKey = form.runtime_secret_key.trim();
-  const supervisionAccessKey = form.supervision_access_key.trim();
-  const supervisionSecretKey = form.supervision_secret_key.trim();
-  const hasAdminCredentials = Boolean(
-    (adminAccessKey && adminSecretKey) ||
-      (editingId != null && form.has_admin_secret && !adminAccessKey && !adminSecretKey)
-  );
-  const hasSupervisionCredentials = Boolean(
-    (supervisionAccessKey && supervisionSecretKey) ||
-      (editingId != null &&
-        form.has_supervision_secret &&
-        !supervisionAccessKey &&
-        !supervisionSecretKey)
-  );
+  const reuseStoredCredentials = editingId != null;
+  const adminCredentialPair = resolveStorageEndpointCredentialPair(form, "admin", reuseStoredCredentials);
+  const cephAdminCredentialPair = resolveStorageEndpointCredentialPair(form, "ceph_admin", reuseStoredCredentials);
+  const runtimeCredentialPair = resolveStorageEndpointCredentialPair(form, "runtime", reuseStoredCredentials);
+  const supervisionCredentialPair = resolveStorageEndpointCredentialPair(form, "supervision", reuseStoredCredentials);
+  const hasAdminCredentials = adminCredentialPair.configured;
+  const hasSupervisionCredentials = supervisionCredentialPair.configured;
   const endpointValidationPayload = useMemo(
     () =>
       showForm &&
@@ -210,23 +199,23 @@ export default function StorageEndpointsPage() {
             region: form.region.trim() || null,
             verify_tls: form.verify_tls,
             check_http: true,
-            admin_access_key: adminAccessKey || null,
-            admin_secret_key: adminSecretKey || null,
-            ceph_admin_access_key: cephAdminAccessKey || null,
-            ceph_admin_secret_key: cephAdminSecretKey || null,
-            runtime_access_key: form.service_identity_mode === "external" ? runtimeAccessKey || null : null,
-            runtime_secret_key: form.service_identity_mode === "external" ? runtimeSecretKey || null : null,
-            supervision_access_key: form.service_identity_mode === "external" ? supervisionAccessKey || null : null,
-            supervision_secret_key: form.service_identity_mode === "external" ? supervisionSecretKey || null : null,
+            admin_access_key: adminCredentialPair.accessKey || null,
+            admin_secret_key: adminCredentialPair.secretKey || null,
+            ceph_admin_access_key: cephAdminCredentialPair.accessKey || null,
+            ceph_admin_secret_key: cephAdminCredentialPair.secretKey || null,
+            runtime_access_key: form.service_identity_mode === "external" ? runtimeCredentialPair.accessKey || null : null,
+            runtime_secret_key: form.service_identity_mode === "external" ? runtimeCredentialPair.secretKey || null : null,
+            supervision_access_key: form.service_identity_mode === "external" ? supervisionCredentialPair.accessKey || null : null,
+            supervision_secret_key: form.service_identity_mode === "external" ? supervisionCredentialPair.secretKey || null : null,
           }
         : null,
     [
-      adminAccessKey,
-      adminSecretKey,
-      cephAdminAccessKey,
-      cephAdminSecretKey,
-      runtimeAccessKey,
-      runtimeSecretKey,
+      adminCredentialPair.accessKey,
+      adminCredentialPair.secretKey,
+      cephAdminCredentialPair.accessKey,
+      cephAdminCredentialPair.secretKey,
+      runtimeCredentialPair.accessKey,
+      runtimeCredentialPair.secretKey,
       form.service_identity_mode,
       canEditEndpoints,
       cephMode,
@@ -238,8 +227,8 @@ export default function StorageEndpointsPage() {
       form.verify_tls,
       saving,
       showForm,
-      supervisionAccessKey,
-      supervisionSecretKey,
+      supervisionCredentialPair.accessKey,
+      supervisionCredentialPair.secretKey,
     ],
   );
   const endpointValidation = useStorageEndpointLiveValidation({
@@ -631,7 +620,7 @@ export default function StorageEndpointsPage() {
         accessKey: form.admin_access_key,
         secretKey: form.admin_secret_key,
         hasStoredSecret: form.has_admin_secret,
-        reuseStoredCredentials: editingId != null,
+        reuseStoredCredentials,
         endpointReady: endpointReadyForCredentialCheck,
         checking: featureDetectBusy,
         check: credentialChecks.admin,
@@ -643,7 +632,7 @@ export default function StorageEndpointsPage() {
         accessKey: form.supervision_access_key,
         secretKey: form.supervision_secret_key,
         hasStoredSecret: form.has_supervision_secret,
-        reuseStoredCredentials: editingId != null,
+        reuseStoredCredentials,
         endpointReady: endpointReadyForCredentialCheck,
         checking: featureDetectBusy,
         check: credentialChecks.supervision,
@@ -651,7 +640,7 @@ export default function StorageEndpointsPage() {
       });
   const cephAdminCredentialCheck = configurationReadOnly ? null : resolveCredentialCheckView({
     accessKey: form.ceph_admin_access_key, secretKey: form.ceph_admin_secret_key,
-    hasStoredSecret: form.has_ceph_admin_secret, reuseStoredCredentials: editingId != null,
+    hasStoredSecret: form.has_ceph_admin_secret, reuseStoredCredentials,
     endpointReady: endpointReadyForCredentialCheck, checking: featureDetectBusy,
     check: credentialChecks.ceph_admin ?? { status: "not_configured" },
     incompleteMessage: text("enterCephAdminCredentials"),
@@ -662,7 +651,7 @@ export default function StorageEndpointsPage() {
         accessKey: form.runtime_access_key,
         secretKey: form.runtime_secret_key,
         hasStoredSecret: form.has_runtime_secret,
-        reuseStoredCredentials: editingId != null,
+        reuseStoredCredentials,
         endpointReady: endpointReadyForCredentialCheck,
         checking: featureDetectBusy,
         check: credentialChecks.runtime ?? { status: "not_configured" },
@@ -675,19 +664,9 @@ export default function StorageEndpointsPage() {
   );
   const hasSupervisionCredentialsForSignedProbe = form.service_identity_mode === "managed"
     ? managedSupervisionReady
-    : Boolean(
-        (form.supervision_access_key.trim() && form.supervision_secret_key.trim()) ||
-          (editingId != null &&
-            form.has_supervision_secret &&
-            !form.supervision_access_key.trim() &&
-            !form.supervision_secret_key.trim())
-      );
+    : supervisionCredentialPair.configured;
   const externalSupervisionConfigured = form.service_identity_mode === "external"
-    && Boolean(
-      (form.supervision_access_key.trim() && form.supervision_secret_key.trim()) ||
-        (editingId != null && form.has_supervision_secret &&
-          !form.supervision_access_key.trim() && !form.supervision_secret_key.trim())
-    );
+    && supervisionCredentialPair.configured;
   const editorTabs = [
     { id: "general", label: text("connectionTab") },
     { id: "credentials", label: text("credentialsTab") },
