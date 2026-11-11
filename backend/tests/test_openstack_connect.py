@@ -364,7 +364,7 @@ def test_connected_projects_are_candidates_and_reuse_previously_activated_contex
     assert [item["project_id"] for item in service.project_options(user, auth.id)["options"]] == ["project-a"]
     second_context = service.activate(user, auth.id, connection.id, "project-a", target["target_id"], None)
     assert second_context == first_context
-    assert db_session.query(OpenStackProjectContext).count() == 1
+    assert len(db_session.scalars(select(OpenStackProjectContext)).all()) == 1
 
 
 def test_project_options_keep_healthy_connections_when_one_keystone_is_unavailable(db_session, setup_cloud, monkeypatch):
