@@ -13,7 +13,6 @@ from sqlalchemy.orm import Session
 
 from app.core.db_transactions import (
     add_and_flush_in_savepoint,
-    commit_or_rollback,
     run_replayable_db_unit,
 )
 from app.core.domain_enums import ManagedServiceIdentityKind, ServiceIdentityKind
@@ -55,14 +54,59 @@ class EndpointServiceIdentityService:
         self.client_factory = client_factory or get_endpoint_bootstrap_rgw_client
         self.validation = EndpointServiceIdentityValidationService(db)
 
+    def _persist_identity_fields(
+        self,
+        identity_id: int,
+        **values: object,
+    ) -> EndpointServiceIdentity:
+        def persist_once(write_db: Session) -> int:
+            current = write_db.get(EndpointServiceIdentity, identity_id)
+            if current is None:
+                raise ValueError("Service identity no longer exists.")
+            for field, value in values.items():
+                setattr(current, field, value)
+            write_db.flush()
+            return identity_id
+
+        persisted_id = run_replayable_db_unit(self.db, persist_once)
+        identity = self.db.get(
+            EndpointServiceIdentity,
+            persisted_id,
+            populate_existing=True,
+        )
+        if identity is None:  # pragma: no cover - defensive consistency check
+            raise RuntimeError("Service identity could not be reloaded")
+        return identity
+
     def installation_id(self) -> str:
         row = self.db.get(AppSetting, INSTALLATION_KEY)
         if row is None:
-            row = AppSetting(key=INSTALLATION_KEY, payload=uuid4().hex)
-            try:
-                add_and_flush_in_savepoint(self.db, row)
-            except IntegrityError:
-                row = self.db.get(AppSetting, INSTALLATION_KEY)
+            installation_id = uuid4().hex
+            if self.db.get_bind().dialect.name != "sqlite":
+                row = AppSetting(key=INSTALLATION_KEY, payload=installation_id)
+                try:
+                    add_and_flush_in_savepoint(self.db, row)
+                except IntegrityError:
+                    row = self.db.get(AppSetting, INSTALLATION_KEY)
+            else:
+                def persist_once(write_db: Session) -> str:
+                    current = write_db.get(AppSetting, INSTALLATION_KEY)
+                    if current is None:
+                        current = AppSetting(
+                            key=INSTALLATION_KEY,
+                            payload=installation_id,
+                        )
+                        try:
+                            add_and_flush_in_savepoint(write_db, current)
+                        except IntegrityError:
+                            current = write_db.get(AppSetting, INSTALLATION_KEY)
+                    if current is None or not isinstance(current.payload, str):
+                        raise ValueError("Service identity installation id is invalid.")
+                    return current.payload
+
+                return run_replayable_db_unit(self.db, persist_once)
+        if row is None:  # pragma: no cover - defensive race check
+            raise ValueError("Service identity installation id is invalid.")
         installation_id = row.payload
         if not isinstance(installation_id, str):
             raise ValueError("Service identity installation id is invalid.")
@@ -88,12 +132,18 @@ class EndpointServiceIdentityService:
         identity: EndpointServiceIdentity,
         error: ManagedIdentityKeyDriftError,
     ) -> None:
-        changed = identity.last_error != str(error)
-        if identity.status != "revocation_pending":
-            identity.status = "error"
-        identity.last_error = str(error)
-        identity.last_reconciled_at = utcnow()
-        commit_or_rollback(self.db)
+        identity_id = identity.id
+        if identity_id is None:
+            raise ValueError("Service identity was not persisted before drift detection.")
+        error_detail = str(error)
+        changed = identity.last_error != error_detail
+        status = "revocation_pending" if identity.status == "revocation_pending" else "error"
+        identity = self._persist_identity_fields(
+            int(identity_id),
+            status=status,
+            last_error=error_detail,
+            last_reconciled_at=utcnow(),
+        )
         if changed:
             self._audit(endpoint, identity, "key_drift_detected")
 
@@ -138,28 +188,67 @@ class EndpointServiceIdentityService:
         permissions: StorageEndpointAdminOpsPermissions,
     ) -> EndpointServiceIdentity:
         identity = endpoint.service_identity(kind)
-        if identity is None:
-            identity = EndpointServiceIdentity(kind=kind, mode="managed", status="missing")
-            endpoint.service_identities.append(identity)
-        if identity.mode != "managed":
+        if identity is not None and identity.mode != "managed":
             raise ValueError("Explicit conversion is required before provisioning a managed identity.")
-        if identity.rgw_uid and identity.access_key:
+        if identity is not None and identity.rgw_uid and identity.access_key:
             return identity
         if not permissions.users_write:
             raise ValueError("Managed service identities require Admin Ops users=write.")
         installation = self.installation_id()
         provenance = f"{installation}:{endpoint.identity_namespace}"
-        if identity.provenance not in (None, provenance):
+        if identity is not None and identity.provenance not in (None, provenance):
             raise ValueError("Service identity ownership does not match this installation.")
-        identity.provenance = provenance
-        identity.rgw_uid = (
+        endpoint_id = int(endpoint.id)
+        rgw_uid = (
             f"bkr-{installation[:12]}-{endpoint.identity_namespace[:12]}-"
             f"{kind.replace('_', '-')}"
         )
-        identity.access_key = identity.access_key or secrets.token_hex(10).upper()
-        identity.secret_key = identity.secret_key or secrets.token_urlsafe(32)
-        identity.status = "provisioning"
-        commit_or_rollback(self.db)
+        access_key = (
+            identity.access_key
+            if identity is not None and identity.access_key
+            else secrets.token_hex(10).upper()
+        )
+        secret_key = (
+            identity.secret_key
+            if identity is not None and identity.secret_key
+            else secrets.token_urlsafe(32)
+        )
+
+        def persist_once(write_db: Session) -> int:
+            current_endpoint = write_db.get(StorageEndpoint, endpoint_id)
+            if current_endpoint is None:
+                raise ValueError("Endpoint no longer exists.")
+            current = current_endpoint.service_identity(kind)
+            if current is None:
+                current = EndpointServiceIdentity(
+                    kind=kind,
+                    mode="managed",
+                    status="missing",
+                )
+                current_endpoint.service_identities.append(current)
+            if current.mode != "managed":
+                raise ValueError("Explicit conversion is required before provisioning a managed identity.")
+            if current.rgw_uid and current.access_key:
+                write_db.flush()
+                return int(current.id)
+            if current.provenance not in (None, provenance):
+                raise ValueError("Service identity ownership does not match this installation.")
+            current.provenance = provenance
+            current.rgw_uid = rgw_uid
+            current.access_key = current.access_key or access_key
+            current.secret_key = current.secret_key or secret_key
+            current.status = "provisioning"
+            write_db.flush()
+            return int(current.id)
+
+        identity_id = run_replayable_db_unit(self.db, persist_once)
+        identity = self.db.get(
+            EndpointServiceIdentity,
+            identity_id,
+            populate_existing=True,
+        )
+        if identity is None:  # pragma: no cover - defensive consistency check
+            raise RuntimeError("Managed service identity could not be reloaded")
         return identity
 
     def _ensure_managed_remote_user(
@@ -182,8 +271,12 @@ class EndpointServiceIdentityService:
         if created:
             if not permissions.users_write:
                 raise ValueError("Managed service identity is absent; recreation requires users=write.")
-            identity.status = "provisioning"
-            commit_or_rollback(self.db)
+            if identity.id is None:
+                raise ValueError("Service identity was not persisted before provisioning.")
+            identity = self._persist_identity_fields(
+                int(identity.id),
+                status="provisioning",
+            )
             payload = admin.create_user(
                 identity.rgw_uid,
                 display_name=f"BucketReef {kind} service",
@@ -297,44 +390,90 @@ class EndpointServiceIdentityService:
         identity = endpoint.service_identity("ceph_admin")
         if identity is None:
             return {"kind": "ceph_admin", "status": "missing"}
+        endpoint_id = int(endpoint.id)
+        identity_id = int(identity.id) if identity.id is not None else None
+        identity_mode = identity.mode
+        access_key = identity.access_key
+        secret_key = identity.secret_key
+        if identity_id is None and self.db.get_bind().dialect.name == "sqlite":
+            raise RuntimeError(
+                "Ceph Admin identity must be persisted before SQLite validation"
+            )
         validated = False
-        if not identity.access_key or not identity.secret_key:
-            identity.status, identity.last_error = "missing", None
-            identity.last_reconciled_at = None
+        validated_uid: str | None = None
+        if not access_key or not secret_key:
+            status, last_error, reconciled_at = "missing", None, None
         else:
+            reconciled_at = utcnow()
             try:
-                if identity.mode != "external":
+                if identity_mode != "external":
                     raise ValueError("Ceph Admin credentials must be supplied manually.")
                 from app.services.rgw_admin import get_rgw_admin_client
                 from app.utils.storage_endpoint_features import resolve_rgw_admin_api_endpoint
                 client = get_rgw_admin_client(
-                    access_key=identity.access_key, secret_key=identity.secret_key,
+                    access_key=access_key, secret_key=secret_key,
                     endpoint=resolve_rgw_admin_api_endpoint(endpoint), region=endpoint.region,
                     verify_tls=endpoint.verify_tls,
                 )
-                payload = client.get_user_by_access_key(identity.access_key, allow_not_found=True)
+                payload = client.get_user_by_access_key(access_key, allow_not_found=True)
                 self.validation.validate_payload("ceph_admin", payload)
                 uid, tenant = extract_rgw_user_identity(payload)
                 if not uid:
                     raise ValueError("Ceph Admin user could not be identified by RGW.")
-                identity.rgw_uid = rgw_qualified_uid(uid, tenant)
-                identity.status, identity.last_error = "ready", None
+                validated_uid = rgw_qualified_uid(uid, tenant)
+                status, last_error = "ready", None
                 validated = True
             except ValueError as exc:
-                identity.status, identity.last_error = (
+                status, last_error = (
                     "error",
                     sanitized_error_log_detail(exc),
                 )
             except RGWAdminError as exc:
                 failure = classify_rgw_credential_failure(exc)
-                identity.status = "error"
-                identity.last_error = (
+                status = "error"
+                last_error = (
                     "Ceph Admin credentials were denied by RGW."
                     if failure == "denied" else
                     "Ceph Admin validation failed; check the RGW endpoint configuration and connectivity."
                 )
-            identity.last_reconciled_at = utcnow()
-        commit_or_rollback(self.db)
+
+        def persist_once(write_db: Session) -> int:
+            current = (
+                write_db.get(EndpointServiceIdentity, identity_id)
+                if identity_id is not None
+                else write_db.scalar(
+                    select(EndpointServiceIdentity).where(
+                        EndpointServiceIdentity.endpoint_id == endpoint_id,
+                        EndpointServiceIdentity.kind == "ceph_admin",
+                    )
+                )
+            )
+            if current is None:
+                current = EndpointServiceIdentity(
+                    endpoint_id=endpoint_id,
+                    kind="ceph_admin",
+                    mode=identity_mode,
+                    access_key=access_key,
+                    secret_key=secret_key,
+                    status="missing",
+                )
+                write_db.add(current)
+            current.status = status
+            current.last_error = last_error
+            current.last_reconciled_at = reconciled_at
+            if validated_uid is not None:
+                current.rgw_uid = validated_uid
+            write_db.flush()
+            return int(current.id)
+
+        persisted_id = run_replayable_db_unit(self.db, persist_once)
+        identity = self.db.get(
+            EndpointServiceIdentity,
+            persisted_id,
+            populate_existing=True,
+        )
+        if identity is None:  # pragma: no cover - defensive consistency check
+            raise RuntimeError("Ceph Admin identity could not be reloaded")
         if validated:
             self._audit(endpoint, identity, "validated")
         return {"kind": "ceph_admin", "status": identity.status}
@@ -345,12 +484,21 @@ class EndpointServiceIdentityService:
         identity = endpoint.service_identity(kind)
         if identity is None or identity.mode == "external":
             return True
+        identity_id = identity.id
+        if identity_id is None:
+            raise ValueError("Service identity was not persisted before revocation.")
+        identity_id = int(identity_id)
         if identity.status == "disabled" or not any((identity.rgw_uid, identity.access_key, identity.secret_key, identity.provenance)):
-            identity.status, identity.last_error = "disabled", None
-            commit_or_rollback(self.db)
+            self._persist_identity_fields(
+                identity_id,
+                status="disabled",
+                last_error=None,
+            )
             return True
-        identity.status = "revocation_pending"
-        commit_or_rollback(self.db)  # Access is denied even if remote revocation subsequently fails.
+        identity = self._persist_identity_fields(
+            identity_id,
+            status="revocation_pending",
+        )  # Access is denied even if remote revocation subsequently fails.
         try:
             admin, permissions = self.admin_permissions(endpoint)
             payload = admin.get_user(identity.rgw_uid, allow_not_found=True)
@@ -367,22 +515,39 @@ class EndpointServiceIdentityService:
                 admin.delete_user(identity.rgw_uid)  # Never purge buckets or objects.
                 if admin.get_user(identity.rgw_uid, allow_not_found=True) is not None:
                     raise ValueError("RGW did not confirm service identity revocation.")
-            identity.status = "disabled"
-            identity.access_key = identity.secret_key = None
             from app.db import KeyRotationIntent
             key_type = f"endpoint_{kind}"
-            self.db.execute(
-                delete(KeyRotationIntent)
-                .where(
-                    KeyRotationIntent.endpoint_id == endpoint.id,
-                    KeyRotationIntent.key_type == key_type,
-                    KeyRotationIntent.target_id == identity.id,
+            endpoint_id = int(endpoint.id)
+            reconciled_at = utcnow()
+
+            def finalize_once(write_db: Session) -> int:
+                current = write_db.get(EndpointServiceIdentity, identity_id)
+                if current is None:
+                    raise ValueError("Service identity no longer exists.")
+                current.status = "disabled"
+                current.access_key = current.secret_key = None
+                write_db.execute(
+                    delete(KeyRotationIntent)
+                    .where(
+                        KeyRotationIntent.endpoint_id == endpoint_id,
+                        KeyRotationIntent.key_type == key_type,
+                        KeyRotationIntent.target_id == identity_id,
+                    )
+                    .execution_options(synchronize_session=False)
                 )
-                .execution_options(synchronize_session=False)
+                current.last_error = None
+                current.last_reconciled_at = reconciled_at
+                write_db.flush()
+                return identity_id
+
+            run_replayable_db_unit(self.db, finalize_once)
+            identity = self.db.get(
+                EndpointServiceIdentity,
+                identity_id,
+                populate_existing=True,
             )
-            identity.last_error = None
-            identity.last_reconciled_at = utcnow()
-            commit_or_rollback(self.db)
+            if identity is None:  # pragma: no cover - defensive consistency check
+                raise RuntimeError("Revoked service identity could not be reloaded")
             self._audit(endpoint, identity, "revoked")
             return True
         except ManagedIdentityKeyDriftError as exc:
@@ -391,9 +556,11 @@ class EndpointServiceIdentityService:
             return False
         except (ValueError, RGWAdminError):
             self.db.rollback()
-            identity.status = "revocation_pending"
-            identity.last_error = "Remote revocation is pending; check Admin Ops permissions and RGW connectivity."
-            commit_or_rollback(self.db)
+            self._persist_identity_fields(
+                identity_id,
+                status="revocation_pending",
+                last_error="Remote revocation is pending; check Admin Ops permissions and RGW connectivity.",
+            )
             return False
 
     def _record_admin_validation_failure(
@@ -409,22 +576,30 @@ class EndpointServiceIdentityService:
             if isinstance(exc, RGWAdminError)
             else None
         )
-        for kind in desired:
-            identity = endpoint.service_identity(kind)
-            if skip_unprovisioned_identity(
-                identity,
-                provision_unprovisioned=provision_unprovisioned,
-            ):
-                continue
-            if identity is None or identity.status in ("ready", "revocation_pending", "disabled"):
-                continue
-            identity.status = "error"
-            identity.last_error = (
-                f"Unable to configure {kind}: {sanitized_error_log_detail(exc)}"
-                if failure == "misconfigured"
-                else "Admin Ops validation failed; check its required read permissions and RGW connectivity."
-            )
-        commit_or_rollback(self.db)
+        endpoint_id = int(endpoint.id)
+        error_detail = sanitized_error_log_detail(exc)
+
+        def persist_once(write_db: Session) -> None:
+            current_endpoint = write_db.get(StorageEndpoint, endpoint_id)
+            if current_endpoint is None:
+                raise ValueError("Endpoint no longer exists.")
+            for kind in desired:
+                identity = current_endpoint.service_identity(kind)
+                if skip_unprovisioned_identity(
+                    identity,
+                    provision_unprovisioned=provision_unprovisioned,
+                ):
+                    continue
+                if identity is None or identity.status in ("ready", "revocation_pending", "disabled"):
+                    continue
+                identity.status = "error"
+                identity.last_error = (
+                    f"Unable to configure {kind}: {error_detail}"
+                    if failure == "misconfigured"
+                    else "Admin Ops validation failed; check its required read permissions and RGW connectivity."
+                )
+
+        run_replayable_db_unit(self.db, persist_once)
 
     def _record_identity_reconcile_failure(
         self,
@@ -435,31 +610,48 @@ class EndpointServiceIdentityService:
         default_mode: str,
     ) -> EndpointServiceIdentity:
         self.db.rollback()
-        identity = endpoint.service_identity(kind)
-        if identity is None:
-            identity = EndpointServiceIdentity(
-                kind=kind,
-                mode=default_mode,
-                status="error",
-            )
-            endpoint.service_identities.append(identity)
         failure = (
             classify_rgw_credential_failure(exc)
             if isinstance(exc, RGWAdminError)
             else None
         )
+        error_detail = sanitized_error_log_detail(exc)
         unavailable = failure == "unavailable"
-        if identity.status != "revocation_pending":
-            if not (unavailable and identity.status == "ready"):
-                identity.status = "error"
-            identity.last_error = (
-                f"Unable to configure {kind}: {sanitized_error_log_detail(exc)}"
-                if failure == "misconfigured"
-                else f"{kind} validation is temporarily unavailable; existing credentials remain configured."
-                if unavailable and identity.status == "ready"
-                else f"Unable to configure {kind}; check credentials, required caps, ownership and RGW connectivity."
-            )
-        commit_or_rollback(self.db)
+        endpoint_id = int(endpoint.id)
+
+        def persist_once(write_db: Session) -> int:
+            current_endpoint = write_db.get(StorageEndpoint, endpoint_id)
+            if current_endpoint is None:
+                raise ValueError("Endpoint no longer exists.")
+            identity = current_endpoint.service_identity(kind)
+            if identity is None:
+                identity = EndpointServiceIdentity(
+                    kind=kind,
+                    mode=default_mode,
+                    status="error",
+                )
+                current_endpoint.service_identities.append(identity)
+            if identity.status != "revocation_pending":
+                if not (unavailable and identity.status == "ready"):
+                    identity.status = "error"
+                identity.last_error = (
+                    f"Unable to configure {kind}: {error_detail}"
+                    if failure == "misconfigured"
+                    else f"{kind} validation is temporarily unavailable; existing credentials remain configured."
+                    if unavailable and identity.status == "ready"
+                    else f"Unable to configure {kind}; check credentials, required caps, ownership and RGW connectivity."
+                )
+            write_db.flush()
+            return int(identity.id)
+
+        identity_id = run_replayable_db_unit(self.db, persist_once)
+        identity = self.db.get(
+            EndpointServiceIdentity,
+            identity_id,
+            populate_existing=True,
+        )
+        if identity is None:  # pragma: no cover - defensive consistency check
+            raise RuntimeError("Failed service identity could not be reloaded")
         return identity
 
     def _reconcile_service_identity(

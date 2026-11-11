@@ -173,6 +173,48 @@ def test_partial_remote_failure_resumes_persisted_key(identities):
     assert identity.status == "ready" and identity.access_key == access
 
 
+def test_managed_identity_provisioning_retries_sqlite_busy_before_remote_create(
+    identities,
+    db_session,
+):
+    service, endpoint, rgw = identities
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO endpoint_service_identities",
+    ) as matching_statements:
+        service.reconcile(endpoint, locked=True)
+
+    runtime = endpoint.service_identity("runtime")
+    assert runtime is not None and runtime.status == "ready"
+    # Runtime is attempted twice because of the injected BUSY snapshot, then
+    # supervision is inserted once during the same reconciliation pass.
+    assert len(matching_statements) == 3
+    assert len(
+        [
+            call
+            for call in rgw.calls
+            if call[0] == "create" and call[1] == runtime.rgw_uid
+        ]
+    ) == 1
+
+
+def test_installation_id_retries_sqlite_busy_before_remote_create(
+    identities,
+    db_session,
+):
+    service, endpoint, rgw = identities
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO app_settings",
+    ) as matching_statements:
+        service.reconcile(endpoint, locked=True)
+
+    assert len(matching_statements) == 2
+    assert len([call for call in rgw.calls if call[0] == "create"]) == 2
+
+
 def test_identity_validation_retries_sqlite_busy_without_replaying_rgw_check(
     identities,
     db_session,
@@ -317,6 +359,7 @@ def test_identity_reconcile_sanitizes_persisted_misconfigured_error(
 def test_ceph_admin_validation_sanitizes_persisted_value_error(identities, monkeypatch):
     service, endpoint, rgw = identities
     endpoint.service_identities.append(service_identity("ceph_admin", "CEPH-AK", "CEPH-SK"))
+    service.db.commit()
     rgw.users["ceph-admin"] = {
         "user_id": "ceph-admin",
         "admin": True,
@@ -340,9 +383,30 @@ def test_ceph_admin_validation_sanitizes_persisted_value_error(identities, monke
     assert identity.last_error == "secret_key=<redacted> endpoint=<redacted-url>"
 
 
+def test_ceph_admin_validation_does_not_discard_pending_state_for_unpersisted_identity(
+    identities,
+):
+    service, endpoint, rgw = identities
+    endpoint.name = "Pending endpoint rename"
+    identity = service_identity("ceph_admin", "CEPH-AK", "CEPH-SK")
+    endpoint.service_identities.append(identity)
+
+    with pytest.raises(
+        RuntimeError,
+        match="must be persisted before SQLite validation",
+    ):
+        service.validate_ceph_admin(endpoint)
+
+    assert endpoint.name == "Pending endpoint rename"
+    assert identity in service.db.new
+    assert identity in endpoint.service_identities
+    assert not rgw.calls
+
+
 def test_ceph_admin_validation_reads_nested_identity_and_preserves_tenant(identities):
     service, endpoint, rgw = identities
     endpoint.service_identities.append(service_identity("ceph_admin", "CEPH-AK", "CEPH-SK"))
+    service.db.commit()
     rgw.users["ceph-admin"] = {
         "admin": True,
         "system": False,
@@ -361,6 +425,7 @@ def test_ceph_admin_validation_reads_nested_identity_and_preserves_tenant(identi
 def test_ceph_admin_validation_rejects_conflicting_identity_fields(identities):
     service, endpoint, rgw = identities
     endpoint.service_identities.append(service_identity("ceph_admin", "CEPH-AK", "CEPH-SK"))
+    service.db.commit()
     rgw.users["ceph-admin"] = {
         "user_id": "ceph-admin-a",
         "admin": True,
@@ -939,7 +1004,7 @@ def test_ready_checkpoint_commit_failure_rolls_back_and_reuses_remote_identity(
 ):
     service, endpoint, rgw = identities
 
-    with fail_next_transaction_commit(db_session, occurrence=3):
+    with fail_next_transaction_commit(db_session, occurrence=4):
         with pytest.raises(RuntimeError, match="commit failed"):
             service.reconcile(endpoint, locked=True)
 
@@ -987,34 +1052,17 @@ def test_ready_checkpoint_retries_sqlite_busy_without_replaying_remote_validatio
 
 
 def test_revocation_final_commit_failure_restores_pending_checkpoint(
-    identities, db_session, monkeypatch
+    identities, db_session
 ):
-    from sqlalchemy.exc import OperationalError
-
     service, endpoint, rgw = identities
     service.reconcile(endpoint, locked=True)
     identity = endpoint.service_identity("runtime")
     uid = identity.rgw_uid
     access_key = identity.access_key
-    commit = db_session.commit
-    failed = False
 
-    def fail_disabled_checkpoint():
-        nonlocal failed
-        if not failed and any(
-            row is identity
-            and row.status == "disabled"
-            and row.access_key is None
-            for row in db_session.dirty
-        ):
-            failed = True
-            raise OperationalError("commit", {}, Exception("injected"))
-        return commit()
-
-    monkeypatch.setattr(db_session, "commit", fail_disabled_checkpoint)
-
-    with pytest.raises(OperationalError):
-        service.revoke(endpoint, "runtime")
+    with fail_next_transaction_commit(db_session, occurrence=2):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            service.revoke(endpoint, "runtime")
 
     assert identity.status == "revocation_pending"
     assert identity.access_key == access_key
@@ -1025,7 +1073,6 @@ def test_revocation_final_commit_failure_restores_pending_checkpoint(
         .where(AuditLog.action == "endpoint_service_identity.revoked")
     ) == 0
 
-    monkeypatch.setattr(db_session, "commit", commit)
     assert service.revoke(endpoint, "runtime")
     assert identity.status == "disabled" and identity.access_key is None
     assert len([call for call in rgw.calls if call[0] == "delete" and call[1] == uid]) == 1
@@ -1033,6 +1080,33 @@ def test_revocation_final_commit_failure_restores_pending_checkpoint(
         select(func.count())
         .select_from(AuditLog)
         .where(AuditLog.action == "endpoint_service_identity.revoked")
+    ) == 1
+
+
+@pytest.mark.parametrize("failure_occurrence", [1, 2])
+def test_revocation_retries_sqlite_checkpoints_without_replaying_remote_delete(
+    identities,
+    db_session,
+    failure_occurrence,
+):
+    service, endpoint, rgw = identities
+    service.reconcile(endpoint, locked=True)
+    identity = endpoint.service_identity("runtime")
+    assert identity is not None
+    uid = identity.rgw_uid
+    rgw.calls.clear()
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE endpoint_service_identities SET",
+        occurrence=failure_occurrence,
+    ) as matching_statements:
+        assert service.revoke(endpoint, "runtime") is True
+
+    assert len(matching_statements) >= failure_occurrence + 1
+    assert identity.status == "disabled"
+    assert len(
+        [call for call in rgw.calls if call[0] == "delete" and call[1] == uid]
     ) == 1
 
 
