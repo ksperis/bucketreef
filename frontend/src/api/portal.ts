@@ -3,7 +3,11 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client, { LONG_RUNNING_REQUEST_TIMEOUT_MS } from "./client";
-import { S3AccountSelector, withS3AccountParam } from "./accountParams";
+import {
+  buildS3AccountRequestConfig,
+  type S3AccountSelector,
+  withS3AccountParam,
+} from "./accountParams";
 import { filenameFromContentDisposition } from "./contentDisposition";
 import { lastNonEmptyPathSegment } from "../utils/pathSegments";
 import {
@@ -270,9 +274,10 @@ export async function listPortalStorageSpaces(
   if (options?.includeArchived) {
     baseParams.include_archived = true;
   }
-  const { data } = await client.get<PortalStorageSpaceSummary[]>("/portal/storage-spaces", {
-    params: withS3AccountParam(baseParams, accountId),
-  });
+  const { data } = await client.get<PortalStorageSpaceSummary[]>(
+    "/portal/storage-spaces",
+    buildS3AccountRequestConfig(accountId, baseParams),
+  );
   return data;
 }
 
@@ -280,9 +285,11 @@ export async function createPortalStorageSpace(
   accountId: S3AccountSelector,
   payload: PortalStorageSpaceCreate
 ): Promise<PortalStorageSpaceSummary> {
-  const { data } = await client.post<PortalStorageSpaceSummary>("/portal/storage-spaces", payload, {
-    params: withS3AccountParam(undefined, accountId),
-  });
+  const { data } = await client.post<PortalStorageSpaceSummary>(
+    "/portal/storage-spaces",
+    payload,
+    buildS3AccountRequestConfig(accountId),
+  );
   return data;
 }
 
@@ -290,9 +297,11 @@ export async function importPortalStorageSpace(
   accountId: S3AccountSelector,
   payload: PortalStorageSpaceImport
 ): Promise<PortalStorageSpaceSummary> {
-  const { data } = await client.post<PortalStorageSpaceSummary>("/portal/storage-spaces/import", payload, {
-    params: withS3AccountParam(undefined, accountId),
-  });
+  const { data } = await client.post<PortalStorageSpaceSummary>(
+    "/portal/storage-spaces/import",
+    payload,
+    buildS3AccountRequestConfig(accountId),
+  );
   return data;
 }
 
@@ -304,7 +313,7 @@ export async function updatePortalStorageSpace(
   const { data } = await client.patch<PortalStorageSpaceSummary>(
     `/portal/storage-spaces/${encodeURIComponent(spaceId)}`,
     payload,
-    { params: withS3AccountParam(undefined, accountId) }
+    buildS3AccountRequestConfig(accountId),
   );
   return data;
 }
@@ -315,7 +324,7 @@ export async function fetchPortalStorageSpaceSettings(
 ): Promise<PortalStorageSpaceSettings> {
   const { data } = await client.get<PortalStorageSpaceSettings>(
     `/portal/storage-spaces/${encodeURIComponent(spaceId)}/settings`,
-    { params: withS3AccountParam(undefined, accountId) }
+    buildS3AccountRequestConfig(accountId),
   );
   return data;
 }
@@ -328,7 +337,7 @@ export async function updatePortalStorageSpaceSettings(
   const { data } = await client.put<PortalStorageSpaceSettings>(
     `/portal/storage-spaces/${encodeURIComponent(spaceId)}/settings`,
     payload,
-    { params: withS3AccountParam(undefined, accountId) }
+    buildS3AccountRequestConfig(accountId),
   );
   return data;
 }
@@ -341,7 +350,7 @@ export async function updatePortalStorageSpaceIcon(
   const { data } = await client.put<StorageSpaceIconDescriptor>(
     `/portal/storage-spaces/${encodeURIComponent(spaceId)}/icon`,
     payload,
-    { params: withS3AccountParam(undefined, accountId) }
+    buildS3AccountRequestConfig(accountId),
   );
   return data;
 }
@@ -356,7 +365,7 @@ export async function uploadPortalStorageSpaceIcon(
   const { data } = await client.put<StorageSpaceIconDescriptor>(
     `/portal/storage-spaces/${encodeURIComponent(spaceId)}/icon/image`,
     formData,
-    { params: withS3AccountParam(undefined, accountId) }
+    buildS3AccountRequestConfig(accountId),
   );
   return data;
 }
@@ -368,7 +377,7 @@ export async function takePortalStorageSpaceOwnership(
   const { data } = await client.post<PortalStorageSpaceSummary>(
     `/portal/storage-spaces/${encodeURIComponent(spaceId)}/take-ownership`,
     undefined,
-    { params: withS3AccountParam(undefined, accountId) }
+    buildS3AccountRequestConfig(accountId),
   );
   return data;
 }
@@ -377,9 +386,10 @@ export async function deletePortalStorageSpace(
   accountId: S3AccountSelector,
   spaceId: string
 ): Promise<void> {
-  await client.delete(`/portal/storage-spaces/${encodeURIComponent(spaceId)}`, {
-    params: withS3AccountParam(undefined, accountId),
-  });
+  await client.delete(
+    `/portal/storage-spaces/${encodeURIComponent(spaceId)}`,
+    buildS3AccountRequestConfig(accountId),
+  );
 }
 
 export async function fetchPortalStorageSpaceObjectDetail(
@@ -391,7 +401,13 @@ export async function fetchPortalStorageSpaceObjectDetail(
 ): Promise<PortalStorageObjectDetail> {
   const { data } = await client.get<PortalStorageObjectDetail>(
     `/portal/storage-spaces/${encodeURIComponent(spaceId)}/objects/detail`,
-    { params: withS3AccountParam({ key, ...(versionId != null ? { version_id: versionId } : {}) }, accountId), ...(signal ? { signal } : {}) }
+    {
+      ...buildS3AccountRequestConfig(accountId, {
+        key,
+        ...(versionId != null ? { version_id: versionId } : {}),
+      }),
+      ...(signal ? { signal } : {}),
+    },
   );
   return data;
 }
@@ -407,18 +423,13 @@ export async function fetchPortalStorageSpaceObjectVersions(
 ): Promise<PortalStorageObjectVersionsResponse> {
   const { data } = await client.get<PortalStorageObjectVersionsResponse>(
     `/portal/storage-spaces/${encodeURIComponent(spaceId)}/objects/versions`,
-    {
-      params: withS3AccountParam(
-        {
-          key,
-          ...(markers?.keyMarker ? { key_marker: markers.keyMarker } : {}),
-          ...(markers?.versionIdMarker
-            ? { version_id_marker: markers.versionIdMarker }
-            : {}),
-        },
-        accountId
-      ),
-    }
+    buildS3AccountRequestConfig(accountId, {
+      key,
+      ...(markers?.keyMarker ? { key_marker: markers.keyMarker } : {}),
+      ...(markers?.versionIdMarker
+        ? { version_id_marker: markers.versionIdMarker }
+        : {}),
+    }),
   );
   return data;
 }
@@ -435,7 +446,7 @@ export async function restorePortalStorageSpaceObject(
       key,
       ...(versionId ? { version_id: versionId } : {}),
     },
-    { params: withS3AccountParam(undefined, accountId) }
+    buildS3AccountRequestConfig(accountId),
   );
   return data;
 }
@@ -475,7 +486,7 @@ export async function deletePortalStorageSpaceObject(
 ): Promise<void> {
   await client.delete(
     `/portal/storage-spaces/${encodeURIComponent(spaceId)}/objects`,
-    { params: withS3AccountParam({ key }, accountId) }
+    buildS3AccountRequestConfig(accountId, { key }),
   );
 }
 
@@ -520,7 +531,10 @@ export async function downloadPortalStorageSpaceObject(
   const response = await client.get<Blob>(
     `/portal/storage-spaces/${encodeURIComponent(spaceId)}/objects/download`,
     {
-      params: withS3AccountParam({ key, ...(versionId != null ? { version_id: versionId } : {}) }, accountId),
+      ...buildS3AccountRequestConfig(accountId, {
+        key,
+        ...(versionId != null ? { version_id: versionId } : {}),
+      }),
       responseType: "blob",
       ...(signal ? { signal } : {}),
       timeout: LONG_RUNNING_REQUEST_TIMEOUT_MS,

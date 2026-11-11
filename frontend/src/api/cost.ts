@@ -4,10 +4,10 @@
  */
 import client, { LONG_RUNNING_REQUEST_TIMEOUT_MS } from "./client";
 import {
+  buildS3AccountRequestConfig,
   buildS3ContextRequestConfig,
   type S3AccountSelector,
   type S3ExecutionContextSelector,
-  withS3AccountParam,
 } from "./accountParams";
 
 export type CostSubjectType = "all" | "account" | "s3_user";
@@ -285,9 +285,10 @@ export async function collectCostDaily(day: string): Promise<CostCollectionResul
 
 export async function getPortalCostMe(month: string, accountId?: S3AccountSelector): Promise<CostSubjectDetail> {
   const params: Record<string, string> = { month };
-  const { data } = await client.get<CostSubjectDetail>("/portal/cost/me", {
-    params: withS3AccountParam(params, accountId),
-  });
+  const { data } = await client.get<CostSubjectDetail>(
+    "/portal/cost/me",
+    buildS3AccountRequestConfig(accountId, params),
+  );
   return data;
 }
 

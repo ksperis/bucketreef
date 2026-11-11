@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { S3AccountSelector } from "./accountParams";
-import { withS3AccountParam } from "./accountParams";
+import { buildS3AccountRequestConfig } from "./accountParams";
 import client from "./client";
 import type {
   PortalStorageSpaceAccountMemberRole,
@@ -64,7 +64,7 @@ export async function fetchPortalStorageSpaceAccessSummary(
 ): Promise<PortalStorageSpaceAccessSummary> {
   const { data } = await client.get<PortalStorageSpaceAccessSummary>(
     `/portal/storage-spaces/${encodeURIComponent(spaceId)}/access-summary`,
-    { params: withS3AccountParam(undefined, accountId) },
+    buildS3AccountRequestConfig(accountId),
   );
   return data;
 }
@@ -75,7 +75,7 @@ export async function listPortalShareCandidates(
 ): Promise<PaginatedResponse<PortalStorageSpaceShareCandidate>> {
   const { data } = await client.get<PaginatedResponse<PortalStorageSpaceShareCandidate>>(
     "/portal/share-candidates",
-    { params: withS3AccountParam(query, accountId) },
+    buildS3AccountRequestConfig(accountId, query),
   );
   return data;
 }
@@ -87,7 +87,7 @@ export async function listPortalStorageSpaceShareCandidates(
 ): Promise<PaginatedResponse<PortalStorageSpaceShareCandidate>> {
   const { data } = await client.get<PaginatedResponse<PortalStorageSpaceShareCandidate>>(
     `/portal/storage-spaces/${encodeURIComponent(spaceId)}/share-candidates`,
-    { params: withS3AccountParam(query, accountId) },
+    buildS3AccountRequestConfig(accountId, query),
   );
   return data;
 }
@@ -103,7 +103,7 @@ export async function grantPortalStorageSpaceShare(
   const { data } = await client.post<PortalStorageSpaceShare>(
     `/portal/storage-spaces/${encodeURIComponent(spaceId)}/shares`,
     payload,
-    { params: withS3AccountParam(undefined, accountId) },
+    buildS3AccountRequestConfig(accountId),
   );
   return data;
 }
@@ -117,7 +117,7 @@ export async function updatePortalStorageSpaceShare(
   const { data } = await client.put<PortalStorageSpaceShare>(
     `/portal/storage-spaces/${encodeURIComponent(spaceId)}/shares/${userId}`,
     { role },
-    { params: withS3AccountParam(undefined, accountId) },
+    buildS3AccountRequestConfig(accountId),
   );
   return data;
 }
@@ -129,7 +129,7 @@ export async function revokePortalStorageSpaceShare(
 ): Promise<PortalStorageSpaceShare[]> {
   const { data } = await client.delete<PortalStorageSpaceShare[]>(
     `/portal/storage-spaces/${encodeURIComponent(spaceId)}/shares/${userId}`,
-    { params: withS3AccountParam(undefined, accountId) },
+    buildS3AccountRequestConfig(accountId),
   );
   return data;
 }
@@ -148,7 +148,7 @@ export async function listPortalStorageSpacePublicLinks(
   }
   const { data } = await client.get<PortalPublicLink[]>(
     `/portal/storage-spaces/${encodeURIComponent(spaceId)}/public-links`,
-    { params: withS3AccountParam(baseParams, accountId) },
+    buildS3AccountRequestConfig(accountId, baseParams),
   );
   return data;
 }
@@ -165,7 +165,7 @@ export async function createPortalStorageSpacePublicLink(
   const { data } = await client.post<PortalPublicLink>(
     `/portal/storage-spaces/${encodeURIComponent(spaceId)}/public-links`,
     payload,
-    { params: withS3AccountParam(undefined, accountId) },
+    buildS3AccountRequestConfig(accountId),
   );
   return data;
 }
@@ -177,7 +177,7 @@ export async function revokePortalStorageSpacePublicLink(
 ): Promise<PortalPublicLink[]> {
   const { data } = await client.delete<PortalPublicLink[]>(
     `/portal/storage-spaces/${encodeURIComponent(spaceId)}/public-links/${linkId}`,
-    { params: withS3AccountParam(undefined, accountId) },
+    buildS3AccountRequestConfig(accountId),
   );
   return data;
 }

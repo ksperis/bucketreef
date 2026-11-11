@@ -5,8 +5,8 @@
 import client from "./client";
 import type { S3AccountSelector, S3ExecutionContextSelector } from "./accountParams";
 import {
+  buildS3AccountRequestConfig,
   buildS3ContextRequestConfig,
-  withS3AccountParam,
 } from "./accountParams";
 
 export type HealthCheckStatus = "unknown" | "up" | "degraded" | "down";
@@ -298,9 +298,10 @@ export async function fetchManagerWorkspaceHealthOverview(
 export async function fetchPortalWorkspaceHealthOverview(
   accountId: S3AccountSelector
 ): Promise<WorkspaceEndpointHealthOverviewResponse> {
-  const { data } = await client.get<WorkspaceEndpointHealthOverviewResponse>("/portal/endpoint-health", {
-    params: withS3AccountParam(undefined, accountId),
-  });
+  const { data } = await client.get<WorkspaceEndpointHealthOverviewResponse>(
+    "/portal/endpoint-health",
+    buildS3AccountRequestConfig(accountId),
+  );
   return data;
 }
 

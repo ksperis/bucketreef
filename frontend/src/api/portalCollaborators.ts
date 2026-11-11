@@ -4,7 +4,7 @@
  */
 import type { PortalAccountRole } from "./accountAccess";
 import type { S3AccountSelector } from "./accountParams";
-import { withS3AccountParam } from "./accountParams";
+import { buildS3AccountRequestConfig } from "./accountParams";
 import client from "./client";
 import type { PortalStorageSpaceRole } from "./portal";
 import type { UserAvatarDescriptor } from "./users";
@@ -62,7 +62,7 @@ export async function fetchPortalCollaborators(
 ): Promise<PortalCollaboratorsResponse> {
   const { data } = await client.get<PortalCollaboratorsResponse>(
     "/portal/collaborators",
-    { params: withS3AccountParam(undefined, accountId) },
+    buildS3AccountRequestConfig(accountId),
   );
   return data;
 }
@@ -73,7 +73,7 @@ export async function fetchPortalCollaboratorAccessReview(
 ): Promise<PortalCollaboratorAccessReview> {
   const { data } = await client.get<PortalCollaboratorAccessReview>(
     `/portal/collaborators/${encodeURIComponent(userId)}/access`,
-    { params: withS3AccountParam(undefined, accountId) },
+    buildS3AccountRequestConfig(accountId),
   );
   return data;
 }

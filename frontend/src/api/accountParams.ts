@@ -29,6 +29,13 @@ export function withS3AccountParam(
   return { ...(params ?? {}), account_id: accountId };
 }
 
+export function buildS3AccountRequestConfig(
+  accountId?: S3AccountSelector,
+  params?: Record<string, unknown> | null,
+) {
+  return { params: withS3AccountParam(params, accountId) };
+}
+
 export function withS3ContextParam(
   params?: Record<string, unknown> | null,
   contextId?: S3ExecutionContextSelector
