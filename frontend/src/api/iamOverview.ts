@@ -3,7 +3,8 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
-import { S3ExecutionContextSelector, withS3ContextParam } from "./accountParams";
+import type { S3ExecutionContextSelector } from "./accountParams";
+import { buildS3ContextRequestConfig } from "./accountParams";
 
 export type IamOverview = {
   iam_users: number;
@@ -14,8 +15,9 @@ export type IamOverview = {
 };
 
 export async function fetchIamOverview(contextId?: S3ExecutionContextSelector): Promise<IamOverview> {
-  const { data } = await client.get<IamOverview>("/manager/iam/overview", {
-    params: withS3ContextParam(undefined, contextId),
-  });
+  const { data } = await client.get<IamOverview>(
+    "/manager/iam/overview",
+    buildS3ContextRequestConfig(contextId),
+  );
   return data;
 }

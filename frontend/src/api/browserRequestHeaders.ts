@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { S3ExecutionContextSelector } from "./accountParams";
-import { withS3ContextParam } from "./accountParams";
+import { buildS3ContextRequestConfig } from "./accountParams";
 import type { BrowserRequestOptions } from "./browserWorkspace";
 
 export function buildBrowserWorkspaceHeaders(
@@ -32,7 +32,7 @@ export function buildBrowserRequestConfig(
   additionalHeaders?: Record<string, string>,
 ) {
   return {
-    params: withS3ContextParam(params, contextId),
+    ...buildS3ContextRequestConfig(contextId, params),
     headers:
       mergeBrowserHeaders(
         additionalHeaders,

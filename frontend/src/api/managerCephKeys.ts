@@ -3,7 +3,8 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
-import { S3ExecutionContextSelector, withS3ContextParam } from "./accountParams";
+import type { S3ExecutionContextSelector } from "./accountParams";
+import { buildS3ContextRequestConfig } from "./accountParams";
 import type {
   AccessKeyMetadata,
   AccessKeyMetadataInput,
@@ -26,9 +27,10 @@ export type ManagerCephGeneratedAccessKey = AccessKeyMetadata & {
 };
 
 export async function listManagerCephAccessKeys(contextId?: S3ExecutionContextSelector): Promise<ManagerCephAccessKey[]> {
-  const { data } = await client.get<ManagerCephAccessKey[]>("/manager/ceph/keys", {
-    params: withS3ContextParam(undefined, contextId),
-  });
+  const { data } = await client.get<ManagerCephAccessKey[]>(
+    "/manager/ceph/keys",
+    buildS3ContextRequestConfig(contextId),
+  );
   return data;
 }
 
@@ -39,7 +41,7 @@ export async function createManagerCephAccessKey(
   const { data } = await client.post<ManagerCephGeneratedAccessKey>(
     "/manager/ceph/keys",
     metadata ?? {},
-    { params: withS3ContextParam(undefined, contextId) }
+    buildS3ContextRequestConfig(contextId)
   );
   return data;
 }
@@ -52,7 +54,7 @@ export async function updateManagerCephAccessKeyMetadata(
   const { data } = await client.patch<AccessKeyMetadata>(
     `/manager/ceph/keys/${encodeURIComponent(accessKeyId)}/metadata`,
     metadata,
-    { params: withS3ContextParam(undefined, contextId) },
+    buildS3ContextRequestConfig(contextId),
   );
   return data;
 }
@@ -65,13 +67,14 @@ export async function updateManagerCephAccessKeyStatus(
   const { data } = await client.put<ManagerCephAccessKey>(
     `/manager/ceph/keys/${encodeURIComponent(accessKeyId)}/status`,
     { active },
-    { params: withS3ContextParam(undefined, contextId) }
+    buildS3ContextRequestConfig(contextId)
   );
   return data;
 }
 
 export async function deleteManagerCephAccessKey(contextId: S3ExecutionContextSelector, accessKeyId: string): Promise<void> {
-  await client.delete(`/manager/ceph/keys/${encodeURIComponent(accessKeyId)}`, {
-    params: withS3ContextParam(undefined, contextId),
-  });
+  await client.delete(
+    `/manager/ceph/keys/${encodeURIComponent(accessKeyId)}`,
+    buildS3ContextRequestConfig(contextId),
+  );
 }

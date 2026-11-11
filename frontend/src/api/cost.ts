@@ -4,10 +4,10 @@
  */
 import client, { LONG_RUNNING_REQUEST_TIMEOUT_MS } from "./client";
 import {
-  S3AccountSelector,
-  S3ExecutionContextSelector,
+  buildS3ContextRequestConfig,
+  type S3AccountSelector,
+  type S3ExecutionContextSelector,
   withS3AccountParam,
-  withS3ContextParam,
 } from "./accountParams";
 
 export type CostSubjectType = "all" | "account" | "s3_user";
@@ -295,8 +295,9 @@ export async function getManagerCostMe(
   month: string,
   contextId?: S3ExecutionContextSelector,
 ): Promise<CostSubjectDetail> {
-  const { data } = await client.get<CostSubjectDetail>("/manager/cost/me", {
-    params: withS3ContextParam({ month }, contextId),
-  });
+  const { data } = await client.get<CostSubjectDetail>(
+    "/manager/cost/me",
+    buildS3ContextRequestConfig(contextId, { month }),
+  );
   return data;
 }

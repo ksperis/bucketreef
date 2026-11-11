@@ -4,8 +4,8 @@
  */
 import client from "./client";
 import type { S3ExecutionContextSelector } from "./accountParams";
+import { buildS3ContextRequestConfig } from "./accountParams";
 import {
-  buildIamRequestConfig,
   type IamCursorPage,
   type IamCursorQuery,
 } from "./managerIamEntityClient";
@@ -27,7 +27,7 @@ export async function listIamPoliciesPage(
   contextId: S3ExecutionContextSelector,
   query: IamCursorQuery = {},
 ): Promise<IamCursorPage<IamPolicy>> {
-  const requestConfig = buildIamRequestConfig(
+  const requestConfig = buildS3ContextRequestConfig(
     contextId,
     {
       ...(query.marker ? { marker: query.marker } : {}),
@@ -50,7 +50,7 @@ export async function createIamPolicy(
   const { data } = await client.post<IamPolicy>(
     "/manager/iam/policies",
     { name, document },
-    buildIamRequestConfig(contextId)
+    buildS3ContextRequestConfig(contextId)
   );
   return data;
 }

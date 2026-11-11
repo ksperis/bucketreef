@@ -4,7 +4,7 @@
  */
 import client from "./client";
 import type { S3ExecutionContextSelector } from "./accountParams";
-import { withS3ContextParam } from "./accountParams";
+import { buildS3ContextRequestConfig } from "./accountParams";
 import type { IamPolicy, InlinePolicy } from "./managerIamPolicies";
 
 type IamEntitySegment = "users" | "groups" | "roles";
@@ -29,19 +29,12 @@ function entityPath(segment: IamEntitySegment, entityName: string): string {
   return `${segmentBasePath(segment)}/${encodeURIComponent(entityName)}`;
 }
 
-export function buildIamRequestConfig(
-  contextId?: S3ExecutionContextSelector,
-  params?: Record<string, unknown> | null,
-) {
-  return { params: withS3ContextParam(params, contextId) };
-}
-
 export async function listIamEntityPage<T>(
   segment: IamEntitySegment,
   contextId: S3ExecutionContextSelector,
   query: IamCursorQuery = {},
 ): Promise<IamCursorPage<T>> {
-  const requestConfig = buildIamRequestConfig(
+  const requestConfig = buildS3ContextRequestConfig(
     contextId,
     {
       ...(query.marker ? { marker: query.marker } : {}),
@@ -64,7 +57,7 @@ export async function getIamEntity<T>(
 ): Promise<T> {
   const { data } = await client.get<T>(
     entityPath(segment, entityName),
-    buildIamRequestConfig(contextId),
+    buildS3ContextRequestConfig(contextId),
   );
   return data;
 }
@@ -77,7 +70,7 @@ export async function createIamEntity<T, Payload extends object = object>(
   const { data } = await client.post<T>(
     segmentBasePath(segment),
     payload,
-    buildIamRequestConfig(contextId),
+    buildS3ContextRequestConfig(contextId),
   );
   return data;
 }
@@ -91,13 +84,13 @@ export async function updateIamEntity<T, Payload extends object>(
   const { data } = await client.patch<T>(
     entityPath(segment, entityName),
     payload,
-    buildIamRequestConfig(contextId),
+    buildS3ContextRequestConfig(contextId),
   );
   return data;
 }
 
 export async function deleteIamEntity(segment: IamEntitySegment, contextId: S3ExecutionContextSelector, entityName: string): Promise<void> {
-  await client.delete(entityPath(segment, entityName), buildIamRequestConfig(contextId));
+  await client.delete(entityPath(segment, entityName), buildS3ContextRequestConfig(contextId));
 }
 
 export async function listEntityPolicies(
@@ -107,7 +100,7 @@ export async function listEntityPolicies(
 ): Promise<IamPolicy[]> {
   const { data } = await client.get<IamPolicy[]>(
     `${entityPath(segment, entityName)}/policies`,
-    buildIamRequestConfig(contextId),
+    buildS3ContextRequestConfig(contextId),
   );
   return data;
 }
@@ -121,7 +114,7 @@ export async function attachEntityPolicy(
   const { data } = await client.post<IamPolicy>(
     `${entityPath(segment, entityName)}/policies`,
     policy,
-    buildIamRequestConfig(contextId),
+    buildS3ContextRequestConfig(contextId),
   );
   return data;
 }
@@ -134,7 +127,7 @@ export async function detachEntityPolicy(
 ): Promise<void> {
   await client.delete(
     `${entityPath(segment, entityName)}/policies/${encodeURIComponent(policyArn)}`,
-    buildIamRequestConfig(contextId),
+    buildS3ContextRequestConfig(contextId),
   );
 }
 
@@ -145,7 +138,7 @@ export async function listEntityInlinePolicies(
 ): Promise<InlinePolicy[]> {
   const { data } = await client.get<InlinePolicy[]>(
     `${entityPath(segment, entityName)}/inline-policies`,
-    buildIamRequestConfig(contextId),
+    buildS3ContextRequestConfig(contextId),
   );
   return data;
 }
@@ -160,7 +153,7 @@ export async function putEntityInlinePolicy(
   const { data } = await client.put<InlinePolicy>(
     `${entityPath(segment, entityName)}/inline-policies/${encodeURIComponent(policyName)}`,
     { name: policyName, document },
-    buildIamRequestConfig(contextId)
+    buildS3ContextRequestConfig(contextId)
   );
   return data;
 }
@@ -173,6 +166,6 @@ export async function deleteEntityInlinePolicy(
 ): Promise<void> {
   await client.delete(
     `${entityPath(segment, entityName)}/inline-policies/${encodeURIComponent(policyName)}`,
-    buildIamRequestConfig(contextId),
+    buildS3ContextRequestConfig(contextId),
   );
 }

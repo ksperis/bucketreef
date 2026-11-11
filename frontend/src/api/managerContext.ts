@@ -5,7 +5,8 @@
 import client from "./client";
 import type { FeatureState } from "./featurePolicies";
 import type { NamingValidationProfile } from "../utils/resourceNames";
-import { S3ExecutionContextSelector, withS3ContextParam } from "./accountParams";
+import type { S3ExecutionContextSelector } from "./accountParams";
+import { buildS3ContextRequestConfig } from "./accountParams";
 
 export type ManagerAccessMode = "admin" | "session" | "s3_user" | "connection" | "openstack_project";
 export type ManagerContextKind = "account" | "connection" | "openstack_project";
@@ -39,11 +40,12 @@ export async function fetchManagerContext(
   contextId?: S3ExecutionContextSelector,
   options: { includeLimits?: boolean } = {}
 ): Promise<ManagerContext> {
-  const { data } = await client.get<ManagerContext>("/manager/context", {
-    params: withS3ContextParam(
+  const { data } = await client.get<ManagerContext>(
+    "/manager/context",
+    buildS3ContextRequestConfig(
+      contextId,
       options.includeLimits ? { include_limits: true } : undefined,
-      contextId
     ),
-  });
+  );
   return data;
 }

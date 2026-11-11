@@ -3,7 +3,8 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
-import { S3ExecutionContextSelector, withS3ContextParam } from "./accountParams";
+import type { S3ExecutionContextSelector } from "./accountParams";
+import { buildS3ContextRequestConfig } from "./accountParams";
 
 export type ManagerObject = {
   key: string;
@@ -28,15 +29,10 @@ export async function listManagerObjects(
 ): Promise<ManagerObjectListingResponse> {
   const { data } = await client.get<ManagerObjectListingResponse>(
     `/manager/buckets/${encodeURIComponent(bucketName)}/objects`,
-    {
-      params: withS3ContextParam(
-        {
-          prefix,
-          continuation_token: continuationToken,
-        },
-        contextId,
-      ),
-    },
+    buildS3ContextRequestConfig(contextId, {
+      prefix,
+      continuation_token: continuationToken,
+    }),
   );
   return data;
 }

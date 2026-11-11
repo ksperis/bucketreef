@@ -4,7 +4,7 @@
  */
 import client, { timeoutForRequestProfile } from "./client";
 import type { S3ExecutionContextSelector } from "./accountParams";
-import { withS3ContextParam } from "./accountParams";
+import { buildS3ContextRequestConfig } from "./accountParams";
 import type { Bucket } from "./bucketContracts";
 import type { PaginatedResponse } from "./types";
 import type {
@@ -41,9 +41,10 @@ export async function listBucketOptions(
   contextId: S3ExecutionContextSelector,
   query: { page?: number; page_size?: number; search?: string },
 ): Promise<PaginatedResponse<ManagerBucketOption>> {
-  const { data } = await client.get<PaginatedResponse<ManagerBucketOption>>(`${MANAGER_BUCKETS_PATH}/options`, {
-    params: withS3ContextParam(query, contextId),
-  });
+  const { data } = await client.get<PaginatedResponse<ManagerBucketOption>>(
+    `${MANAGER_BUCKETS_PATH}/options`,
+    buildS3ContextRequestConfig(contextId, query),
+  );
   return data;
 }
 
@@ -52,12 +53,12 @@ export async function listBuckets(
   options?: { include?: string[]; with_stats?: boolean; signal?: AbortSignal }
 ): Promise<Bucket[]> {
   const { data } = await client.get<Bucket[]>(MANAGER_BUCKETS_PATH, {
-    params: withS3ContextParam(
+    ...buildS3ContextRequestConfig(
+      contextId,
       {
         include: options?.include?.join(","),
         with_stats: options?.with_stats,
       },
-      contextId
     ),
     signal: options?.signal,
   });
@@ -69,7 +70,7 @@ export async function listFeatureRuleInventory(
   feature: FeatureRuleFeature
 ): Promise<FeatureRuleInventoryBucket[]> {
   const { data } = await client.get<FeatureRuleInventoryBucket[]>("/manager/feature-rules", {
-    params: withS3ContextParam({ feature }, contextId),
+    ...buildS3ContextRequestConfig(contextId, { feature }),
     timeout: timeoutForRequestProfile("long_running"),
   });
   return data;
@@ -89,14 +90,15 @@ export async function createBucket(name: string, contextId: S3ExecutionContextSe
       versioning: options.versioning,
       location_constraint: locationConstraint || undefined,
     },
-    { params: withS3ContextParam(undefined, contextId) }
+    buildS3ContextRequestConfig(contextId)
   );
 }
 
 export async function deleteBucket(name: string, contextId: S3ExecutionContextSelector): Promise<void> {
-  await client.delete(`${MANAGER_BUCKETS_PATH}/${encodeURIComponent(name)}`, {
-    params: withS3ContextParam(undefined, contextId),
-  });
+  await client.delete(
+    `${MANAGER_BUCKETS_PATH}/${encodeURIComponent(name)}`,
+    buildS3ContextRequestConfig(contextId),
+  );
 }
 
 type ManagerBucketCompareRequest = {
@@ -145,7 +147,7 @@ export async function compareManagerBucketPair(
     `${MANAGER_BUCKETS_PATH}/compare`,
     payload,
     {
-      params: withS3ContextParam(undefined, sourceContextId),
+      ...buildS3ContextRequestConfig(sourceContextId),
       signal: options?.signal,
       timeout: timeoutForRequestProfile("long_running"),
     }
@@ -162,7 +164,7 @@ export async function runManagerBucketCompareAction(
     `${MANAGER_BUCKETS_PATH}/compare/action`,
     payload,
     {
-      params: withS3ContextParam(undefined, sourceContextId),
+      ...buildS3ContextRequestConfig(sourceContextId),
       signal: options?.signal,
       timeout: timeoutForRequestProfile("long_running"),
     }
