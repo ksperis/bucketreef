@@ -11,7 +11,7 @@ from typing import Callable
 
 from app.models.bucket import Bucket
 from app.services.s3_execution_client import s3_execution_cache_key
-from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.cache import (
     TtlCacheEntry,
     get_or_build_single_flight_cache,
@@ -50,14 +50,14 @@ def _normalize_include_key(include: set[str]) -> str:
     return ",".join(normalized)
 
 
-def _context_scope_key(context: S3ExecutionTarget) -> str:
+def _context_scope_key(context: S3ExecutionContext) -> str:
     """Invalidate all execution variants of the explicitly selected resource."""
-    return context.context_id if isinstance(context, S3ExecutionContext) else str(context.id)
+    return context.context_id
 
 
 def get_cached_bucket_listing_for_context(
     *,
-    context: S3ExecutionTarget,
+    context: S3ExecutionContext,
     include: set[str],
     with_stats: bool,
     builder: Callable[[], list[Bucket]],
@@ -92,5 +92,5 @@ def invalidate_bucket_listing_cache(scope_key: str | None = None) -> None:
     )
 
 
-def invalidate_bucket_listing_cache_for_context(context: S3ExecutionTarget) -> None:
+def invalidate_bucket_listing_cache_for_context(context: S3ExecutionContext) -> None:
     invalidate_bucket_listing_cache(_context_scope_key(context))

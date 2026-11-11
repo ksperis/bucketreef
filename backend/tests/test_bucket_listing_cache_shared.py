@@ -8,7 +8,7 @@ from dataclasses import replace
 
 import pytest
 
-from app.db import S3Account, User
+from app.db import User
 from app.core.domain_enums import UserRole
 from app.main import app
 from app.models.bucket import Bucket
@@ -48,16 +48,17 @@ class _FakeBucketsService:
         return None
 
 
-def _build_account() -> S3Account:
-    account = S3Account(
+def _build_context(*, context_id: str = "1", account_id: int = 1) -> S3ExecutionContext:
+    return S3ExecutionContext(
+        context_id=context_id,
+        context_kind="account",
+        id=account_id,
         name="cache-account",
         rgw_tenant="",
         rgw_account_id="RGW00000000000000999",
-        rgw_access_key="AK-CACHE",
-        rgw_secret_key="SK-CACHE",
+        access_key="AK-CACHE",
+        secret_key="SK-CACHE",
     )
-    account.id = 1
-    return account
 
 
 def _admin_user() -> User:
@@ -84,7 +85,7 @@ def _manager_user() -> User:
 
 def test_manager_bucket_listing_uses_shared_cache(client):
     invalidate_bucket_listing_cache()
-    account = _build_account()
+    account = _build_context()
     service = _FakeBucketsService()
 
     app.dependency_overrides[manager_buckets_router.get_s3_execution_context] = lambda: account
@@ -105,7 +106,7 @@ def test_manager_bucket_listing_uses_shared_cache(client):
 
 def test_manager_mutation_invalidates_shared_cache_for_storage_ops(client, monkeypatch):
     invalidate_bucket_listing_cache()
-    account = _build_account()
+    account = _build_context()
     service = _FakeBucketsService()
 
     def fake_list_storage_ops_contexts(user, db):  # noqa: ARG001
@@ -160,7 +161,7 @@ def test_manager_mutation_invalidates_shared_cache_for_storage_ops(client, monke
 
 def test_storage_ops_bucket_listing_cache_refresh_endpoint_invalidates_shared_cache(client, monkeypatch):
     invalidate_bucket_listing_cache()
-    account = _build_account()
+    account = _build_context()
     service = _FakeBucketsService()
 
     def fake_list_storage_ops_contexts(user, db):  # noqa: ARG001
@@ -205,7 +206,7 @@ def test_storage_ops_bucket_listing_cache_refresh_endpoint_invalidates_shared_ca
 
 def test_shared_bucket_listing_cache_coalesces_parallel_misses():
     invalidate_bucket_listing_cache()
-    account = _build_account()
+    account = _build_context()
     builder_calls = 0
     builder_lock = threading.Lock()
     unblock = threading.Event()
@@ -250,7 +251,7 @@ def test_shared_bucket_listing_cache_coalesces_parallel_misses():
 
 def test_shared_bucket_listing_cache_expires_after_ttl(monkeypatch):
     invalidate_bucket_listing_cache()
-    account = _build_account()
+    account = _build_context()
     service = _FakeBucketsService()
     now = 1000.0
 
@@ -299,11 +300,7 @@ def test_shared_bucket_listing_cache_expires_after_ttl(monkeypatch):
     ],
 )
 def test_shared_cache_partitions_execution_configuration_and_invalidates_scope(changes):
-    account = _build_account()
-    access_key, secret_key = account.effective_rgw_credentials()
-    context = S3ExecutionContext.from_account(
-        account, access_key=access_key, secret_key=secret_key,
-    )
+    context = _build_context()
     context.session_token_value = "original-session"
     context.session_region = "us-east-1"
     context.session_force_path_style = True
@@ -325,7 +322,7 @@ def test_shared_cache_partitions_execution_configuration_and_invalidates_scope(c
     assert read(context) == "result-1"
     assert read(other) == "result-2"
     assert read(other) == "result-2"
-    invalidate_bucket_listing_cache_for_context(account)
+    invalidate_bucket_listing_cache_for_context(context)
     assert read(context) == "result-3"
     assert read(other) == "result-4"
 
@@ -379,7 +376,7 @@ def test_shared_cache_scope_uses_explicit_context_id(kind, context_id, source_id
 def test_invalidation_detaches_pending_listing(
     invalidate_all, old_finishes_first, old_fails,
 ):
-    account = _build_account()
+    account = _build_context()
     old_started = threading.Event()
     new_started = threading.Event()
     finish_old = threading.Event()
@@ -440,7 +437,7 @@ def test_invalidation_detaches_pending_listing(
 
 @pytest.mark.parametrize("old_fails", [False, True])
 def test_invalidation_preserves_existing_waiters_and_new_load_ownership(monkeypatch, old_fails):
-    account = _build_account()
+    account = _build_context()
     started = [threading.Event(), threading.Event()]
     waiting = [threading.Event(), threading.Event()]
     finish = [threading.Event(), threading.Event()]
@@ -501,9 +498,8 @@ def test_invalidation_preserves_existing_waiters_and_new_load_ownership(monkeypa
 
 
 def test_scoped_invalidation_preserves_unrelated_pending_load(monkeypatch):
-    account = _build_account()
-    other = _build_account()
-    other.id = 2
+    account = _build_context()
+    other = _build_context(context_id="2", account_id=2)
     started = threading.Event()
     waiting = threading.Event()
     finish = threading.Event()
