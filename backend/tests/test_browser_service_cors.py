@@ -6,6 +6,7 @@ from botocore.exceptions import ClientError
 
 from app.services.browser_service import BrowserService
 from app.services.s3_client import S3OperationError
+from tests.execution_context_factory import make_s3_execution_context
 
 
 ORIGIN = "https://browser.example.test"
@@ -47,7 +48,7 @@ def test_cors_status_rejects_direct_transfers_when_etag_is_not_exposed(monkeypat
         CorsClient([_direct_transfer_rule()]),
     )
 
-    status = service.get_bucket_cors_status("bucket-a", object(), origin=ORIGIN)
+    status = service.get_bucket_cors_status("bucket-a", make_s3_execution_context(), origin=ORIGIN)
 
     assert status.enabled is False
     assert status.rules[0].expose_headers == []
@@ -60,7 +61,7 @@ def test_cors_status_accepts_readable_multipart_etag(monkeypatch, exposed_header
         CorsClient([_direct_transfer_rule(expose_headers=[exposed_header])]),
     )
 
-    status = service.get_bucket_cors_status("bucket-a", object(), origin=ORIGIN)
+    status = service.get_bucket_cors_status("bucket-a", make_s3_execution_context(), origin=ORIGIN)
 
     assert status.enabled is True
 
@@ -69,7 +70,7 @@ def test_ensure_cors_repairs_missing_multipart_etag_exposure(monkeypatch):
     client = CorsClient([_direct_transfer_rule()])
     service = _service_with_client(monkeypatch, client)
 
-    status = service.ensure_bucket_cors("bucket-a", object(), ORIGIN)
+    status = service.ensure_bucket_cors("bucket-a", make_s3_execution_context(), ORIGIN)
 
     assert status.enabled is True
     assert client.put_calls
@@ -83,7 +84,7 @@ def test_ensure_cors_does_not_write_when_browser_rule_is_already_complete(monkey
     client = CorsClient([rule])
     service = _service_with_client(monkeypatch, client)
 
-    status = service.ensure_bucket_cors("bucket-a", object(), ORIGIN)
+    status = service.ensure_bucket_cors("bucket-a", make_s3_execution_context(), ORIGIN)
 
     assert status.enabled is True
     assert client.put_calls == []
@@ -95,7 +96,7 @@ def test_ensure_cors_repairs_matching_wildcard_origin_rule(monkeypatch):
     client = CorsClient([rule])
     service = _service_with_client(monkeypatch, client)
 
-    status = service.ensure_bucket_cors("bucket-a", object(), ORIGIN)
+    status = service.ensure_bucket_cors("bucket-a", make_s3_execution_context(), ORIGIN)
 
     assert status.enabled is True
     assert len(client.rules) == 1
@@ -114,11 +115,11 @@ def test_ensure_cors_types_provider_failures(monkeypatch):
     service = _service_with_client(monkeypatch, FailingCorsClient([]))
 
     with pytest.raises(S3OperationError, match="Unable to fetch CORS"):
-        service.ensure_bucket_cors("bucket-a", object(), ORIGIN)
+        service.ensure_bucket_cors("bucket-a", make_s3_execution_context(), ORIGIN)
 
 
 def test_ensure_cors_rejects_missing_origin_as_validation_error(monkeypatch):
     service = _service_with_client(monkeypatch, CorsClient([]))
 
     with pytest.raises(ValueError, match="Missing origin"):
-        service.ensure_bucket_cors("bucket-a", object(), "")
+        service.ensure_bucket_cors("bucket-a", make_s3_execution_context(), "")

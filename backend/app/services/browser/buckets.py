@@ -15,7 +15,7 @@ from app.models.browser import (
 from app.services.s3_client import S3OperationError
 from app.services.s3_client import create_bucket as s3_create_bucket
 from app.services.s3_client import set_bucket_versioning as s3_set_bucket_versioning
-from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 from app.services.sequence_pagination import paginate_sequence
 from .cache import BUCKET_LIST_CACHE
 
@@ -36,9 +36,7 @@ def _bucket_search_values(bucket: BrowserBucket) -> list[str]:
 
 
 class BrowserBucketsMixin:
-    def _list_portal_storage_space_buckets(self, context: S3ExecutionTarget) -> Optional[list[BrowserBucket]]:
-        if not isinstance(context, S3ExecutionContext):
-            return None
+    def _list_portal_storage_space_buckets(self, context: S3ExecutionContext) -> Optional[list[BrowserBucket]]:
         spaces = context.portal_storage_spaces
         if spaces is None:
             return None
@@ -66,15 +64,11 @@ class BrowserBucketsMixin:
         buckets.sort(key=lambda bucket: (bucket.display_name or bucket.name).lower())
         return buckets
 
-    def list_buckets(self, context: S3ExecutionTarget) -> list[BrowserBucket]:
+    def list_buckets(self, context: S3ExecutionContext) -> list[BrowserBucket]:
         portal_buckets = self._list_portal_storage_space_buckets(context)
         if portal_buckets is not None:
             return portal_buckets
-        allowed_portal_buckets = (
-            context.portal_allowed_buckets
-            if isinstance(context, S3ExecutionContext)
-            else None
-        )
+        allowed_portal_buckets = context.portal_allowed_buckets
         context_key = self._context_cache_key(context)
         cached = BUCKET_LIST_CACHE.get(context_key)
         if cached is not None:
@@ -102,7 +96,7 @@ class BrowserBucketsMixin:
 
     def search_buckets(
         self,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         request: BrowserBucketSearchRequest,
     ) -> PaginatedBrowserBucketsResponse:
         if request.force_refresh:
@@ -141,7 +135,7 @@ class BrowserBucketsMixin:
     def create_bucket(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         *,
         versioning: bool = False,
     ) -> None:

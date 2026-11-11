@@ -7,18 +7,21 @@ from io import BytesIO
 import pytest
 from botocore.response import StreamingBody
 
-from app.db import S3Account
 from app.main import app
 from app.routers import dependencies
 from app.routers import browser as browser_router
 from app.services.s3_client import S3OperationError
+from app.services.s3_execution_context import S3ExecutionContext
+from tests.execution_context_factory import make_s3_execution_context
 from app.services.s3_object_download import S3ObjectDownload
 
 
-def _account() -> S3Account:
-    account = S3Account(name="download-test")
-    account.id = 42
-    return account
+def _account() -> S3ExecutionContext:
+    return make_s3_execution_context(
+        context_id="42",
+        id=42,
+        name="download-test",
+    )
 
 
 def test_browser_download_returns_stream(client):

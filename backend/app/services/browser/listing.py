@@ -18,7 +18,7 @@ from app.models.browser import (
     ListObjectVersionsResponse,
 )
 from app.services.s3_client import S3OperationError
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 
 from .cache import OBJECT_LIST_CACHE, OBJECT_SORT_SNAPSHOT_CACHE
 from .default_listing import DefaultObjectListingLoader, DefaultObjectScanOptions
@@ -132,7 +132,7 @@ class BrowserListingMixin:
     def _list_objects_default_order(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         request: BrowserObjectListingRequest,
     ) -> ListBrowserObjectsResponse:
         context_cache_key = self._context_cache_key(context)
@@ -174,7 +174,7 @@ class BrowserListingMixin:
     def _scan_sorted_object_snapshot(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         request: BrowserObjectListingRequest,
     ) -> SortedObjectSnapshot:
         context_cache_key = self._context_cache_key(context)
@@ -209,7 +209,7 @@ class BrowserListingMixin:
     def list_objects(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         request: BrowserObjectListingRequest,
     ) -> ListBrowserObjectsResponse:
         if request.force_refresh:
@@ -230,7 +230,7 @@ class BrowserListingMixin:
     def _list_objects_sorted_order(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         request: BrowserObjectListingRequest,
     ) -> ListBrowserObjectsResponse:
         snapshot = self._scan_sorted_object_snapshot(
@@ -385,7 +385,7 @@ class BrowserListingMixin:
     def list_object_versions(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         prefix: str = "",
         delimiter: Optional[str] = None,
         key: Optional[str] = None,

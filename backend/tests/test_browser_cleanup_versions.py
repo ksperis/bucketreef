@@ -5,15 +5,16 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from botocore.exceptions import ClientError
 
-from app.db import S3Account
 from app.models.browser import CleanupObjectVersionsPayload
 from app.services import browser_service
 from app.services.browser import versions as browser_versions
 from app.services.s3_client import S3OperationError
+from app.services.s3_execution_context import S3ExecutionContext
+from tests.execution_context_factory import make_s3_execution_context
 
 
-def _account() -> S3Account:
-    return S3Account(name="cleanup-test")
+def _account() -> S3ExecutionContext:
+    return make_s3_execution_context(name="cleanup-test")
 
 
 def test_cleanup_requires_a_criterion_before_opening_an_s3_client(monkeypatch):

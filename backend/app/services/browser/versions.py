@@ -13,13 +13,13 @@ from app.services.object_listing_temp_store import TemporarySqliteStore
 from app.services.object_version_cleanup_store import ObjectVersionCleanupStore
 from app.services.s3_client import S3OperationError
 from app.services.s3_deletion import delete_objects
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 
 logger = logging.getLogger(__name__)
 
 
 class BrowserVersionsMixin:
-    def get_bucket_versioning(self, bucket_name: str, context: S3ExecutionTarget) -> Optional[str]:
+    def get_bucket_versioning(self, bucket_name: str, context: S3ExecutionContext) -> Optional[str]:
         client = self._client(context)
         try:
             resp = client.get_bucket_versioning(Bucket=bucket_name)
@@ -31,7 +31,7 @@ class BrowserVersionsMixin:
         self,
         client,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         batch: list[tuple[str, str]],
     ) -> None:
         with self._object_mutation(context, bucket_name):
@@ -45,7 +45,7 @@ class BrowserVersionsMixin:
         self,
         client,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         cleanup_store: ObjectVersionCleanupStore,
         *,
         keep_last_n: int | None,
@@ -74,7 +74,7 @@ class BrowserVersionsMixin:
         self,
         client,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         cleanup_store: ObjectVersionCleanupStore,
     ) -> int:
         deleted = 0
@@ -94,7 +94,7 @@ class BrowserVersionsMixin:
     def cleanup_object_versions(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         payload: CleanupObjectVersionsPayload,
     ) -> CleanupObjectVersionsResponse:
         if not (payload.keep_last_n or payload.older_than_days or payload.delete_orphan_markers):

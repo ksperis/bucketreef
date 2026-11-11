@@ -22,14 +22,14 @@ from app.models.browser import (
     SseCustomerContext,
 )
 from app.services.s3_deletion import delete_objects
-from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 from app.services.s3_client import S3OperationError
 from app.services.keystone_client import OpenStackError
 from app.utils.time import utcnow
 
 
-def require_multipart_write_access(context: S3ExecutionTarget, bucket_name: str) -> None:
-    spaces = context.portal_storage_spaces if isinstance(context, S3ExecutionContext) else None
+def require_multipart_write_access(context: S3ExecutionContext, bucket_name: str) -> None:
+    spaces = context.portal_storage_spaces
     if spaces is not None:
         space = next((space for space in spaces if (space.internal_bucket_name or space.id) == bucket_name), None)
         if space is None or space.role == "Viewer":
@@ -41,12 +41,10 @@ def require_multipart_write_access(context: S3ExecutionTarget, bucket_name: str)
 class BrowserObjectOperationsMixin:
     @staticmethod
     def _presign_expiration(
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         requested_expiration: Optional[int],
     ) -> int:
         expires = requested_expiration or 900
-        if not isinstance(context, S3ExecutionContext):
-            return expires
         deadline = context.credential_expires_at
         if deadline is None:
             return expires
@@ -72,15 +70,11 @@ class BrowserObjectOperationsMixin:
     def _require_copy_access(
         bucket_name: str,
         source_bucket: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         *,
         move: bool,
     ) -> None:
-        spaces = (
-            context.portal_storage_spaces
-            if isinstance(context, S3ExecutionContext)
-            else None
-        )
+        spaces = context.portal_storage_spaces
         if spaces is None:
             return
         by_bucket = {(space.internal_bucket_name or space.id): space for space in spaces}
@@ -210,7 +204,7 @@ class BrowserObjectOperationsMixin:
     def presign(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         payload: PresignRequest,
         sse_customer: Optional[SseCustomerContext] = None,
     ) -> PresignedUrl:
@@ -256,7 +250,7 @@ class BrowserObjectOperationsMixin:
     def copy_object(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         payload: CopyObjectPayload,
     ) -> None:
         source_bucket = payload.source_bucket or bucket_name
@@ -301,7 +295,7 @@ class BrowserObjectOperationsMixin:
     def delete_objects(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         payload: DeleteObjectsPayload,
     ) -> int:
         if not payload.objects:
@@ -327,7 +321,7 @@ class BrowserObjectOperationsMixin:
     def create_folder(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         prefix: str,
     ) -> None:
         client = self._client(context)
@@ -341,7 +335,7 @@ class BrowserObjectOperationsMixin:
     def initiate_multipart_upload(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         payload: MultipartUploadInitRequest,
         sse_customer: Optional[SseCustomerContext] = None,
     ) -> MultipartUploadInitResponse:
@@ -373,7 +367,7 @@ class BrowserObjectOperationsMixin:
     def list_multipart_uploads(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         prefix: Optional[str] = None,
         key_marker: Optional[str] = None,
         upload_id_marker: Optional[str] = None,
@@ -414,7 +408,7 @@ class BrowserObjectOperationsMixin:
     def presign_part(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         payload: PresignPartRequest,
         sse_customer: Optional[SseCustomerContext] = None,
     ) -> PresignedUrl:
@@ -446,7 +440,7 @@ class BrowserObjectOperationsMixin:
     def complete_multipart_upload(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         key: str,
         upload_id: str,
         payload: CompleteMultipartUploadRequest,
@@ -473,7 +467,7 @@ class BrowserObjectOperationsMixin:
     def abort_multipart_upload(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         key: str,
         upload_id: str,
     ) -> None:
