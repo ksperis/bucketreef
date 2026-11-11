@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.db import QuotaUsageDaily
 from app.core.domain_enums import TrendWindow
 from app.models.usage_trends import UsageTrendBaseline, UsageTrendsResponse
-from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.time import utcnow
 
 USAGE_TREND_WINDOWS: tuple[tuple[TrendWindow, str, int], ...] = (
@@ -21,24 +21,23 @@ USAGE_TREND_WINDOWS: tuple[tuple[TrendWindow, str, int], ...] = (
 
 
 def execution_context_usage_trend_filters(
-    execution_context: S3ExecutionTarget,
+    execution_context: S3ExecutionContext,
     model=QuotaUsageDaily,
 ) -> list | None:
     endpoint_id = execution_context.storage_endpoint_id
     if endpoint_id is None:
         return None
 
-    if isinstance(execution_context, S3ExecutionContext):
-        if execution_context.context_kind == "s3_user":
-            if execution_context.s3_user_id is None:
-                return None
-            return [
-                model.storage_endpoint_id == endpoint_id,
-                model.s3_user_id == execution_context.s3_user_id,
-                model.s3_account_id.is_(None),
-            ]
-        if execution_context.context_kind not in {"account", "portal_account", "session"}:
+    if execution_context.context_kind == "s3_user":
+        if execution_context.s3_user_id is None:
             return None
+        return [
+            model.storage_endpoint_id == endpoint_id,
+            model.s3_user_id == execution_context.s3_user_id,
+            model.s3_account_id.is_(None),
+        ]
+    if execution_context.context_kind not in {"account", "portal_account", "session"}:
+        return None
 
     if execution_context.id is None:
         return None
@@ -88,7 +87,7 @@ def select_usage_trend_baseline(
 
 def build_execution_context_usage_trends(
     db: Session,
-    execution_context: S3ExecutionTarget,
+    execution_context: S3ExecutionContext,
     *,
     reference_date: date | None = None,
 ) -> UsageTrendsResponse:
