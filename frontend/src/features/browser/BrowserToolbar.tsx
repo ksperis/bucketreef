@@ -87,6 +87,7 @@ type ToolbarColumns = Pick<
 type BrowserToolbarProps = {
   compactMode: boolean;
   mobileViewport: boolean;
+  showBucketSelector: boolean;
   bucketSelector: ComponentProps<typeof BrowserBucketSelector>;
   pathNavigator: ComponentProps<typeof BrowserPathNavigator>;
   deletedObjects: {
@@ -147,6 +148,7 @@ type BrowserToolbarProps = {
 export default function BrowserToolbar({
   compactMode,
   mobileViewport,
+  showBucketSelector,
   bucketSelector,
   pathNavigator,
   deletedObjects,
@@ -172,15 +174,15 @@ export default function BrowserToolbar({
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [columnsMenuOpen, setColumnsMenuOpen] = useState(false);
   const toolbarShellClasses = mobileViewport
-    ? "flex min-w-0 items-stretch gap-1.5"
+    ? "flex min-w-0 flex-col gap-1.5"
     : compactMode
       ? "flex flex-col gap-2 md:flex-row md:items-center md:justify-between"
       : "flex flex-col gap-2 2xl:flex-row 2xl:items-center 2xl:justify-between";
   const toolbarContextClasses = mobileViewport
-    ? "flex min-w-0 flex-1 items-stretch gap-1.5"
+    ? "flex w-full min-w-0 items-stretch gap-1.5"
     : "flex min-w-0 w-full flex-1 flex-col gap-2 md:flex-row md:items-stretch lg:items-center";
   const toolbarActionsClasses = mobileViewport
-    ? "flex shrink-0 items-center gap-1.5"
+    ? "flex w-full shrink-0 items-center justify-end gap-1.5"
     : compactMode
       ? "flex shrink-0 flex-wrap items-center justify-end gap-2"
       : "flex w-full flex-wrap items-center justify-end gap-2 2xl:w-auto";
@@ -228,6 +230,10 @@ export default function BrowserToolbar({
     hasLayoutSection ||
     hasColumnsSection ||
     hasSecondaryActionsSection;
+  const showToolbarActions =
+    !mobileViewport ||
+    contextActions.visible ||
+    (selectionActions.visible && !selectionActions.mobileViewport);
   const closeMoreMenu = () => {
     setColumnsMenuOpen(false);
     setMoreMenuOpen(false);
@@ -292,10 +298,12 @@ export default function BrowserToolbar({
         className={toolbarShellClasses}
       >
         <div className={toolbarContextClasses}>
-          <BrowserBucketSelector {...bucketSelector} compactMobile={mobileViewport} />
+          {showBucketSelector && (
+            <BrowserBucketSelector {...bucketSelector} compactMobile={mobileViewport} />
+          )}
           <BrowserPathNavigator {...pathNavigator} compactMobile={mobileViewport} />
         </div>
-        <div className={toolbarActionsClasses}>
+        <div className={toolbarActionsClasses} hidden={!showToolbarActions}>
           {deletedObjects.showToggle && !mobileViewport && (
             <ListActionButton iconOnly={compactMode} variant="secondary"
               type="button"

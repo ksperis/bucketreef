@@ -1292,8 +1292,8 @@ describe("BrowserPage interactions", () => {
       ).toHaveClass("ui-list-action-icon");
     }
     expect(
-      screen.getByRole("button", { name: "Selected storage space" }),
-    ).toHaveTextContent("Research Data");
+      screen.queryByRole("button", { name: "Selected storage space" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole("textbox", { name: "Search files" }),
     ).toHaveAttribute("placeholder", "Search files");

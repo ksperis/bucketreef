@@ -1530,6 +1530,13 @@ export default function BrowserPage({
           <BrowserToolbar
             compactMode={compactMode}
             mobileViewport={isMobileViewport}
+            showBucketSelector={
+              !(
+                isPortalBrowserSurface &&
+                isEmbeddedBrowserPath &&
+                resolvedLockedBucketName
+              )
+            }
             bucketSelector={{
               rootRef: bucketMenuRef,
               filterInputRef: bucketMenuFilterRef,
