@@ -1,7 +1,10 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
+from typing import Annotated
 from urllib.parse import urlparse
+
+from pydantic import AfterValidator, BeforeValidator
 
 
 LDAP_PROVIDER_DEFAULT_USER_FILTER = (
@@ -47,3 +50,28 @@ def validate_ldap_import_search_filter(value: str | None) -> str | None:
     if "{query}" not in value:
         raise ValueError("LDAP provider import_search_filter must contain {query}")
     return value
+
+
+LDAPRequiredString = Annotated[
+    str,
+    BeforeValidator(normalize_required_ldap_string),
+]
+LDAPOptionalString = Annotated[
+    str | None,
+    BeforeValidator(normalize_optional_ldap_string),
+]
+LDAPUrl = Annotated[
+    str,
+    BeforeValidator(normalize_required_ldap_string),
+    AfterValidator(validate_ldap_url),
+]
+LDAPUserFilter = Annotated[
+    str,
+    BeforeValidator(normalize_required_ldap_string),
+    AfterValidator(validate_ldap_user_filter),
+]
+LDAPImportSearchFilter = Annotated[
+    str | None,
+    BeforeValidator(normalize_optional_ldap_string),
+    AfterValidator(validate_ldap_import_search_filter),
+]
