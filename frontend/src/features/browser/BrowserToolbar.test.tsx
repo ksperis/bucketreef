@@ -76,6 +76,7 @@ function buildProps(overrides: Partial<ToolbarProps> = {}): ToolbarProps {
   return {
     compactMode: true,
     mobileViewport: false,
+    showBucketSelector: true,
     bucketSelector: {
       rootRef: createRef<HTMLDivElement>(),
       filterInputRef: createRef<HTMLInputElement>(),
@@ -214,7 +215,7 @@ describe("BrowserToolbar", () => {
     expect(props.onRunPathAction).toHaveBeenNthCalledWith(5, "uploadFiles");
   });
 
-  it("keeps mobile navigation on one row and moves secondary path actions to More", () => {
+  it("gives mobile navigation its own row and moves secondary path actions to More", () => {
     const props = buildProps({
       mobileViewport: true,
       moreMenu: {
@@ -227,8 +228,7 @@ describe("BrowserToolbar", () => {
     const toolbar = screen.getByRole("toolbar", {
       name: "Browser context bar",
     });
-    expect(toolbar).toHaveClass("items-stretch");
-    expect(toolbar).not.toHaveClass("flex-col");
+    expect(toolbar).toHaveClass("flex-col");
     expect(within(toolbar).getByRole("button", { name: "Upload" })).toHaveClass(
       "ui-list-action-touch",
     );
@@ -253,6 +253,52 @@ describe("BrowserToolbar", () => {
 
     expect(props.onRunPathAction).toHaveBeenNthCalledWith(1, "newFolder");
     expect(props.onRunPathAction).toHaveBeenNthCalledWith(2, "refresh");
+  });
+
+  it("omits the bucket selector when the embedded surface owns the bucket", () => {
+    render(
+      <BrowserToolbar
+        {...buildProps({
+          showBucketSelector: false,
+          mobileViewport: true,
+        })}
+      />,
+    );
+
+    const toolbar = screen.getByRole("toolbar", {
+      name: "Browser context bar",
+    });
+    expect(
+      within(toolbar).queryByRole("button", { name: "Current bucket: Documents" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(toolbar).getByRole("button", { name: "Parent folder" }),
+    ).toBeInTheDocument();
+  });
+
+  it("hides the empty mobile action row while selection actions use the sheet", () => {
+    render(
+      <BrowserToolbar
+        {...buildProps({
+          mobileViewport: true,
+          contextActions: {
+            ...buildProps().contextActions,
+            visible: false,
+          },
+          selectionActions: {
+            ...buildProps().selectionActions,
+            visible: true,
+            mobileViewport: true,
+          },
+        })}
+      />,
+    );
+
+    const toolbar = screen.getByRole("toolbar", {
+      name: "Browser context bar",
+    });
+    expect(toolbar.children).toHaveLength(2);
+    expect(toolbar.children[1]).toHaveAttribute("hidden");
   });
 
   it("renders the desktop selection bar and routes its primary actions", () => {
