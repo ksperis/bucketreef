@@ -19,7 +19,7 @@ from app.services.bucket_configuration_service import BucketConfigurationService
 from app.services.long_running_s3_client import LongRunningS3ClientMixin
 from app.services.object_listing_temp_store import TemporarySqliteStore
 from app.services.s3_client import S3OperationError
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.s3_errors import format_s3_error
 from app.utils.s3_etag import etag_md5
 
@@ -44,7 +44,7 @@ class BucketComparisonService(LongRunningS3ClientMixin):
     def _list_bucket_objects_for_compare(
         self,
         bucket_name: str,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
     ):
         with self._open_client(execution_context, bucket_name=bucket_name) as client:
             continuation_token: Optional[str] = None
@@ -79,9 +79,9 @@ class BucketComparisonService(LongRunningS3ClientMixin):
     def compare_bucket_content(
         self,
         source_bucket: str,
-        source_context: S3ExecutionTarget,
+        source_context: S3ExecutionContext,
         target_bucket: str,
-        target_context: S3ExecutionTarget,
+        target_context: S3ExecutionContext,
         *,
         ignore_modified_after: Optional[datetime] = None,
     ) -> BucketContentDiff:
@@ -108,9 +108,9 @@ class BucketComparisonService(LongRunningS3ClientMixin):
     def compare_buckets(
         self,
         source_bucket: str,
-        source_context: S3ExecutionTarget,
+        source_context: S3ExecutionContext,
         target_bucket: str,
-        target_context: S3ExecutionTarget,
+        target_context: S3ExecutionContext,
         *,
         include_content: bool,
         include_config: bool,
@@ -152,8 +152,8 @@ class BucketComparisonService(LongRunningS3ClientMixin):
 
     def _contexts_share_storage_endpoint(
         self,
-        source_context: S3ExecutionTarget,
-        target_context: S3ExecutionTarget,
+        source_context: S3ExecutionContext,
+        target_context: S3ExecutionContext,
     ) -> bool:
         source_options = self._client_kwargs(source_context)
         target_options = self._client_kwargs(target_context)
@@ -167,9 +167,9 @@ class BucketComparisonService(LongRunningS3ClientMixin):
     def run_compare_content_remediation(
         self,
         source_bucket: str,
-        source_context: S3ExecutionTarget,
+        source_context: S3ExecutionContext,
         target_bucket: str,
-        target_context: S3ExecutionTarget,
+        target_context: S3ExecutionContext,
         *,
         action: bucket_compare_remediation.BucketCompareRemediationAction,
         object_keys: list[str],
@@ -220,9 +220,9 @@ class BucketComparisonService(LongRunningS3ClientMixin):
     def compare_bucket_configuration(
         self,
         source_bucket: str,
-        source_context: S3ExecutionTarget,
+        source_context: S3ExecutionContext,
         target_bucket: str,
-        target_context: S3ExecutionTarget,
+        target_context: S3ExecutionContext,
         *,
         include_sections: Optional[set[str]] = None,
     ) -> BucketConfigDiff:
