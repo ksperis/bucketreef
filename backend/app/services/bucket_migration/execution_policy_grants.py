@@ -13,7 +13,7 @@ from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import BucketMigrationItem
 from app.services.rgw_principal_scope import resolve_target_admin_uid
 from app.services.s3_client import S3OperationError
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.normalize import normalize_optional_string
 
 from .diagnostics import (
@@ -134,7 +134,7 @@ class BucketMigrationPolicyGrantsMixin:
     def _read_source_copy_grant_backup(
         self,
         source_bucket: str,
-        source_execution_context: S3ExecutionTarget,
+        source_execution_context: S3ExecutionContext,
     ):
         try:
             return self._configuration.get_policy(
@@ -158,7 +158,7 @@ class BucketMigrationPolicyGrantsMixin:
         candidates: list[str],
         *,
         source_bucket: str,
-        source_execution_context: S3ExecutionTarget,
+        source_execution_context: S3ExecutionContext,
         backup_policy,
         sample_key: Optional[str],
         sample_version_id: Optional[str],
@@ -390,7 +390,7 @@ class BucketMigrationPolicyGrantsMixin:
     def _remove_managed_policy_statement(
         self,
         bucket_name: str,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
         *,
         sid: str,
     ) -> None:
@@ -404,7 +404,7 @@ class BucketMigrationPolicyGrantsMixin:
     def _remove_managed_target_write_lock_statement(
         self,
         target_bucket: str,
-        target_execution_context: S3ExecutionTarget,
+        target_execution_context: S3ExecutionContext,
     ) -> None:
         self._remove_managed_policy_statement(
             target_bucket,
@@ -415,7 +415,7 @@ class BucketMigrationPolicyGrantsMixin:
     def _set_managed_block_policy(
         self,
         source_bucket: str,
-        source_execution_context: S3ExecutionTarget,
+        source_execution_context: S3ExecutionContext,
         *,
         deny_delete: bool,
     ) -> None:
@@ -449,7 +449,7 @@ class BucketMigrationPolicyGrantsMixin:
 
     def _precheck_policy_roundtrip(
         self,
-        source_execution_context: S3ExecutionTarget,
+        source_execution_context: S3ExecutionContext,
         source_bucket: str,
     ) -> None:
         try:
@@ -502,7 +502,7 @@ class BucketMigrationPolicyGrantsMixin:
 
     def _apply_read_only_policy(
         self,
-        source_execution_context: S3ExecutionTarget,
+        source_execution_context: S3ExecutionContext,
         source_bucket: str,
         item: BucketMigrationItem,
     ) -> None:
@@ -630,7 +630,7 @@ class BucketMigrationPolicyGrantsMixin:
 
     def _restore_target_write_lock_policy(
         self,
-        target_execution_context: S3ExecutionTarget,
+        target_execution_context: S3ExecutionContext,
         target_bucket: str,
         item: BucketMigrationItem,
     ) -> None:

@@ -8,7 +8,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import BucketMigration, BucketMigrationItem
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.aws_errors import aws_error_code
 from app.utils.s3_errors import is_s3_access_denied
 from app.utils.time import utcnow
@@ -480,9 +480,9 @@ class BucketMigrationItemRunnerMixin:
 
     def _copy_bucket_settings(
         self,
-        source_execution_context: S3ExecutionTarget,
+        source_execution_context: S3ExecutionContext,
         source_bucket: str,
-        target_execution_context: S3ExecutionTarget,
+        target_execution_context: S3ExecutionContext,
         target_bucket: str,
         migration: BucketMigration,
         item: BucketMigrationItem,
