@@ -11,7 +11,7 @@ import type {
 import client from "./client";
 import {
   buildJsonPostRequestInit,
-  resolveApiBaseUrl,
+  buildSseUrl,
   streamApiResultWithSse,
   type SseStreamOptions,
 } from "./sseApiStream";
@@ -189,10 +189,8 @@ export function streamManagerUsageStatsAggregate(
   payload: BucketUsageStatsScopePayload = {},
   options?: BucketUsageStatsStreamOptions
 ): Promise<BucketUsageStatsResult> {
-  const baseUrl = resolveApiBaseUrl();
-  const query = new URLSearchParams({ context_id: String(contextId) });
   return streamApiResultWithSse<BucketUsageStatsProgress, BucketUsageStatsResult>({
-    url: `${baseUrl}/manager/usage-stats/stream?${query.toString()}`,
+    url: buildSseUrl("/manager/usage-stats/stream", { context_id: contextId }),
     options,
     requestInit: buildJsonPostRequestInit(payload),
     streamFailedLabel: "Bucket usage stats stream failed",
@@ -205,10 +203,11 @@ export function streamManagerBucketUsageStatsForBucket(
   bucketName: string,
   options?: BucketUsageStatsStreamOptions
 ): Promise<BucketUsageStatsResult> {
-  const baseUrl = resolveApiBaseUrl();
-  const query = new URLSearchParams({ context_id: String(contextId) });
   return streamApiResultWithSse<BucketUsageStatsProgress, BucketUsageStatsResult>({
-    url: `${baseUrl}/manager/buckets/${encodeURIComponent(bucketName)}/usage-stats/stream?${query.toString()}`,
+    url: buildSseUrl(
+      `/manager/buckets/${encodeURIComponent(bucketName)}/usage-stats/stream`,
+      { context_id: contextId },
+    ),
     options,
     requestInit: { method: "POST" },
     streamFailedLabel: "Bucket usage stats stream failed",
@@ -221,9 +220,8 @@ export function streamCephAdminBucketUsageStats(
   payload: BucketUsageStatsRgwTargetPayload,
   options?: BucketUsageStatsStreamOptions
 ): Promise<BucketUsageStatsResult> {
-  const baseUrl = resolveApiBaseUrl();
   return streamApiResultWithSse<BucketUsageStatsProgress, BucketUsageStatsResult>({
-    url: `${baseUrl}/ceph-admin/endpoints/${endpointId}/bucket-usage-stats/stream`,
+    url: buildSseUrl(`/ceph-admin/endpoints/${endpointId}/bucket-usage-stats/stream`),
     options,
     requestInit: buildJsonPostRequestInit(payload),
     streamFailedLabel: "Bucket usage stats stream failed",
@@ -236,9 +234,8 @@ export function streamCephAdminUsageStatsAggregate(
   payload: BucketUsageStatsScopePayload = {},
   options?: BucketUsageStatsStreamOptions
 ): Promise<BucketUsageStatsResult> {
-  const baseUrl = resolveApiBaseUrl();
   return streamApiResultWithSse<BucketUsageStatsProgress, BucketUsageStatsResult>({
-    url: `${baseUrl}/ceph-admin/endpoints/${endpointId}/usage-stats/stream`,
+    url: buildSseUrl(`/ceph-admin/endpoints/${endpointId}/usage-stats/stream`),
     options,
     requestInit: buildJsonPostRequestInit(payload),
     streamFailedLabel: "Bucket usage stats stream failed",
@@ -251,10 +248,8 @@ export function streamAdminUsageStatsAggregate(
   payload: BucketUsageStatsScopePayload = {},
   options?: BucketUsageStatsStreamOptions
 ): Promise<BucketUsageStatsResult> {
-  const baseUrl = resolveApiBaseUrl();
-  const query = new URLSearchParams({ endpoint_id: String(endpointId) });
   return streamApiResultWithSse<BucketUsageStatsProgress, BucketUsageStatsResult>({
-    url: `${baseUrl}/admin/usage-stats/stream?${query.toString()}`,
+    url: buildSseUrl("/admin/usage-stats/stream", { endpoint_id: endpointId }),
     options,
     requestInit: buildJsonPostRequestInit(payload),
     streamFailedLabel: "Bucket usage stats stream failed",
@@ -268,12 +263,13 @@ export function streamCephAdminBucketUsageStatsForBucket(
   tenant?: string | null,
   options?: BucketUsageStatsStreamOptions
 ): Promise<BucketUsageStatsResult> {
-  const baseUrl = resolveApiBaseUrl();
   const query = new URLSearchParams();
   if (tenant?.trim()) query.set("tenant", tenant.trim());
-  const queryText = query.toString();
   return streamApiResultWithSse<BucketUsageStatsProgress, BucketUsageStatsResult>({
-    url: `${baseUrl}/ceph-admin/endpoints/${endpointId}/buckets/${encodeURIComponent(bucketName)}/usage-stats/stream${queryText ? `?${queryText}` : ""}`,
+    url: buildSseUrl(
+      `/ceph-admin/endpoints/${endpointId}/buckets/${encodeURIComponent(bucketName)}/usage-stats/stream`,
+      query,
+    ),
     options,
     requestInit: { method: "POST" },
     streamFailedLabel: "Bucket usage stats stream failed",
@@ -285,9 +281,8 @@ export function streamStorageOpsBucketUsageStats(
   payload: BucketUsageStatsTargetPayload,
   options?: BucketUsageStatsStreamOptions
 ): Promise<BucketUsageStatsResult> {
-  const baseUrl = resolveApiBaseUrl();
   return streamApiResultWithSse<BucketUsageStatsProgress, BucketUsageStatsResult>({
-    url: `${baseUrl}/storage-ops/buckets/usage-stats/stream`,
+    url: buildSseUrl("/storage-ops/buckets/usage-stats/stream"),
     options,
     requestInit: buildJsonPostRequestInit(payload),
     streamFailedLabel: "Bucket usage stats stream failed",

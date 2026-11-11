@@ -4,7 +4,7 @@
  */
 import {
   buildJsonPostRequestInit,
-  resolveApiBaseUrl,
+  buildSseUrl,
   streamApiResultWithSse,
   type SseStreamOptions,
 } from "./sseApiStream";
@@ -56,7 +56,7 @@ export async function streamCephAdminBucketIndexChecks(
   options?: BucketIndexCheckStreamOptions
 ): Promise<BucketIndexCheckResult> {
   return streamApiResultWithSse<BucketIndexCheckProgress, BucketIndexCheckResult>({
-    url: `${resolveApiBaseUrl()}/ceph-admin/endpoints/${endpointId}/bucket-index-check/stream`,
+    url: buildSseUrl(`/ceph-admin/endpoints/${endpointId}/bucket-index-check/stream`),
     options,
     streamFailedLabel: "Bucket index check failed",
     missingResultMessage: "Bucket index check stream ended without a result",

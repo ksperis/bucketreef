@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
-import { openSseStream, resolveApiBaseUrl } from "./sseApiStream";
+import { buildSseUrl, openSseStream } from "./sseApiStream";
 import { buildSseError, consumeJsonSseStream } from "./sseStream";
 
 export type BucketMigrationMode = "one_shot" | "pre_sync";
@@ -207,10 +207,9 @@ export async function streamManagerMigration(
   migrationId: number,
   options?: ManagerMigrationStreamOptions
 ): Promise<BucketMigrationDetail> {
-  const baseUrl = resolveApiBaseUrl();
-  const query = new URLSearchParams();
-  query.set("events_limit", String(Math.max(1, Math.min(1000, Math.floor(options?.eventsLimit ?? 200)))));
-  const url = `${baseUrl}/manager/migrations/${migrationId}/stream?${query.toString()}`;
+  const url = buildSseUrl(`/manager/migrations/${migrationId}/stream`, {
+    events_limit: Math.max(1, Math.min(1000, Math.floor(options?.eventsLimit ?? 200))),
+  });
   const body = await openSseStream({
     url,
     signal: options?.signal,

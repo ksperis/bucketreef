@@ -4,7 +4,7 @@
  */
 import client from "./client";
 import {
-  resolveApiBaseUrl,
+  buildSseUrl,
   streamApiResultWithSse,
   type SseStreamOptions,
 } from "./sseApiStream";
@@ -89,11 +89,11 @@ export async function streamCephAdminEntities<TResult>(
   params?: CephAdminEntityListingParams,
   options?: CephAdminListingStreamOptions,
 ): Promise<TResult> {
-  const baseUrl = resolveApiBaseUrl();
-  const queryText = buildCephAdminEntityListingQuery(params).toString();
-  const url = `${baseUrl}/ceph-admin/endpoints/${endpointId}/${resource}/stream${queryText ? `?${queryText}` : ""}`;
   return streamApiResultWithSse<CephAdminListingStreamProgress, TResult>({
-    url,
+    url: buildSseUrl(
+      `/ceph-admin/endpoints/${endpointId}/${resource}/stream`,
+      buildCephAdminEntityListingQuery(params),
+    ),
     options,
     streamFailedLabel: "Advanced search stream failed",
     missingResultMessage: "Advanced search stream ended without a result payload",
