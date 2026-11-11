@@ -58,7 +58,7 @@ def test_delete_bucket_with_purge_deletes_contents_then_bucket(monkeypatch):
     )
 
     result = BucketPurgeService().run_delete_bucket_with_purge(
-        ResolvedS3BucketTarget(context=SimpleNamespace(), bucket_name="bucket-a", context_id="s3u-1"),
+        ResolvedS3BucketTarget(context=make_s3_execution_context(), bucket_name="bucket-a", context_id="s3u-1"),
         BucketPurgeOptions(parallelism=4, include_versions=True),
     )
 
@@ -107,7 +107,7 @@ def test_delete_bucket_with_purge_deletes_large_bucket_without_entry_limit(monke
     )
 
     result = BucketPurgeService().run_delete_bucket_with_purge(
-        ResolvedS3BucketTarget(context=SimpleNamespace(), bucket_name="bucket-huge", context_id="s3u-1"),
+        ResolvedS3BucketTarget(context=make_s3_execution_context(), bucket_name="bucket-huge", context_id="s3u-1"),
         BucketPurgeOptions(parallelism=4, include_versions=True),
     )
 
@@ -155,7 +155,7 @@ def test_delete_bucket_with_purge_preserves_content_purge_failures(monkeypatch):
 
     result = BucketPurgeService().run_delete_bucket_with_purge(
         ResolvedS3BucketTarget(
-            context=SimpleNamespace(),
+            context=make_s3_execution_context(),
             bucket_name="bucket-a",
         ),
         BucketPurgeOptions(),
@@ -202,12 +202,12 @@ def test_run_aggregates_multiple_bucket_results_and_completed_progress(monkeypat
     service = BucketPurgeService()
     targets = [
         ResolvedS3BucketTarget(
-            context=SimpleNamespace(),
+            context=make_s3_execution_context(),
             bucket_name="bucket-a",
             context_id="account-1",
         ),
         ResolvedS3BucketTarget(
-            context=SimpleNamespace(),
+            context=make_s3_execution_context(),
             bucket_name="bucket-b",
             context_id="account-1",
         ),
@@ -299,7 +299,7 @@ def test_run_records_s3_listing_failure_as_bucket_failure(monkeypatch):
     result = BucketPurgeService().run(
         [
             ResolvedS3BucketTarget(
-                context=SimpleNamespace(),
+                context=make_s3_execution_context(),
                 bucket_name="bucket-failed",
                 context_id="account-1",
             )
@@ -332,7 +332,7 @@ def test_run_propagates_unexpected_client_open_failure(monkeypatch):
         BucketPurgeService().run(
             [
                 ResolvedS3BucketTarget(
-                    context=SimpleNamespace(),
+                    context=make_s3_execution_context(),
                     bucket_name="bucket-failed",
                     context_id="account-1",
                 )
@@ -362,7 +362,7 @@ def test_delete_bucket_with_purge_propagates_unexpected_purge_failure(monkeypatc
     with pytest.raises(RuntimeError, match="broken purge worker"):
         BucketPurgeService().run_delete_bucket_with_purge(
             ResolvedS3BucketTarget(
-                context=SimpleNamespace(),
+                context=make_s3_execution_context(),
                 bucket_name="bucket-failed",
                 context_id="account-1",
             ),
@@ -411,7 +411,7 @@ def test_delete_bucket_with_purge_reports_bucket_not_empty_race(monkeypatch):
 
     result = BucketPurgeService().run_delete_bucket_with_purge(
         ResolvedS3BucketTarget(
-            context=SimpleNamespace(),
+            context=make_s3_execution_context(),
             bucket_name="bucket-racing",
         ),
         BucketPurgeOptions(),
@@ -450,7 +450,7 @@ def test_purge_progress_uses_rgw_stats_entry_estimate_before_listing(monkeypatch
     progress_events = []
 
     result = BucketPurgeService().run(
-        [ResolvedS3BucketTarget(context=SimpleNamespace(), bucket_name="bucket-a", context_id="s3u-1")],
+        [ResolvedS3BucketTarget(context=make_s3_execution_context(), bucket_name="bucket-a", context_id="s3u-1")],
         BucketPurgeOptions(parallelism=4, include_versions=True),
         progress_callback=progress_events.append,
     )
@@ -491,7 +491,7 @@ def test_purge_progress_continues_when_rgw_stats_are_unavailable(monkeypatch):
     progress_events = []
 
     result = BucketPurgeService().run(
-        [ResolvedS3BucketTarget(context=SimpleNamespace(), bucket_name="bucket-a", context_id="s3u-1")],
+        [ResolvedS3BucketTarget(context=make_s3_execution_context(), bucket_name="bucket-a", context_id="s3u-1")],
         BucketPurgeOptions(parallelism=4, include_versions=True),
         progress_callback=progress_events.append,
     )
@@ -511,7 +511,7 @@ def test_purge_progress_propagates_unexpected_stats_failures(monkeypatch):
 
     monkeypatch.setattr(bucket_purge_service, "BucketsService", BrokenBucketsService)
     target = ResolvedS3BucketTarget(
-        context=SimpleNamespace(),
+        context=make_s3_execution_context(),
         bucket_name="bucket-a",
         context_id="s3u-1",
     )
@@ -539,7 +539,7 @@ def test_purge_service_forwards_individual_delete_strategy(monkeypatch):
     monkeypatch.setattr(bucket_purge_service.s3_deletion, "purge_bucket_contents", fake_purge_bucket_contents)
 
     result = BucketPurgeService().run(
-        [ResolvedS3BucketTarget(context=SimpleNamespace(), bucket_name="bucket-a", context_id="ceph-admin-7")],
+        [ResolvedS3BucketTarget(context=make_s3_execution_context(), bucket_name="bucket-a", context_id="ceph-admin-7")],
         BucketPurgeOptions(parallelism=4, include_versions=True, individual_deletes=True),
     )
 
