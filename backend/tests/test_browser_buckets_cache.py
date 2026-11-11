@@ -4,21 +4,27 @@ from dataclasses import replace
 
 import pytest
 
-from app.db import S3Account, StorageEndpoint
+from app.db import StorageEndpoint
 from app.models.browser import BrowserBucketSearchRequest
 from app.services import browser_service
 from app.services.browser import buckets as browser_buckets
 from app.services.browser import cache as browser_cache
 from app.services.s3_execution_context import S3ExecutionContext
+from tests.execution_context_factory import make_s3_execution_context
 
 
-def _account() -> S3Account:
-    account = S3Account(name="browser-cache-test")
-    account.id = 101
-    account.rgw_access_key = "access-key"
-    account.rgw_secret_key = "secret-key"
-    account.storage_endpoint = StorageEndpoint(name="browser-cache-test", endpoint_url="https://s3.example.test")
-    return account
+def _account() -> S3ExecutionContext:
+    return make_s3_execution_context(
+        context_id="101",
+        id=101,
+        name="browser-cache-test",
+        access_key="access-key",
+        secret_key="secret-key",
+        storage_endpoint=StorageEndpoint(
+            name="browser-cache-test",
+            endpoint_url="https://s3.example.test",
+        ),
+    )
 
 
 def _reset_browser_caches() -> None:

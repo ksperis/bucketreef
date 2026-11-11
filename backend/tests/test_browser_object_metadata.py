@@ -6,14 +6,15 @@ import pytest
 from botocore.exceptions import ClientError
 
 from app.core.domain_errors import BrowserObjectValidationError
-from app.db import S3Account
 from app.models.browser import CopyObjectPayload, ObjectMetadata, ObjectMetadataUpdate, ObjectTag
 from app.services.browser_service import BrowserService
 from app.services.s3_client import S3OperationError
+from app.services.s3_execution_context import S3ExecutionContext
+from tests.execution_context_factory import make_s3_execution_context
 
 
-def _account() -> S3Account:
-    return S3Account(name="object-metadata-test")
+def _account() -> S3ExecutionContext:
+    return make_s3_execution_context(name="object-metadata-test")
 
 
 def _client_error(code: str, operation: str) -> ClientError:
@@ -73,7 +74,7 @@ def test_update_object_metadata_preserves_source_state_and_tags(monkeypatch):
 
     service = BrowserService()
     expected = _object_metadata()
-    invalidations: list[tuple[S3Account, str]] = []
+    invalidations: list[tuple[S3ExecutionContext, str]] = []
     monkeypatch.setattr(service, "_client", lambda _account: FakeClient())
     monkeypatch.setattr(
         service,

@@ -4,13 +4,14 @@
 import pytest
 from botocore.exceptions import ClientError
 
-from app.db import S3Account
 from app.services.browser_service import BrowserService
 from app.services.s3_client import S3OperationError
+from app.services.s3_execution_context import S3ExecutionContext
+from tests.execution_context_factory import make_s3_execution_context
 
 
-def _account() -> S3Account:
-    return S3Account(name="object-lock-test")
+def _account() -> S3ExecutionContext:
+    return make_s3_execution_context(name="object-lock-test")
 
 
 def _client_error(code: str, operation: str, message: str = "missing") -> ClientError:

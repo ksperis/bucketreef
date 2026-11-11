@@ -3,19 +3,22 @@
 
 import pytest
 
-from app.db import S3Account
 from app.core.domain_errors import BrowserObjectValidationError
 from app.main import app
 from app.models.browser import ObjectTag, ObjectTags
 from app.routers import browser as browser_router
 from app.routers import dependencies
 from app.services.s3_client import S3OperationError
+from app.services.s3_execution_context import S3ExecutionContext
+from tests.execution_context_factory import make_s3_execution_context
 
 
-def _account() -> S3Account:
-    account = S3Account(name="tags-test")
-    account.id = 77
-    return account
+def _account() -> S3ExecutionContext:
+    return make_s3_execution_context(
+        context_id="77",
+        id=77,
+        name="tags-test",
+    )
 
 
 class _FakeAuditService:

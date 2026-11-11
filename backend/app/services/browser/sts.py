@@ -13,7 +13,7 @@ from app.services.s3_execution_client import (
     require_s3_execution_credentials_with_error,
     s3_execution_cache_key,
 )
-from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 from app.services.sts_service import StsOperationError, get_session_token
 from app.utils.cache import prune_expired_lru_cache
 from app.utils.s3_endpoint import resolve_s3_client_options
@@ -58,7 +58,7 @@ class BrowserStsSession:
     region: Optional[str]
 
 
-def _sts_cache_key(context: S3ExecutionTarget, endpoint: str, cache_partition: Optional[str]) -> StsCacheKey:
+def _sts_cache_key(context: S3ExecutionContext, endpoint: str, cache_partition: Optional[str]) -> StsCacheKey:
     partition = (cache_partition or "shared-runtime").strip() or "shared-runtime"
     return s3_execution_cache_key(context), endpoint, partition
 
@@ -83,8 +83,8 @@ def _store_sts_credentials(cache_key: StsCacheKey, credentials: CachedStsCredent
         )
 
 
-def browser_sts_enabled(context: S3ExecutionTarget) -> bool:
-    if isinstance(context, S3ExecutionContext) and context.context_kind in {"s3_user", "connection", "openstack_project"}:
+def browser_sts_enabled(context: S3ExecutionContext) -> bool:
+    if context.context_kind in {"s3_user", "connection", "openstack_project"}:
         return False
     endpoint = context.storage_endpoint
     if not endpoint:
@@ -93,7 +93,7 @@ def browser_sts_enabled(context: S3ExecutionTarget) -> bool:
 
 
 def request_browser_sts_session(
-    context: S3ExecutionTarget,
+    context: S3ExecutionContext,
     *,
     cache_partition: Optional[str] = None,
 ) -> BrowserStsSession:

@@ -10,7 +10,7 @@ from botocore.response import StreamingBody
 from pydantic import ValidationError
 
 from app.core.domain_errors import BrowserObjectValidationError
-from app.db import S3Account, StorageEndpoint
+from app.db import StorageEndpoint
 from app.models.browser import (
     CompleteMultipartUploadRequest,
     MultipartUploadInitRequest,
@@ -21,15 +21,22 @@ from app.models.browser import (
 )
 from app.services.browser_service import BrowserService
 from app.services.s3_client import S3OperationError
+from app.services.s3_execution_context import S3ExecutionContext
+from tests.execution_context_factory import make_s3_execution_context
 
 
-def _account() -> S3Account:
-    account = S3Account(name="browser-sse-c")
-    account.id = 17
-    account.rgw_access_key = "access-key"
-    account.rgw_secret_key = "secret-key"
-    account.storage_endpoint = StorageEndpoint(name="browser-sse-c", endpoint_url="https://s3.example.test")
-    return account
+def _account() -> S3ExecutionContext:
+    return make_s3_execution_context(
+        context_id="17",
+        id=17,
+        name="browser-sse-c",
+        access_key="access-key",
+        secret_key="secret-key",
+        storage_endpoint=StorageEndpoint(
+            name="browser-sse-c",
+            endpoint_url="https://s3.example.test",
+        ),
+    )
 
 
 def _sse_context() -> SseCustomerContext:

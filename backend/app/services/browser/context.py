@@ -26,7 +26,6 @@ from app.services.s3_execution_client import (
 )
 from app.services.s3_execution_context import (
     S3ExecutionContext,
-    S3ExecutionTarget,
     is_ceph_admin_execution_context,
 )
 from app.services.rgw_bucket_target import split_explicit_rgw_s3_bucket_name
@@ -134,14 +133,14 @@ def _repair_browser_cors_rule(rule: dict, origin: str) -> bool:
 
 class BrowserContextMixin:
     @staticmethod
-    def _require_s3_credentials(context: S3ExecutionTarget) -> tuple[str, str]:
+    def _require_s3_credentials(context: S3ExecutionContext) -> tuple[str, str]:
         return require_s3_execution_credentials_with_error(
             context,
             error_message="S3 credentials missing for this context",
             error_type=S3OperationError,
         )
 
-    def _resolve_s3_credentials(self, context: S3ExecutionTarget) -> tuple[str, str, Optional[str]]:
+    def _resolve_s3_credentials(self, context: S3ExecutionContext) -> tuple[str, str, Optional[str]]:
         access_key, secret_key = self._require_s3_credentials(context)
         session_token = context.session_token()
         if not browser_sts_enabled(context):
@@ -149,7 +148,7 @@ class BrowserContextMixin:
         try:
             credentials = request_browser_sts_session(context).credentials
         except (BrowserStsUnavailableError, BrowserStsRequestError) as exc:
-            context_id = context.context_id if isinstance(context, S3ExecutionContext) else context.id
+            context_id = context.context_id
             logger.info(
                 "STS session token unavailable for context %s: %s", context_id, sanitized_error_log_detail(exc),
             )
@@ -157,12 +156,12 @@ class BrowserContextMixin:
             return credentials.access_key_id, credentials.secret_access_key, credentials.session_token
         return access_key, secret_key, session_token
 
-    def _s3_client_kwargs(self, context: S3ExecutionTarget) -> dict:
+    def _s3_client_kwargs(self, context: S3ExecutionContext) -> dict:
         return resolve_s3_client_kwargs(context)
 
     def _client(
         self,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         *,
         request_profile: StorageRequestProfile = "interactive",
         bucket_name: str | None = None,
@@ -188,7 +187,7 @@ class BrowserContextMixin:
 
     def _bucket_client(
         self,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         bucket_name: str,
         *,
         request_profile: StorageRequestProfile = "interactive",
@@ -229,7 +228,7 @@ class BrowserContextMixin:
             return None
         return etag.strip('"')
 
-    def _context_cache_key(self, context: S3ExecutionTarget) -> str:
+    def _context_cache_key(self, context: S3ExecutionContext) -> str:
         self._require_s3_credentials(context)
         return s3_execution_cache_key(context)
 
@@ -307,14 +306,14 @@ class BrowserContextMixin:
         if removed > 0:
             logger.debug("Browser object cache invalidated: context=%s bucket=%s entries=%s", context_key, bucket_name, removed)
 
-    def invalidate_bucket_list_cache_for_context(self, context: S3ExecutionTarget) -> None:
+    def invalidate_bucket_list_cache_for_context(self, context: S3ExecutionContext) -> None:
         try:
             context_key = self._context_cache_key(context)
         except S3OperationError:
             return
         self.invalidate_bucket_list_cache(context_key)
 
-    def invalidate_object_list_cache_for_context(self, context: S3ExecutionTarget, bucket_name: str) -> None:
+    def invalidate_object_list_cache_for_context(self, context: S3ExecutionContext, bucket_name: str) -> None:
         if not bucket_name:
             return
         try:
@@ -324,7 +323,7 @@ class BrowserContextMixin:
         self.invalidate_object_list_cache(context_key, bucket_name)
 
     @contextmanager
-    def _object_mutation(self, context: S3ExecutionTarget, *bucket_names: str) -> Iterator[None]:
+    def _object_mutation(self, context: S3ExecutionContext, *bucket_names: str) -> Iterator[None]:
         """Expire object views even when a mutation fails after changing storage."""
         try:
             yield
@@ -335,7 +334,7 @@ class BrowserContextMixin:
     def get_bucket_cors_status(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         origin: Optional[str] = None,
     ) -> BucketCorsStatus:
         client = self._client(context)
@@ -363,7 +362,7 @@ class BrowserContextMixin:
             enabled = any(_browser_cors_rule_enabled(rule, origin) for rule in raw_rules)
         return BucketCorsStatus(enabled=enabled, rules=rules)
 
-    def ensure_bucket_cors(self, bucket_name: str, context: S3ExecutionTarget, origin: str) -> BucketCorsStatus:
+    def ensure_bucket_cors(self, bucket_name: str, context: S3ExecutionContext, origin: str) -> BucketCorsStatus:
         if not origin:
             raise ValueError("Missing origin")
         client = self._client(context)

@@ -10,6 +10,7 @@ from botocore.exceptions import ClientError
 from app.models.browser import PresignRequest
 from app.services.browser_service import BrowserService
 from app.services.s3_client import S3OperationError
+from tests.execution_context_factory import make_s3_execution_context
 
 
 def test_put_presign_keeps_content_type_out_of_signature(monkeypatch):
@@ -30,7 +31,7 @@ def test_put_presign_keeps_content_type_out_of_signature(monkeypatch):
 
     result = service.presign(
         "bucket-a",
-        object(),
+        make_s3_execution_context(),
         PresignRequest(
             key="images/photo.jpeg",
             operation="put_object",
@@ -60,6 +61,6 @@ def test_presign_provider_failure_is_typed(monkeypatch):
     with pytest.raises(S3OperationError, match="Unable to generate presigned URL"):
         service.presign(
             "bucket-a",
-            object(),
+            make_s3_execution_context(),
             PresignRequest(key="demo.txt", operation="get_object"),
         )

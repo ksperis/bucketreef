@@ -4,17 +4,18 @@
 import pytest
 from botocore.exceptions import ClientError
 
-from app.db import S3Account
 from app.services.browser_service import BrowserService
 from app.services.s3_client import S3OperationError
+from app.services.s3_execution_context import S3ExecutionContext
+from tests.execution_context_factory import make_s3_execution_context
 
 
 _ALL_USERS = "http://acs.amazonaws.com/groups/global/AllUsers"
 _AUTHENTICATED_USERS = "http://acs.amazonaws.com/groups/global/AuthenticatedUsers"
 
 
-def _account() -> S3Account:
-    return S3Account(name="object-acl-test")
+def _account() -> S3ExecutionContext:
+    return make_s3_execution_context(name="object-acl-test")
 
 
 def _grant(permission: str, **grantee) -> dict[str, object]:

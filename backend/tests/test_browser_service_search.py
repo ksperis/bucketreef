@@ -19,19 +19,31 @@ from app.services.s3_execution_context import S3ExecutionContext
 from tests.portal_storage_space_factory import portal_storage_space_summary
 
 
-def _account() -> S3Account:
+def _account_row() -> S3Account:
     account = S3Account(name="search-test")
     account.id = 11
     account.rgw_access_key = "access-key"
     account.rgw_secret_key = "secret-key"
-    account.storage_endpoint = StorageEndpoint(name="search-test", endpoint_url="https://s3.example.test")
+    account.storage_endpoint = StorageEndpoint(
+        name="search-test",
+        endpoint_url="https://s3.example.test",
+    )
     return account
+
+
+def _account() -> S3ExecutionContext:
+    account = _account_row()
+    return S3ExecutionContext.from_account(
+        account,
+        access_key=account.rgw_access_key,
+        secret_key=account.rgw_secret_key,
+    )
 
 
 def _list_objects(
     service: BrowserService,
     bucket_name: str,
-    account: S3Account | S3ExecutionContext,
+    account: S3ExecutionContext,
     **options: object,
 ):
     return service.list_objects(
@@ -59,20 +71,27 @@ def test_list_objects_types_provider_listing_failures(monkeypatch, sort_by):
 
 def test_list_objects_types_missing_credentials():
     account = _account()
-    account.rgw_access_key = None
-    account.rgw_secret_key = None
+    account.access_key = None
+    account.secret_key = None
 
     with pytest.raises(S3OperationError, match="S3 credentials missing for this context"):
         _list_objects(BrowserService(), "bucket", account)
 
 
 def test_list_objects_propagates_unexpected_credential_runtime():
-    class BrokenContext:
+    class BrokenContext(S3ExecutionContext):
         def effective_rgw_credentials(self):
             raise RuntimeError("unexpected credential resolver bug")
 
+    context = BrokenContext(
+        context_id="broken",
+        context_kind="account",
+        name="broken",
+        access_key="access-key",
+        secret_key="secret-key",
+    )
     with pytest.raises(RuntimeError, match="unexpected credential resolver bug"):
-        _list_objects(BrowserService(), "bucket", BrokenContext())
+        _list_objects(BrowserService(), "bucket", context)
 
 
 @pytest.mark.parametrize("sort_by", ["name", "size"])
@@ -100,7 +119,7 @@ def _clear_browser_caches():
 
 
 def test_listportal_storage_spaces_includes_descriptions():
-    persisted_account = _account()
+    persisted_account = _account_row()
     account = S3ExecutionContext.from_account(
         persisted_account,
         context_kind="portal_account",

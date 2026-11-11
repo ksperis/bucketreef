@@ -13,7 +13,7 @@ from app.core.config import get_settings
 from app.core.sensitive_data import sanitized_error_log_detail
 from app.models.browser import BrowserStsCredentials, SseCustomerContext, StsStatus
 from app.services.s3_client import S3OperationError
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 from app.services.s3_object_download import S3ObjectDownload
 from app.utils.s3_endpoint import resolve_s3_client_options
 
@@ -22,7 +22,7 @@ from .sts import BrowserStsRequestError, BrowserStsUnavailableError, request_bro
 settings = get_settings()
 
 
-def _resolve_endpoint(context: S3ExecutionTarget) -> str:
+def _resolve_endpoint(context: S3ExecutionContext) -> str:
     endpoint, _, _, _ = resolve_s3_client_options(context)
     if not endpoint:
         raise BrowserStsUnavailableError("S3 endpoint is not configured for this context")
@@ -30,7 +30,7 @@ def _resolve_endpoint(context: S3ExecutionTarget) -> str:
 
 
 class BrowserTransfersMixin:
-    def check_sts(self, context: S3ExecutionTarget) -> StsStatus:
+    def check_sts(self, context: S3ExecutionContext) -> StsStatus:
         try:
             request_browser_sts_session(context)
         except (BrowserStsUnavailableError, BrowserStsRequestError) as exc:
@@ -39,7 +39,7 @@ class BrowserTransfersMixin:
 
     def get_sts_credentials(
         self,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         *,
         cache_partition: Optional[str] = None,
     ) -> BrowserStsCredentials:
@@ -60,7 +60,7 @@ class BrowserTransfersMixin:
     def proxy_upload(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         key: str,
         file_obj,
         content_type: Optional[str],
@@ -84,7 +84,7 @@ class BrowserTransfersMixin:
     def upload_via_proxy(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         file,
         *,
         key: str,
@@ -119,7 +119,7 @@ class BrowserTransfersMixin:
     def download_object(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         key: str,
         *,
         version_id: Optional[str] = None,

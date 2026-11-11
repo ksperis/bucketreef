@@ -28,7 +28,7 @@ from app.models.browser import (
     SseCustomerContext,
 )
 from app.services.s3_client import S3OperationError
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.aws_errors import aws_error_code
 
 from .cache import (
@@ -275,7 +275,7 @@ class BrowserObjectDetailsMixin:
     def head_object(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         key: str,
         version_id: Optional[str] = None,
         sse_customer: Optional[SseCustomerContext] = None,
@@ -308,7 +308,7 @@ class BrowserObjectDetailsMixin:
     def _get_object_lazy_head_columns(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         key: str,
         *,
         sse_customer: Optional[SseCustomerContext] = None,
@@ -353,7 +353,7 @@ class BrowserObjectDetailsMixin:
     def _get_object_lazy_tags_columns(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         key: str,
     ) -> ObjectLazyTagsCacheValue:
         context_cache_key = self._context_cache_key(context)
@@ -389,7 +389,7 @@ class BrowserObjectDetailsMixin:
     def _object_column_values(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         key: str,
         *,
         wants_head: bool,
@@ -426,7 +426,7 @@ class BrowserObjectDetailsMixin:
     def get_object_columns(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         *,
         keys: list[str],
         columns: set[BrowserObjectLazyColumn],
@@ -453,7 +453,7 @@ class BrowserObjectDetailsMixin:
     def get_object_tags(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         key: str,
         version_id: Optional[str] = None,
     ) -> ObjectTags:
@@ -474,7 +474,7 @@ class BrowserObjectDetailsMixin:
     def put_object_tags(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         key: str,
         tags: list[ObjectTag],
         version_id: Optional[str] = None,
@@ -498,7 +498,7 @@ class BrowserObjectDetailsMixin:
     def update_object_metadata(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         payload: ObjectMetadataUpdate,
     ) -> ObjectMetadata:
         client = self._client(context)
@@ -518,7 +518,7 @@ class BrowserObjectDetailsMixin:
     def get_object_acl(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         key: str,
         version_id: Optional[str] = None,
     ) -> ObjectAcl:
@@ -533,7 +533,7 @@ class BrowserObjectDetailsMixin:
     def put_object_acl(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         payload: ObjectAclUpdate,
     ) -> ObjectAcl:
         client = self._client(context)
@@ -548,7 +548,7 @@ class BrowserObjectDetailsMixin:
     def get_object_legal_hold(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         key: str,
         version_id: Optional[str] = None,
     ) -> ObjectLegalHold:
@@ -578,7 +578,7 @@ class BrowserObjectDetailsMixin:
     def put_object_legal_hold(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         payload: ObjectLegalHoldUpdate,
     ) -> ObjectLegalHold:
         client = self._client(context)
@@ -599,7 +599,7 @@ class BrowserObjectDetailsMixin:
     def get_object_retention(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         key: str,
         version_id: Optional[str] = None,
     ) -> ObjectRetention:
@@ -631,7 +631,7 @@ class BrowserObjectDetailsMixin:
     def put_object_retention(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         payload: ObjectRetentionUpdate,
     ) -> ObjectRetention:
         client = self._client(context)
@@ -658,7 +658,7 @@ class BrowserObjectDetailsMixin:
     def restore_object(
         self,
         bucket_name: str,
-        context: S3ExecutionTarget,
+        context: S3ExecutionContext,
         payload: ObjectRestoreRequest,
     ) -> None:
         client = self._client(context)
