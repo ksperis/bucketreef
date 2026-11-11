@@ -136,12 +136,16 @@ class OnboardingService:
         result: OnboardingPreview,
     ) -> None:
         settings = load_app_settings_for_db(self.db)
+        deployment_profile = get_settings().deployment_profile
         locks = get_general_feature_locks()
 
         if not draft.selected_options:
             result.blockers.append("selection_required")
 
-        for field in required_onboarding_feature_fields(draft):
+        for field in required_onboarding_feature_fields(
+            draft,
+            deployment_profile=deployment_profile,
+        ):
             if getattr(settings.general, field):
                 continue
             lock = getattr(locks, field, None)

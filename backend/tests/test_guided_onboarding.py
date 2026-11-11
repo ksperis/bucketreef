@@ -36,7 +36,10 @@ from app.services import onboarding_setup_service as setup_service
 from app.services import portal_role_sync as portal_role_sync_module
 from app.services.managed_resource_naming import onboarding_sample_account_name
 from app.services.onboarding_endpoint_setup_service import OnboardingEndpointSetupService
-from app.services.onboarding_contracts import REQUIRED_FEATURES
+from app.services.onboarding_contracts import (
+    REQUIRED_FEATURES,
+    required_onboarding_feature_fields,
+)
 from app.services.onboarding_service import OnboardingError, OnboardingService
 from app.services.s3_connections_service import S3ConnectionsService
 from app.services.storage_endpoint_query_service import StorageEndpointQueryService
@@ -610,6 +613,55 @@ def test_environment_lock_blocks_before_setup_runs(guided, db_session, monkeypat
             private_secret_key="private-sk",
         )
     assert db_session.scalar(sa.select(sa.func.count()).select_from(StorageEndpoint)) == 0
+
+
+def test_admin_profile_onboarding_ignores_user_runtime_surface_locks(
+    guided,
+    db_session,
+    monkeypatch,
+):
+    locks = GeneralFeatureLocks()
+    for field in ("manager_enabled", "portal_enabled", "browser_enabled"):
+        setattr(
+            locks,
+            field,
+            GeneralFeatureLock(
+                forced=True,
+                value=False,
+                source=f"FEATURE_{field.upper()}",
+            ),
+        )
+    monkeypatch.setattr(settings_service, "get_general_feature_locks", lambda: locks)
+    monkeypatch.setattr(progress_module, "get_general_feature_locks", lambda: locks)
+    monkeypatch.setattr(
+        progress_module,
+        "get_settings",
+        lambda: SimpleNamespace(deployment_profile="admin"),
+    )
+
+    result = guided.preview_draft(
+        actor(db_session),
+        OnboardingDraft(endpoint_url="https://storage.example.test", portal=True),
+    )
+
+    assert not any(blocker.startswith("env_locked:") for blocker in result.blockers)
+
+
+def test_admin_profile_keeps_shared_user_workspace_settings_in_onboarding_requirements():
+    draft = OnboardingDraft(
+        manager=True,
+        portal=True,
+        private_connection=True,
+    )
+
+    assert required_onboarding_feature_fields(
+        draft,
+        deployment_profile="admin",
+    ) == (
+        "browser_manager_enabled",
+        "browser_portal_enabled",
+        "browser_root_enabled",
+    )
 
 
 def test_private_only_new_endpoint_does_not_configure_admin_credentials(

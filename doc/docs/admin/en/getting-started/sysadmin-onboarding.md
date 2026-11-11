@@ -94,6 +94,13 @@ and its root identity requires both `accounts=write` and `users=write`. Endpoint
 registration through the API also accepts read-only Admin Ops and external Runtime,
 so operators can provision accounts/users outside BucketReef.
 
+With the split `admin` / `user` deployment profiles, onboarding runs on the
+Administration runtime. User-facing surface locks (`FEATURE_MANAGER_ENABLED`,
+`FEATURE_PORTAL_ENABLED`, and `FEATURE_BROWSER_ENABLED`) are therefore satisfied
+by the paired `user` runtime contract and do not block setup on the `admin`
+runtime. Shared persisted workspace prerequisites, such as the Manager/Portal
+Browser sub-flags, are still enabled normally.
+
 Initial checks use Admin Ops without creating resources. Applying creates managed
 identities and validates Runtime reads without keys and Supervision collection.
 No Runtime or monitoring read falls back to Admin Ops. Usage is checked only with
