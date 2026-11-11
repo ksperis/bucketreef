@@ -3,6 +3,7 @@
 from app.utils.storage_endpoint_features import parse_features_config
 import json
 from copy import deepcopy
+from contextlib import nullcontext
 
 import pytest
 from sqlalchemy import func, select, text
@@ -25,6 +26,7 @@ from app.services.storage_endpoint_query_service import StorageEndpointQueryServ
 from app.services.storage_endpoints_service import StorageEndpointsService
 from tests.db_transaction_test_utils import (
     fail_next_sqlite_statement_with_busy_snapshot,
+    fail_next_sqlite_statement_with_operational_error,
     fail_next_transaction_commit,
 )
 from tests.service_identity_helpers import service_identity, set_service_identity_credentials
@@ -1159,12 +1161,11 @@ def test_supervision_survives_disabling_all_collectors(identities, db_session):
 
 @pytest.mark.parametrize("failure", ["lost_response", "activation_commit", "retirement"])
 def test_durable_rotation_resumes_exact_pair_after_partial_failure(identities, db_session, monkeypatch, failure):
-    from sqlalchemy.exc import OperationalError
     service, endpoint, rgw = identities
     service.reconcile(endpoint)
     identity = endpoint.service_identity("runtime")
     old = identity.access_key
-    create, commit = rgw.create_access_key, db_session.commit
+    create = rgw.create_access_key
     def fail_creation(uid, **kwargs):
         # Intent and encrypted secret exist before any remote write.
         pending = db_session.scalars(select(KeyRotationIntent)).one()
@@ -1175,22 +1176,25 @@ def test_durable_rotation_resumes_exact_pair_after_partial_failure(identities, d
         if failure == "lost_response":
             raise RGWAdminError("response lost", status_code=503)
         return result
-    def fail_commit():
-        if failure == "activation_commit" and any(isinstance(row, KeyRotationIntent) and row.phase == "activated" for row in db_session.dirty):
-            raise OperationalError("commit", {}, Exception("injected"))
-        return commit()
     monkeypatch.setattr(rgw, "create_access_key", fail_creation)
-    monkeypatch.setattr(db_session, "commit", fail_commit)
     rgw.fail_delete = failure == "retirement"
-    with pytest.raises((ValueError, RGWAdminError)):
-        _rotate_identity(service, endpoint, "runtime")
+    failure_injection = (
+        fail_next_sqlite_statement_with_operational_error(
+            db_session,
+            "UPDATE endpoint_service_identities SET",
+        )
+        if failure == "activation_commit"
+        else nullcontext()
+    )
+    with failure_injection:
+        with pytest.raises((ValueError, RGWAdminError)):
+            _rotate_identity(service, endpoint, "runtime")
     intent = db_session.scalars(select(KeyRotationIntent)).one()
     candidate = intent.new_access_key, intent.new_secret_key
     assert intent.phase == ("activated" if failure == "retirement" else "prepared")
     assert old in {key["access_key"] for key in rgw.users[identity.rgw_uid]["keys"]}
     assert identity.access_key == (candidate[0] if failure == "retirement" else old)
     monkeypatch.setattr(rgw, "create_access_key", create)
-    monkeypatch.setattr(db_session, "commit", commit)
     rgw.fail_delete = False
     _rotate_identity(service, endpoint, "runtime")
     assert (identity.access_key, identity.secret_key) == candidate
@@ -1200,20 +1204,14 @@ def test_durable_rotation_resumes_exact_pair_after_partial_failure(identities, d
 
 
 def test_durable_rotation_audits_completion_only_after_final_checkpoint(identities, db_session, monkeypatch):
-    from sqlalchemy.exc import OperationalError
-
     service, endpoint, _ = identities
     service.reconcile(endpoint)
-    commit = db_session.commit
-
-    def fail_final_checkpoint():
-        if any(isinstance(row, KeyRotationIntent) for row in db_session.deleted):
-            raise OperationalError("commit", {}, Exception("injected"))
-        return commit()
-
-    monkeypatch.setattr(db_session, "commit", fail_final_checkpoint)
-    with pytest.raises(ValueError, match="persistence failed"):
-        _rotate_identity(service, endpoint, "runtime")
+    with fail_next_sqlite_statement_with_operational_error(
+        db_session,
+        "DELETE FROM key_rotation_intents",
+    ):
+        with pytest.raises(ValueError, match="persistence failed"):
+            _rotate_identity(service, endpoint, "runtime")
 
     assert db_session.scalar(
         select(func.count())
@@ -1223,7 +1221,6 @@ def test_durable_rotation_audits_completion_only_after_final_checkpoint(identiti
     intent = db_session.scalars(select(KeyRotationIntent)).one()
     assert intent.phase == "activated"
 
-    monkeypatch.setattr(db_session, "commit", commit)
     _rotate_identity(service, endpoint, "runtime")
     assert db_session.scalar(
         select(func.count())
@@ -1238,30 +1235,22 @@ def test_rotation_failure_checkpoint_commit_failure_restores_pending_state(
     db_session,
     monkeypatch,
 ):
-    from sqlalchemy.exc import OperationalError
-
     service, endpoint, rgw = identities
     service.reconcile(endpoint)
     identity = endpoint.service_identity("runtime")
     original_create = rgw.create_access_key
-    original_commit = db_session.commit
 
     def fail_create(uid, **kwargs):
         raise RGWAdminError("temporary provider outage")
 
-    def fail_failure_checkpoint():
-        if any(
-            isinstance(row, KeyRotationIntent) and row.last_error is not None
-            for row in db_session.dirty
-        ):
-            raise OperationalError("commit", {}, Exception("injected"))
-        original_commit()
-
     monkeypatch.setattr(rgw, "create_access_key", fail_create)
-    monkeypatch.setattr(db_session, "commit", fail_failure_checkpoint)
 
-    with pytest.raises(ValueError, match="persistence failed"):
-        _rotate_identity(service, endpoint, "runtime")
+    with fail_next_sqlite_statement_with_operational_error(
+        db_session,
+        "UPDATE key_rotation_intents SET",
+    ):
+        with pytest.raises(ValueError, match="persistence failed"):
+            _rotate_identity(service, endpoint, "runtime")
 
     db_session.expire_all()
     intent = db_session.scalars(select(KeyRotationIntent)).one()
@@ -1271,9 +1260,95 @@ def test_rotation_failure_checkpoint_commit_failure_restores_pending_state(
     assert persisted_identity is not None and persisted_identity.status == "ready"
 
     monkeypatch.setattr(rgw, "create_access_key", original_create)
-    monkeypatch.setattr(db_session, "commit", original_commit)
     _rotate_identity(service, endpoint, "runtime")
     assert db_session.scalar(select(func.count()).select_from(KeyRotationIntent)) == 0
+
+
+def test_durable_rotation_retries_prepared_checkpoint_without_replaying_rgw(
+    identities,
+    db_session,
+):
+    service, endpoint, rgw = identities
+    service.reconcile(endpoint)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO key_rotation_intents",
+    ) as statements:
+        _rotate_identity(service, endpoint, "runtime")
+
+    assert len(statements) == 2
+    assert len([call for call in rgw.calls if call[0] == "key_create"]) == 1
+    assert db_session.scalar(select(func.count()).select_from(KeyRotationIntent)) == 0
+
+
+def test_durable_rotation_retries_activation_checkpoint_without_replaying_rgw(
+    identities,
+    db_session,
+):
+    service, endpoint, rgw = identities
+    service.reconcile(endpoint)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE endpoint_service_identities SET",
+    ) as statements:
+        _rotate_identity(service, endpoint, "runtime")
+
+    assert len([statement for statement in statements if "access_key" in statement]) == 2
+    assert len([call for call in rgw.calls if call[0] == "key_create"]) == 1
+    assert db_session.scalar(select(func.count()).select_from(KeyRotationIntent)) == 0
+
+
+def test_durable_rotation_retries_completion_checkpoint_without_replaying_rgw(
+    identities,
+    db_session,
+):
+    service, endpoint, rgw = identities
+    service.reconcile(endpoint)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "DELETE FROM key_rotation_intents",
+    ) as statements:
+        _rotate_identity(service, endpoint, "runtime")
+
+    assert len(statements) == 2
+    assert len([call for call in rgw.calls if call[0] == "key_delete"]) == 1
+    assert db_session.scalar(select(func.count()).select_from(KeyRotationIntent)) == 0
+
+
+def test_rotation_failure_checkpoint_retries_without_replaying_rgw(
+    identities,
+    db_session,
+    monkeypatch,
+):
+    service, endpoint, rgw = identities
+    service.reconcile(endpoint)
+    attempts = 0
+
+    def fail_create(uid, **kwargs):
+        nonlocal attempts
+        attempts += 1
+        raise RGWAdminError("temporary provider outage")
+
+    monkeypatch.setattr(rgw, "create_access_key", fail_create)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE key_rotation_intents SET",
+    ) as statements:
+        with pytest.raises(RGWAdminError, match="temporary provider outage"):
+            _rotate_identity(service, endpoint, "runtime")
+
+    assert len(statements) == 2
+    assert attempts == 1
+    intent = db_session.scalars(select(KeyRotationIntent)).one()
+    assert intent.phase == "prepared"
+    assert intent.last_error == (
+        "Rotation pending; check credentials, permissions and RGW connectivity, "
+        "then retry rotation."
+    )
 
 
 def test_resume_revalidates_candidate_before_retiring_old_key(identities):
