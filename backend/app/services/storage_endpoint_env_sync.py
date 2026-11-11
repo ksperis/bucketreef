@@ -7,12 +7,16 @@ from __future__ import annotations
 import logging
 from dataclasses import replace
 
-from sqlalchemy import select, update
+from sqlalchemy import select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.db_transactions import commit_or_rollback, run_replayable_db_unit
+from app.core.db_transactions import (
+    acquire_sqlite_write_transaction,
+    commit_or_rollback,
+    run_replayable_db_unit,
+)
 from app.core.domain_enums import (
     MANAGED_SERVICE_IDENTITY_KINDS,
     SERVICE_IDENTITY_KINDS,
@@ -103,8 +107,12 @@ class StorageEndpointEnvSyncService:
             for config in configs:
                 self._upsert(config, existing_by_url)
             default_config = next(config for config in configs if config.is_default)
-            self._clear_other_defaults(default_config.endpoint_url)
-            self.db.commit()
+            default_url = default_config.endpoint_url
+
+            def clear_defaults_once(write_db: Session) -> None:
+                self._clear_other_defaults(write_db, default_url)
+
+            run_replayable_db_unit(self.db, clear_defaults_once)
         except IntegrityError:
             self.db.rollback()
             if not _retry_on_integrity:
@@ -122,6 +130,7 @@ class StorageEndpointEnvSyncService:
         existing_by_url: dict[str, StorageEndpoint],
     ) -> StorageEndpoint:
         endpoint = self._resolve(config, existing_by_url)
+        endpoint_id = int(endpoint.id) if endpoint.id is not None else None
         identities = EndpointServiceIdentityService(self.db, actor=self.actor)
         lease, handle = (
             identities.lease(endpoint)
@@ -136,13 +145,39 @@ class StorageEndpointEnvSyncService:
                 required,
             )
             identity_management_enabled = endpoint_identity_management_enabled(settings)
-            self._prepare_identity_transition(
+            self._acquire_endpoint_write_transaction(endpoint_id)
+            revoked_managed_kinds = self._prepare_identity_transition(
                 endpoint,
                 config,
                 required,
                 identities,
                 identity_management_enabled=identity_management_enabled,
             )
+            if endpoint_id is not None and self._acquire_endpoint_write_transaction(
+                endpoint_id
+            ):
+                endpoint = self.db.get(
+                    StorageEndpoint,
+                    endpoint_id,
+                    populate_existing=True,
+                )
+                if endpoint is None:
+                    raise ValueError("ENV storage endpoint no longer exists.")
+                ensure_unique_storage_endpoint_name(
+                    self.db,
+                    config.name,
+                    exclude_id=endpoint_id,
+                )
+                ensure_unique_storage_endpoint_url(
+                    self.db,
+                    config.endpoint_url,
+                    exclude_id=endpoint_id,
+                )
+                existing_by_url[config.endpoint_url] = endpoint
+            for kind in revoked_managed_kinds:
+                identity = endpoint.service_identity(kind)
+                if identity is not None:
+                    identity.mode = "external"
             apply_storage_endpoint_state(endpoint, config)
             endpoint.is_default = config.is_default
             endpoint.is_editable = False
@@ -158,6 +193,24 @@ class StorageEndpointEnvSyncService:
             if lease is not None:
                 lease.release(handle)
         return endpoint
+
+    def _acquire_endpoint_write_transaction(self, endpoint_id: int | None) -> bool:
+        def acquire_once(write_db: Session) -> bool:
+            if endpoint_id is None:
+                write_db.execute(text("UPDATE storage_endpoints SET id = id WHERE 0"))
+                return True
+            changed = write_db.execute(
+                text(
+                    "UPDATE storage_endpoints SET id = id "
+                    "WHERE id = :endpoint_id"
+                ),
+                {"endpoint_id": endpoint_id},
+            ).rowcount
+            if changed != 1:
+                raise ValueError("ENV storage endpoint no longer exists.")
+            return True
+
+        return acquire_sqlite_write_transaction(self.db, acquire_once) is True
 
     def _resolve(
         self,
@@ -231,7 +284,7 @@ class StorageEndpointEnvSyncService:
         identities: EndpointServiceIdentityService,
         *,
         identity_management_enabled: bool,
-    ) -> None:
+    ) -> set[str]:
         self._validate_external_to_managed_transition(
             endpoint,
             config,
@@ -240,15 +293,15 @@ class StorageEndpointEnvSyncService:
             identity_management_enabled=identity_management_enabled,
         )
         if endpoint.id is None:
-            return
+            return set()
         if self._revoke_identities_for_provider_change(
             endpoint,
             config,
             identities,
             identity_management_enabled=identity_management_enabled,
         ):
-            return
-        self._prepare_managed_to_external_transition(
+            return set()
+        return self._prepare_managed_to_external_transition(
             endpoint,
             config,
             required,
@@ -309,10 +362,11 @@ class StorageEndpointEnvSyncService:
         identities: EndpointServiceIdentityService,
         *,
         identity_management_enabled: bool,
-    ) -> None:
+    ) -> set[str]:
         if config.service_identity_mode != "external":
-            return
+            return set()
 
+        revoked_kinds: set[str] = set()
         for kind in MANAGED_SERVICE_IDENTITY_KINDS:
             identity = endpoint.service_identity(kind)
             if identity is None or identity.mode != "managed":
@@ -341,18 +395,20 @@ class StorageEndpointEnvSyncService:
                 raise ValueError(
                     "Managed identity revocation is pending; retry ENV synchronization."
                 )
-            identity.mode = "external"
+            revoked_kinds.add(kind)
+        return revoked_kinds
 
-    def _clear_other_defaults(self, default_url: str) -> None:
-        endpoints = self.db.scalars(
-            select(StorageEndpoint).where(
-                StorageEndpoint.endpoint_url != default_url
+    @staticmethod
+    def _clear_other_defaults(db: Session, default_url: str) -> None:
+        db.execute(
+            update(StorageEndpoint)
+            .where(
+                StorageEndpoint.endpoint_url != default_url,
+                StorageEndpoint.is_default.is_(True),
             )
+            .values(is_default=False)
+            .execution_options(synchronize_session=False)
         )
-        for endpoint in endpoints:
-            if endpoint.is_default:
-                endpoint.is_default = False
-                self.db.add(endpoint)
 
     def _load_synced(
         self,
