@@ -5,7 +5,6 @@ from __future__ import annotations
 import threading
 import time
 from datetime import datetime, timezone
-from types import SimpleNamespace
 
 import pytest
 from botocore.exceptions import ClientError
@@ -17,6 +16,7 @@ from app.services.bucket_integrity_service import (
     _ObjectRef,
 )
 from app.services.s3_execution_context import ResolvedS3BucketTarget
+from tests.execution_context_factory import make_s3_execution_context
 
 
 class FakeBody:
@@ -107,7 +107,7 @@ class FakeIntegrityService(BucketIntegrityCheckService):
 
 def _target(bucket_name: str = "bucket-a") -> ResolvedS3BucketTarget:
     return ResolvedS3BucketTarget(
-        context=SimpleNamespace(),
+        context=make_s3_execution_context(),
         bucket_name=bucket_name,
         context_id="ctx-1",
         context_name="Context 1",

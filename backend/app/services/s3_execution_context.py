@@ -200,7 +200,7 @@ class ResolvedS3BucketNameMixin:
 
 @dataclass(frozen=True)
 class ResolvedS3BucketTarget(ResolvedS3BucketNameMixin):
-    context: S3ExecutionTarget
+    context: S3ExecutionContext
     bucket_name: str
     request_bucket_name: str | None = None
     context_id: str | None = None
