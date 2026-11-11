@@ -5,7 +5,6 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.core.domain_errors import BucketConfigValidationError
-from app.db import S3Account
 from app.models.bucket import (
     BucketCors,
     BucketObjectLock,
@@ -21,6 +20,17 @@ from app.routers.bucket_config_errors import run_bucket_config_action, run_bucke
 from app.services.bucket_quota_service import BucketQuotaOperationError
 from app.services.s3_client import S3OperationError
 from app.services.s3_deletion import BucketNotEmptyError
+from app.services.s3_execution_context import S3ExecutionContext
+
+
+def _context() -> S3ExecutionContext:
+    return S3ExecutionContext(
+        context_id="account-a",
+        context_kind="account",
+        name="account-a",
+        access_key=None,
+        secret_key=None,
+    )
 
 
 def test_public_access_block_read_and_write_contracts_are_explicit() -> None:
@@ -94,7 +104,7 @@ def test_get_bucket_cors_config_uses_dedicated_cors_service():
 
     result = bucket_config_actions.get_bucket_cors_config(
         service=FakeBucketsService(),
-        context=S3Account(name="account-a"),
+        context=_context(),
         bucket_name="demo-bucket",
     )
 
@@ -112,7 +122,7 @@ def test_update_bucket_versioning_config_returns_domain_result_and_metadata():
 
     result, metadata = bucket_config_actions.update_bucket_versioning_config(
         service=FakeConfigurationService(),
-        context=S3Account(name="account-a"),
+        context=_context(),
         bucket_name="demo-bucket",
         payload=BucketVersioningUpdate(enabled=True),
     )
