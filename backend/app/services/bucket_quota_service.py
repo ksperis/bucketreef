@@ -9,7 +9,6 @@ from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client
 from app.services.rgw_principal_scope import resolve_target_admin_uid, resolve_target_tenant
 from app.services.s3_execution_context import (
     S3ExecutionContext,
-    S3ExecutionTarget,
     is_ceph_admin_execution_context,
 )
 from app.utils.rgw_identifiers import resolve_account_scope
@@ -22,8 +21,8 @@ class BucketQuotaOperationError(RuntimeError):
 
 
 class BucketQuotaService:
-    def _rgw_bucket_quota_admin_for_context(self, execution_context: S3ExecutionTarget):
-        if isinstance(execution_context, S3ExecutionContext) and execution_context.context_kind == "openstack_project":
+    def _rgw_bucket_quota_admin_for_context(self, execution_context: S3ExecutionContext):
+        if execution_context.context_kind == "openstack_project":
             raise BucketQuotaOperationError("Admin Ops are not available for OpenStack project contexts")
         endpoint = execution_context.storage_endpoint
         if endpoint is None:
@@ -45,7 +44,7 @@ class BucketQuotaService:
 
     def _resolve_bucket_quota_scope(
         self,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
         *,
         rgw_tenant: str | None = None,
     ) -> tuple[str | None, str | None, str]:
@@ -64,7 +63,7 @@ class BucketQuotaService:
     def set_bucket_quota(
         self,
         name: str,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
         payload: BucketQuotaUpdate,
         rgw_admin: RGWAdminClient | None = None,
         rgw_tenant: str | None = None,
