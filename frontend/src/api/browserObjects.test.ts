@@ -145,7 +145,10 @@ describe("browser object api", () => {
     expect(clientMock.put).toHaveBeenCalledWith(
       "/browser/buckets/bucket-a/object-tags",
       { key: "demo.txt", tags: [] },
-      expect.objectContaining({ headers: { "X-S3-Workspace": "manager-browser" } }),
+      expect.objectContaining({
+        params: { context_id: "12" },
+        headers: { "X-S3-Workspace": "manager-browser" },
+      }),
     );
   });
 });

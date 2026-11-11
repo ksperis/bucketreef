@@ -34,6 +34,16 @@ import type {
 } from "./browserContracts";
 import type { BrowserRequestOptions } from "./browserWorkspace";
 
+function browserObjectRequestConfig(
+  contextId: S3ExecutionContextSelector,
+  options?: BrowserRequestOptions,
+) {
+  return {
+    params: withS3ContextParam(undefined, contextId),
+    headers: buildBrowserWorkspaceHeaders(options),
+  };
+}
+
 export async function listBrowserObjects(
   contextId: S3ExecutionContextSelector,
   bucketName: string,
@@ -183,8 +193,7 @@ export async function updateObjectTags(
     `/browser/buckets/${encodeURIComponent(bucketName)}/object-tags`,
     payload,
     {
-      params: withS3ContextParam(undefined, contextId),
-      headers: buildBrowserWorkspaceHeaders(options),
+      ...browserObjectRequestConfig(contextId, options),
       signal,
     }
   );
@@ -202,8 +211,7 @@ export async function updateObjectMetadata(
     `/browser/buckets/${encodeURIComponent(bucketName)}/object-meta`,
     payload,
     {
-      params: withS3ContextParam(undefined, contextId),
-      headers: buildBrowserWorkspaceHeaders(options),
+      ...browserObjectRequestConfig(contextId, options),
       signal,
     }
   );
@@ -221,8 +229,7 @@ export async function updateObjectAcl(
     `/browser/buckets/${encodeURIComponent(bucketName)}/object-acl`,
     payload,
     {
-      params: withS3ContextParam(undefined, contextId),
-      headers: buildBrowserWorkspaceHeaders(options),
+      ...browserObjectRequestConfig(contextId, options),
       signal,
     }
   );
@@ -255,8 +262,7 @@ export async function updateObjectLegalHold(
     `/browser/buckets/${encodeURIComponent(bucketName)}/object-legal-hold`,
     payload,
     {
-      params: withS3ContextParam(undefined, contextId),
-      headers: buildBrowserWorkspaceHeaders(options),
+      ...browserObjectRequestConfig(contextId, options),
       signal,
     }
   );
@@ -289,8 +295,7 @@ export async function updateObjectRetention(
     `/browser/buckets/${encodeURIComponent(bucketName)}/object-retention`,
     payload,
     {
-      params: withS3ContextParam(undefined, contextId),
-      headers: buildBrowserWorkspaceHeaders(options),
+      ...browserObjectRequestConfig(contextId, options),
       signal,
     }
   );
@@ -306,10 +311,7 @@ export async function restoreObject(
   await client.post(
     `/browser/buckets/${encodeURIComponent(bucketName)}/object-restore`,
     payload,
-    {
-      params: withS3ContextParam(undefined, contextId),
-      headers: buildBrowserWorkspaceHeaders(options),
-    }
+    browserObjectRequestConfig(contextId, options)
   );
 }
 
@@ -321,8 +323,7 @@ export async function copyObject(
   options?: BrowserRequestOptions,
 ): Promise<void> {
   await client.post(`/browser/buckets/${encodeURIComponent(bucketName)}/copy`, payload, {
-    params: withS3ContextParam(undefined, contextId),
-    headers: buildBrowserWorkspaceHeaders(options),
+    ...browserObjectRequestConfig(contextId, options),
     signal,
   });
 }
@@ -337,7 +338,7 @@ export async function deleteObjects(
   const { data } = await client.post<DeleteObjectsResponse>(
     `/browser/buckets/${encodeURIComponent(bucketName)}/delete`,
     { objects },
-    { params: withS3ContextParam(undefined, contextId), headers: buildBrowserWorkspaceHeaders(options), signal }
+    { ...browserObjectRequestConfig(contextId, options), signal }
   );
   return data.deleted;
 }
@@ -353,8 +354,7 @@ export async function cleanupObjectVersions(
     `/browser/buckets/${encodeURIComponent(bucketName)}/versions/cleanup`,
     payload,
     {
-      params: withS3ContextParam(undefined, contextId),
-      headers: buildBrowserWorkspaceHeaders(options),
+      ...browserObjectRequestConfig(contextId, options),
       signal,
     }
   );
@@ -370,6 +370,6 @@ export async function createFolder(
   await client.post(
     `/browser/buckets/${encodeURIComponent(bucketName)}/folders`,
     { prefix },
-    { params: withS3ContextParam(undefined, contextId), headers: buildBrowserWorkspaceHeaders(options) }
+    browserObjectRequestConfig(contextId, options)
   );
 }
