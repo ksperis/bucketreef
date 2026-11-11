@@ -4,6 +4,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.db_transactions import run_replayable_db_unit
 from app.db import OnboardingJourney, S3Account, S3Connection, UserS3Account
 from app.models.onboarding import OnboardingApply
@@ -117,7 +118,10 @@ class OnboardingSetupService:
 
         features = enable_onboarding_features(
             self.db,
-            required_onboarding_feature_fields(draft),
+            required_onboarding_feature_fields(
+                draft,
+                deployment_profile=get_settings().deployment_profile,
+            ),
         )
         if features:
             self.progress.audit(actor, "features_enabled", row.id, features=features)
