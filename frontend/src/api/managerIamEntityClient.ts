@@ -3,8 +3,9 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
-import { S3ExecutionContextSelector, withS3ContextParam } from "./accountParams";
-import { IamPolicy, InlinePolicy } from "./managerIamPolicies";
+import type { S3ExecutionContextSelector } from "./accountParams";
+import { withS3ContextParam } from "./accountParams";
+import type { IamPolicy, InlinePolicy } from "./managerIamPolicies";
 
 type IamEntitySegment = "users" | "groups" | "roles";
 
@@ -28,8 +29,11 @@ function entityPath(segment: IamEntitySegment, entityName: string): string {
   return `${segmentBasePath(segment)}/${encodeURIComponent(entityName)}`;
 }
 
-function withContext(contextId?: S3ExecutionContextSelector) {
-  return { params: withS3ContextParam(undefined, contextId) };
+export function buildIamRequestConfig(
+  contextId?: S3ExecutionContextSelector,
+  params?: Record<string, unknown> | null,
+) {
+  return { params: withS3ContextParam(params, contextId) };
 }
 
 export async function listIamEntityPage<T>(
@@ -37,16 +41,19 @@ export async function listIamEntityPage<T>(
   contextId: S3ExecutionContextSelector,
   query: IamCursorQuery = {},
 ): Promise<IamCursorPage<T>> {
-  const params = withS3ContextParam(
+  const requestConfig = buildIamRequestConfig(
+    contextId,
     {
       ...(query.marker ? { marker: query.marker } : {}),
       ...(query.page_size ? { page_size: query.page_size } : {}),
       ...(query.search?.trim() ? { search: query.search.trim() } : {}),
       ...(query.include_details ? { include_details: true } : {}),
     },
-    contextId,
   );
-  const { data } = await client.get<IamCursorPage<T>>(`${segmentBasePath(segment)}/page`, { params });
+  const { data } = await client.get<IamCursorPage<T>>(
+    `${segmentBasePath(segment)}/page`,
+    requestConfig,
+  );
   return data;
 }
 
@@ -55,7 +62,10 @@ export async function getIamEntity<T>(
   contextId: S3ExecutionContextSelector,
   entityName: string,
 ): Promise<T> {
-  const { data } = await client.get<T>(entityPath(segment, entityName), withContext(contextId));
+  const { data } = await client.get<T>(
+    entityPath(segment, entityName),
+    buildIamRequestConfig(contextId),
+  );
   return data;
 }
 
@@ -64,7 +74,11 @@ export async function createIamEntity<T, Payload extends object = object>(
   contextId: S3ExecutionContextSelector | undefined,
   payload: Payload,
 ): Promise<T> {
-  const { data } = await client.post<T>(segmentBasePath(segment), payload, withContext(contextId));
+  const { data } = await client.post<T>(
+    segmentBasePath(segment),
+    payload,
+    buildIamRequestConfig(contextId),
+  );
   return data;
 }
 
@@ -74,12 +88,16 @@ export async function updateIamEntity<T, Payload extends object>(
   entityName: string,
   payload: Payload,
 ): Promise<T> {
-  const { data } = await client.patch<T>(entityPath(segment, entityName), payload, withContext(contextId));
+  const { data } = await client.patch<T>(
+    entityPath(segment, entityName),
+    payload,
+    buildIamRequestConfig(contextId),
+  );
   return data;
 }
 
 export async function deleteIamEntity(segment: IamEntitySegment, contextId: S3ExecutionContextSelector, entityName: string): Promise<void> {
-  await client.delete(entityPath(segment, entityName), withContext(contextId));
+  await client.delete(entityPath(segment, entityName), buildIamRequestConfig(contextId));
 }
 
 export async function listEntityPolicies(
@@ -87,7 +105,10 @@ export async function listEntityPolicies(
   contextId: S3ExecutionContextSelector,
   entityName: string
 ): Promise<IamPolicy[]> {
-  const { data } = await client.get<IamPolicy[]>(`${entityPath(segment, entityName)}/policies`, withContext(contextId));
+  const { data } = await client.get<IamPolicy[]>(
+    `${entityPath(segment, entityName)}/policies`,
+    buildIamRequestConfig(contextId),
+  );
   return data;
 }
 
@@ -97,7 +118,11 @@ export async function attachEntityPolicy(
   entityName: string,
   policy: IamPolicy
 ): Promise<IamPolicy> {
-  const { data } = await client.post<IamPolicy>(`${entityPath(segment, entityName)}/policies`, policy, withContext(contextId));
+  const { data } = await client.post<IamPolicy>(
+    `${entityPath(segment, entityName)}/policies`,
+    policy,
+    buildIamRequestConfig(contextId),
+  );
   return data;
 }
 
@@ -107,7 +132,10 @@ export async function detachEntityPolicy(
   entityName: string,
   policyArn: string
 ): Promise<void> {
-  await client.delete(`${entityPath(segment, entityName)}/policies/${encodeURIComponent(policyArn)}`, withContext(contextId));
+  await client.delete(
+    `${entityPath(segment, entityName)}/policies/${encodeURIComponent(policyArn)}`,
+    buildIamRequestConfig(contextId),
+  );
 }
 
 export async function listEntityInlinePolicies(
@@ -115,7 +143,10 @@ export async function listEntityInlinePolicies(
   contextId: S3ExecutionContextSelector,
   entityName: string
 ): Promise<InlinePolicy[]> {
-  const { data } = await client.get<InlinePolicy[]>(`${entityPath(segment, entityName)}/inline-policies`, withContext(contextId));
+  const { data } = await client.get<InlinePolicy[]>(
+    `${entityPath(segment, entityName)}/inline-policies`,
+    buildIamRequestConfig(contextId),
+  );
   return data;
 }
 
@@ -129,7 +160,7 @@ export async function putEntityInlinePolicy(
   const { data } = await client.put<InlinePolicy>(
     `${entityPath(segment, entityName)}/inline-policies/${encodeURIComponent(policyName)}`,
     { name: policyName, document },
-    withContext(contextId)
+    buildIamRequestConfig(contextId)
   );
   return data;
 }
@@ -140,5 +171,8 @@ export async function deleteEntityInlinePolicy(
   entityName: string,
   policyName: string
 ): Promise<void> {
-  await client.delete(`${entityPath(segment, entityName)}/inline-policies/${encodeURIComponent(policyName)}`, withContext(contextId));
+  await client.delete(
+    `${entityPath(segment, entityName)}/inline-policies/${encodeURIComponent(policyName)}`,
+    buildIamRequestConfig(contextId),
+  );
 }
