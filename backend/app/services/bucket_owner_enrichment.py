@@ -11,7 +11,6 @@ from typing import Callable
 
 from app.db import StorageEndpoint
 from app.core.domain_enums import StorageProvider
-from app.services.s3_execution_context import S3ExecutionTarget
 from app.models.bucket_listing import BucketListingSummary
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_bucket_metadata import BucketOwnerKind, split_tenant_uid
@@ -212,12 +211,9 @@ class BucketOwnerMetadataService:
         endpoint_id: int,
         endpoint: StorageEndpoint | None = None,
         rgw_admin: RGWAdminClient | None = None,
-        execution_context: S3ExecutionTarget | None = None,
     ) -> None:
         self.endpoint_id = int(endpoint_id)
-        self.endpoint = endpoint or (
-            execution_context.storage_endpoint if execution_context is not None else None
-        )
+        self.endpoint = endpoint
         self.rgw_admin = rgw_admin
 
     @staticmethod

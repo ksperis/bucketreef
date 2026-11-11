@@ -57,7 +57,7 @@ def enrich_storage_ops_page_owner_metadata(
         if resolved is not None:
             metadata = BucketOwnerMetadataService(
                 endpoint_id=int(resolved.context.storage_endpoint_id or 0),
-                execution_context=resolved.context,
+                endpoint=resolved.context.storage_endpoint,
             )
             metadata.enrich_buckets(
                 buckets,
@@ -140,7 +140,7 @@ def _enrich_storage_ops_context_owner_details(
 
     BucketOwnerMetadataService(
         endpoint_id=int(execution_context.storage_endpoint_id or 0),
-        execution_context=execution_context,
+        endpoint=execution_context.storage_endpoint,
     ).enrich_buckets(
         buckets,
         include_name=requirements.name,
