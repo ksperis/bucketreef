@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from types import SimpleNamespace
 
 import pytest
 import sqlalchemy as sa
@@ -25,6 +24,7 @@ from tests.db_transaction_test_utils import (
     fail_next_sqlite_statement_with_busy_snapshot,
     fail_next_transaction_commit,
 )
+from tests.execution_context_factory import make_s3_execution_context
 
 
 class FakePaginator:
@@ -67,7 +67,7 @@ def _target(
     request_bucket_name: str | None = None,
 ) -> BucketUsageStatsResolvedTarget:
     return BucketUsageStatsResolvedTarget(
-        context=SimpleNamespace(),
+        context=make_s3_execution_context(),
         bucket_name=bucket_name,
         bucket_tenant=bucket_tenant,
         request_bucket_name=request_bucket_name,

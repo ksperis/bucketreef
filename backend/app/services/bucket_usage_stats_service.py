@@ -41,7 +41,7 @@ from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import (
     ResolvedS3BucketNameMixin,
     ResolvedS3BucketTarget,
-    S3ExecutionTarget,
+    S3ExecutionContext,
 )
 from app.utils.normalize import normalize_optional_string
 from app.utils.s3_errors import format_s3_error, is_s3_feature_unsupported
@@ -59,7 +59,7 @@ class BucketUsageStatsCancelled(RuntimeError):
 
 @dataclass(frozen=True)
 class BucketUsageStatsResolvedTarget(ResolvedS3BucketNameMixin):
-    context: S3ExecutionTarget
+    context: S3ExecutionContext
     bucket_name: str
     scope_kind: str
     scope_id: str
