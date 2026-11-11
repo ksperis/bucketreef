@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 
 
 MIGRATION_USER_AGENT_MARKER = "bucketreef-migration-worker"
@@ -14,7 +14,7 @@ MIGRATION_USER_AGENT_MARKER = "bucketreef-migration-worker"
 @dataclass
 class ResolvedContext:
     context_id: str
-    execution_context: S3ExecutionTarget
+    execution_context: S3ExecutionContext
     endpoint: Optional[str]
     region: Optional[str]
     force_path_style: bool

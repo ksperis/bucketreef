@@ -11,7 +11,7 @@ from app.core.config import get_settings
 from app.core.db_transactions import run_replayable_db_unit
 from app.core.sensitive_data import sanitize_error_detail, sanitized_error_log_detail
 from app.db import BucketMigration, BucketMigrationEvent, BucketMigrationItem
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 from app.services.webhook_catalog import MIGRATION_EVENT_TYPE
 from app.services.webhook_service import WebhookEventPublisher, WebhookQueueError
 from app.utils.time import utcnow
@@ -363,7 +363,7 @@ class BucketMigrationProgressMixin:
 
     def _verify_restored_bucket_policy(
         self,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
         bucket_name: str,
         expected_policy: Any,
     ) -> None:

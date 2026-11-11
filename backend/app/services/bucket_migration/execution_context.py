@@ -9,7 +9,7 @@ from app.db import S3Account
 from app.services.app_settings_service import load_app_settings_for_db
 from app.services.s3_client import get_s3_client
 from app.services.s3_connection_query_service import S3ConnectionQueryService
-from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 from app.services.s3_user_repository import S3UserRepository
 from app.utils.normalize import normalize_optional_string
 from app.utils.s3_endpoint import normalize_s3_endpoint, resolve_s3_client_options
@@ -43,7 +43,7 @@ class BucketMigrationExecutionContextMixin:
         )
 
     def _resolve_context(self, context_id: str) -> ResolvedContext:
-        execution_context = self._context_to_execution_target(context_id)
+        execution_context = self._context_to_execution_context(context_id)
         endpoint, region, force_path_style, verify_tls = resolve_s3_client_options(execution_context)
         endpoint = normalize_s3_endpoint(endpoint)
         return ResolvedContext(
@@ -55,7 +55,7 @@ class BucketMigrationExecutionContextMixin:
             verify_tls=verify_tls,
         )
 
-    def _context_to_execution_target(self, context_id: str) -> S3ExecutionTarget:
+    def _context_to_execution_context(self, context_id: str) -> S3ExecutionContext:
         value = normalize_optional_string(context_id) or ""
         if value.startswith("os-"):
             from app.db import AuthSession, User
@@ -90,4 +90,9 @@ class BucketMigrationExecutionContextMixin:
         ).first()
         if not account:
             raise S3AccountNotFoundError("S3 account not found")
-        return account
+        access_key, secret_key = account.effective_rgw_credentials()
+        return S3ExecutionContext.from_account(
+            account,
+            access_key=access_key,
+            secret_key=secret_key,
+        )

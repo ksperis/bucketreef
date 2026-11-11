@@ -9,7 +9,7 @@ from typing import Any, Callable, Optional
 from botocore.exceptions import BotoCoreError, ClientError
 
 from app.db import BucketMigration, BucketMigrationItem
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.s3_endpoint import normalize_s3_endpoint
 from app.utils.time import utcnow
 
@@ -234,7 +234,7 @@ class BucketMigrationObjectSyncMixin:
 
     def _finalize_target_versioning_state(
         self,
-        target_execution_context: S3ExecutionTarget,
+        target_execution_context: S3ExecutionContext,
         target_bucket: str,
         migration: BucketMigration,
         item: BucketMigrationItem,

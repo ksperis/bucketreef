@@ -574,7 +574,7 @@ def test_migration_context_resolution_types_missing_resources(db_session, contex
     service = BucketMigrationService(db_session)
 
     with pytest.raises(error_type):
-        service._context_to_execution_target(context_id)
+        service._context_to_execution_context(context_id)
 
 
 def test_migration_context_resolution_normalizes_whitespace(db_session):
@@ -589,7 +589,16 @@ def test_migration_context_resolution_normalizes_whitespace(db_session):
 
     service = BucketMigrationService(db_session)
 
-    assert service._context_to_execution_target(f"  {account.id}  ") == account
+    context = service._context_to_execution_context(f"  {account.id}  ")
+
+    assert context.context_kind == "account"
+    assert context.context_id == str(account.id)
+    assert context.name == account.name
+    assert context.rgw_account_id == account.rgw_account_id
+    assert context.rgw_user_uid == account.rgw_user_uid
+    assert context.storage_endpoint_id == account.storage_endpoint_id
+    assert context.storage_endpoint == account.storage_endpoint
+    assert context.effective_rgw_credentials() == account.effective_rgw_credentials()
 
 
 def test_list_migrations_normalizes_context_filter(db_session):

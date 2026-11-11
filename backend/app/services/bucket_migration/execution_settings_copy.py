@@ -9,7 +9,7 @@ from app.core.sensitive_data import sanitized_error_log_detail
 from app.db import BucketMigration, BucketMigrationItem
 from app.models.bucket import BucketObjectLockUpdate, BucketPublicAccessBlockUpdate
 from app.services.s3_client import S3OperationError
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.normalize import normalize_text
 
 from .diagnostics import MigrationSettingsCopyError
@@ -34,9 +34,9 @@ class _BucketSettingsCopyRunner:
         self,
         *,
         service: BucketMigrationItemRunnerMixin,
-        source_execution_context: S3ExecutionTarget,
+        source_execution_context: S3ExecutionContext,
         source_bucket: str,
-        target_execution_context: S3ExecutionTarget,
+        target_execution_context: S3ExecutionContext,
         target_bucket: str,
         migration: BucketMigration,
         item: BucketMigrationItem,
@@ -251,10 +251,10 @@ class _BucketSettingsCopyRunner:
     def _copy_optional_setting(
         self,
         *,
-        read: Callable[[str, S3ExecutionTarget], _SourceSetting],
+        read: Callable[[str, S3ExecutionContext], _SourceSetting],
         transform: Callable[[_SourceSetting], _TargetSetting],
-        write: Callable[[str, S3ExecutionTarget, _TargetSetting], object],
-        delete: Callable[[str, S3ExecutionTarget], object],
+        write: Callable[[str, S3ExecutionContext, _TargetSetting], object],
+        delete: Callable[[str, S3ExecutionContext], object],
     ) -> None:
         value = transform(
             read(self.source_bucket, self.source_execution_context)

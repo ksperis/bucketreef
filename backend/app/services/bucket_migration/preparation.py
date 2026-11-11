@@ -21,6 +21,7 @@ from app.services.managed_resource_naming import (
 )
 from app.services.s3_client import S3OperationError
 from app.services.s3_deletion import BucketNotEmptyError
+from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.time import utcnow
 from .diagnostics import (
     MigrationCopyGrantError,
@@ -456,14 +457,19 @@ class BucketMigrationPreparationMixin:
                     )
                 self._clear_preparation_effect(item, name)
 
-    def _restore_checked_policy(self, account, bucket: str, policy) -> None:
+    def _restore_checked_policy(
+        self,
+        execution_context: S3ExecutionContext,
+        bucket: str,
+        policy,
+    ) -> None:
         self._assert_workflow_lease()
         try:
             if isinstance(policy, dict):
-                self._configuration.put_policy(bucket, account, policy)
+                self._configuration.put_policy(bucket, execution_context, policy)
             else:
-                self._configuration.delete_policy(bucket, account)
-            restored = self._configuration.get_policy(bucket, account)
+                self._configuration.delete_policy(bucket, execution_context)
+            restored = self._configuration.get_policy(bucket, execution_context)
         except S3OperationError as exc:
             raise MigrationRecoveryError(
                 f"Unable to restore bucket policy for '{bucket}': "
