@@ -15,6 +15,7 @@ from app.db.ldap import LdapProvider
 from app.db.oidc import OidcProvider
 from app.db.s3_account import AccountIAMUser
 from app.scripts import rotate_credential_keys
+from tests.db_transaction_test_utils import fail_next_sqlite_statement_with_busy_snapshot
 
 
 def test_rotate_credentials_includes_iam_and_authentication_provider_secrets(
@@ -94,5 +95,37 @@ def test_rotate_credentials_includes_iam_and_authentication_provider_secrets(
             "ldap": "ldap-secret",
             "oidc": "oidc-secret",
         }
+    finally:
+        clear_credential_keys_override()
+
+
+def test_rotate_credentials_retries_sqlite_busy_snapshot(db_session, monkeypatch):
+    endpoint = StorageEndpoint(
+        name="credential-rotation-busy-endpoint",
+        endpoint_url="https://credential-rotation-busy.example.test",
+        admin_secret_key="endpoint-secret",
+    )
+    db_session.add(endpoint)
+    db_session.commit()
+
+    session_factory = sessionmaker(bind=db_session.bind, future=True)
+    monkeypatch.setattr(rotate_credential_keys, "SessionLocal", session_factory)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE storage_endpoints",
+    ) as statements:
+        updated = rotate_credential_keys.rotate_credentials(new_key="rotated-busy-key")
+
+    assert updated == 1
+    assert len(statements) >= 2
+
+    set_credential_keys_override(["rotated-busy-key"])
+    try:
+        encrypted_value = db_session.execute(
+            text("SELECT admin_secret_key FROM storage_endpoints WHERE id = :endpoint_id"),
+            {"endpoint_id": endpoint.id},
+        ).scalar_one()
+        assert decrypt_secret(encrypted_value) == "endpoint-secret"
     finally:
         clear_credential_keys_override()
