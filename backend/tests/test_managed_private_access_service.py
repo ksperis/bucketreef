@@ -225,6 +225,15 @@ def _connection_context(source: S3Connection) -> S3ExecutionContext:
     return S3ExecutionContext.from_connection(source)
 
 
+def _account_context(source: S3Account) -> S3ExecutionContext:
+    access_key, secret_key = source.effective_rgw_credentials()
+    return S3ExecutionContext.from_account(
+        source,
+        access_key=access_key,
+        secret_key=secret_key,
+    )
+
+
 def test_iam_provisioning_never_serializes_or_audits_secret_and_is_idempotent(db_session, monkeypatch):
     user = _user(db_session)
     account = _account(db_session, user, _endpoint(db_session))
@@ -233,7 +242,7 @@ def test_iam_provisioning_never_serializes_or_audits_secret_and_is_idempotent(db
     monkeypatch.setattr(service.iam, "for_context", lambda _context: fake)
     _disable_capability_probe(monkeypatch)
 
-    result = service.provision_iam(user=user, context=account, payload=_payload())
+    result = service.provision_iam(user=user, context=_account_context(account), payload=_payload())
 
     assert result.status == "active"
     assert result.connection.server_managed is True
@@ -261,7 +270,7 @@ def test_iam_provisioning_never_serializes_or_audits_secret_and_is_idempotent(db
     assert all(audit.context_id == str(account.id) for audit in audits)
     assert all(audit.context_name == account.name for audit in audits)
 
-    repeated = service.provision_iam(user=user, context=account, payload=_payload())
+    repeated = service.provision_iam(user=user, context=_account_context(account), payload=_payload())
     assert repeated.connection.id == result.connection.id
     assert fake.created_users == [f"bkr-private-u{user.id}-acc{account.id}"]
     assert fake.created_keys == [f"bkr-private-u{user.id}-acc{account.id}"]
@@ -283,7 +292,7 @@ def test_iam_provisioning_preserves_tenant_account_identity(db_session, monkeypa
 
     result = service.provision_iam(
         user=user,
-        context=account,
+        context=_account_context(account),
         payload=_payload("Tenant private access"),
     )
 
@@ -325,12 +334,23 @@ def test_internal_cleanup_uses_persisted_account_after_owner_access_is_revoked(
 
     fake = FakeIAM()
     iam = ManagedPrivateAccessIAMService(db_session)
-    monkeypatch.setattr(iam, "for_context", lambda _context: fake)
+    cleanup_contexts: list[S3ExecutionContext] = []
+
+    def _fake_for_context(context: S3ExecutionContext):
+        cleanup_contexts.append(context)
+        return fake
+
+    monkeypatch.setattr(iam, "for_context", _fake_for_context)
 
     with pytest.raises(ManagedPrivateAccessForbidden, match="Account access was revoked"):
         iam.for_source(provisioning, user)
 
     assert iam.for_cleanup_source(provisioning) is fake
+    assert len(cleanup_contexts) == 1
+    cleanup_context = cleanup_contexts[0]
+    assert cleanup_context.context_kind == "account"
+    assert cleanup_context.id == account.id
+    assert cleanup_context.effective_rgw_credentials() == ("ROOT-AK", "ROOT-SK")
 
 
 def test_remote_cleanup_skips_iam_resolution_after_all_checkpoints_are_cleared(
@@ -383,7 +403,7 @@ def test_iam_provisioning_accepts_builtin_full_access_when_catalog_omits_it(db_s
 
     result = service.provision_iam(
         user=user,
-        context=account,
+        context=_account_context(account),
         payload=ManagedIAMPrivateAccessRequest(
             connection_name="Browser full access",
             access_browser=True,
@@ -411,7 +431,7 @@ def test_iam_provisioning_rejects_portal_technical_groups_without_remote_mutatio
     payload.groups = ["operators", technical_group]
 
     with pytest.raises(ManagedPrivateAccessForbidden, match="Portal-managed IAM groups"):
-        service.provision_iam(user=user, context=account, payload=payload)
+        service.provision_iam(user=user, context=_account_context(account), payload=payload)
 
     assert not fake.created_users
     assert not fake.groups
@@ -540,7 +560,7 @@ def test_managed_connection_permission_is_required_before_remote_calls(db_sessio
     )
 
     with pytest.raises(ManagedPrivateAccessForbidden, match="not allowed"):
-        service.provision_iam(user=user, context=account, payload=_payload())
+        service.provision_iam(user=user, context=_account_context(account), payload=_payload())
 
 
 @pytest.mark.parametrize("grant_source", ["direct", "group"])
@@ -575,7 +595,7 @@ def test_global_flag_is_required_before_remote_calls(
 
     assert service.policy.managed_provisioning_allowed(user) is False
     with pytest.raises(ManagedPrivateAccessForbidden, match="not allowed"):
-        service.provision_iam(user=user, context=account, payload=_payload())
+        service.provision_iam(user=user, context=_account_context(account), payload=_payload())
 
 
 def test_managed_connection_permission_is_inherited_from_group_and_revoked_before_remote_calls(
@@ -598,7 +618,7 @@ def test_managed_connection_permission_is_inherited_from_group_and_revoked_befor
     monkeypatch.setattr(service.iam, "for_context", lambda _context: fake)
     _disable_capability_probe(monkeypatch)
 
-    result = service.provision_iam(user=user, context=account, payload=_payload("Group private access"))
+    result = service.provision_iam(user=user, context=_account_context(account), payload=_payload("Group private access"))
     assert result.status == "active"
     assert fake.created_keys == [f"bkr-private-u{user.id}-acc{account.id}"]
 
@@ -611,7 +631,7 @@ def test_managed_connection_permission_is_inherited_from_group_and_revoked_befor
     )
 
     with pytest.raises(ManagedPrivateAccessForbidden, match="not allowed"):
-        service.provision_iam(user=user, context=account, payload=_payload("Group private access"))
+        service.provision_iam(user=user, context=_account_context(account), payload=_payload("Group private access"))
 
 
 def test_custom_connection_destination_must_pass_private_tls_rules(db_session, monkeypatch):
@@ -661,7 +681,7 @@ def test_iam_provisioning_never_reuses_portal_identity(db_session, monkeypatch):
     monkeypatch.setattr(service.iam, "for_context", lambda _context: fake)
     _disable_capability_probe(monkeypatch)
 
-    result = service.provision_iam(user=user, context=account, payload=_payload())
+    result = service.provision_iam(user=user, context=_account_context(account), payload=_payload())
 
     provisioning = db_session.scalars(
         sa.select(ManagedPrivateAccess).where(ManagedPrivateAccess.s3_connection_id == result.connection.id)
@@ -681,7 +701,7 @@ def test_existing_untracked_deterministic_iam_user_is_never_adopted(db_session, 
     monkeypatch.setattr(service.iam, "for_context", lambda _context: fake)
 
     with pytest.raises(ManagedPrivateAccessConflict, match="already exists"):
-        service.provision_iam(user=user, context=account, payload=_payload())
+        service.provision_iam(user=user, context=_account_context(account), payload=_payload())
 
     provisioning = db_session.scalars(sa.select(ManagedPrivateAccess)).one()
     assert provisioning.state == "failed"
@@ -693,7 +713,7 @@ def test_claim_constraint_rejects_concurrent_active_source(db_session):
     user = _user(db_session, email="concurrent@example.test")
     account = _account(db_session, user, _endpoint(db_session))
     service = ManagedPrivateAccessService(db_session)
-    source = service.iam_sources.resolve(user, account)
+    source = service.iam_sources.resolve(user, _account_context(account))
     state = ManagedPrivateAccessStateService(db_session)
 
     state.claim(user, source)
@@ -704,7 +724,7 @@ def test_claim_constraint_rejects_concurrent_active_source(db_session):
 def test_managed_private_access_claim_retries_sqlite_busy(db_session):
     user = _user(db_session, email="claim-busy@example.test")
     account = _account(db_session, user, _endpoint(db_session))
-    source = ManagedPrivateAccessService(db_session).iam_sources.resolve(user, account)
+    source = ManagedPrivateAccessService(db_session).iam_sources.resolve(user, _account_context(account))
     state = ManagedPrivateAccessStateService(db_session)
     with fail_next_sqlite_statement_with_busy_snapshot(
         db_session,
@@ -720,7 +740,7 @@ def test_managed_private_access_claim_retries_sqlite_busy(db_session):
 def test_managed_private_access_claim_rolls_back_when_commit_fails(db_session):
     user = _user(db_session, email="claim-rollback@example.test")
     account = _account(db_session, user, _endpoint(db_session))
-    source = ManagedPrivateAccessService(db_session).iam_sources.resolve(user, account)
+    source = ManagedPrivateAccessService(db_session).iam_sources.resolve(user, _account_context(account))
     state = ManagedPrivateAccessStateService(db_session)
     with fail_next_transaction_commit(db_session):
         with pytest.raises(RuntimeError, match="commit failed"):
@@ -732,7 +752,7 @@ def test_managed_private_access_claim_rolls_back_when_commit_fails(db_session):
 def test_managed_private_access_checkpoint_rolls_back_when_commit_fails(db_session):
     user = _user(db_session, email="checkpoint-rollback@example.test")
     account = _account(db_session, user, _endpoint(db_session))
-    source = ManagedPrivateAccessService(db_session).iam_sources.resolve(user, account)
+    source = ManagedPrivateAccessService(db_session).iam_sources.resolve(user, _account_context(account))
     state = ManagedPrivateAccessStateService(db_session)
     provisioning = state.claim(user, source)
     previous_updated_at = provisioning.updated_at
@@ -750,7 +770,7 @@ def test_managed_private_access_cleanup_checkpoint_retries_sqlite_busy_without_r
 ):
     user = _user(db_session, email="cleanup-checkpoint-busy@example.test")
     account = _account(db_session, user, _endpoint(db_session))
-    source = ManagedPrivateAccessService(db_session).iam_sources.resolve(user, account)
+    source = ManagedPrivateAccessService(db_session).iam_sources.resolve(user, _account_context(account))
     state = ManagedPrivateAccessStateService(db_session)
     provisioning = state.claim(user, source)
     state.checkpoint(provisioning, iam_managed_policies=["arn:test:readonly"])
@@ -792,7 +812,7 @@ def test_managed_private_access_state_transition_rolls_back_when_commit_fails(
 ):
     user = _user(db_session, email=f"{method_name}-rollback@example.test")
     account = _account(db_session, user, _endpoint(db_session))
-    source = ManagedPrivateAccessService(db_session).iam_sources.resolve(user, account)
+    source = ManagedPrivateAccessService(db_session).iam_sources.resolve(user, _account_context(account))
     state = ManagedPrivateAccessStateService(db_session)
     provisioning = state.claim(user, source)
     with fail_next_transaction_commit(db_session):
@@ -811,7 +831,7 @@ def test_managed_private_access_activation_rolls_back_when_commit_fails(
     user = _user(db_session, email="activation-rollback@example.test")
     account = _account(db_session, user, _endpoint(db_session))
     service = ManagedPrivateAccessService(db_session)
-    source = service.iam_sources.resolve(user, account)
+    source = service.iam_sources.resolve(user, _account_context(account))
     destination = service.destinations.resolve(source)
     provisioning = ManagedPrivateAccessStateService(db_session).claim(user, source)
     _disable_capability_probe(monkeypatch)
@@ -842,7 +862,7 @@ def test_managed_private_access_activation_attaches_managed_endpoint_for_capabil
     endpoint = _endpoint(db_session)
     account = _account(db_session, user, endpoint)
     service = ManagedPrivateAccessService(db_session)
-    source = service.iam_sources.resolve(user, account)
+    source = service.iam_sources.resolve(user, _account_context(account))
     destination = service.destinations.resolve(source)
     provisioning = ManagedPrivateAccessStateService(db_session).claim(user, source)
     probed: dict[str, object] = {}
@@ -895,7 +915,7 @@ def test_failed_local_creation_compensates_remote_resources(db_session, monkeypa
     )
 
     with pytest.raises(ManagedPrivateAccessError, match="Unable to create") as raised:
-        service.provision_iam(user=user, context=account, payload=_payload())
+        service.provision_iam(user=user, context=_account_context(account), payload=_payload())
     assert "LEAK-ME" not in str(raised.value)
 
     provisioning = db_session.scalars(sa.select(ManagedPrivateAccess)).one()
@@ -927,7 +947,7 @@ def test_failed_capability_probe_rolls_back_flushed_local_connection(db_session,
     )
 
     with pytest.raises(ManagedPrivateAccessError, match="Unable to create"):
-        service.provision_iam(user=user, context=account, payload=_payload())
+        service.provision_iam(user=user, context=_account_context(account), payload=_payload())
 
     assert db_session.scalar(sa.select(sa.func.count()).select_from(S3Connection)) == 0
     provisioning = db_session.scalars(sa.select(ManagedPrivateAccess)).one()
@@ -949,7 +969,7 @@ def test_failed_compensation_is_durable_cleanup_pending(db_session, monkeypatch)
     )
 
     with pytest.raises(ManagedPrivateAccessError):
-        service.provision_iam(user=user, context=account, payload=_payload())
+        service.provision_iam(user=user, context=_account_context(account), payload=_payload())
 
     provisioning = db_session.scalars(sa.select(ManagedPrivateAccess)).one()
     assert provisioning.state == "cleanup_pending"
@@ -1117,7 +1137,7 @@ def test_managed_iam_connection_delete_cleans_remote_resources_before_local_rows
     service = ManagedPrivateAccessService(db_session)
     monkeypatch.setattr(service.iam, "for_context", lambda _context: fake)
     _disable_capability_probe(monkeypatch)
-    result = service.provision_iam(user=user, context=account, payload=_payload())
+    result = service.provision_iam(user=user, context=_account_context(account), payload=_payload())
 
     user.can_provision_managed_private_connections = False
     db_session.commit()
@@ -1148,7 +1168,7 @@ def test_managed_iam_connection_delete_recovers_after_final_commit_failure(
     service = ManagedPrivateAccessService(db_session)
     monkeypatch.setattr(service.iam, "for_context", lambda _context: fake)
     _disable_capability_probe(monkeypatch)
-    result = service.provision_iam(user=user, context=account, payload=_payload())
+    result = service.provision_iam(user=user, context=_account_context(account), payload=_payload())
     connection_id = result.connection.id
     provisioning_id = result.provisioning_id
 

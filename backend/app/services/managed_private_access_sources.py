@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from app.services.s3_execution_context import S3ExecutionContext, S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 
 RemotePrincipalType = Literal["iam_user", "rgw_user"]
 
@@ -22,13 +22,11 @@ class ManagedPrivateAccessSource:
     iam_username: str | None
 
 
-def source_ids(context: S3ExecutionTarget) -> tuple[int | None, int | None, int | None]:
-    if isinstance(context, S3ExecutionContext):
-        return context.s3_connection_id, context.s3_user_id, context.id
-    return None, None, context.id
+def source_ids(context: S3ExecutionContext) -> tuple[int | None, int | None, int | None]:
+    return context.s3_connection_id, context.s3_user_id, context.id
 
 
-def iam_source_reference(context: S3ExecutionTarget) -> tuple[str, int] | None:
+def iam_source_reference(context: S3ExecutionContext) -> tuple[str, int] | None:
     connection_id, s3_user_id, account_id = source_ids(context)
     if isinstance(connection_id, int) and connection_id > 0:
         return "connection", connection_id
