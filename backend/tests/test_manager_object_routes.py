@@ -7,7 +7,18 @@ from fastapi import HTTPException
 
 from app.routers.manager import objects as manager_objects
 from app.services.s3_client import S3OperationError
+from app.services.s3_execution_context import S3ExecutionContext
 from tests.router_test_utils import effective_routes
+
+
+def _context() -> S3ExecutionContext:
+    return S3ExecutionContext(
+        context_id="test",
+        context_kind="account",
+        name="objects-account",
+        access_key=None,
+        secret_key=None,
+    )
 
 
 def test_manager_object_router_only_exposes_listing() -> None:
@@ -45,7 +56,7 @@ def test_manager_object_listing_maps_expected_s3_errors() -> None:
     with pytest.raises(HTTPException) as exc_info:
         manager_objects.list_objects(
             "bucket-1",
-            context=None,
+            context=_context(),
             service=FailedService(),
             _=None,
         )
@@ -62,7 +73,7 @@ def test_manager_object_listing_does_not_mask_unexpected_runtime_errors() -> Non
     with pytest.raises(RuntimeError, match="unexpected object listing bug"):
         manager_objects.list_objects(
             "bucket-1",
-            context=None,
+            context=_context(),
             service=BrokenService(),
             _=None,
         )

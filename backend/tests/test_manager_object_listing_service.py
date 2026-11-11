@@ -7,9 +7,10 @@ from datetime import datetime
 import pytest
 from botocore.exceptions import ClientError
 
-from app.db import S3Account, StorageEndpoint
+from app.db import StorageEndpoint
 from app.services.manager_object_listing_service import ManagerObjectListingService
 from app.services.s3_client import S3OperationError
+from app.services.s3_execution_context import S3ExecutionContext
 
 
 def _client_error(code: str, message: str = "boom") -> ClientError:
@@ -34,34 +35,45 @@ class _FakeS3Client:
         return self.list_payload
 
 
-def _account() -> S3Account:
-    account = S3Account(
-        name="objects-account",
-        rgw_access_key="AKIA-OBJ",
-        rgw_secret_key="SECRET-OBJ",
-    )
-    account.storage_endpoint = StorageEndpoint(
+def _context(
+    *,
+    access_key: str | None = "AKIA-OBJ",
+    secret_key: str | None = "SECRET-OBJ",
+) -> S3ExecutionContext:
+    endpoint = StorageEndpoint(
         name="objects-endpoint",
         endpoint_url="https://s3.example.test",
     )
-    return account
+    return S3ExecutionContext(
+        context_id="test",
+        context_kind="account",
+        name="objects-account",
+        access_key=access_key,
+        secret_key=secret_key,
+        storage_endpoint=endpoint,
+    )
 
 
 def test_client_requires_execution_credentials():
-    account = S3Account(name="missing-keys", rgw_access_key=None, rgw_secret_key=None)
-
     with pytest.raises(S3OperationError, match="Execution context credentials are missing"):
-        ManagerObjectListingService()._client(account)
+        ManagerObjectListingService()._client(_context(access_key=None, secret_key=None))
 
 
 def test_client_does_not_mask_unexpected_credential_runtime_error():
-    class BrokenContext:
-        @staticmethod
-        def effective_rgw_credentials():
+    class BrokenContext(S3ExecutionContext):
+        def effective_rgw_credentials(self):
             raise RuntimeError("unexpected credential resolver bug")
 
     with pytest.raises(RuntimeError, match="unexpected credential resolver bug"):
-        ManagerObjectListingService()._client(BrokenContext())
+        ManagerObjectListingService()._client(
+            BrokenContext(
+                context_id="broken",
+                context_kind="account",
+                name="broken",
+                access_key="AKIA-OBJ",
+                secret_key="SECRET-OBJ",
+            )
+        )
 
 
 def test_list_objects_filters_folder_marker_and_returns_prefixes(monkeypatch):
@@ -85,7 +97,7 @@ def test_list_objects_filters_folder_marker_and_returns_prefixes(monkeypatch):
         lambda *args, **kwargs: fake,
     )
 
-    result = service.list_objects("bucket-1", _account(), prefix="logs/")
+    result = service.list_objects("bucket-1", _context(), prefix="logs/")
 
     assert [item.key for item in result.objects] == ["logs/app.log"]
     assert result.prefixes == ["logs/2026/"]
@@ -119,7 +131,7 @@ def test_list_objects_preserves_distinct_repeated_slash_markers(monkeypatch):
         lambda *args, **kwargs: fake,
     )
 
-    result = service.list_objects("bucket-1", _account(), prefix="logs/")
+    result = service.list_objects("bucket-1", _context(), prefix="logs/")
 
     assert [item.key for item in result.objects] == ["logs//", "logs///"]
 
@@ -134,4 +146,4 @@ def test_list_objects_wraps_errors(monkeypatch):
     )
 
     with pytest.raises(S3OperationError, match="Unable to list objects"):
-        service.list_objects("bucket-1", _account())
+        service.list_objects("bucket-1", _context())
