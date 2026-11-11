@@ -1355,6 +1355,102 @@ def test_sync_env_endpoints_retries_after_concurrent_unique_conflict(db_session,
     assert db_session.scalar(select(func.count()).select_from(StorageEndpoint)) == 1
 
 
+def test_sync_env_endpoints_retries_write_intent_without_replaying_revocation(
+    db_session,
+    monkeypatch,
+):
+    from app.services.endpoint_service_identities import EndpointServiceIdentityService
+
+    endpoint = _create_ceph_endpoint(db_session, name="env-busy-transition")
+    revoked_kinds: list[str] = []
+
+    def revoke_once(_self, _endpoint, kind):
+        revoked_kinds.append(kind)
+        return True
+
+    monkeypatch.setattr(EndpointServiceIdentityService, "revoke", revoke_once)
+    monkeypatch.setattr(
+        "app.services.storage_endpoint_env_sync.endpoint_identity_management_enabled",
+        lambda _settings: True,
+    )
+    monkeypatch.setattr(
+        "app.services.storage_endpoints_service.settings.env_storage_endpoints",
+        json.dumps(
+            [
+                {
+                    "name": endpoint.name,
+                    "endpoint_url": endpoint.endpoint_url,
+                    "provider": "ceph",
+                    "service_identity_mode": "external",
+                    "runtime_access_key": "AKIA-ENV-RUNTIME",
+                    "runtime_secret_key": "SECRET-ENV-RUNTIME",
+                    "features": parse_features_config(
+                        "features:\n  admin:\n    enabled: false\n"
+                    ),
+                    "is_default": True,
+                }
+            ]
+        ),
+        raising=False,
+    )
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE storage_endpoints SET id = id WHERE id =",
+    ) as matching_statements:
+        synced = StorageEndpointsService(db_session).sync_env_endpoints()
+
+    assert len(matching_statements) == 3
+    assert revoked_kinds == ["runtime"]
+    assert len(synced) == 1
+    db_session.refresh(endpoint)
+    runtime = endpoint.service_identity("runtime")
+    assert runtime is not None
+    assert runtime.mode == "external"
+    assert runtime.access_key == "AKIA-ENV-RUNTIME"
+
+
+def test_sync_env_endpoints_retries_default_cleanup_on_sqlite_busy(
+    db_session,
+    monkeypatch,
+):
+    previous_default = StorageEndpoint(
+        name="old-default",
+        endpoint_url="https://old-default.example.test",
+        provider=StorageProvider.OTHER.value,
+        features=persisted_endpoint_features(provider=StorageProvider.OTHER),
+        is_default=True,
+        is_editable=True,
+    )
+    db_session.add(previous_default)
+    db_session.commit()
+    monkeypatch.setattr(
+        "app.services.storage_endpoints_service.settings.env_storage_endpoints",
+        json.dumps(
+            [
+                {
+                    "name": "new-env-default",
+                    "endpoint_url": "https://new-env-default.example.test",
+                    "provider": "other",
+                    "is_default": True,
+                }
+            ]
+        ),
+        raising=False,
+    )
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE storage_endpoints SET is_default",
+    ) as matching_statements:
+        synced = StorageEndpointsService(db_session).sync_env_endpoints()
+
+    assert len(matching_statements) == 2
+    assert len(synced) == 1
+    db_session.refresh(previous_default)
+    assert previous_default.is_default is False
+
+
 def test_sync_env_endpoints_rolls_back_failed_upsert_before_releasing_lease(
     db_session,
     monkeypatch,
