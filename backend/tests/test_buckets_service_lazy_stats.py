@@ -15,6 +15,14 @@ from tests.service_identity_helpers import service_identity
 from tests.storage_endpoint_features import persisted_endpoint_features
 
 
+def _context_from_account(account: S3Account) -> S3ExecutionContext:
+    return S3ExecutionContext.from_account(
+        account,
+        access_key=account.rgw_access_key,
+        secret_key=account.rgw_secret_key,
+    )
+
+
 def _build_context() -> S3ExecutionContext:
     account = S3Account(
         name="account-lazy-stats",
@@ -24,11 +32,7 @@ def _build_context() -> S3ExecutionContext:
         rgw_access_key="AKIA_TEST",
         rgw_secret_key="SECRET_TEST",
     )
-    return S3ExecutionContext.from_account(
-        account,
-        access_key=account.rgw_access_key,
-        secret_key=account.rgw_secret_key,
-    )
+    return _context_from_account(account)
 
 
 def test_bucket_feature_enrichment_is_owned_by_dedicated_module():
@@ -548,6 +552,7 @@ def test_set_bucket_quota_calls_single_scope_without_user_lookup(monkeypatch):
         rgw_account_id="RGW00000000000000001",
         rgw_user_uid="quota-root-01",
     )
+    context = _context_from_account(account)
 
     captured: dict = {}
 
@@ -563,7 +568,7 @@ def test_set_bucket_quota_calls_single_scope_without_user_lookup(monkeypatch):
 
     service.set_bucket_quota(
         "bucket-a",
-        account,
+        context,
         BucketQuotaUpdate(enabled=True, max_size_gb=10, max_size_unit="GiB", max_objects=1000),
     )
 
@@ -583,6 +588,7 @@ def test_set_bucket_quota_uses_injected_rgw_admin_client(monkeypatch):
         rgw_account_id="RGW00000000000000009",
         rgw_user_uid="quota-root-09",
     )
+    context = _context_from_account(account)
     captured: dict = {}
 
     class FakeRGWAdmin:
@@ -598,7 +604,7 @@ def test_set_bucket_quota_uses_injected_rgw_admin_client(monkeypatch):
 
     service.set_bucket_quota(
         "bucket-b",
-        account,
+        context,
         BucketQuotaUpdate(enabled=True, max_size_gb=5, max_size_unit="GiB"),
         rgw_admin=FakeRGWAdmin(),
     )
@@ -624,6 +630,7 @@ def test_set_bucket_quota_uses_endpoint_admin_credentials(monkeypatch):
         service_identities=[service_identity("ceph_admin", "ceph-admin-ak", "ceph-admin-sk")],
         features=persisted_endpoint_features('{"features":{"admin":{"enabled":true,"endpoint":"https://admin.example.test"}}}'),
     )
+    context = _context_from_account(account)
     captured: dict = {}
 
     class FakeRGWAdmin:
@@ -645,7 +652,7 @@ def test_set_bucket_quota_uses_endpoint_admin_credentials(monkeypatch):
 
     service.set_bucket_quota(
         "bucket-b",
-        account,
+        context,
         BucketQuotaUpdate(enabled=True, max_size_gb=5, max_size_unit="GiB"),
     )
 
@@ -663,6 +670,7 @@ def test_set_bucket_quota_raises_when_rgw_reports_not_found(monkeypatch):
         rgw_account_id="RGW00000000000000009",
         rgw_user_uid="quota-root-09",
     )
+    context = _context_from_account(account)
 
     class FakeRGWAdmin:
         def set_bucket_quota(self, **kwargs):
@@ -673,7 +681,7 @@ def test_set_bucket_quota_raises_when_rgw_reports_not_found(monkeypatch):
     with pytest.raises(BucketQuotaOperationError, match="not found"):
         service.set_bucket_quota(
             "bucket-b",
-            account,
+            context,
             BucketQuotaUpdate(enabled=True, max_size_gb=5, max_size_unit="GiB"),
         )
 
@@ -685,6 +693,7 @@ def test_set_bucket_quota_propagates_unexpected_runtime_failure():
         rgw_account_id="RGW00000000000000009",
         rgw_user_uid="quota-root-09",
     )
+    context = _context_from_account(account)
 
     class BrokenRGWAdmin:
         def set_bucket_quota(self, **_kwargs):
@@ -693,7 +702,7 @@ def test_set_bucket_quota_propagates_unexpected_runtime_failure():
     with pytest.raises(RuntimeError, match="unexpected quota client bug"):
         service.set_bucket_quota(
             "bucket-b",
-            account,
+            context,
             BucketQuotaUpdate(enabled=True, max_objects=5),
             rgw_admin=BrokenRGWAdmin(),
         )
@@ -706,6 +715,7 @@ def test_set_bucket_quota_uses_explicit_disable_state(monkeypatch):
         rgw_account_id="RGW00000000000000009",
         rgw_user_uid="quota-root-09",
     )
+    context = _context_from_account(account)
     captured: dict = {}
 
     class FakeRGWAdmin:
@@ -715,7 +725,7 @@ def test_set_bucket_quota_uses_explicit_disable_state(monkeypatch):
 
     service.set_bucket_quota(
         "bucket-b",
-        account,
+        context,
         BucketQuotaUpdate(enabled=False),
         rgw_admin=FakeRGWAdmin(),
     )

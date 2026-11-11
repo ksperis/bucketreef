@@ -125,9 +125,9 @@ def test_manager_bucket_quota_update_succeeds_with_privileged_access(client, db_
     captured: dict[str, object] = {}
 
     class FakeBucketsService:
-        def set_bucket_quota(self, name, account_arg, payload):  # noqa: ANN001
+        def set_bucket_quota(self, name, context_arg, payload):  # noqa: ANN001
             captured["bucket"] = name
-            captured["account"] = account_arg
+            captured["context"] = context_arg
             captured["payload"] = payload
             return {"updated": True, "bucket": name}
 
@@ -163,7 +163,7 @@ def test_manager_bucket_quota_update_succeeds_with_privileged_access(client, db_
     assert response.status_code == 204, response.text
     assert response.content == b""
     assert captured["bucket"] == "demo-bucket"
-    assert captured["account"].id == account.id
+    assert captured["context"].id == account.id
     assert captured["payload"].max_size_gb == 2
 
 
