@@ -18,7 +18,7 @@ from app.services.listing_progress import (
     build_listing_progress_callback,
 )
 from app.services.s3_client import S3OperationError
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.cancellation import invoke_cancel_check
 
 BUCKET_FEATURE_PARAM_MAX_WORKERS = 6
@@ -48,7 +48,7 @@ def _load_feature_param_snapshot_for_bucket(
     bucket: BucketListingSummary,
     required_sources: set[str],
     service: BucketConfigurationService,
-    execution_context: S3ExecutionTarget,
+    execution_context: S3ExecutionContext,
     *,
     request_bucket_name: str | None = None,
 ) -> dict[str, object]:
@@ -91,7 +91,7 @@ def load_bucket_feature_param_snapshots(
     buckets: list[BucketListingSummary],
     rules: list[BucketFilterRule],
     service: BucketConfigurationService,
-    execution_context: S3ExecutionTarget,
+    execution_context: S3ExecutionContext,
     *,
     progress: ListingProgressEmitter | None = None,
     progress_stage: str = "feature_param_enrichment",
