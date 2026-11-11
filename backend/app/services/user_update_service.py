@@ -18,6 +18,7 @@ from app.models.user import (
 )
 from app.services.manager_tool_access import MANAGER_TOOL_ROLES, manager_tool_column_values
 from app.services.portal_role_sync import (
+    acquire_portal_role_write_transaction,
     capture_effective_portal_roles,
     commit_portal_role_changes,
     effective_portal_account_ids,
@@ -213,6 +214,7 @@ class UserUpdateService:
         if self._can_retry_without_portal_side_effects(payload, portal_roles_before):
             user, security_changed = self._persist_retryable_update(user_id, payload)
         else:
+            acquire_portal_role_write_transaction(self.db)
             security_changed = self._apply_update_mutations(user, payload)
             self.db.add(user)
             self.db.flush()

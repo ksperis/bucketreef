@@ -272,8 +272,13 @@ def test_approve_user_access_creates_placeholder_and_portal_link(db_session):
     service = PortalRequestsService(db_session)
     created = _create_user_request(service, account, requester)
 
-    approved = service.approve_request(created.id, admin, message="Done")
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE users SET id =",
+    ) as statements:
+        approved = service.approve_request(created.id, admin, message="Done")
 
+    assert len(statements) == 2
     target = db_session.scalars(
         select(User).where(User.email == "jane.viewer@example.org")
     ).one()

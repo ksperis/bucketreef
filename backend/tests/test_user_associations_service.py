@@ -5,6 +5,7 @@ from sqlalchemy import select
 from app.services.user_associations_service import UserAssociationsService
 from app.db import S3Account, User, UserS3Account
 from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, UserRole
+from tests.db_transaction_test_utils import fail_next_sqlite_statement_with_busy_snapshot
 from tests.s3_account_factory import make_s3_account
 
 
@@ -89,3 +90,41 @@ def test_assign_account_updates_existing_link_without_widening_browser_access(
     assert link.manager_role is None
     assert link.portal_role == PortalAccountRole.PORTAL_USER.value
     assert link.allow_manager_browser_data_access is True
+
+
+def test_assign_account_retries_sqlite_write_intent_before_mutation(db_session):
+    account = make_s3_account(
+        db_session,
+        name="busy-assignment",
+        rgw_account_id="RGW00000000000000003",
+    )
+    user = User(
+        email="busy-assignment@example.com",
+        full_name="Busy Assignment",
+        hashed_password="x",
+        is_active=True,
+        role=UserRole.UI_USER.value,
+    )
+    db_session.add_all([account, user])
+    db_session.commit()
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE users SET id =",
+    ) as statements:
+        UserAssociationsService(db_session).assign_account(
+            user.id,
+            account.id,
+            manager_role=ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value,
+            portal_role=None,
+        )
+
+    assert len(statements) == 2
+    link = db_session.scalar(
+        select(UserS3Account).where(
+            UserS3Account.user_id == user.id,
+            UserS3Account.account_id == account.id,
+        )
+    )
+    assert link is not None
+    assert link.manager_role == ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value

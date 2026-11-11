@@ -14,6 +14,7 @@ from app.services.feature_policy_service import (
 )
 from app.services.mappers.s3_account import s3_account_from_db
 from app.services.portal_role_sync import (
+    acquire_portal_role_write_transaction,
     capture_effective_portal_roles,
     commit_portal_role_changes,
 )
@@ -64,6 +65,7 @@ class S3AccountUpdateService:
             user_ids=affected_portal_user_ids,
             account_ids=[account.id],
         )
+        acquire_portal_role_write_transaction(self.db)
 
         self._apply_fields(account, payload)
         self._apply_quota(account, payload)

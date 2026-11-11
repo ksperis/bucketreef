@@ -12,6 +12,7 @@ from app.db import PortalAdminRequest, UiGroupS3Account, User, UserS3Account, Us
 from app.core.domain_enums import PortalAccountRole, UserRole
 from app.services.access_context_contracts import AccountAccess
 from app.models.portal_requests import PortalUserAccessRequestCreate
+from app.services.portal_role_sync import acquire_portal_role_write_transaction
 from app.services.user_associations_service import UserAssociationsService
 from app.services.user_query_service import UserQueryService
 from app.utils.normalize import normalize_optional_email
@@ -118,6 +119,7 @@ class PortalCollaboratorRequestsService:
         target_name, target_email, requested_portal_role = (
             self._validated_user_addition(payload)
         )
+        acquire_portal_role_write_transaction(self.db)
         target, created_user = self._resolve_user_addition_target(
             target_name=target_name,
             target_email=target_email,
@@ -135,6 +137,7 @@ class PortalCollaboratorRequestsService:
             int(row.account_id),
             manager_role=existing_link.manager_role if existing_link else None,
             portal_role=next_portal_role,
+            write_intent_acquired=True,
         )
         return {
             "target_user_id": int(target.id),

@@ -26,6 +26,7 @@ from app.services.association_sync import (
 )
 from app.services.association_validation import ensure_association_ids_exist, ensure_shared_s3_connections
 from app.services.portal_role_sync import (
+    acquire_portal_role_write_transaction,
     capture_effective_portal_roles,
     commit_portal_role_changes,
 )
@@ -131,6 +132,7 @@ class UserAssociationsService:
         *,
         manager_role: ManagerAccountRoleValue | None,
         portal_role: PortalAccountRoleValue | None,
+        write_intent_acquired: bool = False,
     ) -> User:
         user = self.users.require_by_id(user_id)
         account = self.accounts.get(account_id)
@@ -140,6 +142,8 @@ class UserAssociationsService:
             user_ids=[user.id],
             account_ids=[account.id],
         )
+        if not write_intent_acquired:
+            acquire_portal_role_write_transaction(self.db)
         self._upsert_direct_account_link(
             user,
             account,
