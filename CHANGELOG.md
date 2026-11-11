@@ -5,10 +5,12 @@
 ### Changed
 
 - Canonicalize Storage Endpoint credential replacement so Admin, Runtime, Supervision, and Ceph Admin identities all reuse a stored pair only when both edit fields are blank, and require both fields for an explicit replacement.
+- Simplify the internal Admin MFA reset route to return `204 No Content`; removal counters and passkey-policy state remain recorded in the security audit instead of being duplicated in an unused response body.
 
 ### Upgrade notes
 
 - Deploy the matching backend and bundled frontend together because Storage Endpoint feature detection and onboarding no longer support the historical Admin access-key-only edit fallback. No database migration is required.
+- Deploy the matching backend and bundled frontend together because Admin MFA reset now returns `204 No Content` instead of an unused result object. No database migration is required.
 
 ## 0.3.1 - 2026-11-11
 

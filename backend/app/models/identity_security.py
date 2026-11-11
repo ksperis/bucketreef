@@ -87,14 +87,6 @@ class AdminExternalIdentityRequest(ApiModel):
         return self
 
 
-class AdminMfaResetResponse(ApiModel):
-    user_id: int
-    passkey_enrollment_required: bool
-    passkeys_removed: int
-    recovery_codes_removed: int
-    challenges_removed: int
-
-
 class ExternalIdentityLinkRequestInfo(ApiModel):
     id: str
     user_id: int

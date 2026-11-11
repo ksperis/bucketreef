@@ -11,7 +11,6 @@ from app.models.auth import LinkDecisionRequest
 from app.models.identity_security import (
     AdminExternalIdentityInfo,
     AdminExternalIdentityRequest,
-    AdminMfaResetResponse,
     AdminSessionInfo,
     AdminSetPasswordRequest,
     AdminUserSecurity,
@@ -63,14 +62,14 @@ def get_user_security(
         )
 
 
-@router.post("/users/{user_id}/mfa/reset", response_model=AdminMfaResetResponse)
+@router.post("/users/{user_id}/mfa/reset", status_code=status.HTTP_204_NO_CONTENT)
 def reset_user_mfa(
     request: Request,
     user_id: int,
     db: Session = Depends(get_db),
     actor: User = Depends(get_current_ui_admin),
     audit: AuditService = Depends(get_audit_service),
-) -> AdminMfaResetResponse:
+) -> None:
     require_admin_sensitive_action(request, db, actor)
     with identity_security_http_errors():
         target = AdminIdentitySecurityService(db).managed_user(
@@ -93,13 +92,7 @@ def reset_user_mfa(
             "challenges_removed": result.challenges_removed,
         },
     )
-    return AdminMfaResetResponse(
-        user_id=target.id,
-        passkey_enrollment_required=enrollment_required,
-        passkeys_removed=result.passkeys_removed,
-        recovery_codes_removed=result.recovery_codes_removed,
-        challenges_removed=result.challenges_removed,
-    )
+    return None
 
 
 @router.put("/users/{user_id}/security/password", status_code=status.HTTP_204_NO_CONTENT)
