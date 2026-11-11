@@ -12,16 +12,9 @@ def resolve_target_tenant(target: S3Account | S3User | S3ExecutionContext) -> st
     return target.rgw_tenant or ""
 
 
-def resolve_target_admin_uid(target: S3Account | S3ExecutionContext) -> str | None:
-    """Return the Admin Ops UID for an execution target.
-
-    Persisted accounts have a canonical root UID enforced by the database. Other
-    execution contexts may still represent identities discovered at runtime, such
-    as a Ceph Admin bucket owner that exposes only an account identifier.
-    """
-    if isinstance(target, S3Account):
-        return target.rgw_user_uid
-    if isinstance(target, S3ExecutionContext) and target.context_kind == "openstack_project":
+def resolve_target_admin_uid(target: S3ExecutionContext) -> str | None:
+    """Return the Admin Ops UID for an explicit execution context."""
+    if target.context_kind == "openstack_project":
         return None
     if target.rgw_user_uid:
         uid = target.rgw_user_uid.strip()
