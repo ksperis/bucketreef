@@ -1,5 +1,18 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 canonical Admin MFA reset response
+
+`POST /api/admin/users/{user_id}/mfa/reset` now returns `204 No Content` after
+the reset succeeds. The bundled frontend already treats the operation as a
+command and does not consume a response payload.
+
+Passkey-enrollment requirements and removed passkey, recovery-code, and
+challenge counts remain recorded in the security audit. The operator recovery
+CLI retains the same detailed reset result for its audit entry.
+
+Deploy the backend and bundled frontend together. No database migration is
+required.
+
 ## 2026-11 canonical Storage Endpoint credential replacement
 
 Storage Endpoint editing and onboarding now use one credential-pair contract

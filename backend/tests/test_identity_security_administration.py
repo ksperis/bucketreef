@@ -250,8 +250,8 @@ def test_admin_mfa_reset_honors_role_hierarchy(auth_client, db_session):
         headers=trusted_origin_headers(csrf_token=admin_credentials.csrf_token),
     )
 
-    assert standard_response.status_code == 200
-    assert standard_response.json()["passkey_enrollment_required"] is False
+    assert standard_response.status_code == 204
+    assert standard_response.content == b""
     assert privileged_response.status_code == 403
 
     clear_ui_client(auth_client)
@@ -266,7 +266,7 @@ def test_admin_mfa_reset_honors_role_hierarchy(auth_client, db_session):
         headers=trusted_origin_headers(csrf_token=super_credentials.csrf_token),
     )
 
-    assert privileged_response.status_code == 200
+    assert privileged_response.status_code == 204
     assert self_response.status_code == 400
 
 
