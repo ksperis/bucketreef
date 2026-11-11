@@ -3,7 +3,6 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { S3ExecutionContextSelector } from "./accountParams";
-import { withS3ContextParam } from "./accountParams";
 import type { BucketVersioningStatus } from "./bucketContracts";
 import type {
   BrowserSettings,
@@ -11,7 +10,7 @@ import type {
   BucketCorsStatus,
   PaginatedBrowserBucketsResponse,
 } from "./browserContracts";
-import { buildBrowserWorkspaceHeaders } from "./browserRequestHeaders";
+import { buildBrowserRequestConfig } from "./browserRequestHeaders";
 import type { BrowserRequestOptions } from "./browserWorkspace";
 import client from "./client";
 
@@ -25,7 +24,9 @@ export async function searchBrowserBuckets(
     forceRefresh?: boolean;
   } & BrowserRequestOptions,
 ): Promise<PaginatedBrowserBucketsResponse> {
-  const params = withS3ContextParam(
+  const requestConfig = buildBrowserRequestConfig(
+    contextId,
+    options,
     {
       search: options?.search?.trim() || undefined,
       exact: options?.exact ? true : undefined,
@@ -33,14 +34,10 @@ export async function searchBrowserBuckets(
       page_size: options?.pageSize ?? undefined,
       force_refresh: options?.forceRefresh ? true : undefined,
     },
-    contextId,
   );
   const { data } = await client.get<PaginatedBrowserBucketsResponse>(
     "/browser/buckets/search",
-    {
-      params,
-      headers: buildBrowserWorkspaceHeaders(options),
-    },
+    requestConfig,
   );
   return data;
 }
@@ -51,10 +48,7 @@ export async function fetchBrowserUsageSummary(
 ): Promise<BrowserUsageSummary> {
   const { data } = await client.get<BrowserUsageSummary>(
     "/browser/usage-summary",
-    {
-      params: withS3ContextParam(undefined, contextId),
-      headers: buildBrowserWorkspaceHeaders(options),
-    },
+    buildBrowserRequestConfig(contextId, options),
   );
   return data;
 }
@@ -70,10 +64,7 @@ export async function createBrowserBucket(
       name,
       versioning: options.versioning,
     },
-    {
-      params: withS3ContextParam(undefined, contextId),
-      headers: buildBrowserWorkspaceHeaders(options),
-    },
+    buildBrowserRequestConfig(contextId, options),
   );
 }
 
@@ -84,10 +75,7 @@ export async function getBrowserBucketVersioning(
 ): Promise<BucketVersioningStatus> {
   const { data } = await client.get<BucketVersioningStatus>(
     `/browser/buckets/${encodeURIComponent(bucketName)}/versioning`,
-    {
-      params: withS3ContextParam(undefined, contextId),
-      headers: buildBrowserWorkspaceHeaders(options),
-    },
+    buildBrowserRequestConfig(contextId, options),
   );
   return data;
 }
@@ -96,10 +84,10 @@ export async function fetchBrowserSettings(
   contextId: S3ExecutionContextSelector,
   options?: BrowserRequestOptions,
 ): Promise<BrowserSettings> {
-  const { data } = await client.get<BrowserSettings>("/browser/settings", {
-    params: withS3ContextParam(undefined, contextId),
-    headers: buildBrowserWorkspaceHeaders(options),
-  });
+  const { data } = await client.get<BrowserSettings>(
+    "/browser/settings",
+    buildBrowserRequestConfig(contextId, options),
+  );
   return data;
 }
 
@@ -109,10 +97,9 @@ export async function getBrowserBucketCorsStatus(
   origin?: string,
   options?: BrowserRequestOptions,
 ): Promise<BucketCorsStatus> {
-  const params = withS3ContextParam(origin ? { origin } : undefined, contextId);
   const { data } = await client.get<BucketCorsStatus>(
     `/browser/buckets/${encodeURIComponent(bucketName)}/cors`,
-    { params, headers: buildBrowserWorkspaceHeaders(options) },
+    buildBrowserRequestConfig(contextId, options, origin ? { origin } : undefined),
   );
   return data;
 }
@@ -126,10 +113,7 @@ export async function ensureBrowserBucketCors(
   const { data } = await client.post<BucketCorsStatus>(
     `/browser/buckets/${encodeURIComponent(bucketName)}/cors/ensure`,
     { origin },
-    {
-      params: withS3ContextParam(undefined, contextId),
-      headers: buildBrowserWorkspaceHeaders(options),
-    },
+    buildBrowserRequestConfig(contextId, options),
   );
   return data;
 }

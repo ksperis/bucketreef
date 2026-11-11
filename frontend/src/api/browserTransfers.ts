@@ -2,11 +2,11 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import { S3ExecutionContextSelector, withS3ContextParam } from "./accountParams";
+import { S3ExecutionContextSelector } from "./accountParams";
 import type { BrowserRequestOptions } from "./browserWorkspace";
 import {
+  buildBrowserRequestConfig,
   buildBrowserWorkspaceHeaders,
-  mergeBrowserHeaders,
 } from "./browserRequestHeaders";
 import { buildSseCustomerBackendHeaders } from "./browserSseCustomer";
 import client, {
@@ -58,13 +58,12 @@ export async function presignObject(
   const { data } = await client.post<PresignedUrl>(
     `/browser/buckets/${encodeURIComponent(bucketName)}/presign`,
     payload,
-    {
-      params: withS3ContextParam(undefined, contextId),
-      headers: mergeBrowserHeaders(
-        buildSseCustomerBackendHeaders(sseCustomerKeyBase64),
-        buildBrowserWorkspaceHeaders(options),
-      ),
-    },
+    buildBrowserRequestConfig(
+      contextId,
+      options,
+      undefined,
+      buildSseCustomerBackendHeaders(sseCustomerKeyBase64),
+    ),
   );
   return data;
 }
@@ -94,10 +93,11 @@ export async function proxyUpload(
     `/browser/buckets/${encodeURIComponent(bucketName)}/proxy-upload`,
     form,
     {
-      params: withS3ContextParam(undefined, contextId),
-      headers: mergeBrowserHeaders(
+      ...buildBrowserRequestConfig(
+        contextId,
+        options,
+        undefined,
         buildSseCustomerBackendHeaders(sseCustomerKeyBase64),
-        buildBrowserWorkspaceHeaders(options),
       ),
       signal,
       timeout: LONG_RUNNING_REQUEST_TIMEOUT_MS,
@@ -118,10 +118,11 @@ export async function proxyDownload(
   const { data } = await client.get(
     `/browser/buckets/${encodeURIComponent(bucketName)}/download`,
     {
-      params: withS3ContextParam({ key, ...(versionId != null ? { version_id: versionId } : {}) }, contextId),
-      headers: mergeBrowserHeaders(
+      ...buildBrowserRequestConfig(
+        contextId,
+        options,
+        { key, ...(versionId != null ? { version_id: versionId } : {}) },
         buildSseCustomerBackendHeaders(sseCustomerKeyBase64),
-        buildBrowserWorkspaceHeaders(options),
       ),
       responseType: "blob",
       signal,

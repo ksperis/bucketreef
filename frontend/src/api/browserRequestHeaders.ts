@@ -2,6 +2,8 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
+import type { S3ExecutionContextSelector } from "./accountParams";
+import { withS3ContextParam } from "./accountParams";
 import type { BrowserRequestOptions } from "./browserWorkspace";
 
 export function buildBrowserWorkspaceHeaders(
@@ -16,9 +18,25 @@ export function buildBrowserWorkspaceHeaders(
   return {};
 }
 
-export function mergeBrowserHeaders(
+function mergeBrowserHeaders(
   ...headers: Array<Record<string, string> | undefined>
 ): Record<string, string> | undefined {
   const merged = Object.assign({}, ...headers.filter(Boolean));
   return Object.keys(merged).length > 0 ? merged : undefined;
+}
+
+export function buildBrowserRequestConfig(
+  contextId: S3ExecutionContextSelector,
+  options?: BrowserRequestOptions,
+  params?: Record<string, unknown> | null,
+  additionalHeaders?: Record<string, string>,
+) {
+  return {
+    params: withS3ContextParam(params, contextId),
+    headers:
+      mergeBrowserHeaders(
+        additionalHeaders,
+        buildBrowserWorkspaceHeaders(options),
+      ) ?? {},
+  };
 }

@@ -3,11 +3,8 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
-import { S3ExecutionContextSelector, withS3ContextParam } from "./accountParams";
-import {
-  buildBrowserWorkspaceHeaders,
-  mergeBrowserHeaders,
-} from "./browserRequestHeaders";
+import { S3ExecutionContextSelector } from "./accountParams";
+import { buildBrowserRequestConfig } from "./browserRequestHeaders";
 import { buildSseCustomerBackendHeaders } from "./browserSseCustomer";
 import type {
   BrowserLazyColumnField,
@@ -34,22 +31,14 @@ import type {
 } from "./browserContracts";
 import type { BrowserRequestOptions } from "./browserWorkspace";
 
-function browserObjectRequestConfig(
-  contextId: S3ExecutionContextSelector,
-  options?: BrowserRequestOptions,
-) {
-  return {
-    params: withS3ContextParam(undefined, contextId),
-    headers: buildBrowserWorkspaceHeaders(options),
-  };
-}
-
 export async function listBrowserObjects(
   contextId: S3ExecutionContextSelector,
   bucketName: string,
   options?: { prefix?: string; continuationToken?: string | null; maxKeys?: number; signal?: AbortSignal; forceRefresh?: boolean } & BrowserObjectsQuery & BrowserRequestOptions
 ): Promise<ListBrowserObjectsResponse> {
-  const params = withS3ContextParam(
+  const requestConfig = buildBrowserRequestConfig(
+    contextId,
+    options,
     {
       prefix: options?.prefix ?? "",
       continuation_token: options?.continuationToken ?? undefined,
@@ -71,11 +60,10 @@ export async function listBrowserObjects(
           ? options.sortDir
           : undefined,
     },
-    contextId
   );
   const { data } = await client.get<ListBrowserObjectsResponse>(
     `/browser/buckets/${encodeURIComponent(bucketName)}/objects`,
-    { params, headers: buildBrowserWorkspaceHeaders(options), signal: options?.signal }
+    { ...requestConfig, signal: options?.signal }
   );
   return data;
 }
@@ -96,10 +84,11 @@ export async function fetchBrowserObjectColumns(
     `/browser/buckets/${encodeURIComponent(bucketName)}/objects/columns`,
     payload,
     {
-      params: withS3ContextParam(undefined, contextId),
-      headers: mergeBrowserHeaders(
+      ...buildBrowserRequestConfig(
+        contextId,
+        options,
+        undefined,
         buildSseCustomerBackendHeaders(options?.sseCustomerKeyBase64),
-        buildBrowserWorkspaceHeaders(options),
       ),
       signal: options?.signal,
     }
@@ -121,7 +110,9 @@ export async function listObjectVersions(
     requestOptions?: BrowserRequestOptions;
   }
 ): Promise<ListObjectVersionsResponse> {
-  const params = withS3ContextParam(
+  const requestConfig = buildBrowserRequestConfig(
+    contextId,
+    options?.requestOptions,
     {
       prefix: options?.prefix ?? "",
       delimiter: options?.delimiter ?? undefined,
@@ -130,13 +121,11 @@ export async function listObjectVersions(
       version_id_marker: options?.versionIdMarker ?? undefined,
       max_keys: options?.maxKeys ?? undefined,
     },
-    contextId
   );
   const { data } = await client.get<ListObjectVersionsResponse>(
     `/browser/buckets/${encodeURIComponent(bucketName)}/versions`,
     {
-      params,
-      headers: buildBrowserWorkspaceHeaders(options?.requestOptions),
+      ...requestConfig,
       signal: options?.signal,
     }
   );
@@ -152,14 +141,14 @@ export async function fetchObjectMetadata(
   signal?: AbortSignal,
   options?: BrowserRequestOptions,
 ): Promise<ObjectMetadata> {
-  const params = withS3ContextParam({ key, version_id: versionId ?? undefined }, contextId);
   const { data } = await client.get<ObjectMetadata>(
     `/browser/buckets/${encodeURIComponent(bucketName)}/object-meta`,
     {
-      params,
-      headers: mergeBrowserHeaders(
+      ...buildBrowserRequestConfig(
+        contextId,
+        options,
+        { key, version_id: versionId ?? undefined },
         buildSseCustomerBackendHeaders(sseCustomerKeyBase64),
-        buildBrowserWorkspaceHeaders(options),
       ),
       signal,
     }
@@ -174,10 +163,12 @@ export async function getObjectTags(
   versionId?: string | null,
   options?: BrowserRequestOptions,
 ): Promise<ObjectTags> {
-  const params = withS3ContextParam({ key, version_id: versionId ?? undefined }, contextId);
   const { data } = await client.get<ObjectTags>(
     `/browser/buckets/${encodeURIComponent(bucketName)}/object-tags`,
-    { params, headers: buildBrowserWorkspaceHeaders(options) }
+    buildBrowserRequestConfig(contextId, options, {
+      key,
+      version_id: versionId ?? undefined,
+    })
   );
   return data;
 }
@@ -193,7 +184,7 @@ export async function updateObjectTags(
     `/browser/buckets/${encodeURIComponent(bucketName)}/object-tags`,
     payload,
     {
-      ...browserObjectRequestConfig(contextId, options),
+      ...buildBrowserRequestConfig(contextId, options),
       signal,
     }
   );
@@ -211,7 +202,7 @@ export async function updateObjectMetadata(
     `/browser/buckets/${encodeURIComponent(bucketName)}/object-meta`,
     payload,
     {
-      ...browserObjectRequestConfig(contextId, options),
+      ...buildBrowserRequestConfig(contextId, options),
       signal,
     }
   );
@@ -229,7 +220,7 @@ export async function updateObjectAcl(
     `/browser/buckets/${encodeURIComponent(bucketName)}/object-acl`,
     payload,
     {
-      ...browserObjectRequestConfig(contextId, options),
+      ...buildBrowserRequestConfig(contextId, options),
       signal,
     }
   );
@@ -243,10 +234,12 @@ export async function getObjectLegalHold(
   versionId?: string | null,
   options?: BrowserRequestOptions,
 ): Promise<ObjectLegalHold> {
-  const params = withS3ContextParam({ key, version_id: versionId ?? undefined }, contextId);
   const { data } = await client.get<ObjectLegalHold>(
     `/browser/buckets/${encodeURIComponent(bucketName)}/object-legal-hold`,
-    { params, headers: buildBrowserWorkspaceHeaders(options) }
+    buildBrowserRequestConfig(contextId, options, {
+      key,
+      version_id: versionId ?? undefined,
+    })
   );
   return data;
 }
@@ -262,7 +255,7 @@ export async function updateObjectLegalHold(
     `/browser/buckets/${encodeURIComponent(bucketName)}/object-legal-hold`,
     payload,
     {
-      ...browserObjectRequestConfig(contextId, options),
+      ...buildBrowserRequestConfig(contextId, options),
       signal,
     }
   );
@@ -276,10 +269,12 @@ export async function getObjectRetention(
   versionId?: string | null,
   options?: BrowserRequestOptions,
 ): Promise<ObjectRetention> {
-  const params = withS3ContextParam({ key, version_id: versionId ?? undefined }, contextId);
   const { data } = await client.get<ObjectRetention>(
     `/browser/buckets/${encodeURIComponent(bucketName)}/object-retention`,
-    { params, headers: buildBrowserWorkspaceHeaders(options) }
+    buildBrowserRequestConfig(contextId, options, {
+      key,
+      version_id: versionId ?? undefined,
+    })
   );
   return data;
 }
@@ -295,7 +290,7 @@ export async function updateObjectRetention(
     `/browser/buckets/${encodeURIComponent(bucketName)}/object-retention`,
     payload,
     {
-      ...browserObjectRequestConfig(contextId, options),
+      ...buildBrowserRequestConfig(contextId, options),
       signal,
     }
   );
@@ -311,7 +306,7 @@ export async function restoreObject(
   await client.post(
     `/browser/buckets/${encodeURIComponent(bucketName)}/object-restore`,
     payload,
-    browserObjectRequestConfig(contextId, options)
+    buildBrowserRequestConfig(contextId, options)
   );
 }
 
@@ -323,7 +318,7 @@ export async function copyObject(
   options?: BrowserRequestOptions,
 ): Promise<void> {
   await client.post(`/browser/buckets/${encodeURIComponent(bucketName)}/copy`, payload, {
-    ...browserObjectRequestConfig(contextId, options),
+    ...buildBrowserRequestConfig(contextId, options),
     signal,
   });
 }
@@ -338,7 +333,7 @@ export async function deleteObjects(
   const { data } = await client.post<DeleteObjectsResponse>(
     `/browser/buckets/${encodeURIComponent(bucketName)}/delete`,
     { objects },
-    { ...browserObjectRequestConfig(contextId, options), signal }
+    { ...buildBrowserRequestConfig(contextId, options), signal }
   );
   return data.deleted;
 }
@@ -354,7 +349,7 @@ export async function cleanupObjectVersions(
     `/browser/buckets/${encodeURIComponent(bucketName)}/versions/cleanup`,
     payload,
     {
-      ...browserObjectRequestConfig(contextId, options),
+      ...buildBrowserRequestConfig(contextId, options),
       signal,
     }
   );
@@ -370,6 +365,6 @@ export async function createFolder(
   await client.post(
     `/browser/buckets/${encodeURIComponent(bucketName)}/folders`,
     { prefix },
-    browserObjectRequestConfig(contextId, options)
+    buildBrowserRequestConfig(contextId, options)
   );
 }
