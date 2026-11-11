@@ -1403,8 +1403,8 @@ def test_portal_traffic_aggregates_visible_buckets_for_portal_user(monkeypatch, 
     )
 
     class FakeTrafficService:
-        def __init__(self, scoped_account):
-            captured["account"] = scoped_account
+        def __init__(self, context):
+            captured["context"] = context
 
         def get_traffic(self, *, window, bucket=None, bucket_filters=None):
             captured["window"] = window
@@ -1435,7 +1435,8 @@ def test_portal_traffic_aggregates_visible_buckets_for_portal_user(monkeypatch, 
     )
 
     assert result.totals.bytes_in == 2
-    assert captured["account"] == account
+    assert captured["context"].context_kind == "portal_account"
+    assert captured["context"].source_account is account
     assert captured["bucket"] is None
     assert captured["bucket_filters"] == {"bucket-a", "bucket-b"}
 
