@@ -1,0 +1,8 @@
+{
+  "alembic_revision": "0262_canonical_portal_storage_space_origin",
+  "files": {
+    "postgresql.sql": "16e1679a86c7ef1c499799a55e1d13b440bab3a3faade145a6740d7b9c61afff",
+    "sqlite.sql": "5cb6623fdc327e093315bc20068bc1235226df19250368c9fe56420526c133b8"
+  },
+  "version": "0.3.1"
+}

@@ -37,7 +37,8 @@ def baseline_files(root: Path, version: str) -> dict[str, bytes]:
         statements, indexes = [], []
 
         def collect(ddl, *args, **kwargs):
-            sql = str(ddl.compile(dialect=engine.dialect)).strip() + ";"
+            compiled = str(ddl.compile(dialect=engine.dialect)).strip()
+            sql = "\n".join(line.rstrip() for line in compiled.splitlines()) + ";"
             (indexes if isinstance(ddl, CreateIndex) else statements).append(sql)
 
         engine = create_mock_engine(f"{dialect}://", collect)

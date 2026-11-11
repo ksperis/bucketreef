@@ -8,6 +8,7 @@ Current release dates come from the changelog; reconstructed historical dates re
 
 | Version | Date | Notes | Publications |
 | --- | --- | --- | --- |
+| [0.3.1](#release-0-3-1) | 2026-11-11 (changelog) | Changelog | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.3.1) |
 | [0.3.0](#release-0-3-0) | 2026-11-10 (changelog) | Changelog | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.3.0) |
 | [0.2.18](#release-0-2-18) | 2026-10-24 (changelog) | Changelog | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.2.18) |
 | [0.2.17](#release-0-2-17) | 2026-10-19 (changelog) | Changelog | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.2.17) |
@@ -40,6 +41,19 @@ Current release dates come from the changelog; reconstructed historical dates re
 | [0.1.2](#release-0-1-2) | 2026-01-09 (commit) | Reconstructed | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.1.2) |
 | [0.1.1](#release-0-1-1) | 2026-01-06 (commit) | Reconstructed | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.1.1) |
 | [0.1.0](#release-0-1-0) | 2026-01-06 (commit) | Reconstructed | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.1.0) |
+
+## 0.3.1 {#release-0-3-1}
+
+[GitHub release](https://github.com/ksperis/bucketreef/releases/tag/v0.3.1)
+
+Compare v0.3.0 → v0.3.1: [GitHub](https://github.com/ksperis/bucketreef/compare/v0.3.0...v0.3.1)
+
+
+### Fixed
+
+- Harden QuickStart and guided onboarding so fresh deployments can initialize endpoint service identities and application settings reliably against existing S3/RGW endpoints.
+- Reduce SQLite write contention across authentication, Portal, OpenStack, storage endpoint and service-identity workflows, webhooks, background persistence, bucket migration, provisioning, and deletion paths by isolating write units and durable checkpoints without replaying remote side effects.
+- Retry SQLite busy conditions safely for credential-key rotation and Ceph Admin tag updates, while preserving transaction boundaries around migration and rotation checkpoints.
 
 ## 0.3.0 {#release-0-3-0}
 
