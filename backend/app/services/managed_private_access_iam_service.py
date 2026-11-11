@@ -14,7 +14,7 @@ from app.services.managed_private_access_errors import (
 )
 from app.services.rgw_iam import (
     RGWIAMService,
-    get_iam_service_for_execution_target,
+    get_iam_service_for_execution_context,
 )
 from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.s3_connection_endpoint import resolve_connection_iam_options
@@ -34,7 +34,7 @@ class ManagedPrivateAccessIAMService:
 
     @staticmethod
     def for_context(context: S3ExecutionContext) -> RGWIAMService:
-        service = get_iam_service_for_execution_target(context)
+        service = get_iam_service_for_execution_context(context)
         if service is None:
             raise ManagedPrivateAccessError(
                 "The source context has no IAM administration credentials"

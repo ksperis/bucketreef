@@ -11,7 +11,7 @@ from app.core.config import get_settings
 from app.services.aws_client_config import build_interactive_aws_config
 from app.services.rgw_iam_errors import RGWIAMError, RGWIAMGroupAlreadyExistsError
 from app.services.rgw_iam_pagination import iam_matches_fields, list_iam_all, list_iam_page
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.aws_errors import aws_error_code
 from app.utils.s3_endpoint import resolve_iam_client_options
 
@@ -837,8 +837,8 @@ class RGWIAMService:
             return None
 
 
-def get_iam_service_for_execution_target(
-    context: S3ExecutionTarget,
+def get_iam_service_for_execution_context(
+    context: S3ExecutionContext,
 ) -> RGWIAMService | None:
     access_key, secret_key = context.effective_rgw_credentials()
     if not access_key or not secret_key:
