@@ -35,6 +35,7 @@ from app.services.s3_connections_service import (
     S3_CONNECTION_NAME_CONFLICT_ERROR,
     S3ConnectionsService,
 )
+from tests.db_transaction_test_utils import fail_next_sqlite_statement_with_busy_snapshot
 from tests.s3_connection_factory import custom_endpoint_fields
 
 
@@ -477,6 +478,61 @@ def test_touch_usage_rolls_back_failed_commit(db_session, monkeypatch):
     persisted = db_session.get(S3Connection, row.id)
     assert persisted is not None
     assert persisted.last_used_at is None
+
+
+def test_touch_usage_retries_sqlite_write_intent_before_update(db_session):
+    user = _user(db_session, "touch-busy@example.test")
+    row = _create_row(
+        db_session,
+        created_by_user_id=user.id,
+        name="touch-busy",
+    )
+    service = S3ConnectionsService(db_session)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE s3_connections SET id = id WHERE 0",
+    ) as matching_statements:
+        service.touch_usage(row)
+
+    assert len(matching_statements) == 2
+    db_session.refresh(row)
+    assert row.last_used_at is not None
+
+
+def test_create_retries_sqlite_write_intent_without_replaying_capability_probe(
+    db_session,
+    monkeypatch,
+):
+    user = _user(db_session, "create-busy@example.test")
+    endpoint = _endpoint(db_session)
+    service = S3ConnectionsService(db_session)
+    probes = {"count": 0}
+
+    def probe(_row):
+        probes["count"] += 1
+
+    monkeypatch.setattr(service, "_refresh_detected_capabilities", probe)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "UPDATE s3_connections SET id = id WHERE 0",
+    ) as matching_statements:
+        created = service.create(
+            user.id,
+            S3ConnectionCreate(
+                name="create-busy",
+                storage_endpoint_id=endpoint.id,
+                access_key_id="CREATE-BUSY-AK",
+                secret_access_key="CREATE-BUSY-SK",
+                access_manager=True,
+                access_browser=False,
+            ),
+        )
+
+    assert len(matching_statements) == 2
+    assert probes["count"] == 1
+    assert created.name == "create-busy"
 
 
 def test_touch_usage_best_effort_ignores_database_errors(db_session, monkeypatch):
