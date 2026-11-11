@@ -3,7 +3,7 @@ import type { StorageEndpoint, StorageEndpointPayload } from "../../api/storageE
 import {
   applyFeatureConstraints, awsIamEndpointForRegion, awsS3EndpointForRegion,
   awsStsEndpointForRegion, buildFeaturesPayload, normalizeAwsRegion, parseCoordinateInput,
-  serviceIdentityRequirements, type FormState,
+  resolveStorageEndpointCredentialPair, serviceIdentityRequirements, type FormState,
 } from "./storageEndpointFormModel";
 
 export type EndpointFieldErrors = Partial<Record<keyof FormState, string>>;
@@ -44,11 +44,7 @@ export function buildStorageEndpointSubmission(form: FormState, editing: boolean
   } : form.features, form.provider);
   const externalSupervisionConfigured = form.provider === "ceph"
     && form.service_identity_mode === "external"
-    && Boolean(
-      (form.supervision_access_key.trim() && form.supervision_secret_key.trim())
-      || (editing && form.has_supervision_secret
-        && !form.supervision_access_key.trim() && !form.supervision_secret_key.trim()),
-    );
+    && resolveStorageEndpointCredentialPair(form, "supervision", editing).configured;
   const features = externalSupervisionConfigured ? {
     ...constrainedFeatures,
     healthcheck: { ...constrainedFeatures.healthcheck, enabled: true, mode: "s3" as const },
@@ -76,24 +72,18 @@ export function buildStorageEndpointSubmission(form: FormState, editing: boolean
     ] as const;
     for (const { kind, required, label, reason } of credentials) {
       if (!external && kind !== "admin" && kind !== "ceph_admin") continue;
-      const accessField = `${kind}_access_key` as const;
-      const secretField = `${kind}_secret_key` as const;
-      const access = form[accessField].trim();
-      const secret = form[secretField].trim();
       const replacingManaged = (kind === "runtime" || kind === "supervision") && replacementRequired(kind);
-      const storedCredentials = editing && form[`has_${kind}_secret`] && !replacingManaged;
-      if (storedCredentials && !access && !secret) {
+      const pair = resolveStorageEndpointCredentialPair(form, kind, editing && !replacingManaged);
+      if (pair.reuseStoredPair) continue;
+      if (pair.replacementStarted && !pair.replacementComplete) {
+        if (!pair.accessKey) errors[pair.accessField] = `${label} access key is required when replacing stored credentials.`;
+        if (!pair.secretKey) errors[pair.secretField] = `${label} secret key is required when replacing stored credentials.`;
         continue;
       }
-      if (Boolean(access) !== Boolean(secret)) {
-        if (!access) errors[accessField] = `${label} access key is required when replacing stored credentials.`;
-        if (!secret) errors[secretField] = `${label} secret key is required when replacing stored credentials.`;
-        continue;
-      }
-      if (required && !access) errors[accessField] = `${label} access key is required when ${reason}.`;
-      if (required && !storedCredentials && !secret) errors[secretField] = `${label} secret key is required when ${reason}.`;
-      payload[accessField] = access || null;
-      payload[secretField] = secret || null;
+      if (required && !pair.accessKey) errors[pair.accessField] = `${label} access key is required when ${reason}.`;
+      if (required && !pair.secretKey) errors[pair.secretField] = `${label} secret key is required when ${reason}.`;
+      payload[pair.accessField] = pair.accessKey || null;
+      payload[pair.secretField] = pair.secretKey || null;
     }
   }
   return Object.keys(errors).length ? { errors } : { payload };

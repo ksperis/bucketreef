@@ -62,6 +62,37 @@ export type FormState = {
   features: FeaturesState;
 };
 
+export type StorageEndpointCredentialKind = "admin" | "runtime" | "supervision" | "ceph_admin";
+
+export function resolveStorageEndpointCredentialPair(
+  form: FormState,
+  kind: StorageEndpointCredentialKind,
+  reuseStoredCredentials = false,
+) {
+  const accessField = `${kind}_access_key` as const;
+  const secretField = `${kind}_secret_key` as const;
+  const storedField = `has_${kind}_secret` as const;
+  const accessKey = form[accessField].trim();
+  const secretKey = form[secretField].trim();
+  const hasStoredSecret = form[storedField];
+  const replacementStarted = Boolean(accessKey || secretKey);
+  const replacementComplete = Boolean(accessKey && secretKey);
+  const reuseStoredPair = Boolean(
+    reuseStoredCredentials && hasStoredSecret && !replacementStarted,
+  );
+  return {
+    accessField,
+    secretField,
+    accessKey,
+    secretKey,
+    hasStoredSecret,
+    replacementStarted,
+    replacementComplete,
+    reuseStoredPair,
+    configured: replacementComplete || reuseStoredPair,
+  };
+}
+
 export const AWS_DEFAULT_REGION = "us-east-1";
 
 const AWS_IAM_ENDPOINT = "https://iam.amazonaws.com";

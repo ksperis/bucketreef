@@ -11,7 +11,12 @@ import {
   AdminOpsPermissionsBadges, CredentialStatusBadge, SupervisionValidationBadges,
   type CredentialCheckView,
 } from "./StorageEndpointValidationStatus";
-import { serviceIdentityRequirements, type FormState } from "./storageEndpointFormModel";
+import {
+  resolveStorageEndpointCredentialPair,
+  serviceIdentityRequirements,
+  type FormState,
+  type StorageEndpointCredentialKind,
+} from "./storageEndpointFormModel";
 import type { EndpointFieldErrors } from "./storageEndpointSubmission";
 import {
   ADMIN_OPS_FULL_COMMAND,
@@ -21,7 +26,6 @@ import {
 } from "./storageEndpointCredentialHelp";
 import { useStorageEndpointI18n, type StorageEndpointText } from "./storageEndpointMessages";
 
-type CredentialKind = "admin" | "runtime" | "supervision" | "ceph_admin";
 type Props = {
   form: FormState;
   setForm: Dispatch<SetStateAction<FormState>>;
@@ -30,7 +34,7 @@ type Props = {
   cephAdminEnabled: boolean;
   cephAdminActive?: boolean;
   errors: EndpointFieldErrors;
-  checks: Partial<Record<CredentialKind, CredentialCheckView | null>>;
+  checks: Partial<Record<StorageEndpointCredentialKind, CredentialCheckView | null>>;
   detection?: StorageEndpointFeatureDetectionResult | null;
   identities?: StorageEndpoint["service_identities"];
   usersWrite?: boolean;
@@ -41,39 +45,36 @@ type Props = {
 
 /** Each operational identity has its own credentials and validation. */
 function CredentialFields({ kind, label, required = false, form, setForm, readOnly, editing, errors }: Props & {
-  kind: CredentialKind;
+  kind: StorageEndpointCredentialKind;
   label: string;
   required?: boolean;
 }) {
   const { text } = useStorageEndpointI18n();
-  const access = `${kind}_access_key` as const;
-  const secret = `${kind}_secret_key` as const;
-  const stored = `has_${kind}_secret` as const;
-  const storedPair = editing && form[stored];
-  const replacingPair = Boolean(form[access].trim() || form[secret].trim());
-  const replacementHint = storedPair && !replacingPair
+  const pair = resolveStorageEndpointCredentialPair(form, kind, editing);
+  const storedPair = editing && pair.hasStoredSecret;
+  const replacementHint = pair.reuseStoredPair
     ? text("leaveKeysEmpty")
     : undefined;
   const replacementHintId = useId();
-  const pairRequired = (required && !storedPair) || replacingPair;
+  const pairRequired = (required && !storedPair) || pair.replacementStarted;
   const secretHint = replacementHint ? undefined : pairRequired ? text("enterSecretForIdentity") : undefined;
-  const change = (field: typeof access | typeof secret, value: string) => {
+  const change = (field: typeof pair.accessField | typeof pair.secretField, value: string) => {
     setForm(previous => ({ ...previous, [field]: value }));
   };
   return <div className="settings-fields">
     {readOnly ? <div className="settings-stack">
       <p className="settings-label">{text("credentialsFor", { label })}</p>
-      <div className="settings-readonly">{form[stored] ? text("configuredValuesHidden") : text("notConfigured")}</div>
+      <div className="settings-readonly">{pair.hasStoredSecret ? text("configuredValuesHidden") : text("notConfigured")}</div>
     </div> :
     <div className="settings-fields sm:grid-cols-2">
-      <UiInput label={text("accessKey", { label })} value={form[access]} required={pairRequired}
+      <UiInput label={text("accessKey", { label })} value={form[pair.accessField]} required={pairRequired}
         aria-describedby={replacementHint ? replacementHintId : undefined}
-        error={errors[access]} onChange={event => change(access, event.target.value)} />
+        error={errors[pair.accessField]} onChange={event => change(pair.accessField, event.target.value)} />
       <UiInput label={text("secretKey", { label })} type="password" autoComplete="new-password"
-        value={form[secret]} required={pairRequired} error={errors[secret]}
+        value={form[pair.secretField]} required={pairRequired} error={errors[pair.secretField]}
         aria-describedby={replacementHint ? replacementHintId : undefined}
         hint={secretHint}
-        onChange={event => change(secret, event.target.value)} />
+        onChange={event => change(pair.secretField, event.target.value)} />
     </div>}
     {replacementHint && !readOnly && <p id={replacementHintId} className="settings-description">{replacementHint}</p>}
   </div>;
@@ -100,7 +101,7 @@ function savedStatusLabel(identity: ServiceIdentity | undefined, text: StorageEn
   return labels[identity.status];
 }
 
-function ExternalCredentialFields(props: Props & { kind: CredentialKind; label: string; required: boolean }) {
+function ExternalCredentialFields(props: Props & { kind: StorageEndpointCredentialKind; label: string; required: boolean }) {
   const { text } = useStorageEndpointI18n();
   const { kind, label, form, errors } = props;
   const [replacing, setReplacing] = useState(false);
