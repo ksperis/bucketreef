@@ -78,6 +78,7 @@ def test_signed_pair_failure_blocks_access_and_sanitizes_errors(identities, db_s
     identity = endpoint.service_identity("ceph_admin")
     if status == 403:
         identity.secret_key = "INCORRECT-SK"
+        db_session.commit()
     def rejected(**kwargs):
         assert kwargs["access_key"] == "CEPH-AK" and kwargs["secret_key"] == identity.secret_key
         raise RGWAdminError(f"do not expose {identity.secret_key}", status_code=status)
