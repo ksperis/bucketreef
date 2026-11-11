@@ -34,12 +34,7 @@ def stream_manager_bucket_integrity_check(
     bucket_names = payload.targets
     require_bucket_management_context(context)
     targets = [
-        ResolvedS3BucketTarget(
-            context=context,
-            bucket_name=bucket_name,
-            context_id=context.context_id,
-            context_name=context.name,
-        )
+        ResolvedS3BucketTarget.from_context(context, bucket_name)
         for bucket_name in bucket_names
     ]
     return stream_resolved_bucket_integrity_check(

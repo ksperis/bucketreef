@@ -13,8 +13,7 @@ from app.routers.ceph_admin.dependencies import (
     get_ceph_admin_context,
 )
 from app.services.ceph_admin_context import CephAdminContext
-from app.services.s3_execution_context import ResolvedS3BucketTarget, build_ceph_admin_s3_context
-from app.services.rgw_bucket_target import RgwBucketTarget
+from app.services.s3_execution_context import ResolvedS3BucketTarget
 
 router = APIRouter(
     prefix="/ceph-admin/endpoints/{endpoint_id}/buckets/integrity-check",
@@ -29,19 +28,14 @@ def stream_ceph_admin_bucket_integrity_check(
     request: Request,
     ctx: CephAdminContext = Depends(get_ceph_admin_context),
 ) -> StreamingResponse:
-    context = build_ceph_admin_s3_context(ctx)
-    targets = []
-    for reference in payload.targets:
-        target = RgwBucketTarget.create(ctx.endpoint.id, reference.tenant, reference.name)
-        targets.append(
-            ResolvedS3BucketTarget(
-                context=context,
-                bucket_name=target.name,
-                request_bucket_name=target.s3_name,
-                context_id=f"ceph-admin-{ctx.endpoint.id}",
-                context_name=ctx.endpoint.name,
-            )
+    targets = [
+        ResolvedS3BucketTarget.from_ceph_admin(
+            ctx,
+            tenant=reference.tenant,
+            bucket_name=reference.name,
         )
+        for reference in payload.targets
+    ]
     return stream_resolved_bucket_integrity_check(
         request,
         payload=payload,

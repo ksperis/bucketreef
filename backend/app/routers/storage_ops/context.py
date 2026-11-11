@@ -34,12 +34,5 @@ def resolve_storage_ops_bucket_targets(
     resolved_targets: list[ResolvedS3BucketTarget] = []
     for target in targets:
         context = resolver(target.context_id)
-        resolved_targets.append(
-            ResolvedS3BucketTarget(
-                context=context,
-                bucket_name=target.bucket_name,
-                context_id=target.context_id,
-                context_name=context.name,
-            )
-        )
+        resolved_targets.append(ResolvedS3BucketTarget.from_context(context, target.bucket_name))
     return resolved_targets

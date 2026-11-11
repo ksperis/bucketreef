@@ -410,12 +410,7 @@ def stream_delete_bucket_with_purge(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Confirmation must be exactly '{expected}'.")
     require_bucket_management_context(context)
     options = BucketPurgeOptions(parallelism=payload.parallelism, include_versions=True)
-    target = ResolvedS3BucketTarget(
-        context=context,
-        bucket_name=bucket_name,
-        context_id=context.context_id,
-        context_name=context.name,
-    )
+    target = ResolvedS3BucketTarget.from_context(context, bucket_name)
     service = BucketPurgeService()
     deleted_bucket_target = _bucket_ui_target(context, bucket_name)
     audit = _manager_bucket_delete_audit(
