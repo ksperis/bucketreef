@@ -344,23 +344,20 @@ class S3UserImportService:
         item: _PreparedUserImport,
         intent: S3UserImportIntent,
     ) -> _StagedLocalUser:
-        s3_user = S3User(
-            name=item.source.name or item.user_info.get("display_name") or item.uid,
-            rgw_user_uid=item.uid,
-            rgw_tenant=item.tenant,
-            email=item.source.email or item.user_info.get("email"),
-            rgw_access_key=intent.access_key_id,
-            rgw_secret_key=intent.secret_access_key,
-            storage_endpoint_id=item.endpoint.id,
+        name = item.source.name or item.user_info.get("display_name") or item.uid
+        email = item.source.email or item.user_info.get("email")
+        quota_max_size_gb, quota_max_objects = self.metrics.get_quota_with_admin(
+            item.uid,
+            item.tenant,
+            item.admin,
         )
-        quota_max_size_gb, quota_max_objects = self.metrics.get_quota(s3_user, item.admin)
         return _StagedLocalUser(
             intent_id=int(intent.id),
             storage_endpoint_id=int(item.endpoint.id),
-            name=s3_user.name,
-            uid=s3_user.rgw_user_uid,
-            tenant=s3_user.rgw_tenant,
-            email=s3_user.email,
+            name=name,
+            uid=item.uid,
+            tenant=item.tenant,
+            email=email,
             access_key_id=intent.access_key_id,
             secret_access_key=intent.secret_access_key,
             quota_max_size_gb=quota_max_size_gb,

@@ -25,7 +25,7 @@ def test_browser_usage_summary_requires_the_complete_canonical_payload():
     }
 
 
-def test_browser_usage_summary_converts_quota_and_drops_invalid_values(db_session, monkeypatch):
+def test_browser_usage_summary_converts_quota_and_drops_invalid_values(monkeypatch):
     account = _account_context()
 
     class FakeS3AccountMetricsService:
@@ -42,14 +42,14 @@ def test_browser_usage_summary_converts_quota_and_drops_invalid_values(db_sessio
         FakeS3AccountMetricsService,
     )
 
-    result = BrowserUsageSummaryService(db_session).build(account)
+    result = BrowserUsageSummaryService().build(account)
 
     assert result.available is True
     assert result.quota_max_size_bytes is None
     assert result.quota_max_objects == 50
 
 
-def test_browser_usage_summary_rejects_non_positive_s3_user_identity(db_session):
+def test_browser_usage_summary_returns_unavailable_for_incomplete_s3_user_context():
     account = S3ExecutionContext(
         context_id="s3u-0",
         context_kind="s3_user",
@@ -59,7 +59,7 @@ def test_browser_usage_summary_rejects_non_positive_s3_user_identity(db_session)
         s3_user_id=0,
     )
 
-    result = BrowserUsageSummaryService(db_session).build(account)
+    result = BrowserUsageSummaryService().build(account)
 
     assert result.model_dump() == {
         "available": False,
@@ -72,7 +72,7 @@ def test_browser_usage_summary_rejects_non_positive_s3_user_identity(db_session)
     }
 
 
-def test_browser_usage_summary_returns_unavailable_for_missing_s3_user(db_session):
+def test_browser_usage_summary_does_not_require_persisted_s3_user_lookup():
     account = S3ExecutionContext(
         context_id="s3u-999999",
         context_kind="s3_user",
@@ -82,7 +82,7 @@ def test_browser_usage_summary_returns_unavailable_for_missing_s3_user(db_sessio
         s3_user_id=999999,
     )
 
-    result = BrowserUsageSummaryService(db_session).build(account)
+    result = BrowserUsageSummaryService().build(account)
 
     assert result.model_dump() == {
         "available": False,

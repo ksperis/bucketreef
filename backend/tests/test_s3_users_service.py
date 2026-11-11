@@ -49,6 +49,7 @@ from app.services import (
 )
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.app_settings_service import load_app_settings_for_db
+from app.services.s3_execution_context import S3ExecutionContext
 from app.services.s3_user_key_management_service import S3UserKeyManagementService
 from app.services.s3_user_metrics_service import S3UserMetricsService
 from app.services.s3_user_query_service import S3UserQueryService
@@ -605,12 +606,16 @@ def test_import_users_mid_batch_failure_preserves_durable_intents_for_retry(
         }
     service = _build_service(db_session, monkeypatch, fake)
 
-    def quota_with_second_failure(s3_user, _admin):
-        if s3_user.rgw_user_uid == "import-second":
+    def quota_with_second_failure(uid, _tenant, _admin):
+        if uid == "import-second":
             raise RuntimeError("simulated quota lookup failure")
         return None, None
 
-    monkeypatch.setattr(service.importer.metrics, "get_quota", quota_with_second_failure)
+    monkeypatch.setattr(
+        service.importer.metrics,
+        "get_quota_with_admin",
+        quota_with_second_failure,
+    )
 
     with pytest.raises(RuntimeError, match="simulated quota lookup failure"):
         service.import_users(
@@ -636,7 +641,7 @@ def test_import_users_mid_batch_failure_preserves_durable_intents_for_retry(
 
     monkeypatch.setattr(
         service.importer.metrics,
-        "get_quota",
+        "get_quota_with_admin",
         lambda *_args, **_kwargs: (None, None),
     )
     imported = service.import_users(
@@ -968,7 +973,8 @@ def test_interface_bucket_count_only_suppresses_s3_operation_errors(db_session, 
         "list_buckets",
         lambda **_kwargs: (_ for _ in ()).throw(s3_client.S3OperationError("provider unavailable")),
     )
-    assert service.metrics.get_interface_bucket_count(s3_user) is None
+    context = S3ExecutionContext.from_s3_user(s3_user)
+    assert service.metrics.get_interface_bucket_count(context) is None
 
     monkeypatch.setattr(
         s3_client,
@@ -976,7 +982,7 @@ def test_interface_bucket_count_only_suppresses_s3_operation_errors(db_session, 
         lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("bucket count regression")),
     )
     with pytest.raises(RuntimeError, match="bucket count regression"):
-        service.metrics.get_interface_bucket_count(s3_user)
+        service.metrics.get_interface_bucket_count(context)
 
 
 def test_user_metrics_usage_aggregates_live_bucket_stats(db_session, monkeypatch):
@@ -994,7 +1000,7 @@ def test_user_metrics_usage_aggregates_live_bucket_stats(db_session, monkeypatch
         lambda _endpoint: fake_admin,
     )
 
-    assert S3UserMetricsService().get_usage(s3_user) == (50, 5, 2)
+    assert S3UserMetricsService().get_usage(S3ExecutionContext.from_s3_user(s3_user)) == (50, 5, 2)
     assert fake_admin.bucket_list_calls == [
         {"account_id": None, "uid": "usage-user", "with_stats": True}
     ]
@@ -1014,7 +1020,7 @@ def test_user_metrics_usage_uses_runtime_when_monitoring_is_disabled(db_session,
         lambda _endpoint: fake,
     )
 
-    assert S3UserMetricsService().get_usage(s3_user) == (30, 3, 1)
+    assert S3UserMetricsService().get_usage(S3ExecutionContext.from_s3_user(s3_user)) == (30, 3, 1)
     assert fake.bucket_list_calls == [
         {"account_id": None, "uid": "no-metrics-user", "with_stats": True}
     ]
@@ -1045,7 +1051,11 @@ def test_user_metrics_limits_read_embedded_quota_without_repeating_lookup(db_ses
         lambda _endpoint: fake,
     )
 
-    assert S3UserMetricsService().get_limits(s3_user) == (2, 500, None)
+    assert S3UserMetricsService().get_limits(S3ExecutionContext.from_s3_user(s3_user)) == (
+        2,
+        500,
+        None,
+    )
 
 
 def test_create_user_persists_credentials(db_session, monkeypatch):

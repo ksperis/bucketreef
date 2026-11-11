@@ -77,8 +77,8 @@ def get_browser_settings(
     return load_app_settings_for_db(db).browser
 
 
-def get_browser_usage_service(db: Session = Depends(get_db)) -> BrowserUsageSummaryService:
-    return BrowserUsageSummaryService(db)
+def get_browser_usage_service() -> BrowserUsageSummaryService:
+    return BrowserUsageSummaryService()
 
 
 @router.get(

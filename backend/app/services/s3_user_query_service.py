@@ -27,6 +27,7 @@ from app.models.s3_user import (
 from app.models.admin_listing import AdminSortDir
 from app.services.mappers.s3_user import s3_user_from_db
 from app.services.rgw_admin import RGWAdminClient
+from app.services.s3_execution_context import S3ExecutionContext
 from app.services.s3_user_associations_service import S3UserAssociationsService
 from app.services.s3_user_metrics_service import S3UserMetricsService
 from app.services.s3_user_repository import S3UserRepository
@@ -75,7 +76,7 @@ class S3UserQueryService:
         quota_max_objects = None
         if include_quota:
             quota_max_size_gb, quota_max_objects = self.metrics.get_quota(
-                row,
+                S3ExecutionContext.from_s3_user(row),
                 quota_admin,
             )
         return s3_user_from_db(
@@ -197,7 +198,11 @@ class S3UserQueryService:
     ) -> S3UserSchema:
         s3_user = self.get_user_record(user_id)
         user_links_map, group_links_map = self.associations.load_links([s3_user.id])
-        bucket_count = self.metrics.get_interface_bucket_count(s3_user) if include_buckets else None
+        bucket_count = (
+            self.metrics.get_interface_bucket_count(S3ExecutionContext.from_s3_user(s3_user))
+            if include_buckets
+            else None
+        )
         return self.serialize_user(
             s3_user,
             user_links_map,
