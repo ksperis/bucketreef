@@ -3,7 +3,8 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
-import { S3ExecutionContextSelector, withS3ContextParam } from "./accountParams";
+import type { S3ExecutionContextSelector } from "./accountParams";
+import { buildS3ContextRequestConfig } from "./accountParams";
 
 export type Topic = {
   name: string;
@@ -25,24 +26,24 @@ type TopicConfiguration = {
 };
 
 export async function listTopics(contextId?: S3ExecutionContextSelector): Promise<Topic[]> {
-  const { data } = await client.get<Topic[]>("/manager/topics", { params: withS3ContextParam(undefined, contextId) });
+  const { data } = await client.get<Topic[]>("/manager/topics", buildS3ContextRequestConfig(contextId));
   return data;
 }
 
 export async function createTopic(contextId: S3ExecutionContextSelector, payload: CreateTopicPayload): Promise<Topic> {
-  const { data } = await client.post<Topic>("/manager/topics", payload, { params: withS3ContextParam(undefined, contextId) });
+  const { data } = await client.post<Topic>("/manager/topics", payload, buildS3ContextRequestConfig(contextId));
   return data;
 }
 
 export async function deleteTopic(contextId: S3ExecutionContextSelector, topicArn: string): Promise<void> {
   await client.delete(`/manager/topics/${encodeURIComponent(topicArn)}`, {
-    params: withS3ContextParam(undefined, contextId),
+    ...buildS3ContextRequestConfig(contextId),
   });
 }
 
 export async function getTopicPolicy(contextId: S3ExecutionContextSelector, topicArn: string): Promise<TopicPolicy> {
   const { data } = await client.get<TopicPolicy>(`/manager/topics/${encodeURIComponent(topicArn)}/policy`, {
-    params: withS3ContextParam(undefined, contextId),
+    ...buildS3ContextRequestConfig(contextId),
   });
   return data;
 }
@@ -55,7 +56,7 @@ export async function updateTopicPolicy(
   const { data } = await client.put<TopicPolicy>(
     `/manager/topics/${encodeURIComponent(topicArn)}/policy`,
     { policy },
-    { params: withS3ContextParam(undefined, contextId) }
+    buildS3ContextRequestConfig(contextId)
   );
   return data;
 }
@@ -65,7 +66,7 @@ export async function getTopicConfiguration(
   topicArn: string
 ): Promise<TopicConfiguration> {
   const { data } = await client.get<TopicConfiguration>(`/manager/topics/${encodeURIComponent(topicArn)}/configuration`, {
-    params: withS3ContextParam(undefined, contextId),
+    ...buildS3ContextRequestConfig(contextId),
   });
   return data;
 }
@@ -78,7 +79,7 @@ export async function updateTopicConfiguration(
   const { data } = await client.put<TopicConfiguration>(
     `/manager/topics/${encodeURIComponent(topicArn)}/configuration`,
     { configuration },
-    { params: withS3ContextParam(undefined, contextId) }
+    buildS3ContextRequestConfig(contextId)
   );
   return data;
 }

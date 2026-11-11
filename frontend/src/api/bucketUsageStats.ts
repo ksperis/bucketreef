@@ -3,11 +3,11 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { S3ExecutionContextSelector } from "./accountParams";
+import { buildS3ContextRequestConfig } from "./accountParams";
 import type {
   BucketTargetsPayload,
   RgwBucketTargetsPayload,
 } from "./bucketOperation";
-import { withS3ContextParam } from "./accountParams";
 import client from "./client";
 import {
   buildJsonPostRequestInit,
@@ -137,7 +137,7 @@ export async function getManagerUsageStatsAggregate(
 ): Promise<BucketUsageStatsAggregateResponse> {
   const { data } = await client.get<BucketUsageStatsAggregateResponse>(
     "/manager/usage-stats/latest",
-    { params: withS3ContextParam(null, contextId) }
+    buildS3ContextRequestConfig(contextId)
   );
   return data;
 }
@@ -167,7 +167,7 @@ export async function getManagerBucketUsageStats(
 ): Promise<BucketUsageStatsLatestResponse> {
   const { data } = await client.get<BucketUsageStatsLatestResponse>(
     `/manager/buckets/${encodeURIComponent(bucketName)}/usage-stats`,
-    { params: withS3ContextParam(null, contextId) }
+    buildS3ContextRequestConfig(contextId)
   );
   return data;
 }

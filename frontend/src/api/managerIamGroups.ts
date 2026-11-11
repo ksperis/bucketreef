@@ -4,11 +4,11 @@
  */
 import client from "./client";
 import type { S3ExecutionContextSelector } from "./accountParams";
+import { buildS3ContextRequestConfig } from "./accountParams";
 import type { IAMUser } from "./managerIamUsers";
 import type { IamPolicy, InlinePolicy } from "./managerIamPolicies";
 import {
   attachEntityPolicy,
-  buildIamRequestConfig,
   createIamEntity,
   deleteEntityInlinePolicy,
   deleteIamEntity,
@@ -73,7 +73,7 @@ export async function deleteIamGroup(contextId: S3ExecutionContextSelector, name
 export async function listIamGroupUsers(contextId: S3ExecutionContextSelector, groupName: string): Promise<IAMUser[]> {
   const { data } = await client.get<IAMUser[]>(
     `/manager/iam/groups/${encodeURIComponent(groupName)}/users`,
-    buildIamRequestConfig(contextId),
+    buildS3ContextRequestConfig(contextId),
   );
   return data;
 }
@@ -82,7 +82,7 @@ export async function addIamGroupUser(contextId: S3ExecutionContextSelector, gro
   const { data } = await client.post<IAMUser>(
     `/manager/iam/groups/${encodeURIComponent(groupName)}/users`,
     { name: userName },
-    buildIamRequestConfig(contextId)
+    buildS3ContextRequestConfig(contextId)
   );
   return data;
 }
@@ -90,7 +90,7 @@ export async function addIamGroupUser(contextId: S3ExecutionContextSelector, gro
 export async function removeIamGroupUser(contextId: S3ExecutionContextSelector, groupName: string, userName: string): Promise<void> {
   await client.delete(
     `/manager/iam/groups/${encodeURIComponent(groupName)}/users/${encodeURIComponent(userName)}`,
-    buildIamRequestConfig(contextId),
+    buildS3ContextRequestConfig(contextId),
   );
 }
 

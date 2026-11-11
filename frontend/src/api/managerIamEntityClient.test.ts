@@ -9,9 +9,9 @@ vi.mock("./client", () => ({
 }));
 
 import {
-  buildIamRequestConfig,
   listIamEntityPage,
 } from "./managerIamEntityClient";
+import { buildS3ContextRequestConfig } from "./accountParams";
 
 describe("manager IAM entity client", () => {
   beforeEach(() => {
@@ -20,7 +20,7 @@ describe("manager IAM entity client", () => {
   });
 
   it("builds request parameters with the selected execution context", () => {
-    expect(buildIamRequestConfig("acc-7", { feature: "details" })).toEqual({
+    expect(buildS3ContextRequestConfig("acc-7", { feature: "details" })).toEqual({
       params: { feature: "details", context_id: "acc-7" },
     });
   });

@@ -38,3 +38,10 @@ export function withS3ContextParam(
   }
   return { ...(params ?? {}), context_id: contextId };
 }
+
+export function buildS3ContextRequestConfig(
+  contextId?: S3ExecutionContextSelector,
+  params?: Record<string, unknown> | null,
+) {
+  return { params: withS3ContextParam(params, contextId) };
+}

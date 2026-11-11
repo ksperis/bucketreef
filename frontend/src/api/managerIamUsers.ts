@@ -4,11 +4,11 @@
  */
 import client from "./client";
 import type { S3ExecutionContextSelector } from "./accountParams";
+import { buildS3ContextRequestConfig } from "./accountParams";
 import type { AccessKeyMetadata, AccessKeyMetadataInput } from "./accessKeyContracts";
 import type { IamPolicy, InlinePolicy } from "./managerIamPolicies";
 import {
   attachEntityPolicy,
-  buildIamRequestConfig,
   createIamEntity,
   deleteEntityInlinePolicy,
   deleteIamEntity,
@@ -91,7 +91,7 @@ export async function deleteIamUser(contextId: S3ExecutionContextSelector, name:
 export async function listIamAccessKeys(contextId: S3ExecutionContextSelector, userName: string): Promise<AccessKey[]> {
   const { data } = await client.get<AccessKey[]>(
     `/manager/iam/users/${encodeURIComponent(userName)}/keys`,
-    buildIamRequestConfig(contextId),
+    buildS3ContextRequestConfig(contextId),
   );
   return data;
 }
@@ -104,7 +104,7 @@ export async function createIamAccessKey(
   const { data } = await client.post<AccessKey>(
     `/manager/iam/users/${encodeURIComponent(userName)}/keys`,
     metadata ?? {},
-    buildIamRequestConfig(contextId)
+    buildS3ContextRequestConfig(contextId)
   );
   return data;
 }
@@ -118,7 +118,7 @@ export async function updateIamAccessKeyMetadata(
   const { data } = await client.patch<AccessKeyMetadata>(
     `/manager/iam/users/${encodeURIComponent(userName)}/keys/${encodeURIComponent(accessKeyId)}/metadata`,
     metadata,
-    buildIamRequestConfig(contextId),
+    buildS3ContextRequestConfig(contextId),
   );
   return data;
 }
@@ -130,7 +130,7 @@ export async function deleteIamAccessKey(
 ): Promise<void> {
   await client.delete(
     `/manager/iam/users/${encodeURIComponent(userName)}/keys/${encodeURIComponent(accessKeyId)}`,
-    buildIamRequestConfig(contextId),
+    buildS3ContextRequestConfig(contextId),
   );
 }
 
@@ -143,7 +143,7 @@ export async function updateIamAccessKeyStatus(
   const { data } = await client.put<AccessKey>(
     `/manager/iam/users/${encodeURIComponent(userName)}/keys/${encodeURIComponent(accessKeyId)}/status`,
     { active },
-    buildIamRequestConfig(contextId)
+    buildS3ContextRequestConfig(contextId)
   );
   return data;
 }

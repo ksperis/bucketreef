@@ -4,7 +4,7 @@
  */
 import client from "./client";
 import type { S3ExecutionContextSelector } from "./accountParams";
-import { withS3ContextParam } from "./accountParams";
+import { buildS3ContextRequestConfig } from "./accountParams";
 import type { S3Connection } from "./connections";
 import type { InlinePolicy } from "./managerIamPolicies";
 
@@ -30,9 +30,11 @@ export async function createManagedIAMPrivateAccess(
   contextId: S3ExecutionContextSelector,
   payload: ManagedIAMPrivateAccessPayload
 ): Promise<ManagedPrivateAccessResult> {
-  const { data } = await client.post<ManagedPrivateAccessResult>("/manager/private-access/iam", payload, {
-    params: withS3ContextParam(undefined, contextId),
-  });
+  const { data } = await client.post<ManagedPrivateAccessResult>(
+    "/manager/private-access/iam",
+    payload,
+    buildS3ContextRequestConfig(contextId),
+  );
   return data;
 }
 
@@ -40,9 +42,11 @@ export async function createManagedRGWUserPrivateAccess(
   contextId: S3ExecutionContextSelector,
   payload: ManagedPrivateAccessBasePayload
 ): Promise<ManagedPrivateAccessResult> {
-  const { data } = await client.post<ManagedPrivateAccessResult>("/manager/private-access/rgw-user", payload, {
-    params: withS3ContextParam(undefined, contextId),
-  });
+  const { data } = await client.post<ManagedPrivateAccessResult>(
+    "/manager/private-access/rgw-user",
+    payload,
+    buildS3ContextRequestConfig(contextId),
+  );
   return data;
 }
 

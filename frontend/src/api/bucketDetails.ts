@@ -3,7 +3,7 @@
  * Licensed under the Apache License, Version 2.0
  */
 import type { S3ExecutionContextSelector } from "./accountParams";
-import { withS3ContextParam } from "./accountParams";
+import { buildS3ContextRequestConfig } from "./accountParams";
 import type {
   Bucket,
   BucketAcl,
@@ -31,9 +31,8 @@ const BROWSER_BUCKET_CONFIG_PATH = "/browser/buckets/config";
 function createBucketDetailsTransport(basePath: string) {
   const bucketPath = (bucketName: string) =>
     `${basePath}/${encodeURIComponent(bucketName)}`;
-  const requestConfig = (contextId: S3ExecutionContextSelector) => ({
-    params: withS3ContextParam(undefined, contextId),
-  });
+  const requestConfig = (contextId: S3ExecutionContextSelector) =>
+    buildS3ContextRequestConfig(contextId);
   const read = async <T>(
     contextId: S3ExecutionContextSelector,
     bucketName: string,
@@ -52,12 +51,9 @@ function createBucketDetailsTransport(basePath: string) {
   ): Promise<Bucket> => {
     const { data } = await client.get<Bucket>(
       `${bucketPath(bucketName)}/stats`,
-      {
-        params: withS3ContextParam(
-          { with_stats: options?.with_stats },
-          contextId,
-        ),
-      },
+      buildS3ContextRequestConfig(contextId, {
+        with_stats: options?.with_stats,
+      }),
     );
     return data;
   };

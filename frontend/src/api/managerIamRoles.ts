@@ -4,10 +4,10 @@
  */
 import client from "./client";
 import type { S3ExecutionContextSelector } from "./accountParams";
+import { buildS3ContextRequestConfig } from "./accountParams";
 import type { IamPolicy, InlinePolicy } from "./managerIamPolicies";
 import {
   attachEntityPolicy,
-  buildIamRequestConfig,
   createIamEntity,
   deleteEntityInlinePolicy,
   deleteIamEntity,
@@ -73,7 +73,7 @@ export async function putRoleTags(contextId: S3ExecutionContextSelector, roleNam
   const { data } = await client.put<IAMTag[]>(
     `/manager/iam/roles/${encodeURIComponent(roleName)}/tags`,
     tags,
-    buildIamRequestConfig(contextId),
+    buildS3ContextRequestConfig(contextId),
   );
   return data;
 }
@@ -81,7 +81,7 @@ export async function putRoleTags(contextId: S3ExecutionContextSelector, roleNam
 export async function deleteRoleTag(contextId: S3ExecutionContextSelector, roleName: string, tagKey: string): Promise<IAMTag[]> {
   const { data } = await client.delete<IAMTag[]>(
     `/manager/iam/roles/${encodeURIComponent(roleName)}/tags/${encodeURIComponent(tagKey)}`,
-    buildIamRequestConfig(contextId),
+    buildS3ContextRequestConfig(contextId),
   );
   return data;
 }

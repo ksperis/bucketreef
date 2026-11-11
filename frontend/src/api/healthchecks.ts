@@ -3,7 +3,11 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
-import { S3AccountSelector, S3ExecutionContextSelector, withS3AccountParam, withS3ContextParam } from "./accountParams";
+import type { S3AccountSelector, S3ExecutionContextSelector } from "./accountParams";
+import {
+  buildS3ContextRequestConfig,
+  withS3AccountParam,
+} from "./accountParams";
 
 export type HealthCheckStatus = "unknown" | "up" | "degraded" | "down";
 export type HealthCheckMode = "http" | "s3";
@@ -284,9 +288,10 @@ export async function fetchHealthWorkspaceOverview(
 export async function fetchManagerWorkspaceHealthOverview(
   contextId: S3ExecutionContextSelector
 ): Promise<WorkspaceEndpointHealthOverviewResponse> {
-  const { data } = await client.get<WorkspaceEndpointHealthOverviewResponse>("/manager/stats/endpoint-health", {
-    params: withS3ContextParam(undefined, contextId),
-  });
+  const { data } = await client.get<WorkspaceEndpointHealthOverviewResponse>(
+    "/manager/stats/endpoint-health",
+    buildS3ContextRequestConfig(contextId),
+  );
   return data;
 }
 
