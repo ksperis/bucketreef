@@ -4,12 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.services.s3_execution_context import S3ExecutionTarget
+from app.db import StorageEndpoint
 from app.utils.storage_endpoint_features import resolve_feature_flags
 
 
-def execution_context_sns_feature_enabled(execution_context: S3ExecutionTarget) -> bool:
-    endpoint = execution_context.storage_endpoint
+def endpoint_sns_feature_enabled(endpoint: StorageEndpoint | None) -> bool:
     if endpoint is None:
         return True
     return resolve_feature_flags(endpoint).sns_enabled

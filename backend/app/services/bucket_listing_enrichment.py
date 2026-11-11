@@ -23,7 +23,7 @@ from app.services.bucket_feature_param_values import (
     extract_sse_values,
 )
 from app.services.bucket_notification_state import (
-    execution_context_sns_feature_enabled,
+    endpoint_sns_feature_enabled,
     is_bucket_notification_configuration_configured,
 )
 from app.services.bucket_configuration_service import BucketConfigurationService
@@ -409,7 +409,7 @@ class _BucketEnrichmentPlan:
         return cls(
             requested=selected,
             include_tags=include_tags,
-            sns_feature_enabled=execution_context_sns_feature_enabled(execution_context),
+            sns_feature_enabled=endpoint_sns_feature_enabled(execution_context.storage_endpoint),
             lifecycle_details=selected & _COLUMN_DETAIL_LIFECYCLE_KEYS,
             property_details=property_details,
             logging_details=selected & _COLUMN_DETAIL_LOGGING_KEYS,

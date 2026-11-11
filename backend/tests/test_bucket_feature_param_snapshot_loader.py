@@ -112,7 +112,7 @@ def test_feature_param_snapshot_propagates_unexpected_runtime_error(monkeypatch)
 
 def test_feature_param_snapshot_skips_notifications_when_sns_is_disabled(monkeypatch):
     service = _Service()
-    monkeypatch.setattr(snapshot_loader, "execution_context_sns_feature_enabled", lambda _context: False)
+    monkeypatch.setattr(snapshot_loader, "endpoint_sns_feature_enabled", lambda _endpoint: False)
 
     snapshot = snapshot_loader._load_feature_param_snapshot_for_bucket(
         BucketListingSummary(name="bucket-a"),
