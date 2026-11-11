@@ -597,10 +597,16 @@ def _populate_seed_bucket(
                 )
             else:
                 if account_client is None:
+                    access_key, secret_key = account.effective_rgw_credentials()
+                    context = S3ExecutionContext.from_account(
+                        account,
+                        access_key=access_key,
+                        secret_key=secret_key,
+                    )
                     account_client = s3_client.get_s3_client(
                         request_profile="long_running",
                         **s3_execution_request_kwargs(
-                            account,
+                            context,
                             error_message="Account credentials are required to seed objects",
                         ),
                     )

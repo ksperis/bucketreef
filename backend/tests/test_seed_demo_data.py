@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from app.db import S3Account
 from app.scripts import seed_demo_data as seed
 from app.services.rgw_iam import RGWIAMError
 
@@ -206,7 +207,7 @@ def test_ensure_account_returns_provisioned_account_directly():
 
 
 def test_create_account_data_falls_back_to_account_client_when_iam_provisioning_fails(monkeypatch):
-    account = SimpleNamespace(
+    account = S3Account(
         id=7,
         name="Demo",
         rgw_account_id="rgw-demo",

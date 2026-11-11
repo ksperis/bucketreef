@@ -412,11 +412,16 @@ class S3AccountDeletionService:
             )
 
     def _verified_bucket_count(self, account: S3Account) -> int:
-        _, _, admin_bucket_count = self.metrics.get_usage(S3ExecutionContext.from_account(account))
+        access_key, secret_key = account.effective_rgw_credentials()
+        execution_context = S3ExecutionContext.from_account(
+            account,
+            access_key=access_key,
+            secret_key=secret_key,
+        )
+        _, _, admin_bucket_count = self.metrics.get_usage(execution_context)
         if admin_bucket_count is not None and admin_bucket_count > 0:
             return admin_bucket_count
 
-        access_key, secret_key = account.effective_rgw_credentials()
         if not access_key or not secret_key:
             if admin_bucket_count is None:
                 raise ValueError(
@@ -427,7 +432,7 @@ class S3AccountDeletionService:
         try:
             buckets = s3_client.list_buckets(
                 **s3_execution_request_kwargs(
-                    account,
+                    execution_context,
                     error_message=(
                         "S3 account credentials are unavailable for deletion verification"
                     ),

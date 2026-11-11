@@ -11,7 +11,7 @@ from app.services.s3_execution_client import (
     s3_execution_request_kwargs,
 )
 from app.services.s3_execution_context import (
-    S3ExecutionTarget,
+    S3ExecutionContext,
     is_ceph_admin_execution_context,
 )
 
@@ -22,7 +22,7 @@ class LongRunningS3ClientMixin:
 
     def _client_kwargs(
         self,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
         *,
         bucket_name: str | None = None,
     ) -> dict[str, Any]:
@@ -44,7 +44,7 @@ class LongRunningS3ClientMixin:
 
     def _open_client(
         self,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
         *,
         bucket_name: str | None = None,
     ) -> closing[s3_client.LoggedS3Client]:
@@ -59,7 +59,7 @@ class LongRunningS3ClientMixin:
 
     def _build_client(
         self,
-        execution_context: S3ExecutionTarget,
+        execution_context: S3ExecutionContext,
         *,
         bucket_name: str | None = None,
     ) -> s3_client.LoggedS3Client:
