@@ -3,10 +3,11 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
-import { S3ExecutionContextSelector, withS3ContextParam } from "./accountParams";
-import { IamPolicy, InlinePolicy } from "./managerIamPolicies";
+import type { S3ExecutionContextSelector } from "./accountParams";
+import type { IamPolicy, InlinePolicy } from "./managerIamPolicies";
 import {
   attachEntityPolicy,
+  buildIamRequestConfig,
   createIamEntity,
   deleteEntityInlinePolicy,
   deleteIamEntity,
@@ -69,16 +70,18 @@ export async function updateIamRole(contextId: S3ExecutionContextSelector, roleN
 }
 
 export async function putRoleTags(contextId: S3ExecutionContextSelector, roleName: string, tags: IAMTag[]): Promise<IAMTag[]> {
-  const { data } = await client.put<IAMTag[]>(`/manager/iam/roles/${encodeURIComponent(roleName)}/tags`, tags, {
-    params: withS3ContextParam(undefined, contextId),
-  });
+  const { data } = await client.put<IAMTag[]>(
+    `/manager/iam/roles/${encodeURIComponent(roleName)}/tags`,
+    tags,
+    buildIamRequestConfig(contextId),
+  );
   return data;
 }
 
 export async function deleteRoleTag(contextId: S3ExecutionContextSelector, roleName: string, tagKey: string): Promise<IAMTag[]> {
   const { data } = await client.delete<IAMTag[]>(
     `/manager/iam/roles/${encodeURIComponent(roleName)}/tags/${encodeURIComponent(tagKey)}`,
-    { params: withS3ContextParam(undefined, contextId) },
+    buildIamRequestConfig(contextId),
   );
   return data;
 }

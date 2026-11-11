@@ -3,8 +3,12 @@
  * Licensed under the Apache License, Version 2.0
  */
 import client from "./client";
-import { S3ExecutionContextSelector, withS3ContextParam } from "./accountParams";
-import type { IamCursorPage, IamCursorQuery } from "./managerIamEntityClient";
+import type { S3ExecutionContextSelector } from "./accountParams";
+import {
+  buildIamRequestConfig,
+  type IamCursorPage,
+  type IamCursorQuery,
+} from "./managerIamEntityClient";
 
 export type IamPolicy = {
   name: string;
@@ -23,15 +27,18 @@ export async function listIamPoliciesPage(
   contextId: S3ExecutionContextSelector,
   query: IamCursorQuery = {},
 ): Promise<IamCursorPage<IamPolicy>> {
-  const params = withS3ContextParam(
+  const requestConfig = buildIamRequestConfig(
+    contextId,
     {
       ...(query.marker ? { marker: query.marker } : {}),
       ...(query.page_size ? { page_size: query.page_size } : {}),
       ...(query.search?.trim() ? { search: query.search.trim() } : {}),
     },
-    contextId,
   );
-  const { data } = await client.get<IamCursorPage<IamPolicy>>("/manager/iam/policies/page", { params });
+  const { data } = await client.get<IamCursorPage<IamPolicy>>(
+    "/manager/iam/policies/page",
+    requestConfig,
+  );
   return data;
 }
 
@@ -43,7 +50,7 @@ export async function createIamPolicy(
   const { data } = await client.post<IamPolicy>(
     "/manager/iam/policies",
     { name, document },
-    { params: withS3ContextParam(undefined, contextId) }
+    buildIamRequestConfig(contextId)
   );
   return data;
 }
