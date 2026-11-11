@@ -12,7 +12,7 @@ from app.models.bucket import (
     FeatureRuleInventoryRule,
 )
 from app.services.bucket_notification_state import (
-    execution_context_sns_feature_enabled,
+    endpoint_sns_feature_enabled,
     normalize_bucket_notification_configuration,
 )
 from app.services.bucket_configuration_service import BucketConfigurationService
@@ -460,7 +460,7 @@ class FeatureRuleInventoryService:
         context: S3ExecutionContext,
     ) -> list[FeatureRuleInventoryBucket]:
         buckets = self.buckets_service.list_buckets(context, with_stats=False)
-        if feature == "notifications" and not execution_context_sns_feature_enabled(context):
+        if feature == "notifications" and not endpoint_sns_feature_enabled(context.storage_endpoint):
             return [
                 _unavailable_bucket(
                     bucket.name,

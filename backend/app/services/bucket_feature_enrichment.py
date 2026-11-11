@@ -13,7 +13,7 @@ from app.models.bucket import (
     BucketWebsiteConfiguration,
 )
 from app.services.bucket_notification_state import (
-    execution_context_sns_feature_enabled,
+    endpoint_sns_feature_enabled,
     is_bucket_notification_configuration_configured,
 )
 from app.services.bucket_property_feature_enrichment import (
@@ -213,7 +213,7 @@ def enrich_bucket_features(
         return buckets
 
     wants_tags = "tags" in requested
-    sns_feature_enabled = execution_context_sns_feature_enabled(execution_context)
+    sns_feature_enabled = endpoint_sns_feature_enabled(execution_context.storage_endpoint)
 
     result: list[Bucket] = []
     for bucket in buckets:

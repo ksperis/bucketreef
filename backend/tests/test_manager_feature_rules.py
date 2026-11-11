@@ -89,7 +89,7 @@ def feature_rule_client(client, db_session, monkeypatch):
     app.dependency_overrides[dependencies.get_current_user] = lambda: user
     monkeypatch.setattr(
         feature_rule_inventory_service,
-        "execution_context_sns_feature_enabled",
+        "endpoint_sns_feature_enabled",
         lambda _context: True,
     )
     return client, service
@@ -341,7 +341,7 @@ def test_feature_rules_marks_notifications_unavailable_when_sns_is_disabled(feat
     client, service = feature_rule_client
     monkeypatch.setattr(
         feature_rule_inventory_service,
-        "execution_context_sns_feature_enabled",
+        "endpoint_sns_feature_enabled",
         lambda _context: False,
     )
 
@@ -373,7 +373,7 @@ def test_feature_rules_requires_manager_tool_access(client, db_session, monkeypa
     app.dependency_overrides[dependencies.get_current_user] = lambda: user
     monkeypatch.setattr(
         feature_rule_inventory_service,
-        "execution_context_sns_feature_enabled",
+        "endpoint_sns_feature_enabled",
         lambda _context: True,
     )
 
@@ -409,7 +409,7 @@ def test_feature_rules_allows_group_inherited_manager_tool_access(client, db_ses
     app.dependency_overrides[dependencies.get_current_user] = lambda: user
     monkeypatch.setattr(
         feature_rule_inventory_service,
-        "execution_context_sns_feature_enabled",
+        "endpoint_sns_feature_enabled",
         lambda _context: True,
     )
 

@@ -12,7 +12,7 @@ from app.services.bucket_feature_param_matching import (
     FEATURE_PARAM_UNAVAILABLE,
     required_feature_param_sources,
 )
-from app.services.bucket_notification_state import execution_context_sns_feature_enabled
+from app.services.bucket_notification_state import endpoint_sns_feature_enabled
 from app.services.listing_progress import (
     ListingProgressEmitter,
     build_listing_progress_callback,
@@ -66,7 +66,7 @@ def _load_feature_param_snapshot_for_bucket(
     for source in _FEATURE_PARAM_SOURCE_ORDER:
         if source not in required_sources:
             continue
-        if source == "notifications" and not execution_context_sns_feature_enabled(execution_context):
+        if source == "notifications" and not endpoint_sns_feature_enabled(execution_context.storage_endpoint):
             snapshot[source] = FEATURE_PARAM_UNAVAILABLE
             continue
         snapshot[source] = _load_feature_param_source(source_loaders[source])
