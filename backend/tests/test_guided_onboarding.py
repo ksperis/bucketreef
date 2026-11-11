@@ -193,25 +193,50 @@ def apply(service, user, journey, *, service_identity_mode, **credentials):
 
 def test_onboarding_dismiss_rolls_back_when_commit_fails(guided, db_session, monkeypatch):
     user = actor(db_session)
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        guided.dismiss(user)
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            guided.dismiss(user)
 
-    assert rollback_calls == [None]
     assert db_session.get(OnboardingPreference, user.id) is None
 
 
 def test_onboarding_save_rolls_back_when_commit_fails(guided, db_session, monkeypatch):
     user = actor(db_session)
     monkeypatch.setattr(guided, "editing", lambda _actor: nullcontext())
-    rollback_calls = _fail_commit_and_track_rollback(db_session, monkeypatch)
 
-    with pytest.raises(RuntimeError, match="commit failed"):
-        save(guided, user, manager=True)
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            save(guided, user, manager=True)
 
-    assert rollback_calls == [None]
     assert db_session.scalar(sa.select(sa.func.count()).select_from(OnboardingJourney)) == 0
+
+
+def test_onboarding_dismiss_retries_sqlite_busy(guided, db_session):
+    user = actor(db_session)
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO onboarding_preferences",
+    ) as matching_statements:
+        status = guided.dismiss(user)
+
+    assert len(matching_statements) == 2
+    assert status.dismissed is True
+
+
+def test_onboarding_save_retries_sqlite_busy(guided, db_session, monkeypatch):
+    user = actor(db_session)
+    monkeypatch.setattr(guided, "editing", lambda _actor: nullcontext())
+
+    with fail_next_sqlite_statement_with_busy_snapshot(
+        db_session,
+        "INSERT INTO onboarding_journeys",
+    ) as matching_statements:
+        journey = save(guided, user, manager=True)
+
+    assert len(matching_statements) == 2
+    assert journey.draft.manager is True
 
 
 def test_onboarding_checkpoint_rolls_back_when_commit_fails(guided, db_session, monkeypatch):

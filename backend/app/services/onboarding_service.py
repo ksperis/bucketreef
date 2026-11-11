@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.db_transactions import commit_or_rollback, run_replayable_db_unit
+from app.core.db_transactions import run_replayable_db_unit
 from app.db import OnboardingJourney, OnboardingPreference, S3Account, StorageEndpoint, User
 from app.core.domain_enums import StorageProvider, is_admin_ui_role, is_superadmin_ui_role
 from app.models.onboarding import (
@@ -358,56 +358,75 @@ class OnboardingService:
 
     def dismiss(self, actor, dismissed=True):
         self._require_admin(actor)
-        preference = self.db.get(OnboardingPreference, actor.id)
-        if preference is None:
-            preference = OnboardingPreference(user_id=actor.id)
-            self.db.add(preference)
-        preference.dismissed = dismissed
-        preference.updated_at = utcnow()
-        commit_or_rollback(self.db)
-        self.audit(actor, "dismiss" if dismissed else "resume", str(actor.id))
+        actor_id = int(actor.id)
+        updated_at = utcnow()
+
+        def persist_once(write_db: Session) -> None:
+            preference = write_db.get(OnboardingPreference, actor_id)
+            if preference is None:
+                preference = OnboardingPreference(user_id=actor_id)
+                write_db.add(preference)
+            preference.dismissed = dismissed
+            preference.updated_at = updated_at
+
+        run_replayable_db_unit(self.db, persist_once)
+        self.audit(actor, "dismiss" if dismissed else "resume", str(actor_id))
         return self.status(actor)
 
     def save(self, actor, journey_id, payload):
         identifier = str(UUID(str(journey_id)))
+        actor_id = int(actor.id)
+        draft_payload = payload.draft.model_dump(mode="json")
+        updated_at = utcnow()
         with self.editing(actor):
-            row = self.db.get(OnboardingJourney, identifier)
-            if row is not None and row.user_id != actor.id:
-                raise OnboardingError("journey_not_found", 404)
-            if row is None:
-                if payload.revision is not None:
+            def persist_once(write_db: Session) -> bool:
+                row = write_db.get(OnboardingJourney, identifier)
+                if row is not None and row.user_id != actor_id:
                     raise OnboardingError("journey_not_found", 404)
-                row = OnboardingJourney(
-                    id=identifier,
-                    user_id=actor.id,
-                    draft=payload.draft.model_dump(mode="json"),
-                )
-                self.db.add(row)
-            else:
-                previous = self.draft(row)
-                if previous == payload.draft:
-                    return self.output(actor, row)
-                if payload.revision != row.revision:
-                    raise OnboardingError("stale_revision", 409)
-                if row.configured_at:
-                    raise OnboardingError("configured_journey_immutable", 409)
-                resources = self.resources(row)
-                if row.pending_step or any(
-                    (
-                        resources.endpoint_created,
-                        resources.endpoint_name,
-                        resources.account_id,
-                        resources.connection_id,
-                        resources.rgw_account_id,
+                if row is None:
+                    if payload.revision is not None:
+                        raise OnboardingError("journey_not_found", 404)
+                    row = OnboardingJourney(
+                        id=identifier,
+                        user_id=actor_id,
+                        draft=draft_payload,
                     )
-                ):
-                    raise OnboardingError("configuration_reconciliation_required", 409)
-                row.draft = payload.draft.model_dump(mode="json")
-                row.revision += 1
-                row.resources = {}
-            row.updated_at = utcnow()
-            commit_or_rollback(self.db)
-            self.audit(actor, "save", row.id)
+                    write_db.add(row)
+                else:
+                    previous = self.draft(row)
+                    if previous == payload.draft:
+                        return False
+                    if payload.revision != row.revision:
+                        raise OnboardingError("stale_revision", 409)
+                    if row.configured_at:
+                        raise OnboardingError("configured_journey_immutable", 409)
+                    resources = self.resources(row)
+                    if row.pending_step or any(
+                        (
+                            resources.endpoint_created,
+                            resources.endpoint_name,
+                            resources.account_id,
+                            resources.connection_id,
+                            resources.rgw_account_id,
+                        )
+                    ):
+                        raise OnboardingError(
+                            "configuration_reconciliation_required",
+                            409,
+                        )
+                    row.draft = draft_payload
+                    row.revision += 1
+                    row.resources = {}
+                row.updated_at = updated_at
+                write_db.flush()
+                return True
+
+            changed = run_replayable_db_unit(self.db, persist_once)
+            row = self.db.get(OnboardingJourney, identifier, populate_existing=True)
+            if row is None:  # pragma: no cover - defensive consistency check
+                raise OnboardingError("journey_not_found", 404)
+            if changed:
+                self.audit(actor, "save", row.id)
             return self.output(actor, row)
 
     @staticmethod
