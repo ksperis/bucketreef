@@ -33,7 +33,7 @@ from app.services.managed_private_access_query_service import (
 from app.services.managed_private_access_sources import iam_source_reference
 from app.services.managed_resource_naming import PORTAL_MANAGED_IAM_GROUP_NAMES
 from app.services.resource_name_validation import validate_inline_policy_requests
-from app.services.rgw_iam import RGWIAMError, RGWIAMService, get_iam_service_for_execution_target
+from app.services.rgw_iam import RGWIAMError, RGWIAMService, get_iam_service_for_execution_context
 from app.services.s3_execution_context import S3ExecutionContext
 
 
@@ -87,7 +87,7 @@ def ensure_unmanaged_iam_user(db: Session, context: S3ExecutionContext, user_nam
 
 
 def build_iam_service_for_context(context: S3ExecutionContext) -> RGWIAMService:
-    service = get_iam_service_for_execution_target(context)
+    service = get_iam_service_for_execution_context(context)
     if service is None:
         raise ManagerIAMCredentialsMissingError("Execution context credentials are missing")
     return service
