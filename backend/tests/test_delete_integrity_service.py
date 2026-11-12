@@ -17,6 +17,9 @@ from app.db import (
     BucketMigration,
     ManagedPrivateAccess,
     PortalIAMRevocation,
+    PortalPublicLink,
+    PortalStorageSpaceGrant,
+    PortalStorageSpaceMetadata,
     RefreshToken,
     S3Connection,
     S3User,
@@ -338,6 +341,62 @@ def test_delete_user_nulls_nullable_foreign_keys(db_session):
     assert refreshed_audit is not None and refreshed_audit.user_id is None
     assert refreshed_migration is not None and refreshed_migration.created_by_user_id is None
     assert refreshed_definition is not None and refreshed_definition.owner_user_id is None
+
+
+def test_delete_user_nulls_retained_portal_creator_references(db_session):
+    creator = User(
+        email="delete-portal-creator@example.com",
+        hashed_password="x",
+        role=UserRole.UI_ADMIN.value,
+    )
+    recipient = User(
+        email="delete-portal-recipient@example.com",
+        hashed_password="x",
+        role=UserRole.UI_USER.value,
+    )
+    account = make_s3_account(
+        db_session,
+        name="delete-portal-creator-account",
+        rgw_access_key="ROOT-AK",
+        rgw_secret_key="ROOT-SK",
+    )
+    db_session.add_all([account, creator, recipient])
+    db_session.flush()
+    metadata = PortalStorageSpaceMetadata(
+        account_id=account.id,
+        bucket_name="shared-data",
+        visibility="shared",
+    )
+    db_session.add(metadata)
+    db_session.flush()
+    grant = PortalStorageSpaceGrant(
+        storage_space_metadata_id=metadata.id,
+        user_id=recipient.id,
+        role="Viewer",
+        created_by_user_id=creator.id,
+    )
+    public_link = PortalPublicLink(
+        token="delete-portal-creator-token",
+        account_id=account.id,
+        bucket_name="shared-data",
+        object_key="report.csv",
+        created_by_user_id=creator.id,
+        created_by_email=creator.email,
+    )
+    db_session.add_all([grant, public_link])
+    db_session.commit()
+    creator_id = int(creator.id)
+    grant_id = int(grant.id)
+    public_link_id = int(public_link.id)
+
+    UserDeletionService(db_session).delete_user(creator_id)
+
+    refreshed_grant = db_session.get(PortalStorageSpaceGrant, grant_id)
+    refreshed_link = db_session.get(PortalPublicLink, public_link_id)
+    assert db_session.get(User, creator_id) is None
+    assert refreshed_grant is not None and refreshed_grant.created_by_user_id is None
+    assert refreshed_link is not None and refreshed_link.created_by_user_id is None
+    assert refreshed_link.created_by_email == "delete-portal-creator@example.com"
 
 
 def _seed_portal_identity_for_user_deletion(db_session, *, suffix: str):

@@ -28377,7 +28377,7 @@
     },
     {
       "id": "relationship:portal_storage_space_grants.created_by_user_id->users.id",
-      "name": "fk_portal_storage_space_grants_created_by_user_id_users_id",
+      "name": "fk_portal_storage_space_grants_created_by_user_id_users_id [ON DELETE SET NULL]",
       "sourceSchema": null,
       "sourceTableId": "table:portal_storage_space_grants",
       "targetSchema": null,
@@ -28403,7 +28403,7 @@
     },
     {
       "id": "relationship:portal_public_links.created_by_user_id->users.id",
-      "name": "fk_portal_public_links_created_by_user_id_users_id",
+      "name": "fk_portal_public_links_created_by_user_id_users_id [ON DELETE SET NULL]",
       "sourceSchema": null,
       "sourceTableId": "table:portal_public_links",
       "targetSchema": null,
