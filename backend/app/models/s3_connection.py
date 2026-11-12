@@ -72,7 +72,16 @@ class S3Connection(ApiModel):
     last_used_at: Optional[datetime]
 
 
-class S3ConnectionCreationPayload(CanonicalS3ConnectionEndpointPayload):
+class S3ConnectionCredentialsPayload(CanonicalS3ConnectionEndpointPayload):
+    endpoint_url: Optional[str] = None
+    region: Optional[str] = None
+    access_key_id: str
+    secret_access_key: str
+    force_path_style: bool = False
+    verify_tls: bool = True
+
+
+class S3ConnectionCreationPayload(S3ConnectionCredentialsPayload):
     endpoint_conflict_scope = "S3 connection"
 
     name: str
@@ -80,12 +89,6 @@ class S3ConnectionCreationPayload(CanonicalS3ConnectionEndpointPayload):
     rgw_user_uid: Optional[str] = None
     rgw_tenant: Optional[str] = None
     rgw_account_id: Optional[str] = None
-    endpoint_url: Optional[str] = None
-    region: Optional[str] = None
-    access_key_id: str
-    secret_access_key: str
-    force_path_style: bool = False
-    verify_tls: bool = True
     tags: RequiredTagDefinitionList = Field(default_factory=list)
 
 
@@ -144,15 +147,8 @@ class S3ConnectionCredentialsUpdate(ApiModel):
     secret_access_key: str
 
 
-class S3ConnectionCredentialsValidationRequest(CanonicalS3ConnectionEndpointPayload):
+class S3ConnectionCredentialsValidationRequest(S3ConnectionCredentialsPayload):
     endpoint_conflict_scope = "S3 credential validation"
-
-    endpoint_url: Optional[str] = None
-    region: Optional[str] = None
-    access_key_id: str
-    secret_access_key: str
-    force_path_style: bool = False
-    verify_tls: bool = True
 
 
 class S3ConnectionCredentialsValidationResult(ApiModel):
