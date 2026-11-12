@@ -64,4 +64,9 @@ class StorageEndpoint(Base):
     def service_identity(self, kind):
         return next((row for row in self.service_identities if row.kind == kind), None)
 
-    tag_links = relationship("StorageEndpointTag", back_populates="endpoint", cascade="all, delete-orphan")
+    tag_links = relationship(
+        "StorageEndpointTag",
+        back_populates="endpoint",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
