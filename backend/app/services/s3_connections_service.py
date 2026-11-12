@@ -562,10 +562,11 @@ class S3ConnectionsService:
         )
         self._apply_private_access_flags(row, payload, payload_data)
         self._apply_rgw_identity_update(row, payload, payload_data)
-        if (access_key_changed or endpoint_changed) and not _RGW_IDENTITY_FIELDS.intersection(payload_data):
-            row.rgw_user_uid = None
-            row.rgw_tenant = None
-            row.rgw_account_id = None
+        self._clear_rgw_identity_after_source_change(
+            row,
+            fields_set=payload_data,
+            source_changed=access_key_changed or endpoint_changed,
+        )
         if "tags" in payload_data:
             self.tags.replace_connection_tags(row, payload.tags)
         return should_probe_iam
