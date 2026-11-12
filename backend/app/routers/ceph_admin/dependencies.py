@@ -51,8 +51,6 @@ def get_ceph_admin_context(
     return CephAdminContext(
         endpoint=endpoint,
         rgw_admin=rgw_admin,
-        s3_endpoint=endpoint.endpoint_url,
-        region=region,
         access_key=access_key,
         secret_key=secret_key,
         actor=_,

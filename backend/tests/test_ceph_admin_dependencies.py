@@ -280,7 +280,6 @@ features:
     ctx = deps.get_ceph_admin_context(endpoint_id=10, db=_FakeSession(endpoint), _=SimpleNamespace())
 
     assert ctx.endpoint is endpoint
-    assert ctx.s3_endpoint == "https://s3.example.test"
     assert ctx.rgw_admin.endpoint == "https://rgw-admin.example.test"
     assert captured == ["https://rgw-admin.example.test"]
 

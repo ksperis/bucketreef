@@ -14,8 +14,6 @@ from app.services.rgw_admin import RGWAdminClient
 class CephAdminContext:
     endpoint: StorageEndpoint
     rgw_admin: RGWAdminClient
-    s3_endpoint: str
-    region: Optional[str]
     access_key: str
     secret_key: str
     actor: Optional[User] = None
