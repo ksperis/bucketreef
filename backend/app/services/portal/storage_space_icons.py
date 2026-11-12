@@ -109,7 +109,6 @@ class PortalStorageSpaceIconsMixin:
                 current_metadata.icon_preset = preset
             current_metadata.icon_source = source
             current_metadata.icon_updated_at = updated_at
-            write_db.add(current_metadata)
 
         run_replayable_db_unit(self.db, persist_choice)
         metadata = self.db.get(PortalStorageSpaceMetadata, metadata_id)
@@ -140,7 +139,6 @@ class PortalStorageSpaceIconsMixin:
             current_metadata.icon_content_type = detected_type
             current_metadata.icon_source = "uploaded"
             current_metadata.icon_updated_at = updated_at
-            write_db.add(current_metadata)
 
         run_replayable_db_unit(self.db, persist_image)
         metadata = self.db.get(PortalStorageSpaceMetadata, metadata_id)
@@ -168,7 +166,6 @@ class PortalStorageSpaceIconsMixin:
             current_metadata.icon_content_type = None
             current_metadata.icon_source = "preset"
             current_metadata.icon_updated_at = updated_at
-            write_db.add(current_metadata)
 
         run_replayable_db_unit(self.db, remove_image)
         metadata = self.db.get(PortalStorageSpaceMetadata, metadata_id)

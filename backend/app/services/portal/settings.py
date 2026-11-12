@@ -62,7 +62,6 @@ class PortalSettingsMixin:
                 current.portal_collaborator_addition_delegated = (
                     portal_collaborator_addition_delegated
                 )
-            write_db.add(current)
 
         run_replayable_db_unit(self.db, persist_once)
         self.db.refresh(account)
