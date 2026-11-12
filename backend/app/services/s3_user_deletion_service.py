@@ -37,15 +37,15 @@ class S3UserDeletionService:
 
     @staticmethod
     def _verify_remote_user_for_deletion(
-        s3_user: S3User,
+        context: S3ExecutionContext,
         admin: RGWAdminClient,
     ) -> tuple[str, bool]:
-        tenant = s3_user.rgw_tenant
-        remote = S3UserDeletionService._load_remote_user(s3_user, admin)
+        tenant = context.rgw_tenant or ""
+        remote = S3UserDeletionService._load_remote_user(context, admin)
         if remote is None:
             return tenant, False
         if not any(
-            key.get("access_key") == s3_user.rgw_access_key
+            key.get("access_key") == context.access_key
             for key in admin.extract_keys(remote)
         ):
             raise ValueError("RGW user no longer owns its stored access key")
@@ -53,13 +53,16 @@ class S3UserDeletionService:
 
     @staticmethod
     def _load_remote_user(
-        s3_user: S3User,
+        context: S3ExecutionContext,
         admin: RGWAdminClient,
     ) -> dict | None:
-        tenant = s3_user.rgw_tenant
+        uid = context.rgw_user_uid
+        if not uid:
+            raise ValueError("S3 user execution context is missing its RGW identity")
+        tenant = context.rgw_tenant or ""
         try:
             remote = admin.get_user(
-                s3_user.rgw_user_uid,
+                uid,
                 tenant=tenant or None,
                 allow_not_found=True,
             )
@@ -68,7 +71,7 @@ class S3UserDeletionService:
                 f"Unable to verify RGW user before deletion: {sanitized_error_log_detail(exc)}"
             ) from exc
         if remote:
-            require_rgw_user_identity(remote, s3_user.rgw_user_uid, tenant)
+            require_rgw_user_identity(remote, uid, tenant)
             return remote
 
         # get_user(..., allow_not_found=True) intentionally collapses every HTTP 404
@@ -76,7 +79,7 @@ class S3UserDeletionService:
         # treated as a stale local entry; endpoint/path failures must still block.
         try:
             admin.get_user(
-                s3_user.rgw_user_uid,
+                uid,
                 tenant=tenant or None,
                 allow_not_found=False,
             )
@@ -95,24 +98,28 @@ class S3UserDeletionService:
         *,
         delete_rgw: bool = False,
     ) -> None:
+        execution_context = S3ExecutionContext.from_s3_user(s3_user)
         ResourceDeletionPurgeService(self.db).validate_execution_context_cleanup(
-            f"s3u-{s3_user.id}"
+            execution_context.context_id
         )
         mode = _DELETE_REMOTE_USER if delete_rgw else _DELETE_ACCESS_KEY
         deletion = self._pending_deletion(s3_user.id)
         if deletion is None:
-            _tenant, remote_exists = self._verify_remote_user_for_deletion(s3_user, admin)
+            _tenant, remote_exists = self._verify_remote_user_for_deletion(
+                execution_context,
+                admin,
+            )
             if not remote_exists:
                 self._delete_local_user(s3_user)
                 return
             if delete_rgw:
-                self._require_no_remote_buckets(s3_user)
+                self._require_no_remote_buckets(execution_context)
             deletion = self._claim_deletion(s3_user, mode=mode)
         else:
             self._validate_pending_deletion(deletion, s3_user, mode=mode)
 
         if not deletion.remote_completed:
-            self._complete_remote_deletion(s3_user, deletion, admin)
+            self._complete_remote_deletion(execution_context, deletion, admin)
             self._mark_remote_completed(deletion)
 
         self._delete_local_user(s3_user, deletion=deletion)
@@ -206,17 +213,17 @@ class S3UserDeletionService:
 
     def _complete_remote_deletion(
         self,
-        s3_user: S3User,
+        context: S3ExecutionContext,
         deletion: S3UserDeletion,
         admin: RGWAdminClient,
     ) -> None:
-        remote = self._load_remote_user(s3_user, admin)
+        remote = self._load_remote_user(context, admin)
         if remote is None:
             return
 
         tenant = deletion.rgw_tenant or None
         if deletion.mode == _DELETE_REMOTE_USER:
-            self._require_no_remote_buckets(s3_user)
+            self._require_no_remote_buckets(context)
             try:
                 admin.delete_user(deletion.rgw_user_uid, tenant=tenant)
             except RGWAdminError as exc:
@@ -240,10 +247,8 @@ class S3UserDeletionService:
         except RGWAdminError as exc:
             raise ValueError(f"Unable to delete interface access key: {exc}") from exc
 
-    def _require_no_remote_buckets(self, s3_user: S3User) -> None:
-        bucket_count = self.metrics.get_interface_bucket_count(
-            S3ExecutionContext.from_s3_user(s3_user)
-        )
+    def _require_no_remote_buckets(self, context: S3ExecutionContext) -> None:
+        bucket_count = self.metrics.get_interface_bucket_count(context)
         if bucket_count is None:
             raise ValueError("Unable to verify owned buckets; cannot delete the RGW user.")
         if bucket_count > 0:
