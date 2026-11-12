@@ -25,6 +25,7 @@ from app.db import (
     S3Account,
     S3Connection,
     StorageEndpoint,
+    TagDefinition,
     User,
     UserNotification,
 )
@@ -2407,6 +2408,11 @@ def test_delete_endpoint_retries_sqlite_write_intent_without_replaying_revocatio
 
 def test_delete_endpoint_purges_derived_database_rows(db_session):
     endpoint = _create_ceph_endpoint(db_session, name="ceph-delete-health-cascade")
+    service = StorageEndpointsService(db_session)
+    service.update_endpoint_tags(
+        endpoint.id,
+        StorageEndpointTagsUpdate(tags=["delete-with-endpoint"]),
+    )
     account_endpoint = _create_ceph_endpoint(db_session, name="ceph-account-history")
     history_account = S3Account(
         name="endpoint-history-account",
@@ -2542,7 +2548,6 @@ def test_delete_endpoint_purges_derived_database_rows(db_session):
     )
     db_session.commit()
 
-    service = StorageEndpointsService(db_session)
     service.delete_endpoint(endpoint.id)
 
     assert db_session.scalar(
@@ -2573,6 +2578,9 @@ def test_delete_endpoint_purges_derived_database_rows(db_session):
     assert retained_notification is not None
     assert retained_notification.storage_endpoint_id is None
     assert db_session.get(CostEndpointOverride, cost_override_id) is None
+    assert db_session.scalar(
+        select(TagDefinition).where(TagDefinition.label_key == "delete-with-endpoint")
+    ) is None
     assert db_session.scalar(
         select(func.count())
         .select_from(QuotaUsageHourly)
