@@ -102,7 +102,7 @@ export const buildNumericFilterSummaryItems = <Key extends string>(
     return [{ field: key, id: `${idPrefix}${key}`, label: `${label} ${display}` }];
   });
 
-export type NumericFilterRule<Field extends string = string> = {
+type NumericFilterRule<Field extends string = string> = {
   field: Field;
   op: "gte" | "lte";
   value: number;

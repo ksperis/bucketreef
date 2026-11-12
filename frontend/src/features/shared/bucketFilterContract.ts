@@ -10,7 +10,7 @@ export type BucketTextFilterField =
   | "endpoint_name"
   | "bucket_identity";
 
-export type BucketBooleanFilterField = "owner_suspended";
+type BucketBooleanFilterField = "owner_suspended";
 
 export type BucketNumericFilterField =
   | "used_bytes"
@@ -26,7 +26,7 @@ export type BucketNumericFilterField =
   | "owner_quota_usage_size_percent"
   | "owner_quota_usage_object_percent";
 
-export type BucketFilterField =
+type BucketFilterField =
   | BucketTextFilterField
   | BucketBooleanFilterField
   | BucketNumericFilterField
@@ -44,7 +44,7 @@ export type BucketFeatureKey =
   | "notifications"
   | "server_side_encryption";
 
-export type BucketFeatureState =
+type BucketFeatureState =
   | "enabled"
   | "disabled"
   | "disabled_or_suspended"
@@ -154,7 +154,7 @@ export type BucketFilterRule =
   | BucketFeatureStateFilterRule
   | BucketFeatureParamFilterRule;
 
-export type BucketFilterMatch = "all" | "any";
+type BucketFilterMatch = "all" | "any";
 
 export const serializeBucketFilterRules = (
   rules: readonly BucketFilterRule[],
