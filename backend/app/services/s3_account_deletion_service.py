@@ -16,8 +16,6 @@ from app.db import (
     S3Account,
     S3AccountDeletion,
     StorageEndpoint,
-    UiGroupS3Account,
-    UserS3Account,
 )
 from app.services.resource_deletion_purge_service import ResourceDeletionPurgeService
 from app.services.managed_private_access_query_service import (
@@ -541,14 +539,6 @@ class S3AccountDeletionService:
                 return
             write_db.execute(
                 delete(AccountIAMUser).where(AccountIAMUser.account_id == account_id)
-            )
-            write_db.execute(
-                delete(UserS3Account).where(UserS3Account.account_id == account_id)
-            )
-            write_db.execute(
-                delete(UiGroupS3Account)
-                .where(UiGroupS3Account.account_id == account_id)
-                .execution_options(synchronize_session=False)
             )
             purge = ResourceDeletionPurgeService(write_db)
             purge.purge_execution_context_data(str(account_id))

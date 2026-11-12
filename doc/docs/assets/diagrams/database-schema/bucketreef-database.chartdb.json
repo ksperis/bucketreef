@@ -27142,7 +27142,7 @@
     },
     {
       "id": "relationship:user_s3_accounts.user_id->users.id",
-      "name": "fk_user_s3_accounts_user_id_users_id",
+      "name": "fk_user_s3_accounts_user_id_users_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:user_s3_accounts",
       "targetSchema": null,
@@ -27155,7 +27155,7 @@
     },
     {
       "id": "relationship:user_s3_accounts.account_id->s3_accounts.id",
-      "name": "fk_user_s3_accounts_account_id_s3_accounts_id",
+      "name": "fk_user_s3_accounts_account_id_s3_accounts_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:user_s3_accounts",
       "targetSchema": null,
@@ -27376,7 +27376,7 @@
     },
     {
       "id": "relationship:api_tokens.user_id->users.id",
-      "name": "fk_api_tokens_user_id_users_id",
+      "name": "fk_api_tokens_user_id_users_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:api_tokens",
       "targetSchema": null,
@@ -27571,7 +27571,7 @@
     },
     {
       "id": "relationship:user_s3_users.user_id->users.id",
-      "name": "fk_user_s3_users_user_id_users_id",
+      "name": "fk_user_s3_users_user_id_users_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:user_s3_users",
       "targetSchema": null,
@@ -27584,7 +27584,7 @@
     },
     {
       "id": "relationship:user_s3_users.s3_user_id->s3_users.id",
-      "name": "fk_user_s3_users_s3_user_id_s3_users_id",
+      "name": "fk_user_s3_users_s3_user_id_s3_users_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:user_s3_users",
       "targetSchema": null,
@@ -27623,7 +27623,7 @@
     },
     {
       "id": "relationship:user_s3_connections.user_id->users.id",
-      "name": "fk_user_s3_connections_user_id_users_id",
+      "name": "fk_user_s3_connections_user_id_users_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:user_s3_connections",
       "targetSchema": null,
@@ -27636,7 +27636,7 @@
     },
     {
       "id": "relationship:user_s3_connections.s3_connection_id->s3_connections.id",
-      "name": "fk_user_s3_connections_s3_connection_id_s3_connections_id",
+      "name": "fk_user_s3_connections_s3_connection_id_s3_connections_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:user_s3_connections",
       "targetSchema": null,
@@ -27675,7 +27675,7 @@
     },
     {
       "id": "relationship:user_ui_groups.user_id->users.id",
-      "name": "fk_user_ui_groups_user_id_users_id",
+      "name": "fk_user_ui_groups_user_id_users_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:user_ui_groups",
       "targetSchema": null,
@@ -27688,7 +27688,7 @@
     },
     {
       "id": "relationship:user_ui_groups.group_id->ui_groups.id",
-      "name": "fk_user_ui_groups_group_id_ui_groups_id",
+      "name": "fk_user_ui_groups_group_id_ui_groups_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:user_ui_groups",
       "targetSchema": null,
@@ -27701,7 +27701,7 @@
     },
     {
       "id": "relationship:ui_group_s3_accounts.group_id->ui_groups.id",
-      "name": "fk_ui_group_s3_accounts_group_id_ui_groups_id",
+      "name": "fk_ui_group_s3_accounts_group_id_ui_groups_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:ui_group_s3_accounts",
       "targetSchema": null,
@@ -27714,7 +27714,7 @@
     },
     {
       "id": "relationship:ui_group_s3_accounts.account_id->s3_accounts.id",
-      "name": "fk_ui_group_s3_accounts_account_id_s3_accounts_id",
+      "name": "fk_ui_group_s3_accounts_account_id_s3_accounts_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:ui_group_s3_accounts",
       "targetSchema": null,
@@ -27727,7 +27727,7 @@
     },
     {
       "id": "relationship:ui_group_s3_users.group_id->ui_groups.id",
-      "name": "fk_ui_group_s3_users_group_id_ui_groups_id",
+      "name": "fk_ui_group_s3_users_group_id_ui_groups_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:ui_group_s3_users",
       "targetSchema": null,
@@ -27740,7 +27740,7 @@
     },
     {
       "id": "relationship:ui_group_s3_users.s3_user_id->s3_users.id",
-      "name": "fk_ui_group_s3_users_s3_user_id_s3_users_id",
+      "name": "fk_ui_group_s3_users_s3_user_id_s3_users_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:ui_group_s3_users",
       "targetSchema": null,
@@ -27753,7 +27753,7 @@
     },
     {
       "id": "relationship:ui_group_s3_connections.group_id->ui_groups.id",
-      "name": "fk_ui_group_s3_connections_group_id_ui_groups_id",
+      "name": "fk_ui_group_s3_connections_group_id_ui_groups_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:ui_group_s3_connections",
       "targetSchema": null,
@@ -27766,7 +27766,7 @@
     },
     {
       "id": "relationship:ui_group_s3_connections.s3_connection_id->s3_connections.id",
-      "name": "fk_ui_group_s3_connections_s3_connection_id_s3_connections_id",
+      "name": "fk_ui_group_s3_connections_s3_connection_id_s3_connections_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:ui_group_s3_connections",
       "targetSchema": null,

@@ -81,6 +81,7 @@ class S3Account(Base):
     user_links = relationship(
         "UserS3Account",
         back_populates="account",
+        passive_deletes=True,
     )
     tag_links = relationship("S3AccountTag", back_populates="account", cascade="all, delete-orphan")
     deletion = relationship(
@@ -188,8 +189,12 @@ class UserS3Account(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    account_id = Column(Integer, ForeignKey("s3_accounts.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    account_id = Column(
+        Integer,
+        ForeignKey("s3_accounts.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     manager_role = Column(String, nullable=True)
     portal_role = Column(String, nullable=True)
     allow_manager_browser_data_access = Column(

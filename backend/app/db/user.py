@@ -63,10 +63,12 @@ class User(Base):
     account_links = relationship(
         "UserS3Account",
         back_populates="user",
+        passive_deletes=True,
     )
     s3_user_links = relationship(
         "UserS3User",
         back_populates="user",
+        passive_deletes=True,
     )
     # User-scoped S3 connections (credential-first).
     s3_connections = relationship(
@@ -78,9 +80,11 @@ class User(Base):
     s3_connection_links = relationship(
         "UserS3Connection",
         back_populates="user",
+        passive_deletes=True,
     )
     ui_group_links = relationship(
         "UserUiGroup",
         back_populates="user",
         cascade="all, delete-orphan",
+        passive_deletes=True,
     )

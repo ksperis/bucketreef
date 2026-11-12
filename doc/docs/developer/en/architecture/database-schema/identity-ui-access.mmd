@@ -320,9 +320,9 @@ erDiagram
         datetime created_at "NN"
         datetime updated_at "NN"
     }
-    user_ui_groups }o--|| users : "user_id to id"
-    user_ui_groups }o--|| ui_groups : "group_id to id"
-    api_tokens }o--|| users : "user_id to id"
+    user_ui_groups }o--|| users : "user_id to id; ON DELETE CASCADE"
+    user_ui_groups }o--|| ui_groups : "group_id to id; ON DELETE CASCADE"
+    api_tokens }o--|| users : "user_id to id; ON DELETE CASCADE"
     auth_sessions }o--o| users : "user_id to id; ON DELETE CASCADE"
     auth_sessions }o--o| s3_sessions : "s3_session_id to id; ON DELETE CASCADE"
     refresh_tokens }o--|| auth_sessions : "auth_session_id to id; ON DELETE CASCADE"

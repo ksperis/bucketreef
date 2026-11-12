@@ -678,7 +678,6 @@ class S3ConnectionsService:
             raise S3ConnectionConflictError(str(exc)) from exc
         domain_kind, _owner_user_id = self.tags.resolve_connection_domain(row)
         with self._write_transaction(commit=True):
-            self.associations.delete_links(row.id)
             purge.purge_execution_context_data(context_id)
             self.db.delete(row)
             self.db.flush()

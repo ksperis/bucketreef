@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Optional
 
-from sqlalchemy import delete
 from sqlalchemy.orm import InstrumentedAttribute, Session
 
 from app.db.s3_connection import UserS3Connection
@@ -64,18 +63,6 @@ class S3ConnectionAssociationsService:
                     s3_connection_id=connection_id,
                 ),
             )
-
-    def delete_links(self, connection_id: int) -> None:
-        self.db.execute(
-            delete(UserS3Connection)
-            .where(UserS3Connection.s3_connection_id == connection_id)
-            .execution_options(synchronize_session=False)
-        )
-        self.db.execute(
-            delete(UiGroupS3Connection)
-            .where(UiGroupS3Connection.s3_connection_id == connection_id)
-            .execution_options(synchronize_session=False)
-        )
 
     def _validated_ids(
         self,
