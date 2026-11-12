@@ -258,18 +258,11 @@ class AuthSessionService:
                 self._revoke_session_in_transaction(session, "expired", now)
             return AuthSessionError("Session expired")
 
-        user: Optional[User] = None
-        s3_session: Optional[S3Session] = None
-        if session.user_id is not None:
-            user = self.db.get(User, session.user_id)
-            if not user or not user.is_active or user.auth_version != session.auth_version:
-                self._revoke_session_in_transaction(session, "principal_changed", now)
-                return AuthSessionError("User is unavailable")
-        else:
-            s3_session = self.db.get(S3Session, session.s3_session_id)
-            if not self._is_s3_session_active(s3_session, now):
-                self._revoke_session_in_transaction(session, "s3_session_expired", now)
-                return AuthSessionError("S3 session expired")
+        user, s3_session, principal_error = self._active_session_principal(session, now)
+        if principal_error == "principal_changed":
+            return AuthSessionError("User is unavailable")
+        if principal_error == "s3_session_expired":
+            return AuthSessionError("S3 session expired")
 
         claimed = self.db.execute(
             update(RefreshToken)
@@ -295,6 +288,24 @@ class AuthSessionService:
             next_id=next_id,
             next_hash=next_hash,
         )
+
+    def _active_session_principal(
+        self,
+        session: AuthSession,
+        now: datetime,
+    ) -> tuple[Optional[User], Optional[S3Session], Optional[str]]:
+        if session.user_id is not None:
+            user = self.db.get(User, session.user_id)
+            if not user or not user.is_active or user.auth_version != session.auth_version:
+                self._revoke_session_in_transaction(session, "principal_changed", now)
+                return None, None, "principal_changed"
+            return user, None, None
+
+        s3_session = self.db.get(S3Session, session.s3_session_id)
+        if not self._is_s3_session_active(s3_session, now):
+            self._revoke_session_in_transaction(session, "s3_session_expired", now)
+            return None, None, "s3_session_expired"
+        return None, s3_session, None
 
     def _issue_rotated_credentials(
         self,
@@ -380,20 +391,19 @@ class AuthSessionService:
         if session.principal_type != expected_principal:
             self._revoke_session_in_transaction(session, "principal_type_mismatch", now)
             return AuthSessionError("Session expired or invalid")
-        if session.user_id is not None:
-            principal = self.db.get(User, session.user_id)
-            if not principal or not principal.is_active or principal.auth_version != session.auth_version:
-                self._revoke_session_in_transaction(session, "principal_changed", now)
-                return AuthSessionError("Session expired or invalid")
+        user, s3_session, principal_error = self._active_session_principal(session, now)
+        if principal_error is not None:
+            return AuthSessionError("Session expired or invalid")
+        if user is not None:
+            principal: User | S3Session = user
         else:
-            principal = self.db.get(S3Session, session.s3_session_id)
-            if not self._is_s3_session_active(principal, now):
-                self._revoke_session_in_transaction(session, "s3_session_expired", now)
-                return AuthSessionError("Session expired or invalid")
-            principal.last_used_at = now
-            principal.idle_expires_at = min(
+            if s3_session is None:  # pragma: no cover - helper contract
+                raise RuntimeError("Authentication session principal could not be resolved")
+            principal = s3_session
+            s3_session.last_used_at = now
+            s3_session.idle_expires_at = min(
                 now + timedelta(minutes=self.settings.s3_session_idle_minutes),
-                principal.absolute_expires_at,
+                s3_session.absolute_expires_at,
             )
         session.last_activity_at = now
         session.idle_expires_at = min(
