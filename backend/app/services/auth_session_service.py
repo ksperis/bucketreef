@@ -550,16 +550,6 @@ class AuthSessionService:
             self._erase_s3_session(session.s3_session_id, reason, now)
         self.db.add(session)
 
-    def revoke_family(self, family_id: str, reason: str) -> None:
-        now = utcnow()
-        run_replayable_db_unit(
-            self.db,
-            lambda write_db: AuthSessionService(
-                write_db,
-                settings=self.settings,
-            )._revoke_family_in_transaction(family_id, reason, now),
-        )
-
     def _revoke_family_in_transaction(
         self,
         family_id: str,
