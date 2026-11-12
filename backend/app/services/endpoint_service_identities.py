@@ -54,6 +54,21 @@ class EndpointServiceIdentityService:
         self.client_factory = client_factory or get_endpoint_bootstrap_rgw_client
         self.validation = EndpointServiceIdentityValidationService(db)
 
+    def _reload_identity(
+        self,
+        identity_id: int,
+        *,
+        failure_message: str,
+    ) -> EndpointServiceIdentity:
+        identity = self.db.get(
+            EndpointServiceIdentity,
+            identity_id,
+            populate_existing=True,
+        )
+        if identity is None:  # pragma: no cover - defensive consistency check
+            raise RuntimeError(failure_message)
+        return identity
+
     def _persist_identity_fields(
         self,
         identity_id: int,
@@ -69,14 +84,10 @@ class EndpointServiceIdentityService:
             return identity_id
 
         persisted_id = run_replayable_db_unit(self.db, persist_once)
-        identity = self.db.get(
-            EndpointServiceIdentity,
+        return self._reload_identity(
             persisted_id,
-            populate_existing=True,
+            failure_message="Service identity could not be reloaded",
         )
-        if identity is None:  # pragma: no cover - defensive consistency check
-            raise RuntimeError("Service identity could not be reloaded")
-        return identity
 
     def installation_id(self) -> str:
         row = self.db.get(AppSetting, INSTALLATION_KEY)
@@ -242,14 +253,10 @@ class EndpointServiceIdentityService:
             return int(current.id)
 
         identity_id = run_replayable_db_unit(self.db, persist_once)
-        identity = self.db.get(
-            EndpointServiceIdentity,
+        return self._reload_identity(
             identity_id,
-            populate_existing=True,
+            failure_message="Managed service identity could not be reloaded",
         )
-        if identity is None:  # pragma: no cover - defensive consistency check
-            raise RuntimeError("Managed service identity could not be reloaded")
-        return identity
 
     def _ensure_managed_remote_user(
         self,
@@ -345,13 +352,10 @@ class EndpointServiceIdentityService:
             return identity_id
 
         run_replayable_db_unit(self.db, persist_ready)
-        identity = self.db.get(
-            EndpointServiceIdentity,
+        identity = self._reload_identity(
             identity_id,
-            populate_existing=True,
+            failure_message="Validated service identity could not be reloaded",
         )
-        if identity is None:  # pragma: no cover - defensive consistency check
-            raise RuntimeError("Validated service identity could not be reloaded")
         self._audit(endpoint, identity, "validated")
         return identity
 
@@ -467,13 +471,10 @@ class EndpointServiceIdentityService:
             return int(current.id)
 
         persisted_id = run_replayable_db_unit(self.db, persist_once)
-        identity = self.db.get(
-            EndpointServiceIdentity,
+        identity = self._reload_identity(
             persisted_id,
-            populate_existing=True,
+            failure_message="Ceph Admin identity could not be reloaded",
         )
-        if identity is None:  # pragma: no cover - defensive consistency check
-            raise RuntimeError("Ceph Admin identity could not be reloaded")
         if validated:
             self._audit(endpoint, identity, "validated")
         return {"kind": "ceph_admin", "status": identity.status}
@@ -541,13 +542,10 @@ class EndpointServiceIdentityService:
                 return identity_id
 
             run_replayable_db_unit(self.db, finalize_once)
-            identity = self.db.get(
-                EndpointServiceIdentity,
+            identity = self._reload_identity(
                 identity_id,
-                populate_existing=True,
+                failure_message="Revoked service identity could not be reloaded",
             )
-            if identity is None:  # pragma: no cover - defensive consistency check
-                raise RuntimeError("Revoked service identity could not be reloaded")
             self._audit(endpoint, identity, "revoked")
             return True
         except ManagedIdentityKeyDriftError as exc:
@@ -645,14 +643,10 @@ class EndpointServiceIdentityService:
             return int(identity.id)
 
         identity_id = run_replayable_db_unit(self.db, persist_once)
-        identity = self.db.get(
-            EndpointServiceIdentity,
+        return self._reload_identity(
             identity_id,
-            populate_existing=True,
+            failure_message="Failed service identity could not be reloaded",
         )
-        if identity is None:  # pragma: no cover - defensive consistency check
-            raise RuntimeError("Failed service identity could not be reloaded")
-        return identity
 
     def _reconcile_service_identity(
         self,
