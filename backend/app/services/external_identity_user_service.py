@@ -111,7 +111,6 @@ class ExternalIdentityUserService:
             user = write_db.get(User, identity.user_id)
             if user:
                 user.auth_version += 1
-                write_db.add(user)
                 UserNotificationsService(write_db).create_notifications(
                     user_ids=[user.id],
                     notification_type="identity_changed",
@@ -136,7 +135,6 @@ class ExternalIdentityUserService:
                     increment_version=False,
                     now=now,
                 )
-            write_db.add(identity)
             write_db.flush()
 
         run_replayable_db_unit(self.db, revoke_once)
@@ -157,7 +155,6 @@ class ExternalIdentityUserService:
             if not user:
                 raise ValueError("External identity target does not exist")
             user.auth_version += 1
-            write_db.add_all([identity, user])
             AuthSessionService(write_db).revoke_all_for_user_in_transaction(
                 user,
                 reason,
@@ -223,7 +220,6 @@ class ExternalIdentityUserService:
                     )
                 existing.revoked_at = None
                 write_user.auth_version += 1
-                write_db.add_all([existing, write_user])
                 AuthSessionService(write_db).revoke_all_for_user_in_transaction(
                     write_user,
                     "external_identity_restored",
@@ -246,7 +242,7 @@ class ExternalIdentityUserService:
                 link_source=link_source,
             )
             write_user.auth_version += 1
-            write_db.add_all([identity, write_user])
+            write_db.add(identity)
             service.link_requests.close_pending(
                 provider_type=provider_kind,
                 provider_id=provider_key,
@@ -359,7 +355,6 @@ class ExternalIdentityUserService:
                 user.picture_url = picture_url
             if full_name and not user.full_name:
                 user.full_name = full_name
-            write_db.add_all([write_identity, user])
             write_db.flush()
             return int(user.id)
 
