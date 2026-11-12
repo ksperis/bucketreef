@@ -28195,7 +28195,7 @@
     },
     {
       "id": "relationship:endpoint_health_checks.storage_endpoint_id->storage_endpoints.id",
-      "name": "fk_endpoint_health_checks_storage_endpoint_id_storage_endpoints_id",
+      "name": "fk_endpoint_health_checks_storage_endpoint_id_storage_endpoints_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:endpoint_health_checks",
       "targetSchema": null,
@@ -28208,7 +28208,7 @@
     },
     {
       "id": "relationship:endpoint_health_latest.storage_endpoint_id->storage_endpoints.id",
-      "name": "fk_endpoint_health_latest_storage_endpoint_id_storage_endpoints_id",
+      "name": "fk_endpoint_health_latest_storage_endpoint_id_storage_endpoints_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:endpoint_health_latest",
       "targetSchema": null,
@@ -28221,7 +28221,7 @@
     },
     {
       "id": "relationship:endpoint_health_status_segments.storage_endpoint_id->storage_endpoints.id",
-      "name": "fk_endpoint_health_status_segments_storage_endpoint_id_storage_endpoints_id",
+      "name": "fk_endpoint_health_status_segments_storage_endpoint_id_storage_endpoints_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:endpoint_health_status_segments",
       "targetSchema": null,
@@ -28234,7 +28234,7 @@
     },
     {
       "id": "relationship:endpoint_health_rollups.storage_endpoint_id->storage_endpoints.id",
-      "name": "fk_endpoint_health_rollups_storage_endpoint_id_storage_endpoints_id",
+      "name": "fk_endpoint_health_rollups_storage_endpoint_id_storage_endpoints_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:endpoint_health_rollups",
       "targetSchema": null,

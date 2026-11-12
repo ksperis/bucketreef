@@ -31,7 +31,12 @@ class EndpointHealthCheck(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    storage_endpoint_id = Column(Integer, ForeignKey("storage_endpoints.id"), nullable=False, index=True)
+    storage_endpoint_id = Column(
+        Integer,
+        ForeignKey("storage_endpoints.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     checked_at = Column(UTCDateTime(), nullable=False, default=utcnow, index=True)
     http_status = Column(Integer, nullable=True)
     latency_ms = Column(Integer, nullable=True)
@@ -74,7 +79,12 @@ class EndpointHealthLatest(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    storage_endpoint_id = Column(Integer, ForeignKey("storage_endpoints.id"), nullable=False, index=True)
+    storage_endpoint_id = Column(
+        Integer,
+        ForeignKey("storage_endpoints.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     check_mode = Column(String, nullable=False, default="http", server_default="http")
     check_type = Column(String, nullable=False, default="availability", server_default="availability")
     scope = Column(String, nullable=False, default="endpoint", server_default="endpoint")
@@ -123,7 +133,12 @@ class EndpointHealthStatusSegment(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    storage_endpoint_id = Column(Integer, ForeignKey("storage_endpoints.id"), nullable=False, index=True)
+    storage_endpoint_id = Column(
+        Integer,
+        ForeignKey("storage_endpoints.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     check_mode = Column(String, nullable=False, default="http", server_default="http")
     check_type = Column(String, nullable=False, default="availability", server_default="availability")
     scope = Column(String, nullable=False, default="endpoint", server_default="endpoint")
@@ -170,7 +185,12 @@ class EndpointHealthRollup(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    storage_endpoint_id = Column(Integer, ForeignKey("storage_endpoints.id"), nullable=False, index=True)
+    storage_endpoint_id = Column(
+        Integer,
+        ForeignKey("storage_endpoints.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     check_mode = Column(String, nullable=False, default="http", server_default="http")
     check_type = Column(String, nullable=False, default="availability", server_default="availability")
     scope = Column(String, nullable=False, default="endpoint", server_default="endpoint")
