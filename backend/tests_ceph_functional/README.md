@@ -4,7 +4,7 @@ This suite exercises the FastAPI backend against a *real* Ceph RGW cluster to va
 critical account, bucket, IAM and object workflows after Ceph upgrades. The tests are
 marked `ceph_functional` and excluded from the default `pytest` run (`-m "not ceph_functional"`).
 In GitLab CI the suite starts an ephemeral backend inside the job and points it at the
-lab RGW endpoint via `ENV_STORAGE_ENDPOINTS`.
+lab RGW endpoint via the deployment provisioner.
 
 ## Prerequisites
 
@@ -39,7 +39,7 @@ credentials may still use their documented storage-specific fallback values.
 ## GitLab CI variables
 
 The `ceph-functional-tests` job now starts a local backend inside the GitLab job, using
-SQLite plus `ENV_STORAGE_ENDPOINTS` to register the lab Ceph endpoint as the default
+SQLite plus the deployment provisioner to register the lab Ceph endpoint as the default
 endpoint. This keeps the lab endpoint contract explicit, including its TLS
 verification mode.
 

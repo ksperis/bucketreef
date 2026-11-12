@@ -60,7 +60,7 @@ def _replace_migration_foreign_key(
     with op.batch_alter_table(table_name, **batch_kwargs) as batch_op:
         batch_op.drop_constraint(str(constraint_name), type_="foreignkey")
         batch_op.create_foreign_key(
-            f"fk_{table_name}_migration_id_bucket_migrations",
+            op.f(f"fk_{table_name}_migration_id_bucket_migrations"),
             "bucket_migrations",
             ["migration_id"],
             ["id"],

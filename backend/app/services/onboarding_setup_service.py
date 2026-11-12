@@ -4,7 +4,6 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
 from app.core.db_transactions import run_replayable_db_unit
 from app.db import OnboardingJourney, S3Account, S3Connection, UserS3Account
 from app.models.onboarding import OnboardingApply
@@ -118,10 +117,7 @@ class OnboardingSetupService:
 
         features = enable_onboarding_features(
             self.db,
-            required_onboarding_feature_fields(
-                draft,
-                deployment_profile=get_settings().deployment_profile,
-            ),
+            required_onboarding_feature_fields(draft),
         )
         if features:
             self.progress.audit(actor, "features_enabled", row.id, features=features)
@@ -192,7 +188,7 @@ class OnboardingSetupService:
     def _ensure_portal_iam(self, actor, row, endpoint, account):
         if resolve_feature_flags(endpoint).iam_enabled:
             return
-        if not endpoint.is_editable or self.endpoints.env_endpoints_locked():
+        if not endpoint.is_editable or self.endpoints.deployment_manages_endpoints():
             raise OnboardingError("endpoint_features_locked")
         access, secret = require_s3_execution_credentials(
             account, error_message="Account credentials are required"
@@ -220,6 +216,7 @@ class OnboardingSetupService:
             account.id,
             manager_role="account_administrator" if draft.manager else None,
             portal_role="portal_manager" if draft.portal else None,
+            allow_portal_setup=draft.portal,
         )
         link = self.db.scalars(
             select(UserS3Account).where(

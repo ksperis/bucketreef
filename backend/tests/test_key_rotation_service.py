@@ -400,7 +400,7 @@ def test_rotate_keys_reports_error_for_non_ceph_endpoint(db_session):
     assert "only supported for Ceph" in (result.results[0].message or "")
 
 
-def test_env_managed_endpoint_credentials_are_skipped_without_rgw_calls(db_session, monkeypatch):
+def test_deployment_managed_endpoint_credentials_are_skipped_without_rgw_calls(db_session, monkeypatch):
     endpoint = _seed_endpoint(db_session, name="ceph-env-managed")
     endpoint.is_editable = False
     db_session.add(endpoint)
@@ -437,14 +437,14 @@ def test_env_managed_endpoint_credentials_are_skipped_without_rgw_calls(db_sessi
         KeyRotationType.ENDPOINT_SUPERVISION,
         KeyRotationType.CEPH_ADMIN,
     }
-    assert all("ENV_STORAGE_ENDPOINTS" in (item.message or "") or "External service" in (item.message or "") for item in result.results)
+    assert all("managed by the deployment" in (item.message or "") or "External service" in (item.message or "") for item in result.results)
     assert endpoint.admin_access_key == "ADM-OLD"
     assert endpoint.admin_secret_key == "ADM-OLD-SEC"
     assert endpoint.service_identity("supervision").access_key == "SUP-OLD"
     assert endpoint.service_identity("supervision").secret_key == "SUP-OLD-SEC"
 
 
-def test_env_managed_endpoint_mixed_rotation_still_rotates_accounts_and_s3_users(db_session, monkeypatch):
+def test_deployment_managed_endpoint_mixed_rotation_still_rotates_accounts_and_s3_users(db_session, monkeypatch):
     endpoint = _seed_endpoint(db_session, name="ceph-env-mixed")
     endpoint.is_editable = False
     account = S3Account(

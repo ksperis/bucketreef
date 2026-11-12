@@ -15,26 +15,26 @@ for compose_file in compose.yaml deploy/bundle/compose.yaml; do
   admin_override="$compose_dir/compose.admin.yaml"
   user_override="$compose_dir/compose.user.yaml"
   rendered_admin="$(BUCKETREEF_TAG=0.0.0 INTERNAL_CRON_TOKEN=test docker compose --file "$compose_file" --file "$admin_override" config --format json)"
-  rendered_admin_no_ceph="$(BUCKETREEF_TAG=0.0.0 INTERNAL_CRON_TOKEN=test FEATURE_CEPH_ADMIN_ENABLED=false docker compose --file "$compose_file" --file "$admin_override" config --format json)"
+  rendered_admin_no_ceph="$(BUCKETREEF_TAG=0.0.0 INTERNAL_CRON_TOKEN=test RUNTIME_SURFACES='["admin","storage_ops"]' docker compose --file "$compose_file" --file "$admin_override" config --format json)"
   rendered_user="$(BUCKETREEF_TAG=0.0.0 INTERNAL_CRON_TOKEN=test docker compose --file "$compose_file" --file "$user_override" config --format json)"
-  test "$(printf '%s' "$rendered_admin" | jq -r '.services.backend.environment.FEATURE_ADMIN_ENABLED')" = "true"
   test "$(printf '%s' "$rendered_admin" | jq -r '.services.backend.environment.DEPLOYMENT_PROFILE')" = "admin"
-  test "$(printf '%s' "$rendered_admin" | jq -r '.services.backend.environment.FEATURE_CEPH_ADMIN_ENABLED')" = "true"
-  test "$(printf '%s' "$rendered_admin" | jq -r '.services.backend.environment.FEATURE_MANAGER_ENABLED')" = "false"
   test "$(printf '%s' "$rendered_admin" | jq -r '.services.backend.environment.SCHEDULED_JOBS_ENABLED')" = "true"
   test "$(printf '%s' "$rendered_admin" | jq -r '.services.backend.environment.WEBHOOK_WORKER_ENABLED')" = "true"
   test "$(printf '%s' "$rendered_admin_no_ceph" | jq -r '.services.backend.environment.DEPLOYMENT_PROFILE')" = "admin"
-  test "$(printf '%s' "$rendered_admin_no_ceph" | jq -r '.services.backend.environment.FEATURE_ADMIN_ENABLED')" = "true"
-  test "$(printf '%s' "$rendered_admin_no_ceph" | jq -r '.services.backend.environment.FEATURE_CEPH_ADMIN_ENABLED')" = "false"
-  test "$(printf '%s' "$rendered_admin_no_ceph" | jq -r '.services.backend.environment.FEATURE_STORAGE_OPS_ENABLED')" = "true"
   test "$(printf '%s' "$rendered_admin_no_ceph" | jq -r '.services.backend.environment.SCHEDULED_JOBS_ENABLED')" = "true"
   test "$(printf '%s' "$rendered_admin_no_ceph" | jq -r '.services.backend.environment.WEBHOOK_WORKER_ENABLED')" = "true"
-  test "$(printf '%s' "$rendered_user" | jq -r '.services.backend.environment.FEATURE_ADMIN_ENABLED')" = "false"
   test "$(printf '%s' "$rendered_user" | jq -r '.services.backend.environment.DEPLOYMENT_PROFILE')" = "user"
-  test "$(printf '%s' "$rendered_user" | jq -r '.services.backend.environment.FEATURE_MANAGER_ENABLED')" = "true"
   test "$(printf '%s' "$rendered_user" | jq -r '.services.backend.environment.SCHEDULED_JOBS_ENABLED')" = "false"
   test "$(printf '%s' "$rendered_user" | jq -r '.services.backend.environment.WEBHOOK_WORKER_ENABLED')" = "false"
-  rendered_ceph_only="$(BUCKETREEF_TAG=0.0.0 DEPLOYMENT_PROFILE=full FEATURE_ADMIN_ENABLED=false FEATURE_CEPH_ADMIN_ENABLED=true FEATURE_STORAGE_OPS_ENABLED=false FEATURE_MANAGER_ENABLED=false FEATURE_PORTAL_ENABLED=false FEATURE_BROWSER_ENABLED=false SCHEDULED_JOBS_ENABLED=false WEBHOOK_WORKER_ENABLED=false BUCKET_MIGRATION_WORKER_ENABLED=false ENV_STORAGE_ENDPOINTS='[]' docker compose --file "$compose_file" config --format json)"
-  printf '%s' "$rendered_ceph_only" | jq -e '.services.backend.environment | .DEPLOYMENT_PROFILE == "full" and .FEATURE_CEPH_ADMIN_ENABLED == "true" and .FEATURE_ADMIN_ENABLED == "false" and .FEATURE_STORAGE_OPS_ENABLED == "false" and .FEATURE_MANAGER_ENABLED == "false" and .FEATURE_PORTAL_ENABLED == "false" and .FEATURE_BROWSER_ENABLED == "false" and .SCHEDULED_JOBS_ENABLED == "false" and .WEBHOOK_WORKER_ENABLED == "false" and .BUCKET_MIGRATION_WORKER_ENABLED == "false" and .ENV_STORAGE_ENDPOINTS == "[]"' >/dev/null
-
+  printf '%s' "$rendered_admin_no_ceph" | jq -e '.services.backend.environment.RUNTIME_SURFACES | fromjson == ["admin","storage_ops"]' >/dev/null
+  rendered_ceph_only="$(BUCKETREEF_TAG=0.0.0 DEPLOYMENT_PROFILE=full RUNTIME_SURFACES='["ceph_admin"]' SCHEDULED_JOBS_ENABLED=false WEBHOOK_WORKER_ENABLED=false BUCKET_MIGRATION_WORKER_ENABLED=false docker compose --file "$compose_file" config --format json)"
+  printf '%s' "$rendered_ceph_only" | jq -e '.services.backend.environment | .DEPLOYMENT_PROFILE == "full" and (.RUNTIME_SURFACES | fromjson == ["ceph_admin"]) and .SCHEDULED_JOBS_ENABLED == "false" and .WEBHOOK_WORKER_ENABLED == "false" and .BUCKET_MIGRATION_WORKER_ENABLED == "false"' >/dev/null
+  provision="$(BUCKETREEF_TAG=0.0.0 DEPLOYMENT_CONFIG='{"schema_version":1,"revision":1,"storage_endpoints":[]}' docker compose --file "$compose_file" --profile provision config --format json)"
+  printf '%s' "$provision" | jq -e '
+    .services["configure-deployment"] as $job | .services.backend as $backend |
+    ($job.environment.DEPLOYMENT_CONFIG | fromjson | .revision == 1) and
+    ($job.environment.DATABASE_URL == $backend.environment.DATABASE_URL) and
+    ($job.volumes == $backend.volumes) and ($job.read_only == true) and
+    ($backend.environment | has("DEPLOYMENT_CONFIG") or has("ENV_STORAGE_ENDPOINTS") | not)
+  ' >/dev/null
 done

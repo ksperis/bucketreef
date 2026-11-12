@@ -6,8 +6,8 @@ incident history for Admin, Manager, Portal, and Ceph Admin status views.
 ## Availability model
 
 - The effective feature switch is `endpoint_status_enabled` in app settings.
-- `FEATURE_ENDPOINT_STATUS_ENABLED` can force that switch on or off from the
-  backend environment.
+- `features.endpoint_status_enabled` can set and lock that switch through the
+  [deployment manifest](../configuration/deployment.md).
 - Each storage endpoint can select a healthcheck mode and optional probe URL
   from Admin **Storage Backends**.
 

@@ -35,7 +35,7 @@ class KeyRotationService:
         KeyRotationType.CEPH_ADMIN,
         KeyRotationType.ENDPOINT_ADMIN,
     )
-    _ENV_MANAGED_ENDPOINT_KEY_TYPES: frozenset[KeyRotationType] = frozenset(
+    _DEPLOYMENT_MANAGED_ENDPOINT_KEY_TYPES: frozenset[KeyRotationType] = frozenset(
         {
             KeyRotationType.ENDPOINT_ADMIN,
             KeyRotationType.CEPH_ADMIN,
@@ -107,9 +107,9 @@ class KeyRotationService:
         if endpoint.provider != "ceph":
             return ([self._build_result(endpoint=endpoint, key_type=key_type, target_type="endpoint",
                 status="failed", message="Key rotation is only supported for Ceph endpoints.")], 0, 0)
-        if key_type in self._ENV_MANAGED_ENDPOINT_KEY_TYPES and not endpoint.is_editable:
+        if key_type in self._DEPLOYMENT_MANAGED_ENDPOINT_KEY_TYPES and not endpoint.is_editable:
             return ([self._build_result(endpoint=endpoint, key_type=key_type, target_type="endpoint",
-                status="skipped", message="Admin Ops credentials are managed by ENV_STORAGE_ENDPOINTS; rotate them externally and redeploy.")], 0, 0)
+                status="skipped", message="These credentials are managed by the deployment. Apply a new configuration revision to rotate them.")], 0, 0)
         targets, target_type, skip_message = self._rotation_targets(endpoint, key_type)
         if skip_message is not None:
             return ([self._build_result(endpoint=endpoint, key_type=key_type, target_type=target_type,

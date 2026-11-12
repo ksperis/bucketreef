@@ -32,7 +32,7 @@ type Props = {
   endpoints: StorageEndpoint[];
   loading: boolean;
   error: string | null;
-  envManaged: boolean;
+  deploymentManaged: boolean;
   metadataReady: boolean;
   canEdit: boolean;
   defaultBusyId: number | null;
@@ -46,7 +46,7 @@ type Props = {
 };
 
 export default function StorageEndpointList({
-  endpoints, loading, error, envManaged, metadataReady, canEdit, defaultBusyId,
+  endpoints, loading, error, deploymentManaged, metadataReady, canEdit, defaultBusyId,
   deleteBusy, filters, onFiltersChange, onOpen, onSetDefault, onDelete, onRetry,
 }: Props) {
   const { locale, text } = useStorageEndpointI18n();
@@ -68,7 +68,7 @@ export default function StorageEndpointList({
       : candidates.some((value) => (value ?? "").toLowerCase().includes(query.toLowerCase()));
   }), [endpoints, filters.provider, filters.mode, providers, query]);
   const pending = loading || deleteBusy || defaultBusyId !== null;
-  const mutable = canEdit && metadataReady && !envManaged;
+  const mutable = canEdit && metadataReady && !deploymentManaged;
   const activeFilters = [
     ...(query ? [{ id: "search", label: text("search", { mode: text(filters.mode === "exact" ? "matchExact" : "matchContains"), query }) }] : []),
     ...(filters.provider !== "all" ? [{ id: "provider", label: text("providerFilter", { provider: providers[filters.provider] }) }] : []),
@@ -81,7 +81,7 @@ export default function StorageEndpointList({
           <div className="flex min-w-0 flex-wrap items-center gap-1">
             <span className="endpoint-name" title={endpoint.name}>{endpoint.name}</span>
             {endpoint.is_default && <UiBadge className="endpoint-status-badge" tone="primary">{text("default")}</UiBadge>}
-            {envManaged ? <UiBadge className="endpoint-status-badge">{text("envManaged")}</UiBadge> : !endpoint.is_editable && <UiBadge className="endpoint-status-badge">{text("protected")}</UiBadge>}
+            {deploymentManaged ? <UiBadge className="endpoint-status-badge">{text("deploymentManaged")}</UiBadge> : !endpoint.is_editable && <UiBadge className="endpoint-status-badge">{text("protected")}</UiBadge>}
           </div>
           <span className="endpoint-url" title={endpoint.endpoint_url}>{endpoint.endpoint_url}</span>
           {endpoint.tags.length > 0 && <div data-table-row-click-ignore="true">

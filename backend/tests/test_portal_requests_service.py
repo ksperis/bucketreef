@@ -6,6 +6,7 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import func, select
 
+from app.services.app_settings_service import enable_onboarding_features
 from app.db import (
     AccountIAMUser,
     AuditLog,
@@ -266,6 +267,7 @@ def test_admin_request_listing_is_paginated_and_searches_account_name(db_session
 
 
 def test_approve_user_access_creates_placeholder_and_portal_link(db_session):
+    enable_onboarding_features(db_session, ("portal_enabled",))
     account = _seed_account(db_session)
     requester = _seed_user(db_session, email="requester@example.org")
     admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
@@ -361,6 +363,7 @@ def test_approve_user_access_rolls_back_placeholder_when_assignment_fails(
 
 
 def test_approve_user_access_assigns_requested_portal_manager_role(db_session):
+    enable_onboarding_features(db_session, ("portal_enabled",))
     account = _seed_account(db_session)
     requester = _seed_user(db_session, email="requester@example.org")
     admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
@@ -471,6 +474,7 @@ def test_approve_user_access_rejects_noncanonical_persisted_values(
 
 
 def test_approve_user_access_preserves_existing_portal_manager_role(db_session):
+    enable_onboarding_features(db_session, ("portal_enabled",))
     account = _seed_account(db_session)
     requester = _seed_user(db_session, email="requester@example.org")
     admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
@@ -581,6 +585,7 @@ def test_approve_user_removal_refuses_portal_manager_link(db_session):
 
 
 def test_role_change_request_promotes_direct_portal_user(db_session):
+    enable_onboarding_features(db_session, ("portal_enabled",))
     account = _seed_account(db_session)
     requester = _seed_user(db_session, email="requester@example.org")
     admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)
@@ -770,6 +775,7 @@ def test_collaborator_addition_delegation_combinations(
     requested_role,
     expected_status,
 ):
+    enable_onboarding_features(db_session, ("portal_enabled",))
     account = _seed_account(db_session)
     account.portal_collaborator_addition_delegated = addition_delegated
     account.portal_collaborator_role_management_delegated = role_delegated
@@ -864,6 +870,7 @@ def test_delegated_role_change_is_applied_immediately(
     current_role,
     requested_role,
 ):
+    enable_onboarding_features(db_session, ("portal_enabled",))
     account = _seed_account(db_session)
     account.portal_collaborator_role_management_delegated = True
     db_session.add(account)

@@ -2,54 +2,46 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
-from app.core.config import Settings
+if TYPE_CHECKING:
+    from app.core.config import Settings
 
+RuntimeSurface = Literal["admin", "ceph_admin", "storage_ops", "manager", "portal", "browser"]
 
-RuntimeSurface = Literal[
-    "admin",
-    "ceph_admin",
-    "storage_ops",
-    "manager",
-    "portal",
-    "browser",
-]
-
-RUNTIME_SURFACE_SETTINGS: dict[RuntimeSurface, str] = {
-    "admin": "feature_admin_enabled",
-    "ceph_admin": "feature_ceph_admin_enabled",
-    "storage_ops": "feature_storage_ops_enabled",
-    "manager": "feature_manager_enabled",
-    "portal": "feature_portal_enabled",
-    "browser": "feature_browser_enabled",
+_ADMIN_SURFACES = frozenset(("admin", "ceph_admin", "storage_ops"))
+_USER_SURFACES = frozenset(("manager", "portal", "browser"))
+PROFILE_SURFACES = {
+    "full": _ADMIN_SURFACES | _USER_SURFACES,
+    "admin": _ADMIN_SURFACES,
+    "user": _USER_SURFACES,
 }
 
 
-def runtime_surface_enabled(settings: Settings, surface: RuntimeSurface) -> bool:
-    """Return whether a surface may be mounted by this backend instance."""
+def validate_runtime_surfaces(profile: str, surfaces: list[RuntimeSurface] | None) -> None:
+    if surfaces is None:
+        return
+    selected = set(surfaces)
+    if len(selected) != len(surfaces):
+        raise ValueError("RUNTIME_SURFACES must not contain duplicate surfaces.")
+    if profile == "admin" and selected not in (_ADMIN_SURFACES, _ADMIN_SURFACES - {"ceph_admin"}):
+        raise ValueError("The admin profile requires admin and storage_ops and permits ceph_admin.")
+    if profile == "user" and selected != _USER_SURFACES:
+        raise ValueError("The user profile requires manager, portal and browser only.")
 
-    setting_name = RUNTIME_SURFACE_SETTINGS[surface]
-    return getattr(settings, setting_name) is not False
+
+def runtime_surface_enabled(settings: Settings, surface: RuntimeSurface) -> bool:
+    """Return whether this instance mounts the surface."""
+    surfaces = settings.runtime_surfaces
+    return surface in (PROFILE_SURFACES[settings.deployment_profile] if surfaces is None else surfaces)
 
 
 def ceph_admin_only_runtime(settings: Settings) -> bool:
-    """Identify the dedicated surface configuration without a special profile."""
     return (
         settings.deployment_profile == "full"
-        and runtime_surface_enabled(settings, "ceph_admin")
-        and all(
-            not runtime_surface_enabled(settings, surface)
-            for surface in RUNTIME_SURFACE_SETTINGS
-            if surface != "ceph_admin"
-        )
+        and settings.runtime_surfaces == ["ceph_admin"]
     )
 
 
 def endpoint_identity_management_enabled(settings: Settings) -> bool:
-    """Administration and dedicated Ceph instances reconcile their endpoint identities."""
-    return runtime_surface_enabled(settings, "admin") or (
-        settings.deployment_profile == "full"
-        and all(not runtime_surface_enabled(settings, surface)
-                for surface in RUNTIME_SURFACE_SETTINGS if surface != "ceph_admin")
-    )
+    return runtime_surface_enabled(settings, "admin") or ceph_admin_only_runtime(settings)

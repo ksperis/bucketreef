@@ -15,27 +15,10 @@ REQUIRED_FEATURES = {
     "supervision": (),
 }
 
-_SPLIT_ADMIN_USER_SURFACE_FEATURES = frozenset(
-    {"manager_enabled", "portal_enabled", "browser_enabled"}
-)
-
-
-def required_onboarding_feature_fields(
-    draft: OnboardingDraft,
-    *,
-    deployment_profile: str = "full",
-) -> tuple[str, ...]:
-    fields: list[str] = []
-    for option in draft.selected_options:
-        for field in REQUIRED_FEATURES[option]:
-            if (
-                deployment_profile == "admin"
-                and field in _SPLIT_ADMIN_USER_SURFACE_FEATURES
-            ):
-                continue
-            if field not in fields:
-                fields.append(field)
-    return tuple(fields)
+def required_onboarding_feature_fields(draft: OnboardingDraft) -> tuple[str, ...]:
+    return tuple(dict.fromkeys(
+        field for option in draft.selected_options for field in REQUIRED_FEATURES[option]
+    ))
 
 
 class OnboardingError(ValueError):

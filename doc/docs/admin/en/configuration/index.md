@@ -26,7 +26,7 @@ permissions, workspace activation and numeric limits remain independent.
 | You need to control... | Primary place | Also check |
 |---|---|---|
 | Login sessions, stored credentials, trusted origins | Backend environment and secret manager | `APP_ENV`, `PUBLIC_ORIGIN`, `CORS_ORIGINS`, `ALLOWED_HOSTS`, UI/API JWT rings, credential encryption, WebAuthn, trusted proxies, and secure cookies. |
-| Which workspaces users can see | Admin app settings and feature force-locks | `FEATURE_*` env locks, user roles, UI groups, account links, Manager tool access. |
+| Which workspaces users can see | Admin app settings and local runtime surfaces | Deployment locks, user roles, UI groups, account links, Manager tool access. |
 | Schedulers and internal automation | Runtime env, Compose scheduler, or Helm CronJobs | `INTERNAL_CRON_TOKEN`, `healthcheckCronJob`, `costCronJob`, `quotaMonitorCronJob`, `usageHistoryCronJob`, `notificationRetentionCronJob`. |
 | Health, metrics, cost, quota, and usage history freshness | App settings plus job schedules | Endpoint capability, retention env vars, latest collection logs. |
 | Enterprise authentication | Admin **Settings > Authentication** or env-managed OIDC/LDAP providers | TLS verification, provider priority, write-only secrets, startup warnings. |
@@ -71,12 +71,12 @@ Key areas:
   signing, retries, and runtime configuration.
 - Database: `DATABASE_URL` (SQLite defaults to `backend/app.db`; relative SQLite paths are normalized against `backend/`). Multi-backend deployments require PostgreSQL.
 - CORS: `CORS_ORIGINS`.
-- Feature force-locks: `FEATURE_ADMIN_ENABLED`, `FEATURE_MANAGER_ENABLED`, `FEATURE_OPENSTACK_ENABLED`, `FEATURE_PORTAL_ENABLED`, `FEATURE_BROWSER_ENABLED`, `FEATURE_CEPH_ADMIN_ENABLED`, `FEATURE_STORAGE_OPS_ENABLED`, `FEATURE_COST_ENABLED`, `FEATURE_ENDPOINT_STATUS_ENABLED`.
+- Deployment-managed endpoints and feature switches use a [versioned deployment manifest](deployment.md).
 - Runtime job ownership: `SCHEDULED_JOBS_ENABLED`. A split deployment enables it
   only on the `admin` instance. A dedicated Ceph Admin instance disables it.
 - Internal scheduler auth: `INTERNAL_CRON_TOKEN`.
 - Runtime deployment identity: `DEPLOYMENT_PROFILE` (`full`, `admin`, `user`).
-  `full` allows explicit `FEATURE_*` switches. `admin` enables Admin/Storage Ops
+  `full` allows explicit `RUNTIME_SURFACES`. `admin` enables Admin/Storage Ops
   and jobs, disables user surfaces, and permits Ceph Admin to be disabled.
   `user` enables user surfaces and disables administrative surfaces and jobs.
   See [Dedicated Ceph Admin instance](../security/ceph-admin.md) for an isolated
@@ -279,17 +279,16 @@ Confirmed onboarding can enable the following minimal general settings:
 | Portal | `portal_enabled`, `browser_enabled`, `browser_portal_enabled` |
 | Ceph Admin | `ceph_admin_enabled` |
 
-A forced-on ENV flag already satisfies a prerequisite; forced-off flags block
+A feature locked on by the deployment already satisfies a prerequisite; features locked off block
 configuration before creation or permission changes. Required endpoint
 capabilities are probed explicitly before enabling, and endpoints managed by
-`ENV_STORAGE_ENDPOINTS` are never edited. Independent features and security
+the deployment manifest are never edited by onboarding. Independent features and security
 settings remain unchanged. Access assignments are separate explicit changes in
 the confirmation summary. See [guided application setup](../getting-started/sysadmin-onboarding.md#guided-application-setup).
 
-When `ENV_STORAGE_ENDPOINTS` is removed, endpoints previously synchronized from
-that inventory remain persisted and become editable through the Admin UI/API on
-the next backend startup. Their stored endpoint configuration and service
-identities are preserved.
+Apply `"storage_endpoints": null` in a new deployment revision to make a
+deployment-managed inventory editable. The endpoint IDs, configuration and
+service identities are preserved.
 
 ### Persistence and standard settings
 
@@ -301,9 +300,8 @@ deployment with an empty `app_settings` table imports the JSON file once, then
 live reads and writes go through the database. Runtime database
 errors are not hidden by a file fallback. The bootstrap file must use the
 current `AppSettings` schema; removed historical fields are rejected instead of
-being converted at runtime. Environment force-locks such as
-`FEATURE_PORTAL_ENABLED` still override the effective value without changing
-the persisted setting.
+being converted at runtime. Deployment-managed features are applied and locked in PostgreSQL with the
+[deployment manifest](deployment.md).
 
 Managed from Admin UI:
 
@@ -373,13 +371,13 @@ Superadmins manage login behavior and UI-managed OIDC/LDAP providers from Admin
 `AppSettings.general` and are persisted in the database; UI-managed OIDC and
 LDAP providers are persisted separately in their own database tables.
 
-`FEATURE_PORTAL_ENABLED` can force the Portal surface on or off. Account access
+`RUNTIME_SURFACES` controls whether a runtime can expose Portal. Account access
 uses two independent axes: `manager_role` is `account_administrator` or `null`,
 and `portal_role` is `portal_user`, `portal_manager`, or `null`. At least one
 axis is required. The Admin control plane can assign either axis independently,
 including when its own runtime does not mount `/portal`. New associations start
 without an implicit role and require an explicit Manager or Portal selection.
-`FEATURE_PORTAL_ENABLED=false` prevents the local runtime from exposing Portal;
+The `admin` runtime profile does not expose Portal;
 it does not remove stored Portal roles or disable Admin-owned Portal settings
 and request management. In an `admin` / `user` split, the paired `user` runtime
 enforces its own Portal feature lock when those stored roles are used.

@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 from sqlalchemy import select
 
+from app.services.app_settings_service import enable_onboarding_features
 from app.services.user_associations_service import UserAssociationsService
 from app.db import S3Account, User, UserS3Account
 from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, UserRole
@@ -53,6 +54,7 @@ def test_assign_account_creates_manager_link(db_session):
 def test_assign_account_updates_existing_link_without_widening_browser_access(
     db_session,
 ):
+    enable_onboarding_features(db_session, ("portal_enabled",))
     account = make_s3_account(
         db_session,
         name="existing-link",
@@ -128,3 +130,28 @@ def test_assign_account_retries_sqlite_write_intent_before_mutation(db_session):
     )
     assert link is not None
     assert link.manager_role == ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value
+
+
+def test_portal_disabled_blocks_new_roles_and_allows_existing_role_removal(db_session):
+    import pytest
+    from app.services.portal.exceptions import PortalConflictError
+
+    account = make_s3_account(db_session, name="Disabled Portal")
+    user = User(email="disabled-portal@example.com", is_active=True, role=UserRole.UI_USER.value)
+    db_session.add_all([account, user])
+    db_session.flush()
+    db_session.add(UserS3Account(
+        user_id=user.id, account_id=account.id,
+        manager_role="account_administrator", portal_role="portal_user",
+    ))
+    db_session.commit()
+
+    service = UserAssociationsService(db_session)
+    with pytest.raises(PortalConflictError, match="Portal is disabled"):
+        service.assign_account(user.id, account.id, manager_role="account_administrator", portal_role="portal_manager")
+    db_session.rollback()
+    service.assign_account(user.id, account.id, manager_role="account_administrator", portal_role=None)
+
+    link = db_session.scalars(select(UserS3Account)).one()
+    assert link.portal_role is None
+    assert link.manager_role == "account_administrator"

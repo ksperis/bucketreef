@@ -6,7 +6,7 @@ Cost collection is disabled by default and must be enabled explicitly.
 
 Cost uses the `cost_enabled` application setting as its master switch.
 Administrators can change it in general settings; deployments can force it
-with `FEATURE_COST_ENABLED=true` or `false`.
+with `features.cost_enabled` in the [deployment manifest](../configuration/deployment.md).
 
 Manager and Portal exposure use separate feature policies and both default to
 **Targeted activation**. In Manager, enable **Cost estimation** for an eligible

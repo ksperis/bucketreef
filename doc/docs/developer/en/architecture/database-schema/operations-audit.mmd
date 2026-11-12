@@ -189,6 +189,13 @@ erDiagram
         datetime created_at "NN"
         datetime updated_at "NN"
     }
+    deployment_configuration {
+        varchar key PK "NN"
+        bigint revision "NN"
+        varchar_64 manifest_digest
+        boolean storage_endpoints_managed "NN"
+        json locked_features "NN"
+    }
     auth_sessions {
         varchar id PK "external reference"
     }

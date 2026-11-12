@@ -4,6 +4,7 @@ erDiagram
     %% PK=primary key, FK=foreign key, UK=single-column unique, NN=not nullable.
     storage_endpoints {
         integer id PK "NN"
+        varchar_64 deployment_key UK
         varchar name UK "NN"
         varchar endpoint_url UK "NN"
         varchar region

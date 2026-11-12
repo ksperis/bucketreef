@@ -60,7 +60,7 @@ def get_storage_endpoints_meta(
     service: StorageEndpointsService = Depends(get_service),
     _: User = Depends(get_current_ui_admin),
 ) -> StorageEndpointMeta:
-    return StorageEndpointMeta(managed_by_env=service.env_endpoints_locked())
+    return StorageEndpointMeta(managed_by_deployment=service.deployment_manages_endpoints())
 
 
 @router.post("/detect-features", response_model=StorageEndpointFeatureDetectionResult)

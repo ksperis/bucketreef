@@ -12,6 +12,7 @@ from app.models.runtime_surfaces import RuntimeSurfaces
 from app.models.storage_endpoint import StorageEndpointPublic
 from app.routers.dependencies import get_current_actor
 from app.services.app_settings_service import load_app_settings_for_db
+from app.services.deployment_configuration_state import get_deployment_configuration
 from app.services.storage_endpoint_repository import StorageEndpointRepository
 from app.utils.s3_endpoint import configured_s3_endpoint
 
@@ -61,11 +62,11 @@ def get_login_settings(db: Session = Depends(get_db)) -> LoginSettings:
         ]
     if allow_access_keys:
         default_endpoint = repository.get_default_or_first()
-        default_endpoint_url = (
-            default_endpoint.endpoint_url
-            if default_endpoint is not None
-            else configured_s3_endpoint()
-        )
+        configuration = get_deployment_configuration(db)
+        if default_endpoint is not None:
+            default_endpoint_url = default_endpoint.endpoint_url
+        elif configuration is None or not configuration.storage_endpoints_managed:
+            default_endpoint_url = configured_s3_endpoint()
     # Never expose seed credentials through a public endpoint.
     return LoginSettings(
         allow_login_access_keys=allow_access_keys,

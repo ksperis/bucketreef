@@ -29,9 +29,11 @@ from app.services.portal_role_sync import (
     acquire_portal_role_write_transaction,
     capture_effective_portal_roles,
     commit_portal_role_changes,
+    require_portal_for_promotion,
 )
 from app.services.s3_account_repository import S3AccountRepository
 from app.services.user_query_service import UserQueryService
+from app.utils.account_roles import portal_account_role_rank
 from app.utils.account_roles import ManagerAccountRoleValue, PortalAccountRoleValue
 from app.utils.time import utcnow
 
@@ -133,6 +135,7 @@ class UserAssociationsService:
         manager_role: ManagerAccountRoleValue | None,
         portal_role: PortalAccountRoleValue | None,
         write_intent_acquired: bool = False,
+        allow_portal_setup: bool = False,
     ) -> User:
         user = self.users.require_by_id(user_id)
         account = self.accounts.get(account_id)
@@ -144,16 +147,22 @@ class UserAssociationsService:
         )
         if not write_intent_acquired:
             acquire_portal_role_write_transaction(self.db)
-        self._upsert_direct_account_link(
-            user,
-            account,
-            manager_role=manager_role,
-            portal_role=portal_role,
-        )
+        try:
+            self._upsert_direct_account_link(
+                user,
+                account,
+                manager_role=manager_role,
+                portal_role=portal_role,
+                allow_portal_setup=allow_portal_setup,
+            )
+        except ValueError:
+            self.db.rollback()
+            raise
 
         commit_portal_role_changes(
             self.db,
             before=before_roles,
+            allow_portal_setup=allow_portal_setup,
             user_ids=[user.id],
             account_ids=[account.id],
         )
@@ -167,6 +176,7 @@ class UserAssociationsService:
         *,
         manager_role: ManagerAccountRoleValue | None,
         portal_role: PortalAccountRoleValue | None,
+        allow_portal_setup: bool,
     ) -> None:
         link = self.db.scalar(
             select(UserS3Account)
@@ -176,6 +186,8 @@ class UserAssociationsService:
             )
             .limit(1)
         )
+        if portal_account_role_rank(portal_role) > portal_account_role_rank(link.portal_role if link else None):
+            require_portal_for_promotion(self.db, allow_portal_setup=allow_portal_setup)
         if user.role == UserRole.UI_NONE.value:
             user.role = UserRole.UI_USER.value
         if manager_role is None and portal_role is None:

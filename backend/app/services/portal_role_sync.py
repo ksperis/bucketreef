@@ -228,6 +228,17 @@ def sync_portal_role_promotions(
         service.sync_existing_portal_user_access(user, account, next_role)
 
 
+def require_portal_for_promotion(db: Session, *, allow_portal_setup: bool = False) -> None:
+    from app.services.app_settings_service import get_general_feature_locks, load_app_settings_for_db
+    from app.services.portal.exceptions import PortalConflictError
+
+    if load_app_settings_for_db(db).general.portal_enabled:
+        return
+    if allow_portal_setup and not get_general_feature_locks(db).portal_enabled.forced:
+        return
+    raise PortalConflictError("Portal is disabled for this installation.")
+
+
 def commit_portal_role_changes(
     db: Session,
     *,
@@ -235,6 +246,8 @@ def commit_portal_role_changes(
     user_ids: Iterable[int],
     account_ids: Iterable[int],
     sync_promotions: bool = True,
+    allow_portal_setup: bool = False,
+    restore_existing_access: bool = False,
 ) -> None:
     """Commit persisted role changes while keeping Portal IAM in sync."""
 
@@ -245,6 +258,11 @@ def commit_portal_role_changes(
     )
     effects: list[_PortalRoleDowngradeEffect] = []
     try:
+        if not restore_existing_access and any(
+            portal_account_role_rank(role) > portal_account_role_rank(before.get(key))
+            for key, role in after.items()
+        ):
+            require_portal_for_promotion(db, allow_portal_setup=allow_portal_setup)
         _reject_pending_portal_iam_promotions(
             db,
             before=before,

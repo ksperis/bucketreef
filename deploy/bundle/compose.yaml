@@ -7,18 +7,20 @@ services:
     environment:
       APP_ENV: ${APP_ENV:-development}
       DEPLOYMENT_PROFILE: ${DEPLOYMENT_PROFILE:-full}
-      FEATURE_ADMIN_ENABLED:
-      FEATURE_CEPH_ADMIN_ENABLED:
-      FEATURE_STORAGE_OPS_ENABLED:
-      FEATURE_MANAGER_ENABLED:
-      FEATURE_OPENSTACK_ENABLED:
-      FEATURE_PORTAL_ENABLED:
-      FEATURE_BROWSER_ENABLED:
-      FEATURE_COST_ENABLED:
-      FEATURE_ENDPOINT_STATUS_ENABLED:
+      RUNTIME_SURFACES:
+      BUCKETREEF_RETIRED_DEPLOYMENT_SETTINGS: >-
+        ${FEATURE_ADMIN_ENABLED:+FEATURE_ADMIN_ENABLED}
+        ${FEATURE_MANAGER_ENABLED:+FEATURE_MANAGER_ENABLED}
+        ${FEATURE_OPENSTACK_ENABLED:+FEATURE_OPENSTACK_ENABLED}
+        ${FEATURE_BROWSER_ENABLED:+FEATURE_BROWSER_ENABLED}
+        ${FEATURE_PORTAL_ENABLED:+FEATURE_PORTAL_ENABLED}
+        ${FEATURE_CEPH_ADMIN_ENABLED:+FEATURE_CEPH_ADMIN_ENABLED}
+        ${FEATURE_STORAGE_OPS_ENABLED:+FEATURE_STORAGE_OPS_ENABLED}
+        ${FEATURE_COST_ENABLED:+FEATURE_COST_ENABLED}
+        ${FEATURE_ENDPOINT_STATUS_ENABLED:+FEATURE_ENDPOINT_STATUS_ENABLED}
+        ${ENV_STORAGE_ENDPOINTS:+ENV_STORAGE_ENDPOINTS}
       WEBHOOK_WORKER_ENABLED: ${WEBHOOK_WORKER_ENABLED:-true}
       BUCKET_MIGRATION_WORKER_ENABLED: ${BUCKET_MIGRATION_WORKER_ENABLED:-true}
-      ENV_STORAGE_ENDPOINTS: ${ENV_STORAGE_ENDPOINTS:-}
       ONBOARDING_SOURCE: ${ONBOARDING_SOURCE:-standard}
       UI_JWT_KEYS: '${UI_JWT_KEYS:-["change-me"]}'
       API_JWT_KEYS: '${API_JWT_KEYS:-["change-me"]}'
@@ -62,6 +64,26 @@ services:
       timeout: ${BUCKETREEF_HEALTHCHECK_TIMEOUT:-5s}
       retries: ${BUCKETREEF_HEALTHCHECK_RETRIES:-24}
       start_period: 10s
+  configure-deployment:
+    image: ${BUCKETREEF_BACKEND_IMAGE:-ghcr.io/ksperis/bucketreef-backend}:${BUCKETREEF_TAG:?Set BUCKETREEF_TAG to the release version}
+    profiles: [provision]
+    entrypoint: ["python", "-m", "app.scripts.configure_deployment", "apply"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////data/app.db}
+      CREDENTIAL_KEYS: '${CREDENTIAL_KEYS:-["change-me"]}'
+      DEPLOYMENT_CONFIG:
+      APP_ENV: ${APP_ENV:-development}
+      CORS_ORIGINS: '${CORS_ORIGINS:-["http://127.0.0.1:8080", "http://localhost:8080"]}'
+    volumes:
+      - backend-data:/data
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,mode=1777,uid=10001,gid=10001
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
   frontend:
     image: ${BUCKETREEF_FRONTEND_IMAGE:-ghcr.io/ksperis/bucketreef-frontend}:${BUCKETREEF_TAG:?Set BUCKETREEF_TAG to the release version}
     ports:

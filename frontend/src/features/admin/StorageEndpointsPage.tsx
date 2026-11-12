@@ -93,7 +93,7 @@ export default function StorageEndpointsPage() {
   const mutationPending = useRef(false);
   const {
     endpoints,
-    envManaged,
+    deploymentManaged,
     metadataReady,
     loading,
     error,
@@ -157,7 +157,7 @@ export default function StorageEndpointsPage() {
   );
   const routeEndpointLoading = hasEndpointRoute && !routeEndpointMissing && !showForm;
   const configurationReadOnly = Boolean(
-    editingId != null && (!metadataReady || envManaged || editingEndpoint?.is_editable === false || !canEditEndpoints)
+    editingId != null && (!metadataReady || deploymentManaged || editingEndpoint?.is_editable === false || !canEditEndpoints)
   );
   useEffect(() => {
     if (!showForm || editingId == null || !configurationReadOnly) {
@@ -394,7 +394,7 @@ export default function StorageEndpointsPage() {
   };
 
   const startCreate = () => {
-    if (!metadataReady || envManaged || !canEditEndpoints) return;
+    if (!metadataReady || deploymentManaged || !canEditEndpoints) return;
     detectedFeatureDefaultsApplied.current = { account: false, usage: false, metrics: false };
     const nextForm = createEmptyForm();
     setForm(nextForm);
@@ -496,7 +496,7 @@ export default function StorageEndpointsPage() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!metadataReady || !canEditEndpoints || mutationPending.current) return;
-    if (editingId === null && envManaged) return;
+    if (editingId === null && deploymentManaged) return;
     setFormError(null);
     const saveConfiguration = !configurationReadOnly && (editingId === null || hasConfigurationChanges);
     const submission = saveConfiguration ? buildStorageEndpointSubmission(form, editingId !== null, editingEndpoint?.service_identities) : null;
@@ -743,15 +743,15 @@ export default function StorageEndpointsPage() {
         title={text("s3Endpoints")}
         description={text("pageDescription")}
         breadcrumbs={adminPageBreadcrumbs("storage-endpoints")}
-        rightContent={metadataReady && !loading && !envManaged && canEditEndpoints ? <ListActionButton variant="primary" onClick={startCreate}>{text("newEndpoint")}</ListActionButton> : undefined}
+        rightContent={metadataReady && !loading && !deploymentManaged && canEditEndpoints ? <ListActionButton variant="primary" onClick={startCreate}>{text("newEndpoint")}</ListActionButton> : undefined}
       />
 
-      {envManaged && (
+      {deploymentManaged && (
         <PageBanner tone="info">
-          {text("envManagedBanner")}
+          {text("deploymentManagedBanner")}
         </PageBanner>
       )}
-      {!envManaged && !canEditEndpoints && (
+      {!deploymentManaged && !canEditEndpoints && (
         <PageBanner tone="info">
           {text("readOnlyBanner")}
         </PageBanner>
@@ -759,7 +759,7 @@ export default function StorageEndpointsPage() {
       {defaultError && <PageBanner tone="error">{defaultError}</PageBanner>}
       {actionMessage && <PageBanner tone="success">{actionMessage}</PageBanner>}
       <StorageEndpointList endpoints={endpoints} loading={loading} error={error}
-        envManaged={envManaged} metadataReady={metadataReady} canEdit={canEditEndpoints}
+        deploymentManaged={deploymentManaged} metadataReady={metadataReady} canEdit={canEditEndpoints}
         defaultBusyId={defaultBusyId} deleteBusy={deleteBusy} filters={listFilters}
         onFiltersChange={setListFilters} onOpen={startEdit} onSetDefault={handleSetDefault}
         onDelete={openDelete}

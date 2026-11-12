@@ -86,42 +86,22 @@ spec:
       ports:
         - protocol: TCP
           port: {{ .Values.service.backend.port }}
-  egress:
-    - to:
-        - namespaceSelector:
-            {{- toYaml .Values.networkPolicy.dns.namespaceSelector | nindent 12 }}
-          podSelector:
-            {{- toYaml .Values.networkPolicy.dns.podSelector | nindent 12 }}
-      ports:
-        - { protocol: UDP, port: 53 }
-        - { protocol: TCP, port: 53 }
-    - to:
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/instance: {{ .Release.Name }}
-              app.kubernetes.io/component: postgresql
-      ports:
-        - protocol: TCP
-          port: {{ .Values.postgresql.service.port }}
-    {{- range .Values.networkPolicy.publicHttpsEgress }}
-    - to:
-        - ipBlock:
-            cidr: {{ .cidr | quote }}
-            {{- with .except }}
-            except:
-              {{- toYaml . | nindent 14 }}
-            {{- end }}
-      ports:
-        - protocol: TCP
-          port: 443
-    {{- end }}
-    {{- range .Values.networkPolicy.privateEgress }}
-    - to:
-        - ipBlock:
-            cidr: {{ .cidr | quote }}
-      ports:
-        {{- toYaml .ports | nindent 8 }}
-    {{- end }}
+  {{- include "bucketreef.backendEgress" . | nindent 2 }}
+{{- if .Values.deploymentConfiguration.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "bucketreef.fullname" . }}-deployment-configuration
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: deployment-configuration
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  {{- include "bucketreef.backendEgress" . | nindent 2 }}
+{{- end }}
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -177,6 +157,12 @@ spec:
             matchLabels:
               app.kubernetes.io/instance: {{ .Release.Name }}
               app.kubernetes.io/component: backend
+        {{- if .Values.deploymentConfiguration.enabled }}
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: {{ .Release.Name }}
+              app.kubernetes.io/component: deployment-configuration
+        {{- end }}
       ports:
         - protocol: TCP
           port: {{ .Values.postgresql.service.port }}

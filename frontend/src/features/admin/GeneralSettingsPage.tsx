@@ -247,9 +247,7 @@ export default function GeneralSettingsPage() {
             {description}
             {lock?.forced && (
               <span className="block">
-                {adminText("Forced by environment (")}{lock.source ? `${lock.source}=` : ""}
-                {String(lock.value)}).
-              </span>
+                {adminText("Managed by the deployment")}</span>
             )}
           </>
         }

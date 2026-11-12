@@ -386,7 +386,7 @@ export default function KeyRotationPage() {
                     {adminText("Unavailable for the selected categories.")}</span>
                 ) : endpoint.is_editable === false ? (
                   <span className="block text-[var(--ui-text-muted)]">
-                    {adminText("Admin Ops credentials are managed by ENV_STORAGE_ENDPOINTS. Managed service keys remain stored in the database.")}</span>
+                    {adminText("Admin Ops credentials are managed by the deployment.")}</span>
                 ) : null}
               </SettingsChoiceRow>
             ))}
@@ -457,7 +457,7 @@ export default function KeyRotationPage() {
         >
           {hasSelectedEnvManagedEndpointKeys && (
             <PageBanner tone="warning">
-              {adminText("Admin Ops and Ceph Admin keys supplied by ENV_STORAGE_ENDPOINTS will be skipped. Rotate them externally and update the environment values. Managed service identities, account keys and S3 user keys remain eligible. Other external service identities are rotated by their operator.")}</PageBanner>
+              {adminText("The deployment manages the Admin Ops and Ceph Admin keys. Rotate them externally and apply a new configuration revision.")}</PageBanner>
           )}
           <SettingsItem
             compact

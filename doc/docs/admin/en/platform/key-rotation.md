@@ -85,15 +85,15 @@ Admin feature is disabled. Ceph Admin rotation uses its configured external iden
 keeps that identity external, and requires working Admin Ops with `users=write` to
 create and retire keys on the same Ceph Admin principal.
 
-### Endpoints managed by the environment
+### Endpoints managed by the deployment
 
 Admin Ops and externally supplied Runtime/Supervision credentials remain
-operator-managed when an endpoint is configured through `ENV_STORAGE_ENDPOINTS`.
+operator-managed when an endpoint is managed by the deployment.
 External Runtime/Supervision identities are never rotated automatically. Ceph Admin
 keys configured on editable endpoints can be rotated from this page; Ceph Admin keys
-supplied by `ENV_STORAGE_ENDPOINTS` must still be replaced in environment configuration.
+managed by the deployment must be replaced in a new deployment revision.
 Managed Runtime and Supervision keys are
-stored in DB and remain eligible even on an ENV-configured endpoint. Rotation validates
+stored in DB and remain eligible on endpoints managed by the deployment. Rotation validates
 and saves the new key before retiring the old one; pending retirement is retained and
 retryable without generating another key.
 
@@ -110,15 +110,14 @@ retry service identity configuration, then retry rotation if retirement is pendi
 Previously disabled keys left by earlier managed rotations must also be removed by
 the operator before the identity can be reconciled or rotated again.
 
-Rotate environment-managed endpoint credentials without interruption:
+To rotate endpoint credentials supplied by the deployment:
 
 1. Create a second key for the same RGW identity and keep the old key active.
 2. Replace the access key and secret together in the deployment secret or
-   configuration that supplies `ENV_STORAGE_ENDPOINTS`.
-3. Redeploy every backend replica, then validate Admin Ops and supervision or
-   metrics access as applicable. Validate the supplied Ceph Admin pair if it changed.
-4. Disable or delete the old key only after every replica is using the new
-   environment values and the validation checks pass.
+   [deployment configuration](../configuration/deployment.md).
+3. Apply a new configuration revision and verify the Job reports success.
+   Validate Admin Ops, Supervision, or Ceph Admin access as applicable.
+4. Disable or delete the old key after the new revision and validation succeed.
 
 Do not retire the old key before the deployment configuration has been updated.
 In a multi-replica deployment, do not retire it while any replica may still use

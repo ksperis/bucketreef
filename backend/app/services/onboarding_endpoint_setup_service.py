@@ -529,7 +529,7 @@ class OnboardingEndpointSetupService:
             supervision_required=draft.supervision,
         )
         editable = endpoint is None or (
-            endpoint.is_editable and not self.endpoints.env_endpoints_locked()
+            endpoint.is_editable and not self.endpoints.deployment_manages_endpoints()
         )
         if endpoint is not None and credentials.supplied and not editable:
             raise OnboardingError("endpoint_credentials_locked")

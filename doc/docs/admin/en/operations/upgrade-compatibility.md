@@ -1,5 +1,13 @@
 # Operations: Upgrade and Compatibility Notes
 
+## Shared deployment configuration
+
+This release changes the deployment contract for `FEATURE_*_ENABLED` and
+`ENV_STORAGE_ENDPOINTS`. Convert local surfaces and shared configuration before
+restarting upgraded runtimes. Follow the [migration procedure](../configuration/deployment.md#migrate-from-environment-overrides).
+Existing endpoint records and associations are preserved by the database migration.
+
+
 ## 2026-11 canonical Portal server access-log filter rules
 
 Portal server access-log advanced filters now validate each rule's value shape

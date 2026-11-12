@@ -32,6 +32,27 @@
           "check": null
         },
         {
+          "id": "field:storage_endpoints.deployment_key",
+          "name": "deployment_key",
+          "type": {
+            "id": "varchar(64)",
+            "name": "varchar(64)"
+          },
+          "primaryKey": false,
+          "unique": true,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": "64",
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
           "id": "field:storage_endpoints.name",
           "name": "name",
           "type": {
@@ -481,6 +502,17 @@
           "unique": true,
           "fieldIds": [
             "field:storage_endpoints.identity_namespace"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": false,
+          "comments": "SQLAlchemy UniqueConstraint"
+        },
+        {
+          "id": "unique:storage_endpoints:uq_storage_endpoints_deployment_key",
+          "name": "uq_storage_endpoints_deployment_key",
+          "unique": true,
+          "fieldIds": [
+            "field:storage_endpoints.deployment_key"
           ],
           "createdAt": 0,
           "isPrimaryKey": false,
@@ -25772,6 +25804,143 @@
       "parentAreaId": "area:operations-audit"
     },
     {
+      "id": "table:deployment_configuration",
+      "name": "deployment_configuration",
+      "schema": null,
+      "x": 900,
+      "y": 9768,
+      "fields": [
+        {
+          "id": "field:deployment_configuration.key",
+          "name": "key",
+          "type": {
+            "id": "varchar",
+            "name": "varchar"
+          },
+          "primaryKey": true,
+          "unique": true,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:deployment_configuration.revision",
+          "name": "revision",
+          "type": {
+            "id": "bigint",
+            "name": "bigint"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:deployment_configuration.manifest_digest",
+          "name": "manifest_digest",
+          "type": {
+            "id": "varchar(64)",
+            "name": "varchar(64)"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": "64",
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:deployment_configuration.storage_endpoints_managed",
+          "name": "storage_endpoints_managed",
+          "type": {
+            "id": "boolean",
+            "name": "boolean"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:deployment_configuration.locked_features",
+          "name": "locked_features",
+          "type": {
+            "id": "json",
+            "name": "json"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": false,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        }
+      ],
+      "indexes": [
+        {
+          "id": "index:deployment_configuration:primary-key",
+          "name": "",
+          "unique": true,
+          "fieldIds": [
+            "field:deployment_configuration.key"
+          ],
+          "createdAt": 0,
+          "isPrimaryKey": true,
+          "comments": null
+        }
+      ],
+      "checkConstraints": [],
+      "color": "#D97706",
+      "isView": false,
+      "isMaterializedView": false,
+      "createdAt": 0,
+      "width": 360,
+      "comments": null,
+      "order": 78,
+      "expanded": true,
+      "parentAreaId": "area:operations-audit"
+    },
+    {
       "id": "table:first_admin_bootstrap",
       "name": "first_admin_bootstrap",
       "schema": null,
@@ -25889,7 +26058,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 78,
+      "order": 79,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -25984,7 +26153,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 79,
+      "order": 80,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -26216,7 +26385,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 80,
+      "order": 81,
       "expanded": true,
       "parentAreaId": "area:identity-ui-access"
     },
@@ -26429,7 +26598,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 81,
+      "order": 82,
       "expanded": true,
       "parentAreaId": "area:operations-audit"
     },
@@ -26570,7 +26739,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 82,
+      "order": 83,
       "expanded": true,
       "parentAreaId": "area:operations-audit"
     },
@@ -27043,7 +27212,7 @@
       "createdAt": 0,
       "width": 360,
       "comments": null,
-      "order": 83,
+      "order": 84,
       "expanded": true,
       "parentAreaId": "area:operations-audit"
     }

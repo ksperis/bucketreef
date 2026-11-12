@@ -21,6 +21,7 @@ from app.models.app_settings import AppSettings
 
 
 _RECENT_LINEAR_REVISIONS = (
+    "0271_deployment_configuration",
     "0270_retained_user_history_foreign_keys",
     "0269_bucket_migration_child_cascades",
     "0268_association_resource_cascades",

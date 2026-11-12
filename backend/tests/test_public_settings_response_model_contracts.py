@@ -13,7 +13,7 @@ def test_public_settings_responses_require_complete_canonical_payloads() -> None
         "is_default",
     }
     assert set(StorageEndpointMeta.model_json_schema()["required"]) == {
-        "managed_by_env",
+        "managed_by_deployment",
     }
     assert set(LoginSettings.model_json_schema()["required"]) == {
         "allow_login_access_keys",

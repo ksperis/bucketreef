@@ -1,10 +1,9 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-import json
 from dataclasses import dataclass, replace
 from typing import Optional
 
-from pydantic import SecretStr, ValidationError, field_validator, model_validator
+from pydantic import SecretStr
 
 from app.db import StorageEndpoint
 from app.core.domain_enums import (
@@ -13,14 +12,13 @@ from app.core.domain_enums import (
     ServiceIdentityMode,
     StorageProvider,
 )
+from app.models.deployment_configuration import ResolvedStorageEndpointDefinition
 from app.models.storage_endpoint import (
-    StorageEndpointCoordinates,
     StorageEndpointCreate,
     StorageEndpointUpdate,
 )
 from app.utils.normalize import (
     normalize_optional_string,
-    normalize_optional_string_field,
     normalize_storage_provider,
 )
 from app.utils.s3_endpoint import normalize_s3_endpoint
@@ -45,40 +43,7 @@ _CREDENTIAL_FIELD_PAIRS = (
     ("ceph_admin_access_key", "ceph_admin_secret_key"),
 )
 _CREDENTIAL_KINDS = ("admin", "runtime", "supervision", "ceph_admin")
-class EnvStorageEndpoint(StorageEndpointCoordinates):
-    name: str
-    endpoint_url: str
-    region: Optional[str] = None
-    realm_id: Optional[str] = None
-    zonegroup_id: Optional[str] = None
-    zone_id: Optional[str] = None
-    force_path_style: bool = False
-    verify_tls: bool = True
-    provider: StorageProvider = StorageProvider.CEPH
-    admin_access_key: Optional[str] = None
-    admin_secret_key: Optional[str] = None
-    service_identity_mode: ServiceIdentityMode = "managed"
-    runtime_access_key: Optional[str] = None
-    runtime_secret_key: Optional[str] = None
-    ceph_admin_access_key: Optional[str] = None
-    ceph_admin_secret_key: Optional[str] = None
-    ceph_admin_allowed: bool = False
-    supervision_access_key: Optional[str] = None
-    supervision_secret_key: Optional[str] = None
-    features: Optional[dict[str, dict[str, object]]] = None
-    is_default: bool = False
 
-    @model_validator(mode="after")
-    def require_explicit_ceph_mode(self):
-        if self.provider == StorageProvider.CEPH and "service_identity_mode" not in self.model_fields_set:
-            raise ValueError("Ceph ENV endpoints must explicitly declare service_identity_mode.")
-        return self
-
-    normalize_string_fields = field_validator(
-        "name", "endpoint_url", "region", "realm_id", "zonegroup_id", "zone_id", mode="before"
-    )(
-        normalize_optional_string_field
-    )
 
 @dataclass(frozen=True)
 class NormalizedEndpointState:
@@ -108,32 +73,11 @@ class NormalizedEndpointState:
 
 
 @dataclass(frozen=True)
-class _EnvEndpointIdentity:
-    entry: EnvStorageEndpoint
+class _EndpointDefinitionIdentity:
+    entry: ResolvedStorageEndpointDefinition
     name: str
     endpoint_url: str
     is_default: bool
-
-
-def parse_env_storage_endpoints(raw: str | None) -> list[EnvStorageEndpoint]:
-    if not raw or not raw.strip():
-        return []
-    try:
-        payload = json.loads(raw)
-    except json.JSONDecodeError as exc:
-        raise ValueError("ENV_STORAGE_ENDPOINTS must be valid JSON.") from exc
-    if not isinstance(payload, list):
-        raise ValueError("ENV_STORAGE_ENDPOINTS must be a JSON array.")
-
-    endpoints: list[EnvStorageEndpoint] = []
-    for index, entry in enumerate(payload):
-        try:
-            endpoints.append(EnvStorageEndpoint.model_validate(entry))
-        except ValidationError as exc:
-            raise ValueError(
-                f"Invalid ENV_STORAGE_ENDPOINTS entry at index {index}."
-            ) from None
-    return endpoints
 
 
 def _normalize_name(value: Optional[str], fallback: str = "Endpoint") -> str:
@@ -562,34 +506,34 @@ def _clear_secrets_for_removed_access_keys(
             merged[secret_key_field] = None
 
 
-def _env_endpoint_identities(
-    env_endpoints: list[EnvStorageEndpoint],
-) -> list[_EnvEndpointIdentity]:
+def _endpoint_definition_identities(
+    definitions: list[ResolvedStorageEndpointDefinition],
+) -> list[_EndpointDefinitionIdentity]:
     seen_urls: set[str] = set()
     seen_names: set[str] = set()
     default_count = 0
-    identities: list[_EnvEndpointIdentity] = []
-    for entry in env_endpoints:
+    identities: list[_EndpointDefinitionIdentity] = []
+    for entry in definitions:
         name = _normalize_name(entry.name)
         endpoint_url = normalize_s3_endpoint(entry.endpoint_url)
         if not endpoint_url:
             raise ValueError(
-                "ENV_STORAGE_ENDPOINTS requires endpoint_url for each entry."
+                "The storage endpoint inventory requires endpoint_url for each entry."
             )
         if endpoint_url in seen_urls:
             raise ValueError(
-                f"ENV_STORAGE_ENDPOINTS contains duplicate endpoint_url: {endpoint_url}"
+                f"The storage endpoint inventory contains duplicate endpoint_url: {endpoint_url}"
             )
         if name in seen_names:
             raise ValueError(
-                f"ENV_STORAGE_ENDPOINTS contains duplicate name: {name}"
+                f"The storage endpoint inventory contains duplicate name: {name}"
             )
         seen_urls.add(endpoint_url)
         seen_names.add(name)
         if entry.is_default:
             default_count += 1
         identities.append(
-            _EnvEndpointIdentity(
+            _EndpointDefinitionIdentity(
                 entry=entry,
                 name=name,
                 endpoint_url=endpoint_url,
@@ -601,7 +545,7 @@ def _env_endpoint_identities(
         return []
     if default_count > 1:
         raise ValueError(
-            "ENV_STORAGE_ENDPOINTS can only define one default endpoint."
+            "The storage endpoint inventory can only define one default endpoint."
         )
     if default_count == 0:
         first = identities[0]
@@ -609,11 +553,11 @@ def _env_endpoint_identities(
     return identities
 
 
-def normalize_env_storage_endpoint_states(
-    env_endpoints: list[EnvStorageEndpoint],
+def normalize_storage_endpoint_definitions(
+    definitions: list[ResolvedStorageEndpointDefinition],
 ) -> list[NormalizedEndpointState]:
     states: list[NormalizedEndpointState] = []
-    for identity in _env_endpoint_identities(env_endpoints):
+    for identity in _endpoint_definition_identities(definitions):
         entry = identity.entry
         features = (
             parse_features_mapping(entry.features)

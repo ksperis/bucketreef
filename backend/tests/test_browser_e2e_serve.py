@@ -20,10 +20,6 @@ def test_prepare_environment_generates_keyring_settings(monkeypatch, tmp_path):
     monkeypatch.setenv("UI_JWT_KEYS", '["ambient-ui-jwt-value"]')
     monkeypatch.setenv("API_JWT_KEYS", '["ambient-api-jwt-value"]')
     monkeypatch.setenv("CREDENTIAL_KEYS", '["ambient-credential-value"]')
-    monkeypatch.setenv(
-        "ENV_STORAGE_ENDPOINTS",
-        '[{"name":"Ambient","endpoint_url":"https://storage.invalid","is_default":true}]',
-    )
     monkeypatch.setenv("E2E_FRONTEND_BASE_URL", "http://localhost:44173")
 
     env = serve._prepare_environment(tmp_path)
@@ -34,7 +30,6 @@ def test_prepare_environment_generates_keyring_settings(monkeypatch, tmp_path):
     assert env["UI_JWT_KEYS"] != '["ambient-ui-jwt-value"]'
     assert env["API_JWT_KEYS"] != '["ambient-api-jwt-value"]'
     assert env["CREDENTIAL_KEYS"] != '["ambient-credential-value"]'
-    assert env["ENV_STORAGE_ENDPOINTS"] == ""
     assert env["PUBLIC_ORIGIN"] == "http://localhost:44173"
     assert json.loads(env["CORS_ORIGINS"]) == [
         "http://localhost:44173",

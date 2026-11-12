@@ -10,8 +10,15 @@ image:
 
 # Runtime surface profile for this release. Use separate releases with `admin`
 # and `user` when splitting administration from user surfaces. Use `full`
-# with explicit FEATURE_* settings for a dedicated Ceph Admin instance.
+# with runtimeSurfaces: [ceph_admin] for a dedicated Ceph Admin instance.
 deploymentProfile: full
+runtimeSurfaces: null # Uses the default surfaces of the selected profile.
+
+deploymentConfiguration:
+  enabled: false
+  revision: ""
+  manifestConfigMap: "" # Existing ConfigMap with manifest.json.
+  credentialSecret: "" # Optional existing Secret mounted at /deployment/credentials.
 
 backend:
   replicas: 1

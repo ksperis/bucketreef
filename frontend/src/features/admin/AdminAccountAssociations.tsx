@@ -1,3 +1,4 @@
+import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { useEffect, useId, useState } from "react";
 import type { AccountUserLink, AccountGroupLink } from "../../api/accounts";
@@ -65,6 +66,7 @@ export default function AdminAccountAssociations<T extends AccountAccessGrant>({
   disabled: boolean;
   onPendingChange: (pending: boolean) => void;
 }) {
+  const { generalSettings } = useGeneralSettings();
   const { text: adminText } = useAdminI18n();
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<number[]>([]);
@@ -90,6 +92,7 @@ export default function AdminAccountAssociations<T extends AccountAccessGrant>({
   const label = (link: T) => adapter.label(link) ?? selectedPrincipals[adapter.id(link)]?.label ?? `${adapter.singular} #${adapter.id(link)}`;
   const errorId = (link: T) => `${prefix}-${adapter.id(link)}-error`;
   const changeAccess = (link: T, grant: AccountAccessGrant) => onChange(links.map(item => adapter.id(item) === adapter.id(link) ? { ...item, ...grant } : item));
+  const showPortalRole = generalSettings.portal_enabled || links.some((link) => link.portal_role);
   const columns: DataTableColumn<T>[] = [
     { id: "principal", label: adapter.singular, primary: true, cellClassName: "min-w-[220px] max-w-[320px]",
       render: link => <><span className="break-words">{label(link)}</span>
@@ -97,9 +100,9 @@ export default function AdminAccountAssociations<T extends AccountAccessGrant>({
     { id: "manager", label: "Manager role", render: link => <ManagerAccountRoleSelect label={label(link)} value={link}
       onChange={grant => changeAccess(link, grant)} fieldClassName="w-full md:w-52"
       showLabel={false} invalid={!hasAccountAccessRole(link)} describedBy={!hasAccountAccessRole(link) ? errorId(link) : undefined} /> },
-    { id: "portal", label: "Portal role", render: (link: T) => <PortalAccountRoleSelect label={label(link)} value={link}
+    ...(showPortalRole ? [{ id: "portal", label: "Portal role", render: (link: T) => <PortalAccountRoleSelect label={label(link)} value={link}
       onChange={grant => changeAccess(link, grant)} fieldClassName="w-full md:w-44"
-      showLabel={false} invalid={!hasAccountAccessRole(link)} describedBy={!hasAccountAccessRole(link) ? errorId(link) : undefined} /> },
+      showLabel={false} invalid={!hasAccountAccessRole(link)} describedBy={!hasAccountAccessRole(link) ? errorId(link) : undefined} /> }] : []),
     { id: "actions", label: "Actions", mobileRole: "actions", align: "right", render: link => <ListActions>
       {link.manager_role && <AdminAssociationAdvancedSettings targetLabel={label(link)} associationKind="account"
         allowManagerBrowserDataAccess={link.allow_manager_browser_data_access} disabled={disabled} onDirtyChange={setAdvancedDirty}

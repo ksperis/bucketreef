@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 import sqlalchemy as sa
 
+from app.services.app_settings_service import enable_onboarding_features
 from app.db import S3Account, UiGroup, UiGroupS3Account, User, UserS3Account
 from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, UserRole
 from app.core.domain_errors import CompensationFailureError
@@ -313,6 +314,7 @@ def test_admin_accounts_search_treats_sql_wildcards_as_literal_text(client, db_s
 
 
 def test_admin_accounts_update_replaces_direct_group_links(client, db_session):
+    enable_onboarding_features(db_session, ("portal_enabled",))
     account = _seed_account(db_session, name="group-edit-account", rgw_account_id="RGW-GROUP-EDIT")
     old_group = UiGroup(name="Old Account Group")
     new_group = UiGroup(name="New Account Group")

@@ -35,7 +35,7 @@ describe("StorageEndpointList localization", () => {
         endpoints={endpoints}
         loading={false}
         error={null}
-        envManaged={false}
+        deploymentManaged={false}
         metadataReady
         canEdit
         defaultBusyId={null}

@@ -20,6 +20,7 @@ from app.services.app_settings_service import load_app_settings_for_db
 from app.services.audit_service import AuditService
 from app.services.auth_session_service import AuthSessionService
 from app.services.session_service import SessionIntrospectionError, SessionService
+from app.services.deployment_configuration_state import get_deployment_configuration
 from app.services.storage_endpoint_repository import StorageEndpointRepository
 from app.utils.request_security import require_trusted_origin
 from app.utils.s3_endpoint import configured_s3_endpoint, validate_custom_login_s3_endpoint
@@ -42,7 +43,11 @@ def _resolve_login_endpoint(
         default_endpoint = repository.get_default_or_first()
         if default_endpoint is not None:
             return default_endpoint.endpoint_url, False
-        endpoint_url = configured_s3_endpoint()
+        configuration = get_deployment_configuration(db)
+        endpoint_url = (
+            None if configuration is not None and configuration.storage_endpoints_managed
+            else configured_s3_endpoint()
+        )
         custom_endpoint = True
     if not custom_endpoint:
         return endpoint_url, False

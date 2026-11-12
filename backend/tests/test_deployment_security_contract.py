@@ -170,10 +170,11 @@ def test_strict_network_policies_are_fail_closed_and_cover_all_workloads():
     assert network["privateEgress"] == []
 
     template = _read("deploy/helm/bucketreef/templates/networkpolicies.yaml")
-    for component in ("frontend", "backend", "cronjobs", "postgresql"):
+    for component in ("frontend", "backend", "cronjobs", "postgresql", "deployment-configuration"):
         assert f'}}-{component}' in template
     assert "publicHttpsEgress is required" in template
-    assert "port: 443" in template
+    assert 'include "bucketreef.backendEgress"' in template
+    assert "port: 443" in _read("deploy/helm/bucketreef/templates/_helpers.tpl")
     assert "port: 53" in template
     assert "metadata exclusions explicitly" in template
 

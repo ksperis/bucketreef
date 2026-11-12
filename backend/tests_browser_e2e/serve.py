@@ -130,7 +130,6 @@ def _prepare_environment(backend_root: Path) -> dict[str, str]:
     env["SEED_S3_SECRET_KEY"] = e2e_s3_secret_key
     env["SEED_S3_REGION"] = e2e_s3_region
     env["SEED_S3_ENDPOINT_FEATURES"] = ""
-    env["ENV_STORAGE_ENDPOINTS"] = ""
     env["SEED_RGW_ADMIN_ACCESS_KEY"] = ""
     env["SEED_RGW_ADMIN_SECRET_KEY"] = ""
     env["SEED_SUPERVISION_ACCESS_KEY"] = ""

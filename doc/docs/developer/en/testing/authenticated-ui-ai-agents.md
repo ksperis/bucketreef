@@ -150,7 +150,7 @@ smoke test.
 | A port is already in use | Use explicit alternate ports or stop only a process whose ownership is known. The harness deliberately does not reuse it. |
 | The route redirects to `/login` | The saved state is stale, the isolated backend was restarted, or the wrong origin was opened. Stop and restart `ui:agent`. |
 | Recent WebAuthn verification is required | Restart the isolated harness to create a fresh verified session. Do not weaken or reset the MFA guard. |
-| Browser contacts an unexpected S3 endpoint or reports `AccessDenied` | Stop the harness and run `ui:agent:check`. The isolated runner must clear ambient `ENV_STORAGE_ENDPOINTS`; never copy local endpoint credentials into the test state. |
+| Browser contacts an unexpected S3 endpoint or reports `AccessDenied` | Stop the harness and run `ui:agent:check`. Use the endpoint seeded by the isolated runner and keep production credentials out of the test state. |
 | Docker is unavailable | Continue with the isolated harness. Docker is required only for the optional Quickstart/live path below. |
 
 ## Optional validation against the real local instance

@@ -109,10 +109,7 @@ def test_startup_bootstraps_app_settings_once(
         def __init__(self, _db) -> None:
             pass
 
-        def sync_env_endpoints(self) -> None:
-            pass
-
-        def env_endpoints_locked(self) -> bool:
+        def deployment_manages_endpoints(self) -> bool:
             return True
 
         def ensure_default_endpoint(self) -> None:

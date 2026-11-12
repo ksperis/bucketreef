@@ -203,7 +203,7 @@ Do not use SQLite for this topology. The two projects must point at the same
 PostgreSQL database; only the admin project should start the scheduler.
 
 For a dedicated Ceph Admin instance, keep `compose.admin.yaml` on the main
-Administration project and set `FEATURE_CEPH_ADMIN_ENABLED=false` in its env
+Administration project and set `RUNTIME_SURFACES=["admin","storage_ops"]` in its env
 file. Run a separate `full` project with only Ceph Admin enabled, its own database
 and key rings, and no scheduler. See [Dedicated Ceph Admin instance](../security/ceph-admin.md)
 for the complete settings and migration from removed profiles.
@@ -271,3 +271,5 @@ initial setup.
 - [Operations: cost](../operations/cost.md)
 - [Operations: quota monitoring and history](../operations/quota-monitoring.md)
 - [Operations: security](../security/index.md)
+
+Apply operator-managed settings with the [Compose provisioner](../configuration/deployment.md#compose-and-helm).

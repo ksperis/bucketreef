@@ -154,15 +154,6 @@ def reset_bucket_listing_cache():
 
 
 @pytest.fixture(autouse=True)
-def reset_env_managed_storage_endpoints(monkeypatch):
-    monkeypatch.setattr(
-        "app.services.storage_endpoints_service.settings.env_storage_endpoints",
-        None,
-        raising=False,
-    )
-
-
-@pytest.fixture(autouse=True)
 def reset_bucket_migration_workers():
     reset_bucket_migration_worker_for_tests()
     reset_webhook_delivery_worker_for_tests()
@@ -182,3 +173,38 @@ def public_s3_endpoint_dns(monkeypatch):
     monkeypatch.setattr(network_targets, "resolve_hostname_ips", lambda host: {
         ipaddress.ip_address("93.184.216.34")
     } if host == "93.184.216.34" else original(host))
+
+
+@pytest.fixture
+def apply_deployment_endpoints(db_session, tmp_path):
+    from app.models.deployment_configuration import DeploymentManifest
+    from app.services.deployment_configuration_service import DeploymentConfigurationService
+    from app.services.storage_endpoints_service import StorageEndpointsService
+
+    revision = 0
+
+    def apply(entries):
+        nonlocal revision
+        revision += 1
+        inventory = []
+        for index, source in enumerate(entries):
+            entry = dict(source)
+            entry.setdefault("key", f"test-{index}")
+            credentials = {}
+            for kind in ("admin", "runtime", "supervision", "ceph_admin"):
+                files = {}
+                for name in ("access_key", "secret_key"):
+                    value = entry.pop(f"{kind}_{name}", None)
+                    if value is not None:
+                        path = tmp_path / f"{revision}-{index}-{kind}-{name}"
+                        path.write_text(value, encoding="utf-8")
+                        files[f"{name}_file"] = path
+                if files:
+                    credentials[kind] = files
+            inventory.append({**entry, "credentials": credentials})
+        DeploymentConfigurationService(db_session).apply(DeploymentManifest(
+            schema_version=1, revision=revision, storage_endpoints=inventory,
+        ))
+        return StorageEndpointsService(db_session).query.list_endpoints(include_admin_ops_permissions=False)
+
+    return apply

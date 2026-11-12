@@ -248,7 +248,6 @@ async function run(options) {
   const environment = {
     ...process.env,
     CI: "",
-    ENV_STORAGE_ENDPOINTS: "",
     E2E_BACKEND_PORT: String(backend),
     E2E_FRONTEND_BASE_URL: frontendOrigin,
     E2E_S3_ENDPOINT: s3Origin,

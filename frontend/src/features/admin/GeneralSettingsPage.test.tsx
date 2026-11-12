@@ -395,11 +395,12 @@ describe("GeneralSettingsPage branding", () => {
   it("keeps forced workspace values when loading defaults", async () => {
     const current = buildSettings(); current.general.portal_enabled = false;
     fetchAppSettingsMock.mockResolvedValue(current);
-    const locks = unlockedFeatureLocks(); locks.portal_enabled = { forced: true, value: false, source: "FEATURE_PORTAL_ENABLED" };
+    const locks = unlockedFeatureLocks(); locks.portal_enabled = { forced: true, value: false, source: "deployment" };
     fetchGeneralFeatureLocksMock.mockResolvedValue(locks);
     renderPage();
     const toggle = await screen.findByRole("switch", { name: "Portal feature" });
     expect(toggle).toBeDisabled(); expect(toggle).not.toBeChecked();
+    expect(screen.getByText("Managed by the deployment")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Reset to defaults" }));
     fireEvent.click(screen.getByRole("button", { name: "Load defaults" }));
     await waitFor(() => expect(fetchDefaultAppSettingsMock).toHaveBeenCalledOnce());

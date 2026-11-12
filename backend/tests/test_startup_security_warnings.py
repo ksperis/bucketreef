@@ -1,6 +1,8 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 
+import pytest
+
 from app.core.config import Settings
 from app.models.app_settings import AppSettings
 from app.services.deployment_checks import run_deployment_checks, startup_blocking_findings
@@ -164,16 +166,9 @@ def test_sqlite_bucket_migration_worker_is_warning_only():
 
 
 def test_admin_profile_surface_contract_blocks_in_production():
-    settings = _base_settings(
-        app_env="production",
-        deployment_profile="admin",
-        feature_admin_enabled=True,
-        feature_ceph_admin_enabled=False,
-        feature_storage_ops_enabled=True,
-        feature_manager_enabled=True,
-        feature_portal_enabled=False,
-        feature_browser_enabled=False,
-    )
-    findings = _checks(settings)
-    blocker = next(finding for finding in startup_blocking_findings(findings) if finding.code == "surface-manager")
-    assert blocker.level == "blocked"
+    with pytest.raises(ValueError, match="admin profile requires"):
+        _base_settings(
+            app_env="production",
+            deployment_profile="admin",
+            runtime_surfaces=["admin", "storage_ops", "manager"],
+        )

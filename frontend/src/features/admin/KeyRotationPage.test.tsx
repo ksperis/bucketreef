@@ -133,7 +133,7 @@ describe("KeyRotationPage", () => {
           target_id: "7",
           target_label: "Ceph env",
           status: "skipped",
-          message: "Endpoint credentials are managed by ENV_STORAGE_ENDPOINTS.",
+          message: "Endpoint credentials are managed by the deployment.",
         },
       ],
     });
@@ -142,9 +142,9 @@ describe("KeyRotationPage", () => {
 
     expect(await screen.findByText("Ceph env")).toBeInTheDocument();
     expect(
-      screen.getByText(/Admin Ops and Ceph Admin keys supplied by ENV_STORAGE_ENDPOINTS/)
+      screen.getByText(/The deployment manages the Admin Ops and Ceph Admin keys/)
     ).toBeInTheDocument();
-    expect(screen.getByText(/Admin Ops credentials are managed by ENV_STORAGE_ENDPOINTS/)).toBeInTheDocument();
+    expect(screen.getByText(/Admin Ops credentials are managed by the deployment/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Run rotation" }));
     expect(mocks.rotateS3Keys).not.toHaveBeenCalled();
@@ -213,7 +213,7 @@ describe("KeyRotationPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Clear categories" }));
     fireEvent.click(screen.getByRole("checkbox", { name: /Runtime Read Ops/ }));
     expect(screen.getByRole("button", { name: "Run rotation" })).toBeEnabled();
-    expect(screen.queryByText(/Admin Ops keys supplied by ENV_STORAGE_ENDPOINTS/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/The deployment manages the Admin Ops and Ceph Admin keys/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Run rotation" }));
     fireEvent.click(screen.getByRole("button", { name: "Confirm rotation" }));
     await waitFor(() => expect(mocks.rotateS3Keys).toHaveBeenCalledWith({endpoint_ids: [7], key_types: ["endpoint_runtime"], deactivate_only: false}));

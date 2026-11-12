@@ -490,6 +490,7 @@ describe("AccountsPage modal tabs", () => {
   });
 
   it("shows General/Linked UI users tabs and submits updated user_links", async () => {
+    portalEnabled = true;
     renderPage();
 
     await screen.findByText("acc-1");
@@ -557,6 +558,7 @@ describe("AccountsPage modal tabs", () => {
   });
 
   it("submits direct UI group links from the account edit tab", async () => {
+    portalEnabled = true;
     renderPage();
 
     await screen.findByText("acc-1");
@@ -676,6 +678,7 @@ describe("AccountsPage modal tabs", () => {
   }, 15_000); // Covers both association dialogs and their save on shared CI runners.
 
   it("keeps Portal roles editable from Admin when the local Portal surface is disabled", async () => {
+    portalEnabled = true;
     listS3AccountsMock.mockResolvedValueOnce({
       items: [
         {
@@ -771,6 +774,7 @@ describe("AccountsPage modal tabs", () => {
   });
 
   it("allows an account principal to use Portal access without a Manager role", async () => {
+    portalEnabled = true;
     const accountWithManagerLink = {
       id: 1,
       name: "acc-1",
@@ -1044,6 +1048,7 @@ describe("AccountsPage modal tabs", () => {
   });
 
   it("creates a Portal-only link from Admin when the local Portal surface is disabled", async () => {
+    portalEnabled = true;
     renderPage();
 
     await screen.findByText("acc-1");

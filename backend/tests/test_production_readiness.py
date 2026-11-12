@@ -38,12 +38,7 @@ def _production_settings(**overrides) -> Settings:
         "credential_keys": ["credential-key-that-is-at-least-32-bytes"],
         "database_url": "postgresql+psycopg://bucketreef@example.test/bucketreef",
         "internal_cron_token": "internal-cron-token-that-is-at-least-32-bytes",
-        "feature_admin_enabled": True,
-        "feature_ceph_admin_enabled": True,
-        "feature_storage_ops_enabled": True,
-        "feature_manager_enabled": False,
-        "feature_portal_enabled": False,
-        "feature_browser_enabled": False,
+        "runtime_surfaces": ["admin", "ceph_admin", "storage_ops"],
         "scheduled_jobs_enabled": True,
     }
     values.update(overrides)
@@ -79,7 +74,7 @@ def test_admin_profile_passes_automated_deployment_checks():
 def test_admin_profile_allows_ceph_admin_to_be_disabled():
     settings = _production_settings(
         deployment_profile="admin",
-        feature_ceph_admin_enabled=False,
+        runtime_surfaces=["admin", "storage_ops"],
     )
 
     findings = _check(settings, profile="admin")
@@ -100,12 +95,7 @@ def test_user_profile_blocks_surface_mismatches_in_production():
 
 def test_user_profile_passes_with_user_surface_contract():
     settings = _production_settings(
-        feature_admin_enabled=False,
-        feature_ceph_admin_enabled=False,
-        feature_storage_ops_enabled=False,
-        feature_manager_enabled=True,
-        feature_portal_enabled=True,
-        feature_browser_enabled=True,
+        runtime_surfaces=["manager", "portal", "browser"],
         scheduled_jobs_enabled=False,
         internal_cron_token=None,
     )
@@ -122,12 +112,7 @@ def test_split_profile_requires_postgresql_and_shared_origins_as_critical_findin
         database_url="sqlite:////tmp/bucketreef.db",
         public_origin="http://localhost:8080",
         webauthn_origin="http://localhost:8080",
-        feature_admin_enabled=False,
-        feature_ceph_admin_enabled=False,
-        feature_storage_ops_enabled=False,
-        feature_manager_enabled=True,
-        feature_portal_enabled=True,
-        feature_browser_enabled=True,
+        runtime_surfaces=["manager", "portal", "browser"],
         scheduled_jobs_enabled=False,
     )
 
@@ -271,12 +256,6 @@ def test_single_full_profile_sqlite_database_is_warning():
         _production_settings(
             deployment_profile="full",
             database_url="sqlite:////tmp/bucketreef.db",
-            feature_admin_enabled=None,
-            feature_ceph_admin_enabled=None,
-            feature_storage_ops_enabled=None,
-            feature_manager_enabled=None,
-            feature_portal_enabled=None,
-            feature_browser_enabled=None,
         ),
         profile="full",
     )
@@ -320,12 +299,7 @@ def test_cli_json_output_contains_no_secret_values():
 def test_cli_uses_runtime_deployment_profile_when_not_overridden():
     settings = _production_settings(
         deployment_profile="user",
-        feature_admin_enabled=False,
-        feature_ceph_admin_enabled=False,
-        feature_storage_ops_enabled=False,
-        feature_manager_enabled=True,
-        feature_portal_enabled=True,
-        feature_browser_enabled=True,
+        runtime_surfaces=["manager", "portal", "browser"],
         scheduled_jobs_enabled=False,
         internal_cron_token=None,
     )
@@ -343,12 +317,7 @@ def test_cli_uses_runtime_deployment_profile_when_not_overridden():
 def test_ceph_admin_only_full_runtime_passes():
     settings = _production_settings(
         deployment_profile="full",
-        feature_admin_enabled=False,
-        feature_ceph_admin_enabled=True,
-        feature_storage_ops_enabled=False,
-        feature_manager_enabled=False,
-        feature_portal_enabled=False,
-        feature_browser_enabled=False,
+        runtime_surfaces=["ceph_admin"],
         scheduled_jobs_enabled=False,
         internal_cron_token=None,
         public_origins=[],
@@ -370,12 +339,7 @@ def test_single_full_runtime_sqlite_is_warning_not_startup_blocking():
     settings = _production_settings(
         deployment_profile="full",
         database_url="sqlite:////tmp/bucketreef.db",
-        feature_admin_enabled=False,
-        feature_ceph_admin_enabled=True,
-        feature_storage_ops_enabled=False,
-        feature_manager_enabled=False,
-        feature_portal_enabled=False,
-        feature_browser_enabled=False,
+        runtime_surfaces=["ceph_admin"],
         scheduled_jobs_enabled=False,
         internal_cron_token=None,
         public_origins=[],
@@ -527,43 +491,16 @@ def test_persisted_storage_endpoint_security_recommendations(db_session):
     assert "SHARED-PRIVILEGED-KEY" not in identity_finding.message
 
 
-def test_user_profile_surface_mismatch_is_startup_blocker_in_production():
-    settings = _production_settings(
-        deployment_profile="user",
-        feature_admin_enabled=True,
-        feature_ceph_admin_enabled=False,
-        feature_storage_ops_enabled=False,
-        feature_manager_enabled=True,
-        feature_portal_enabled=True,
-        feature_browser_enabled=True,
-        scheduled_jobs_enabled=False,
-        internal_cron_token=None,
-    )
-
-    finding = _finding(_check(settings, profile="user"), "surface-admin")
-
-    assert finding.level == "blocked"
-    assert finding.blocks_startup is True
-
-
-def test_user_profile_surface_mismatch_remains_preflight_only_outside_production():
-    settings = _production_settings(
-        app_env="test",
-        deployment_profile="user",
-        feature_admin_enabled=True,
-        feature_ceph_admin_enabled=False,
-        feature_storage_ops_enabled=False,
-        feature_manager_enabled=True,
-        feature_portal_enabled=True,
-        feature_browser_enabled=True,
-        scheduled_jobs_enabled=False,
-        internal_cron_token=None,
-    )
-
-    finding = _finding(_check(settings, profile="user"), "surface-admin")
-
-    assert finding.level == "critical"
-    assert finding.blocks_startup is False
+@pytest.mark.parametrize("app_env", ["production", "test"])
+def test_user_profile_surface_mismatch_is_rejected_at_configuration_load(app_env):
+    with pytest.raises(ValueError, match="user profile requires"):
+        _production_settings(
+            app_env=app_env,
+            deployment_profile="user",
+            runtime_surfaces=["admin", "manager", "portal", "browser"],
+            scheduled_jobs_enabled=False,
+            internal_cron_token=None,
+        )
 
 
 def test_manual_checks_are_reported_without_affecting_cli_exit_code():

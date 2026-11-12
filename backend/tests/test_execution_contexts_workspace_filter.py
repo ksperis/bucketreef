@@ -857,12 +857,7 @@ def test_workspace_access_hides_admin_when_runtime_surface_is_disabled(db_sessio
         execution_context_catalog_service,
         "get_runtime_settings",
         lambda: SimpleNamespace(
-            feature_admin_enabled=False,
-            feature_ceph_admin_enabled=False,
-            feature_storage_ops_enabled=False,
-            feature_manager_enabled=True,
-            feature_portal_enabled=True,
-            feature_browser_enabled=True,
+            runtime_surfaces=["manager", "portal", "browser"],
         ),
     )
 

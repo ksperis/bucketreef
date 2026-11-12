@@ -1,9 +1,29 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import AccountAccessRoleSelectors from "./AccountAccessRoleSelectors";
 
+const { portal } = vi.hoisted(() => ({ portal: { enabled: true } }));
+vi.mock("../../components/GeneralSettingsContext", () => ({
+  useGeneralSettings: () => ({ generalSettings: { portal_enabled: portal.enabled } }),
+}));
+
 describe("AccountAccessRoleSelectors", () => {
+  beforeEach(() => { portal.enabled = true; });
+
+  it("hides new Portal grants and permits reduction when Portal is disabled", () => {
+    portal.enabled = false;
+    const onChange = vi.fn();
+    const initial = { manager_role: "account_administrator", portal_role: null, allow_manager_browser_data_access: false } as const;
+    const { rerender } = render(<AccountAccessRoleSelectors label="Project" value={initial} onChange={onChange} />);
+    expect(screen.queryByRole("combobox", { name: "Portal role for Project" })).not.toBeInTheDocument();
+    rerender(<AccountAccessRoleSelectors label="Project" value={{ ...initial, portal_role: "portal_user" }} onChange={onChange} />);
+    const select = screen.getByRole("combobox", { name: "Portal role for Project" });
+    expect(within(select).queryByRole("option", { name: "Portal Manager" })).not.toBeInTheDocument();
+    fireEvent.change(select, { target: { value: "" } });
+    expect(onChange).toHaveBeenCalledWith(initial);
+  });
+
   it("names both authorization axes visibly", () => {
     render(
       <AccountAccessRoleSelectors

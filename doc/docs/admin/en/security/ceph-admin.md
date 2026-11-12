@@ -11,32 +11,24 @@ ingress. Sharing the database and credential ring would retain access to the
 same secrets and would provide only surface/network separation.
 
 Disable Ceph Admin on the main `admin` instance with
-`FEATURE_CEPH_ADMIN_ENABLED=false` and do not store the dedicated Ceph Admin key
+`RUNTIME_SURFACES=["admin","storage_ops"]` and do not store the dedicated Ceph Admin key
 there. Admin Ops and Supervision remain separate credentials.
 
 ## Runtime configuration
 
 ```dotenv
 DEPLOYMENT_PROFILE=full
-FEATURE_ADMIN_ENABLED=false
-FEATURE_CEPH_ADMIN_ENABLED=true
-FEATURE_STORAGE_OPS_ENABLED=false
-FEATURE_MANAGER_ENABLED=false
-FEATURE_PORTAL_ENABLED=false
-FEATURE_BROWSER_ENABLED=false
+RUNTIME_SURFACES=["ceph_admin"]
 SCHEDULED_JOBS_ENABLED=false
 WEBHOOK_WORKER_ENABLED=false
 BUCKET_MIGRATION_WORKER_ENABLED=false
 ```
 
-All five other surfaces must be explicitly disabled: unset `FEATURE_*` switches
-permit mounting by default. Authentication/profile APIs and first-administrator
-bootstrap remain available. Admin governance, Storage Ops, Manager, Portal,
-Browser, connections, execution-context and internal scheduled-job routes are
-not mounted. The first superadministrator automatically receives Ceph Admin
-access only when Ceph Admin is the sole enabled surface.
+The local surface list exposes only Ceph Admin. Enable `ceph_admin_enabled`
+for the dedicated installation through Admin before narrowing its surfaces, or
+set it in the [deployment manifest](../configuration/deployment.md).
 
-Configure endpoints with `ENV_STORAGE_ENDPOINTS`. Each Ceph entry specifies
+Configure endpoints with the [deployment manifest](../configuration/deployment.md). Each Ceph entry specifies
 `ceph_admin_allowed: true` and separate
 `ceph_admin_access_key` and `ceph_admin_secret_key` from an externally configured RGW
 user with `admin=true` and `system=false`. BucketReef validates that pair without
@@ -90,7 +82,7 @@ docker compose --project-name bucketreef-ceph-admin \
 
 Start only backend and frontend; do not start the scheduler. The main
 Administration project still uses `compose.admin.yaml`, with
-`FEATURE_CEPH_ADMIN_ENABLED=false` in its env file.
+`RUNTIME_SURFACES=["admin","storage_ops"]` in its env file.
 
 ## Helm
 
@@ -98,18 +90,13 @@ Use a separate release with an operator-owned values file containing:
 
 ```yaml
 deploymentProfile: full
+runtimeSurfaces: [ceph_admin]
 backend:
   databaseType: postgresql
   persistence:
     enabled: false
   existingSecret: bucketreef-ceph-admin-auth
   env:
-    FEATURE_ADMIN_ENABLED: "false"
-    FEATURE_CEPH_ADMIN_ENABLED: "true"
-    FEATURE_STORAGE_OPS_ENABLED: "false"
-    FEATURE_MANAGER_ENABLED: "false"
-    FEATURE_PORTAL_ENABLED: "false"
-    FEATURE_BROWSER_ENABLED: "false"
     SCHEDULED_JOBS_ENABLED: "false"
     WEBHOOK_WORKER_ENABLED: "false"
     BUCKET_MIGRATION_WORKER_ENABLED: "false"
@@ -138,7 +125,7 @@ helm upgrade --install bucketreef-ceph-admin \
 ```
 
 On the main `admin` release set
-`backend.env.FEATURE_CEPH_ADMIN_ENABLED: "false"`; other profile-controlled
+`runtimeSurfaces: [admin, storage_ops]`; other profile-controlled
 switches remain fixed. Configure switches in `backend.env`, not `extraEnv`.
 
 ## Verification

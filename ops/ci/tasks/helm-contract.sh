@@ -35,41 +35,30 @@ grep -q 'automountServiceAccountToken: false' /tmp/bucketreef-rendered.yaml
 helm template bucketreef-admin deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml -f deploy/helm/bucketreef/values-admin.yaml --set backend.existingSecret=bucketreef-auth --set healthcheckCronJob.enabled=true > /tmp/bucketreef-admin.yaml
 grep -q 'headers={"X-Internal-Token": token, "Host": "bucketreef.local"}' /tmp/bucketreef-admin.yaml
 grep -A1 'name: DEPLOYMENT_PROFILE' /tmp/bucketreef-admin.yaml | grep -q 'value: "admin"'
-grep -A1 'name: FEATURE_ADMIN_ENABLED' /tmp/bucketreef-admin.yaml | grep -q 'value: "true"'
-grep -A1 'name: FEATURE_CEPH_ADMIN_ENABLED' /tmp/bucketreef-admin.yaml | grep -q 'value: "true"'
-grep -A1 'name: FEATURE_MANAGER_ENABLED' /tmp/bucketreef-admin.yaml | grep -q 'value: "false"'
 grep -A1 'name: SCHEDULED_JOBS_ENABLED' /tmp/bucketreef-admin.yaml | grep -q 'value: "true"'
 grep -A1 'name: WEBHOOK_WORKER_ENABLED' /tmp/bucketreef-admin.yaml | grep -q 'value: "true"'
 grep -q 'kind: CronJob' /tmp/bucketreef-admin.yaml
 
-helm template bucketreef-admin deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml -f deploy/helm/bucketreef/values-admin.yaml --set-string backend.env.FEATURE_CEPH_ADMIN_ENABLED=false --set backend.existingSecret=bucketreef-auth --set healthcheckCronJob.enabled=true > /tmp/bucketreef-admin-ceph-disabled.yaml
+helm template bucketreef-admin deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml -f deploy/helm/bucketreef/values-admin.yaml --set-json 'runtimeSurfaces=["admin","storage_ops"]' --set backend.existingSecret=bucketreef-auth --set healthcheckCronJob.enabled=true > /tmp/bucketreef-admin-ceph-disabled.yaml
 grep -A1 'name: DEPLOYMENT_PROFILE' /tmp/bucketreef-admin-ceph-disabled.yaml | grep -q 'value: "admin"'
-grep -A1 'name: FEATURE_ADMIN_ENABLED' /tmp/bucketreef-admin-ceph-disabled.yaml | grep -q 'value: "true"'
-grep -A1 'name: FEATURE_CEPH_ADMIN_ENABLED' /tmp/bucketreef-admin-ceph-disabled.yaml | grep -q 'value: "false"'
-grep -A1 'name: FEATURE_STORAGE_OPS_ENABLED' /tmp/bucketreef-admin-ceph-disabled.yaml | grep -q 'value: "true"'
 grep -A1 'name: SCHEDULED_JOBS_ENABLED' /tmp/bucketreef-admin-ceph-disabled.yaml | grep -q 'value: "true"'
 grep -A1 'name: WEBHOOK_WORKER_ENABLED' /tmp/bucketreef-admin-ceph-disabled.yaml | grep -q 'value: "true"'
 grep -q 'kind: CronJob' /tmp/bucketreef-admin-ceph-disabled.yaml
 
 helm template bucketreef-user deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml -f deploy/helm/bucketreef/values-user.yaml --set backend.existingSecret=bucketreef-auth > /tmp/bucketreef-user.yaml
 grep -A1 'name: DEPLOYMENT_PROFILE' /tmp/bucketreef-user.yaml | grep -q 'value: "user"'
-grep -A1 'name: FEATURE_ADMIN_ENABLED' /tmp/bucketreef-user.yaml | grep -q 'value: "false"'
-grep -A1 'name: FEATURE_MANAGER_ENABLED' /tmp/bucketreef-user.yaml | grep -q 'value: "true"'
 grep -A1 'name: SCHEDULED_JOBS_ENABLED' /tmp/bucketreef-user.yaml | grep -q 'value: "false"'
 grep -A1 'name: WEBHOOK_WORKER_ENABLED' /tmp/bucketreef-user.yaml | grep -q 'value: "false"'
 if grep -q 'kind: CronJob' /tmp/bucketreef-user.yaml; then echo "user profile must not render scheduled jobs"; exit 1; fi
 if helm template bucketreef-user deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml -f deploy/helm/bucketreef/values-user.yaml --set backend.existingSecret=bucketreef-auth --set healthcheckCronJob.enabled=true > /tmp/bucketreef-user-jobs-invalid.yaml 2>/tmp/bucketreef-user-jobs-invalid.err; then echo "expected user profile with jobs enabled to fail"; exit 1; fi
 grep -q 'CronJobs require SCHEDULED_JOBS_ENABLED=true' /tmp/bucketreef-user-jobs-invalid.err
 
-helm template bucketreef-ceph-admin deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml --set deploymentProfile=full --set-string backend.env.FEATURE_ADMIN_ENABLED=false --set-string backend.env.FEATURE_CEPH_ADMIN_ENABLED=true --set-string backend.env.FEATURE_STORAGE_OPS_ENABLED=false --set-string backend.env.FEATURE_MANAGER_ENABLED=false --set-string backend.env.FEATURE_PORTAL_ENABLED=false --set-string backend.env.FEATURE_BROWSER_ENABLED=false --set-string backend.env.SCHEDULED_JOBS_ENABLED=false --set-string backend.env.WEBHOOK_WORKER_ENABLED=false --set-string backend.env.BUCKET_MIGRATION_WORKER_ENABLED=false --set backend.existingSecret=bucketreef-ceph-admin-auth > /tmp/bucketreef-ceph-admin.yaml
+helm template bucketreef-ceph-admin deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml --set deploymentProfile=full --set-json 'runtimeSurfaces=["ceph_admin"]' --set-string backend.env.SCHEDULED_JOBS_ENABLED=false --set-string backend.env.WEBHOOK_WORKER_ENABLED=false --set-string backend.env.BUCKET_MIGRATION_WORKER_ENABLED=false --set backend.existingSecret=bucketreef-ceph-admin-auth > /tmp/bucketreef-ceph-admin.yaml
 grep -A1 'name: DEPLOYMENT_PROFILE' /tmp/bucketreef-ceph-admin.yaml | grep -q 'value: "full"'
-grep -A1 'name: FEATURE_ADMIN_ENABLED' /tmp/bucketreef-ceph-admin.yaml | grep -q 'value: "false"'
-grep -A1 'name: FEATURE_CEPH_ADMIN_ENABLED' /tmp/bucketreef-ceph-admin.yaml | grep -q 'value: "true"'
-grep -A1 'name: FEATURE_MANAGER_ENABLED' /tmp/bucketreef-ceph-admin.yaml | grep -q 'value: "false"'
 grep -A1 'name: SCHEDULED_JOBS_ENABLED' /tmp/bucketreef-ceph-admin.yaml | grep -q 'value: "false"'
 grep -A1 'name: WEBHOOK_WORKER_ENABLED' /tmp/bucketreef-ceph-admin.yaml | grep -q 'value: "false"'
 if grep -q 'kind: CronJob' /tmp/bucketreef-ceph-admin.yaml; then echo "Ceph Admin-only runtime must not render scheduled jobs"; exit 1; fi
-if helm template bucketreef-ceph-admin deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml --set deploymentProfile=full --set-string backend.env.FEATURE_ADMIN_ENABLED=false --set-string backend.env.FEATURE_CEPH_ADMIN_ENABLED=true --set-string backend.env.FEATURE_STORAGE_OPS_ENABLED=false --set-string backend.env.FEATURE_MANAGER_ENABLED=false --set-string backend.env.FEATURE_PORTAL_ENABLED=false --set-string backend.env.FEATURE_BROWSER_ENABLED=false --set-string backend.env.SCHEDULED_JOBS_ENABLED=false --set-string backend.env.WEBHOOK_WORKER_ENABLED=false --set-string backend.env.BUCKET_MIGRATION_WORKER_ENABLED=false --set backend.existingSecret=bucketreef-ceph-admin-auth --set healthcheckCronJob.enabled=true > /tmp/bucketreef-ceph-admin-jobs-invalid.yaml 2>/tmp/bucketreef-ceph-admin-jobs-invalid.err; then echo "expected Ceph Admin-only runtime with jobs enabled to fail"; exit 1; fi
+if helm template bucketreef-ceph-admin deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml --set deploymentProfile=full --set-json 'runtimeSurfaces=["ceph_admin"]' --set-string backend.env.SCHEDULED_JOBS_ENABLED=false --set-string backend.env.WEBHOOK_WORKER_ENABLED=false --set-string backend.env.BUCKET_MIGRATION_WORKER_ENABLED=false --set backend.existingSecret=bucketreef-ceph-admin-auth --set healthcheckCronJob.enabled=true > /tmp/bucketreef-ceph-admin-jobs-invalid.yaml 2>/tmp/bucketreef-ceph-admin-jobs-invalid.err; then echo "expected Ceph Admin-only runtime with jobs enabled to fail"; exit 1; fi
 grep -q 'CronJobs require SCHEDULED_JOBS_ENABLED=true' /tmp/bucketreef-ceph-admin-jobs-invalid.err
 
 helm template bucketreef deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml --set backend.existingSecret=bucketreef-auth --set backend.replicas=2 --set backend.persistence.enabled=false > /tmp/bucketreef-multi-backend.yaml
@@ -87,7 +76,7 @@ done
 if helm template bucketreef-admin deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml --set backend.existingSecret=bucketreef-auth --set deploymentProfile=admin --set-string backend.env.FEATURE_MANAGER_ENABLED=true > /tmp/bucketreef-admin-override.yaml 2>/tmp/bucketreef-admin-override.err; then
   echo "expected forbidden admin surface override to fail"; exit 1
 fi
-grep -q 'FEATURE_MANAGER_ENABLED is controlled by deploymentProfile=admin' /tmp/bucketreef-admin-override.err
+grep -q 'FEATURE_MANAGER_ENABLED must be migrated to runtimeSurfaces or deploymentConfiguration' /tmp/bucketreef-admin-override.err
 if helm template bucketreef deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml --set backend.existingSecret=bucketreef-auth --set-string backend.env.SCHEDULED_JOBS_ENABLED=false --set-string 'backend.extraEnv[0].name=SCHEDULED_JOBS_ENABLED' --set-string 'backend.extraEnv[0].value=true' > /tmp/bucketreef-extra-env.yaml 2>/tmp/bucketreef-extra-env.err; then
   echo "expected duplicate runtime variable to fail"; exit 1
 fi
@@ -98,3 +87,13 @@ for manifest in /tmp/bucketreef-rendered.yaml /tmp/bucketreef-admin.yaml /tmp/bu
   names=$(sed -n '/          env:/,/          volumeMounts:/p' "$manifest" | sed -n 's/^            - name: //p')
   test "$(printf '%s\n' "$names" | sort | uniq -d | wc -l | tr -d ' ')" = "0"
 done
+
+
+helm template bucketreef-admin deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml -f deploy/helm/bucketreef/values-admin.yaml --set backend.existingSecret=bucketreef-auth --set deploymentConfiguration.enabled=true --set-string deploymentConfiguration.revision=3 --set deploymentConfiguration.manifestConfigMap=bucketreef-config-3 --set deploymentConfiguration.credentialSecret=bucketreef-rgw > /tmp/bucketreef-provision.yaml
+grep -q 'kind: Job' /tmp/bucketreef-provision.yaml
+grep -q 'name: bucketreef-admin-configure-3' /tmp/bucketreef-provision.yaml
+grep -q 'secretName: "bucketreef-rgw"' /tmp/bucketreef-provision.yaml
+if helm template bucketreef-user deploy/helm/bucketreef -f ops/ci/helm-secure-values.yaml -f deploy/helm/bucketreef/values-user.yaml --set backend.existingSecret=bucketreef-auth --set deploymentConfiguration.enabled=true --set-string deploymentConfiguration.revision=3 --set deploymentConfiguration.manifestConfigMap=bucketreef-config-3 > /tmp/bucketreef-user-provision.yaml 2>/tmp/bucketreef-user-provision.err; then
+  echo "the user release must not provision installation configuration"; exit 1
+fi
+grep -q 'deploymentConfiguration must run in the admin or full release' /tmp/bucketreef-user-provision.err

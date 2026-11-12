@@ -1,3 +1,4 @@
+import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 /*
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
@@ -253,6 +254,8 @@ export function AdminAssociationAccessPickerTable({
   onToggle,
   onAccessChange,
 }: AdminAssociationAccessPickerTableProps) {
+  const { generalSettings } = useGeneralSettings();
+  const showPortalRole = generalSettings.portal_enabled || options.some(({ access }) => access.portal_role);
   const prefix = "admin-association-picker-" + useId().replaceAll(":", "");
   const { text } = useAdminAssociationI18n();
   if (options.length === 0) return null;
@@ -264,7 +267,7 @@ export function AdminAssociationAccessPickerTable({
           <tr>
             <th className="text-left">{principalLabel}</th>
             <th className="text-left">{text("managerRole")}</th>
-            <th className="text-left">{text("portalRole")}</th>
+            {showPortalRole && <th className="text-left">{text("portalRole")}</th>}
           </tr>
         </thead>
         <tbody>
@@ -306,7 +309,7 @@ export function AdminAssociationAccessPickerTable({
                     describedBy={invalid ? errorId : undefined}
                   />
                 </td>
-                <td>
+                {showPortalRole && <td>
                   <PortalAccountRoleSelect
                     label={option.label}
                     value={option.access}
@@ -316,7 +319,7 @@ export function AdminAssociationAccessPickerTable({
                     invalid={invalid}
                     describedBy={invalid ? errorId : undefined}
                   />
-                </td>
+                </td>}
               </tr>
             );
           })}

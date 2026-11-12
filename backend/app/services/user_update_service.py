@@ -200,6 +200,7 @@ class UserUpdateService:
                 payload,
             )
         )
+        restore_existing_access = payload.is_active is True and not was_active and not affected_portal_account_ids
         if payload.is_active is not None and payload.is_active != was_active:
             affected_portal_account_ids.update(
                 effective_portal_account_ids(self.db, user)
@@ -222,6 +223,7 @@ class UserUpdateService:
                 before=portal_roles_before,
                 user_ids=[user.id],
                 account_ids=affected_portal_account_ids,
+                restore_existing_access=restore_existing_access,
             )
             self.db.refresh(user)
         if security_changed:

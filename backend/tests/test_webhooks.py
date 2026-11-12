@@ -710,7 +710,7 @@ def test_webhook_dispatcher_is_owned_only_by_admin_capable_profiles(
     settings = Settings(
         _env_file=None,
         deployment_profile=profile,
-        feature_admin_enabled=admin_enabled,
+        runtime_surfaces=[] if profile == "full" and admin_enabled is False else None,
         webhook_worker_enabled=worker_enabled,
     )
 

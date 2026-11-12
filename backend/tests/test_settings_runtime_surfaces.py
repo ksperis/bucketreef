@@ -7,12 +7,7 @@ def test_runtime_surfaces_are_public_and_follow_instance_kill_switches(client, m
     monkeypatch.setattr(
         "app.routers.settings.get_settings",
         lambda: SimpleNamespace(
-            feature_admin_enabled=False,
-            feature_ceph_admin_enabled=True,
-            feature_storage_ops_enabled=False,
-            feature_manager_enabled=True,
-            feature_portal_enabled=True,
-            feature_browser_enabled=True,
+            runtime_surfaces=["ceph_admin", "manager", "portal", "browser"],
         ),
     )
 
