@@ -181,7 +181,6 @@ class UserAssociationsService:
         if manager_role is None and portal_role is None:
             if link is not None:
                 self.db.delete(link)
-            self.db.add(user)
             self.db.flush()
             return
         membership = AccountMembership(
@@ -197,11 +196,10 @@ class UserAssociationsService:
                 manager_role=membership.manager_role,
                 portal_role=membership.portal_role,
             )
+            self.db.add(link)
         link.manager_role = membership.manager_role
         link.portal_role = membership.portal_role
         link.updated_at = utcnow()
-        self.db.add(link)
-        self.db.add(user)
         self.db.flush()
 
     def set_s3_user_links(
