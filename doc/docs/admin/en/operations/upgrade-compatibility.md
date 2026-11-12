@@ -1,5 +1,17 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 canonical Portal server access-log filter rules
+
+Portal server access-log advanced filters now validate each rule's value shape
+at the API boundary. `in` and `not_in` require list values, scalar operators
+reject list values, and null checks reject a supplied value.
+
+The access-log matcher now relies on that validated contract directly instead
+of keeping silent fallback branches for impossible fields or operators.
+
+Deploy the backend and bundled frontend together. No database migration is
+required.
+
 ## 2026-11 canonical Ceph Admin identity filter rules
 
 Ceph Admin account and RGW user advanced filters now validate each field's

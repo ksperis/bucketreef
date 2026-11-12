@@ -20,6 +20,7 @@ import { cx, type UiTone, uiMutedTextClass } from "../../components/ui/styles";
 import { useUnsavedChangesGuard } from "../../components/useUnsavedChangesGuard";
 import { useI18n } from "../../i18n";
 import {
+  type PortalServerAccessLogFilterRule,
   type PortalServerAccessLogEntry,
   type PortalServerAccessRequesterIdentity,
 } from "../../api/portalActivity";
@@ -101,7 +102,7 @@ function hasServerLogAdvancedFilters(advanced: ServerLogAdvancedFilterState | nu
 
 function buildServerLogAdvancedFilterPayload(advanced: ServerLogAdvancedFilterState | null): string | undefined {
   if (!advanced) return undefined;
-  const rules: Array<Record<string, unknown>> = [];
+  const rules: PortalServerAccessLogFilterRule[] = [];
   if (advanced.action) {
     rules.push({ field: "action", op: "eq", value: advanced.action });
   }

@@ -4,6 +4,7 @@
 from datetime import datetime, timezone
 
 import pytest
+from pydantic import ValidationError
 
 from app.models.portal_access_logs import (
     PortalServerAccessLogEntry,
@@ -30,6 +31,28 @@ SPACE_BY_BUCKET = {"research-data": SPACE}
 def test_portal_server_access_read_models_require_complete_payloads(model):
     schema = model.model_json_schema()
     assert set(schema["required"]) == set(schema["properties"])
+
+
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        (
+            {"field": "path", "op": "in", "value": "reports"},
+            "Portal server access log in/not_in filter rule requires a list value.",
+        ),
+        (
+            {"field": "path", "op": "contains", "value": ["reports"]},
+            "Portal server access log scalar filter rule does not accept a list value.",
+        ),
+        (
+            {"field": "identity", "op": "is_null", "value": "legacy"},
+            "Portal server access log null-check filter rule does not accept value.",
+        ),
+    ],
+)
+def test_portal_server_access_log_filter_rule_rejects_invalid_value_shapes(payload, message):
+    with pytest.raises(ValidationError, match=message.replace(".", r"\.")):
+        PortalServerAccessLogFilterRule.model_validate(payload)
 
 
 def test_parse_standard_access_log_line_extracts_record_fields():
