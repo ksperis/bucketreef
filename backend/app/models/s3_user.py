@@ -58,22 +58,26 @@ class S3UserListingRequest(AdminManagedEntityListingRequest):
     sort_by: S3UserSortBy = "name"
 
 
-class S3User(ManagedS3UserFeatures):
+class S3UserSummary(ManagedS3UserFeatures):
     id: int
     name: str
     rgw_user_uid: str
     rgw_tenant: str
+    storage_endpoint_id: int
+    storage_endpoint_name: str
+    storage_endpoint_url: str
+    tags: list[TagDefinitionSummary]
+
+
+class S3User(S3UserSummary):
     email: Optional[str]
     created_at: Optional[datetime]
     user_links: list[S3UserUserLink]
     group_links: list[S3UserGroupLink]
     quota_max_size_gb: Optional[float]
     quota_max_objects: Optional[int]
-    storage_endpoint_id: int
-    storage_endpoint_name: str
-    storage_endpoint_url: str
     bucket_count: Optional[int]
-    tags: list[TagDefinitionSummary]
+
 
 class S3UserCreate(ApiModel):
     name: str
@@ -139,17 +143,6 @@ class S3UserGeneratedKey(AccessKeyMetadata):
     access_key_id: str
     secret_access_key: str
     created_at: Optional[datetime] = None
-
-
-class S3UserSummary(ManagedS3UserFeatures):
-    id: int
-    name: str
-    rgw_user_uid: str
-    rgw_tenant: str
-    storage_endpoint_id: int
-    storage_endpoint_name: str
-    storage_endpoint_url: str
-    tags: list[TagDefinitionSummary]
 
 
 class PaginatedS3UsersResponse(PaginatedResponse):
