@@ -551,7 +551,6 @@ class S3AccountDeletionService:
                 .execution_options(synchronize_session=False)
             )
             purge = ResourceDeletionPurgeService(write_db)
-            purge.purge_account_derived_data(account_id)
             purge.purge_execution_context_data(str(account_id))
             if deletion_id is not None:
                 current_deletion = write_db.get(S3AccountDeletion, deletion_id)
