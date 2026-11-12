@@ -130,7 +130,8 @@ def test_healthcheck_persistence_redacts_error_messages(db_session):
         check_mode="http",
     )
 
-    HealthCheckPersistenceService(db_session).record_results([result])
+    HealthCheckPersistenceService(db_session).stage_results([result])
+    db_session.commit()
 
     history = db_session.scalars(sa.select(EndpointHealthCheck)).one()
     latest = db_session.scalars(sa.select(EndpointHealthLatest)).one()

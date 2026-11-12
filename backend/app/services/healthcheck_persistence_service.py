@@ -39,13 +39,6 @@ class HealthCheckPersistenceService:
     def __init__(self, db: Session) -> None:
         self.db = db
 
-    def record_results(self, results: list[HealthCheckResult]) -> None:
-        run_replayable_db_unit(
-            self.db,
-            lambda write_db: HealthCheckPersistenceService(write_db).stage_results(results),
-        )
-        self.prune_history()
-
     def stage_results(self, results: list[HealthCheckResult]) -> None:
         """Stage raw and derived health rows without committing the transaction."""
 
