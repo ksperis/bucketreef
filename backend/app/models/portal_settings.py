@@ -8,20 +8,18 @@ from app.models.base import ApiModel
 from app.models.feature_policy import FeatureState
 
 
-class PortalAccountSettings(ApiModel):
+class PortalSettingsView(ApiModel):
     effective: PortalEffectiveSettings
     feature_states: dict[str, FeatureState]
+    delegated_to_portal_managers: bool
+    portal_collaborator_role_management_delegated: bool
+    portal_collaborator_addition_delegated: bool
+
+
+class PortalAccountSettings(PortalSettingsView):
     admin_override: PortalSettingsOverride
-    delegated_to_portal_managers: bool
-    portal_collaborator_role_management_delegated: bool
-    portal_collaborator_addition_delegated: bool
 
 
-class PortalProjectSettings(ApiModel):
-    effective: PortalEffectiveSettings
-    feature_states: dict[str, FeatureState]
+class PortalProjectSettings(PortalSettingsView):
     project_override: PortalSettingsOverride
-    delegated_to_portal_managers: bool
-    portal_collaborator_role_management_delegated: bool
-    portal_collaborator_addition_delegated: bool
     can_update: bool
