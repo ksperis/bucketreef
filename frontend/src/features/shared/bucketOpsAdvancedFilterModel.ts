@@ -20,13 +20,13 @@ import {
   buildTextFieldRules,
   parseExactListInput,
   resolveTextFilterInputState,
-  serializeAdvancedFilterRules,
 } from "./advancedFilterShared";
-import type {
-  BucketFeatureKey,
-  BucketFilterRule,
-  BucketNumericFilterField,
-  BucketTextFilterField,
+import {
+  serializeBucketFilterRules,
+  type BucketFeatureKey,
+  type BucketFilterRule,
+  type BucketNumericFilterField,
+  type BucketTextFilterField,
 } from "./bucketFilterContract";
 import {
   defaultQuotaAdvancedFilter,
@@ -334,9 +334,9 @@ export const buildAdvancedFilterPayload = (
     if (parsedBasicFilter.values.length === 0) return undefined;
     if (!parsedBasicFilter.listProvided && basicFilterMode === "contains") return trimmedFilter;
     if (parsedBasicFilter.listProvided && parsedBasicFilter.values.length > 1) {
-      return serializeAdvancedFilterRules([{ field: "name", op: "in", value: parsedBasicFilter.values }]);
+      return serializeBucketFilterRules([{ field: "name", op: "in", value: parsedBasicFilter.values }]);
     }
-    return serializeAdvancedFilterRules([{ field: "name", op: "eq", value: trimmedFilter }]);
+    return serializeBucketFilterRules([{ field: "name", op: "eq", value: trimmedFilter }]);
   }
 
   const rules: BucketFilterRule[] = [];
@@ -381,7 +381,7 @@ export const buildAdvancedFilterPayload = (
     rules.push({ field: isStorageOps ? "bucket_identity" : "name", op: "in", value: taggedBuckets });
   }
   if (rules.length === 0) return trimmedFilter || undefined;
-  return serializeAdvancedFilterRules(rules);
+  return serializeBucketFilterRules(rules);
 };
 
 export const hasAdvancedFilters = (

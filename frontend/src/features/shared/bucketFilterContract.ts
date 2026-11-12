@@ -153,3 +153,10 @@ export type BucketFilterRule =
   | BucketFieldFilterRule
   | BucketFeatureStateFilterRule
   | BucketFeatureParamFilterRule;
+
+export type BucketFilterMatch = "all" | "any";
+
+export const serializeBucketFilterRules = (
+  rules: readonly BucketFilterRule[],
+  match: BucketFilterMatch = "all",
+): string => JSON.stringify({ match, rules });

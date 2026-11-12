@@ -8,6 +8,7 @@ import type {
 import type { BucketListingParams } from "../../api/bucketListingTransport";
 import { runWithConcurrencySettled } from "../../utils/concurrency";
 import { collectPaginatedItems } from "../../utils/pagination";
+import { serializeBucketFilterRules } from "./bucketFilterContract";
 
 type BucketOpsNamedBucketPage = {
   items: CephAdminBucket[];
@@ -56,10 +57,10 @@ export async function loadBucketOpsBucketsByNames({
     concurrency,
     async (chunk) => {
       const queryNames = Array.from(new Set(chunk.map(queryBucketName)));
-      const advancedFilter = JSON.stringify({
-        match: "any",
-        rules: [{ field: "name", op: "in", value: queryNames }],
-      });
+      const advancedFilter = serializeBucketFilterRules(
+        [{ field: "name", op: "in", value: queryNames }],
+        "any",
+      );
       return collectPaginatedItems((nextPage) =>
         listBuckets(scopeId, {
           page: nextPage,
