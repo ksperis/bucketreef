@@ -17,6 +17,10 @@ import {
 } from "./bucketBulkOperationsModel";
 import { copyBucketOpsConfigs } from "./bucketOpsConfigCopy";
 import {
+  serializeBucketFilterRules,
+  type BucketFilterRule,
+} from "./bucketFilterContract";
+import {
   decodeCephAdminBucketRef,
   encodeCephAdminBucketRef,
   normalizeBucketName,
@@ -133,16 +137,13 @@ export function useBucketOpsConfigCopy({
         ? null
         : decodeCephAdminBucketRef(bucketRef);
       const queryBucketName = cephAdminRef?.bucketName ?? bucketRef;
-      const rules: Array<Record<string, unknown>> = [
+      const rules: BucketFilterRule[] = [
         { field: "name", op: "in", value: [queryBucketName] },
       ];
       if (cephAdminRef?.tenant) {
         rules.push({ field: "tenant", op: "eq", value: cephAdminRef.tenant });
       }
-      const advancedFilter = JSON.stringify({
-        match: "all",
-        rules,
-      });
+      const advancedFilter = serializeBucketFilterRules(rules);
       const response = await listBuckets(sourceEndpointId, {
         page: 1,
         page_size: 5,

@@ -6,8 +6,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { CephAdminBucket } from "../../api/cephAdminBuckets";
 import type { BucketOpsApi } from "./bucketOpsApi";
+import {
+  serializeBucketFilterRules,
+  type BucketFilterRule,
+} from "./bucketFilterContract";
 import { encodeCephAdminBucketRef } from "./bucketOpsPresentation";
-import { serializeAdvancedFilterRules } from "./advancedFilterShared";
 import { useBucketFeatureTooltips } from "./useBucketFeatureTooltips";
 
 type OwnerTooltipState =
@@ -140,7 +143,7 @@ export function useBucketOpsTooltips({
       }
       const generation = generationRef.current;
 
-      const rules: Array<Record<string, unknown>> = [
+      const rules: BucketFilterRule[] = [
         { field: "name", op: "eq", value: bucket.name },
       ];
       if (bucket.tenant?.trim()) {
@@ -152,7 +155,7 @@ export function useBucketOpsTooltips({
       const response = await listBuckets(selectedScopeId, {
         page: 1,
         page_size: 5,
-        advanced_filter: serializeAdvancedFilterRules(rules),
+        advanced_filter: serializeBucketFilterRules(rules),
         include: ["owner_name"],
         with_stats: false,
       });
