@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Iterator, Optional
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import or_, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -205,19 +205,6 @@ class OperationLeaseService:
                 "Unable to release operation lease %s after failed work",
                 handle.operation_name,
             )
-
-    def current_owner(self, operation_name: str) -> Optional[str]:
-        name = self._normalize_operation_name(operation_name)
-        now = utcnow()
-        owner = self.db.scalars(
-            select(BackendOperationLease.lease_owner)
-            .where(
-                BackendOperationLease.operation_name == name,
-                BackendOperationLease.lease_until > now,
-            )
-            .limit(1)
-        ).first()
-        return str(owner) if owner else None
 
     @staticmethod
     def _normalize_operation_name(operation_name: str) -> str:

@@ -18,6 +18,7 @@ from tests.db_transaction_test_utils import (
     fail_next_sqlite_statement_with_busy_snapshot,
     fail_next_transaction_commit,
 )
+from tests.operation_lease_test_utils import active_operation_lease_owner
 
 
 def test_operation_lease_acquire_conflict_release_and_reacquire(db_session):
@@ -28,13 +29,13 @@ def test_operation_lease_acquire_conflict_release_and_reacquire(db_session):
 
     conflict = service.acquire("healthchecks:run", ttl_seconds=60, owner="backend-b")
     assert conflict is None
-    assert service.current_owner("healthchecks:run") == "backend-a"
+    assert active_operation_lease_owner(db_session, "healthchecks:run") == "backend-a"
 
     service.release(first)
 
     second = service.acquire("healthchecks:run", ttl_seconds=60, owner="backend-b")
     assert second is not None
-    assert service.current_owner("healthchecks:run") == "backend-b"
+    assert active_operation_lease_owner(db_session, "healthchecks:run") == "backend-b"
 
 
 def test_operation_lease_normalizes_operation_name(db_session):
@@ -44,7 +45,7 @@ def test_operation_lease_normalizes_operation_name(db_session):
 
     assert handle is not None
     assert handle.operation_name == "healthchecks:run"
-    assert service.current_owner(" healthchecks:run ") == "backend-a"
+    assert active_operation_lease_owner(db_session, "healthchecks:run") == "backend-a"
 
 
 def test_operation_lease_rejects_blank_operation_name(db_session):
@@ -161,7 +162,7 @@ def test_operation_lease_expired_row_can_be_taken(db_session):
     acquired = service.acquire("cost:daily:2026-07-03", ttl_seconds=60, owner="backend-b")
 
     assert acquired is not None
-    assert service.current_owner("cost:daily:2026-07-03") == "backend-b"
+    assert active_operation_lease_owner(db_session, "cost:daily:2026-07-03") == "backend-b"
 
 
 def test_operation_lease_hold_releases_after_success(db_session):
@@ -169,9 +170,9 @@ def test_operation_lease_hold_releases_after_success(db_session):
 
     with service.hold("usage-history:collect", ttl_seconds=60, owner="backend-a") as lease:
         assert lease is not None
-        assert service.current_owner("usage-history:collect") == "backend-a"
+        assert active_operation_lease_owner(db_session, "usage-history:collect") == "backend-a"
 
-    assert service.current_owner("usage-history:collect") is None
+    assert active_operation_lease_owner(db_session, "usage-history:collect") is None
 
 
 def test_operation_lease_release_rolls_back_when_commit_fails(db_session):
@@ -183,7 +184,7 @@ def test_operation_lease_release_rolls_back_when_commit_fails(db_session):
         with pytest.raises(RuntimeError, match="commit failed"):
             service.release(handle)
 
-    assert service.current_owner("usage-history:rollback-release") == "backend-a"
+    assert active_operation_lease_owner(db_session, "usage-history:rollback-release") == "backend-a"
 
 
 def test_operation_lease_hold_recovers_failed_transaction_before_release(db_session):
@@ -202,7 +203,7 @@ def test_operation_lease_hold_recovers_failed_transaction_before_release(db_sess
             )
             db_session.flush()
 
-    assert service.current_owner(operation_name) is None
+    assert active_operation_lease_owner(db_session, operation_name) is None
     assert db_session.scalar(
         sa.select(sa.func.count()).select_from(BackendOperationLease).where(
             BackendOperationLease.operation_name == operation_name
