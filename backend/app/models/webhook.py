@@ -22,12 +22,14 @@ def _normalize_event_types(values: list[str] | None) -> list[str]:
     return normalized
 
 
-class WebhookEndpointPayload(ApiModel):
+class WebhookEndpointFields(ApiModel):
     name: str
     url: str
     enabled: bool
     event_types: list[str]
 
+
+class WebhookEndpointPayload(WebhookEndpointFields):
     @field_validator("name", mode="before")
     @classmethod
     def normalize_name(cls, value: object) -> str:
@@ -77,12 +79,8 @@ class WebhookDeliveryOut(ApiModel):
     delivered_at: datetime | None
 
 
-class WebhookEndpointOut(ApiModel):
+class WebhookEndpointOut(WebhookEndpointFields):
     id: int
-    name: str
-    url: str
-    enabled: bool
-    event_types: list[str]
     has_signing_secret: bool
     last_delivery: WebhookDeliveryOut | None
     created_at: datetime
