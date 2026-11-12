@@ -19,6 +19,7 @@ from app.models.admin_listing import AdminPaginatedListingRequest
 from app.models.base import ApiModel
 from app.models.pagination import PaginatedResponse
 from app.models.quota import QuotaSizeUnit
+from app.utils.normalize import normalize_optional_whitespace, normalize_whitespace
 
 
 PortalAdminRequestType = Literal[
@@ -67,13 +68,6 @@ _PORTAL_BOOLEAN_SETTING_KEYS = {
 }
 
 
-def _normalize_optional_request_text(value: Optional[str]) -> Optional[str]:
-    if value is None:
-        return None
-    cleaned = " ".join(value.split())
-    return cleaned or None
-
-
 class PortalUserAccessRequestCreate(ApiModel):
     request_type: Literal["portal_user_access"]
     intent: Literal["add", "role_change"]
@@ -88,12 +82,12 @@ class PortalUserAccessRequestCreate(ApiModel):
     def _normalize_target_name(cls, value: Optional[str]) -> Optional[str]:
         if value is None:
             return None
-        cleaned = " ".join(value.split())
+        cleaned = normalize_whitespace(value)
         if not cleaned:
             raise ValueError("Name is required")
         return cleaned
 
-    _normalize_reason = field_validator("reason")(_normalize_optional_request_text)
+    _normalize_reason = field_validator("reason")(normalize_optional_whitespace)
 
     @model_validator(mode="after")
     def _validate_intent_fields(self) -> "PortalUserAccessRequestCreate":
@@ -114,7 +108,7 @@ class PortalUserRemovalRequestCreate(ApiModel):
     target_name: Optional[str] = Field(default=None, max_length=120)
     reason: Optional[str] = Field(default=None, max_length=2000)
 
-    _normalize_optional_text = field_validator("target_name", "reason")(_normalize_optional_request_text)
+    _normalize_optional_text = field_validator("target_name", "reason")(normalize_optional_whitespace)
 
 
 class PortalAccountQuotaChangeRequestCreate(ApiModel):
@@ -124,7 +118,7 @@ class PortalAccountQuotaChangeRequestCreate(ApiModel):
     target_quota_unit: QuotaSizeUnit
     reason: Optional[str] = Field(default=None, max_length=2000)
 
-    _normalize_reason = field_validator("reason")(_normalize_optional_request_text)
+    _normalize_reason = field_validator("reason")(normalize_optional_whitespace)
 
 
 class PortalSettingChangeRequestCreate(ApiModel):
@@ -134,7 +128,7 @@ class PortalSettingChangeRequestCreate(ApiModel):
     value: Optional[PortalSettingValue] = None
     reason: Optional[str] = Field(default=None, max_length=2000)
 
-    _normalize_reason = field_validator("reason")(_normalize_optional_request_text)
+    _normalize_reason = field_validator("reason")(normalize_optional_whitespace)
 
     @model_validator(mode="after")
     def _validate_requested_value(self) -> "PortalSettingChangeRequestCreate":
@@ -176,7 +170,7 @@ class PortalAdminRequestMessageCreate(ApiModel):
     @field_validator("message")
     @classmethod
     def _normalize_message(cls, value: str) -> str:
-        cleaned = " ".join(value.split())
+        cleaned = normalize_whitespace(value)
         if not cleaned:
             raise ValueError("Message is required")
         return cleaned
@@ -185,7 +179,7 @@ class PortalAdminRequestMessageCreate(ApiModel):
 class PortalAdminRequestDecision(ApiModel):
     message: Optional[str] = Field(default=None, max_length=2000)
 
-    _normalize_optional_message = field_validator("message")(_normalize_optional_request_text)
+    _normalize_optional_message = field_validator("message")(normalize_optional_whitespace)
 
 
 class PortalAdminRequestMessageOut(ApiModel):

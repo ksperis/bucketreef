@@ -10,6 +10,7 @@ from pydantic import Field, ValidationInfo, field_validator, model_validator
 
 from app.models.base import ApiModel, reject_explicit_null_fields
 from app.models.user import UserAvatar
+from app.utils.normalize import normalize_whitespace
 from app.utils.resource_names import validate_s3_bucket_name
 
 
@@ -131,7 +132,7 @@ class PortalStorageSpaceCreate(_PortalStorageSpaceProvisioningOptions):
     def _validate_name(cls, value: str, info: ValidationInfo) -> str:
         if info.data.get("naming_mode") == "named_bucket":
             return validate_s3_bucket_name(value)
-        cleaned = " ".join(value.split())
+        cleaned = normalize_whitespace(value)
         if not cleaned:
             raise ValueError("Storage Space name is required")
         return cleaned
@@ -163,7 +164,7 @@ class PortalStorageSpaceUpdate(ApiModel):
     def _validate_name(cls, value: Optional[str]) -> Optional[str]:
         if value is None:
             return value
-        cleaned = " ".join(value.split())
+        cleaned = normalize_whitespace(value)
         if not cleaned:
             raise ValueError("Storage Space name is required")
         return cleaned

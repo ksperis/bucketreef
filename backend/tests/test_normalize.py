@@ -8,8 +8,10 @@ from app.utils.normalize import (
     normalize_optional_email,
     normalize_optional_string,
     normalize_optional_string_field,
+    normalize_optional_whitespace,
     normalize_storage_provider,
     normalize_text,
+    normalize_whitespace,
 )
 
 
@@ -27,6 +29,34 @@ from app.utils.normalize import (
 )
 def test_normalize_optional_string(value, expected):
     assert normalize_optional_string(value) == expected
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("value", "value"),
+        ("  value\n with\tspaces  ", "value with spaces"),
+        ("", ""),
+        ("   ", ""),
+    ],
+)
+def test_normalize_whitespace(value, expected):
+    assert normalize_whitespace(value) == expected
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("value", "value"),
+        ("  value\n with\tspaces  ", "value with spaces"),
+        ("", None),
+        ("   ", None),
+        (None, None),
+        (12, None),
+    ],
+)
+def test_normalize_optional_whitespace(value, expected):
+    assert normalize_optional_whitespace(value) == expected
 
 
 @pytest.mark.parametrize(

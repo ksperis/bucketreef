@@ -39,6 +39,7 @@ from app.services.s3_account_repository import S3AccountRepository
 from app.services.s3_account_rgw_context_service import S3AccountRgwContextService
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.sqlalchemy_pagination import paginate_scalars
+from app.utils.normalize import normalize_whitespace
 from app.utils.size_units import size_to_bytes
 from app.utils.time import utcnow
 
@@ -126,7 +127,7 @@ class PortalRequestsService:
         message: str,
         created_at: datetime,
     ) -> None:
-        clean_message = " ".join(str(message).split())
+        clean_message = normalize_whitespace(str(message))
         if not clean_message:
             return
         row.messages.append(
