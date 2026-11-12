@@ -75,6 +75,7 @@ class PortalStorageSpaceMetadata(Base):
         "PortalStorageSpaceGrant",
         back_populates="storage_space",
         cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
 
