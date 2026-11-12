@@ -100,40 +100,52 @@ class S3ConnectionCreate(S3ConnectionCreationPayload):
     access_browser: bool
 
 
-class S3ConnectionUpdate(CanonicalS3ConnectionEndpointPayload):
+class S3ConnectionUpdateFields(CanonicalS3ConnectionEndpointPayload):
     endpoint_conflict_scope = "S3 connection"
 
     name: Optional[str] = None
     provider_hint: Optional[str] = None
     is_active: Optional[bool] = None
-    access_manager: Optional[bool] = None
-    access_browser: Optional[bool] = None
     rgw_user_uid: Optional[str] = None
     rgw_tenant: Optional[str] = None
     rgw_account_id: Optional[str] = None
     endpoint_url: Optional[str] = None
     region: Optional[str] = None
-    access_key_id: Optional[str] = None
-    secret_access_key: Optional[str] = None
     force_path_style: Optional[bool] = None
     verify_tls: Optional[bool] = None
     tags: OptionalTagDefinitionList = None
 
     @model_validator(mode="after")
-    def reject_non_nullable_nulls(self) -> Self:
+    def reject_common_non_nullable_nulls(self) -> Self:
         reject_explicit_null_fields(
             self,
             (
                 "name",
                 "is_active",
-                "access_manager",
-                "access_browser",
                 "endpoint_url",
-                "access_key_id",
-                "secret_access_key",
                 "force_path_style",
                 "verify_tls",
                 "tags",
+            ),
+        )
+        return self
+
+
+class S3ConnectionUpdate(S3ConnectionUpdateFields):
+    access_manager: Optional[bool] = None
+    access_browser: Optional[bool] = None
+    access_key_id: Optional[str] = None
+    secret_access_key: Optional[str] = None
+
+    @model_validator(mode="after")
+    def reject_access_nulls(self) -> Self:
+        reject_explicit_null_fields(
+            self,
+            (
+                "access_manager",
+                "access_browser",
+                "access_key_id",
+                "secret_access_key",
             ),
         )
         return self
