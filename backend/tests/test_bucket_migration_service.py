@@ -71,6 +71,7 @@ from tests.db_transaction_test_utils import fail_next_sqlite_statement_with_busy
 def _install_in_memory_sync_checkpoints(service, migration, item) -> None:
     migration.id = getattr(migration, "id", None) or 1
     item.id = getattr(item, "id", None) or 1
+    item.migration_id = getattr(item, "migration_id", None) or migration.id
 
     def persist_item_checkpoint(_migration_id, _item_id, mutate):
         mutate(migration, item)
@@ -1438,7 +1439,9 @@ def test_apply_read_only_policy_uses_supported_actions(db_session):
     service = BucketMigrationService(db_session)
     service._configuration = _BucketsStub()  # type: ignore[assignment]
 
-    item = SimpleNamespace(source_policy_backup=None, read_only_applied=False)
+    migration = BucketMigration(source_context_id="source", target_context_id="target")
+    item = BucketMigrationItem(source_bucket="bucket-a", target_bucket="bucket-b")
+    _install_in_memory_sync_checkpoints(service, migration, item)
     service._apply_read_only_policy(source, "bucket-a", item)
 
     statement = (captured["policy"] or {}).get("Statement", [])[0]
@@ -1494,7 +1497,9 @@ def test_apply_target_write_lock_policy_uses_migration_user_agent_condition(db_s
     service = BucketMigrationService(db_session)
     service._configuration = _BucketsStub()  # type: ignore[assignment]
 
-    item = SimpleNamespace(target_policy_backup=None, target_lock_applied=False)
+    migration = BucketMigration(source_context_id="source", target_context_id="target")
+    item = BucketMigrationItem(source_bucket="bucket-a", target_bucket="bucket-b")
+    _install_in_memory_sync_checkpoints(service, migration, item)
     service._apply_target_write_lock_policy(
         SimpleNamespace(execution_context=target),
         "bucket-a",
@@ -1511,6 +1516,34 @@ def test_apply_target_write_lock_policy_uses_migration_user_agent_condition(db_s
     assert "s3:DeleteObject" in actions
     assert isinstance(user_agent_cond, str)
     assert "bucketreef-migration-worker" in user_agent_cond
+
+
+@pytest.mark.parametrize(
+    ("method_name", "message"),
+    [
+        ("_apply_read_only_policy", "Source read-only protection requires a persisted migration item"),
+        ("_apply_target_write_lock_policy", "Target write lock requires a persisted migration item"),
+    ],
+)
+def test_policy_protection_requires_persisted_item_before_remote_io(
+    db_session,
+    method_name,
+    message,
+):
+    service = BucketMigrationService(db_session)
+    service._configuration = SimpleNamespace(get_policy=Mock())  # type: ignore[assignment]
+    item = BucketMigrationItem(source_bucket="source", target_bucket="target")
+
+    method = getattr(service, method_name)
+    if method_name == "_apply_read_only_policy":
+        args = (object(), "source", item)
+    else:
+        args = (SimpleNamespace(execution_context=object()), "target", item)
+
+    with pytest.raises(RuntimeError, match=message):
+        method(*args)
+
+    service._configuration.get_policy.assert_not_called()
 
 
 def test_build_source_copy_grant_policy_uses_target_principal(db_session):
@@ -2321,7 +2354,9 @@ def test_apply_read_only_policy_returns_clear_message_on_access_denied(db_sessio
 
     service = BucketMigrationService(db_session)
     service._configuration = _BucketsStub()  # type: ignore[assignment]
-    item = SimpleNamespace(source_policy_backup=None, read_only_applied=False)
+    migration = BucketMigration(source_context_id="source", target_context_id="target")
+    item = BucketMigrationItem(source_bucket="bucket-a", target_bucket="bucket-b")
+    _install_in_memory_sync_checkpoints(service, migration, item)
 
     with pytest.raises(MigrationPolicyApplyError) as error:
         service._apply_read_only_policy(source, "bucket-a", item)
@@ -2347,7 +2382,9 @@ def test_apply_read_only_policy_types_provider_read_failure(db_session):
 
     service = BucketMigrationService(db_session)
     service._configuration = _BucketsStub()  # type: ignore[assignment]
-    item = SimpleNamespace(source_policy_backup=None, read_only_applied=False)
+    migration = BucketMigration(source_context_id="source", target_context_id="target")
+    item = BucketMigrationItem(source_bucket="bucket-a", target_bucket="bucket-b")
+    _install_in_memory_sync_checkpoints(service, migration, item)
 
     with pytest.raises(MigrationPolicyApplyError) as error:
         service._apply_read_only_policy(source, "bucket-a", item)
@@ -2383,7 +2420,9 @@ def test_apply_read_only_policy_does_not_remap_unexpected_runtime_errors(db_sess
 
     service = BucketMigrationService(db_session)
     service._configuration = _BucketsStub()  # type: ignore[assignment]
-    item = SimpleNamespace(source_policy_backup=None, read_only_applied=False)
+    migration = BucketMigration(source_context_id="source", target_context_id="target")
+    item = BucketMigrationItem(source_bucket="bucket-a", target_bucket="bucket-b")
+    _install_in_memory_sync_checkpoints(service, migration, item)
 
     with pytest.raises(RuntimeError, match="^unexpected policy regression$"):
         service._apply_read_only_policy(source, "bucket-a", item)

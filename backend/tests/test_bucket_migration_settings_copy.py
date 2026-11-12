@@ -7,6 +7,7 @@ from unittest.mock import ANY
 
 import pytest
 
+from app.db import BucketMigration, BucketMigrationItem
 from app.services.bucket_migration.diagnostics import MigrationSettingsCopyError
 from app.services.bucket_migration_service import BucketMigrationService
 from app.services.s3_client import S3OperationError
@@ -122,6 +123,28 @@ class _SettingsStub:
         self._write("set_bucket_logging")
 
 
+def _install_in_memory_checkpoint(service, *, strategy: str):
+    migration = BucketMigration(
+        id=1,
+        source_context_id="source",
+        target_context_id="target",
+    )
+    item = BucketMigrationItem(
+        id=1,
+        migration_id=1,
+        source_bucket="source-bucket",
+        target_bucket="target-bucket",
+        execution_strategy=strategy,
+    )
+
+    def persist_item_checkpoint(_migration_id, _item_id, mutate):
+        mutate(migration, item)
+        return migration, item
+
+    service._persist_item_checkpoint = persist_item_checkpoint  # type: ignore[method-assign]
+    return migration, item
+
+
 def _run_copy(db_session, *, strategy: str, settings: _SettingsStub):
     service = BucketMigrationService(db_session)
     service._configuration = settings  # type: ignore[assignment]
@@ -129,13 +152,14 @@ def _run_copy(db_session, *, strategy: str, settings: _SettingsStub):
     service._add_event = (  # type: ignore[method-assign]
         lambda *_args, **kwargs: events.append(kwargs)
     )
+    migration, item = _install_in_memory_checkpoint(service, strategy=strategy)
     service._copy_bucket_settings(
         object(),
         "source-bucket",
         object(),
         "target-bucket",
-        SimpleNamespace(),
-        SimpleNamespace(execution_strategy=strategy),
+        migration,
+        item,
     )
     return events
 
@@ -197,6 +221,30 @@ def test_copy_bucket_settings_normalizes_versioning_status(db_session):
     ]
 
 
+def test_copy_bucket_settings_requires_persisted_item_before_remote_io(db_session):
+    settings = _SettingsStub()
+    service = BucketMigrationService(db_session)
+    service._configuration = settings  # type: ignore[assignment]
+    migration = BucketMigration(source_context_id="source", target_context_id="target")
+    item = BucketMigrationItem(
+        source_bucket="source-bucket",
+        target_bucket="target-bucket",
+        execution_strategy="current_only",
+    )
+
+    with pytest.raises(RuntimeError, match="requires a persisted migration item"):
+        service._copy_bucket_settings(
+            object(),
+            "source-bucket",
+            object(),
+            "target-bucket",
+            migration,
+            item,
+        )
+
+    assert settings.calls == []
+
+
 def test_copy_bucket_settings_continues_after_failure_and_aggregates(db_session):
     settings = _SettingsStub(fail_write="set_bucket_encryption")
     service = BucketMigrationService(db_session)
@@ -205,6 +253,7 @@ def test_copy_bucket_settings_continues_after_failure_and_aggregates(db_session)
     service._add_event = (  # type: ignore[method-assign]
         lambda *_args, **kwargs: events.append(kwargs)
     )
+    migration, item = _install_in_memory_checkpoint(service, strategy="current_only")
 
     with pytest.raises(
         MigrationSettingsCopyError,
@@ -215,8 +264,8 @@ def test_copy_bucket_settings_continues_after_failure_and_aggregates(db_session)
             "source-bucket",
             object(),
             "target-bucket",
-            SimpleNamespace(),
-            SimpleNamespace(execution_strategy="current_only"),
+            migration,
+            item,
         )
 
     assert ("set_bucket_logging", None) in settings.calls
@@ -246,6 +295,7 @@ def test_copy_bucket_settings_sanitizes_aggregated_failure(db_session):
     service._add_event = (  # type: ignore[method-assign]
         lambda *_args, **kwargs: events.append(kwargs)
     )
+    migration, item = _install_in_memory_checkpoint(service, strategy="current_only")
 
     with pytest.raises(MigrationSettingsCopyError) as error:
         service._copy_bucket_settings(
@@ -253,8 +303,8 @@ def test_copy_bucket_settings_sanitizes_aggregated_failure(db_session):
             "source-bucket",
             object(),
             "target-bucket",
-            SimpleNamespace(),
-            SimpleNamespace(execution_strategy="current_only"),
+            migration,
+            item,
         )
 
     assert "TOPSECRET" not in str(error.value)
@@ -274,6 +324,7 @@ def test_copy_bucket_settings_does_not_mask_unexpected_runtime_failure(db_sessio
     service = BucketMigrationService(db_session)
     service._configuration = settings  # type: ignore[assignment]
     service._add_event = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
+    migration, item = _install_in_memory_checkpoint(service, strategy="current_only")
 
     with pytest.raises(RuntimeError, match="unexpected settings regression"):
         service._copy_bucket_settings(
@@ -281,8 +332,8 @@ def test_copy_bucket_settings_does_not_mask_unexpected_runtime_failure(db_sessio
             "source-bucket",
             object(),
             "target-bucket",
-            SimpleNamespace(),
-            SimpleNamespace(execution_strategy="current_only"),
+            migration,
+            item,
         )
 
     assert ("set_bucket_logging", None) not in settings.calls
