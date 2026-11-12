@@ -41,10 +41,6 @@ class ResolvedUserAccess:
     s3_user_browser_sources: dict[int, tuple[EffectiveAccessSource, ...]] = field(default_factory=dict)
     s3_connection_sources: dict[int, tuple[EffectiveAccessSource, ...]] = field(default_factory=dict)
 
-    @property
-    def account_ids(self) -> list[int]:
-        return [link.account_id for link in self.account_links]
-
     def account_link_for(self, account_id: int) -> EffectiveAccountLink | None:
         return next((link for link in self.account_links if link.account_id == account_id), None)
 
