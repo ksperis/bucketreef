@@ -10,6 +10,7 @@ from pydantic import Field, model_validator
 from app.models.base import ApiModel
 from app.models.bucket_operation import (
     BucketNameList,
+    BucketOperationFailure,
     RgwBucketReferenceList,
     BucketTargetList,
 )
@@ -58,12 +59,8 @@ def bucket_delete_with_purge_confirmation_phrase(bucket_name: str) -> str:
     return f"DELETE BUCKET {bucket_name}"
 
 
-class BucketPurgeFailure(ApiModel):
-    bucket_name: str
+class BucketPurgeFailure(BucketOperationFailure):
     stage: str
-    message: str
-    key: Optional[str]
-    version_id: Optional[str]
     count: int
 
 

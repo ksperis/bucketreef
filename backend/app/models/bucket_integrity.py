@@ -10,6 +10,7 @@ from pydantic import Field
 from app.models.base import ApiModel
 from app.models.bucket_operation import (
     BucketNameList,
+    BucketOperationFailure,
     RgwBucketReferenceList,
     BucketTargetList,
 )
@@ -37,12 +38,8 @@ class BucketIntegrityTargetRequest(BucketIntegrityRequest):
 class BucketIntegrityRgwTargetRequest(BucketIntegrityRequest):
     targets: RgwBucketReferenceList
 
-class BucketIntegrityFailure(ApiModel):
-    bucket_name: str
+class BucketIntegrityFailure(BucketOperationFailure):
     stage: BucketIntegrityFailureStage
-    message: str
-    key: Optional[str]
-    version_id: Optional[str]
 
 
 class BucketIntegrityBucketResult(ApiModel):

@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Hashable
-from typing import Annotated, TypeVar
+from typing import Annotated, Optional, TypeVar
 
 from pydantic import AfterValidator, Field, model_validator
 
@@ -63,6 +63,13 @@ class BucketOperationTarget(ApiModel):
         if not self.bucket_name:
             raise ValueError("bucket_name is required.")
         return self
+
+
+class BucketOperationFailure(ApiModel):
+    bucket_name: str
+    message: str
+    key: Optional[str]
+    version_id: Optional[str]
 
 
 _TargetT = TypeVar("_TargetT", bound=BucketOperationTarget)
