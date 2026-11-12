@@ -38,20 +38,10 @@ from app.services.listing_rule_matching import (
     match_text_rule,
 )
 from app.services.rgw_admin import RGWAdminClient
+from app.utils.cache import clone_pydantic_models
 from app.utils.cancellation import invoke_cancel_check
 from app.utils.rgw_payloads import extract_rgw_user_listing_identity, parse_rgw_bool
 from app.utils.usage_stats import compute_usage_ratio_percent
-
-
-def _clone_user(user: CephAdminRgwUserSummary) -> CephAdminRgwUserSummary:
-    return user.model_copy(deep=True)
-
-
-def _clone_user_list(
-    items: list[CephAdminRgwUserSummary],
-) -> list[CephAdminRgwUserSummary]:
-    return [_clone_user(item) for item in items]
-
 
 def _clear_optional_user_details(item: CephAdminRgwUserSummary) -> None:
     item.account_id = None
@@ -194,7 +184,7 @@ class _UserListingPipeline:
             search_results=self._search,
             page=self.request.page,
             page_size=self.request.page_size,
-            clone=_clone_user_list,
+            clone=clone_pydantic_models,
             enrich_page=self._enrich_page,
             build_response=lambda items, total, has_next: PaginatedCephAdminUsersResponse(
                 items=items,

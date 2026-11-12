@@ -14,6 +14,7 @@ from app.services.s3_execution_client import s3_execution_cache_key
 from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.cache import (
     TtlCacheEntry,
+    clone_pydantic_models,
     get_or_build_single_flight_cache,
     invalidate_single_flight_cache,
 )
@@ -33,14 +34,6 @@ class BucketListingCacheKey:
 _BUCKET_LISTING_CACHE: OrderedDict[BucketListingCacheKey, TtlCacheEntry[list[Bucket]]] = OrderedDict()
 _BUCKET_LISTING_CACHE_LOCK = Lock()
 _BUCKET_LISTING_INFLIGHT: dict[BucketListingCacheKey, Future[list[Bucket]]] = {}
-
-
-def _clone_bucket(item: Bucket) -> Bucket:
-    return item.model_copy(deep=True)
-
-
-def _clone_bucket_list(items: list[Bucket]) -> list[Bucket]:
-    return [_clone_bucket(item) for item in items]
 
 
 def _normalize_include_key(include: set[str]) -> str:
@@ -76,7 +69,7 @@ def get_cached_bucket_listing_for_context(
         builder=builder,
         ttl_seconds=BUCKET_LISTING_CACHE_TTL_SECONDS,
         max_entries=BUCKET_LISTING_CACHE_MAX_ENTRIES,
-        clone_value=_clone_bucket_list,
+        clone_value=clone_pydantic_models,
         future_factory=Future,
         clock=monotonic,
     )

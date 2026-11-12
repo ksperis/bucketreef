@@ -39,6 +39,7 @@ from app.services.listing_filter_query import parse_filter_query
 from app.services.listing_rule_matching import match_numeric_rule, match_text_rule
 from app.services.rgw_admin import RGWAdminClient
 from app.utils.cancellation import invoke_cancel_check
+from app.utils.cache import clone_pydantic_models
 from app.utils.quota_stats import extract_rgw_account_limit, extract_rgw_account_quota_limits
 from app.utils.rgw_payloads import (
     extract_rgw_account_bucket_count,
@@ -49,17 +50,6 @@ from app.utils.rgw_payloads import (
     extract_rgw_account_user_count,
 )
 from app.utils.usage_stats import compute_usage_ratio_percent
-
-
-def _clone_account(account: CephAdminRgwAccountSummary) -> CephAdminRgwAccountSummary:
-    return account.model_copy(deep=True)
-
-
-def _clone_account_list(
-    items: list[CephAdminRgwAccountSummary],
-) -> list[CephAdminRgwAccountSummary]:
-    return [_clone_account(item) for item in items]
-
 
 def _match_account_field_rule(
     account: CephAdminRgwAccountSummary,
@@ -188,7 +178,7 @@ class _AccountListingPipeline:
             search_results=self._search,
             page=self.request.page,
             page_size=self.request.page_size,
-            clone=_clone_account_list,
+            clone=clone_pydantic_models,
             enrich_page=self._enrich_page,
             build_response=lambda items, total, has_next: PaginatedCephAdminAccountsResponse(
                 items=items,
