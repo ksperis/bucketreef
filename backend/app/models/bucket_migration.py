@@ -187,44 +187,6 @@ class BucketMigrationEventView(ApiModel):
     created_at: datetime
 
 
-class BucketMigrationView(ApiModel):
-    id: int
-
-    source_context_id: str
-    target_context_id: str
-    mode: BucketMigrationMode
-    copy_bucket_settings: bool
-    lock_target_writes: bool
-    use_same_endpoint_copy: bool
-    auto_grant_source_read_for_copy: bool
-
-    status: BucketMigrationStatus
-    precheck_report: Optional[BucketMigrationPrecheckReportView]
-    precheck_checked_at: Optional[datetime]
-    configuration_revision: int
-    preparation_status: BucketMigrationPreparationStatus
-    preparation_active_checks: bool
-    preparation_completed_items: int
-    maintenance_operation: Optional[BucketMigrationMaintenanceOperation]
-    maintenance_status: BucketMigrationMaintenanceStatus
-    maintenance_error: Optional[str]
-    available_actions: dict[str, BucketMigrationActionAvailability]
-
-    total_items: int
-    completed_items: int
-    failed_items: int
-    canceled_items: int
-    awaiting_items: int
-
-    error_message: Optional[str]
-    updated_at: datetime
-
-
-class BucketMigrationDetail(BucketMigrationView):
-    items: list[BucketMigrationItemView]
-    recent_events: list[BucketMigrationEventView]
-
-
 class BucketMigrationListItem(ApiModel):
     id: int
     source_context_id: str
@@ -240,6 +202,26 @@ class BucketMigrationListItem(ApiModel):
     canceled_items: int
     awaiting_items: int
     updated_at: datetime
+
+
+class BucketMigrationView(BucketMigrationListItem):
+    mode: BucketMigrationMode
+    copy_bucket_settings: bool
+    lock_target_writes: bool
+    use_same_endpoint_copy: bool
+    auto_grant_source_read_for_copy: bool
+    precheck_report: Optional[BucketMigrationPrecheckReportView]
+    configuration_revision: int
+    preparation_active_checks: bool
+    maintenance_operation: Optional[BucketMigrationMaintenanceOperation]
+    maintenance_error: Optional[str]
+    available_actions: dict[str, BucketMigrationActionAvailability]
+    error_message: Optional[str]
+
+
+class BucketMigrationDetail(BucketMigrationView):
+    items: list[BucketMigrationItemView]
+    recent_events: list[BucketMigrationEventView]
 
 
 class BucketMigrationListResponse(ApiModel):
