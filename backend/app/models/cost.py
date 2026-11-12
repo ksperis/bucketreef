@@ -121,19 +121,10 @@ class CostDailySeriesPoint(ApiModel):
     ops_total: Optional[int]
 
 
-class CostSubjectDetail(ApiModel):
+class CostSubjectDetail(CostSubjectSummary):
     month: str
-    storage_endpoint_id: int
-    storage_endpoint_name: str
-    subject_type: str
-    subject_id: int
-    name: str
-    rgw_identifier: Optional[str]
     daily: list[CostDailySeriesPoint]
-    usage: CostUsageTotals
-    storage: CostStorageTotals
     coverage: CostCoverage
-    cost: Optional[CostBreakdown]
 
 
 class CostHistoryPoint(ApiModel):
