@@ -53,11 +53,17 @@ class S3User(Base):
         passive_deletes=True,
     )
     storage_endpoint = relationship("StorageEndpoint", lazy="joined")
-    tag_links = relationship("S3UserTag", back_populates="s3_user", cascade="all, delete-orphan")
+    tag_links = relationship(
+        "S3UserTag",
+        back_populates="s3_user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
     deletion = relationship(
         "S3UserDeletion",
         back_populates="s3_user",
         cascade="all, delete-orphan",
+        passive_deletes=True,
         uselist=False,
     )
 

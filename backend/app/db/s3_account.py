@@ -83,11 +83,17 @@ class S3Account(Base):
         back_populates="account",
         passive_deletes=True,
     )
-    tag_links = relationship("S3AccountTag", back_populates="account", cascade="all, delete-orphan")
+    tag_links = relationship(
+        "S3AccountTag",
+        back_populates="account",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
     deletion = relationship(
         "S3AccountDeletion",
         back_populates="account",
         cascade="all, delete-orphan",
+        passive_deletes=True,
         uselist=False,
     )
 
