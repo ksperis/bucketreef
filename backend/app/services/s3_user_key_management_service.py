@@ -73,17 +73,16 @@ class S3UserKeyManagementService:
     def list_keys(self, user_id: int) -> list[S3UserAccessKey]:
         s3_user = self.repository.get(user_id)
         admin = self.rgw_context.admin_for_user(s3_user)
-        return self.access_keys.list_keys(s3_user, admin)
+        context = S3ExecutionContext.from_s3_user(s3_user)
+        return self.access_keys.list_keys(context, admin)
 
     def create_access_key_entry(self, user_id: int) -> S3UserGeneratedKey:
         s3_user = self.repository.get(user_id)
         self.repository.ensure_not_pending_deletion(user_id)
         admin = self.rgw_context.admin_for_user(s3_user)
-        self.rgw_context.verified_user_tenant(
-            S3ExecutionContext.from_s3_user(s3_user),
-            admin,
-        )
-        return self.access_keys.create_key(s3_user, admin)
+        context = S3ExecutionContext.from_s3_user(s3_user)
+        self.rgw_context.verified_user_tenant(context, admin)
+        return self.access_keys.create_key(context, admin)
 
     def set_key_status(
         self,
@@ -94,18 +93,14 @@ class S3UserKeyManagementService:
         s3_user = self.repository.get(user_id)
         self.repository.ensure_not_pending_deletion(user_id)
         admin = self.rgw_context.admin_for_user(s3_user)
-        self.rgw_context.verified_user_tenant(
-            S3ExecutionContext.from_s3_user(s3_user),
-            admin,
-        )
-        return self.access_keys.set_key_status(s3_user, admin, access_key, active)
+        context = S3ExecutionContext.from_s3_user(s3_user)
+        self.rgw_context.verified_user_tenant(context, admin)
+        return self.access_keys.set_key_status(context, admin, access_key, active)
 
     def delete_key(self, user_id: int, access_key: str) -> None:
         s3_user = self.repository.get(user_id)
         self.repository.ensure_not_pending_deletion(user_id)
         admin = self.rgw_context.admin_for_user(s3_user)
-        self.rgw_context.verified_user_tenant(
-            S3ExecutionContext.from_s3_user(s3_user),
-            admin,
-        )
-        self.access_keys.delete_key(s3_user, admin, access_key)
+        context = S3ExecutionContext.from_s3_user(s3_user)
+        self.rgw_context.verified_user_tenant(context, admin)
+        self.access_keys.delete_key(context, admin, access_key)

@@ -15,6 +15,7 @@ from app.services.access_key_expiration_service import (
     AccessKeyExpirationService,
     RetryableExpirationError,
 )
+from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.time import utcnow
 from tests.db_transaction_test_utils import (
     fail_next_sqlite_statement_with_busy_snapshot,
@@ -40,9 +41,9 @@ class _FakeS3UserAccessKeyService:
         self.failure = failure
         self.calls: list[tuple] = []
 
-    def list_keys(self, s3_user, _admin) -> list[S3UserAccessKey]:
+    def list_keys(self, context: S3ExecutionContext, _admin) -> list[S3UserAccessKey]:
         assert self.db.in_transaction() is False
-        self.calls.append(("list", s3_user.id))
+        self.calls.append(("list", context.s3_user_id))
         if self.failure is not None:
             raise self.failure
         if self.missing:
@@ -56,9 +57,15 @@ class _FakeS3UserAccessKeyService:
             )
         ]
 
-    def set_key_status(self, s3_user, _admin, access_key: str, active: bool) -> S3UserAccessKey:
+    def set_key_status(
+        self,
+        context: S3ExecutionContext,
+        _admin,
+        access_key: str,
+        active: bool,
+    ) -> S3UserAccessKey:
         assert self.db.in_transaction() is False
-        self.calls.append(("set", s3_user.id, access_key, active))
+        self.calls.append(("set", context.s3_user_id, access_key, active))
         self.active = active
         return S3UserAccessKey(
             access_key_id=access_key,
@@ -264,13 +271,13 @@ def test_s3_user_provider_must_confirm_key_is_inactive(db_session, monkeypatch):
     class UnconfirmedS3UserAccessKeyService(_FakeS3UserAccessKeyService):
         def set_key_status(
             self,
-            s3_user,
+            context: S3ExecutionContext,
             _admin,
             access_key: str,
             active: bool,
         ) -> S3UserAccessKey:
             assert self.db.in_transaction() is False
-            self.calls.append(("set", s3_user.id, access_key, active))
+            self.calls.append(("set", context.s3_user_id, access_key, active))
             return S3UserAccessKey(
                 access_key_id=access_key,
                 status="enabled",

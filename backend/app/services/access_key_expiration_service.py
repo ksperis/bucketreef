@@ -249,13 +249,22 @@ class AccessKeyExpirationService:
         self.db.expunge(endpoint)
         self.db.rollback()
         remote = next(
-            (key for key in access_keys.list_keys(s3_user, admin) if key.access_key_id == access_key_id),
+            (
+                key
+                for key in access_keys.list_keys(execution_context, admin)
+                if key.access_key_id == access_key_id
+            ),
             None,
         )
         if remote is None:
             return self._remove_missing(row_id)
         if remote.is_active:
-            remote = access_keys.set_key_status(s3_user, admin, access_key_id, False)
+            remote = access_keys.set_key_status(
+                execution_context,
+                admin,
+                access_key_id,
+                False,
+            )
             if remote.is_active:
                 raise RetryableExpirationError(
                     "Provider did not confirm the RGW access key as inactive"
