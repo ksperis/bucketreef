@@ -92,16 +92,11 @@ def delete_oidc_provider(db: Session, provider_id: str) -> None:
     _provider_service(db).delete(provider_id)
 
 
-def _environment_provider_map(settings: Optional[Settings] = None) -> dict[str, OIDCProviderSettings]:
-    settings = settings or get_settings()
-    return dict(settings.oidc_providers)
-
-
 def _provider_service(
     db: Session,
     settings: Optional[Settings] = None,
 ) -> IdentityProviderSettingsService[OidcProvider, OIDCProviderSettings, OIDCProviderAdminItem]:
-    environment_providers = _environment_provider_map(settings)
+    environment_providers = dict((settings or get_settings()).oidc_providers)
     return IdentityProviderSettingsService(
         IdentityProviderRepository(db, OidcProvider, environment_providers, "OIDC"),
         environment_providers,
