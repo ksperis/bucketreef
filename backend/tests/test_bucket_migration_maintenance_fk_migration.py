@@ -28,24 +28,30 @@ def _load_migration():
     return migration
 
 
-def _create_legacy_schema(engine) -> None:
+def _create_legacy_schema(
+    engine, *, include_requester_column: bool = True, include_requester_fk: bool = True
+) -> None:
     metadata = sa.MetaData()
     users = sa.Table(
         "users",
         metadata,
         sa.Column("id", sa.Integer(), primary_key=True),
     )
-    sa.Table(
-        "bucket_migrations",
-        metadata,
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("maintenance_requested_by_user_id", sa.Integer(), nullable=True),
-        sa.ForeignKeyConstraint(
-            ["maintenance_requested_by_user_id"],
-            [users.c.id],
-            name="fk_bucket_migrations_maintenance_user",
-        ),
+    bucket_migrations = sa.Table(
+        "bucket_migrations", metadata, sa.Column("id", sa.Integer(), primary_key=True)
     )
+    if include_requester_column:
+        bucket_migrations.append_column(
+            sa.Column("maintenance_requested_by_user_id", sa.Integer(), nullable=True)
+        )
+    if include_requester_fk:
+        bucket_migrations.append_constraint(
+            sa.ForeignKeyConstraint(
+                ["maintenance_requested_by_user_id"],
+                [users.c.id],
+                name="fk_bucket_migrations_maintenance_user",
+            )
+        )
     metadata.create_all(engine)
 
 
@@ -61,6 +67,37 @@ def _ondelete(connection) -> str | None:
 def test_migration_sets_maintenance_requester_foreign_key_to_set_null() -> None:
     engine = sa.create_engine("sqlite:///:memory:")
     _create_legacy_schema(engine)
+    migration = _load_migration()
+
+    with engine.begin() as connection:
+        migration.op = Operations(MigrationContext.configure(connection))
+        migration.upgrade()
+
+        assert _ondelete(connection) == "SET NULL"
+
+
+def test_migration_repairs_missing_maintenance_requester_column() -> None:
+    engine = sa.create_engine("sqlite:///:memory:")
+    _create_legacy_schema(
+        engine, include_requester_column=False, include_requester_fk=False
+    )
+    migration = _load_migration()
+
+    with engine.begin() as connection:
+        migration.op = Operations(MigrationContext.configure(connection))
+        migration.upgrade()
+
+        columns = {
+            item["name"]
+            for item in sa.inspect(connection).get_columns("bucket_migrations")
+        }
+        assert "maintenance_requested_by_user_id" in columns
+        assert _ondelete(connection) == "SET NULL"
+
+
+def test_migration_repairs_missing_maintenance_requester_foreign_key() -> None:
+    engine = sa.create_engine("sqlite:///:memory:")
+    _create_legacy_schema(engine, include_requester_fk=False)
     migration = _load_migration()
 
     with engine.begin() as connection:

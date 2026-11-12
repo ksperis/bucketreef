@@ -25,18 +25,41 @@ _COLUMN = "maintenance_requested_by_user_id"
 _CONSTRAINT = "fk_bucket_migrations_maintenance_user"
 
 
-def _replace_foreign_key(*, ondelete: str | None) -> None:
+def _ensure_foreign_key(*, ondelete: str | None) -> None:
     bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    columns = {item["name"] for item in inspector.get_columns(_TABLE)}
+    if _COLUMN not in columns:
+        with op.batch_alter_table(_TABLE, schema=None) as batch_op:
+            batch_op.add_column(sa.Column(_COLUMN, sa.Integer(), nullable=True))
+            batch_op.create_foreign_key(
+                _CONSTRAINT,
+                "users",
+                [_COLUMN],
+                ["id"],
+                ondelete=ondelete,
+            )
+        return
+
     foreign_key = next(
         (
             item
-            for item in sa.inspect(bind).get_foreign_keys(_TABLE)
+            for item in inspector.get_foreign_keys(_TABLE)
             if item.get("constrained_columns") == [_COLUMN]
         ),
         None,
     )
     if foreign_key is None:
-        raise RuntimeError(f"Cannot locate {_TABLE}.{_COLUMN} foreign key")
+        with op.batch_alter_table(_TABLE, schema=None) as batch_op:
+            batch_op.create_foreign_key(
+                _CONSTRAINT,
+                "users",
+                [_COLUMN],
+                ["id"],
+                ondelete=ondelete,
+            )
+        return
+
     constraint_name = foreign_key.get("name")
     if not constraint_name:
         raise RuntimeError(f"Cannot identify {_TABLE}.{_COLUMN} foreign key")
@@ -53,8 +76,8 @@ def _replace_foreign_key(*, ondelete: str | None) -> None:
 
 
 def upgrade() -> None:
-    _replace_foreign_key(ondelete="SET NULL")
+    _ensure_foreign_key(ondelete="SET NULL")
 
 
 def downgrade() -> None:
-    _replace_foreign_key(ondelete=None)
+    _ensure_foreign_key(ondelete=None)
