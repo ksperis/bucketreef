@@ -87,16 +87,11 @@ def delete_ldap_provider(db: Session, provider_id: str) -> None:
     _provider_service(db).delete(provider_id)
 
 
-def _environment_provider_map(settings: Optional[Settings] = None) -> dict[str, LDAPProviderSettings]:
-    settings = settings or get_settings()
-    return dict(settings.ldap_providers)
-
-
 def _provider_service(
     db: Session,
     settings: Optional[Settings] = None,
 ) -> IdentityProviderSettingsService[LdapProvider, LDAPProviderSettings, LDAPProviderAdminItem]:
-    environment_providers = _environment_provider_map(settings)
+    environment_providers = dict((settings or get_settings()).ldap_providers)
     return IdentityProviderSettingsService(
         IdentityProviderRepository(db, LdapProvider, environment_providers, "LDAP"),
         environment_providers,
