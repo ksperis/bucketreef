@@ -15,8 +15,8 @@ from app.services.s3_execution_client import (
 )
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.sts_service import StsOperationError, get_session_token
-from app.utils.cache import prune_expired_lru_cache
 from app.services.s3_client_options import resolve_s3_client_options
+from app.utils.cache import TtlCacheEntry, prune_expired_lru_cache
 from app.utils.storage_endpoint_features import resolve_feature_flags, resolve_sts_endpoint
 from app.utils.time import assume_utc
 
@@ -40,7 +40,7 @@ class CachedStsCredentials:
         return (expiration - STS_CACHE_TTL_BUFFER).timestamp()
 
 
-_STS_CACHE: OrderedDict[StsCacheKey, CachedStsCredentials] = OrderedDict()
+_STS_CACHE: OrderedDict[StsCacheKey, TtlCacheEntry[CachedStsCredentials]] = OrderedDict()
 _STS_CACHE_LOCK = Lock()
 
 
@@ -67,16 +67,19 @@ def _get_cached_sts_credentials(cache_key: StsCacheKey) -> Optional[CachedStsCre
     now = datetime.now(tz=timezone.utc)
     with _STS_CACHE_LOCK:
         prune_expired_lru_cache(_STS_CACHE, now=now.timestamp(), max_entries=STS_CACHE_MAX_ENTRIES)
-        credentials = _STS_CACHE.get(cache_key)
-        if not credentials:
+        entry = _STS_CACHE.get(cache_key)
+        if not entry:
             return None
         _STS_CACHE.move_to_end(cache_key)
-        return credentials
+        return entry.value
 
 
 def _store_sts_credentials(cache_key: StsCacheKey, credentials: CachedStsCredentials) -> None:
     with _STS_CACHE_LOCK:
-        _STS_CACHE[cache_key] = credentials
+        _STS_CACHE[cache_key] = TtlCacheEntry(
+            expires_at=credentials.expires_at,
+            value=credentials,
+        )
         _STS_CACHE.move_to_end(cache_key)
         prune_expired_lru_cache(
             _STS_CACHE, now=datetime.now(tz=timezone.utc).timestamp(), max_entries=STS_CACHE_MAX_ENTRIES,

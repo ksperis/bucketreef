@@ -7,15 +7,10 @@ from concurrent.futures import Future
 from dataclasses import dataclass
 from threading import Lock
 from time import monotonic
-from typing import Callable, Generic, Protocol, TypeVar
-
-
-class ExpiringCacheEntry(Protocol):
-    expires_at: float
+from typing import Callable, Generic, TypeVar
 
 
 _KeyT = TypeVar("_KeyT")
-_EntryT = TypeVar("_EntryT", bound=ExpiringCacheEntry)
 _ValueT = TypeVar("_ValueT")
 _CacheValueT = TypeVar("_CacheValueT")
 _InflightValueT = TypeVar("_InflightValueT")
@@ -28,7 +23,7 @@ class TtlCacheEntry(Generic[_ValueT]):
 
 
 def prune_expired_lru_cache(
-    cache: OrderedDict[_KeyT, _EntryT],
+    cache: OrderedDict[_KeyT, TtlCacheEntry[_ValueT]],
     *,
     now: float,
     max_entries: int,
