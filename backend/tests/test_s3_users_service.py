@@ -2218,8 +2218,8 @@ def test_delete_user_confirms_missing_remote_in_stored_tenant(db_session, monkey
     service = S3UsersService(db_session)
     monkeypatch.setattr(
         service.rgw_context,
-        "admin_for_user",
-        lambda _s3_user: MissingTenantAdmin(),
+        "admin_for_context",
+        lambda _context: MissingTenantAdmin(),
     )
 
     service.delete_user(row.id, delete_rgw=False)
