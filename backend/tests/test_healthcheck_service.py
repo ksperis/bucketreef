@@ -521,13 +521,27 @@ def test_healthcheck_retention_failure_keeps_atomic_projection_commit(db_session
         check_mode="http",
     )
     monkeypatch.setattr(
+        healthcheck_service,
+        "load_app_settings_for_db",
+        lambda _db: type(
+            "AppSettings",
+            (),
+            {"general": type("General", (), {"endpoint_status_enabled": True})()},
+        )(),
+    )
+    monkeypatch.setattr(
+        HealthCheckService,
+        "_run_endpoint_checks",
+        lambda _self, _targets, *, profiles, baselines: [result],
+    )
+    monkeypatch.setattr(
         HealthCheckPersistenceService,
         "_prune_history_once",
         lambda _self, _cutoff: (_ for _ in ()).throw(RuntimeError("prune failed")),
     )
 
     with pytest.raises(RuntimeError, match="prune failed"):
-        HealthCheckPersistenceService(db_session).record_results([result])
+        HealthCheckService(db_session).run_checks(endpoint_id=endpoint.id)
 
     assert db_session.scalars(select(EndpointHealthCheck)).all()
     assert db_session.scalars(select(EndpointHealthLatest)).all()
