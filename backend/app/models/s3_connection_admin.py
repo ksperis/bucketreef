@@ -5,8 +5,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Any, Literal, Optional, Self
+from typing import Literal, Optional, Self
 
 from pydantic import model_validator
 
@@ -15,12 +14,12 @@ from app.models.base import ApiModel, reject_explicit_null_fields
 from app.models.pagination import PaginatedResponse
 from app.models.tagging import (
     OptionalTagDefinitionList,
-    TagDefinitionSummary,
 )
 from app.models.s3_connection import (
     CanonicalS3ConnectionEndpointPayload,
     S3ConnectionCreationPayload,
     S3ConnectionCredentialsUpdate,
+    S3ConnectionViewFields,
 )
 from app.models.ui_group import UiGroupAvatar
 from app.models.user import UserAssociationDetail, UserAvatar
@@ -47,34 +46,16 @@ class S3ConnectionGroupDetail(ApiModel):
     avatar: Optional[UiGroupAvatar]
 
 
-class S3ConnectionAdminItem(ApiModel):
-    id: int
-    name: str
-    storage_endpoint_id: Optional[int]
-    endpoint_url: str
-    is_active: bool
+class S3ConnectionAdminItem(S3ConnectionViewFields):
     execution_status: S3ConnectionExecutionStatus
     remediation_reason: Optional[str]
-    rgw_user_uid: Optional[str]
-    rgw_tenant: Optional[str]
-    rgw_account_id: Optional[str]
-    provider_hint: Optional[str]
-    region: Optional[str]
-    force_path_style: bool
-    verify_tls: bool
     allow_activity_history: Optional[bool]
-    capabilities: dict[str, Any]
-    created_by_user_id: int
     created_by_email: Optional[str]
     created_by_full_name: Optional[str]
     created_by_avatar: Optional[UserAvatar]
     user_count: int
     user_details: list[UserAssociationDetail]
     group_details: list[S3ConnectionGroupDetail]
-    tags: list[TagDefinitionSummary]
-    last_used_at: Optional[datetime]
-    created_at: Optional[datetime]
-    updated_at: Optional[datetime]
 
 
 class S3ConnectionSummary(ApiModel):

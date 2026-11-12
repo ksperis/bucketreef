@@ -45,24 +45,18 @@ class CanonicalS3ConnectionEndpointPayload(ApiModel):
         return self
 
 
-class S3Connection(ApiModel):
+class S3ConnectionViewFields(ApiModel):
     id: int
     name: str
     provider_hint: Optional[str]
     storage_endpoint_id: Optional[int]
     created_by_user_id: int
-    is_shared: bool
     is_active: bool
-    access_manager: bool
-    access_browser: bool
-    server_managed: bool
-    managed_access_state: Optional[str]
     rgw_user_uid: Optional[str]
     rgw_tenant: Optional[str]
     rgw_account_id: Optional[str]
     endpoint_url: str
     region: Optional[str]
-    access_key_id: str
     force_path_style: bool
     verify_tls: bool
     capabilities: dict[str, Any]
@@ -70,6 +64,15 @@ class S3Connection(ApiModel):
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
     last_used_at: Optional[datetime]
+
+
+class S3Connection(S3ConnectionViewFields):
+    is_shared: bool
+    access_manager: bool
+    access_browser: bool
+    server_managed: bool
+    managed_access_state: Optional[str]
+    access_key_id: str
 
 
 class S3ConnectionCredentialsPayload(CanonicalS3ConnectionEndpointPayload):
