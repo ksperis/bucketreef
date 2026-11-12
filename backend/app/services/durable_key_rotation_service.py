@@ -532,9 +532,9 @@ class DurableKeyRotationService:
         admin: RGWAdminClient,
         kwargs: dict[str, str | None],
         payload: object,
-    ) -> RGWAdminClient:
+    ) -> tuple[RGWAdminClient, RotationTarget, KeyRotationIntent]:
         if intent.phase != "prepared":
-            return admin
+            return admin, target, intent
 
         if not any(
             item.get("access_key") == intent.new_access_key
@@ -596,7 +596,7 @@ class DurableKeyRotationService:
             phase="activated",
             action="activated",
         )
-        self._target_from_db(
+        target = self._target_from_db(
             self.db,
             endpoint_id,
             key_type,
@@ -606,10 +606,9 @@ class DurableKeyRotationService:
         intent = self.db.get(KeyRotationIntent, intent_id, populate_existing=True)
         if intent is None:  # pragma: no cover - defensive consistency check
             raise RuntimeError("Rotation intent could not be reloaded after activation.")
-        if key_type == "endpoint_admin":
-            self.db.get(StorageEndpoint, endpoint_id, populate_existing=True)
-            return self.identities.client_factory(endpoint)
-        return admin
+        if isinstance(target, StorageEndpoint):
+            admin = self.identities.client_factory(target)
+        return admin, target, intent
 
     def _retire_previous_key(
         self,
@@ -843,7 +842,7 @@ class DurableKeyRotationService:
                 admin,
                 deactivate_only=deactivate_only,
             )
-            admin = self._activate_replacement(
+            admin, target, intent = self._activate_replacement(
                 endpoint,
                 key_type,
                 target,
@@ -852,6 +851,8 @@ class DurableKeyRotationService:
                 kwargs,
                 payload,
             )
+            if isinstance(target, StorageEndpoint):
+                endpoint = target
             result = self._retire_previous_key(
                 endpoint,
                 key_type,
