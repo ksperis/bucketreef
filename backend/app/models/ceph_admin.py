@@ -8,6 +8,7 @@ from pydantic import Field, ValidationError, ValidationInfo, field_validator, mo
 from app.models.base import ApiModel, reject_explicit_null_fields
 from app.models.bucket_listing import BucketListingSummary
 from app.models.pagination import PaginatedResponse
+from app.models.storage_endpoint import StorageEndpointPublic
 from app.models.storage_stats import BucketUsagePoint
 from app.models.tagging import TagDefinitionSummary
 from app.utils.rgw_identifiers import validate_rgw_account_name, validate_rgw_tenant, validate_rgw_user_uid
@@ -30,13 +31,9 @@ def _safe_rgw_user_extra_params(value: dict[str, Any]) -> dict[str, Any]:
         ) from error
     return value
 
-class CephAdminEndpoint(ApiModel):
-    id: int
-    name: str
-    endpoint_url: str
+class CephAdminEndpoint(StorageEndpointPublic):
     admin_endpoint: Optional[str]
     region: Optional[str]
-    is_default: bool
     capabilities: dict[str, bool]
     tags: list[TagDefinitionSummary]
 
