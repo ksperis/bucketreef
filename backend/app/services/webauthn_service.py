@@ -146,7 +146,7 @@ class WebAuthnService:
                 created_at=created_at,
             )
             write_user.auth_version += 1
-            write_db.add_all([row, write_user])
+            write_db.add(row)
 
         run_replayable_db_unit(self.db, persist_once)
         row = self.db.scalar(
@@ -326,7 +326,6 @@ class WebAuthnService:
                 raise LastRequiredPasskeyError("This account must keep at least one passkey")
             row.revoked_at = revoked_at
             write_user.auth_version += 1
-            write_db.add_all([row, write_user])
 
         run_replayable_db_unit(self.db, revoke_once)
 
