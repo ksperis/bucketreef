@@ -40,9 +40,7 @@ class BucketUsageStatsDistributionEntry(ApiModel):
     ratio_bytes: float
 
 
-class BucketUsageStatsSnapshotData(ApiModel):
-    scan_mode: BucketUsageStatsScanMode
-    version_listing_available: bool
+class BucketUsageStatsMetrics(ApiModel):
     object_version_count: int
     current_version_count: int
     noncurrent_version_count: int
@@ -55,6 +53,11 @@ class BucketUsageStatsSnapshotData(ApiModel):
     size_distribution: list[BucketUsageStatsDistributionEntry]
     age_distribution: list[BucketUsageStatsDistributionEntry]
     current_vs_noncurrent: list[BucketUsageStatsDistributionEntry]
+
+
+class BucketUsageStatsSnapshotData(BucketUsageStatsMetrics):
+    scan_mode: BucketUsageStatsScanMode
+    version_listing_available: bool
     calculated_at: datetime
 
 
@@ -71,7 +74,7 @@ class BucketUsageStatsLatestResponse(ApiModel):
     snapshot: Optional[BucketUsageStatsSnapshot]
 
 
-class BucketUsageStatsAggregate(ApiModel):
+class BucketUsageStatsAggregate(BucketUsageStatsMetrics):
     scope_kind: str
     scope_id: str
     scope_name: Optional[str]
@@ -82,18 +85,6 @@ class BucketUsageStatsAggregate(ApiModel):
     buckets_with_snapshot: int
     missing_bucket_count: int
     partial_scan_count: int
-    object_version_count: int
-    current_version_count: int
-    noncurrent_version_count: int
-    delete_marker_count: int
-    total_bytes: int
-    current_bytes: int
-    noncurrent_bytes: int
-    data_type_distribution: list[BucketUsageStatsDistributionEntry]
-    storage_class_distribution: list[BucketUsageStatsDistributionEntry]
-    size_distribution: list[BucketUsageStatsDistributionEntry]
-    age_distribution: list[BucketUsageStatsDistributionEntry]
-    current_vs_noncurrent: list[BucketUsageStatsDistributionEntry]
     warnings: list[str]
     oldest_snapshot_at: Optional[datetime]
     newest_snapshot_at: Optional[datetime]
