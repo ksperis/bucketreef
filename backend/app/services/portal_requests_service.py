@@ -404,7 +404,6 @@ class PortalRequestsService:
                 created_at=message_at,
             )
             row.updated_at = message_at
-            write_db.add(row)
             write_db.flush()
             return int(row.id)
 
@@ -459,7 +458,6 @@ class PortalRequestsService:
                     message=message,
                     created_at=decided_at,
                 )
-            write_db.add(row)
             return int(row.id)
 
         run_replayable_db_unit(self.db, reject_once)
@@ -496,7 +494,6 @@ class PortalRequestsService:
             self._ensure_pending(row)
             row.status = "processing"
             row.updated_at = processing_at
-            write_db.add(row)
             return int(row.id)
 
         run_replayable_db_unit(self.db, mark_processing_once)
@@ -558,7 +555,6 @@ class PortalRequestsService:
                 decided_at=decided_at,
             )
             row.error_message = detail
-            write_db.add(row)
 
         run_replayable_db_unit(self.db, finalize_once)
         return self._load_request(request_id)
@@ -597,7 +593,6 @@ class PortalRequestsService:
                     message=message,
                     created_at=decided_at,
                 )
-            write_db.add(row)
 
         run_replayable_db_unit(self.db, finalize_once)
         return self._load_request(request_id)
