@@ -48,7 +48,6 @@ class MfaResetService:
                 .execution_options(synchronize_session=False)
             ).rowcount
             target.auth_version += 1
-            write_db.add(target)
             AuthSessionService(write_db).revoke_all_for_user_in_transaction(
                 target,
                 reason,

@@ -235,7 +235,6 @@ class WebAuthnService:
                 raise WebAuthnSecurityError("WebAuthn signature counter replay detected")
             current.sign_count = new_sign_count
             current.last_used_at = last_used_at
-            write_db.add(current)
             return current.id
 
         row_id = run_replayable_db_unit(self.db, persist_once)

@@ -447,7 +447,6 @@ class AuthSessionService:
                 raise AuthSessionError("Session expired or invalid")
             current.auth_type = "webauthn"
             current.mfa_verified_at = now
-            write_db.add(current)
             return current.id
 
         run_replayable_db_unit(self.db, mark_once)

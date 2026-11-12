@@ -180,7 +180,6 @@ class UserUpdateService:
                 payload,
                 password_hash=staged_password_hash,
             )
-            write_db.add(current)
             write_db.flush()
             return int(current.id), security_changed
 
@@ -310,7 +309,6 @@ class UserUpdateService:
                 payload,
                 password_hash=staged_password_hash,
             )
-            write_db.add(current)
             return int(current.id), password_changed
 
         persisted_user_id, password_changed = run_replayable_db_unit(

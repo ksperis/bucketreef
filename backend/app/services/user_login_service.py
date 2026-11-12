@@ -54,14 +54,12 @@ class UserLoginService:
             if updated_hash:
                 current.hashed_password = updated_hash
                 current.auth_version += 1
-                write_db.add(current)
                 AuthSessionService(write_db).revoke_all_for_user_in_transaction(
                     current,
                     "password_rehashed",
                     increment_version=False,
                 )
             current.last_login_at = logged_in_at
-            write_db.add(current)
             return user_id
 
         run_replayable_db_unit(self.db, persist_once)
