@@ -8,6 +8,7 @@ from app.db import User
 from app.models.s3_user import S3User as S3UserSchema, S3UserAccessKey, S3UserGeneratedKey
 from app.services.durable_key_rotation_service import DurableKeyRotationService
 from app.services.rgw_admin import RGWAdminError
+from app.services.s3_execution_context import S3ExecutionContext
 from app.services.s3_user_access_key_service import S3UserAccessKeyService
 from app.services.s3_user_associations_service import S3UserAssociationsService
 from app.services.s3_user_query_service import S3UserQueryService
@@ -78,7 +79,10 @@ class S3UserKeyManagementService:
         s3_user = self.repository.get(user_id)
         self.repository.ensure_not_pending_deletion(user_id)
         admin = self.rgw_context.admin_for_user(s3_user)
-        self.rgw_context.verified_user_tenant(s3_user, admin)
+        self.rgw_context.verified_user_tenant(
+            S3ExecutionContext.from_s3_user(s3_user),
+            admin,
+        )
         return self.access_keys.create_key(s3_user, admin)
 
     def set_key_status(
@@ -90,12 +94,18 @@ class S3UserKeyManagementService:
         s3_user = self.repository.get(user_id)
         self.repository.ensure_not_pending_deletion(user_id)
         admin = self.rgw_context.admin_for_user(s3_user)
-        self.rgw_context.verified_user_tenant(s3_user, admin)
+        self.rgw_context.verified_user_tenant(
+            S3ExecutionContext.from_s3_user(s3_user),
+            admin,
+        )
         return self.access_keys.set_key_status(s3_user, admin, access_key, active)
 
     def delete_key(self, user_id: int, access_key: str) -> None:
         s3_user = self.repository.get(user_id)
         self.repository.ensure_not_pending_deletion(user_id)
         admin = self.rgw_context.admin_for_user(s3_user)
-        self.rgw_context.verified_user_tenant(s3_user, admin)
+        self.rgw_context.verified_user_tenant(
+            S3ExecutionContext.from_s3_user(s3_user),
+            admin,
+        )
         self.access_keys.delete_key(s3_user, admin, access_key)
