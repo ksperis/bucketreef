@@ -118,7 +118,12 @@ class S3Connection(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
-    tag_links = relationship("S3ConnectionTag", back_populates="connection", cascade="all, delete-orphan")
+    tag_links = relationship(
+        "S3ConnectionTag",
+        back_populates="connection",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
     managed_private_access = relationship(
         "ManagedPrivateAccess",
         back_populates="connection",
