@@ -24,6 +24,16 @@ PortalServerAccessLogFilterOp = Literal[
     "is_null",
     "not_null",
 ]
+PortalServerAccessLogFilterValue = Union[
+    str,
+    int,
+    float,
+    bool,
+    list[str],
+    list[int],
+    list[float],
+    list[bool],
+]
 
 
 class PortalServerAccessRequesterIdentity(ApiModel):
@@ -40,12 +50,21 @@ class PortalServerAccessRequesterIdentity(ApiModel):
 class PortalServerAccessLogFilterRule(ApiModel):
     field: PortalServerAccessLogFilterField
     op: PortalServerAccessLogFilterOp
-    value: Optional[Union[str, int, float, bool, list[str], list[int], list[float], list[bool]]] = None
+    value: Optional[PortalServerAccessLogFilterValue] = None
 
     @model_validator(mode="after")
     def validate_rule(self):
-        if self.op not in ("is_null", "not_null") and self.value is None:
+        if self.op in ("is_null", "not_null"):
+            if self.value is not None:
+                raise ValueError("Portal server access log null-check filter rule does not accept value.")
+            return self
+        if self.value is None:
             raise ValueError("Portal server access log filter rule requires value.")
+        if self.op in ("in", "not_in"):
+            if not isinstance(self.value, list):
+                raise ValueError("Portal server access log in/not_in filter rule requires a list value.")
+        elif isinstance(self.value, list):
+            raise ValueError("Portal server access log scalar filter rule does not accept a list value.")
         return self
 
 

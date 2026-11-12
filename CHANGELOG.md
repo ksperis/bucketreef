@@ -4,6 +4,7 @@
 
 ### Changed
 
+- Validate Portal server access-log advanced-filter scalar/list/null value shapes at the API boundary and remove unreachable matcher fallbacks.
 - Validate Ceph Admin account and user advanced-filter field/operator/value shapes at the API boundary and remove unreachable identity-listing enrichment branches.
 - Validate shared Ceph Admin and Storage Ops advanced bucket filter rules against the exact field/operator/value-shape contract, removing matcher fallbacks for malformed field and feature-parameter rules.
 - Validate shared Ceph Admin and Storage Ops bucket listing sort fields and UI-tag match mode at the API boundary, removing silent runtime fallback to name sorting or `any` tag matching.
@@ -13,6 +14,7 @@
 
 ### Upgrade notes
 
+- Deploy the matching backend and bundled frontend together because Portal server access-log advanced filters now reject invalid scalar/list/null value shapes instead of silently evaluating malformed rules. No database migration is required.
 - Deploy the matching backend and bundled frontend together because Ceph Admin account/user advanced filters now reject unsupported field/operator combinations and invalid scalar/list/null value shapes instead of silently evaluating malformed rules. No database migration is required.
 - Deploy the matching backend and bundled frontend together because shared Ceph Admin/Storage Ops advanced bucket filters now reject unsupported field/operator combinations and invalid scalar/list/null value shapes instead of silently evaluating malformed rules. No database migration is required.
 - Deploy the matching backend and bundled frontend together because shared Ceph Admin/Storage Ops bucket listings now reject unknown `sort_by` and `ui_tag_match` values instead of silently normalizing them. No database migration is required.

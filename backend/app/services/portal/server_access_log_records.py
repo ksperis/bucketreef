@@ -15,6 +15,7 @@ from urllib.parse import unquote
 from app.models.portal_storage_spaces import PortalStorageSpaceSummary
 from app.models.portal_access_logs import (
     PortalServerAccessLogEntry,
+    PortalServerAccessLogFilterField,
     PortalServerAccessLogFilterQuery,
     PortalServerAccessLogFilterRule,
 )
@@ -285,14 +286,15 @@ def _result_filter_values(entry: PortalServerAccessLogEntry) -> list[str]:
     return _filter_value_texts([entry.status_code, entry.error_code, result_label])
 
 
-def _filter_values(entry: PortalServerAccessLogEntry, field: str) -> list[str]:
-    if entry_fields := _ENTRY_FILTER_FIELDS.get(field):
-        return _filter_value_texts([getattr(entry, name) for name in entry_fields])
+def _filter_values(
+    entry: PortalServerAccessLogEntry,
+    field: PortalServerAccessLogFilterField,
+) -> list[str]:
     if field == "identity":
         return _identity_filter_values(entry)
     if field == "result":
         return _result_filter_values(entry)
-    return []
+    return _filter_value_texts([getattr(entry, name) for name in _ENTRY_FILTER_FIELDS[field]])
 
 
 def _matches_filter_rule(
@@ -308,9 +310,7 @@ def _matches_filter_rule(
     candidates = _filter_value_texts(rule.value)
     if not candidates:
         return False
-    matcher = _FILTER_VALUE_MATCHERS.get(_FILTER_MATCH_OP.get(op, op))
-    if matcher is None:
-        return False
+    matcher = _FILTER_VALUE_MATCHERS[_FILTER_MATCH_OP.get(op, op)]
     matched = any(matcher(value, candidate) for value in values for candidate in candidates)
     if op in _NEGATED_FILTER_OPS:
         return bool(values) and not matched

@@ -56,6 +56,32 @@ export type PortalServerAccessLogEntry = {
   log_object_key: string;
 };
 
+export type PortalServerAccessLogFilterField =
+  | "action"
+  | "space"
+  | "path"
+  | "identity"
+  | "result";
+
+type PortalServerAccessLogFilterScalar = string | number | boolean;
+
+export type PortalServerAccessLogFilterRule =
+  | {
+      field: PortalServerAccessLogFilterField;
+      op: "is_null" | "not_null";
+      value?: never;
+    }
+  | {
+      field: PortalServerAccessLogFilterField;
+      op: "in" | "not_in";
+      value: PortalServerAccessLogFilterScalar[];
+    }
+  | {
+      field: PortalServerAccessLogFilterField;
+      op: "eq" | "neq" | "contains" | "starts_with" | "ends_with";
+      value: PortalServerAccessLogFilterScalar;
+    };
+
 type PortalServerAccessLogPage = {
   entries: PortalServerAccessLogEntry[];
   total: number;
