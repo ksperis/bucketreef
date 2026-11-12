@@ -12,7 +12,12 @@ from typing import Callable
 from app.models.bucket_listing import BucketListingSummary
 from app.services.bucket_owner_enrichment import BucketOwnerUsage
 from app.services.ceph_admin_context import CephAdminContext
-from app.utils.cache import TtlCacheEntry, get_or_build_single_flight_cache, prune_expired_lru_cache
+from app.utils.cache import (
+    TtlCacheEntry,
+    clone_pydantic_models,
+    get_or_build_single_flight_cache,
+    prune_expired_lru_cache,
+)
 from app.utils.rgw_payloads import extract_bucket_list
 
 
@@ -59,7 +64,7 @@ _CACHE_LOCK = Lock()
 
 
 def clone_ceph_admin_bucket_list(items: list[BucketListingSummary]) -> list[BucketListingSummary]:
-    return [item.model_copy(deep=True) for item in items]
+    return clone_pydantic_models(items)
 
 
 def _cached_rgw_bucket_entries_locked(key: _RgwBucketPayloadCacheKey) -> list[dict] | None:

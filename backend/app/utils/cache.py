@@ -9,17 +9,24 @@ from threading import Lock
 from time import monotonic
 from typing import Callable, Generic, TypeVar
 
+from pydantic import BaseModel
+
 
 _KeyT = TypeVar("_KeyT")
 _ValueT = TypeVar("_ValueT")
 _CacheValueT = TypeVar("_CacheValueT")
 _InflightValueT = TypeVar("_InflightValueT")
+_ModelT = TypeVar("_ModelT", bound=BaseModel)
 
 
 @dataclass
 class TtlCacheEntry(Generic[_ValueT]):
     expires_at: float
     value: _ValueT
+
+
+def clone_pydantic_models(items: list[_ModelT]) -> list[_ModelT]:
+    return [item.model_copy(deep=True) for item in items]
 
 
 def prune_expired_lru_cache(
