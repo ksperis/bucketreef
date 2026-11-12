@@ -8,7 +8,8 @@ from app.utils.normalize import normalize_text
 
 
 def feature_param_quantifier(rule: BucketFilterRule) -> str:
-    return "none" if (rule.quantifier or "").strip().lower() == "none" else "any"
+    assert rule.quantifier is not None
+    return rule.quantifier
 
 
 def match_text_value(left: str | None, op: str, right_raw: object) -> bool:

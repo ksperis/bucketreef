@@ -126,11 +126,13 @@ def encode_storage_ops_bucket_ref(context_id: str, bucket_name: str) -> str:
 
 def match_storage_ops_field_rule(
     bucket: StorageOpsBucketSummary,
-    rule,
+    rule: BucketFilterRule,
 ) -> bool:
+    assert rule.field is not None
+    assert rule.op is not None
     if rule.field != "name":
         return match_bucket_field_rule(bucket, rule)
-    op = rule.op or ""
+    op = rule.op
     if op in {"is_null", "not_null"}:
         return match_bucket_field_rule(bucket, rule)
     encoded_name = encode_storage_ops_bucket_ref(

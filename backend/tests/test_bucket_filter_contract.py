@@ -17,7 +17,7 @@ from app.models.bucket_filter import BucketFilterRule
         ({"field": "name", "value": "bucket-a"}, "Field rule requires op."),
         (
             {"field": "name", "op": "has", "value": "bucket-a"},
-            "Field rule does not support has/has_not op.",
+            "Bucket field 'name' does not support op 'has'.",
         ),
         ({"field": "name", "op": "eq"}, "Field rule requires value."),
         (
@@ -44,6 +44,44 @@ from app.models.bucket_filter import BucketFilterRule
     ],
 )
 def test_bucket_filter_rule_rejects_invalid_shapes(payload, message):
+    with pytest.raises(ValidationError, match=message.replace(".", r"\.")):
+        BucketFilterRule.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        (
+            {"field": "name", "op": "gt", "value": "bucket-a"},
+            "Bucket field 'name' does not support op 'gt'.",
+        ),
+        (
+            {"field": "owner_suspended", "op": "contains", "value": True},
+            "Bucket field 'owner_suspended' does not support op 'contains'.",
+        ),
+        (
+            {"field": "used_bytes", "op": "contains", "value": 10},
+            "Bucket field 'used_bytes' does not support op 'contains'.",
+        ),
+        (
+            {"field": "tag", "op": "gte", "value": "env=prod"},
+            "Bucket field 'tag' does not support op 'gte'.",
+        ),
+        (
+            {"field": "name", "op": "in", "value": "bucket-a"},
+            "Field rule in/not_in op requires a list value.",
+        ),
+        (
+            {"field": "name", "op": "eq", "value": ["bucket-a"]},
+            "Field rule scalar op does not accept a list value.",
+        ),
+        (
+            {"field": "tenant", "op": "is_null", "value": "legacy"},
+            "Null-check field rule does not accept value.",
+        ),
+    ],
+)
+def test_bucket_filter_field_rule_rejects_unsupported_operator_and_value_shapes(payload, message):
     with pytest.raises(ValidationError, match=message.replace(".", r"\.")):
         BucketFilterRule.model_validate(payload)
 
@@ -117,3 +155,15 @@ def test_feature_param_rule_preserves_none_quantifier():
 def test_feature_param_rule_rejects_contract_violations(payload, message):
     with pytest.raises(ValidationError, match=message.replace(".", r"\.")):
         BucketFilterRule.model_validate(payload)
+
+
+def test_feature_param_rule_rejects_list_value():
+    with pytest.raises(ValidationError, match="Feature param rule requires a scalar value\\."):
+        BucketFilterRule.model_validate(
+            {
+                "feature": "server_side_encryption",
+                "param": "sse_algorithm",
+                "op": "eq",
+                "value": ["AES256"],
+            }
+        )

@@ -36,21 +36,20 @@ _SCALAR_FEATURE_PARAM_SOURCE_BY_PARAM: dict[str, str] = {
 }
 
 
-def _feature_param_source(rule: BucketFilterRule) -> str | None:
-    if not rule.feature or not rule.param:
-        return None
+def _feature_param_source(rule: BucketFilterRule) -> str:
+    assert rule.feature is not None
+    assert rule.param is not None
     grouped_source = grouped_feature_param_source(rule.feature, rule.param)
     if grouped_source:
         return grouped_source
-    return _SCALAR_FEATURE_PARAM_SOURCE_BY_PARAM.get(rule.param)
+    return _SCALAR_FEATURE_PARAM_SOURCE_BY_PARAM[rule.param]
 
 
 def _match_scalar_param_rule(rule: BucketFilterRule, snapshot: dict[str, object]) -> bool:
-    if not rule.feature or not rule.param or not (rule.op or "").strip():
-        return False
-    source = _SCALAR_FEATURE_PARAM_SOURCE_BY_PARAM.get(rule.param)
-    if source is None:
-        return False
+    assert rule.feature is not None
+    assert rule.param is not None
+    assert rule.op is not None
+    source = _SCALAR_FEATURE_PARAM_SOURCE_BY_PARAM[rule.param]
     source_data = snapshot.get(source, FEATURE_PARAM_UNAVAILABLE)
     if source_data is FEATURE_PARAM_UNAVAILABLE:
         return False
@@ -68,8 +67,11 @@ def match_bucket_feature_param_rules(
     grouped_rules = {feature: [] for feature in grouped_feature_names()}
     scalar_rules: list[BucketFilterRule] = []
     for rule in rules:
-        feature = rule.feature or ""
-        param = rule.param or ""
+        feature = rule.feature
+        param = rule.param
+        assert feature is not None
+        assert param is not None
+        assert rule.op is not None
         if grouped_feature_param_source(feature, param):
             grouped_rules[feature].append(rule)
         else:
@@ -80,7 +82,8 @@ def match_bucket_feature_param_rules(
         if not feature_rules:
             continue
         source = grouped_feature_source(feature)
-        source_data = snapshot.get(source, FEATURE_PARAM_UNAVAILABLE) if source else FEATURE_PARAM_UNAVAILABLE
+        assert source is not None
+        source_data = snapshot.get(source, FEATURE_PARAM_UNAVAILABLE)
         results.append(
             False
             if source_data is FEATURE_PARAM_UNAVAILABLE
@@ -97,8 +100,4 @@ def match_bucket_feature_param_rules(
 
 
 def required_feature_param_sources(rules: list[BucketFilterRule]) -> set[str]:
-    return {
-        source
-        for rule in rules
-        if (source := _feature_param_source(rule)) is not None
-    }
+    return {_feature_param_source(rule) for rule in rules}

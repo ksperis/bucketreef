@@ -108,5 +108,7 @@ def validate_bucket_feature_param(
         raise ValueError(f"Feature param '{param}' does not support op '{operation}'.")
     if contract.requires_value and value is None:
         raise ValueError("Feature param rule requires value.")
+    if contract.requires_value and isinstance(value, list):
+        raise ValueError("Feature param rule requires a scalar value.")
     if not contract.requires_value and value is not None:
         raise ValueError("Feature param rule does not accept value.")
