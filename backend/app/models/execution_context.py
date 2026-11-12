@@ -43,28 +43,6 @@ class ExecutionDestination(ApiModel):
     storage_endpoint_capabilities: dict[str, bool]
 
 
-class ExecutionContext(ApiModel):
-    kind: Literal["account", "connection", "s3_user", "portal_account", "openstack_project"]
-    id: str
-    display_name: str
-    connection_scope: Optional[Literal["shared", "private"]]
-    manager_role: Optional[ManagerAccountRoleValue]
-    portal_role: Optional[PortalAccountRoleValue]
-    rgw_account_id: Optional[str]
-    endpoint_id: Optional[int]
-    endpoint_name: str
-    endpoint_is_default: bool
-    endpoint_provider: Optional[Literal["ceph", "aws", "other"]]
-    endpoint_url: str
-    storage_endpoint_capabilities: dict[str, bool]
-    destination_switching_allowed: bool
-    execution_destinations: list[ExecutionDestination]
-    tags: list[TagDefinitionSummary]
-    endpoint_tags: list[TagDefinitionSummary]
-    capabilities: ExecutionContextCapabilities
-    openstack: Optional[OpenStackExecutionContextMetadata] = None
-
-
 class ExecutionContextOption(ApiModel):
     kind: Literal["account", "connection", "s3_user", "portal_account", "openstack_project"]
     id: str
@@ -72,6 +50,22 @@ class ExecutionContextOption(ApiModel):
     manager_role: Optional[ManagerAccountRoleValue]
     endpoint_id: Optional[int]
     endpoint_url: str
+
+
+class ExecutionContext(ExecutionContextOption):
+    connection_scope: Optional[Literal["shared", "private"]]
+    portal_role: Optional[PortalAccountRoleValue]
+    rgw_account_id: Optional[str]
+    endpoint_name: str
+    endpoint_is_default: bool
+    endpoint_provider: Optional[Literal["ceph", "aws", "other"]]
+    storage_endpoint_capabilities: dict[str, bool]
+    destination_switching_allowed: bool
+    execution_destinations: list[ExecutionDestination]
+    tags: list[TagDefinitionSummary]
+    endpoint_tags: list[TagDefinitionSummary]
+    capabilities: ExecutionContextCapabilities
+    openstack: Optional[OpenStackExecutionContextMetadata] = None
 
 
 class ExecutionContextOptionListingRequest(OptionListingRequest):
