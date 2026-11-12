@@ -152,18 +152,6 @@ class ApiTokenService:
             return None
         return user, row
 
-    def mark_used(self, row: ApiToken) -> None:
-        token_id = str(row.id)
-        last_used_at = utcnow()
-
-        def persist(write_db: Session) -> None:
-            target = write_db.get(ApiToken, token_id)
-            if target is not None:
-                target.last_used_at = last_used_at
-
-        run_replayable_db_unit(self.db, persist)
-        self.db.get(ApiToken, token_id, populate_existing=True)
-
     def resolve_and_mark_used(
         self,
         claims: dict,
