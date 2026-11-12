@@ -19,6 +19,7 @@ from app.models.browser import (
 )
 from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionContext
+from app.utils.time import assume_utc
 
 from .cache import OBJECT_LIST_CACHE, OBJECT_SORT_SNAPSHOT_CACHE
 from .default_listing import DefaultObjectListingLoader, DefaultObjectScanOptions
@@ -201,7 +202,7 @@ class BrowserListingMixin:
             ),
             matches_query=self._build_query_matcher(request),
             clean_etag=self._clean_etag,
-            normalize_datetime=self._normalize_datetime_value,
+            normalize_datetime=assume_utc,
         ).build()
         OBJECT_SORT_SNAPSHOT_CACHE.set(snapshot_cache_key, snapshot)
         return snapshot

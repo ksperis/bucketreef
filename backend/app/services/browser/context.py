@@ -31,7 +31,6 @@ from app.services.s3_execution_context import (
 from app.services.rgw_bucket_target import split_explicit_rgw_s3_bucket_name
 from app.services.s3_client_options import resolve_s3_client_kwargs
 from app.utils.aws_errors import aws_error_code
-from app.utils.time import assume_utc
 
 from .cache import (
     BUCKET_LIST_CACHE,
@@ -261,9 +260,6 @@ class BrowserContextMixin:
             key,
             "tags",
         )
-
-    def _normalize_datetime_value(self, value: Optional[datetime]) -> Optional[datetime]:
-        return assume_utc(value)
 
     def _normalize_restore_status(self, value: object) -> Optional[str]:
         text = str(value or "").strip()
