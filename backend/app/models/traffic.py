@@ -23,38 +23,35 @@ class TrafficTotals(ApiModel):
     success_rate: Optional[float]
 
 
-class TrafficBucketRanking(ApiModel):
+class TrafficRankingMetrics(ApiModel):
+    bytes_total: int
+    bytes_in: int
+    bytes_out: int
+    ops: int
+    success_ops: int
+    success_ratio: Optional[float]
+
+
+class TrafficBucketRanking(TrafficRankingMetrics):
     bucket: str
-    bytes_total: int
-    bytes_in: int
-    bytes_out: int
-    ops: int
-    success_ops: int
-    success_ratio: Optional[float]
 
 
-class TrafficUserRanking(ApiModel):
+class TrafficUserRanking(TrafficRankingMetrics):
     user: str
-    bytes_total: int
+
+
+class TrafficBreakdownMetrics(ApiModel):
     bytes_in: int
     bytes_out: int
     ops: int
-    success_ops: int
-    success_ratio: Optional[float]
 
 
-class TrafficRequestBreakdown(ApiModel):
+class TrafficRequestBreakdown(TrafficBreakdownMetrics):
     group: str
-    bytes_in: int
-    bytes_out: int
-    ops: int
 
 
-class TrafficCategoryBreakdown(ApiModel):
+class TrafficCategoryBreakdown(TrafficBreakdownMetrics):
     category: str
-    bytes_in: int
-    bytes_out: int
-    ops: int
 
 
 class TrafficStats(ApiModel):
