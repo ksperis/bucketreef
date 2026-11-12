@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable, Literal, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Callable, Literal, Optional
 
 from app.db import S3Account, S3Connection, S3User, StorageEndpoint
 from app.services.access_context_contracts import AccountCapabilities
@@ -12,11 +12,8 @@ from app.models.portal_storage_spaces import PortalStorageSpaceSummary
 from app.services.rgw_bucket_target import RgwBucketTarget
 from app.utils.s3_connection_endpoint import resolve_connection_endpoint
 
-
-class CephAdminS3ContextSource(Protocol):
-    endpoint: StorageEndpoint
-    access_key: str
-    secret_key: str
+if TYPE_CHECKING:
+    from app.services.ceph_admin_context import CephAdminContext
 
 
 S3ExecutionContextKind = Literal[
@@ -177,7 +174,7 @@ class S3ExecutionContext:
 
 
 def build_ceph_admin_s3_context(
-    context: CephAdminS3ContextSource,
+    context: CephAdminContext,
 ) -> S3ExecutionContext:
     return S3ExecutionContext.from_ceph_admin_endpoint(
         context.endpoint,
@@ -219,7 +216,7 @@ class ResolvedS3BucketTarget(ResolvedS3BucketNameMixin):
     @classmethod
     def from_ceph_admin(
         cls,
-        source: CephAdminS3ContextSource,
+        source: CephAdminContext,
         *,
         tenant: object,
         bucket_name: object,

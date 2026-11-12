@@ -32,11 +32,11 @@ from app.services.ceph_admin_bucket_listing_cache import (
     CephAdminBucketListingSnapshot,
     get_cached_rgw_bucket_entries,
 )
-from app.services.ceph_admin_bucket_listing_context import CephAdminBucketListingContext
 from app.services.ceph_admin_bucket_listing_request import (
     CephAdminAdvancedFilterPlan,
     CephAdminBucketListingRequest,
 )
+from app.services.ceph_admin_context import CephAdminContext
 from app.services.listing_progress import ListingProgressEmitter
 from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_bucket_target import RgwBucketTarget
@@ -70,7 +70,7 @@ class CephAdminBucketSnapshotBuilder:
     def __init__(
         self,
         *,
-        ctx: CephAdminBucketListingContext,
+        ctx: CephAdminContext,
         request: CephAdminBucketListingRequest,
         progress: ListingProgressEmitter,
         cancel_check: Callable[[], None] | None,

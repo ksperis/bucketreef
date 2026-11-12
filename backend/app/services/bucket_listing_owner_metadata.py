@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import Any, Callable, Literal, Protocol
+from typing import Any, Callable, Literal
 
 from app.db import StorageEndpoint
 from app.models.bucket_filter import BucketFilterQuery
 from app.models.bucket_listing import BucketListingSummary
 from app.services.bucket_owner_enrichment import BucketOwnerMetadataService, BucketOwnerUsage
 from app.services.ceph_admin_account_access import optional_account_lookup_enabled
+from app.services.ceph_admin_context import CephAdminContext
 from app.services.listing_progress import (
     ListingProgressEmitter,
     build_listing_progress_callback,
@@ -81,11 +82,6 @@ def requested_owner_metadata_requirements(
     )
 
 
-class BucketListingAdminContext(Protocol):
-    endpoint: StorageEndpoint
-    rgw_admin: RGWAdminClient
-
-
 def normalize_owner_kind(raw: object) -> BucketOwnerKind | None:
     if not isinstance(raw, str):
         return None
@@ -149,7 +145,7 @@ def determine_owner_name_lookup_scope(
 
 
 def _resolve_account_owner_name(
-    ctx: BucketListingAdminContext,
+    ctx: CephAdminContext,
     owner_id: str,
 ) -> tuple[bool, str | None]:
     if optional_account_lookup_enabled(ctx.endpoint) is False:
@@ -170,7 +166,7 @@ def _resolve_account_owner_name(
 
 
 def _resolve_user_owner_name(
-    ctx: BucketListingAdminContext,
+    ctx: CephAdminContext,
     owner_id: str,
     tenant: str | None,
 ) -> str | None:
@@ -191,7 +187,7 @@ def _resolve_user_owner_name(
 
 
 def _resolve_owner_name(
-    ctx: BucketListingAdminContext,
+    ctx: CephAdminContext,
     owner_id: str | None,
     tenant: str | None,
     cache: dict[str, str | None],
@@ -224,7 +220,7 @@ def _resolve_owner_name(
 
 
 def resolve_owner_names_for_buckets(
-    ctx: BucketListingAdminContext,
+    ctx: CephAdminContext,
     buckets: list[BucketListingSummary],
     owner_scope: BucketOwnerLookupScope = "any",
 ) -> dict[str, str | None]:
@@ -258,7 +254,7 @@ def resolve_owner_names_for_buckets(
 
 
 def apply_owner_enrichment(
-    ctx: BucketListingAdminContext,
+    ctx: CephAdminContext,
     buckets: list[BucketListingSummary],
     *,
     include_suspended: bool = False,
@@ -336,7 +332,7 @@ def _needs_owner_metadata_backfill(
 
 
 def _load_bucket_owner_metadata(
-    ctx: BucketListingAdminContext,
+    ctx: CephAdminContext,
     bucket: BucketListingSummary,
 ) -> tuple[BucketListingSummary, str | None, str | None, bool]:
     try:
@@ -365,7 +361,7 @@ def _apply_bucket_owner_metadata(
 
 
 def backfill_bucket_owner_metadata(
-    ctx: BucketListingAdminContext,
+    ctx: CephAdminContext,
     buckets: list[BucketListingSummary],
     *,
     include_tenant: bool = False,

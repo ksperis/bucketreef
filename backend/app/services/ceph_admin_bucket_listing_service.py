@@ -8,10 +8,10 @@ from app.models.bucket_listing import BucketListingRequest
 from app.models.ceph_admin import PaginatedCephAdminBucketsResponse
 from app.services.bucket_ui_tags_service import BucketUiTagsService
 from app.services.ceph_admin_bucket_listing_cache import get_cached_bucket_listing
-from app.services.ceph_admin_bucket_listing_context import CephAdminBucketListingContext
 from app.services.ceph_admin_bucket_listing_page import CephAdminBucketPageBuilder
 from app.services.ceph_admin_bucket_listing_request import CephAdminBucketListingRequest
 from app.services.ceph_admin_bucket_listing_snapshot import CephAdminBucketSnapshotBuilder
+from app.services.ceph_admin_context import CephAdminContext
 from app.services.listing_progress import (
     ListingProgressEmitter,
     ListingProgressSnapshot,
@@ -22,7 +22,7 @@ from app.utils.cancellation import invoke_cancel_check
 def compute_ceph_admin_bucket_listing(
     *,
     request: BucketListingRequest,
-    ctx: CephAdminBucketListingContext,
+    ctx: CephAdminContext,
     bucket_ui_tags_service: BucketUiTagsService | None = None,
     actor_user_id: int | None = None,
     progress_callback: Callable[[ListingProgressSnapshot], None] | None = None,

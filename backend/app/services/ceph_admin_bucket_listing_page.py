@@ -22,8 +22,8 @@ from app.services.ceph_admin_bucket_listing_cache import (
     CephAdminBucketListingSnapshot,
     clone_ceph_admin_bucket_list,
 )
-from app.services.ceph_admin_bucket_listing_context import CephAdminBucketListingContext
 from app.services.ceph_admin_bucket_listing_request import CephAdminBucketListingRequest
+from app.services.ceph_admin_context import CephAdminContext
 from app.services.listing_progress import ListingProgressEmitter
 from app.services.s3_execution_context import build_ceph_admin_s3_context
 from app.services.sequence_pagination import paginate_sequence
@@ -37,7 +37,7 @@ class CephAdminBucketPageBuilder:
     def __init__(
         self,
         *,
-        ctx: CephAdminBucketListingContext,
+        ctx: CephAdminContext,
         request: CephAdminBucketListingRequest,
         listing: CephAdminBucketListingSnapshot,
         progress: ListingProgressEmitter,
