@@ -344,7 +344,6 @@ class AuthSessionService:
                 now + timedelta(minutes=self.settings.s3_session_idle_minutes),
                 s3_session.absolute_expires_at,
             )
-        self.db.add_all([current, session])
         return SessionCredentials(
             access_token=self._access_token(session, user=user, s3_session=s3_session),
             refresh_token=next_raw,
@@ -410,7 +409,6 @@ class AuthSessionService:
             now + timedelta(minutes=self._idle_minutes(session)),
             session.absolute_expires_at,
         )
-        self.db.add_all([session, principal])
         return session, principal
 
     def validate_access_token(
@@ -920,4 +918,3 @@ class AuthSessionService:
             row.secret_key_enc = None
             row.revoked_at = row.revoked_at or now
             row.revoke_reason = row.revoke_reason or reason
-            self.db.add(row)
