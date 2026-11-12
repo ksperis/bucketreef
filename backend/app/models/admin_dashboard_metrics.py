@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+from app.models.admin_stats import AdminStorageTotals
 from app.models.base import ApiModel
 from app.models.traffic import TrafficSeriesPoint
 
@@ -36,12 +37,6 @@ class AdminDashboardCache(ApiModel):
     expires_at: str
 
 
-class AdminDashboardStorageTotals(ApiModel):
-    bucket_count: Optional[int]
-    object_count: Optional[int]
-    used_bytes: Optional[int]
-
-
 class AdminDashboardMeasurementCoverage(ApiModel):
     contributing_count: int
     complete_count: int
@@ -56,7 +51,7 @@ class AdminDashboardStorageMeasurements(ApiModel):
 class AdminDashboardStorage(ApiModel):
     cache: AdminDashboardCache
     generated_at: str
-    storage_totals: AdminDashboardStorageTotals
+    storage_totals: AdminStorageTotals
     coverage: AdminDashboardCoverage
     measurements: AdminDashboardStorageMeasurements
 

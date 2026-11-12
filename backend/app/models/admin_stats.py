@@ -30,27 +30,21 @@ class AdminSummary(ApiModel):
     total_private_connections: int
 
 
-class AdminStorageAccountUsagePoint(ApiModel):
-    account_id: str
-    account_name: Optional[str]
-    used_bytes: Optional[int]
-    object_count: Optional[int]
-    bucket_count: Optional[int]
-
-
-class AdminStorageS3UserUsagePoint(ApiModel):
-    user_id: int
-    user_name: Optional[str]
-    rgw_user_uid: str
-    used_bytes: Optional[int]
-    object_count: Optional[int]
-    bucket_count: Optional[int]
-
-
 class AdminStorageTotals(ApiModel):
     used_bytes: Optional[int]
     object_count: Optional[int]
     bucket_count: Optional[int]
+
+
+class AdminStorageAccountUsagePoint(AdminStorageTotals):
+    account_id: str
+    account_name: Optional[str]
+
+
+class AdminStorageS3UserUsagePoint(AdminStorageTotals):
+    user_id: int
+    user_name: Optional[str]
+    rgw_user_uid: str
 
 
 class AdminStorageStats(ApiModel):
