@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import hashlib
 import logging
 import math
 import ssl
@@ -449,11 +448,6 @@ class LDAPAuthService:
                 raise LDAPConfigurationError("LDAP user entry contains an invalid email address") from exc
             return None
         return validated.normalized.lower()
-
-    @staticmethod
-    def generated_email(provider: str, subject: str) -> str:
-        digest = hashlib.sha256(f"{provider}:{subject}".encode()).hexdigest()[:16]
-        return f"ldap-{provider}-{digest}@ldap.local"
 
     @staticmethod
     def _unbind(connection: Connection) -> None:
