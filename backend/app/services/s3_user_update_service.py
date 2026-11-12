@@ -15,6 +15,7 @@ from app.services.feature_policy_service import (
     apply_resource_feature_overrides,
     validate_subject_feature_overrides,
 )
+from app.services.s3_execution_context import S3ExecutionContext
 from app.services.s3_user_associations_service import S3UserAssociationsService
 from app.services.s3_user_query_service import S3UserQueryService
 from app.services.s3_user_quota_service import S3UserQuotaService, S3UserQuotaSnapshot
@@ -61,14 +62,16 @@ class S3UserUpdateService:
         quota_requested = bool(
             {"quota_max_size_gb", "quota_max_objects"} & payload.model_fields_set
         )
-        quota_before = self.quota.capture(s3_user) if quota_requested else None
+        quota_context = S3ExecutionContext.from_s3_user(s3_user) if quota_requested else None
+        quota_before = self.quota.capture(quota_context) if quota_context is not None else None
         quota_update_attempted = False
 
         try:
             if quota_requested:
                 quota_update_attempted = True
+                assert quota_context is not None
                 self.quota.update(
-                    s3_user,
+                    quota_context,
                     payload.quota_max_size_gb,
                     payload.quota_max_objects,
                     payload.quota_max_size_unit,

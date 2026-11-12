@@ -16,6 +16,7 @@ from app.services.feature_policy_service import validate_manager_overrides
 from app.services.managed_resource_naming import managed_s3_user_uid
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_user_key_parser import RgwUserKeyParser
+from app.services.s3_execution_context import S3ExecutionContext
 from app.services.s3_user_metrics_service import S3UserMetricsService
 from app.services.s3_user_quota_service import S3UserQuotaService
 from app.services.s3_user_repository import S3UserRepository
@@ -77,6 +78,7 @@ class S3UserProvisioningService:
             self._apply_initial_quota(
                 payload,
                 endpoint,
+                admin=admin,
                 uid=uid,
                 tenant=tenant,
                 access_key=access_key,
@@ -180,26 +182,31 @@ class S3UserProvisioningService:
         payload: S3UserCreate,
         endpoint: StorageEndpoint,
         *,
+        admin: RGWAdminClient,
         uid: str,
         tenant: str,
         access_key: str,
         secret_key: str,
     ) -> None:
         if payload.quota_max_size_gb is not None or payload.quota_max_objects is not None:
-            remote_user = S3User(
+            context = S3ExecutionContext(
+                context_id=f"s3u-pending-{uid}",
+                context_kind="s3_user",
                 name=payload.name,
+                access_key=access_key,
+                secret_key=secret_key,
                 rgw_user_uid=uid,
                 rgw_tenant=tenant,
                 email=payload.email,
-                rgw_access_key=access_key,
-                rgw_secret_key=secret_key,
+                storage_endpoint_id=endpoint.id,
                 storage_endpoint=endpoint,
             )
             self.quota.update(
-                remote_user,
+                context,
                 payload.quota_max_size_gb,
                 payload.quota_max_objects,
                 payload.quota_max_size_unit,
+                admin=admin,
             )
 
     def _rollback_failed_creation(
