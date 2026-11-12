@@ -11,10 +11,8 @@ from app.core.db_transactions import acquire_sqlite_write_transaction
 from app.core.domain_errors import CompensationFailureError, UiUserNotFoundError
 from app.db import (
     AccountIAMUser,
-    AuthSession,
     ManagedPrivateAccess,
     PortalIAMRevocation,
-    RefreshToken,
     S3Account,
     S3Connection,
     TagDefinition,
@@ -206,24 +204,6 @@ class UserDeletionService:
                 .execution_options(synchronize_session=False)
             )
 
-    def _delete_auth_artifacts(self, user_id: int) -> None:
-        auth_session_ids = list(
-            self.db.scalars(
-                select(AuthSession.id).where(AuthSession.user_id == user_id)
-            ).all()
-        )
-        if auth_session_ids:
-            self.db.execute(
-                delete(RefreshToken)
-                .where(RefreshToken.auth_session_id.in_(auth_session_ids))
-                .execution_options(synchronize_session=False)
-            )
-            self.db.execute(
-                delete(AuthSession)
-                .where(AuthSession.id.in_(auth_session_ids))
-                .execution_options(synchronize_session=False)
-            )
-
     def _cleanup_owned_tag_definitions(self, user_id: int) -> None:
         # Private bucket UI tags must disappear with their owner. Turning them
         # into global definitions would silently make private metadata shared.
@@ -266,7 +246,6 @@ class UserDeletionService:
         portal_revocations = self._prepare_portal_revocations(user)
         try:
             self._delete_links_and_private_connections(user.id, created_private_ids)
-            self._delete_auth_artifacts(user.id)
             self._cleanup_owned_tag_definitions(user.id)
             self.db.delete(user)
             self.db.commit()
