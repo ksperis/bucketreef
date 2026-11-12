@@ -11,7 +11,7 @@ from pydantic import Field
 from app.core.domain_enums import EffectiveAccessSourceKind, SortDirection
 from app.models.base import ApiModel
 from app.models.pagination import PaginatedResponse
-from app.models.user import UiRole
+from app.models.user import UserRoleIdentity
 
 AccessAuditScope = Literal["platform", "rgw_account", "rgw_user", "s3_connection"]
 AccessAuditSourceKind = EffectiveAccessSourceKind
@@ -65,11 +65,7 @@ class AccessAuditRight(ApiModel):
     sources: list[AccessAuditGrantSource]
 
 
-class AccessAuditPrincipal(ApiModel):
-    id: int
-    email: str
-    full_name: Optional[str]
-    role: UiRole
+class AccessAuditPrincipal(UserRoleIdentity):
     is_active: bool
 
 

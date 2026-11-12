@@ -122,12 +122,16 @@ class UserAvatar(ApiModel):
     updated_at: Optional[datetime]
 
 
-class UserSummary(ApiModel):
+class UserRoleIdentity(ApiModel):
     id: int
-    email: EmailStr
+    email: str
     full_name: Optional[str]
-    avatar: Optional[UserAvatar]
     role: UiRole
+
+
+class UserSummary(UserRoleIdentity):
+    email: EmailStr
+    avatar: Optional[UserAvatar]
 
 
 class UserAssociationDetail(ApiModel):
