@@ -80,12 +80,17 @@ def authenticated(db, user):
     return db.scalar(select(AuthSession).where(AuthSession.user_id == user.id).order_by(AuthSession.created_at.desc())), result
 
 
-def connect(db, setup):
+def _connect(db, setup):
     user, target, cloud = setup
-    auth, _ = authenticated(db, user)
+    auth, credentials = authenticated(db, user)
     service = OpenStackService(db)
     connection = service.authenticate(user, auth.id, OpenStackAuthenticate(cloud_id=cloud.id, method="password", username="person", password="PRIVATE-PASSWORD"))
     ctx = service.activate(user, auth.id, connection.id, "project-a", target["target_id"], None)
+    return service, user, auth, connection, ctx, credentials
+
+
+def connect(db, setup):
+    service, user, auth, connection, ctx, _credentials = _connect(db, setup)
     return service, user, auth, connection, ctx
 
 
@@ -679,14 +684,11 @@ def test_endpoint_service_identities_never_enrich_or_administer_openstack_contex
 
 @pytest.mark.parametrize("revoke", ["one", "all", "family", "expired", "disconnect", "forget", "cloud"])
 def test_every_revocation_path_erases_secrets(db_session, setup_cloud, revoke):
-    service, user, auth, connection, ctx = connect(db_session, setup_cloud)
+    service, user, auth, connection, ctx, credentials = _connect(db_session, setup_cloud)
     sessions = AuthSessionService(db_session)
     if revoke == "one": sessions.revoke_session(auth.id, "test")
     elif revoke == "all": sessions.revoke_all_for_user(user, "test")
-    elif revoke == "family":
-        from app.db import RefreshToken
-        family = db_session.scalar(select(RefreshToken.family_id).where(RefreshToken.auth_session_id == auth.id))
-        sessions.revoke_family(family, "test")
+    elif revoke == "family": sessions.revoke_by_refresh_token(credentials.refresh_token, "test")
     elif revoke == "expired":
         auth.idle_expires_at = utcnow() - timedelta(seconds=1); db_session.commit(); sessions.cleanup_expired()
     elif revoke == "disconnect": service.disconnect(user, auth.id, connection.id)
@@ -988,11 +990,9 @@ def test_catalog_target_change_requires_explicit_reactivation(db_session, setup_
 
 @pytest.mark.parametrize("revoke", ["family", "one", "all"])
 def test_ui_revocation_precedes_erasure_and_blocks_late_authentication(db_session, setup_cloud, monkeypatch, revoke):
-    from app.db import RefreshToken
     from app.services.openstack_sessions import erase_openstack_sessions
 
-    _service, user, auth, _, _ = connect(db_session, setup_cloud)
-    family = db_session.scalar(select(RefreshToken.family_id).where(RefreshToken.auth_session_id == auth.id))
+    _service, user, auth, _, _, credentials = _connect(db_session, setup_cloud)
     user_id = int(user.id)
     auth_id = str(auth.id)
     cloud_id = int(setup_cloud[2].id)
@@ -1008,7 +1008,7 @@ def test_ui_revocation_precedes_erasure_and_blocks_late_authentication(db_sessio
     monkeypatch.setattr("app.services.auth_session_service.erase_openstack_sessions", erase_after_revocation)
     sessions = AuthSessionService(db_session)
     if revoke == "family":
-        sessions.revoke_family(family, "refresh_replay")
+        sessions.revoke_by_refresh_token(credentials.refresh_token, "refresh_replay")
     elif revoke == "one":
         sessions.revoke_session(auth_id, "test")
     else:
