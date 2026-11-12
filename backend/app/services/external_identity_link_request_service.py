@@ -61,7 +61,6 @@ class ExternalIdentityLinkRequestService:
                 )
             service._sync_attempt_decision(request, approve=approve)
             request.decision_source = "administrator"
-            write_db.add(request)
             service._notify_decision(request, user, now, approve=approve)
             if approve:
                 AuthSessionService(write_db).revoke_all_for_user_in_transaction(
@@ -218,7 +217,6 @@ class ExternalIdentityLinkRequestService:
         request.decided_at = utcnow()
         request.decision_source = source
         request.decision_reason = "Linked by configured identity policy"
-        self.db.add(request)
 
     def _require_pending(
         self,
@@ -262,7 +260,7 @@ class ExternalIdentityLinkRequestService:
             link_source="manual_approval",
         )
         user.auth_version += 1
-        self.db.add_all([identity, user])
+        self.db.add(identity)
 
     def _sync_attempt_decision(
         self,
@@ -282,7 +280,6 @@ class ExternalIdentityLinkRequestService:
         attempts = self.db.scalars(select(ExternalIdentityLinkAttempt).where(*conditions)).all()
         for attempt in attempts:
             attempt.status = "admin_approved" if approve else "admin_rejected"
-            self.db.add(attempt)
 
     def _notify_decision(
         self,
@@ -358,7 +355,6 @@ class ExternalIdentityLinkRequestService:
             request.request_source = request_source
             request.display_name = full_name
             request.picture_url = picture_url
-            self.db.add(request)
         return request
 
     def _prepare(
