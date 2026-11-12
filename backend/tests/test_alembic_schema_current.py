@@ -21,6 +21,7 @@ from app.models.app_settings import AppSettings
 
 
 _RECENT_LINEAR_REVISIONS = (
+    "0263_portal_creator_foreign_keys",
     "0262_canonical_portal_storage_space_origin",
     "0261_canonical_onboarding_resources",
     "0260_onboarding_endpoint_checkpoint",

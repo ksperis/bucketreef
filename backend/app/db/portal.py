@@ -102,7 +102,11 @@ class PortalStorageSpaceGrant(Base):
     )
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     role = Column(String, nullable=False)
-    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_by_user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     created_at = Column(UTCDateTime(), default=utcnow, nullable=False)
     updated_at = Column(UTCDateTime(), default=utcnow, onupdate=utcnow, nullable=False)
 
@@ -124,7 +128,11 @@ class PortalPublicLink(Base):
     bucket_name = Column(String, nullable=False)
     object_key = Column(Text, nullable=False)
     label = Column(String, nullable=True)
-    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_by_user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     created_by_email = Column(String, nullable=True)
     expires_at = Column(UTCDateTime(), nullable=True)
     revoked_at = Column(UTCDateTime(), nullable=True)
