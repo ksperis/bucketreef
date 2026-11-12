@@ -125,8 +125,6 @@ def _ceph_admin_context(
     return CephAdminContext(
         endpoint=endpoint,
         rgw_admin=rgw_admin,
-        s3_endpoint=endpoint.endpoint_url,
-        region=endpoint.region,
         access_key="AKIA_TEST",
         secret_key="SECRET_TEST",
     )

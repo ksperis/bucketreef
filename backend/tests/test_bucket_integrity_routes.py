@@ -287,8 +287,6 @@ def test_ceph_admin_integrity_route_uses_dedicated_endpoint_credentials(monkeypa
     ctx = CephAdminContext(
         endpoint=endpoint,
         rgw_admin=SimpleNamespace(),
-        s3_endpoint="https://s3.example.test",
-        region="us-east-1",
         access_key="admin-ak",
         secret_key="admin-sk",
     )
