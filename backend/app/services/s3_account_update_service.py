@@ -71,7 +71,6 @@ class S3AccountUpdateService:
         self._apply_fields(account, payload)
         self._apply_quota(account, payload)
         self._apply_associations(account, payload)
-        self.db.add(account)
         self.db.flush()
         commit_portal_role_changes(
             self.db,
