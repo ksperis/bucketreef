@@ -26,6 +26,7 @@ from app.services.healthcheck_service import HealthCheckService
 from app.services.operation_lease_service import HEALTHCHECK_RUN_OPERATION, OperationLeaseService
 from app.services.portal.server_access_logging import PortalServerAccessLoggingReconcileError
 from tests.auth_test_utils import authenticate_ui_client
+from tests.operation_lease_test_utils import active_operation_lease_owner
 from tests.storage_endpoint_features import persisted_endpoint_features
 
 
@@ -110,7 +111,7 @@ def test_scheduled_healthcheck_persists_status(client, db_session, monkeypatch, 
     ).one()
     assert latest.status == "up"
     assert latest.checked_at is not None
-    assert OperationLeaseService(db_session).current_owner(HEALTHCHECK_RUN_OPERATION) is None
+    assert active_operation_lease_owner(db_session, HEALTHCHECK_RUN_OPERATION) is None
 
 
 def test_real_scheduled_failure_remains_an_error_and_releases_lease(
@@ -123,7 +124,7 @@ def test_real_scheduled_failure_remains_an_error_and_releases_lease(
     response = client.post("/api/internal/healthchecks/run", headers={"X-Internal-Token": "expected-token"})
     assert response.status_code == 400
     assert response.json()["detail"] == "Invalid probe configuration"
-    assert OperationLeaseService(db_session).current_owner(HEALTHCHECK_RUN_OPERATION) is None
+    assert active_operation_lease_owner(db_session, HEALTHCHECK_RUN_OPERATION) is None
 
 
 def test_initial_check_only_probes_the_created_endpoint(db_session, monkeypatch, scheduled_settings):
@@ -163,7 +164,7 @@ def test_initial_check_respects_the_scheduler_lease(db_session, monkeypatch, sch
     monkeypatch.setattr(HealthCheckService, "run_checks", run)
     background.run_initial_healthchecks()
     run.assert_not_called()
-    assert OperationLeaseService(db_session).current_owner(HEALTHCHECK_RUN_OPERATION) == lease.owner
+    assert active_operation_lease_owner(db_session, HEALTHCHECK_RUN_OPERATION) == lease.owner
 
 
 def test_initial_failure_is_logged_and_does_not_retain_the_lease(
@@ -175,7 +176,7 @@ def test_initial_failure_is_logged_and_does_not_retain_the_lease(
     monkeypatch.setattr(HealthCheckService, "run_checks", fail)
     background.run_initial_healthchecks()
     assert "Initial endpoint healthcheck failed" in caplog.text
-    assert OperationLeaseService(db_session).current_owner(HEALTHCHECK_RUN_OPERATION) is None
+    assert active_operation_lease_owner(db_session, HEALTHCHECK_RUN_OPERATION) is None
 
 
 def test_endpoint_creation_runs_initial_check_after_persisting(client, db_session, monkeypatch, scheduled_settings):
@@ -209,7 +210,7 @@ def test_initial_failure_keeps_endpoint_creation_successful(
         sa.select(sa.func.count()).select_from(StorageEndpoint).where(StorageEndpoint.id == response.json()["id"])
     ) == 1
     assert "Initial endpoint healthcheck failed" in caplog.text
-    assert OperationLeaseService(db_session).current_owner(HEALTHCHECK_RUN_OPERATION) is None
+    assert active_operation_lease_owner(db_session, HEALTHCHECK_RUN_OPERATION) is None
 
 
 @pytest.mark.parametrize("before,after,expected_runs", [(False, True, 1), (True, True, 0), (True, False, 0), (False, False, 0)])

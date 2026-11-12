@@ -8,6 +8,7 @@ from app.services.operation_lease_service import (
     ACCESS_KEY_EXPIRATION_RUN_OPERATION,
     OperationLeaseService,
 )
+from tests.operation_lease_test_utils import active_operation_lease_owner
 
 
 def test_access_key_expiration_cron_requires_internal_token(client, monkeypatch):
@@ -36,7 +37,7 @@ def test_access_key_expiration_cron_runs_under_operation_lease(client, db_sessio
 
     assert response.status_code == 200, response.text
     assert response.json()["processed"] == 2
-    assert OperationLeaseService(db_session).current_owner(ACCESS_KEY_EXPIRATION_RUN_OPERATION) is None
+    assert active_operation_lease_owner(db_session, ACCESS_KEY_EXPIRATION_RUN_OPERATION) is None
 
 
 def test_access_key_expiration_cron_skips_when_already_running(client, db_session, monkeypatch):
