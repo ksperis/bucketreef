@@ -8,7 +8,10 @@ from pydantic import Field, field_validator, model_validator
 from app.models.access_key_metadata import AccessKeyMetadata
 from app.models.admin_listing import AdminManagedEntityListingRequest
 from app.models.base import ApiModel, reject_explicit_null_fields
-from app.models.managed_resource_features import ManagedS3UserFeatures
+from app.models.managed_resource_features import (
+    ManagedS3UserFeatureOverrides,
+    ManagedS3UserFeatures,
+)
 from app.models.quota import QuotaSizeUnit
 from app.utils.rgw_identifiers import validate_rgw_user_uid, validate_rgw_tenant
 from app.models.pagination import PaginatedResponse
@@ -104,7 +107,7 @@ class S3UserImport(ApiModel):
     storage_endpoint_id: int
 
 
-class S3UserUpdate(ApiModel):
+class S3UserUpdate(ManagedS3UserFeatureOverrides):
     name: Optional[str] = None
     email: Optional[str] = None
     user_links: Optional[list[S3UserUserLinkInput]] = None
@@ -113,17 +116,6 @@ class S3UserUpdate(ApiModel):
     quota_max_size_unit: Optional[QuotaSizeUnit] = None
     quota_max_objects: Optional[int] = None
     tags: OptionalTagDefinitionList = None
-    allow_bucket_quota_management: Optional[bool] = None
-    allow_access_key_management: Optional[bool] = None
-    allow_access_key_metadata: Optional[bool] = None
-    allow_access_key_expiration: Optional[bool] = None
-    allow_activity_history: Optional[bool] = None
-    allow_rgw_usage_metrics: Optional[bool] = None
-    allow_cost_estimation: Optional[bool] = None
-    allow_bucket_usage_stats: Optional[bool] = None
-    allow_bucket_usage_stats_collection: Optional[bool] = None
-    allow_multisite_endpoint_switching: Optional[bool] = None
-    allow_managed_private_connection_provisioning: Optional[bool] = None
 
     @model_validator(mode="after")
     def _reject_null_for_non_nullable_updates(self) -> "S3UserUpdate":
