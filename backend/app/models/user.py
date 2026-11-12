@@ -10,6 +10,12 @@ from app.models.admin_listing import AdminPaginatedListingRequest, AdminSortDir
 from app.models.base import ApiModel, reject_explicit_null_fields
 from app.models.pagination import PaginatedResponse
 from app.models.openstack import LinkedOpenStackCloud
+from app.models.ui_principal_access import (
+    ManagerToolAccess,
+    UI_PRINCIPAL_ACCESS_FIELD_NAMES,
+    UiPrincipalAccessFields,
+    UiPrincipalAccessPatchFields,
+)
 from app.utils.account_roles import ManagerAccountRoleValue, PortalAccountRoleValue
 
 UiLanguage = Literal["en", "fr", "de", "zh"]
@@ -91,23 +97,8 @@ class EffectiveAccountMembership(AccountMembership):
     provenance: EffectiveAccountRoleProvenance
 
 
-class ManagerToolAccess(ApiModel):
-    bucket_compare: bool = False
-    bucket_integrity_check: bool = False
-    bucket_migration: bool = False
-    feature_rules: bool = False
-    bucket_purge: bool = False
-
-
-class UserCreateAccessPayload(UserCreateAssociationsPayload):
+class UserCreateAccessPayload(UiPrincipalAccessFields, UserCreateAssociationsPayload):
     role: UiRole
-    can_access_ceph_admin: bool
-    can_access_storage_ops: bool
-    can_create_manual_private_connections: bool
-    can_provision_managed_private_connections: bool
-    allow_multisite_endpoint_switching: bool
-    manager_tool_access: ManagerToolAccess
-    browser_advanced_features_enabled: bool
 
 
 class UiPreferences(ApiModel):
@@ -171,19 +162,16 @@ class UserProfilePreferencesUpdate(ApiModel):
         return self
 
 
-class UserUpdate(UserProfilePreferencesUpdate, UserAssociationsPayload):
+class UserUpdate(
+    UiPrincipalAccessPatchFields,
+    UserProfilePreferencesUpdate,
+    UserAssociationsPayload,
+):
     email: Optional[EmailStr] = None
     full_name: Optional[str] = None
     password: Optional[str] = None
     role: Optional[UiRole] = None
     is_active: Optional[bool] = None
-    can_access_ceph_admin: Optional[bool] = None
-    can_access_storage_ops: Optional[bool] = None
-    can_create_manual_private_connections: Optional[bool] = None
-    can_provision_managed_private_connections: Optional[bool] = None
-    allow_multisite_endpoint_switching: Optional[bool] = None
-    manager_tool_access: Optional[ManagerToolAccess] = None
-    browser_advanced_features_enabled: Optional[bool] = None
 
     @model_validator(mode="after")
     def reject_non_nullable_nulls(self) -> Self:
@@ -194,13 +182,7 @@ class UserUpdate(UserProfilePreferencesUpdate, UserAssociationsPayload):
                 "password",
                 "role",
                 "is_active",
-                "can_access_ceph_admin",
-                "can_access_storage_ops",
-                "can_create_manual_private_connections",
-                "can_provision_managed_private_connections",
-                "allow_multisite_endpoint_switching",
-                "manager_tool_access",
-                "browser_advanced_features_enabled",
+                *UI_PRINCIPAL_ACCESS_FIELD_NAMES,
                 "account_links",
                 "s3_user_links",
                 "s3_connection_ids",
@@ -230,23 +212,16 @@ class UserSelfUpdate(UserProfilePreferencesUpdate):
         return self
 
 
-class EffectiveUserAccess(ApiModel):
-    can_access_ceph_admin: bool
-    can_access_storage_ops: bool
-    can_create_manual_private_connections: bool
-    can_provision_managed_private_connections: bool
-    allow_multisite_endpoint_switching: bool
+class EffectiveUserAccess(UiPrincipalAccessFields, ApiModel):
     group_can_provision_managed_private_connections: bool
     has_owned_private_connections: bool
-    manager_tool_access: ManagerToolAccess
     group_manager_tool_access: ManagerToolAccess
-    browser_advanced_features_enabled: bool
     account_links: list[EffectiveAccountMembership]
     s3_user_details: list[LinkedS3User]
     s3_connection_details: list[LinkedS3Connection]
 
 
-class UserOut(ApiModel):
+class UserOut(UiPrincipalAccessFields, ApiModel):
     id: int
     email: str
     full_name: Optional[str]
@@ -256,13 +231,6 @@ class UserOut(ApiModel):
     is_active: bool
     is_admin: bool
     role: UiRole
-    can_access_ceph_admin: bool
-    can_access_storage_ops: bool
-    can_create_manual_private_connections: bool
-    can_provision_managed_private_connections: bool
-    allow_multisite_endpoint_switching: bool
-    manager_tool_access: ManagerToolAccess
-    browser_advanced_features_enabled: bool
     ui_language: Optional[UiLanguage]
     quota_alerts_enabled: bool
     quota_alerts_global_watch: bool
