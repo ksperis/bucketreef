@@ -157,9 +157,9 @@ class KeyRotationService:
                 return [], "endpoint", "Ceph Admin credentials are not configured for this endpoint."
             return [identity], "endpoint", None
         if key_type == KeyRotationType.ACCOUNT:
-            return list(self._list_accounts_for_endpoint(endpoint)), "account", None
+            return self._list_resources_for_endpoint(S3Account, endpoint), "account", None
         if key_type == KeyRotationType.S3_USER:
-            return list(self._list_s3_users_for_endpoint(endpoint)), "s3_user", None
+            return self._list_resources_for_endpoint(S3User, endpoint), "s3_user", None
         return [endpoint], "endpoint", None
 
     def _build_result(
@@ -191,12 +191,6 @@ class KeyRotationService:
             rotation_pending=rotation_pending,
             rotation_phase=rotation_phase,
         )
-
-    def _list_accounts_for_endpoint(self, endpoint: StorageEndpoint) -> list[S3Account]:
-        return self._list_resources_for_endpoint(S3Account, endpoint)
-
-    def _list_s3_users_for_endpoint(self, endpoint: StorageEndpoint) -> list[S3User]:
-        return self._list_resources_for_endpoint(S3User, endpoint)
 
     def _list_resources_for_endpoint(
         self,

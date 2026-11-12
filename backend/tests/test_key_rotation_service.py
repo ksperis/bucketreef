@@ -222,10 +222,26 @@ def test_endpoint_resource_listing_is_scoped_to_persisted_endpoint(db_session):
 
     service = KeyRotationService(db_session)
 
-    assert service._list_accounts_for_endpoint(default_endpoint) == [account_default]
-    assert service._list_s3_users_for_endpoint(default_endpoint) == [user_default]
-    assert service._list_accounts_for_endpoint(secondary_endpoint) == [account_secondary]
-    assert service._list_s3_users_for_endpoint(secondary_endpoint) == [user_secondary]
+    assert service._rotation_targets(default_endpoint, KeyRotationType.ACCOUNT) == (
+        [account_default],
+        "account",
+        None,
+    )
+    assert service._rotation_targets(default_endpoint, KeyRotationType.S3_USER) == (
+        [user_default],
+        "s3_user",
+        None,
+    )
+    assert service._rotation_targets(secondary_endpoint, KeyRotationType.ACCOUNT) == (
+        [account_secondary],
+        "account",
+        None,
+    )
+    assert service._rotation_targets(secondary_endpoint, KeyRotationType.S3_USER) == (
+        [user_secondary],
+        "s3_user",
+        None,
+    )
 
 
 @pytest.mark.parametrize("rgw_tenant", ["", "customer01"])
