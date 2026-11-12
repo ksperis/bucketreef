@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping
-from datetime import datetime
-from typing import Protocol, TypeVar
+from typing import TypeVar
 
 from sqlalchemy import Column, Table, delete, select
 from sqlalchemy.orm import InstrumentedAttribute, Session
 
-from app.utils.account_roles import ManagerAccountRoleValue, PortalAccountRoleValue
+from app.db import UiGroupS3Account, UserS3Account
+from app.models.account_access import AccountAccessGrant
 from app.utils.time import utcnow
 
 
@@ -17,22 +17,9 @@ LinkT = TypeVar("LinkT")
 MetadataT = TypeVar("MetadataT")
 
 
-class AccountAccessLink(Protocol):
-    manager_role: ManagerAccountRoleValue | None
-    portal_role: PortalAccountRoleValue | None
-    allow_manager_browser_data_access: bool
-    updated_at: datetime
-
-
-class AccountAccessGrantLike(Protocol):
-    manager_role: ManagerAccountRoleValue | None
-    portal_role: PortalAccountRoleValue | None
-    allow_manager_browser_data_access: bool
-
-
 def update_account_access_link(
-    row: AccountAccessLink,
-    grant: AccountAccessGrantLike,
+    row: UserS3Account | UiGroupS3Account,
+    grant: AccountAccessGrant,
 ) -> None:
     """Apply the mutable metadata shared by direct and group account links."""
 
