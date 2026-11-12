@@ -23,7 +23,11 @@ class AuditLog(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     created_at = Column(UTCDateTime(), default=utcnow, nullable=False, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     user_email = Column(String, nullable=False)
     user_role = Column(String, nullable=False)
     scope = Column(String, nullable=False)  # e.g. admin / manager

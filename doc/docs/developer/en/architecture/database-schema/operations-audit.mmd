@@ -204,7 +204,7 @@ erDiagram
     users {
         integer id PK "external reference"
     }
-    audit_logs }o--o| users : "user_id to id"
+    audit_logs }o--o| users : "user_id to id; ON DELETE SET NULL"
     user_notifications }o--|| users : "user_id to id; ON DELETE CASCADE"
     user_notifications }o--o| storage_endpoints : "storage_endpoint_id to id; ON DELETE SET NULL"
     user_notifications }o--o| s3_accounts : "s3_account_id to id; ON DELETE SET NULL"
@@ -212,7 +212,7 @@ erDiagram
     webhook_endpoint_subscriptions }o--|| webhook_endpoints : "endpoint_id to id; ON DELETE CASCADE"
     webhook_deliveries }o--|| webhook_endpoints : "endpoint_id to id; ON DELETE CASCADE"
     bucket_migrations }o--o| auth_sessions : "execution_auth_session_id to id; ON DELETE SET NULL"
-    bucket_migrations }o--o| users : "created_by_user_id to id"
+    bucket_migrations }o--o| users : "created_by_user_id to id; ON DELETE SET NULL"
     bucket_migrations }o--o| users : "maintenance_requested_by_user_id to id; ON DELETE SET NULL"
     bucket_migration_items }o--|| bucket_migrations : "migration_id to id; ON DELETE CASCADE"
     bucket_migration_events }o--|| bucket_migrations : "migration_id to id; ON DELETE CASCADE"

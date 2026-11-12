@@ -27207,7 +27207,7 @@
     },
     {
       "id": "relationship:audit_logs.user_id->users.id",
-      "name": "fk_audit_logs_user_id_users_id",
+      "name": "fk_audit_logs_user_id_users_id [ON DELETE SET NULL]",
       "sourceSchema": null,
       "sourceTableId": "table:audit_logs",
       "targetSchema": null,
@@ -28260,7 +28260,7 @@
     },
     {
       "id": "relationship:bucket_migrations.created_by_user_id->users.id",
-      "name": "fk_bucket_migrations_created_by_user_id_users_id",
+      "name": "fk_bucket_migrations_created_by_user_id_users_id [ON DELETE SET NULL]",
       "sourceSchema": null,
       "sourceTableId": "table:bucket_migrations",
       "targetSchema": null,

@@ -31,7 +31,12 @@ class BucketMigration(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    created_by_user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     source_context_id = Column(String, nullable=False, index=True)
     target_context_id = Column(String, nullable=False, index=True)

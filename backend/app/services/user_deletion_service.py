@@ -11,9 +11,7 @@ from app.core.db_transactions import acquire_sqlite_write_transaction
 from app.core.domain_errors import CompensationFailureError, UiUserNotFoundError
 from app.db import (
     AccountIAMUser,
-    AuditLog,
     AuthSession,
-    BucketMigration,
     ManagedPrivateAccess,
     PortalIAMRevocation,
     RefreshToken,
@@ -226,20 +224,6 @@ class UserDeletionService:
                 .execution_options(synchronize_session=False)
             )
 
-    def _anonymize_history(self, user_id: int) -> None:
-        self.db.execute(
-            update(AuditLog)
-            .where(AuditLog.user_id == user_id)
-            .values(user_id=None)
-            .execution_options(synchronize_session=False)
-        )
-        self.db.execute(
-            update(BucketMigration)
-            .where(BucketMigration.created_by_user_id == user_id)
-            .values(created_by_user_id=None)
-            .execution_options(synchronize_session=False)
-        )
-
     def _cleanup_owned_tag_definitions(self, user_id: int) -> None:
         # Private bucket UI tags must disappear with their owner. Turning them
         # into global definitions would silently make private metadata shared.
@@ -283,7 +267,6 @@ class UserDeletionService:
         try:
             self._delete_links_and_private_connections(user.id, created_private_ids)
             self._delete_auth_artifacts(user.id)
-            self._anonymize_history(user.id)
             self._cleanup_owned_tag_definitions(user.id)
             self.db.delete(user)
             self.db.commit()
