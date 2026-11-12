@@ -31,10 +31,6 @@ _NUMERIC_COMPARATORS = {
 }
 
 
-def _normalize_scalar_text(value: object) -> str:
-    return normalize_text(value)
-
-
 def _normalize_candidate_text(value: object) -> str:
     return normalize_text(str(value))
 
@@ -44,13 +40,13 @@ def match_text_rule(
     op: str,
     expected: object,
     *,
-    scalar_normalizer: TextNormalizer = _normalize_scalar_text,
+    scalar_normalizer: TextNormalizer = normalize_text,
     candidate_normalizer: TextNormalizer = _normalize_candidate_text,
     require_candidates: bool = False,
 ) -> bool:
     if value is None:
         return False
-    left = normalize_text(str(value))
+    left = _normalize_candidate_text(value)
     comparator = _TEXT_COMPARATORS.get(op)
     if comparator is not None:
         right = scalar_normalizer(expected)
