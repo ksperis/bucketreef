@@ -13,6 +13,10 @@ from app.models.bucket_ui_tags import BucketUiTagDefinitionSummary
 from app.models.pagination import PaginationRequest
 
 
+BucketListingSortBy = Literal["name", "tenant", "owner", "used_bytes", "object_count"]
+BucketUiTagMatch = Literal["any", "all"]
+
+
 class BucketListingSummary(ApiModel):
     name: str
     tenant: Optional[str] = None
@@ -39,9 +43,9 @@ class BucketListingSummary(ApiModel):
 class BucketListingRequest(PaginationRequest):
     filter: Optional[str] = None
     advanced_filter: Optional[str] = None
-    sort_by: str = "name"
+    sort_by: BucketListingSortBy = "name"
     sort_dir: SortDirection = "asc"
     include: list[str] = Field(default_factory=list)
     with_stats: bool = True
     ui_tag_ids: list[int] = Field(default_factory=list)
-    ui_tag_match: Literal["any", "all"] = "any"
+    ui_tag_match: BucketUiTagMatch = "any"

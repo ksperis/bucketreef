@@ -8,7 +8,7 @@ from typing import Any, Callable, Literal
 
 from app.db import StorageEndpoint
 from app.models.bucket_filter import BucketFilterQuery, BucketFilterRule
-from app.models.bucket_listing import BucketListingSummary
+from app.models.bucket_listing import BucketListingSortBy, BucketListingSummary
 from app.services.bucket_owner_enrichment import BucketOwnerMetadataService, BucketOwnerUsage
 from app.services.ceph_admin_account_access import optional_account_lookup_enabled
 from app.services.ceph_admin_context import CephAdminContext
@@ -302,7 +302,7 @@ def filter_requires_owner_usage(query: BucketFilterQuery | None) -> bool:
 
 def request_requires_owner_metadata(
     query: BucketFilterQuery | None,
-    sort_by: str,
+    sort_by: BucketListingSortBy,
     simple_filter: str | None,
 ) -> bool:
     return _filter_requires_owner_metadata(query) or sort_by in {"tenant", "owner"} or bool(simple_filter)
@@ -310,7 +310,7 @@ def request_requires_owner_metadata(
 
 def request_requires_tenant_metadata(
     query: BucketFilterQuery | None,
-    sort_by: str,
+    sort_by: BucketListingSortBy,
     simple_filter: str | None,
 ) -> bool:
     return _filter_requires_tenant_metadata(query) or sort_by == "tenant" or bool(simple_filter)

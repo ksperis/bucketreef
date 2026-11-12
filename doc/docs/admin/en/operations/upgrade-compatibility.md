@@ -1,5 +1,16 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 canonical bucket listing sort contract
+
+The shared Ceph Admin and Storage Ops bucket listing contract now validates
+`sort_by` against `name`, `tenant`, `owner`, `used_bytes`, and `object_count`.
+It also validates `ui_tag_match` as `any` or `all`. Unknown values are rejected
+at request validation instead of silently falling back to name sorting or
+`any` tag matching.
+
+Deploy the backend and bundled frontend together. No database migration is
+required.
+
 ## 2026-11 canonical Ceph Admin identity sorting
 
 Ceph Admin account and user listings now validate `sort_by` against the fields

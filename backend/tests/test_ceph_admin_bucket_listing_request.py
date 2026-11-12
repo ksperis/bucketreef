@@ -3,7 +3,11 @@
 
 import json
 
+import pytest
+from pydantic import ValidationError
+
 from app.models.bucket_filter import BucketFilterQuery, BucketFilterRule
+from app.models.bucket_listing import BucketListingRequest
 from app.services.ceph_admin_bucket_listing_request import (
     CephAdminAdvancedFilterPlan,
     CephAdminBucketListingRequest,
@@ -67,10 +71,9 @@ def test_bucket_listing_request_derives_stats_and_include_requirements():
     assert request.requested_detail_fields == frozenset({"object_lock_mode"})
 
 
-def test_bucket_listing_request_normalizes_ui_tag_options():
+def test_bucket_listing_request_normalizes_ui_tag_ids():
     request = _parse(
         ui_tag_ids=[3, 0, 3, -1, 5],
-        ui_tag_match="invalid",
         with_ui_tags=True,
     )
 
@@ -78,6 +81,18 @@ def test_bucket_listing_request_normalizes_ui_tag_options():
     assert request.ui_tag_match == "any"
     assert request.needs_owner_metadata is True
     assert request.needs_tenant_metadata is True
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"sort_by": "unknown"},
+        {"ui_tag_match": "invalid"},
+    ],
+)
+def test_bucket_listing_request_rejects_unknown_listing_options(overrides):
+    with pytest.raises(ValidationError):
+        BucketListingRequest(**overrides)
 
 
 def test_bucket_listing_request_preserves_explicit_all_ui_tag_match():

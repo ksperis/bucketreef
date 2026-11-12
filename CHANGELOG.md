@@ -4,12 +4,14 @@
 
 ### Changed
 
+- Validate shared Ceph Admin and Storage Ops bucket listing sort fields and UI-tag match mode at the API boundary, removing silent runtime fallback to name sorting or `any` tag matching.
 - Tighten Ceph Admin account and user listing sort fields to the exact fields exposed by the bundled frontend, removing the retired account `name` sort alias and silent fallback for unknown fields.
 - Canonicalize Storage Endpoint credential replacement so Admin, Runtime, Supervision, and Ceph Admin identities all reuse a stored pair only when both edit fields are blank, and require both fields for an explicit replacement.
 - Simplify the internal Admin MFA reset route to return `204 No Content`; removal counters and passkey-policy state remain recorded in the security audit instead of being duplicated in an unused response body.
 
 ### Upgrade notes
 
+- Deploy the matching backend and bundled frontend together because shared Ceph Admin/Storage Ops bucket listings now reject unknown `sort_by` and `ui_tag_match` values instead of silently normalizing them. No database migration is required.
 - Deploy the matching backend and bundled frontend together because Ceph Admin account/user listings now reject unknown `sort_by` values; use `account_name` instead of the retired account `name` alias. No database migration is required.
 - Deploy the matching backend and bundled frontend together because Storage Endpoint feature detection and onboarding no longer support the historical Admin access-key-only edit fallback. No database migration is required.
 - Deploy the matching backend and bundled frontend together because Admin MFA reset now returns `204 No Content` instead of an unused result object. No database migration is required.

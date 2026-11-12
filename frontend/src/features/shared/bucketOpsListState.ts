@@ -6,6 +6,7 @@ import {
   readClientJsonFromKey,
   writeClientJsonToKey,
 } from "../../utils/clientStorage";
+import type { BucketListingSortBy } from "../../api/bucketListingTransport";
 import {
   sanitizeAdvancedFilter,
   type AdvancedFilterState,
@@ -77,7 +78,7 @@ export type BucketOpsFeatureColumn = {
   label: string;
 };
 
-export type SortField = "name" | "tenant" | "owner" | "used_bytes" | "object_count";
+export type SortField = BucketListingSortBy;
 export type BucketListState = {
   filter: string;
   quickFilterMode: TextMatchMode;

@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from app.core.domain_enums import SortDirection
 from app.models.bucket_filter import BucketFilterQuery, BucketFilterRule
+from app.models.bucket_listing import BucketListingSortBy, BucketUiTagMatch
 from app.services.bucket_listing_enrichment import BUCKET_FEATURE_INCLUDES, COLUMN_DETAIL_KEYS
 from app.services.bucket_listing_owner_metadata import (
     BucketOwnerMetadataRequirements,
@@ -37,7 +39,7 @@ def _parse_listing_filters(
 
 def _metadata_requirements(
     advanced_filter: BucketFilterQuery | None,
-    sort_by: str,
+    sort_by: BucketListingSortBy,
     simple_filter: str | None,
     *,
     with_ui_tags: bool,
@@ -85,8 +87,8 @@ def _partition_field_rules(
 class CephAdminBucketListingRequest:
     simple_filter: str | None
     advanced_filter: BucketFilterQuery | None
-    sort_by: str
-    sort_dir: str
+    sort_by: BucketListingSortBy
+    sort_dir: SortDirection
     with_stats: bool
     stats_required: bool
     requested_owner_metadata: BucketOwnerMetadataRequirements
@@ -97,7 +99,7 @@ class CephAdminBucketListingRequest:
     requested_detail_fields: frozenset[str]
     include_tags: bool
     ui_tag_ids: tuple[int, ...]
-    ui_tag_match: str
+    ui_tag_match: BucketUiTagMatch
 
     @classmethod
     def parse(
@@ -105,12 +107,12 @@ class CephAdminBucketListingRequest:
         *,
         raw_filter: str | None,
         raw_advanced_filter: str | None,
-        sort_by: str,
-        sort_dir: str,
+        sort_by: BucketListingSortBy,
+        sort_dir: SortDirection,
         include: list[str],
         with_stats: bool,
         ui_tag_ids: list[int] | None = None,
-        ui_tag_match: str = "any",
+        ui_tag_match: BucketUiTagMatch = "any",
         with_ui_tags: bool = False,
     ) -> CephAdminBucketListingRequest:
         simple_filter, advanced_filter = _parse_listing_filters(
@@ -144,7 +146,7 @@ class CephAdminBucketListingRequest:
             requested_detail_fields=frozenset(include_set & COLUMN_DETAIL_KEYS),
             include_tags="tags" in include_set,
             ui_tag_ids=_normalized_ui_tag_ids(ui_tag_ids),
-            ui_tag_match="all" if ui_tag_match == "all" else "any",
+            ui_tag_match=ui_tag_match,
         )
 
     def cache_key(self, endpoint_id: int) -> CephAdminBucketListCacheKey:
