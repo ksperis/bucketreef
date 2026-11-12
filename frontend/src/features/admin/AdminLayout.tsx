@@ -51,6 +51,9 @@ export const buildAdminNav = (
   pendingRequestCounts: AdminPendingRequestCounts | null = null,
   showOnboarding = true,
   text: AdminNavText = identityText,
+  managedRgwAccountsEnabled = true,
+  managedRgwUsersEnabled = true,
+  sharedS3ConnectionsEnabled = true,
 ): SidebarSection[] => {
   const identityRequestCount = pendingRequestCounts?.identity_link_requests ?? 0;
   const portalRequestCount = pendingRequestCounts?.portal_requests ?? 0;
@@ -131,23 +134,25 @@ export const buildAdminNav = (
     {
       label: text("Managed Tenants"),
       links: [
-        pageLink(ADMIN_PAGE_CONTRACTS.accounts, text),
-        pageLink(ADMIN_PAGE_CONTRACTS["rgw-users"], text),
+        ...(managedRgwAccountsEnabled ? [pageLink(ADMIN_PAGE_CONTRACTS.accounts, text)] : []),
+        ...(managedRgwUsersEnabled ? [pageLink(ADMIN_PAGE_CONTRACTS["rgw-users"], text)] : []),
         pageLink(ADMIN_PAGE_CONTRACTS.metrics, text),
       ],
     },
-    {
-      label: text("Connections"),
-      links: [
-        pageLink(ADMIN_PAGE_CONTRACTS["shared-connections"], text),
-        ...(openStackEnabled
-          ? [{
-              ...pageLink(ADMIN_PAGE_CONTRACTS.openstack, text),
-              iconName: "openstack" as const,
-            }]
-          : []),
-      ],
-    },
+    ...(sharedS3ConnectionsEnabled || openStackEnabled
+      ? [{
+          label: text("Connections"),
+          links: [
+            ...(sharedS3ConnectionsEnabled ? [pageLink(ADMIN_PAGE_CONTRACTS["shared-connections"], text)] : []),
+            ...(openStackEnabled
+              ? [{
+                  ...pageLink(ADMIN_PAGE_CONTRACTS.openstack, text),
+                  iconName: "openstack" as const,
+                }]
+              : []),
+          ],
+        }]
+      : []),
     {
       label: text("Storage Backends"),
       links: [
@@ -224,6 +229,9 @@ export default function AdminLayout() {
     pendingRequestCounts,
     Boolean(onboardingStatus && !onboardingStatus.complete && !onboardingStatus.dismissed),
     text,
+    generalSettings.managed_rgw_accounts_enabled,
+    generalSettings.managed_rgw_users_enabled,
+    generalSettings.shared_s3_connections_enabled,
   );
   return (
     <Layout

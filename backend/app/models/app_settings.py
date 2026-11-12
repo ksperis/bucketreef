@@ -87,6 +87,10 @@ class GeneralSettings(ApiModel):
     allow_managed_rgw_tenant_creation: bool = False
     documentation_base_url: str = DEFAULT_DOCUMENTATION_BASE_URL
     manager_enabled: bool = True
+    managed_rgw_accounts_enabled: bool = True
+    managed_rgw_users_enabled: bool = False
+    shared_s3_connections_enabled: bool = False
+    private_s3_connections_enabled: bool = False
     openstack_enabled: bool = False
     ceph_admin_enabled: bool = False
     storage_ops_enabled: bool = False
@@ -156,6 +160,10 @@ class GeneralFeatureLock(ApiModel):
 
 class GeneralFeatureLocks(ApiModel):
     manager_enabled: GeneralFeatureLock = Field(default_factory=GeneralFeatureLock)
+    managed_rgw_accounts_enabled: GeneralFeatureLock = Field(default_factory=GeneralFeatureLock)
+    managed_rgw_users_enabled: GeneralFeatureLock = Field(default_factory=GeneralFeatureLock)
+    shared_s3_connections_enabled: GeneralFeatureLock = Field(default_factory=GeneralFeatureLock)
+    private_s3_connections_enabled: GeneralFeatureLock = Field(default_factory=GeneralFeatureLock)
     openstack_enabled: GeneralFeatureLock = Field(default_factory=GeneralFeatureLock)
     ceph_admin_enabled: GeneralFeatureLock = Field(default_factory=GeneralFeatureLock)
     storage_ops_enabled: GeneralFeatureLock = Field(default_factory=GeneralFeatureLock)

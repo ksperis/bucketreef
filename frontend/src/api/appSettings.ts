@@ -71,6 +71,10 @@ export type GeneralConfiguration = {
   allow_managed_rgw_tenant_creation: boolean;
   documentation_base_url: string;
   manager_enabled: boolean;
+  managed_rgw_accounts_enabled: boolean;
+  managed_rgw_users_enabled: boolean;
+  shared_s3_connections_enabled: boolean;
+  private_s3_connections_enabled: boolean;
   openstack_enabled: boolean;
   ceph_admin_enabled: boolean;
   storage_ops_enabled: boolean;
@@ -124,6 +128,10 @@ export type GeneralFeatureLock = {
 
 export type GeneralFeatureLocks = {
   manager_enabled: GeneralFeatureLock;
+  managed_rgw_accounts_enabled: GeneralFeatureLock;
+  managed_rgw_users_enabled: GeneralFeatureLock;
+  shared_s3_connections_enabled: GeneralFeatureLock;
+  private_s3_connections_enabled: GeneralFeatureLock;
   openstack_enabled: GeneralFeatureLock;
   ceph_admin_enabled: GeneralFeatureLock;
   storage_ops_enabled: GeneralFeatureLock;

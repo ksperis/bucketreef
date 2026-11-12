@@ -986,6 +986,7 @@ def test_browser_workspace_rejects_forged_account_and_shared_connection(db_sessi
 
 def test_manager_context_s3_user_enables_ceph_keys_when_management_possible(db_session, monkeypatch):
     settings = AppSettings()
+    settings.general.managed_rgw_users_enabled = True
     settings.manager.feature_policies.ceph_s3_user_keys = "targeted"
     monkeypatch.setattr(app_settings_service, "load_app_settings_for_db", lambda _db: settings)
     monkeypatch.setattr(manager_context_router, "load_app_settings_for_db", lambda _db: settings)
@@ -1005,6 +1006,7 @@ def test_manager_context_s3_user_enables_ceph_keys_when_management_possible(db_s
 
 def test_manager_context_s3_user_disables_ceph_keys_without_target_grant(db_session, monkeypatch):
     settings = AppSettings()
+    settings.general.managed_rgw_users_enabled = True
     settings.manager.feature_policies.ceph_s3_user_keys = "targeted"
     monkeypatch.setattr(app_settings_service, "load_app_settings_for_db", lambda _db: settings)
     monkeypatch.setattr(manager_context_router, "load_app_settings_for_db", lambda _db: settings)
@@ -1031,6 +1033,7 @@ def test_manager_context_s3_user_disables_ceph_keys_without_target_grant(db_sess
 
 def test_manager_context_s3_user_keys_do_not_require_s3_user_tool_access(db_session, monkeypatch):
     settings = AppSettings()
+    settings.general.managed_rgw_users_enabled = True
     settings.manager.feature_policies.ceph_s3_user_keys = "targeted"
     monkeypatch.setattr(app_settings_service, "load_app_settings_for_db", lambda _db: settings)
     monkeypatch.setattr(manager_context_router, "load_app_settings_for_db", lambda _db: settings)
@@ -1079,6 +1082,7 @@ def test_manager_context_hides_managed_private_access_when_global_flag_is_disabl
     monkeypatch,
 ):
     settings = AppSettings()
+    settings.general.managed_rgw_users_enabled = True
     monkeypatch.setattr(app_settings_service, "load_app_settings_for_db", lambda _db: settings)
     monkeypatch.setattr(manager_context_router, "load_app_settings_for_db", lambda _db: settings)
 
@@ -1099,6 +1103,7 @@ def test_manager_context_does_not_infer_managed_private_access_from_ceph_key_inv
     monkeypatch,
 ):
     settings = AppSettings()
+    settings.general.managed_rgw_users_enabled = True
     settings.manager.feature_policies.ceph_s3_user_keys = "targeted"
     settings.manager.feature_policies.managed_private_connection_provisioning = "targeted"
     monkeypatch.setattr(app_settings_service, "load_app_settings_for_db", lambda _db: settings)
@@ -1134,6 +1139,7 @@ def test_manager_context_s3_user_disables_ceph_keys_when_management_not_possible
     feature_enabled: bool,
 ):
     settings = AppSettings()
+    settings.general.managed_rgw_users_enabled = True
     settings.manager.feature_policies.ceph_s3_user_keys = "targeted" if feature_enabled else "disabled"
     monkeypatch.setattr(app_settings_service, "load_app_settings_for_db", lambda _db: settings)
     monkeypatch.setattr(manager_context_router, "load_app_settings_for_db", lambda _db: settings)

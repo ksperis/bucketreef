@@ -119,6 +119,10 @@ const managerFeaturePolicies: ManagerFeaturePolicies = {
 const generalSettingsState = {
   manager_feature_policies: managerFeaturePolicies,
   manager_enabled: true,
+  managed_rgw_accounts_enabled: true,
+  managed_rgw_users_enabled: true,
+  shared_s3_connections_enabled: true,
+  private_s3_connections_enabled: true,
   openstack_enabled: true,
   ceph_admin_enabled: false,
   storage_ops_enabled: false,
@@ -231,6 +235,10 @@ describe("UsersPage modal tabs", () => {
 
     generalSettingsState.portal_enabled = false;
     generalSettingsState.openstack_enabled = true;
+    generalSettingsState.managed_rgw_accounts_enabled = true;
+    generalSettingsState.managed_rgw_users_enabled = true;
+    generalSettingsState.shared_s3_connections_enabled = true;
+    generalSettingsState.private_s3_connections_enabled = true;
     generalSettingsState.manager_feature_policies.managed_private_connection_provisioning = "targeted";
     setSessionUserCache({ id: 1, role: "ui_superadmin" });
 
@@ -320,6 +328,24 @@ describe("UsersPage modal tabs", () => {
 
     await waitFor(() => expect(listUsersMock).toHaveBeenCalled());
     expect(listAdminOpenStackCloudOptionsMock).not.toHaveBeenCalled();
+  });
+
+  it("does not load or offer disabled managed association types", async () => {
+    generalSettingsState.managed_rgw_accounts_enabled = false;
+    generalSettingsState.managed_rgw_users_enabled = false;
+    generalSettingsState.shared_s3_connections_enabled = false;
+
+    renderPage();
+
+    await waitFor(() => expect(listUsersMock).toHaveBeenCalled());
+    expect(listS3AccountsMock).not.toHaveBeenCalled();
+    expect(listS3UsersMock).not.toHaveBeenCalled();
+    expect(listS3ConnectionsMock).not.toHaveBeenCalled();
+
+    await openCreateUser();
+    expect(screen.queryByRole("tab", { name: "RGW Accounts" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "RGW Users" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "S3 Connections" })).not.toBeInTheDocument();
   });
 
   const recentWebAuthnRequiredError = () => new ApiError("Request failed", {

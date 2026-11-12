@@ -5,13 +5,22 @@ from __future__ import annotations
 from datetime import UTC, datetime
 import json
 
+import pytest
 import sqlalchemy as sa
 
 from app.db import S3Connection, UiGroup, UiGroupS3Connection, User, UserS3Connection
 from app.core.domain_enums import UserRole
+from app.services import app_settings_service
 from app.services.tags_service import TagsService
 from tests.auth_test_utils import authenticate_ui_client
 from tests.s3_connection_factory import custom_endpoint_fields
+
+
+@pytest.fixture(autouse=True)
+def _enable_shared_s3_connections(db_session):
+    settings = app_settings_service.load_app_settings_for_db(db_session)
+    settings.general.shared_s3_connections_enabled = True
+    app_settings_service.save_app_settings_for_db(db_session, settings)
 
 
 def _seed_connection(
@@ -61,6 +70,17 @@ def test_admin_s3_connections_default_sort_is_name_case_insensitive(client, db_s
     payload = response.json()
 
     assert [item["name"] for item in payload["items"]] == ["alpha", "Beta", "Zulu"]
+
+
+def test_admin_s3_connections_route_rejects_when_feature_disabled(client, db_session):
+    settings = app_settings_service.load_app_settings_for_db(db_session)
+    settings.general.shared_s3_connections_enabled = False
+    app_settings_service.save_app_settings_for_db(db_session, settings)
+
+    response = client.get("/api/admin/s3-connections")
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Shared S3 Connections feature is disabled"
 
 
 def test_admin_s3_connections_sort_by_name_desc(client, db_session):

@@ -55,6 +55,10 @@ function buildSettings(): AppSettings { return createAppSettings(); }
 function unlockedFeatureLocks(): GeneralFeatureLocks {
   return {
     manager_enabled: { forced: false, value: null, source: null },
+    managed_rgw_accounts_enabled: { forced: false, value: null, source: null },
+    managed_rgw_users_enabled: { forced: false, value: null, source: null },
+    shared_s3_connections_enabled: { forced: false, value: null, source: null },
+    private_s3_connections_enabled: { forced: false, value: null, source: null },
     openstack_enabled: { forced: false, value: null, source: null },
     ceph_admin_enabled: { forced: false, value: null, source: null },
     storage_ops_enabled: { forced: false, value: null, source: null },
@@ -291,7 +295,7 @@ describe("GeneralSettingsPage branding", () => {
   it("shows Experimental badges on OpenStack, Portal, and Cost feature toggles", async () => {
     renderPage();
 
-    const openStackToggle = await screen.findByLabelText("OpenStack feature");
+    const openStackToggle = await screen.findByLabelText("OpenStack Clouds feature");
     const portalToggle = await screen.findByLabelText("Portal feature");
     const costToggle = screen.getByLabelText("Cost feature");
     const openStackRow = openStackToggle.closest(".settings-item-compact");
@@ -306,17 +310,18 @@ describe("GeneralSettingsPage branding", () => {
     expect(within(costRow as HTMLElement).getByText("Experimental")).toBeInTheDocument();
   });
 
-  it("places OpenStack after Storage Ops in available workspaces", async () => {
+  it("groups managed tenants and connections with their descriptions", async () => {
     renderPage();
 
-    const storageOpsToggle = await screen.findByLabelText("Storage Ops feature");
-    const openStackToggle = screen.getByLabelText("OpenStack feature");
-    const storageOpsRow = storageOpsToggle.closest(".settings-item-compact");
-    const openStackRow = openStackToggle.closest(".settings-item-compact");
-
-    expect(storageOpsRow).not.toBeNull();
-    expect(openStackRow).not.toBeNull();
-    expect(storageOpsRow?.nextElementSibling).toBe(openStackRow);
+    await screen.findByLabelText("RGW Accounts feature");
+    expect(screen.getByText("Managed Tenants")).toBeInTheDocument();
+    expect(screen.getByText("Connections")).toBeInTheDocument();
+    expect(screen.getByLabelText("RGW Users feature")).toBeInTheDocument();
+    expect(screen.getByLabelText("S3 Connections feature")).toBeInTheDocument();
+    expect(screen.getByLabelText("Private S3 Connections feature")).toBeInTheDocument();
+    expect(screen.getByLabelText("OpenStack Clouds feature")).toBeInTheDocument();
+    expect(screen.getByText("Enable shared, Admin-managed S3 connections that can be assigned to users and groups.")).toBeInTheDocument();
+    expect(screen.getByText("Enable user-owned S3 connections managed from Profile and used in personal Browser and Manager contexts.")).toBeInTheDocument();
   });
 
   it("sends a quota SMTP test email with current quota notification settings", async () => {

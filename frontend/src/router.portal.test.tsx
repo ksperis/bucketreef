@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { matchRoutes, MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GeneralSettings } from "./api/appSettings";
@@ -31,6 +32,10 @@ const baseSettings: GeneralSettings = {
   allow_managed_rgw_tenant_creation: false,
   documentation_base_url: "https://docs.bucketreef.ksperis.com",
   manager_enabled: true,
+  managed_rgw_accounts_enabled: true,
+  managed_rgw_users_enabled: true,
+  shared_s3_connections_enabled: true,
+  private_s3_connections_enabled: true,
   openstack_enabled: false,
   ceph_admin_enabled: false,
   storage_ops_enabled: false,
@@ -75,10 +80,16 @@ function portalAccess(
   });
 }
 
-function findRouteByPath(routes: Array<{ path?: string; children?: unknown[] }>, path: string): { path?: string; children?: unknown[] } | null {
+function findRouteByPath(
+  routes: Array<{ path?: string; children?: unknown[]; element?: ReactNode }>,
+  path: string,
+): { path?: string; children?: unknown[]; element?: ReactNode } | null {
   for (const route of routes) {
     if (route.path === path) return route;
-    const found = findRouteByPath((route.children ?? []) as Array<{ path?: string; children?: unknown[] }>, path);
+    const found = findRouteByPath(
+      (route.children ?? []) as Array<{ path?: string; children?: unknown[]; element?: ReactNode }>,
+      path,
+    );
     if (found) return found;
   }
   return null;
@@ -159,6 +170,29 @@ describe("portal routes", () => {
       "/portal/storage-spaces/research%20data/objects/reports/annual%20report.csv?tab=history",
     );
     expect(removed?.at(-1)?.route.path).toBe("*");
+  });
+
+  it.each([
+    ["s3-accounts", "managed_rgw_accounts_enabled"],
+    ["s3-users", "managed_rgw_users_enabled"],
+    ["s3-connections", "shared_s3_connections_enabled"],
+  ] as const)("shows the disabled-feature page for direct admin route %s", (path, feature) => {
+    mocks.generalSettings = { ...baseSettings, [feature]: false };
+    const route = findRouteByPath(
+      createAppRoutes() as Array<{ path?: string; children?: unknown[]; element?: ReactNode }>,
+      path,
+    );
+
+    const { container } = render(
+      <MemoryRouter>
+        {route?.element}
+      </MemoryRouter>,
+    );
+
+    expect(container.querySelector("section")).toHaveAttribute(
+      "data-error-kind",
+      "feature_disabled",
+    );
   });
 
   it("shows restricted access when no explicit portal account role exists", async () => {

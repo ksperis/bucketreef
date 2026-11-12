@@ -42,17 +42,32 @@ const loadOpenStackClouds = async (
 
 type UseAdminGroupAssociationOptions = {
   openStackEnabled: boolean;
+  accountsEnabled: boolean;
+  s3UsersEnabled: boolean;
+  connectionsEnabled: boolean;
   onError: (error: unknown) => void;
 };
 
 export default function useAdminGroupAssociationOptions({
   openStackEnabled,
+  accountsEnabled,
+  s3UsersEnabled,
+  connectionsEnabled,
   onError,
 }: UseAdminGroupAssociationOptions) {
   const users = usePaginatedOptions(loadUsers, { initialPageSize: 10 });
-  const accounts = usePaginatedOptions(loadAccounts, { initialPageSize: 10 });
-  const s3Users = usePaginatedOptions(loadS3Users, { initialPageSize: 10 });
-  const connections = usePaginatedOptions(loadConnections, { initialPageSize: 10 });
+  const accounts = usePaginatedOptions(loadAccounts, {
+    enabled: accountsEnabled,
+    initialPageSize: 10,
+  });
+  const s3Users = usePaginatedOptions(loadS3Users, {
+    enabled: s3UsersEnabled,
+    initialPageSize: 10,
+  });
+  const connections = usePaginatedOptions(loadConnections, {
+    enabled: connectionsEnabled,
+    initialPageSize: 10,
+  });
   const openStackClouds = usePaginatedOptions(loadOpenStackClouds, {
     enabled: openStackEnabled,
     initialPageSize: 10,
@@ -65,24 +80,27 @@ export default function useAdminGroupAssociationOptions({
 
   const refresh = useCallback(async () => {
     refreshUsers();
-    refreshAccounts();
-    refreshS3Users();
-    refreshConnections();
+    if (accountsEnabled) refreshAccounts();
+    if (s3UsersEnabled) refreshS3Users();
+    if (connectionsEnabled) refreshConnections();
     if (openStackEnabled) refreshOpenStackClouds();
   }, [
+    accountsEnabled,
+    connectionsEnabled,
     openStackEnabled,
     refreshAccounts,
     refreshConnections,
     refreshOpenStackClouds,
     refreshS3Users,
     refreshUsers,
+    s3UsersEnabled,
   ]);
 
   const error =
     users.error ??
-    accounts.error ??
-    s3Users.error ??
-    connections.error ??
+    (accountsEnabled ? accounts.error : null) ??
+    (s3UsersEnabled ? s3Users.error : null) ??
+    (connectionsEnabled ? connections.error : null) ??
     (openStackEnabled ? openStackClouds.error : null);
   useEffect(() => {
     if (error) onError(error);
@@ -96,9 +114,9 @@ export default function useAdminGroupAssociationOptions({
     openStackClouds: openStackClouds.items,
     loading:
       users.loading ||
-      accounts.loading ||
-      s3Users.loading ||
-      connections.loading ||
+      (accountsEnabled && accounts.loading) ||
+      (s3UsersEnabled && s3Users.loading) ||
+      (connectionsEnabled && connections.loading) ||
       (openStackEnabled && openStackClouds.loading),
     usersCatalog: users,
     accountsCatalog: accounts,

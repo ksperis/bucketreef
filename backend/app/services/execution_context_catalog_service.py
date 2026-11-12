@@ -97,6 +97,10 @@ class ExecutionContextCatalogService:
         return results
 
     def _account_contexts(self, effective, *, workspace: str | None) -> list[ExecutionContext]:
+        if not app_settings_service.load_app_settings_for_db(
+            self.db
+        ).general.managed_rgw_accounts_enabled:
+            return []
         account_ids = {link.account_id for link in effective.account_links}
         accounts = (
             self.db.scalars(select(S3Account).where(S3Account.id.in_(account_ids))).all()
@@ -136,6 +140,10 @@ class ExecutionContextCatalogService:
         return results
 
     def _s3_user_contexts(self, effective, *, workspace: str | None) -> list[ExecutionContext]:
+        if not app_settings_service.load_app_settings_for_db(
+            self.db
+        ).general.managed_rgw_users_enabled:
+            return []
         s3_user_ids = set(effective.s3_user_ids)
         s3_users = (
             self.db.scalars(select(S3User).where(S3User.id.in_(s3_user_ids))).all()
@@ -266,13 +274,15 @@ class ExecutionContextCatalogService:
         )
 
     def _workspace_context_counts(self, user: User, effective) -> dict[str, int]:
+        general = app_settings_service.load_app_settings_for_db(self.db).general
         manager_count = (
             sum(
                 1
                 for link in effective.account_links
-                if self.access_service.manager_account_allowed(link)
+                if general.managed_rgw_accounts_enabled
+                and self.access_service.manager_account_allowed(link)
             )
-            + len(effective.s3_user_ids)
+            + (len(effective.s3_user_ids) if general.managed_rgw_users_enabled else 0)
             + len(
                 self.access_service.list_workspace_connections(
                     user,

@@ -70,6 +70,7 @@ export default function AdminAccountAssociationsPanel({
       !hasAccountAccessRole(accounts.accountAccessChoice[accountId] ?? defaultAccess),
   );
   const { generalSettings } = useGeneralSettings();
+  const showManagerRole = generalSettings.managed_rgw_accounts_enabled;
   const showPortalRole = generalSettings.portal_enabled || accounts.selected.some((entry) => entry.portal_role);
   const columns: DataTableColumn<AdminAccountSelection>[] = [
     {
@@ -91,7 +92,7 @@ export default function AdminAccountAssociationsPanel({
         );
       },
     },
-    {
+    ...(showManagerRole ? [{
       id: "manager-role",
       label: labels.managerRole,
       render: (entry) => {
@@ -116,7 +117,7 @@ export default function AdminAccountAssociationsPanel({
           />
         );
       },
-    },
+    } satisfies DataTableColumn<AdminAccountSelection>] : []),
     ...(showPortalRole ? [{
           id: "portal-role",
           label: labels.portalRole,
@@ -153,7 +154,7 @@ export default function AdminAccountAssociationsPanel({
           accounts.optionsById.get(entry.id)?.name ?? labels.fallbackLabel(entry.id);
         return (
           <ListActions>
-            {entry.manager_role ? (
+            {showManagerRole && entry.manager_role ? (
               <AdminAssociationAdvancedSettings
                 targetLabel={label}
                 associationKind="account"

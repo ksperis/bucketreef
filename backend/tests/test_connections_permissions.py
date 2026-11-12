@@ -14,6 +14,7 @@ from app.main import app
 from app.routers import dependencies
 from app.routers.connections import _ensure_manual_private_connection_creation_allowed
 from app.routers.dependencies_internal.execution_context import _resolve_connection_context
+from app.services import app_settings_service
 from app.services.effective_access_service import EffectiveAccessService
 from tests.s3_connection_factory import custom_endpoint_fields
 from tests.storage_endpoint_features import persisted_endpoint_features
@@ -228,6 +229,19 @@ def test_registered_endpoint_catalog_accepts_group_inherited_manual_permission(d
         }
     ]
     assert "MUST-NOT-LEAK" not in response.text
+
+
+def test_private_connections_router_rejects_when_feature_disabled(db_session):
+    user = _user(db_session, can_create_manual_private_connections=True)
+    settings = app_settings_service.load_app_settings_for_db(db_session)
+    settings.general.private_s3_connections_enabled = False
+    app_settings_service.save_app_settings_for_db(db_session, settings)
+
+    with _client_for(db_session, user) as client:
+        response = client.get("/api/connections")
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Private S3 Connections feature is disabled"
 
 
 def test_existing_private_manual_connection_is_revalidated_before_use(db_session, monkeypatch):

@@ -83,7 +83,9 @@ export default function Topbar({
   );
   const isS3Session = storedUser?.authType === "s3_session";
   const canAccessPrivateConnections =
-    !isS3Session && canAccessPrivateConnectionsSection(storedUser);
+    !isS3Session &&
+    generalSettings.private_s3_connections_enabled &&
+    canAccessPrivateConnectionsSection(storedUser);
   const canAccessOpenStack = canAccessOpenStackProfileSection(
     storedUser,
     runtimeSurfaces,

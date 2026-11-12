@@ -146,6 +146,19 @@ export default function UsersPage() {
   const currentIsSuperAdmin = isSuperAdminRole(currentUser?.role);
   const cephAdminFeatureEnabled = generalSettings.ceph_admin_enabled;
   const openStackEnabled = generalSettings.openstack_enabled;
+  const accountAssociationsEnabled =
+    generalSettings.managed_rgw_accounts_enabled || generalSettings.portal_enabled;
+  const managedRgwUsersEnabled = generalSettings.managed_rgw_users_enabled;
+  const sharedS3ConnectionsEnabled = generalSettings.shared_s3_connections_enabled;
+  const defaultAssociationTab: StorageAssociationTab = accountAssociationsEnabled
+    ? "accounts"
+    : managedRgwUsersEnabled
+      ? "s3_users"
+      : sharedS3ConnectionsEnabled
+        ? "connections"
+        : openStackEnabled
+          ? "openstack"
+          : "accounts";
   const principalEditRequest = useAdminPrincipalEditRequest();
   const {
     accounts,
@@ -170,7 +183,12 @@ export default function UsersPage() {
     openStackCloudsCatalog,
     ensureAssociationOptionsForTab,
     resetAssociationOptionSearches,
-  } = useAdminUserAssociationOptions(openStackEnabled);
+  } = useAdminUserAssociationOptions(
+    openStackEnabled,
+    accountAssociationsEnabled,
+    managedRgwUsersEnabled,
+    sharedS3ConnectionsEnabled,
+  );
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [form, setForm] = useState<CreateUserPayload>(emptyAdminUserCreateForm);
@@ -322,6 +340,9 @@ export default function UsersPage() {
     openStackCatalog: openStackCloudsCatalog,
     groupCatalog: groupsCatalog,
     openStackEnabled,
+    accountsEnabled: accountAssociationsEnabled,
+    s3UsersEnabled: managedRgwUsersEnabled,
+    connectionsEnabled: sharedS3ConnectionsEnabled,
     ensureAssociationOptionsForTab,
   };
   const displayUiRole = (role: UiRole) => {
@@ -402,7 +423,7 @@ export default function UsersPage() {
     setForm(emptyAdminUserCreateForm());
     setCreateSource("local");
     resetLdapImport();
-    createAssociations.reset();
+    createAssociations.reset({ associationsTab: defaultAssociationTab });
     resetAssociationOptionSearches();
     setCreateModalTab("general");
     setCreateRoleHelpOpen(false);
@@ -642,15 +663,15 @@ export default function UsersPage() {
     const hasS3Users = nextSelectedS3Users.length > 0;
     const hasConnections = nextSelectedS3Connections.length > 0;
     const hasOpenStack = nextSelectedOpenStackClouds.length > 0;
-    const initialAssociationsTab: StorageAssociationTab = hasAccounts
+    const initialAssociationsTab: StorageAssociationTab = accountAssociationsEnabled && hasAccounts
       ? "accounts"
-      : hasS3Users
+      : managedRgwUsersEnabled && hasS3Users
         ? "s3_users"
-        : hasConnections
+        : sharedS3ConnectionsEnabled && hasConnections
           ? "connections"
-          : hasOpenStack
+          : openStackEnabled && hasOpenStack
             ? "openstack"
-          : "accounts";
+            : defaultAssociationTab;
     editAssociations.reset({
       selectedS3Accounts: selectedAccounts,
       selectedS3Users: nextSelectedS3Users,

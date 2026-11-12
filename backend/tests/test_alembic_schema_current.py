@@ -21,6 +21,7 @@ from app.models.app_settings import AppSettings
 
 
 _RECENT_LINEAR_REVISIONS = (
+    "0272_resource_feature_switches",
     "0271_deployment_configuration",
     "0270_retained_user_history_foreign_keys",
     "0269_bucket_migration_child_cascades",
@@ -586,6 +587,10 @@ def test_billing_0216_restore_preserves_history_and_resets_v2_configuration(
             )
             expected_settings = _static_app_settings_payload()
             expected_settings["general"]["cost_enabled"] = True
+            expected_settings["general"]["managed_rgw_accounts_enabled"] = True
+            expected_settings["general"]["managed_rgw_users_enabled"] = True
+            expected_settings["general"]["shared_s3_connections_enabled"] = True
+            expected_settings["general"]["private_s3_connections_enabled"] = True
             assert app_settings == expected_settings
 
         command.downgrade(config, "0166_billing_statement_estimation")
@@ -651,6 +656,10 @@ def test_billing_0216_followup_removes_retired_settings_from_existing_0167_datab
             )
             expected_settings = _static_app_settings_payload()
             expected_settings["general"]["cost_enabled"] = True
+            expected_settings["general"]["managed_rgw_accounts_enabled"] = True
+            expected_settings["general"]["managed_rgw_users_enabled"] = True
+            expected_settings["general"]["shared_s3_connections_enabled"] = True
+            expected_settings["general"]["private_s3_connections_enabled"] = True
             assert payload == expected_settings
             assert connection.scalar(
                 sa.text("SELECT version_num FROM alembic_version")

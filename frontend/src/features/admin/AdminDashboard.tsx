@@ -484,27 +484,27 @@ export default function AdminDashboard() {
         hint: text("sessionCounts", { ui: summary?.active_sessions_by_type?.ui ?? 0, s3: summary?.active_sessions_by_type?.s3 ?? 0 }),
         to: "/admin/identity-security",
       },
-      {
+      ...(generalSettings.managed_rgw_accounts_enabled ? [{
         id: "accounts-primary",
         label: text("accounts"),
         value: summary?.total_accounts ?? 0,
         hint: text("assigned", { count: summary?.assigned_accounts ?? 0 }),
         to: "/admin/s3-accounts",
-      },
-      {
+      }] : []),
+      ...(generalSettings.managed_rgw_users_enabled ? [{
         id: "s3-users",
         label: text("s3Users"),
         value: summary?.total_s3_users ?? 0,
         hint: text("assigned", { count: summary?.assigned_s3_users ?? 0 }),
         to: "/admin/s3-users",
-      },
-      {
+      }] : []),
+      ...(generalSettings.shared_s3_connections_enabled ? [{
         id: "shared-s3-connections",
         label: text("sharedConnections"),
         value: summary?.total_shared_connections ?? 0,
         hint: text("adminManaged"),
         to: "/admin/s3-connections",
-      },
+      }] : []),
       {
         id: "endpoints",
         label: text("endpoints"),
@@ -513,7 +513,13 @@ export default function AdminDashboard() {
         to: "/admin/storage-endpoints",
       },
     ];
-  }, [summary, text]);
+  }, [
+    generalSettings.managed_rgw_accounts_enabled,
+    generalSettings.managed_rgw_users_enabled,
+    generalSettings.shared_s3_connections_enabled,
+    summary,
+    text,
+  ]);
 
   const mapMarkers = useMemo<AdminDashboardMapMarker[]>(() => {
     const healthByEndpointId = new Map<number, WorkspaceEndpointHealthEntry>();

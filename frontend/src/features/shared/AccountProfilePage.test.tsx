@@ -9,7 +9,10 @@ import { setSessionUserCache } from "../../utils/workspaces";
 import { buildEffectiveUserAccess } from "../../test/effectiveAccess";
 
 const runtimeSurfaces = vi.hoisted(() => ({ browser: true, manager: true }));
-const generalSettings = vi.hoisted(() => ({ openstack_enabled: true }));
+const generalSettings = vi.hoisted(() => ({
+  openstack_enabled: true,
+  private_s3_connections_enabled: true,
+}));
 vi.mock("../../components/GeneralSettingsContext", () => ({
   useGeneralSettings: () => ({ generalSettings, runtimeSurfaces }),
 }));
@@ -56,6 +59,7 @@ describe("AccountProfilePage", () => {
     runtimeSurfaces.browser = true;
     runtimeSurfaces.manager = true;
     generalSettings.openstack_enabled = true;
+    generalSettings.private_s3_connections_enabled = true;
     // Node fetch requires its own AbortSignal rather than the JSDOM implementation.
     vi.stubGlobal("AbortController", function () { return transferableAbortController(); });
     setSessionUserCache({
@@ -104,6 +108,13 @@ describe("AccountProfilePage", () => {
     renderPage();
     expect(screen.getByRole("tab", { name: "OpenStack" })).toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "Private S3 connections" })).not.toBeInTheDocument();
+  });
+
+  it("hides private S3 connections when the global switch is disabled", () => {
+    generalSettings.private_s3_connections_enabled = false;
+    renderPage("/profile?tab=connections");
+    expect(screen.queryByRole("tab", { name: "Private S3 connections" })).not.toBeInTheDocument();
+    expect(screen.getByText("Profile content")).toBeInTheDocument();
   });
 
   it("hides OpenStack when neither Browser nor Manager is deployed", () => {

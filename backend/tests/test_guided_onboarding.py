@@ -60,7 +60,9 @@ from tests.test_endpoint_service_identities import FakeRGW, SERVICE_CAPS
 def guided(db_session, monkeypatch):
     app_settings = db_session.get(AppSetting, "default")
     assert app_settings is not None
-    app_settings.payload = AppSettings().model_dump(mode="json")
+    settings = AppSettings()
+    settings.general.private_s3_connections_enabled = True
+    app_settings.payload = settings.model_dump(mode="json")
     db_session.commit()
     monkeypatch.setattr(
         settings_service,
@@ -476,6 +478,28 @@ def test_preview_is_secret_free_and_does_not_mutate_storage(guided, db_session):
     assert db_session.scalar(sa.select(sa.func.count()).select_from(S3Connection)) == 0
     assert db_session.scalar(sa.select(sa.func.count()).select_from(AuditLog)) == 0
     assert "secret" not in preview.model_dump_json().lower()
+
+
+def test_preview_blocks_private_connections_when_global_feature_is_disabled(
+    guided,
+    db_session,
+):
+    settings = settings_service.load_app_settings_for_db(db_session)
+    settings.general.private_s3_connections_enabled = False
+    settings_service.save_app_settings_for_db(db_session, settings)
+
+    preview = guided.preview_draft(
+        actor(db_session),
+        OnboardingDraft(
+            endpoint_url="https://storage.example.test",
+            private_connection=True,
+            ceph_admin=True,
+        ),
+    )
+
+    assert "private_s3_connections_disabled" in preview.blockers
+    assert "create_private_connection" not in preview.changes
+    assert "grant_ceph_admin_access" in preview.changes
 
 
 def test_preview_requires_a_selected_setup_option(guided, db_session):

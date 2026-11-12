@@ -11,7 +11,15 @@ from app.db import S3User, StorageEndpoint, UiGroup, UiGroupS3User, User, UserS3
 from app.core.domain_enums import StorageProvider, UserRole
 from app.main import app
 from app.routers.admin import s3_users as s3_users_router
+from app.services import app_settings_service
 from app.services.tags_service import TagsService
+
+
+@pytest.fixture(autouse=True)
+def _enable_managed_rgw_users(db_session):
+    settings = app_settings_service.load_app_settings_for_db(db_session)
+    settings.general.managed_rgw_users_enabled = True
+    app_settings_service.save_app_settings_for_db(db_session, settings)
 
 
 def _seed_s3_user(
@@ -57,6 +65,17 @@ def test_admin_s3_users_default_sort_is_name_case_insensitive(client, db_session
     payload = response.json()
 
     assert [item["name"] for item in payload["items"]] == ["alpha", "Beta", "Zulu"]
+
+
+def test_admin_s3_users_route_rejects_when_feature_disabled(client, db_session):
+    settings = app_settings_service.load_app_settings_for_db(db_session)
+    settings.general.managed_rgw_users_enabled = False
+    app_settings_service.save_app_settings_for_db(db_session, settings)
+
+    response = client.get("/api/admin/s3-users")
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Managed RGW Users feature is disabled"
 
 
 def test_admin_s3_user_error_status_does_not_depend_on_message_text(client):

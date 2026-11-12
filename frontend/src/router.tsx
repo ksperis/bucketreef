@@ -157,6 +157,28 @@ function AdminOpenStackRoute() {
     : <FeatureDisabledPage feature="OpenStack" />;
 }
 
+function AdminRgwAccountsRoute() {
+  const { generalSettings } = useGeneralSettings();
+  return generalSettings.managed_rgw_accounts_enabled
+    ? <S3AccountsPage />
+    : <FeatureDisabledPage feature="RGW Accounts" />;
+}
+
+function AdminRgwUsersRoute({ keys = false }: { keys?: boolean }) {
+  const { generalSettings } = useGeneralSettings();
+  if (!generalSettings.managed_rgw_users_enabled) {
+    return <FeatureDisabledPage feature="RGW Users" />;
+  }
+  return keys ? <S3UserKeysPage /> : <S3UsersPage />;
+}
+
+function AdminSharedS3ConnectionsRoute() {
+  const { generalSettings } = useGeneralSettings();
+  return generalSettings.shared_s3_connections_enabled
+    ? <S3ConnectionsPage />
+    : <FeatureDisabledPage feature="S3 Connections" />;
+}
+
 function AdminEndpointStatusRoute() {
   const { generalSettings } = useGeneralSettings();
   return generalSettings.endpoint_status_enabled
@@ -195,10 +217,10 @@ export function createAppRoutes(runtimeSurfaces: RuntimeSurfaces = DEFAULT_RUNTI
                 <Route index element={<AdminDashboard />} />
                 <Route path="onboarding" element={<OnboardingPage />} />
                 <Route path="profile" element={<AccountProfilePage />} />
-                <Route path="s3-accounts" element={<S3AccountsPage />} />
-                <Route path="s3-users" element={<S3UsersPage />} />
-                <Route path="s3-connections" element={<S3ConnectionsPage />} />
-                <Route path="s3-users/:userId/keys" element={<S3UserKeysPage />} />
+                <Route path="s3-accounts" element={<AdminRgwAccountsRoute />} />
+                <Route path="s3-users" element={<AdminRgwUsersRoute />} />
+                <Route path="s3-connections" element={<AdminSharedS3ConnectionsRoute />} />
+                <Route path="s3-users/:userId/keys" element={<AdminRgwUsersRoute keys />} />
                 <Route path="storage-endpoints" element={<StorageEndpointsPage />} />
                 <Route path="storage-endpoints/:endpointId" element={<StorageEndpointsPage />} />
                 <Route path="endpoint-status" element={<AdminEndpointStatusRoute />} />

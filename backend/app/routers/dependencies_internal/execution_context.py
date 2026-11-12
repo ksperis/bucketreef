@@ -19,7 +19,7 @@ from app.services.access_context_contracts import (
 
 from app.db import S3Connection, User, UserS3Account
 
-from app.services import effective_access_service
+from app.services import app_settings_service, effective_access_service
 from app.services.effective_access_service import EffectiveAccessService
 from app.services.execution_destination_service import (
     ExecutionDestinationError,
@@ -92,6 +92,13 @@ def _resolve_s3_user_context(
     surface: str,
     metadata_only: bool = False,
 ) -> S3ExecutionContext:
+    if not app_settings_service.load_app_settings_for_db(
+        db
+    ).general.managed_rgw_users_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Managed RGW Users feature is disabled",
+        )
     if surface not in {"manager", "manager-browser"}:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="S3 users are not available in Browser")
     effective = effective_access_service.EffectiveAccessService(db).resolve_user(user)
@@ -134,6 +141,17 @@ def _resolve_connection_context(
         conn = S3ConnectionQueryService(db).get_record(connection_id)
     except S3ConnectionNotFoundError as exc:
         raise_http_error_from_value_error(exc)
+    general = app_settings_service.load_app_settings_for_db(db).general
+    if conn.is_shared and not general.shared_s3_connections_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Shared S3 Connections feature is disabled",
+        )
+    if not conn.is_shared and not general.private_s3_connections_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Private S3 Connections feature is disabled",
+        )
     service = effective_access_service.EffectiveAccessService(db)
     effective = service.resolve_user(user)
     allowed = (
@@ -247,6 +265,17 @@ def _resolve_account_execution_context(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Accounts are not available in standard Browser",
+        )
+
+    if (
+        not portal_browser
+        and not app_settings_service.load_app_settings_for_db(
+            db
+        ).general.managed_rgw_accounts_enabled
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Managed RGW Accounts feature is disabled",
         )
 
     account, link = resolve_user_account_link(db, user, account_id, allow_default=False)

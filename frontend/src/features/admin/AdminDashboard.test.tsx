@@ -62,6 +62,10 @@ function buildGeneralSettings(overrides: Partial<GeneralSettings> = {}): General
     allow_managed_rgw_tenant_creation: false,
     documentation_base_url: "https://docs.bucketreef.ksperis.com",
     manager_enabled: true,
+    managed_rgw_accounts_enabled: true,
+    managed_rgw_users_enabled: true,
+    shared_s3_connections_enabled: true,
+    private_s3_connections_enabled: true,
     openstack_enabled: false,
     ceph_admin_enabled: false,
     storage_ops_enabled: false,
@@ -101,7 +105,7 @@ async function renderDashboard(role: SessionUser["role"] = "ui_superadmin") {
     </MemoryRouter>
   );
 
-  await screen.findByText("S3 Connections");
+  await screen.findByRole("heading", { name: "Admin overview" });
 }
 
 describe("AdminDashboard feature summary", () => {
@@ -405,6 +409,22 @@ describe("AdminDashboard feature summary", () => {
     await waitFor(() => expect(mocks.fetchAdminSummary).toHaveBeenCalledTimes(1));
     expect(mocks.fetchAdminDashboardStorage).toHaveBeenCalledTimes(1);
     expect(mocks.fetchAdminDashboardTraffic).toHaveBeenCalledTimes(1);
+  });
+
+  it("hides managed resource cards when their global features are disabled", async () => {
+    mocks.generalSettings = buildGeneralSettings({
+      managed_rgw_accounts_enabled: false,
+      managed_rgw_users_enabled: false,
+      shared_s3_connections_enabled: false,
+    });
+
+    await renderDashboard();
+
+    const administration = screen.getByRole("heading", { name: "Administration" }).closest("section");
+    expect(administration).not.toBeNull();
+    expect(within(administration!).queryByText("Accounts")).not.toBeInTheDocument();
+    expect(within(administration!).queryByText("S3 Users")).not.toBeInTheDocument();
+    expect(within(administration!).queryByText("S3 Connections")).not.toBeInTheDocument();
   });
 
   it("renders the redesigned dashboard sections with real health, metrics, and activity data", async () => {

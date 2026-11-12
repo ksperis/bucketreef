@@ -145,6 +145,7 @@ vi.mock("../../components/GeneralSettingsContext", () => ({
   useGeneralSettings: () => ({
     generalSettings: {
       portal_enabled: portalEnabled,
+      managed_rgw_accounts_enabled: true,
       allow_managed_rgw_tenant_creation: managedTenantCreationEnabled,
       project_feature_policies: DEFAULT_PROJECT_FEATURE_POLICIES,
       project_collection_policies: DEFAULT_PROJECT_COLLECTION_POLICIES,

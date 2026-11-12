@@ -260,10 +260,13 @@ class OnboardingService:
         if draft.portal:
             result.changes.extend(["validate_portal_iam", "grant_portal_access", "prepare_portal_identity"])
         if draft.private_connection:
-            result.changes.append("create_private_connection")
-            effective = self.access.resolve_user(actor)
-            if not effective.can_create_manual_private_connections:
-                result.changes.append("allow_private_connections")
+            if not load_app_settings_for_db(self.db).general.private_s3_connections_enabled:
+                result.blockers.append("private_s3_connections_disabled")
+            else:
+                result.changes.append("create_private_connection")
+                effective = self.access.resolve_user(actor)
+                if not effective.can_create_manual_private_connections:
+                    result.changes.append("allow_private_connections")
         if draft.ceph_admin and not self.access.resolve_user(actor).can_access_ceph_admin:
             result.changes.append("grant_ceph_admin_access")
 

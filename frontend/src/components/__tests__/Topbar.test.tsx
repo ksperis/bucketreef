@@ -13,6 +13,10 @@ const notificationApiMock = vi.hoisted(() => ({
   fetchUserNotifications: vi.fn(),
   markUserNotificationsRead: vi.fn(),
 }));
+const generalSettingsState = vi.hoisted(() => ({
+  openstack_enabled: true,
+  private_s3_connections_enabled: true,
+}));
 
 vi.mock("../ThemeToggle", () => ({
   default: () => <button type="button">Theme</button>,
@@ -20,9 +24,7 @@ vi.mock("../ThemeToggle", () => ({
 
 vi.mock("../GeneralSettingsContext", () => ({
   useGeneralSettings: () => ({
-    generalSettings: {
-      openstack_enabled: true,
-    },
+    generalSettings: generalSettingsState,
     runtimeSurfaces: {
       admin: true,
       ceph_admin: true,
@@ -51,6 +53,8 @@ const renderTopbar = (element: ReactElement) =>
 
 describe("Topbar account menu", () => {
   beforeEach(() => {
+    generalSettingsState.openstack_enabled = true;
+    generalSettingsState.private_s3_connections_enabled = true;
     notificationApiMock.fetchUserNotifications.mockReset();
     notificationApiMock.fetchUserNotifications.mockResolvedValue({ items: [], unread_count: 0 });
     notificationApiMock.markUserNotificationsRead.mockReset();
@@ -216,6 +220,16 @@ describe("Topbar account menu", () => {
       "/admin/profile?tab=openstack"
     );
     expect(screen.queryByRole("dialog", { name: /user profile|private s3 connections/i })).not.toBeInTheDocument();
+  });
+
+  it("hides private S3 connections when the global switch is disabled", async () => {
+    const user = userEvent.setup();
+    generalSettingsState.private_s3_connections_enabled = false;
+    renderTopbar(<Topbar userEmail="admin@example.com" profilePath="/admin/profile" />);
+
+    await user.click(resolveAccountTrigger());
+    expect(await screen.findByRole("menuitem", { name: /user profile/i })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /private s3 connections/i })).not.toBeInTheDocument();
   });
 
   it("shows the application version in the account menu", async () => {

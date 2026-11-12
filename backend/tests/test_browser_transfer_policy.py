@@ -45,6 +45,7 @@ def test_invalid_or_unsupported_sources_are_rejected(endpoint):
 @pytest.fixture
 def enabled(monkeypatch):
     settings = AppSettings()
+    settings.general.private_s3_connections_enabled = True
     for field in ("browser_enabled", "browser_root_enabled", "browser_manager_enabled", "browser_portal_enabled", "browser_ceph_admin_enabled", "manager_enabled", "portal_enabled", "ceph_admin_enabled"):
         setattr(settings.general, field, True)
     monkeypatch.setattr(app_settings_service, "load_app_settings_for_db", lambda _db: settings)

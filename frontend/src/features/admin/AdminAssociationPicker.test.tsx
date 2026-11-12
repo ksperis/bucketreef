@@ -5,7 +5,12 @@ import userEvent from "@testing-library/user-event";
 import { AdminAssociationAccessPickerTable, AdminAssociationCheckboxOptions, AdminAssociationLinkedTable, AdminAssociationPickerPanel, AdminAssociationSectionHeader, AdminAssociationTabs } from "./AdminAssociationPicker";
 
 vi.mock("../../components/GeneralSettingsContext", () => ({
-  useGeneralSettings: () => ({ generalSettings: { portal_enabled: true } }),
+  useGeneralSettings: () => ({
+    generalSettings: {
+      portal_enabled: true,
+      managed_rgw_accounts_enabled: true,
+    },
+  }),
 }));
 
 describe("AdminAssociationPicker", () => {

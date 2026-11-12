@@ -44,7 +44,9 @@ export default function AccountProfilePage() {
   );
   const canAccessApiTokens = !isS3Session && isSuperAdminRole(storedUser?.role);
   const canAccessPrivateConnections =
-    !isS3Session && canAccessPrivateConnectionsSection(storedUser);
+    !isS3Session &&
+    generalSettings.private_s3_connections_enabled &&
+    canAccessPrivateConnectionsSection(storedUser);
   const availableTabs = useMemo<AccountTab[]>(
     () => [
       "profile",

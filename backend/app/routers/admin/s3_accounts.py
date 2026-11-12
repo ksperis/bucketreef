@@ -22,6 +22,7 @@ from app.models.s3_account import (
 from app.routers.dependencies import (
     get_audit_service,
     get_current_ui_admin,
+    require_managed_rgw_accounts_enabled,
 )
 from app.services.s3_accounts_service import S3AccountsService
 from app.services.s3_account_import_service import S3AccountImportService
@@ -133,6 +134,7 @@ def update_account_portal_settings(
 @router.post("", response_model=S3Account, status_code=status.HTTP_201_CREATED)
 def create_account(
     payload: S3AccountCreate,
+    _feature_enabled: None = Depends(require_managed_rgw_accounts_enabled),
     service: S3AccountsService = Depends(get_admin_accounts_service),
     current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
@@ -161,6 +163,7 @@ def create_account(
 @router.post("/import", response_model=list[S3Account])
 def import_accounts(
     payload: list[S3AccountImport],
+    _feature_enabled: None = Depends(require_managed_rgw_accounts_enabled),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
@@ -188,6 +191,7 @@ def import_accounts(
 def update_account(
     account_id: int,
     payload: S3AccountUpdate,
+    _feature_enabled: None = Depends(require_managed_rgw_accounts_enabled),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),
@@ -214,6 +218,7 @@ def update_account(
 def delete_account(
     account_id: int,
     delete_rgw: bool = Query(False, description="Also delete the RGW tenant backing this account"),
+    _feature_enabled: None = Depends(require_managed_rgw_accounts_enabled),
     service: S3AccountsService = Depends(get_admin_accounts_service),
     current_user: User = Depends(get_current_ui_admin),
     audit_service: AuditService = Depends(get_audit_service),

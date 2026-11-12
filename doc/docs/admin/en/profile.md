@@ -38,11 +38,12 @@ items as read or clear read entries from the menu.
 
 ## Private S3 connections
 
-If your account is allowed to own private S3 connections, the profile can also
-show that inventory. Those connections remain personal and their credentials
-are never displayed after creation. This inventory is relevant when you also
-use Manager or standalone Browser; it does not replace shared endpoint
-configuration in Admin.
+When **Settings > General > Connections > Private S3 Connections** is enabled,
+users who are allowed to own private S3 connections can manage that inventory
+from Profile. Those connections remain personal and their credentials are never
+displayed after creation. This inventory is relevant when you also use Manager
+or standalone Browser; it does not replace shared endpoint configuration in
+Admin.
 
 ## Related pages
 

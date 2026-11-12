@@ -269,6 +269,8 @@ class OnboardingSetupService:
         return candidate
 
     def _private_connection(self, actor, row, endpoint, payload):
+        if not load_app_settings_for_db(self.db).general.private_s3_connections_enabled:
+            raise OnboardingError("private_s3_connections_disabled", 403)
         resources = self.progress.resources(row)
         if resources.connection_id:
             if self.db.get(S3Connection, resources.connection_id) is None:

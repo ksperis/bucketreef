@@ -14,6 +14,10 @@ from app.utils.normalize import normalize_optional_string_field
 EndpointKey = Annotated[str, Field(pattern=r"^[a-z0-9][a-z0-9_-]{0,63}$")]
 DEPLOYMENT_FEATURES = frozenset((
     "manager_enabled",
+    "managed_rgw_accounts_enabled",
+    "managed_rgw_users_enabled",
+    "shared_s3_connections_enabled",
+    "private_s3_connections_enabled",
     "openstack_enabled",
     "ceph_admin_enabled",
     "storage_ops_enabled",

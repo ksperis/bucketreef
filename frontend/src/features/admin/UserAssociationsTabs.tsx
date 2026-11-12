@@ -20,6 +20,9 @@ type UserAssociationsTabsProps = {
   activeTab: StorageAssociationTab;
   onTabChange: (tab: StorageAssociationTab) => void;
   maxVisibleOptions: number;
+  accountsEnabled?: boolean;
+  s3UsersEnabled?: boolean;
+  connectionsEnabled?: boolean;
   accounts: AdminAccountAssociationsState;
   s3Users: AdminRgwUserAccessAssociationsState<S3UserMembership>;
   connections: AdminSimpleIdAssociationsState;
@@ -30,6 +33,9 @@ export default function UserAssociationsTabs({
   activeTab,
   onTabChange,
   maxVisibleOptions,
+  accountsEnabled = true,
+  s3UsersEnabled = true,
+  connectionsEnabled = true,
   accounts,
   s3Users,
   connections,
@@ -39,7 +45,7 @@ export default function UserAssociationsTabs({
   return (
     <AdminAssociationTabs
       tabs={[
-        {
+        ...(accountsEnabled ? [{
           id: "accounts",
           label: text("accounts"),
           count: accounts.selected.length,
@@ -64,8 +70,8 @@ export default function UserAssociationsTabs({
               }}
             />
           ),
-        },
-        {
+        }] : []),
+        ...(s3UsersEnabled ? [{
           id: "s3_users",
           label: text("s3Users"),
           count: s3Users.selected.length,
@@ -85,8 +91,8 @@ export default function UserAssociationsTabs({
               fallbackLabel={(id) => text("userById", { id })}
             />
           ),
-        },
-        {
+        }] : []),
+        ...(connectionsEnabled ? [{
           id: "connections",
           label: text("connections"),
           count: connections.selected.length,
@@ -107,7 +113,7 @@ export default function UserAssociationsTabs({
               fallbackLabel={(id) => text("connectionById", { id })}
             />
           ),
-        },
+        }] : []),
         ...(openstack ? [{
           id: "openstack",
           label: text("openStack"),
