@@ -139,7 +139,6 @@ class StorageEndpointsService:
         return self.query.serialize_endpoint(endpoint)
 
     def _commit_endpoint(self, endpoint: StorageEndpoint) -> None:
-        self.db.add(endpoint)
         commit_or_rollback(self.db)
         self.db.refresh(endpoint)
 
