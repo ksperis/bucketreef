@@ -280,6 +280,41 @@ class OpenStackService:
         )
         return user, connection, session
 
+    def _locked_session_for_write(
+        self,
+        write_db: Session,
+        *,
+        user_id: int,
+        auth_id: str,
+        connection_id: str,
+        session_id: str,
+        lock_cloud_id: int | None = None,
+    ) -> tuple[OpenStackConnection, OpenStackSession]:
+        scoped = self if write_db is self.db else OpenStackService(write_db)
+        current_user = write_db.get(User, user_id, populate_existing=True)
+        if current_user is None:
+            raise OpenStackError(
+                "reauthentication_required",
+                "The BucketReef session is no longer active",
+            )
+        scoped._auth(current_user, auth_id, lock=True)
+        if lock_cloud_id is not None:
+            write_db.scalar(
+                select(OpenStackCloud)
+                .where(OpenStackCloud.id == lock_cloud_id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+        connection = scoped.owned(current_user, connection_id)
+        session = scoped._session(
+            current_user,
+            auth_id,
+            connection,
+            expected_id=session_id,
+            persist_expiration=False,
+        )
+        return connection, session
+
     def authenticate(self, user: User, auth_id: str, payload: OpenStackAuthenticate) -> OpenStackConnection:
         self._auth(user, auth_id)
         cloud = self.cloud(user, payload.cloud_id)
@@ -669,24 +704,13 @@ class OpenStackService:
         new_credential_id = str(uuid4())
 
         def persist_context(write_db: Session) -> tuple[str, str]:
-            scoped = self if write_db is self.db else OpenStackService(write_db)
-            current_user = write_db.get(User, user_id, populate_existing=True)
-            if current_user is None:
-                raise OpenStackError("reauthentication_required", "The BucketReef session is no longer active")
-            scoped._auth(current_user, auth_id, lock=True)
-            write_db.scalar(
-                select(OpenStackCloud)
-                .where(OpenStackCloud.id == cloud_id)
-                .with_for_update()
-                .execution_options(populate_existing=True)
-            )
-            connection = scoped.owned(current_user, connection_id)
-            session = scoped._session(
-                current_user,
-                auth_id,
-                connection,
-                expected_id=session_id,
-                persist_expiration=False,
+            connection, session = self._locked_session_for_write(
+                write_db,
+                user_id=user_id,
+                auth_id=auth_id,
+                connection_id=connection_id,
+                session_id=session_id,
+                lock_cloud_id=cloud_id,
             )
             context = write_db.scalar(select(OpenStackProjectContext).where(
                 OpenStackProjectContext.connection_id == connection.id,
@@ -757,18 +781,12 @@ class OpenStackService:
         )
 
         def persist_capability(write_db: Session) -> None:
-            scoped = self if write_db is self.db else OpenStackService(write_db)
-            current_user = write_db.get(User, user_id, populate_existing=True)
-            if current_user is None:
-                raise OpenStackError("reauthentication_required", "The BucketReef session is no longer active")
-            scoped._auth(current_user, auth_id, lock=True)
-            connection = scoped.owned(current_user, connection_id)
-            scoped._session(
-                current_user,
-                auth_id,
-                connection,
-                expected_id=session_id,
-                persist_expiration=False,
+            self._locked_session_for_write(
+                write_db,
+                user_id=user_id,
+                auth_id=auth_id,
+                connection_id=connection_id,
+                session_id=session_id,
             )
             current = write_db.get(OpenStackProjectCredential, credential_id)
             if current is None or current.context_id != context_id:
@@ -921,21 +939,12 @@ class OpenStackService:
         key_expires_at = key["expires_at"] if key is not None else None
 
         def persist_revalidation(write_db: Session) -> str:
-            scoped = self if write_db is self.db else OpenStackService(write_db)
-            current_user = write_db.get(User, user_id, populate_existing=True)
-            if current_user is None:
-                raise OpenStackError(
-                    "reauthentication_required",
-                    "The BucketReef session is no longer active",
-                )
-            scoped._auth(current_user, auth_id, lock=True)
-            connection = scoped.owned(current_user, connection_id)
-            scoped._session(
-                current_user,
-                auth_id,
-                connection,
-                expected_id=session_id,
-                persist_expiration=False,
+            self._locked_session_for_write(
+                write_db,
+                user_id=user_id,
+                auth_id=auth_id,
+                connection_id=connection_id,
+                session_id=session_id,
             )
             current = write_db.get(OpenStackProjectCredential, credential_id)
             if (
