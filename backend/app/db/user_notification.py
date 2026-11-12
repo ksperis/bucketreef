@@ -28,9 +28,24 @@ class UserNotification(Base):
     title = Column(String, nullable=False)
     message = Column(Text, nullable=False)
     subject_type = Column(String, nullable=True)
-    storage_endpoint_id = Column(Integer, ForeignKey("storage_endpoints.id"), nullable=True, index=True)
-    s3_account_id = Column(Integer, ForeignKey("s3_accounts.id"), nullable=True, index=True)
-    s3_user_id = Column(Integer, ForeignKey("s3_users.id"), nullable=True, index=True)
+    storage_endpoint_id = Column(
+        Integer,
+        ForeignKey("storage_endpoints.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    s3_account_id = Column(
+        Integer,
+        ForeignKey("s3_accounts.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    s3_user_id = Column(
+        Integer,
+        ForeignKey("s3_users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     event_key = Column(String, nullable=False)
     payload = Column(JSON, nullable=False, default=dict, server_default="{}")
     created_at = Column(UTCDateTime(), nullable=False, default=utcnow, index=True)

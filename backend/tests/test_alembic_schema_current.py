@@ -21,6 +21,7 @@ from app.models.app_settings import AppSettings
 
 
 _RECENT_LINEAR_REVISIONS = (
+    "0265_user_notification_subject_foreign_keys",
     "0264_bucket_migration_maintenance_requester_fk",
     "0263_portal_creator_foreign_keys",
     "0262_canonical_portal_storage_space_origin",

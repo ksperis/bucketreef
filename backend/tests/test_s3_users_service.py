@@ -33,6 +33,7 @@ from app.db import (
     S3UserImportIntent,
     StorageEndpoint,
     User,
+    UserNotification,
     UserS3User,
 )
 from app.core.domain_enums import StorageProvider, UserRole
@@ -2255,7 +2256,21 @@ def test_delete_user_purges_derived_database_rows(db_session, monkeypatch):
             revision=1,
         )
     )
+    notification = UserNotification(
+        user_id=favorite_owner.id,
+        notification_type="quota_alert",
+        severity="warning",
+        title="S3 user notification",
+        message="Retain this notification after S3 user deletion",
+        subject_type="s3_user",
+        storage_endpoint_id=endpoint.id,
+        s3_user_id=created.id,
+        event_key="s3-user-delete-notification",
+        payload={},
+    )
+    db_session.add(notification)
     db_session.commit()
+    notification_id = int(notification.id)
 
     monkeypatch.setattr(s3_client, "list_buckets", lambda **kwargs: [])
     service.delete_user(created.id, delete_rgw=True)
@@ -2301,6 +2316,11 @@ def test_delete_user_purges_derived_database_rows(db_session, monkeypatch):
         .select_from(BrowserFavorite)
         .where(BrowserFavorite.context == f"s3u-{created.id}")
     ) == 0
+    db_session.expire_all()
+    retained_notification = db_session.get(UserNotification, notification_id)
+    assert retained_notification is not None
+    assert retained_notification.s3_user_id is None
+    assert retained_notification.storage_endpoint_id == endpoint.id
 
 
 def test_delete_user_rolls_back_partial_local_cleanup_on_failure(db_session, monkeypatch):
