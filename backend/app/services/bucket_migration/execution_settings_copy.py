@@ -49,6 +49,13 @@ class _BucketSettingsCopyRunner:
         self.target_bucket = target_bucket
         self.migration = migration
         self.item = item
+        if (
+            migration.id is None
+            or item.id is None
+            or item.migration_id is None
+            or item.migration_id != migration.id
+        ):
+            raise RuntimeError("Bucket settings copy requires a persisted migration item")
         self.strategy = strategy or service._item_execution_strategy(item)
 
     def run(self) -> None:
@@ -89,16 +96,6 @@ class _BucketSettingsCopyRunner:
         }
         if metadata is not None:
             event_kwargs["metadata"] = metadata
-        migration_id = getattr(self.migration, "id", None)
-        item_id = getattr(self.item, "id", None)
-        if migration_id is None or item_id is None:
-            self.service._add_event(
-                self.migration,
-                item=self.item,
-                **event_kwargs,
-            )
-            return
-
         def persist_event(current_migration, current_item) -> None:
             self.service._add_event(
                 current_migration,
@@ -107,8 +104,8 @@ class _BucketSettingsCopyRunner:
             )
 
         self.migration, self.item = self.service._persist_item_checkpoint(
-            int(migration_id),
-            int(item_id),
+            int(self.migration.id),
+            int(self.item.id),
             persist_event,
         )
 
