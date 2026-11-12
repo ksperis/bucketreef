@@ -148,10 +148,9 @@ def _init_db_locked(engine, session_factory) -> None:
         expired_sessions = AuthSessionService(db).cleanup_expired()
         if expired_sessions:
             logger.info("Revoked %s expired authentication session row(s) during startup", expired_sessions)
-        # Ensure env-managed endpoints or default endpoint are registered
+        # Bootstrap the optional seed endpoint when the inventory is editable.
         storage_service = StorageEndpointsService(db)
-        storage_service.sync_env_endpoints()
-        if not storage_service.env_endpoints_locked():
+        if not storage_service.deployment_manages_endpoints():
             storage_service.ensure_default_endpoint()
         storage_service.reconcile_persisted_identities()
     finally:
@@ -161,3 +160,11 @@ def _init_db_locked(engine, session_factory) -> None:
 def init_db(engine, session_factory) -> None:
     with _postgres_startup_lock(engine):
         _init_db_locked(engine, session_factory)
+
+
+def prepare_deployment_database(engine, session_factory) -> None:
+    """Prepare the shared schema and settings before starting application runtimes."""
+    with _postgres_startup_lock(engine):
+        _initialize_or_upgrade_schema(engine)
+        with session_factory() as db:
+            bootstrap_app_settings_for_db(db)

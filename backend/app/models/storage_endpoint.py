@@ -218,7 +218,7 @@ class StorageEndpointPublic(ApiModel):
 
 
 class StorageEndpointMeta(ApiModel):
-    managed_by_env: bool
+    managed_by_deployment: bool
 
 
 class StorageEndpointFeatureDetectionRequest(ApiModel):

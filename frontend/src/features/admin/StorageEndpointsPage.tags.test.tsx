@@ -143,7 +143,7 @@ describe("StorageEndpointsPage tags", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setSessionUserCache(null);
-    fetchStorageEndpointsMetaMock.mockResolvedValue({ managed_by_env: false });
+    fetchStorageEndpointsMetaMock.mockResolvedValue({ managed_by_deployment: false });
     detectStorageEndpointFeaturesMock.mockResolvedValue({
       admin: true,
       account: false,
@@ -979,7 +979,7 @@ describe("StorageEndpointsPage tags", () => {
 
   it("lets superadmin edit endpoint tags even when endpoints are env-managed", async () => {
     setSessionUserCache({ id: 1, role: "ui_superadmin" });
-    fetchStorageEndpointsMetaMock.mockResolvedValue({ managed_by_env: true });
+    fetchStorageEndpointsMetaMock.mockResolvedValue({ managed_by_deployment: true });
 
     renderPage();
     await screen.findByText("Ceph Endpoint");
@@ -1002,7 +1002,7 @@ describe("StorageEndpointsPage tags", () => {
 
   it("opens an env-managed endpoint as a tabbed read-only page while keeping tags editable", async () => {
     setSessionUserCache({ id: 1, role: "ui_superadmin" });
-    fetchStorageEndpointsMetaMock.mockResolvedValue({ managed_by_env: true });
+    fetchStorageEndpointsMetaMock.mockResolvedValue({ managed_by_deployment: true });
     listStorageEndpointsMock.mockResolvedValue([
       makeEndpoint({
         admin_access_key: "admin-key",
@@ -1046,7 +1046,7 @@ describe("StorageEndpointsPage tags", () => {
 
   it("loads Admin Ops permissions for a read-only endpoint before reporting users=write", async () => {
     setSessionUserCache({ id: 1, role: "ui_superadmin" });
-    fetchStorageEndpointsMetaMock.mockResolvedValue({ managed_by_env: true });
+    fetchStorageEndpointsMetaMock.mockResolvedValue({ managed_by_deployment: true });
     listStorageEndpointsMock.mockResolvedValue([
       makeEndpoint({
         admin_access_key: "admin-key",
@@ -1249,7 +1249,7 @@ describe("StorageEndpointsPage tags", () => {
 
   it("keeps tags read-only for a non-superadmin on the endpoint page", async () => {
     setSessionUserCache({ id: 2, role: "ui_admin" });
-    fetchStorageEndpointsMetaMock.mockResolvedValue({ managed_by_env: true });
+    fetchStorageEndpointsMetaMock.mockResolvedValue({ managed_by_deployment: true });
 
     renderPage("/admin/storage-endpoints/7");
 
@@ -1684,7 +1684,7 @@ describe("StorageEndpointsPage tags", () => {
 
   it.each([["ui_admin", false], ["ui_superadmin", true]] as const)("keeps listing read-only for %s with environment management %s", async (role, managed) => {
     setSessionUserCache({ id: 1, role });
-    fetchStorageEndpointsMetaMock.mockResolvedValue({ managed_by_env: managed });
+    fetchStorageEndpointsMetaMock.mockResolvedValue({ managed_by_deployment: managed });
     listStorageEndpointsMock.mockResolvedValue([makeEndpoint({ is_default: false })]);
     renderPage();
     await screen.findByRole("button", { name: "View" });

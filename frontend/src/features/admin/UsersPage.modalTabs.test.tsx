@@ -571,6 +571,7 @@ describe("UsersPage modal tabs", () => {
   });
 
   it("keeps Portal roles editable from Admin when the local Portal surface is disabled", async () => {
+    generalSettingsState.portal_enabled = true;
     listUsersMock.mockResolvedValue({
       items: [
         {
@@ -664,6 +665,7 @@ describe("UsersPage modal tabs", () => {
   });
 
   it("allows editing a Manager link and its advanced data access setting", async () => {
+    generalSettingsState.portal_enabled = true;
     listUsersMock.mockResolvedValue({
       items: [
         {
@@ -719,6 +721,7 @@ describe("UsersPage modal tabs", () => {
   });
 
   it("allows a user association to use Portal access without a Manager role", async () => {
+    generalSettingsState.portal_enabled = true;
     listUsersMock.mockResolvedValue({
       items: [
         {
@@ -857,6 +860,7 @@ describe("UsersPage modal tabs", () => {
   });
 
   it("keeps associations when switching General/Associations and submits linked payload", async () => {
+    generalSettingsState.portal_enabled = true;
     renderPage();
 
     await openCreateUser();
@@ -931,6 +935,7 @@ describe("UsersPage modal tabs", () => {
   }, 10_000);
 
   it("retries the single create request after user creation step-up", async () => {
+    generalSettingsState.portal_enabled = true;
     createUserMock
       .mockRejectedValueOnce(recentWebAuthnRequiredError())
       .mockResolvedValueOnce({ id: 100 });

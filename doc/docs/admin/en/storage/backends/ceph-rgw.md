@@ -135,12 +135,12 @@ identities** persists the conversion first and then provisions the managed RGW u
 Without that capability the conversion may be saved as `not_provisioned` and completed
 later. Generated DB secrets survive ENV synchronization.
 
-Every Ceph entry in `ENV_STORAGE_ENDPOINTS` must explicitly declare
+Every Ceph entry in the [deployment manifest](../../configuration/deployment.md) must explicitly declare
 `service_identity_mode: managed` or `service_identity_mode: external`. Omission is
 a startup error, including on instances without Admin. The API still defaults new
 endpoints to managed mode; this breaking requirement applies to ENV inventories.
 
-`ENV_STORAGE_ENDPOINTS` uses the same credential requirements as the endpoint API.
+The deployment manifest uses the endpoint API credential requirements. Reference mounted credential files in the manifest.
 In external mode, provide Runtime for Admin/Accounts and Supervision for Metrics,
 Usage or signed S3 healthchecks. Unused pairs can be entirely empty; every partially
 supplied pair is rejected, including optional Admin Ops and Ceph Admin pairs. The entire inventory
@@ -230,7 +230,7 @@ and revocations and retrying pending validation of supplied Ceph Admin pairs. Mi
 Ceph Admin keys are never generated. A managed Runtime/Supervision identity explicitly
 saved as **not provisioned** is not created by startup reconciliation; interactive
 provisioning still requires the explicit combined save/create action or the later
-**Create managed identities** action. Declarative `ENV_STORAGE_ENDPOINTS`, seed setup
+**Create managed identities** action. Deployment provisioning, seed setup
 and the setup assistant provision managed identities automatically because those flows
 already express provisioning intent. Manager/Portal/Browser instances preserve shared
 identity state without RGW mutations. Revocation of an unprovisioned or already revoked

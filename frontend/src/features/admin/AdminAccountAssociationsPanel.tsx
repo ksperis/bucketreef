@@ -1,3 +1,4 @@
+import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 /*
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
@@ -68,6 +69,8 @@ export default function AdminAccountAssociationsPanel({
     (accountId) =>
       !hasAccountAccessRole(accounts.accountAccessChoice[accountId] ?? defaultAccess),
   );
+  const { generalSettings } = useGeneralSettings();
+  const showPortalRole = generalSettings.portal_enabled || accounts.selected.some((entry) => entry.portal_role);
   const columns: DataTableColumn<AdminAccountSelection>[] = [
     {
       id: "account",
@@ -114,7 +117,7 @@ export default function AdminAccountAssociationsPanel({
         );
       },
     },
-    {
+    ...(showPortalRole ? [{
           id: "portal-role",
           label: labels.portalRole,
           render: (entry: AdminAccountSelection) => {
@@ -139,7 +142,7 @@ export default function AdminAccountAssociationsPanel({
               />
             );
           },
-        } satisfies DataTableColumn<AdminAccountSelection>,
+        } satisfies DataTableColumn<AdminAccountSelection>] : []),
     {
       id: "actions",
       label: labels.actions,

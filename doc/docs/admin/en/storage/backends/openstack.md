@@ -10,12 +10,7 @@ Keystone and the storage service retain authorization authority.
 
 OpenStack is experimental and disabled by default. A Superadmin must first enable
 **Settings > General > Available workspaces > OpenStack**. The deployment can
-force the connector on or off with `FEATURE_OPENSTACK_ENABLED`; when this variable
-is set, the Admin switch is read-only. Set the same value on every backend replica
-and split deployment profile. Setting it to `false` is an immediate kill
-switch: OpenStack routes, project catalogues and existing `os-*` execution contexts
-are refused, while saved clouds, associations and connections remain available for
-a later reactivation.
+set and lock `openstack_enabled` with the [deployment manifest](../../configuration/deployment.md).
 
 Then open **Connections > OpenStack Clouds > Add cloud**. Enter the final HTTPS
 Keystone URL ending in `/v3`. S3 regions and endpoint URLs are discovered

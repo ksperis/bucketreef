@@ -22,7 +22,7 @@ from app.db import (
     UserS3Account,
 )
 from app.core.domain_enums import UserRole
-from app.models.app_settings import AppSettings, GeneralFeatureLock, GeneralFeatureLocks
+from app.models.app_settings import AppSettings
 from app.models.onboarding import OnboardingApply, OnboardingDraft, OnboardingSave
 from app.models.storage_endpoint import (
     StorageEndpointAdminOpsPermissions,
@@ -410,19 +410,13 @@ def test_apply_requires_explicit_service_identity_mode():
         )
 
 
-def lock_feature(monkeypatch, field):
-    locks = GeneralFeatureLocks()
-    setattr(
-        locks,
-        field,
-        GeneralFeatureLock(
-            forced=True,
-            value=False,
-            source=f"FEATURE_{field.upper()}",
-        ),
+def lock_feature(db, field):
+    from app.models.deployment_configuration import DeploymentManifest
+    from app.services.deployment_configuration_service import DeploymentConfigurationService
+
+    DeploymentConfigurationService(db).apply(
+        DeploymentManifest(schema_version=1, revision=1, features={field: False})
     )
-    monkeypatch.setattr(settings_service, "get_general_feature_locks", lambda: locks)
-    monkeypatch.setattr(progress_module, "get_general_feature_locks", lambda: locks)
 
 
 def account_feature_config(*, iam=True):
@@ -590,7 +584,7 @@ def test_endpoint_prepare_rejects_non_ceph_endpoint_for_ceph_workflows(
 
 def test_environment_lock_blocks_before_setup_runs(guided, db_session, monkeypatch):
     user = actor(db_session)
-    lock_feature(monkeypatch, "browser_enabled")
+    lock_feature(db_session, "browser_enabled")
     journey = save(
         guided,
         user,
@@ -603,7 +597,7 @@ def test_environment_lock_blocks_before_setup_runs(guided, db_session, monkeypat
         lambda *_args, **_kwargs: pytest.fail("blocked setup ran"),
     )
 
-    with pytest.raises(OnboardingError, match="env_locked"):
+    with pytest.raises(OnboardingError, match="deployment_locked"):
         apply(
             guided,
             user,
@@ -615,36 +609,14 @@ def test_environment_lock_blocks_before_setup_runs(guided, db_session, monkeypat
     assert db_session.scalar(sa.select(sa.func.count()).select_from(StorageEndpoint)) == 0
 
 
-def test_admin_profile_onboarding_ignores_user_runtime_surface_locks(
-    guided,
-    db_session,
-    monkeypatch,
-):
-    locks = GeneralFeatureLocks()
-    for field in ("manager_enabled", "portal_enabled", "browser_enabled"):
-        setattr(
-            locks,
-            field,
-            GeneralFeatureLock(
-                forced=True,
-                value=False,
-                source=f"FEATURE_{field.upper()}",
-            ),
-        )
-    monkeypatch.setattr(settings_service, "get_general_feature_locks", lambda: locks)
-    monkeypatch.setattr(progress_module, "get_general_feature_locks", lambda: locks)
-    monkeypatch.setattr(
-        progress_module,
-        "get_settings",
-        lambda: SimpleNamespace(deployment_profile="admin"),
-    )
-
+def test_admin_profile_onboarding_respects_installation_feature_locks(guided, db_session):
+    lock_feature(db_session, "portal_enabled")
     result = guided.preview_draft(
         actor(db_session),
         OnboardingDraft(endpoint_url="https://storage.example.test", portal=True),
     )
 
-    assert not any(blocker.startswith("env_locked:") for blocker in result.blockers)
+    assert "deployment_locked:portal_enabled" in result.blockers
 
 
 def test_admin_profile_keeps_shared_user_workspace_settings_in_onboarding_requirements():
@@ -654,11 +626,11 @@ def test_admin_profile_keeps_shared_user_workspace_settings_in_onboarding_requir
         private_connection=True,
     )
 
-    assert required_onboarding_feature_fields(
-        draft,
-        deployment_profile="admin",
-    ) == (
+    assert required_onboarding_feature_fields(draft) == (
+        "manager_enabled",
+        "browser_enabled",
         "browser_manager_enabled",
+        "portal_enabled",
         "browser_portal_enabled",
         "browser_root_enabled",
     )

@@ -128,7 +128,7 @@ export function governance(c: DemoRequest): Response | undefined {
       state.accounts = state.accounts.filter(a => a !== account); synchronizeLinks(c, "accounts"); return done();
     }
   }
-  if (path === "/admin/storage-endpoints/meta" && method === "GET") return json({ managed_by_env: false });
+  if (path === "/admin/storage-endpoints/meta" && method === "GET") return json({ managed_by_deployment: false });
   if (path === "/admin/storage-endpoints/detect-features") throw new DemoError(403, "Endpoint detection requires a real network connection. Configure this demo endpoint manually.");
   const endpointMatch = path.match(/^\/admin\/storage-endpoints(?:\/(\d+)(?:\/(tags|default))?)?$/);
   if (endpointMatch) {

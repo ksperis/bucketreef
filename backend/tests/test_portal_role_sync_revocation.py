@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import select
 
+from app.services.app_settings_service import enable_onboarding_features
 from app.core.domain_enums import PortalAccountRole
 from app.db import AccountIAMUser, PortalIAMRevocation, User, UserS3Account
 from app.services.portal.exceptions import PortalConflictError
@@ -317,6 +318,7 @@ def test_direct_portal_revocation_retries_sqlite_write_intent_before_remote_chan
 
 
 def test_pending_revocation_blocks_portal_role_restoration(monkeypatch, db_session):
+    enable_onboarding_features(db_session, ("portal_enabled",))
     account, user, association, iam_link = _seed_portal_identity(
         db_session,
         suffix="pending-promotion",

@@ -10,6 +10,7 @@ import socket
 import subprocess
 import sys
 import time
+import tempfile
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -101,7 +102,7 @@ def _load_local_env_defaults(env: dict[str, str], backend_root: Path) -> None:
 
 
 def _storage_endpoint_entries(env: dict[str, str]) -> list[dict[str, object]]:
-    raw = _env_str("ENV_STORAGE_ENDPOINTS", source=env)
+    raw = _env_str("CEPH_TEST_ENDPOINTS", source=env)
     if not raw:
         return []
     try:
@@ -183,7 +184,7 @@ def _derive_ceph_test_env_from_storage_endpoints(env: dict[str, str]) -> None:
 
 def _build_endpoint_payload(source: dict[str, str] | None = None) -> str:
     env = source or os.environ
-    existing_payload = _env_str("ENV_STORAGE_ENDPOINTS", source=env)
+    existing_payload = _env_str("CEPH_TEST_ENDPOINTS", source=env)
     if existing_payload and not _env_str("CEPH_TEST_LAB_S3_ENDPOINT", source=env):
         return existing_payload
 
@@ -345,7 +346,7 @@ def _prepare_environment(backend_root: Path, backend_base_url: str) -> dict[str,
         "SEED_RGW_ADMIN_SECRET_KEY",
         "SEED_SUPERVISION_ACCESS_KEY",
         "SEED_SUPERVISION_SECRET_KEY",
-        "ENV_STORAGE_ENDPOINTS",
+        "CEPH_TEST_ENDPOINTS",
         "APP_SETTINGS_PATH",
     ):
         env.pop(key, None)
@@ -400,16 +401,10 @@ def _prepare_environment(backend_root: Path, backend_base_url: str) -> dict[str,
     # isolated CI backend so long-running Ceph scenarios do not expire it
     # before session-scoped cleanup executes.
     env["MFA_RECENT_MINUTES"] = "60"
-    env["ENV_STORAGE_ENDPOINTS"] = endpoint_payload
+    env["CEPH_TEST_ENDPOINTS"] = endpoint_payload
     app_settings_path.write_text(_build_app_settings_payload(), encoding="utf-8")
     env["APP_SETTINGS_PATH"] = app_settings_path.resolve().as_posix()
 
-    env["FEATURE_MANAGER_ENABLED"] = "true"
-    env["FEATURE_BROWSER_ENABLED"] = "true"
-    env["FEATURE_CEPH_ADMIN_ENABLED"] = "true"
-    env["FEATURE_STORAGE_OPS_ENABLED"] = "true"
-    env["FEATURE_ENDPOINT_STATUS_ENABLED"] = "true"
-    env["FEATURE_PORTAL_ENABLED"] = "true"
     env["BUCKET_MIGRATION_WORKER_ENABLED"] = "true"
 
     env["CEPH_TEST_BACKEND_BASE_URL"] = backend_base_url
@@ -430,6 +425,32 @@ def _prepare_environment(backend_root: Path, backend_base_url: str) -> dict[str,
         env["PYTHONPATH"] = backend_root_str
 
     return env
+
+
+def _provision_endpoints(backend_root: Path, env: dict[str, str]) -> None:
+    endpoint_definitions = json.loads(env.pop("CEPH_TEST_ENDPOINTS"))
+    with tempfile.TemporaryDirectory(prefix="bucketreef-ceph-credentials-") as directory:
+        for index, endpoint in enumerate(endpoint_definitions, start=1):
+            endpoint["key"] = f"ci-{index}"
+            credentials = {}
+            for kind in ("admin", "runtime", "supervision", "ceph_admin"):
+                files = {}
+                for field in ("access_key", "secret_key"):
+                    value = endpoint.pop(f"{kind}_{field}", None)
+                    if value is not None:
+                        path = Path(directory) / f"{index}-{kind}-{field}"
+                        path.write_text(value, encoding="utf-8")
+                        files[f"{field}_file"] = str(path)
+                if files:
+                    credentials[kind] = files
+            endpoint["credentials"] = credentials
+        manifest = json.dumps({
+            "schema_version": 1, "revision": 1, "storage_endpoints": endpoint_definitions,
+        })
+        subprocess.run(
+            [sys.executable, "-m", "app.scripts.configure_deployment", "apply"],
+            cwd=backend_root, env={**env, "DEPLOYMENT_CONFIG": manifest}, check=True,
+        )
 
 
 def _tail_log(path: Path, limit: int = 40) -> str:
@@ -512,6 +533,7 @@ def main(argv: list[str]) -> int:
     health_url = f"http://{BACKEND_HOST}:{backend_port}/health"
 
     env = _prepare_environment(backend_root, backend_base_url)
+    _provision_endpoints(backend_root, env)
 
     with backend_log_path.open("w", encoding="utf-8") as log_file:
         backend = subprocess.Popen(

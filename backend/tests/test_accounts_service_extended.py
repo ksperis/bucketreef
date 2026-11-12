@@ -10,6 +10,7 @@ from tests.db_transaction_test_utils import (
     fail_next_transaction_commit,
 )
 from tests.feature_policy_fixtures import enable_manager_features
+from app.services.app_settings_service import enable_onboarding_features
 from app.db import S3Account, S3AccountDeletion, StorageEndpoint, User, UserS3Account
 from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, StorageProvider, UserRole
 from app.models.iam import IAMGroup, IAMRole, IAMUser
@@ -361,6 +362,7 @@ def test_update_account_user_links_missing_user(db_session, monkeypatch):
 
 
 def test_update_account_adds_and_removes_links_with_quota_request(db_session, monkeypatch):
+    enable_onboarding_features(db_session, ("portal_enabled",))
     endpoint = _seed_endpoint(db_session, name="ceph-update-ok", is_default=True)
     account = _seed_account(db_session, endpoint.id, name="update-ok-acc", rgw_account_id="RGW-U-2")
     keep_user = User(email="keep@example.test", hashed_password="x", role=UserRole.UI_USER.value)

@@ -233,16 +233,11 @@ def test_ceph_admin_only_bootstrap_grants_ceph_admin_access(db_session, profile,
     settings = Settings(
         _env_file=None,
         deployment_profile=profile,
-        feature_admin_enabled=False,
-        feature_ceph_admin_enabled=True,
-        feature_storage_ops_enabled=False,
-        feature_manager_enabled=False,
-        feature_portal_enabled=False,
-        feature_browser_enabled=False,
+        runtime_surfaces=["ceph_admin"] if profile == "full" else None,
         scheduled_jobs_enabled=False,
     )
     if extra_surface is not None:
-        setattr(settings, f"feature_{extra_surface}_enabled", True)
+        settings.runtime_surfaces.append(extra_surface)
     service = FirstAdminBootstrapService(db_session, settings=settings)
     issued = service.issue_token()
     created = service.create_with_token(

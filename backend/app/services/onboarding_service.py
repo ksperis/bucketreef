@@ -136,21 +136,17 @@ class OnboardingService:
         result: OnboardingPreview,
     ) -> None:
         settings = load_app_settings_for_db(self.db)
-        deployment_profile = get_settings().deployment_profile
-        locks = get_general_feature_locks()
+        locks = get_general_feature_locks(self.db)
 
         if not draft.selected_options:
             result.blockers.append("selection_required")
 
-        for field in required_onboarding_feature_fields(
-            draft,
-            deployment_profile=deployment_profile,
-        ):
+        for field in required_onboarding_feature_fields(draft):
             if getattr(settings.general, field):
                 continue
             lock = getattr(locks, field, None)
             if lock and lock.forced:
-                result.blockers.append(f"env_locked:{lock.source}")
+                result.blockers.append(f"deployment_locked:{field}")
             else:
                 result.features.append(field)
 
@@ -181,7 +177,7 @@ class OnboardingService:
             result.blockers.append("endpoint_required")
         else:
             result.changes.append("create_ceph_endpoint")
-        if self.endpoints.env_endpoints_locked():
+        if self.endpoints.deployment_manages_endpoints():
             result.blockers.append("endpoints_locked")
         if draft.manager or draft.portal:
             result.changes.append("validate_ceph_account_api")
@@ -198,7 +194,7 @@ class OnboardingService:
         endpoint: StorageEndpoint,
         result: OnboardingPreview,
     ) -> None:
-        editable = endpoint.is_editable and not self.endpoints.env_endpoints_locked()
+        editable = endpoint.is_editable and not self.endpoints.deployment_manages_endpoints()
         flags = resolve_feature_flags(endpoint)
         if draft.manager or draft.portal:
             self._preview_account_endpoint(draft, endpoint, flags, editable, result)

@@ -4,6 +4,10 @@ import userEvent from "@testing-library/user-event";
 
 import { AdminAssociationAccessPickerTable, AdminAssociationCheckboxOptions, AdminAssociationLinkedTable, AdminAssociationPickerPanel, AdminAssociationSectionHeader, AdminAssociationTabs } from "./AdminAssociationPicker";
 
+vi.mock("../../components/GeneralSettingsContext", () => ({
+  useGeneralSettings: () => ({ generalSettings: { portal_enabled: true } }),
+}));
+
 describe("AdminAssociationPicker", () => {
   it("renders the shared linked table and its picker action", () => {
     const onAction = vi.fn();

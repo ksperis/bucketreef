@@ -95,11 +95,10 @@ registration through the API also accepts read-only Admin Ops and external Runti
 so operators can provision accounts/users outside BucketReef.
 
 With the split `admin` / `user` deployment profiles, onboarding runs on the
-Administration runtime. User-facing surface locks (`FEATURE_MANAGER_ENABLED`,
-`FEATURE_PORTAL_ENABLED`, and `FEATURE_BROWSER_ENABLED`) are therefore satisfied
-by the paired `user` runtime contract and do not block setup on the `admin`
-runtime. Shared persisted workspace prerequisites, such as the Manager/Portal
-Browser sub-flags, are still enabled normally.
+Administration runtime. Onboarding checks the shared settings and can activate
+editable features used by the User runtime. A feature locked off by the
+deployment blocks the relevant setup. A feature locked on already satisfies
+the corresponding prerequisite.
 
 Initial checks use Admin Ops without creating resources. Applying creates managed
 identities and validates Runtime reads without keys and Supervision collection.

@@ -240,7 +240,7 @@ CronJob is enabled on that release. Run the production hardening checker in one
 backend pod from each release before exposing the ingresses.
 
 For a dedicated Ceph Admin instance, keep `deploymentProfile=admin` on the main
-release and set `backend.env.FEATURE_CEPH_ADMIN_ENABLED: "false"`. The dedicated
+release and set `runtimeSurfaces: [admin, storage_ops]`. The dedicated
 release uses `full` with explicit feature switches and its own database and key
 rings. See [Dedicated Ceph Admin instance](../security/ceph-admin.md).
 
@@ -333,3 +333,5 @@ browser E2E suite.
 - [Operations: healthchecks](../operations/healthchecks.md)
 - [Operations: cost](../operations/cost.md)
 - [Operations: quota monitoring and history](../operations/quota-monitoring.md)
+
+Apply operator-managed settings with the [Helm provisioning Job](../configuration/deployment.md#compose-and-helm).

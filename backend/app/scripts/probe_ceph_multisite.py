@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 from typing import Callable
 
-from dotenv import dotenv_values
+from app.models.deployment_configuration import DeploymentManifest
 
 from app.services.ceph_multisite_normalize import project
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
@@ -16,18 +16,18 @@ from app.utils.time import utcnow
 
 
 def probe(args: argparse.Namespace) -> int:
-    values = dotenv_values(args.env_file)
-    endpoints = json.loads(values.get("ENV_STORAGE_ENDPOINTS") or "[]")
+    manifest = DeploymentManifest.from_json(Path(args.manifest).read_text(encoding="utf-8"))
     output = Path(args.output_dir)
     output.mkdir(parents=True, exist_ok=True)
     report = {"captured_at": utcnow().isoformat(), "fixture_kind": "laboratory_capture", "results": []}
-    for index, endpoint in enumerate(endpoints):
-        if endpoint.get("provider") != "ceph" or not endpoint.get("ceph_admin_access_key"):
+    for index, definition in enumerate(manifest.storage_endpoints or []):
+        endpoint = definition.resolve_credentials()
+        if endpoint.provider != "ceph" or not endpoint.ceph_admin_access_key:
             continue
         client = RGWAdminClient(
-            endpoint=endpoint["endpoint_url"], region=endpoint.get("region"),
-            access_key=endpoint["ceph_admin_access_key"], secret_key=endpoint["ceph_admin_secret_key"],
-            verify_tls=endpoint.get("verify_tls", True), request_timeout_seconds=8,
+            endpoint=endpoint.endpoint_url, region=endpoint.region,
+            access_key=endpoint.ceph_admin_access_key, secret_key=endpoint.ceph_admin_secret_key,
+            verify_tls=endpoint.verify_tls, request_timeout_seconds=8,
         )
 
         def capture(operation: str, read: Callable):
@@ -72,7 +72,7 @@ def probe(args: argparse.Namespace) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--env-file", required=True)
+    parser.add_argument("--manifest", required=True)
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--bucket")
     parser.add_argument("--tenant")

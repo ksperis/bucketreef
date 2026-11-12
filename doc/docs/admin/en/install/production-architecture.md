@@ -32,21 +32,12 @@ valid for those hosts. Restrict the Administration ingress at the network layer
 to the intended administrator population. The User access ingress can follow
 the organization's normal user exposure policy.
 
-The deployment profiles enforce the surface split with runtime feature locks
-such as `FEATURE_ADMIN_ENABLED`, `FEATURE_CEPH_ADMIN_ENABLED`,
-`FEATURE_MANAGER_ENABLED`, `FEATURE_PORTAL_ENABLED`, and
-`FEATURE_BROWSER_ENABLED`. In production, a split profile refuses to start when
-its runtime surface locks do not match the selected profile. Common
-authentication/profile APIs still exist where required by each profile and are
-omitted from the diagram for clarity. Admin API-token management and the
-first-administrator web bootstrap are not mounted on the `user` runtime.
-
-The Administration pool remains the control plane for shared user/account
-associations, including `portal_user` and `portal_manager` roles, per-account
-Portal settings, and Portal requests. Its local `FEATURE_PORTAL_ENABLED=false`
-lock only means that `/portal` is not mounted on the Administration runtime.
-The stored roles and settings are shared through PostgreSQL and are consumed by
-the `user` runtime, where the Portal surface is enabled.
+The deployment profiles determine which surfaces each process exposes. The
+Administration pool governs shared user/account associations, Portal roles,
+Portal settings, and Portal requests. Both pools read the same global
+activation and deployment locks in PostgreSQL. Admin can govern Portal
+when the User pool serves it and the installation has Portal enabled.
+See [deployment configuration](../configuration/deployment.md).
 
 Ceph RGW is intentionally shown as one external dependency. User runtimes use
 S3/IAM according to the selected execution context. Administration runtimes use
@@ -56,7 +47,7 @@ because the endpoint is registered in BucketReef.
 ## Dedicated Ceph Admin alternative
 
 Keep the main Administration deployment on `admin`, disable Ceph Admin with
-`FEATURE_CEPH_ADMIN_ENABLED=false`, and run a separate `full` instance with only
+`RUNTIME_SURFACES=["admin","storage_ops"]`, and run a separate `full` instance with only
 Ceph Admin enabled. Disable its scheduled jobs and workers, restrict its ingress,
 and give it its own PostgreSQL database, key rings and RGW identity. Do not store
 that privileged identity on the main instance.
@@ -76,7 +67,7 @@ Compose/Helm configuration and upgrade instructions.
 
 The chart ships `values-admin.yaml` and `values-user.yaml` selectors. The default
 profile is `full`. Admin enables Ceph Admin by default; disable it using
-`backend.env.FEATURE_CEPH_ADMIN_ENABLED: "false"` when required. A dedicated
+`runtimeSurfaces: [admin, storage_ops]` when required. A dedicated
 Ceph Admin instance uses `full` with an operator-owned values file.
 
 These files select runtime surfaces only. They do **not** configure production

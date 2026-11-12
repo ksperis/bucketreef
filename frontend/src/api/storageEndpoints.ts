@@ -110,7 +110,7 @@ type StorageEndpointTagsPayload = {
 };
 
 type StorageEndpointMeta = {
-  managed_by_env: boolean;
+  managed_by_deployment: boolean;
 };
 
 export type StorageEndpointPayload = {

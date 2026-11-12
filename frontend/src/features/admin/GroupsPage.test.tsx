@@ -433,6 +433,7 @@ describe("GroupsPage", () => {
   });
 
   it("keeps Portal roles editable from Admin when the local Portal surface is disabled", async () => {
+    generalSettingsState.portal_enabled = true;
     listGroupsMock.mockResolvedValue({
       items: [
         {
@@ -504,6 +505,7 @@ describe("GroupsPage", () => {
   });
 
   it("allows a group association to use Portal access without a Manager role", async () => {
+    generalSettingsState.portal_enabled = true;
     listGroupsMock.mockResolvedValue({
       items: [
         {
@@ -550,6 +552,7 @@ describe("GroupsPage", () => {
   });
 
   it("creates a group with default rights off, members, associations, and Manager tool access", async () => {
+    generalSettingsState.portal_enabled = true;
     renderPage();
 
     fireEvent.click(await screen.findByRole("button", { name: "Create group" }));

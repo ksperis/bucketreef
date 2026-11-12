@@ -51,12 +51,7 @@ def test_postgresql_concurrent_startup_bootstraps_isolated_empty_schema(monkeypa
         session_factory = sessionmaker(bind=scoped_engine, autocommit=False, autoflush=False)
         monkeypatch.setattr(
             database_initialization.StorageEndpointsService,
-            "sync_env_endpoints",
-            lambda self: None,
-        )
-        monkeypatch.setattr(
-            database_initialization.StorageEndpointsService,
-            "env_endpoints_locked",
+            "deployment_manages_endpoints",
             lambda self: True,
         )
         barrier = Barrier(2)

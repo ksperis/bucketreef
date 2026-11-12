@@ -72,7 +72,7 @@ from .portal import (
     PortalStorageSpaceMetadata,
 )
 from .portal_request import PortalAdminRequest, PortalAdminRequestMessage
-from .backend_coordination import AppSetting, BackendOperationLease
+from .backend_coordination import AppSetting, BackendOperationLease, DeploymentConfiguration
 from .first_admin_bootstrap import FirstAdminBootstrap
 from .onboarding import OnboardingJourney, OnboardingPreference
 from .webhook import WebhookDelivery, WebhookEndpoint, WebhookEndpointSubscription
@@ -80,6 +80,7 @@ from .webhook import WebhookDelivery, WebhookEndpoint, WebhookEndpointSubscripti
 __all__ = [
     "OpenStackCloud", "OpenStackConnection", "OpenStackSession", "OpenStackProjectContext", "OpenStackProjectCredential",
     "Base",
+    "DeploymentConfiguration",
     "StorageEndpoint",
     "EndpointServiceIdentity",
     "ManagerAccessKeyMetadata",

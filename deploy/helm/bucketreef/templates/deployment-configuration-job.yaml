@@ -1,0 +1,81 @@
+{{- $configuration := .Values.deploymentConfiguration -}}
+{{- if $configuration.enabled -}}
+{{- if eq (include "bucketreef.deploymentProfile" .) "user" -}}
+{{- fail "deploymentConfiguration must run in the admin or full release." -}}
+{{- end -}}
+{{- $revision := toString $configuration.revision -}}
+{{- if not (regexMatch "^[1-9][0-9]{0,18}$" $revision) -}}
+{{- fail "deploymentConfiguration.revision must be a positive integer, supplied as a string." -}}
+{{- end -}}
+{{- $manifest := required "deploymentConfiguration.manifestConfigMap is required." $configuration.manifestConfigMap -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ printf "%s-configure-%s" (include "bucketreef.fullname" . | trunc 32 | trimSuffix "-") $revision }}
+  labels:
+    {{- include "bucketreef.labels" . | nindent 4 }}
+    app.kubernetes.io/component: deployment-configuration
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 1200
+  template:
+    metadata:
+      labels:
+        {{- include "bucketreef.labels" . | nindent 8 }}
+        app.kubernetes.io/component: deployment-configuration
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        {{- toYaml .Values.backend.podSecurityContext | nindent 8 }}
+      containers:
+        - name: configure-deployment
+          image: "{{ .Values.image.backend.repository }}:{{ default .Chart.AppVersion .Values.image.backend.tag }}"
+          imagePullPolicy: {{ .Values.image.backend.pullPolicy }}
+          command: ["python", "-m", "app.scripts.configure_deployment", "apply"]
+          args: ["--file", "/deployment/config/manifest.json", "--expected-revision", {{ $revision | quote }}]
+          securityContext:
+            {{- toYaml .Values.backend.containerSecurityContext | nindent 12 }}
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
+          env:
+            - name: APP_ENV
+              value: {{ .Values.backend.env.APP_ENV | quote }}
+            - name: CORS_ORIGINS
+              value: {{ .Values.backend.env.CORS_ORIGINS | quote }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.backend.existingSecret | quote }}
+                  key: {{ .Values.backend.secretKeys.databaseUrl | quote }}
+            - name: CREDENTIAL_KEYS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.backend.existingSecret | quote }}
+                  key: {{ .Values.backend.secretKeys.credentialKeys | quote }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: manifest
+              mountPath: /deployment/config
+              readOnly: true
+            {{- if $configuration.credentialSecret }}
+            - name: credentials
+              mountPath: /deployment/credentials
+              readOnly: true
+            {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: manifest
+          configMap:
+            name: {{ $manifest | quote }}
+            items:
+              - key: manifest.json
+                path: manifest.json
+        {{- if $configuration.credentialSecret }}
+        - name: credentials
+          secret:
+            secretName: {{ $configuration.credentialSecret | quote }}
+        {{- end }}
+{{- end }}

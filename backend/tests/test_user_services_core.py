@@ -9,6 +9,7 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.exc import OperationalError
 
+from app.services.app_settings_service import enable_onboarding_features
 from app.core.domain_errors import S3AccountNotFoundError, UiUserNotFoundError
 from app.core.security import get_password_hash, verify_password
 from app.db import (
@@ -696,6 +697,7 @@ def test_update_user_validates_s3_users_before_replacing_links(db_session):
 
 
 def test_update_user_replaces_direct_account_links_without_root_protection(db_session):
+    enable_onboarding_features(db_session, ("portal_enabled",))
     user = _seed_user(db_session, "account-links@example.com", role=UserRole.UI_NONE.value)
     removed_account = _seed_account(db_session, "removed-account", "RGW-REMOVED")
     root_account = _seed_account(db_session, "root-account", "RGW-ROOT")
@@ -1108,6 +1110,7 @@ def test_admin_user_projection_and_search_hide_private_connection_links(db_sessi
 
 
 def test_assign_account_paths_and_paginated_user_summaries(db_session):
+    enable_onboarding_features(db_session, ("portal_enabled",))
     service = UserAssociationsService(db_session)
     account = _seed_account(db_session, "acc-b", "RGW-ACC-B")
     user = _seed_user(db_session, "assign@example.com", role=UserRole.UI_NONE.value)

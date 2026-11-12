@@ -23,6 +23,7 @@ from app.core.domain_enums import StorageProvider
 class StorageEndpoint(Base):
     __tablename__ = "storage_endpoints"
     __table_args__ = (
+        UniqueConstraint("deployment_key", name="uq_storage_endpoints_deployment_key"),
         UniqueConstraint("name", name="uq_storage_endpoints_name"),
         UniqueConstraint("endpoint_url", name="uq_storage_endpoints_endpoint"),
         CheckConstraint(
@@ -38,6 +39,7 @@ class StorageEndpoint(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
+    deployment_key = Column(String(64), nullable=True)
     name = Column(String, nullable=False)
     endpoint_url = Column(String, nullable=False)
     region = Column(String, nullable=True)

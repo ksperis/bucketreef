@@ -157,6 +157,7 @@ DOMAINS = (
             "bucket_usage_stats_snapshots",
             "backend_operation_leases",
             "app_settings",
+            "deployment_configuration",
         ),
     ),
     Domain(

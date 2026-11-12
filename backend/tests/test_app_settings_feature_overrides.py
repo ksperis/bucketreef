@@ -159,69 +159,6 @@ def test_load_app_settings_does_not_mask_unexpected_runtime_failures(monkeypatch
         app_settings_service.load_app_settings_for_db(db_session)
 
 
-def test_load_app_settings_applies_feature_env_overrides(monkeypatch, tmp_path, db_session):
-    settings_path = tmp_path / "app_settings.json"
-    persisted = AppSettings()
-    persisted.general.manager_enabled = False
-    persisted.general.browser_enabled = True
-    persisted.general.portal_enabled = False
-    persisted.general.ceph_admin_enabled = True
-    settings_path.write_text(persisted.model_dump_json(indent=2), encoding="utf-8")
-
-    monkeypatch.setattr(app_settings_service, "_settings_path", lambda: settings_path)
-    _use_settings_db(monkeypatch, db_session)
-    monkeypatch.setattr(
-        app_settings_service,
-        "get_settings",
-        lambda: _runtime_settings(
-            feature_manager_enabled=True,
-            feature_openstack_enabled=True,
-            feature_browser_enabled=False,
-            feature_portal_enabled=True,
-        ),
-    )
-    app_settings_service.bootstrap_app_settings_for_db(db_session)
-
-    effective = app_settings_service.load_app_settings()
-    assert effective.general.manager_enabled is True
-    assert effective.general.openstack_enabled is True
-    assert effective.general.browser_enabled is False
-    assert effective.general.portal_enabled is True
-    # Not forced: the bootstrap value is preserved by the database-backed read.
-    assert effective.general.ceph_admin_enabled is True
-    assert db_session.get(AppSetting, app_settings_service.APP_SETTINGS_DB_KEY) is not None
-
-
-def test_save_app_settings_keeps_persisted_value_for_locked_features(monkeypatch, tmp_path, db_session):
-    settings_path = tmp_path / "app_settings.json"
-    persisted = AppSettings()
-    persisted.general.manager_enabled = False
-    persisted.general.cost_enabled = True
-    settings_path.write_text(persisted.model_dump_json(indent=2), encoding="utf-8")
-
-    monkeypatch.setattr(app_settings_service, "_settings_path", lambda: settings_path)
-    _use_settings_db(monkeypatch, db_session)
-    monkeypatch.setattr(
-        app_settings_service,
-        "get_settings",
-        lambda: _runtime_settings(feature_manager_enabled=True, feature_cost_enabled=False),
-    )
-    app_settings_service.bootstrap_app_settings_for_db(db_session)
-
-    payload = AppSettings()
-    payload.general.manager_enabled = True
-    payload.general.cost_enabled = False
-    saved_effective = app_settings_service.save_app_settings_for_db(db_session, payload)
-
-    raw = _raw_db_settings(db_session)
-    # Locked fields keep persisted values in storage.
-    assert raw["general"]["manager_enabled"] is False
-    assert raw["general"]["cost_enabled"] is True
-    # Returned settings expose effective forced values.
-    assert saved_effective.general.manager_enabled is True
-    assert saved_effective.general.cost_enabled is False
-
-
 def test_app_settings_json_bootstrap_imports_once_to_db(monkeypatch, tmp_path, db_session):
     settings_path = tmp_path / "app_settings.json"
     bootstrap = AppSettings()
@@ -452,41 +389,6 @@ def test_app_settings_disk_import_rejects_removed_feature_flags(tmp_path, payloa
 
     with pytest.raises(ValidationError):
         app_settings_service._load_persisted_settings_from_disk(settings_path)
-
-
-def test_general_feature_locks_only_use_dedicated_feature_sources(monkeypatch):
-    monkeypatch.setattr(
-        app_settings_service,
-        "get_settings",
-        lambda: _runtime_settings(
-            feature_manager_enabled=False,
-            feature_openstack_enabled=False,
-            feature_portal_enabled=True,
-            feature_cost_enabled=None,
-            feature_endpoint_status_enabled=None,
-        ),
-    )
-
-    locks = app_settings_service.get_general_feature_locks()
-    assert locks.manager_enabled.forced is True
-    assert locks.manager_enabled.value is False
-    assert locks.manager_enabled.source == "FEATURE_MANAGER_ENABLED"
-
-    assert locks.openstack_enabled.forced is True
-    assert locks.openstack_enabled.value is False
-    assert locks.openstack_enabled.source == "FEATURE_OPENSTACK_ENABLED"
-
-    assert locks.portal_enabled.forced is True
-    assert locks.portal_enabled.value is True
-    assert locks.portal_enabled.source == "FEATURE_PORTAL_ENABLED"
-
-    assert locks.cost_enabled.forced is False
-    assert locks.cost_enabled.value is None
-    assert locks.cost_enabled.source is None
-
-    assert locks.endpoint_status_enabled.forced is False
-    assert locks.endpoint_status_enabled.value is None
-    assert locks.endpoint_status_enabled.source is None
 
 
 def test_branding_settings_defaults_and_normalizes_hex():

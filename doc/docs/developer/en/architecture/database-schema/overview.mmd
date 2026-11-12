@@ -4,7 +4,7 @@ flowchart LR
     storage_s3_execution["Storage and S3 execution<br/>26 tables"]
     tags_classification["Tags and classification<br/>6 tables"]
     portal["Portal<br/>7 tables"]
-    operations_audit["Operations and audit<br/>11 tables"]
+    operations_audit["Operations and audit<br/>12 tables"]
     observability_quota_cost["Observability quota and cost<br/>11 tables"]
     observability_quota_cost -->|"20 FK"| storage_s3_execution
     operations_audit -->|"5 FK"| identity_ui_access

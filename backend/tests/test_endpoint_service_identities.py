@@ -600,18 +600,17 @@ def test_revocation_requires_confirmed_remote_deletion(identities):
     assert endpoint.service_identity("runtime").status == "revocation_pending"
 
 
-def test_env_sync_preserves_generated_keys_mode_and_namespace(identities, db_session, monkeypatch):
+def test_env_sync_preserves_generated_keys_mode_and_namespace(identities, db_session, monkeypatch, apply_deployment_endpoints):
     service, endpoint, rgw = identities
     service.reconcile(endpoint)
     identity = endpoint.service_identity("runtime")
     endpoint.ceph_admin_allowed = True
     db_session.commit()
     original = (identity.access_key, identity.secret_key, endpoint.identity_namespace)
-    monkeypatch.setattr("app.services.storage_endpoints_service.settings.env_storage_endpoints", json.dumps([{
+    apply_deployment_endpoints([{
         "name": endpoint.name, "endpoint_url": endpoint.endpoint_url, "provider": "ceph", "service_identity_mode": "managed",
         "admin_access_key": "ADMIN", "admin_secret_key": "ADMIN-SECRET", "features": {"admin": {"enabled": True}},
-    }]))
-    StorageEndpointsService(db_session).sync_env_endpoints()
+    }])
     assert endpoint.ceph_admin_allowed is False
     assert identity.mode == "managed"
     assert original == (identity.access_key, identity.secret_key, endpoint.identity_namespace)
@@ -656,20 +655,6 @@ def test_read_only_runtime_detection_never_lists_without_scope_or_accepts_keys(i
     assert result.credential_checks.runtime.status == "denied"
     assert not any(call[0] == "list" for call in rgw.calls)
     assert db_session.scalar(select(func.count()).select_from(EndpointServiceIdentity)) == 0
-
-
-def test_env_provider_change_revokes_owned_identities_before_clearing_admin_ops(identities, db_session, monkeypatch):
-    service, endpoint, rgw = identities
-    db_session.commit()
-    service.reconcile(endpoint)
-    managed_uids = {identity.rgw_uid for identity in endpoint.service_identities}
-    monkeypatch.setattr("app.services.storage_endpoints_service.settings.env_storage_endpoints", json.dumps([{
-        "name": endpoint.name, "endpoint_url": endpoint.endpoint_url, "provider": "other",
-    }]))
-    StorageEndpointsService(db_session).sync_env_endpoints()
-    assert not managed_uids.intersection(rgw.users)
-    assert all(identity.status == "disabled" for identity in endpoint.service_identities)
-    assert endpoint.admin_secret_key is None and endpoint.provider == "other"
 
 
 @pytest.mark.parametrize("kind", ["runtime", "supervision"])
@@ -916,7 +901,7 @@ def test_key_added_concurrently_during_rotation_is_never_adopted_or_deleted(iden
 
 
 @pytest.mark.parametrize("monitoring", [False, True])
-def test_external_env_with_complete_keys_is_validated_without_provisioning(identities, db_session, monkeypatch, monitoring):
+def test_external_env_with_complete_keys_is_validated_without_provisioning(identities, db_session, monkeypatch, monitoring, apply_deployment_endpoints):
     _, endpoint, rgw = identities
     rgw.users["operator"]["caps"] = "users=read;accounts=read"
     credentials = {}
@@ -924,12 +909,11 @@ def test_external_env_with_complete_keys_is_validated_without_provisioning(ident
         access, secret = kind.upper(), f"{kind.upper()}-SECRET"
         credentials.update({f"{kind}_access_key": access, f"{kind}_secret_key": secret})
         rgw.users[kind] = {"user_id": kind, "caps": SERVICE_CAPS[kind], "keys": [{"access_key": access, "secret_key": secret}]}
-    monkeypatch.setattr("app.services.storage_endpoints_service.settings.env_storage_endpoints", json.dumps([{
+    apply_deployment_endpoints([{
         "name": endpoint.name, "endpoint_url": endpoint.endpoint_url, "provider": "ceph",
         "admin_access_key": "ADMIN", "admin_secret_key": "ADMIN-SECRET", "service_identity_mode": "external",
         "features": {"admin": {"enabled": True}, "metrics": {"enabled": monitoring}}, **credentials,
-    }]))
-    StorageEndpointsService(db_session).sync_env_endpoints()
+    }])
     assert endpoint.service_identity("runtime").status == "ready" and not endpoint.is_editable
     assert endpoint.service_identity("runtime").mode == "external"
     assert endpoint.service_identity("supervision").status == "ready"
@@ -1110,24 +1094,6 @@ def test_revocation_retries_sqlite_checkpoints_without_replaying_remote_delete(
     assert len(
         [call for call in rgw.calls if call[0] == "delete" and call[1] == uid]
     ) == 1
-
-
-def test_unchanged_external_env_preserves_ready_state_on_user_instance(identities, db_session, monkeypatch):
-    _, endpoint, rgw = identities
-    row = service_identity("runtime", "EXTERNAL", "EXTERNAL-SECRET")
-    row.status = "ready"
-    endpoint.service_identities.append(row)
-    db_session.commit()
-    monkeypatch.setattr("app.services.storage_endpoints_service.settings.feature_admin_enabled", False)
-    monkeypatch.setattr("app.services.storage_endpoints_service.settings.feature_manager_enabled", True)
-    monkeypatch.setattr("app.services.storage_endpoints_service.settings.env_storage_endpoints", json.dumps([{
-        "name": "Renamed", "endpoint_url": endpoint.endpoint_url, "provider": "ceph", "service_identity_mode": "external",
-        "admin_access_key": "ADMIN", "admin_secret_key": "ADMIN-SECRET",
-        "runtime_access_key": "EXTERNAL", "runtime_secret_key": "EXTERNAL-SECRET",
-        "supervision_access_key": "SUPERVISION", "supervision_secret_key": "SUPERVISION-SECRET",
-    }]))
-    StorageEndpointsService(db_session).sync_env_endpoints()
-    assert row.status == "ready" and row.last_error is None and not rgw.calls
 
 
 def test_ready_managed_identity_survives_removing_write_permissions_and_rename(identities, db_session):
@@ -1424,11 +1390,10 @@ def test_delete_keeps_lease_until_commit_and_stale_reconciliation_cannot_recreat
 def test_startup_reconciles_persisted_endpoints_only_on_controller_instances(identities, db_session, monkeypatch):
     _, endpoint, rgw = identities
     service = StorageEndpointsService(db_session)
-    monkeypatch.setattr("app.services.storage_endpoints_service.settings.feature_admin_enabled", False)
-    monkeypatch.setattr("app.services.storage_endpoints_service.settings.feature_manager_enabled", True)
+    monkeypatch.setattr("app.services.storage_endpoints_service.settings.runtime_surfaces", ["manager"])
     service.reconcile_persisted_identities()
     assert endpoint.service_identity("runtime") is None and not rgw.calls
-    monkeypatch.setattr("app.services.storage_endpoints_service.settings.feature_admin_enabled", True)
+    monkeypatch.setattr("app.services.storage_endpoints_service.settings.runtime_surfaces", ["admin"])
     service.reconcile_persisted_identities()
     assert endpoint.service_identity("runtime").status == "ready"
     calls_after_initial_reconciliation = list(rgw.calls)
@@ -1479,7 +1444,7 @@ def test_disabling_features_keeps_configured_service_keys(identities, db_session
     assert not any(call[0] in ("create", "delete") for call in rgw.calls)
 
 
-def test_env_disabling_features_preserves_unused_external_credentials(identities, db_session, monkeypatch):
+def test_env_disabling_features_preserves_unused_external_credentials(identities, db_session, monkeypatch, apply_deployment_endpoints):
     _, endpoint, rgw = identities
     endpoint.service_identities.extend([
         service_identity("runtime", "EXTERNAL-RUNTIME", "EXTERNAL-RUNTIME-SK"),
@@ -1488,11 +1453,10 @@ def test_env_disabling_features_preserves_unused_external_credentials(identities
     db_session.commit()
     before = {kind: (endpoint.service_identity(kind).access_key, endpoint.service_identity(kind).secret_key)
               for kind in ("runtime", "supervision")}
-    monkeypatch.setattr("app.services.storage_endpoints_service.settings.env_storage_endpoints", json.dumps([{
+    apply_deployment_endpoints([{
         "name": endpoint.name, "endpoint_url": endpoint.endpoint_url, "provider": "ceph",
         "service_identity_mode": "external", "features": {},
-    }]))
-    StorageEndpointsService(db_session).sync_env_endpoints()
+    }])
     assert {kind: (endpoint.service_identity(kind).access_key, endpoint.service_identity(kind).secret_key)
             for kind in before} == before
     assert not rgw.calls

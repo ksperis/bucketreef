@@ -90,7 +90,7 @@ def _replace_foreign_keys(
         for column_name, referred_table, constraint_name in replacements:
             batch_op.drop_constraint(constraint_name, type_="foreignkey")
             batch_op.create_foreign_key(
-                f"fk_{table_name}_{column_name}_{referred_table}",
+                op.f(f"fk_{table_name}_{column_name}_{referred_table}"),
                 referred_table,
                 [column_name],
                 ["id"],

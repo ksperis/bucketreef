@@ -9,10 +9,8 @@ import pytest
 
 from app.models.app_settings import AppSettings
 from app.models.feature_policy import FeaturePolicy
-from app.services.storage_endpoint_normalization import (
-    normalize_env_storage_endpoint_states,
-    parse_env_storage_endpoints,
-)
+from app.models.deployment_configuration import ResolvedStorageEndpointDefinition
+from app.services.storage_endpoint_normalization import normalize_storage_endpoint_definitions
 from tests_ceph_functional.bootstrap_session import _grant_functional_test_access
 from tests_ceph_functional.clients import CephVerifier
 from tests_ceph_functional import run_ci
@@ -50,8 +48,8 @@ def test_ci_endpoint_payload_enables_replication(monkeypatch):
     assert payload[0]["features"]["replication"] == {"enabled": True}
     assert payload[0]["ceph_admin_allowed"] is True
     assert payload[0]["ceph_admin_access_key"] == "ceph-admin-ak"
-    states = normalize_env_storage_endpoint_states(
-        parse_env_storage_endpoints(json.dumps(payload))
+    states = normalize_storage_endpoint_definitions(
+        [ResolvedStorageEndpointDefinition.model_validate(entry) for entry in payload]
     )
     assert len(states) == 1
     assert states[0].service_identity_mode == "managed"
@@ -143,7 +141,7 @@ def test_ci_endpoint_payload_rejects_partial_multisite_topology(monkeypatch):
         run_ci._build_endpoint_payload()
 
 
-def test_ci_endpoint_payload_can_use_env_storage_endpoints():
+def test_ci_endpoint_payload_can_use_explicit_inventory():
     storage_endpoints = [
         {
             "name": "s3-z1",
@@ -166,7 +164,7 @@ def test_ci_endpoint_payload_can_use_env_storage_endpoints():
             "is_default": True,
         }
     ]
-    env = {"ENV_STORAGE_ENDPOINTS": json.dumps(storage_endpoints)}
+    env = {"CEPH_TEST_ENDPOINTS": json.dumps(storage_endpoints)}
 
     assert json.loads(run_ci._build_endpoint_payload(env)) == storage_endpoints
 
@@ -182,7 +180,7 @@ def test_ci_endpoint_payload_can_use_env_storage_endpoints():
 
 def test_ci_env_derivation_ignores_removed_admin_endpoint_aliases():
     env = {
-        "ENV_STORAGE_ENDPOINTS": json.dumps(
+        "CEPH_TEST_ENDPOINTS": json.dumps(
             [
                 {
                     "name": "s3-z1",

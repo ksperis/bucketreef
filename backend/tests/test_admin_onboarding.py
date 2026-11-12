@@ -61,7 +61,7 @@ def test_storage_errors_never_echo_credentials(exception, code):
     assert error.value.detail == {"code": code}
 
 
-@pytest.mark.parametrize("code", ["stale_revision", "env_locked:FEATURE_BROWSER_ENABLED"])
+@pytest.mark.parametrize("code", ["stale_revision", "deployment_locked:browser_enabled"])
 def test_onboarding_domain_error_codes_keep_their_http_contract(code):
     def fail():
         raise OnboardingError(code, 409)

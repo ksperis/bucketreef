@@ -8,6 +8,7 @@ import {
   parsePortalAccountRole,
   type AccountAccessGrant,
 } from "../../api/accountAccess";
+import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import UiSelect from "../../components/ui/UiSelect";
 
 const activeManagerRoleClass =
@@ -88,6 +89,12 @@ export function PortalAccountRoleSelect({
   invalid = false,
   describedBy,
 }: PortalAccountRoleSelectProps) {
+  const { generalSettings } = useGeneralSettings();
+  const portalEnabled = generalSettings.portal_enabled;
+  if (!portalEnabled && !value.portal_role) return null;
+  const options = PORTAL_ACCOUNT_ROLE_OPTIONS.filter(
+    (option) => portalEnabled || option.value !== "portal_manager" || value.portal_role === "portal_manager",
+  );
   return (
     <UiSelect
       label={showLabel ? "Portal" : undefined}
@@ -105,7 +112,7 @@ export function PortalAccountRoleSelect({
         })
       }
     >
-      {PORTAL_ACCOUNT_ROLE_OPTIONS.map((option) => (
+      {options.map((option) => (
         <option key={option.value || "none"} value={option.value}>
           {option.label}
         </option>

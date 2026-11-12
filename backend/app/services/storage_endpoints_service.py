@@ -39,7 +39,12 @@ from app.services.storage_endpoint_repository import StorageEndpointRepository
 from app.services.endpoint_service_identity_reconciliation_policy import (
     needs_startup_reconciliation,
 )
-from app.services.storage_endpoint_env_sync import StorageEndpointEnvSyncService
+from app.services.deployment_configuration_state import (
+    get_deployment_configuration,
+    lock_deployment_configuration,
+    require_editable_storage_endpoints,
+    deployment_configuration_operation,
+)
 from app.services.storage_endpoint_normalization import (
     NormalizedEndpointState,
     normalize_storage_endpoint_state,
@@ -77,13 +82,12 @@ class StorageEndpointsService:
             admin_client_factory=get_rgw_admin_client,
         )
 
-    def env_endpoints_locked(self) -> bool:
-        raw = settings.env_storage_endpoints
-        return bool(raw and raw.strip())
+    def deployment_manages_endpoints(self) -> bool:
+        state = get_deployment_configuration(self.db)
+        return state is not None and state.storage_endpoints_managed
 
-    def _ensure_env_editable(self) -> None:
-        if self.env_endpoints_locked():
-            raise ValueError("Storage endpoints are managed by ENV_STORAGE_ENDPOINTS.")
+    def _require_editable_inventory(self) -> None:
+        require_editable_storage_endpoints(get_deployment_configuration(self.db))
 
     def _resolve_actor(self, actor: User | None) -> User | None:
         return actor if actor is not None else self.actor
@@ -96,18 +100,6 @@ class StorageEndpointsService:
             self.db,
             get_rgw_admin_client,
         ).detect(payload)
-
-    def sync_env_endpoints(self) -> list[StorageEndpointSchema]:
-        synced = StorageEndpointEnvSyncService(
-            self.db,
-            actor=self.actor,
-        ).sync()
-        if synced is None:
-            return self.query.list_endpoints()
-        return [
-            self.query.serialize_endpoint(endpoint, include_admin_ops_permissions=False)
-            for endpoint in synced
-        ]
 
     def reconcile_persisted_identities(self) -> None:
         from app.core.runtime_surfaces import endpoint_identity_management_enabled
@@ -159,6 +151,7 @@ class StorageEndpointsService:
         endpoint_id: int,
         payload: StorageEndpointUpdate,
     ) -> tuple[StorageEndpoint, NormalizedEndpointState]:
+        self._require_editable_inventory()
         endpoint = self.repository.get(endpoint_id)
         if not endpoint.is_editable:
             raise ValueError("This endpoint is protected and cannot be edited.")
@@ -176,6 +169,7 @@ class StorageEndpointsService:
         return endpoint, state
 
     def _ensure_endpoint_deletable(self, endpoint: StorageEndpoint) -> None:
+        self._require_editable_inventory()
         if not endpoint.is_editable:
             raise ValueError("This endpoint is protected and cannot be deleted.")
         linked_accounts = self.db.scalar(
@@ -212,11 +206,12 @@ class StorageEndpointsService:
         *,
         actor: User | None = None,
     ) -> StorageEndpointSchema:
-        self._ensure_env_editable()
+        self._require_editable_inventory()
         state = normalize_storage_endpoint_state(payload)
         identity_namespace = uuid4().hex
 
         def create_once(write_db: Session) -> int:
+            require_editable_storage_endpoints(lock_deployment_configuration(write_db))
             ensure_unique_storage_endpoint_name(write_db, state.name)
             ensure_unique_storage_endpoint_url(write_db, state.endpoint_url)
             endpoint = StorageEndpoint(
@@ -254,52 +249,53 @@ class StorageEndpointsService:
         *,
         actor: User | None = None,
     ) -> StorageEndpointSchema:
-        self._ensure_env_editable()
-        endpoint = self.repository.get(endpoint_id)
-        if not endpoint.is_editable:
-            raise ValueError("This endpoint is protected and cannot be edited.")
-        from app.services.endpoint_service_identities import EndpointServiceIdentityService
-        identities = EndpointServiceIdentityService(
-            self.db,
-            actor=self._resolve_actor(actor),
-        )
-        lease, handle = identities.lease(endpoint)
-        try:
-            # lease() refreshes the target. SQLite additionally becomes the writer
-            # before any identity workflow can perform external side effects.
-            self._acquire_endpoint_write_transaction(endpoint_id)
-            endpoint, state = self._prepare_endpoint_update(endpoint_id, payload)
-            revoked_kinds: list[str] = []
-            if state.service_identity_mode == "external" or state.provider != StorageProvider.CEPH:
-                for kind in MANAGED_SERVICE_IDENTITY_KINDS:
-                    identity = endpoint.service_identity(kind)
-                    if identity is not None and identity.mode == "managed":
-                        if not identities.revoke(endpoint, kind):
-                            raise ValueError("Managed identity revocation is pending; retry before changing identity mode.")
-                        revoked_kinds.append(kind)
-            if state.provider != StorageProvider.CEPH and not identities.revoke(endpoint, "ceph_admin"):
-                raise ValueError("Ceph Admin revocation is pending; retry before changing provider.")
-
-            # A revoke can commit its local revocation checkpoint before RGW I/O.
-            # Re-acquire SQLite write intent and revalidate the latest endpoint
-            # state before persisting the non-replayable workflow result.
-            if self._acquire_endpoint_write_transaction(endpoint_id):
+        with deployment_configuration_operation(self.db):
+            self._require_editable_inventory()
+            endpoint = self.repository.get(endpoint_id)
+            if not endpoint.is_editable:
+                raise ValueError("This endpoint is protected and cannot be edited.")
+            from app.services.endpoint_service_identities import EndpointServiceIdentityService
+            identities = EndpointServiceIdentityService(
+                self.db,
+                actor=self._resolve_actor(actor),
+            )
+            lease, handle = identities.lease(endpoint)
+            try:
+                # lease() refreshes the target. SQLite additionally becomes the writer
+                # before any identity workflow can perform external side effects.
+                self._acquire_endpoint_write_transaction(endpoint_id)
                 endpoint, state = self._prepare_endpoint_update(endpoint_id, payload)
-            for kind in revoked_kinds:
-                identity = endpoint.service_identity(kind)
-                if identity is not None:
-                    identity.mode = "external"
-            apply_storage_endpoint_state(endpoint, state)
-            self._commit_endpoint(endpoint)
-            if endpoint.provider == "ceph":
-                identities.reconcile(
-                    endpoint,
-                    locked=True,
-                    provision_unprovisioned=False,
-                )
-        finally:
-            lease.release(handle)
-        return self.query.serialize_endpoint(endpoint)
+                revoked_kinds: list[str] = []
+                if state.service_identity_mode == "external" or state.provider != StorageProvider.CEPH:
+                    for kind in MANAGED_SERVICE_IDENTITY_KINDS:
+                        identity = endpoint.service_identity(kind)
+                        if identity is not None and identity.mode == "managed":
+                            if not identities.revoke(endpoint, kind):
+                                raise ValueError("Managed identity revocation is pending; retry before changing identity mode.")
+                            revoked_kinds.append(kind)
+                if state.provider != StorageProvider.CEPH and not identities.revoke(endpoint, "ceph_admin"):
+                    raise ValueError("Ceph Admin revocation is pending; retry before changing provider.")
+
+                # A revoke can commit its local revocation checkpoint before RGW I/O.
+                # Re-acquire SQLite write intent and revalidate the latest endpoint
+                # state before persisting the non-replayable workflow result.
+                if self._acquire_endpoint_write_transaction(endpoint_id):
+                    endpoint, state = self._prepare_endpoint_update(endpoint_id, payload)
+                for kind in revoked_kinds:
+                    identity = endpoint.service_identity(kind)
+                    if identity is not None:
+                        identity.mode = "external"
+                apply_storage_endpoint_state(endpoint, state)
+                self._commit_endpoint(endpoint)
+                if endpoint.provider == "ceph":
+                    identities.reconcile(
+                        endpoint,
+                        locked=True,
+                        provision_unprovisioned=False,
+                    )
+            finally:
+                lease.release(handle)
+            return self.query.serialize_endpoint(endpoint)
 
     def reconcile_identities(
         self,
@@ -319,42 +315,44 @@ class StorageEndpointsService:
         return self.query.serialize_endpoint(endpoint)
 
     def delete_endpoint(self, endpoint_id: int) -> None:
-        self._ensure_env_editable()
-        endpoint = self.repository.get(endpoint_id)
-        if not endpoint.is_editable:
-            raise ValueError("This endpoint is protected and cannot be deleted.")
-        from app.services.endpoint_service_identities import EndpointServiceIdentityService
-        identities = EndpointServiceIdentityService(self.db, actor=self.actor)
-        lease, handle = identities.lease(endpoint)
-        try:
-            with rollback_on_error(self.db):
-                self._acquire_endpoint_write_transaction(endpoint_id)
-                endpoint = self.repository.get(endpoint_id)
-                self._ensure_endpoint_deletable(endpoint)
-                for kind in SERVICE_IDENTITY_KINDS:
-                    if not identities.revoke(endpoint, kind):
-                        raise ValueError("Managed identity revocation is pending; retry before deleting the endpoint.")
-
-                # Identity revocation can release the SQLite writer while RGW I/O
-                # runs. Re-acquire it and re-check references before deleting.
-                if self._acquire_endpoint_write_transaction(endpoint_id):
+        with deployment_configuration_operation(self.db):
+            self._require_editable_inventory()
+            endpoint = self.repository.get(endpoint_id)
+            if not endpoint.is_editable:
+                raise ValueError("This endpoint is protected and cannot be deleted.")
+            from app.services.endpoint_service_identities import EndpointServiceIdentityService
+            identities = EndpointServiceIdentityService(self.db, actor=self.actor)
+            lease, handle = identities.lease(endpoint)
+            try:
+                with rollback_on_error(self.db):
+                    self._acquire_endpoint_write_transaction(endpoint_id)
                     endpoint = self.repository.get(endpoint_id)
                     self._ensure_endpoint_deletable(endpoint)
-                ResourceDeletionPurgeService(self.db).purge_endpoint_derived_data(endpoint.id)
-                self.db.delete(endpoint)
-                self.db.flush()
-                self.tags.cleanup_orphan_definitions(domain_kinds=[TAG_DOMAIN_ENDPOINT, TAG_DOMAIN_BUCKET_UI_CEPH_ADMIN, TAG_DOMAIN_BUCKET_UI_STORAGE_OPS])
-                self.db.commit()
-        finally:
-            lease.release(handle)
+                    for kind in SERVICE_IDENTITY_KINDS:
+                        if not identities.revoke(endpoint, kind):
+                            raise ValueError("Managed identity revocation is pending; retry before deleting the endpoint.")
+
+                    # Identity revocation can release the SQLite writer while RGW I/O
+                    # runs. Re-acquire it and re-check references before deleting.
+                    if self._acquire_endpoint_write_transaction(endpoint_id):
+                        endpoint = self.repository.get(endpoint_id)
+                        self._ensure_endpoint_deletable(endpoint)
+                    ResourceDeletionPurgeService(self.db).purge_endpoint_derived_data(endpoint.id)
+                    self.db.delete(endpoint)
+                    self.db.flush()
+                    self.tags.cleanup_orphan_definitions(domain_kinds=[TAG_DOMAIN_ENDPOINT, TAG_DOMAIN_BUCKET_UI_CEPH_ADMIN, TAG_DOMAIN_BUCKET_UI_STORAGE_OPS])
+                    self.db.commit()
+            finally:
+                lease.release(handle)
 
     def set_default_endpoint(self, endpoint_id: int) -> StorageEndpointSchema:
-        self._ensure_env_editable()
+        self._require_editable_inventory()
         endpoint = self.repository.get(endpoint_id)
         if endpoint.is_default:
             return self.query.serialize_endpoint(endpoint)
 
         def set_default_once(write_db: Session) -> int:
+            require_editable_storage_endpoints(lock_deployment_configuration(write_db))
             current = StorageEndpointRepository(write_db).get(endpoint_id)
             if not current.is_default:
                 write_db.execute(
@@ -385,8 +383,7 @@ class StorageEndpointsService:
         return f"{candidate}-{suffix}"
 
     def ensure_default_endpoint(self) -> Optional[StorageEndpointSchema]:
-        if self.env_endpoints_locked():
-            self.sync_env_endpoints()
+        if self.deployment_manages_endpoints():
             return None
         endpoint_url = configured_s3_endpoint()
         if not endpoint_url:
@@ -429,6 +426,8 @@ class StorageEndpointsService:
         identity_namespace = uuid4().hex
 
         def create_default_once(write_db: Session) -> int | None:
+            if lock_deployment_configuration(write_db).storage_endpoints_managed:
+                return None
             if write_db.scalar(select(func.count()).select_from(StorageEndpoint)) > 0:
                 return None
             entry = StorageEndpoint(

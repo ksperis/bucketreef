@@ -27,7 +27,9 @@ nav:
       - Docker Compose: install/docker-compose.md
       - Helm: install/helm.md
       - Production architecture: install/production-architecture.md
-  - Configuration: configuration/index.md
+  - Configuration:
+      - Overview: configuration/index.md
+      - Deployment configuration: configuration/deployment.md
   - Platform:
       - Admin workspace: platform/index.md
       - Effective access audit: platform/access-audit.md

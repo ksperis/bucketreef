@@ -10,6 +10,7 @@ from sqlalchemy.orm import InstrumentedAttribute, Session
 
 from app.db import UiGroupS3Account, UserS3Account
 from app.models.account_access import AccountAccessGrant
+from app.utils.account_roles import portal_account_role_rank
 from app.utils.time import utcnow
 
 
@@ -133,6 +134,16 @@ def sync_metadata_association_links(
         int(getattr(link, target_column.key)): link
         for link in existing
     }
+    portal_promotions = any(
+        isinstance(grant, AccountAccessGrant)
+        and portal_account_role_rank(grant.portal_role)
+        > portal_account_role_rank(getattr(existing_by_id.get(target_id), "portal_role", None))
+        for target_id, grant in desired.items()
+    )
+    if portal_promotions:
+        from app.services.portal_role_sync import require_portal_for_promotion
+
+        require_portal_for_promotion(db)
     new_ids = set(desired) - set(existing_by_id)
     if new_ids and before_create is not None:
         before_create(new_ids)

@@ -55,7 +55,9 @@ def desired_service_kinds(
     return desired
 
 
-def needs_startup_reconciliation(endpoint: StorageEndpoint) -> bool:
+def needs_startup_reconciliation(
+    endpoint: StorageEndpoint, *, provision_unprovisioned: bool = False
+) -> bool:
     """Return whether persisted local state requires an RGW recovery pass."""
     if endpoint.provider != "ceph":
         return False
@@ -63,7 +65,8 @@ def needs_startup_reconciliation(endpoint: StorageEndpoint) -> bool:
     for kind in desired_service_kinds(endpoint):
         identity = endpoint.service_identity(kind)
         if (
-            identity is not None
+            not provision_unprovisioned
+            and identity is not None
             and identity.mode == "managed"
             and identity.status == "not_provisioned"
         ):

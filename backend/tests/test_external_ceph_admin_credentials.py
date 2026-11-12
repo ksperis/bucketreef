@@ -158,15 +158,14 @@ def test_startup_does_not_resume_ceph_admin_rotation(identities, db_session):
     assert db_session.scalars(sa.select(KeyRotationIntent)).one().phase == "prepared"
 
 
-def test_env_can_validate_manual_ceph_admin_without_admin_ops(identities, db_session, monkeypatch):
+def test_env_can_validate_manual_ceph_admin_without_admin_ops(identities, db_session, monkeypatch, apply_deployment_endpoints):
     _, endpoint, rgw = identities
     configure(db_session, endpoint, rgw)
-    monkeypatch.setattr("app.services.storage_endpoints_service.settings.env_storage_endpoints", json.dumps([{
+    apply_deployment_endpoints([{
         "name": endpoint.name, "endpoint_url": endpoint.endpoint_url, "provider": "ceph",
         "service_identity_mode": "managed", "ceph_admin_allowed": True,
         "ceph_admin_access_key": "CEPH-AK", "ceph_admin_secret_key": "CEPH-SK",
-    }]))
-    StorageEndpointsService(db_session).sync_env_endpoints()
+    }])
     identity = endpoint.service_identity("ceph_admin")
     assert identity.mode == "external" and identity.status == "ready"
     assert identity.access_key == "CEPH-AK" and identity.secret_key == "CEPH-SK"
@@ -175,7 +174,7 @@ def test_env_can_validate_manual_ceph_admin_without_admin_ops(identities, db_ses
 
 @pytest.mark.parametrize("mode", ["managed", "external"])
 @pytest.mark.parametrize("source", ["api", "env"])
-def test_ceph_admin_only_endpoint_creation_and_update(identities, db_session, monkeypatch, mode, source):
+def test_ceph_admin_only_endpoint_creation_and_update(identities, db_session, monkeypatch, mode, source, apply_deployment_endpoints):
     from app.routers.ceph_admin.dependencies import get_ceph_admin_context
     from app.routers.ceph_admin.endpoints import get_ceph_admin_endpoint_access
 
@@ -194,11 +193,16 @@ def test_ceph_admin_only_endpoint_creation_and_update(identities, db_session, mo
         saved = endpoints.create_endpoint(StorageEndpointCreate(**entry))
         saved = endpoints.update_endpoint(saved.id, StorageEndpointUpdate(name="Renamed Ceph Admin"))
     else:
-        monkeypatch.setattr("app.services.storage_endpoints_service.settings.env_storage_endpoints", json.dumps([entry]))
-        saved = endpoints.sync_env_endpoints()[0]
+        original_entry = dict(
+            entry, name=original.name, endpoint_url=original.endpoint_url,
+            key="original", service_identity_mode="managed",
+        )
+        apply_deployment_endpoints([original_entry, entry])
         entry["name"] = "Renamed Ceph Admin"
-        monkeypatch.setattr("app.services.storage_endpoints_service.settings.env_storage_endpoints", json.dumps([entry]))
-        saved = endpoints.sync_env_endpoints()[0]
+        saved = next(
+            endpoint for endpoint in apply_deployment_endpoints([original_entry, entry])
+            if endpoint.endpoint_url == entry["endpoint_url"]
+        )
     ep = db_session.get(StorageEndpoint, saved.id)
     assert ep.admin_access_key is None and ep.admin_secret_key is None
     assert saved.name == "Renamed Ceph Admin"

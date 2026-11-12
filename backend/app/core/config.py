@@ -2,13 +2,17 @@
 # Licensed under the Apache License, Version 2.0
 import json
 import ipaddress
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal, Optional
 from urllib.parse import urlparse
 
+from dotenv import dotenv_values
 from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, field_validator, model_validator
 from pydantic_settings import BaseSettings
+
+from app.core.runtime_surfaces import RuntimeSurface, validate_runtime_surfaces
 
 from app.core.domain_enums import LDAPLinkingPolicy, OIDCLinkingPolicy
 from app.utils.identity_provider_ids import normalize_identity_provider_map
@@ -264,10 +268,6 @@ class Settings(BaseSettings):
         None,
         description="Seed default endpoint features (YAML or JSON)",
     )
-    env_storage_endpoints: Optional[str] = Field(
-        None,
-        description="JSON array of storage endpoints managed by environment",
-    )
     seed_s3_access_key: str = Field(
         "minio",
         description="Seed access key for RGW/S3",
@@ -365,41 +365,9 @@ class Settings(BaseSettings):
         "full",
         description="Deployment profile for this backend runtime (DEPLOYMENT_PROFILE)",
     )
-    feature_admin_enabled: Optional[bool] = Field(
+    runtime_surfaces: list[RuntimeSurface] | None = Field(
         None,
-        description="Force Admin surface on/off (FEATURE_ADMIN_ENABLED)",
-    )
-    feature_manager_enabled: Optional[bool] = Field(
-        None,
-        description="Force Manager feature on/off (FEATURE_MANAGER_ENABLED)",
-    )
-    feature_openstack_enabled: Optional[bool] = Field(
-        None,
-        description="Force OpenStack connector on/off (FEATURE_OPENSTACK_ENABLED)",
-    )
-    feature_browser_enabled: Optional[bool] = Field(
-        None,
-        description="Force Browser feature on/off (FEATURE_BROWSER_ENABLED)",
-    )
-    feature_portal_enabled: Optional[bool] = Field(
-        None,
-        description="Force Portal feature on/off (FEATURE_PORTAL_ENABLED)",
-    )
-    feature_ceph_admin_enabled: Optional[bool] = Field(
-        None,
-        description="Force Ceph Admin feature on/off (FEATURE_CEPH_ADMIN_ENABLED)",
-    )
-    feature_storage_ops_enabled: Optional[bool] = Field(
-        None,
-        description="Force Storage Ops feature on/off (FEATURE_STORAGE_OPS_ENABLED)",
-    )
-    feature_cost_enabled: Optional[bool] = Field(
-        None,
-        description="Force Cost feature on/off (FEATURE_COST_ENABLED)",
-    )
-    feature_endpoint_status_enabled: Optional[bool] = Field(
-        None,
-        description="Force Endpoint Status feature on/off (FEATURE_ENDPOINT_STATUS_ENABLED)",
+        description="Local surfaces exposed by this runtime (RUNTIME_SURFACES, JSON array)",
     )
     internal_cron_token: Optional[str] = Field(
         None,
@@ -627,6 +595,7 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_settings(self):
+        validate_runtime_surfaces(self.deployment_profile, self.runtime_surfaces)
         if not self.ui_jwt_keys:
             raise ValueError("ui_jwt_keys must contain at least one key")
         if not self.api_jwt_keys:
@@ -687,6 +656,37 @@ def is_local_origin(origin: str) -> bool:
     return host in {"localhost", "127.0.0.1", "::1"}
 
 
+_RETIRED_DEPLOYMENT_SETTINGS = frozenset({
+    "ENV_STORAGE_ENDPOINTS",
+    "FEATURE_ADMIN_ENABLED",
+    "FEATURE_MANAGER_ENABLED",
+    "FEATURE_OPENSTACK_ENABLED",
+    "FEATURE_BROWSER_ENABLED",
+    "FEATURE_PORTAL_ENABLED",
+    "FEATURE_CEPH_ADMIN_ENABLED",
+    "FEATURE_STORAGE_OPS_ENABLED",
+    "FEATURE_COST_ENABLED",
+    "FEATURE_ENDPOINT_STATUS_ENABLED",
+})
+
+
+def _check_retired_deployment_settings() -> None:
+    sources = dotenv_values(ENV_FILE_PATH, interpolate=False) if ENV_FILE_PATH.is_file() else {}
+    values = {key.upper(): value for key, value in sources.items()}
+    values.update({key.upper(): value for key, value in os.environ.items()})
+    compose_settings = (values.get("BUCKETREEF_RETIRED_DEPLOYMENT_SETTINGS") or "").split()
+    retired = sorted(
+        name for name in _RETIRED_DEPLOYMENT_SETTINGS
+        if (values.get(name) or "").strip() or name in compose_settings
+    )
+    if retired:
+        raise ValueError(
+            f"Retired deployment settings: {', '.join(retired)}. "
+            "Migrate to RUNTIME_SURFACES and a DEPLOYMENT_CONFIG manifest before startup."
+        )
+
+
 @lru_cache
 def get_settings() -> Settings:
+    _check_retired_deployment_settings()
     return Settings()

@@ -5,6 +5,7 @@ from __future__ import annotations
 import sqlalchemy as sa
 from fastapi.testclient import TestClient
 
+from app.services.app_settings_service import enable_onboarding_features
 from app.db import PortalAdminRequest, S3Account, User, UserS3Account
 from app.core.domain_enums import PortalAccountRole, UserRole
 from app.main import app
@@ -263,6 +264,7 @@ def test_portal_setting_change_request_validates_setting_value(client: TestClien
 
 
 def test_admin_request_routes_approve_and_conflict(client: TestClient, db_session):
+    enable_onboarding_features(db_session, ("portal_enabled",))
     account = _seed_account(db_session)
     requester = _seed_user(db_session, email="requester@example.org")
     admin = _seed_user(db_session, email="admin@example.org", role=UserRole.UI_ADMIN.value)

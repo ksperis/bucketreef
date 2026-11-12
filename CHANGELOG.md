@@ -14,6 +14,7 @@
 
 ### Upgrade notes
 
+- **Breaking deployment change:** move `FEATURE_*_ENABLED` and `ENV_STORAGE_ENDPOINTS` to local `RUNTIME_SURFACES` and a versioned deployment manifest. Apply the [deployment configuration migration](doc/docs/admin/en/configuration/deployment.md#migrate-from-environment-overrides) before restarting existing Admin and User pools.
 - Deploy the matching backend and bundled frontend together because Portal server access-log advanced filters now reject invalid scalar/list/null value shapes instead of silently evaluating malformed rules. No database migration is required.
 - Deploy the matching backend and bundled frontend together because Ceph Admin account/user advanced filters now reject unsupported field/operator combinations and invalid scalar/list/null value shapes instead of silently evaluating malformed rules. No database migration is required.
 - Deploy the matching backend and bundled frontend together because shared Ceph Admin/Storage Ops advanced bucket filters now reject unsupported field/operator combinations and invalid scalar/list/null value shapes instead of silently evaluating malformed rules. No database migration is required.

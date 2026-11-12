@@ -26,7 +26,7 @@ export default function useAdminStorageEndpointsListController({
     [text],
   );
   const [endpoints, setEndpoints] = useState<StorageEndpoint[]>([]);
-  const [envManaged, setEnvManaged] = useState(false);
+  const [deploymentManaged, setEnvManaged] = useState(false);
   const [metadataReady, setMetadataReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +44,7 @@ export default function useAdminStorageEndpointsListController({
     const [data, meta] = await Promise.allSettled([listStorageEndpoints(), fetchStorageEndpointsMeta()]);
     if (data.status === "fulfilled") setEndpoints(data.value);
     if (meta.status === "fulfilled") {
-      setEnvManaged(Boolean(meta.value.managed_by_env));
+      setEnvManaged(Boolean(meta.value.managed_by_deployment));
       setMetadataReady(true);
     }
     if (data.status === "rejected") setError(extractLocalizedError(data.reason));
@@ -75,7 +75,7 @@ export default function useAdminStorageEndpointsListController({
   }, []);
 
   const handleDelete = useCallback(async () => {
-    if (!metadataReady || envManaged || !canEditEndpoints || mutationPending.current) return;
+    if (!metadataReady || deploymentManaged || !canEditEndpoints || mutationPending.current) return;
     if (!deleteTarget?.is_editable) return;
     mutationPending.current = true;
     setDeleteBusy(true);
@@ -91,10 +91,10 @@ export default function useAdminStorageEndpointsListController({
       mutationPending.current = false;
       setDeleteBusy(false);
     }
-  }, [canEditEndpoints, deleteTarget, envManaged, extractLocalizedError, loadEndpoints, metadataReady, mutationPending, text]);
+  }, [canEditEndpoints, deleteTarget, deploymentManaged, extractLocalizedError, loadEndpoints, metadataReady, mutationPending, text]);
 
   const handleSetDefault = useCallback(async (endpoint: StorageEndpoint) => {
-    if (!metadataReady || envManaged || !canEditEndpoints || mutationPending.current) return;
+    if (!metadataReady || deploymentManaged || !canEditEndpoints || mutationPending.current) return;
     if (endpoint.is_default) return;
     mutationPending.current = true;
     setDefaultError(null);
@@ -109,11 +109,11 @@ export default function useAdminStorageEndpointsListController({
       mutationPending.current = false;
       setDefaultBusyId(null);
     }
-  }, [canEditEndpoints, envManaged, extractLocalizedError, loadEndpoints, metadataReady, mutationPending, text]);
+  }, [canEditEndpoints, deploymentManaged, extractLocalizedError, loadEndpoints, metadataReady, mutationPending, text]);
 
   return {
     endpoints,
-    envManaged,
+    deploymentManaged,
     metadataReady,
     loading,
     error,

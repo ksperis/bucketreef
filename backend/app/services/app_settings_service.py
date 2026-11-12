@@ -6,26 +6,21 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.core.config import get_settings
 from app.core.db_transactions import add_and_flush_in_savepoint, run_replayable_db_unit
-from app.db import AppSetting
+from app.db import AppSetting, DeploymentConfiguration
 from app.models.app_settings import AppSettings, GeneralFeatureLock, GeneralFeatureLocks
+from app.services.deployment_configuration_state import (
+    DEPLOYMENT_CONFIGURATION_KEY,
+    DEPLOYMENT_CONFIGURATION_SOURCE,
+    lock_deployment_configuration,
+)
 from app.utils.time import utcnow
 
 APP_SETTINGS_DB_KEY = "default"
-_GENERAL_FEATURE_FIELDS = (
-    "manager_enabled",
-    "openstack_enabled",
-    "ceph_admin_enabled",
-    "storage_ops_enabled",
-    "browser_enabled",
-    "portal_enabled",
-    "cost_enabled",
-    "endpoint_status_enabled",
-)
 _PERSISTED_ENV_DEFAULT_PATHS = {
     ("portal", "bucket_defaults", "cors_allowed_origins"),
     ("manager", "bucket_migration_parallelism_default"),
@@ -36,10 +31,6 @@ _PERSISTED_ENV_DEFAULT_PATHS = {
 
 class AppSettingsLoadError(RuntimeError):
     """Expected failure while loading persisted application settings."""
-
-
-class _SettingsConcurrentWrite(RuntimeError):
-    """Internal signal used to restart an optimistic settings update."""
 
 
 def _settings_path() -> Path | None:
@@ -109,7 +100,7 @@ def _settings_to_payload(settings: AppSettings) -> dict:
 
 def _get_persisted_settings_row(db) -> AppSetting | None:
     return db.scalar(
-        select(AppSetting).where(AppSetting.key == APP_SETTINGS_DB_KEY)
+        select(AppSetting).where(AppSetting.key == APP_SETTINGS_DB_KEY).execution_options(populate_existing=True)
     )
 
 
@@ -150,60 +141,42 @@ def _load_persisted_settings_from_db(db) -> AppSettings:
         raise AppSettingsLoadError("Application settings could not be loaded") from exc
 
 
-def get_general_feature_locks() -> GeneralFeatureLocks:
-    settings = get_settings()
-    locks = GeneralFeatureLocks()
-
-    dedicated_sources = {
-        "manager_enabled": ("feature_manager_enabled", "FEATURE_MANAGER_ENABLED"),
-        "openstack_enabled": ("feature_openstack_enabled", "FEATURE_OPENSTACK_ENABLED"),
-        "ceph_admin_enabled": ("feature_ceph_admin_enabled", "FEATURE_CEPH_ADMIN_ENABLED"),
-        "storage_ops_enabled": ("feature_storage_ops_enabled", "FEATURE_STORAGE_OPS_ENABLED"),
-        "browser_enabled": ("feature_browser_enabled", "FEATURE_BROWSER_ENABLED"),
-        "portal_enabled": ("feature_portal_enabled", "FEATURE_PORTAL_ENABLED"),
-        "cost_enabled": ("feature_cost_enabled", "FEATURE_COST_ENABLED"),
-        "endpoint_status_enabled": ("feature_endpoint_status_enabled", "FEATURE_ENDPOINT_STATUS_ENABLED"),
-    }
-    for field_name, (settings_attr, env_name) in dedicated_sources.items():
-        forced_value = getattr(settings, settings_attr)
-        if forced_value is not None:
-            setattr(
-                locks,
-                field_name,
-                GeneralFeatureLock(forced=True, value=forced_value, source=env_name),
-            )
-
-    return locks
-
-
-def _apply_general_feature_overrides(settings: AppSettings) -> AppSettings:
-    effective = settings.model_copy(deep=True)
-    locks = get_general_feature_locks()
-    for field_name in _GENERAL_FEATURE_FIELDS:
-        lock = getattr(locks, field_name)
-        if lock.forced and lock.value is not None:
-            setattr(effective.general, field_name, lock.value)
-    return effective
+def get_general_feature_locks(db) -> GeneralFeatureLocks:
+    snapshot = db.execute(
+        select(DeploymentConfiguration.locked_features, AppSetting.payload)
+        .select_from(DeploymentConfiguration)
+        .outerjoin(AppSetting, AppSetting.key == APP_SETTINGS_DB_KEY)
+        .where(DeploymentConfiguration.key == DEPLOYMENT_CONFIGURATION_KEY)
+    ).one_or_none()
+    if snapshot is None or not snapshot.locked_features:
+        return GeneralFeatureLocks()
+    try:
+        general = _parse_settings_payload(snapshot.payload).general
+    except ValueError as exc:
+        raise AppSettingsLoadError("Application settings could not be loaded") from exc
+    return GeneralFeatureLocks(**{
+        field: GeneralFeatureLock(
+            forced=True, value=getattr(general, field), source=DEPLOYMENT_CONFIGURATION_SOURCE
+        )
+        for field in snapshot.locked_features
+    })
 
 
 def load_app_settings_for_db(db) -> AppSettings:
-    """Load effective settings from the initialized database state."""
-    return _apply_general_feature_overrides(_load_persisted_settings_from_db(db))
+    return _load_persisted_settings_from_db(db)
 
 
 def bootstrap_app_settings_for_db(db) -> AppSettings:
-    """Import bootstrap settings once when the database has no settings row."""
     row = _get_persisted_settings_row(db)
-    if row is None:
-        persisted = _load_persisted_settings_from_disk(_settings_path())
-        _save_persisted_settings_to_db(db, persisted)
-    else:
-        persisted = _parse_settings_payload(row.payload)
-    return _apply_general_feature_overrides(persisted)
+    if row is not None:
+        return _parse_settings_payload(row.payload)
+    persisted = _load_persisted_settings_from_disk(_settings_path())
+    _save_persisted_settings_to_db(db, persisted)
+    return persisted
 
 
 def load_default_app_settings() -> AppSettings:
-    return _apply_general_feature_overrides(AppSettings())
+    return AppSettings()
 
 
 def load_app_settings() -> AppSettings:
@@ -211,20 +184,31 @@ def load_app_settings() -> AppSettings:
         return load_app_settings_for_db(db)
 
 
+class DeploymentFeatureLockedError(ValueError):
+    pass
+
+
+def require_editable_features(settings: AppSettings, current: AppSettings, locked: list[str]) -> None:
+    for field in locked:
+        if getattr(settings.general, field) != getattr(current.general, field):
+            raise DeploymentFeatureLockedError(f"{field} is managed by the deployment.")
+
+
 def save_app_settings_for_db(db, settings: AppSettings) -> AppSettings:
-    persisted = _load_persisted_settings_from_db(db)
-    to_save = settings.model_copy(deep=True)
-    locks = get_general_feature_locks()
-    for field_name in _GENERAL_FEATURE_FIELDS:
-        lock = getattr(locks, field_name)
-        if lock.forced:
-            setattr(to_save.general, field_name, getattr(persisted.general, field_name))
-    _save_persisted_settings_to_db(db, to_save)
-    return _apply_general_feature_overrides(to_save)
+    def save(write_db):
+        state = lock_deployment_configuration(write_db)
+        row = _get_persisted_settings_row(write_db)
+        current = _parse_settings_payload(row.payload)
+        require_editable_features(settings, current, state.locked_features)
+        row.payload = _settings_to_payload(settings)
+        row.updated_at = utcnow()
+
+    run_replayable_db_unit(db, save)
+    return settings
 
 
 def enable_onboarding_features(db, fields: tuple[str, ...]) -> list[str]:
-    """Patch only workspace prerequisites, respecting ENV and concurrent writes.
+    """Patch only workspace prerequisites, respecting deployment locks and concurrent writes.
 
     In particular, this entry point cannot modify authentication, connection
     sharing, user permissions, or optional storage tools.
@@ -236,51 +220,22 @@ def enable_onboarding_features(db, fields: tuple[str, ...]) -> list[str]:
     }
     if not set(fields) <= allowed:
         raise ValueError("Unsupported onboarding feature")
-    for _attempt in range(3):
-        locks = get_general_feature_locks()
+
+    def persist_once(write_db) -> list[str]:
+        state = lock_deployment_configuration(write_db)
+        row = _get_persisted_settings_row(write_db)
+        settings = _parse_settings_payload(row.payload)
+        changed = []
         for field in fields:
-            lock = getattr(locks, field, None)
-            if lock and lock.forced and lock.value is False:
-                raise ValueError(f"Feature locked by {lock.source}")
-        updated_at = utcnow()
+            if getattr(settings.general, field):
+                continue
+            if field in state.locked_features:
+                raise DeploymentFeatureLockedError(f"{field} is managed by the deployment.")
+            setattr(settings.general, field, True)
+            changed.append(field)
+        if changed:
+            row.payload = _settings_to_payload(settings)
+            row.updated_at = utcnow()
+        return changed
 
-        def persist_once(write_db) -> list[str]:
-            _load_persisted_settings_from_db(write_db)
-            row = write_db.scalars(
-                select(AppSetting)
-                .where(AppSetting.key == APP_SETTINGS_DB_KEY)
-                .execution_options(populate_existing=True)
-            ).one()
-            previous_updated_at = row.updated_at
-            settings = _parse_settings_payload(row.payload)
-            changed = []
-            for field in fields:
-                lock = getattr(locks, field, None)
-                if lock and lock.forced:
-                    continue
-                if not getattr(settings.general, field):
-                    setattr(settings.general, field, True)
-                    changed.append(field)
-            if not changed:
-                return []
-            updated = write_db.execute(
-                update(AppSetting)
-                .where(
-                    AppSetting.key == APP_SETTINGS_DB_KEY,
-                    AppSetting.updated_at == previous_updated_at,
-                )
-                .values(
-                    payload=_settings_to_payload(settings),
-                    updated_at=updated_at,
-                )
-                .execution_options(synchronize_session=False)
-            ).rowcount
-            if not updated:
-                raise _SettingsConcurrentWrite
-            return changed
-
-        try:
-            return run_replayable_db_unit(db, persist_once)
-        except _SettingsConcurrentWrite:
-            continue
-    raise ValueError("Settings changed concurrently; refresh and retry")
+    return run_replayable_db_unit(db, persist_once)

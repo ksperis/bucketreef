@@ -28,10 +28,16 @@ from app.utils.http_errors import (
 from app.services.audit_service import AuditService
 from app.services.cost_settings_service import CostSettingsService
 from app.services.app_settings_service import (
+    DeploymentFeatureLockedError,
     get_general_feature_locks,
+    require_editable_features,
     load_app_settings_for_db,
     load_default_app_settings,
     save_app_settings_for_db,
+)
+from app.services.deployment_configuration_state import (
+    DeploymentConfigurationBusyError,
+    deployment_configuration_operation,
 )
 from app.services.healthcheck_background_service import run_initial_healthchecks
 from app.services.ldap_provider_settings_service import (
@@ -157,8 +163,11 @@ def get_default_settings(_: User = Depends(get_current_ui_superadmin)) -> AppSet
 
 
 @router.get("/general-feature-locks", response_model=GeneralFeatureLocks)
-def get_general_feature_locks_route(_: User = Depends(get_current_ui_superadmin)) -> GeneralFeatureLocks:
-    return get_general_feature_locks()
+def get_general_feature_locks_route(
+    _: User = Depends(get_current_ui_superadmin),
+    db: Session = Depends(get_db),
+) -> GeneralFeatureLocks:
+    return get_general_feature_locks(db)
 
 
 @router.get("/cost", response_model=CostSettings)
@@ -204,16 +213,30 @@ def update_settings(
     db: Session = Depends(get_db),
     audit: AuditService = Depends(get_audit_service),
 ) -> AppSettings:
-    current_settings = load_app_settings_for_db(db)
-    if _authentication_settings_changed(current_settings, payload):
-        require_admin_sensitive_action(request, db, current_user)
-    server_access_logging_summary = {"accounts": 0, "enabled": 0, "disabled": 0, "skipped": 0}
-    if _portal_server_access_logging_changed(current_settings, payload):
-        try:
-            server_access_logging_summary = PortalService(db).reconcile_all_portal_server_access_logging(payload.portal)
-        except PortalServerAccessLoggingReconcileError as exc:
-            raise_bad_gateway_from_runtime(exc)
-    saved = save_app_settings_for_db(db, payload)
+    try:
+        with deployment_configuration_operation(db):
+            current_settings = load_app_settings_for_db(db)
+            try:
+                locks = get_general_feature_locks(db)
+                require_editable_features(payload, current_settings, [
+                    field for field, lock in locks if lock.forced
+                ])
+            except DeploymentFeatureLockedError as exc:
+                raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
+            if _authentication_settings_changed(current_settings, payload):
+                require_admin_sensitive_action(request, db, current_user)
+            server_access_logging_summary = {"accounts": 0, "enabled": 0, "disabled": 0, "skipped": 0}
+            if _portal_server_access_logging_changed(current_settings, payload):
+                try:
+                    server_access_logging_summary = PortalService(db).reconcile_all_portal_server_access_logging(payload.portal)
+                except PortalServerAccessLoggingReconcileError as exc:
+                    raise_bad_gateway_from_runtime(exc)
+            try:
+                saved = save_app_settings_for_db(db, payload)
+            except DeploymentFeatureLockedError as exc:
+                raise_http_exception_from_exception(status.HTTP_409_CONFLICT, exc)
+    except DeploymentConfigurationBusyError as exc:
+        raise_http_error_from_value_error(exc)
     audit.record_action(
         user=current_user,
         scope="admin",
