@@ -96,18 +96,18 @@ class BucketTags(ApiModel):
     tags: List[BucketTag]
 
 
-class BucketObjectLock(ApiModel):
+class BucketObjectLockFields(ApiModel):
     enabled: Optional[bool]
     mode: Optional[str]
     days: Optional[int]
     years: Optional[int]
 
 
-class BucketObjectLockUpdate(ApiModel):
-    enabled: Optional[bool]
-    mode: Optional[str]
-    days: Optional[int]
-    years: Optional[int]
+class BucketObjectLock(BucketObjectLockFields):
+    pass
+
+
+class BucketObjectLockUpdate(BucketObjectLockFields):
 
     @field_validator("days", "years")
     @classmethod
