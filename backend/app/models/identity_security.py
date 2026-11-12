@@ -9,16 +9,12 @@ from pydantic import EmailStr, Field, field_validator, model_validator
 
 from app.core.domain_enums import ExternalIdentityProviderType
 from app.models.base import ApiModel
-from app.models.auth import ExternalIdentityInfo, SessionInfo
+from app.models.auth import ExternalIdentityInfo, SessionInfo, WebAuthnCredentialInfo
 from app.models.user import UiRole
 from app.utils.identity_provider_ids import normalize_identity_provider_id, normalize_oidc_issuer
 
 
-class AdminPasskeyInfo(ApiModel):
-    id: str
-    name: str
-    created_at: datetime
-    last_used_at: Optional[datetime]
+class AdminPasskeyInfo(WebAuthnCredentialInfo):
     revoked_at: Optional[datetime]
 
 
