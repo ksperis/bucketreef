@@ -7,14 +7,11 @@ from typing import Literal, Optional
 from pydantic import EmailStr, Field, model_validator
 
 from app.models.base import ApiModel
-from app.models.user import UiRole, UserCreateAccessPayload
+from app.models.user import UserCreateAccessPayload, UserRoleIdentity
 
 
-class LDAPImportMatchedUser(ApiModel):
-    id: int
-    email: str
-    full_name: Optional[str]
-    role: UiRole
+class LDAPImportMatchedUser(UserRoleIdentity):
+    pass
 
 
 class LDAPImportSearchItem(ApiModel):
