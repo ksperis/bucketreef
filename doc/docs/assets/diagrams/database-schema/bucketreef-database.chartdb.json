@@ -28156,7 +28156,7 @@
     },
     {
       "id": "relationship:user_notifications.storage_endpoint_id->storage_endpoints.id",
-      "name": "fk_user_notifications_storage_endpoint_id_storage_endpoints_id",
+      "name": "fk_user_notifications_storage_endpoint_id_storage_endpoints_id [ON DELETE SET NULL]",
       "sourceSchema": null,
       "sourceTableId": "table:user_notifications",
       "targetSchema": null,
@@ -28169,7 +28169,7 @@
     },
     {
       "id": "relationship:user_notifications.s3_account_id->s3_accounts.id",
-      "name": "fk_user_notifications_s3_account_id_s3_accounts_id",
+      "name": "fk_user_notifications_s3_account_id_s3_accounts_id [ON DELETE SET NULL]",
       "sourceSchema": null,
       "sourceTableId": "table:user_notifications",
       "targetSchema": null,
@@ -28182,7 +28182,7 @@
     },
     {
       "id": "relationship:user_notifications.s3_user_id->s3_users.id",
-      "name": "fk_user_notifications_s3_user_id_s3_users_id",
+      "name": "fk_user_notifications_s3_user_id_s3_users_id [ON DELETE SET NULL]",
       "sourceSchema": null,
       "sourceTableId": "table:user_notifications",
       "targetSchema": null,

@@ -26,6 +26,7 @@ from app.db import (
     S3Connection,
     StorageEndpoint,
     User,
+    UserNotification,
 )
 from app.core.domain_enums import (
     SERVICE_IDENTITY_KINDS,
@@ -2415,6 +2416,28 @@ def test_delete_endpoint_purges_derived_database_rows(db_session):
     )
     db_session.add(history_account)
     db_session.flush()
+    notification_owner = User(
+        email="endpoint-delete-notification@example.test",
+        hashed_password="x",
+        role=UserRole.UI_ADMIN.value,
+        is_active=True,
+    )
+    db_session.add(notification_owner)
+    db_session.flush()
+    notification = UserNotification(
+        user_id=notification_owner.id,
+        notification_type="endpoint_health",
+        severity="warning",
+        title="Endpoint notification",
+        message="Retain this notification after endpoint deletion",
+        subject_type="endpoint",
+        storage_endpoint_id=endpoint.id,
+        event_key="endpoint-delete-notification",
+        payload={},
+    )
+    db_session.add(notification)
+    db_session.flush()
+    notification_id = int(notification.id)
     cost_override = CostEndpointOverride(
         storage_endpoint_id=endpoint.id,
         storage_gb_month_price=1,
@@ -2545,6 +2568,10 @@ def test_delete_endpoint_purges_derived_database_rows(db_session):
         )
         == 0
     )
+    db_session.expire_all()
+    retained_notification = db_session.get(UserNotification, notification_id)
+    assert retained_notification is not None
+    assert retained_notification.storage_endpoint_id is None
     assert db_session.get(CostEndpointOverride, cost_override_id) is None
     assert db_session.scalar(
         select(func.count())

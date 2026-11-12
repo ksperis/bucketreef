@@ -38,6 +38,7 @@ from app.db import (
     S3AccountImportIntent,
     StorageEndpoint,
     User,
+    UserNotification,
     UserS3Account,
 )
 from app.core.domain_enums import StorageProvider, UserRole
@@ -2353,7 +2354,21 @@ def test_delete_account_purges_derived_database_rows(db_session, monkeypatch):
             revision=1,
         )
     )
+    notification = UserNotification(
+        user_id=favorite_owner.id,
+        notification_type="quota_alert",
+        severity="warning",
+        title="Account notification",
+        message="Retain this notification after account deletion",
+        subject_type="account",
+        storage_endpoint_id=endpoint.id,
+        s3_account_id=account.id,
+        event_key="account-delete-notification",
+        payload={},
+    )
+    db_session.add(notification)
     db_session.commit()
+    notification_id = int(notification.id)
 
     fake_admin = FakeRGWDeleteAdmin()
     svc = _build_service(db_session, monkeypatch, fake_admin)
@@ -2403,6 +2418,11 @@ def test_delete_account_purges_derived_database_rows(db_session, monkeypatch):
         .select_from(BrowserFavorite)
         .where(BrowserFavorite.context == str(account.id))
     ) == 0
+    db_session.expire_all()
+    retained_notification = db_session.get(UserNotification, notification_id)
+    assert retained_notification is not None
+    assert retained_notification.s3_account_id is None
+    assert retained_notification.storage_endpoint_id == endpoint.id
 
 
 def test_delete_account_rolls_back_partial_local_cleanup_on_failure(db_session, monkeypatch):
