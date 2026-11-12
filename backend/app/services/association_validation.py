@@ -11,7 +11,7 @@ from app.db import User
 from app.db.s3_connection import S3Connection
 
 
-def _normalized_ids(ids: Iterable[int]) -> set[int]:
+def normalize_association_ids(ids: Iterable[int]) -> set[int]:
     return {int(item_id) for item_id in ids}
 
 
@@ -25,7 +25,7 @@ def load_association_users(
     *,
     entity_label: str = "Users",
 ) -> dict[int, User]:
-    requested_ids = _normalized_ids(ids)
+    requested_ids = normalize_association_ids(ids)
     if not requested_ids:
         return {}
     users = db.scalars(select(User).where(User.id.in_(requested_ids))).all()
@@ -43,7 +43,7 @@ def ensure_association_ids_exist(
     *,
     entity_label: str,
 ) -> None:
-    requested_ids = _normalized_ids(ids)
+    requested_ids = normalize_association_ids(ids)
     if not requested_ids:
         return
     found_ids = {
@@ -56,7 +56,7 @@ def ensure_association_ids_exist(
 
 
 def ensure_shared_s3_connections(db: Session, ids: Iterable[int]) -> None:
-    requested_ids = _normalized_ids(ids)
+    requested_ids = normalize_association_ids(ids)
     if not requested_ids:
         return
     rows = db.execute(
