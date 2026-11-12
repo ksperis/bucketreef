@@ -374,7 +374,15 @@ export const resolveTextFilterFieldState = ({
   };
 };
 
-export const buildTextFieldRules = (field: string, rawValue: string, mode: TextMatchMode): Array<Record<string, unknown>> => {
+export type TextFieldFilterRule<Field extends string = string> =
+  | { field: Field; op: "eq" | "contains"; value: string }
+  | { field: Field; op: "in"; value: string[] };
+
+export const buildTextFieldRules = <Field extends string>(
+  field: Field,
+  rawValue: string,
+  mode: TextMatchMode,
+): TextFieldFilterRule<Field>[] => {
   const { parsed, effectiveMode } = resolveTextFilterInputState(rawValue, mode);
   if (parsed.values.length === 0) return [];
   if (parsed.listProvided) {
@@ -390,7 +398,7 @@ export const buildQuickTextFilterRules = (
   field: string,
   rawValue: string,
   mode: TextMatchMode,
-): Array<Record<string, unknown>> => {
+): TextFieldFilterRule[] => {
   const { parsed, effectiveMode } = resolveTextFilterInputState(rawValue, mode);
   if (parsed.values.length === 0 || effectiveMode !== "exact") return [];
   return buildTextFieldRules(field, rawValue, "exact");
@@ -413,7 +421,7 @@ export const shouldShowActiveFilterSummary = ({
     hasNonQuickFilters ||
     quickFilterListProvided);
 
-export const serializeAdvancedFilterRules = (rules: Array<Record<string, unknown>>): string =>
+export const serializeAdvancedFilterRules = (rules: readonly object[]): string =>
   JSON.stringify({ match: "all", rules });
 
 export const formatTextMatchModeLabel = (mode: TextMatchMode) => (mode === "exact" ? "exact" : "contains");

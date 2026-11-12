@@ -22,6 +22,12 @@ import {
   resolveTextFilterInputState,
   serializeAdvancedFilterRules,
 } from "./advancedFilterShared";
+import type {
+  BucketFeatureKey,
+  BucketFilterRule,
+  BucketNumericFilterField,
+  BucketTextFilterField,
+} from "./bucketFilterContract";
 import {
   defaultQuotaAdvancedFilter,
   quotaAdvancedFilterRules,
@@ -32,17 +38,7 @@ import {
 
 export type { TextMatchMode } from "../../utils/textMatch";
 
-export type FeatureKey =
-  | "versioning"
-  | "object_lock"
-  | "block_public_access"
-  | "lifecycle_rules"
-  | "static_website"
-  | "bucket_policy"
-  | "cors"
-  | "access_logging"
-  | "notifications"
-  | "server_side_encryption";
+export type FeatureKey = BucketFeatureKey;
 export type FeatureFilterState = "any" | "enabled" | "disabled" | "suspended" | "disabled_or_suspended";
 export type BooleanFilterState = "any" | "true" | "false";
 type StorageOpsContextFilterKind = "any" | "account" | "connection" | "s3_user" | "openstack_project";
@@ -279,7 +275,11 @@ export const serializeAdvancedSelectionValues = (values?: string[] | null) =>
     .sort((a, b) => a.localeCompare(b))
     .join("\u001f");
 
-const addExactStringListRule = (rules: Array<Record<string, unknown>>, field: string, values: string[]) => {
+const addExactStringListRule = (
+  rules: BucketFilterRule[],
+  field: BucketTextFilterField,
+  values: string[],
+) => {
   if (values.length === 1) {
     rules.push({ field, op: "eq", value: values[0] });
   } else if (values.length > 1) {
@@ -289,7 +289,7 @@ const addExactStringListRule = (rules: Array<Record<string, unknown>>, field: st
 
 type NumericRule = {
   stateField: AdvancedNumericField;
-  apiField: string;
+  apiField: BucketNumericFilterField;
   op: "gte" | "lte";
   requiresStats: boolean;
 };
@@ -339,7 +339,7 @@ export const buildAdvancedFilterPayload = (
     return serializeAdvancedFilterRules([{ field: "name", op: "eq", value: trimmedFilter }]);
   }
 
-  const rules: Array<Record<string, unknown>> = [];
+  const rules: BucketFilterRule[] = [];
   rules.push(...buildTextFieldRules("name", basicFilter, basicFilterMode));
   if (advanced) {
     if (isStorageOps) {

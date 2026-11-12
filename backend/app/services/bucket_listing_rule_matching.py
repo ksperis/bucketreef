@@ -2,7 +2,12 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from app.models.bucket_filter import BucketFilterQuery, BucketFilterRule
+from app.models.bucket_filter import (
+    BUCKET_TEXT_FILTER_FIELDS,
+    BucketFilterField,
+    BucketFilterQuery,
+    BucketFilterRule,
+)
 from app.models.bucket_listing import BucketListingSortBy, BucketListingSummary
 from app.services.bucket_listing_owner_metadata import (
     OWNER_DETAIL_FIELDS,
@@ -23,7 +28,6 @@ from app.services.rgw_bucket_metadata import owner_kind_from_owner
 from app.utils.usage_stats import compute_usage_ratio_percent
 
 EXPENSIVE_FIELD_RULES = {"tag"} | OWNER_DETAIL_FIELDS
-_TAG_FILTER_OPS = frozenset({"eq", "neq", "contains", "starts_with", "ends_with", "in", "not_in"})
 _TAG_TEXT_MATCHERS = {
     "eq": lambda value, candidate: value == candidate,
     "contains": lambda value, candidate: candidate in value,
@@ -34,22 +38,6 @@ _NEGATED_TAG_OPS = frozenset({"neq", "not_in"})
 _EXACT_FEATURE_STATES = frozenset(
     {"partial", "suspended", "configured", "not_set", "unavailable"}
 )
-_STRING_FIELD_RULES = frozenset(
-    {
-        "name",
-        "tenant",
-        "owner",
-        "owner_name",
-        "owner_kind",
-        "context_id",
-        "context_name",
-        "context_kind",
-        "endpoint_name",
-        "bucket_identity",
-    }
-)
-
-
 def _exact_name_rule_values(rule: BucketFilterRule) -> set[str] | None:
     if rule.op == "in" and isinstance(rule.value, list):
         return {
@@ -105,7 +93,8 @@ def _match_tag_expression(tag_key: str, tag_value: str, expression: str, op: str
 
 
 def _tag_rule_expressions(rule: BucketFilterRule) -> tuple[list[str], str]:
-    op = rule.op or "contains"
+    assert rule.op is not None
+    op = rule.op
     if op in {"in", "not_in"}:
         values = rule.value if isinstance(rule.value, list) else []
         match_op = "eq"
@@ -120,9 +109,8 @@ def _match_tag_rule(bucket: BucketListingSummary, rule: BucketFilterRule) -> boo
     tags = bucket.tags or []
     if not tags:
         return False
-    op = rule.op or "contains"
-    if op not in _TAG_FILTER_OPS:
-        return False
+    assert rule.op is not None
+    op = rule.op
     expressions, match_op = _tag_rule_expressions(rule)
     if not expressions:
         return False
@@ -134,7 +122,7 @@ def _match_tag_rule(bucket: BucketListingSummary, rule: BucketFilterRule) -> boo
     return not matched if op in _NEGATED_TAG_OPS else matched
 
 
-def _bucket_field_value(bucket: BucketListingSummary, field: str):
+def _bucket_field_value(bucket: BucketListingSummary, field: BucketFilterField):
     if field == "owner_kind":
         return owner_kind_from_owner(bucket.owner)
     if field == "quota_usage_size_percent":
@@ -145,13 +133,14 @@ def _bucket_field_value(bucket: BucketListingSummary, field: str):
         return compute_usage_ratio_percent(bucket.owner_used_bytes, bucket.owner_quota_max_size_bytes)
     if field == "owner_quota_usage_object_percent":
         return compute_usage_ratio_percent(bucket.owner_object_count, bucket.owner_quota_max_objects)
-    return getattr(bucket, field, None)
+    return getattr(bucket, field)
 
 
 def _match_owner_kind_rule(value: object, rule: BucketFilterRule) -> bool:
+    assert rule.op is not None
     return match_text_rule(
         value,
-        rule.op or "",
+        rule.op,
         rule.value,
         scalar_normalizer=normalize_owner_kind_scalar,
         candidate_normalizer=normalize_owner_kind,
@@ -161,11 +150,12 @@ def _match_owner_kind_rule(value: object, rule: BucketFilterRule) -> bool:
 
 def _match_bucket_scalar_rule(
     *,
-    field: str,
+    field: BucketFilterField,
     value: object,
     rule: BucketFilterRule,
 ) -> bool:
-    op = rule.op or ""
+    assert rule.op is not None
+    op = rule.op
     if op == "is_null":
         return value is None
     if op == "not_null":
@@ -182,7 +172,7 @@ def _match_bucket_scalar_rule(
         return False
     if field == "owner_kind":
         return _match_owner_kind_rule(value, rule)
-    if field in _STRING_FIELD_RULES:
+    if field in BUCKET_TEXT_FILTER_FIELDS:
         return match_text_rule(value, op, rule.value)
     return match_numeric_rule(
         value,
@@ -194,9 +184,8 @@ def _match_bucket_scalar_rule(
 
 def match_bucket_field_rule(bucket: BucketListingSummary, rule: BucketFilterRule) -> bool:
     field = rule.field
-    op = rule.op
-    if not field or not op:
-        return False
+    assert field is not None
+    assert rule.op is not None
     if field == "tag":
         return _match_tag_rule(bucket, rule)
     return _match_bucket_scalar_rule(
@@ -221,9 +210,9 @@ def _matches_disabled_or_suspended_feature(feature: str, state: str, tone: str) 
 
 def match_bucket_feature_rule(bucket: BucketListingSummary, rule: BucketFilterRule) -> bool:
     feature = rule.feature
-    desired = (rule.state or "").strip().lower()
-    if not feature or not desired:
-        return False
+    desired = rule.state
+    assert feature is not None
+    assert desired is not None
     status = (bucket.features or {}).get(feature)
     if status is None:
         return desired in {"unknown", "unavailable"}

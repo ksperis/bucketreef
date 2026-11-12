@@ -54,7 +54,8 @@ _SSE_PARAMS = frozenset({"sse_algorithm", "sse_kms_key_id"})
 
 
 def _grouped_rule_op(rule: BucketFilterRule, force_presence_positive: bool) -> str:
-    op = (rule.op or "").strip().lower()
+    assert rule.op is not None
+    op = rule.op
     return "has" if force_presence_positive and op == "has_not" else op
 
 
@@ -67,7 +68,8 @@ def _match_grouped_entry_rule_individual(
     entries: list[_GroupedEntry],
     matcher: _GroupedEntryMatcher[_GroupedEntry],
 ) -> bool:
-    force_presence_positive = (rule.op or "").strip().lower() == "has_not"
+    assert rule.op is not None
+    force_presence_positive = rule.op == "has_not"
     matched_any = any(matcher(entry, rule, force_presence_positive) for entry in entries)
     if force_presence_positive:
         return not matched_any
@@ -82,7 +84,8 @@ def _match_grouped_entry_rules_all(
     positive_rules: list[BucketFilterRule] = []
     forbidden_rules: list[BucketFilterRule] = []
     for rule in rules:
-        op = (rule.op or "").strip().lower()
+        assert rule.op is not None
+        op = rule.op
         if op == "has_not" or feature_param_quantifier(rule) == "none":
             forbidden_rules.append(rule)
         else:
@@ -95,7 +98,8 @@ def _match_grouped_entry_rules_all(
         return False
 
     for rule in forbidden_rules:
-        force_presence_positive = (rule.op or "").strip().lower() == "has_not"
+        assert rule.op is not None
+        force_presence_positive = rule.op == "has_not"
         if any(matcher(entry, rule, force_presence_positive) for entry in entries):
             return False
     return True
@@ -228,9 +232,8 @@ def _lifecycle_rule_matches_param(
     rule: BucketFilterRule,
     force_presence_positive: bool = False,
 ) -> bool:
-    matcher = _LIFECYCLE_PARAM_MATCHERS.get(rule.param or "")
-    if matcher is None:
-        return False
+    assert rule.param is not None
+    matcher = _LIFECYCLE_PARAM_MATCHERS[rule.param]
     return matcher(
         lifecycle_rule,
         _grouped_rule_op(rule, force_presence_positive),
@@ -266,7 +269,8 @@ def _cors_rule_matches_param(
     force_presence_positive: bool = False,
 ) -> bool:
     op = _grouped_rule_op(rule, force_presence_positive)
-    values = extract_cors_rule_values(entry, rule.param or "")
+    assert rule.param is not None
+    values = extract_cors_rule_values(entry, rule.param)
     if op in {"has", "has_not"}:
         return _match_presence_values(values, op, rule.value)
     return _match_text_candidates(values, op, rule.value)
@@ -285,8 +289,10 @@ def _sse_rule_matches_param(
     rule: BucketFilterRule,
     _force_presence_positive: bool = False,
 ) -> bool:
-    values = extract_sse_rule_values(entry, rule.param or "")
-    return _match_text_candidates(values, (rule.op or "").strip().lower(), rule.value)
+    assert rule.param is not None
+    assert rule.op is not None
+    values = extract_sse_rule_values(entry, rule.param)
+    return _match_text_candidates(values, rule.op, rule.value)
 
 
 def _match_sse_param_rule_individual(rule: BucketFilterRule, configuration: object) -> bool:
@@ -433,9 +439,9 @@ def match_grouped_feature_param_rules(
     match_mode: str,
     source_data: object,
 ) -> bool:
-    spec = _GROUPED_RULE_SPECS.get(feature)
-    if spec is None or not rules:
+    if not rules:
         return False
+    spec = _GROUPED_RULE_SPECS[feature]
     _, _, normalize_source, match_all, match_one = spec
     normalized_source = normalize_source(source_data)
     if normalized_source is _INVALID_GROUP_SOURCE:

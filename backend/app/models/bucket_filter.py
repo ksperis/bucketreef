@@ -53,6 +53,45 @@ BucketFilterOp = Literal[
     "has",
     "has_not",
 ]
+BUCKET_TEXT_FILTER_FIELDS: frozenset[BucketFilterField] = frozenset(
+    {
+        "name",
+        "tenant",
+        "owner",
+        "owner_name",
+        "owner_kind",
+        "context_id",
+        "context_name",
+        "context_kind",
+        "endpoint_name",
+        "bucket_identity",
+    }
+)
+BUCKET_BOOLEAN_FILTER_FIELDS: frozenset[BucketFilterField] = frozenset(
+    {"owner_suspended"}
+)
+BUCKET_TEXT_FILTER_OPS: frozenset[BucketFilterOp] = frozenset(
+    {
+        "eq",
+        "neq",
+        "contains",
+        "starts_with",
+        "ends_with",
+        "in",
+        "not_in",
+        "is_null",
+        "not_null",
+    }
+)
+BUCKET_BOOLEAN_FILTER_OPS: frozenset[BucketFilterOp] = frozenset(
+    {"eq", "neq", "in", "not_in", "is_null", "not_null"}
+)
+BUCKET_NUMERIC_FILTER_OPS: frozenset[BucketFilterOp] = frozenset(
+    {"eq", "neq", "gt", "gte", "lt", "lte", "in", "not_in", "is_null", "not_null"}
+)
+BUCKET_TAG_FILTER_OPS: frozenset[BucketFilterOp] = frozenset(
+    {"eq", "neq", "contains", "starts_with", "ends_with", "in", "not_in"}
+)
 BucketFeatureKey = Literal[
     "versioning",
     "object_lock",
@@ -138,13 +177,31 @@ class BucketFilterRule(ApiModel):
     quantifier: Optional[BucketFeatureParamQuantifier] = None
 
     def _validate_field_rule(self) -> None:
+        field = self.field
         op = self.op
+        assert field is not None
         if op is None:
             raise ValueError("Field rule requires op.")
-        if op in {"has", "has_not"}:
-            raise ValueError("Field rule does not support has/has_not op.")
-        if op not in ("is_null", "not_null") and self.value is None:
+        if field == "tag":
+            allowed_ops = BUCKET_TAG_FILTER_OPS
+        elif field in BUCKET_TEXT_FILTER_FIELDS:
+            allowed_ops = BUCKET_TEXT_FILTER_OPS
+        elif field in BUCKET_BOOLEAN_FILTER_FIELDS:
+            allowed_ops = BUCKET_BOOLEAN_FILTER_OPS
+        else:
+            allowed_ops = BUCKET_NUMERIC_FILTER_OPS
+        if op not in allowed_ops:
+            raise ValueError(f"Bucket field '{field}' does not support op '{op}'.")
+        if op in {"is_null", "not_null"}:
+            if self.value is not None:
+                raise ValueError("Null-check field rule does not accept value.")
+        elif self.value is None:
             raise ValueError("Field rule requires value.")
+        elif op in {"in", "not_in"}:
+            if not isinstance(self.value, list):
+                raise ValueError("Field rule in/not_in op requires a list value.")
+        elif isinstance(self.value, list):
+            raise ValueError("Field rule scalar op does not accept a list value.")
         if self.state is not None or self.param is not None:
             raise ValueError("Field rule cannot define state or param.")
         if self.quantifier not in (None, "any"):

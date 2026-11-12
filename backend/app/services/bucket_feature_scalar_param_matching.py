@@ -71,9 +71,8 @@ def _match_scalar_spec(
     op: str,
     specs: dict[str, tuple[str, Callable[[_ScalarSource], object]]],
 ) -> bool:
-    spec = specs.get(rule.param or "")
-    if spec is None:
-        return False
+    assert rule.param is not None
+    spec = specs[rule.param]
     kind, getter = spec
     return _apply_scalar_quantifier(
         rule,
@@ -147,10 +146,9 @@ def _match_policy_param_rule(
     statement_count, has_conditions = extract_policy_statement_summary(policy)
     if rule.param == "policy_statement_count":
         result = match_numeric_value(float(statement_count), op, rule.value)
-    elif rule.param == "policy_has_conditions":
-        result = match_bool_value(has_conditions, op, rule.value)
     else:
-        return False
+        assert rule.param == "policy_has_conditions"
+        result = match_bool_value(has_conditions, op, rule.value)
     return _apply_scalar_quantifier(rule, result)
 
 
@@ -159,8 +157,7 @@ def _match_notification_scalar_param_rule(
     source_data: object,
     op: str,
 ) -> bool:
-    if rule.param != "notification_eventbridge_present":
-        return False
+    assert rule.param == "notification_eventbridge_present"
     result = match_bool_value(extract_notification_eventbridge_present(source_data), op, rule.value)
     return _apply_scalar_quantifier(rule, result)
 
@@ -179,8 +176,7 @@ def match_scalar_feature_param_rule(
     source: str,
     source_data: object,
 ) -> bool:
-    op = (rule.op or "").strip().lower()
-    if not rule.param or not op:
-        return False
-    matcher = _SCALAR_SOURCE_MATCHERS.get(source)
-    return matcher(rule, source_data, op) if matcher else False
+    assert rule.param is not None
+    assert rule.op is not None
+    matcher = _SCALAR_SOURCE_MATCHERS[source]
+    return matcher(rule, source_data, rule.op)

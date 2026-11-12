@@ -1,5 +1,22 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 canonical advanced bucket filter rules
+
+Shared Ceph Admin and Storage Ops advanced bucket filters now validate field
+operators and value shapes at the API boundary. Text, boolean, numeric, and tag
+fields accept only their supported operators; `in` and `not_in` require list
+values, scalar operators reject list values, and null checks reject a supplied
+value. Feature-parameter rules likewise reject list values when the parameter
+requires one scalar value.
+
+The matching backend now consumes these validated rules directly instead of
+carrying fallback behavior for missing fields, operators, feature parameters,
+or unsupported combinations. The bundled frontend builds the same typed rule
+contract.
+
+Deploy the backend and bundled frontend together. No database migration is
+required.
+
 ## 2026-11 canonical bucket listing sort contract
 
 The shared Ceph Admin and Storage Ops bucket listing contract now validates

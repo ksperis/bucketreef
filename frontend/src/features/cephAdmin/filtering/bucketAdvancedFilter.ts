@@ -1,3 +1,9 @@
+import type {
+  BucketFeatureKey,
+  BucketFeatureParam,
+  BucketFeatureParamFilterRule,
+} from "../../shared/bucketFilterContract";
+
 export type FeatureTriState = "any" | "true" | "false";
 export type NumericComparisonOpUi = "=" | "!=" | ">" | ">=" | "<" | "<=";
 export type LifecycleRuleNameMode = "any" | "has_named" | "has_not_named";
@@ -263,21 +269,21 @@ export const sanitizeFeatureDetailFilters = (value: unknown): FeatureDetailFilte
 };
 
 const pushTriStateRule = (
-  rules: Array<Record<string, unknown>>,
+  rules: BucketFeatureParamFilterRule[],
   triState: FeatureTriState,
-  feature: string,
-  param: string
+  feature: BucketFeatureKey,
+  param: BucketFeatureParam
 ) => {
   if (triState === "any") return;
   rules.push({ feature, param, op: "eq", value: triState === "true" });
 };
 
 const pushNumericRule = (
-  rules: Array<Record<string, unknown>>,
+  rules: BucketFeatureParamFilterRule[],
   rawValue: string,
   op: NumericComparisonOpUi,
-  feature: string,
-  param: string,
+  feature: BucketFeatureKey,
+  param: BucketFeatureParam,
 ) => {
   const trimmed = rawValue.trim();
   if (!trimmed) return;
@@ -287,10 +293,10 @@ const pushNumericRule = (
 };
 
 const pushTextRule = (
-  rules: Array<Record<string, unknown>>,
+  rules: BucketFeatureParamFilterRule[],
   rawValue: string,
-  feature: string,
-  param: string,
+  feature: BucketFeatureKey,
+  param: BucketFeatureParam,
   op: "eq" | "contains" = "contains",
 ) => {
   const value = rawValue.trim();
@@ -299,11 +305,11 @@ const pushTextRule = (
 };
 
 const pushPresenceRule = (
-  rules: Array<Record<string, unknown>>,
+  rules: BucketFeatureParamFilterRule[],
   mode: PresenceMode,
   rawValue: string,
-  feature: string,
-  param: string,
+  feature: BucketFeatureKey,
+  param: BucketFeatureParam,
 ) => {
   if (mode === "any") return;
   const value = rawValue.trim();
@@ -313,12 +319,12 @@ const pushPresenceRule = (
 
 export const buildFeatureDetailRules = (
   filters: FeatureDetailFilters,
-  featureSupport: Partial<Record<string, boolean>> = {}
-): Array<Record<string, unknown>> => {
-  const rules: Array<Record<string, unknown>> = [];
+  featureSupport: Partial<Record<BucketFeatureKey, boolean>> = {}
+): BucketFeatureParamFilterRule[] => {
+  const rules: BucketFeatureParamFilterRule[] = [];
   const lifecycleRuleName = filters.lifecycleRuleName.trim();
   if (filters.lifecycleRuleNameMode !== "any" && lifecycleRuleName) {
-    const rule: Record<string, unknown> = {
+    const rule: BucketFeatureParamFilterRule = {
       feature: "lifecycle_rules",
       param: "lifecycle_rule_id",
       op: "eq",
@@ -413,7 +419,7 @@ export const buildFeatureDetailRules = (
 
 export const hasFeatureDetailFilters = (
   filters: FeatureDetailFilters,
-  featureSupport: Partial<Record<string, boolean>> = {}
+  featureSupport: Partial<Record<BucketFeatureKey, boolean>> = {}
 ): boolean => buildFeatureDetailRules(filters, featureSupport).length > 0;
 
 export const featureDetailSummaryItems = (
