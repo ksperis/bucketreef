@@ -174,6 +174,22 @@ def test_token_consumption_creates_one_superadmin_and_audits_without_secret(db_s
         )
 
 
+def test_token_consumption_normalizes_blank_full_name_to_none(db_session):
+    service = FirstAdminBootstrapService(db_session)
+    issued = service.issue_token()
+
+    created = service.create_with_token(
+        token=issued.token,
+        email="blank-name@example.com",
+        full_name="   ",
+        password=PASSWORD,
+    )
+
+    user = db_session.get(User, created.user_id)
+    assert user is not None
+    assert user.full_name is None
+
+
 def test_token_consumption_retries_sqlite_busy_snapshot_atomically(db_session):
     service = FirstAdminBootstrapService(db_session)
     issued = service.issue_token()

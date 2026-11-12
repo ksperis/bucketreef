@@ -23,6 +23,7 @@ from app.core.domain_enums import UserRole
 from app.models.user import validate_password_policy
 from app.services.app_settings_service import load_app_settings_for_db
 from app.services.audit_service import AuditService
+from app.utils.normalize import normalize_optional_string
 from app.utils.time import utcnow
 
 
@@ -69,11 +70,6 @@ class FirstAdminBootstrapService:
                 "Email must be a valid email address"
             ) from exc
         return str(validated).lower()
-
-    @staticmethod
-    def _normalize_full_name(full_name: Optional[str]) -> Optional[str]:
-        value = str(full_name or "").strip()
-        return value or None
 
     @staticmethod
     def _validate_password(password: str) -> None:
@@ -189,7 +185,7 @@ class FirstAdminBootstrapService:
         now = utcnow()
         actual_digest = self._digest(token)
         passkey_enrollment_required = self._passkey_enrollment_required()
-        normalized_name = self._normalize_full_name(full_name)
+        normalized_name = normalize_optional_string(full_name)
         password_hash = get_password_hash(password)
 
         def persist_once(write_db: Session) -> int:
@@ -270,7 +266,7 @@ class FirstAdminBootstrapService:
         passkey_enrollment_required = self._passkey_enrollment_required()
 
         now = utcnow()
-        normalized_name = self._normalize_full_name(full_name)
+        normalized_name = normalize_optional_string(full_name)
         password_hash = get_password_hash(password)
 
         def persist_once(write_db: Session) -> int:
