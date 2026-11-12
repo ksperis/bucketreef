@@ -45,14 +45,14 @@ class UserDeletionService:
 
         acquire_sqlite_write_transaction(self.db, acquire_once)
 
-    def _created_private_connection_ids(self, user_id: int) -> list[int]:
-        created_connection_rows = self.db.execute(
-            select(S3Connection.id, S3Connection.is_shared).where(
-                S3Connection.created_by_user_id == user_id
-            )
-        ).all()
+    def _require_no_created_shared_connections(self, user_id: int) -> None:
         created_shared_ids = sorted(
-            [row[0] for row in created_connection_rows if bool(row[1])]
+            self.db.scalars(
+                select(S3Connection.id).where(
+                    S3Connection.created_by_user_id == user_id,
+                    S3Connection.is_shared.is_(True),
+                )
+            ).all()
         )
         if created_shared_ids:
             created_shared_str = ", ".join(
@@ -62,7 +62,6 @@ class UserDeletionService:
                 "Cannot delete user with shared S3 connections created by this user: "
                 f"{created_shared_str}"
             )
-        return [row[0] for row in created_connection_rows if not bool(row[1])]
 
     def _cleanup_managed_private_accesses(self, user: User) -> None:
         from app.services.managed_private_access_cleanup_service import (
@@ -183,11 +182,7 @@ class UserDeletionService:
                     exc,
                 )
 
-    def _delete_links_and_private_connections(
-        self,
-        user_id: int,
-        created_private_ids: list[int],
-    ) -> None:
+    def _delete_failed_managed_private_accesses(self, user_id: int) -> None:
         self.db.execute(
             delete(ManagedPrivateAccess)
             .where(
@@ -197,12 +192,6 @@ class UserDeletionService:
             )
             .execution_options(synchronize_session=False)
         )
-        if created_private_ids:
-            self.db.execute(
-                delete(S3Connection)
-                .where(S3Connection.id.in_(created_private_ids))
-                .execution_options(synchronize_session=False)
-            )
 
     def _cleanup_owned_tag_definitions(self, user_id: int) -> None:
         # Private bucket UI tags must disappear with their owner. Turning them
@@ -239,13 +228,13 @@ class UserDeletionService:
             raise UiUserNotFoundError("User not found")
         try:
             require_no_private_storage_space_ownership(self.db, user_id=user.id)
-            created_private_ids = self._created_private_connection_ids(user.id)
+            self._require_no_created_shared_connections(user.id)
         except Exception:
             self.db.rollback()
             raise
         portal_revocations = self._prepare_portal_revocations(user)
         try:
-            self._delete_links_and_private_connections(user.id, created_private_ids)
+            self._delete_failed_managed_private_accesses(user.id)
             self._cleanup_owned_tag_definitions(user.id)
             self.db.delete(user)
             self.db.commit()

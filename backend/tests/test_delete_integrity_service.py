@@ -161,6 +161,37 @@ def test_delete_user_cleans_owned_connections_tokens_and_sessions(db_session):
     assert refresh is not None
 
 
+def test_delete_user_rejects_shared_connection_created_by_user(db_session):
+    owner = User(
+        email="owner-shared-delete@example.com",
+        hashed_password="x",
+        role=UserRole.UI_USER.value,
+    )
+    db_session.add(owner)
+    db_session.flush()
+    shared_connection = S3Connection(
+        created_by_user_id=owner.id,
+        name="owned-shared",
+        is_shared=True,
+        **custom_endpoint_fields("https://owned-shared.example.test"),
+        access_key_id="AKIA-SHARED",
+        secret_access_key="SECRET-SHARED",
+    )
+    db_session.add(shared_connection)
+    db_session.commit()
+    owner_id = int(owner.id)
+    connection_id = int(shared_connection.id)
+
+    with pytest.raises(
+        ValueError,
+        match="Cannot delete user with shared S3 connections created by this user",
+    ):
+        UserDeletionService(db_session).delete_user(owner_id)
+
+    assert db_session.get(User, owner_id) is not None
+    assert db_session.get(S3Connection, connection_id) is not None
+
+
 def test_delete_user_cleans_managed_private_access_before_owned_connection(
     db_session,
     monkeypatch,
@@ -637,7 +668,7 @@ def test_delete_user_failure_types_failed_compensation(
     monkeypatch.setattr(service, "_prepare_portal_revocations", lambda _user: [])
     monkeypatch.setattr(
         service,
-        "_delete_links_and_private_connections",
+        "_delete_failed_managed_private_accesses",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(
             RuntimeError("simulated local deletion failure")
         ),
