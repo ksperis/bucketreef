@@ -16,7 +16,7 @@ from app.services.s3_execution_client import (
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.sts_service import StsOperationError, get_session_token
 from app.utils.cache import prune_expired_lru_cache
-from app.utils.s3_endpoint import resolve_s3_client_options
+from app.services.s3_client_options import resolve_s3_client_options
 from app.utils.storage_endpoint_features import resolve_feature_flags, resolve_sts_endpoint
 from app.utils.time import assume_utc
 

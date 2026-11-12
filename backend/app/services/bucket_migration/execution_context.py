@@ -12,7 +12,8 @@ from app.services.s3_connection_query_service import S3ConnectionQueryService
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.s3_user_repository import S3UserRepository
 from app.utils.normalize import normalize_optional_string
-from app.utils.s3_endpoint import normalize_s3_endpoint, resolve_s3_client_options
+from app.services.s3_client_options import resolve_s3_client_options
+from app.utils.s3_endpoint import normalize_s3_endpoint
 from .execution_runtime import MIGRATION_USER_AGENT_MARKER, MigrationRuntimeLimits, ResolvedContext
 
 class BucketMigrationExecutionContextMixin:

@@ -39,7 +39,7 @@ from app.services.portal.exceptions import (
     PortalNotFoundError,
     PortalOperationError,
 )
-from app.utils.s3_endpoint import resolve_s3_client_options
+from app.services.s3_client_options import resolve_s3_client_options
 from app.utils.time import utcnow
 
 if TYPE_CHECKING:

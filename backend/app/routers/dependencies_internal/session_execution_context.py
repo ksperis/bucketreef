@@ -12,10 +12,11 @@ from app.services.access_context_contracts import AccountCapabilities, ManagerSe
 
 from app.services import app_settings_service
 from app.services.s3_account_repository import S3AccountRepository
+from app.services.s3_client_options import resolve_s3_endpoint
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.storage_endpoint_repository import StorageEndpointRepository
 from app.services.storage_endpoints_service import get_storage_endpoints_service
-from app.utils.s3_endpoint import normalize_s3_endpoint, resolve_s3_endpoint
+from app.utils.s3_endpoint import normalize_s3_endpoint
 
 from .workspace_context import resolve_account_by_id
 

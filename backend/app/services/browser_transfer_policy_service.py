@@ -9,7 +9,7 @@ from urllib.parse import SplitResult, urlsplit
 
 from app.models.browser_transfer_policy import BrowserTransferPolicy, BrowserTransferWorkspace
 from app.services.s3_execution_context import S3ExecutionContext
-from app.utils.s3_endpoint import resolve_s3_client_options
+from app.services.s3_client_options import resolve_s3_client_options
 
 
 def _split_s3_connect_endpoint(endpoint: str) -> SplitResult:

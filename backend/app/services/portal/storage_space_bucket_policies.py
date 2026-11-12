@@ -16,7 +16,7 @@ from app.db import (
 )
 from app.core.domain_enums import PortalAccountRole
 from app.services import s3_bucket_access
-from app.utils.s3_endpoint import resolve_s3_endpoint
+from app.services.s3_client_options import resolve_s3_endpoint
 
 
 logger = logging.getLogger(__name__)

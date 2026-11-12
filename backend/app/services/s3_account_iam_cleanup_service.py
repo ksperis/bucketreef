@@ -13,7 +13,7 @@ from app.db import S3Account, StorageEndpoint
 from app.models.iam import IAMGroup, IAMRole, IAMUser
 from app.services.managed_resource_naming import PORTAL_MANAGED_IAM_GROUP_NAMES
 from app.services.rgw_iam import RGWIAMError, RGWIAMService
-from app.utils.s3_endpoint import resolve_iam_client_options
+from app.services.s3_client_options import resolve_iam_client_options
 from app.utils.storage_endpoint_features import resolve_feature_flags
 
 

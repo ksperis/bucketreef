@@ -33,7 +33,8 @@ from app.services.s3_connections_service import S3ConnectionsService
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.storage_endpoint_repository import StorageEndpointRepository
 from app.services.tags_service import TagsService
-from app.utils.s3_endpoint import resolve_s3_client_options, validate_openstack_catalog_s3_endpoint
+from app.services.s3_client_options import resolve_s3_client_options
+from app.utils.s3_endpoint import validate_openstack_catalog_s3_endpoint
 from app.utils.storage_endpoint_features import (
     resolve_endpoint_capabilities,
     resolve_iam_endpoint,

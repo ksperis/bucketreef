@@ -15,7 +15,7 @@ from app.models.browser import BrowserStsCredentials, SseCustomerContext, StsSta
 from app.services.s3_client import S3OperationError
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.s3_object_download import S3ObjectDownload
-from app.utils.s3_endpoint import resolve_s3_client_options
+from app.services.s3_client_options import resolve_s3_client_options
 
 from .sts import BrowserStsRequestError, BrowserStsUnavailableError, request_browser_sts_session
 

@@ -7,6 +7,7 @@ from botocore.exceptions import ClientError
 import pytest
 
 from app.services import s3_connection_capabilities_service as svc
+from app.services.s3_execution_context import S3ExecutionContext
 from tests.storage_endpoint_features import persisted_endpoint_features
 
 
@@ -172,15 +173,18 @@ def test_probe_connection_can_manage_iam_propagates_unexpected_runtime_errors(mo
 
 def test_probe_execution_can_manage_iam_propagates_unexpected_runtime_errors(monkeypatch):
     endpoint = SimpleNamespace()
-    context = SimpleNamespace(
-        storage_endpoint=endpoint,
+    context = S3ExecutionContext(
+        context_id="conn-1",
+        context_kind="connection",
+        name="Execution",
         access_key="AKIA-EXECUTION",
         secret_key="SECRET-EXECUTION",
+        storage_endpoint=endpoint,
     )
     monkeypatch.setattr(svc, "resolve_iam_endpoint", lambda _endpoint: "https://iam.example.test")
     monkeypatch.setattr(svc, "resolve_iam_signing_region", lambda _endpoint: "us-east-1")
     monkeypatch.setattr(
-        "app.utils.s3_endpoint.resolve_s3_client_options",
+        "app.services.s3_client_options.resolve_s3_client_options",
         lambda _context: ("https://s3.example.test", "us-east-1", False, True),
     )
     monkeypatch.setattr(

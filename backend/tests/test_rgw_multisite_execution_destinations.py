@@ -15,7 +15,7 @@ from app.services.rgw_multisite_endpoints import (
     list_compatible_rgw_execution_endpoints,
     rgw_multisite_endpoints_compatible,
 )
-from app.utils.s3_endpoint import resolve_s3_client_options
+from app.services.s3_client_options import resolve_s3_client_options
 from tests.s3_account_factory import make_s3_account
 from tests.storage_endpoint_features import persisted_endpoint_features
 
