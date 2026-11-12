@@ -12,17 +12,20 @@ HealthCheckType = Literal["availability"]
 HealthCheckScope = Literal["endpoint"]
 
 
-class EndpointHealthSummary(ApiModel):
+class EndpointHealthCurrentStatus(ApiModel):
     endpoint_id: int
     name: str
     endpoint_url: str
     status: HealthCheckStatus
     checked_at: str
     latency_ms: Optional[int]
-    http_status: Optional[int]
-    error_message: Optional[str]
     check_mode: HealthCheckMode
     check_target_url: Optional[str]
+
+
+class EndpointHealthSummary(EndpointHealthCurrentStatus):
+    http_status: Optional[int]
+    error_message: Optional[str]
 
 
 class EndpointHealthSummaryResponse(ApiModel):
@@ -126,15 +129,7 @@ class EndpointHealthTimelinePoint(ApiModel):
     reason: Optional[str]
 
 
-class EndpointHealthOverviewEndpoint(ApiModel):
-    endpoint_id: int
-    name: str
-    endpoint_url: str
-    status: HealthCheckStatus
-    checked_at: str
-    latency_ms: Optional[int]
-    check_mode: HealthCheckMode
-    check_target_url: Optional[str]
+class EndpointHealthOverviewEndpoint(EndpointHealthCurrentStatus):
     availability_pct: Optional[float]
     timeline: list[EndpointHealthTimelinePoint]
 
@@ -147,15 +142,7 @@ class EndpointHealthOverviewResponse(ApiModel):
     endpoints: list[EndpointHealthOverviewEndpoint]
 
 
-class EndpointHealthLatencyOverviewEndpoint(ApiModel):
-    endpoint_id: int
-    name: str
-    endpoint_url: str
-    status: HealthCheckStatus
-    checked_at: str
-    latency_ms: Optional[int]
-    check_mode: HealthCheckMode
-    check_target_url: Optional[str]
+class EndpointHealthLatencyOverviewEndpoint(EndpointHealthCurrentStatus):
     min_latency_ms: Optional[int]
     avg_latency_ms: Optional[int]
     max_latency_ms: Optional[int]
@@ -171,7 +158,7 @@ class EndpointHealthLatencyOverviewResponse(ApiModel):
     endpoints: list[EndpointHealthLatencyOverviewEndpoint]
 
 
-class EndpointHealthGlobalIncident(ApiModel):
+class EndpointHealthIncidentEntry(ApiModel):
     endpoint_id: int
     endpoint_name: str
     endpoint_url: Optional[str]
@@ -180,6 +167,9 @@ class EndpointHealthGlobalIncident(ApiModel):
     end: Optional[str]
     duration_minutes: Optional[int]
     check_mode: HealthCheckMode
+
+
+class EndpointHealthGlobalIncident(EndpointHealthIncidentEntry):
     check_type: HealthCheckType
     scope: HealthCheckScope
 
@@ -192,27 +182,11 @@ class EndpointHealthGlobalIncidentsResponse(ApiModel):
     incidents: list[EndpointHealthGlobalIncident]
 
 
-class WorkspaceEndpointHealthEntry(ApiModel):
-    endpoint_id: int
-    name: str
-    endpoint_url: str
-    status: HealthCheckStatus
-    checked_at: str
-    latency_ms: Optional[int]
-    check_mode: HealthCheckMode
-    check_target_url: Optional[str]
+class WorkspaceEndpointHealthEntry(EndpointHealthCurrentStatus):
     is_stale: bool
 
 
-class WorkspaceEndpointIncidentEntry(ApiModel):
-    endpoint_id: int
-    endpoint_name: str
-    endpoint_url: Optional[str]
-    status: HealthCheckStatus
-    start: str
-    end: Optional[str]
-    duration_minutes: Optional[int]
-    check_mode: HealthCheckMode
+class WorkspaceEndpointIncidentEntry(EndpointHealthIncidentEntry):
     ongoing: bool
     recent: bool
 
