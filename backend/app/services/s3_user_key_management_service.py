@@ -49,7 +49,8 @@ class S3UserKeyManagementService:
     ) -> S3UserSchema:
         s3_user = self.repository.get(user_id)
         self.repository.ensure_not_pending_deletion(user_id)
-        endpoint = self.rgw_context.endpoint_for_user(s3_user)
+        context = S3ExecutionContext.from_s3_user(s3_user)
+        endpoint = self.rgw_context.endpoint_for_context(context)
         try:
             DurableKeyRotationService(self.db, actor=actor).rotate(
                 endpoint,
@@ -61,7 +62,7 @@ class S3UserKeyManagementService:
                 "Rotation is pending; check RGW connectivity and retry."
             ) from exc
 
-        admin = self.rgw_context.admin_for_user(s3_user)
+        admin = self.rgw_context.admin_for_context(context)
         user_links_map, group_links_map = self.associations.load_links([s3_user.id])
         return self.query.serialize_user(
             s3_user,
@@ -72,15 +73,15 @@ class S3UserKeyManagementService:
 
     def list_keys(self, user_id: int) -> list[S3UserAccessKey]:
         s3_user = self.repository.get(user_id)
-        admin = self.rgw_context.admin_for_user(s3_user)
         context = S3ExecutionContext.from_s3_user(s3_user)
+        admin = self.rgw_context.admin_for_context(context)
         return self.access_keys.list_keys(context, admin)
 
     def create_access_key_entry(self, user_id: int) -> S3UserGeneratedKey:
         s3_user = self.repository.get(user_id)
         self.repository.ensure_not_pending_deletion(user_id)
-        admin = self.rgw_context.admin_for_user(s3_user)
         context = S3ExecutionContext.from_s3_user(s3_user)
+        admin = self.rgw_context.admin_for_context(context)
         self.rgw_context.verified_user_tenant(context, admin)
         return self.access_keys.create_key(context, admin)
 
@@ -92,15 +93,15 @@ class S3UserKeyManagementService:
     ) -> S3UserAccessKey:
         s3_user = self.repository.get(user_id)
         self.repository.ensure_not_pending_deletion(user_id)
-        admin = self.rgw_context.admin_for_user(s3_user)
         context = S3ExecutionContext.from_s3_user(s3_user)
+        admin = self.rgw_context.admin_for_context(context)
         self.rgw_context.verified_user_tenant(context, admin)
         return self.access_keys.set_key_status(context, admin, access_key, active)
 
     def delete_key(self, user_id: int, access_key: str) -> None:
         s3_user = self.repository.get(user_id)
         self.repository.ensure_not_pending_deletion(user_id)
-        admin = self.rgw_context.admin_for_user(s3_user)
         context = S3ExecutionContext.from_s3_user(s3_user)
+        admin = self.rgw_context.admin_for_context(context)
         self.rgw_context.verified_user_tenant(context, admin)
         self.access_keys.delete_key(context, admin, access_key)

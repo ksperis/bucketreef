@@ -71,12 +71,13 @@ class S3UserQueryService:
         quota_admin: RGWAdminClient | None = None,
         bucket_count: int | None = None,
     ) -> S3UserSchema:
-        endpoint = self.rgw_context.endpoint_for_user(row)
+        context = S3ExecutionContext.from_s3_user(row)
+        endpoint = self.rgw_context.endpoint_for_context(context)
         quota_max_size_gb = None
         quota_max_objects = None
         if include_quota:
             quota_max_size_gb, quota_max_objects = self.metrics.get_quota(
-                S3ExecutionContext.from_s3_user(row),
+                context,
                 quota_admin,
             )
         return s3_user_from_db(

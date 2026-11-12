@@ -5,7 +5,7 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.core.domain_errors import StorageEndpointNotFoundError
-from app.db import S3User, StorageEndpoint
+from app.db import StorageEndpoint
 from app.core.domain_enums import StorageProvider
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client
@@ -31,10 +31,10 @@ class S3UserRgwContextService:
         return endpoint
 
     @staticmethod
-    def endpoint_for_user(s3_user: S3User) -> StorageEndpoint:
-        endpoint = s3_user.storage_endpoint
+    def endpoint_for_context(context: S3ExecutionContext) -> StorageEndpoint:
+        endpoint = context.storage_endpoint
         if endpoint is None:
-            raise StorageEndpointNotFoundError("Storage endpoint not found for S3 user.")
+            raise StorageEndpointNotFoundError("Storage endpoint not found for S3 user context.")
         return endpoint
 
     @staticmethod
@@ -47,8 +47,8 @@ class S3UserRgwContextService:
         except (RGWAdminError, ValueError) as exc:
             raise ValueError(f"Unable to build admin client for {endpoint.name}: {exc}") from exc
 
-    def admin_for_user(self, s3_user: S3User) -> RGWAdminClient:
-        return self.admin_for_endpoint(self.endpoint_for_user(s3_user))
+    def admin_for_context(self, context: S3ExecutionContext) -> RGWAdminClient:
+        return self.admin_for_endpoint(self.endpoint_for_context(context))
 
     @staticmethod
     def verified_user_tenant(context: S3ExecutionContext, admin: RGWAdminClient) -> str:
