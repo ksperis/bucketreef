@@ -6,6 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
+from pydantic import ValidationError
 
 from app.models.ceph_admin import CephAdminRgwAccountSummary
 from app.models.ceph_admin_identity_listing import CephAdminAccountListingRequest
@@ -108,6 +109,11 @@ def _account_listing_request(
         sort_dir=sort_dir,
         include=include or [],
     )
+
+
+def test_ceph_admin_accounts_listing_rejects_unknown_sort_field():
+    with pytest.raises(ValidationError):
+        CephAdminAccountListingRequest(sort_by="name")
 
 
 def _list_accounts(*, ctx, **listing_options):

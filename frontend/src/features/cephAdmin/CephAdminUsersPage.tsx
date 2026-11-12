@@ -27,6 +27,7 @@ import {
   CephAdminRgwUserDetail,
   listCephAdminUsers,
   streamCephAdminUsers,
+  type CephAdminUserSortBy,
 } from "../../api/cephAdminUsers";
 import { tableCompactIconActionButtonClasses } from "../../components/tableActionClasses";
 import CephAdminAdminOpsModal from "./CephAdminAdminOpsModal";
@@ -83,16 +84,7 @@ type ColumnId =
   | "quota_max_size_bytes"
   | "quota_max_objects";
 
-type SortField =
-  | "uid"
-  | "tenant"
-  | "account_name"
-  | "full_name"
-  | "email"
-  | "suspended"
-  | "max_buckets"
-  | "quota_max_size_bytes"
-  | "quota_max_objects";
+type SortField = CephAdminUserSortBy;
 
 const COLUMNS_STORAGE_KEY = "ceph-admin.user_list.columns.v2";
 const defaultVisibleColumns: ColumnId[] = ["tenant"];
@@ -207,7 +199,11 @@ export default function CephAdminUsersPage() {
     advancedProgress,
     error,
     updateEntity,
-  } = useCephAdminFilteredEntityListing<CephAdminRgwUser, UserAdvancedFilterState>({
+  } = useCephAdminFilteredEntityListing<
+    CephAdminRgwUser,
+    UserAdvancedFilterState,
+    SortField
+  >({
     endpointId: selectedEndpointId,
     page,
     setPage,

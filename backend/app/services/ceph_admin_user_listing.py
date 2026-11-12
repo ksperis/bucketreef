@@ -8,7 +8,10 @@ from app.models.ceph_admin import (
     CephAdminRgwUserSummary,
     PaginatedCephAdminUsersResponse,
 )
-from app.models.ceph_admin_identity_listing import CephAdminUserListingRequest
+from app.models.ceph_admin_identity_listing import (
+    CephAdminUserListingRequest,
+    CephAdminUserSortBy,
+)
 from app.models.ceph_admin_identity_filters import (
     CephAdminUserFilterQuery,
     CephAdminUserFilterRule,
@@ -136,7 +139,7 @@ def _user_from_entry(entry: object) -> CephAdminRgwUserSummary | None:
 
 def _user_sort_key(
     user: CephAdminRgwUserSummary,
-    sort_by: str,
+    sort_by: CephAdminUserSortBy,
 ) -> tuple[int, Any, str]:
     if sort_by == "tenant":
         value: Any = user.tenant or ""
@@ -249,7 +252,7 @@ class _UserListingPipeline:
         )
         invoke_cancel_check(self.cancel_check)
         requested = _includes_for_user_fields(
-            collect_filter_fields(self.parsed_filter) | {self.request.sort_by or "uid"}
+            collect_filter_fields(self.parsed_filter) | {self.request.sort_by}
         )
         results = self._enrich_for_listing(results, requested)
         if self.advanced_filter_active:

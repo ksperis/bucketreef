@@ -19,12 +19,13 @@ import {
 type UseCephAdminFilteredEntityListingOptions<
   Entity,
   FilterState extends CephAdminListingStringState<FilterState>,
+  SortBy extends string = string,
 > = {
   endpointId: number | null;
   page: number;
   setPage: Dispatch<SetStateAction<number>>;
   pageSize: number;
-  sortBy: string;
+  sortBy: SortBy;
   sortDirection: CephAdminListingSortDirection;
   includes: string[];
   reloadNonce: number;
@@ -34,14 +35,15 @@ type UseCephAdminFilteredEntityListingOptions<
     quickSearch: string,
     quickMatchMode: TextMatchMode,
   ) => string | undefined;
-  listEntities: CephAdminListEntities<Entity>;
-  streamEntities: CephAdminStreamEntities<Entity>;
+  listEntities: CephAdminListEntities<Entity, SortBy>;
+  streamEntities: CephAdminStreamEntities<Entity, SortBy>;
   entityKey: (entity: Entity) => string;
 };
 
 export function useCephAdminFilteredEntityListing<
   Entity,
   FilterState extends CephAdminListingStringState<FilterState>,
+  SortBy extends string = string,
 >({
   endpointId,
   page,
@@ -56,7 +58,7 @@ export function useCephAdminFilteredEntityListing<
   listEntities,
   streamEntities,
   entityKey,
-}: UseCephAdminFilteredEntityListingOptions<Entity, FilterState>) {
+}: UseCephAdminFilteredEntityListingOptions<Entity, FilterState, SortBy>) {
   const filters = useCephAdminListingFilters<FilterState>({
     endpointId,
     defaultAdvancedFilter,
@@ -69,7 +71,7 @@ export function useCephAdminFilteredEntityListing<
     filters.searchValue,
     quickFilter.effectiveMode,
   );
-  const listing = useCephAdminEntityListing<Entity>({
+  const listing = useCephAdminEntityListing<Entity, SortBy>({
     endpointId,
     page,
     pageSize,

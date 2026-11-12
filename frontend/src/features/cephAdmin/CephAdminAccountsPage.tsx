@@ -27,6 +27,7 @@ import {
   CephAdminRgwAccountDetail,
   listCephAdminAccounts,
   streamCephAdminAccounts,
+  type CephAdminAccountSortBy,
 } from "../../api/cephAdminAccounts";
 import { tableCompactIconActionButtonClasses } from "../../components/tableActionClasses";
 import CephAdminAccountCreateModal from "./CephAdminAccountCreateModal";
@@ -80,16 +81,7 @@ type ColumnId =
   | "bucket_count"
   | "user_count";
 
-type SortField =
-  | "account_id"
-  | "account_name"
-  | "email"
-  | "max_users"
-  | "max_buckets"
-  | "quota_max_size_bytes"
-  | "quota_max_objects"
-  | "bucket_count"
-  | "user_count";
+type SortField = CephAdminAccountSortBy;
 
 const COLUMNS_STORAGE_KEY = "ceph-admin.account_list.columns.v1";
 const defaultVisibleColumns: ColumnId[] = [];
@@ -204,7 +196,11 @@ export default function CephAdminAccountsPage() {
     advancedProgress,
     error,
     updateEntity,
-  } = useCephAdminFilteredEntityListing<CephAdminRgwAccount, AccountAdvancedFilterState>({
+  } = useCephAdminFilteredEntityListing<
+    CephAdminRgwAccount,
+    AccountAdvancedFilterState,
+    SortField
+  >({
     endpointId: selectedEndpointId,
     page,
     setPage,

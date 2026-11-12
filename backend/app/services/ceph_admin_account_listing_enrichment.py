@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from app.models.ceph_admin import CephAdminRgwAccountSummary
+from app.models.ceph_admin_identity_filters import AccountFilterField
 from app.services.ceph_admin_account_payloads import (
     extract_account_bucket_list,
 )
@@ -28,7 +29,7 @@ from app.utils.usage_stats import summarize_bucket_usage
 
 def account_field_needs_enrichment(
     account: CephAdminRgwAccountSummary,
-    field: str,
+    field: AccountFilterField,
 ) -> bool:
     if field == "account_name":
         return not bool((account.account_name or "").strip())
@@ -36,7 +37,7 @@ def account_field_needs_enrichment(
         return account.used_bytes is None or account.quota_max_size_bytes is None
     if field == "quota_usage_object_percent":
         return account.object_count is None or account.quota_max_objects is None
-    return getattr(account, field, None) is None
+    return getattr(account, field) is None
 
 
 def account_profile_needs_enrichment(
