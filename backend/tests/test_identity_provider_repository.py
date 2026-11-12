@@ -90,6 +90,8 @@ def test_create_retries_sqlite_busy_snapshot(db_session):
     assert len(matching_statements) == 2
     assert created.provider_id == "retry-create"
     assert created.display_name == "Retry"
+    assert created.created_at is not None
+    assert created.updated_at == created.created_at
 
 
 def test_update_retries_sqlite_busy_snapshot(db_session):

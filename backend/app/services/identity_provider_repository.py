@@ -62,10 +62,8 @@ class IdentityProviderRepository(Generic[_PersistedProviderT]):
                 raise IdentityProviderAlreadyExistsError(f"{self.provider_label} provider already exists")
             provider = self.model(provider_id=provider_id)
             apply(provider)
-            if hasattr(provider, "created_at"):
-                provider.created_at = persisted_at
-            if hasattr(provider, "updated_at"):
-                provider.updated_at = persisted_at
+            provider.created_at = persisted_at
+            provider.updated_at = persisted_at
             write_db.add(provider)
 
         try:
