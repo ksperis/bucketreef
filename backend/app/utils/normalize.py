@@ -12,6 +12,17 @@ def normalize_optional_string(value: object) -> str | None:
     return normalized or None
 
 
+def normalize_whitespace(value: str) -> str:
+    return " ".join(value.split())
+
+
+def normalize_optional_whitespace(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    normalized = normalize_whitespace(value)
+    return normalized or None
+
+
 def normalize_optional_string_field(value: object) -> object:
     if isinstance(value, str):
         return normalize_optional_string(value)

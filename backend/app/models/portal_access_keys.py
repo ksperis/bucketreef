@@ -9,6 +9,7 @@ from typing import Literal, Optional
 from pydantic import Field, field_validator
 
 from app.models.base import ApiModel
+from app.utils.normalize import normalize_whitespace
 
 PortalAccessKeyTargetType = Literal["self", "external"]
 PortalAccessKeyPermission = Literal["read_only", "read_write"]
@@ -52,7 +53,7 @@ class PortalAccessKeyCreate(ApiModel):
     def _validate_external_email(cls, value: Optional[str]) -> Optional[str]:
         if value is None:
             return None
-        cleaned = " ".join(value.split())
+        cleaned = normalize_whitespace(value)
         if not cleaned:
             raise ValueError("External user label is required")
         return cleaned
