@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Literal
 
 from app.db import StorageEndpoint
-from app.models.bucket_filter import BucketFilterQuery
+from app.models.bucket_filter import BucketFilterQuery, BucketFilterRule
 from app.models.bucket_listing import BucketListingSummary
 from app.services.bucket_owner_enrichment import BucketOwnerMetadataService, BucketOwnerUsage
 from app.services.ceph_admin_account_access import optional_account_lookup_enabled
@@ -101,9 +101,9 @@ def normalize_owner_kind_scalar(raw: object) -> str | None:
     return normalized or None
 
 
-def _owner_kind_rule_values(rule: object) -> set[BucketOwnerKind]:
-    op = getattr(rule, "op", None)
-    raw_value = getattr(rule, "value", None)
+def _owner_kind_rule_values(rule: BucketFilterRule) -> set[BucketOwnerKind]:
+    op = rule.op
+    raw_value = rule.value
     if op in {"eq", "neq"}:
         value = normalize_owner_kind(raw_value)
         return {value} if value is not None else set()
@@ -118,12 +118,12 @@ def _owner_kind_rule_values(rule: object) -> set[BucketOwnerKind]:
 
 def _apply_owner_kind_rule(
     allowed: set[BucketOwnerKind],
-    rule: object,
+    rule: BucketFilterRule,
 ) -> set[BucketOwnerKind]:
     values = _owner_kind_rule_values(rule)
     if not values:
         return allowed
-    if getattr(rule, "op", None) in {"eq", "in"}:
+    if rule.op in {"eq", "in"}:
         return allowed & values
     return allowed - values
 
