@@ -32,7 +32,11 @@ from app.services.association_sync import (
     sync_table_association_links,
     update_account_access_link,
 )
-from app.services.association_validation import ensure_association_ids_exist, ensure_shared_s3_connections
+from app.services.association_validation import (
+    ensure_association_ids_exist,
+    ensure_shared_s3_connections,
+    normalize_association_ids,
+)
 from app.services.manager_tool_access import manager_tool_column_values
 from app.services.portal_role_sync import (
     acquire_portal_role_write_transaction,
@@ -217,7 +221,7 @@ class UiGroupsService:
         return group
 
     def _set_user_links(self, group: UiGroup, target_ids: list[int]) -> None:
-        cleaned_ids = self._clean_ids(target_ids)
+        cleaned_ids = normalize_association_ids(target_ids)
         ensure_association_ids_exist(
             self.db,
             User.id,
@@ -306,7 +310,7 @@ class UiGroupsService:
         )
 
     def _set_s3_connection_links(self, group: UiGroup, target_ids: list[int]) -> None:
-        cleaned_ids = self._clean_ids(target_ids)
+        cleaned_ids = normalize_association_ids(target_ids)
         ensure_shared_s3_connections(self.db, cleaned_ids)
         sync_simple_association_links(
             self.db,
@@ -326,7 +330,7 @@ class UiGroupsService:
 
         service = OpenStackService(self.db)
         service.require_enabled()
-        cleaned_ids = set(self._clean_ids(target_ids))
+        cleaned_ids = normalize_association_ids(target_ids)
         ensure_association_ids_exist(
             self.db,
             OpenStackCloud.id,
@@ -354,9 +358,6 @@ class UiGroupsService:
             ).all()
         }
         service.invalidate_user_access(user_ids, changed_ids)
-
-    def _clean_ids(self, ids: list[int]) -> list[int]:
-        return sorted({int(item) for item in ids if item is not None})
 
     def _normalize_name(self, value: str) -> str:
         name = str(value or "").strip()
