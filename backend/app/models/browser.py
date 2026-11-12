@@ -146,9 +146,17 @@ class BrowserUsageSummary(ApiModel):
     quota_max_objects: Optional[int]
 
 
-class BrowserObjectVersion(ApiModel):
+class ObjectVersionReadTarget(ApiModel):
     key: str
     version_id: Optional[str]
+
+
+class ObjectVersionWriteTarget(ApiModel):
+    key: str
+    version_id: Optional[str] = None
+
+
+class BrowserObjectVersion(ObjectVersionReadTarget):
     is_latest: bool
     is_delete_marker: bool
     last_modified: Optional[datetime]
@@ -169,8 +177,7 @@ class ListObjectVersionsResponse(ApiModel):
     next_version_id_marker: Optional[str]
 
 
-class ObjectMetadata(ApiModel):
-    key: str
+class ObjectMetadata(ObjectVersionReadTarget):
     size: int
     etag: Optional[str]
     last_modified: Optional[datetime]
@@ -183,7 +190,6 @@ class ObjectMetadata(ApiModel):
     storage_class: Optional[str]
     restore_status: Optional[str]
     metadata: dict[str, str]
-    version_id: Optional[str]
 
 
 class ObjectTag(ApiModel):
@@ -203,21 +209,15 @@ def _validate_object_tag_keys(tags: list[ObjectTag]) -> list[ObjectTag]:
 ObjectTagList = Annotated[list[ObjectTag], AfterValidator(_validate_object_tag_keys)]
 
 
-class ObjectTags(ApiModel):
-    key: str
+class ObjectTags(ObjectVersionReadTarget):
     tags: ObjectTagList
-    version_id: Optional[str]
 
 
-class ObjectTagsUpdate(ApiModel):
-    key: str
+class ObjectTagsUpdate(ObjectVersionWriteTarget):
     tags: ObjectTagList
-    version_id: Optional[str] = None
 
 
-class ObjectMetadataUpdate(ApiModel):
-    key: str
-    version_id: Optional[str] = None
+class ObjectMetadataUpdate(ObjectVersionWriteTarget):
     content_type: Optional[str] = None
     cache_control: Optional[str] = None
     content_disposition: Optional[str] = None
@@ -228,61 +228,45 @@ class ObjectMetadataUpdate(ApiModel):
     storage_class: Optional[str] = None
 
 
-class ObjectAcl(ApiModel):
-    key: str
+class ObjectAcl(ObjectVersionReadTarget):
     acl: str
-    version_id: Optional[str]
 
 
-class ObjectAclUpdate(ApiModel):
-    key: str
+class ObjectAclUpdate(ObjectVersionWriteTarget):
     acl: str
-    version_id: Optional[str] = None
 
 
-class ObjectLegalHold(ApiModel):
-    key: str
+class ObjectLegalHold(ObjectVersionReadTarget):
     status: Optional[Literal["ON", "OFF"]]
     object_lock_enabled: bool
-    version_id: Optional[str]
 
 
-class ObjectLegalHoldUpdate(ApiModel):
-    key: str
+class ObjectLegalHoldUpdate(ObjectVersionWriteTarget):
     status: Literal["ON", "OFF"]
-    version_id: Optional[str] = None
 
 
-class ObjectRetention(ApiModel):
-    key: str
+class ObjectRetention(ObjectVersionReadTarget):
     mode: Optional[Literal["GOVERNANCE", "COMPLIANCE"]]
     retain_until: Optional[datetime]
     object_lock_enabled: bool
-    version_id: Optional[str]
 
 
-class ObjectRetentionUpdate(ApiModel):
-    key: str
+class ObjectRetentionUpdate(ObjectVersionWriteTarget):
     mode: Literal["GOVERNANCE", "COMPLIANCE"]
     retain_until: datetime
     bypass_governance: Optional[bool] = None
-    version_id: Optional[str] = None
 
 
-class ObjectRestoreRequest(ApiModel):
-    key: str
+class ObjectRestoreRequest(ObjectVersionWriteTarget):
     days: int = Field(default=1, ge=1, le=3650)
     tier: Optional[Literal["Standard", "Bulk", "Expedited"]] = None
-    version_id: Optional[str] = None
 
 
-class PresignRequest(ApiModel):
-    key: str
+class PresignRequest(ObjectVersionWriteTarget):
     operation: Literal["get_object", "put_object", "delete_object"]
     expires_in: int = Field(default=900, ge=60, le=43200)
     content_type: Optional[str] = None
     response_content_disposition: Optional[str] = None
-    version_id: Optional[str] = None
 
 
 class PresignedUrl(ApiModel):
@@ -355,9 +339,8 @@ class CopyObjectPayload(ApiModel):
     move: bool = False
 
 
-class DeleteObjectEntry(ApiModel):
-    key: str
-    version_id: Optional[str] = None
+class DeleteObjectEntry(ObjectVersionWriteTarget):
+    pass
 
 
 class DeleteObjectsPayload(ApiModel):
