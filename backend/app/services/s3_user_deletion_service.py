@@ -13,6 +13,7 @@ from app.services.resource_deletion_purge_service import ResourceDeletionPurgeSe
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.s3_user_metrics_service import S3UserMetricsService
+from app.services.s3_user_rgw_context_service import S3UserRgwContextService
 from app.services.tags_service import TagsService
 from app.utils.rgw_payloads import require_rgw_user_identity
 from app.utils.tagging import TAG_DOMAIN_ADMIN_MANAGED
@@ -30,9 +31,12 @@ class S3UserDeletionService:
         self,
         db: Session,
         metrics: S3UserMetricsService | None = None,
+        *,
+        rgw_context: S3UserRgwContextService | None = None,
     ) -> None:
         self.db = db
         self.metrics = metrics or S3UserMetricsService()
+        self.rgw_context = rgw_context or S3UserRgwContextService(db)
         self.tags = TagsService(db)
 
     @staticmethod
@@ -94,11 +98,11 @@ class S3UserDeletionService:
     def delete_user(
         self,
         s3_user: S3User,
-        admin: RGWAdminClient,
         *,
         delete_rgw: bool = False,
     ) -> None:
         execution_context = S3ExecutionContext.from_s3_user(s3_user)
+        admin = self.rgw_context.admin_for_context(execution_context)
         ResourceDeletionPurgeService(self.db).validate_execution_context_cleanup(
             execution_context.context_id
         )
