@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  appendNumericFilterRule,
+  buildNumericFilterRule,
   buildNumericFilterFields,
   buildNumericFilterFieldStates,
   buildNumericFilterSummaryItems,
@@ -10,14 +10,12 @@ import {
 } from "./advancedFilterModel";
 
 describe("advancedFilterModel", () => {
-  it("appends only finite numeric rules", () => {
-    const rules: Array<Record<string, unknown>> = [];
-
-    appendNumericFilterRule(rules, "max_buckets", "gte", " 12 ");
-    appendNumericFilterRule(rules, "max_buckets", "lte", "");
-    appendNumericFilterRule(rules, "max_buckets", "lte", "invalid");
-
-    expect(rules).toEqual([{ field: "max_buckets", op: "gte", value: 12 }]);
+  it("builds only finite numeric rules", () => {
+    expect(buildNumericFilterRule("max_buckets", "gte", " 12 ")).toEqual([
+      { field: "max_buckets", op: "gte", value: 12 },
+    ]);
+    expect(buildNumericFilterRule("max_buckets", "lte", "")).toEqual([]);
+    expect(buildNumericFilterRule("max_buckets", "lte", "invalid")).toEqual([]);
   });
 
   it("builds numeric and percentage summary items", () => {

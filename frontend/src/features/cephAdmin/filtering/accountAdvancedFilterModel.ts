@@ -10,7 +10,7 @@ import {
   type TextMatchMode,
 } from "../../shared/advancedFilterShared";
 import {
-  appendQuotaAdvancedFilterRules,
+  buildQuotaAdvancedFilterRules,
   defaultQuotaAdvancedFilter,
   hasQuotaAdvancedFilters,
   quotaBaseAdvancedNumericFields,
@@ -19,9 +19,10 @@ import {
   type QuotaAdvancedNumericField,
 } from "../../shared/quotaAdvancedFilterModel";
 import {
-  appendNumericFilterRule,
+  buildNumericFilterRule,
   countActiveNumericFilterFields,
 } from "./advancedFilterModel";
+import type { CephAdminAccountFilterRule } from "./identityFilterContract";
 
 export type AccountAdvancedFilterState = QuotaAdvancedFilterState & {
   accountName: string;
@@ -101,21 +102,21 @@ export const buildAccountAdvancedFilterPayload = (
   quickMatchMode: TextMatchMode,
   allowUsageFilters: boolean,
 ) => {
-  const rules: Array<Record<string, unknown>> = [];
+  const rules: CephAdminAccountFilterRule[] = [];
   rules.push(...buildQuickTextFilterRules("account_id", quickSearch, quickMatchMode));
 
   if (advanced) {
     rules.push(...buildTextFieldRules("account_name", advanced.accountName, advanced.accountNameMatchMode));
     rules.push(...buildTextFieldRules("email", advanced.email, advanced.emailMatchMode));
-    appendNumericFilterRule(rules, "max_users", "gte", advanced.minMaxUsers);
-    appendNumericFilterRule(rules, "max_users", "lte", advanced.maxMaxUsers);
-    appendNumericFilterRule(rules, "max_buckets", "gte", advanced.minMaxBuckets);
-    appendNumericFilterRule(rules, "max_buckets", "lte", advanced.maxMaxBuckets);
-    appendQuotaAdvancedFilterRules(rules, advanced, allowUsageFilters);
-    appendNumericFilterRule(rules, "bucket_count", "gte", advanced.minBucketCount);
-    appendNumericFilterRule(rules, "bucket_count", "lte", advanced.maxBucketCount);
-    appendNumericFilterRule(rules, "user_count", "gte", advanced.minUserCount);
-    appendNumericFilterRule(rules, "user_count", "lte", advanced.maxUserCount);
+    rules.push(...buildNumericFilterRule("max_users", "gte", advanced.minMaxUsers));
+    rules.push(...buildNumericFilterRule("max_users", "lte", advanced.maxMaxUsers));
+    rules.push(...buildNumericFilterRule("max_buckets", "gte", advanced.minMaxBuckets));
+    rules.push(...buildNumericFilterRule("max_buckets", "lte", advanced.maxMaxBuckets));
+    rules.push(...buildQuotaAdvancedFilterRules(advanced, allowUsageFilters));
+    rules.push(...buildNumericFilterRule("bucket_count", "gte", advanced.minBucketCount));
+    rules.push(...buildNumericFilterRule("bucket_count", "lte", advanced.maxBucketCount));
+    rules.push(...buildNumericFilterRule("user_count", "gte", advanced.minUserCount));
+    rules.push(...buildNumericFilterRule("user_count", "lte", advanced.maxUserCount));
   }
 
   if (rules.length === 0) return undefined;

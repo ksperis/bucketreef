@@ -394,11 +394,11 @@ export const buildTextFieldRules = <Field extends string>(
   return [{ field, op: effectiveMode === "exact" ? "eq" : "contains", value: parsed.values[0] }];
 };
 
-export const buildQuickTextFilterRules = (
-  field: string,
+export const buildQuickTextFilterRules = <Field extends string>(
+  field: Field,
   rawValue: string,
   mode: TextMatchMode,
-): TextFieldFilterRule[] => {
+): TextFieldFilterRule<Field>[] => {
   const { parsed, effectiveMode } = resolveTextFilterInputState(rawValue, mode);
   if (parsed.values.length === 0 || effectiveMode !== "exact") return [];
   return buildTextFieldRules(field, rawValue, "exact");

@@ -13,6 +13,7 @@ from app.models.ceph_admin_identity_listing import (
     CephAdminUserSortBy,
 )
 from app.models.ceph_admin_identity_filters import (
+    USER_TEXT_FILTER_FIELDS,
     CephAdminUserFilterQuery,
     CephAdminUserFilterRule,
 )
@@ -91,14 +92,7 @@ def _match_user_field_rule(
         )
     if value is None:
         return False
-    if field in {
-        "uid",
-        "tenant",
-        "account_id",
-        "account_name",
-        "full_name",
-        "email",
-    }:
+    if field in USER_TEXT_FILTER_FIELDS:
         return match_text_rule(value, op, rule.value)
     return match_numeric_rule(value, op, rule.value, coerce=coerce_number)
 
@@ -120,12 +114,7 @@ def _includes_for_user_fields(fields: set[str]) -> set[str]:
         "quota_usage_object_percent",
     }:
         include.add("quota")
-    if fields & {
-        "used_bytes",
-        "object_count",
-        "quota_usage_size_percent",
-        "quota_usage_object_percent",
-    }:
+    if fields & {"quota_usage_size_percent", "quota_usage_object_percent"}:
         include.add("usage")
     return include
 
