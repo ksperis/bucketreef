@@ -11,7 +11,7 @@ from threading import Lock
 from time import monotonic
 from typing import Callable
 
-from app.utils.cache import invalidate_single_flight_cache, prune_expired_lru_cache
+from app.utils.cache import TtlCacheEntry, invalidate_single_flight_cache, prune_expired_lru_cache
 
 DASHBOARD_METRICS_TTL_SECONDS = 1800
 DASHBOARD_METRICS_FAILURE_TTL_SECONDS = 60
@@ -19,19 +19,21 @@ DASHBOARD_METRICS_MAX_ENTRIES = 64
 
 
 @dataclass
-class DashboardMetricsCacheEntry:
-    expires_at: float
+class DashboardMetricsCacheValue:
     expires_at_utc: str
     payload: dict
 
 
-_CACHE: OrderedDict[tuple[str, str], DashboardMetricsCacheEntry] = OrderedDict()
-_INFLIGHT: dict[tuple[str, str], Future[DashboardMetricsCacheEntry]] = {}
+_CACHE: OrderedDict[tuple[str, str], TtlCacheEntry[DashboardMetricsCacheValue]] = OrderedDict()
+_INFLIGHT: dict[tuple[str, str], Future[TtlCacheEntry[DashboardMetricsCacheValue]]] = {}
 _LOCK = Lock()
 
 
-def _response(entry: DashboardMetricsCacheEntry, *, hit: bool) -> dict:
-    return {**deepcopy(entry.payload), "cache": {"hit": hit, "expires_at": entry.expires_at_utc}}
+def _response(entry: TtlCacheEntry[DashboardMetricsCacheValue], *, hit: bool) -> dict:
+    return {
+        **deepcopy(entry.value.payload),
+        "cache": {"hit": hit, "expires_at": entry.value.expires_at_utc},
+    }
 
 
 def get_cached_dashboard_metrics(kind: str, fingerprint: str, builder: Callable[[], dict]) -> dict:
@@ -61,10 +63,12 @@ def get_cached_dashboard_metrics(kind: str, fingerprint: str, builder: Callable[
             if coverage["eligible_count"] > 0 and coverage["contributing_count"] == 0
             else DASHBOARD_METRICS_TTL_SECONDS
         )
-        entry = DashboardMetricsCacheEntry(
+        entry = TtlCacheEntry(
             expires_at=monotonic() + ttl,
-            expires_at_utc=(datetime.now(timezone.utc) + timedelta(seconds=ttl)).isoformat(),
-            payload=deepcopy(payload),
+            value=DashboardMetricsCacheValue(
+                expires_at_utc=(datetime.now(timezone.utc) + timedelta(seconds=ttl)).isoformat(),
+                payload=deepcopy(payload),
+            ),
         )
         with _LOCK:
             # A reset must not allow an older collection to repopulate the cache.

@@ -336,8 +336,15 @@ def test_browser_sts_cache_renews_credentials_within_the_expiration_buffer(monke
     first = browser_sts.request_browser_sts_session(account)
     assert browser_sts.request_browser_sts_session(account).credentials == first.credentials
     key = next(iter(browser_sts._STS_CACHE))
+    cached_entry = browser_sts._STS_CACHE[key]
+    expiring_credentials = replace(
+        cached_entry.value,
+        expiration=datetime.now(tz=timezone.utc) + timedelta(minutes=1),
+    )
     browser_sts._STS_CACHE[key] = replace(
-        first.credentials, expiration=datetime.now(tz=timezone.utc) + timedelta(minutes=1),
+        cached_entry,
+        expires_at=expiring_credentials.expires_at,
+        value=expiring_credentials,
     )
 
     renewed = browser_sts.request_browser_sts_session(account)
@@ -357,8 +364,15 @@ def test_browser_sts_cache_purges_expired_entries_from_other_contexts(monkeypatc
             datetime.now(tz=timezone.utc) + timedelta(minutes=15),
         ),
     )
+    cached_entry = browser_sts._STS_CACHE[first_key]
+    expired_credentials = replace(
+        cached_entry.value,
+        expiration=datetime.now(tz=timezone.utc) - timedelta(minutes=1),
+    )
     browser_sts._STS_CACHE[first_key] = replace(
-        browser_sts._STS_CACHE[first_key], expiration=datetime.now(tz=timezone.utc) - timedelta(minutes=1),
+        cached_entry,
+        expires_at=expired_credentials.expires_at,
+        value=expired_credentials,
     )
     monkeypatch.setattr(
         browser_sts, "get_session_token",
