@@ -12,7 +12,6 @@ from app.services.s3_user_query_service import S3UserQueryService
 from app.services.s3_user_quota_service import S3UserQuotaService
 from app.services.s3_user_repository import S3UserRepository
 from app.services.s3_user_rgw_context_service import S3UserRgwContextService
-from app.services.s3_execution_context import S3ExecutionContext
 from app.services.tags_service import TagsService
 from app.models.s3_user import (
     S3User as S3UserSchema,
@@ -43,7 +42,11 @@ class S3UsersService:
             rgw_context=self.rgw_context,
             metrics=self.metrics,
         )
-        self.deletion = S3UserDeletionService(db, self.metrics)
+        self.deletion = S3UserDeletionService(
+            db,
+            self.metrics,
+            rgw_context=self.rgw_context,
+        )
         self.query = S3UserQueryService(
             db,
             rgw_context=self.rgw_context,
@@ -82,6 +85,4 @@ class S3UsersService:
 
     def delete_user(self, user_id: int, delete_rgw: bool = False) -> None:
         s3_user = self.query.get_user_record(user_id)
-        context = S3ExecutionContext.from_s3_user(s3_user)
-        admin = self.rgw_context.admin_for_context(context)
-        self.deletion.delete_user(s3_user, admin, delete_rgw=delete_rgw)
+        self.deletion.delete_user(s3_user, delete_rgw=delete_rgw)
