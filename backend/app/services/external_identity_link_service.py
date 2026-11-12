@@ -390,7 +390,7 @@ class ExternalIdentityLinkService:
                 created_at=now,
                 link_source="reauthenticated",
             )
-        self.db.add(identity)
+            self.db.add(identity)
         return identity
 
     def _approve_matching_link_requests(
