@@ -8,7 +8,10 @@ from app.models.ceph_admin import (
     CephAdminRgwAccountSummary,
     PaginatedCephAdminAccountsResponse,
 )
-from app.models.ceph_admin_identity_listing import CephAdminAccountListingRequest
+from app.models.ceph_admin_identity_listing import (
+    CephAdminAccountListingRequest,
+    CephAdminAccountSortBy,
+)
 from app.models.ceph_admin_identity_filters import (
     CephAdminAccountFilterQuery,
     CephAdminAccountFilterRule,
@@ -130,22 +133,12 @@ def _account_from_entry(entry: object) -> CephAdminRgwAccountSummary | None:
 
 def _account_sort_key(
     account: CephAdminRgwAccountSummary,
-    sort_by: str,
+    sort_by: CephAdminAccountSortBy,
 ) -> tuple[int, Any, str]:
-    if sort_by in {"account_name", "name"}:
+    if sort_by == "account_name":
         value: Any = account.account_name or account.account_id
-    elif sort_by in {
-        "email",
-        "max_users",
-        "max_buckets",
-        "quota_max_size_bytes",
-        "quota_max_objects",
-        "bucket_count",
-        "user_count",
-    }:
-        value = getattr(account, sort_by)
     else:
-        value = account.account_id
+        value = getattr(account, sort_by)
     return listing_sort_key(value, account.account_id or "")
 
 
@@ -268,7 +261,7 @@ class _AccountListingPipeline:
         results: list[CephAdminRgwAccountSummary],
     ) -> list[CephAdminRgwAccountSummary]:
         fields = collect_filter_fields(self.parsed_filter) | {
-            self.request.sort_by or "account_id"
+            self.request.sort_by
         }
         fields_needing_enrichment = {
             field

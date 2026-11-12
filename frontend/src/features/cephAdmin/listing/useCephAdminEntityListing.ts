@@ -15,12 +15,12 @@ import {
 
 export type CephAdminListingSortDirection = "asc" | "desc";
 
-export type CephAdminEntityListingParams = {
+export type CephAdminEntityListingParams<SortBy extends string = string> = {
   page: number;
   page_size: number;
   search?: string;
   advanced_filter?: string;
-  sort_by: string;
+  sort_by: SortBy;
   sort_dir: CephAdminListingSortDirection;
   include?: string[];
 };
@@ -30,33 +30,33 @@ export type CephAdminEntityListingResponse<Entity> = {
   total: number;
 };
 
-export type CephAdminListEntities<Entity> = (
+export type CephAdminListEntities<Entity, SortBy extends string = string> = (
   endpointId: number,
-  params: CephAdminEntityListingParams,
+  params: CephAdminEntityListingParams<SortBy>,
   options: { signal: AbortSignal }
 ) => Promise<CephAdminEntityListingResponse<Entity>>;
 
-export type CephAdminStreamEntities<Entity> = (
+export type CephAdminStreamEntities<Entity, SortBy extends string = string> = (
   endpointId: number,
-  params: CephAdminEntityListingParams,
+  params: CephAdminEntityListingParams<SortBy>,
   options: {
     signal: AbortSignal;
     onProgress: (event: CephAdminListingStreamProgress) => void;
   }
 ) => Promise<CephAdminEntityListingResponse<Entity>>;
 
-type UseCephAdminEntityListingOptions<Entity> = {
+type UseCephAdminEntityListingOptions<Entity, SortBy extends string = string> = {
   endpointId: number | null;
   page: number;
   pageSize: number;
   search: string;
   advancedFilter?: string;
-  sortBy: string;
+  sortBy: SortBy;
   sortDirection: CephAdminListingSortDirection;
   includes: string[];
   reloadNonce: number;
-  listEntities: CephAdminListEntities<Entity>;
-  streamEntities: CephAdminStreamEntities<Entity>;
+  listEntities: CephAdminListEntities<Entity, SortBy>;
+  streamEntities: CephAdminStreamEntities<Entity, SortBy>;
   entityKey: (entity: Entity) => string;
 };
 
@@ -70,7 +70,7 @@ type CephAdminEntityListingState<Entity> = {
   updateEntity: (key: string, update: (entity: Entity) => Entity) => void;
 };
 
-export function useCephAdminEntityListing<Entity>({
+export function useCephAdminEntityListing<Entity, SortBy extends string = string>({
   endpointId,
   page,
   pageSize,
@@ -83,7 +83,7 @@ export function useCephAdminEntityListing<Entity>({
   listEntities,
   streamEntities,
   entityKey,
-}: UseCephAdminEntityListingOptions<Entity>): CephAdminEntityListingState<Entity> {
+}: UseCephAdminEntityListingOptions<Entity, SortBy>): CephAdminEntityListingState<Entity> {
   const [items, setItems] = useState<Entity[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -109,7 +109,7 @@ export function useCephAdminEntityListing<Entity>({
 
     const requestAbort = new AbortController();
     const isCurrentRequest = () => requestId === requestSequence.current && !requestAbort.signal.aborted;
-    const baseParams: CephAdminEntityListingParams = {
+    const baseParams: CephAdminEntityListingParams<SortBy> = {
       page,
       page_size: pageSize,
       search: search || undefined,

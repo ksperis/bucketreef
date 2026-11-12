@@ -11,12 +11,12 @@ import {
 
 type CephAdminEntityResource = "accounts" | "users";
 
-export type CephAdminEntityListingParams = {
+export type CephAdminEntityListingParams<SortBy extends string = string> = {
   page?: number;
   page_size?: number;
   search?: string;
   advanced_filter?: string;
-  sort_by?: string;
+  sort_by?: SortBy;
   sort_dir?: "asc" | "desc";
   include?: string[];
 };

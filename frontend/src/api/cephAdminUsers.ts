@@ -96,7 +96,18 @@ type CreateCephAdminUserResponse = {
 
 type PaginatedCephAdminUsersResponse = PaginatedResponse<CephAdminRgwUser>;
 
-type ListCephAdminUsersParams = CephAdminEntityListingParams;
+export type CephAdminUserSortBy =
+  | "uid"
+  | "tenant"
+  | "account_name"
+  | "full_name"
+  | "email"
+  | "suspended"
+  | "max_buckets"
+  | "quota_max_size_bytes"
+  | "quota_max_objects";
+
+type ListCephAdminUsersParams = CephAdminEntityListingParams<CephAdminUserSortBy>;
 
 export async function listCephAdminUsers(
   endpointId: number,

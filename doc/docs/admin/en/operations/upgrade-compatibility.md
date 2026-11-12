@@ -1,5 +1,15 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 canonical Ceph Admin identity sorting
+
+Ceph Admin account and user listings now validate `sort_by` against the fields
+offered by their bundled frontend tables. Unknown sort fields are rejected at
+request validation instead of silently falling back to the account ID or user
+UID. The retired account `name` alias is removed; use `account_name`.
+
+Deploy the backend and bundled frontend together. No database migration is
+required.
+
 ## 2026-11 canonical Admin MFA reset response
 
 `POST /api/admin/users/{user_id}/mfa/reset` now returns `204 No Content` after
