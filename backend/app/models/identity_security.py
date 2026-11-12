@@ -9,7 +9,7 @@ from pydantic import EmailStr, Field, field_validator, model_validator
 
 from app.core.domain_enums import ExternalIdentityProviderType
 from app.models.base import ApiModel
-from app.models.auth import SessionInfo
+from app.models.auth import ExternalIdentityInfo, SessionInfo
 from app.models.user import UiRole
 from app.utils.identity_provider_ids import normalize_identity_provider_id, normalize_oidc_issuer
 
@@ -28,17 +28,9 @@ class AdminSessionInfo(SessionInfo):
     user_role: Optional[UiRole]
 
 
-class AdminExternalIdentityInfo(ApiModel):
-    id: str
-    provider_type: ExternalIdentityProviderType
-    provider_id: str
-    issuer: Optional[str]
+class AdminExternalIdentityInfo(ExternalIdentityInfo):
     subject: str
-    email: Optional[str]
-    email_verified: bool
     link_source: str
-    created_at: datetime
-    last_login_at: Optional[datetime]
     revoked_at: Optional[datetime]
 
 
