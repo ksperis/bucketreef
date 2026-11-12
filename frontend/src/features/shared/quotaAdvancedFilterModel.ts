@@ -26,7 +26,7 @@ export const defaultQuotaAdvancedFilter: QuotaAdvancedFilterState = {
   maxQuotaUsageObjectPercent: "",
 };
 
-export type QuotaAdvancedApiField =
+type QuotaAdvancedApiField =
   | "quota_max_size_bytes"
   | "quota_max_objects"
   | "quota_usage_size_percent"
@@ -73,7 +73,7 @@ export const hasQuotaAdvancedFilters = (
     (!usagePercentage || allowUsageFilters) && Boolean(advanced[stateField].trim()),
 );
 
-export type QuotaAdvancedRule = {
+type QuotaAdvancedRule = {
   field: QuotaAdvancedApiField;
   op: "gte" | "lte";
   value: number;

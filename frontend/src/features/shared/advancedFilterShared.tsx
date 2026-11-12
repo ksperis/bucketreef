@@ -374,7 +374,7 @@ export const resolveTextFilterFieldState = ({
   };
 };
 
-export type TextFieldFilterRule<Field extends string = string> =
+type TextFieldFilterRule<Field extends string = string> =
   | { field: Field; op: "eq" | "contains"; value: string }
   | { field: Field; op: "in"; value: string[] };
 
