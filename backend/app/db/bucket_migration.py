@@ -76,8 +76,18 @@ class BucketMigration(Base):
     created_at = Column(UTCDateTime(), default=utcnow, nullable=False, index=True)
     updated_at = Column(UTCDateTime(), default=utcnow, nullable=False, index=True)
 
-    items = relationship("BucketMigrationItem", back_populates="migration", cascade="all, delete-orphan")
-    events = relationship("BucketMigrationEvent", back_populates="migration", cascade="all, delete-orphan")
+    items = relationship(
+        "BucketMigrationItem",
+        back_populates="migration",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    events = relationship(
+        "BucketMigrationEvent",
+        back_populates="migration",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
 class BucketMigrationItem(Base):
@@ -88,7 +98,12 @@ class BucketMigrationItem(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    migration_id = Column(Integer, ForeignKey("bucket_migrations.id"), nullable=False, index=True)
+    migration_id = Column(
+        Integer,
+        ForeignKey("bucket_migrations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
 
     source_bucket = Column(String, nullable=False)
     target_bucket = Column(String, nullable=False)
@@ -141,7 +156,12 @@ class BucketMigrationEvent(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    migration_id = Column(Integer, ForeignKey("bucket_migrations.id"), nullable=False, index=True)
+    migration_id = Column(
+        Integer,
+        ForeignKey("bucket_migrations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     item_id = Column(Integer, ForeignKey("bucket_migration_items.id"), nullable=True, index=True)
 
     level = Column(String, nullable=False, default="info", server_default="info")
