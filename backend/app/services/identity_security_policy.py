@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Protocol
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -12,11 +11,25 @@ from app.core.domain_errors import (
     IdentitySecurityAuthorizationError,
     IdentitySecuritySelfActionError,
 )
-from app.db import S3Connection, UiGroup, UiGroupS3Connection, User
+from app.db import (
+    S3Connection,
+    UiGroup,
+    UiGroupS3Account,
+    UiGroupS3Connection,
+    UiGroupS3User,
+    User,
+    UserS3Account,
+    UserS3User,
+)
 from app.core.domain_enums import UserRole, is_superadmin_ui_role
 from app.models.s3_connection_admin import S3ConnectionAdminUpdate
 from app.models.ui_group import UiGroupCreate, UiGroupUpdate
-from app.models.user import ManagerToolAccess, UserUpdate
+from app.models.user import (
+    AccountMembership,
+    ManagerToolAccess,
+    S3UserMembership,
+    UserUpdate,
+)
 from app.services.identity_security_requirements import STANDARD_UI_ROLES
 from app.services.manager_tool_access import read_manager_tool_access
 from app.utils.normalize import normalize_optional_string
@@ -33,20 +46,12 @@ _DIRECT_ACCESS_FIELDS = (
 _GROUP_DIRECT_ACCESS_FIELDS = _DIRECT_ACCESS_FIELDS
 
 
-class _AccountLinkLike(Protocol):
-    account_id: int
-    manager_role: str | None
-    portal_role: str | None
-    allow_manager_browser_data_access: bool
-
-
-class _S3UserLinkLike(Protocol):
-    s3_user_id: int
-    allow_manager_browser_data_access: bool
+_AccountLink = UserS3Account | UiGroupS3Account | AccountMembership
+_S3UserLink = UserS3User | UiGroupS3User | S3UserMembership
 
 
 def _account_link_values(
-    links: Iterable[_AccountLinkLike],
+    links: Iterable[_AccountLink],
 ) -> set[tuple[int, str | None, str | None, bool]]:
     return {
         (
@@ -60,7 +65,7 @@ def _account_link_values(
 
 
 def _s3_user_link_values(
-    links: Iterable[_S3UserLinkLike],
+    links: Iterable[_S3UserLink],
 ) -> set[tuple[int, bool]]:
     return {
         (int(link.s3_user_id), link.allow_manager_browser_data_access)
