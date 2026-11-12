@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from app.models.bucket_filter import BucketFilterQuery, BucketFilterRule
-from app.models.bucket_listing import BucketListingSummary
+from app.models.bucket_listing import BucketListingSortBy, BucketListingSummary
 from app.services.bucket_listing_owner_metadata import (
     OWNER_DETAIL_FIELDS,
     normalize_owner_kind,
@@ -239,5 +239,8 @@ def match_bucket_feature_rule(bucket: BucketListingSummary, rule: BucketFilterRu
     return desired in _EXACT_FEATURE_STATES and state_norm == desired
 
 
-def request_requires_bucket_stats(query: BucketFilterQuery | None, sort_by: str) -> bool:
+def request_requires_bucket_stats(
+    query: BucketFilterQuery | None,
+    sort_by: BucketListingSortBy,
+) -> bool:
     return sort_by in {"used_bytes", "object_count"} or filter_requires_stats(query)

@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.models.bucket_filter import BucketFilterQuery
+from app.models.bucket_listing import BucketListingSortBy
 from app.services.bucket_listing_enrichment import BUCKET_LISTING_INCLUDES
 from app.services.bucket_listing_owner_metadata import (
     BucketOwnerMetadataRequirements,
@@ -33,7 +34,7 @@ def prepare_storage_ops_bucket_listing_request(
     advanced_filter: str | None,
     include: list[str],
     with_stats: bool,
-    sort_by: str,
+    sort_by: BucketListingSortBy,
 ) -> StorageOpsBucketListingRequest:
     simple_filter: str | None = None
     parsed_filter: BucketFilterQuery | None = None

@@ -3,12 +3,14 @@
  * Licensed under the Apache License, Version 2.0
  */
 
+export type BucketListingSortBy = "name" | "tenant" | "owner" | "used_bytes" | "object_count";
+
 export type BucketListingParams = {
   page?: number;
   page_size?: number;
   filter?: string;
   advanced_filter?: string;
-  sort_by?: string;
+  sort_by?: BucketListingSortBy;
   sort_dir?: "asc" | "desc";
   include?: string[];
   with_stats?: boolean;

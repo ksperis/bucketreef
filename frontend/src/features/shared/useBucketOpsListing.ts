@@ -8,6 +8,7 @@ import type { Dispatch, SetStateAction } from "react";
 import {
   shouldUsePostBucketListing,
   type BucketListingParams,
+  type BucketListingSortBy,
 } from "../../api/bucketListingTransport";
 import { isCancelledError } from "../../utils/apiError";
 import type {
@@ -24,7 +25,7 @@ import {
 } from "./advancedFilterShared";
 
 type BucketSort = {
-  field: string;
+  field: BucketListingSortBy;
   direction: "asc" | "desc";
 };
 

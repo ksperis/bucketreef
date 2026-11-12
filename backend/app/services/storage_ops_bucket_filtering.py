@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from app.models.bucket_filter import BucketFilterQuery, BucketFilterRule
+from app.models.bucket_listing import BucketListingSortBy
 from app.models.storage_ops import StorageOpsBucketSummary
 from app.services.bucket_listing_owner_metadata import OWNER_DETAIL_FIELDS
 from app.services.bucket_listing_shared import listing_sort_key
@@ -97,22 +98,17 @@ def build_storage_ops_cheap_field_prefilter(
 def sort_storage_ops_buckets(
     buckets: list[StorageOpsBucketSummary],
     *,
-    sort_by: str,
+    sort_by: BucketListingSortBy,
     sort_dir: str,
 ) -> list[StorageOpsBucketSummary]:
     if not buckets:
         return []
-    field = (
-        sort_by
-        if sort_by in {"name", "tenant", "owner", "used_bytes", "object_count"}
-        else "name"
-    )
     reverse = sort_dir == "desc"
 
     def value(bucket: StorageOpsBucketSummary):
-        if field == "name":
+        if sort_by == "name":
             return bucket.bucket_name or bucket.name
-        return getattr(bucket, field, None)
+        return getattr(bucket, sort_by)
 
     return sorted(
         buckets,
