@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 from app.db import (
     BrowserFavorite,
     BucketMigration,
-    BucketMigrationEvent,
     BucketMigrationItem,
     BucketUsageStatsSnapshot,
 )
@@ -79,8 +78,6 @@ class ResourceDeletionPurgeService:
         )
         migration_ids = [migration.id for migration in self._execution_context_migrations(context_id)]
         if migration_ids:
-            self._delete_where(BucketMigrationEvent, BucketMigrationEvent.migration_id.in_(migration_ids))
-            self._delete_where(BucketMigrationItem, BucketMigrationItem.migration_id.in_(migration_ids))
             self._delete_where(BucketMigration, BucketMigration.id.in_(migration_ids))
 
     def purge_endpoint_derived_data(self, endpoint_id: int) -> None:

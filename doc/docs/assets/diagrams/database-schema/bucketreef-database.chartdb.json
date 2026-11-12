@@ -28286,7 +28286,7 @@
     },
     {
       "id": "relationship:bucket_migration_items.migration_id->bucket_migrations.id",
-      "name": "fk_bucket_migration_items_migration_id_bucket_migrations_id",
+      "name": "fk_bucket_migration_items_migration_id_bucket_migrations_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:bucket_migration_items",
       "targetSchema": null,
@@ -28299,7 +28299,7 @@
     },
     {
       "id": "relationship:bucket_migration_events.migration_id->bucket_migrations.id",
-      "name": "fk_bucket_migration_events_migration_id_bucket_migrations_id",
+      "name": "fk_bucket_migration_events_migration_id_bucket_migrations_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:bucket_migration_events",
       "targetSchema": null,
