@@ -83,7 +83,6 @@ class S3UserUpdateService:
                 write_service.repository.ensure_not_pending_deletion(user_id)
                 write_service._validate_update(write_user, payload)
                 write_service._apply_local_updates(write_user, payload)
-                write_db.add(write_user)
                 write_db.flush()
 
             run_replayable_db_unit(self.db, persist_local_update_once)
