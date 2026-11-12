@@ -62,29 +62,32 @@ class S3AccountListingRequest(AdminManagedEntityListingRequest):
     )
 
 
-class S3Account(ManagedS3ResourceFeatures):
+class S3AccountSummary(ManagedS3ResourceFeatures):
     id: int
     name: str
     rgw_account_id: str
     rgw_tenant: str
-    quota_max_size_gb: Optional[float]
-    quota_max_objects: Optional[int]
-    email: Optional[str]
-    used_bytes: Optional[int]
-    used_objects: Optional[int]
     user_links: list[AccountUserLink]
     group_links: list[AccountGroupLink]
-    bucket_count: Optional[int]
-    rgw_user_count: Optional[int]
-    rgw_user_uids: Optional[list[str]]
-    rgw_topic_count: Optional[int]
-    rgw_topics: Optional[list[str]]
     storage_endpoint_id: int
     storage_endpoint_name: str
     storage_endpoint_url: str
     storage_endpoint_is_default: bool
     storage_endpoint_capabilities: dict[str, bool]
     tags: list[TagDefinitionSummary]
+
+
+class S3Account(S3AccountSummary):
+    quota_max_size_gb: Optional[float]
+    quota_max_objects: Optional[int]
+    email: Optional[str]
+    used_bytes: Optional[int]
+    used_objects: Optional[int]
+    bucket_count: Optional[int]
+    rgw_user_count: Optional[int]
+    rgw_user_uids: Optional[list[str]]
+    rgw_topic_count: Optional[int]
+    rgw_topics: Optional[list[str]]
 
 
 class S3AccountCreate(ApiModel):
@@ -151,21 +154,6 @@ class S3AccountUpdate(ManagedS3ResourceFeatureOverrides):
             ("name", "storage_endpoint_id", "user_links", "group_links", "tags"),
         )
         return self
-
-
-class S3AccountSummary(ManagedS3ResourceFeatures):
-    id: int
-    name: str
-    rgw_account_id: str
-    rgw_tenant: str
-    user_links: list[AccountUserLink]
-    group_links: list[AccountGroupLink]
-    storage_endpoint_id: int
-    storage_endpoint_name: str
-    storage_endpoint_url: str
-    storage_endpoint_is_default: bool
-    storage_endpoint_capabilities: dict[str, bool]
-    tags: list[TagDefinitionSummary]
 
 
 class PaginatedS3AccountsResponse(PaginatedResponse):
