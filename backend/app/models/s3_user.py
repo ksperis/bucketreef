@@ -8,6 +8,7 @@ from pydantic import Field, field_validator, model_validator
 from app.models.access_key_metadata import AccessKeyMetadata
 from app.models.admin_listing import AdminManagedEntityListingRequest
 from app.models.base import ApiModel, reject_explicit_null_fields
+from app.models.managed_resource_features import ManagedS3UserFeatures
 from app.models.quota import QuotaSizeUnit
 from app.utils.rgw_identifiers import validate_rgw_user_uid, validate_rgw_tenant
 from app.models.pagination import PaginatedResponse
@@ -54,7 +55,7 @@ class S3UserListingRequest(AdminManagedEntityListingRequest):
     sort_by: S3UserSortBy = "name"
 
 
-class S3User(ApiModel):
+class S3User(ManagedS3UserFeatures):
     id: int
     name: str
     rgw_user_uid: str
@@ -69,17 +70,6 @@ class S3User(ApiModel):
     storage_endpoint_name: str
     storage_endpoint_url: str
     bucket_count: Optional[int]
-    allow_bucket_quota_management: Optional[bool]
-    allow_access_key_management: Optional[bool]
-    allow_access_key_metadata: Optional[bool]
-    allow_access_key_expiration: Optional[bool]
-    allow_activity_history: Optional[bool]
-    allow_rgw_usage_metrics: Optional[bool]
-    allow_cost_estimation: Optional[bool]
-    allow_bucket_usage_stats: Optional[bool]
-    allow_bucket_usage_stats_collection: Optional[bool]
-    allow_multisite_endpoint_switching: Optional[bool]
-    allow_managed_private_connection_provisioning: Optional[bool]
     tags: list[TagDefinitionSummary]
 
 class S3UserCreate(ApiModel):
@@ -159,7 +149,7 @@ class S3UserGeneratedKey(AccessKeyMetadata):
     created_at: Optional[datetime] = None
 
 
-class S3UserSummary(ApiModel):
+class S3UserSummary(ManagedS3UserFeatures):
     id: int
     name: str
     rgw_user_uid: str
@@ -167,17 +157,6 @@ class S3UserSummary(ApiModel):
     storage_endpoint_id: int
     storage_endpoint_name: str
     storage_endpoint_url: str
-    allow_bucket_quota_management: Optional[bool]
-    allow_access_key_management: Optional[bool]
-    allow_access_key_metadata: Optional[bool]
-    allow_access_key_expiration: Optional[bool]
-    allow_activity_history: Optional[bool]
-    allow_rgw_usage_metrics: Optional[bool]
-    allow_cost_estimation: Optional[bool]
-    allow_bucket_usage_stats: Optional[bool]
-    allow_bucket_usage_stats_collection: Optional[bool]
-    allow_multisite_endpoint_switching: Optional[bool]
-    allow_managed_private_connection_provisioning: Optional[bool]
     tags: list[TagDefinitionSummary]
 
 

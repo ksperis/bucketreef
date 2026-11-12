@@ -7,6 +7,7 @@ from pydantic import Field, field_validator, model_validator
 from app.models.account_access import AccountAccessGrant
 from app.models.admin_listing import AdminManagedEntityListingRequest
 from app.models.base import ApiModel, reject_explicit_null_fields
+from app.models.managed_resource_features import ManagedS3ResourceFeatures
 from app.models.pagination import PaginatedResponse
 from app.models.quota import QuotaSizeUnit
 from app.models.tagging import (
@@ -58,7 +59,7 @@ class S3AccountListingRequest(AdminManagedEntityListingRequest):
     )
 
 
-class S3Account(ApiModel):
+class S3Account(ManagedS3ResourceFeatures):
     id: int
     name: str
     rgw_account_id: str
@@ -80,15 +81,6 @@ class S3Account(ApiModel):
     storage_endpoint_url: str
     storage_endpoint_is_default: bool
     storage_endpoint_capabilities: dict[str, bool]
-    allow_bucket_quota_management: Optional[bool]
-    allow_access_key_metadata: Optional[bool]
-    allow_access_key_expiration: Optional[bool]
-    allow_activity_history: Optional[bool]
-    allow_rgw_usage_metrics: Optional[bool]
-    allow_cost_estimation: Optional[bool]
-    allow_bucket_usage_stats: Optional[bool]
-    allow_bucket_usage_stats_collection: Optional[bool]
-    allow_multisite_endpoint_switching: Optional[bool]
     tags: list[TagDefinitionSummary]
 
 
@@ -167,7 +159,7 @@ class S3AccountUpdate(ApiModel):
         return self
 
 
-class S3AccountSummary(ApiModel):
+class S3AccountSummary(ManagedS3ResourceFeatures):
     id: int
     name: str
     rgw_account_id: str
@@ -179,15 +171,6 @@ class S3AccountSummary(ApiModel):
     storage_endpoint_url: str
     storage_endpoint_is_default: bool
     storage_endpoint_capabilities: dict[str, bool]
-    allow_bucket_quota_management: Optional[bool]
-    allow_access_key_metadata: Optional[bool]
-    allow_access_key_expiration: Optional[bool]
-    allow_activity_history: Optional[bool]
-    allow_rgw_usage_metrics: Optional[bool]
-    allow_cost_estimation: Optional[bool]
-    allow_bucket_usage_stats: Optional[bool]
-    allow_bucket_usage_stats_collection: Optional[bool]
-    allow_multisite_endpoint_switching: Optional[bool]
     tags: list[TagDefinitionSummary]
 
 
