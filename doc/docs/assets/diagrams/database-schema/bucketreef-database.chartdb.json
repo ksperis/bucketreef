@@ -27935,7 +27935,7 @@
     },
     {
       "id": "relationship:cost_usage_daily.storage_endpoint_id->storage_endpoints.id",
-      "name": "fk_cost_usage_daily_storage_endpoint_id_storage_endpoints_id",
+      "name": "fk_cost_usage_daily_storage_endpoint_id_storage_endpoints_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:cost_usage_daily",
       "targetSchema": null,
@@ -27948,7 +27948,7 @@
     },
     {
       "id": "relationship:cost_usage_daily.s3_account_id->s3_accounts.id",
-      "name": "fk_cost_usage_daily_s3_account_id_s3_accounts_id",
+      "name": "fk_cost_usage_daily_s3_account_id_s3_accounts_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:cost_usage_daily",
       "targetSchema": null,
@@ -27961,7 +27961,7 @@
     },
     {
       "id": "relationship:cost_usage_daily.s3_user_id->s3_users.id",
-      "name": "fk_cost_usage_daily_s3_user_id_s3_users_id",
+      "name": "fk_cost_usage_daily_s3_user_id_s3_users_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:cost_usage_daily",
       "targetSchema": null,
@@ -27974,7 +27974,7 @@
     },
     {
       "id": "relationship:cost_storage_daily.storage_endpoint_id->storage_endpoints.id",
-      "name": "fk_cost_storage_daily_storage_endpoint_id_storage_endpoints_id",
+      "name": "fk_cost_storage_daily_storage_endpoint_id_storage_endpoints_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:cost_storage_daily",
       "targetSchema": null,
@@ -27987,7 +27987,7 @@
     },
     {
       "id": "relationship:cost_storage_daily.s3_account_id->s3_accounts.id",
-      "name": "fk_cost_storage_daily_s3_account_id_s3_accounts_id",
+      "name": "fk_cost_storage_daily_s3_account_id_s3_accounts_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:cost_storage_daily",
       "targetSchema": null,
@@ -28000,7 +28000,7 @@
     },
     {
       "id": "relationship:cost_storage_daily.s3_user_id->s3_users.id",
-      "name": "fk_cost_storage_daily_s3_user_id_s3_users_id",
+      "name": "fk_cost_storage_daily_s3_user_id_s3_users_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:cost_storage_daily",
       "targetSchema": null,
@@ -28026,7 +28026,7 @@
     },
     {
       "id": "relationship:quota_usage_hourly.storage_endpoint_id->storage_endpoints.id",
-      "name": "fk_quota_usage_hourly_storage_endpoint_id_storage_endpoints_id",
+      "name": "fk_quota_usage_hourly_storage_endpoint_id_storage_endpoints_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:quota_usage_hourly",
       "targetSchema": null,
@@ -28039,7 +28039,7 @@
     },
     {
       "id": "relationship:quota_usage_hourly.s3_account_id->s3_accounts.id",
-      "name": "fk_quota_usage_hourly_s3_account_id_s3_accounts_id",
+      "name": "fk_quota_usage_hourly_s3_account_id_s3_accounts_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:quota_usage_hourly",
       "targetSchema": null,
@@ -28052,7 +28052,7 @@
     },
     {
       "id": "relationship:quota_usage_hourly.s3_user_id->s3_users.id",
-      "name": "fk_quota_usage_hourly_s3_user_id_s3_users_id",
+      "name": "fk_quota_usage_hourly_s3_user_id_s3_users_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:quota_usage_hourly",
       "targetSchema": null,
@@ -28065,7 +28065,7 @@
     },
     {
       "id": "relationship:quota_usage_daily.storage_endpoint_id->storage_endpoints.id",
-      "name": "fk_quota_usage_daily_storage_endpoint_id_storage_endpoints_id",
+      "name": "fk_quota_usage_daily_storage_endpoint_id_storage_endpoints_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:quota_usage_daily",
       "targetSchema": null,
@@ -28078,7 +28078,7 @@
     },
     {
       "id": "relationship:quota_usage_daily.s3_account_id->s3_accounts.id",
-      "name": "fk_quota_usage_daily_s3_account_id_s3_accounts_id",
+      "name": "fk_quota_usage_daily_s3_account_id_s3_accounts_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:quota_usage_daily",
       "targetSchema": null,
@@ -28091,7 +28091,7 @@
     },
     {
       "id": "relationship:quota_usage_daily.s3_user_id->s3_users.id",
-      "name": "fk_quota_usage_daily_s3_user_id_s3_users_id",
+      "name": "fk_quota_usage_daily_s3_user_id_s3_users_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:quota_usage_daily",
       "targetSchema": null,
@@ -28104,7 +28104,7 @@
     },
     {
       "id": "relationship:quota_alert_states.storage_endpoint_id->storage_endpoints.id",
-      "name": "fk_quota_alert_states_storage_endpoint_id_storage_endpoints_id",
+      "name": "fk_quota_alert_states_storage_endpoint_id_storage_endpoints_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:quota_alert_states",
       "targetSchema": null,
@@ -28117,7 +28117,7 @@
     },
     {
       "id": "relationship:quota_alert_states.s3_account_id->s3_accounts.id",
-      "name": "fk_quota_alert_states_s3_account_id_s3_accounts_id",
+      "name": "fk_quota_alert_states_s3_account_id_s3_accounts_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:quota_alert_states",
       "targetSchema": null,
@@ -28130,7 +28130,7 @@
     },
     {
       "id": "relationship:quota_alert_states.s3_user_id->s3_users.id",
-      "name": "fk_quota_alert_states_s3_user_id_s3_users_id",
+      "name": "fk_quota_alert_states_s3_user_id_s3_users_id [ON DELETE CASCADE]",
       "sourceSchema": null,
       "sourceTableId": "table:quota_alert_states",
       "targetSchema": null,

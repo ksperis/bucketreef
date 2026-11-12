@@ -286,7 +286,6 @@ class S3UserDeletionService:
                 .execution_options(synchronize_session=False)
             )
             purge = ResourceDeletionPurgeService(write_db)
-            purge.purge_s3_user_derived_data(s3_user_id)
             purge.purge_execution_context_data(f"s3u-{s3_user_id}")
             if deletion_id is not None:
                 current_deletion = write_db.get(S3UserDeletion, deletion_id)

@@ -2,15 +2,10 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
-from typing import Literal
-
 from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
 
 from app.db import (
-    CostEndpointOverride,
-    CostStorageDaily,
-    CostUsageDaily,
     BrowserFavorite,
     BucketMigration,
     BucketMigrationEvent,
@@ -20,25 +15,8 @@ from app.db import (
     EndpointHealthLatest,
     EndpointHealthRollup,
     EndpointHealthStatusSegment,
-    QuotaAlertState,
-    QuotaUsageDaily,
-    QuotaUsageHourly,
 )
 from app.services.bucket_migration.workflow import ACTIVE_STATUSES, FINAL_STATUSES
-
-
-_CostQuotaReference = Literal[
-    "s3_account_id",
-    "s3_user_id",
-    "storage_endpoint_id",
-]
-_COST_AND_QUOTA_MODELS = (
-    CostUsageDaily,
-    CostStorageDaily,
-    QuotaAlertState,
-    QuotaUsageHourly,
-    QuotaUsageDaily,
-)
 
 
 class ResourceDeletionPurgeService:
@@ -51,14 +29,6 @@ class ResourceDeletionPurgeService:
         self.db.execute(
             delete(model).where(*criteria).execution_options(synchronize_session=False)
         )
-
-    def _purge_cost_and_quota_data(
-        self,
-        resource_id: int,
-        reference: _CostQuotaReference,
-    ) -> None:
-        for model in _COST_AND_QUOTA_MODELS:
-            self._delete_where(model, getattr(model, reference) == resource_id)
 
     def _execution_context_migrations(self, context_id: str):
         return self.db.execute(
@@ -117,15 +87,7 @@ class ResourceDeletionPurgeService:
             self._delete_where(BucketMigrationItem, BucketMigrationItem.migration_id.in_(migration_ids))
             self._delete_where(BucketMigration, BucketMigration.id.in_(migration_ids))
 
-    def purge_account_derived_data(self, account_id: int) -> None:
-        self._purge_cost_and_quota_data(account_id, "s3_account_id")
-
-    def purge_s3_user_derived_data(self, s3_user_id: int) -> None:
-        self._purge_cost_and_quota_data(s3_user_id, "s3_user_id")
-
     def purge_endpoint_derived_data(self, endpoint_id: int) -> None:
-        self._delete_where(CostEndpointOverride, CostEndpointOverride.storage_endpoint_id == endpoint_id)
-        self._purge_cost_and_quota_data(endpoint_id, "storage_endpoint_id")
         self._delete_where(
             BucketUsageStatsSnapshot,
             BucketUsageStatsSnapshot.scope_kind.in_(("admin_managed", "ceph_admin")),

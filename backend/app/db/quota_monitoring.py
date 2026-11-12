@@ -64,9 +64,24 @@ class QuotaUsageHourly(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     hour_ts = Column(UTCDateTime(), nullable=False, index=True)
-    storage_endpoint_id = Column(Integer, ForeignKey("storage_endpoints.id"), nullable=False, index=True)
-    s3_account_id = Column(Integer, ForeignKey("s3_accounts.id"), nullable=True, index=True)
-    s3_user_id = Column(Integer, ForeignKey("s3_users.id"), nullable=True, index=True)
+    storage_endpoint_id = Column(
+        Integer,
+        ForeignKey("storage_endpoints.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    s3_account_id = Column(
+        Integer,
+        ForeignKey("s3_accounts.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    s3_user_id = Column(
+        Integer,
+        ForeignKey("s3_users.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
     used_bytes = Column(BigInteger, nullable=False, default=0, server_default="0")
     used_objects = Column(BigInteger, nullable=False, default=0, server_default="0")
     bucket_count = Column(Integer, nullable=True)
@@ -122,9 +137,24 @@ class QuotaUsageDaily(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     day = Column(Date, nullable=False, index=True)
-    storage_endpoint_id = Column(Integer, ForeignKey("storage_endpoints.id"), nullable=False, index=True)
-    s3_account_id = Column(Integer, ForeignKey("s3_accounts.id"), nullable=True, index=True)
-    s3_user_id = Column(Integer, ForeignKey("s3_users.id"), nullable=True, index=True)
+    storage_endpoint_id = Column(
+        Integer,
+        ForeignKey("storage_endpoints.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    s3_account_id = Column(
+        Integer,
+        ForeignKey("s3_accounts.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    s3_user_id = Column(
+        Integer,
+        ForeignKey("s3_users.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
     last_used_bytes = Column(BigInteger, nullable=False, default=0, server_default="0")
     last_used_objects = Column(BigInteger, nullable=False, default=0, server_default="0")
     bucket_count = Column(Integer, nullable=True)
@@ -174,9 +204,24 @@ class QuotaAlertState(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    storage_endpoint_id = Column(Integer, ForeignKey("storage_endpoints.id"), nullable=False, index=True)
-    s3_account_id = Column(Integer, ForeignKey("s3_accounts.id"), nullable=True, index=True)
-    s3_user_id = Column(Integer, ForeignKey("s3_users.id"), nullable=True, index=True)
+    storage_endpoint_id = Column(
+        Integer,
+        ForeignKey("storage_endpoints.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    s3_account_id = Column(
+        Integer,
+        ForeignKey("s3_accounts.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    s3_user_id = Column(
+        Integer,
+        ForeignKey("s3_users.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
     last_level = Column(String, nullable=False, default="normal", server_default="normal")
     created_at = Column(UTCDateTime(), nullable=False, default=utcnow)
     updated_at = Column(UTCDateTime(), nullable=False, default=utcnow)
