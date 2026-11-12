@@ -8,7 +8,9 @@ from app.models.healthcheck import (
     EndpointHealthIncident,
     EndpointHealthIncidentsResponse,
     EndpointHealthLatencyOverviewEndpoint,
+    EndpointHealthLatencyOverviewResponse,
     EndpointHealthOverviewEndpoint,
+    EndpointHealthOverviewResponse,
     EndpointHealthPoint,
     EndpointHealthRawCheck,
     EndpointHealthSeries,
@@ -111,6 +113,13 @@ def test_healthcheck_response_models_require_complete_canonical_payloads() -> No
         "availability_pct",
         "timeline",
     }
+    assert _required(EndpointHealthOverviewResponse) == {
+        "generated_at",
+        "window",
+        "start",
+        "end",
+        "endpoints",
+    }
     assert _required(EndpointHealthLatencyOverviewEndpoint) == {
         "endpoint_id",
         "name",
@@ -125,6 +134,13 @@ def test_healthcheck_response_models_require_complete_canonical_payloads() -> No
         "max_latency_ms",
         "check_type",
         "scope",
+    }
+    assert _required(EndpointHealthLatencyOverviewResponse) == {
+        "generated_at",
+        "window",
+        "start",
+        "end",
+        "endpoints",
     }
     assert _required(EndpointHealthGlobalIncident) == {
         "endpoint_id",
