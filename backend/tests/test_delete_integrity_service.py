@@ -307,6 +307,7 @@ def test_delete_user_nulls_nullable_foreign_keys(db_session):
     )
     migration = BucketMigration(
         created_by_user_id=user.id,
+        maintenance_requested_by_user_id=user.id,
         source_context_id="10",
         target_context_id="20",
         mode="one_shot",
@@ -340,6 +341,7 @@ def test_delete_user_nulls_nullable_foreign_keys(db_session):
 
     assert refreshed_audit is not None and refreshed_audit.user_id is None
     assert refreshed_migration is not None and refreshed_migration.created_by_user_id is None
+    assert refreshed_migration.maintenance_requested_by_user_id is None
     assert refreshed_definition is not None and refreshed_definition.owner_user_id is None
 
 
