@@ -98,7 +98,7 @@ class S3AccountDeletionService:
             return
 
         self._resume_remote_deletion(account, deletion, admin, endpoint)
-        self._delete_local_account(account, deletion=deletion)
+        self._delete_local_account(account)
 
     def _prepare_remote_deletion(
         self,
@@ -525,11 +525,8 @@ class S3AccountDeletionService:
     def _delete_local_account(
         self,
         account: S3Account,
-        *,
-        deletion: S3AccountDeletion | None = None,
     ) -> None:
         account_id = int(account.id)
-        deletion_id = int(deletion.id) if deletion is not None else None
         if self.db.get_bind().dialect.name == "sqlite" and account in self.db:
             self.db.expunge(account)
 
@@ -542,10 +539,6 @@ class S3AccountDeletionService:
             )
             purge = ResourceDeletionPurgeService(write_db)
             purge.purge_execution_context_data(str(account_id))
-            if deletion_id is not None:
-                current_deletion = write_db.get(S3AccountDeletion, deletion_id)
-                if current_deletion is not None:
-                    write_db.delete(current_deletion)
             write_db.delete(current_account)
             write_db.flush()
             tags = self.tags if write_db is self.db else TagsService(write_db)

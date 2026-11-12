@@ -126,7 +126,7 @@ class S3UserDeletionService:
             self._complete_remote_deletion(execution_context, deletion, admin)
             self._mark_remote_completed(deletion)
 
-        self._delete_local_user(s3_user, deletion=deletion)
+        self._delete_local_user(s3_user)
 
     def _pending_deletion(self, s3_user_id: int) -> S3UserDeletion | None:
         return self.db.scalar(
@@ -263,11 +263,8 @@ class S3UserDeletionService:
     def _delete_local_user(
         self,
         s3_user: S3User,
-        *,
-        deletion: S3UserDeletion | None = None,
     ) -> None:
         s3_user_id = int(s3_user.id)
-        deletion_id = int(deletion.id) if deletion is not None else None
         if self.db.get_bind().dialect.name == "sqlite" and s3_user in self.db:
             self.db.expunge(s3_user)
 
@@ -277,10 +274,6 @@ class S3UserDeletionService:
                 return
             purge = ResourceDeletionPurgeService(write_db)
             purge.purge_execution_context_data(f"s3u-{s3_user_id}")
-            if deletion_id is not None:
-                current_deletion = write_db.get(S3UserDeletion, deletion_id)
-                if current_deletion is not None:
-                    write_db.delete(current_deletion)
             write_db.delete(current_user)
             write_db.flush()
             tags = self.tags if write_db is self.db else TagsService(write_db)
