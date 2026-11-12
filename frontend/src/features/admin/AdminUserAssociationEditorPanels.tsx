@@ -70,6 +70,9 @@ export type AdminUserAssociationEditorResources = {
     setPageSize: (pageSize: number) => void;
   };
   openStackEnabled: boolean;
+  accountsEnabled: boolean;
+  s3UsersEnabled: boolean;
+  connectionsEnabled: boolean;
   ensureAssociationOptionsForTab: (
     tab: StorageAssociationTab,
     options?: { retryOnError?: boolean },
@@ -131,6 +134,9 @@ export default function AdminUserAssociationEditorPanels({
         }
       }}
       maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
+      accountsEnabled={resources.accountsEnabled}
+      s3UsersEnabled={resources.s3UsersEnabled}
+      connectionsEnabled={resources.connectionsEnabled}
       accounts={{
         selected: editor.accounts.selected,
         setSelected: editor.accounts.setSelected,

@@ -42,10 +42,24 @@ const loadOpenStackClouds = async (
   query: PaginatedOptionsQuery,
 ): Promise<PaginatedResponse<OpenStackCloud>> => listAdminOpenStackCloudOptions(query);
 
-export default function useAdminUserAssociationOptions(openStackEnabled = true) {
-  const accounts = usePaginatedOptions(loadAccounts, { initialPageSize: 10 });
-  const s3Users = usePaginatedOptions(loadS3Users, { initialPageSize: 10 });
-  const s3Connections = usePaginatedOptions(loadConnections, { initialPageSize: 10 });
+export default function useAdminUserAssociationOptions(
+  openStackEnabled = true,
+  accountsEnabled = true,
+  s3UsersEnabled = true,
+  s3ConnectionsEnabled = true,
+) {
+  const accounts = usePaginatedOptions(loadAccounts, {
+    enabled: accountsEnabled,
+    initialPageSize: 10,
+  });
+  const s3Users = usePaginatedOptions(loadS3Users, {
+    enabled: s3UsersEnabled,
+    initialPageSize: 10,
+  });
+  const s3Connections = usePaginatedOptions(loadConnections, {
+    enabled: s3ConnectionsEnabled,
+    initialPageSize: 10,
+  });
   const groups = usePaginatedOptions(loadGroups, { initialPageSize: 10 });
   const openStackClouds = usePaginatedOptions(loadOpenStackClouds, {
     enabled: openStackEnabled,
@@ -88,22 +102,25 @@ export default function useAdminUserAssociationOptions(openStackEnabled = true) 
   } = openStackClouds;
 
   const ensureAccounts = useCallback((options?: EnsureOptions) => {
+    if (!accountsEnabled) return;
     if (accountsLoading || accountsLoaded) return;
     if (accountsError && !options?.retryOnError) return;
     refreshAccounts();
-  }, [accountsError, accountsLoaded, accountsLoading, refreshAccounts]);
+  }, [accountsEnabled, accountsError, accountsLoaded, accountsLoading, refreshAccounts]);
 
   const ensureS3Users = useCallback((options?: EnsureOptions) => {
+    if (!s3UsersEnabled) return;
     if (s3UsersLoading || s3UsersLoaded) return;
     if (s3UsersError && !options?.retryOnError) return;
     refreshS3Users();
-  }, [refreshS3Users, s3UsersError, s3UsersLoaded, s3UsersLoading]);
+  }, [refreshS3Users, s3UsersEnabled, s3UsersError, s3UsersLoaded, s3UsersLoading]);
 
   const ensureS3Connections = useCallback((options?: EnsureOptions) => {
+    if (!s3ConnectionsEnabled) return;
     if (s3ConnectionsLoading || s3ConnectionsLoaded) return;
     if (s3ConnectionsError && !options?.retryOnError) return;
     refreshS3Connections();
-  }, [refreshS3Connections, s3ConnectionsError, s3ConnectionsLoaded, s3ConnectionsLoading]);
+  }, [refreshS3Connections, s3ConnectionsEnabled, s3ConnectionsError, s3ConnectionsLoaded, s3ConnectionsLoading]);
 
   const ensureGroups = useCallback((options?: EnsureOptions) => {
     if (groupsLoading || groupsLoaded) return;

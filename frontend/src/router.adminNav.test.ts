@@ -115,6 +115,29 @@ describe("buildAdminNav", () => {
     expect(getConnectionsLink("OpenStack Clouds", options)).toBeUndefined();
   });
 
+  it("filters managed tenant and shared connection links by their resource switches", () => {
+    const nav = buildAdminNav(
+      true,
+      false,
+      false,
+      false,
+      false,
+      true,
+      false,
+      null,
+      false,
+      undefined,
+      false,
+      false,
+      false,
+    );
+
+    expect(nav.find((section) => section.label === "Managed Tenants")?.links.map((link) => link.label)).toEqual([
+      "Usage & Metrics",
+    ]);
+    expect(nav.find((section) => section.label === "Connections")).toBeUndefined();
+  });
+
   it("uses the Manager tools icon in settings navigation", () => {
     const managerLink = getSettingsLink("Manager", [true, false, false, false, false, true]);
 

@@ -52,8 +52,14 @@ Use a positive, increasing revision for the installation. Omit a section or
 feature key to retain its existing management policy. A Boolean value sets and
 locks a feature. Use `null` to make a feature or the inventory editable while
 preserving its current values. The supported switches are `manager_enabled`,
-`openstack_enabled`, `ceph_admin_enabled`, `storage_ops_enabled`, `browser_enabled`,
-`portal_enabled`, `cost_enabled`, and `endpoint_status_enabled`.
+`managed_rgw_accounts_enabled`, `managed_rgw_users_enabled`,
+`shared_s3_connections_enabled`, `private_s3_connections_enabled`,
+`openstack_enabled`, `ceph_admin_enabled`, `storage_ops_enabled`,
+`browser_enabled`, `portal_enabled`, `cost_enabled`, and `endpoint_status_enabled`.
+
+On a fresh installation, direct RGW Account management is enabled. Standalone
+RGW Users, shared Admin-managed S3 connections, private user-owned S3
+connections, and OpenStack Clouds are disabled until explicitly enabled.
 
 A `storage_endpoints` list must cover every registered endpoint. An empty list
 locks an empty inventory. Give each entry a stable `key` containing 1–64 lowercase

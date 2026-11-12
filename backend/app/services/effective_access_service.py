@@ -8,7 +8,7 @@ from app.models.feature_policy import FeaturePolicy, ManagerFeaturePolicies, res
 from app.services import app_settings_service
 
 from dataclasses import dataclass
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.db import S3Account, S3Connection, UiGroup, User
@@ -275,6 +275,15 @@ class EffectiveAccessService:
     ) -> list[S3Connection]:
         if workspace not in {"manager", "browser"}:
             raise ValueError("Unsupported workspace")
+        general = app_settings_service.load_app_settings_for_db(self.db).general
+        if workspace == "browser" and not general.private_s3_connections_enabled:
+            return []
+        if (
+            workspace == "manager"
+            and not general.private_s3_connections_enabled
+            and not general.shared_s3_connections_enabled
+        ):
+            return []
         effective = resolved or self.resolve_user(user)
         now = utcnow()
         statement = select(S3Connection).where(
@@ -289,18 +298,26 @@ class EffectiveAccessService:
                     S3Connection.access_browser.is_(True),
                 )
             ).all()
+        allowed_connections = []
+        if general.private_s3_connections_enabled:
+            allowed_connections.append(
+                and_(
+                    S3Connection.is_shared.is_(False),
+                    S3Connection.created_by_user_id == user.id,
+                )
+            )
+        if general.shared_s3_connections_enabled:
+            allowed_connections.append(
+                and_(
+                    S3Connection.is_shared.is_(True),
+                    S3Connection.id.in_(effective.s3_connection_ids),
+                )
+            )
         return self.db.scalars(
             statement.where(
                 S3Connection.access_manager.is_(True),
                 S3Connection.remediation_required.is_(False),
-                (
-                    (S3Connection.is_shared.is_(False))
-                    & (S3Connection.created_by_user_id == user.id)
-                )
-                | (
-                    (S3Connection.is_shared.is_(True))
-                    & (S3Connection.id.in_(effective.s3_connection_ids))
-                ),
+                or_(*allowed_connections),
             )
         ).all()
 
@@ -312,14 +329,17 @@ class EffectiveAccessService:
         auth_session_id: str | None = None,
     ) -> BucketMigrationAccessScope:
         effective = resolved if resolved is not None else self.resolve_user(user)
+        general = app_settings_service.load_app_settings_for_db(self.db).general
         admin_account_context_ids = {
             str(link.account_id)
             for link in effective.account_links
-            if self.manager_account_allowed(link)
+            if general.managed_rgw_accounts_enabled and self.manager_account_allowed(link)
         }
-        allowed_context_ids = admin_account_context_ids | {
-            f"s3u-{s3_user_id}" for s3_user_id in effective.s3_user_ids
-        }
+        allowed_context_ids = set(admin_account_context_ids)
+        if general.managed_rgw_users_enabled:
+            allowed_context_ids.update(
+                f"s3u-{s3_user_id}" for s3_user_id in effective.s3_user_ids
+            )
         allowed_context_ids.update(
             f"conn-{connection.id}"
             for connection in self.list_workspace_connections(user, workspace="manager", resolved=effective)
@@ -352,6 +372,10 @@ class EffectiveAccessService:
         user: User,
         connection: S3Connection,
     ) -> bool:
+        if not app_settings_service.load_app_settings_for_db(
+            self.db
+        ).general.private_s3_connections_enabled:
+            return False
         now = utcnow()
         return bool(
             not connection.is_shared

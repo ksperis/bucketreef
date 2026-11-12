@@ -367,6 +367,42 @@ def require_manager_enabled(db: Session = Depends(get_db)) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Manager feature is disabled")
 
 
+def require_managed_rgw_accounts_enabled(db: Session = Depends(get_db)) -> None:
+    settings = app_settings_service.load_app_settings_for_db(db)
+    if not settings.general.managed_rgw_accounts_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Managed RGW Accounts feature is disabled",
+        )
+
+
+def require_managed_rgw_users_enabled(db: Session = Depends(get_db)) -> None:
+    settings = app_settings_service.load_app_settings_for_db(db)
+    if not settings.general.managed_rgw_users_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Managed RGW Users feature is disabled",
+        )
+
+
+def require_shared_s3_connections_enabled(db: Session = Depends(get_db)) -> None:
+    settings = app_settings_service.load_app_settings_for_db(db)
+    if not settings.general.shared_s3_connections_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Shared S3 Connections feature is disabled",
+        )
+
+
+def require_private_s3_connections_enabled(db: Session = Depends(get_db)) -> None:
+    settings = app_settings_service.load_app_settings_for_db(db)
+    if not settings.general.private_s3_connections_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Private S3 Connections feature is disabled",
+        )
+
+
 def require_openstack_enabled(db: Session = Depends(get_db)) -> None:
     settings = app_settings_service.load_app_settings_for_db(db)
     if not settings.general.openstack_enabled:

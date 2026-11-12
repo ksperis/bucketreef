@@ -12,7 +12,11 @@ from app.db import Base, User
 from app.core.domain_enums import UserRole
 from app.main import app
 from app.routers import dependencies
-from app.services.app_settings_service import bootstrap_app_settings_for_db
+from app.services.app_settings_service import (
+    bootstrap_app_settings_for_db,
+    load_app_settings_for_db,
+    save_app_settings_for_db,
+)
 from app.services.bucket_listing_cache import invalidate_bucket_listing_cache
 from app.services.admin_dashboard_metrics_cache import reset_dashboard_metrics_cache
 from app.services.bucket_migration.worker import reset_bucket_migration_worker_for_tests
@@ -92,6 +96,16 @@ def raw_db_session(test_engine):
 def db_session(raw_db_session):
     # Normal runtime tests start after init_db(), which bootstraps app settings.
     bootstrap_app_settings_for_db(raw_db_session)
+    # Most functional tests predate the optional resource switches and exercise
+    # the historical installation behavior. Migration/fresh-install tests use
+    # raw_db_session or model defaults directly and therefore keep the new
+    # fresh-install defaults.
+    settings = load_app_settings_for_db(raw_db_session)
+    settings.general.managed_rgw_accounts_enabled = True
+    settings.general.managed_rgw_users_enabled = True
+    settings.general.shared_s3_connections_enabled = True
+    settings.general.private_s3_connections_enabled = True
+    save_app_settings_for_db(raw_db_session, settings)
     return raw_db_session
 
 

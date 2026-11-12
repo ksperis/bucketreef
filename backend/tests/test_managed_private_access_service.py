@@ -214,6 +214,17 @@ def test_managed_private_access_policy_only_wraps_expected_iam_errors(db_session
         service.validate_iam_provisioning_request(BrokenIAM(), _payload())
 
 
+def test_managed_private_access_respects_global_private_connection_switch(db_session):
+    user = _user(db_session, managed=True)
+    settings = app_settings_service.load_app_settings_for_db(db_session)
+    settings.general.private_s3_connections_enabled = False
+    service = ManagedPrivateAccessPolicyService(db_session)
+
+    assert service.managed_provisioning_allowed(user) is False
+    with pytest.raises(ManagedPrivateAccessForbidden):
+        service.ensure_managed_private_connection_provisioning_allowed(user)
+
+
 def _disable_capability_probe(monkeypatch):
     monkeypatch.setattr(
         "app.services.managed_private_access_connection_service.refresh_connection_detected_capabilities",

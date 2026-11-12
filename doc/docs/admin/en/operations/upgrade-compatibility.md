@@ -7,6 +7,19 @@ This release changes the deployment contract for `FEATURE_*_ENABLED` and
 restarting upgraded runtimes. Follow the [migration procedure](../configuration/deployment.md#migrate-from-environment-overrides).
 Existing endpoint records and associations are preserved by the database migration.
 
+## 2026-11 managed resource feature switches
+
+Migration `0272_resource_feature_switches` adds independent global switches for
+direct RGW Account management, standalone RGW Users, shared Admin-managed S3
+connections, and private user-owned S3 connections. Existing installations
+materialize all four switches as enabled so their current capabilities remain
+available after upgrade. Explicit values already present in application settings
+are preserved.
+
+Fresh installations use the model defaults. RGW Accounts are enabled, while RGW
+Users, shared S3 connections, and private S3 connections are disabled. The
+existing `openstack_enabled` value is not changed by this migration.
+
 
 ## 2026-11 canonical Portal server access-log filter rules
 

@@ -109,10 +109,13 @@ from app.services.deployment_checks import run_deployment_checks, startup_blocki
 from app.routers.dependencies import (
     require_browser_enabled,
     require_ceph_admin_enabled,
+    require_managed_rgw_users_enabled,
     require_manager_context_enabled,
     require_manager_enabled,
     require_openstack_enabled,
     require_portal_enabled,
+    require_private_s3_connections_enabled,
+    require_shared_s3_connections_enabled,
     require_storage_ops_enabled,
 )
 from app.utils.aws_errors import aws_error_code
@@ -270,7 +273,11 @@ if any(
     for surface in ("manager", "portal", "browser")
 ):
     app.include_router(execution_contexts.router, prefix=settings.api_prefix)
-    app.include_router(user_connections.router, prefix=settings.api_prefix)
+    app.include_router(
+        user_connections.router,
+        prefix=settings.api_prefix,
+        dependencies=[Depends(require_private_s3_connections_enabled)],
+    )
     app.include_router(
         openstack.router,
         prefix=settings.api_prefix,
@@ -279,8 +286,16 @@ if any(
 if runtime_surface_enabled(settings, "admin"):
     app.include_router(admin_access_audit.router, prefix=settings.api_prefix)
     app.include_router(admin_s3_accounts.router, prefix=settings.api_prefix)
-    app.include_router(admin_s3_users.router, prefix=settings.api_prefix)
-    app.include_router(admin_s3_connections.router, prefix=settings.api_prefix)
+    app.include_router(
+        admin_s3_users.router,
+        prefix=settings.api_prefix,
+        dependencies=[Depends(require_managed_rgw_users_enabled)],
+    )
+    app.include_router(
+        admin_s3_connections.router,
+        prefix=settings.api_prefix,
+        dependencies=[Depends(require_shared_s3_connections_enabled)],
+    )
     app.include_router(admin_tag_definitions.router, prefix=settings.api_prefix)
     app.include_router(admin_audit.router, prefix=settings.api_prefix)
     app.include_router(admin_stats.router, prefix=settings.api_prefix)
@@ -348,10 +363,17 @@ if runtime_surface_enabled(settings, "manager"):
         prefix=settings.api_prefix,
         dependencies=[Depends(require_manager_context_enabled)],
     )
+    app.include_router(
+        manager_private_access.router,
+        prefix=settings.api_prefix,
+        dependencies=[
+            Depends(require_manager_enabled),
+            Depends(require_private_s3_connections_enabled),
+        ],
+    )
     for manager_router in (
         manager_activity.router,
         manager_ceph_keys.router,
-        manager_private_access.router,
         manager_buckets.router,
         manager_feature_rules.router,
         iam_users.router,

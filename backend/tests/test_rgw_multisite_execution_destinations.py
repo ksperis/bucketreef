@@ -5,11 +5,22 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from app.db import S3Connection, S3User, StorageEndpoint, User, UserS3Account, UserS3User
-from app.core.domain_enums import ManagerAccountRole, UserRole
+from app.db import (
+    S3Connection,
+    S3User,
+    StorageEndpoint,
+    User,
+    UserS3Account,
+    UserS3Connection,
+    UserS3User,
+)
+from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, UserRole
 from app.models.app_settings import AppSettings
 from app.routers.dependencies_internal.execution_context import resolve_s3_execution_context
-from app.services.app_settings_service import save_app_settings_for_db
+from app.services.app_settings_service import (
+    load_app_settings_for_db,
+    save_app_settings_for_db,
+)
 from app.services.execution_context_catalog_service import ExecutionContextCatalogService
 from app.services.rgw_multisite_endpoints import (
     list_compatible_rgw_execution_endpoints,
@@ -18,6 +29,16 @@ from app.services.rgw_multisite_endpoints import (
 from app.services.s3_client_options import resolve_s3_client_options
 from tests.s3_account_factory import make_s3_account
 from tests.storage_endpoint_features import persisted_endpoint_features
+
+
+@pytest.fixture(autouse=True)
+def _enable_resource_features(db_session):
+    settings = load_app_settings_for_db(db_session)
+    settings.general.managed_rgw_accounts_enabled = True
+    settings.general.managed_rgw_users_enabled = True
+    settings.general.shared_s3_connections_enabled = True
+    settings.general.private_s3_connections_enabled = True
+    save_app_settings_for_db(db_session, settings)
 
 
 def _endpoint(
@@ -51,11 +72,12 @@ def _connection(
     *,
     name: str,
     session_token: str | None = None,
+    is_shared: bool = False,
 ) -> S3Connection:
     return S3Connection(
         created_by_user_id=user.id,
         name=name,
-        is_shared=False,
+        is_shared=is_shared,
         is_active=True,
         access_manager=True,
         access_browser=True,
@@ -65,6 +87,118 @@ def _connection(
         secret_access_key=f"SK-{name}",
         session_token=session_token,
     )
+
+
+def test_resource_switches_filter_catalog_and_explicit_contexts_but_keep_portal_account(
+    db_session,
+):
+    endpoint = _endpoint("resource-switch", zone_id="zone-a")
+    endpoint.features = persisted_endpoint_features(
+        "features:\n  iam:\n    enabled: true\n",
+        provider="ceph",
+    )
+    user = User(
+        email="resource-switch@example.test",
+        hashed_password="x",
+        is_active=True,
+        role=UserRole.UI_USER.value,
+    )
+    account = make_s3_account(
+        db_session,
+        name="resource-switch-account",
+        rgw_account_id="RGWRESOURCE0001",
+        rgw_access_key="ACCOUNT-AK",
+        rgw_secret_key="ACCOUNT-SK",
+        storage_endpoint=endpoint,
+    )
+    s3_user = S3User(
+        name="resource-switch-user",
+        rgw_user_uid="resource-switch-user",
+        rgw_tenant="",
+        rgw_access_key="USER-AK",
+        rgw_secret_key="USER-SK",
+        storage_endpoint=endpoint,
+    )
+    db_session.add_all([endpoint, user, account, s3_user])
+    db_session.flush()
+    shared = _connection(user, endpoint, name="resource-switch-shared", is_shared=True)
+    private = _connection(user, endpoint, name="resource-switch-private")
+    db_session.add_all([shared, private])
+    db_session.flush()
+    db_session.add_all(
+        [
+            UserS3Account(
+                user_id=user.id,
+                account_id=account.id,
+                manager_role=ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value,
+                portal_role=PortalAccountRole.PORTAL_MANAGER.value,
+                allow_manager_browser_data_access=True,
+            ),
+            UserS3User(
+                user_id=user.id,
+                s3_user_id=s3_user.id,
+                allow_manager_browser_data_access=True,
+            ),
+            UserS3Connection(user_id=user.id, s3_connection_id=shared.id),
+        ]
+    )
+    db_session.commit()
+
+    settings = AppSettings()
+    settings.general.managed_rgw_accounts_enabled = True
+    settings.general.managed_rgw_users_enabled = True
+    settings.general.shared_s3_connections_enabled = True
+    settings.general.private_s3_connections_enabled = True
+    settings.general.portal_enabled = True
+    settings.general.browser_portal_enabled = True
+    save_app_settings_for_db(db_session, settings)
+
+    context_by_switch = {
+        "managed_rgw_accounts_enabled": str(account.id),
+        "managed_rgw_users_enabled": f"s3u-{s3_user.id}",
+        "shared_s3_connections_enabled": f"conn-{shared.id}",
+        "private_s3_connections_enabled": f"conn-{private.id}",
+    }
+    assert set(context_by_switch.values()) <= {
+        item.id
+        for item in ExecutionContextCatalogService(db_session).list_contexts(
+            user,
+            workspace="manager",
+        )
+    }
+
+    for field, context_id in context_by_switch.items():
+        setattr(settings.general, field, False)
+        save_app_settings_for_db(db_session, settings)
+        assert context_id not in {
+            item.id
+            for item in ExecutionContextCatalogService(db_session).list_contexts(
+                user,
+                workspace="manager",
+            )
+        }
+        with pytest.raises(HTTPException) as denied:
+            resolve_s3_execution_context(
+                _request(),
+                context_id,
+                user,
+                db_session,
+                metadata_only=True,
+            )
+        assert denied.value.status_code == 403
+        setattr(settings.general, field, True)
+        save_app_settings_for_db(db_session, settings)
+
+    settings.general.managed_rgw_accounts_enabled = False
+    save_app_settings_for_db(db_session, settings)
+    portal = resolve_s3_execution_context(
+        _request("/api/browser/buckets/search", workspace="portal"),
+        str(account.id),
+        user,
+        db_session,
+        metadata_only=True,
+    )
+    assert portal.context_kind == "portal_account"
 
 
 def _request(path: str = "/api/manager/buckets", *, workspace: str | None = None):

@@ -63,7 +63,9 @@ import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
 import useAdminGroupAssociationOptions from "./useAdminGroupAssociationOptions";
 import useAdminPaginatedListState from "./useAdminPaginatedListState";
 import useAdminPaginatedListController from "./useAdminPaginatedListController";
-import useAdminStorageAssociationEditorState from "./useAdminStorageAssociationEditorState";
+import useAdminStorageAssociationEditorState, {
+  type StorageAssociationTab,
+} from "./useAdminStorageAssociationEditorState";
 import {
   buildAdminAssociationLookup,
   deriveAdminAssociationOptions,
@@ -111,6 +113,19 @@ export default function GroupsPage() {
     }));
   const { generalSettings } = useGeneralSettings();
   const openStackEnabled = generalSettings.openstack_enabled;
+  const accountAssociationsEnabled =
+    generalSettings.managed_rgw_accounts_enabled || generalSettings.portal_enabled;
+  const managedRgwUsersEnabled = generalSettings.managed_rgw_users_enabled;
+  const sharedS3ConnectionsEnabled = generalSettings.shared_s3_connections_enabled;
+  const defaultAssociationTab: StorageAssociationTab = accountAssociationsEnabled
+    ? "accounts"
+    : managedRgwUsersEnabled
+      ? "s3_users"
+      : sharedS3ConnectionsEnabled
+        ? "connections"
+        : openStackEnabled
+          ? "openstack"
+          : "accounts";
   const stepUpLabels = useMemo(() => ({
     title: text("verifyWithPasskey"),
     description: text("verificationDescription"),
@@ -144,6 +159,9 @@ export default function GroupsPage() {
     refresh: loadAuxiliaryData,
   } = useAdminGroupAssociationOptions({
     openStackEnabled,
+    accountsEnabled: accountAssociationsEnabled,
+    s3UsersEnabled: managedRgwUsersEnabled,
+    connectionsEnabled: sharedS3ConnectionsEnabled,
     onError: handleAssociationOptionsError,
   });
   const {
@@ -276,7 +294,7 @@ export default function GroupsPage() {
     setAttempted(false);
     setModalTab("general");
     memberPicker.reset();
-    storageAssociations.reset();
+    storageAssociations.reset(defaultAssociationTab);
     usersCatalog.setSearch("");
     accountsCatalog.setSearch("");
     s3UsersCatalog.setSearch("");
@@ -675,7 +693,7 @@ export default function GroupsPage() {
   const renderAssociationsTab = () => (
     <AdminAssociationTabs
       tabs={[
-        {
+        ...(accountAssociationsEnabled ? [{
           id: "accounts",
           label: text("accounts"),
           count: selectedAccountIds.size,
@@ -705,8 +723,8 @@ export default function GroupsPage() {
               }
             />
           ),
-        },
-        {
+        }] : []),
+        ...(managedRgwUsersEnabled ? [{
           id: "s3_users",
           label: text("s3Users"),
           count: selectedS3UserIds.size,
@@ -731,8 +749,8 @@ export default function GroupsPage() {
               }
             />
           ),
-        },
-        {
+        }] : []),
+        ...(sharedS3ConnectionsEnabled ? [{
           id: "connections",
           label: text("connections"),
           count: selectedConnectionIds.size,
@@ -756,7 +774,7 @@ export default function GroupsPage() {
               normalizeSelection={(ids) => [...new Set(ids)].sort((a, b) => a - b)}
             />
           ),
-        },
+        }] : []),
         ...(openStackEnabled ? [{
           id: "openstack",
           label: text("openStack"),

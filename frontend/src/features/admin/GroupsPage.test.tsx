@@ -120,6 +120,10 @@ const managerFeaturePolicies: ManagerFeaturePolicies = {
 const generalSettingsState = {
   manager_feature_policies: managerFeaturePolicies,
   manager_enabled: true,
+  managed_rgw_accounts_enabled: true,
+  managed_rgw_users_enabled: true,
+  shared_s3_connections_enabled: true,
+  private_s3_connections_enabled: true,
   openstack_enabled: true,
   ceph_admin_enabled: true,
   storage_ops_enabled: true,
@@ -191,6 +195,10 @@ describe("GroupsPage", () => {
     vi.clearAllMocks();
     window.history.replaceState({}, "", "/admin/groups");
     generalSettingsState.portal_enabled = false;
+    generalSettingsState.managed_rgw_accounts_enabled = true;
+    generalSettingsState.managed_rgw_users_enabled = true;
+    generalSettingsState.shared_s3_connections_enabled = true;
+    generalSettingsState.private_s3_connections_enabled = true;
     generalSettingsState.manager_feature_policies.managed_private_connection_provisioning = "targeted";
 
     listGroupsMock.mockResolvedValue({

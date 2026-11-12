@@ -255,6 +255,7 @@ export function AdminAssociationAccessPickerTable({
   onAccessChange,
 }: AdminAssociationAccessPickerTableProps) {
   const { generalSettings } = useGeneralSettings();
+  const showManagerRole = generalSettings.managed_rgw_accounts_enabled;
   const showPortalRole = generalSettings.portal_enabled || options.some(({ access }) => access.portal_role);
   const prefix = "admin-association-picker-" + useId().replaceAll(":", "");
   const { text } = useAdminAssociationI18n();
@@ -266,7 +267,7 @@ export function AdminAssociationAccessPickerTable({
         <thead>
           <tr>
             <th className="text-left">{principalLabel}</th>
-            <th className="text-left">{text("managerRole")}</th>
+            {showManagerRole && <th className="text-left">{text("managerRole")}</th>}
             {showPortalRole && <th className="text-left">{text("portalRole")}</th>}
           </tr>
         </thead>
@@ -298,7 +299,7 @@ export function AdminAssociationAccessPickerTable({
                     />
                   ) : null}
                 </td>
-                <td>
+                {showManagerRole && <td>
                   <ManagerAccountRoleSelect
                     label={option.label}
                     value={option.access}
@@ -308,7 +309,7 @@ export function AdminAssociationAccessPickerTable({
                     invalid={invalid}
                     describedBy={invalid ? errorId : undefined}
                   />
-                </td>
+                </td>}
                 {showPortalRole && <td>
                   <PortalAccountRoleSelect
                     label={option.label}

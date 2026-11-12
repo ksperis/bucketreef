@@ -9,7 +9,7 @@ Keystone and the storage service retain authorization authority.
 ## Configure a cloud
 
 OpenStack is experimental and disabled by default. A Superadmin must first enable
-**Settings > General > Available workspaces > OpenStack**. The deployment can
+**Settings > General > Connections > OpenStack Clouds**. The deployment can
 set and lock `openstack_enabled` with the [deployment manifest](../../configuration/deployment.md).
 
 Then open **Connections > OpenStack Clouds > Add cloud**. Enter the final HTTPS

@@ -173,6 +173,69 @@ def test_migration_scope_and_worker_share_exact_manager_contexts(db_session, pri
     assert scope.admin_account_context_ids == {str(account.id)}
 
 
+def test_migration_scope_filters_resource_switches_and_restores_persisted_access(
+    db_session,
+    principal,
+):
+    user, _, _ = principal
+    account = make_s3_account(db_session, name="switch-account")
+    rgw_user = S3User(
+        name="switch-rgw-user",
+        rgw_user_uid="switch-rgw-user",
+        rgw_access_key="test-key",
+        rgw_secret_key="test-secret",
+        storage_endpoint_id=account.storage_endpoint_id,
+    )
+    db_session.add_all([account, rgw_user])
+    db_session.flush()
+    shared = _connection(db_session, user, name="switch-shared", is_shared=True)
+    private = _connection(db_session, user, name="switch-private", is_shared=False)
+    db_session.add_all(
+        [
+            UserS3Account(
+                user_id=user.id,
+                account_id=account.id,
+                manager_role=ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value,
+            ),
+            UserS3User(user_id=user.id, s3_user_id=rgw_user.id),
+            UserS3Connection(user_id=user.id, s3_connection_id=shared.id),
+        ]
+    )
+    db_session.commit()
+
+    settings = feature_gates.app_settings_service.load_app_settings_for_db(db_session)
+    context_by_switch = {
+        "managed_rgw_accounts_enabled": str(account.id),
+        "managed_rgw_users_enabled": f"s3u-{rgw_user.id}",
+        "shared_s3_connections_enabled": f"conn-{shared.id}",
+        "private_s3_connections_enabled": f"conn-{private.id}",
+    }
+    all_contexts = set(context_by_switch.values())
+
+    assert feature_gates.get_current_bucket_migration_scope(
+        user=user,
+        db=db_session,
+    ).allowed_context_ids == all_contexts
+
+    for field, context_id in context_by_switch.items():
+        setattr(settings.general, field, False)
+        filtered = feature_gates.get_current_bucket_migration_scope(
+            user=user,
+            db=db_session,
+        )
+        assert filtered.allowed_context_ids == all_contexts - {context_id}
+        if field == "managed_rgw_accounts_enabled":
+            assert filtered.admin_account_context_ids == set()
+        setattr(settings.general, field, True)
+
+    restored = feature_gates.get_current_bucket_migration_scope(
+        user=user,
+        db=db_session,
+    )
+    assert restored.allowed_context_ids == all_contexts
+    assert restored.admin_account_context_ids == {str(account.id)}
+
+
 @pytest.mark.parametrize("rejection", ["inactive", "expired", "remediation", "browser_only", "foreign_private", "unassigned_shared"])
 def test_migration_scope_excludes_ineligible_connections(db_session, principal, rejection):
     user, _, _ = principal

@@ -40,6 +40,10 @@ import { useAdminI18n } from "./adminI18n";
 
 const featureFields = [
   "manager_enabled",
+  "managed_rgw_accounts_enabled",
+  "managed_rgw_users_enabled",
+  "shared_s3_connections_enabled",
+  "private_s3_connections_enabled",
   "openstack_enabled",
   "browser_enabled",
   "portal_enabled",
@@ -471,9 +475,39 @@ export default function GeneralSettingsPage() {
           "Storage Ops",
           "Cross-account and cross-connection bucket operations.",
         )}
+      </SettingsSection>
+      <SettingsSection
+        presentation="compact"
+        title={adminText("Managed Tenants")}
+      >
+        {feature(
+          "managed_rgw_accounts_enabled",
+          "RGW Accounts",
+          "Enable direct RGW Account management in Admin and expose accounts as Manager and Storage Ops contexts. Portal account access remains available when Portal is enabled.",
+        )}
+        {feature(
+          "managed_rgw_users_enabled",
+          "RGW Users",
+          "Enable standalone RGW Users managed in Admin and exposed as Manager contexts.",
+        )}
+      </SettingsSection>
+      <SettingsSection
+        presentation="compact"
+        title={adminText("Connections")}
+      >
+        {feature(
+          "shared_s3_connections_enabled",
+          "S3 Connections",
+          "Enable shared, Admin-managed S3 connections that can be assigned to users and groups.",
+        )}
+        {feature(
+          "private_s3_connections_enabled",
+          "Private S3 Connections",
+          "Enable user-owned S3 connections managed from Profile and used in personal Browser and Manager contexts.",
+        )}
         {feature(
           "openstack_enabled",
-          "OpenStack",
+          "OpenStack Clouds",
           "Connect authorized users to OpenStack projects and their S3 regions.",
           true,
         )}

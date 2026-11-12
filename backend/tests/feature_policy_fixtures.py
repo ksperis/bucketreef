@@ -10,6 +10,10 @@ from app.models.feature_policy import FeaturePolicy, PORTAL_FEATURE_FIELDS, Port
 def enable_manager_features(db_session):
     """Permission scenarios explicitly opt into the features whose grants they test."""
     settings = AppSettings()
+    settings.general.managed_rgw_accounts_enabled = True
+    settings.general.managed_rgw_users_enabled = True
+    settings.general.shared_s3_connections_enabled = True
+    settings.general.private_s3_connections_enabled = True
     for name in type(settings.manager.feature_policies).model_fields:
         setattr(settings.manager.feature_policies, name, FeaturePolicy.TARGETED)
     row = db_session.scalar(sa.select(AppSetting).where(AppSetting.key == "default"))
