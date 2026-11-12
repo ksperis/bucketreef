@@ -1,7 +1,7 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 from collections.abc import Callable
-from typing import Protocol, TypeVar
+from typing import TypeVar
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Request, status
 from sqlalchemy.orm import Session
@@ -54,13 +54,10 @@ from app.utils.identity_provider_ids import normalize_identity_provider_id
 router = APIRouter(prefix="/admin/settings", tags=["admin-settings"])
 
 
-class _IdentityProviderAdminItem(Protocol):
-    provider_id: str
-
-
 _IdentityProviderAdminItemT = TypeVar(
     "_IdentityProviderAdminItemT",
-    bound=_IdentityProviderAdminItem,
+    OIDCProviderAdminItem,
+    LDAPProviderAdminItem,
 )
 
 _SENSITIVE_GENERAL_SETTINGS = (
