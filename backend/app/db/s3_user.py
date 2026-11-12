@@ -50,6 +50,7 @@ class S3User(Base):
     user_links = relationship(
         "UserS3User",
         back_populates="s3_user",
+        passive_deletes=True,
     )
     storage_endpoint = relationship("StorageEndpoint", lazy="joined")
     tag_links = relationship("S3UserTag", back_populates="s3_user", cascade="all, delete-orphan")
@@ -132,8 +133,12 @@ class UserS3User(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    s3_user_id = Column(Integer, ForeignKey("s3_users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    s3_user_id = Column(
+        Integer,
+        ForeignKey("s3_users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     allow_manager_browser_data_access = Column(
         Boolean,
         nullable=False,

@@ -14,7 +14,12 @@ class ApiToken(Base):
     id = Column(String, primary_key=True, index=True)
     jti = Column(String, nullable=False, unique=True, index=True)
     token_hash = Column(String, nullable=False, unique=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     name = Column(String, nullable=False)
     scopes = Column(JSON, nullable=False, default=list, server_default="[]")
     auth_version = Column(Integer, nullable=False, default=1, server_default="1")

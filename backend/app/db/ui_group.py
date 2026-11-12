@@ -43,10 +43,30 @@ class UiGroup(Base):
     created_at = Column(UTCDateTime(), default=utcnow, nullable=False)
     updated_at = Column(UTCDateTime(), default=utcnow, onupdate=utcnow, nullable=False)
 
-    user_links = relationship("UserUiGroup", back_populates="group", cascade="all, delete-orphan")
-    account_links = relationship("UiGroupS3Account", back_populates="group", cascade="all, delete-orphan")
-    s3_user_links = relationship("UiGroupS3User", back_populates="group", cascade="all, delete-orphan")
-    s3_connection_links = relationship("UiGroupS3Connection", back_populates="group", cascade="all, delete-orphan")
+    user_links = relationship(
+        "UserUiGroup",
+        back_populates="group",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    account_links = relationship(
+        "UiGroupS3Account",
+        back_populates="group",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    s3_user_links = relationship(
+        "UiGroupS3User",
+        back_populates="group",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    s3_connection_links = relationship(
+        "UiGroupS3Connection",
+        back_populates="group",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
 class UserUiGroup(Base):
@@ -57,8 +77,8 @@ class UserUiGroup(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    group_id = Column(Integer, ForeignKey("ui_groups.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    group_id = Column(Integer, ForeignKey("ui_groups.id", ondelete="CASCADE"), nullable=False)
     created_at = Column(UTCDateTime(), default=utcnow, nullable=False)
 
     user = relationship("User", back_populates="ui_group_links")
@@ -90,8 +110,12 @@ class UiGroupS3Account(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    group_id = Column(Integer, ForeignKey("ui_groups.id"), nullable=False)
-    account_id = Column(Integer, ForeignKey("s3_accounts.id"), nullable=False)
+    group_id = Column(Integer, ForeignKey("ui_groups.id", ondelete="CASCADE"), nullable=False)
+    account_id = Column(
+        Integer,
+        ForeignKey("s3_accounts.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     manager_role = Column(String, nullable=True)
     portal_role = Column(String, nullable=True)
     allow_manager_browser_data_access = Column(
@@ -115,8 +139,12 @@ class UiGroupS3User(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    group_id = Column(Integer, ForeignKey("ui_groups.id"), nullable=False)
-    s3_user_id = Column(Integer, ForeignKey("s3_users.id"), nullable=False)
+    group_id = Column(Integer, ForeignKey("ui_groups.id", ondelete="CASCADE"), nullable=False)
+    s3_user_id = Column(
+        Integer,
+        ForeignKey("s3_users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     allow_manager_browser_data_access = Column(
         Boolean,
         nullable=False,
@@ -136,8 +164,12 @@ class UiGroupS3Connection(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    group_id = Column(Integer, ForeignKey("ui_groups.id"), nullable=False)
-    s3_connection_id = Column(Integer, ForeignKey("s3_connections.id"), nullable=False)
+    group_id = Column(Integer, ForeignKey("ui_groups.id", ondelete="CASCADE"), nullable=False)
+    s3_connection_id = Column(
+        Integer,
+        ForeignKey("s3_connections.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     created_at = Column(UTCDateTime(), default=utcnow, nullable=False)
     updated_at = Column(UTCDateTime(), default=utcnow, onupdate=utcnow, nullable=False)
 

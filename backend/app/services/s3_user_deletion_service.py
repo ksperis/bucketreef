@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.db_transactions import run_replayable_db_unit
 from app.core.sensitive_data import sanitized_error_log_detail
-from app.db import S3User, S3UserDeletion, UiGroupS3User, UserS3User
+from app.db import S3User, S3UserDeletion
 from app.services.resource_deletion_purge_service import ResourceDeletionPurgeService
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.s3_execution_context import S3ExecutionContext
@@ -275,16 +275,6 @@ class S3UserDeletionService:
             current_user = write_db.get(S3User, s3_user_id)
             if current_user is None:
                 return
-            write_db.execute(
-                delete(UserS3User)
-                .where(UserS3User.s3_user_id == s3_user_id)
-                .execution_options(synchronize_session=False)
-            )
-            write_db.execute(
-                delete(UiGroupS3User)
-                .where(UiGroupS3User.s3_user_id == s3_user_id)
-                .execution_options(synchronize_session=False)
-            )
             purge = ResourceDeletionPurgeService(write_db)
             purge.purge_execution_context_data(f"s3u-{s3_user_id}")
             if deletion_id is not None:

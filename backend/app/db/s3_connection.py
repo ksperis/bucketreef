@@ -116,6 +116,7 @@ class S3Connection(Base):
         "UserS3Connection",
         back_populates="connection",
         cascade="all, delete-orphan",
+        passive_deletes=True,
     )
     tag_links = relationship("S3ConnectionTag", back_populates="connection", cascade="all, delete-orphan")
     managed_private_access = relationship(
@@ -134,8 +135,12 @@ class UserS3Connection(Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    s3_connection_id = Column(Integer, ForeignKey("s3_connections.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    s3_connection_id = Column(
+        Integer,
+        ForeignKey("s3_connections.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     created_at = Column(UTCDateTime(), default=utcnow, nullable=False)
     updated_at = Column(UTCDateTime(), default=utcnow, nullable=False)
 

@@ -11,7 +11,6 @@ from app.core.db_transactions import acquire_sqlite_write_transaction
 from app.core.domain_errors import CompensationFailureError, UiUserNotFoundError
 from app.db import (
     AccountIAMUser,
-    ApiToken,
     AuditLog,
     AuthSession,
     BucketMigration,
@@ -22,10 +21,6 @@ from app.db import (
     S3Connection,
     TagDefinition,
     User,
-    UserS3Account,
-    UserS3Connection,
-    UserS3User,
-    UserUiGroup,
 )
 from app.services.portal.iam_revocation import PortalIAMRevocationPreparation
 from app.services.portal_ownership import require_no_private_storage_space_ownership
@@ -206,33 +201,7 @@ class UserDeletionService:
             )
             .execution_options(synchronize_session=False)
         )
-        # Remove dependent links/tokens first to satisfy FK constraints on PostgreSQL.
-        self.db.execute(
-            delete(UserS3Account)
-            .where(UserS3Account.user_id == user_id)
-            .execution_options(synchronize_session=False)
-        )
-        self.db.execute(
-            delete(UserS3User)
-            .where(UserS3User.user_id == user_id)
-            .execution_options(synchronize_session=False)
-        )
-        self.db.execute(
-            delete(UserS3Connection)
-            .where(UserS3Connection.user_id == user_id)
-            .execution_options(synchronize_session=False)
-        )
-        self.db.execute(
-            delete(UserUiGroup)
-            .where(UserUiGroup.user_id == user_id)
-            .execution_options(synchronize_session=False)
-        )
         if created_private_ids:
-            self.db.execute(
-                delete(UserS3Connection)
-                .where(UserS3Connection.s3_connection_id.in_(created_private_ids))
-                .execution_options(synchronize_session=False)
-            )
             self.db.execute(
                 delete(S3Connection)
                 .where(S3Connection.id.in_(created_private_ids))
@@ -240,11 +209,6 @@ class UserDeletionService:
             )
 
     def _delete_auth_artifacts(self, user_id: int) -> None:
-        self.db.execute(
-            delete(ApiToken)
-            .where(ApiToken.user_id == user_id)
-            .execution_options(synchronize_session=False)
-        )
         auth_session_ids = list(
             self.db.scalars(
                 select(AuthSession.id).where(AuthSession.user_id == user_id)
