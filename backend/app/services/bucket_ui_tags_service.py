@@ -316,7 +316,6 @@ class BucketUiTagsService:
             )
             changed_fields.add("visibility")
         if changed_fields:
-            self.db.add(definition)
             self.db.flush()
         return BucketUiTagDefinitionUpdate(
             definition=self._to_definition(definition),

@@ -425,7 +425,6 @@ class PortalStorageSpacesMixin:
                 bucket_name=bucket_name,
                 update=update,
             )
-            self.db.add(metadata)
             self.db.flush()
             projection_attempted = True
             self._sync_storage_space_access_projection(
@@ -553,7 +552,6 @@ class PortalStorageSpacesMixin:
                 raise PortalForbiddenError("You already own this private Storage Space.")
             metadata.owner_user_id = user.id
             metadata.updated_at = utcnow()
-            self.db.add(metadata)
             self.db.flush()
             affected_user_ids = {user.id}
             if previous_owner_id is not None:
