@@ -1,6 +1,6 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from typing import Optional
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy.orm import Session
@@ -60,6 +60,7 @@ def get_direct_transfer_policy(
     response: Response,
     workspace: BrowserTransferWorkspace = Query(),
     context_id: Optional[str] = Query(default=None, max_length=128),
+    execution_endpoint_id: Annotated[Optional[int], Query(gt=0)] = None,
     policy_id: Optional[str] = Query(default=None, pattern=r"^[a-f0-9]{64}$"),
     actor: ManagerActor = Depends(get_current_actor),
     db: Session = Depends(get_db),
@@ -72,7 +73,15 @@ def get_direct_transfer_policy(
     ):
         raise HTTPException(status_code=403, detail="Browser workspace is disabled")
     is_session = _validate_workspace_request(actor, workspace, context_id)
-    context = resolve_s3_execution_context(request, context_id, actor, db, workspace=workspace, metadata_only=True)
+    context = resolve_s3_execution_context(
+        request,
+        context_id,
+        actor,
+        db,
+        workspace=workspace,
+        metadata_only=True,
+        execution_endpoint_id=execution_endpoint_id,
+    )
     try:
         policy = build_transfer_policy(context, workspace=workspace, context_id=None if is_session else context.context_id)
     except ValueError as exc:
