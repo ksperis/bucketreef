@@ -12,13 +12,10 @@ from pydantic import model_validator
 from app.models.admin_listing import AdminSortableListingRequest
 from app.models.base import ApiModel, reject_explicit_null_fields
 from app.models.pagination import PaginatedResponse
-from app.models.tagging import (
-    OptionalTagDefinitionList,
-)
 from app.models.s3_connection import (
-    CanonicalS3ConnectionEndpointPayload,
     S3ConnectionCreationPayload,
     S3ConnectionCredentialsUpdate,
+    S3ConnectionUpdateFields,
     S3ConnectionViewFields,
 )
 from app.models.ui_group import UiGroupAvatar
@@ -70,40 +67,21 @@ class S3ConnectionAdminCreate(S3ConnectionCreationPayload):
     pass
 
 
-class S3ConnectionAdminUpdate(CanonicalS3ConnectionEndpointPayload):
-    endpoint_conflict_scope = "S3 connection"
-
-    name: Optional[str] = None
+class S3ConnectionAdminUpdate(S3ConnectionUpdateFields):
     group_ids: Optional[list[int]] = None
     user_ids: Optional[list[int]] = None
     remediation_action: Optional[Literal["activate_manager"]] = None
-    provider_hint: Optional[str] = None
-    is_active: Optional[bool] = None
-    rgw_user_uid: Optional[str] = None
-    rgw_tenant: Optional[str] = None
-    rgw_account_id: Optional[str] = None
-    endpoint_url: Optional[str] = None
-    region: Optional[str] = None
-    force_path_style: Optional[bool] = None
-    verify_tls: Optional[bool] = None
     allow_activity_history: Optional[bool] = None
-    tags: OptionalTagDefinitionList = None
     credentials: Optional[S3ConnectionCredentialsUpdate] = None
 
     @model_validator(mode="after")
-    def reject_non_nullable_nulls(self) -> Self:
+    def reject_admin_nulls(self) -> Self:
         reject_explicit_null_fields(
             self,
             (
-                "name",
                 "group_ids",
                 "user_ids",
                 "remediation_action",
-                "is_active",
-                "endpoint_url",
-                "force_path_style",
-                "verify_tls",
-                "tags",
                 "credentials",
             ),
         )
