@@ -11,10 +11,6 @@ from app.db import (
     BucketMigrationEvent,
     BucketMigrationItem,
     BucketUsageStatsSnapshot,
-    EndpointHealthCheck,
-    EndpointHealthLatest,
-    EndpointHealthRollup,
-    EndpointHealthStatusSegment,
 )
 from app.services.bucket_migration.workflow import ACTIVE_STATUSES, FINAL_STATUSES
 
@@ -93,13 +89,3 @@ class ResourceDeletionPurgeService:
             BucketUsageStatsSnapshot.scope_kind.in_(("admin_managed", "ceph_admin")),
             BucketUsageStatsSnapshot.scope_id == str(endpoint_id),
         )
-        self.purge_endpoint_healthchecks(endpoint_id)
-
-    def purge_endpoint_healthchecks(self, endpoint_id: int) -> None:
-        self._delete_where(EndpointHealthCheck, EndpointHealthCheck.storage_endpoint_id == endpoint_id)
-        self._delete_where(EndpointHealthLatest, EndpointHealthLatest.storage_endpoint_id == endpoint_id)
-        self._delete_where(
-            EndpointHealthStatusSegment,
-            EndpointHealthStatusSegment.storage_endpoint_id == endpoint_id,
-        )
-        self._delete_where(EndpointHealthRollup, EndpointHealthRollup.storage_endpoint_id == endpoint_id)

@@ -21,6 +21,7 @@ from app.models.app_settings import AppSettings
 
 
 _RECENT_LINEAR_REVISIONS = (
+    "0267_endpoint_health_resource_cascades",
     "0266_cost_quota_resource_cascades",
     "0265_user_notification_subject_foreign_keys",
     "0264_bucket_migration_maintenance_requester_fk",
