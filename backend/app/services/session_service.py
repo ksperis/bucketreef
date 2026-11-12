@@ -19,6 +19,7 @@ from app.models.session import SessionCapabilities
 from app.services.access_context_contracts import ManagerSessionPrincipal
 
 from app.services import s3_client
+from app.services.iam_capability_probe import probe_iam_list_users
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_iam import get_iam_client
 from app.utils.rgw_payloads import (
@@ -215,9 +216,9 @@ class SessionService:
         return hashlib.sha256(access_key.encode()).hexdigest()
 
     def _probe_iam_manage(self, access_key: str, secret_key: str, endpoint: Optional[str] = None) -> bool:
-        try:
-            client = get_iam_client(access_key, secret_key, endpoint=endpoint)
-            client.list_users(MaxItems=1)
-            return True
-        except (ClientError, BotoCoreError):
-            return False
+        return probe_iam_list_users(
+            access_key,
+            secret_key,
+            endpoint=endpoint,
+            client_factory=get_iam_client,
+        )
