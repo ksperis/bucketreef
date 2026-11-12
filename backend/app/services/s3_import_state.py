@@ -3,19 +3,15 @@
 from __future__ import annotations
 
 import secrets
-from datetime import datetime
-from typing import Protocol
 
 from sqlalchemy.orm import Session
 
 from app.core.db_transactions import run_replayable_db_unit
+from app.db import S3AccountImportIntent, S3UserImportIntent
 from app.utils.time import utcnow
 
 
-class S3ImportIntent(Protocol):
-    id: int
-    phase: str
-    updated_at: datetime
+S3ImportIntent = S3AccountImportIntent | S3UserImportIntent
 
 
 def new_s3_import_credentials() -> tuple[str, str]:
