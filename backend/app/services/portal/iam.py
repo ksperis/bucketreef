@@ -74,7 +74,6 @@ class PortalIamMixin:
                 raise PortalOperationError("Portal IAM link disappeared while activating a key")
             current.active_access_key = access_key_id
             current.active_secret_key = secret_access_key
-            write_db.add(current)
 
         run_replayable_db_unit(self.db, persist_once)
         self.db.refresh(link)

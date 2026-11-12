@@ -218,7 +218,6 @@ class PortalPublicLinksMixin:
             if current_link is None:
                 raise PortalNotFoundError("Public link not found.")
             current_link.revoked_at = revoked_at
-            write_db.add(current_link)
 
         run_replayable_db_unit(self.db, revoke_link)
         return self.list_storage_space_public_links(user, access, space_id, include_revoked=True)
