@@ -42,9 +42,14 @@ class OpenStackCloud(Base):
     managed_endpoints_only = Column(Boolean, nullable=False, default=False, server_default="0")
     default_domain = Column(String, nullable=True)
     created_at = Column(UTCDateTime(), nullable=False, default=utcnow)
-    users = relationship("User", secondary=cloud_users)
-    groups = relationship("UiGroup", secondary=cloud_groups)
-    connections = relationship("OpenStackConnection", cascade="all, delete-orphan", back_populates="cloud")
+    users = relationship("User", secondary=cloud_users, passive_deletes=True)
+    groups = relationship("UiGroup", secondary=cloud_groups, passive_deletes=True)
+    connections = relationship(
+        "OpenStackConnection",
+        cascade="all, delete-orphan",
+        back_populates="cloud",
+        passive_deletes=True,
+    )
 
 
 class OpenStackConnection(Base):
@@ -57,7 +62,12 @@ class OpenStackConnection(Base):
     display_name = Column(String, nullable=False)
     created_at = Column(UTCDateTime(), nullable=False, default=utcnow)
     cloud = relationship("OpenStackCloud", back_populates="connections")
-    sessions = relationship("OpenStackSession", cascade="all, delete-orphan", back_populates="connection")
+    sessions = relationship(
+        "OpenStackSession",
+        cascade="all, delete-orphan",
+        back_populates="connection",
+        passive_deletes=True,
+    )
 
 
 class OpenStackSession(Base):
@@ -70,7 +80,12 @@ class OpenStackSession(Base):
     cloud_version = Column(Integer, nullable=False, default=1, server_default="1")
     expires_at = Column(UTCDateTime(), nullable=False)
     connection = relationship("OpenStackConnection", back_populates="sessions")
-    credentials = relationship("OpenStackProjectCredential", cascade="all, delete-orphan", back_populates="session")
+    credentials = relationship(
+        "OpenStackProjectCredential",
+        cascade="all, delete-orphan",
+        back_populates="session",
+        passive_deletes=True,
+    )
 
 
 class OpenStackProjectContext(Base):
@@ -87,7 +102,12 @@ class OpenStackProjectContext(Base):
     endpoint_interface = Column(String, nullable=False)
     service_type = Column(String, nullable=False)
     connection = relationship("OpenStackConnection")
-    credentials = relationship("OpenStackProjectCredential", cascade="all, delete-orphan", back_populates="context")
+    credentials = relationship(
+        "OpenStackProjectCredential",
+        cascade="all, delete-orphan",
+        back_populates="context",
+        passive_deletes=True,
+    )
 
 
 class OpenStackProjectCredential(Base):
