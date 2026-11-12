@@ -181,7 +181,8 @@ class StorageEndpointEnvSyncService:
             apply_storage_endpoint_state(endpoint, config)
             endpoint.is_default = config.is_default
             endpoint.is_editable = False
-            self.db.add(endpoint)
+            if endpoint_id is None:
+                self.db.add(endpoint)
             commit_or_rollback(self.db)
             if identity_management_enabled and endpoint.provider == "ceph":
                 identities.reconcile(
