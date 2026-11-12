@@ -23,9 +23,8 @@ from app.services.traffic_service import (
     flatten_usage_entries,
     window_start,
 )
-from app.utils.rgw_identifiers import is_rgw_account_id
+from app.utils.rgw_identifiers import is_rgw_account_id, rgw_tenant_or_default
 from app.utils.rgw_payloads import extract_bucket_list, rgw_qualified_uid
-from app.services.rgw_principal_scope import resolve_target_tenant
 from app.utils.usage_stats import aggregate_bucket_usage, extract_usage_stats
 
 logger = logging.getLogger(__name__)
@@ -183,10 +182,10 @@ class AdminMetricsService:
         # Account roots and registered users can overlap. List each principal
         # once and count each returned bucket only once.
         identifiers = {
-            rgw_qualified_uid(account.rgw_user_uid, resolve_target_tenant(account))
+            rgw_qualified_uid(account.rgw_user_uid, rgw_tenant_or_default(account.rgw_tenant))
             for account in accounts
         } | {
-            rgw_qualified_uid(user.rgw_user_uid, resolve_target_tenant(user))
+            rgw_qualified_uid(user.rgw_user_uid, rgw_tenant_or_default(user.rgw_tenant))
             for user in users
         }
         failures: list[str] = []
@@ -338,7 +337,7 @@ class AdminMetricsService:
         account_usage: list[dict] = []
         for account in accounts:
             used_bytes, used_objects, bucket_count = self._collect_bucket_usage(
-                uid=rgw_qualified_uid(account.rgw_user_uid, resolve_target_tenant(account)),
+                uid=rgw_qualified_uid(account.rgw_user_uid, rgw_tenant_or_default(account.rgw_tenant)),
                 context=f"account:{account.id}",
             )
             totals.add_account_usage(used_bytes, used_objects, bucket_count)
@@ -358,7 +357,7 @@ class AdminMetricsService:
         s3_user_usage: list[dict] = []
         for user in s3_users:
             used_bytes, used_objects, bucket_count = self._collect_bucket_usage(
-                uid=rgw_qualified_uid(user.rgw_user_uid, resolve_target_tenant(user)),
+                uid=rgw_qualified_uid(user.rgw_user_uid, rgw_tenant_or_default(user.rgw_tenant)),
                 context=f"s3_user:{user.id}",
             )
             totals.use_user_bucket_count_when_empty(bucket_count)
@@ -432,7 +431,9 @@ class AdminMetricsService:
     ) -> list[dict]:
         s3_user_usage: list[dict] = []
         for user in s3_users:
-            usage = usage_index.usage_for(rgw_qualified_uid(user.rgw_user_uid, resolve_target_tenant(user)))
+            usage = usage_index.usage_for(
+                rgw_qualified_uid(user.rgw_user_uid, rgw_tenant_or_default(user.rgw_tenant))
+            )
             if usage.used_bytes is None and usage.object_count is None:
                 continue
             s3_user_usage.append(
@@ -508,9 +509,9 @@ class AdminMetricsService:
         allowed: set[str] = set()
         for acc in accounts:
             allowed.add(acc.rgw_account_id)
-            allowed.add(rgw_qualified_uid(acc.rgw_user_uid, resolve_target_tenant(acc)))
+            allowed.add(rgw_qualified_uid(acc.rgw_user_uid, rgw_tenant_or_default(acc.rgw_tenant)))
         for user in s3_users:
-            allowed.add(rgw_qualified_uid(user.rgw_user_uid, resolve_target_tenant(user)))
+            allowed.add(rgw_qualified_uid(user.rgw_user_uid, rgw_tenant_or_default(user.rgw_tenant)))
         return accounts, s3_users, allowed
 
     def _filter_buckets(self, buckets: Iterable[Dict], allowed: set[str]) -> list[dict]:

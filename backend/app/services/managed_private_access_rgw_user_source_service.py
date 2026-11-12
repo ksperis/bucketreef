@@ -18,8 +18,8 @@ from app.services.managed_private_access_errors import (
 )
 from app.services.managed_private_access_sources import ManagedPrivateAccessSource, source_ids
 from app.services.rgw_admin import RGWAdminError
-from app.services.rgw_principal_scope import resolve_target_tenant
 from app.services.s3_execution_context import S3ExecutionContext
+from app.utils.rgw_identifiers import rgw_tenant_or_default
 from app.utils.rgw_payloads import rgw_qualified_uid
 from app.utils.storage_endpoint_features import resolve_feature_flags
 
@@ -85,6 +85,6 @@ class ManagedPrivateAccessRGWUserSourceService:
     @staticmethod
     def _principal(s3_user: S3User) -> str:
         try:
-            return rgw_qualified_uid(s3_user.rgw_user_uid, resolve_target_tenant(s3_user))
+            return rgw_qualified_uid(s3_user.rgw_user_uid, rgw_tenant_or_default(s3_user.rgw_tenant))
         except (ValueError, RGWAdminError) as exc:
             raise ManagedPrivateAccessError("The RGW User tenant could not be verified") from exc

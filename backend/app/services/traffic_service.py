@@ -14,7 +14,7 @@ from app.services.s3_execution_context import S3ExecutionContext
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_supervision import get_supervision_rgw_client
 from app.utils.numbers import int_or_zero
-from app.services.rgw_principal_scope import resolve_target_tenant
+from app.utils.rgw_identifiers import rgw_tenant_or_default
 from app.utils.storage_endpoint_features import resolve_feature_flags
 
 logger = logging.getLogger(__name__)
@@ -461,7 +461,7 @@ class TrafficService:
         ).strip()
         if not account_uid:
             return {}
-        tenant = resolve_target_tenant(self.execution_context)
+        tenant = rgw_tenant_or_default(self.execution_context.rgw_tenant)
         payload = self.admin_client.get_usage(
             uid=account_uid,
             tenant=tenant or None,

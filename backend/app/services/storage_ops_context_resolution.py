@@ -11,10 +11,10 @@ from app.models.execution_context import ExecutionContext
 from app.models.storage_ops import StorageOpsBucketSummary, StorageOpsContextKind
 from app.services.connection_identity_service import ConnectionIdentityService
 from app.services.listing_progress import ListingProgressEmitter, interpolate_progress_percent
-from app.services.rgw_principal_scope import resolve_target_tenant
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.storage_ops_bucket_filtering import match_storage_ops_field_rule
 from app.utils.cancellation import invoke_cancel_check
+from app.utils.rgw_identifiers import rgw_tenant_or_default
 from app.utils.normalize import normalize_optional_string
 
 
@@ -186,13 +186,13 @@ def resolve_storage_ops_context_owner(context: S3ExecutionContext) -> StorageOps
     if account_id:
         return StorageOpsContextOwner(
             owner=account_id,
-            tenant=resolve_target_tenant(context),
+            tenant=rgw_tenant_or_default(context.rgw_tenant),
         )
     user_uid = normalize_optional_string(context.rgw_user_uid)
     if user_uid:
         return StorageOpsContextOwner(
             owner=user_uid,
-            tenant=resolve_target_tenant(context),
+            tenant=rgw_tenant_or_default(context.rgw_tenant),
         )
     source_connection = context.source_connection
     if source_connection is None:

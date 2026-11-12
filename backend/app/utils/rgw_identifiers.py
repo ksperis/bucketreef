@@ -46,6 +46,11 @@ def validate_rgw_tenant(tenant: str) -> str:
     return tenant
 
 
+def rgw_tenant_or_default(tenant: str | None) -> str:
+    """Return the canonical empty-string representation for the default RGW tenant."""
+    return tenant or ""
+
+
 def normalize_rgw_bucket_reference_name(name: object) -> str:
     """Normalize an existing RGW bucket name without applying create-time DNS rules."""
     value = str(name or "").strip()

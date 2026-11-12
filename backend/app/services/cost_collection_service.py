@@ -34,8 +34,8 @@ from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_supervision import get_supervision_rgw_client
 from app.services.traffic_service import aggregate_usage, flatten_usage_entries
 from app.utils.numbers import int_or_zero
+from app.utils.rgw_identifiers import rgw_tenant_or_default
 from app.utils.rgw_payloads import extract_bucket_list, rgw_qualified_uid
-from app.services.rgw_principal_scope import resolve_target_tenant
 from app.utils.storage_endpoint_features import resolve_feature_flags
 from app.utils.time import utcnow
 from app.utils.usage_stats import extract_usage_stats
@@ -260,7 +260,7 @@ class CostCollector:
         else:
             usage_uid = rgw_qualified_uid(
                 subject.principal.rgw_user_uid,
-                resolve_target_tenant(subject.principal),
+                rgw_tenant_or_default(subject.principal.rgw_tenant),
             )
         payload = rgw_admin.get_usage(
             uid=usage_uid,
@@ -304,7 +304,7 @@ class CostCollector:
             raise ValueError("RGW account root UID is unavailable")
         storage_uid = rgw_qualified_uid(
             uid,
-            resolve_target_tenant(subject.principal),
+            rgw_tenant_or_default(subject.principal.rgw_tenant),
         )
         total_bytes, total_objects = self._collect_bucket_stats(
             rgw_admin,

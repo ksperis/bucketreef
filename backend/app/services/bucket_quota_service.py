@@ -6,12 +6,12 @@ from app.core.sensitive_data import sanitized_error_log_detail
 from app.models.bucket import BucketQuotaUpdate
 from app.services.rgw_admin import RGWAdminClient, RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_admin_rgw_client
-from app.services.rgw_principal_scope import resolve_target_admin_uid, resolve_target_tenant
+from app.services.rgw_principal_scope import resolve_target_admin_uid
 from app.services.s3_execution_context import (
     S3ExecutionContext,
     is_ceph_admin_execution_context,
 )
-from app.utils.rgw_identifiers import resolve_account_scope
+from app.utils.rgw_identifiers import resolve_account_scope, rgw_tenant_or_default
 from app.utils.size_units import size_to_bytes
 from app.utils.storage_endpoint_features import resolve_admin_endpoint, resolve_feature_flags
 
@@ -53,7 +53,7 @@ class BucketQuotaService:
         if is_ceph_admin and rgw_tenant is not None:
             tenant = rgw_tenant or None
         elif not is_ceph_admin or not tenant:
-            tenant = resolve_target_tenant(execution_context) or None
+            tenant = rgw_tenant_or_default(execution_context.rgw_tenant) or None
         root_uid = resolve_target_admin_uid(execution_context)
         if root_uid:
             return account_id, tenant, root_uid

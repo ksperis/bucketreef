@@ -30,7 +30,7 @@ from app.services.portal.server_access_log_records import (
     utc_dates_for_local_day,
     utc_dates_for_local_range,
 )
-from app.services.rgw_principal_scope import resolve_target_tenant
+from app.utils.rgw_identifiers import rgw_tenant_or_default
 from app.utils.rgw_payloads import (
     extract_rgw_user_account_aliases,
     extract_rgw_user_identity,
@@ -291,7 +291,7 @@ class PortalServerAccessLogQueriesMixin:
             if "$" in requester:
                 tenant, uid = requester.split("$", 1)
             else:
-                tenant, uid = resolve_target_tenant(account), requester
+                tenant, uid = rgw_tenant_or_default(account.rgw_tenant), requester
             payload = rgw_admin.get_user(uid, tenant=tenant or None, allow_not_found=True)
             if payload:
                 require_rgw_user_identity(payload, uid, tenant)

@@ -11,10 +11,11 @@ from app.services import (
     s3_client,
     s3_deletion,
 )
-from app.services.rgw_principal_scope import resolve_target_admin_uid, resolve_target_tenant
+from app.services.rgw_principal_scope import resolve_target_admin_uid
 from app.services.rgw_admin import RGWAdminError
 from app.services.rgw_endpoint_clients import get_endpoint_runtime_rgw_client
 from app.services.sequence_pagination import paginate_sequence
+from app.utils.rgw_identifiers import rgw_tenant_or_default
 from app.models.bucket import Bucket, BucketOption, PaginatedBucketOptionsResponse
 from app.models.pagination import OptionListingRequest
 from app.utils.rgw_payloads import extract_bucket_list
@@ -61,7 +62,7 @@ class BucketsService:
             return []
         rgw_admin = self._rgw_runtime_for_context(execution_context)
         try:
-            tenant = resolve_target_tenant(execution_context)
+            tenant = rgw_tenant_or_default(execution_context.rgw_tenant)
             payload = rgw_admin.get_all_buckets(
                 uid=uid,
                 with_stats=with_stats,
@@ -162,7 +163,7 @@ class BucketsService:
             execution_context,
             with_stats=with_stats,
         )
-        tenant = resolve_target_tenant(execution_context)
+        tenant = rgw_tenant_or_default(execution_context.rgw_tenant)
         logger.debug(
             "S3 execution context %s listed %s buckets",
             self._context_label(execution_context),
@@ -224,7 +225,7 @@ class BucketsService:
         if not normalized_bucket:
             raise RuntimeError("Bucket name is required")
 
-        tenant = resolve_target_tenant(execution_context)
+        tenant = rgw_tenant_or_default(execution_context.rgw_tenant)
         buckets = s3_client.list_buckets(**s3_execution_request_kwargs(execution_context))
         creation_date = None
         bucket_in_scope = False
