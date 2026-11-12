@@ -199,10 +199,7 @@ class CephAdminRgwUserCapsUpdate(ApiModel):
     values: list[str]
 
 
-class CephAdminRgwAccountCreate(ApiModel):
-    account_id: Optional[str] = None
-    account_name: str
-    tenant: Optional[str] = None
+class CephAdminRgwAccountMutableConfig(ApiModel):
     email: Optional[str] = None
     max_users: Optional[int] = Field(default=None, ge=0)
     max_buckets: Optional[int] = Field(default=None, ge=0)
@@ -220,6 +217,12 @@ class CephAdminRgwAccountCreate(ApiModel):
     _validate_extra_params = field_validator("extra_params")(
         validate_rgw_account_extra_params
     )
+
+
+class CephAdminRgwAccountCreate(CephAdminRgwAccountMutableConfig):
+    account_id: Optional[str] = None
+    account_name: str
+    tenant: Optional[str] = None
 
     @field_validator("tenant")
     @classmethod
@@ -242,10 +245,7 @@ class CephAdminRgwAccountCreateResponse(ApiModel):
     account: CephAdminRgwAccountDetail
 
 
-class CephAdminRgwUserCreate(ApiModel):
-    tenant: Optional[str] = None
-    uid: str
-    account_id: Optional[str] = None
+class CephAdminRgwUserMutableConfig(ApiModel):
     display_name: Optional[str] = None
     email: Optional[str] = None
     suspended: Optional[bool] = None
@@ -253,12 +253,22 @@ class CephAdminRgwUserCreate(ApiModel):
     op_mask: Optional[str] = None
     system: Optional[bool] = None
     account_root: Optional[bool] = None
-    generate_key: bool
     quota_enabled: Optional[bool] = None
     quota_max_size_bytes: Optional[int] = Field(default=None, ge=0)
     quota_max_objects: Optional[int] = Field(default=None, ge=0)
     caps: Optional[CephAdminRgwUserCapsUpdate] = None
     extra_params: dict[str, Any] = Field(default_factory=dict)
+
+    _validate_extra_identifiers = field_validator("extra_params")(
+        _safe_rgw_user_extra_params
+    )
+
+
+class CephAdminRgwUserCreate(CephAdminRgwUserMutableConfig):
+    tenant: Optional[str] = None
+    uid: str
+    account_id: Optional[str] = None
+    generate_key: bool
 
     @field_validator("tenant")
     @classmethod
@@ -272,34 +282,14 @@ class CephAdminRgwUserCreate(ApiModel):
     def validate_uid(_cls, value: str, info: ValidationInfo) -> str:
         return validate_rgw_user_uid(value, info.data.get("tenant"))
 
-    _validate_extra_identifiers = field_validator("extra_params")(
-        _safe_rgw_user_extra_params
-    )
 
 class CephAdminRgwUserCreateResponse(ApiModel):
     detail: CephAdminRgwUserDetail
     generated_key: Optional[CephAdminRgwGeneratedAccessKey]
 
 
-class CephAdminRgwAccountConfigUpdate(ApiModel):
+class CephAdminRgwAccountConfigUpdate(CephAdminRgwAccountMutableConfig):
     account_name: Optional[str] = None
-    email: Optional[str] = None
-    max_users: Optional[int] = Field(default=None, ge=0)
-    max_buckets: Optional[int] = Field(default=None, ge=0)
-    max_roles: Optional[int] = Field(default=None, ge=0)
-    max_groups: Optional[int] = Field(default=None, ge=0)
-    max_access_keys: Optional[int] = Field(default=None, ge=0)
-    quota_enabled: Optional[bool] = None
-    quota_max_size_bytes: Optional[int] = Field(default=None, ge=0)
-    quota_max_objects: Optional[int] = Field(default=None, ge=0)
-    bucket_quota_enabled: Optional[bool] = None
-    bucket_quota_max_size_bytes: Optional[int] = Field(default=None, ge=0)
-    bucket_quota_max_objects: Optional[int] = Field(default=None, ge=0)
-    extra_params: dict[str, Any] = Field(default_factory=dict)
-
-    _validate_extra_params = field_validator("extra_params")(
-        validate_rgw_account_extra_params
-    )
 
     @model_validator(mode="after")
     def reject_non_nullable_nulls(self):
@@ -313,24 +303,7 @@ class CephAdminRgwAccountConfigUpdate(ApiModel):
         return self
 
 
-class CephAdminRgwUserConfigUpdate(ApiModel):
-    display_name: Optional[str] = None
-    email: Optional[str] = None
-    suspended: Optional[bool] = None
-    max_buckets: Optional[int] = Field(default=None, ge=0)
-    op_mask: Optional[str] = None
-    system: Optional[bool] = None
-    account_root: Optional[bool] = None
-    quota_enabled: Optional[bool] = None
-    quota_max_size_bytes: Optional[int] = Field(default=None, ge=0)
-    quota_max_objects: Optional[int] = Field(default=None, ge=0)
-    caps: Optional[CephAdminRgwUserCapsUpdate] = None
-    extra_params: dict[str, Any] = Field(default_factory=dict)
-
-    _validate_extra_identifiers = field_validator("extra_params")(
-        _safe_rgw_user_extra_params
-    )
-
+class CephAdminRgwUserConfigUpdate(CephAdminRgwUserMutableConfig):
     @model_validator(mode="after")
     def reject_non_nullable_nulls(self):
         reject_explicit_null_fields(
