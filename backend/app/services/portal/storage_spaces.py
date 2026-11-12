@@ -222,11 +222,6 @@ class PortalStorageSpacesMixin:
     def _remove_storage_space_metadata(self, metadata_id: int) -> None:
         def remove_once(write_db) -> None:
             write_db.execute(
-                delete(PortalStorageSpaceGrant).where(
-                    PortalStorageSpaceGrant.storage_space_metadata_id == metadata_id
-                )
-            )
-            write_db.execute(
                 delete(PortalStorageSpaceMetadata).where(
                     PortalStorageSpaceMetadata.id == metadata_id
                 )
@@ -752,16 +747,6 @@ class PortalStorageSpacesMixin:
                 .where(DBPortalPublicLink.id.in_(public_link_ids))
                 .values(revoked_at=revoked_at)
             )
-        self.db.execute(
-            delete(PortalExternalAccessCredential)
-            .where(PortalExternalAccessCredential.storage_space_metadata_id == metadata_id)
-            .execution_options(synchronize_session=False)
-        )
-        self.db.execute(
-            delete(PortalStorageSpaceGrant)
-            .where(PortalStorageSpaceGrant.storage_space_metadata_id == metadata_id)
-            .execution_options(synchronize_session=False)
-        )
         metadata = self.db.get(PortalStorageSpaceMetadata, metadata_id)
         if metadata is not None:
             self.db.delete(metadata)
