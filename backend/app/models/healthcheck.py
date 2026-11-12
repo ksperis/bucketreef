@@ -132,11 +132,14 @@ class EndpointHealthOverviewEndpoint(EndpointHealthCurrentStatus):
     timeline: list[EndpointHealthTimelinePoint]
 
 
-class EndpointHealthOverviewResponse(ApiModel):
+class EndpointHealthOverviewResponseFields(ApiModel):
     generated_at: str
     window: HealthWindow
     start: str
     end: str
+
+
+class EndpointHealthOverviewResponse(EndpointHealthOverviewResponseFields):
     endpoints: list[EndpointHealthOverviewEndpoint]
 
 
@@ -148,11 +151,7 @@ class EndpointHealthLatencyOverviewEndpoint(EndpointHealthCurrentStatus):
     scope: HealthCheckScope
 
 
-class EndpointHealthLatencyOverviewResponse(ApiModel):
-    generated_at: str
-    window: HealthWindow
-    start: str
-    end: str
+class EndpointHealthLatencyOverviewResponse(EndpointHealthOverviewResponseFields):
     endpoints: list[EndpointHealthLatencyOverviewEndpoint]
 
 
