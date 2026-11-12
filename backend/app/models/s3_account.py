@@ -7,7 +7,10 @@ from pydantic import Field, field_validator, model_validator
 from app.models.account_access import AccountAccessGrant
 from app.models.admin_listing import AdminManagedEntityListingRequest
 from app.models.base import ApiModel, reject_explicit_null_fields
-from app.models.managed_resource_features import ManagedS3ResourceFeatures
+from app.models.managed_resource_features import (
+    ManagedS3ResourceFeatureOverrides,
+    ManagedS3ResourceFeatures,
+)
 from app.models.pagination import PaginatedResponse
 from app.models.quota import QuotaSizeUnit
 from app.models.tagging import (
@@ -130,7 +133,7 @@ class S3AccountImport(ApiModel):
         return validate_rgw_tenant(value.strip())
 
 
-class S3AccountUpdate(ApiModel):
+class S3AccountUpdate(ManagedS3ResourceFeatureOverrides):
     quota_max_size_gb: Optional[float] = None
     quota_max_size_unit: Optional[QuotaSizeUnit] = None
     quota_max_objects: Optional[int] = None
@@ -140,15 +143,6 @@ class S3AccountUpdate(ApiModel):
     email: Optional[str] = None
     storage_endpoint_id: Optional[int] = None
     tags: OptionalTagDefinitionList = None
-    allow_bucket_quota_management: Optional[bool] = None
-    allow_access_key_metadata: Optional[bool] = None
-    allow_access_key_expiration: Optional[bool] = None
-    allow_activity_history: Optional[bool] = None
-    allow_rgw_usage_metrics: Optional[bool] = None
-    allow_cost_estimation: Optional[bool] = None
-    allow_bucket_usage_stats: Optional[bool] = None
-    allow_bucket_usage_stats_collection: Optional[bool] = None
-    allow_multisite_endpoint_switching: Optional[bool] = None
 
     @model_validator(mode="after")
     def _reject_null_for_non_nullable_updates(self) -> "S3AccountUpdate":

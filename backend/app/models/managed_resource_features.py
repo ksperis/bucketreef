@@ -20,3 +20,20 @@ class ManagedS3ResourceFeatures(ApiModel):
 class ManagedS3UserFeatures(ManagedS3ResourceFeatures):
     allow_access_key_management: Optional[bool]
     allow_managed_private_connection_provisioning: Optional[bool]
+
+
+class ManagedS3ResourceFeatureOverrides(ApiModel):
+    allow_bucket_quota_management: Optional[bool] = None
+    allow_access_key_metadata: Optional[bool] = None
+    allow_access_key_expiration: Optional[bool] = None
+    allow_activity_history: Optional[bool] = None
+    allow_rgw_usage_metrics: Optional[bool] = None
+    allow_cost_estimation: Optional[bool] = None
+    allow_bucket_usage_stats: Optional[bool] = None
+    allow_bucket_usage_stats_collection: Optional[bool] = None
+    allow_multisite_endpoint_switching: Optional[bool] = None
+
+
+class ManagedS3UserFeatureOverrides(ManagedS3ResourceFeatureOverrides):
+    allow_access_key_management: Optional[bool] = None
+    allow_managed_private_connection_provisioning: Optional[bool] = None
