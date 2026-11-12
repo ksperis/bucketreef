@@ -49,7 +49,7 @@ class OIDCCallbackRequest(ApiModel):
     state: str
 
 
-class OIDCProviderAdminItem(ApiModel):
+class OIDCProviderAdminConfig(ApiModel):
     provider_id: str
     display_name: str
     discovery_url: str
@@ -63,26 +63,16 @@ class OIDCProviderAdminItem(ApiModel):
     use_nonce: bool
     linking_policy: OIDCLinkingPolicy
     trusted_email_domains: list[str]
+
+
+class OIDCProviderAdminItem(OIDCProviderAdminConfig):
     source: IdentityProviderSource
     editable: bool
     field_locks: dict[str, IdentityProviderFieldLock]
     has_client_secret: bool
 
 
-class OIDCProviderAdminPayload(ApiModel):
-    provider_id: str
-    display_name: str
-    discovery_url: str
-    client_id: str
-    redirect_uri: str
-    scopes: list[str]
-    prompt: Optional[str]
-    enabled: bool
-    icon_url: Optional[str]
-    use_pkce: bool
-    use_nonce: bool
-    linking_policy: OIDCLinkingPolicy
-    trusted_email_domains: list[str]
+class OIDCProviderAdminPayload(OIDCProviderAdminConfig):
     client_secret: Optional[str] = None
     clear_client_secret: bool = False
 
