@@ -1,5 +1,20 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 canonical Ceph Admin identity filter rules
+
+Ceph Admin account and RGW user advanced filters now validate each field's
+supported operators and value shape at the API boundary. Text, boolean, and
+numeric fields accept only their matching operator families; `in` and `not_in`
+require list values, scalar operators reject list values, and null checks reject
+a supplied value.
+
+Identity listing enrichment now derives its required profile, quota, status,
+limits, stats, and usage sources only from fields that the validated filter
+contract can actually contain.
+
+Deploy the backend and bundled frontend together. No database migration is
+required.
+
 ## 2026-11 canonical advanced bucket filter rules
 
 Shared Ceph Admin and Storage Ops advanced bucket filters now validate field

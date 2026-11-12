@@ -102,15 +102,20 @@ export const buildNumericFilterSummaryItems = <Key extends string>(
     return [{ field: key, id: `${idPrefix}${key}`, label: `${label} ${display}` }];
   });
 
-export const appendNumericFilterRule = (
-  rules: Array<Record<string, unknown>>,
-  field: string,
+export type NumericFilterRule<Field extends string = string> = {
+  field: Field;
+  op: "gte" | "lte";
+  value: number;
+};
+
+export const buildNumericFilterRule = <Field extends string>(
+  field: Field,
   operator: "gte" | "lte",
   rawValue: string
-) => {
+): NumericFilterRule<Field>[] => {
   const normalizedValue = rawValue.trim();
-  if (!normalizedValue) return;
+  if (!normalizedValue) return [];
   const value = Number(normalizedValue);
-  if (!Number.isFinite(value)) return;
-  rules.push({ field, op: operator, value });
+  if (!Number.isFinite(value)) return [];
+  return [{ field, op: operator, value }];
 };

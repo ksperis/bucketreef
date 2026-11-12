@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  appendQuotaAdvancedFilterRules,
+  buildQuotaAdvancedFilterRules,
   defaultQuotaAdvancedFilter,
   hasQuotaAdvancedFilters,
   quotaAdvancedNumericFields,
@@ -19,9 +19,7 @@ describe("quotaAdvancedFilterModel", () => {
 
     expect(hasQuotaAdvancedFilters(advanced, false)).toBe(true);
 
-    const rules: Array<Record<string, unknown>> = [];
-    appendQuotaAdvancedFilterRules(rules, advanced, false);
-    expect(rules).toEqual([
+    expect(buildQuotaAdvancedFilterRules(advanced, false)).toEqual([
       { field: "quota_max_size_bytes", op: "gte", value: 1024 },
     ]);
   });
@@ -35,9 +33,7 @@ describe("quotaAdvancedFilterModel", () => {
 
     expect(hasQuotaAdvancedFilters(advanced, true)).toBe(true);
 
-    const rules: Array<Record<string, unknown>> = [];
-    appendQuotaAdvancedFilterRules(rules, advanced, true);
-    expect(rules).toEqual([
+    expect(buildQuotaAdvancedFilterRules(advanced, true)).toEqual([
       { field: "quota_usage_object_percent", op: "gte", value: 25 },
     ]);
   });

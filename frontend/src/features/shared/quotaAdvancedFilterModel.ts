@@ -26,13 +26,15 @@ export const defaultQuotaAdvancedFilter: QuotaAdvancedFilterState = {
   maxQuotaUsageObjectPercent: "",
 };
 
+export type QuotaAdvancedApiField =
+  | "quota_max_size_bytes"
+  | "quota_max_objects"
+  | "quota_usage_size_percent"
+  | "quota_usage_object_percent";
+
 type QuotaAdvancedFilterRule = {
   stateField: QuotaAdvancedNumericField;
-  apiField:
-    | "quota_max_size_bytes"
-    | "quota_max_objects"
-    | "quota_usage_size_percent"
-    | "quota_usage_object_percent";
+  apiField: QuotaAdvancedApiField;
   op: "gte" | "lte";
   usagePercentage: boolean;
 };
@@ -71,17 +73,22 @@ export const hasQuotaAdvancedFilters = (
     (!usagePercentage || allowUsageFilters) && Boolean(advanced[stateField].trim()),
 );
 
-export const appendQuotaAdvancedFilterRules = (
-  rules: Array<Record<string, unknown>>,
+export type QuotaAdvancedRule = {
+  field: QuotaAdvancedApiField;
+  op: "gte" | "lte";
+  value: number;
+};
+
+export const buildQuotaAdvancedFilterRules = (
   advanced: QuotaAdvancedFilterState,
   allowUsageFilters: boolean,
-) => {
-  quotaAdvancedFilterRules.forEach(({ stateField, apiField, op, usagePercentage }) => {
-    if (usagePercentage && !allowUsageFilters) return;
+): QuotaAdvancedRule[] => quotaAdvancedFilterRules.flatMap(
+  ({ stateField, apiField, op, usagePercentage }) => {
+    if (usagePercentage && !allowUsageFilters) return [];
     const rawValue = advanced[stateField].trim();
-    if (!rawValue) return;
+    if (!rawValue) return [];
     const value = Number(rawValue);
-    if (!Number.isFinite(value)) return;
-    rules.push({ field: apiField, op, value });
-  });
-};
+    if (!Number.isFinite(value)) return [];
+    return [{ field: apiField, op, value }];
+  },
+);

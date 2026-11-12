@@ -13,6 +13,7 @@ from app.models.ceph_admin_identity_listing import (
     CephAdminAccountSortBy,
 )
 from app.models.ceph_admin_identity_filters import (
+    ACCOUNT_TEXT_FILTER_FIELDS,
     CephAdminAccountFilterQuery,
     CephAdminAccountFilterRule,
 )
@@ -78,7 +79,7 @@ def _match_account_field_rule(
         return value is not None
     if value is None:
         return False
-    if field in {"account_id", "account_name", "email"}:
+    if field in ACCOUNT_TEXT_FILTER_FIELDS:
         return match_text_rule(value, op, rule.value)
     return match_numeric_rule(value, op, rule.value, coerce=coerce_number)
 
@@ -98,12 +99,7 @@ def _includes_for_account_fields(fields: set[str]) -> set[str]:
         include.add("quota")
     if fields & {"bucket_count", "user_count"}:
         include.add("stats")
-    if fields & {
-        "used_bytes",
-        "object_count",
-        "quota_usage_size_percent",
-        "quota_usage_object_percent",
-    }:
+    if fields & {"quota_usage_size_percent", "quota_usage_object_percent"}:
         include.add("usage")
     return include
 

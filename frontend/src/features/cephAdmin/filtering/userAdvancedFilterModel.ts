@@ -10,7 +10,7 @@ import {
   type TextMatchMode,
 } from "../../shared/advancedFilterShared";
 import {
-  appendQuotaAdvancedFilterRules,
+  buildQuotaAdvancedFilterRules,
   defaultQuotaAdvancedFilter,
   hasQuotaAdvancedFilters,
   quotaBaseAdvancedNumericFields,
@@ -19,9 +19,10 @@ import {
   type QuotaAdvancedNumericField,
 } from "../../shared/quotaAdvancedFilterModel";
 import {
-  appendNumericFilterRule,
+  buildNumericFilterRule,
   countActiveNumericFilterFields,
 } from "./advancedFilterModel";
+import type { CephAdminUserFilterRule } from "./identityFilterContract";
 
 export type UserAdvancedStatusFilter = "any" | "active" | "suspended";
 
@@ -97,7 +98,7 @@ export const buildUserAdvancedFilterPayload = (
   quickMatchMode: TextMatchMode,
   allowUsageFilters: boolean,
 ) => {
-  const rules: Array<Record<string, unknown>> = [];
+  const rules: CephAdminUserFilterRule[] = [];
   rules.push(...buildQuickTextFilterRules("uid", quickSearch, quickMatchMode));
 
   if (advanced) {
@@ -106,9 +107,9 @@ export const buildUserAdvancedFilterPayload = (
     rules.push(...buildTextFieldRules("account_name", advanced.accountName, advanced.accountNameMatchMode));
     rules.push(...buildTextFieldRules("full_name", advanced.fullName, advanced.fullNameMatchMode));
     rules.push(...buildTextFieldRules("email", advanced.email, advanced.emailMatchMode));
-    appendNumericFilterRule(rules, "max_buckets", "gte", advanced.minMaxBuckets);
-    appendNumericFilterRule(rules, "max_buckets", "lte", advanced.maxMaxBuckets);
-    appendQuotaAdvancedFilterRules(rules, advanced, allowUsageFilters);
+    rules.push(...buildNumericFilterRule("max_buckets", "gte", advanced.minMaxBuckets));
+    rules.push(...buildNumericFilterRule("max_buckets", "lte", advanced.maxMaxBuckets));
+    rules.push(...buildQuotaAdvancedFilterRules(advanced, allowUsageFilters));
 
     if (advanced.suspended === "active") {
       rules.push({ field: "suspended", op: "eq", value: false });
