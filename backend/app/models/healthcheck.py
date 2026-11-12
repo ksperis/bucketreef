@@ -33,13 +33,16 @@ class EndpointHealthSummaryResponse(ApiModel):
     endpoints: list[EndpointHealthSummary]
 
 
-class EndpointHealthRunResult(ApiModel):
-    endpoint_id: int
+class EndpointHealthCheckResult(ApiModel):
     status: HealthCheckStatus
     latency_ms: Optional[int]
     http_status: Optional[int]
     error_message: Optional[str]
     check_mode: HealthCheckMode
+
+
+class EndpointHealthRunResult(EndpointHealthCheckResult):
+    endpoint_id: int
 
 
 class EndpointHealthRunResponse(ApiModel):
@@ -101,13 +104,8 @@ class EndpointHealthIncidentsResponse(ApiModel):
     incidents: list[EndpointHealthIncident]
 
 
-class EndpointHealthRawCheck(ApiModel):
+class EndpointHealthRawCheck(EndpointHealthCheckResult):
     checked_at: str
-    status: HealthCheckStatus
-    latency_ms: Optional[int]
-    http_status: Optional[int]
-    error_message: Optional[str]
-    check_mode: HealthCheckMode
 
 
 class EndpointHealthRawChecksResponse(ApiModel):
