@@ -40,12 +40,7 @@ class BucketUsageStatsDistributionEntry(ApiModel):
     ratio_bytes: float
 
 
-class BucketUsageStatsSnapshot(ApiModel):
-    scope_kind: str
-    scope_id: str
-    scope_name: Optional[str]
-    bucket_name: str
-    bucket_tenant: str
+class BucketUsageStatsSnapshotData(ApiModel):
     scan_mode: BucketUsageStatsScanMode
     version_listing_available: bool
     object_version_count: int
@@ -60,8 +55,16 @@ class BucketUsageStatsSnapshot(ApiModel):
     size_distribution: list[BucketUsageStatsDistributionEntry]
     age_distribution: list[BucketUsageStatsDistributionEntry]
     current_vs_noncurrent: list[BucketUsageStatsDistributionEntry]
-    warnings: list[str]
     calculated_at: datetime
+
+
+class BucketUsageStatsSnapshot(BucketUsageStatsSnapshotData):
+    scope_kind: str
+    scope_id: str
+    scope_name: Optional[str]
+    bucket_name: str
+    bucket_tenant: str
+    warnings: list[str]
 
 
 class BucketUsageStatsLatestResponse(ApiModel):
