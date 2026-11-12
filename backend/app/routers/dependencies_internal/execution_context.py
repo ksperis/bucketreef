@@ -51,23 +51,6 @@ from .workspace_context import resolve_account_by_id, resolve_user_account_link,
 settings = get_settings()
 
 
-def _parse_execution_endpoint_id(value: object) -> Optional[int]:
-    if value is None or value == "":
-        return None
-    try:
-        endpoint_id = int(value)
-    except (TypeError, ValueError):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid execution endpoint identifier",
-        )
-    if endpoint_id <= 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid execution endpoint identifier",
-        )
-    return endpoint_id
-
 def _parse_execution_context_selector(
     context_ref: Optional[str],
 ) -> tuple[Optional[int], Optional[int], Optional[int], Optional[int]]:
@@ -424,7 +407,7 @@ def _resolve_openstack_execution_context(
     from app.routers.dependencies_internal.auth_session import current_auth_session
     from app.services.openstack_service import OpenStackService
 
-    if not isinstance(actor, User) or not request or request.headers.get("authorization"):
+    if not isinstance(actor, User) or request.headers.get("authorization"):
         raise HTTPException(403, "OpenStack contexts require an interactive UI session")
     surface = resolve_workspace_surface(request)
     restricted_namespace = any(
@@ -459,12 +442,9 @@ def _execution_surface_context(
         if workspace is not None
         else is_portal_browser_request(request, surface)
     )
-    is_storage_ops_surface = bool(
-        request
-        and path_matches_prefix(
-            str(request.url.path),
-            f"{settings.api_prefix}/storage-ops",
-        )
+    is_storage_ops_surface = path_matches_prefix(
+        str(request.url.path),
+        f"{settings.api_prefix}/storage-ops",
     )
     return surface, portal_browser, is_storage_ops_surface
 
@@ -475,11 +455,7 @@ def _resolve_actor_requested_endpoint(
     db: Session,
     requested_execution_endpoint_id: Optional[int],
 ) -> Optional[str]:
-    requested_endpoint = (
-        normalize_s3_endpoint(request.headers.get("X-S3-Endpoint"))
-        if request
-        else None
-    )
+    requested_endpoint = normalize_s3_endpoint(request.headers.get("X-S3-Endpoint"))
     if not isinstance(actor, ManagerSessionPrincipal):
         return None
     if requested_execution_endpoint_id is not None:
@@ -501,12 +477,7 @@ def resolve_s3_execution_context(
     execution_endpoint_id: Optional[int] = None,
 ) -> S3ExecutionContext:
     """Share exact-context authorization with read-only transfer-policy resolution."""
-    request_query_params = getattr(request, "query_params", None) if request else None
-    requested_execution_endpoint_id = _parse_execution_endpoint_id(
-        execution_endpoint_id
-        if execution_endpoint_id is not None
-        else request_query_params.get("execution_endpoint_id") if request_query_params is not None else None
-    )
+    requested_execution_endpoint_id = execution_endpoint_id
     if isinstance(context_ref, str) and context_ref.startswith("os-"):
         return _resolve_openstack_execution_context(
             request,

@@ -59,6 +59,53 @@ def policy(db, actor, workspace, selector=None, policy_id=None):
     )
 
 
+def test_policy_forwards_execution_endpoint_override(db_session, monkeypatch, enabled):
+    actor = _create_user(db_session)
+    request = Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/api/browser/direct-transfer-policy",
+            "query_string": b"",
+            "headers": [],
+        }
+    )
+    context = SimpleNamespace(context_id="context-1")
+    resolve = Mock(return_value=context)
+    monkeypatch.setattr(route, "resolve_s3_execution_context", resolve)
+    monkeypatch.setattr(
+        route,
+        "build_transfer_policy",
+        lambda *_args, **_kwargs: route.BrowserTransferPolicy(
+            workspace="browser",
+            context_id="context-1",
+            connect_sources=["https://s3.example.test"],
+            policy_id="a" * 64,
+        ),
+    )
+
+    route.get_direct_transfer_policy(
+        request,
+        Response(),
+        workspace="browser",
+        context_id="context-1",
+        execution_endpoint_id=42,
+        policy_id=None,
+        actor=actor,
+        db=db_session,
+    )
+
+    resolve.assert_called_once_with(
+        request,
+        "context-1",
+        actor,
+        db_session,
+        workspace="browser",
+        metadata_only=True,
+        execution_endpoint_id=42,
+    )
+
+
 def test_portal_policy_does_not_prepare_iam_or_list_storage_spaces(db_session, monkeypatch, enabled):
     user = _create_user(db_session)
     endpoint = _create_endpoint(db_session, name="portal")
