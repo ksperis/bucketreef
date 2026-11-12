@@ -34,7 +34,9 @@ for compose_file in compose.yaml deploy/bundle/compose.yaml; do
     .services["configure-deployment"] as $job | .services.backend as $backend |
     ($job.environment.DEPLOYMENT_CONFIG | fromjson | .revision == 1) and
     ($job.environment.DATABASE_URL == $backend.environment.DATABASE_URL) and
-    ($job.volumes == $backend.volumes) and ($job.read_only == true) and
+    ($job.volumes | any(.target == "/data" and .type == "volume")) and
+    ($job.volumes | any(.target == "/deployment/credentials" and .type == "bind" and .read_only == true)) and
+    ($job.read_only == true) and
     ($backend.environment | has("DEPLOYMENT_CONFIG") or has("ENV_STORAGE_ENDPOINTS") | not)
   ' >/dev/null
 done

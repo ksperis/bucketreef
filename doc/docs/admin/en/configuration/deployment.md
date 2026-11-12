@@ -88,9 +88,19 @@ subject to the Admin deletion safeguards.
 
 ## Compose and Helm
 
-With Compose, mount a directory that contains the manifest and the referenced
-credentials. Use the same Compose project and env file as the installation.
-In a split, run it from the Admin project only.
+With Compose, set `DEPLOYMENT_CREDENTIALS_DIR` to a host directory containing
+the referenced credential files. The one-shot service mounts it read-only at
+`/deployment/credentials`. Use the same Compose project and env file as the
+installation. In a split, run it from the Admin project only. The manifest can
+be supplied inline with `DEPLOYMENT_CONFIG`:
+
+```bash
+DEPLOYMENT_CONFIG="$(cat deployment-config/manifest.json)" \
+  docker compose --profile provision run --rm configure-deployment
+```
+
+Alternatively, mount a directory containing both the manifest and its
+`credentials/` subdirectory and pass `--file` explicitly:
 
 ```bash
 docker compose --profile provision run --rm \
