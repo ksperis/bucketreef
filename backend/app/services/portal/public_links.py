@@ -30,7 +30,7 @@ from app.services.portal.exceptions import (
 )
 from app.services.s3_client import get_s3_client
 from app.services.s3_object_download import S3ObjectDownload
-from app.utils.s3_endpoint import resolve_s3_client_options
+from app.services.s3_client_options import resolve_s3_client_options
 from app.utils.time import utcnow
 
 if TYPE_CHECKING:

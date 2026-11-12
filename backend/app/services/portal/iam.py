@@ -20,7 +20,7 @@ from app.services.mappers.portal import portal_access_key_from_active_link, port
 from app.services.portal.exceptions import PortalConflictError, PortalOperationError
 from app.services.rgw_iam import RGWIAMGroupAlreadyExistsError, RGWIAMService
 from app.utils.account_roles import PortalAccountRoleValue
-from app.utils.s3_endpoint import resolve_s3_client_options
+from app.services.s3_client_options import resolve_s3_client_options
 from app.utils.storage_endpoint_features import resolve_feature_flags
 
 if TYPE_CHECKING:

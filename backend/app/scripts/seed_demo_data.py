@@ -30,7 +30,8 @@ from app.services.user_query_service import UserQueryService
 from app.services.rgw_iam import RGWIAMError, RGWIAMService
 from app.services import s3_client
 from app.models.iam import AccessKey as IAMAccessKey
-from app.utils.s3_endpoint import configured_s3_endpoint, resolve_s3_endpoint
+from app.services.s3_client_options import resolve_s3_endpoint
+from app.utils.s3_endpoint import configured_s3_endpoint
 
 try:
     import yaml

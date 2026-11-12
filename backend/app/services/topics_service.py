@@ -13,7 +13,7 @@ from app.services import sns_client
 from app.services.s3_execution_client import require_s3_execution_credentials_with_error
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.sns_client import SNSOperationError
-from app.utils.s3_endpoint import resolve_s3_client_options
+from app.services.s3_client_options import resolve_s3_client_options
 
 logger = logging.getLogger(__name__)
 

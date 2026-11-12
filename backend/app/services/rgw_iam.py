@@ -13,7 +13,7 @@ from app.services.rgw_iam_errors import RGWIAMError, RGWIAMGroupAlreadyExistsErr
 from app.services.rgw_iam_pagination import iam_matches_fields, list_iam_all, list_iam_page
 from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.aws_errors import aws_error_code
-from app.utils.s3_endpoint import resolve_iam_client_options
+from app.services.s3_client_options import resolve_iam_client_options
 
 settings = get_settings()
 

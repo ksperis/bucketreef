@@ -1,15 +1,10 @@
 # Copyright (c) 2025 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
-from typing import Optional, Protocol, cast
+from typing import Optional
 from urllib.parse import urlsplit, urlunsplit
 
 from app.core.config import get_settings
 from app.utils.network_targets import validate_outbound_url
-from app.utils.storage_endpoint_features import StorageEndpointLike
-
-
-class S3EndpointTarget(Protocol):
-    storage_endpoint: Optional[StorageEndpointLike]
 
 settings = get_settings()
 
@@ -105,86 +100,3 @@ def configured_s3_endpoint() -> Optional[str]:
     if "seed_s3_endpoint" not in settings.model_fields_set:
         return None
     return normalize_s3_endpoint(settings.seed_s3_endpoint)
-
-
-def resolve_s3_endpoint(account: S3EndpointTarget) -> Optional[str]:
-    session_endpoint = cast(
-        Optional[str],
-        getattr(account, "session_endpoint", None),
-    )
-    if session_endpoint:
-        return session_endpoint
-    endpoint = account.storage_endpoint
-    if endpoint is not None and endpoint.endpoint_url:
-        return endpoint.endpoint_url
-    return None
-
-
-def resolve_s3_client_options(
-    account: S3EndpointTarget,
-) -> tuple[Optional[str], Optional[str], bool, bool]:
-    """Resolve S3 client options (endpoint, region, force_path_style, verify_tls)."""
-    endpoint = resolve_s3_endpoint(account)
-    endpoint_obj = account.storage_endpoint
-    region = cast(Optional[str], getattr(account, "session_region", None))
-    session_force_path_style = cast(
-        Optional[bool],
-        getattr(account, "session_force_path_style", None),
-    )
-    session_verify_tls = cast(
-        Optional[bool],
-        getattr(account, "session_verify_tls", None),
-    )
-    if region is None:
-        region = endpoint_obj.region if endpoint_obj is not None else None
-    if session_force_path_style is not None:
-        force_path_style = session_force_path_style
-    elif endpoint_obj is not None:
-        force_path_style = endpoint_obj.force_path_style
-    else:
-        force_path_style = False
-    if session_verify_tls is not None:
-        verify_tls = session_verify_tls
-    elif endpoint_obj is not None:
-        verify_tls = endpoint_obj.verify_tls
-    else:
-        verify_tls = True
-    return endpoint, region, force_path_style, verify_tls
-
-
-def resolve_s3_client_kwargs(account: S3EndpointTarget) -> dict[str, object]:
-    endpoint, region, force_path_style, verify_tls = resolve_s3_client_options(account)
-    return {
-        "endpoint": endpoint,
-        "region": region,
-        "force_path_style": force_path_style,
-        "verify_tls": verify_tls,
-    }
-
-
-def resolve_iam_client_options(account: S3EndpointTarget) -> tuple[Optional[str], Optional[str], bool]:
-    """Resolve IAM client options for account-like manager contexts."""
-    from app.utils.s3_connection_endpoint import resolve_connection_iam_options
-    from app.utils.storage_endpoint_features import (
-        resolve_iam_endpoint,
-        resolve_iam_signing_region,
-    )
-
-    endpoint_obj = account.storage_endpoint
-    region = cast(Optional[str], getattr(account, "session_region", None))
-    verify_tls = True
-    if endpoint_obj is not None:
-        endpoint = resolve_iam_endpoint(endpoint_obj)
-        if endpoint_obj.provider == "aws":
-            region = resolve_iam_signing_region(endpoint_obj)
-        elif region is None:
-            region = resolve_iam_signing_region(endpoint_obj)
-        verify_tls = endpoint_obj.verify_tls
-        return endpoint, region, verify_tls
-
-    source_connection = getattr(account, "source_connection", None)
-    if source_connection is not None:
-        return resolve_connection_iam_options(source_connection)
-
-    endpoint, region, _, verify_tls = resolve_s3_client_options(account)
-    return endpoint, region, verify_tls

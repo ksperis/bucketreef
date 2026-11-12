@@ -29,7 +29,7 @@ from app.services.s3_execution_context import (
     is_ceph_admin_execution_context,
 )
 from app.services.rgw_bucket_target import split_explicit_rgw_s3_bucket_name
-from app.utils.s3_endpoint import resolve_s3_client_kwargs
+from app.services.s3_client_options import resolve_s3_client_kwargs
 from app.utils.aws_errors import aws_error_code
 from app.utils.time import assume_utc
 

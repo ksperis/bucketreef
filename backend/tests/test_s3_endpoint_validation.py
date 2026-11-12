@@ -1,17 +1,20 @@
 # Copyright (c) 2026 Laurent Barbe
 # Licensed under the Apache License, Version 2.0
 import ipaddress
+from types import SimpleNamespace
 
 import pytest
 
 from app.db import S3Account, S3Connection, StorageEndpoint
 from app.core.domain_enums import StorageProvider
-from app.services.s3_execution_context import S3ExecutionContext
-from app.utils import s3_endpoint
-from app.utils.s3_endpoint import (
+from app.services.s3_client_options import (
     resolve_iam_client_options,
     resolve_s3_client_kwargs,
     resolve_s3_client_options,
+)
+from app.services.s3_execution_context import S3ExecutionContext
+from app.utils import s3_endpoint
+from app.utils.s3_endpoint import (
     validate_custom_login_s3_endpoint,
     validate_user_supplied_s3_endpoint,
 )
@@ -173,6 +176,13 @@ def test_resolve_s3_client_options_uses_storage_endpoint_force_path_style():
         "force_path_style": True,
         "verify_tls": True,
     }
+
+
+def test_resolve_s3_client_options_rejects_legacy_account_like_target():
+    target = SimpleNamespace(storage_endpoint=None)
+
+    with pytest.raises(TypeError, match="S3Account or S3ExecutionContext"):
+        resolve_s3_client_options(target)
 
 
 def test_resolve_s3_client_options_uses_explicitsession_endpoint_override():

@@ -17,7 +17,7 @@ from app.utils.quota_stats import (
     extract_rgw_account_quota_limits,
 )
 from app.utils.rgw_payloads import extract_bucket_list
-from app.utils.s3_endpoint import resolve_s3_client_kwargs
+from app.services.s3_client_options import resolve_s3_client_kwargs
 from app.utils.storage_endpoint_features import resolve_rgw_admin_api_endpoint
 
 

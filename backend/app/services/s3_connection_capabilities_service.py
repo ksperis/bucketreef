@@ -7,6 +7,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 
 from app.db import S3Connection
 from app.services.rgw_iam import get_iam_client
+from app.services.s3_execution_context import S3ExecutionContext
 from app.utils.s3_connection_capabilities import with_s3_connection_can_manage_iam
 from app.utils.s3_connection_endpoint import resolve_connection_iam_options
 from app.utils.storage_endpoint_features import resolve_iam_endpoint, resolve_iam_signing_region
@@ -37,9 +38,9 @@ def refresh_connection_detected_capabilities(connection: S3Connection) -> None:
     )
 
 
-def probe_execution_can_manage_iam(context) -> bool:
+def probe_execution_can_manage_iam(context: S3ExecutionContext) -> bool:
     """Use the same read-only IAM probe for a session-resolved S3 executor."""
-    from app.utils.s3_endpoint import resolve_s3_client_options
+    from app.services.s3_client_options import resolve_s3_client_options
     endpoint = context.storage_endpoint
     iam_endpoint = resolve_iam_endpoint(endpoint) if endpoint else None
     if not iam_endpoint or not context.access_key or not context.secret_key:

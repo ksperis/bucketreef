@@ -18,7 +18,7 @@ from app.utils.rgw_payloads import (
     extract_bucket_list,
     require_rgw_user_identity,
 )
-from app.utils.s3_endpoint import resolve_s3_client_options
+from app.services.s3_client_options import resolve_s3_client_options
 from app.utils.usage_stats import aggregate_bucket_usage
 
 

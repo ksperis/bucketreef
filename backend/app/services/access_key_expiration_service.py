@@ -21,7 +21,7 @@ from app.services.rgw_iam import RGWIAMService
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.s3_user_access_key_service import S3UserAccessKeyService
 from app.services.s3_user_rgw_context_service import S3UserRgwContextService
-from app.utils.s3_endpoint import resolve_iam_client_options
+from app.services.s3_client_options import resolve_iam_client_options
 from app.utils.time import utcnow
 
 
