@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from uuid import UUID, uuid4
 
-from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -26,6 +25,7 @@ from app.models.openstack import (
 )
 from app.models.s3_connection import S3Connection, S3ConnectionCreate
 from app.services.access_context_contracts import AccountCapabilities
+from app.services.iam_capability_probe import probe_iam_list_users
 from app.services.keystone_client import KeystoneClient, KeystoneIdentity, OpenStackError
 from app.services.openstack_access_policy import can_connect_openstack_cloud
 from app.services.rgw_iam import get_iam_client
@@ -788,17 +788,14 @@ class OpenStackService:
     ) -> bool:
         if not iam_endpoint or not access_key or not secret_key:
             return False
-        try:
-            get_iam_client(
-                access_key=access_key,
-                secret_key=secret_key,
-                endpoint=iam_endpoint,
-                region=iam_region,
-                verify_tls=verify_tls,
-            ).list_users(MaxItems=1)
-            return True
-        except (ClientError, BotoCoreError):
-            return False
+        return probe_iam_list_users(
+            access_key,
+            secret_key,
+            endpoint=iam_endpoint,
+            region=iam_region,
+            verify_tls=verify_tls,
+            client_factory=get_iam_client,
+        )
 
     def _execution(self, context, credential, auth_id) -> S3ExecutionContext:
         endpoint = self._managed_endpoint(context.endpoint_url)
