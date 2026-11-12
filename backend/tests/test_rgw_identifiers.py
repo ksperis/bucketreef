@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 import pytest
 
-from app.utils.rgw_identifiers import generate_rgw_account_id, is_rgw_account_id
+from app.utils.rgw_identifiers import generate_rgw_account_id, is_rgw_account_id, rgw_tenant_or_default
 
 
 @pytest.mark.parametrize(
@@ -26,3 +26,11 @@ def test_generate_rgw_account_id_preserves_fixed_length(prefix, expected, monkey
 def test_generate_rgw_account_id_rejects_invalid_prefix(prefix):
     with pytest.raises(ValueError, match="1 to 3 digits"):
         generate_rgw_account_id(prefix)
+
+
+@pytest.mark.parametrize(
+    ("tenant", "expected"),
+    [(None, ""), ("", ""), ("research", "research")],
+)
+def test_rgw_tenant_or_default_preserves_explicit_tenant(tenant, expected):
+    assert rgw_tenant_or_default(tenant) == expected
