@@ -71,15 +71,11 @@ class UsageHistoryTrendPoint(ApiModel):
     collected_at: Optional[str]
 
 
-class UsageHistoryTrendSummary(ApiModel):
-    total_records: int
+class UsageHistoryTrendSummary(UsageHistorySummary):
     points_count: int
-    subjects_count: int
     latest_used_bytes: int
     latest_used_objects: int
     latest_bucket_count: int
-    latest_collected_at: Optional[str]
-    max_usage_ratio_pct: Optional[float]
 
 
 class UsageHistoryTrendResponse(ApiModel):
