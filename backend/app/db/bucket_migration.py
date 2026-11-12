@@ -57,7 +57,11 @@ class BucketMigration(Base):
     maintenance_operation = Column(String, nullable=True)
     maintenance_status = Column(String, nullable=False, default="idle", server_default="idle")
     maintenance_error = Column(Text, nullable=True)
-    maintenance_requested_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    maintenance_requested_by_user_id = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
     parallelism_max = Column(Integer, nullable=False, default=16, server_default="16")
 

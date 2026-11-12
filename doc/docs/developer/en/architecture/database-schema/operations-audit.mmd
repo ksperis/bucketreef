@@ -213,7 +213,7 @@ erDiagram
     webhook_deliveries }o--|| webhook_endpoints : "endpoint_id to id; ON DELETE CASCADE"
     bucket_migrations }o--o| auth_sessions : "execution_auth_session_id to id; ON DELETE SET NULL"
     bucket_migrations }o--o| users : "created_by_user_id to id"
-    bucket_migrations }o--o| users : "maintenance_requested_by_user_id to id"
+    bucket_migrations }o--o| users : "maintenance_requested_by_user_id to id; ON DELETE SET NULL"
     bucket_migration_items }o--|| bucket_migrations : "migration_id to id"
     bucket_migration_events }o--|| bucket_migrations : "migration_id to id"
     bucket_migration_events }o--o| bucket_migration_items : "item_id to id"

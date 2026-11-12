@@ -28273,7 +28273,7 @@
     },
     {
       "id": "relationship:bucket_migrations.maintenance_requested_by_user_id->users.id",
-      "name": "fk_bucket_migrations_maintenance_requested_by_user_id_users_id",
+      "name": "fk_bucket_migrations_maintenance_requested_by_user_id_users_id [ON DELETE SET NULL]",
       "sourceSchema": null,
       "sourceTableId": "table:bucket_migrations",
       "targetSchema": null,
