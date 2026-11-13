@@ -68,8 +68,8 @@ const favoritesState = {
 const options = () => ({
   storedUser: { id: 7, authType: "password" as const },
   contexts: [
-    { id: "101", display_name: "Research" },
-    { id: "202", display_name: "Archive" },
+    { id: "101", display_name: "Research", kind: "portal_account" as const },
+    { id: "202", display_name: "Archive", kind: "connection" as const },
   ],
   bucketName: "archive",
   bucketLabel: "Research Data",
@@ -116,6 +116,10 @@ describe("useBrowserFavoritesRuntime", () => {
       expect.objectContaining({
         accountUser: true,
         availableContexts: ["101", "202"],
+        contextWorkspaceSurfaces: {
+          "101": "portal",
+          "202": "browser",
+        },
         current: result.current.current,
         enabled: true,
       }),

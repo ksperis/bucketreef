@@ -45,6 +45,7 @@ const duplicate: BrowserFavorite = {
 const options = (overrides: Partial<Parameters<typeof useBrowserFavorites>[0]> = {}) => ({
   accountUser: true,
   availableContexts: ["101"],
+  contextWorkspaceSurfaces: { "101": "browser" as const },
   current,
   enabled: true,
   onApply: vi.fn(),
@@ -150,6 +151,35 @@ describe("useBrowserFavorites", () => {
       "101",
       "archive",
       expect.objectContaining({ prefix: "reports/", workspaceSurface: "browser" }),
+    );
+    expect(onApply).toHaveBeenCalledWith(saved);
+  });
+
+  it("rechecks a Storage Space favorite through the Portal browser surface", async () => {
+    mocks.list.mockResolvedValue([saved]);
+    const onApply = vi.fn();
+    const { result } = renderHook(() =>
+      useBrowserFavorites(options({
+        contextWorkspaceSurfaces: { "101": "portal" },
+        onApply,
+      })),
+    );
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+
+    let applied = false;
+    await act(async () => {
+      applied = await result.current.apply(saved);
+    });
+
+    expect(applied).toBe(true);
+    expect(mocks.buckets).toHaveBeenCalledWith(
+      "101",
+      expect.objectContaining({ workspaceSurface: "portal" }),
+    );
+    expect(mocks.objects).toHaveBeenCalledWith(
+      "101",
+      "archive",
+      expect.objectContaining({ workspaceSurface: "portal" }),
     );
     expect(onApply).toHaveBeenCalledWith(saved);
   });

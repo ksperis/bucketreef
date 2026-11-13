@@ -9,6 +9,7 @@ import {
 } from "../../api/browserFavorites";
 import { searchBrowserBuckets } from "../../api/browserBuckets";
 import { listBrowserObjects } from "../../api/browserObjects";
+import type { BrowserWorkspaceSurface } from "../../api/browserWorkspace";
 import { extractApiError } from "../../utils/apiError";
 import { useBrowserI18n } from "./browserI18n";
 
@@ -34,6 +35,7 @@ export function browserFavoriteDefaultName({
 type UseBrowserFavoritesOptions = {
   accountUser: boolean;
   availableContexts: string[];
+  contextWorkspaceSurfaces: Readonly<Record<string, BrowserWorkspaceSurface>>;
   current: BrowserFavoriteInput;
   enabled: boolean;
   lockedBucket?: string;
@@ -45,6 +47,7 @@ type UseBrowserFavoritesOptions = {
 export function useBrowserFavorites({
   accountUser,
   availableContexts,
+  contextWorkspaceSurfaces,
   current,
   enabled,
   lockedBucket,
@@ -184,8 +187,9 @@ export function useBrowserFavorites({
       }
       setApplyingId(favorite.id);
       try {
+        const workspaceSurface = contextWorkspaceSurfaces[favorite.context] ?? "browser";
         const result = await searchBrowserBuckets(favorite.context, {
-          workspaceSurface: "browser",
+          workspaceSurface,
           exact: true,
           search: favorite.bucket,
           pageSize: 1,
@@ -194,7 +198,7 @@ export function useBrowserFavorites({
           throw new Error(text("Saved location is unavailable. Its identity has been kept."));
         }
         await listBrowserObjects(favorite.context, favorite.bucket, {
-          workspaceSurface: "browser",
+          workspaceSurface,
           prefix: favorite.prefix,
           maxKeys: 1,
         });
@@ -217,7 +221,7 @@ export function useBrowserFavorites({
         if (active.current) setApplyingId(null);
       }
     },
-    [availableContexts, current.context, lockedBucket, onApply, text],
+    [availableContexts, contextWorkspaceSurfaces, current.context, lockedBucket, onApply, text],
   );
 
   return {
