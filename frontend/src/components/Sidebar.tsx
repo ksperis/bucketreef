@@ -240,7 +240,7 @@ export default function Sidebar({
   useEffect(() => {
     const activeLink = navRef.current?.querySelector<HTMLElement>(".shell-sidebar-item-active");
     activeLink?.scrollIntoView?.({ block: "nearest" });
-  }, [collapsedSections, compact, location.pathname]);
+  }, [compact, location.pathname]);
 
   useEffect(() => {
     setActiveSectionCollapseOverrides({});
@@ -411,6 +411,7 @@ export default function Sidebar({
                   ) : !section.label ? null : collapsible ? (
                     <button
                       type="button"
+                      aria-expanded={!isCollapsed}
                       onClick={() => toggleSection(
                         sectionStateKey,
                         sectionPersistenceKey,
@@ -418,7 +419,7 @@ export default function Sidebar({
                         activeSection,
                         isCollapsed,
                       )}
-                      className="shell-section-label shell-sidebar-section-toggle flex h-5 w-full items-center justify-between rounded-md px-2 text-[10px] font-semibold uppercase transition hover:bg-[var(--shell-hover)] hover:text-[var(--shell-text)]"
+                      className="shell-section-label shell-sidebar-section-toggle flex h-7 w-full items-center justify-between rounded-lg px-2.5 text-[10px] font-semibold uppercase transition-colors"
                     >
                       <span>{section.label}</span>
                       <SidebarChevronIcon className={`h-3.5 w-3.5 transition-transform ${isCollapsed ? "" : "rotate-90"}`} />
@@ -429,7 +430,7 @@ export default function Sidebar({
                     </div>
                   )}
                   {!isCollapsed && (
-                    <ul className="space-y-px">
+                    <ul className={`space-y-px ${collapsible && !compact ? "shell-sidebar-submenu" : ""}`}>
                       {section.links.map((link) => (
                         <li key={link.to}>
                           {link.disabled ? (

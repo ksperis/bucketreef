@@ -411,6 +411,23 @@ body {
     letter-spacing: 0;
   }
 
+  .shell-sidebar-section-toggle {
+    border: 1px solid var(--shell-border-soft);
+    background: var(--shell-muted-bg);
+  }
+
+  .shell-sidebar-section-toggle:hover {
+    border-color: var(--shell-border);
+    background: var(--shell-hover);
+    color: var(--shell-text);
+  }
+
+  .shell-sidebar-submenu {
+    margin-left: 0.625rem;
+    border-left: 1px solid var(--shell-border-soft);
+    padding-left: 0.5rem;
+  }
+
   .shell-sidebar-scroll {
     overscroll-behavior: contain;
     scrollbar-color: transparent transparent;
