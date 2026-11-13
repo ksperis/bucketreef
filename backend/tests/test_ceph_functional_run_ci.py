@@ -62,6 +62,15 @@ def test_ci_app_settings_payload_enables_portal_features():
     assert payload["general"]["browser_portal_enabled"] is True
 
 
+def test_ci_app_settings_payload_enables_suite_resource_features():
+    payload = json.loads(run_ci._build_app_settings_payload())
+
+    assert payload["general"]["managed_rgw_accounts_enabled"] is True
+    assert payload["general"]["managed_rgw_users_enabled"] is True
+    assert payload["general"]["shared_s3_connections_enabled"] is True
+    assert payload["general"]["private_s3_connections_enabled"] is True
+
+
 def test_ci_app_settings_payload_matches_current_schema_and_enables_suite_features():
     settings = AppSettings.model_validate_json(run_ci._build_app_settings_payload())
 
