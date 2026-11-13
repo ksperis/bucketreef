@@ -79,6 +79,7 @@ Recommended GitLab variables:
   Manager RGW multisite endpoint switching when two zones are configured
 - `CEPH_TEST_RGW_REGION` (defaults to `us-east-1`)
 - `CEPH_TEST_LAB_VERIFY_TLS=true`
+- `CEPH_TEST_LAB_FORCE_PATH_STYLE=true` when the lab endpoint requires path-style S3 addressing
 - `CEPH_TEST_RGW_VERIFY_TLS=true`
 - `CEPH_TEST_RGW_CA_BUNDLE`
 - `CEPH_TEST_RESOURCE_PREFIX`
