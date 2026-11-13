@@ -3,6 +3,8 @@ import { useCallback, useMemo } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import type { BrowserFavorite } from "../../api/browserFavorites";
+import type { BrowserWorkspaceSurface } from "../../api/browserWorkspace";
+import type { ExecutionContextKind } from "../../api/executionContexts";
 import type { SessionUser } from "../../utils/workspaces";
 import { buildBrowserLocationPath } from "./useBrowserNavigationHistory";
 import {
@@ -13,6 +15,7 @@ import {
 type FavoriteContext = {
   id: string;
   display_name: string;
+  kind: ExecutionContextKind;
 };
 
 type UseBrowserFavoritesRuntimeOptions = {
@@ -77,6 +80,16 @@ export function useBrowserFavoritesRuntime({
     () => (isMainBrowserPath ? contexts.map((item) => item.id) : []),
     [contexts, isMainBrowserPath],
   );
+  const contextWorkspaceSurfaces = useMemo<Record<string, BrowserWorkspaceSurface>>(
+    () =>
+      Object.fromEntries(
+        contexts.map((item) => [
+          item.id,
+          item.kind === "portal_account" ? "portal" : "browser",
+        ] as const),
+      ),
+    [contexts],
+  );
   const applyFavorite = useCallback(
     (favorite: BrowserFavorite) =>
       requestTransition(() => {
@@ -110,6 +123,7 @@ export function useBrowserFavoritesRuntime({
   const favorites = useBrowserFavorites({
     accountUser,
     availableContexts,
+    contextWorkspaceSurfaces,
     current,
     enabled: isMainBrowserPath,
     lockedBucket,
