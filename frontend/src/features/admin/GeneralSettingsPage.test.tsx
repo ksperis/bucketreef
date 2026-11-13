@@ -197,6 +197,24 @@ describe("GeneralSettingsPage branding", () => {
 
     const statistics = await screen.findByRole("radiogroup", { name: "Bucket composition statistics" });
     const collection = screen.getByRole("radiogroup", { name: "Automatic bucket composition collection" });
+    expect(
+      screen.getByText(
+        "Controls whether Manager and Portal can read snapshots and request manual recalculation.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Controls scheduled refreshes. Targeted activation requires an explicit RGW Account opt-in; statistics must also be enabled.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Bucket composition statistics: information" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: "Automatic bucket composition collection: information",
+      }),
+    ).not.toBeInTheDocument();
     expect(within(statistics).getByRole("radio", { name: "Enabled by default" })).toBeChecked();
     expect(within(collection).getByRole("radio", { name: "Targeted activation" })).toBeChecked();
 
