@@ -13,6 +13,7 @@ def test_app_settings_payload_uses_current_schema():
     settings = AppSettings.model_validate_json(payload)
 
     assert settings.general.browser_enabled is True
+    assert settings.general.private_s3_connections_enabled is True
     assert settings.general.manager_enabled is False
 
 

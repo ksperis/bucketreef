@@ -59,6 +59,7 @@ def _build_app_settings_payload() -> str:
             "ceph_admin_enabled": False,
             "storage_ops_enabled": False,
             "browser_enabled": True,
+            "private_s3_connections_enabled": True,
             "browser_root_enabled": True,
             "browser_manager_enabled": False,
             "browser_ceph_admin_enabled": False,
