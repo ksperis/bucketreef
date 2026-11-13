@@ -8,6 +8,7 @@ Current release dates come from the changelog; reconstructed historical dates re
 
 | Version | Date | Notes | Publications |
 | --- | --- | --- | --- |
+| [0.3.2](#release-0-3-2) | 2026-11-13 (changelog) | Changelog | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.3.2) |
 | [0.3.1](#release-0-3-1) | 2026-11-11 (changelog) | Changelog | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.3.1) |
 | [0.3.0](#release-0-3-0) | 2026-11-10 (changelog) | Changelog | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.3.0) |
 | [0.2.18](#release-0-2-18) | 2026-10-24 (changelog) | Changelog | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.2.18) |
@@ -41,6 +42,48 @@ Current release dates come from the changelog; reconstructed historical dates re
 | [0.1.2](#release-0-1-2) | 2026-01-09 (commit) | Reconstructed | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.1.2) |
 | [0.1.1](#release-0-1-1) | 2026-01-06 (commit) | Reconstructed | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.1.1) |
 | [0.1.0](#release-0-1-0) | 2026-01-06 (commit) | Reconstructed | [GitHub](https://github.com/ksperis/bucketreef/releases/tag/v0.1.0) |
+
+## 0.3.2 {#release-0-3-2}
+
+[GitHub release](https://github.com/ksperis/bucketreef/releases/tag/v0.3.2)
+
+Compare v0.3.1 → v0.3.2: [GitHub](https://github.com/ksperis/bucketreef/compare/v0.3.1...v0.3.2)
+
+
+### Added
+
+- Add deployment-lockable switches for RGW Accounts, RGW Users, Shared S3 Connections, and Private S3 Connections, with migration-safe defaults and consistent Admin, onboarding, execution-context, and navigation gating.
+- Add an automatic Manager Browser data-access policy with platform and resource-level inheritance for Accounts and RGW Users, while preserving explicit per-association grants and access-audit provenance.
+
+### Changed
+
+- Centralize deployment-owned runtime configuration in a versioned `DEPLOYMENT_CONFIG` manifest, with local `RUNTIME_SURFACES`, deployment locks, endpoint adoption, and Compose/Helm provisioning support.
+- Validate Portal server access-log advanced-filter scalar/list/null value shapes at the API boundary and remove unreachable matcher fallbacks.
+- Validate Ceph Admin account and user advanced-filter field/operator/value shapes at the API boundary and remove unreachable identity-listing enrichment branches.
+- Validate shared Ceph Admin and Storage Ops advanced bucket filter rules against the exact field/operator/value-shape contract, removing matcher fallbacks for malformed field and feature-parameter rules.
+- Validate shared Ceph Admin and Storage Ops bucket listing sort fields and UI-tag match mode at the API boundary, removing silent runtime fallback to name sorting or `any` tag matching.
+- Tighten Ceph Admin account and user listing sort fields to the exact fields exposed by the bundled frontend, removing the retired account `name` sort alias and silent fallback for unknown fields.
+- Canonicalize Storage Endpoint credential replacement so Admin, Runtime, Supervision, and Ceph Admin identities all reuse a stored pair only when both edit fields are blank, and require both fields for an explicit replacement.
+- Simplify the internal Admin MFA reset route to return `204 No Content`; removal counters and passkey-policy state remain recorded in the security audit instead of being duplicated in an unused response body.
+- Keep bucket-composition policy descriptions inline in General Settings and improve collapsible sidebar hierarchy and expansion behavior.
+
+### Fixed
+
+- Preserve the Portal execution surface when standalone Browser favorites target Portal Storage Spaces, avoiding incorrect Browser-context revalidation failures.
+- Mount deployment provisioning credential files into one-shot Compose provisioners so referenced secret files remain usable without embedding credentials in `DEPLOYMENT_CONFIG`.
+- Build frontend static assets on the native BuildKit builder platform while retaining target-platform nginx runtimes, avoiding unnecessary ARM emulation during multi-architecture builds.
+
+### Upgrade notes
+
+- Apply the normal Alembic upgrade path before starting the matching backend. Migrations `0263` through `0274` tighten retained-reference foreign keys and cascades, add deployment configuration and managed-resource feature switches, and persist Manager Browser data-access policy state.
+- **Breaking deployment change:** move `FEATURE_*_ENABLED` and `ENV_STORAGE_ENDPOINTS` to local `RUNTIME_SURFACES` and a versioned deployment manifest. Apply the [deployment configuration migration](doc/docs/admin/en/configuration/deployment.md#migrate-from-environment-overrides) before restarting existing Admin and User pools.
+- Deploy the matching backend and bundled frontend together because Portal server access-log advanced filters now reject invalid scalar/list/null value shapes instead of silently evaluating malformed rules. No database migration is required.
+- Deploy the matching backend and bundled frontend together because Ceph Admin account/user advanced filters now reject unsupported field/operator combinations and invalid scalar/list/null value shapes instead of silently evaluating malformed rules. No database migration is required.
+- Deploy the matching backend and bundled frontend together because shared Ceph Admin/Storage Ops advanced bucket filters now reject unsupported field/operator combinations and invalid scalar/list/null value shapes instead of silently evaluating malformed rules. No database migration is required.
+- Deploy the matching backend and bundled frontend together because shared Ceph Admin/Storage Ops bucket listings now reject unknown `sort_by` and `ui_tag_match` values instead of silently normalizing them. No database migration is required.
+- Deploy the matching backend and bundled frontend together because Ceph Admin account/user listings now reject unknown `sort_by` values; use `account_name` instead of the retired account `name` alias. No database migration is required.
+- Deploy the matching backend and bundled frontend together because Storage Endpoint feature detection and onboarding no longer support the historical Admin access-key-only edit fallback. No database migration is required.
+- Deploy the matching backend and bundled frontend together because Admin MFA reset now returns `204 No Content` instead of an unused result object. No database migration is required.
 
 ## 0.3.1 {#release-0-3-1}
 
