@@ -21,6 +21,8 @@ from app.models.app_settings import AppSettings
 
 
 _RECENT_LINEAR_REVISIONS = (
+    "0274_manager_browser_resource_access",
+    "0273_manager_browser_data_access_policy",
     "0272_resource_feature_switches",
     "0271_deployment_configuration",
     "0270_retained_user_history_foreign_keys",

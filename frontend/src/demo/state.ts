@@ -57,7 +57,10 @@ export type DemoSpace = {
   shares: PortalStorageSpaceShare[];
 };
 export type DemoIam = {
-  users: (IAMUser & { rgw?: Partial<CephAdminRgwUserDetail> })[]; groups: IAMGroup[]; roles: IAMRole[]; policies: IamPolicy[];
+  users: (IAMUser & {
+    rgw?: Partial<CephAdminRgwUserDetail>;
+    allow_manager_browser_data_access_for_all_admins?: boolean | null;
+  })[]; groups: IAMGroup[]; roles: IAMRole[]; policies: IamPolicy[];
   keys: Record<string, AccessKey[]>; attachments: Record<string, IamPolicy[]>; inline: Record<string, InlinePolicy[]>;
 };
 export type DemoUser = Omit<User, "effective_access">;
@@ -329,6 +332,7 @@ export function createSeed(): DemoState {
     allow_access_key_metadata: null, allow_access_key_expiration: null, allow_activity_history: null,
     allow_rgw_usage_metrics: null, allow_cost_estimation: null, allow_bucket_usage_stats: null,
     allow_bucket_usage_stats_collection: null, allow_multisite_endpoint_switching: null,
+    allow_manager_browser_data_access_for_all_admins: null,
   }));
   const first = ["Alex", "Sam", "Jordan", "Morgan", "Taylor", "Casey", "Robin", "Avery", "Jamie", "Riley", "Cameron", "Drew"];
   const last = ["Martin", "Chen", "Patel", "Garcia", "Kim"];
@@ -398,7 +402,7 @@ export function createSeed(): DemoState {
   }));
   const iam: Record<number, DemoIam> = {};
   for (const account of accounts) {
-    iam[account.id] = { ...emptyIam(), users: ["backup-service", "analytics-reader", "media-editor"].map(name => ({ name, path: "/services/", arn: `arn:aws:iam::${account.rgw_account_id}:user/${name}`, groups: ["applications"], policies: [], inline_policies: [], has_keys: false })),
+    iam[account.id] = { ...emptyIam(), users: ["backup-service", "analytics-reader", "media-editor"].map(name => ({ name, path: "/services/", arn: `arn:aws:iam::${account.rgw_account_id}:user/${name}`, groups: ["applications"], policies: [], inline_policies: [], has_keys: false, allow_manager_browser_data_access_for_all_admins: null })),
       groups: [{ name: "applications", path: "/teams/" }],
       roles: [{ name: "ApplicationReadOnly", path: "/applications/", arn: `arn:aws:iam::${account.rgw_account_id}:role/ApplicationReadOnly`, max_session_duration: 3600, tags: [{ key: "environment", value: "demo" }], assume_role_policy_document: { Version: "2012-10-17", Statement: [] } }], policies: [{ name: "ReadProjectObjects", arn: `arn:aws:iam::${account.rgw_account_id}:policy/ReadProjectObjects`, document: { Version: "2012-10-17", Statement: [{ Effect: "Allow", Action: ["s3:GetObject", "s3:ListBucket"], Resource: ["*"] }] } }] };
   }

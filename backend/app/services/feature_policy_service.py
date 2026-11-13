@@ -25,6 +25,7 @@ MANAGER_RESOURCE_FIELDS = {
     "allow_access_key_metadata": "access_key_metadata",
     "allow_access_key_expiration": "access_key_expiration",
     "allow_cost_estimation": "cost_estimation",
+    "allow_manager_browser_data_access_for_all_admins": "manager_browser_data_access",
     "allow_managed_private_connection_provisioning": "managed_private_connection_provisioning",
 }
 
@@ -156,6 +157,17 @@ def multisite_endpoint_switching_allowed(
         policies,
         resource,
     ).enabled
+
+
+def manager_browser_automatic_access_state(
+    policies: ManagerFeaturePolicies,
+    resource: S3Account | S3User,
+) -> FeatureState:
+    """Resolve the automatic all-administrators Manager Browser grant."""
+    return resolve_feature_policy(
+        policies.manager_browser_data_access,
+        resource.allow_manager_browser_data_access_for_all_admins,
+    )
 
 
 def validate_manager_overrides(

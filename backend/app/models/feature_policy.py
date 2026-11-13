@@ -30,6 +30,7 @@ class ManagerFeaturePolicies(FeaturePolicies):
     ceph_s3_user_keys: FeaturePolicy = FeaturePolicy.TARGETED
     access_key_metadata: FeaturePolicy = FeaturePolicy.TARGETED
     access_key_expiration: FeaturePolicy = FeaturePolicy.TARGETED
+    manager_browser_data_access: FeaturePolicy = FeaturePolicy.DISABLED
     managed_private_connection_provisioning: FeaturePolicy = FeaturePolicy.DISABLED
     rgw_multisite_endpoint_switching: FeaturePolicy = FeaturePolicy.TARGETED
 

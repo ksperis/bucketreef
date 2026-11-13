@@ -9,7 +9,7 @@ import type { S3ExecutionContextSelector } from "./accountParams";
 import { buildS3ContextRequestConfig } from "./accountParams";
 
 export type ManagerAccessMode = "admin" | "session" | "s3_user" | "connection" | "openstack_project";
-export type ManagerContextKind = "account" | "connection" | "openstack_project";
+export type ManagerContextKind = "account" | "connection" | "s3_user" | "openstack_project";
 export type ManagerPrivateAccessState = "provisioning" | "active" | "deleting" | "cleanup_pending";
 
 export type ManagerContext = {

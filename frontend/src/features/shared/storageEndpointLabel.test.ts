@@ -57,6 +57,7 @@ function account(overrides: Partial<S3Account>): S3Account {
     allow_bucket_usage_stats: null,
     allow_bucket_usage_stats_collection: null,
     allow_multisite_endpoint_switching: null,
+    allow_manager_browser_data_access_for_all_admins: null,
     ...overrides,
   };
 }

@@ -293,7 +293,10 @@ def _resolve_account_execution_context(
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Manager Browser data access requires account administrator and explicit data access on the same association",
+            detail=(
+                "Manager Browser data access requires automatic access for this account "
+                "or an explicit data-access grant on an Account administrator association"
+            ),
         )
 
     capabilities = manager_membership_capabilities(link)

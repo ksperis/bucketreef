@@ -66,6 +66,43 @@ describe("ManagerSettingsPage", () => {
     expectPolicy(toggle, "Enabled by default");
   });
 
+  it("renders and saves Manager Browser data access with explicit audit guidance", async () => {
+    const user = userEvent.setup();
+    render(<ManagerSettingsPage />);
+
+    const policy = await policyGroup("Manager Browser data access");
+    expectPolicy(policy, "Disabled");
+    expect(screen.queryByText(/Controls automatic embedded Browser data-plane access/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Audit limitation" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Manager Browser data access: information" }));
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Controls automatic embedded Browser data-plane access for all eligible administrators of RGW Accounts and RGW Users. Explicit per-association grants remain independent.");
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Disabled: no automatic access. Explicit Allow Manager Browser data access grants on associations remain effective.");
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Targeted activation: automatic access is enabled only for RGW Accounts or RGW Users explicitly enabled in their Manager features.");
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Enabled by default: automatic access applies to eligible RGW Accounts and RGW Users unless the resource explicitly disables it.");
+    expect(screen.getByRole("tooltip")).toHaveTextContent("account root identity");
+    expect(screen.getByRole("tooltip")).toHaveTextContent("same access key stored for Manager administration");
+    expect(screen.getByRole("tooltip")).toHaveTextContent("does not record these data-plane operations in its application audit logs");
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Provision managed private connections");
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Explicit association grants");
+    expect(screen.getByRole("tooltip")).toHaveTextContent("Allow Manager Browser data access");
+    expect(screen.getByRole("tooltip")).toHaveTextContent("configure data-plane auditing in RGW");
+
+    await user.click(within(policy).getByRole("radio", { name: "Enabled by default" }));
+    const auditWarning = screen.getByRole("button", { name: "Audit limitation" });
+    expect(auditWarning).toHaveTextContent("Audit limitation");
+    await user.click(auditWarning);
+    const auditTooltip = screen.getByRole("tooltip", { name: "Audit limitation" });
+    expect(auditTooltip).toHaveTextContent("does not record these data-plane operations in its application audit logs");
+    expect(auditTooltip).toHaveTextContent("Provision managed private connections");
+    expect(auditTooltip.parentElement).toHaveClass("settings-info-tooltip");
+    await user.click(screen.getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() => expect(updateAppSettingsMock).toHaveBeenCalledTimes(1));
+    const payload = updateAppSettingsMock.mock.calls[0][0] as AppSettings;
+    expect(payload.manager.feature_policies.manager_browser_data_access).toBe("default_on");
+  });
+
   it("renders Cost estimation as targeted by default", async () => {
     render(<ManagerSettingsPage />);
 
@@ -306,6 +343,6 @@ describe("ManagerSettingsPage", () => {
     expect(screen.getAllByRole("radiogroup").map(group => group.getAttribute("aria-label"))).toEqual(
       expect.arrayContaining(["RGW traffic and usage metrics"]),
     );
-    expect(screen.getAllByRole("radiogroup")).toHaveLength(14);
+    expect(screen.getAllByRole("radiogroup")).toHaveLength(15);
   });
 });

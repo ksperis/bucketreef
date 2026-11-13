@@ -212,8 +212,8 @@ def _manager_browser_state(
     message = None
     if not enabled:
         message = (
-            "Manager Browser requires account administrator and explicit data access on the "
-            "same association."
+            "Manager Browser requires automatic access for this account or an explicit "
+            "data-access grant on an Account administrator association."
         )
     return _ManagerBrowserState(enabled, message)
 

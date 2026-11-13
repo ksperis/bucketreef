@@ -196,6 +196,7 @@ export default function AccessAuditPage() {
             }}>
             <option value="all">{text("allSources")}</option>
             <option value="platform">{text("platform")}</option>
+            <option value="resource">{text("resource")}</option>
             <option value="direct">{text("direct")}</option>
             <option value="group">{text("uiGroup")}</option>
           </UiSelect>

@@ -254,19 +254,29 @@ flows unless the pathway is explicit, authorized, and audited.
   only `account_administrator`, and `portal_role` accepts only `portal_user` or
   `portal_manager`. API payloads require both fields and use `null` for an
   absent right. Never convert a Manager role into a Portal role.
-- Delete associations when both axes are absent. Manager Browser account access
-  additionally requires `manager_role = account_administrator` and its data-
-  access flag on the same direct or group association.
+- Delete associations when both axes are absent. Manager Browser data access has
+  two additive authorization paths. `allow_manager_browser_data_access = true`
+  is an explicit per-association grant that remains effective independently of
+  `manager.feature_policies.manager_browser_data_access`. For RGW Accounts, the
+  explicit grant and `manager_role = account_administrator` must exist on the
+  same direct or group association. The global policy and the nullable
+  `allow_manager_browser_data_access_for_all_admins` resource override control
+  only automatic access for all eligible administrators. `disabled` disables
+  that automatic path, `targeted` requires a resource override of `true`, and
+  `default_on` enables it unless the resource override is `false`.
 - Standard Browser accepts active, unexpired owned private connections with
   Browser access and explicit `portal_account` contexts enabled by the
   effective project Portal setting. Portal contexts must keep the Portal
   profile and personal IAM identity. Embedded Manager Browser reuses the active
   Manager `ctx` and must send `X-S3-Workspace: manager-browser` on every data-
-  plane request. Accounts require `account_administrator` and
-  `allow_manager_browser_data_access = true` on the same association; RGW users
-  aggregate the flag across direct and group links; private connections require
-  both Manager and Browser access. Shared connections and forged selections are
-  rejected before credentials are resolved.
+  plane request. Explicit Account grants require `account_administrator` and
+  `allow_manager_browser_data_access = true` on the same association. Explicit
+  RGW User grants aggregate the flag across direct and group links. Automatic
+  Account/RGW User access is resolved separately from the global policy and the
+  resource override, then ORed with the explicit grant. Private connections
+  still require both Manager and Browser access.
+  Shared connections and forged selections are rejected before credentials are
+  resolved.
 - Portal, direct S3 sessions, and Ceph Admin Browser remain explicit separate
   authorization branches. Portal always requires an explicit `portal_role` and
   executes with the user's personal IAM identity; Manager administrators have

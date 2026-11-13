@@ -40,6 +40,7 @@ function canonicalS3UserSummary(id: number, name: string): S3UserSummary {
     allow_bucket_usage_stats_collection: null,
     allow_multisite_endpoint_switching: null,
     allow_managed_private_connection_provisioning: null,
+    allow_manager_browser_data_access_for_all_admins: null,
   };
 }
 

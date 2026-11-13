@@ -66,6 +66,7 @@ const makeAccountDetail = (overrides: Record<string, unknown> = {}) => ({
   allow_bucket_usage_stats: null,
   allow_bucket_usage_stats_collection: null,
   allow_multisite_endpoint_switching: null,
+  allow_manager_browser_data_access_for_all_admins: null,
   ...overrides,
 });
 
@@ -149,7 +150,11 @@ vi.mock("../../components/GeneralSettingsContext", () => ({
       allow_managed_rgw_tenant_creation: managedTenantCreationEnabled,
       project_feature_policies: DEFAULT_PROJECT_FEATURE_POLICIES,
       project_collection_policies: DEFAULT_PROJECT_COLLECTION_POLICIES,
-      manager_feature_policies: { ...DEFAULT_MANAGER_FEATURE_POLICIES, bucket_quota_management: "targeted" },
+      manager_feature_policies: {
+        ...DEFAULT_MANAGER_FEATURE_POLICIES,
+        bucket_quota_management: "targeted",
+        manager_browser_data_access: "targeted",
+      },
     },
     loading: false,
     refresh: vi.fn(),
@@ -838,17 +843,21 @@ describe("AccountsPage modal tabs", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
     fireEvent.click(await screen.findByRole("tab", { name: "Manager features" }));
 
+    const dataAccessSection = screen.getByRole("region", { name: "Data access" });
     const extensionsSection = screen.getByRole("region", { name: "Access-key extensions" });
     const multisiteSection = screen.getByRole("region", { name: "RGW multisite" });
     const privilegedSection = screen.getByRole("region", { name: "Privileged Ceph operations" });
+    expect(within(dataAccessSection).getByRole("radiogroup", { name: "Manager Browser data access" })).toBeInTheDocument();
     expect(within(extensionsSection).getByRole("radiogroup", { name: "Access-key names and notes" })).toBeInTheDocument();
     expect(within(extensionsSection).getByRole("radiogroup", { name: "Access-key expiration" })).toBeInTheDocument();
     expect(within(extensionsSection).queryByRole("radiogroup", { name: "Bucket quota management" })).not.toBeInTheDocument();
     expect(within(privilegedSection).getByRole("radiogroup", { name: "Bucket quota management" })).toBeInTheDocument();
     expect(within(multisiteSection).getByRole("radiogroup", { name: "Endpoint switching" })).toBeInTheDocument();
     expect(within(privilegedSection).queryByRole("radiogroup", { name: "Access-key names and notes" })).not.toBeInTheDocument();
+    expectInheritedFeatureOverride("Manager Browser data access");
     expectInheritedFeatureOverride("Bucket quota management");
     expectInheritedFeatureOverride("Endpoint switching");
+    selectFeatureOverride("Manager Browser data access", "Enabled");
     selectFeatureOverride("Bucket quota management", "Enabled");
     selectFeatureOverride("Endpoint switching", "Enabled");
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
@@ -860,6 +869,7 @@ describe("AccountsPage modal tabs", () => {
     const lastCall = updateS3AccountMock.mock.calls.at(-1);
     expect(lastCall?.[1]).toEqual(
       expect.objectContaining({
+        allow_manager_browser_data_access_for_all_admins: true,
         allow_bucket_quota_management: true,
         allow_multisite_endpoint_switching: true,
       })

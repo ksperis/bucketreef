@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Literal
 
 from app.db import S3Account, User, UserS3Account
 from app.core.domain_enums import ManagerAccountRole, UserRole
@@ -61,11 +62,13 @@ class EffectiveAccountLink:
     direct_determines_effective_portal_role: bool = False
     direct_allow_manager_browser_data_access: bool = False
     group_sources: tuple[EffectiveAccountGroupRole, ...] = ()
+    manager_browser_automatic_allowed: bool = False
+    manager_browser_automatic_source: Literal["platform", "resource"] | None = None
 
     @property
     def manager_browser_allowed(self) -> bool:
         admin_role = ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value
-        return bool(
+        explicit_allowed = bool(
             self.direct_manager_role == admin_role
             and self.direct_allow_manager_browser_data_access
         ) or any(
@@ -73,6 +76,11 @@ class EffectiveAccountLink:
             and source.allow_manager_browser_data_access
             for source in self.group_sources
         )
+        automatic_allowed = (
+            self.manager_role == admin_role
+            and self.manager_browser_automatic_allowed
+        )
+        return explicit_allowed or automatic_allowed
 
 
 @dataclass

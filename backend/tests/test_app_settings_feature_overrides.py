@@ -138,6 +138,15 @@ def test_app_settings_path_is_absent_without_explicit_bootstrap_configuration(mo
     assert app_settings_service._load_persisted_settings_from_disk(None) == AppSettings()
 
 
+def test_existing_app_settings_payload_defaults_manager_browser_policy_to_disabled():
+    payload = AppSettings().model_dump(mode="json")
+    payload["manager"]["feature_policies"].pop("manager_browser_data_access")
+
+    loaded = AppSettings.model_validate(payload)
+
+    assert loaded.manager.feature_policies.manager_browser_data_access.value == "disabled"
+
+
 def test_load_app_settings_types_invalid_persisted_payload(monkeypatch, db_session):
     db_session.add(AppSetting(key=app_settings_service.APP_SETTINGS_DB_KEY, payload={}))
     db_session.commit()

@@ -15,6 +15,7 @@ class ManagedS3ResourceFeatures(ApiModel):
     allow_bucket_usage_stats: Optional[bool]
     allow_bucket_usage_stats_collection: Optional[bool]
     allow_multisite_endpoint_switching: Optional[bool]
+    allow_manager_browser_data_access_for_all_admins: Optional[bool]
 
 
 class ManagedS3UserFeatures(ManagedS3ResourceFeatures):
@@ -32,6 +33,7 @@ class ManagedS3ResourceFeatureOverrides(ApiModel):
     allow_bucket_usage_stats: Optional[bool] = None
     allow_bucket_usage_stats_collection: Optional[bool] = None
     allow_multisite_endpoint_switching: Optional[bool] = None
+    allow_manager_browser_data_access_for_all_admins: Optional[bool] = None
 
 
 class ManagedS3UserFeatureOverrides(ManagedS3ResourceFeatureOverrides):

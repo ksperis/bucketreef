@@ -6,6 +6,12 @@ import {
 } from "../api/accessAudit";
 import type { UiGroup } from "../api/groups";
 import { resolveDemoAccountGrant } from "./http";
+import {
+  demoS3UserResources,
+  resolveDemoAccountManagerBrowserAccess,
+  resolveDemoS3UserManagerBrowserAccess,
+  type DemoManagerBrowserAccessSource,
+} from "./managerBrowserAccess";
 import { demoGroupsForUser, type DemoState, type DemoUser } from "./state";
 
 type AuditSource = AccessAuditRight["sources"][number];
@@ -48,6 +54,12 @@ function directSource(): AuditSource {
 
 function groupSource(group: UiGroup): AuditSource {
   return { kind: "group", group_id: group.id, group_name: group.name };
+}
+
+function managerBrowserAuditSource(source: DemoManagerBrowserAccessSource): AuditSource {
+  if (source.kind === "direct") return directSource();
+  if (source.kind === "group") return groupSource(source.group);
+  return { kind: source.kind, group_id: null, group_name: null };
 }
 
 function flagSources(
@@ -156,8 +168,8 @@ function addAccountRows(rows: Map<string, AccessAuditRow>, state: DemoState, use
     const portalSources = resolved.portal_role
       ? sourcesFor(link => link.portal_role === resolved.portal_role)
       : [];
-    const browserSources = sourcesFor(link =>
-      link.manager_role === "account_administrator" && link.allow_manager_browser_data_access);
+    const browserSources = resolveDemoAccountManagerBrowserAccess(state, account, user)
+      .sources.map(managerBrowserAuditSource);
     const target = { id: account.id, name: account.name, identifier: account.rgw_account_id };
     addRight(rows, user, "rgw_account", target, "account_administrator", managerSources);
     if (resolved.portal_role) addRight(rows, user, "rgw_account", target, resolved.portal_role, portalSources);
@@ -165,18 +177,8 @@ function addAccountRows(rows: Map<string, AccessAuditRow>, state: DemoState, use
   }
 }
 
-function demoS3Users(state: DemoState) {
-  return state.accounts.flatMap(account => (state.iam[account.id]?.users ?? []).map((rgwUser, index) => ({
-    id: account.id * 100 + index,
-    name: rgwUser.name,
-    rgw_user_uid: rgwUser.name,
-    storage_endpoint_id: account.storage_endpoint_id,
-    storage_endpoint_name: account.storage_endpoint_name,
-  })));
-}
-
 function addS3UserRows(rows: Map<string, AccessAuditRow>, state: DemoState, user: DemoUser, groups: UiGroup[]): void {
-  for (const rgwUser of demoS3Users(state)) {
+  for (const rgwUser of demoS3UserResources(state)) {
     const direct = user.s3_user_links?.find(link => link.s3_user_id === rgwUser.id);
     const inherited = groups.flatMap(group => group.s3_user_links
       .filter(link => link.s3_user_id === rgwUser.id)
@@ -185,10 +187,8 @@ function addS3UserRows(rows: Map<string, AccessAuditRow>, state: DemoState, user
       ...(direct ? [directSource()] : []),
       ...inherited.map(({ group }) => groupSource(group)),
     ];
-    const browserSources = [
-      ...(direct?.allow_manager_browser_data_access ? [directSource()] : []),
-      ...inherited.filter(({ link }) => link.allow_manager_browser_data_access).map(({ group }) => groupSource(group)),
-    ];
+    const browserSources = resolveDemoS3UserManagerBrowserAccess(state, rgwUser, user)
+      .sources.map(managerBrowserAuditSource);
     const target = { id: rgwUser.id, name: rgwUser.name, identifier: rgwUser.rgw_user_uid };
     addRight(rows, user, "rgw_user", target, "rgw_user_access", accessSources);
     addRight(rows, user, "rgw_user", target, "manager_browser_data_access", browserSources);
@@ -227,7 +227,7 @@ export function buildDemoAccessAuditRows(state: DemoState): AccessAuditRow[] {
 }
 
 export function listDemoS3Users(state: DemoState) {
-  return demoS3Users(state).map(rgwUser => ({
+  return demoS3UserResources(state).map(rgwUser => ({
     ...rgwUser,
     tags: [],
     user_links: state.users.flatMap(user => (user.s3_user_links ?? [])

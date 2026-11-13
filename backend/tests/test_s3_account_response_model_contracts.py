@@ -65,6 +65,7 @@ def test_s3_account_responses_require_complete_canonical_payloads() -> None:
         "allow_bucket_usage_stats",
         "allow_bucket_usage_stats_collection",
         "allow_multisite_endpoint_switching",
+        "allow_manager_browser_data_access_for_all_admins",
         "tags",
     }
     assert set(S3AccountSummary.model_json_schema()["required"]) == {
@@ -88,6 +89,7 @@ def test_s3_account_responses_require_complete_canonical_payloads() -> None:
         "allow_bucket_usage_stats",
         "allow_bucket_usage_stats_collection",
         "allow_multisite_endpoint_switching",
+        "allow_manager_browser_data_access_for_all_admins",
         "tags",
     }
 

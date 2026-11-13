@@ -60,6 +60,7 @@ def test_admin_create_account_delegates_to_service(client: TestClient):
                 allow_bucket_usage_stats=None,
                 allow_bucket_usage_stats_collection=None,
                 allow_multisite_endpoint_switching=None,
+                    allow_manager_browser_data_access_for_all_admins=None,
                 tags=[],
             )
 

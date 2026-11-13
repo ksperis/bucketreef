@@ -2215,6 +2215,27 @@
           "collation": null,
           "comments": null,
           "check": null
+        },
+        {
+          "id": "field:s3_accounts.allow_manager_browser_data_access_for_all_admins",
+          "name": "allow_manager_browser_data_access_for_all_admins",
+          "type": {
+            "id": "boolean",
+            "name": "boolean"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
         }
       ],
       "indexes": [
@@ -10240,6 +10261,27 @@
         {
           "id": "field:s3_users.allow_multisite_endpoint_switching",
           "name": "allow_multisite_endpoint_switching",
+          "type": {
+            "id": "boolean",
+            "name": "boolean"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:s3_users.allow_manager_browser_data_access_for_all_admins",
+          "name": "allow_manager_browser_data_access_for_all_admins",
           "type": {
             "id": "boolean",
             "name": "boolean"

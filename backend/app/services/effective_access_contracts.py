@@ -37,6 +37,7 @@ class ResolvedUserAccess:
     manager_tool_access: ManagerToolAccess
     browser_advanced_features_enabled: bool
     feature_sources: dict[str, tuple[EffectiveAccessSource, ...]] = field(default_factory=dict)
+    account_browser_sources: dict[int, tuple[EffectiveAccessSource, ...]] = field(default_factory=dict)
     s3_user_sources: dict[int, tuple[EffectiveAccessSource, ...]] = field(default_factory=dict)
     s3_user_browser_sources: dict[int, tuple[EffectiveAccessSource, ...]] = field(default_factory=dict)
     s3_connection_sources: dict[int, tuple[EffectiveAccessSource, ...]] = field(default_factory=dict)
