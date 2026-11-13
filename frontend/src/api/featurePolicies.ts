@@ -16,6 +16,7 @@ export type ManagerFeaturePolicies = {
   ceph_s3_user_keys: FeaturePolicy;
   access_key_metadata: FeaturePolicy;
   access_key_expiration: FeaturePolicy;
+  manager_browser_data_access: FeaturePolicy;
   managed_private_connection_provisioning: FeaturePolicy;
   rgw_multisite_endpoint_switching: FeaturePolicy;
 };
@@ -32,6 +33,7 @@ export const DEFAULT_MANAGER_FEATURE_POLICIES: ManagerFeaturePolicies = {
   ceph_s3_user_keys: "targeted",
   access_key_metadata: "targeted",
   access_key_expiration: "targeted",
+  manager_browser_data_access: "disabled",
   managed_private_connection_provisioning: "disabled",
   rgw_multisite_endpoint_switching: "targeted",
 };

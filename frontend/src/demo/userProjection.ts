@@ -6,6 +6,7 @@ import type {
   UserSummary,
 } from "../api/users";
 import { resolveDemoAccountGrant } from "./http";
+import { resolveDemoAccountManagerBrowserAccess } from "./managerBrowserAccess";
 import { demoGroupsForUser, settings, type DemoState, type DemoUser } from "./state";
 
 const MANAGER_TOOLS = [
@@ -75,9 +76,11 @@ function effectiveAccountLinks(state: DemoState, user: DemoUser): EffectiveAccou
         ),
       }))
       .sort((left, right) => left.group_name.localeCompare(right.group_name) || left.group_id - right.group_id);
-    const managerBrowserAllowed = resolved.sources.some(source =>
-      source.link.manager_role === "account_administrator"
-      && source.link.allow_manager_browser_data_access);
+    const managerBrowserAllowed = resolveDemoAccountManagerBrowserAccess(
+      state,
+      account,
+      user,
+    ).allowed;
     return [{
       account_id: account.id,
       manager_role: resolved.manager_role,

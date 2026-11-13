@@ -62,5 +62,8 @@ def s3_account_from_db(
         allow_bucket_usage_stats=account.allow_bucket_usage_stats,
         allow_bucket_usage_stats_collection=account.allow_bucket_usage_stats_collection,
         allow_multisite_endpoint_switching=account.allow_multisite_endpoint_switching,
+        allow_manager_browser_data_access_for_all_admins=(
+            account.allow_manager_browser_data_access_for_all_admins
+        ),
         tags=tags,
     )

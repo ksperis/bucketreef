@@ -321,10 +321,24 @@ Managed from Admin UI:
 - Browser sub-flags (`browser_root_enabled`, `browser_manager_enabled`, `browser_portal_enabled`, `browser_ceph_admin_enabled`).
 - Portal settings (`portal`): standalone Browser access (`browser_access_enabled`, enabled by default), Cost estimation (`portal.feature_policies.cost_estimation`, targeted by default), IAM key availability, private Storage Space creation, portal user access-key creation, Portal User external sharing (`allow_portal_user_external_sharing`, disabled by default), server access log retention for newly created technical log buckets, max portal user keys, and bucket defaults. Cost estimation requires the global `cost_enabled` switch plus an effective per-project `cost_estimation_enabled` override before Portal shows the **Costs** tab. When external sharing is enabled, a `portal_user` may create public links and external S3 credentials only for an owned Storage Space; disabling it blocks new creation while existing links and credentials remain manageable. Portal Managers keep their existing behavior independently of this flag. Portal settings can be overridden per account by a super-admin. The per-account `portal_settings_delegated` flag is disabled by default; when enabled, project Portal Managers can edit the same shared override from `/portal/settings`. Disabling delegation keeps the stored override effective but read-only in Portal. `bucket_defaults.noncurrent_version_expiration_days` is the internal key for **Version history retention**; it is a positive integer (90 by default) and applies only when provisioning a new Storage Space with the default lifecycle enabled. Existing buckets are not reconciled automatically.
 - Manager feature policies and behavior: bucket migration, compare, integrity
-  check, purge, usage metrics, Cost estimation, Ceph S3 User key management, optional access-key
-  names and notes (`manager.feature_policies.access_key_metadata`), optional
-  access-key expiration (`manager.feature_policies.access_key_expiration`), and
-  migration parallelism.
+  check, purge, usage metrics, Cost estimation, Ceph S3 User key management,
+  Manager Browser data access (`manager.feature_policies.manager_browser_data_access`),
+  optional access-key names and notes (`manager.feature_policies.access_key_metadata`),
+  optional access-key expiration (`manager.feature_policies.access_key_expiration`),
+  and migration parallelism. Manager Browser data access defaults to `disabled`.
+  The policy controls automatic access for all eligible administrators together
+  with the nullable per-resource
+  `allow_manager_browser_data_access_for_all_admins` override. `targeted`
+  requires a resource override of `true`, while `default_on` enables automatic
+  access unless the resource override is `false`. Automatic RGW Account access
+  uses the Account root identity and automatic RGW User access reuses the same
+  stored access key used for Manager administration. Explicit per-association
+  `allow_manager_browser_data_access` grants remain independent and effective
+  even when the global policy is `disabled`. Account explicit grants still
+  require `account_administrator` on the same association, while RGW User
+  explicit grants aggregate across direct and group associations. BucketReef does not
+  record Manager Browser S3 operations in application audit logs. Configure
+  provider-side RGW data-plane auditing when object-level attribution is required.
   RGW multisite endpoint switching for RGW Accounts and RGW Users uses one shared
   `manager.feature_policies.rgw_multisite_endpoint_switching` policy, which defaults
   to `targeted`. Each RGW Account or RGW User has an independent nullable

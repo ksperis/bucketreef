@@ -22,6 +22,7 @@ from app.db import (
 from app.core.domain_enums import ManagerAccountRole, PortalAccountRole, UserRole
 from app.main import app
 from app.models.app_settings import AppSettings
+from app.models.feature_policy import FeaturePolicy
 from app.models.session import SessionCapabilities
 from app.services.access_context_contracts import ManagerSessionPrincipal
 from app.routers import dependencies
@@ -49,6 +50,8 @@ def _enabled_settings() -> AppSettings:
     settings.general.browser_enabled = True
     settings.general.manager_enabled = True
     settings.general.browser_manager_enabled = True
+    settings.general.managed_rgw_users_enabled = True
+    settings.manager.feature_policies.manager_browser_data_access = FeaturePolicy.TARGETED
     return settings
 
 
@@ -66,7 +69,9 @@ def test_workspace_surface_requires_the_canonical_browser_route_prefix():
     assert resolve_workspace_surface(_request("/api/browser-legacy/buckets/search")) == "manager"
 
 
-def test_account_requires_admin_and_permission_on_same_direct_link(db_session):
+def test_account_requires_admin_and_permission_on_same_direct_link(db_session, monkeypatch):
+    settings = _enabled_settings()
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db", lambda _db: settings)
     user = _user("manager-browser-account@example.test")
     account = make_s3_account(
         db_session,
@@ -108,7 +113,122 @@ def test_account_requires_admin_and_permission_on_same_direct_link(db_session):
     assert exc.value.status_code == 403
 
 
-def test_account_permissions_cannot_escalate_by_combining_links(db_session):
+def test_account_automatic_and_explicit_manager_browser_access_are_additive(
+    db_session,
+    monkeypatch,
+):
+    settings = _enabled_settings()
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db", lambda _db: settings)
+    user = _user("manager-browser-account-policy@example.test")
+    account = make_s3_account(
+        db_session,
+        name="manager-browser-account-policy",
+        rgw_account_id="RGWMANAGERBROWSERPOLICY01",
+        rgw_access_key="ROOT-POLICY-AK",
+        rgw_secret_key="ROOT-POLICY-SK",
+    )
+    db_session.add_all([user, account])
+    db_session.commit()
+    link = UserS3Account(
+        user_id=user.id,
+        account_id=account.id,
+        manager_role=ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value,
+        portal_role=None,
+        allow_manager_browser_data_access=False,
+    )
+    db_session.add(link)
+    db_session.commit()
+
+    with pytest.raises(HTTPException) as exc:
+        dependencies.get_s3_execution_context(
+            request=_request("/api/browser/buckets/search"),
+            context_ref=str(account.id),
+            actor=user,
+            db=db_session,
+        )
+    assert exc.value.status_code == 403
+
+    account.allow_manager_browser_data_access_for_all_admins = True
+    db_session.add(account)
+    db_session.commit()
+    context = dependencies.get_s3_execution_context(
+        request=_request("/api/browser/buckets/search"),
+        context_ref=str(account.id),
+        actor=user,
+        db=db_session,
+    )
+    assert context.effective_rgw_credentials() == ("ROOT-POLICY-AK", "ROOT-POLICY-SK")
+
+    account.allow_manager_browser_data_access_for_all_admins = False
+    link.allow_manager_browser_data_access = True
+    db_session.add_all([account, link])
+    db_session.commit()
+    context = dependencies.get_s3_execution_context(
+        request=_request("/api/browser/buckets/search"),
+        context_ref=str(account.id),
+        actor=user,
+        db=db_session,
+    )
+    assert context.effective_rgw_credentials() == ("ROOT-POLICY-AK", "ROOT-POLICY-SK")
+
+    settings.manager.feature_policies.manager_browser_data_access = FeaturePolicy.DISABLED
+    context = dependencies.get_s3_execution_context(
+        request=_request("/api/browser/buckets/search"),
+        context_ref=str(account.id),
+        actor=user,
+        db=db_session,
+    )
+    assert context.effective_rgw_credentials() == ("ROOT-POLICY-AK", "ROOT-POLICY-SK")
+
+    link.allow_manager_browser_data_access = False
+    account.allow_manager_browser_data_access_for_all_admins = None
+    db_session.add_all([account, link])
+    db_session.commit()
+    with pytest.raises(HTTPException) as exc:
+        dependencies.get_s3_execution_context(
+            request=_request("/api/browser/buckets/search"),
+            context_ref=str(account.id),
+            actor=user,
+            db=db_session,
+        )
+    assert exc.value.status_code == 403
+
+    settings.manager.feature_policies.manager_browser_data_access = FeaturePolicy.DEFAULT_ON
+    context = dependencies.get_s3_execution_context(
+        request=_request("/api/browser/buckets/search"),
+        context_ref=str(account.id),
+        actor=user,
+        db=db_session,
+    )
+    assert context.effective_rgw_credentials() == ("ROOT-POLICY-AK", "ROOT-POLICY-SK")
+
+    account.allow_manager_browser_data_access_for_all_admins = False
+    db_session.add(account)
+    db_session.commit()
+    with pytest.raises(HTTPException) as exc:
+        dependencies.get_s3_execution_context(
+            request=_request("/api/browser/buckets/search"),
+            context_ref=str(account.id),
+            actor=user,
+            db=db_session,
+        )
+    assert exc.value.status_code == 403
+
+    link.allow_manager_browser_data_access = True
+    db_session.add(link)
+    db_session.commit()
+    context = dependencies.get_s3_execution_context(
+        request=_request("/api/browser/buckets/search"),
+        context_ref=str(account.id),
+        actor=user,
+        db=db_session,
+    )
+    assert context.effective_rgw_credentials() == ("ROOT-POLICY-AK", "ROOT-POLICY-SK")
+
+
+def test_account_permissions_cannot_escalate_by_combining_links(db_session, monkeypatch):
+    settings = _enabled_settings()
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db", lambda _db: settings)
     user = _user("manager-browser-no-cumulative-escalation@example.test")
     group = UiGroup(name="Manager Browser partial grant")
     account = make_s3_account(
@@ -150,7 +270,7 @@ def test_account_permissions_cannot_escalate_by_combining_links(db_session):
             db=db_session,
         )
     assert exc.value.status_code == 403
-    assert "same association" in str(exc.value.detail)
+    assert "Account administrator association" in str(exc.value.detail)
 
     group_account_link.manager_role = ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value
     group_account_link.allow_manager_browser_data_access = True
@@ -165,7 +285,9 @@ def test_account_permissions_cannot_escalate_by_combining_links(db_session):
     assert context.effective_rgw_credentials() == ("ROOT-AK", "ROOT-SK")
 
 
-def test_rgw_user_permission_aggregates_direct_and_group_and_revokes(db_session):
+def test_rgw_user_permission_aggregates_direct_and_group_and_revokes(db_session, monkeypatch):
+    settings = _enabled_settings()
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db", lambda _db: settings)
     user = _user("manager-browser-rgw@example.test")
     group = UiGroup(name="Manager Browser RGW group")
     endpoint = StorageEndpoint(
@@ -216,6 +338,123 @@ def test_rgw_user_permission_aggregates_direct_and_group_and_revokes(db_session)
             db=db_session,
         )
     assert exc.value.status_code == 403
+
+
+def test_rgw_user_automatic_and_explicit_manager_browser_access_are_additive(
+    db_session,
+    monkeypatch,
+):
+    settings = _enabled_settings()
+    settings.general.managed_rgw_users_enabled = True
+    monkeypatch.setattr(app_settings_service, "load_app_settings_for_db", lambda _db: settings)
+    user = _user("manager-browser-rgw-policy@example.test")
+    endpoint = StorageEndpoint(
+        id=2,
+        name="manager-browser-rgw-policy-endpoint",
+        endpoint_url="https://manager-browser-rgw-policy.example.test",
+    )
+    s3_user = S3User(
+        name="manager-browser-rgw-policy-user",
+        rgw_user_uid="manager-browser-rgw-policy-user",
+        rgw_access_key="RGW-POLICY-AK",
+        rgw_secret_key="RGW-POLICY-SK",
+        storage_endpoint_id=2,
+    )
+    db_session.add_all([user, endpoint, s3_user])
+    db_session.commit()
+    link = UserS3User(
+        user_id=user.id,
+        s3_user_id=s3_user.id,
+        allow_manager_browser_data_access=False,
+    )
+    db_session.add(link)
+    db_session.commit()
+
+    with pytest.raises(HTTPException) as exc:
+        dependencies.get_s3_execution_context(
+            request=_request("/api/browser/buckets/search"),
+            context_ref=f"s3u-{s3_user.id}",
+            actor=user,
+            db=db_session,
+        )
+    assert exc.value.status_code == 403
+
+    s3_user.allow_manager_browser_data_access_for_all_admins = True
+    db_session.add(s3_user)
+    db_session.commit()
+    context = dependencies.get_s3_execution_context(
+        request=_request("/api/browser/buckets/search"),
+        context_ref=f"s3u-{s3_user.id}",
+        actor=user,
+        db=db_session,
+    )
+    assert context.effective_rgw_credentials() == ("RGW-POLICY-AK", "RGW-POLICY-SK")
+
+    s3_user.allow_manager_browser_data_access_for_all_admins = False
+    link.allow_manager_browser_data_access = True
+    db_session.add_all([s3_user, link])
+    db_session.commit()
+    context = dependencies.get_s3_execution_context(
+        request=_request("/api/browser/buckets/search"),
+        context_ref=f"s3u-{s3_user.id}",
+        actor=user,
+        db=db_session,
+    )
+    assert context.effective_rgw_credentials() == ("RGW-POLICY-AK", "RGW-POLICY-SK")
+
+    settings.manager.feature_policies.manager_browser_data_access = FeaturePolicy.DISABLED
+    context = dependencies.get_s3_execution_context(
+        request=_request("/api/browser/buckets/search"),
+        context_ref=f"s3u-{s3_user.id}",
+        actor=user,
+        db=db_session,
+    )
+    assert context.effective_rgw_credentials() == ("RGW-POLICY-AK", "RGW-POLICY-SK")
+
+    link.allow_manager_browser_data_access = False
+    s3_user.allow_manager_browser_data_access_for_all_admins = None
+    db_session.add_all([s3_user, link])
+    db_session.commit()
+    with pytest.raises(HTTPException) as exc:
+        dependencies.get_s3_execution_context(
+            request=_request("/api/browser/buckets/search"),
+            context_ref=f"s3u-{s3_user.id}",
+            actor=user,
+            db=db_session,
+        )
+    assert exc.value.status_code == 403
+
+    settings.manager.feature_policies.manager_browser_data_access = FeaturePolicy.DEFAULT_ON
+    context = dependencies.get_s3_execution_context(
+        request=_request("/api/browser/buckets/search"),
+        context_ref=f"s3u-{s3_user.id}",
+        actor=user,
+        db=db_session,
+    )
+    assert context.effective_rgw_credentials() == ("RGW-POLICY-AK", "RGW-POLICY-SK")
+
+    s3_user.allow_manager_browser_data_access_for_all_admins = False
+    db_session.add(s3_user)
+    db_session.commit()
+    with pytest.raises(HTTPException) as exc:
+        dependencies.get_s3_execution_context(
+            request=_request("/api/browser/buckets/search"),
+            context_ref=f"s3u-{s3_user.id}",
+            actor=user,
+            db=db_session,
+        )
+    assert exc.value.status_code == 403
+
+    link.allow_manager_browser_data_access = True
+    db_session.add(link)
+    db_session.commit()
+    context = dependencies.get_s3_execution_context(
+        request=_request("/api/browser/buckets/search"),
+        context_ref=f"s3u-{s3_user.id}",
+        actor=user,
+        db=db_session,
+    )
+    assert context.effective_rgw_credentials() == ("RGW-POLICY-AK", "RGW-POLICY-SK")
 
 
 def test_private_connection_requires_both_flags_and_shared_is_always_denied(db_session, public_s3_endpoint_dns):

@@ -7,7 +7,7 @@ import type { PaginatedResponse } from "./types";
 import type { UiRole } from "./users";
 
 export type AccessAuditScope = "platform" | "rgw_account" | "rgw_user" | "s3_connection";
-export type AccessAuditSourceKind = "direct" | "group" | "platform";
+export type AccessAuditSourceKind = "direct" | "group" | "resource" | "platform";
 export type AccessAuditRightCode =
   | "ceph_admin"
   | "storage_ops"
@@ -81,6 +81,7 @@ export const ACCESS_AUDIT_SCOPES: readonly AccessAuditScope[] = [
 
 export const ACCESS_AUDIT_SOURCES: readonly AccessAuditSourceKind[] = [
   "platform",
+  "resource",
   "direct",
   "group",
 ];

@@ -62,6 +62,7 @@ function makeS3User(overrides: Partial<S3User> = {}): S3User {
     allow_bucket_usage_stats: null,
     allow_bucket_usage_stats_collection: null,
     allow_multisite_endpoint_switching: null,
+    allow_manager_browser_data_access_for_all_admins: null,
     allow_managed_private_connection_provisioning: null,
     ...overrides,
   };
@@ -612,10 +613,12 @@ describe("S3UsersPage modal tabs", () => {
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     fireEvent.click(await screen.findByRole("tab", { name: "Manager features" }));
 
+    const dataAccessSection = screen.getByRole("region", { name: "Data access" });
     const usageSection = screen.getByRole("region", { name: "Usage and metrics" });
     const extensionsSection = screen.getByRole("region", { name: "Access-key extensions" });
     const multisiteSection = screen.getByRole("region", { name: "RGW multisite" });
     const privilegedSection = screen.getByRole("region", { name: "Privileged Ceph operations" });
+    expect(within(dataAccessSection).getByRole("radiogroup", { name: "Manager Browser data access" })).toBeInTheDocument();
     expect(within(usageSection).getByRole("radiogroup", { name: "RGW traffic and usage metrics" })).toBeInTheDocument();
     expect(within(extensionsSection).getByRole("radiogroup", { name: "Access-key names and notes" })).toBeInTheDocument();
     expect(within(extensionsSection).getByRole("radiogroup", { name: "Access-key expiration" })).toBeInTheDocument();
@@ -629,11 +632,13 @@ describe("S3UsersPage modal tabs", () => {
     expect(screen.queryByRole("button", { name: "Ceph S3 User keys: information" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Managed private connection provisioning: information" }));
     expect(screen.getByRole("tooltip")).toHaveTextContent("Generated secrets remain managed by BucketReef");
+    expectInheritedFeatureOverride("Manager Browser data access");
     expectInheritedFeatureOverride("RGW traffic and usage metrics");
     expectInheritedFeatureOverride("Bucket quota management");
     expectInheritedFeatureOverride("Ceph S3 User keys");
     expectInheritedFeatureOverride("Managed private connection provisioning");
     expectInheritedFeatureOverride("Endpoint switching");
+    selectFeatureOverride("Manager Browser data access", "Enabled");
     selectFeatureOverride("RGW traffic and usage metrics", "Enabled");
     selectFeatureOverride("Bucket quota management", "Enabled");
     selectFeatureOverride("Ceph S3 User keys", "Enabled");
@@ -648,6 +653,7 @@ describe("S3UsersPage modal tabs", () => {
     const lastCall = updateS3UserMock.mock.calls.at(-1);
     expect(lastCall?.[1]).toEqual(
       expect.objectContaining({
+        allow_manager_browser_data_access_for_all_admins: true,
         allow_rgw_usage_metrics: true,
         allow_bucket_quota_management: true,
         allow_access_key_management: true,
@@ -686,7 +692,7 @@ describe("S3UsersPage modal tabs", () => {
     await screen.findByText("rgw-user-1");
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     fireEvent.click(await screen.findByRole("tab", { name: "Manager features" }));
-    for (const name of ["RGW traffic and usage metrics", "Access-key names and notes", "Access-key expiration", "Bucket quota management", "Ceph S3 User keys", "Managed private connection provisioning", "Endpoint switching"])
+    for (const name of ["Manager Browser data access", "RGW traffic and usage metrics", "Access-key names and notes", "Access-key expiration", "Bucket quota management", "Ceph S3 User keys", "Managed private connection provisioning", "Endpoint switching"])
       expectInheritedFeatureOverride(name);
     fireEvent.click(screen.getByRole("tab", { name: "General" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Display name" }), { target: { value: "renamed-user" } });
@@ -695,6 +701,7 @@ describe("S3UsersPage modal tabs", () => {
     expect(updateS3UserMock.mock.calls.at(-1)?.[1]).toEqual(expect.objectContaining({
       allow_bucket_quota_management: null, allow_access_key_management: null, allow_access_key_metadata: null,
       allow_access_key_expiration: null, allow_rgw_usage_metrics: null, allow_managed_private_connection_provisioning: null,
+      allow_manager_browser_data_access_for_all_admins: null,
       allow_multisite_endpoint_switching: null,
     }));
   });
@@ -1057,5 +1064,10 @@ vi.mock("../../components/GeneralSettingsContext", async (importOriginal) => {
     const actual = await importOriginal<typeof import("../../components/GeneralSettingsContext")>();
     return { ...actual, useGeneralSettings: () => ({ generalSettings: { ...actual.DEFAULT_GENERAL_SETTINGS,
       allow_managed_rgw_tenant_creation: managedTenantCreationEnabled,
-      manager_feature_policies: { ...DEFAULT_MANAGER_FEATURE_POLICIES, bucket_quota_management: "targeted", managed_private_connection_provisioning: "targeted" } } }) };
+      manager_feature_policies: {
+        ...DEFAULT_MANAGER_FEATURE_POLICIES,
+        bucket_quota_management: "targeted",
+        managed_private_connection_provisioning: "targeted",
+        manager_browser_data_access: "targeted",
+      } } }) };
 });

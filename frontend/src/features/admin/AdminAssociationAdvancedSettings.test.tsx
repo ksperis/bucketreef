@@ -45,4 +45,35 @@ describe("AdminAssociationAdvancedSettings", () => {
     expect(parentSubmit).not.toHaveBeenCalled();
     expect(dirty).toHaveBeenLastCalledWith(false);
   });
+
+  it("keeps the explicit association grant editable independently from automatic access", () => {
+    render(
+      <AdminAssociationAdvancedSettings
+        targetLabel="Production account"
+        associationKind="account"
+        allowManagerBrowserDataAccess={false}
+        onApply={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Advanced" }));
+    expect(screen.getByRole("switch", { name: "Allow Manager Browser data access" })).not.toBeChecked();
+    expect(screen.getByRole("switch", { name: "Allow Manager Browser data access" })).toBeEnabled();
+    expect(screen.getByText(/remains effective independently of the global automatic-access setting/)).toBeInTheDocument();
+  });
+
+  it("keeps a stored explicit association grant enabled and editable", () => {
+    render(
+      <AdminAssociationAdvancedSettings
+        targetLabel="RGW user"
+        associationKind="rgw_user"
+        allowManagerBrowserDataAccess
+        onApply={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Advanced" }));
+    expect(screen.getByRole("switch", { name: "Allow Manager Browser data access" })).toBeChecked();
+    expect(screen.getByRole("switch", { name: "Allow Manager Browser data access" })).toBeEnabled();
+  });
 });

@@ -36,8 +36,8 @@ const adminAssociationMessages = {
     "允许 Manager Browser 数据访问",
   ),
   managerBrowserDataAccessDescription: m(
-    "Disabled by default. This permits data-plane Browser operations from the active Manager context.",
-    "默认禁用。启用后，当前 Manager 上下文可以执行 Browser 数据面操作。",
+    "Explicit association grant for embedded Browser data-plane access. It remains effective independently of the global automatic-access setting. BucketReef does not audit data-plane actions; configure data-plane auditing in RGW.",
+    "用于嵌入式 Browser 数据面访问的显式关联授权。它独立于全局自动访问设置始终生效。BucketReef 不审计数据面操作；请在 RGW 中配置数据面审计。",
   ),
 };
 

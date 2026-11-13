@@ -29,6 +29,7 @@ export function emptyAdminS3UserForm() {
     allow_bucket_usage_stats: null as boolean | null,
     allow_bucket_usage_stats_collection: null as boolean | null,
     allow_multisite_endpoint_switching: null as boolean | null,
+    allow_manager_browser_data_access_for_all_admins: null as boolean | null,
     allow_managed_private_connection_provisioning: null as boolean | null,
   };
 }
@@ -96,6 +97,7 @@ export function adminS3UserForm(user: S3User): AdminS3UserForm {
     allow_bucket_usage_stats: user.allow_bucket_usage_stats,
     allow_bucket_usage_stats_collection: user.allow_bucket_usage_stats_collection,
     allow_multisite_endpoint_switching: user.allow_multisite_endpoint_switching,
+    allow_manager_browser_data_access_for_all_admins: user.allow_manager_browser_data_access_for_all_admins,
     allow_managed_private_connection_provisioning: user.allow_managed_private_connection_provisioning,
   };
 }
@@ -122,6 +124,7 @@ export function adminS3UserPayload(
       allow_rgw_usage_metrics: form.allow_rgw_usage_metrics,
       allow_cost_estimation: form.allow_cost_estimation,
       allow_multisite_endpoint_switching: form.allow_multisite_endpoint_switching,
+      allow_manager_browser_data_access_for_all_admins: form.allow_manager_browser_data_access_for_all_admins,
       allow_managed_private_connection_provisioning: form.allow_managed_private_connection_provisioning,
     } : {}),
     ...(allowQuotaUpdates ? {

@@ -11,11 +11,16 @@ import type {
   UsageHistoryTrendPoint,
   UsageHistoryTrendResponse,
 } from "../api/usageHistory";
-import { bucketView, GiB, settings, type DemoState } from "./state";
+import { bucketView, demoGroupsForUser, GiB, settings, type DemoState, type DemoUser } from "./state";
 import { accountView } from "./governance";
-import { accountGrant, json, page, required, scopedAccount, type DemoRequest } from "./http";
+import { accountGrant, DemoError, json, page, required, scopedAccount, type DemoRequest } from "./http";
 import { demoUserView } from "./userProjection";
 import { buildDemoAccessAuditRows, demoAccessAuditRightLabel, listDemoS3Users } from "./accessAudit";
+import {
+  demoS3UserResources,
+  resolveDemoAccountManagerBrowserAccess,
+  resolveDemoS3UserManagerBrowserAccess,
+} from "./managerBrowserAccess";
 import snapshots from "./snapshots.json";
 
 export type DemoStorageTrendBaseline = ManagerUsageTrendBaseline & {
@@ -58,13 +63,95 @@ function datedSnapshot(value: unknown, initializedAt: string): unknown {
   if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, datedSnapshot(v, initializedAt)]));
   return value;
 }
+
+function demoWorkspaceConnections(
+  state: DemoState,
+  user: DemoUser,
+  workspace: "manager" | "browser",
+) {
+  const groupIds = new Set(demoGroupsForUser(state, user.id).map(group => group.id));
+  return state.connections.filter(connection => {
+    if (!connection.is_active) return false;
+    if (workspace === "browser") {
+      return !connection.is_shared
+        && connection.created_by_user_id === user.id
+        && connection.access_browser;
+    }
+    if (!connection.access_manager) return false;
+    if (!connection.is_shared) return connection.created_by_user_id === user.id;
+    return connection.user_details.some(member => member.id === user.id)
+      || connection.group_details.some(group => groupIds.has(group.id));
+  });
+}
+
+function demoWorkspaceAccess(state: DemoState, user: DemoUser): WorkspaceAccess {
+  const projected = demoUserView(state, user).effective_access;
+  const managerAccountCount = projected.account_links.filter(link =>
+    link.manager_role === "account_administrator").length;
+  const managerCount = managerAccountCount
+    + projected.s3_user_details.length
+    + demoWorkspaceConnections(state, user, "manager").length;
+  const portalCount = projected.account_links.filter(link => link.portal_role !== null).length;
+  const browserCount = portalCount + demoWorkspaceConnections(state, user, "browser").length;
+  const adminAvailable = user.role === "ui_admin" || user.role === "ui_superadmin";
+  const cephAdminAvailable = settings.general.ceph_admin_enabled && projected.can_access_ceph_admin;
+  const managerAvailable = settings.general.manager_enabled && managerCount > 0;
+  const browserAvailable = settings.general.browser_enabled
+    && settings.general.browser_root_enabled
+    && browserCount > 0;
+  const portalAvailable = settings.general.portal_enabled && portalCount > 0;
+  const availability = {
+    admin: adminAvailable,
+    manager: managerAvailable,
+    "storage-ops": false,
+    portal: portalAvailable,
+    browser: browserAvailable,
+    "ceph-admin": cephAdminAvailable,
+  };
+  const defaultWorkspace = (["admin", "manager", "storage-ops", "portal", "browser", "ceph-admin"] as const)
+    .find(workspace => availability[workspace]) ?? null;
+  return {
+    admin: { available: adminAvailable, context_count: adminAvailable ? 1 : 0 },
+    ceph_admin: { available: cephAdminAvailable, context_count: cephAdminAvailable ? 1 : 0 },
+    storage_ops: { available: false, context_count: 0 },
+    manager: { available: managerAvailable, context_count: managerCount },
+    browser: { available: browserAvailable, context_count: browserCount },
+    portal: { available: portalAvailable, context_count: portalCount },
+    default_workspace: defaultWorkspace,
+  };
+}
+
+function demoConnectionContext(state: DemoState, connection: DemoState["connections"][number]): ExecutionContext {
+  const endpoint = required(state.endpoints.find(candidate => candidate.id === connection.storage_endpoint_id));
+  return {
+    kind: "connection",
+    id: `conn-${connection.id}`,
+    display_name: connection.name,
+    connection_scope: connection.is_shared ? "shared" : "private",
+    tags: connection.tags,
+    endpoint_tags: endpoint.tags,
+    manager_role: null,
+    portal_role: null,
+    rgw_account_id: connection.rgw_account_id,
+    endpoint_id: endpoint.id,
+    endpoint_name: endpoint.name,
+    endpoint_url: connection.endpoint_url,
+    endpoint_provider: endpoint.provider,
+    endpoint_is_default: endpoint.is_default,
+    storage_endpoint_capabilities: endpoint.capabilities,
+    destination_switching_allowed: false,
+    execution_destinations: [],
+    capabilities: {
+      can_manage_iam: false,
+      sts_capable: Boolean(endpoint.capabilities.sts),
+      admin_api_capable: false,
+    },
+  };
+}
 export function readModels(c: DemoRequest): Response | undefined {
   if (c.method !== "GET") return undefined;
-  const { path, state, user, persona } = c;
+  const { path, state, user } = c;
   const currentUser = demoUserView(state, user);
-  const admin = persona === "admin"; const ceph = persona === "ceph-admin";
-  const endUser = persona === "member" || persona === "project-manager";
-  const browserUser = persona === "browser-user";
   if (path === "/auth/session") return json({ authenticated: true, user: currentUser, session: null,
     auth_session: { id: `demo-${user.id}`, principal_type: "user", auth_type: "password",
       created_at: "2026-01-01T00:00:00Z", last_activity_at: "2026-01-01T00:00:00Z",
@@ -121,54 +208,83 @@ export function readModels(c: DemoRequest): Response | undefined {
     if (path.endsWith(".csv")) return new Response("User,Account,Rights\n" + rows.map(r => [r.principal.email, r.target.name, r.rights.map(v => demoAccessAuditRightLabel(v.code)).join("; ")].map(v => JSON.stringify(v)).join(",")).join("\n"), { headers: { "Content-Type": "text/csv" } });
     return json(page(rows, c.url));
   }
-  if (path === "/me/workspace-access") return json({
-    admin: { available: admin || ceph, context_count: 0 }, ceph_admin: { available: admin || ceph, context_count: 2 }, storage_ops: { available: false, context_count: 0 },
-    manager: { available: persona === "manager", context_count: persona === "manager" ? state.accounts.length : 0 }, browser: { available: endUser || browserUser, context_count: browserUser ? 1 : endUser ? 2 : 0 },
-    portal: { available: endUser, context_count: endUser ? 2 : 0 }, default_workspace: admin ? "admin" : ceph ? "ceph-admin" : browserUser ? "browser" : endUser ? "portal" : "manager",
-  } satisfies WorkspaceAccess);
+  if (path === "/me/workspace-access") return json(demoWorkspaceAccess(state, user));
   if (path === "/me/execution-contexts") {
     const browser = c.url.searchParams.get("workspace") === "browser";
-    if (browser && browserUser) {
-      const connection = required(state.connections.find(candidate =>
-        !candidate.is_shared
-        && candidate.created_by_user_id === user.id
-        && candidate.is_active
-        && candidate.access_browser
-      ));
-      const endpoint = required(state.endpoints.find(candidate => candidate.id === connection.storage_endpoint_id));
-      return json([{
-        kind: "connection",
-        id: `conn-${connection.id}`,
-        display_name: connection.name,
-        connection_scope: "private",
-        tags: connection.tags,
-        endpoint_tags: endpoint.tags,
-        manager_role: null,
-        portal_role: null,
-        rgw_account_id: connection.rgw_account_id,
-        endpoint_id: endpoint.id,
-        endpoint_name: endpoint.name,
-        endpoint_url: connection.endpoint_url,
-        endpoint_provider: endpoint.provider,
-        endpoint_is_default: endpoint.is_default,
-        storage_endpoint_capabilities: endpoint.capabilities,
-        destination_switching_allowed: false,
-        execution_destinations: [],
-        capabilities: { can_manage_iam: false, sts_capable: Boolean(endpoint.capabilities.sts), admin_api_capable: false },
-      } satisfies ExecutionContext]);
-    }
     const selected = state.accounts.filter(a => (browser ? accountGrant(c, a).portal_role : accountGrant(c, a).manager_role));
-    return json(selected.map(a => ({ kind: browser ? "portal_account" : "account", id: String(a.id), display_name: a.name,
+    const contexts: ExecutionContext[] = selected.map(a => ({ kind: browser ? "portal_account" : "account", id: String(a.id), display_name: a.name,
       connection_scope: null, tags: a.tags, endpoint_tags: [], manager_role: browser ? null : "account_administrator", portal_role: browser ? accountGrant(c, a).portal_role : null,
       rgw_account_id: a.rgw_account_id, endpoint_id: a.storage_endpoint_id, endpoint_name: a.storage_endpoint_name, endpoint_url: a.storage_endpoint_url,
       endpoint_provider: "ceph", endpoint_is_default: a.storage_endpoint_is_default, storage_endpoint_capabilities: a.storage_endpoint_capabilities,
       destination_switching_allowed: false, execution_destinations: [],
       capabilities: { can_manage_iam: !browser, sts_capable: false, admin_api_capable: !browser },
-    } satisfies ExecutionContext)));
+    }));
+    if (!browser) {
+      const allowedS3UserIds = new Set(currentUser.effective_access.s3_user_details.map(item => item.id));
+      contexts.push(...demoS3UserResources(state)
+        .filter(rgwUser => allowedS3UserIds.has(rgwUser.id))
+        .map(rgwUser => ({
+          kind: "s3_user" as const,
+          id: `s3u-${rgwUser.id}`,
+          display_name: rgwUser.name,
+          connection_scope: null,
+          tags: [],
+          endpoint_tags: [],
+          manager_role: null,
+          portal_role: null,
+          rgw_account_id: null,
+          endpoint_id: rgwUser.storage_endpoint_id,
+          endpoint_name: rgwUser.storage_endpoint_name,
+          endpoint_url: rgwUser.storage_endpoint_url,
+          endpoint_provider: "ceph" as const,
+          endpoint_is_default: state.endpoints.find(endpoint => endpoint.id === rgwUser.storage_endpoint_id)?.is_default ?? false,
+          storage_endpoint_capabilities: state.endpoints.find(endpoint => endpoint.id === rgwUser.storage_endpoint_id)?.capabilities ?? {},
+          destination_switching_allowed: false,
+          execution_destinations: [],
+          capabilities: { can_manage_iam: true, sts_capable: false, admin_api_capable: true },
+        })));
+    }
+    contexts.push(...demoWorkspaceConnections(state, user, browser ? "browser" : "manager")
+      .map(connection => demoConnectionContext(state, connection)));
+    return json(contexts);
   }
   if (path === "/manager/context") {
-    const account = scopedAccount(c);
     const includeLimits = c.url.searchParams.get("include_limits") === "true";
+    const contextId = c.url.searchParams.get("context_id");
+    const selectedS3User = contextId?.startsWith("s3u-")
+      ? demoS3UserResources(state).find(candidate => candidate.id === Number(contextId.slice(4)))
+      : undefined;
+    if (selectedS3User) {
+      if (!currentUser.effective_access.s3_user_details.some(candidate => candidate.id === selectedS3User.id)) {
+        throw new DemoError(403, "This RGW user is not linked to the demo manager");
+      }
+      const browserAccess = resolveDemoS3UserManagerBrowserAccess(state, selectedS3User, user);
+      return json({
+        feature_states: {},
+        naming_validation_profile: "ceph",
+        access_mode: "s3_user",
+        context_kind: "s3_user",
+        iam_identity: selectedS3User.rgw_user_uid,
+        manager_stats_enabled: true,
+        manager_stats_message: null,
+        manager_browser_enabled: browserAccess.allowed,
+        manager_browser_message: browserAccess.allowed ? null : "Manager Browser data access is not allowed for this RGW user.",
+        manager_bucket_quota_enabled: true,
+        manager_ceph_keys_enabled: true,
+        manager_access_key_metadata_enabled: false,
+        manager_access_key_expiration_enabled: false,
+        manager_private_access_enabled: false,
+        manager_private_access_state: null,
+        quota_max_size_gb: null,
+        quota_max_objects: null,
+        max_buckets: null,
+        max_users: null,
+        max_roles: null,
+        max_groups: null,
+      } satisfies ManagerContext);
+    }
+    const account = scopedAccount(c);
+    const browserAccess = resolveDemoAccountManagerBrowserAccess(state, account, user);
     return json({
       feature_states: {},
       naming_validation_profile: "ceph",
@@ -177,8 +293,8 @@ export function readModels(c: DemoRequest): Response | undefined {
       iam_identity: "account-root",
       manager_stats_enabled: true,
       manager_stats_message: null,
-      manager_browser_enabled: true,
-      manager_browser_message: null,
+      manager_browser_enabled: browserAccess.allowed,
+      manager_browser_message: browserAccess.allowed ? null : "Manager Browser requires automatic access for this account or an explicit data-access grant on an Account administrator association.",
       manager_bucket_quota_enabled: true,
       manager_ceph_keys_enabled: true,
       manager_access_key_metadata_enabled: false,

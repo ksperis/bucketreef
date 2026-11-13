@@ -48,6 +48,7 @@ const paths = [
   "manager.feature_policies.ceph_s3_user_keys",
   "manager.feature_policies.access_key_metadata",
   "manager.feature_policies.access_key_expiration",
+  "manager.feature_policies.manager_browser_data_access",
   "manager.feature_policies.managed_private_connection_provisioning",
   "manager.feature_policies.rgw_multisite_endpoint_switching",
   "manager.feature_policies.bucket_migration",
@@ -82,6 +83,46 @@ export default function ManagerSettingsPage() {
   const form = useAppSettingsDraft(paths, (values) => validate(values, text));
   const [migrationOpen, setMigrationOpen] = useState(false);
   const [dialogDirty, setDialogDirty] = useState(false);
+  const managerBrowserDataAccessDetails = (
+    <div className="grid gap-2">
+      <div>
+        {text("Controls automatic embedded Browser data-plane access for all eligible administrators of RGW Accounts and RGW Users. Explicit per-association grants remain independent.")}
+      </div>
+      <div>
+        <div className="font-medium">{text("Policy behavior")}</div>
+        <ul className="mt-1 list-disc space-y-1 pl-4">
+          <li>{text("Disabled: no automatic access. Explicit Allow Manager Browser data access grants on associations remain effective.")}</li>
+          <li>{text("Targeted activation: automatic access is enabled only for RGW Accounts or RGW Users explicitly enabled in their Manager features.")}</li>
+          <li>{text("Enabled by default: automatic access applies to eligible RGW Accounts and RGW Users unless the resource explicitly disables it.")}</li>
+        </ul>
+      </div>
+      <div>
+        <div className="font-medium">{text("Why this is generally not recommended")}</div>
+        <div className="mt-1">
+          {text("Automatic RGW Account access uses the account root identity. Automatic RGW User access reuses the same access key stored for Manager administration.")}
+        </div>
+        <div className="mt-1">
+          {text("BucketReef does not record these data-plane operations in its application audit logs, so it cannot provide per-action attribution for Browser object operations.")}
+        </div>
+      </div>
+      <div>
+        <div className="font-medium">{text("Preferred alternatives")}</div>
+        <ul className="mt-1 list-disc space-y-1 pl-4">
+          <li>
+            <span className="font-medium">{text("Provision managed private connections")}</span>{" "}
+            {text("When available, this lets administrators create personal access backed by a distinct RGW User credential and private S3 connection. The generated secret is not exposed to the browser.")}
+          </li>
+          <li>
+            <span className="font-medium">{text("Explicit association grants")}</span>{" "}
+            {text("Use the advanced Allow Manager Browser data access setting only on the user or group associations that need embedded Browser access.")}
+          </li>
+        </ul>
+      </div>
+      <div>
+        {text("If object-level audit attribution is required, configure data-plane auditing in RGW.")}
+      </div>
+    </div>
+  );
   return (
     <AdminSettingsFrame
       title={text("Manager settings")}
@@ -191,6 +232,16 @@ export default function ManagerSettingsPage() {
           field="manager.feature_policies.access_key_expiration"
           title={text("Access-key expiration")}
           description={text("Allow selected RGW Accounts and Users to schedule provider-side access-key disabling. Requires scheduled jobs.")}
+        />
+        <AppSettingsPolicy
+          form={form}
+          field="manager.feature_policies.manager_browser_data_access"
+          title={text("Manager Browser data access")}
+          defaultOnWarning={{
+            label: text("Audit limitation"),
+            description: managerBrowserDataAccessDetails,
+          }}
+          description={managerBrowserDataAccessDetails}
         />
         <AppSettingsPolicy
           form={form}

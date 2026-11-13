@@ -336,7 +336,7 @@ requires the configured recent-authentication check, including revocation.
 | Workspace | Allowed UI-user contexts |
 |---|---|
 | Manager | `account_administrator` accounts, assigned RGW users, assigned shared Manager connections, and the owner's active private Manager connections. |
-| Manager Browser | The active Manager context only. Accounts require `account_administrator` and `allow_manager_browser_data_access = true` on the same direct or group link and execute as root. RGW users require the flag on any direct or group link and execute with that RGW user's credentials. Owned private connections require both Manager and Browser access. Shared connections are rejected. |
+| Manager Browser | The active Manager context only. RGW Account and RGW User data-plane access is additive. Explicit `allow_manager_browser_data_access` grants remain effective independently of the global automatic-access policy. Account explicit grants require `account_administrator` on the same direct or group link, while RGW User explicit grants aggregate across direct and group links. `manager.feature_policies.manager_browser_data_access` plus `allow_manager_browser_data_access_for_all_admins` controls automatic access for all eligible administrators. `disabled` disables only automatic access, `targeted` requires a resource override of `true`, and `default_on` enables automatic access unless the resource override is `false`. Accounts execute with the Account root identity and RGW Users execute with the same stored credentials used for Manager administration. Owned private connections require both Manager and Browser access. Shared connections are rejected. |
 | Browser | The owner's active, unexpired private connections with `access_browser = true`, plus compatible Portal projects whose effective `portal.browser_access_enabled` setting is true. Portal project execution uses the personal Portal IAM identity and Portal profile. |
 | Portal | Explicit `portal_user` or `portal_manager` account membership only. Execution always uses the user's personal Portal IAM identity. |
 | Ceph Admin Browser | The explicit endpoint-wide Ceph Admin branch. |
@@ -348,10 +348,12 @@ published as the distinct `portal_account` context and resolved through the
 Portal authorization branch, never through account administrator credentials.
 The embedded Manager Browser has no catalogue or selection of its own. It
 reuses the active Manager identity and `ctx`, and every `/api/browser` request
-uses `X-S3-Workspace: manager-browser`. Account permission cannot be assembled
-from separate links: the administrator role and data-access flag must coexist
-on one direct or group association. Authorization is revalidated before any
-credential resolution so forged and revoked contexts return `403`.
+uses `X-S3-Workspace: manager-browser`. Explicit Account permission cannot be
+assembled from separate links: the administrator role and data-access flag must
+coexist on one direct or group association. Automatic Account permission is
+resolved from the global policy and Account resource override. Authorization is
+revalidated before any credential resolution so policy changes, forged
+contexts, and revoked associations return `403` immediately.
 
 `GET /api/me/workspace-access` returns availability, context counts, and the
 backend-selected default workspace. Password login, LDAP, OIDC, redirects, and

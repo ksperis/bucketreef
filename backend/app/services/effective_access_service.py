@@ -7,17 +7,18 @@ from __future__ import annotations
 from app.models.feature_policy import FeaturePolicy, ManagerFeaturePolicies, resolve_feature_policy
 from app.services import app_settings_service
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, joinedload
 
-from app.db import S3Account, S3Connection, UiGroup, User
+from app.db import S3Account, S3Connection, S3User, UiGroup, User
 from app.core.domain_enums import ManagerAccountRole, StorageProvider, is_admin_ui_role
 from app.models.user import EffectiveUserAccess, LinkedUiGroup, ManagerToolAccess
 from app.services.access_context_contracts import BucketMigrationAccessScope, EffectiveAccountLink
 from app.services.association_names import load_s3_user_names, load_shared_s3_connection_names
 from app.services.effective_access_contracts import EffectiveAccessSource, ResolvedUserAccess
 from app.services.effective_access_loader import EffectiveAccessLoader
+from app.services.feature_policy_service import manager_browser_automatic_access_state
 from app.services.manager_tool_access import MANAGER_TOOL_COLUMNS, MANAGER_TOOL_ROLES
 from app.services.mappers.effective_access import effective_user_access_from_resolved
 from app.utils.storage_endpoint_features import resolve_feature_flags
@@ -57,7 +58,12 @@ class EffectiveAccessService:
             sorted(
                 deduplicated.values(),
                 key=lambda source: (
-                    0 if source.kind == "direct" else 1,
+                    {
+                        "direct": 0,
+                        "group": 1,
+                        "resource": 2,
+                        "platform": 3,
+                    }.get(source.kind, 4),
                     (source.group_name or "").lower(),
                     source.group_id or 0,
                 ),
@@ -151,6 +157,37 @@ class EffectiveAccessService:
         connection_grants = loaded.connection_grants
         owned_private_user_ids = loaded.owned_private_user_ids
 
+        account_ids = {
+            account_id
+            for accumulators in account_accumulators.values()
+            for account_id in accumulators
+        }
+        accounts_by_id = (
+            {
+                int(account.id): account
+                for account in self.db.scalars(
+                    select(S3Account).where(S3Account.id.in_(account_ids))
+                ).all()
+            }
+            if account_ids
+            else {}
+        )
+        s3_user_ids = {
+            s3_user_id
+            for user_s3_user_ids in s3_user_grants.ids_by_user.values()
+            for s3_user_id in user_s3_user_ids
+        }
+        s3_users_by_id = (
+            {
+                int(s3_user.id): s3_user
+                for s3_user in self.db.scalars(
+                    select(S3User).where(S3User.id.in_(s3_user_ids))
+                ).all()
+            }
+            if s3_user_ids
+            else {}
+        )
+
         policies = app_settings_service.load_app_settings_for_db(self.db).manager.feature_policies
         resolved_by_user: dict[int, ResolvedUserAccess] = {}
         for user_id, user in user_by_id.items():
@@ -163,16 +200,78 @@ class EffectiveAccessService:
                 policies,
             )
 
-            account_links = sorted(
-                (accumulator.build() for accumulator in account_accumulators[user_id].values()),
-                key=lambda link: link.account_id,
-            )
+            account_links: list[EffectiveAccountLink] = []
+            account_browser_sources: dict[int, tuple[EffectiveAccessSource, ...]] = {}
+            for accumulator in account_accumulators[user_id].values():
+                link = accumulator.build()
+                browser_sources: list[EffectiveAccessSource] = []
+                admin_role = ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value
+                if (
+                    link.direct_manager_role == admin_role
+                    and link.direct_allow_manager_browser_data_access
+                ):
+                    browser_sources.append(EffectiveAccessSource(kind="direct"))
+                browser_sources.extend(
+                    EffectiveAccessSource(
+                        kind="group",
+                        group_id=source.group_id,
+                        group_name=source.group_name,
+                    )
+                    for source in link.group_sources
+                    if source.manager_role == admin_role
+                    and source.allow_manager_browser_data_access
+                )
+                account = accounts_by_id.get(link.account_id)
+                if account is not None:
+                    automatic_state = manager_browser_automatic_access_state(
+                        policies,
+                        account,
+                    )
+                    link = replace(
+                        link,
+                        manager_browser_automatic_allowed=automatic_state.enabled,
+                        manager_browser_automatic_source=(
+                            automatic_state.source if automatic_state.enabled else None
+                        ),
+                    )
+                    if link.manager_role == admin_role and automatic_state.enabled:
+                        browser_sources.append(
+                            EffectiveAccessSource(kind=automatic_state.source)
+                        )
+                if browser_sources:
+                    account_browser_sources[link.account_id] = self._ordered_sources(
+                        browser_sources
+                    )
+                account_links.append(link)
+            account_links.sort(key=lambda link: link.account_id)
+
+            manager_browser_s3_user_ids: list[int] = []
+            s3_user_browser_sources: dict[int, tuple[EffectiveAccessSource, ...]] = {}
+            for s3_user_id in sorted(s3_user_grants.ids_by_user[user_id]):
+                browser_sources = list(
+                    s3_user_grants.browser_sources_by_user[user_id].get(s3_user_id, [])
+                )
+                s3_user = s3_users_by_id.get(s3_user_id)
+                if s3_user is not None:
+                    automatic_state = manager_browser_automatic_access_state(
+                        policies,
+                        s3_user,
+                    )
+                    if automatic_state.enabled:
+                        browser_sources.append(
+                            EffectiveAccessSource(kind=automatic_state.source)
+                        )
+                if browser_sources:
+                    manager_browser_s3_user_ids.append(s3_user_id)
+                    s3_user_browser_sources[s3_user_id] = self._ordered_sources(
+                        browser_sources
+                    )
             resolved_by_user[user_id] = ResolvedUserAccess(
                 group_ids=[int(group.id) for group in user_groups],
                 group_details=[LinkedUiGroup(id=group.id, name=group.name) for group in user_groups],
                 account_links=account_links,
                 s3_user_ids=sorted(s3_user_grants.ids_by_user[user_id]),
-                manager_browser_s3_user_ids=sorted(s3_user_grants.browser_ids_by_user[user_id]),
+                manager_browser_s3_user_ids=manager_browser_s3_user_ids,
                 s3_connection_ids=sorted(connection_grants.ids_by_user[user_id]),
                 can_access_ceph_admin=features.can_access_ceph_admin,
                 can_access_storage_ops=features.can_access_storage_ops,
@@ -183,14 +282,12 @@ class EffectiveAccessService:
                 manager_tool_access=features.manager_tool_access,
                 browser_advanced_features_enabled=features.browser_advanced_features_enabled,
                 feature_sources=feature_sources,
+                account_browser_sources=account_browser_sources,
                 s3_user_sources={
                     s3_user_id: self._ordered_sources(sources)
                     for s3_user_id, sources in s3_user_grants.sources_by_user[user_id].items()
                 },
-                s3_user_browser_sources={
-                    s3_user_id: self._ordered_sources(sources)
-                    for s3_user_id, sources in s3_user_grants.browser_sources_by_user[user_id].items()
-                },
+                s3_user_browser_sources=s3_user_browser_sources,
                 s3_connection_sources={
                     connection_id: self._ordered_sources(sources)
                     for connection_id, sources in connection_grants.sources_by_user[user_id].items()

@@ -13,6 +13,7 @@ from app.db import (
     UiGroupS3Connection,
     UiGroupS3User,
     User,
+    AppSetting,
     UserS3Account,
     UserS3Connection,
     UserS3User,
@@ -27,7 +28,10 @@ from app.models.access_audit import (
     AccessAuditRow,
     AccessAuditTarget,
 )
+from app.models.app_settings import AppSettings
+from app.models.feature_policy import FeaturePolicy
 from app.services.access_audit_service import AccessAuditService
+from app.services.effective_access_service import EffectiveAccessService
 from tests.s3_account_factory import make_s3_account
 from tests.s3_connection_factory import custom_endpoint_fields
 
@@ -57,8 +61,6 @@ def test_access_audit_models_require_complete_canonical_payloads() -> None:
 
 
 def _seed_access_graph(db_session):
-    from app.models.app_settings import AppSettings
-    from app.db import AppSetting
     settings = AppSettings()
     settings.manager.feature_policies.bucket_migration = "targeted"
     app_settings = db_session.get(AppSetting, "default")
@@ -122,7 +124,7 @@ def _seed_access_graph(db_session):
             account_id=account.id,
             manager_role=ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value,
             portal_role="portal_user",
-            allow_manager_browser_data_access=False,
+            allow_manager_browser_data_access=True,
         ),
         UiGroupS3Account(
             group_id=group.id,
@@ -131,7 +133,7 @@ def _seed_access_graph(db_session):
             portal_role="portal_manager",
             allow_manager_browser_data_access=True,
         ),
-        UserS3User(user_id=user.id, s3_user_id=rgw_user.id, allow_manager_browser_data_access=False),
+        UserS3User(user_id=user.id, s3_user_id=rgw_user.id, allow_manager_browser_data_access=True),
         UiGroupS3User(group_id=group.id, s3_user_id=rgw_user.id, allow_manager_browser_data_access=True),
         UserS3Connection(user_id=user.id, s3_connection_id=shared.id),
         UiGroupS3Connection(group_id=group.id, s3_connection_id=shared.id),
@@ -224,6 +226,7 @@ def test_access_audit_aggregates_direct_and_group_rights_with_provenance(db_sess
         ("group", group.name)
     ]
     assert [(source.kind, source.group_name) for source in _right(account_row, "manager_browser_data_access").sources] == [
+        ("direct", None),
         ("group", group.name)
     ]
 
@@ -231,6 +234,7 @@ def test_access_audit_aggregates_direct_and_group_rights_with_provenance(db_sess
     assert rgw_row.target.id == rgw_user.id
     assert [source.kind for source in _right(rgw_row, "rgw_user_access").sources] == ["direct", "group"]
     assert [(source.kind, source.group_name) for source in _right(rgw_row, "manager_browser_data_access").sources] == [
+        ("direct", None),
         ("group", group.name)
     ]
 
@@ -238,6 +242,85 @@ def test_access_audit_aggregates_direct_and_group_rights_with_provenance(db_sess
     assert connection_row.target.id == shared.id
     assert [source.kind for source in _right(connection_row, "shared_connection_access").sources] == ["direct", "group"]
     assert all(row.target.id != private.id for row in rows)
+
+
+def test_access_audit_reflects_manager_browser_global_policy(db_session):
+    user, _, account, rgw_user, _, _ = _seed_access_graph(db_session)
+    app_settings = db_session.get(AppSetting, "default")
+    assert app_settings is not None
+    settings = AppSettings.model_validate(app_settings.payload)
+
+    settings.manager.feature_policies.manager_browser_data_access = FeaturePolicy.DEFAULT_ON
+    app_settings.payload = settings.model_dump(mode="json")
+    db_session.add(app_settings)
+    db_session.commit()
+
+    rows = AccessAuditService(db_session).list_rows(AccessAuditFilters(user_id=user.id))
+    resolved = EffectiveAccessService(db_session).resolve_user(user)
+    assert [
+        source.kind
+        for source in resolved.account_browser_sources[int(account.id)]
+    ] == ["direct", "group", "platform"]
+    account_row = next(row for row in rows if row.scope == "rgw_account" and row.target.id == account.id)
+    rgw_row = next(row for row in rows if row.scope == "rgw_user" and row.target.id == rgw_user.id)
+    assert [source.kind for source in _right(account_row, "manager_browser_data_access").sources] == [
+        "direct",
+        "group",
+        "platform",
+    ]
+    assert [source.kind for source in _right(rgw_row, "manager_browser_data_access").sources] == [
+        "direct",
+        "group",
+        "platform",
+    ]
+
+    settings.manager.feature_policies.manager_browser_data_access = FeaturePolicy.DISABLED
+    app_settings.payload = settings.model_dump(mode="json")
+    db_session.add(app_settings)
+    db_session.commit()
+
+    rows = AccessAuditService(db_session).list_rows(AccessAuditFilters(user_id=user.id))
+    resolved = EffectiveAccessService(db_session).resolve_user(user)
+    assert [
+        source.kind
+        for source in resolved.account_browser_sources[int(account.id)]
+    ] == ["direct", "group"]
+    account_row = next(row for row in rows if row.scope == "rgw_account" and row.target.id == account.id)
+    rgw_row = next(row for row in rows if row.scope == "rgw_user" and row.target.id == rgw_user.id)
+    assert [source.kind for source in _right(account_row, "manager_browser_data_access").sources] == [
+        "direct",
+        "group",
+    ]
+    assert [source.kind for source in _right(rgw_row, "manager_browser_data_access").sources] == [
+        "direct",
+        "group",
+    ]
+
+    settings.manager.feature_policies.manager_browser_data_access = FeaturePolicy.TARGETED
+    app_settings.payload = settings.model_dump(mode="json")
+    account.allow_manager_browser_data_access_for_all_admins = True
+    rgw_user.allow_manager_browser_data_access_for_all_admins = True
+    db_session.add_all([app_settings, account, rgw_user])
+    db_session.commit()
+
+    rows = AccessAuditService(db_session).list_rows(AccessAuditFilters(user_id=user.id))
+    resolved = EffectiveAccessService(db_session).resolve_user(user)
+    assert [
+        source.kind
+        for source in resolved.account_browser_sources[int(account.id)]
+    ] == ["direct", "group", "resource"]
+    account_row = next(row for row in rows if row.scope == "rgw_account" and row.target.id == account.id)
+    rgw_row = next(row for row in rows if row.scope == "rgw_user" and row.target.id == rgw_user.id)
+    assert [source.kind for source in _right(account_row, "manager_browser_data_access").sources] == [
+        "direct",
+        "group",
+        "resource",
+    ]
+    assert [source.kind for source in _right(rgw_row, "manager_browser_data_access").sources] == [
+        "direct",
+        "group",
+        "resource",
+    ]
 
 
 def test_access_audit_filters_and_csv_share_the_same_inventory(db_session):

@@ -10,7 +10,7 @@ import { cx, uiMenuClass } from "./styles";
 import { useDismissibleLayer } from "./useDismissibleLayer";
 
 
-export default function UiInfoTooltip({ label, children, triggerClassName, tooltipClassName }: { label: string; children: ReactNode; triggerClassName?: string; tooltipClassName?: string }) {
+export default function UiInfoTooltip({ label, children, trigger, triggerClassName, tooltipClassName }: { label: string; children: ReactNode; trigger?: ReactNode; triggerClassName?: string; tooltipClassName?: string }) {
   const id = useId();
   const anchor = useRef<HTMLSpanElement>(null);
   const tooltip = useRef<HTMLDivElement>(null);
@@ -56,7 +56,7 @@ export default function UiInfoTooltip({ label, children, triggerClassName, toolt
         aria-label={label} aria-describedby={open ? id : undefined}
         onClick={() => { if (pinned.current) close(); else { pinned.current = true; show(); } }}
       >
-        <InfoIcon className="h-3.5 w-3.5 text-[var(--ui-text-muted)]" />
+        {trigger ?? <InfoIcon className="h-3.5 w-3.5 text-[var(--ui-text-muted)]" />}
       </UiButton>
       <AnchoredPortalMenu open={open} anchorRef={anchor} placement="bottom-start" minWidth={280} offset={4}
         className={cx(uiMenuClass, tooltipClassName)}

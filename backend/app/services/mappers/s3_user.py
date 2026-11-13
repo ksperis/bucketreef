@@ -49,6 +49,9 @@ def s3_user_from_db(
         allow_bucket_usage_stats=s3_user.allow_bucket_usage_stats,
         allow_bucket_usage_stats_collection=s3_user.allow_bucket_usage_stats_collection,
         allow_multisite_endpoint_switching=s3_user.allow_multisite_endpoint_switching,
+        allow_manager_browser_data_access_for_all_admins=(
+            s3_user.allow_manager_browser_data_access_for_all_admins
+        ),
         allow_managed_private_connection_provisioning=s3_user.allow_managed_private_connection_provisioning,
         tags=tags,
     )

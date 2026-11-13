@@ -88,6 +88,7 @@ function RightsCell({ row }: { row: AccessAuditRow }) {
 
 function sourceLabel(source: AccessAuditRow["rights"][number]["sources"][number], text: AccessAuditText) {
   if (source.kind === "platform") return text("platform");
+  if (source.kind === "resource") return text("resource");
   if (source.kind === "direct") return text("direct");
   return source.group_name
     ? text("uiGroupContext", { name: source.group_name })

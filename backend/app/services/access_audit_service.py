@@ -100,7 +100,11 @@ class AccessAuditService:
     def _group_source(group_id: int, group_name: str) -> EffectiveAccessSource:
         return EffectiveAccessSource(kind="group", group_id=group_id, group_name=group_name)
 
-    def _account_rights(self, link: EffectiveAccountLink) -> list[AccessAuditRight]:
+    def _account_rights(
+        self,
+        link: EffectiveAccountLink,
+        browser_sources: tuple[EffectiveAccessSource, ...],
+    ) -> list[AccessAuditRight]:
         rights: list[AccessAuditRight] = []
         admin_role = ManagerAccountRole.ACCOUNT_ADMINISTRATOR.value
         manager_sources: list[EffectiveAccessSource] = []
@@ -128,19 +132,7 @@ class AccessAuditService:
             )
             rights.append(self._right(portal_code, portal_sources))
 
-        browser_sources: list[EffectiveAccessSource] = []
-        if (
-            link.direct_manager_role == admin_role
-            and link.direct_allow_manager_browser_data_access
-        ):
-            browser_sources.append(self._direct_source())
-        browser_sources.extend(
-            self._group_source(source.group_id, source.group_name)
-            for source in link.group_sources
-            if source.manager_role == admin_role
-            and source.allow_manager_browser_data_access
-        )
-        if link.manager_browser_allowed:
+        if browser_sources:
             rights.append(self._right("manager_browser_data_access", browser_sources))
         return rights
 
@@ -255,7 +247,10 @@ class AccessAuditService:
         rows: list[AccessAuditRow] = []
         for link in resolved.account_links:
             account = accounts.get(link.account_id)
-            rights = self._account_rights(link)
+            rights = self._account_rights(
+                link,
+                resolved.account_browser_sources.get(link.account_id, ()),
+            )
             if account is None or not rights:
                 continue
             rows.append(

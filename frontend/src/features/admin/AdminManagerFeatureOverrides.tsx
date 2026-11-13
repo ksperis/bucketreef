@@ -2,6 +2,7 @@
 import FeatureOverrideField from "../../components/settings/FeatureOverrideField";
 import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
+import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { useAdminI18n } from "./adminI18n";
 
 type ManagerFeatureOverrideValue = boolean | null;
@@ -13,6 +14,7 @@ type CommonManagerFeatureKey =
   | "allow_access_key_expiration"
   | "allow_activity_history"
   | "allow_multisite_endpoint_switching"
+  | "allow_manager_browser_data_access_for_all_admins"
   | "allow_bucket_quota_management";
 
 type UserManagerFeatureKey =
@@ -45,9 +47,34 @@ export default function AdminManagerFeatureOverrides(props: AdminManagerFeatureO
   const { generalSettings } = useGeneralSettings();
   const policies = generalSettings.manager_feature_policies;
   const account = props.resource === "account";
+  const managerBrowserDataAccessActive = policies.manager_browser_data_access !== "disabled"
+    && (props.value.allow_manager_browser_data_access_for_all_admins
+      ?? policies.manager_browser_data_access === "default_on");
 
   return (
     <div className="settings-stack">
+      {managerBrowserDataAccessActive && (
+        <UiInlineMessage tone="warning">
+          {adminText(account
+            ? "Audit limitation: automatic Manager Browser data access is active for this RGW Account. All eligible Account administrators can use the account root identity for data-plane access. BucketReef does not audit those data-plane actions; configure data-plane auditing in RGW."
+            : "Audit limitation: automatic Manager Browser data access is active for this RGW User. All eligible Manager administrators can use the same access key stored for Manager administration. BucketReef does not audit those data-plane actions; configure data-plane auditing in RGW.")}
+        </UiInlineMessage>
+      )}
+      <SettingsSection presentation="compact" title={adminText("Data access")}>
+        <FeatureOverrideField
+          title={adminText("Manager Browser data access")}
+          value={props.value.allow_manager_browser_data_access_for_all_admins}
+          policy={policies.manager_browser_data_access}
+          disabled={props.disabled}
+          triState
+          help={adminText(
+            account
+              ? "Controls automatic embedded Browser data-plane access for all eligible Account administrators of this RGW Account. Access uses the account root identity. Explicit per-association grants remain independent."
+              : "Controls automatic embedded Browser data-plane access for all administrators already assigned to this RGW User. Access uses the same access key stored for Manager administration. Explicit per-association grants remain independent.",
+          )}
+          onChange={(value) => props.onChange("allow_manager_browser_data_access_for_all_admins", value)}
+        />
+      </SettingsSection>
       <SettingsSection presentation="compact" title={adminText("Usage and metrics")}>
         <FeatureOverrideField
           title={adminText("RGW traffic and usage metrics")}

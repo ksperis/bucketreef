@@ -67,6 +67,7 @@ export type S3Account = {
   allow_bucket_usage_stats: boolean | null;
   allow_bucket_usage_stats_collection: boolean | null;
   allow_multisite_endpoint_switching: boolean | null;
+  allow_manager_browser_data_access_for_all_admins: boolean | null;
 };
 
 export type S3AccountSummary = {
@@ -91,6 +92,7 @@ export type S3AccountSummary = {
   allow_bucket_usage_stats: boolean | null;
   allow_bucket_usage_stats_collection: boolean | null;
   allow_multisite_endpoint_switching: boolean | null;
+  allow_manager_browser_data_access_for_all_admins: boolean | null;
 };
 
 type PaginatedS3AccountsResponse = PaginatedResponse<S3Account>;
@@ -158,6 +160,7 @@ type UpdateS3AccountPayload = {
   allow_bucket_usage_stats?: boolean | null;
   allow_bucket_usage_stats_collection?: boolean | null;
   allow_multisite_endpoint_switching?: boolean | null;
+  allow_manager_browser_data_access_for_all_admins?: boolean | null;
 };
 
 export async function updateS3Account(accountId: number, payload: UpdateS3AccountPayload): Promise<S3Account> {

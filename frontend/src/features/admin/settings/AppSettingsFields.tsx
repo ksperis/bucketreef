@@ -7,6 +7,8 @@ import {
   type SettingsTriStateOption,
 } from "../../../components/settings/SettingsLayout";
 import { SettingsField } from "../../../components/settings/SettingsControls";
+import UiBadge from "../../../components/ui/UiBadge";
+import UiInfoTooltip from "../../../components/ui/UiInfoTooltip";
 import type { FeaturePolicy } from "../../../api/featurePolicies";
 import type { useAppSettingsDraft } from "./useAppSettingsDraft";
 import type { SettingsPath } from "./appSettingsDraft";
@@ -17,6 +19,11 @@ type Props = {
   field: SettingsPath;
   title: string;
   description?: ReactNode;
+  summary?: ReactNode;
+  defaultOnWarning?: {
+    label: string;
+    description: ReactNode;
+  };
   ariaLabel?: string;
   disabled?: boolean;
 };
@@ -119,16 +126,31 @@ export function AppSettingsNumber({
   );
 }
 
-export function AppSettingsPolicy({ form, field, title, description, ariaLabel, disabled, experimental }: Props & { experimental?: boolean }) {
+export function AppSettingsPolicy({ form, field, title, description, summary, defaultOnWarning, ariaLabel, disabled, experimental }: Props & { experimental?: boolean }) {
   const errorId = useId();
   const { text } = useAppSettingsI18n();
+  const policy = String(form.draft[field] ?? "disabled") as FeaturePolicy;
+  const warningActive = defaultOnWarning && policy === "default_on";
   return <SettingsItem compact title={title} help={description}
-    description={form.errors[field] ? <span id={errorId} role="alert" className="text-rose-700 dark:text-rose-300">{form.errors[field]}</span> : undefined}
+    status={warningActive ? (
+      <UiInfoTooltip
+        label={defaultOnWarning.label}
+        triggerClassName="!h-auto !p-0"
+        tooltipClassName="settings-info-tooltip"
+        trigger={<UiBadge tone="warning"><span aria-hidden="true">⚠</span>{" "}{defaultOnWarning.label}</UiBadge>}
+      >
+        {defaultOnWarning.description}
+      </UiInfoTooltip>
+    ) : undefined}
+    description={summary || form.errors[field] ? <>
+      {summary && <span>{summary}</span>}
+      {form.errors[field] && <span id={errorId} role="alert" className="block text-rose-700 dark:text-rose-300">{form.errors[field]}</span>}
+    </> : undefined}
     action={<SettingsTriStateAction
       ariaLabel={ariaLabel ?? title}
       ariaInvalid={Boolean(form.errors[field])}
       ariaDescribedBy={form.errors[field] ? errorId : undefined}
-      value={String(form.draft[field] ?? "disabled") as FeaturePolicy}
+      value={policy}
       options={featurePolicyOptions}
       disabled={disabled || form.busy}
       onChange={value => form.setValue(field, value)}
