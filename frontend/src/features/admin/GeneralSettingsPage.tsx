@@ -562,13 +562,13 @@ export default function GeneralSettingsPage() {
           form={form}
           field="general.project_feature_policies.bucket_usage_stats"
           title={adminText("Bucket composition statistics")}
-          description={adminText("Controls whether Manager and Portal can read snapshots and request manual recalculation.")}
+          summary={adminText("Controls whether Manager and Portal can read snapshots and request manual recalculation.")}
         />
         <AppSettingsPolicy
           form={form}
           field="general.project_collection_policies.bucket_usage_stats"
           title={adminText("Automatic bucket composition collection")}
-          description={adminText("Controls scheduled refreshes. Targeted activation requires an explicit RGW Account opt-in; statistics must also be enabled.")}
+          summary={adminText("Controls scheduled refreshes. Targeted activation requires an explicit RGW Account opt-in; statistics must also be enabled.")}
         />
         {feature(
           "cost_enabled",
