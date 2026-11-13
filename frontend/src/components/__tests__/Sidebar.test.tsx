@@ -492,6 +492,35 @@ describe("Sidebar", () => {
     expect(screen.getByRole("link", { name: "General" })).toHaveAttribute("href", "/admin/general-settings");
   });
 
+  it("visually groups links inside an expanded collapsible section", () => {
+    render(
+      <MemoryRouter initialEntries={["/admin"]}>
+        <Sidebar
+          sections={[
+            {
+              id: "settings",
+              label: "Settings",
+              collapsible: true,
+              links: [{ to: "/admin/general-settings", label: "General" }],
+            },
+          ]}
+        />
+      </MemoryRouter>
+    );
+
+    const settingsToggle = screen.getByRole("button", { name: "Settings" });
+    const settingsSection = settingsToggle.closest("section");
+    const submenu = settingsSection?.querySelector("ul");
+
+    expect(settingsToggle).toHaveAttribute("aria-expanded", "true");
+    expect(settingsToggle).toHaveClass("shell-sidebar-section-toggle", "h-7", "rounded-lg");
+    expect(submenu).toHaveClass("shell-sidebar-submenu");
+
+    fireEvent.click(settingsToggle);
+    expect(settingsToggle).toHaveAttribute("aria-expanded", "false");
+    expect(settingsSection?.querySelector("ul")).toBeNull();
+  });
+
   it("persists collapsible section state for the workspace sidebar", () => {
     const sections = [
       {
@@ -653,6 +682,41 @@ describe("Sidebar", () => {
     );
 
     expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest" });
+  });
+
+  it("does not scroll the active link when expanding another section", () => {
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/admin"]}>
+        <Sidebar
+          sections={[
+            {
+              links: [{ to: "/admin", label: "Dashboard", end: true }],
+            },
+            {
+              id: "settings",
+              label: "Settings",
+              collapsed: true,
+              collapsible: true,
+              links: [{ to: "/admin/general-settings", label: "General" }],
+            },
+          ]}
+        />
+      </MemoryRouter>
+    );
+
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest" });
+    scrollIntoView.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+
+    expect(screen.getByRole("link", { name: "General" })).toBeInTheDocument();
+    expect(scrollIntoView).not.toHaveBeenCalled();
   });
 
   it("keeps the active desktop navigation link in view when compact", () => {
