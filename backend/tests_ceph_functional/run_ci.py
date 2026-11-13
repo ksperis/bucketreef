@@ -178,6 +178,8 @@ def _derive_ceph_test_env_from_storage_endpoints(env: dict[str, str]) -> None:
     _setdefault("CEPH_TEST_SUPERVISION_SECRET_KEY", _entry_str("supervision_secret_key") or _entry_str("admin_secret_key"))
     if "CEPH_TEST_LAB_VERIFY_TLS" not in env and "verify_tls" in selected:
         env["CEPH_TEST_LAB_VERIFY_TLS"] = "true" if bool(selected.get("verify_tls")) else "false"
+    if "CEPH_TEST_LAB_FORCE_PATH_STYLE" not in env and "force_path_style" in selected:
+        env["CEPH_TEST_LAB_FORCE_PATH_STYLE"] = "true" if bool(selected.get("force_path_style")) else "false"
     if "CEPH_TEST_RGW_VERIFY_TLS" not in env and "verify_tls" in selected:
         env["CEPH_TEST_RGW_VERIFY_TLS"] = "true" if bool(selected.get("verify_tls")) else "false"
 
@@ -193,6 +195,7 @@ def _build_endpoint_payload(source: dict[str, str] | None = None) -> str:
     admin_endpoint = _require_env("CEPH_TEST_RGW_ADMIN_ENDPOINT", source=env)
     region = _env_str("CEPH_TEST_RGW_REGION", "us-east-1", source=env) or "us-east-1"
     verify_tls = _env_bool("CEPH_TEST_LAB_VERIFY_TLS", True, source=env)
+    force_path_style = _env_bool("CEPH_TEST_LAB_FORCE_PATH_STYLE", False, source=env)
     realm_id = _env_str("CEPH_TEST_RGW_REALM_ID", source=env)
     zonegroup_id = _env_str("CEPH_TEST_RGW_ZONEGROUP_ID", source=env)
     zone_id_z1 = _env_str("CEPH_TEST_RGW_ZONE_ID_Z1", source=env)
@@ -234,6 +237,7 @@ def _build_endpoint_payload(source: dict[str, str] | None = None) -> str:
             "endpoint_url": endpoint_url,
             "region": region,
             "verify_tls": verify_tls,
+            "force_path_style": force_path_style,
             "provider": "ceph",
             "service_identity_mode": "managed",
             **common_credentials,

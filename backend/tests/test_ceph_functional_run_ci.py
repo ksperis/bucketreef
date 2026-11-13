@@ -26,6 +26,7 @@ def _seed_required_endpoint_env(monkeypatch):
     monkeypatch.setenv("CEPH_TEST_SUPERVISION_ACCESS_KEY", "supervision-ak")
     monkeypatch.setenv("CEPH_TEST_SUPERVISION_SECRET_KEY", "supervision-sk")
     for name in (
+        "CEPH_TEST_LAB_FORCE_PATH_STYLE",
         "CEPH_TEST_RGW_REALM_ID",
         "CEPH_TEST_RGW_ZONEGROUP_ID",
         "CEPH_TEST_RGW_ZONE_ID_Z1",
@@ -53,6 +54,15 @@ def test_ci_endpoint_payload_enables_replication(monkeypatch):
     )
     assert len(states) == 1
     assert states[0].service_identity_mode == "managed"
+
+
+def test_ci_endpoint_payload_honors_path_style(monkeypatch):
+    _seed_required_endpoint_env(monkeypatch)
+    monkeypatch.setenv("CEPH_TEST_LAB_FORCE_PATH_STYLE", "true")
+
+    payload = json.loads(run_ci._build_endpoint_payload())
+
+    assert payload[0]["force_path_style"] is True
 
 
 def test_ci_app_settings_payload_enables_portal_features():
@@ -158,6 +168,7 @@ def test_ci_endpoint_payload_can_use_explicit_inventory():
             "provider": "ceph",
             "region": "us-east-1",
             "verify_tls": True,
+            "force_path_style": True,
             "features": {
                 "admin": {"enabled": True, "endpoint": "https://admin-z1.example.test"},
                 "account": {"enabled": True},
@@ -185,6 +196,7 @@ def test_ci_endpoint_payload_can_use_explicit_inventory():
     assert env["CEPH_TEST_CEPH_ADMIN_ACCESS_KEY"] == "ceph-admin-ak"
     assert env["CEPH_TEST_SUPERVISION_SECRET_KEY"] == "supervision-sk"
     assert env["CEPH_TEST_RGW_VERIFY_TLS"] == "true"
+    assert env["CEPH_TEST_LAB_FORCE_PATH_STYLE"] == "true"
 
 
 def test_ci_env_derivation_ignores_removed_admin_endpoint_aliases():
