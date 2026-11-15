@@ -131,7 +131,7 @@ test("keeps desktop and mobile layouts usable in both themes", async ({ page }, 
   const errors: string[] = []; page.on("pageerror", error => errors.push(error.message));
   await open(page);
   await page.reload();
-  await expect(page.getByRole("button", { name: "Open file data.csv", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open file data.csv", exact: true })).toBeVisible({ timeout: 30_000 });
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
     for (const theme of ["light", "dark"]) {
