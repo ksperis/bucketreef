@@ -9,7 +9,7 @@ export type DemoManagerBrowserAccessSource =
   | { kind: "group"; group: UiGroup }
   | { kind: "resource" | "platform" };
 
-export type DemoS3UserResource = {
+type DemoS3UserResource = {
   id: number;
   name: string;
   rgw_user_uid: string;
@@ -19,7 +19,7 @@ export type DemoS3UserResource = {
   allow_manager_browser_data_access_for_all_admins: boolean | null;
 };
 
-export function resolveDemoManagerBrowserAutomaticAccess(
+function resolveDemoManagerBrowserAutomaticAccess(
   policy: FeaturePolicy,
   override: boolean | null,
 ): { enabled: boolean; source: "resource" | "platform" | null } {
