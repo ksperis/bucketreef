@@ -73,6 +73,20 @@ load_kind_image() {
   fi
 }
 
+prepare_kind_image() {
+  local image="$1"
+  local source="$2"
+  if [[ "${KIND_SMOKE_USE_LOCAL_IMAGES:-false}" == "true" ]]; then
+    docker image inspect "$image" >/dev/null
+  else
+    docker pull "$source"
+    if [[ "$source" != "$image" ]]; then
+      docker tag "$source" "$image"
+    fi
+  fi
+  load_kind_image "$image"
+}
+
 configure_kind_api_access() {
   [[ -n "$KIND_API_HOST" ]] || return 0
 
@@ -97,20 +111,6 @@ configure_kind_api_access() {
     >/dev/null
 }
 
-if [[ "${KIND_SMOKE_USE_LOCAL_IMAGES:-false}" == "true" ]]; then
-  docker image inspect "$BACKEND_IMAGE" "$FRONTEND_IMAGE" >/dev/null
-else
-  backend_source=${BACKEND_IMAGE_DIGEST:+$BACKEND_IMAGE_REPOSITORY@$BACKEND_IMAGE_DIGEST}
-  frontend_source=${FRONTEND_IMAGE_DIGEST:+$FRONTEND_IMAGE_REPOSITORY@$FRONTEND_IMAGE_DIGEST}
-  docker pull "${backend_source:-$BACKEND_IMAGE}"
-  docker pull "${frontend_source:-$FRONTEND_IMAGE}"
-  if [[ -n "$backend_source" ]]; then docker tag "$backend_source" "$BACKEND_IMAGE"; fi
-  if [[ -n "$frontend_source" ]]; then docker tag "$frontend_source" "$FRONTEND_IMAGE"; fi
-fi
-if [[ -f candidate-inventory.json ]]; then
-  python3 ops/ci/installation_evidence.py kind-preload
-fi
-docker pull "$POSTGRES_IMAGE"
 kind_config_args=()
 if [[ -n "$KIND_API_HOST" ]]; then
   if [[ ! "$KIND_API_HOST" =~ ^[a-zA-Z0-9.-]+$ ]]; then
@@ -133,9 +133,21 @@ EOF
 fi
 kind create cluster --name "$CLUSTER_NAME" --wait 120s "${kind_config_args[@]}"
 configure_kind_api_access
-load_kind_image "$BACKEND_IMAGE"
-load_kind_image "$FRONTEND_IMAGE"
-load_kind_image "$POSTGRES_IMAGE"
+
+if [[ -f candidate-inventory.json ]]; then
+  # Candidate evidence pulls and verifies the exact release images. Create the
+  # Kind node first so its large base image does not compete with every source
+  # image for DinD storage during cluster creation.
+  python3 ops/ci/installation_evidence.py kind-preload
+  load_kind_image "$BACKEND_IMAGE"
+  load_kind_image "$FRONTEND_IMAGE"
+else
+  backend_source=${BACKEND_IMAGE_DIGEST:+$BACKEND_IMAGE_REPOSITORY@$BACKEND_IMAGE_DIGEST}
+  frontend_source=${FRONTEND_IMAGE_DIGEST:+$FRONTEND_IMAGE_REPOSITORY@$FRONTEND_IMAGE_DIGEST}
+  prepare_kind_image "$BACKEND_IMAGE" "${backend_source:-$BACKEND_IMAGE}"
+  prepare_kind_image "$FRONTEND_IMAGE" "${frontend_source:-$FRONTEND_IMAGE}"
+fi
+prepare_kind_image "$POSTGRES_IMAGE" "$POSTGRES_IMAGE"
 mark_phase cluster-and-images
 
 kubectl create namespace "$NAMESPACE"

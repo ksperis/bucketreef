@@ -495,3 +495,9 @@ def test_kind_smoke_routes_the_api_through_the_dind_service():
     assert '--server="https://${KIND_API_HOST}:${api_port}"' in smoke_script
     assert '"${KIND_SMOKE_PRUNE_SOURCE_IMAGES:-false}" == "true"' in smoke_script
     assert 'docker image rm "$image" >/dev/null' in smoke_script
+    assert smoke_script.index('kind create cluster --name "$CLUSTER_NAME"') < smoke_script.index(
+        'prepare_kind_image "$BACKEND_IMAGE"'
+    )
+    assert smoke_script.index('kind create cluster --name "$CLUSTER_NAME"') < smoke_script.index(
+        'python3 ops/ci/installation_evidence.py kind-preload'
+    )
