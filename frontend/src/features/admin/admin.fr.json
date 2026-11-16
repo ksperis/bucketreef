@@ -1654,7 +1654,7 @@
   "{mode} latency from 5-minute rollups.": "latence de {mode} à partir des agrégats sur 5 minutes.",
   "{mode} latency from daily aggregates.": "latence de {mode} à partir des agrégats journaliers.",
   "{name} (default)": "{name} (par défaut)",
-  "{percent} availability": "disponibilité de {percent}%",
+  "{percent} availability": "disponibilité de {percent}",
   "{percent} success": "succès de {percent}%",
   "{percent}% ({collected}/{total} days)": "{percent}% ({collected}/{total} jours)",
   "{percent}% of slowest endpoint.": "{percent}% du plus lent endpoint.",

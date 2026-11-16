@@ -10,6 +10,10 @@ describe("EndpointStatusPage localized labels", () => {
   it("uses an unambiguous French label for the six-month window", () => {
     expect(endpointStatusText("windowLabel_half_year", "fr")).toBe("6 mois");
   });
+
+  it("does not duplicate the percent sign in French availability labels", () => {
+    expect(endpointStatusText("availabilityPercent", "fr", { percent: "100.0%" })).toBe("disponibilité de 100.0%");
+  });
 });
 
 const fetchHealthLatencyOverviewMock = vi.fn();
