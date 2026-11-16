@@ -97,6 +97,27 @@ describe("FirstAdminSetupPage", () => {
     });
   });
 
+  it("clears the missing-token state when a fresh bootstrap URL is opened in place", async () => {
+    window.history.replaceState({}, "", "/setup/first-admin");
+    renderSetup();
+
+    expect(
+      await screen.findByRole("heading", { name: "This link is off course." }),
+    ).toBeVisible();
+
+    window.location.hash = "#token=fresh-one-time-secret";
+
+    expect(
+      await screen.findByRole("heading", { name: "Create the first administrator" }),
+    ).toBeVisible();
+    expect(
+      screen.queryByText(
+        "The bootstrap token is missing. Open the complete one-time URL issued by the backend.",
+      ),
+    ).not.toBeInTheDocument();
+    expect(window.location.hash).toBe("");
+  });
+
   it("submits the in-memory token and enters the authenticated application", async () => {
     const user = userEvent.setup();
     renderSetup();

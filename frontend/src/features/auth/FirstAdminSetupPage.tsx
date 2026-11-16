@@ -54,7 +54,10 @@ export default function FirstAdminSetupPage() {
   useLayoutEffect(() => {
     const consumeBootstrapTokenFragment = () => {
       const nextToken = readBootstrapTokenFragment();
-      if (nextToken) setToken(nextToken);
+      if (nextToken) {
+        setToken(nextToken);
+        setError(null);
+      }
       clearBootstrapTokenFragment();
     };
 
