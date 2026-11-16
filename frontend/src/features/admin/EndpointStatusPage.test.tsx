@@ -4,6 +4,13 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import EndpointStatusPage, { isLatencyMeaningfullyAboveAverage } from "./EndpointStatusPage";
+import { endpointStatusText } from "./endpointStatusMessages";
+
+describe("EndpointStatusPage localized labels", () => {
+  it("uses an unambiguous French label for the six-month window", () => {
+    expect(endpointStatusText("windowLabel_half_year", "fr")).toBe("6 mois");
+  });
+});
 
 const fetchHealthLatencyOverviewMock = vi.fn();
 const fetchHealthOverviewMock = vi.fn();

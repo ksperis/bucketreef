@@ -29,7 +29,7 @@
   "24h": "24 h",
   "24h rolling min/avg/max latency (down checks excluded). Click a card for endpoint details.": "Latence min/moy/max glissante sur 24 h (pannes exclues). Cliquez sur une carte pour les détails de l’endpoint.",
   "30d": "30j",
-  "6m": "6 min",
+  "6m": "6 mois",
   "7-day endpoint health history is not available.": "Historique de santé des endpoints sur 7 jours indisponible.",
   "7-day mean": "Moyenne sur 7 jours",
   "7-day measurements unavailable: {endpoints}.": "Les relevés sur 7 jours sont indisponibles : {endpoints}.",
