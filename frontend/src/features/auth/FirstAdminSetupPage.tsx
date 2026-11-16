@@ -41,7 +41,7 @@ export default function FirstAdminSetupPage() {
   const navigate = useNavigate();
   const { refresh: refreshSession } = useSession();
   const { text } = useAuthI18n();
-  const [token] = useState(readBootstrapTokenFragment);
+  const [token, setToken] = useState(readBootstrapTokenFragment);
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
   const [password, setPassword] = useState("");
@@ -52,7 +52,17 @@ export default function FirstAdminSetupPage() {
   const [availabilityError, setAvailabilityError] = useState<unknown>(null);
 
   useLayoutEffect(() => {
-    clearBootstrapTokenFragment();
+    const consumeBootstrapTokenFragment = () => {
+      const nextToken = readBootstrapTokenFragment();
+      if (nextToken) setToken(nextToken);
+      clearBootstrapTokenFragment();
+    };
+
+    consumeBootstrapTokenFragment();
+    window.addEventListener("hashchange", consumeBootstrapTokenFragment);
+    return () => {
+      window.removeEventListener("hashchange", consumeBootstrapTokenFragment);
+    };
   }, []);
 
   useEffect(() => {

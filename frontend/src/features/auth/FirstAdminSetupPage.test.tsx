@@ -73,6 +73,30 @@ describe("FirstAdminSetupPage", () => {
     expect(await screen.findByRole("heading", { name: "Create the first administrator" })).toBeVisible();
   });
 
+  it("consumes a fresh bootstrap token opened in the same setup tab", async () => {
+    const user = userEvent.setup();
+    renderSetup();
+
+    await screen.findByRole("heading", { name: "Create the first administrator" });
+    window.location.hash = "#token=fresh-one-time-secret";
+
+    await waitFor(() => {
+      expect(window.location.hash).toBe("");
+    });
+
+    await user.type(screen.getByLabelText("Email"), "admin@example.com");
+    await user.type(screen.getByLabelText("Password", { exact: true }), "correct horse battery staple");
+    await user.type(screen.getByLabelText("Confirm password"), "correct horse battery staple");
+    await user.click(screen.getByRole("button", { name: "Create administrator" }));
+
+    await waitFor(() => {
+      expect(mocks.bootstrapFirstAdmin).toHaveBeenCalledWith(
+        "fresh-one-time-secret",
+        expect.objectContaining({ email: "admin@example.com" }),
+      );
+    });
+  });
+
   it("submits the in-memory token and enters the authenticated application", async () => {
     const user = userEvent.setup();
     renderSetup();
