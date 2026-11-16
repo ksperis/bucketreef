@@ -80,7 +80,7 @@
   "Accounts (objects)": "Comptes (objets)",
   "Accounts (volume)": "Comptes (volume)",
   "Accounts and S3 users by volume and object count.": "Comptes et utilisateurs S3 par volume et nombre d'objets.",
-  "Accounts enabled": "Accounts activé",
+  "Accounts enabled": "API de compte activée",
   "Accounts is locked because the RGW Account API was not detected as available with the current credentials.": "Accounts est verrouillé car l’API RGW Account n’a pas été détectée comme disponible avec les identifiants actuels.",
   "Accounts, S3 users, and S3 connections remain in the platform.": "Les comptes, utilisateurs S3 et connexions S3 restent dans la plateforme.",
   "Action and status filters apply to loaded entries. Load older entries to extend the results.": "Les filtres d’action et de statut s’appliquent aux entrées chargées. Chargez des entrées plus anciennes pour étendre les résultats.",

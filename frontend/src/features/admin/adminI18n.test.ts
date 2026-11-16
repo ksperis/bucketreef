@@ -305,6 +305,7 @@ describe("Admin i18n", () => {
     const expected = new Map<string, string>([
       ["Admin", "Admin"],
       ["Admin UI", "Admin UI"],
+      ["Accounts enabled", "API de compte activée"],
       ["All scopes", "Toutes les étendues"],
       ["Browser settings", "Paramètres Browser"],
       ["Endpoint", "Endpoint"],
