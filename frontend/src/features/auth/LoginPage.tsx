@@ -63,6 +63,11 @@ function passwordLoginErrorMessage(error: unknown, text: AuthText): string {
   return text("unableToSignIn");
 }
 
+function shouldLogPasswordLoginError(error: unknown): boolean {
+  const failure = classifyApiError(error, "");
+  return ![401, 403, 429].includes(failure.status ?? 0);
+}
+
 export default function LoginPage() {
   const navigate = useNavigate();
   const { runtimeSurfaces, setGeneralSettings } = useGeneralSettings();
@@ -248,7 +253,7 @@ export default function LoginPage() {
       const res = await login(email, password);
       await finishLogin(res, "password");
     } catch (err) {
-      console.error(err);
+      if (shouldLogPasswordLoginError(err)) console.error(err);
       setError(passwordLoginErrorMessage(err, text));
     } finally {
       setLoading(false);

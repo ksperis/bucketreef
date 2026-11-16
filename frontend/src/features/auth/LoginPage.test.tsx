@@ -207,6 +207,25 @@ describe("LoginPage", () => {
     );
   });
 
+  it.each([401, 403, 429])("does not log an expected password sign-in rejection with %s", async (status) => {
+    const user = userEvent.setup();
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mocks.login.mockRejectedValueOnce(
+      new ApiError(`Request failed with status ${status}`, {
+        response: { status, data: { detail: "Authentication rejected" }, headers: {} },
+      }),
+    );
+    renderLoginPage();
+
+    await user.type(await screen.findByLabelText("Email"), "unknown@example.test");
+    await user.type(screen.getByLabelText("Password"), "incorrect-password");
+    await user.click(screen.getByRole("button", { name: "Sign in" }));
+
+    await screen.findByRole("alert");
+    expect(consoleError).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
   it("keeps BucketReef visible when a secondary customer logo is configured", async () => {
     mocks.fetchLoginSettings.mockResolvedValueOnce({
       allow_login_access_keys: false,
