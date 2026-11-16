@@ -133,19 +133,20 @@ Selecting managed mode explicitly converts Runtime/Supervision and preserves the
 external users. With validated Admin Ops `users=write`, **Save & create managed
 identities** persists the conversion first and then provisions the managed RGW users.
 Without that capability the conversion may be saved as `not_provisioned` and completed
-later. Generated DB secrets survive ENV synchronization.
+later. Generated DB secrets survive deployment reconciliation.
 
 Every Ceph entry in the [deployment manifest](../../configuration/deployment.md) must explicitly declare
 `service_identity_mode: managed` or `service_identity_mode: external`. Omission is
-a startup error, including on instances without Admin. The API still defaults new
-endpoints to managed mode; this breaking requirement applies to ENV inventories.
+a manifest validation error, including on instances without Admin. The API still
+defaults new interactive endpoints to managed mode; the explicit-mode requirement
+applies to deployment-managed inventories.
 
 The deployment manifest uses the endpoint API credential requirements. Reference mounted credential files in the manifest.
 In external mode, provide Runtime for Admin/Accounts and Supervision for Metrics,
 Usage or signed S3 healthchecks. Unused pairs can be entirely empty; every partially
 supplied pair is rejected, including optional Admin Ops and Ceph Admin pairs. The entire inventory
-is validated before synchronization. An incomplete entry prevents startup, even if
-another replica is already synchronizing endpoints; no earlier entry is applied.
+is validated before a revision is applied. An incomplete entry rejects the revision;
+no earlier entry from that revision is applied.
 
 For managed identities, BucketReef accepts the current S3 key and the old/new keys recorded in the durable journal
 during an unfinished rotation. Any additional S3 key (including a
@@ -172,10 +173,12 @@ radosgw-admin user create --uid="bkr-ceph-admin" \
 
 Ceph Admin requires `admin=true`, `system=false` and authentication with its own
 pair; `users=write` on Admin Ops is not required for this validation. BucketReef
-never sets the admin flag via REST. Endpoint and onboarding forms accept the keys;
-ENV entries use `ceph_admin_access_key` and `ceph_admin_secret_key`. Leave both
-fields empty while editing to retain stored credentials; replacing them requires
-both values. Secrets and Ceph Admin access-key IDs are absent from read responses.
+never sets the admin flag via REST. Endpoint and onboarding forms accept the keys.
+Deployment manifests reference the pair through
+`credentials.ceph_admin.access_key_file` and
+`credentials.ceph_admin.secret_key_file`. Leave both fields empty while editing an
+endpoint interactively to retain stored credentials; replacing them requires both
+values. Secrets and Ceph Admin access-key IDs are absent from read responses.
 
 Access requires global enablement, endpoint authorization and a validated external
 identity with complete credentials. Disabling access preserves the pair and never
@@ -186,7 +189,26 @@ credentials and leave Admin/Accounts, Metrics and Usage disabled. Both `managed`
 and `external` service modes accept this configuration. For example:
 
 ```json
-[{"name":"Ceph Admin","endpoint_url":"https://rgw.example.com","provider":"ceph","service_identity_mode":"external","ceph_admin_allowed":true,"ceph_admin_access_key":"CEPH-ADMIN-AK","ceph_admin_secret_key":"CEPH-ADMIN-SK"}]
+{
+  "schema_version": 1,
+  "revision": 1,
+  "storage_endpoints": [
+    {
+      "key": "ceph-admin",
+      "name": "Ceph Admin",
+      "endpoint_url": "https://rgw.example.com",
+      "provider": "ceph",
+      "service_identity_mode": "external",
+      "ceph_admin_allowed": true,
+      "credentials": {
+        "ceph_admin": {
+          "access_key_file": "/deployment/credentials/ceph-admin-access-key",
+          "secret_key_file": "/deployment/credentials/ceph-admin-secret-key"
+        }
+      }
+    }
+  ]
+}
 ```
 
 Ceph Admin accounts, users, buckets and Browser use that dedicated identity.
@@ -210,8 +232,7 @@ rotate them. Both fields are required to replace an external service credential 
 **Replace Runtime keys** or **Replace Supervision keys** to enter a replacement;
 leave both fields empty to retain the stored pair.
 
-Disabling features preserves configured identities and their keys, including
-unused external pairs omitted from ENV reloads in the same mode. Switching to
+Disabling features preserves configured identities and their keys. Switching to
 external mode still requires replacements for configured managed identities and
 revokes only owned managed users. Empty unused mode placeholders can change mode
 without replacement keys. Startup and reconciliation ignore those placeholders,

@@ -28,22 +28,35 @@ The local surface list exposes only Ceph Admin. Enable `ceph_admin_enabled`
 for the dedicated installation through Admin before narrowing its surfaces, or
 set it in the [deployment manifest](../configuration/deployment.md).
 
-Configure endpoints with the [deployment manifest](../configuration/deployment.md). Each Ceph entry specifies
-`ceph_admin_allowed: true` and separate
-`ceph_admin_access_key` and `ceph_admin_secret_key` from an externally configured RGW
-user with `admin=true` and `system=false`. BucketReef validates that pair without
-creating or modifying the Ceph Admin user. For example:
+Configure endpoints with the [deployment manifest](../configuration/deployment.md).
+Each Ceph entry specifies `ceph_admin_allowed: true` and references the dedicated
+Ceph Admin pair through `credentials.ceph_admin`. The referenced files contain the
+keys of an externally configured RGW user with `admin=true` and `system=false`.
+BucketReef validates that pair without creating or modifying the Ceph Admin user.
+For example:
 
 ```json
-[{
-  "name": "Ceph Admin",
-  "endpoint_url": "https://rgw.example.com",
-  "provider": "ceph",
-  "service_identity_mode": "managed",
-  "ceph_admin_allowed": true,
-  "ceph_admin_access_key": "CEPH_ADMIN_ACCESS_KEY",
-  "ceph_admin_secret_key": "CEPH_ADMIN_SECRET_KEY"
-}]
+{
+  "schema_version": 1,
+  "revision": 1,
+  "features": {"ceph_admin_enabled": true},
+  "storage_endpoints": [
+    {
+      "key": "ceph-admin",
+      "name": "Ceph Admin",
+      "endpoint_url": "https://rgw.example.com",
+      "provider": "ceph",
+      "service_identity_mode": "external",
+      "ceph_admin_allowed": true,
+      "credentials": {
+        "ceph_admin": {
+          "access_key_file": "/deployment/credentials/ceph-admin-access-key",
+          "secret_key_file": "/deployment/credentials/ceph-admin-secret-key"
+        }
+      }
+    }
+  ]
+}
 ```
 
 This example uses Ceph Admin alone: no Admin Ops, Runtime or Supervision pair is
@@ -56,13 +69,14 @@ Ceph Admin validation does not require Admin Ops credentials. If Runtime/Supervi
 are also needed, provide their external pairs or Admin Ops credentials with
 `users=read,write;accounts=read` for managed provisioning. Any additional stored
 secrets require the same network/database isolation as the Ceph Admin identity.
-Startup reconciles persisted endpoints even if they were not
-changed by ENV synchronization. Disabling the global feature blocks access and
-preserves the stored Ceph Admin keys and endpoint authorization; it does not revoke RGW users.
+Startup reconciles persisted Ceph endpoints after provisioning, including pending
+Ceph Admin validation. Disabling the global feature blocks access and preserves the
+stored Ceph Admin keys and endpoint authorization; it does not revoke RGW users.
 
-ENV endpoint metadata are synchronized into this instance's isolated
-database and remain environment-managed/read-only. Back up the database and its
-credential ring together, independently of the main deployment.
+Deployment-managed endpoint metadata is stored in this instance's isolated database
+and remains read-only in Admin until a newer manifest releases inventory management
+with `"storage_endpoints": null`. Back up the database and its credential ring
+together, independently of the main deployment.
 
 ## Docker Compose
 
