@@ -312,6 +312,7 @@ describe("Admin i18n", () => {
       ["Endpoints", "Endpoints"],
       ["Passkey", "Passkey"],
       ["Manager UI", "Manager UI"],
+      ["No API tokens.", "Aucun token API."],
       ["Portal UI", "Portal UI"],
       ["Superadmin", "Superadmin"],
       ["Visible buckets", "Buckets visibles"],

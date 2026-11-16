@@ -389,7 +389,7 @@ export default function ApiTokensPage({ onUnsavedChangesChange }: ApiTokensPageP
           status={tableStatus}
           loadingMessage="Loading API tokens..."
           errorMessage={loadError ?? "Unable to load API tokens."}
-          emptyMessage="No API tokens."
+          emptyMessage={adminText("No API tokens.")}
           tableClassName="ui-data-table"
           responsiveCards
         />

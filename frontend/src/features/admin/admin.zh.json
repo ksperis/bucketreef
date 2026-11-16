@@ -921,6 +921,7 @@
   "No account linked yet.": "尚未关联账户。",
   "No accounts available.": "没有可用账户。",
   "No active sessions.": "没有活跃会话。",
+  "No API tokens.": "没有 API 令牌。",
   "No additional origins.": "没有额外来源。",
   "No audit entries match the current filters.": "没有符合当前筛选条件的审计记录。",
   "No audit entries.": "没有审计记录。",
