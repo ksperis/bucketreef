@@ -15,6 +15,7 @@ import ErrorState from "../../components/errors/ErrorState";
 import { PRODUCT_NAME } from "../../constants/product";
 import { translate } from "../../i18n";
 import { useSession } from "../../auth/SessionProvider";
+import { classifyApiError } from "../../utils/apiError";
 import { coordinateOidcCallback } from "./oidcCallbackCoordinator";
 import { prefetchWorkspaceBranch } from "../../utils/routePrefetch";
 import {
@@ -24,6 +25,11 @@ import {
 } from "../../utils/workspaces";
 import { AuthCard, AuthCenteredPage } from "./AuthSurface";
 import { authMessages, useAuthI18n, type AuthMessageKey } from "./authMessages";
+
+function shouldLogOidcCallbackError(error: unknown): boolean {
+  const failure = classifyApiError(error, "");
+  return ![400, 401, 403, 404, 429].includes(failure.status ?? 0);
+}
 
 export default function OidcCallbackPage() {
   const { provider } = useParams<{ provider: string }>();
@@ -108,7 +114,7 @@ export default function OidcCallbackPage() {
         prefetchWorkspaceBranch(destination);
         navigate(destination, { replace: true });
       } catch (err) {
-        console.error(err);
+        if (shouldLogOidcCallbackError(err)) console.error(err);
         if (!cancelled) {
           setError("unableCompleteSignIn");
           setProcessing(false);

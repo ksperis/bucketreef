@@ -6,6 +6,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AuthenticationResponse } from "../../api/auth";
+import { ApiError } from "../../api/client";
 import { LanguageProvider } from "../../components/language";
 import { CLIENT_STORAGE_KEYS } from "../../utils/clientStorage";
 import OidcCallbackPage from "./OidcCallbackPage";
@@ -101,5 +102,48 @@ describe("OIDC callback localization", () => {
     expect(mocks.acceptAuthentication).not.toHaveBeenCalled();
     expect(mocks.fetchSettings).not.toHaveBeenCalled();
     expect(mocks.workspaceAccess).not.toHaveBeenCalled();
+  });
+
+  it("does not log expected OIDC callback denials as application errors", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.completeLogin.mockRejectedValue(new ApiError("Request failed", {
+      response: { status: 403, data: { detail: "Forbidden" }, headers: {} },
+    }));
+
+    render(
+      <LanguageProvider>
+        <MemoryRouter initialEntries={["/auth/oidc/example/callback?code=test-code&state=denied-state"]}>
+          <Routes>
+            <Route path="/auth/oidc/:provider/callback" element={<OidcCallbackPage />} />
+          </Routes>
+        </MemoryRouter>
+      </LanguageProvider>,
+    );
+
+    expect(await screen.findByText("Unable to complete the sign-in. Please try again.")).toBeInTheDocument();
+    expect(consoleError).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
+  it("still logs unexpected OIDC callback failures", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const failure = new ApiError("Request failed", {
+      response: { status: 503, data: { detail: "Unavailable" }, headers: {} },
+    });
+    mocks.completeLogin.mockRejectedValue(failure);
+
+    render(
+      <LanguageProvider>
+        <MemoryRouter initialEntries={["/auth/oidc/example/callback?code=test-code&state=unavailable-state"]}>
+          <Routes>
+            <Route path="/auth/oidc/:provider/callback" element={<OidcCallbackPage />} />
+          </Routes>
+        </MemoryRouter>
+      </LanguageProvider>,
+    );
+
+    expect(await screen.findByText("Unable to complete the sign-in. Please try again.")).toBeInTheDocument();
+    expect(consoleError).toHaveBeenCalledWith(failure);
+    consoleError.mockRestore();
   });
 });
