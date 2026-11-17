@@ -114,6 +114,42 @@ describe("workspaceDashboardKpis", () => {
     });
   });
 
+  it("keeps count quotas exact instead of abbreviating their limits", () => {
+    const metrics = buildWorkspaceDashboardKpis({
+      storage: {
+        usedBytes: null,
+        quotaBytes: null,
+        progressLabel: "Storage quota usage",
+        icon: "storage",
+      },
+      spaces: {
+        label: "Storage spaces",
+        value: 1,
+        quota: 1_000,
+        unitLabel: "spaces",
+        progressLabel: "Storage spaces quota usage",
+        tone: "emerald",
+        icon: "spaces",
+      },
+      objects: {
+        label: "Objects",
+        value: 1_234,
+        quota: 100_000,
+        unitLabel: "objects",
+        progressLabel: "Object quota usage",
+        tone: "violet",
+        icon: "objects",
+      },
+      transfer: {
+        bytes: null,
+        icon: "transfer",
+      },
+    });
+
+    expect(metrics[1].detail).toBe("1,234 / 100,000 objects (1.2%)");
+    expect(metrics[2].detail).toBe("1 / 1,000 spaces (0.1%)");
+  });
+
   it("builds storage evolution points from a baseline and keeps a stable fallback without one", () => {
     const baselinePoints = buildWorkspaceStorageEvolutionPoints(
       512,

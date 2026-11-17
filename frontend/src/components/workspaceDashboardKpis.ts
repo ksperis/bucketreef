@@ -4,7 +4,7 @@
  */
 import type { ReactNode } from "react";
 import type { ManagerTrafficStats, ManagerUsageTrendBaseline, TrafficWindow } from "../api/stats";
-import { formatBytes, formatPercentage, formatSpacedCompactNumber } from "../utils/format";
+import { formatBytes, formatNumber, formatPercentage, formatSpacedCompactNumber } from "../utils/format";
 import { clampedPercentageOf } from "../utils/numbers";
 import {
   workspaceTrendWindowDays,
@@ -92,8 +92,8 @@ function formatWorkspaceCountQuotaDetail(
   usagePercent?: number | null,
   ofLabel = "of"
 ): string {
-  if (value == null) return formatWorkspaceQuotaDetail(`${formatSpacedCompactNumber(quota)} ${unitLabel}`, usagePercent, ofLabel);
-  const detail = `${formatSpacedCompactNumber(value)} / ${formatSpacedCompactNumber(quota)} ${unitLabel}`;
+  if (value == null) return formatWorkspaceQuotaDetail(`${formatNumber(quota)} ${unitLabel}`, usagePercent, ofLabel);
+  const detail = `${formatNumber(value)} / ${formatNumber(quota)} ${unitLabel}`;
   return usagePercent == null ? detail : `${detail} (${formatPercentage(usagePercent)})`;
 }
 
