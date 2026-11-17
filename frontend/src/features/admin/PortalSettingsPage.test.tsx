@@ -3,6 +3,8 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AppSettings } from "../../api/appSettings";
+import { LanguageProvider } from "../../components/language";
+import { setSessionUserCache } from "../../utils/workspaces";
 import PortalSettingsPage from "./PortalSettingsPage";
 
 const fetchAppSettingsMock = vi.fn<() => Promise<AppSettings>>();
@@ -35,6 +37,7 @@ function expectPolicy(group: HTMLElement, label: "Disabled" | "Targeted activati
 describe("PortalSettingsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    setSessionUserCache(null);
     fetchAppSettingsMock.mockResolvedValue(buildSettings());
     fetchDefaultAppSettingsMock.mockResolvedValue(buildSettings());
     updateAppSettingsMock.mockImplementation(async (payload: AppSettings) => payload);
@@ -76,6 +79,17 @@ describe("PortalSettingsPage", () => {
     const toggle = await policyGroup("Cost estimation");
 
     expectPolicy(toggle, "Targeted activation");
+  });
+
+  it("localizes shared feature-policy guidance in French", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin", ui_language: "fr" });
+
+    render(<LanguageProvider><PortalSettingsPage /></LanguageProvider>);
+
+    await screen.findByText("Paramètres du Portal");
+    expect(
+      screen.getAllByText(/Choisissez si les fonctionnalités sont bloquées/),
+    ).toHaveLength(2);
   });
 
   it("keeps Portal-user external sharing disabled by default and saves an explicit opt-in", async () => {

@@ -1366,6 +1366,7 @@
   "The secret will be shown once after generation.": "Das Geheimnis wird nach der Generierung einmal angezeigt.",
   "The server operation will continue. You may lose access to its detailed results on this page.": "Der Servervorgang wird fortgesetzt. Möglicherweise verlieren Sie auf dieser Seite den Zugriff auf die detaillierten Ergebnisse.",
   "The user loses access immediately after deletion.": "Der Benutzer verliert nach dem Löschen sofort den Zugriff.",
+  "Choose whether features are blocked, explicitly granted, or enabled by default. Storage permissions still apply.": "Wählen Sie, ob Funktionen blockiert, ausdrücklich gewährt oder standardmäßig aktiviert sind. Die Speicherberechtigungen gelten weiterhin.",
   "These options enable the surface. Storage permissions still apply.": "Diese Optionen aktivieren den Bereich. Die Speicherberechtigungen gelten weiterhin.",
   "These origins are added to the Portal CORS rule for new Storage Spaces.": "Diese Origins werden der Portal-CORS-Regel für neue Speicherbereiche hinzugefügt.",
   "These settings changed on the server. Cancel to load their current values, or review your changes before trying again.": "Diese Einstellungen wurden auf dem Server geändert. Brechen Sie ab, um die aktuellen Werte zu laden, oder prüfen Sie Ihre Änderungen vor einem erneuten Versuch.",

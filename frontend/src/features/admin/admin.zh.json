@@ -1432,6 +1432,7 @@
   "The secret will be shown once after generation.": "密钥生成后只会显示一次。",
   "The server operation will continue. You may lose access to its detailed results on this page.": "服务器操作将继续进行。您可能会失去在此页面查看其详细结果的权限。",
   "The user loses access immediately after deletion.": "删除后，该用户会立即失去访问权限。",
+  "Choose whether features are blocked, explicitly granted, or enabled by default. Storage permissions still apply.": "选择功能是被阻止、显式授予还是默认启用。存储权限仍然适用。",
   "These options enable the surface. Storage permissions still apply.": "这些选项用于启用该界面。存储权限仍然适用。",
   "These origins are added to the Portal CORS rule for new Storage Spaces.": "这些来源会添加到新 Storage Space 的 Portal CORS 规则中。",
   "These settings changed on the server. Cancel to load their current values, or review your changes before trying again.": "这些设置在服务器上已更改。请取消更改以加载当前值，或检查你的更改后再重试。",

@@ -4,6 +4,8 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AppSettings } from "../../api/appSettings";
+import { LanguageProvider } from "../../components/language";
+import { setSessionUserCache } from "../../utils/workspaces";
 import ManagerSettingsPage from "./ManagerSettingsPage";
 
 const fetchAppSettingsMock = vi.fn<() => Promise<AppSettings>>();
@@ -35,6 +37,7 @@ function expectPolicy(group: HTMLElement, label: "Disabled" | "Targeted activati
 describe("ManagerSettingsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    setSessionUserCache(null);
     fetchAppSettingsMock.mockResolvedValue(buildSettings());
     fetchDefaultAppSettingsMock.mockResolvedValue(buildSettings());
     updateAppSettingsMock.mockImplementation(async (payload: AppSettings) => payload);
@@ -203,6 +206,17 @@ describe("ManagerSettingsPage", () => {
     expect(screen.getAllByText(/Choose whether features are blocked/)).toHaveLength(3);
     expect(screen.queryByRole("button", { name: "Bucket compare tool: information" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Bucket quota management: information" })).toBeInTheDocument();
+  });
+
+  it("localizes shared feature-policy guidance in French", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin", ui_language: "fr" });
+
+    render(<LanguageProvider><ManagerSettingsPage /></LanguageProvider>);
+
+    await policyGroup("Comparaison de buckets");
+    expect(
+      screen.getAllByText(/Choisissez si les fonctionnalités sont bloquées/),
+    ).toHaveLength(3);
   });
 
   it("renders bucket purge toggle and sends it in save payload", async () => {
