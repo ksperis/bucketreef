@@ -376,6 +376,7 @@ describe("BucketDetailPage replication state", () => {
 
       expect(await screen.findByText("L’hébergement de site Web statique n’est pas configuré.")).toBeVisible();
       expect(screen.getByText("La journalisation des accès au serveur est désactivée.")).toBeVisible();
+      expect(screen.getByText("0 notifications de topic")).toBeVisible();
     } finally {
       router.dispose();
     }

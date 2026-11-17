@@ -187,6 +187,8 @@ export default function TrafficAnalytics({
                 start={traffic?.start}
                 end={traffic?.end}
                 chartKey={`${traffic?.start ?? ""}-${traffic?.end ?? ""}-${window}-${bucketName ?? "all"}`}
+                ingressLabel={text("Ingress")}
+                egressLabel={text("Egress")}
               />
             </ChartCard>
           </div>
@@ -215,7 +217,9 @@ export default function TrafficAnalytics({
                     key: entry.group,
                     label: entry.group,
                     color: REQUEST_COLORS[entry.group] ?? "#94A3B8",
-                    value: `${formatCompactNumber(entry.ops)} ops`,
+                    value: text(entry.ops === 1 ? "{count} op" : "{count} ops", {
+                      count: formatCompactNumber(entry.ops),
+                    }),
                   }))}
                 />
               </div>
