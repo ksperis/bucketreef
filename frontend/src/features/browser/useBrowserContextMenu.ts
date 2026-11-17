@@ -68,6 +68,7 @@ export function useBrowserContextMenu({
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const contextMenuRef = useRef<HTMLDivElement | null>(null);
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
+  const contextMenuOpen = Boolean(contextMenu);
   const openContextMenu = useCallback(
     (payload: ContextMenuPayload, anchor: ContextMenuAnchor) => {
       const requestedX =
@@ -102,19 +103,25 @@ export function useBrowserContextMenu({
   }, []);
 
   useDismissibleLayer({
-    open: Boolean(contextMenu),
+    open: contextMenuOpen,
     insideRefs: [contextMenuRef],
     onDismiss: closeContextMenu,
   });
 
   useEffect(() => {
-    if (!contextMenu) return;
+    if (!contextMenuOpen) return;
     const handleScroll = () => closeContextMenu();
-    window.addEventListener("scroll", handleScroll, true);
+    // Focusing a row action button can queue a browser scroll event that is
+    // delivered after the menu mounts. Arm dismissal on the next frame so
+    // that focus scroll cannot immediately close the newly opened menu.
+    const frame = window.requestAnimationFrame(() => {
+      window.addEventListener("scroll", handleScroll, true);
+    });
     return () => {
+      window.cancelAnimationFrame(frame);
       window.removeEventListener("scroll", handleScroll, true);
     };
-  }, [closeContextMenu, contextMenu]);
+  }, [closeContextMenu, contextMenuOpen]);
 
   useEffect(() => {
     if (!contextMenu || typeof window === "undefined") return;

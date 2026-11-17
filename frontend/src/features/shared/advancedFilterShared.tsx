@@ -432,11 +432,24 @@ const formatListPreview = (values: string[], limit: number = 2) => {
   return `${values.slice(0, limit).join(", ")} +${values.length - limit}`;
 };
 
-export const formatTextFilterSummary = (label: string, rawValue: string, mode: TextMatchMode) => {
+export const formatTextFilterSummary = (
+  label: string,
+  rawValue: string,
+  mode: TextMatchMode,
+  text: SharedText = identityText,
+) => {
   const { parsed, effectiveMode } = resolveTextFilterInputState(rawValue, mode);
   if (parsed.values.length === 0) return null;
   if (parsed.listProvided) {
-    return `${label} exact list: ${formatListPreview(parsed.values, 2)}`;
+    return text("{label} exact list: {value}", {
+      label,
+      value: formatListPreview(parsed.values, 2),
+    });
   }
-  return `${label} ${formatTextMatchModeLabel(effectiveMode)}: ${parsed.values[0]}`;
+  return text(
+    effectiveMode === "exact"
+      ? "{label} exact: {value}"
+      : "{label} contains: {value}",
+    { label, value: parsed.values[0] },
+  );
 };

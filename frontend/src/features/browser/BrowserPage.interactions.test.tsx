@@ -1365,10 +1365,9 @@ describe("BrowserPage interactions", () => {
     fireEvent.keyDown(document.body, { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
 
-    const moreMenu = await openContextMoreMenu(user);
-    expect(within(moreMenu).queryByRole("menuitem", { name: /^Columns/i })).not.toBeInTheDocument();
-    expect(within(moreMenu).queryByRole("menuitem", { name: /Versions/i })).not.toBeInTheDocument();
-    expect(within(moreMenu).queryByRole("menuitem", { name: /Restore/i })).not.toBeInTheDocument();
+    expect(
+      within(getContextToolbar()).queryByRole("button", { name: "More" }),
+    ).not.toBeInTheDocument();
   });
 
   it("moves the Portal deleted-files toggle into More", async () => {
@@ -4641,6 +4640,44 @@ describe("BrowserPage interactions", () => {
       "aria-selected",
       "true",
     );
+  });
+
+  it("keeps first-click row actions open through the trigger focus scroll", async () => {
+    renderPage();
+    const row = await findRowByLabel("a.txt");
+    const moreButton = within(row).getByRole("button", {
+      name: "More actions for a.txt",
+    });
+    const objectsList = screen.getByLabelText("Objects list");
+    const frameCallbacks: FrameRequestCallback[] = [];
+    const requestAnimationFrameSpy = vi
+      .spyOn(window, "requestAnimationFrame")
+      .mockImplementation((callback) => {
+        frameCallbacks.push(callback);
+        return frameCallbacks.length;
+      });
+    const cancelAnimationFrameSpy = vi
+      .spyOn(window, "cancelAnimationFrame")
+      .mockImplementation(() => undefined);
+
+    try {
+      fireEvent.mouseDown(moreButton);
+      moreButton.focus();
+      fireEvent.click(moreButton);
+
+      expect(screen.getByRole("menu")).toBeInTheDocument();
+      fireEvent.scroll(objectsList);
+      expect(screen.getByRole("menu")).toBeInTheDocument();
+
+      act(() => {
+        frameCallbacks.splice(0).forEach((callback) => callback(0));
+      });
+      fireEvent.scroll(objectsList);
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    } finally {
+      requestAnimationFrameSpy.mockRestore();
+      cancelAnimationFrameSpy.mockRestore();
+    }
   });
 
   it("opens Preview and Properties from the file actions menu into the unified modal", async () => {

@@ -21,6 +21,11 @@ instead.
 
 1. Open `/manager/users`, `/manager/groups`, `/manager/roles`, or `/manager/iam/policies`.
 2. Create or edit IAM resources.
+   - On Ceph endpoints where managed-policy creation is unavailable, Manager
+     still lists the existing managed policies that the provider exposes. Use
+     those policies for attachments, or use inline policies on users, groups,
+     and roles. Manager shows an informational banner on the Policies page when
+     managed-policy creation is unavailable.
    - Selecting a user, group, or role opens its resource workspace directly.
      Use the tabs to keep the resource in context while changing its related
      settings: **General**, **Keys**, **Groups/Members**, **Trust policy**, and
@@ -91,6 +96,13 @@ Check endpoint IAM capability, Manager access, and the selected execution contex
 
 !!! note
     IAM UI is unavailable when selected context endpoint reports `iam = false`.
+
+!!! note
+    Managed IAM policy creation depends on the selected provider. Current Ceph
+    RGW endpoints can expose their built-in managed policies for attachment
+    while reporting managed-policy creation as unavailable. In that case,
+    attach an existing managed policy or use inline policies on users, groups,
+    and roles.
 
 !!! note
     IAM paths must be `/` or start and end with `/`, and are limited to 512

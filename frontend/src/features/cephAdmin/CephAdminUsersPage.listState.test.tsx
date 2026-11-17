@@ -2,6 +2,8 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { ApiError } from "../../api/client";
+import { LanguageProvider } from "../../components/language";
+import { CLIENT_STORAGE_KEYS } from "../../utils/clientStorage";
 import CephAdminUsersPage from "./CephAdminUsersPage";
 
 const listCephAdminUsersMock = vi.fn();
@@ -53,12 +55,15 @@ function LocationProbe() {
   return <span data-testid="location-probe">{location.pathname}{location.search}</span>;
 }
 
-function renderPage(initialEntry = "/ceph-admin/users") {
-  return render(
+function renderPage(initialEntry = "/ceph-admin/users", withLanguageProvider = false) {
+  const content = (
     <MemoryRouter initialEntries={[initialEntry]}>
       <CephAdminUsersPage />
       <LocationProbe />
     </MemoryRouter>
+  );
+  return render(
+    withLanguageProvider ? <LanguageProvider>{content}</LanguageProvider> : content
   );
 }
 
@@ -81,6 +86,7 @@ function getTableOverflowContainer() {
 describe("CephAdminUsersPage list states", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.removeItem(CLIENT_STORAGE_KEYS.languagePreference);
     window.localStorage.removeItem("ceph-admin.user_list.columns.v2");
     streamCephAdminUsersMock.mockResolvedValue({ items: [], total: 0 });
     useCephAdminEndpointMock.mockReturnValue({
@@ -290,6 +296,21 @@ describe("CephAdminUsersPage list states", () => {
       match: "all",
       rules: [{ field: "quota_usage_size_percent", op: "gte", value: 75 }],
     });
+  });
+
+  it("localizes text filter summaries in French", async () => {
+    window.localStorage.setItem(CLIENT_STORAGE_KEYS.languagePreference, "fr");
+    listCephAdminUsersMock.mockResolvedValue({ items: [], total: 0 });
+    streamCephAdminUsersMock.mockResolvedValue({ items: [], total: 0 });
+
+    renderPage("/ceph-admin/users", true);
+
+    expect(await screen.findByText("Aucun utilisateur.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Filtre avancé/i }));
+    fireEvent.change(screen.getByLabelText("Nom complet"), { target: { value: "Alice" } });
+    expect(screen.getByText("Nom complet contient : Alice")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Appliquer" }));
+    expect(await screen.findByText("Nom complet contient : Alice")).toBeInTheDocument();
   });
 
   it("shows advanced search progress while user filtering is running", async () => {

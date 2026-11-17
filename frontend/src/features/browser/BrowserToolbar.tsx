@@ -469,19 +469,20 @@ export default function BrowserToolbar({
                 <TrashIcon className="h-3.5 w-3.5" />
                 {!compactMode && <span>{text("Delete")}</span>}
               </ListActionButton>
-              <ListActionButton iconOnly={compactMode} variant="secondary"
-                ref={moreButtonRef}
-                type="button"
-                onClick={toggleMoreMenu}
-                disabled={!hasMoreMenu}
-                aria-haspopup={hasMoreMenu ? "menu" : undefined}
-                aria-expanded={hasMoreMenu ? moreMenuOpen : undefined}
-                aria-label={text("More")}
-                title={text("More")}
-              >
-                <MoreIcon className="h-3.5 w-3.5" />
-                {!compactMode && <span>{text("More")}</span>}
-              </ListActionButton>
+              {hasPrioritizedSelectionActions && (
+                <ListActionButton iconOnly={compactMode} variant="secondary"
+                  ref={moreButtonRef}
+                  type="button"
+                  onClick={toggleMoreMenu}
+                  aria-haspopup="menu"
+                  aria-expanded={moreMenuOpen}
+                  aria-label={text("More")}
+                  title={text("More")}
+                >
+                  <MoreIcon className="h-3.5 w-3.5" />
+                  {!compactMode && <span>{text("More")}</span>}
+                </ListActionButton>
+              )}
             </div>
           )}
         </div>

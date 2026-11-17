@@ -189,17 +189,9 @@ export function useBrowserSelection({
 
   const prepareItemActionsMenu = useCallback(
     (item: BrowserItem) => {
-      if (
-        !item.isDeleted &&
-        (selectedIds.length !== 1 || selectedIds[0] !== item.id)
-      ) {
-        selectSingleRow(item.id);
-        return;
-      }
-      setSelectionAnchorId(item.id);
       setActiveRowId(item.id);
     },
-    [selectSingleRow, selectedIds],
+    [],
   );
 
   const removeItemsFromSelection = useCallback(

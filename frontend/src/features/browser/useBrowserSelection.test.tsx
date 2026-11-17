@@ -204,4 +204,16 @@ describe("useBrowserSelection", () => {
     expect(menuSelection.items).toEqual([items[3]]);
     expect(result.current.selectedIds).toEqual(["c"]);
   });
+
+  it("prepares item action menus without replacing the current selection", () => {
+    const { result } = renderHook(() => useSelectionHarness({}));
+
+    act(() => result.current.handleItemCheckboxClick("a", false));
+    act(() => result.current.handleItemCheckboxClick("b", false));
+    expect(result.current.selectedIds).toEqual(["a", "b"]);
+
+    act(() => result.current.prepareItemActionsMenu(items[2]));
+
+    expect(result.current.selectedIds).toEqual(["a", "b"]);
+  });
 });

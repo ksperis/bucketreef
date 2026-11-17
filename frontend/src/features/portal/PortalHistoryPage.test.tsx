@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { LanguageProvider } from "../../components/language";
+import { CLIENT_STORAGE_KEYS } from "../../utils/clientStorage";
 import PortalHistoryPage from "./PortalHistoryPage";
 
 const mocks = vi.hoisted(() => ({
@@ -56,17 +58,21 @@ function LocationProbe() {
   return <div data-testid="location">{location.search}</div>;
 }
 
-function renderPage(initialEntry = "/portal/history") {
-  return render(
+function renderPage(initialEntry = "/portal/history", withLanguageProvider = false) {
+  const content = (
     <MemoryRouter initialEntries={[initialEntry]}>
       <PortalHistoryPage />
       <LocationProbe />
     </MemoryRouter>
   );
+  return render(
+    withLanguageProvider ? <LanguageProvider>{content}</LanguageProvider> : content
+  );
 }
 
 describe("PortalHistoryPage", () => {
   beforeEach(() => {
+    window.localStorage.removeItem(CLIENT_STORAGE_KEYS.languagePreference);
     mocks.fetchPortalServerAccessLogPage.mockReset();
     mocks.fetchPortalServerAccessLogPage.mockResolvedValue({ entries: [], total: 0, limit: 25, offset: 0 });
     mocks.downloadPortalServerAccessRawLogs.mockReset();
@@ -332,6 +338,27 @@ describe("PortalHistoryPage", () => {
     expect(screen.getByText(/Action: Uploads/)).toBeInTheDocument();
     expect(screen.getByText(/Result: Failed/)).toBeInTheDocument();
     expect(screen.getByText(/Person or key contains: portal-6-1/)).toBeInTheDocument();
+  });
+
+  it("localizes the shared advanced access-log filter chrome", async () => {
+    window.localStorage.setItem(CLIENT_STORAGE_KEYS.languagePreference, "fr");
+    renderPage("/portal/history?view=access", true);
+
+    await waitFor(() => {
+      expect(mocks.fetchPortalServerAccessLogPage).toHaveBeenCalled();
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Filtre avancé/i }));
+
+    const dialog = screen.getByRole("dialog", { name: "Filtre avancé" });
+    expect(within(dialog).getByText("0 règles")).toBeInTheDocument();
+    expect(within(dialog).getByText("Synchronisé")).toBeInTheDocument();
+    expect(within(dialog).getByText("Résumé du brouillon")).toBeInTheDocument();
+    expect(within(dialog).getByText("Aucune règle avancée dans le brouillon.")).toBeInTheDocument();
+
+    fireEvent.change(within(dialog).getByLabelText("Chemin"), { target: { value: "captures/" } });
+    expect(within(dialog).getByText("Chemin contient : captures/")).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Appliquer le filtre" }));
+    expect(screen.getByRole("button", { name: /Filtre avancé · Actif/i })).toBeInTheDocument();
   });
 
   it("exports raw access logs for a selected date range and storage space", async () => {

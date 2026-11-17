@@ -495,6 +495,43 @@ describe("BrowserToolbar", () => {
     expect(within(menu).queryByText("Status")).not.toBeInTheDocument();
   });
 
+  it("hides selection More when no secondary item actions are available", () => {
+    const props = buildProps({
+      contextActions: {
+        visible: false,
+        canUploadFiles: true,
+        canUploadFolder: true,
+        canCreateFolder: true,
+        canRefresh: true,
+      },
+      selectionActions: {
+        visible: true,
+        mobileViewport: false,
+        summary: "report.json",
+        canOpen: true,
+        canCopy: false,
+        canDownload: true,
+        canDelete: true,
+      },
+      moreMenu: {
+        view: { compactMode: true, onSetCompactMode: vi.fn() },
+        status: {
+          visible: true,
+          accessBadge: null,
+          onOpenOperations: vi.fn(),
+        },
+        layout: {},
+        pathActions: [pathAction],
+        selectionActions: [],
+        selectionOverflow: true,
+      },
+    });
+    render(<BrowserToolbar {...props} />);
+
+    expect(screen.getByRole("status")).toHaveTextContent("report.json");
+    expect(screen.queryByRole("button", { name: "More" })).not.toBeInTheDocument();
+  });
+
   it("routes the root Browser density choice from More", () => {
     const onSetCompactMode = vi.fn();
     render(

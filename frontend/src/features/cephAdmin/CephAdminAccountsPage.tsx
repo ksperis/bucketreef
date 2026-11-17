@@ -37,6 +37,7 @@ import { cephAdminPageBreadcrumbs } from "./cephAdminBreadcrumbs";
 import { useCephAdminEndpoint } from "./CephAdminEndpointContext";
 import AdvancedFilterDrawerShell from "../shared/AdvancedFilterDrawerShell";
 import AdvancedFilterTextMatchField from "../shared/AdvancedFilterTextMatchField";
+import { useSharedI18n } from "../shared/sharedI18n";
 import {
   advancedFilterSectionClass,
   advancedFilterSyncBadgeClass,
@@ -126,6 +127,7 @@ const rowKey = (account: CephAdminRgwAccount) => account.account_id;
 
 export default function CephAdminAccountsPage() {
   const { text: surfaceText } = useCephAdminI18n();
+  const { text: sharedText } = useSharedI18n();
   const navigate = useNavigate();
   const { selectedEndpointId, selectedEndpoint, selectedEndpointAccess } = useCephAdminEndpoint();
   const canViewMetrics = Boolean(selectedEndpointAccess?.can_metrics) && (selectedEndpoint?.capabilities?.metrics !== false);
@@ -269,13 +271,13 @@ export default function CephAdminAccountsPage() {
   const activeFilterSummaryItems = useMemo(() => {
     const items: AccountActiveFilterSummaryItem[] = [];
     if (quickFilterActive) {
-      const label = formatTextFilterSummary(surfaceText("Account ID"), searchValue, effectiveQuickFilterMode);
+      const label = formatTextFilterSummary(surfaceText("Account ID"), searchValue, effectiveQuickFilterMode, sharedText);
       if (label) items.push({ id: "quick", label, remove: { type: "quick" } });
     }
     if (advancedApplied && hasAccountAdvancedFilters(advancedApplied, canViewMetrics)) {
-      const accountNameLabel = formatTextFilterSummary(surfaceText("Account name"), advancedApplied.accountName, accountNameFilter.appliedMode);
+      const accountNameLabel = formatTextFilterSummary(surfaceText("Account name"), advancedApplied.accountName, accountNameFilter.appliedMode, sharedText);
       if (accountNameLabel) items.push({ id: "accountName", label: accountNameLabel, remove: { type: "advanced", field: "accountName" } });
-      const emailLabel = formatTextFilterSummary(surfaceText("Email"), advancedApplied.email, emailFilter.appliedMode);
+      const emailLabel = formatTextFilterSummary(surfaceText("Email"), advancedApplied.email, emailFilter.appliedMode, sharedText);
       if (emailLabel) items.push({ id: "email", label: emailLabel, remove: { type: "advanced", field: "email" } });
       buildNumericFilterSummaryItems(
         advancedApplied,
@@ -295,6 +297,7 @@ export default function CephAdminAccountsPage() {
     emailFilter.appliedMode,
     numericFields,
     usageNumericFields,
+    sharedText,
     surfaceText,
   ]);
   const showActiveFiltersCard = shouldShowActiveFilterSummary({
@@ -306,9 +309,9 @@ export default function CephAdminAccountsPage() {
 
   const advancedDraftSummaryItems = useMemo(() => {
     const items: Array<{ id: string; label: string }> = [];
-    const accountNameLabel = formatTextFilterSummary(surfaceText("Account name"), advancedDraft.accountName, accountNameFilter.draftMode);
+    const accountNameLabel = formatTextFilterSummary(surfaceText("Account name"), advancedDraft.accountName, accountNameFilter.draftMode, sharedText);
     if (accountNameLabel) items.push({ id: "draft-accountName", label: accountNameLabel });
-    const emailLabel = formatTextFilterSummary(surfaceText("Email"), advancedDraft.email, emailFilter.draftMode);
+    const emailLabel = formatTextFilterSummary(surfaceText("Email"), advancedDraft.email, emailFilter.draftMode, sharedText);
     if (emailLabel) items.push({ id: "draft-email", label: emailLabel });
     items.push(
       ...buildNumericFilterSummaryItems(
@@ -318,7 +321,7 @@ export default function CephAdminAccountsPage() {
       ).map(({ id, label }) => ({ id, label })),
     );
     return items;
-  }, [advancedDraft, accountNameFilter.draftMode, emailFilter.draftMode, numericFields, canViewMetrics, usageNumericFields, surfaceText]);
+  }, [advancedDraft, accountNameFilter.draftMode, emailFilter.draftMode, numericFields, canViewMetrics, usageNumericFields, sharedText, surfaceText]);
 
   const advancedDraftCost = useMemo(
     () => resolveAccountAdvancedFilterCost(advancedDraft, canViewMetrics),
@@ -606,10 +609,10 @@ export default function CephAdminAccountsPage() {
                     subtitle={surfaceText("RGW Accounts listing")}
                     badges={
                       <>
-                        {renderAdvancedFilterRuleCountBadge(advancedDraftActiveCount)}
-                        {renderAdvancedFilterCostBadge(advancedDraftGlobalCostLevel, advancedDraftGlobalCostTooltip)}
+                        {renderAdvancedFilterRuleCountBadge(advancedDraftActiveCount, sharedText)}
+                        {renderAdvancedFilterCostBadge(advancedDraftGlobalCostLevel, advancedDraftGlobalCostTooltip, sharedText)}
                         <span className={advancedFilterSyncBadgeClass(hasPendingAdvancedChanges)}>
-                          {formatAdvancedFilterSyncLabel(hasPendingAdvancedChanges)}
+                          {formatAdvancedFilterSyncLabel(hasPendingAdvancedChanges, sharedText)}
                         </span>
                       </>
                     }
@@ -628,7 +631,7 @@ export default function CephAdminAccountsPage() {
                     }
                   >
                     <div className="space-y-4">
-                          {renderAdvancedFilterDraftSummary(advancedDraftSummaryItems)}
+                          {renderAdvancedFilterDraftSummary(advancedDraftSummaryItems, sharedText)}
 
                           <section className={advancedFilterSectionClass}>
                             <p className="mb-3 ui-caption font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -679,7 +682,7 @@ export default function CephAdminAccountsPage() {
             }
         >
 
-          {renderAdvancedSearchProgress(advancedProgress)}
+          {renderAdvancedSearchProgress(advancedProgress, sharedText)}
 
           <DataTableShell
             columns={accountTableColumns}

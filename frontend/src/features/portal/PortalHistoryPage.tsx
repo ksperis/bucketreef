@@ -38,6 +38,7 @@ import {
 import AdvancedFilterDrawerShell from "../shared/AdvancedFilterDrawerShell";
 import AdvancedFilterSelectField from "../shared/AdvancedFilterSelectField";
 import AdvancedFilterTextMatchField from "../shared/AdvancedFilterTextMatchField";
+import { useSharedI18n } from "../shared/sharedI18n";
 import {
   advancedFilterFieldHighlight,
   advancedFilterSectionClass,
@@ -245,6 +246,7 @@ function historyTabFromSearch(value: string | null): HistoryTab {
 
 export default function PortalHistoryPage() {
   const { t, locale } = useI18n();
+  const { text: surfaceText } = useSharedI18n();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedHistoryTab = historyTabFromSearch(searchParams.get("view"));
   const [showServerLogAdvancedFilter, setShowServerLogAdvancedFilter] = useState(false);
@@ -455,15 +457,15 @@ export default function PortalHistoryPage() {
       });
     }
     const pathLabel = serverLogAdvancedApplied
-      ? formatTextFilterSummary(t({ en: "Path", fr: "Chemin", de: "Pfad", zh: "路径" }), serverLogAdvancedApplied.path, pathFilter.appliedMode)
+      ? formatTextFilterSummary(t({ en: "Path", fr: "Chemin", de: "Pfad", zh: "路径" }), serverLogAdvancedApplied.path, pathFilter.appliedMode, surfaceText)
       : null;
     if (pathLabel) items.push({ id: "path", label: pathLabel, remove: { type: "advanced", field: "path" } });
     const identityLabel = serverLogAdvancedApplied
-      ? formatTextFilterSummary(t({ en: "Person or key", fr: "Personne ou clé", de: "Person oder Schlüssel", zh: "人员或密钥" }), serverLogAdvancedApplied.identity, identityFilter.appliedMode)
+      ? formatTextFilterSummary(t({ en: "Person or key", fr: "Personne ou clé", de: "Person oder Schlüssel", zh: "人员或密钥" }), serverLogAdvancedApplied.identity, identityFilter.appliedMode, surfaceText)
       : null;
     if (identityLabel) items.push({ id: "identity", label: identityLabel, remove: { type: "advanced", field: "identity" } });
     return items;
-  }, [identityFilter.appliedMode, pathFilter.appliedMode, serverLogActionLabel, serverLogAdvancedApplied, serverLogResultLabel, t]);
+  }, [identityFilter.appliedMode, pathFilter.appliedMode, serverLogActionLabel, serverLogAdvancedApplied, serverLogResultLabel, surfaceText, t]);
 
   const serverLogAdvancedDraftSummaryItems = useMemo(() => {
     const items: Array<{ id: string; label: string }> = [];
@@ -479,12 +481,12 @@ export default function PortalHistoryPage() {
         label: `${t({ en: "Result", fr: "Résultat", de: "Ergebnis", zh: "结果" })}: ${serverLogResultLabel(serverLogAdvancedDraft.result)}`,
       });
     }
-    const pathLabel = formatTextFilterSummary(t({ en: "Path", fr: "Chemin", de: "Pfad", zh: "路径" }), serverLogAdvancedDraft.path, pathFilter.draftMode);
+    const pathLabel = formatTextFilterSummary(t({ en: "Path", fr: "Chemin", de: "Pfad", zh: "路径" }), serverLogAdvancedDraft.path, pathFilter.draftMode, surfaceText);
     if (pathLabel) items.push({ id: "path", label: pathLabel });
-    const identityLabel = formatTextFilterSummary(t({ en: "Person or key", fr: "Personne ou clé", de: "Person oder Schlüssel", zh: "人员或密钥" }), serverLogAdvancedDraft.identity, identityFilter.draftMode);
+    const identityLabel = formatTextFilterSummary(t({ en: "Person or key", fr: "Personne ou clé", de: "Person oder Schlüssel", zh: "人员或密钥" }), serverLogAdvancedDraft.identity, identityFilter.draftMode, surfaceText);
     if (identityLabel) items.push({ id: "identity", label: identityLabel });
     return items;
-  }, [identityFilter.draftMode, pathFilter.draftMode, serverLogActionLabel, serverLogAdvancedDraft, serverLogResultLabel, t]);
+  }, [identityFilter.draftMode, pathFilter.draftMode, serverLogActionLabel, serverLogAdvancedDraft, serverLogResultLabel, surfaceText, t]);
   const serverLogAdvancedDraftActiveCount = serverLogAdvancedDraftSummaryItems.length;
 
   useEffect(() => {
@@ -707,7 +709,7 @@ export default function PortalHistoryPage() {
                 onClick={() => setShowServerLogAdvancedFilter(true)}
               >
                 {t({ en: "Advanced filter", fr: "Filtre avancé", de: "Erweiterter Filter", zh: "高级筛选" })}
-                {serverLogAdvancedFilterActive ? " · Active" : ""}
+                {serverLogAdvancedFilterActive ? ` · ${t({ en: "Active", fr: "Actif", de: "Aktiv", zh: "已启用" })}` : ""}
               </ToolbarAdvancedFilterButton>
           </>}
           secondaryContent={<><p>{t({
@@ -736,9 +738,9 @@ export default function PortalHistoryPage() {
                 title={t({ en: "Advanced filter", fr: "Filtre avancé", de: "Erweiterter Filter", zh: "高级筛选" })}
                 badges={
                   <>
-                    {renderAdvancedFilterRuleCountBadge(serverLogAdvancedDraftActiveCount)}
+                    {renderAdvancedFilterRuleCountBadge(serverLogAdvancedDraftActiveCount, surfaceText)}
                     <span className={advancedFilterSyncBadgeClass(hasPendingServerLogAdvancedChanges)}>
-                      {formatAdvancedFilterSyncLabel(hasPendingServerLogAdvancedChanges)}
+                      {formatAdvancedFilterSyncLabel(hasPendingServerLogAdvancedChanges, surfaceText)}
                     </span>
                   </>
                 }
@@ -757,7 +759,7 @@ export default function PortalHistoryPage() {
                 }
               >
                 <div className="space-y-3">
-                    {renderAdvancedFilterDraftSummary(serverLogAdvancedDraftSummaryItems)}
+                    {renderAdvancedFilterDraftSummary(serverLogAdvancedDraftSummaryItems, surfaceText)}
                     <section className={advancedFilterSectionClass}>
                       <div className="grid gap-3 md:grid-cols-4">
                         <AdvancedFilterSelectField

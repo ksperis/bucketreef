@@ -2,6 +2,8 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { LanguageProvider } from "../../components/language";
+import { CLIENT_STORAGE_KEYS } from "../../utils/clientStorage";
 import CephAdminAccountsPage from "./CephAdminAccountsPage";
 
 const useCephAdminEndpointMock = vi.fn();
@@ -63,6 +65,7 @@ function LocationProbe() {
 
 describe("CephAdminAccountsPage", () => {
   beforeEach(() => {
+    window.localStorage.removeItem(CLIENT_STORAGE_KEYS.languagePreference);
     useCephAdminEndpointMock.mockReset();
     listCephAdminAccountsMock.mockReset();
     streamCephAdminAccountsMock.mockReset();
@@ -230,6 +233,35 @@ describe("CephAdminAccountsPage", () => {
       match: "all",
       rules: [{ field: "quota_usage_size_percent", op: "gte", value: 80 }],
     });
+  });
+
+  it("localizes text filter summaries in French", async () => {
+    window.localStorage.setItem(CLIENT_STORAGE_KEYS.languagePreference, "fr");
+    useCephAdminEndpointMock.mockReturnValue({
+      loading: false,
+      selectedEndpointId: 7,
+      selectedEndpoint: { id: 7, name: "Ceph A", capabilities: {} },
+      selectedEndpointAccess: { can_metrics: true },
+      selectedEndpointAccessLoading: false,
+      selectedEndpointAccessError: null,
+    });
+    listCephAdminAccountsMock.mockResolvedValue({ items: [], total: 0 });
+    streamCephAdminAccountsMock.mockResolvedValue({ items: [], total: 0 });
+
+    render(
+      <LanguageProvider>
+        <MemoryRouter>
+          <CephAdminAccountsPage />
+        </MemoryRouter>
+      </LanguageProvider>
+    );
+
+    expect(await screen.findByText("Aucun compte.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Filtre avancé/i }));
+    fireEvent.change(screen.getByLabelText("Nom du compte"), { target: { value: "Alpha" } });
+    expect(screen.getByText("Nom du compte contient : Alpha")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Appliquer" }));
+    expect(await screen.findByText("Nom du compte contient : Alpha")).toBeInTheDocument();
   });
 
   it("shows advanced search progress while account filtering is running", async () => {
