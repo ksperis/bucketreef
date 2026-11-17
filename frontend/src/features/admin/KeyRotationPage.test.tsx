@@ -254,7 +254,7 @@ describe("KeyRotationPage", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Prêt à vérifier")).toBeInTheDocument();
     expect(
-      screen.getByText("1 endpoint(s) · 6 catégories de clés · supprimer les clés précédentes"),
+      screen.getByText("1 endpoint · 6 catégories de clés · supprimer les clés précédentes"),
     ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Lancer la rotation" }));

@@ -479,11 +479,17 @@ export default function KeyRotationPage() {
                 ? adminText("The operation continues on the server. Wait for its results before starting another rotation.")
                 : adminText(
                     deactivateOnly
-                      ? "{endpoints} endpoint(s) · {categories} key categories · disable previous keys"
-                      : "{endpoints} endpoint(s) · {categories} key categories · delete previous keys",
+                      ? "{endpoints} · {categories} · disable previous keys"
+                      : "{endpoints} · {categories} · delete previous keys",
                     {
-                      endpoints: selectedEndpointIds.length,
-                      categories: selectedTypes.length,
+                      endpoints: adminText(
+                        selectedEndpointIds.length === 1 ? "{count} endpoint" : "{count} endpoints",
+                        { count: selectedEndpointIds.length },
+                      ),
+                      categories: adminText(
+                        selectedTypes.length === 1 ? "{count} key category" : "{count} key categories",
+                        { count: selectedTypes.length },
+                      ),
                     },
                   )
             }
