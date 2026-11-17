@@ -1,0 +1,33 @@
+{
+  "info": {
+    "status": "sync",
+    "num_shards": 3,
+    "instance_id": "synthetic-instance"
+  },
+  "markers": [
+    {
+      "key": 0,
+      "val": {
+        "status": "incremental-sync",
+        "marker": "data-marker-0",
+        "timestamp": "2000-01-01T00:00:00Z"
+      }
+    },
+    {
+      "key": 1,
+      "val": {
+        "status": "incremental-sync",
+        "marker": "data-marker-1",
+        "timestamp": "2000-01-01T00:00:01Z"
+      }
+    },
+    {
+      "key": 2,
+      "val": {
+        "status": "incremental-sync",
+        "marker": "data-marker-2",
+        "timestamp": "2000-01-01T00:00:02Z"
+      }
+    }
+  ]
+}

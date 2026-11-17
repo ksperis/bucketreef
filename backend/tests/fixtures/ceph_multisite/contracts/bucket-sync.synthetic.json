@@ -1,0 +1,36 @@
+{
+  "bucket": "demo-bucket",
+  "sync_status": {
+    "state": "incremental-sync",
+    "full": {
+      "position": {
+        "name": "samples/object.txt"
+      },
+      "count": 1
+    },
+    "incremental_gen": 0
+  },
+  "inc_status": [
+    {
+      "status": "incremental-sync",
+      "inc_marker": {
+        "position": "bucket-marker-0",
+        "timestamp": "2000-01-01T00:00:00Z"
+      }
+    },
+    {
+      "status": "incremental-sync",
+      "inc_marker": {
+        "position": "bucket-marker-1",
+        "timestamp": "2000-01-01T00:00:01Z"
+      }
+    },
+    {
+      "status": "incremental-sync",
+      "inc_marker": {
+        "position": "bucket-marker-2",
+        "timestamp": "2000-01-01T00:00:02Z"
+      }
+    }
+  ]
+}

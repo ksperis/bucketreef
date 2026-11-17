@@ -1,0 +1,47 @@
+{
+  "id": "20000000-0000-4000-8000-000000000001",
+  "epoch": 3,
+  "period_map": {
+    "id": "20000000-0000-4000-8000-000000000001",
+    "zonegroups": [
+      {
+        "id": "30000000-0000-4000-8000-000000000001",
+        "name": "zonegroup-demo",
+        "api_name": "zonegroup-demo",
+        "is_master": true,
+        "master_zone": "40000000-0000-4000-8000-000000000001",
+        "zones": [
+          {
+            "id": "40000000-0000-4000-8000-000000000001",
+            "name": "zone-primary",
+            "read_only": false,
+            "sync_from_all": true,
+            "sync_from": []
+          },
+          {
+            "id": "40000000-0000-4000-8000-000000000002",
+            "name": "zone-secondary",
+            "read_only": false,
+            "sync_from_all": true,
+            "sync_from": []
+          }
+        ],
+        "realm_id": "10000000-0000-4000-8000-000000000001",
+        "sync_policy": {
+          "groups": [
+            {
+              "id": "synthetic-policy",
+              "status": "allowed"
+            }
+          ]
+        }
+      }
+    ],
+    "master_zonegroup": "30000000-0000-4000-8000-000000000001",
+    "master_zone": "40000000-0000-4000-8000-000000000001"
+  },
+  "master_zonegroup": "30000000-0000-4000-8000-000000000001",
+  "master_zone": "40000000-0000-4000-8000-000000000001",
+  "realm_id": "10000000-0000-4000-8000-000000000001",
+  "realm_epoch": 2
+}
