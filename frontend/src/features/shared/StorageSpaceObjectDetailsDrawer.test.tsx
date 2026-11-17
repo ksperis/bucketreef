@@ -1,6 +1,8 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { LanguageProvider } from "../../components/language";
+import { setSessionUserCache } from "../../utils/workspaces";
 import StorageSpaceObjectDetailsDrawer from "./StorageSpaceObjectDetailsDrawer";
 import type { PortalWorkspaceSpace } from "../portal/portalWorkspaceModel";
 
@@ -71,6 +73,8 @@ const baseProps = {
 describe("StorageSpaceObjectDetailsDrawer", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    setSessionUserCache(null);
+    localStorage.clear();
     Object.defineProperty(window, "matchMedia", {
       configurable: true,
       value: vi.fn((query: string) => ({
@@ -135,6 +139,48 @@ describe("StorageSpaceObjectDetailsDrawer", () => {
     await waitFor(() => expect(mocks.fetchVersions).toHaveBeenCalledTimes(1));
     expect(await screen.findByText(/Version history is disabled/)).toBeInTheDocument();
     expect(mocks.listLinks).not.toHaveBeenCalled();
+  });
+
+  it("localizes version restore confirmation actions", async () => {
+    setSessionUserCache({ role: "ui_user", authType: "password", ui_language: "fr" });
+    mocks.fetchVersions.mockResolvedValue({
+      key: "reports/2026/report.csv",
+      versioning_status: "Enabled",
+      can_restore: true,
+      versions: [
+        {
+          version_id: "v2",
+          is_latest: true,
+          is_delete_marker: false,
+          last_modified: "2026-08-02T10:00:00Z",
+          size: 24,
+        },
+        {
+          version_id: "v1",
+          is_latest: false,
+          is_delete_marker: false,
+          last_modified: "2026-08-01T10:00:00Z",
+          size: 20,
+        },
+      ],
+      is_truncated: false,
+      next_key_marker: null,
+      next_version_id_marker: null,
+    });
+
+    render(
+      <LanguageProvider>
+        <StorageSpaceObjectDetailsDrawer {...baseProps} activeView="history" />
+      </LanguageProvider>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Restaurer cette version" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Restaurer cette version ?" });
+    expect(within(dialog).getByRole("button", { name: "Annuler" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Fermer" })).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Close modal" })).not.toBeInTheDocument();
   });
 
   it("loads Sharing on demand while keeping link actions capability-gated", async () => {

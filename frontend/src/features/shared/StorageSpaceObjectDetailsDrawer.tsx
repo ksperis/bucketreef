@@ -515,6 +515,8 @@ export default function StorageSpaceObjectDetailsDrawer({
           title={t({ en: "Delete this file?", fr: "Supprimer ce fichier ?", de: "Diese Datei löschen?", zh: "删除此文件？" })}
           description={t({ en: "The file will be removed from the current list. Its recovery depends on this space's version history settings.", fr: "Le fichier sera retiré de la liste actuelle. Sa récupération dépend des paramètres d’historique de cet espace.", de: "Die Datei wird aus der aktuellen Liste entfernt. Ihre Wiederherstellung hängt von den Verlaufseinstellungen ab.", zh: "文件将从当前列表移除。能否恢复取决于此空间的版本历史设置。" })}
           confirmLabel={t({ en: "Delete file", fr: "Supprimer le fichier", de: "Datei löschen", zh: "删除文件" })}
+          cancelLabel={t({ en: "Cancel", fr: "Annuler", de: "Abbrechen", zh: "取消" })}
+          closeLabel={t({ en: "Close", fr: "Fermer", de: "Schließen", zh: "关闭" })}
           loading={deleteBusy}
           details={[
             { label: t({ en: "File", fr: "Fichier", de: "Datei", zh: "文件" }), value: resolvedName },
@@ -530,6 +532,8 @@ export default function StorageSpaceObjectDetailsDrawer({
           title={t({ en: "Restore this version?", fr: "Restaurer cette version ?", de: "Diese Version wiederherstellen?", zh: "恢复此版本？" })}
           description={t({ en: "This version will become the file's new current state.", fr: "Cette version deviendra le nouvel état actuel du fichier.", de: "Diese Version wird zum neuen aktuellen Stand der Datei.", zh: "此版本将成为文件新的当前状态。" })}
           confirmLabel={t({ en: "Restore version", fr: "Restaurer la version", de: "Version wiederherstellen", zh: "恢复版本" })}
+          cancelLabel={t({ en: "Cancel", fr: "Annuler", de: "Abbrechen", zh: "取消" })}
+          closeLabel={t({ en: "Close", fr: "Fermer", de: "Schließen", zh: "关闭" })}
           loading={restoringVersionId === pendingAction.version.version_id}
           onCancel={() => setPendingAction(null)}
           onConfirm={() => void confirmRestore(pendingAction.version)}
