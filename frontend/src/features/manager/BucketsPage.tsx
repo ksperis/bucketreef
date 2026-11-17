@@ -789,7 +789,18 @@ export default function BucketsPage() {
       ) : (
         <ListPageSection
           variant="page"
-          mobileSort={<TableSortControls columns={bucketTableColumns} sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }} />}
+          mobileSort={(
+            <TableSortControls
+              columns={bucketTableColumns}
+              sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }}
+              labels={{
+                sortBy: text("Sort by"),
+                direction: text("Direction"),
+                ascending: text("Ascending"),
+                descending: text("Descending"),
+              }}
+            />
+          )}
             title={text("Buckets")}
             countLabel={
               buckets.length === 0 && (loading || baseLoadFailed)

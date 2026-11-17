@@ -481,7 +481,18 @@ export default function ManagerUsersPage() {
       ) : (
         <ListPageSection
           variant="page"
-          mobileSort={<TableSortControls columns={userTableColumns} sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }} />}
+          mobileSort={(
+            <TableSortControls
+              columns={userTableColumns}
+              sort={{ field: sort.field, direction: sort.direction, onSort: toggleSort }}
+              labels={{
+                sortBy: text("Sort by"),
+                direction: text("Direction"),
+                ascending: text("Ascending"),
+                descending: text("Descending"),
+              }}
+            />
+          )}
             title={text("Users")}
             countLabel={text("{count} shown on this page", { count: filteredUsers.length })}
             search={

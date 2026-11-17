@@ -20,6 +20,10 @@ describe("Manager i18n", () => {
     expect(managerText("Role tags", "fr")).toBe("Tags du rôle");
     expect(managerText("Search destination contexts", "fr")).toBe("Rechercher des contextes de destination");
     expect(managerText("Select page", "fr")).toBe("Sélectionner la page");
+    expect(managerText("Sort by", "fr")).toBe("Trier par");
+    expect(managerText("Direction", "fr")).toBe("Direction");
+    expect(managerText("Ascending", "fr")).toBe("Croissant");
+    expect(managerText("Descending", "fr")).toBe("Décroissant");
     expect(managerText(
       "Read-only checks run first. Tests that temporarily change source\n            protections require a separate confirmation. No copy starts from\n            this screen.",
       "fr",
@@ -50,6 +54,10 @@ describe("Manager i18n", () => {
     expect(managerText("Migration actions", "zh")).toBe("迁移操作");
     expect(managerText("Select page", "de")).toBe("Seite auswählen");
     expect(managerText("Select page", "zh")).toBe("选择本页");
+    expect(managerText("Sort by", "de")).toBe("Sortieren nach");
+    expect(managerText("Sort by", "zh")).toBe("排序依据");
+    expect(managerText("Ascending", "de")).toBe("Aufsteigend");
+    expect(managerText("Ascending", "zh")).toBe("升序");
     expect(managerText("Source only ({count})", "de", { count: 3 })).toBe("Nur Quelle (3)");
     expect(managerText("Source only ({count})", "zh", { count: 3 })).toBe("仅源端 (3)");
     expect(managerText("Bucket name is required.", "de")).toBe("Bucket-Name ist erforderlich.");
