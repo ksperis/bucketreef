@@ -14,6 +14,8 @@ describe("Manager i18n", () => {
     expect(managerText("Bucket {name}", "fr", { name: "research" })).toBe("Bucket research");
     expect(managerText("Logical bytes", "fr")).toBe("Octets logiques");
     expect(managerText("Object versions are retained.", "fr")).toBe("Les versions des objets sont conservées.");
+    expect(managerText("Static website hosting is not configured.", "fr")).toBe("L’hébergement de site Web statique n’est pas configuré.");
+    expect(managerText("Server access logging is disabled.", "fr")).toBe("La journalisation des accès au serveur est désactivée.");
     expect(managerText("{count} keys", "fr", { count: 2 })).toBe("2 clés");
     expect(managerText("Topic '{name}' created.", "fr", { name: "events" })).toBe("Topic « events » créé.");
     expect(managerText("IAM user details", "fr")).toBe("Détails de l’utilisateur IAM");
@@ -64,6 +66,10 @@ describe("Manager i18n", () => {
     expect(managerText("Bucket name is required.", "zh")).toBe("必须填写存储桶名称。");
     expect(managerText("Logical bytes", "de")).toBe("Logische Bytes");
     expect(managerText("Logical bytes", "zh")).toBe("逻辑字节数");
+    expect(managerText("Static website hosting is not configured.", "de")).toBe("Das Hosting der statischen Website ist nicht konfiguriert.");
+    expect(managerText("Static website hosting is not configured.", "zh")).toBe("未配置静态网站托管。");
+    expect(managerText("Server access logging is disabled.", "de")).toBe("Die Server-Zugriffsprotokollierung ist deaktiviert.");
+    expect(managerText("Server access logging is disabled.", "zh")).toBe("服务器访问日志已禁用。");
     expect(managerText("Maximum session duration (seconds)", "de")).toBe("Maximale Sitzungsdauer (Sekunden)");
     expect(managerText("IAM group details", "zh")).toBe("IAM 组详情");
     expect(managerText("S3 rejects new PUT ACLs that grant public access to buckets or objects.", "de"))

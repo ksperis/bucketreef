@@ -79,7 +79,7 @@ export default function BucketAccessLoggingFeature({
                 </div>
               </>
             ) : (
-              "Server access logging is disabled."
+              text("Server access logging is disabled.")
             )}
           </div>
           <SettingsButton

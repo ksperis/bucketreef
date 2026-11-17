@@ -5,6 +5,7 @@ import { createMemoryRouter, MemoryRouter, RouterProvider } from "react-router-d
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "../../../api/client";
+import { LanguageProvider, type UiLanguage } from "../../../components/language";
 import BucketDetailPage from "../BucketDetailPage";
 import { buildEffectiveUserAccess } from "../../../test/effectiveAccess";
 import { setSessionUserCache } from "../../../utils/workspaces";
@@ -344,8 +345,11 @@ describe("BucketDetailPage replication state", () => {
     });
   });
 
-  function renderNavigableBucket(mode: "manager" | "ceph-admin" = "manager") {
-    setSessionUserCache({ role: "ui_admin", authType: "password" });
+  function renderNavigableBucket(
+    mode: "manager" | "ceph-admin" = "manager",
+    locale?: UiLanguage,
+  ) {
+    setSessionUserCache({ role: "ui_admin", authType: "password", ui_language: locale });
     useExecutionContextMock.mockReturnValue(managerCephAccountContext("acc-1"));
     const route = `/${mode}/buckets/demo-bucket?${mode === "manager" ? "ctx=acc-1" : "ep=1"}`;
     const router = createMemoryRouter([
@@ -353,7 +357,8 @@ describe("BucketDetailPage replication state", () => {
       { path: `/${mode}/buckets`, element: <p>Bucket inventory</p> },
       { path: "/other", element: <p>Other page</p> },
     ], { initialEntries: ["/other", route] });
-    render(<RouterProvider router={router} />);
+    const page = <RouterProvider router={router} />;
+    render(locale ? <LanguageProvider>{page}</LanguageProvider> : page);
     return router;
   }
 
@@ -362,6 +367,19 @@ describe("BucketDetailPage replication state", () => {
     window.dispatchEvent(event);
     return event.defaultPrevented;
   }
+
+  it("localizes inactive website and access logging summaries", async () => {
+    const user = userEvent.setup();
+    const router = renderNavigableBucket("manager", "fr");
+    try {
+      await user.click(await screen.findByRole("tab", { name: "Propriétés" }));
+
+      expect(await screen.findByText("L’hébergement de site Web statique n’est pas configuré.")).toBeVisible();
+      expect(screen.getByText("La journalisation des accès au serveur est désactivée.")).toBeVisible();
+    } finally {
+      router.dispose();
+    }
+  });
 
   it("disables CORS saves while JSON is invalid", async () => {
     const user = userEvent.setup();

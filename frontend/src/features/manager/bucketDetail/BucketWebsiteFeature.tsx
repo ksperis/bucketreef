@@ -116,7 +116,7 @@ export default function BucketWebsiteFeature({
                   </>
                 )
               ) : (
-                "Static website hosting is not configured."
+                text("Static website hosting is not configured.")
               )}
             </div>
             <SettingsButton
