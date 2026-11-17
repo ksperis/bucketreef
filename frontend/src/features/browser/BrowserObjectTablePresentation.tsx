@@ -162,14 +162,14 @@ export function BrowserObjectColumnHeaderContent({
   const { text } = useBrowserI18n();
   const sortable = column.sortable;
   if (!sortable) {
-    return <span className="inline-flex h-6 items-center">{text(column.label)}</span>;
+    return <span className="inline-flex h-6 items-center whitespace-nowrap">{text(column.label)}</span>;
   }
   const active = sortKey === sortable;
   return (
     <button
       type="button"
       onClick={() => onSort(sortable)}
-      className="group inline-flex h-6 items-center gap-1 text-left text-slate-500 transition hover:text-primary-700 dark:text-slate-400 dark:hover:text-primary-100"
+      className="group inline-flex h-6 items-center gap-1 whitespace-nowrap text-left text-slate-500 transition hover:text-primary-700 dark:text-slate-400 dark:hover:text-primary-100"
     >
       <span>{text(column.label)}</span>
       <ChevronDownIcon

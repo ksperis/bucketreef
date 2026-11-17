@@ -113,6 +113,9 @@ describe("BrowserObjectTablePresentation", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Size" }));
     expect(onSort).toHaveBeenCalledWith("size");
+    expect(screen.getByRole("button", { name: "Size" })).toHaveClass(
+      "whitespace-nowrap",
+    );
 
     rerender(
       <BrowserObjectColumnHeaderContent
@@ -125,7 +128,7 @@ describe("BrowserObjectTablePresentation", () => {
     expect(
       screen.queryByRole("button", { name: "Type" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText("Type")).toBeInTheDocument();
+    expect(screen.getByText("Type")).toHaveClass("whitespace-nowrap");
   });
 
   it("owns resize interactions without leaking click events", () => {
