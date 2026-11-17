@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { LanguageProvider } from "../../components/language";
+import { setSessionUserCache } from "../../utils/workspaces";
 import KeyRotationPage from "./KeyRotationPage";
 
 const mocks = vi.hoisted(() => ({
@@ -18,15 +20,18 @@ vi.mock("../../api/keyRotation", () => ({
 
 function renderPage() {
   render(
-    <MemoryRouter>
-      <KeyRotationPage />
-    </MemoryRouter>
+    <LanguageProvider>
+      <MemoryRouter>
+        <KeyRotationPage />
+      </MemoryRouter>
+    </LanguageProvider>
   );
 }
 
 describe("KeyRotationPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    setSessionUserCache(null);
     mocks.listStorageEndpoints.mockResolvedValue([
       {
         id: 7,
@@ -99,7 +104,7 @@ describe("KeyRotationPage", () => {
     expect(within(table).getByText("Ceph main").closest("td")).toHaveAttribute("data-mobile-primary", "true");
     expect(within(table).getByText("Account").closest("td")).toHaveAttribute("data-label", "Type");
     expect(within(table).getByText("Tenant A").closest("td")).toHaveAttribute("data-label", "Target");
-    expect(within(table).getByText("rotated").closest("td")).toHaveAttribute("data-label", "Status");
+    expect(within(table).getByText("Rotated").closest("td")).toHaveAttribute("data-label", "Status");
     expect(within(table).getByText(/OLD123 → NEW456/).closest("td")).toHaveAttribute("data-label", "Details");
   });
 
@@ -235,6 +240,29 @@ describe("KeyRotationPage", () => {
     await waitFor(() => expect(mocks.rotateS3Keys).toHaveBeenCalledWith({
       endpoint_ids: [7], key_types: ["ceph_admin"], deactivate_only: false,
     }));
+  });
+
+  it("localizes the rotation scope and confirmation in French", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin", ui_language: "fr" });
+
+    renderPage();
+
+    expect(await screen.findByText("Clés d’administration de l’endpoint")).toBeInTheDocument();
+    expect(screen.getByText("Clés de supervision de l’endpoint")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Les identités techniques gérées exigent la suppression des clés précédentes/),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Prêt à vérifier")).toBeInTheDocument();
+    expect(
+      screen.getByText("1 endpoint(s) · 6 catégories de clés · supprimer les clés précédentes"),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Lancer la rotation" }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("Supprimer définitivement après remplacement");
+    expect(dialog).toHaveTextContent("Catégories de clés");
+    expect(within(dialog).getByRole("button", { name: "Annuler" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Fermer" })).toBeInTheDocument();
   });
 
 });

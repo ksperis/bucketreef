@@ -128,7 +128,7 @@ function resultTableColumns(adminText: ReturnType<typeof useAdminI18n>["text"]):
   {
     id: "type",
     label: adminText("Type"),
-    render: (item) => KEY_TYPE_LABEL[item.key_type],
+    render: (item) => adminText(KEY_TYPE_LABEL[item.key_type]),
   },
   {
     id: "target",
@@ -148,7 +148,13 @@ function resultTableColumns(adminText: ReturnType<typeof useAdminI18n>["text"]):
               : "neutral"
         }
       >
-        {item.status}
+        {adminText(
+          item.status === "rotated"
+            ? "Rotated"
+            : item.status === "failed"
+              ? "Failed"
+              : "Skipped",
+        )}
       </UiBadge>
     ),
   },
@@ -412,8 +418,8 @@ export default function KeyRotationPage() {
             {ROTATION_TYPE_OPTIONS.map((option) => (
               <SettingsChoiceRow
                 key={option.value}
-                title={option.label}
-                description={option.description}
+                title={adminText(option.label)}
+                description={adminText(option.description)}
                 checked={selectedTypes.includes(option.value)}
                 onChange={() => toggleType(option.value)}
               >
@@ -434,10 +440,10 @@ export default function KeyRotationPage() {
               title={adminText("Disable old keys only")}
               description={
                 technicalSelected
-                  ? "Managed technical identities require deletion of previous keys. Deselect these categories to use disable mode."
+                  ? adminText("Managed technical identities require deletion of previous keys. Deselect these categories to use disable mode.")
                   : deactivateOnly
-                  ? "Keep old keys in an inactive state after replacement."
-                  : "Delete old keys after replacement. This cannot be undone."
+                  ? adminText("Keep old keys in an inactive state after replacement.")
+                  : adminText("Delete old keys after replacement. This cannot be undone.")
               }
               action={
                 <SettingsSwitch
@@ -461,18 +467,32 @@ export default function KeyRotationPage() {
           )}
           <SettingsItem
             compact
-            title={running ? "Rotation in progress" : selectedEndpointIds.length && selectedTypes.length ? "Ready to review" : "Choose rotation scope"}
+            title={adminText(
+              running
+                ? "Rotation in progress"
+                : selectedEndpointIds.length && selectedTypes.length
+                  ? "Ready to review"
+                  : "Choose rotation scope",
+            )}
             description={
               running
-                ? "The operation continues on the server. Wait for its results before starting another rotation."
-                : `${selectedEndpointIds.length} endpoint(s) · ${selectedTypes.length} key categories · ${deactivateOnly ? "disable" : "delete"} previous keys`
+                ? adminText("The operation continues on the server. Wait for its results before starting another rotation.")
+                : adminText(
+                    deactivateOnly
+                      ? "{endpoints} endpoint(s) · {categories} key categories · disable previous keys"
+                      : "{endpoints} endpoint(s) · {categories} key categories · delete previous keys",
+                    {
+                      endpoints: selectedEndpointIds.length,
+                      categories: selectedTypes.length,
+                    },
+                  )
             }
             action={
               <SettingsButton
                 disabled={runDisabled || loading}
                 onClick={() => setConfirmOpen(true)}
               >
-                {running ? "Rotating..." : "Run rotation"}
+                {adminText(running ? "Rotating..." : "Run rotation")}
               </SettingsButton>
             }
           />
@@ -484,12 +504,25 @@ export default function KeyRotationPage() {
           >
             <ListToolbar variant="section"
               title={
-                previousResult
-                  ? "Previous execution summary"
-                  : "Execution summary"
+                adminText(
+                  previousResult
+                    ? "Previous execution summary"
+                    : "Execution summary",
+                )
               }
-              description={`Mode: ${result.mode === "deactivate_old_keys" ? "Deactivate old keys" : "Delete old keys"}`}
-              countLabel={`${result.results.length} detailed result${result.results.length === 1 ? "" : "s"}`}
+              description={adminText("Mode: {mode}", {
+                mode: adminText(
+                  result.mode === "deactivate_old_keys"
+                    ? "Deactivate old keys"
+                    : "Delete old keys",
+                ),
+              })}
+              countLabel={adminText(
+                result.results.length === 1
+                  ? "{count} detailed result"
+                  : "{count} detailed results",
+                { count: result.results.length },
+              )}
             />
             <div className="my-3 flex flex-wrap gap-2">
               <UiBadge>{adminText("Total: {count}", { count: result.summary.total })}</UiBadge>
@@ -516,9 +549,9 @@ export default function KeyRotationPage() {
               rows={resultRows}
               rowKey={(item) => item.rowKey}
               status={resultTableStatus}
-              loadingMessage="Loading rotation results..."
-              errorMessage="Unable to load rotation results."
-              emptyMessage="No details returned by the backend."
+              loadingMessage={adminText("Loading rotation results...")}
+              errorMessage={adminText("Unable to load rotation results.")}
+              emptyMessage={adminText("No details returned by the backend.")}
               primaryColumnId="endpoint"
               responsiveCards
               tableClassName="ui-data-table"
@@ -531,32 +564,34 @@ export default function KeyRotationPage() {
           title={adminText("Run key rotation?")}
           description={adminText("New keys will replace the selected managed credentials. Applications using old keys may lose access.")}
           confirmLabel={adminText("Confirm rotation")}
+          cancelLabel={adminText("Cancel")}
+          closeLabel={adminText("Close")}
           onCancel={() => setConfirmOpen(false)}
           onConfirm={() => void runRotation()}
           details={[
             {
-              label: "Endpoints",
+              label: adminText("Endpoints"),
               value: eligibleEndpoints
                 .filter((endpoint) => selectedEndpointIds.includes(endpoint.id))
                 .map((endpoint) => endpoint.name)
                 .join(", "),
             },
             {
-              label: "Key categories",
+              label: adminText("Key categories"),
               value: selectedTypes
-                .map((type) => KEY_TYPE_LABEL[type])
+                .map((type) => adminText(KEY_TYPE_LABEL[type]))
                 .join(", "),
             },
             {
-              label: "Previous keys",
+              label: adminText("Previous keys"),
               value: deactivateOnly
-                ? "Disable after replacement"
-                : "Permanently delete after replacement",
+                ? adminText("Disable after replacement")
+                : adminText("Permanently delete after replacement"),
             },
           ]}
           warning={
             hasSelectedEnvManagedEndpointKeys
-              ? "ENV Admin Ops and external service identities will be skipped. Managed service identities, account and S3 user keys remain eligible."
+              ? adminText("ENV Admin Ops and external service identities will be skipped. Managed service identities, account and S3 user keys remain eligible.")
               : undefined
           }
         />
@@ -566,7 +601,7 @@ export default function KeyRotationPage() {
         title={adminText("Leave this rotation?")}
         description={adminText("The server operation will continue. You may lose access to its detailed results on this page.")}
         confirmLabel={adminText("Leave page")}
-        cancelLabel="Wait for results"
+        cancelLabel={adminText("Wait for results")}
       />
     </PageShell>
   );
