@@ -4,6 +4,8 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { WebhookEndpoint } from "../../api/webhooks";
+import { LanguageProvider } from "../../components/language";
+import { setSessionUserCache } from "../../utils/workspaces";
 import WebhookSettingsPage from "./WebhookSettingsPage";
 
 const mocks = vi.hoisted(() => ({
@@ -65,15 +67,18 @@ const importedEndpoint: WebhookEndpoint = {
 
 function renderPage() {
   return render(
-    <MemoryRouter initialEntries={["/admin/webhook-settings"]}>
-      <WebhookSettingsPage />
-    </MemoryRouter>,
+    <LanguageProvider>
+      <MemoryRouter initialEntries={["/admin/webhook-settings"]}>
+        <WebhookSettingsPage />
+      </MemoryRouter>
+    </LanguageProvider>,
   );
 }
 
 describe("WebhookSettingsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    setSessionUserCache(null);
     mocks.listEndpoints.mockResolvedValue([configuredEndpoint, importedEndpoint]);
     mocks.sendTest.mockResolvedValue("delivery-test-1");
     mocks.deleteEndpoint.mockResolvedValue(undefined);
@@ -116,5 +121,14 @@ describe("WebhookSettingsPage", () => {
     await waitFor(() => expect(mocks.deleteEndpoint).toHaveBeenCalledWith(7));
     expect(screen.queryByText("Operations automation")).not.toBeInTheDocument();
     expect(screen.getByText("Webhook endpoint “Operations automation” deleted.")).toBeInTheDocument();
+  });
+
+  it("localizes the empty webhook state in French", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin", ui_language: "fr" });
+    mocks.listEndpoints.mockResolvedValue([]);
+
+    renderPage();
+
+    expect(await screen.findByText("Aucun endpoint webhook configuré.")).toBeInTheDocument();
   });
 });

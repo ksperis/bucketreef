@@ -241,9 +241,13 @@ export default function WebhookSettingsPage() {
           rows={filtered}
           rowKey={(endpoint) => endpoint.id}
           status={tableStatus}
-          loadingMessage="Loading webhook endpoints..."
-          errorMessage={error ?? "Unable to load webhook endpoints."}
-          emptyMessage={search.trim() ? "No webhook endpoints match this search." : "No webhook endpoints configured."}
+          loadingMessage={adminText("Loading webhook endpoints...")}
+          errorMessage={error ?? adminText("Unable to load webhook endpoints.")}
+          emptyMessage={adminText(
+            search.trim()
+              ? "No webhook endpoints match this search."
+              : "No webhook endpoints configured.",
+          )}
           responsiveCards
         />
       </ListPageSection>
