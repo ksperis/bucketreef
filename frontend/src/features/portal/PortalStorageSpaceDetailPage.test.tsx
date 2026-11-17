@@ -1541,6 +1541,56 @@ describe("PortalStorageSpaceDetailPage", () => {
     expect(screen.getByRole("button", { name: "Save" })).toBeInTheDocument();
   });
 
+  it("localizes the unavailable file-browsing workspace message in German", async () => {
+    mocks.generalSettings.browser_portal_enabled = false;
+    setSessionUserCache({ ui_language: "de" });
+
+    await renderPage(["/portal/storage-spaces/research-data"], true);
+
+    expect(
+      screen.getByText(
+        "Dateien sind nicht verfügbar. Bitten Sie einen Administrator, Dateibrowsing für diesen Arbeitsbereich zu aktivieren.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it.each([
+    {
+      language: "fr" as const,
+      settingsTab: "Réglages",
+      historyHeading: "Historique des fichiers",
+      deleteButton: "Supprimer l’espace",
+      dialogTitle: "Supprimer l'espace",
+      impact: "L'espace et son Bucket sont supprimés définitivement.",
+    },
+    {
+      language: "de" as const,
+      settingsTab: "Einstellungen",
+      historyHeading: "Dateiverlauf",
+      deleteButton: "Bereich löschen",
+      dialogTitle: "Bereich löschen",
+      impact: "Der Bereich und sein Bucket werden endgültig gelöscht.",
+    },
+  ])("localizes permanent-deletion impact copy in $language", async ({
+    language,
+    settingsTab,
+    historyHeading,
+    deleteButton,
+    dialogTitle,
+    impact,
+  }) => {
+    mocks.hookResult.workspace.spaces[0].objectCount = 0;
+    mocks.hookResult.workspace.spaces[0].usedBytes = 0;
+    setSessionUserCache({ ui_language: language });
+
+    await renderPage(["/portal/storage-spaces/research-data"], true);
+    fireEvent.click(screen.getByRole("tab", { name: settingsTab }));
+    await screen.findByRole("heading", { name: historyHeading });
+    fireEvent.click(screen.getByRole("button", { name: deleteButton }));
+
+    expect(within(screen.getByRole("dialog", { name: dialogTitle })).getByText(impact)).toBeInTheDocument();
+  });
+
   it("confirms archive with explicit target and impacts", async () => {
     await renderPage();
 

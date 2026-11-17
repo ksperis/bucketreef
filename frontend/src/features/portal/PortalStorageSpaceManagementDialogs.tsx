@@ -146,7 +146,7 @@ export default function PortalStorageSpaceManagementDialogs({
           impacts={
             storageSpaceIsEmpty
               ? [
-                  t({ en: "The Storage Space and its bucket are permanently deleted.", fr: "Le Storage Space et son bucket sont supprimés définitivement.", de: "Der Storage Space und sein Bucket werden endgültig gelöscht.", zh: "存储空间及其存储桶将被永久删除。" }),
+                  t({ en: "The Storage Space and its bucket are permanently deleted.", fr: "L'espace et son Bucket sont supprimés définitivement.", de: "Der Bereich und sein Bucket werden endgültig gelöscht.", zh: "存储空间及其存储桶将被永久删除。" }),
                   t({ en: "Collaborator access, external credentials, and public links are revoked.", fr: "Les accès collaborateurs, identifiants externes et liens publics sont révoqués.", de: "Zugriffe von Mitwirkenden, externe Anmeldedaten und öffentliche Links werden widerrufen.", zh: "协作者访问权限、外部凭据和公开链接将被撤销。" }),
                 ]
               : [

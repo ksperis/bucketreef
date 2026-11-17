@@ -336,7 +336,7 @@ function StorageSpaceDetail() {
         </div>
       ) : (
         <PageBanner tone="warning">
-          {t({ en: "Files are unavailable. Ask an administrator to enable file browsing for this workspace.", fr: "Les fichiers sont indisponibles. Demandez à un administrateur d'activer la navigation pour cet espace de travail.", de: "Dateien sind nicht verfügbar. Bitten Sie einen Administrator, Dateibrowsing für diesen Workspace zu aktivieren.", zh: "文件不可用。请让管理员为此工作区启用文件浏览。" })}
+          {t({ en: "Files are unavailable. Ask an administrator to enable file browsing for this workspace.", fr: "Les fichiers sont indisponibles. Demandez à un administrateur d'activer la navigation pour cet espace de travail.", de: "Dateien sind nicht verfügbar. Bitten Sie einen Administrator, Dateibrowsing für diesen Arbeitsbereich zu aktivieren.", zh: "文件不可用。请让管理员为此工作区启用文件浏览。" })}
         </PageBanner>
       )}
     </section>

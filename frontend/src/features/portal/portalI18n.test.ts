@@ -1,13 +1,20 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
 import { describe, expect, it } from "vitest";
 import { translate } from "../../i18n";
-import { formatPortalCurrency, portalDateLabel } from "./portalI18n";
+import { formatPortalCurrency, portalAccountRoleLabel, portalDateLabel } from "./portalI18n";
 
 describe("portal i18n helpers", () => {
   it("translates the requested locale and falls back deterministically", () => {
     expect(translate({ en: "Storage Spaces", fr: "Espaces de stockage", de: "Speicherbereiche" }, "fr")).toBe("Espaces de stockage");
     expect(translate({ fr: "Partages", de: "Freigaben" }, "en")).toBe("Partages");
     expect(translate("Portal", "de")).toBe("Portal");
+  });
+
+  it("localizes Portal account roles without English workspace labels in German", () => {
+    const translateGerman = (message: Parameters<typeof translate>[0]) => translate(message, "de");
+
+    expect(portalAccountRoleLabel("portal_manager", translateGerman)).toBe("Arbeitsbereichsmanager");
+    expect(portalAccountRoleLabel("portal_user", translateGerman)).toBe("Arbeitsbereichsmitglied");
   });
 });
 

@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import type { ReactNode } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { LanguageProvider } from "../../components/language";
 import {
   buildPortalAccount,
   buildPortalState,
@@ -9,6 +10,7 @@ import {
   buildPortalTrafficStats,
   buildPortalWorkspaceSpace,
 } from "../../test/portal";
+import { setSessionUserCache } from "../../utils/workspaces";
 import PortalUsagePage from "./PortalUsagePage";
 import type { usePortalWorkspaceData } from "./usePortalWorkspaceData";
 
@@ -298,6 +300,7 @@ function mockUsageHistory() {
 describe("PortalUsagePage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    setSessionUserCache({ ui_language: "en" });
     mocks.hookArgs.length = 0;
     mocks.generalSettings.cost_enabled = true;
     mocks.generalSettings.usage_history_enabled = true;
@@ -305,6 +308,47 @@ describe("PortalUsagePage", () => {
     mockCost();
     mockUsageComposition();
     mockUsageHistory();
+  });
+
+  it.each([
+    {
+      language: "fr" as const,
+      pageDescription: "Voyez l'espace restant, les espaces qui grandissent et la façon dont les fichiers circulent dans cet espace de travail.",
+      roomDescription: "Stockage actuel, nombre de fichiers et espace restant pour cet espace de travail.",
+      backendDescription: "Disponibilité actuelle du service de stockage utilisé par cet espace de travail.",
+      trafficTab: "Envois et téléchargements",
+      trafficDescription: "Comment les fichiers sont entrés et sortis de cet espace de travail.",
+    },
+    {
+      language: "de" as const,
+      pageDescription: "Sehen Sie, wie viel Platz bleibt, welche Bereiche wachsen und wie Dateien in diesem Arbeitsbereich bewegt werden.",
+      roomDescription: "Aktueller Speicher, Dateianzahl und verbleibender Platz für diesen Arbeitsbereich.",
+      backendDescription: "Aktuelle Verfügbarkeit des Speicherdienstes für diesen Arbeitsbereich.",
+      trafficTab: "Uploads & Downloads",
+      trafficDescription: "Wie Dateien in diesen Arbeitsbereich hinein- und hinausbewegt wurden.",
+    },
+  ])("localizes workspace descriptions in $language", async ({
+    language,
+    pageDescription,
+    roomDescription,
+    backendDescription,
+    trafficTab,
+    trafficDescription,
+  }) => {
+    setSessionUserCache({ ui_language: language });
+    render(
+      <LanguageProvider>
+        <MemoryRouter>
+          <PortalUsagePage />
+        </MemoryRouter>
+      </LanguageProvider>,
+    );
+
+    expect(screen.getByText(pageDescription)).toBeInTheDocument();
+    expect(screen.getByText(roomDescription)).toBeInTheDocument();
+    expect(screen.getByText(backendDescription)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: trafficTab }));
+    expect(screen.getByText(trafficDescription)).toBeInTheDocument();
   });
 
   it("renders storage health, space breakdown, file types, trends, activity and visible costs", async () => {

@@ -41,9 +41,9 @@ export function portalShareScopeLabel(
 }
 
 export function portalAccountRoleLabel(role: string | null | undefined, t: TFunction): string {
-  if (role === "portal_manager") return t({ en: "Workspace manager", fr: "Gestionnaire d'espace", de: "Workspace-Manager", zh: "工作区管理员" });
-  if (role === "portal_user") return t({ en: "Workspace member", fr: "Membre d'espace", de: "Workspace-Mitglied", zh: "工作区成员" });
-  return t({ en: "Workspace member", fr: "Membre d'espace", de: "Workspace-Mitglied", zh: "工作区成员" });
+  if (role === "portal_manager") return t({ en: "Workspace manager", fr: "Gestionnaire d'espace", de: "Arbeitsbereichsmanager", zh: "工作区管理员" });
+  if (role === "portal_user") return t({ en: "Workspace member", fr: "Membre d'espace", de: "Arbeitsbereichsmitglied", zh: "工作区成员" });
+  return t({ en: "Workspace member", fr: "Membre d'espace", de: "Arbeitsbereichsmitglied", zh: "工作区成员" });
 }
 
 export function portalAccessSourceLabel(source: string | null | undefined, t: TFunction): string {

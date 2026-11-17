@@ -338,7 +338,7 @@ export default function PortalUsagePage() {
   return (
     <PageShell
         title={t({ en: "Storage health", fr: "État du stockage", de: "Speicherstatus", zh: "存储健康状况" })}
-        description={t({ en: "See how much room is left, which spaces are growing, and how files move in this workspace.", fr: "Voyez l'espace restant, les espaces qui grandissent et la façon dont les fichiers circulent dans ce workspace.", de: "Sehen Sie, wie viel Platz bleibt, welche Bereiche wachsen und wie Dateien in diesem Workspace bewegt werden.", zh: "查看此工作区的剩余容量、空间增长情况及文件传输情况。" })}
+        description={t({ en: "See how much room is left, which spaces are growing, and how files move in this workspace.", fr: "Voyez l'espace restant, les espaces qui grandissent et la façon dont les fichiers circulent dans cet espace de travail.", de: "Sehen Sie, wie viel Platz bleibt, welche Bereiche wachsen und wie Dateien in diesem Arbeitsbereich bewegt werden.", zh: "查看此工作区的剩余容量、空间增长情况及文件传输情况。" })}
         breadcrumbs={portalBreadcrumbs({ label: t({ en: "Storage health", fr: "État du stockage", de: "Speicherstatus", zh: "存储健康状况" }) })}
         actions={[
           { label: t({ en: "Open spaces", fr: "Ouvrir les espaces", de: "Bereiche öffnen", zh: "打开空间列表" }), to: "/portal/storage-spaces", variant: "secondary" },
@@ -358,7 +358,7 @@ export default function PortalUsagePage() {
         <div className="space-y-4">
           <MetricsCard
             title={t({ en: "Room and files", fr: "Espace et fichiers", de: "Platz und Dateien", zh: "容量与文件" })}
-            description={t({ en: "Current storage, file count, and remaining room for this workspace.", fr: "Stockage actuel, nombre de fichiers et espace restant pour ce workspace.", de: "Aktueller Speicher, Dateianzahl und verbleibender Platz für diesen Workspace.", zh: "此工作区的当前存储用量、文件数量和剩余容量。" })}
+            description={t({ en: "Current storage, file count, and remaining room for this workspace.", fr: "Stockage actuel, nombre de fichiers et espace restant pour cet espace de travail.", de: "Aktueller Speicher, Dateianzahl und verbleibender Platz für diesen Arbeitsbereich.", zh: "此工作区的当前存储用量、文件数量和剩余容量。" })}
           >
             {usageError ? (
               <PageBanner tone="warning">{t({ en: "Usage data is unavailable from storage metrics. Available workspace data is still shown.", fr: "Les données d'utilisation sont indisponibles depuis les métriques de stockage. Les données disponibles de l'espace de travail restent affichées.", de: "Nutzungsdaten sind aus Speichermetriken nicht verfügbar. Verfügbare Arbeitsbereichsdaten werden weiterhin angezeigt.", zh: "无法从存储指标中获取用量数据。仍显示可用的工作区数据。" })}</PageBanner>
@@ -393,7 +393,7 @@ export default function PortalUsagePage() {
 
           <MetricsCard
             title={t({ en: "Backend status", fr: "Statut du backend", de: "Backend-Status", zh: "后端状态" })}
-            description={t({ en: "Current availability of the storage service used by this workspace.", fr: "Disponibilité actuelle du service de stockage utilisé par ce workspace.", de: "Aktuelle Verfügbarkeit des Speicherdienstes für diesen Workspace.", zh: "此工作区所使用存储服务的当前可用性。" })}
+            description={t({ en: "Current availability of the storage service used by this workspace.", fr: "Disponibilité actuelle du service de stockage utilisé par cet espace de travail.", de: "Aktuelle Verfügbarkeit des Speicherdienstes für diesen Arbeitsbereich.", zh: "此工作区所使用存储服务的当前可用性。" })}
           >
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               <div className={cx(uiCardMutedClass, "px-4 py-3")}>
@@ -507,7 +507,7 @@ export default function PortalUsagePage() {
           loading={trafficLoading}
           error={trafficError}
           showEmpty={trafficMissing}
-          description={t({ en: "How files moved in and out of this workspace.", fr: "Comment les fichiers sont entrés et sortis de ce workspace.", de: "Wie Dateien in diesen Workspace hinein- und hinausbewegt wurden.", zh: "此工作区的文件传入和传出情况。" })}
+          description={t({ en: "How files moved in and out of this workspace.", fr: "Comment les fichiers sont entrés et sortis de cet espace de travail.", de: "Wie Dateien in diesen Arbeitsbereich hinein- und hinausbewegt wurden.", zh: "此工作区的文件传入和传出情况。" })}
           bucketRankingTitle={t({ en: "Most active Storage Spaces", fr: "Espaces de stockage les plus actifs", de: "Aktivste Speicherbereiche", zh: "最活跃的存储空间" })}
           userRankingTitle={portalActivitySourceTitle(t)}
           bucketRankingLabels={bucketRankingLabels}

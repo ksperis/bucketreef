@@ -1,6 +1,7 @@
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LanguageProvider } from "../../components/language";
+import { setSessionUserCache } from "../../utils/workspaces";
 import { usePortalWorkspaceData } from "./usePortalWorkspaceData";
 
 const mocks = vi.hoisted(() => ({
@@ -60,6 +61,7 @@ function Probe({ includeArchived = false }: { includeArchived?: boolean }) {
 describe("usePortalWorkspaceData", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    setSessionUserCache({ ui_language: "en" });
     mocks.accountId = 101;
     mocks.fetchPortalActivityMock.mockResolvedValue([]);
     mocks.fetchPortalAlertsMock.mockResolvedValue([]);
@@ -72,6 +74,17 @@ describe("usePortalWorkspaceData", () => {
     mocks.fetchPortalUsageTrendsMock.mockResolvedValue(null);
     mocks.fetchPortalTrafficMock.mockResolvedValue(null);
     mocks.listPortalStorageSpacesMock.mockResolvedValue([]);
+  });
+
+  it("localizes storage-space loading failures in German", async () => {
+    setSessionUserCache({ ui_language: "de" });
+    mocks.listPortalStorageSpacesMock.mockRejectedValueOnce(new Error("Network Error"));
+
+    const { result } = renderHook(() => usePortalWorkspaceData(), { wrapper: LanguageProvider });
+
+    await waitFor(() => {
+      expect(result.current.storageSpacesError).toBe("Bereiche können nicht geladen werden.");
+    });
   });
 
   it("keeps state pending and hides the previous project's state during a switch", async () => {
