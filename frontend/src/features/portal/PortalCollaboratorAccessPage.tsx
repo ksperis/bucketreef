@@ -158,7 +158,7 @@ export default function PortalCollaboratorAccessPage() {
     () => [
       {
         id: "space",
-        label: t({ en: "Storage Space", fr: "Storage Space", de: "Storage Space", zh: "存储空间" }),
+        label: t({ en: "Storage Space", fr: "Espace", de: "Bereich", zh: "存储空间" }),
         primary: true,
         render: (access) => <span className="block truncate">{access.storage_space_name}</span>,
       },
@@ -395,8 +395,8 @@ export default function PortalCollaboratorAccessPage() {
       title={title}
       description={t({
         en: "Review effective access across active Storage Spaces and remove eligible direct grants.",
-        fr: "Revoyez les accès effectifs aux Storage Spaces actifs et retirez les grants directs éligibles.",
-        de: "Prüfen Sie den effektiven Zugriff auf aktive Storage Spaces und entfernen Sie berechtigte direkte Freigaben.",
+        fr: "Revoyez les accès effectifs aux espaces actifs et retirez les accès directs qui peuvent l'être.",
+        de: "Prüfen Sie den effektiven Zugriff auf aktive Bereiche und entfernen Sie direkte Freigaben, wenn dies möglich ist.",
         zh: "审查所有活跃存储空间的有效访问权限，并移除可移除的直接授权。",
       })}
       breadcrumbs={portalBreadcrumbs(
@@ -488,7 +488,7 @@ export default function PortalCollaboratorAccessPage() {
       ) : null}
 
       <ListPageSection variant="section"
-        title={t({ en: "Active Storage Space access", fr: "Accès aux Storage Spaces actifs", de: "Zugriff auf aktive Storage Spaces", zh: "活跃存储空间访问权限" })}
+        title={t({ en: "Active Storage Space access", fr: "Accès aux espaces actifs", de: "Zugriff auf aktive Bereiche", zh: "活跃存储空间访问权限" })}
         description={t({
           en: "Inherited access is explained here and cannot be removed individually.",
           fr: "Les accès hérités sont expliqués ici et ne peuvent pas être retirés individuellement.",
@@ -521,8 +521,8 @@ export default function PortalCollaboratorAccessPage() {
           })}
           emptyMessage={t({
             en: "This collaborator has no access to an active Storage Space.",
-            fr: "Ce collaborateur n'a accès à aucun Storage Space actif.",
-            de: "Dieser Mitarbeiter hat keinen Zugriff auf einen aktiven Storage Space.",
+            fr: "Ce collaborateur n'a accès à aucun espace actif.",
+            de: "Dieser Mitarbeiter hat keinen Zugriff auf einen aktiven Bereich.",
             zh: "此协作者无权访问任何活跃存储空间。",
           })}
           responsiveCards
@@ -548,8 +548,8 @@ export default function PortalCollaboratorAccessPage() {
           impacts={[
             t({
               en: "Access to this Storage Space is removed immediately.",
-              fr: "L'accès à ce Storage Space est retiré immédiatement.",
-              de: "Der Zugriff auf diesen Storage Space wird sofort entfernt.",
+              fr: "L'accès à cet espace est retiré immédiatement.",
+              de: "Der Zugriff auf diesen Bereich wird sofort entfernt.",
               zh: "对此存储空间的访问权限将立即移除。",
             }),
             t({
@@ -624,14 +624,14 @@ export default function PortalCollaboratorAccessPage() {
             pendingAction.portalRole === "portal_manager"
               ? t({
                   en: "Approval grants manager access to every project Storage Space.",
-                  fr: "L'approbation donne un accès gestionnaire à tous les Storage Spaces du projet.",
-                  de: "Die Genehmigung gewährt Managerzugriff auf alle Storage Spaces des Projekts.",
+                  fr: "L'approbation donne un accès gestionnaire à tous les espaces du projet.",
+                  de: "Die Genehmigung gewährt Managerzugriff auf alle Bereiche des Projekts.",
                   zh: "批准后，将获得项目中所有存储空间的管理员访问权限。",
                 })
               : t({
                   en: "Approval removes project-manager access; remaining access follows the member's Storage Space grants.",
-                  fr: "L'approbation retire l'accès gestionnaire du projet ; les accès restants suivent les droits du membre sur les Storage Spaces.",
-                  de: "Die Genehmigung entfernt den Projektmanagerzugriff; der verbleibende Zugriff folgt den Storage-Space-Berechtigungen des Mitglieds.",
+                  fr: "L'approbation retire l'accès gestionnaire du projet ; les accès restants suivent les droits du membre sur les espaces.",
+                  de: "Die Genehmigung entfernt den Projektmanagerzugriff; der verbleibende Zugriff folgt den Bereichsberechtigungen des Mitglieds.",
                   zh: "批准后将移除项目管理员访问权限；剩余访问取决于成员的存储空间授权。",
                 }),
           ]}

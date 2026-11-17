@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../../api/client";
+import { LanguageProvider } from "../../components/language";
+import { setSessionUserCache } from "../../utils/workspaces";
 
 import PortalCollaboratorAccessPage from "./PortalCollaboratorAccessPage";
 
@@ -86,21 +88,67 @@ const review = {
 
 function renderPage(userId = "13") {
   return render(
-    <MemoryRouter initialEntries={[`/portal/shares/${userId}`]}>
-      <Routes>
-        <Route path="/portal/shares/:userId" element={<PortalCollaboratorAccessPage />} />
-        <Route path="/portal/storage-spaces/:spaceId" element={<div>Storage space detail route</div>} />
-      </Routes>
-    </MemoryRouter>,
+    <LanguageProvider>
+      <MemoryRouter initialEntries={[`/portal/shares/${userId}`]}>
+        <Routes>
+          <Route path="/portal/shares/:userId" element={<PortalCollaboratorAccessPage />} />
+          <Route path="/portal/storage-spaces/:spaceId" element={<div>Storage space detail route</div>} />
+        </Routes>
+      </MemoryRouter>
+    </LanguageProvider>,
   );
 }
 
 describe("PortalCollaboratorAccessPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    setSessionUserCache({ ui_language: "en" });
     mocks.fetchReview.mockResolvedValue(structuredClone(review));
     mocks.revokeShare.mockResolvedValue([]);
     mocks.createRequest.mockResolvedValue({ id: 73, status: "pending" });
+  });
+
+  it.each([
+    {
+      language: "fr" as const,
+      column: "Espace",
+      section: "Accès aux espaces actifs",
+      description: "Revoyez les accès effectifs aux espaces actifs et retirez les accès directs qui peuvent l'être.",
+      removeImpact: "L'accès à cet espace est retiré immédiatement.",
+      roleImpact: "L'approbation donne un accès gestionnaire à tous les espaces du projet.",
+    },
+    {
+      language: "de" as const,
+      column: "Bereich",
+      section: "Zugriff auf aktive Bereiche",
+      description: "Prüfen Sie den effektiven Zugriff auf aktive Bereiche und entfernen Sie direkte Freigaben, wenn dies möglich ist.",
+      removeImpact: "Der Zugriff auf diesen Bereich wird sofort entfernt.",
+      roleImpact: "Die Genehmigung gewährt Managerzugriff auf alle Bereiche des Projekts.",
+    },
+  ])("localizes Storage Space access copy in $language", async ({
+    language,
+    column,
+    section,
+    description,
+    removeImpact,
+    roleImpact,
+  }) => {
+    setSessionUserCache({ ui_language: language });
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(await screen.findByText(description)).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: column })).toBeInTheDocument();
+    expect(screen.getByText(section)).toBeInTheDocument();
+
+    const removeButtonName = language === "fr" ? "Retirer l'accès" : "Zugriff entfernen";
+    await user.click(screen.getByRole("button", { name: removeButtonName }));
+    expect(screen.getByText(removeImpact)).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+
+    const roleButtonName = language === "fr" ? "Changer le rôle" : "Rolle ändern";
+    await user.click(screen.getByRole("button", { name: roleButtonName }));
+    expect(screen.getByText(roleImpact)).toBeInTheDocument();
   });
 
   it("shows identity, effective roles, sources, and only eligible revoke actions", async () => {
