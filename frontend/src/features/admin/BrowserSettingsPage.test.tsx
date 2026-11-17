@@ -7,6 +7,8 @@ import {
   DEFAULT_PROJECT_COLLECTION_POLICIES,
   DEFAULT_PROJECT_FEATURE_POLICIES,
 } from "../../api/featurePolicies";
+import { LanguageProvider } from "../../components/language";
+import { setSessionUserCache } from "../../utils/workspaces";
 import BrowserSettingsPage from "./BrowserSettingsPage";
 
 const fetchAppSettingsMock = vi.fn<() => Promise<AppSettings>>();
@@ -106,6 +108,7 @@ function buildSettings(overrides: Partial<AppSettings["general"]> = {}): AppSett
 describe("BrowserSettingsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    setSessionUserCache(null);
     fetchAppSettingsMock.mockResolvedValue(buildSettings({ browser_portal_enabled: false }));
     fetchDefaultAppSettingsMock.mockResolvedValue(buildSettings({ browser_portal_enabled: true }));
     updateAppSettingsMock.mockImplementation(async (payload: AppSettings) => payload);
@@ -154,6 +157,16 @@ describe("BrowserSettingsPage", () => {
     expect(updateAppSettingsMock).not.toHaveBeenCalled();
     expect(
       screen.getByText("Enable at least one upload mode: direct, STS, or proxy."),
+    ).toBeInTheDocument();
+  });
+
+  it("formats the streaming threshold helper in French", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin", ui_language: "fr" });
+
+    render(<LanguageProvider><BrowserSettingsPage /></LanguageProvider>);
+
+    expect(
+      await screen.findByText("Définir sur 0 pour toujours diffuser. Maximum : 10 240 Mo."),
     ).toBeInTheDocument();
   });
 });

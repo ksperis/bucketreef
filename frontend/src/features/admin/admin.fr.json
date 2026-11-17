@@ -1286,7 +1286,7 @@
   "Set as default": "Définir par défaut",
   "Set optional storage and object limits. Leave a value empty to disable that limit.": "Définissez des limites facultatives de stockage et d’objets. Laissez un champ vide pour désactiver la limite.",
   "Set password": "Définir le mot de passe",
-  "Set to 0 to always stream. Maximum: 10,240 MB.": "Définir sur 0 pour toujours diffuser. Maximum : 10,240 MB.",
+  "Set to 0 to always stream. Maximum: 10,240 MB.": "Définir sur 0 pour toujours diffuser. Maximum : 10 240 Mo.",
   "Setting is outside this page's scope.": "Le paramètre se trouve en dehors de la portée de cette page.",
   "Setting...": "Définition…",
   "Settings": "Paramètres",
