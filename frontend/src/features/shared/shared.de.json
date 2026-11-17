@@ -1061,5 +1061,9 @@
   "The identity link was approved. Sign in again to start a fresh session with the linked identity.": "Die Identitätsverknüpfung wurde genehmigt. Melden Sie sich erneut an, um eine neue Sitzung mit der verknüpften Identität zu starten.",
   "The identity link request was rejected. No account link was created.": "Die Anfrage zur Identitätsverknüpfung wurde abgelehnt. Es wurde keine Kontoverknüpfung erstellt.",
   "Sign in again": "Erneut anmelden",
-  "You can use a single-use recovery code instead of a passkey.": "Sie können anstelle eines Passkeys einen einmaligen Wiederherstellungscode verwenden."
+  "You can use a single-use recovery code instead of a passkey.": "Sie können anstelle eines Passkeys einen einmaligen Wiederherstellungscode verwenden.",
+  "{count} result": "{count} Ergebnis",
+  "{count} results": "{count} Ergebnisse",
+  "Storage usage metrics are unavailable for {count} visible context. Used and Objects are shown as — for those rows.": "Speichernutzungsmetriken sind für {count} sichtbaren Kontext nicht verfügbar. Verwendet und Objekte werden in diesen Zeilen als — angezeigt.",
+  "Storage usage metrics are unavailable for {count} visible contexts. Used and Objects are shown as — for those rows.": "Speichernutzungsmetriken sind für {count} sichtbare Kontexte nicht verfügbar. Verwendet und Objekte werden in diesen Zeilen als — angezeigt."
 }

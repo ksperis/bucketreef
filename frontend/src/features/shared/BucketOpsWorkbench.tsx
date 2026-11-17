@@ -1123,9 +1123,12 @@ export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchPr
       ).length
     : 0;
   const storageOpsStatsWarning = storageOpsMissingStatsCount > 0
-    ? `Storage usage metrics are unavailable for ${storageOpsMissingStatsCount} visible ${
-        storageOpsMissingStatsCount === 1 ? "context" : "contexts"
-      }. Used and Objects are shown as — for those rows.`
+    ? surfaceText(
+        storageOpsMissingStatsCount === 1
+          ? "Storage usage metrics are unavailable for {count} visible context. Used and Objects are shown as — for those rows."
+          : "Storage usage metrics are unavailable for {count} visible contexts. Used and Objects are shown as — for those rows.",
+        { count: storageOpsMissingStatsCount },
+      )
     : null;
 
   return (
@@ -1157,7 +1160,7 @@ export default function BucketOpsWorkbench({ mode, shell }: BucketOpsWorkbenchPr
       {!selectedEndpointId && shell.emptyState ? <PageEmptyState {...shell.emptyState} /> : null}
       <ListPageSection variant="page"
           title={surfaceText("Buckets")}
-          countLabel={`${total} result(s)`}
+          countLabel={surfaceText(total === 1 ? "{count} result" : "{count} results", { count: total })}
           search={
             <BucketOpsQuickFilter controller={filterController} value={filter} />
           }

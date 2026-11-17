@@ -9,18 +9,28 @@ import {
   STORAGE_OPS_PAGE_CONTRACTS,
   workspacePageLink,
 } from "../../navigation/workspacePages";
-
-const navSections: SidebarSection[] = [
-  {
-    links: [{ ...workspacePageLink(STORAGE_OPS_PAGE_CONTRACTS.dashboard), end: true, iconName: "home" }],
-  },
-  {
-    label: "Operations",
-    links: [workspacePageLink(STORAGE_OPS_PAGE_CONTRACTS.buckets)],
-  },
-];
+import { useI18n } from "../../i18n";
 
 export default function StorageOpsLayout() {
+  const { t } = useI18n();
+  const navSections: SidebarSection[] = [
+    {
+      links: [{
+        ...workspacePageLink(STORAGE_OPS_PAGE_CONTRACTS.dashboard),
+        label: t({ en: "Dashboard", fr: "Tableau de bord", de: "Dashboard", zh: "仪表盘" }),
+        end: true,
+        iconName: "home",
+      }],
+    },
+    {
+      label: t({ en: "Operations", fr: "Opérations", de: "Operationen", zh: "操作" }),
+      links: [{
+        ...workspacePageLink(STORAGE_OPS_PAGE_CONTRACTS.buckets),
+        label: t({ en: "Buckets", fr: "Buckets", de: "Buckets", zh: "Bucket" }),
+      }],
+    },
+  ];
+
   return (
     <Layout
       navSections={navSections}

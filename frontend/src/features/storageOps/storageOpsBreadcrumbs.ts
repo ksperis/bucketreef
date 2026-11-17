@@ -12,11 +12,13 @@ type StorageOpsPageId = keyof typeof STORAGE_OPS_PAGE_CONTRACTS;
 
 export function storageOpsPageBreadcrumbs(
   pageId: StorageOpsPageId,
+  pageLabel: string = STORAGE_OPS_PAGE_CONTRACTS[pageId].label,
   ...trailingBreadcrumbs: PageBreadcrumb[]
 ): PageBreadcrumb[] {
+  const page = { ...STORAGE_OPS_PAGE_CONTRACTS[pageId], label: pageLabel };
   return buildWorkspacePageBreadcrumbs(
     "storage-ops",
-    STORAGE_OPS_PAGE_CONTRACTS[pageId],
+    page,
     ...trailingBreadcrumbs,
   );
 }

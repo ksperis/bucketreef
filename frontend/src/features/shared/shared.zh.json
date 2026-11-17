@@ -757,5 +757,9 @@
   "The link request was sent to a superadministrator for approval.": "关联请求已发送给超级管理员审批。",
   "The sign-in account is linked. Redirecting…": "登录账户已关联。正在跳转…",
   "This account-linking request is unavailable or has expired.": "此账户关联请求不可用或已过期。",
-  "Unable to continue account linking. Check the entered credentials and try again.": "无法继续账户关联。请检查输入的凭据后重试。"
+  "Unable to continue account linking. Check the entered credentials and try again.": "无法继续账户关联。请检查输入的凭据后重试。",
+  "{count} result": "{count} 个结果",
+  "{count} results": "{count} 个结果",
+  "Storage usage metrics are unavailable for {count} visible context. Used and Objects are shown as — for those rows.": "{count} 个可见上下文无法提供存储使用指标。这些行的已用空间和对象数显示为 —。",
+  "Storage usage metrics are unavailable for {count} visible contexts. Used and Objects are shown as — for those rows.": "{count} 个可见上下文无法提供存储使用指标。这些行的已用空间和对象数显示为 —。"
 }

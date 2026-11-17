@@ -1,6 +1,8 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { CLIENT_STORAGE_KEYS } from "../../utils/clientStorage";
+import { LanguageProvider } from "../../components/language";
 
 const mocks = vi.hoisted(() => ({
   listCephAdminBuckets: vi.fn(),
@@ -193,14 +195,16 @@ const baseBucket = {
 
 function renderStorageOps() {
   return render(
-    <MemoryRouter>
-      <BucketOpsWorkbench
-        mode="storage-ops"
-        shell={{
-          pageDescription: "Storage Ops buckets",
-        }}
-      />
-    </MemoryRouter>
+    <LanguageProvider>
+      <MemoryRouter>
+        <BucketOpsWorkbench
+          mode="storage-ops"
+          shell={{
+            pageDescription: "Storage Ops buckets",
+          }}
+        />
+      </MemoryRouter>
+    </LanguageProvider>
   );
 }
 
@@ -325,6 +329,30 @@ describe("BucketOpsWorkbench atomic quota columns", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getAllByText("-")).toHaveLength(2);
+  });
+
+  it("localizes Storage Ops list counts and missing-metrics guidance in French", async () => {
+    window.localStorage.setItem(CLIENT_STORAGE_KEYS.languagePreference, "fr");
+    mocks.listStorageOpsBuckets.mockResolvedValue({
+      items: [
+        {
+          ...baseBucket,
+          used_bytes: null,
+          object_count: null,
+        },
+      ],
+      ...baseResponse,
+      total: 1,
+    });
+
+    renderStorageOps();
+
+    expect(
+      await screen.findByText(
+        "Les métriques d’utilisation du stockage sont indisponibles pour 1 contexte visible. Les colonnes Utilisé et Objets affichent — pour ces lignes.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("1 résultat")).toBeInTheDocument();
   });
 
   it("persists the current page and page size before opening a bucket", async () => {
