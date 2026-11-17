@@ -305,7 +305,7 @@ export default function BrowserOperationsPanel({
               </span>
               <span className="mt-0.5 flex min-w-0 items-center gap-2">
                 <span className={`shrink-0 rounded-md border px-1.5 py-0.5 ui-caption font-semibold ${dominantStatusClasses}`}>
-                  {dominantStatus}
+                  {text(dominantStatus)}
                 </span>
                 <span className="truncate ui-caption text-[var(--ui-text-muted)]">
                   {pendingOperationsCount > 0
