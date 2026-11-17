@@ -242,7 +242,7 @@ export const storageEndpointMessages = {
   metricsUnavailableReason: m("Metrics is locked because access to RGW bucket statistics was not detected. Valid Supervision Ops credentials are required.", "Les métriques sont verrouillées car l’accès aux statistiques des buckets RGW n’a pas été détecté. Des identifiants Supervision Ops valides sont requis.", "Metriken sind gesperrt, weil kein Zugriff auf RGW-Bucket-Statistiken erkannt wurde. Gültige Supervision-Ops-Anmeldedaten sind erforderlich.", "Metrics 已锁定，因为未检测到对 RGW 存储桶统计信息的访问权限。需要有效的 Supervision Ops 凭据。"),
   usageLogDisabledNotice: m("Usage Log does not seem enabled on RGW (`rgw_enable_usage_log`), so activity stats will not be populated.", "Le journal d’utilisation ne semble pas activé sur RGW (`rgw_enable_usage_log`) ; les statistiques d’activité ne seront donc pas alimentées.", "Das Nutzungsprotokoll scheint auf RGW (`rgw_enable_usage_log`) nicht aktiviert zu sein; Aktivitätsstatistiken werden daher nicht erfasst.", "RGW 上似乎未启用使用日志（`rgw_enable_usage_log`），因此不会生成活动统计。"),
   adminEnabled: m("Admin enabled", "Admin activé", "Admin aktiviert", "Admin 已启用"),
-  accountsEnabled: m("Accounts enabled", "Accounts activé", "Accounts aktiviert", "Accounts 已启用"),
+  accountsEnabled: m("Accounts enabled", "API de compte activée", "Accounts aktiviert", "Accounts 已启用"),
   usageLogEnabled: m("Usage Log enabled", "Journal d’utilisation activé", "Nutzungsprotokoll aktiviert", "使用日志已启用"),
   metricsEnabled: m("Metrics enabled", "Métriques activées", "Metriken aktiviert", "指标已启用"),
   snsTopicsEnabled: m("SNS topics enabled", "Sujets SNS activés", "SNS-Themen aktiviert", "SNS 主题已启用"),

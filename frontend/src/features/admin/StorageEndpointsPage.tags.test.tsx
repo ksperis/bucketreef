@@ -3,6 +3,7 @@ import { transferableAbortController } from "node:util";
 import { createMemoryRouter, MemoryRouter, Route, RouterProvider, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { StorageEndpointPayload } from "../../api/storageEndpoints";
+import { LanguageProvider } from "../../components/language";
 import StorageEndpointsPage from "./StorageEndpointsPage";
 import { setSessionUserCache } from "../../utils/workspaces";
 
@@ -46,12 +47,14 @@ function expectBefore(first: Element, second: Element) {
 
 function renderPage(initialEntry = "/admin/storage-endpoints") {
   return render(
-    <MemoryRouter initialEntries={[initialEntry]}>
-      <Routes>
-        <Route path="/admin/storage-endpoints" element={<StorageEndpointsPage />} />
-        <Route path="/admin/storage-endpoints/:endpointId" element={<StorageEndpointsPage />} />
-      </Routes>
-    </MemoryRouter>
+    <LanguageProvider>
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <Routes>
+          <Route path="/admin/storage-endpoints" element={<StorageEndpointsPage />} />
+          <Route path="/admin/storage-endpoints/:endpointId" element={<StorageEndpointsPage />} />
+        </Routes>
+      </MemoryRouter>
+    </LanguageProvider>
   );
 }
 
@@ -1160,6 +1163,16 @@ describe("StorageEndpointsPage tags", () => {
     expect(payload.features?.account.enabled).toBe(false);
     expect(payload.features?.usage.enabled).toBe(false);
     expect(payload.features?.metrics.enabled).toBe(false);
+  });
+
+  it("localizes the Account API capability label in French", async () => {
+    setSessionUserCache({ id: 1, role: "ui_superadmin", ui_language: "fr" });
+
+    renderPage("/admin/storage-endpoints/7");
+    await screen.findByRole("heading", { name: "Modifier l’endpoint de stockage · Ceph Endpoint" });
+    fireEvent.click(screen.getByRole("tab", { name: "Fonctionnalités et état" }));
+
+    expect(screen.getByRole("switch", { name: "API de compte activée" })).toBeInTheDocument();
   });
 
   it("preserves disabled Ceph service choices when detection reports them available", async () => {
