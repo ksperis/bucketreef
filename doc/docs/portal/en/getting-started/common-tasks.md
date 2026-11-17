@@ -3,7 +3,7 @@
 | What you want to do | Go to |
 |---|---|
 | Open a Storage Space | [Spaces](../spaces/index.md) |
-| Upload, download, preview, rename, move, or delete a file | [Files](../files/index.md) |
+| Upload, download, preview, or delete a file | [Files](../files/index.md) |
 | Recover or inspect an earlier file version | [Previous versions](../files/versions.md) |
 | Share a space with project members | [Collaboration](../collaboration.md) |
 | Review or revoke external file links | [Collaboration](../collaboration.md) |
