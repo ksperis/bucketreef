@@ -450,6 +450,9 @@ describe("ManagerMetricsPage", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "Usage history" }));
     expect(await screen.findByText("Latest storage")).toBeInTheDocument();
+    expect(screen.getByText("1 subject")).toBeInTheDocument();
+    expect(screen.getByText("2 buckets")).toBeInTheDocument();
+    expect(screen.getByText("1 period")).toBeInTheDocument();
     expect(screen.queryByText("Usage history trends")).not.toBeInTheDocument();
     expect(screen.getByText("Storage evolution").parentElement).not.toHaveClass("ui-surface-muted");
     expect(screen.getByText("Objects & buckets").parentElement).not.toHaveClass("ui-surface-muted");

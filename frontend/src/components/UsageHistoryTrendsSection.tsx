@@ -151,13 +151,17 @@ export default function UsageHistoryTrendsSection({
         <MetricsSnapshotCard
           label={labels?.latestStorage ?? text("latestStorage")}
           value={formatBytes(summary?.latest_used_bytes ?? 0)}
-          hint={labels?.latestStorageHint ?? text("subjectsCount", { count: formatCompactNumber(summary?.subjects_count ?? 0) })}
+          hint={labels?.latestStorageHint ?? text((summary?.subjects_count ?? 0) === 1 ? "subjectCount" : "subjectsCount", {
+            count: formatCompactNumber(summary?.subjects_count ?? 0),
+          })}
           loading={loading}
         />
         <MetricsSnapshotCard
           label={labels?.latestObjects ?? text("latestObjects")}
           value={formatCompactNumber(summary?.latest_used_objects ?? 0)}
-          hint={labels?.latestObjectsHint ?? text("bucketsCount", { count: formatCompactNumber(summary?.latest_bucket_count ?? 0) })}
+          hint={labels?.latestObjectsHint ?? text((summary?.latest_bucket_count ?? 0) === 1 ? "bucketCount" : "bucketsCount", {
+            count: formatCompactNumber(summary?.latest_bucket_count ?? 0),
+          })}
           loading={loading}
         />
         <MetricsSnapshotCard
@@ -169,7 +173,9 @@ export default function UsageHistoryTrendsSection({
         <MetricsSnapshotCard
           label={labels?.snapshots ?? text("snapshots")}
           value={formatCompactNumber(summary?.total_records ?? 0)}
-          hint={labels?.snapshotsHint ?? text("periodsCount", { count: formatCompactNumber(summary?.points_count ?? 0) })}
+          hint={labels?.snapshotsHint ?? text((summary?.points_count ?? 0) === 1 ? "periodCount" : "periodsCount", {
+            count: formatCompactNumber(summary?.points_count ?? 0),
+          })}
           loading={loading}
         />
       </div>

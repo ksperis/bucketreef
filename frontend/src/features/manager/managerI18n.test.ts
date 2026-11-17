@@ -21,6 +21,10 @@ describe("Manager i18n", () => {
     expect(managerText("Egress", "fr")).toBe("Trafic de sortie");
     expect(managerText("{count} op", "fr", { count: 1 })).toBe("1 opération");
     expect(managerText("{count} ops", "fr", { count: 33 })).toBe("33 opérations");
+    expect(managerText("{count} subject", "fr", { count: 1 })).toBe("1 sujet");
+    expect(managerText("{count} bucket", "fr", { count: 1 })).toBe("1 bucket");
+    expect(managerText("{count} period", "fr", { count: 1 })).toBe("1 période");
+    expect(managerText("{title} window", "fr", { title: "Historique d'utilisation" })).toBe("Période — Historique d'utilisation");
     expect(managerText("{count} topic notifications", "fr", { count: 2 })).toBe("2 notifications de topic");
     expect(managerText("{count} keys", "fr", { count: 2 })).toBe("2 clés");
     expect(managerText("Topic '{name}' created.", "fr", { name: "events" })).toBe("Topic « events » créé.");
