@@ -202,9 +202,9 @@ describe("PortalAccessKeysPage", () => {
   });
 
   it.each([
-    { language: "fr", name: "Fermer la fenêtre", text: "Fermer" },
-    { language: "de", name: "Dialog schließen", text: "Schließen" },
-  ])("localizes the modal close action in $language", async ({ language, name, text }) => {
+    { language: "fr", name: "Fermer la fenêtre", text: "Fermer", spaceLabel: "Espace" },
+    { language: "de", name: "Dialog schließen", text: "Schließen", spaceLabel: "Bereich" },
+  ])("localizes the connection dialog in $language", async ({ language, name, text, spaceLabel }) => {
     act(() => setSessionUserCache({ ui_language: language as "fr" | "de" }));
     renderPage();
 
@@ -213,6 +213,8 @@ describe("PortalAccessKeysPage", () => {
     await waitFor(() => expect(configureButton).toBeEnabled());
     await userEvent.click(configureButton);
 
+    const setupDialog = screen.getByRole("dialog");
+    expect(within(setupDialog).getByRole("combobox", { name: spaceLabel })).toBeInTheDocument();
     const closeButton = screen.getByRole("button", { name });
     expect(closeButton).toHaveTextContent(text);
   });

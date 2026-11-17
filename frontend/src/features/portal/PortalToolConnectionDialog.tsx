@@ -169,7 +169,7 @@ export default function PortalToolConnectionDialog({ accountId, activeKeys, endp
                     </UiSelect>
                     {selectedConnectionKeyBucket ? (
                       <div className="space-y-1">
-                        <span className={uiLabelClass}>{t({ en: "Space", fr: "Space", de: "Space", zh: "空间" })}</span>
+                        <span className={uiLabelClass}>{t({ en: "Space", fr: "Espace", de: "Bereich", zh: "空间" })}</span>
                         <p className={cx("min-h-10 rounded-lg border px-3 py-2 ui-body", uiPanelMutedClass, uiTitleTextClass)}>
                           {selectedConnectionKey?.storage_space_name || selectedConnection?.storageSpaceName || selectedConnectionKeyBucket}
                           {" — "}
@@ -182,7 +182,7 @@ export default function PortalToolConnectionDialog({ accountId, activeKeys, endp
                         </p>
                       </div>
                     ) : (
-                      <UiSelect label={t({ en: "Space", fr: "Space", de: "Space", zh: "空间" })}
+                      <UiSelect label={t({ en: "Space", fr: "Espace", de: "Bereich", zh: "空间" })}
                           value={selectedConnectionSpace?.id ?? ""}
                           onChange={(event) => onSelectionChange({ ...selection, spaceId: event.target.value })}
                           disabled={connectionSpacesLoading || connectionSpaces.length === 0}
@@ -190,7 +190,7 @@ export default function PortalToolConnectionDialog({ accountId, activeKeys, endp
                           {connectionSpacesLoading ? (
                             <option value="">{t({ en: "Loading...", fr: "Chargement...", de: "Wird geladen...", zh: "正在加载…" })}</option>
                           ) : connectionSpaces.length === 0 ? (
-                            <option value="">{t({ en: "No Space", fr: "Aucun Space", de: "Kein Space", zh: "没有空间" })}</option>
+                            <option value="">{t({ en: "No Space", fr: "Aucun espace", de: "Kein Bereich", zh: "没有空间" })}</option>
                           ) : (
                             connectionSpaces.map((space) => (
                               <option key={space.id} value={space.id}>{space.name}</option>
@@ -206,16 +206,16 @@ export default function PortalToolConnectionDialog({ accountId, activeKeys, endp
                 ) : null}
                 {selectedConnectionHasNoSpace ? (
                   <PageEmptyState
-                    eyebrow={t({ en: "Space required", fr: "Space requis", de: "Space erforderlich", zh: "需要空间" })}
-                    title={t({ en: "Create a Space to continue", fr: "Créez un Space pour continuer", de: "Erstellen Sie einen Space, um fortzufahren", zh: "创建空间以继续" })}
+                    eyebrow={t({ en: "Space required", fr: "Espace requis", de: "Bereich erforderlich", zh: "需要空间" })}
+                    title={t({ en: "Create a Space to continue", fr: "Créez un espace pour continuer", de: "Erstellen Sie einen Bereich, um fortzufahren", zh: "创建空间以继续" })}
                     description={t({
                       en: "The application needs a Space to use as its initial folder.",
-                      fr: "L'application a besoin d'un Space comme dossier initial.",
-                      de: "Die Anwendung benötigt einen Space als Startordner.",
+                      fr: "L'application a besoin d'un espace comme dossier initial.",
+                      de: "Die Anwendung benötigt einen Bereich als Startordner.",
                       zh: "应用需要一个空间作为初始文件夹。",
                     })}
                     primaryAction={{
-                      label: t({ en: "Create a Space", fr: "Créer un Space", de: "Space erstellen", zh: "创建空间" }),
+                      label: t({ en: "Create a Space", fr: "Créer un espace", de: "Bereich erstellen", zh: "创建空间" }),
                       to: "/portal/storage-spaces?create=1",
                     }}
                   />
@@ -245,8 +245,8 @@ export default function PortalToolConnectionDialog({ accountId, activeKeys, endp
                             <p className={cx("mt-2 ui-caption", uiMutedTextClass)}>
                               {t({
                                 en: "Browse files or mount the Space like a disk.",
-                                fr: "Parcourez les fichiers ou montez le Space comme un disque.",
-                                de: "Durchsuchen Sie Dateien oder binden Sie den Space wie ein Laufwerk ein.",
+                                fr: "Parcourez les fichiers ou montez l'espace comme un disque.",
+                                de: "Durchsuchen Sie Dateien oder binden Sie den Bereich wie ein Laufwerk ein.",
                                 zh: "浏览文件或将空间挂载为磁盘。",
                               })}
                             </p>
