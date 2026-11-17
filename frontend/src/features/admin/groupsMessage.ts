@@ -80,6 +80,11 @@ export const groupsMessage = {
   searchGroupOpenStackClouds: m("Search group OpenStack clouds", "搜索用户组 OpenStack 云"),
   loadingOpenStackClouds: m("Loading OpenStack clouds...", "正在加载 OpenStack 云…"),
   noOpenStackCloudsAvailable: m("No OpenStack clouds available.", "没有可用的 OpenStack 云。"),
+  allUsersName: m("All users", "所有用户"),
+  allUsersDescription: m(
+    "Built-in group containing every active BucketReef UI user.",
+    "包含所有活动 BucketReef UI 用户的内置用户组。",
+  ),
   allUsersImplicitMembership: m(
     "All active UI users are implicit members of this system group, including users created later. Membership cannot be edited.",
     "所有活动的 UI 用户都是此系统用户组的隐式成员，包括之后创建的用户。成员关系不可编辑。",

@@ -86,19 +86,25 @@ export default function AdminGroupsList({
         field: "name",
         primary: true,
         cellClassName: "min-w-[14rem]",
-        render: (group) => (
-          <div className="flex w-full items-center gap-2">
-            <GroupAvatar avatar={group.avatar} name={group.name} size="md" decorative />
-            <span className="min-w-0">
-              <span className="block truncate">{group.name}</span>
-              {group.description && (
-                <span className="mt-0.5 block truncate ui-caption font-normal text-slate-500 dark:text-slate-400">
-                  {group.description}
-                </span>
-              )}
-            </span>
-          </div>
-        ),
+        render: (group) => {
+          const displayName = group.system_key === "all_users" ? text("allUsersName") : group.name;
+          const displayDescription = group.system_key === "all_users"
+            ? text("allUsersDescription")
+            : group.description;
+          return (
+            <div className="flex w-full items-center gap-2">
+              <GroupAvatar avatar={group.avatar} name={group.name} size="md" decorative />
+              <span className="min-w-0">
+                <span className="block truncate">{displayName}</span>
+                {displayDescription && (
+                  <span className="mt-0.5 block truncate ui-caption font-normal text-slate-500 dark:text-slate-400">
+                    {displayDescription}
+                  </span>
+                )}
+              </span>
+            </div>
+          );
+        },
       },
       {
         id: "rights",

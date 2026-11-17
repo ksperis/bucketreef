@@ -2002,5 +2002,7 @@
   "SMTP is not configured.": "SMTP ist nicht konfiguriert.",
   "Use preset color {color}": "Voreingestellte Farbe {color} verwenden",
   "Targeted activation": "Gezielte Aktivierung",
-  "Enabled by default": "Standardmäßig aktiviert"
+  "Enabled by default": "Standardmäßig aktiviert",
+  "All users": "Alle Benutzer",
+  "Built-in group containing every active BucketReef UI user.": "Integrierte Gruppe mit allen aktiven BucketReef-UI-Benutzern."
 }

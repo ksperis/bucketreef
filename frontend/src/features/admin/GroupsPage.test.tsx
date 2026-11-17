@@ -6,6 +6,8 @@ import { DEFAULT_MANAGER_FEATURE_POLICIES, type ManagerFeaturePolicies } from ".
 import type { UiGroup } from "../../api/groups";
 import type { S3UserSummary } from "../../api/s3Users";
 import type { S3ConnectionSummary } from "../../api/s3ConnectionsAdmin";
+import { LanguageProvider } from "../../components/language";
+import { CLIENT_STORAGE_KEYS } from "../../utils/clientStorage";
 
 const listGroupsMock = vi.fn();
 const createGroupMock = vi.fn();
@@ -188,12 +190,13 @@ vi.mock("../../api/openstack", () => ({
 }));
 
 function renderPage() {
-  return render(<MemoryRouter><GroupsPage /></MemoryRouter>);
+  return render(<LanguageProvider><MemoryRouter><GroupsPage /></MemoryRouter></LanguageProvider>);
 }
 
 describe("GroupsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.removeItem(CLIENT_STORAGE_KEYS.languagePreference);
     window.history.replaceState({}, "", "/admin/groups");
     generalSettingsState.portal_enabled = false;
     generalSettingsState.managed_rgw_accounts_enabled = true;
@@ -850,6 +853,29 @@ describe("GroupsPage", () => {
       "All active UI users are implicit members of this system group, including users created later. Membership cannot be edited.",
     )).toBeInTheDocument();
     expect(within(form).getByRole("tab", { name: "Associations" })).toBeInTheDocument();
+  });
+
+  it("localizes the All users system group display without changing stored values", async () => {
+    localStorage.setItem(CLIENT_STORAGE_KEYS.languagePreference, "fr");
+    listGroupsMock.mockResolvedValue({
+      items: [{
+        id: 60,
+        name: "All users",
+        system_key: "all_users",
+        description: "Built-in group containing every active BucketReef UI user.",
+        account_links: [],
+      }],
+      total: 1,
+      page: 1,
+      page_size: 25,
+      has_next: false,
+    });
+
+    renderPage();
+
+    expect(await screen.findByText("Tous les utilisateurs")).toBeInTheDocument();
+    expect(screen.getByText("Groupe intégré contenant tous les utilisateurs UI BucketReef actifs.")).toBeInTheDocument();
+    expect(screen.queryByText("Built-in group containing every active BucketReef UI user.")).not.toBeInTheDocument();
   });
   it.each([false, true])("freezes the group draft during save and retains it after failure (edit=%s)", async (editing) => {
     listGroupsMock.mockResolvedValue({ items: [{ id: 50, name: "original-group", account_links: [] }], total: 1, page: 1, page_size: 25 });

@@ -1973,5 +1973,7 @@
   "SMTP is not configured.": "尚未配置 SMTP。",
   "Use preset color {color}": "使用预设颜色 {color}",
   "Targeted activation": "定向启用",
-  "Enabled by default": "默认启用"
+  "Enabled by default": "默认启用",
+  "All users": "所有用户",
+  "Built-in group containing every active BucketReef UI user.": "包含所有活动 BucketReef UI 用户的内置用户组。"
 }
