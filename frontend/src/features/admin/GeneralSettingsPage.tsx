@@ -242,13 +242,13 @@ export default function GeneralSettingsPage() {
         key={key}
         form={form}
         field={`general.${key}`}
-        title={title}
-        ariaLabel={`${title} feature`}
+        title={adminText(title)}
+        ariaLabel={adminText("{feature} feature", { feature: adminText(title) })}
         disabled={!locks || lock?.forced}
         experimental={experimental}
         description={
           <>
-            {description}
+            {adminText(description)}
             {lock?.forced && (
               <span className="block">
                 {adminText("Managed by the deployment")}</span>
@@ -407,12 +407,12 @@ export default function GeneralSettingsPage() {
           title={adminText("Guided setup")}
           description={
             !onboardingStatus
-              ? "Loading setup status…"
+              ? adminText("Loading setup status…")
               : onboardingStatus.complete
-                ? "Initial setup is complete. Run the assistant again to prepare another endpoint or access path."
+                ? adminText("Initial setup is complete. Run the assistant again to prepare another endpoint or access path.")
                 : onboardingStatus.dismissed
-                  ? "The assistant is hidden. You can show it again without changing the current configuration."
-                  : "Connect storage, choose Manager, Portal, private Browser access, monitoring or Ceph Admin, then provide only the required credentials."
+                  ? adminText("The assistant is hidden. You can show it again without changing the current configuration.")
+                  : adminText("Connect storage, choose Manager, Portal, private Browser access, monitoring or Ceph Admin, then provide only the required credentials.")
           }
           action={
             <SettingsButton
@@ -421,12 +421,12 @@ export default function GeneralSettingsPage() {
               onClick={() => void openOnboarding()}
             >
               {onboardingBusy
-                ? "Opening…"
+                ? adminText("Opening…")
                 : onboardingStatus?.complete
-                  ? "Run setup assistant again"
+                  ? adminText("Run setup assistant again")
                   : onboardingStatus?.dismissed
-                    ? "Show setup assistant"
-                    : "Open setup assistant"}
+                    ? adminText("Show setup assistant")
+                    : adminText("Open setup assistant")}
             </SettingsButton>
           }
         />
@@ -520,7 +520,10 @@ export default function GeneralSettingsPage() {
         <SettingsItem
           compact
           title={adminText("Account ID prefix")}
-          description={`Generated IDs keep the RGW + 17 digits format. Current pattern: RGW${String(form.draft["general.rgw_account_id_prefix"] ?? "")}…`}
+          description={adminText(
+            "Generated IDs keep the RGW + 17 digits format. Current pattern: RGW{prefix}…",
+            { prefix: String(form.draft["general.rgw_account_id_prefix"] ?? "") },
+          )}
           action={
             <SettingsField
               name="general.rgw_account_id_prefix"
@@ -646,7 +649,7 @@ export default function GeneralSettingsPage() {
           description={
             form.draft["quota_notifications.smtp_host"]
               ? `${form.draft["quota_notifications.smtp_host"]}:${form.draft["quota_notifications.smtp_port"]}`
-              : "SMTP is not configured."
+              : adminText("SMTP is not configured.")
           }
           action={
             <SettingsButton
@@ -677,7 +680,7 @@ export default function GeneralSettingsPage() {
                   type="button"
                   className="h-11 w-11 lg:h-8 lg:w-8 rounded border border-[var(--ui-border)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
                   style={{ backgroundColor: value }}
-                  aria-label={`Use preset color ${value}`}
+                  aria-label={adminText("Use preset color {color}", { color: value })}
                   onClick={() => form.setValue("branding.primary_color", value)}
                 />
               ))}

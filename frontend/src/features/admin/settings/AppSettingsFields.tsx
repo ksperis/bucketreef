@@ -28,21 +28,6 @@ type Props = {
   disabled?: boolean;
 };
 
-const featurePolicyOptions = [
-  {
-    value: "disabled",
-    label: "Disabled",
-    symbol: "×",
-    selectedClassName: "settings-tristate-option-disabled-selected",
-  },
-  { value: "targeted", label: "Targeted activation", symbol: "◎" },
-  { value: "default_on", label: "Enabled by default", symbol: "✓" },
-] satisfies readonly [
-  SettingsTriStateOption<FeaturePolicy>,
-  SettingsTriStateOption<FeaturePolicy>,
-  SettingsTriStateOption<FeaturePolicy>,
-];
-
 export const FEATURE_POLICY_SECTION_DESCRIPTION =
   "Choose whether features are blocked, explicitly granted, or enabled by default. Storage permissions still apply.";
 
@@ -131,6 +116,20 @@ export function AppSettingsPolicy({ form, field, title, description, summary, de
   const { text } = useAppSettingsI18n();
   const policy = String(form.draft[field] ?? "disabled") as FeaturePolicy;
   const warningActive = defaultOnWarning && policy === "default_on";
+  const featurePolicyOptions = [
+    {
+      value: "disabled",
+      label: text("disabled"),
+      symbol: "×",
+      selectedClassName: "settings-tristate-option-disabled-selected",
+    },
+    { value: "targeted", label: text("targetedActivation"), symbol: "◎" },
+    { value: "default_on", label: text("enabledByDefault"), symbol: "✓" },
+  ] satisfies readonly [
+    SettingsTriStateOption<FeaturePolicy>,
+    SettingsTriStateOption<FeaturePolicy>,
+    SettingsTriStateOption<FeaturePolicy>,
+  ];
   return <SettingsItem compact title={title} help={description}
     status={warningActive ? (
       <UiInfoTooltip

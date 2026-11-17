@@ -6,7 +6,9 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppSettings, GeneralFeatureLocks, QuotaNotificationSettings } from "../../api/appSettings";
 import { ApiError } from "../../api/client";
+import { LanguageProvider } from "../../components/language";
 import GeneralSettingsPage from "./GeneralSettingsPage";
+import { CLIENT_STORAGE_KEYS } from "../../utils/clientStorage";
 
 const setGeneralSettingsMock = vi.fn();
 const fetchAppSettingsMock = vi.fn<() => Promise<AppSettings>>();
@@ -71,17 +73,20 @@ function unlockedFeatureLocks(): GeneralFeatureLocks {
 
 function renderPage() {
   return render(
-    <MemoryRouter>
-      <ThemeProvider>
-        <GeneralSettingsPage />
-      </ThemeProvider>
-    </MemoryRouter>,
+    <LanguageProvider>
+      <MemoryRouter>
+        <ThemeProvider>
+          <GeneralSettingsPage />
+        </ThemeProvider>
+      </MemoryRouter>
+    </LanguageProvider>,
   );
 }
 
 describe("GeneralSettingsPage branding", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.removeItem(CLIENT_STORAGE_KEYS.languagePreference);
     const initialSettings = buildSettings();
     fetchAppSettingsMock.mockResolvedValue(initialSettings);
     fetchGeneralFeatureLocksMock.mockResolvedValue(unlockedFeatureLocks());
@@ -340,6 +345,33 @@ describe("GeneralSettingsPage branding", () => {
     expect(screen.getByLabelText("OpenStack Clouds feature")).toBeInTheDocument();
     expect(screen.getByText("Enable shared, Admin-managed S3 connections that can be assigned to users and groups.")).toBeInTheDocument();
     expect(screen.getByText("Enable user-owned S3 connections managed from Profile and used in personal Browser and Manager contexts.")).toBeInTheDocument();
+  });
+
+  it("localizes general settings feature copy and policies in French", async () => {
+    localStorage.setItem(CLIENT_STORAGE_KEYS.languagePreference, "fr");
+    fetchOnboardingStatusMock.mockResolvedValueOnce({
+      dismissed: false,
+      complete: true,
+      journeys: [],
+      can_configure: true,
+      source: "standard",
+    });
+
+    renderPage();
+
+    expect(await screen.findByText("Durcissement pour la production")).toBeInTheDocument();
+    expect(screen.getByText("La configuration initiale est terminée. Relancez l’assistant pour préparer un autre endpoint ou chemin d’accès.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Relancer l’assistant de configuration" })).toBeInTheDocument();
+    expect(screen.getByText("Espace d’administration du stockage.")).toBeInTheDocument();
+    expect(screen.getByText("Exploration des objets et des Buckets.")).toBeInTheDocument();
+    expect(screen.getByText("SMTP n’est pas configuré.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Utiliser la couleur prédéfinie #0569f8" })).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Fonctionnalité Clouds OpenStack" })).toBeInTheDocument();
+
+    const statistics = screen.getByRole("radiogroup", { name: "Composition des buckets" });
+    expect(within(statistics).getByRole("radio", { name: "Activé par défaut" })).toBeChecked();
+    const collection = screen.getByRole("radiogroup", { name: "Collecte automatique de la composition des Buckets" });
+    expect(within(collection).getByRole("radio", { name: "Activation ciblée" })).toBeChecked();
   });
 
   it("sends a quota SMTP test email with current quota notification settings", async () => {
