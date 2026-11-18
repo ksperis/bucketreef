@@ -57,6 +57,14 @@ def expected_names(names):
     return result
 
 
+def job_matches_sha(job, sha):
+    commit = job.get("commit")
+    if commit is not None:
+        return isinstance(commit, dict) and commit.get("id") == sha
+    pipeline = job.get("pipeline")
+    return isinstance(pipeline, dict) and pipeline.get("sha") == sha
+
+
 def successful_jobs(jobs, expected, sha):
     found = {}
     for job in jobs:
@@ -64,7 +72,7 @@ def successful_jobs(jobs, expected, sha):
         if name in expected:
             if name in found:
                 raise ValueError(f"Ambiguous validation job: {name}")
-            if job["status"] != "success" or job.get("allow_failure") or job["commit"]["id"] != sha:
+            if job["status"] != "success" or job.get("allow_failure") or not job_matches_sha(job, sha):
                 raise ValueError(f"Unsuccessful or mismatched validation: {name}")
             found[name] = job["id"]
     if set(found) != set(expected):
@@ -103,7 +111,7 @@ def completed_records(api, ref, filename="integration.json", sha=None):
                 continue
             jobs = api.jobs(child["id"])
             ready = [job for job in jobs if job["name"] == "integration-ready" and job["status"] == "success"
-                     and not job.get("allow_failure") and job["commit"]["id"] == parent["sha"]]
+                     and not job.get("allow_failure") and job_matches_sha(job, parent["sha"])]
             if len(ready) != 1:
                 continue
             raw = api.artifact(ready[0]["id"], filename)

@@ -437,6 +437,17 @@ def test_baseline_uses_completed_integration_not_documentation():
     assert latest_baseline(BaselineAPI(), 'main') == 'b'*40
 
 
+def test_baseline_accepts_child_jobs_without_commit_payload():
+    api = BaselineAPI()
+    original = api.jobs
+    api.jobs = lambda child_id: [
+        {**job, 'commit': None, 'pipeline': {'sha': job['commit']['id']}}
+        for job in original(child_id)
+    ]
+
+    assert latest_baseline(api, 'main') == 'b' * 40
+
+
 def test_historical_matrix_names_do_not_depend_on_current_expansion_rules():
     jobs = [
         {'name': 'backend-tests'},
@@ -463,6 +474,12 @@ def test_job_api_read_never_accepts_allow_failure_or_wrong_sha():
     with pytest.raises(ValueError): successful_jobs([job],['ceph'],'a'*40)
     job['allow_failure']=False
     with pytest.raises(ValueError): successful_jobs([job],['ceph'],'b'*40)
+    job['commit']=None
+    job['pipeline']={'sha':'a'*40}
+    assert successful_jobs([job],['ceph'],'a'*40) == {'ceph':1}
+    with pytest.raises(ValueError): successful_jobs([job],['ceph'],'b'*40)
+    job.pop('pipeline')
+    with pytest.raises(ValueError): successful_jobs([job],['ceph'],'a'*40)
 
 
 @pytest.mark.parametrize('status', ['canceled','failed','running'])
