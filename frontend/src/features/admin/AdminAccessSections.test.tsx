@@ -112,3 +112,73 @@ describe("additive Manager grants", () => {
     expect(grant).toBeDisabled();
   });
 });
+
+describe("UI Group Manager grants", () => {
+  const groupTools = [{ ...tools[0], platformDefault: false }];
+
+  it("shows ordinary group grants as switches without effective-state labels", () => {
+    const { rerender } = render(
+      <ManagerToolAccessSection
+        title="Tools"
+        description="Permissions"
+        tools={groupTools}
+        effectiveAccessPresentation="exceptions-only"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("switch", { name: "Bucket compare" })).not.toBeChecked();
+    expect(screen.queryByText("Disabled")).not.toBeInTheDocument();
+    expect(screen.queryByText("No grant")).not.toBeInTheDocument();
+    expect(screen.queryByText("Direct grant")).not.toBeInTheDocument();
+
+    rerender(
+      <ManagerToolAccessSection
+        title="Tools"
+        description="Permissions"
+        tools={groupTools}
+        access={{ ...DEFAULT_MANAGER_TOOL_ACCESS, bucket_compare: true }}
+        effectiveAccessPresentation="exceptions-only"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("switch", { name: "Bucket compare" })).toBeChecked();
+    expect(screen.queryByText("Enabled")).not.toBeInTheDocument();
+    expect(screen.queryByText("Direct")).not.toBeInTheDocument();
+    expect(screen.queryByText("Direct grant")).not.toBeInTheDocument();
+  });
+
+  it("keeps platform-default provenance visible without a Direct grant label", () => {
+    render(
+      <ManagerToolAccessSection
+        title="Tools"
+        description="Permissions"
+        tools={tools}
+        effectiveAccessPresentation="exceptions-only"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Enabled")).toBeVisible();
+    expect(screen.getByText("Platform")).toBeVisible();
+    expect(screen.queryByText("Direct grant")).not.toBeInTheDocument();
+  });
+
+  it("keeps platform-unavailable provenance visible without a Direct grant label", () => {
+    const blockedTools = [{ ...tools[0], enabled: false, platformDefault: false }];
+    render(
+      <ManagerToolAccessSection
+        title="Tools"
+        description="Permissions"
+        tools={blockedTools}
+        effectiveAccessPresentation="exceptions-only"
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Unavailable")).toBeVisible();
+    expect(screen.getByText("Platform")).toBeVisible();
+    expect(screen.queryByText("Direct grant")).not.toBeInTheDocument();
+  });
+});

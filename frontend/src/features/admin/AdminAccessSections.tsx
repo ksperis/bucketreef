@@ -147,6 +147,7 @@ export function ManagerToolAccessSection({
   additionalItems = [],
   eligible = true,
   inheritedAccess,
+  effectiveAccessPresentation = "detailed",
 }: {
   title: string;
   description: string;
@@ -157,6 +158,7 @@ export function ManagerToolAccessSection({
   additionalItems?: WorkspaceAccessToggle[];
   eligible?: boolean;
   inheritedAccess?: ManagerToolAccess | null;
+  effectiveAccessPresentation?: "detailed" | "exceptions-only";
 }) {
   const { text: adminText } = useAdminI18n();
   const normalizedAccess = normalizeManagerToolAccess(access);
@@ -171,13 +173,14 @@ export function ManagerToolAccessSection({
     platformDefault: boolean;
     inherited: boolean;
     blocked: boolean;
-  }): NonNullable<WorkspaceAccessToggle["effective"]> => {
+  }): WorkspaceAccessToggle["effective"] => {
     if (blocked) {
       return {
         state: "unavailable",
         stateLabel: adminText("Unavailable"),
         sourceLabel: adminText("Platform"),
-        localLabel: adminText("Direct grant"),
+        localLabel:
+          effectiveAccessPresentation === "detailed" ? adminText("Direct grant") : undefined,
       };
     }
     if (!eligible) {
@@ -185,7 +188,8 @@ export function ManagerToolAccessSection({
         state: "unavailable",
         stateLabel: adminText("Unavailable"),
         sourceLabel: adminText("Role required"),
-        localLabel: adminText("Direct grant"),
+        localLabel:
+          effectiveAccessPresentation === "detailed" ? adminText("Direct grant") : undefined,
       };
     }
     if (platformDefault) {
@@ -193,8 +197,12 @@ export function ManagerToolAccessSection({
         state: "enabled",
         stateLabel: adminText("Enabled"),
         sourceLabel: adminText("Platform"),
-        localLabel: adminText("Direct grant"),
+        localLabel:
+          effectiveAccessPresentation === "detailed" ? adminText("Direct grant") : undefined,
       };
+    }
+    if (effectiveAccessPresentation === "exceptions-only") {
+      return undefined;
     }
     if (direct) {
       return {

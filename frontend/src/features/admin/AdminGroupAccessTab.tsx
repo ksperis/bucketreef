@@ -53,6 +53,7 @@ export default function AdminGroupAccessTab({ form, setForm }: AdminGroupAccessT
       />
       <ManagerToolAccessSection
         title={text("manager")}
+        effectiveAccessPresentation="exceptions-only"
         additionalItems={[
           {
             title: text("provisionManagedPrivateConnections"),
