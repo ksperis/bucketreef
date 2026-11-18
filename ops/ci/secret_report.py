@@ -2,7 +2,6 @@
 import hashlib
 import json
 from pathlib import Path
-import subprocess
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -37,80 +36,6 @@ AWS_FIXTURES = {
 }
 AWS_FIXTURES["ops/ci/secret_report.py"] = set().union(*AWS_FIXTURES.values())
 
-# Removed localhost PostgreSQL examples used the project name as user/password.
-# Bind each exception to its original commit and exact extract fingerprint, so
-# a reintroduction or changed example still requires review.
-HISTORICAL_ENV_EXAMPLES = {
-    "97df1e1e8bd66688d7c1a1313cc42b4d9f3756a8": "1411cd74bd00b0848b09c81f8355ee14b52b9b298733e58d4fc33b3fc6d308c4",
-    "0d471c7552f76702635cdd49f9862064f7855db1": "39b2693267f2b98d60b9b8d7a322bbdf60ab08c75694ceeb179d397489c606f3",
-    "6474d5df6762d042c2ed1b580d57e316a1d6d9cc": "66d665e329993237af528672abaed0799041da1bdc3ec4d8cf7635b98e1ed1b9",
-}
-
-# GitLab secret analyzer 7 can omit the originating commit for findings from
-# the scanned history. Keep the fallback exact by path and extract digest, and
-# accept it only after the matched value has disappeared from the current file.
-REMOVED_PASSWORD_URL_FIXTURES = {
-    "backend/.env.example": set(HISTORICAL_ENV_EXAMPLES.values()),
-    "backend/tests/test_admin_onboarding.py": {
-        "789843487b075417c068e27849039ac4917bfe65950127f5958a1d61a997a59d",
-        "ca122f2fef05b2c5eedcacfac7daec5bf60b96c4a2bb92e17d1adba547ae5783",
-    },
-    "deploy/compose/.env.example": {
-        "41475cc279b00bb2db4a32baa4d8e31525abfed44bb29cbff4f09769e1e89cc6",
-    },
-    "backend/tests/test_browser_transfer_policy.py": {
-        "07a8fa2513d651c8593c2c08943f9eeae32df86ae796eae60ab88d2aeec8a391",
-    },
-    "frontend/src/features/browser/browserDirectTransfer.test.ts": {
-        "80a255b495906586cb7eeb3b6aac63c5ee70d27689517d8292616d31950be480",
-    },
-}
-REMOVED_PASSWORD_URL_BOUNDARIES = {
-    "backend/.env.example": "20928ea6415bf5bd5ee23fe271d7ffaea4764bd5",
-    "backend/tests/test_admin_onboarding.py": "54e42de088d8ba3208657410e984cd307c4c1f8e",
-    "deploy/compose/.env.example": "3900ea5bfaf9eac3189ce1bf9ce37936ab0f130b",
-    "backend/tests/test_browser_transfer_policy.py": "767e5f65fa38bb3b05fac15e1c8a6b301e0293ec",
-    "frontend/src/features/browser/browserDirectTransfer.test.ts": "767e5f65fa38bb3b05fac15e1c8a6b301e0293ec",
-}
-CURRENT_PATHS = {
-    "deploy/compose/.env.example": "deploy/bundle/.env.example",
-}
-
-
-def is_removed_password_url_fixture(path, extract):
-    digest = hashlib.sha256(extract.encode()).hexdigest()
-    if digest not in REMOVED_PASSWORD_URL_FIXTURES.get(path, set()):
-        return False
-    try:
-        current = (ROOT / CURRENT_PATHS.get(path, path)).read_text()
-    except (OSError, UnicodeError):
-        return False
-    return extract not in current
-
-
-def is_placeholder_commit_sha(commit_sha):
-    return isinstance(commit_sha, str) and bool(commit_sha) and set(commit_sha) == {"0"}
-
-
-def is_pre_removal_commit(path, commit_sha):
-    if not commit_sha or is_placeholder_commit_sha(commit_sha):
-        return True
-    boundary = REMOVED_PASSWORD_URL_BOUNDARIES.get(path)
-    if not boundary:
-        return False
-    try:
-        subprocess.run(
-            ["git", "merge-base", "--is-ancestor", commit_sha, f"{boundary}^"],
-            check=True,
-            cwd=ROOT,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-    except (OSError, subprocess.CalledProcessError):
-        return False
-    return True
-
-
 def finding_metadata(item):
     location = item.get("location", {})
     extract = item.get("raw_source_code_extract")
@@ -143,14 +68,7 @@ def is_test_fixture(item):
         return False
     if extract in FIXTURE_LOCATIONS.get(path, set()):
         return True
-    digest = hashlib.sha256(extract.encode()).hexdigest()
-    if (path == "backend/.env.example"
-            and HISTORICAL_ENV_EXAMPLES.get(location.get("commit", {}).get("sha")) == digest):
-        return True
-    commit_sha = location.get("commit", {}).get("sha")
-    if not is_pre_removal_commit(path, commit_sha):
-        return False
-    return is_removed_password_url_fixture(path, extract)
+    return False
 
 
 def summarize(report):

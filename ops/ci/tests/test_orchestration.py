@@ -1,7 +1,6 @@
 import copy
 import json
 from pathlib import Path
-import re
 import subprocess
 import sys
 
@@ -12,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from gitlab_api import evidence_job_names, expected_names, successful_jobs, latest_baseline
 from plan import ROOT, PUBLIC, select
 from render_gitlab import render
-from secret_report import AWS_FIXTURES, FIXTURE_LOCATIONS, HISTORICAL_ENV_EXAMPLES, finding_metadata, summarize
+from secret_report import AWS_FIXTURES, FIXTURE_LOCATIONS, finding_metadata, summarize
 from ceph_result import verify
 
 
@@ -240,157 +239,6 @@ def test_synthetic_aws_identifiers_require_exact_value_rule_and_file(path, extra
         changed = copy.deepcopy(report)
         changed['vulnerabilities'][0][field] = value
         assert len(summarize(changed)) == 1
-
-
-@pytest.mark.parametrize('commit', HISTORICAL_ENV_EXAMPLES)
-def test_removed_localhost_examples_are_bound_to_the_original_commit(commit, monkeypatch):
-    # Exercise the actual historic example without copying retired identifiers
-    # or example credentials into current source files and scanner findings.
-    source = subprocess.check_output(['git', 'show', f'{commit}:backend/.env.example'], cwd=ROOT, text=True)
-    extract, = re.findall(r'postgresql\+psycopg://[^:\s]+:[^@\s]+@[^:/\s]+', source)
-    finding = {'location': {'file': 'backend/.env.example', 'commit': {'sha': commit}},
-               'raw_source_code_extract': extract,
-               'identifiers': [{'type': 'gitleaks_rule_id', 'value': 'Password in URL'}]}
-    report = {'scan': {'status': 'success'}, 'vulnerabilities': [finding]}
-    assert summarize(report) == []
-    without_commit = copy.deepcopy(report)
-    without_commit['vulnerabilities'][0]['location'].pop('commit')
-    assert summarize(without_commit) == []
-    placeholder_commit = copy.deepcopy(report)
-    placeholder_commit['vulnerabilities'][0]['location']['commit'] = {'sha': '0000000'}
-    assert summarize(placeholder_commit) == []
-    full_placeholder_commit = copy.deepcopy(report)
-    full_placeholder_commit['vulnerabilities'][0]['location']['commit'] = {'sha': '0' * 40}
-    assert summarize(full_placeholder_commit) == []
-    with monkeypatch.context() as scoped:
-        scoped.setattr(Path, 'read_text', lambda self: extract)
-        assert len(summarize(without_commit)) == 1
-    for field, value in (
-        ('location', {'file': 'backend/.env.example', 'commit': {'sha': 'a' * 40}}),
-        ('location', {'file': 'backend/app/config.py', 'commit': {'sha': commit}}),
-        ('raw_source_code_extract', extract + '.example.com'),
-        ('identifiers', [{'type': 'gitleaks_rule_id', 'value': 'AWS'}]),
-    ):
-        changed = copy.deepcopy(report)
-        changed['vulnerabilities'][0][field] = value
-        assert len(summarize(changed)) == 1
-
-
-@pytest.mark.parametrize('commit,line', [
-    ('c89e196026d1e085d3c31746d2390ab4d0f8015a', 55),
-    ('e013194c9439fc2f728ba7d16035c4e77edada4a', 68),
-])
-def test_removed_onboarding_password_urls_work_without_report_commit(commit, line):
-    source = subprocess.check_output(
-        ['git', 'show', f'{commit}:backend/tests/test_admin_onboarding.py'],
-        cwd=ROOT, text=True,
-    ).splitlines()[line - 1]
-    extract, = re.findall(r'https://[^"\s]+', source)
-    finding = {
-        'location': {'file': 'backend/tests/test_admin_onboarding.py', 'start_line': line},
-        'raw_source_code_extract': extract,
-        'identifiers': [{'type': 'gitleaks_rule_id', 'value': 'Password in URL'}],
-    }
-    report = {'scan': {'status': 'success'}, 'vulnerabilities': [finding]}
-    assert summarize(report) == []
-    finding['location']['commit'] = {'sha': '0000000'}
-    assert summarize(report) == []
-    finding['location']['commit'] = {'sha': '0' * 40}
-    assert summarize(report) == []
-    changed = copy.deepcopy(report)
-    changed['vulnerabilities'][0]['raw_source_code_extract'] = extract + '.changed'
-    assert len(summarize(changed)) == 1
-
-
-@pytest.mark.parametrize("path,line", [
-    ("backend/tests/test_browser_transfer_policy.py", 35),
-    ("frontend/src/features/browser/browserDirectTransfer.test.ts", 130),
-])
-def test_removed_direct_transfer_userinfo_urls_are_exact_historical_fixtures(path, line):
-    commit = "7baf73ba4b63f5fcdb3b46d375e1b88aab5758fb"
-    source = subprocess.check_output(
-        ["git", "show", f"{commit}:{path}"],
-        cwd=ROOT,
-        text=True,
-    ).splitlines()[line - 1]
-    extract, = re.findall(r"https://[^:\"\s]+:[^@\"\s]+@[^:/\"\s]+", source)
-    finding = {
-        "location": {"file": path, "start_line": line, "commit": {"sha": commit}},
-        "raw_source_code_extract": extract,
-        "identifiers": [{"type": "gitleaks_rule_id", "value": "Password in URL"}],
-    }
-    report = {"scan": {"status": "success"}, "vulnerabilities": [finding]}
-    assert summarize(report) == []
-    changed = copy.deepcopy(report)
-    changed["vulnerabilities"][0]["raw_source_code_extract"] = extract + ".changed"
-    assert len(summarize(changed)) == 1
-    finding["location"]["commit"] = {"sha": "767e5f65fa38bb3b05fac15e1c8a6b301e0293ec"}
-    assert len(summarize(report)) == 1
-
-
-def test_removed_password_url_accepts_pre_removal_report_commit_only():
-    source = subprocess.check_output(
-        ['git', 'show', 'c89e196026d1e085d3c31746d2390ab4d0f8015a:backend/tests/test_admin_onboarding.py'],
-        cwd=ROOT, text=True,
-    ).splitlines()[54]
-    extract, = re.findall(r'https://[^"\s]+', source)
-    finding = {
-        'location': {
-            'file': 'backend/tests/test_admin_onboarding.py',
-            'start_line': 55,
-            'commit': {'sha': '0552282df4531a91c60d0f79f2f3697f3f81184d'},
-        },
-        'raw_source_code_extract': extract,
-        'identifiers': [{'type': 'gitleaks_rule_id', 'value': 'Password in URL'}],
-    }
-    report = {'scan': {'status': 'success'}, 'vulnerabilities': [finding]}
-    assert summarize(report) == []
-    finding['location']['commit'] = {'sha': '54e42de088d8ba3208657410e984cd307c4c1f8e'}
-    assert len(summarize(report)) == 1
-
-
-def test_removed_env_url_accepts_pre_removal_report_commit_only():
-    source = subprocess.check_output(
-        ['git', 'show', '97df1e1e8bd66688d7c1a1313cc42b4d9f3756a8:backend/.env.example'],
-        cwd=ROOT, text=True,
-    )
-    extract, = re.findall(r'postgresql\+psycopg://[^:\s]+:[^@\s]+@[^:/\s]+', source)
-    finding = {
-        'location': {
-            'file': 'backend/.env.example',
-            'commit': {'sha': '00836399fb0a2637718945355d5a7d065e2cc7d8'},
-        },
-        'raw_source_code_extract': extract,
-        'identifiers': [{'type': 'gitleaks_rule_id', 'value': 'Password in URL'}],
-    }
-    report = {'scan': {'status': 'success'}, 'vulnerabilities': [finding]}
-    assert summarize(report) == []
-    finding['location']['commit'] = {'sha': '20928ea6415bf5bd5ee23fe271d7ffaea4764bd5'}
-    assert len(summarize(report)) == 1
-
-
-def test_removed_compose_example_is_bound_to_the_removed_historical_value():
-    source = subprocess.check_output(
-        ['git', 'show', '4eafda697620b5f88da52377679c55182ffeada6:deploy/compose/.env.example'],
-        cwd=ROOT,
-        text=True,
-    )
-    extract, = re.findall(r'postgresql\+psycopg://[^:\s]+:[^@\s]+@[^/\s]+', source)
-    finding = {
-        'location': {
-            'file': 'deploy/compose/.env.example',
-            'commit': {'sha': '4eafda697620b5f88da52377679c55182ffeada6'},
-        },
-        'raw_source_code_extract': extract,
-        'identifiers': [{'type': 'gitleaks_rule_id', 'value': 'Password in URL'}],
-    }
-    report = {'scan': {'status': 'success'}, 'vulnerabilities': [finding]}
-    assert summarize(report) == []
-    changed = copy.deepcopy(report)
-    changed['vulnerabilities'][0]['raw_source_code_extract'] = extract + '.changed'
-    assert len(summarize(changed)) == 1
-    finding['location']['commit'] = {'sha': '3900ea5bfaf9eac3189ce1bf9ce37936ab0f130b'}
-    assert len(summarize(report)) == 1
 
 
 @pytest.mark.parametrize('body', ['', '<skipped/>', '<failure/>', '<error/>'])
