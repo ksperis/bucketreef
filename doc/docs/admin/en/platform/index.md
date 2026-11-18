@@ -195,6 +195,23 @@ catalogue loading error provides **Retry** without hiding existing links.
 The **Advanced** association dialog applies its setting to the account draft;
 save the account to persist it.
 
+**Settings** follows the UI association tabs. **Services and monitoring** is
+the first section and contains the account-specific service overrides. The
+**Limits** section edits the RGW Account limits for maximum buckets, users,
+roles and groups. These values are read directly from RGW through the endpoint
+Admin Ops credentials and are not stored in the BucketReef database. Leave a
+field empty to clear the corresponding RGW limit, which sends the RGW value
+`0`. Limit fields require verified `accounts=write` permission and remain
+read-only when that permission is unavailable. Invalid values must be
+non-negative integers and return the editor to **Settings**.
+
+RGW User editing uses the same **General**, **Linked UI users**, **Linked UI
+groups**, **Settings**, then **Manager features** flow. Its **Settings** tab
+also starts with **Services and monitoring**, followed by **Limits** with the
+RGW User **Max buckets** value. The value is loaded from the current RGW user
+detail, keeps the RGW tenant identity, and requires `users=write` to change.
+Leaving the field empty clears the limit through RGW value `0`.
+
 **Manager features** separates optional BucketReef access-key extensions from
 privileged Ceph operations. **Access-key extensions** contains the opt-ins for
 access-key names and notes and access-key expiration. **Privileged Ceph

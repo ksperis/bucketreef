@@ -119,6 +119,7 @@ class S3AccountQueryService:
         used_bytes = used_objects = bucket_count = None
         rgw_user_count = rgw_user_uids = rgw_topic_count = rgw_topics = None
         quota_max_size_gb = quota_max_objects = None
+        max_buckets = max_users = max_roles = max_groups = None
         if include_usage_stats:
             used_bytes, used_objects, bucket_count = self.metrics.get_usage(execution_context)
         admin = None
@@ -143,6 +144,10 @@ class S3AccountQueryService:
             account,
             quota_max_size_gb=quota_max_size_gb,
             quota_max_objects=quota_max_objects,
+            max_buckets=max_buckets,
+            max_users=max_users,
+            max_roles=max_roles,
+            max_groups=max_groups,
             used_bytes=used_bytes,
             used_objects=used_objects,
             rgw_user_count=rgw_user_count,
@@ -250,6 +255,12 @@ class S3AccountQueryService:
         admin = self.rgw_context.admin_for_account(account, allow_missing=True)
         rgw_user_count = rgw_user_uids = rgw_topic_count = rgw_topics = None
         quota_max_size_gb, quota_max_objects = self.metrics.get_quota(execution_context, admin)
+        max_buckets = max_users = max_roles = max_groups = None
+        if admin is not None:
+            _, _, max_buckets, max_users, max_roles, max_groups = self.metrics.get_limits(
+                execution_context,
+                admin,
+            )
         endpoint = self.rgw_context.resolve_storage_endpoint(account.storage_endpoint_id)
         endpoint_capabilities = self.rgw_context.endpoint_capabilities(endpoint)
         if admin:
@@ -269,6 +280,10 @@ class S3AccountQueryService:
             account,
             quota_max_size_gb=quota_max_size_gb,
             quota_max_objects=quota_max_objects,
+            max_buckets=max_buckets,
+            max_users=max_users,
+            max_roles=max_roles,
+            max_groups=max_groups,
             used_bytes=used_bytes,
             used_objects=used_objects,
             bucket_count=bucket_count,

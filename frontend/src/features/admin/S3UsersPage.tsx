@@ -25,7 +25,7 @@ import { SettingsButton, SettingsDialog, SettingsPersistentEditActions } from ".
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import AdminRgwEndpointField from "./AdminRgwEndpointField";
 import AdminRgwCreateFields from "./AdminRgwCreateFields";
-import { useAdminRgwFormValidation, rgwCreateErrors, rgwImportEntries } from "./useAdminRgwFormValidation";
+import { adminLimitErrors, useAdminRgwFormValidation, rgwCreateErrors, rgwImportEntries } from "./useAdminRgwFormValidation";
 import ConfirmActionDialog from "../../components/ConfirmActionDialog";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import WorkflowPage, {
@@ -56,7 +56,6 @@ import AdminRgwUserAccessAssociationsPanel, {
 } from "./AdminRgwUserAccessAssociationsPanel";
 import AdminQuotaFields from "./AdminQuotaFields";
 import AdminManagerFeatureOverrides from "./AdminManagerFeatureOverrides";
-import { buildAdminQuotaSizeEditorValue } from "./adminQuotaForm";
 import { useAdminS3UserStats } from "./useAdminS3UserStats";
 import { useAdminI18n } from "./adminI18n";
 import AdminS3UsersList, { type AdminS3UsersSortField } from "./AdminS3UsersList";
@@ -84,7 +83,7 @@ import {
   MAX_VISIBLE_ASSOCIATION_OPTIONS,
 } from "./adminAssociationOptions";
 
-type EditTab = "general" | "users" | "groups" | "manager";
+type EditTab = "general" | "users" | "groups" | "settings" | "manager";
 
 export default function S3UsersPage() {
   const { intlLocale, text: adminText } = useAdminI18n();
@@ -148,7 +147,11 @@ export default function S3UsersPage() {
   const [editForm, setEditForm] = useState(emptyAdminS3UserForm);
   const [editError, setEditError] = useState<string | null>(null);
   const [editBusy, setEditBusy] = useState(false);
+  const [editDetailLoading, setEditDetailLoading] = useState(false);
+  const [editAttempted, setEditAttempted] = useState(false);
   const [editTab, setEditTab] = useState<EditTab>("general");
+  const editFormRef = useRef<HTMLFormElement>(null);
+  const editingUserIdRef = useRef<number | null>(null);
   const portalUserPicker = useAdminAssociationPickerState();
   const groupPicker = useAdminAssociationPickerState();
   const [deleteBusyId, setDeleteBusyId] = useState<number | null>(null);
@@ -170,6 +173,7 @@ export default function S3UsersPage() {
   const showEditGeneralTab = editTab === "general";
   const showEditUsersTab = editTab === "users";
   const showEditGroupsTab = editTab === "groups";
+  const showEditSettingsTab = editTab === "settings";
   const currentUser = useMemo(() => readStoredUser(), []);
   const canManageManagerFeatures = isAdminLikeRole(currentUser?.role);
   const showEditManagerTab = canManageManagerFeatures && editTab === "manager";
@@ -358,6 +362,7 @@ export default function S3UsersPage() {
   const allowUserQuotaUpdates = editingEndpointId
     ? endpointPermissions[editingEndpointId]?.users_write === true
     : false;
+  const allowUserLimitUpdates = allowUserQuotaUpdates;
   const editingEndpointCanWriteBuckets = editingEndpointId
     ? endpointPermissions[editingEndpointId]?.buckets_write === true
     : false;
@@ -400,24 +405,18 @@ export default function S3UsersPage() {
     void loadEndpointPermissions(editingEndpointId);
   }, [editingEndpointId, endpointPermissions, loadEndpointPermissions]);
 
-  const loadEditQuota = async (userId: number) => {
+  const loadEditDetail = async (userId: number) => {
+    setEditDetailLoading(true);
     try {
       const detail = await getS3User(userId, { include_quota: true });
-      setEditingUser((prev) => (prev && prev.id === userId ? { ...prev, ...detail } : prev));
-      setEditForm((prev) => {
-        if (prev.quota_max_size_gb !== "" || prev.quota_max_objects !== "") {
-          return prev;
-        }
-        const quota = buildAdminQuotaSizeEditorValue(detail.quota_max_size_gb);
-        return {
-          ...prev,
-          quota_max_size_gb: quota.value,
-          quota_max_size_unit: quota.unit,
-          quota_max_objects: detail.quota_max_objects != null ? String(detail.quota_max_objects) : "",
-        };
-      });
-    } catch {
-      // Quota is optional for editing; ignore load failures.
+      if (editingUserIdRef.current !== userId) return;
+      setEditingUser(detail);
+      setEditForm(adminS3UserForm(detail));
+    } catch (cause) {
+      if (editingUserIdRef.current !== userId) return;
+      setEditError(extractApiError(cause, adminText("Unable to load RGW user configuration.")));
+    } finally {
+      if (editingUserIdRef.current === userId) setEditDetailLoading(false);
     }
   };
 
@@ -426,28 +425,45 @@ export default function S3UsersPage() {
     void loadGroupsIfNeeded();
     void loadEndpointsIfNeeded();
     const nextEditForm = adminS3UserForm(user);
+    editingUserIdRef.current = user.id;
     setEditingUser(user);
     setEditForm(nextEditForm);
     setEditError(null);
+    setEditAttempted(false);
     setEditTab("general");
     portalUserPicker.reset();
     groupPicker.reset();
-    if (user.quota_max_size_gb == null && user.quota_max_objects == null) {
-      void loadEditQuota(user.id);
-    }
+    void loadEditDetail(user.id);
   };
 
-  const submitEdit = async (e: FormEvent) => {
+  const editLimitErrors = adminLimitErrors(editForm, [["max_buckets", "Max buckets"]] as const);
+
+  const submitEdit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!editingUser) return;
+    setEditAttempted(true);
+    if (Object.values(editLimitErrors).some(Boolean)) {
+      setEditTab("settings");
+      window.requestAnimationFrame(() => {
+        editFormRef.current?.querySelector<HTMLElement>('[data-rgw-limits] [aria-invalid="true"]:not(:disabled)')?.focus();
+      });
+      return;
+    }
     setEditBusy(true);
     setEditError(null);
     try {
-      const payload = adminS3UserPayload(editForm, allowUserQuotaUpdates, canManageManagerFeatures);
+      const payload = adminS3UserPayload(
+        editForm,
+        adminS3UserForm(editingUser),
+        allowUserQuotaUpdates,
+        allowUserLimitUpdates,
+        canManageManagerFeatures,
+      );
       const updatedUser = await updateS3User(editingUser.id, payload);
       const savedForm = adminS3UserForm(updatedUser);
       setEditingUser(updatedUser);
       setEditForm(savedForm);
+      setEditAttempted(false);
       portalUserPicker.setSelections([]);
       groupPicker.setSelections([]);
       await fetchUsers();
@@ -594,7 +610,9 @@ export default function S3UsersPage() {
     onClose: () => setShowImportModal(false),
   });
   const closeEditModal = () => {
+    editingUserIdRef.current = null;
     setEditingUser(null);
+    setEditDetailLoading(false);
     setEditTab("general");
     portalUserPicker.reset();
     groupPicker.reset();
@@ -762,7 +780,7 @@ export default function S3UsersPage() {
               panelClassName="mt-3 min-w-0"
               activeTab={editTab}
               onTabChange={(tab) => {
-                if (editBusy) return;
+                if (editBusy || editDetailLoading) return;
                 if (tab === "users") {
                   void loadPortalUsersIfNeeded();
                 }
@@ -777,17 +795,20 @@ export default function S3UsersPage() {
                 { id: "general", label: adminText("General") },
                 { id: "users", label: adminText("Linked UI users") },
                 { id: "groups", label: adminText("Linked UI groups") },
+                { id: "settings", label: adminText("Settings") },
                 { id: "manager", label: adminText("Manager features"), visible: canManageManagerFeatures },
-              ].map((item) => ({ ...item, id: item.id as EditTab, disabled: editBusy }))}
+              ].map((item) => ({ ...item, id: item.id as EditTab, disabled: editBusy || editDetailLoading }))}
             >
               <SettingsForm
                 label={adminText("Edit RGW user")}
+                formRef={editFormRef}
                 busy={editBusy}
+                disabled={editDetailLoading}
                 onSubmit={submitEdit}
                 onCancel={editCloseGuard.requestClose}
                 submitLabel={adminText("Save changes")}
                 busyLabel={adminText("Saving...")}
-                actions={<SettingsPersistentEditActions dirty={editDirty} busy={editBusy}
+                actions={<SettingsPersistentEditActions dirty={editDirty} busy={editBusy} disabled={editDetailLoading}
                   onCancel={editCloseGuard.requestClose} saveLabel={adminText("Save changes")} savingLabel={adminText("Saving...")} />}
               >
                 {editError && <UiInlineMessage tone="error" role="alert">{editError}</UiInlineMessage>}
@@ -875,18 +896,6 @@ export default function S3UsersPage() {
                         {editPermissionError} <SettingsButton variant="secondary" onClick={() => editingEndpointId && void loadEndpointPermissions(editingEndpointId)}>{adminText("Retry permissions")}</SettingsButton>
                       </UiInlineMessage>
                         : !allowUserQuotaUpdates && <UiInlineMessage tone="info">{adminText("Quota editing requires Admin Ops support and users=write on the endpoint.")}</UiInlineMessage>}
-                    <SettingsSection title={adminText("Services and monitoring")} description={adminText("RGW User-specific overrides for shared Manager services.")} presentation="compact">
-                      <FeatureOverrideField title={adminText("Bucket composition statistics")} value={editForm.allow_bucket_usage_stats}
-                        policy={generalSettings.project_feature_policies.bucket_usage_stats} disabled={editBusy}
-                        triState
-                        description={adminText("Controls bucket composition statistics for this RGW User in Manager.")}
-                        onChange={value => setEditForm(prev => ({ ...prev, allow_bucket_usage_stats: value }))} />
-                      <FeatureOverrideField title={adminText("Automatic bucket composition collection")} value={editForm.allow_bucket_usage_stats_collection}
-                        policy={generalSettings.project_collection_policies.bucket_usage_stats} disabled={editBusy}
-                        triState
-                        description={adminText("Controls scheduled refreshes for this RGW User. Bucket composition statistics must also be enabled.")}
-                        onChange={value => setEditForm(prev => ({ ...prev, allow_bucket_usage_stats_collection: value }))} />
-                    </SettingsSection>
                   </div>
                 )}
 
@@ -933,6 +942,36 @@ export default function S3UsersPage() {
                     actionLabel: adminText(groupPicker.open ? "Close" : "Add UI groups"),
                   }}
                 />
+              </div>
+            )}
+
+            {showEditSettingsTab && (
+              <div className="settings-stack">
+                <SettingsSection title={adminText("Services and monitoring")} description={adminText("RGW User-specific overrides for shared Manager services.")} presentation="compact">
+                  <FeatureOverrideField title={adminText("Bucket composition statistics")} value={editForm.allow_bucket_usage_stats}
+                    policy={generalSettings.project_feature_policies.bucket_usage_stats} disabled={editBusy}
+                    triState
+                    description={adminText("Controls bucket composition statistics for this RGW User in Manager.")}
+                    onChange={value => setEditForm(prev => ({ ...prev, allow_bucket_usage_stats: value }))} />
+                  <FeatureOverrideField title={adminText("Automatic bucket composition collection")} value={editForm.allow_bucket_usage_stats_collection}
+                    policy={generalSettings.project_collection_policies.bucket_usage_stats} disabled={editBusy}
+                    triState
+                    description={adminText("Controls scheduled refreshes for this RGW User. Bucket composition statistics must also be enabled.")}
+                    onChange={value => setEditForm(prev => ({ ...prev, allow_bucket_usage_stats_collection: value }))} />
+                </SettingsSection>
+                <SettingsSection title={adminText("Limits")} description={adminText("Leave empty to clear a limit.")} presentation="compact">
+                  <div className="settings-fields" data-rgw-limits>
+                    <UiInput name="max_buckets" label={adminText("Max buckets")} type="number" min={0} step={1}
+                      value={editForm.max_buckets} disabled={editBusy || editDetailLoading || !allowUserLimitUpdates}
+                      error={editAttempted ? editLimitErrors.max_buckets : undefined}
+                      onChange={event => setEditForm(prev => ({ ...prev, max_buckets: event.target.value }))} />
+                  </div>
+                </SettingsSection>
+                {editPermissionLoading ? <p role="status">{adminText("Checking endpoint permissions...")}</p>
+                  : editPermissionError ? <UiInlineMessage tone="error" role="alert">
+                    {editPermissionError} <SettingsButton variant="secondary" onClick={() => editingEndpointId && void loadEndpointPermissions(editingEndpointId)}>{adminText("Retry permissions")}</SettingsButton>
+                  </UiInlineMessage>
+                    : !allowUserLimitUpdates && <UiInlineMessage tone="info">{adminText("Limit editing requires Admin Ops support and users=write on the endpoint.")}</UiInlineMessage>}
               </div>
             )}
 

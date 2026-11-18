@@ -113,7 +113,8 @@ export function governance(c: DemoRequest): Response | undefined {
       const prefix = settings.general.rgw_account_id_prefix;
       const suffixLength = 17 - prefix.length;
       account = { id, name: textField(body, "name"), rgw_account_id: `RGW${prefix}${String(id).padStart(suffixLength, "0").slice(-suffixLength)}`, rgw_tenant: "", user_links: [], group_links: [], tags: [],
-        quota_max_size_gb: null, quota_max_objects: null, email: null, used_bytes: null, used_objects: null, bucket_count: null,
+        quota_max_size_gb: null, quota_max_objects: null, max_buckets: null, max_users: null, max_roles: null, max_groups: null,
+        email: null, used_bytes: null, used_objects: null, bucket_count: null,
         rgw_user_count: null, rgw_user_uids: null, rgw_topic_count: null, rgw_topics: null,
         storage_endpoint_id: endpoint.id, storage_endpoint_name: endpoint.name, storage_endpoint_url: endpoint.endpoint_url,
         storage_endpoint_is_default: endpoint.is_default, storage_endpoint_capabilities: endpoint.capabilities,

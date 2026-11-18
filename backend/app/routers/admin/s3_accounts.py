@@ -212,6 +212,8 @@ def update_account(
         return updated
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
+    except CompensationFailureError as exc:
+        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
 
 @router.delete("/{account_id}", status_code=status.HTTP_204_NO_CONTENT)

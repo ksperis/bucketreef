@@ -76,6 +76,7 @@ class S3User(S3UserSummary):
     group_links: list[S3UserGroupLink]
     quota_max_size_gb: Optional[float]
     quota_max_objects: Optional[int]
+    max_buckets: Optional[int]
     bucket_count: Optional[int]
 
 
@@ -119,6 +120,7 @@ class S3UserUpdate(ManagedS3UserFeatureOverrides):
     quota_max_size_gb: Optional[float] = None
     quota_max_size_unit: Optional[QuotaSizeUnit] = None
     quota_max_objects: Optional[int] = None
+    max_buckets: Optional[int] = Field(default=None, ge=0)
     tags: OptionalTagDefinitionList = None
 
     @model_validator(mode="after")

@@ -21,6 +21,7 @@ def s3_user_from_db(
     storage_endpoint: StorageEndpoint,
     quota_max_size_gb: float | None = None,
     quota_max_objects: int | None = None,
+    max_buckets: int | None = None,
     bucket_count: int | None = None,
     tags: list[TagDefinitionSummary],
 ) -> S3User:
@@ -35,6 +36,7 @@ def s3_user_from_db(
         group_links=group_links,
         quota_max_size_gb=quota_max_size_gb,
         quota_max_objects=quota_max_objects,
+        max_buckets=max_buckets,
         storage_endpoint_id=storage_endpoint.id,
         storage_endpoint_name=storage_endpoint.name,
         storage_endpoint_url=storage_endpoint.endpoint_url,

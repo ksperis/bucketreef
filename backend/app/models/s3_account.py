@@ -80,6 +80,10 @@ class S3AccountSummary(ManagedS3ResourceFeatures):
 class S3Account(S3AccountSummary):
     quota_max_size_gb: Optional[float]
     quota_max_objects: Optional[int]
+    max_buckets: Optional[int]
+    max_users: Optional[int]
+    max_roles: Optional[int]
+    max_groups: Optional[int]
     email: Optional[str]
     used_bytes: Optional[int]
     used_objects: Optional[int]
@@ -140,6 +144,10 @@ class S3AccountUpdate(ManagedS3ResourceFeatureOverrides):
     quota_max_size_gb: Optional[float] = None
     quota_max_size_unit: Optional[QuotaSizeUnit] = None
     quota_max_objects: Optional[int] = None
+    max_buckets: Optional[int] = Field(default=None, ge=0)
+    max_users: Optional[int] = Field(default=None, ge=0)
+    max_roles: Optional[int] = Field(default=None, ge=0)
+    max_groups: Optional[int] = Field(default=None, ge=0)
     user_links: Optional[list[AccountUserLinkInput]] = None
     group_links: Optional[list[AccountGroupLinkInput]] = None
     name: Optional[str] = None

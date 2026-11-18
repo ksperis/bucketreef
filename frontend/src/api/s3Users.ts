@@ -22,6 +22,7 @@ export type S3User = {
   group_links: S3UserGroupLink[];
   quota_max_size_gb: number | null;
   quota_max_objects: number | null;
+  max_buckets: number | null;
   storage_endpoint_id: number;
   storage_endpoint_name: string;
   storage_endpoint_url: string;
@@ -96,6 +97,7 @@ type CreateS3UserPayload = {
   quota_max_size_gb?: number | null;
   quota_max_size_unit?: QuotaSizeUnit | null;
   quota_max_objects?: number | null;
+  max_buckets?: number | null;
   storage_endpoint_id: number;
   tags?: TagDefinitionInput[];
   allow_bucket_quota_management?: boolean | null;

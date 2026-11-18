@@ -17,6 +17,7 @@ from app.services.feature_policy_service import (
 )
 from app.services.s3_execution_context import S3ExecutionContext
 from app.services.s3_user_associations_service import S3UserAssociationsService
+from app.services.s3_user_limits_service import S3UserLimitsService, S3UserLimitsSnapshot
 from app.services.s3_user_query_service import S3UserQueryService
 from app.services.s3_user_quota_service import S3UserQuotaService, S3UserQuotaSnapshot
 from app.services.s3_user_repository import S3UserRepository
@@ -39,6 +40,7 @@ class S3UserUpdateService:
         associations: S3UserAssociationsService | None = None,
         tags: TagsService | None = None,
         query: S3UserQueryService | None = None,
+        limits: S3UserLimitsService | None = None,
     ) -> None:
         self.db = db
         self.repository = repository or S3UserRepository(db)
@@ -50,9 +52,11 @@ class S3UserUpdateService:
             associations=self.associations,
             tags=self.tags,
         )
+        rgw_context = S3UserRgwContextService(db)
         if quota is None:
-            quota = S3UserQuotaService(S3UserRgwContextService(db))
+            quota = S3UserQuotaService(rgw_context)
         self.quota = quota
+        self.limits = limits or S3UserLimitsService(rgw_context)
 
     def update_user(self, user_id: int, payload: S3UserUpdate) -> S3UserSchema:
         s3_user = self.repository.get(user_id)
@@ -62,9 +66,17 @@ class S3UserUpdateService:
         quota_requested = bool(
             {"quota_max_size_gb", "quota_max_objects"} & payload.model_fields_set
         )
-        quota_context = S3ExecutionContext.from_s3_user(s3_user) if quota_requested else None
-        quota_before = self.quota.capture(quota_context) if quota_context is not None else None
+        limits_requested = self.limits.requested(payload)
+        remote_requested = quota_requested or limits_requested
+        quota_context = S3ExecutionContext.from_s3_user(s3_user) if remote_requested else None
+        quota_before = (
+            self.quota.capture(quota_context)
+            if quota_requested and quota_context is not None
+            else None
+        )
+        limits_before = self.limits.capture(quota_context) if limits_requested and quota_context is not None else None
         quota_update_attempted = False
+        limits_update_attempted = False
 
         try:
             if quota_requested:
@@ -76,6 +88,9 @@ class S3UserUpdateService:
                     payload.quota_max_objects,
                     payload.quota_max_size_unit,
                 )
+            if limits_before is not None:
+                limits_update_attempted = True
+                self.limits.update(limits_before, payload)
 
             def persist_local_update_once(write_db: Session) -> None:
                 write_service = S3UserUpdateService(write_db)
@@ -91,6 +106,8 @@ class S3UserUpdateService:
                 exc,
                 quota_before=quota_before,
                 quota_update_attempted=quota_update_attempted,
+                limits_before=limits_before,
+                limits_update_attempted=limits_update_attempted,
             )
             raise
 
@@ -121,10 +138,24 @@ class S3UserUpdateService:
         *,
         quota_before: S3UserQuotaSnapshot | None,
         quota_update_attempted: bool,
+        limits_before: S3UserLimitsSnapshot | None,
+        limits_update_attempted: bool,
     ) -> None:
         rollback_error = rollback_safely(self.db)
         if rollback_error is not None:  # pragma: no cover - defensive database failure
             logger.error("Unable to roll back failed S3 user update: %s", rollback_error)
+
+        limits_rollback_failed = False
+        if limits_update_attempted and limits_before is not None:
+            try:
+                self.limits.restore(limits_before)
+            except Exception as rollback_exc:  # pragma: no cover - defensive remote failure
+                logger.error(
+                    "Unable to restore RGW limits after failed S3 user update for %s: %s",
+                    limits_before.uid,
+                    rollback_exc,
+                )
+                limits_rollback_failed = True
 
         quota_rollback_failed = False
         if quota_update_attempted and quota_before is not None:
@@ -138,7 +169,7 @@ class S3UserUpdateService:
                 )
                 quota_rollback_failed = True
 
-        if rollback_error is not None or quota_rollback_failed:
+        if rollback_error is not None or limits_rollback_failed or quota_rollback_failed:
             raise CompensationFailureError(
                 "Unable to update S3 user. Local or RGW rollback also failed."
             ) from exc
@@ -149,4 +180,5 @@ class S3UserUpdateService:
             s3_user,
             user_links_map,
             group_links_map,
+            include_limits=True,
         )

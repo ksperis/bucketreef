@@ -50,6 +50,10 @@ const makeAccountDetail = (overrides: Record<string, unknown> = {}) => ({
   storage_endpoint_capabilities: { account: true, admin: true, usage: true },
   quota_max_size_gb: null,
   quota_max_objects: null,
+  max_buckets: null,
+  max_users: null,
+  max_roles: null,
+  max_groups: null,
   user_links: [],
   group_links: [],
   bucket_count: null,
@@ -367,7 +371,7 @@ describe("AccountsPage modal tabs", () => {
     expect(tenantLabel.closest("td")).toContainElement(within(table).getByText("tenant-account"));
   });
 
-  it("presents account identity, usage gauges, and quotas in consistent General sections", async () => {
+  it("keeps usage and quotas in General and exposes account-specific settings separately", async () => {
     const account = await getS3AccountMock();
     getS3AccountMock.mockResolvedValue({ ...account, rgw_tenant: "customer01", quota_max_size_gb: 2, quota_max_objects: 200 });
     adminAccountStatsMock.mockReturnValue({
@@ -402,16 +406,106 @@ describe("AccountsPage modal tabs", () => {
     expect(within(generalPanel).getByRole("meter", { name: "Objects quota usage" })).toHaveAttribute("aria-valuenow", "25");
     expect(within(generalPanel).getByText("Active buckets")).toBeInTheDocument();
     expect(within(generalPanel).getByRole("heading", { name: "Quotas" })).toBeInTheDocument();
-    expect(within(generalPanel).getByRole("heading", { name: "Services and monitoring" })).toBeInTheDocument();
+    expect(within(generalPanel).queryByRole("heading", { name: "Services and monitoring" })).not.toBeInTheDocument();
     const sectionHeadings = within(generalPanel).getAllByRole("heading").map((heading) => heading.textContent);
     expect(sectionHeadings.indexOf("Usage")).toBeLessThan(sectionHeadings.indexOf("Quotas"));
-    expect(sectionHeadings.indexOf("Quotas")).toBeLessThan(sectionHeadings.indexOf("Services and monitoring"));
     expect(within(generalPanel).getByLabelText("Storage quota")).toHaveClass("ui-control");
     expect(within(generalPanel).getByLabelText("Storage quota unit")).toHaveClass("ui-control");
     expect(within(generalPanel).getByLabelText("Object quota")).toHaveClass("ui-control");
     expect(within(generalPanel).getByRole("button", { name: "Done" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
     expect(screen.getAllByText("RGW ID").some((node) => node.tagName === "DT")).toBe(true);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Settings" }));
+    const settingsPanel = screen.getByRole("tabpanel", { name: "Settings" });
+    const settingsHeadings = within(settingsPanel).getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent);
+    expect(settingsHeadings.slice(0, 2)).toEqual(["Services and monitoring", "Limits"]);
+    expect(within(settingsPanel).getByLabelText("Max buckets")).toBeInTheDocument();
+    expect(within(settingsPanel).getByLabelText("Max users")).toBeInTheDocument();
+    expect(within(settingsPanel).getByLabelText("Max roles")).toBeInTheDocument();
+    expect(within(settingsPanel).getByLabelText("Max groups")).toBeInTheDocument();
+    expect(within(settingsPanel).queryByLabelText(/Max access keys/i)).not.toBeInTheDocument();
+  });
+
+  it("prefills, updates, and clears account limits from the RGW detail response", async () => {
+    getS3AccountMock.mockResolvedValueOnce(makeAccountDetail({
+      max_buckets: 100,
+      max_users: 20,
+      max_roles: 30,
+      max_groups: 40,
+    }));
+    updateS3AccountMock.mockResolvedValueOnce(makeAccountDetail({
+      max_buckets: 125,
+      max_users: 20,
+      max_roles: null,
+      max_groups: 40,
+    }));
+
+    renderPage();
+    await screen.findByText("acc-1");
+    fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
+    fireEvent.click(await screen.findByRole("tab", { name: "Settings" }));
+
+    expect(await screen.findByLabelText("Max buckets")).toHaveValue(100);
+    expect(screen.getByLabelText("Max users")).toHaveValue(20);
+    expect(screen.getByLabelText("Max roles")).toHaveValue(30);
+    expect(screen.getByLabelText("Max groups")).toHaveValue(40);
+
+    fireEvent.change(screen.getByLabelText("Max buckets"), { target: { value: "125" } });
+    fireEvent.change(screen.getByLabelText("Max roles"), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(updateS3AccountMock).toHaveBeenCalledOnce());
+    expect(updateS3AccountMock).toHaveBeenCalledWith(1, expect.objectContaining({
+      max_buckets: 125,
+      max_roles: null,
+    }));
+    const payload = updateS3AccountMock.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(payload).not.toHaveProperty("max_users");
+    expect(payload).not.toHaveProperty("max_groups");
+    expect(screen.getByLabelText("Max buckets")).toHaveValue(125);
+    expect(screen.getByLabelText("Max roles")).toHaveValue(null);
+  });
+
+  it("switches to Settings and focuses the first invalid account limit", async () => {
+    renderPage();
+    await screen.findByText("acc-1");
+    fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
+    fireEvent.click(await screen.findByRole("tab", { name: "Settings" }));
+    const maxBuckets = await screen.findByLabelText("Max buckets");
+    fireEvent.change(maxBuckets, { target: { value: "1.5" } });
+    fireEvent.click(screen.getByRole("tab", { name: "General" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(screen.getByRole("tab", { name: "Settings" })).toHaveAttribute("aria-selected", "true"));
+    await waitFor(() => expect(screen.getByLabelText("Max buckets")).toHaveFocus());
+    expect(screen.getByLabelText("Max buckets")).toHaveAccessibleDescription("Max buckets must be a non-negative integer.");
+    expect(updateS3AccountMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps service overrides editable when account limit permissions are unavailable", async () => {
+    getStorageEndpointMock.mockResolvedValueOnce({
+      id: 10,
+      name: "ceph-main",
+      provider: "ceph",
+      is_default: true,
+      capabilities: { account: true, admin: true, usage: true },
+      admin_ops_permissions: { buckets_write: true, accounts_write: false },
+    });
+    renderPage();
+    await screen.findByText("acc-1");
+    fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
+    fireEvent.click(await screen.findByRole("tab", { name: "Settings" }));
+
+    await waitFor(() => expect(screen.getByLabelText("Max buckets")).toBeDisabled());
+    expect(screen.getByLabelText("Max users")).toBeDisabled();
+    expect(screen.getByLabelText("Max roles")).toBeDisabled();
+    expect(screen.getByLabelText("Max groups")).toBeDisabled();
+    expect(within(featureOverrideGroup("Bucket composition statistics")).getByRole("radio", { name: "Enabled" })).toBeEnabled();
+    selectFeatureOverride("Bucket composition statistics", "Enabled");
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(updateS3AccountMock).toHaveBeenCalledOnce());
+    expect(updateS3AccountMock.mock.calls[0]?.[1]).toEqual(expect.objectContaining({ allow_bucket_usage_stats: true }));
   });
 
   it("refreshes account usage gauges from the saved quota response", async () => {
@@ -508,7 +602,14 @@ describe("AccountsPage modal tabs", () => {
     const tabLabels = Array.from(generalTab.parentElement?.querySelectorAll("button") ?? []).map((button) =>
       button.textContent?.trim()
     );
-    expect(tabLabels.slice(0, 2)).toEqual(["General", "Linked UI users"]);
+    expect(tabLabels).toEqual([
+      "General",
+      "Linked UI users",
+      "Linked UI groups",
+      "Settings",
+      "Manager features",
+      "Portal settings",
+    ]);
     expect(screen.queryByRole("button", { name: "Tags" })).not.toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Add a tag for this account" })).toBeInTheDocument();
 

@@ -123,8 +123,9 @@ class S3UserMetricsService:
     def get_limits(
         self,
         context: S3ExecutionContext,
+        admin: Optional[RGWAdminClient] = None,
     ) -> tuple[Optional[float], Optional[int], Optional[int]]:
-        rgw_admin = self.runtime_client(context, allow_missing=True)
+        rgw_admin = admin or self.runtime_client(context, allow_missing=True)
         uid = context.rgw_user_uid
         if not rgw_admin or not uid:
             return None, None, None

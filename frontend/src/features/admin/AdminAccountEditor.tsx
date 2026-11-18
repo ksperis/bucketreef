@@ -14,6 +14,7 @@ import { useSettingsDraft } from "../../components/settings/useSettingsDraft";
 import { useSettingsRemoteDraft } from "../../components/settings/useSettingsRemoteDraft";
 import { useSettingsFormController } from "../../components/settings/useSettingsFormController";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
+import UiInput from "../../components/ui/UiInput";
 import UiTagEditor from "../../components/UiTagEditor";
 import UsageTile from "../../components/UsageTile";
 import { useTagCatalog } from "../../hooks/useTagCatalog";
@@ -28,13 +29,19 @@ import { useI18n } from "../../i18n";
 import { adminAssociationPanelClass } from "./AdminAssociationPicker";
 import AdminQuotaFields from "./AdminQuotaFields";
 import AdminManagerFeatureOverrides from "./AdminManagerFeatureOverrides";
-import { adminQuotaErrors } from "./useAdminRgwFormValidation";
-import { adminAccountForm, adminAccountPayload, accountQuotaChanged, type AdminAccountForm } from "./adminAccountForm";
+import { adminLimitErrors, adminQuotaErrors } from "./useAdminRgwFormValidation";
+import {
+  ADMIN_ACCOUNT_LIMIT_FIELDS,
+  adminAccountForm,
+  adminAccountPayload,
+  accountQuotaChanged,
+  type AdminAccountForm,
+} from "./adminAccountForm";
 import AdminAccountAssociations, { accountUserAssociations, accountGroupAssociations } from "./AdminAccountAssociations";
 import { useAdminI18n } from "./adminI18n";
 import useAdminEndpointAdminOpsPermissions from "./useAdminEndpointAdminOpsPermissions";
 
-type EditTab = "general" | "users" | "groups" | "manager" | "portal";
+type EditTab = "general" | "users" | "groups" | "settings" | "manager" | "portal";
 type EditorState = { dirty: boolean; busy: boolean };
 type Props = {
   account: S3Account | S3AccountSummary;
@@ -109,12 +116,14 @@ function LoadedAccountEditor({ account, canManageManagerFeatures, onClose, onSav
     void loadPermissions(account.storage_endpoint_id);
   }, [account.storage_endpoint_id, loadPermissions, permissionLoaded]);
   const allowQuotaUpdates = Boolean(account.storage_endpoint_capabilities.admin && account.rgw_account_id && endpointPermissions?.accounts_write);
+  const allowLimitUpdates = allowQuotaUpdates;
   const { generalSettings } = useGeneralSettings();
   const allowBucketQuotas = Boolean(endpointPermissions?.buckets_write);
   const usageEnabled = Boolean(account.storage_endpoint_capabilities.usage && account.rgw_account_id);
   const usage = useAdminAccountStats(account.id, usageEnabled);
   const tags = useTagCatalog({ kind: "admin", domain: "admin_managed" }, true);
   const quotaErrors = allowQuotaUpdates ? adminQuotaErrors(form.draft) : {};
+  const limitErrors = adminLimitErrors(form.draft, ADMIN_ACCOUNT_LIMIT_FIELDS);
   const update = <K extends keyof AdminAccountForm>(key: K, value: AdminAccountForm[K]) => {
     form.setDraft(current => ({ ...current, [key]: value }));
     setSaved(false);
@@ -135,6 +144,13 @@ function LoadedAccountEditor({ account, canManageManagerFeatures, onClose, onSav
       focusFirstInvalidField(event.currentTarget);
       return;
     }
+    if (Object.values(limitErrors).some(Boolean)) {
+      setTab("settings");
+      window.requestAnimationFrame(() => {
+        formRef.current?.querySelector<HTMLElement>('[data-rgw-limits] [aria-invalid="true"]:not(:disabled)')?.focus();
+      });
+      return;
+    }
     if (Object.values(quotaErrors).some(Boolean)) {
       setTab("general");
       focusFirstInvalidField(event.currentTarget);
@@ -147,7 +163,16 @@ function LoadedAccountEditor({ account, canManageManagerFeatures, onClose, onSav
     }
     const snapshot = form.draft;
     try {
-      const updatedAccount = await updateS3Account(account.id, adminAccountPayload(snapshot, form.baseline, allowQuotaUpdates, canManageManagerFeatures));
+      const updatedAccount = await updateS3Account(
+        account.id,
+        adminAccountPayload(
+          snapshot,
+          form.baseline,
+          allowQuotaUpdates,
+          allowLimitUpdates,
+          canManageManagerFeatures,
+        ),
+      );
       if (!active.current) return;
       setSavedAccount(updatedAccount);
       form.accept(adminAccountForm(updatedAccount));
@@ -177,6 +202,7 @@ function LoadedAccountEditor({ account, canManageManagerFeatures, onClose, onSav
       <WorkflowTabs<EditTab> activeTab={tab} onTabChange={next => { if (!controller.locked) setTab(next); }}
         ariaLabel={adminText("RGW account configuration sections")} idPrefix="admin-rgw-account-edit" panelClassName="mt-3 min-w-0"
         tabs={[{ id: "general", label: adminText("General") }, { id: "users", label: adminText("Linked UI users") }, { id: "groups", label: adminText("Linked UI groups") },
+          { id: "settings", label: adminText("Settings") },
           { id: "manager", label: adminText("Manager features"), visible: canManageManagerFeatures }, { id: "portal", label: adminText("Portal settings") }]
           .map(item => ({ ...item, id: item.id as EditTab, disabled: controller.locked }))}>
         <div hidden={tab === "portal"}>
@@ -232,18 +258,6 @@ function LoadedAccountEditor({ account, canManageManagerFeatures, onClose, onSav
               {permissionLoading ? <p role="status">{adminText("Checking endpoint permissions...")}</p> : permissionError ? <UiInlineMessage tone="error" role="alert">
                 {permissionError} <SettingsButton variant="secondary" onClick={() => void loadPermissions(account.storage_endpoint_id)}>{adminText("Retry permissions")}</SettingsButton>
               </UiInlineMessage> : !allowQuotaUpdates && <UiInlineMessage tone="info">{adminText("Quota editing requires Admin Ops support and accounts=write on the endpoint.")}</UiInlineMessage>}
-              <SettingsSection title={adminText("Services and monitoring")} description={adminText("Account-specific overrides for shared project services.")} presentation="compact">
-                <FeatureOverrideField title={adminText("Bucket composition statistics")} value={form.draft.allow_bucket_usage_stats}
-                  policy={generalSettings.project_feature_policies.bucket_usage_stats} disabled={controller.locked}
-                  triState
-                  description={adminText("Provides detailed bucket composition statistics in Manager and Portal.")}
-                  onChange={value => update("allow_bucket_usage_stats", value)} />
-                <FeatureOverrideField title={adminText("Automatic bucket composition collection")} value={form.draft.allow_bucket_usage_stats_collection}
-                  policy={generalSettings.project_collection_policies.bucket_usage_stats} disabled={controller.locked}
-                  triState
-                  description={adminText("Controls scheduled refreshes for this account. Bucket composition statistics must also be enabled.")}
-                  onChange={value => update("allow_bucket_usage_stats_collection", value)} />
-              </SettingsSection>
             </div></div>
             <div hidden={tab !== "users"} className={adminAssociationPanelClass}>
               <AdminAccountAssociations adapter={accountUserAssociations} links={form.draft.user_links} onChange={value => update("user_links", value)}
@@ -252,6 +266,37 @@ function LoadedAccountEditor({ account, canManageManagerFeatures, onClose, onSav
             <div hidden={tab !== "groups"} className={adminAssociationPanelClass}>
               <AdminAccountAssociations adapter={accountGroupAssociations} links={form.draft.group_links} onChange={value => update("group_links", value)}
                 disabled={controller.locked} onPendingChange={setGroupPending} />
+            </div>
+            <div hidden={tab !== "settings"}>
+              <div className="settings-stack">
+                <SettingsSection title={adminText("Services and monitoring")} description={adminText("Account-specific overrides for shared project services.")} presentation="compact">
+                  <FeatureOverrideField title={adminText("Bucket composition statistics")} value={form.draft.allow_bucket_usage_stats}
+                    policy={generalSettings.project_feature_policies.bucket_usage_stats} disabled={controller.locked}
+                    triState
+                    description={adminText("Provides detailed bucket composition statistics in Manager and Portal.")}
+                    onChange={value => update("allow_bucket_usage_stats", value)} />
+                  <FeatureOverrideField title={adminText("Automatic bucket composition collection")} value={form.draft.allow_bucket_usage_stats_collection}
+                    policy={generalSettings.project_collection_policies.bucket_usage_stats} disabled={controller.locked}
+                    triState
+                    description={adminText("Controls scheduled refreshes for this account. Bucket composition statistics must also be enabled.")}
+                    onChange={value => update("allow_bucket_usage_stats_collection", value)} />
+                </SettingsSection>
+                <SettingsSection title={adminText("Limits")} description={adminText("Leave empty to clear a limit.")} presentation="compact">
+                  <div className="settings-fields md:grid-cols-2" data-rgw-limits>
+                    {ADMIN_ACCOUNT_LIMIT_FIELDS.map(([field, label]) => (
+                      <UiInput key={field} name={field} label={adminText(label)} type="number" min={0} step={1}
+                        value={form.draft[field]} disabled={controller.locked || !allowLimitUpdates}
+                        error={attempted ? limitErrors[field] : undefined}
+                        onChange={event => update(field, event.target.value)} />
+                    ))}
+                  </div>
+                </SettingsSection>
+                {permissionLoading ? <p role="status">{adminText("Checking endpoint permissions...")}</p>
+                  : permissionError ? <UiInlineMessage tone="error" role="alert">
+                    {permissionError} <SettingsButton variant="secondary" onClick={() => void loadPermissions(account.storage_endpoint_id)}>{adminText("Retry permissions")}</SettingsButton>
+                  </UiInlineMessage>
+                    : !allowLimitUpdates && <UiInlineMessage tone="info">{adminText("Limit editing requires Admin Ops support and accounts=write on the endpoint.")}</UiInlineMessage>}
+              </div>
             </div>
             {canManageManagerFeatures && <div hidden={tab !== "manager"}>
               <AdminManagerFeatureOverrides

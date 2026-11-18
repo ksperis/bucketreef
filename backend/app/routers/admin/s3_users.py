@@ -29,7 +29,8 @@ from app.services.s3_user_update_service import S3UserUpdateService
 from app.services.s3_users_service import S3UsersService
 from app.services.audit_service import AuditService
 from app.services.tags_service import serialize_tag_summaries
-from app.utils.http_errors import raise_http_error_from_value_error
+from app.core.domain_errors import CompensationFailureError
+from app.utils.http_errors import raise_http_error_from_value_error, raise_http_exception_from_exception
 
 router = APIRouter(prefix="/admin/s3-users", tags=["admin-s3-users"])
 logger = logging.getLogger(__name__)
@@ -142,6 +143,8 @@ def update_s3_user(
         return updated
     except ValueError as exc:
         raise_http_error_from_value_error(exc)
+    except CompensationFailureError as exc:
+        raise_http_exception_from_exception(status.HTTP_502_BAD_GATEWAY, exc)
 
 
 @router.post("/{user_id}/rotate-keys", response_model=S3User)

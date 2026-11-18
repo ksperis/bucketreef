@@ -48,6 +48,7 @@ function makeS3User(overrides: Partial<S3User> = {}): S3User {
     group_links: [],
     quota_max_size_gb: null,
     quota_max_objects: null,
+    max_buckets: null,
     storage_endpoint_id: 10,
     storage_endpoint_name: "ceph-main",
     storage_endpoint_url: "https://ceph.example.test",
@@ -179,12 +180,13 @@ describe("S3UsersPage modal tabs", () => {
     });
     listAdminTagDefinitionsMock.mockResolvedValue([makeTag(601, "legacy"), makeTag(602, "prod")]);
 
-    getS3UserMock.mockResolvedValue({
-      id: 5,
+    getS3UserMock.mockResolvedValue(makeS3User({
       tags: [makeTag(601, "legacy")],
+      email: "rgw-user-1@example.com",
       quota_max_size_gb: 1,
       quota_max_objects: 100,
-    });
+      bucket_count: 0,
+    }));
 
     getS3UserWithBucketsMock.mockResolvedValue({ id: 5, bucket_count: 0 });
     updateS3UserMock.mockResolvedValue(makeS3User({
@@ -259,7 +261,7 @@ describe("S3UsersPage modal tabs", () => {
     expect(within(tenantLabel.closest("td") as HTMLElement).getByText("tenant-user")).toBeInTheDocument();
   });
 
-  it("presents user identity, usage gauges, and quotas in consistent General sections", async () => {
+  it("keeps usage and quotas in General and exposes RGW user settings separately", async () => {
     adminS3UserStatsMock.mockReturnValue({
       stats: {
         total_bytes: 512 * 1024 ** 2,
@@ -295,10 +297,9 @@ describe("S3UsersPage modal tabs", () => {
     expect(within(generalPanel).getByRole("meter", { name: "Objects quota usage" })).toHaveAttribute("aria-valuenow", "25");
     expect(within(generalPanel).getByText("Active buckets")).toBeInTheDocument();
     expect(within(generalPanel).getByRole("heading", { name: "Quotas" })).toBeInTheDocument();
-    expect(within(generalPanel).getByRole("heading", { name: "Services and monitoring" })).toBeInTheDocument();
+    expect(within(generalPanel).queryByRole("heading", { name: "Services and monitoring" })).not.toBeInTheDocument();
     const sectionHeadings = within(generalPanel).getAllByRole("heading").map((heading) => heading.textContent);
     expect(sectionHeadings.indexOf("Usage")).toBeLessThan(sectionHeadings.indexOf("Quotas"));
-    expect(sectionHeadings.indexOf("Quotas")).toBeLessThan(sectionHeadings.indexOf("Services and monitoring"));
     expect(within(generalPanel).getByLabelText("Storage quota")).toHaveClass("ui-control");
     expect(within(generalPanel).getByLabelText("Storage quota unit")).toHaveClass("ui-control");
     expect(within(generalPanel).getByLabelText("Object quota")).toHaveClass("ui-control");
@@ -306,6 +307,23 @@ describe("S3UsersPage modal tabs", () => {
     expect(within(generalPanel).getByRole("button", { name: "Done" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
     expect(screen.getAllByText("UID").some((node) => node.tagName === "DT")).toBe(true);
+
+    const tabs = screen.getAllByRole("tab");
+    expect(tabs.map((tab) => tab.textContent?.trim())).toEqual([
+      "General",
+      "Linked UI users",
+      "Linked UI groups",
+      "Settings",
+      "Manager features",
+    ]);
+    const settingsTab = screen.getByRole("tab", { name: "Settings" });
+    await waitFor(() => expect(settingsTab).toBeEnabled());
+    fireEvent.click(settingsTab);
+    const settingsPanel = screen.getByRole("tabpanel", { name: "Settings" });
+    const settingsHeadings = within(settingsPanel).getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent);
+    expect(settingsHeadings.slice(0, 2)).toEqual(["Services and monitoring", "Limits"]);
+    expect(within(settingsPanel).getByLabelText("Max buckets")).toBeInTheDocument();
+    expect(within(settingsPanel).queryByLabelText("Max users")).not.toBeInTheDocument();
   });
 
   it("keeps asynchronously loaded quotas in the server baseline", async () => {
@@ -324,11 +342,10 @@ describe("S3UsersPage modal tabs", () => {
       page_size: 25,
       has_next: false,
     });
-    getS3UserMock.mockResolvedValueOnce({
-      id: 5,
+    getS3UserMock.mockResolvedValueOnce(makeS3User({
       quota_max_size_gb: 2,
       quota_max_objects: 200,
-    });
+    }));
 
     render(
       <MemoryRouter>
@@ -343,6 +360,75 @@ describe("S3UsersPage modal tabs", () => {
     expect(screen.getByLabelText("Object quota")).toHaveValue(200);
     expect(screen.getByRole("button", { name: "Done" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
+  });
+
+  it("always loads RGW user detail and uses it as the limit baseline", async () => {
+    listS3UsersMock.mockResolvedValueOnce({
+      items: [makeS3User({ max_buckets: 5 })],
+      total: 1,
+      page: 1,
+      page_size: 25,
+      has_next: false,
+    });
+    getS3UserMock.mockResolvedValueOnce(makeS3User({ max_buckets: 17 }));
+    updateS3UserMock.mockResolvedValueOnce(makeS3User({ max_buckets: null }));
+
+    render(<MemoryRouter><S3UsersPage /></MemoryRouter>);
+    await screen.findByText("rgw-user-1");
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    await waitFor(() => expect(getS3UserMock).toHaveBeenCalledWith(5, { include_quota: true }));
+    const settingsTab = screen.getByRole("tab", { name: "Settings" });
+    await waitFor(() => expect(settingsTab).toBeEnabled());
+    fireEvent.click(settingsTab);
+    expect(await screen.findByLabelText("Max buckets")).toHaveValue(17);
+
+    fireEvent.change(screen.getByLabelText("Max buckets"), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(updateS3UserMock).toHaveBeenCalledOnce());
+    expect(updateS3UserMock).toHaveBeenCalledWith(5, expect.objectContaining({ max_buckets: null }));
+    expect(screen.getByLabelText("Max buckets")).toHaveValue(null);
+  });
+
+  it("switches to Settings and focuses an invalid RGW user limit", async () => {
+    render(<MemoryRouter><S3UsersPage /></MemoryRouter>);
+    await screen.findByText("rgw-user-1");
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    const settingsTab = screen.getByRole("tab", { name: "Settings" });
+    await waitFor(() => expect(settingsTab).toBeEnabled());
+    fireEvent.click(settingsTab);
+    const maxBuckets = await screen.findByLabelText("Max buckets");
+    fireEvent.change(maxBuckets, { target: { value: "-1" } });
+    fireEvent.click(screen.getByRole("tab", { name: "General" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(settingsTab).toHaveAttribute("aria-selected", "true"));
+    await waitFor(() => expect(screen.getByLabelText("Max buckets")).toHaveFocus());
+    expect(screen.getByLabelText("Max buckets")).toHaveAccessibleDescription("Max buckets must be a non-negative integer.");
+    expect(updateS3UserMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps service overrides editable when RGW user limit permissions are unavailable", async () => {
+    getStorageEndpointMock.mockResolvedValueOnce({
+      id: 10,
+      name: "ceph-main",
+      provider: "ceph",
+      is_default: true,
+      capabilities: { admin: true },
+      admin_ops_permissions: { users_write: false, buckets_write: true },
+    });
+    render(<MemoryRouter><S3UsersPage /></MemoryRouter>);
+    await screen.findByText("rgw-user-1");
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    const settingsTab = screen.getByRole("tab", { name: "Settings" });
+    await waitFor(() => expect(settingsTab).toBeEnabled());
+    fireEvent.click(settingsTab);
+
+    await waitFor(() => expect(screen.getByLabelText("Max buckets")).toBeDisabled());
+    expect(within(featureOverrideGroup("Bucket composition statistics")).getByRole("radio", { name: "Enabled" })).toBeEnabled();
+    selectFeatureOverride("Bucket composition statistics", "Enabled");
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(updateS3UserMock).toHaveBeenCalledOnce());
+    expect(updateS3UserMock.mock.calls[0]?.[1]).toEqual(expect.objectContaining({ allow_bucket_usage_stats: true }));
   });
 
   it("does not mark the create draft dirty when the default endpoint loads after opening", async () => {
@@ -663,7 +749,7 @@ describe("S3UsersPage modal tabs", () => {
     );
   });
 
-  it("submits bucket composition service overrides from the General tab", async () => {
+  it("submits bucket composition service overrides from the Settings tab", async () => {
     render(
       <MemoryRouter>
         <S3UsersPage />
@@ -672,6 +758,9 @@ describe("S3UsersPage modal tabs", () => {
 
     await screen.findByText("rgw-user-1");
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    const settingsTab = screen.getByRole("tab", { name: "Settings" });
+    await waitFor(() => expect(settingsTab).toBeEnabled());
+    fireEvent.click(settingsTab);
     expectInheritedFeatureOverride("Bucket composition statistics");
     expectInheritedFeatureOverride("Automatic bucket composition collection");
     selectFeatureOverride("Bucket composition statistics", "Enabled");

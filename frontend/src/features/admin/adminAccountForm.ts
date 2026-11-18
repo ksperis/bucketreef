@@ -8,6 +8,13 @@ import type {
 import { canonicalizeUiTags, normalizeUiTags, type UiTagDefinition } from "../../utils/uiTags";
 import { buildAdminQuotaSizeEditorValue } from "./adminQuotaForm";
 
+export const ADMIN_ACCOUNT_LIMIT_FIELDS = [
+  ["max_buckets", "Max buckets"],
+  ["max_users", "Max users"],
+  ["max_roles", "Max roles"],
+  ["max_groups", "Max groups"],
+] as const;
+
 export function buildCreateAccountDraft<
   T extends { tags: UiTagDefinition[]; storage_endpoint_id: string },
 >(form: T, defaultEndpointId: string) {
@@ -40,6 +47,10 @@ export function adminAccountForm(account: S3Account) {
     quota_max_size_gb: quota.value,
     quota_max_size_unit: quota.unit,
     quota_max_objects: account.quota_max_objects == null ? "" : String(account.quota_max_objects),
+    max_buckets: account.max_buckets == null ? "" : String(account.max_buckets),
+    max_users: account.max_users == null ? "" : String(account.max_users),
+    max_roles: account.max_roles == null ? "" : String(account.max_roles),
+    max_groups: account.max_groups == null ? "" : String(account.max_groups),
     allow_bucket_quota_management: account.allow_bucket_quota_management,
     allow_access_key_metadata: account.allow_access_key_metadata,
     allow_access_key_expiration: account.allow_access_key_expiration,
@@ -63,8 +74,18 @@ export function accountQuotaChanged(draft: AdminAccountForm, baseline: AdminAcco
     || draft.quota_max_objects !== baseline.quota_max_objects;
 }
 
+export function accountLimitsChanged(draft: AdminAccountForm, baseline: AdminAccountForm) {
+  return ADMIN_ACCOUNT_LIMIT_FIELDS.some(([field]) => draft[field] !== baseline[field]);
+}
+
 /** Quota fields are one RGW operation: omit unchanged quotas, retain explicit clears. */
-export function adminAccountPayload(draft: AdminAccountForm, baseline: AdminAccountForm, allowQuotaUpdates: boolean, canManageManagerFeatures: boolean): Parameters<typeof updateS3Account>[1] {
+export function adminAccountPayload(
+  draft: AdminAccountForm,
+  baseline: AdminAccountForm,
+  allowQuotaUpdates: boolean,
+  allowLimitUpdates: boolean,
+  canManageManagerFeatures: boolean,
+): Parameters<typeof updateS3Account>[1] {
   return {
     tags: normalizeUiTags(draft.tags),
     user_links: draft.user_links.map(({
@@ -106,5 +127,10 @@ export function adminAccountPayload(draft: AdminAccountForm, baseline: AdminAcco
       quota_max_size_unit: draft.quota_max_size_gb !== "" ? draft.quota_max_size_unit : null,
       quota_max_objects: draft.quota_max_objects !== "" ? Number(draft.quota_max_objects) : null,
     } : {}),
+    ...(allowLimitUpdates && accountLimitsChanged(draft, baseline) ? Object.fromEntries(
+      ADMIN_ACCOUNT_LIMIT_FIELDS
+        .filter(([field]) => draft[field] !== baseline[field])
+        .map(([field]) => [field, draft[field] !== "" ? Number(draft[field]) : null]),
+    ) : {}),
   };
 }

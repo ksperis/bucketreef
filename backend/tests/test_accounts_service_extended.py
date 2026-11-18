@@ -2,6 +2,7 @@
 # Licensed under the Apache License, Version 2.0
 
 from __future__ import annotations
+from types import SimpleNamespace
 import pytest
 from sqlalchemy import select
 
@@ -536,6 +537,90 @@ def test_update_account_persists_project_usage_feature_overrides(db_session, mon
     assert account.allow_rgw_usage_metrics is False
     assert account.allow_bucket_usage_stats is True
     assert account.allow_bucket_usage_stats_collection is True
+
+
+def test_update_account_restores_remote_limit_when_combined_local_override_fails(db_session, monkeypatch):
+    endpoint = _seed_endpoint(db_session, name="ceph-limit-compensation", is_default=True)
+    account = _seed_account(
+        db_session,
+        endpoint.id,
+        name="limit-compensation",
+        rgw_account_id="RGW-LIMIT-COMPENSATION",
+    )
+
+    class FakeLimits:
+        def __init__(self) -> None:
+            self.value = 7
+            self.updated = 0
+            self.restored = 0
+
+        @staticmethod
+        def requested(payload: S3AccountUpdate) -> bool:
+            return "max_buckets" in payload.model_fields_set
+
+        def capture(self, target):
+            return SimpleNamespace(account_id=target.rgw_account_id, max_buckets=self.value)
+
+        def update(self, _snapshot, payload: S3AccountUpdate) -> None:
+            self.updated += 1
+            self.value = 0 if payload.max_buckets is None else payload.max_buckets
+
+        def restore(self, snapshot) -> None:
+            self.restored += 1
+            self.value = snapshot.max_buckets
+
+    limits = FakeLimits()
+    service = S3AccountUpdateService(db_session, limits=limits)
+
+    def fail_local_update(_account, payload: S3AccountUpdate):
+        assert payload.allow_bucket_usage_stats is True
+        raise RuntimeError("simulated local update failure")
+
+    monkeypatch.setattr(service, "_persist_update", fail_local_update)
+
+    with pytest.raises(RuntimeError, match="simulated local update failure"):
+        service.update_account(
+            account.id,
+            S3AccountUpdate(
+                allow_bucket_usage_stats=True,
+                max_buckets=12,
+            ),
+        )
+
+    assert limits.updated == 1
+    assert limits.restored == 1
+    assert limits.value == 7
+    db_session.refresh(account)
+    assert account.allow_bucket_usage_stats is None
+
+
+def test_account_detail_reads_effective_rgw_limits(db_session, monkeypatch):
+    endpoint = _seed_endpoint(db_session, name="ceph-account-limits", is_default=True)
+    account = _seed_account(
+        db_session,
+        endpoint.id,
+        name="account-limits",
+        rgw_account_id="RGW-ACCOUNT-LIMITS",
+    )
+    admin = _FakeRGWAdmin()
+    admin.account_payload = {
+        "user_list": [],
+        "max_buckets": 101,
+        "max_users": 22,
+        "max_roles": 33,
+        "max_groups": 44,
+    }
+    service = S3AccountQueryService(db_session)
+    monkeypatch.setattr(service.rgw_context, "admin_for_account", lambda *args, **kwargs: admin)
+    monkeypatch.setattr(service.rgw_users, "resolve", lambda *args, **kwargs: (None, None))
+    monkeypatch.setattr(service.account_topics, "resolve", lambda *args, **kwargs: (None, None))
+
+    result = service.get_account_detail(account.id)
+
+    assert result.max_buckets == 101
+    assert result.max_users == 22
+    assert result.max_roles == 33
+    assert result.max_groups == 44
 
 
 def test_update_account_explicit_null_clears_email(db_session, monkeypatch):

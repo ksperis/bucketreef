@@ -41,6 +41,10 @@ export type S3Account = {
   tags: TagDefinitionSummary[];
   quota_max_size_gb: number | null;
   quota_max_objects: number | null;
+  max_buckets: number | null;
+  max_users: number | null;
+  max_roles: number | null;
+  max_groups: number | null;
   rgw_account_id: string;
   rgw_tenant: string;
   email: string | null;
@@ -145,6 +149,10 @@ type UpdateS3AccountPayload = {
   quota_max_size_gb?: number | null;
   quota_max_size_unit?: QuotaSizeUnit | null;
   quota_max_objects?: number | null;
+  max_buckets?: number | null;
+  max_users?: number | null;
+  max_roles?: number | null;
+  max_groups?: number | null;
   user_links?: AccountUserLinkInput[];
   group_links?: AccountGroupLinkInput[];
   name?: string;

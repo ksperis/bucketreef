@@ -60,6 +60,18 @@ def extract_rgw_user_positive_limit(payload: Any, key: str) -> Optional[int]:
     return None
 
 
+def extract_rgw_user_limit(payload: Any, key: str) -> Optional[int]:
+    if not isinstance(payload, dict):
+        return None
+    user_payload = extract_rgw_user_payload(payload)
+    records = (user_payload, payload) if user_payload is not payload else (payload,)
+    for record in records:
+        parsed = parse_rgw_int(record.get(key))
+        if parsed is not None:
+            return parsed
+    return None
+
+
 def _first_quota_payload(
     payload: Dict[str, Any],
     keys: Tuple[str, ...],

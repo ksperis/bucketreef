@@ -59,6 +59,24 @@ export function adminQuotaErrors(value: { quota_max_size_gb: string; quota_max_o
   return errors;
 }
 
+export function adminLimitErrors(
+  value: object,
+  fields: readonly (readonly [string, string])[],
+): Record<string, string> {
+  const errors: Record<string, string> = {};
+  const values = value as Record<string, unknown>;
+  for (const [field, label] of fields) {
+    const rawValue = values[field];
+    const raw = typeof rawValue === "string" ? rawValue.trim() : "";
+    if (!raw) continue;
+    const parsed = Number(raw);
+    if (!Number.isSafeInteger(parsed) || parsed < 0) {
+      errors[field] = `${label} must be a non-negative integer.`;
+    }
+  }
+  return errors;
+}
+
 export function rgwImportEntries(text: string, kind: "account" | "user", allowTenant = true) {
   const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
   const entries = kind === "account" ? lines : lines.map(line => line.trim());

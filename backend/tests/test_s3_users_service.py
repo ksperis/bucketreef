@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 from datetime import date, datetime, timezone
+from types import SimpleNamespace
 from typing import Optional
 
 import pytest
@@ -885,6 +886,34 @@ def test_get_user_uses_typed_not_found_error(db_session):
         service.get_user(999_999)
 
 
+def test_get_user_detail_reads_effective_rgw_max_buckets(db_session, monkeypatch):
+    endpoint = _seed_ceph_endpoint(db_session)
+    row = S3User(
+        name="Limit detail",
+        rgw_user_uid="limit-detail",
+        rgw_tenant="team-a",
+        rgw_access_key="AK-LIMIT-DETAIL",
+        rgw_secret_key="SECRET",
+        storage_endpoint_id=endpoint.id,
+    )
+    db_session.add(row)
+    db_session.commit()
+    db_session.refresh(row)
+
+    class LimitDetailAdmin(FakeRGWAdmin):
+        def get_user(self, uid: str, tenant: Optional[str] = None, allow_not_found: bool = False):
+            assert uid == "limit-detail"
+            assert tenant == "team-a"
+            assert allow_not_found is True
+            return {"uid": uid, "tenant": tenant, "max_buckets": 23, "keys": []}
+
+    _patch_rgw_clients(monkeypatch, LimitDetailAdmin())
+
+    result = S3UserQueryService(db_session).get_user(row.id)
+
+    assert result.max_buckets == 23
+
+
 def _seed_s3_user_derived_rows(db_session, *, endpoint: StorageEndpoint, s3_user: S3User) -> None:
     db_session.add_all(
         [
@@ -1540,6 +1569,64 @@ def test_update_user_commit_failure_restores_remote_quota_and_local_fields(
     record = db_session.get(S3User, created.id)
     assert record is not None
     assert record.name == "Quota rollback"
+
+
+def test_update_user_restores_remote_limit_when_combined_service_override_commit_fails(
+    db_session,
+    monkeypatch,
+):
+    endpoint = _seed_ceph_endpoint(db_session)
+    fake = FakeRGWAdmin()
+    service = _build_service(db_session, monkeypatch, fake)
+    created = service.create_user(
+        S3UserCreate(
+            name="Limit rollback",
+            uid="limit-rollback",
+            rgw_tenant="",
+            storage_endpoint_id=endpoint.id,
+        )
+    )
+
+    class FakeLimits:
+        def __init__(self) -> None:
+            self.value = 6
+            self.updated = 0
+            self.restored = 0
+
+        @staticmethod
+        def requested(payload: S3UserUpdate) -> bool:
+            return "max_buckets" in payload.model_fields_set
+
+        def capture(self, context):
+            return SimpleNamespace(uid=context.rgw_user_uid, max_buckets=self.value)
+
+        def update(self, _snapshot, payload: S3UserUpdate) -> None:
+            self.updated += 1
+            self.value = 0 if payload.max_buckets is None else payload.max_buckets
+
+        def restore(self, snapshot) -> None:
+            self.restored += 1
+            self.value = snapshot.max_buckets
+
+    limits = FakeLimits()
+
+    with fail_next_transaction_commit(db_session):
+        with pytest.raises(RuntimeError, match="commit failed"):
+            S3UserUpdateService(db_session, limits=limits).update_user(
+                created.id,
+                S3UserUpdate(
+                    allow_bucket_usage_stats=True,
+                    max_buckets=12,
+                ),
+            )
+
+    assert limits.updated == 1
+    assert limits.restored == 1
+    assert limits.value == 6
+    db_session.expire_all()
+    record = db_session.get(S3User, created.id)
+    assert record is not None
+    assert record.allow_bucket_usage_stats is None
 
 
 def test_update_user_quota_failure_after_remote_mutation_restores_snapshot(

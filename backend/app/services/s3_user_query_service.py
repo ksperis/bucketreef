@@ -68,6 +68,7 @@ class S3UserQueryService:
         group_links_map: dict[int, list[S3UserGroupLink]],
         *,
         include_quota: bool = True,
+        include_limits: bool = False,
         quota_admin: RGWAdminClient | None = None,
         bucket_count: int | None = None,
     ) -> S3UserSchema:
@@ -75,17 +76,22 @@ class S3UserQueryService:
         endpoint = self.rgw_context.endpoint_for_context(context)
         quota_max_size_gb = None
         quota_max_objects = None
+        max_buckets = None
         if include_quota:
             quota_max_size_gb, quota_max_objects = self.metrics.get_quota(
                 context,
                 quota_admin,
             )
+        if include_limits:
+            admin = quota_admin or self.rgw_context.admin_for_endpoint(endpoint)
+            _, _, max_buckets = self.metrics.get_limits(context, admin)
         return s3_user_from_db(
             row,
             user_links=user_links_map.get(row.id, []),
             group_links=group_links_map.get(row.id, []),
             quota_max_size_gb=quota_max_size_gb,
             quota_max_objects=quota_max_objects,
+            max_buckets=max_buckets,
             storage_endpoint=endpoint,
             bucket_count=bucket_count,
             tags=self.tags.get_s3_user_tags(row),
@@ -209,5 +215,6 @@ class S3UserQueryService:
             user_links_map,
             group_links_map,
             include_quota=include_quota,
+            include_limits=True,
             bucket_count=bucket_count,
         )

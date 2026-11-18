@@ -325,6 +325,7 @@ export function createSeed(): DemoState {
   const accounts: S3Account[] = names.map((name, i) => ({
     id: 101 + i, name, rgw_account_id: `RGW${58084876167649330n + BigInt(i)}`, rgw_tenant: "", email: `team-${i}@example.com`,
     tags: [], user_links: [], group_links: [], quota_max_size_gb: 500, quota_max_objects: 500000,
+    max_buckets: null, max_users: null, max_roles: null, max_groups: null,
     used_bytes: null, used_objects: null, bucket_count: null, rgw_user_count: null, rgw_user_uids: null, rgw_topic_count: null, rgw_topics: null,
     storage_endpoint_id: endpoints[i % 2].id, storage_endpoint_name: endpoints[i % 2].name,
     storage_endpoint_url: endpoints[i % 2].endpoint_url, storage_endpoint_is_default: i % 2 === 0,

@@ -41,6 +41,10 @@ def test_s3_account_responses_require_complete_canonical_payloads() -> None:
         "rgw_tenant",
         "quota_max_size_gb",
         "quota_max_objects",
+        "max_buckets",
+        "max_users",
+        "max_roles",
+        "max_groups",
         "email",
         "used_bytes",
         "used_objects",
@@ -144,6 +148,16 @@ def test_s3_account_update_keeps_explicit_nullable_email() -> None:
 
     assert payload.email is None
     assert payload.model_fields_set == {"email"}
+
+
+@pytest.mark.parametrize("field_name", ["max_buckets", "max_users", "max_roles", "max_groups"])
+def test_s3_account_update_validates_non_negative_integer_limits(field_name: str) -> None:
+    assert getattr(S3AccountUpdate.model_validate({field_name: 0}), field_name) == 0
+    assert getattr(S3AccountUpdate.model_validate({field_name: None}), field_name) is None
+    with pytest.raises(ValidationError):
+        S3AccountUpdate.model_validate({field_name: -1})
+    with pytest.raises(ValidationError):
+        S3AccountUpdate.model_validate({field_name: 1.5})
 
 
 @pytest.mark.parametrize(

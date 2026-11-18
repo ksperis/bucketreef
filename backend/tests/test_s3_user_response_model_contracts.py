@@ -41,6 +41,7 @@ def test_s3_user_responses_require_complete_canonical_payloads() -> None:
         "group_links",
         "quota_max_size_gb",
         "quota_max_objects",
+        "max_buckets",
         "storage_endpoint_id",
         "storage_endpoint_name",
         "storage_endpoint_url",
@@ -116,6 +117,15 @@ def test_s3_user_update_keeps_explicit_nullable_email() -> None:
 
     assert payload.email is None
     assert payload.model_fields_set == {"email"}
+
+
+def test_s3_user_update_validates_non_negative_integer_max_buckets() -> None:
+    assert S3UserUpdate.model_validate({"max_buckets": 0}).max_buckets == 0
+    assert S3UserUpdate.model_validate({"max_buckets": None}).max_buckets is None
+    with pytest.raises(ValidationError):
+        S3UserUpdate.model_validate({"max_buckets": -1})
+    with pytest.raises(ValidationError):
+        S3UserUpdate.model_validate({"max_buckets": 1.5})
 
 
 @pytest.mark.parametrize(

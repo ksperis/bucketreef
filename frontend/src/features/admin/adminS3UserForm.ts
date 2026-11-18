@@ -19,6 +19,7 @@ export function emptyAdminS3UserForm() {
     quota_max_size_gb: "",
     quota_max_size_unit: "GiB" as QuotaSizeUnit,
     quota_max_objects: "",
+    max_buckets: "",
     allow_bucket_quota_management: null as boolean | null,
     allow_access_key_management: null as boolean | null,
     allow_access_key_metadata: null as boolean | null,
@@ -34,7 +35,7 @@ export function emptyAdminS3UserForm() {
   };
 }
 
-type AdminS3UserForm = ReturnType<typeof emptyAdminS3UserForm>;
+export type AdminS3UserForm = ReturnType<typeof emptyAdminS3UserForm>;
 
 function buildS3UserFormDraft<T extends { tags: UiTagDefinition[] }>(form: T) {
   return {
@@ -87,6 +88,7 @@ export function adminS3UserForm(user: S3User): AdminS3UserForm {
     quota_max_size_gb: quota.value,
     quota_max_size_unit: quota.unit,
     quota_max_objects: user.quota_max_objects == null ? "" : String(user.quota_max_objects),
+    max_buckets: user.max_buckets == null ? "" : String(user.max_buckets),
     allow_bucket_quota_management: user.allow_bucket_quota_management,
     allow_access_key_management: user.allow_access_key_management,
     allow_access_key_metadata: user.allow_access_key_metadata,
@@ -104,7 +106,9 @@ export function adminS3UserForm(user: S3User): AdminS3UserForm {
 
 export function adminS3UserPayload(
   form: AdminS3UserForm,
+  baseline: AdminS3UserForm,
   allowQuotaUpdates: boolean,
+  allowLimitUpdates: boolean,
   canManageManagerFeatures: boolean,
 ): UpdateS3UserPayload {
   return {
@@ -131,6 +135,9 @@ export function adminS3UserPayload(
       quota_max_size_gb: form.quota_max_size_gb !== "" ? Number(form.quota_max_size_gb) : null,
       quota_max_size_unit: form.quota_max_size_gb !== "" ? form.quota_max_size_unit : null,
       quota_max_objects: form.quota_max_objects !== "" ? Number(form.quota_max_objects) : null,
+    } : {}),
+    ...(allowLimitUpdates && form.max_buckets !== baseline.max_buckets ? {
+      max_buckets: form.max_buckets !== "" ? Number(form.max_buckets) : null,
     } : {}),
   };
 }

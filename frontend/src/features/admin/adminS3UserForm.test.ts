@@ -21,6 +21,7 @@ function makeUser(overrides: Partial<S3User> = {}): S3User {
     group_links: [],
     quota_max_size_gb: null,
     quota_max_objects: null,
+    max_buckets: null,
     storage_endpoint_id: 10,
     storage_endpoint_name: "Ceph",
     storage_endpoint_url: "https://rgw.example.test",
@@ -85,7 +86,9 @@ describe("adminS3UserForm", () => {
       }],
     };
 
-    expect(adminS3UserPayload(form, true, false)).toEqual({
+    const baseline = emptyAdminS3UserForm();
+
+    expect(adminS3UserPayload(form, baseline, true, true, false)).toEqual({
       name: "Updated",
       email: null,
       tags: [],
@@ -98,18 +101,32 @@ describe("adminS3UserForm", () => {
       quota_max_objects: 100,
     });
 
-    expect(adminS3UserPayload(form, false, true)).toEqual(expect.objectContaining({
+    expect(adminS3UserPayload(form, baseline, false, false, true)).toEqual(expect.objectContaining({
       allow_bucket_quota_management: true,
       allow_access_key_management: null,
     }));
-    expect(adminS3UserPayload(form, false, true)).not.toHaveProperty("quota_max_size_gb");
+    expect(adminS3UserPayload(form, baseline, false, false, true)).not.toHaveProperty("quota_max_size_gb");
   });
 
   it("uses null to clear an existing email address", () => {
     const form = adminS3UserForm(makeUser({ email: "user@example.test" }));
     form.email = "   ";
 
-    expect(adminS3UserPayload(form, false, false).email).toBeNull();
+    expect(adminS3UserPayload(form, adminS3UserForm(makeUser({ email: "user@example.test" })), false, false, false).email).toBeNull();
+  });
+
+  it("emits changed RGW max buckets and clears it with null", () => {
+    const baseline = adminS3UserForm(makeUser({ max_buckets: 12 }));
+    const form = { ...baseline, max_buckets: "24" };
+
+    expect(adminS3UserPayload(form, baseline, false, true, false)).toEqual(expect.objectContaining({
+      max_buckets: 24,
+    }));
+
+    form.max_buckets = "";
+    expect(adminS3UserPayload(form, baseline, false, true, false)).toEqual(expect.objectContaining({
+      max_buckets: null,
+    }));
   });
 
   it("normalizes drafts before unsaved-change comparisons", () => {
