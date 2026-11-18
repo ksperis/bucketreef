@@ -345,16 +345,88 @@ export function readModels(c: DemoRequest): Response | undefined {
     return json({ ...base, total: incidents.length, incidents: datedSnapshot(path.endsWith("incidents-global") ? incidents : incidents.filter(i => i.endpoint_id === endpointId), state.initializedAt) });
   }
   if (/^\/admin\/cost\/(summary|subjects|subject\/account\/\d+|export\.csv)$/.test(path) || path === "/portal/cost/me") {
-    const summary = { month: c.url.searchParams.get("month") ?? state.initializedAt.slice(0, 7), storage_endpoint_id: Number(c.url.searchParams.get("endpoint_id")) || 11,
+    const month = c.url.searchParams.get("month") ?? state.initializedAt.slice(0, 7);
+    const requestedEndpointId = Number(c.url.searchParams.get("endpoint_id")) || null;
+    const summary = { month, storage_endpoint_id: requestedEndpointId,
       usage: { bytes_in: 180 * GiB, bytes_out: 310 * GiB, ops_total: 2450890, ops_breakdown: { get: 1900000, put: 550890 } },
       storage: { avg_bytes: 820 * GiB, avg_gb_month: 820, total_objects: 384920 },
       coverage: { days_collected: 27, days_in_month: 30, coverage_ratio: .9, storage_days_collected: 27, usage_days_collected: 27 },
       cost: { currency: "EUR", storage_cost: 16.4, egress_cost: 6.2, ingress_cost: 0, requests_cost: 2.45, total_cost: 25.05, pricing_source: "global" } };
     if (path.endsWith("summary")) return json(summary);
-    if (path.endsWith("subjects")) return json(page(state.accounts.map((a, i) => ({ ...summary, subject_type: "account", subject_id: a.id, name: a.name, rgw_identifier: a.rgw_account_id, cost: { ...summary.cost, total_cost: 25.05 + i * 7 } })), c.url));
-    if (path.endsWith(".csv")) return new Response("Account,Amount,Currency\n" + state.accounts.map(a => `${a.name},25.05,EUR`).join("\n"), { headers: { "Content-Type": "text/csv" } });
-    const account = path === "/portal/cost/me" ? scopedAccount(c) : required(state.accounts.find(a => a.id === Number(path.split("/").at(-1))));
-    return json({ ...summary, subject_type: "account", subject_id: account.id, name: account.name, daily: state.history.slice(-30).map(p => ({ day: p.timestamp.slice(0, 10), storage_bytes: 820 * GiB, bytes_in: p.bytes_in, bytes_out: p.bytes_out, ops_total: p.ops })) });
+    const scopedAccounts = requestedEndpointId == null
+      ? state.accounts
+      : state.accounts.filter(account => account.storage_endpoint_id === requestedEndpointId);
+    if (path.endsWith("subjects")) return json(page(scopedAccounts.map(a => {
+      const accountIndex = state.accounts.findIndex(candidate => candidate.id === a.id);
+      const costFactor = (25.05 + accountIndex * 7) / 25.05;
+      return {
+        storage_endpoint_id: a.storage_endpoint_id,
+        storage_endpoint_name: a.storage_endpoint_name,
+        subject_type: "account",
+        subject_id: a.id,
+        name: a.name,
+        rgw_identifier: a.rgw_account_id,
+        usage: summary.usage,
+        storage: summary.storage,
+        cost: {
+          ...summary.cost,
+          storage_cost: summary.cost.storage_cost * costFactor,
+          egress_cost: summary.cost.egress_cost * costFactor,
+          ingress_cost: summary.cost.ingress_cost * costFactor,
+          requests_cost: summary.cost.requests_cost * costFactor,
+          total_cost: summary.cost.total_cost * costFactor,
+        },
+      };
+    }), c.url));
+    if (path.endsWith(".csv")) return new Response("Account,Amount,Currency\n" + scopedAccounts.map(a => `${a.name},25.05,EUR`).join("\n"), { headers: { "Content-Type": "text/csv" } });
+    const account = path === "/portal/cost/me"
+      ? scopedAccount(c)
+      : required(state.accounts.find(a =>
+          a.id === Number(path.split("/").at(-1))
+          && (requestedEndpointId == null || a.storage_endpoint_id === requestedEndpointId)
+        ));
+    const accountIndex = state.accounts.findIndex(candidate => candidate.id === account.id);
+    const costFactor = (25.05 + accountIndex * 7) / 25.05;
+    const accountCost = {
+      ...summary.cost,
+      storage_cost: summary.cost.storage_cost * costFactor,
+      egress_cost: summary.cost.egress_cost * costFactor,
+      ingress_cost: summary.cost.ingress_cost * costFactor,
+      requests_cost: summary.cost.requests_cost * costFactor,
+      total_cost: summary.cost.total_cost * costFactor,
+    };
+    const detail = {
+      ...summary,
+      storage_endpoint_id: account.storage_endpoint_id,
+      storage_endpoint_name: account.storage_endpoint_name,
+      subject_type: "account",
+      subject_id: account.id,
+      name: account.name,
+      rgw_identifier: account.rgw_account_id,
+      cost: accountCost,
+      daily: state.history.slice(-30).map(p => ({ day: p.timestamp.slice(0, 10), storage_bytes: 820 * GiB, bytes_in: p.bytes_in, bytes_out: p.bytes_out, ops_total: p.ops })),
+    };
+    if (path === "/portal/cost/me") return json(detail);
+    const endMonth = new Date(`${month}-01T00:00:00Z`);
+    const history = Array.from({ length: 12 }, (_, index) => {
+      const historyMonth = new Date(endMonth);
+      historyMonth.setUTCMonth(historyMonth.getUTCMonth() - (11 - index));
+      const historyFactor = .72 + index * .025;
+      return {
+        month: historyMonth.toISOString().slice(0, 7),
+        coverage: summary.coverage,
+        cost: {
+          ...accountCost,
+          storage_cost: accountCost.storage_cost * historyFactor,
+          egress_cost: accountCost.egress_cost * historyFactor,
+          ingress_cost: accountCost.ingress_cost * historyFactor,
+          requests_cost: accountCost.requests_cost * historyFactor,
+          total_cost: accountCost.total_cost * historyFactor,
+        },
+      };
+    });
+    history[history.length - 1] = { month, coverage: summary.coverage, cost: accountCost };
+    return json({ ...detail, history });
   }
 
   // Inventory is derived from the common model; the historical series is seeded once.
