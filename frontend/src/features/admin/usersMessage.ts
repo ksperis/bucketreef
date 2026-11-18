@@ -106,7 +106,7 @@ const usersMessage = {
   allowRgwMultisiteEndpointSwitching: m("Allow RGW multisite endpoint switching", "允许 RGW 多站点端点切换"),
   disabledGlobally: m("Disabled globally", "已全局禁用"),
   managerPermissions: m("Manager permissions for advanced operations.", "Manager 高级操作权限。"),
-  browserOptions: m("Browser options for this UI user. Groups can also grant these options.", "此 UI 用户的 Browser 选项。用户组也可以授予这些选项。"),
+  browserOptions: m("Browser options for this UI user.", "此 UI 用户的 Browser 选项。"),
   connections: m("Connections", "连接"),
   privateConnectionPermissions: m("Private S3 connection permissions for this UI user. Groups can also grant this permission.", "此 UI 用户的私有 S3 连接权限。用户组也可以授予此权限。"),
   createManualConnections: m("Create manual private connections", "创建手动私有连接"),

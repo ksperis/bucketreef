@@ -1491,7 +1491,7 @@ describe("UsersPage modal tabs", () => {
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret-123" } });
 
     fireEvent.click(screen.getByRole("tab", { name: "Platform access" }));
-    expect(screen.getByText("Browser options for this UI user. Groups can also grant these options.")).toBeInTheDocument();
+    expect(screen.getByText("Browser options for this UI user.")).toBeInTheDocument();
     const advancedToggle = screen.getByRole("switch", { name: "Enable technical S3 tools" });
     expect(advancedToggle).not.toBeChecked();
     fireEvent.click(advancedToggle);
