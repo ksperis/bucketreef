@@ -6,7 +6,7 @@ import { useGeneralSettings } from "../../components/GeneralSettingsContext";
 import ListToolbar from "../../components/ListToolbar";
 import ToolbarSearchInput from "../../components/ToolbarSearchInput";
 import PaginationControls from "../../components/PaginationControls";
-import { ListActionButton } from "../../components/list/ListControls";
+import { ListActionButton, ListActions } from "../../components/list/ListControls";
 import {
   useId,
   type Dispatch,
@@ -95,8 +95,14 @@ function AdminAssociationOptionCheckbox({
 type AdminAssociationSectionHeaderProps = {
   title: string;
   countLabel: ReactNode;
-  actionLabel: ReactNode;
-  onAction: () => void;
+  actionLabel?: ReactNode;
+  onAction?: () => void;
+  actions?: Array<{
+    key: string;
+    label: ReactNode;
+    onAction: () => void;
+    disabled?: boolean;
+  }>;
 };
 
 export function AdminAssociationSectionHeader({
@@ -104,6 +110,7 @@ export function AdminAssociationSectionHeader({
   countLabel,
   actionLabel,
   onAction,
+  actions,
 }: AdminAssociationSectionHeaderProps) {
   return (
     <div
@@ -112,7 +119,20 @@ export function AdminAssociationSectionHeader({
       aria-label={title}
     >
       <span className={cx("ui-caption", uiMutedTextClass)}>{countLabel}</span>
-      <ListActionButton onClick={onAction}>{actionLabel}</ListActionButton>
+      <ListActions>
+        {actions?.map((action) => (
+          <ListActionButton
+            key={action.key}
+            onClick={action.onAction}
+            disabled={action.disabled}
+          >
+            {action.label}
+          </ListActionButton>
+        ))}
+        {actionLabel != null && onAction ? (
+          <ListActionButton onClick={onAction}>{actionLabel}</ListActionButton>
+        ) : null}
+      </ListActions>
     </div>
   );
 }

@@ -7,14 +7,13 @@ import { useCallback, useState } from "react";
 import type { AccountAccessGrant } from "../../api/accountAccess";
 import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
 
-export type StorageAssociationTab =
+export type StorageAssociationKind =
   | "accounts"
   | "s3_users"
   | "connections"
   | "openstack";
 
 export default function useAdminStorageAssociationEditorState() {
-  const [tab, setTab] = useState<StorageAssociationTab>("accounts");
   const [accountAccessChoice, setAccountAccessChoice] = useState<
     Record<number, AccountAccessGrant>
   >({});
@@ -68,9 +67,28 @@ export default function useAdminStorageAssociationEditorState() {
     setS3UserSelections,
   ]);
 
-  const reset = useCallback(
-    (nextTab: StorageAssociationTab = "accounts") => {
-      setTab(nextTab);
+  const openPicker = useCallback((kind: StorageAssociationKind) => {
+    setAccountSelections([]);
+    setS3UserSelections([]);
+    setConnectionSelections([]);
+    setOpenStackSelections([]);
+    setAccountAccessChoice({});
+    setAccountPickerOpen(kind === "accounts");
+    setS3UserPickerOpen(kind === "s3_users");
+    setConnectionPickerOpen(kind === "connections");
+    setOpenStackPickerOpen(kind === "openstack");
+  }, [
+    setAccountPickerOpen,
+    setAccountSelections,
+    setConnectionPickerOpen,
+    setConnectionSelections,
+    setOpenStackPickerOpen,
+    setOpenStackSelections,
+    setS3UserPickerOpen,
+    setS3UserSelections,
+  ]);
+
+  const reset = useCallback(() => {
       setAccountAccessChoice({});
       resetAccountPicker();
       resetS3UserPicker();
@@ -82,8 +100,7 @@ export default function useAdminStorageAssociationEditorState() {
       resetConnectionPicker,
       resetOpenStackPicker,
       resetS3UserPicker,
-    ],
-  );
+    ]);
 
   return {
     accounts: {
@@ -94,8 +111,7 @@ export default function useAdminStorageAssociationEditorState() {
     s3Users: { picker: s3UserPicker },
     connections: { picker: connectionPicker },
     openStack: { picker: openStackPicker },
-    tab,
-    setTab,
+    openPicker,
     closePickers,
     clearPendingSelections,
     reset,

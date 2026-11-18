@@ -30,9 +30,9 @@ import { extractApiError } from "../../utils/apiError";
 import { type TextMatchMode } from "../../utils/textMatch";
 import { normalizeUiTags } from "../../utils/uiTags";
 import { adminAssociationPanelClass } from "./AdminAssociationPicker";
-import AdminSimpleIdAssociationsPanel, {
-  type AdminSimpleIdAssociationsState,
-} from "./AdminSimpleIdAssociationsPanel";
+import type { AdminSimpleIdAssociationsState } from "./AdminSimpleIdAssociationsPanel";
+import AdminSimpleUiAccess from "./AdminSimpleUiAccess";
+import type { AdminPrincipalPresentation } from "./AdminPrincipalIdentity";
 import SettingsForm from "../../components/settings/SettingsForm";
 import { SettingsPersistentEditActions } from "../../components/settings/SettingsControls";
 import FeatureOverrideField from "../../components/settings/FeatureOverrideField";
@@ -65,12 +65,11 @@ import AdminS3ConnectionsList from "./AdminS3ConnectionsList";
 import useAdminPrincipalCatalogs from "./useAdminPrincipalCatalogs";
 import useAdminS3ConnectionsListController from "./useAdminS3ConnectionsListController";
 import {
-  buildAdminAssociationLookup,
   deriveAdminAssociationOptions,
   MAX_VISIBLE_ASSOCIATION_OPTIONS,
 } from "./adminAssociationOptions";
 
-type EditTab = "general" | "users" | "groups";
+type EditTab = "general" | "ui_access";
 
 export default function S3ConnectionsPage() {
   const { text: adminText } = useAdminI18n();
@@ -176,8 +175,7 @@ export default function S3ConnectionsPage() {
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const showEditGeneralTab = editTab === "general";
-  const showEditUsersTab = editTab === "users";
-  const showEditGroupsTab = editTab === "groups";
+  const showEditUiAccessTab = editTab === "ui_access";
   const {
     catalog: adminTagCatalog,
     loading: adminTagCatalogLoading,
@@ -240,11 +238,6 @@ export default function S3ConnectionsPage() {
   }, [refreshStorageEndpoints]);
 
   useEffect(() => {
-    void loadPortalUsers();
-    void loadGroups();
-  }, [loadGroups, loadPortalUsers]);
-
-  useEffect(() => {
     const setSearch = usersPagination.setSearch;
     setSearch(editUserPicker.search);
   }, [editUserPicker.search, usersPagination.setSearch]);
@@ -280,21 +273,59 @@ export default function S3ConnectionsPage() {
     [uiGroups],
   );
   const portalUserLabelById = useMemo(
-    () => buildAdminAssociationLookup(
-      [portalUserOptions],
-      (option) => option.id,
-      (option) => option.label,
-    ),
-    [portalUserOptions],
+    () => {
+      const labels = new Map<number, string>();
+      editing?.user_details.forEach((user) => labels.set(user.id, user.email));
+      portalUserOptions.forEach((user) => labels.set(user.id, user.label));
+      return labels;
+    },
+    [editing, portalUserOptions],
   );
   const groupLabelById = useMemo(
-    () => buildAdminAssociationLookup(
-      [groupOptions],
-      (option) => option.id,
-      (option) => option.label,
-    ),
-    [groupOptions],
+    () => {
+      const labels = new Map<number, string>();
+      editing?.group_details.forEach((group) => labels.set(group.id, group.name));
+      groupOptions.forEach((group) => labels.set(group.id, group.label));
+      return labels;
+    },
+    [editing, groupOptions],
   );
+  const portalUserPrincipalById = useMemo(() => {
+    const principals = new Map<number, AdminPrincipalPresentation>();
+    editing?.user_details.forEach((user) => principals.set(user.id, {
+      kind: "user",
+      email: user.email,
+      fullName: user.full_name,
+      avatar: user.avatar,
+      fallback: user.email,
+    }));
+    portalUsers.forEach((user) => principals.set(user.id, {
+      kind: "user",
+      email: user.email,
+      fullName: user.full_name,
+      avatar: user.avatar,
+      fallback: user.email,
+    }));
+    return principals;
+  }, [editing, portalUsers]);
+  const groupPrincipalById = useMemo(() => {
+    const principals = new Map<number, AdminPrincipalPresentation>();
+    editing?.group_details.forEach((group) => principals.set(group.id, {
+      kind: "group",
+      name: group.name,
+      description: group.description,
+      avatar: group.avatar,
+      fallback: group.name,
+    }));
+    uiGroups.forEach((group) => principals.set(group.id, {
+      kind: "group",
+      name: group.name,
+      description: group.description,
+      avatar: group.avatar,
+      fallback: group.name,
+    }));
+    return principals;
+  }, [editing, uiGroups]);
   const { available: availableEditUsers, visible: visibleAvailableEditUsers } = useMemo(
     () =>
       deriveAdminAssociationOptions({
@@ -321,6 +352,7 @@ export default function S3ConnectionsPage() {
     selected: editLinkedUserIds,
     setSelected: setEditLinkedUserIds,
     labelById: portalUserLabelById,
+    principalById: portalUserPrincipalById,
     available: availableEditUsers,
     visible: visibleAvailableEditUsers,
     search: editUserPicker.search,
@@ -343,6 +375,7 @@ export default function S3ConnectionsPage() {
     selected: editLinkedGroupIds,
     setSelected: setEditLinkedGroupIds,
     labelById: groupLabelById,
+    principalById: groupPrincipalById,
     available: availableEditGroups,
     visible: visibleAvailableEditGroups,
     search: editGroupPicker.search,
@@ -642,15 +675,14 @@ export default function S3ConnectionsPage() {
             actions={<SettingsPersistentEditActions dirty={Boolean(editing) && editDraftDirty}
               busy={editBusy} onCancel={editCloseGuard.requestClose} saveLabel={adminText("Save")} savingLabel={adminText("Saving...")} />}>
             <WorkflowTabs<EditTab>
-              panelClassName={editTab === "users" || editTab === "groups" ? adminAssociationPanelClass : undefined}
+              panelClassName={editTab === "ui_access" ? adminAssociationPanelClass : undefined}
               activeTab={editTab}
               onTabChange={setEditTab}
               ariaLabel={adminText("S3 connection configuration sections")}
               idPrefix="admin-shared-connection-edit"
               tabs={[
                 { id: "general", label: adminText("General") },
-                { id: "users", label: adminText("Linked UI users") },
-                { id: "groups", label: adminText("Linked UI groups") },
+                { id: "ui_access", label: adminText("User access") },
               ]}
             >
 
@@ -721,47 +753,14 @@ export default function S3ConnectionsPage() {
               </>
             )}
 
-            {showEditUsersTab && (
-              <AdminSimpleIdAssociationsPanel
-                state={editUserAssociationState}
+            {showEditUiAccessTab && (
+              <AdminSimpleUiAccess
+                users={editUserAssociationState}
+                groups={editGroupAssociationState}
                 maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
-                primaryLabel={adminText("User")}
-                actionsLabel={adminText("Actions")}
-                removeLabel={adminText("Remove")}
-                loadingMessage="Loading UI users..."
-                emptyMessage={adminText("No linked users yet.")}
-                pickerTitle={adminText("Add UI users")}
-                searchHint={adminText("(filter by email)")}
-                fallbackLabel={(id) => `User #${id}`}
-                searchAriaLabel="Search UI users"
+                ensureUsers={() => void loadPortalUsers()}
+                ensureGroups={() => void loadGroups()}
                 normalizeSelection={normalizeS3ConnectionLinkedIds}
-                section={{
-                  title: adminText("Linked UI users"),
-                  countLabel: adminText("{count} linked", { count: editLinkedUserIds.length }),
-                  actionLabel: adminText(editUserPicker.open ? "Close" : "Add UI users"),
-                }}
-              />
-            )}
-
-            {showEditGroupsTab && (
-              <AdminSimpleIdAssociationsPanel
-                state={editGroupAssociationState}
-                maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
-                primaryLabel={adminText("Group")}
-                actionsLabel={adminText("Actions")}
-                removeLabel={adminText("Remove")}
-                loadingMessage="Loading UI groups..."
-                emptyMessage={adminText("No linked groups yet.")}
-                pickerTitle={adminText("Add UI groups")}
-                searchHint={adminText("(filter by name)")}
-                fallbackLabel={(id) => `Group #${id}`}
-                searchAriaLabel="Search UI groups"
-                normalizeSelection={normalizeS3ConnectionLinkedIds}
-                section={{
-                  title: adminText("Linked UI groups"),
-                  countLabel: adminText("{count} linked", { count: editLinkedGroupIds.length }),
-                  actionLabel: adminText(editGroupPicker.open ? "Close" : "Add UI groups"),
-                }}
               />
             )}
             </WorkflowTabs>

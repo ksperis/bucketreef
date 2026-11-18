@@ -27,6 +27,7 @@ export type UiGroupSummary = {
   id: number;
   name: string;
   system_key: string | null;
+  description?: string | null;
   avatar: UiGroupAvatarDescriptor;
 };
 

@@ -44,6 +44,12 @@ class LinkedS3Connection(ApiModel):
     name: str
 
 
+class LinkedS3Account(ApiModel):
+    id: int
+    name: str
+    rgw_account_id: str
+
+
 class LinkedUiGroup(ApiModel):
     id: int
     name: str
@@ -245,6 +251,7 @@ class UserOut(UiPrincipalAccessFields, ApiModel):
     quota_alerts_global_watch: bool
     ui_preferences: UiPreferences
     account_links: list[AccountMembership]
+    account_details: list[LinkedS3Account]
     group_details: list[LinkedUiGroup]
     s3_user_links: list[S3UserMembership]
     s3_user_details: list[LinkedS3User]

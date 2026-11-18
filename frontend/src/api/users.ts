@@ -109,6 +109,7 @@ export type User = PlatformAccessFields & {
   quota_alerts_global_watch: boolean;
   ui_preferences: UiPreferences;
   account_links: AccountMembership[];
+  account_details?: { id: number; name: string; rgw_account_id: string }[];
   group_details: { id: number; name: string }[];
   s3_user_links: S3UserMembership[];
   s3_user_details: { id: number; name: string }[];

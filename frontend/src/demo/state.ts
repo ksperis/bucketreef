@@ -124,6 +124,7 @@ export function createDemoUser(input: Pick<DemoUser, "id" | "email"> & Partial<D
     quota_alerts_global_watch: input.quota_alerts_global_watch ?? false,
     ui_preferences: input.ui_preferences ?? { theme: null, selected_portal_account_id: null },
     account_links: input.account_links ?? [],
+    account_details: input.account_details ?? [],
     group_details: input.group_details ?? [],
     s3_user_links: input.s3_user_links ?? [],
     s3_user_details: input.s3_user_details ?? [],

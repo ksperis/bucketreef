@@ -19,6 +19,7 @@ import type {
   AdminRgwUserAccessLink,
   AdminRgwUserAccessLinkAdapter,
 } from "./adminRgwUserAccessAssociationModel";
+import type { AdminPrincipalPresentation } from "./AdminPrincipalIdentity";
 
 export type AdminRgwUserAccessAssociationsState<
   TLink extends AdminRgwUserAccessLink,
@@ -27,6 +28,7 @@ export type AdminRgwUserAccessAssociationsState<
   setSelected: Dispatch<SetStateAction<TLink[]>>;
   adapter: AdminRgwUserAccessLinkAdapter<TLink>;
   labelById: Map<number, string>;
+  principalById?: Map<number, AdminPrincipalPresentation>;
 };
 
 type AdminRgwUserAccessAssociationsPanelProps<

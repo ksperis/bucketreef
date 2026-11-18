@@ -12,7 +12,6 @@ describe("useAdminStorageAssociationEditorState", () => {
     const { result } = renderHook(() => useAdminStorageAssociationEditorState());
 
     act(() => {
-      result.current.setTab("connections");
       result.current.accounts.picker.setOpen(true);
       result.current.accounts.picker.setSearch("prod");
       result.current.accounts.picker.setSelections([1]);
@@ -30,7 +29,6 @@ describe("useAdminStorageAssociationEditorState", () => {
 
     act(() => result.current.clearPendingSelections());
 
-    expect(result.current.tab).toBe("connections");
     expect(result.current.accounts.picker.open).toBe(true);
     expect(result.current.accounts.picker.search).toBe("prod");
     expect(result.current.accounts.picker.selections).toEqual([]);
@@ -44,10 +42,36 @@ describe("useAdminStorageAssociationEditorState", () => {
       result.current.reset();
     });
 
-    expect(result.current.tab).toBe("accounts");
     expect(result.current.accounts.picker.open).toBe(false);
     expect(result.current.accounts.picker.search).toBe("");
     expect(result.current.accounts.picker.selections).toEqual([]);
+    expect(result.current.accounts.accessChoice).toEqual({});
+  });
+
+  it("opens only one picker and clears pending selections when switching", () => {
+    const { result } = renderHook(() => useAdminStorageAssociationEditorState());
+
+    act(() => {
+      result.current.accounts.picker.setOpen(true);
+      result.current.accounts.picker.setSelections([1]);
+      result.current.accounts.setAccessChoice({
+        1: {
+          manager_role: "account_administrator",
+          portal_role: null,
+          allow_manager_browser_data_access: false,
+        },
+      });
+      result.current.s3Users.picker.setSelections([2]);
+    });
+
+    act(() => result.current.openPicker("connections"));
+
+    expect(result.current.accounts.picker.open).toBe(false);
+    expect(result.current.s3Users.picker.open).toBe(false);
+    expect(result.current.connections.picker.open).toBe(true);
+    expect(result.current.openStack.picker.open).toBe(false);
+    expect(result.current.accounts.picker.selections).toEqual([]);
+    expect(result.current.s3Users.picker.selections).toEqual([]);
     expect(result.current.accounts.accessChoice).toEqual({});
   });
 

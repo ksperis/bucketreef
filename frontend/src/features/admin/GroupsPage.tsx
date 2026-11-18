@@ -39,7 +39,7 @@ import WorkflowTabs from "../../components/WorkflowTabs";
 import PageBanner from "../../components/PageBanner";
 import PageHeader, { type PageBreadcrumb } from "../../components/PageHeader";
 import { adminPageBreadcrumbs } from "./adminBreadcrumbs";
-import { AdminAssociationTabs, adminAssociationPanelClass } from "./AdminAssociationPicker";
+import { adminAssociationPanelClass } from "./AdminAssociationPicker";
 import SettingsForm from "../../components/settings/SettingsForm";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import { SettingsButton, SettingsPersistentEditActions, useSettingsCloseGuard } from "../../components/settings/SettingsControls";
@@ -63,9 +63,7 @@ import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
 import useAdminGroupAssociationOptions from "./useAdminGroupAssociationOptions";
 import useAdminPaginatedListState from "./useAdminPaginatedListState";
 import useAdminPaginatedListController from "./useAdminPaginatedListController";
-import useAdminStorageAssociationEditorState, {
-  type StorageAssociationTab,
-} from "./useAdminStorageAssociationEditorState";
+import useAdminStorageAssociationEditorState from "./useAdminStorageAssociationEditorState";
 import {
   buildAdminAssociationLookup,
   deriveAdminAssociationOptions,
@@ -74,12 +72,8 @@ import {
 import AdminSimpleIdAssociationsPanel, {
   type AdminSimpleIdAssociationsState,
 } from "./AdminSimpleIdAssociationsPanel";
-import AdminRgwUserAccessAssociationsPanel, {
-  type AdminRgwUserAccessAssociationsState,
-} from "./AdminRgwUserAccessAssociationsPanel";
-import AdminAccountAssociationsPanel, {
-  type AdminAccountAssociationsState,
-} from "./AdminAccountAssociationsPanel";
+import type { AdminRgwUserAccessAssociationsState } from "./AdminRgwUserAccessAssociationsPanel";
+import type { AdminAccountAssociationsState } from "./AdminAccountAssociationsPanel";
 import {
   accountMembershipsToSelections,
   accountSelectionsToMemberships,
@@ -91,6 +85,7 @@ import {
   emptyAdminGroupForm,
 } from "./adminGroupForm";
 import { s3UserMembershipAdapter } from "./adminRgwUserAccessAssociationModel";
+import UserAssociationsTabs from "./UserAssociationsTabs";
 
 type GroupModalTab = "general" | "members" | "associations" | "access";
 const groupAvatarIconOptions: Array<{ value: UiGroupAvatarIcon; label: GroupsMessageKey }> = [
@@ -117,15 +112,6 @@ export default function GroupsPage() {
     generalSettings.managed_rgw_accounts_enabled || generalSettings.portal_enabled;
   const managedRgwUsersEnabled = generalSettings.managed_rgw_users_enabled;
   const sharedS3ConnectionsEnabled = generalSettings.shared_s3_connections_enabled;
-  const defaultAssociationTab: StorageAssociationTab = accountAssociationsEnabled
-    ? "accounts"
-    : managedRgwUsersEnabled
-      ? "s3_users"
-      : sharedS3ConnectionsEnabled
-        ? "connections"
-        : openStackEnabled
-          ? "openstack"
-          : "accounts";
   const stepUpLabels = useMemo(() => ({
     title: text("verifyWithPasskey"),
     description: text("verificationDescription"),
@@ -156,6 +142,7 @@ export default function GroupsPage() {
     s3UsersCatalog,
     connectionsCatalog,
     openStackCloudsCatalog,
+    ensureAssociationOptions,
     refresh: loadAuxiliaryData,
   } = useAdminGroupAssociationOptions({
     openStackEnabled,
@@ -216,8 +203,6 @@ export default function GroupsPage() {
   const [attempted, setAttempted] = useState(false);
   const memberPicker = useAdminAssociationPickerState();
   const storageAssociations = useAdminStorageAssociationEditorState();
-  const associationTab = storageAssociations.tab;
-  const setAssociationTab = storageAssociations.setTab;
   const accountPicker = storageAssociations.accounts.picker;
   const s3UserPicker = storageAssociations.s3Users.picker;
   const connectionPicker = storageAssociations.connections.picker;
@@ -294,7 +279,7 @@ export default function GroupsPage() {
     setAttempted(false);
     setModalTab("general");
     memberPicker.reset();
-    storageAssociations.reset(defaultAssociationTab);
+    storageAssociations.reset();
     usersCatalog.setSearch("");
     accountsCatalog.setSearch("");
     s3UsersCatalog.setSearch("");
@@ -364,7 +349,6 @@ export default function GroupsPage() {
     }
     if ((form.account_links ?? []).some((link) => !hasAccountAccessRole(link))) {
       setModalTab("associations");
-      setAssociationTab("accounts");
       setActionError(getAccountAccessRequiredMessage());
       return;
     }
@@ -691,122 +675,17 @@ export default function GroupsPage() {
   );
 
   const renderAssociationsTab = () => (
-    <AdminAssociationTabs
-      tabs={[
-        ...(accountAssociationsEnabled ? [{
-          id: "accounts",
-          label: text("accounts"),
-          count: selectedAccountIds.size,
-          actionLabel: accountPicker.open ? text("close") : text("addAccounts"),
-          onAction: () => accountPicker.setOpen((current) => !current),
-          content: (
-            <AdminAccountAssociationsPanel
-              accounts={accountAssociationState}
-              maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
-              labels={{
-                account: text("account"),
-                managerRole: text("managerRole"),
-                portalRole: text("portalRole"),
-                actions: text("actions"),
-                remove: text("remove"),
-                loading: text("loadingAccounts"),
-                empty: text("noLinkedAccounts"),
-                pickerTitle: text("addAccounts"),
-                searchHint: text("searchByName"),
-                availableTitle: text("availableAccounts"),
-                fallbackLabel: (id) => text("accountNumber", { id }),
-                searchAriaLabel: text("searchGroupAccounts"),
-                pickerEmptyMessage: text("noAccountsAvailable"),
-              }}
-              normalizeSelection={(links) =>
-                [...links].sort((left, right) => left.id - right.id)
-              }
-            />
-          ),
-        }] : []),
-        ...(managedRgwUsersEnabled ? [{
-          id: "s3_users",
-          label: text("s3Users"),
-          count: selectedS3UserIds.size,
-          actionLabel: s3UserPicker.open ? text("close") : text("addRgwUsers"),
-          onAction: () => s3UserPicker.setOpen((current) => !current),
-          content: (
-            <AdminRgwUserAccessAssociationsPanel
-              state={s3UserAssociationState}
-              maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
-              primaryLabel={text("rgwUser")}
-              actionsLabel={text("actions")}
-              removeLabel={text("remove")}
-              loadingMessage={text("loadingRgwUsers")}
-              emptyMessage={text("noLinkedRgwUsers")}
-              pickerTitle={text("addRgwUsers")}
-              searchHint={text("searchByName")}
-              fallbackLabel={(id) => text("rgwUserNumber", { id })}
-              searchAriaLabel={text("searchGroupS3Users")}
-              pickerEmptyMessage={text("noRgwUsersAvailable")}
-              normalizeSelection={(links) =>
-                [...links].sort((a, b) => a.s3_user_id - b.s3_user_id)
-              }
-            />
-          ),
-        }] : []),
-        ...(sharedS3ConnectionsEnabled ? [{
-          id: "connections",
-          label: text("connections"),
-          count: selectedConnectionIds.size,
-          actionLabel: connectionPicker.open ? text("close") : text("addS3Connections"),
-          onAction: () => connectionPicker.setOpen((current) => !current),
-          hint: text("sharedConnectionsOnly"),
-          content: (
-            <AdminSimpleIdAssociationsPanel
-              state={connectionAssociationState}
-              maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
-              primaryLabel={text("s3Connection")}
-              actionsLabel={text("actions")}
-              removeLabel={text("remove")}
-              loadingMessage={text("loadingSharedConnections")}
-              emptyMessage={text("noLinkedS3Connections")}
-              pickerTitle={text("addS3Connections")}
-              searchHint={text("sharedOnly")}
-              fallbackLabel={(id) => text("connectionNumber", { id })}
-              searchAriaLabel={text("searchGroupSharedConnections")}
-              pickerEmptyMessage={text("noSharedConnectionsAvailable")}
-              normalizeSelection={(ids) => [...new Set(ids)].sort((a, b) => a - b)}
-            />
-          ),
-        }] : []),
-        ...(openStackEnabled ? [{
-          id: "openstack",
-          label: text("openStack"),
-          count: selectedOpenStackCloudIds.size,
-          actionLabel: openStackPicker.open ? text("close") : text("addOpenStackClouds"),
-          onAction: () => openStackPicker.setOpen((current) => !current),
-          content: (
-            <AdminSimpleIdAssociationsPanel
-              state={openStackAssociationState}
-              maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
-              primaryLabel={text("cloud")}
-              actionsLabel={text("actions")}
-              removeLabel={text("remove")}
-              loadingMessage={text("loadingOpenStackClouds")}
-              emptyMessage={text("noLinkedOpenStackClouds")}
-              pickerTitle={text("addOpenStackClouds")}
-              searchHint={text("searchByName")}
-              fallbackLabel={(id) => text("cloudNumber", { id })}
-              searchAriaLabel={text("searchGroupOpenStackClouds")}
-              pickerEmptyMessage={text("noOpenStackCloudsAvailable")}
-              normalizeSelection={(ids) => [...new Set(ids)].sort((a, b) => a - b)}
-            />
-          ),
-        }] : []),
-      ]}
-      activeTab={associationTab}
-      onChange={(id) => {
-        setAssociationTab(
-          id === "s3_users" || id === "connections" || id === "openstack" ? id : "accounts"
-        );
-        storageAssociations.closePickers();
-      }}
+    <UserAssociationsTabs
+      maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
+      accountsEnabled={accountAssociationsEnabled}
+      s3UsersEnabled={managedRgwUsersEnabled}
+      connectionsEnabled={sharedS3ConnectionsEnabled}
+      accounts={accountAssociationState}
+      s3Users={s3UserAssociationState}
+      connections={connectionAssociationState}
+      openstack={openStackEnabled ? openStackAssociationState : undefined}
+      onOpenPicker={storageAssociations.openPicker}
+      onEnsureOptions={ensureAssociationOptions}
     />
   );
 
@@ -881,7 +760,7 @@ export default function GroupsPage() {
               tabs={[
                 { id: "general", label: text("general") },
                 ...(!editingGroup?.system_key ? [{ id: "members" as const, label: text("members") }] : []),
-                { id: "associations", label: text("associations") },
+                { id: "associations", label: text("resourceAccess") },
                 { id: "access", label: text("platformAccess") },
               ]}
             >

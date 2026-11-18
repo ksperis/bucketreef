@@ -91,6 +91,7 @@ class UiGroupSummary(ApiModel):
     id: int
     name: str
     system_key: Optional[str] = None
+    description: Optional[str] = None
     avatar: UiGroupAvatar
 
 

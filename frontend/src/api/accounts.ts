@@ -22,6 +22,7 @@ export type AccountUserLink = AccountAccessGrant & {
 export type AccountGroupLink = AccountAccessGrant & {
   group_id: number;
   group_name: string | null;
+  group_description?: string | null;
   group_avatar: UiGroupAvatarDescriptor | null;
 };
 

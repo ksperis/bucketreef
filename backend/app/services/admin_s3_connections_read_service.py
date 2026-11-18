@@ -94,6 +94,7 @@ class AdminS3ConnectionsReadService:
                 S3ConnectionGroupDetail(
                     id=int(group.id),
                     name=group.name,
+                    description=group.description,
                     avatar=self.group_avatars.descriptor(group),
                 )
             )

@@ -194,6 +194,7 @@ class S3UserAssociationsService:
                 S3UserGroupLink(
                     group_id=int(group.id),
                     group_name=group.name,
+                    group_description=group.description,
                     group_avatar=avatar_service.descriptor(group),
                     allow_manager_browser_data_access=allow_browser,
                 )

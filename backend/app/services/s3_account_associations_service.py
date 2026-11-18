@@ -98,6 +98,7 @@ class S3AccountAssociationsService:
                 AccountGroupLink(
                     group_id=int(group.id),
                     group_name=group.name,
+                    group_description=group.description,
                     group_avatar=avatars.descriptor(group),
                     manager_role=manager_role,
                     portal_role=portal_role,

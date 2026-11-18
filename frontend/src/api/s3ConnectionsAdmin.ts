@@ -22,6 +22,7 @@ export type S3ConnectionUserDetail = {
 export type S3ConnectionGroupDetail = {
   id: number;
   name: string;
+  description?: string | null;
   avatar: UiGroupAvatarDescriptor | null;
 };
 

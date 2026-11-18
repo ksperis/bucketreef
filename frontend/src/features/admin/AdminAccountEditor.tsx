@@ -37,11 +37,11 @@ import {
   accountQuotaChanged,
   type AdminAccountForm,
 } from "./adminAccountForm";
-import AdminAccountAssociations, { accountUserAssociations, accountGroupAssociations } from "./AdminAccountAssociations";
+import AdminAccountUiAccess from "./AdminAccountUiAccess";
 import { useAdminI18n } from "./adminI18n";
 import useAdminEndpointAdminOpsPermissions from "./useAdminEndpointAdminOpsPermissions";
 
-type EditTab = "general" | "users" | "groups" | "settings" | "manager" | "portal";
+type EditTab = "general" | "ui_access" | "settings" | "manager" | "portal";
 type EditorState = { dirty: boolean; busy: boolean };
 type Props = {
   account: S3Account | S3AccountSummary;
@@ -84,8 +84,7 @@ function LoadedAccountEditor({ account, canManageManagerFeatures, onClose, onSav
   const [tab, setTab] = useState<EditTab>("general");
   const [portalDirty, setPortalDirty] = useState(false);
   const [portalBusy, setPortalBusy] = useState(false);
-  const [userPending, setUserPending] = useState(false);
-  const [groupPending, setGroupPending] = useState(false);
+  const [uiAccessPending, setUiAccessPending] = useState(false);
   const [attempted, setAttempted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -134,12 +133,12 @@ function LoadedAccountEditor({ account, canManageManagerFeatures, onClose, onSav
     setSaved(false);
     const invalidUsers = form.draft.user_links.some(link => !hasAccountAccessRole(link));
     const invalidGroups = form.draft.group_links.some(link => !hasAccountAccessRole(link));
-    if (invalidUsers || invalidGroups || userPending || groupPending) {
-      setTab(invalidUsers || userPending ? "users" : "groups");
+    if (invalidUsers || invalidGroups || uiAccessPending) {
+      setTab("ui_access");
       setError(invalidUsers || invalidGroups
         ? adminText(getAccountAccessRequiredMessage())
         : adminText("Add the selected UI {kind}, or cancel their selection, before saving.", {
-            kind: adminText(userPending ? "users" : "groups"),
+            kind: adminText("principals"),
           }));
       focusFirstInvalidField(event.currentTarget);
       return;
@@ -182,8 +181,8 @@ function LoadedAccountEditor({ account, canManageManagerFeatures, onClose, onSav
       if (active.current) setError(extractApiError(cause, adminText("Unable to save account configuration.")));
     }
   };
-  const dirty = form.dirty || portalDirty || userPending || groupPending;
-  const saveableDirty = form.dirty || userPending || groupPending;
+  const dirty = form.dirty || portalDirty || uiAccessPending;
+  const saveableDirty = form.dirty || uiAccessPending;
   const controller = useSettingsFormController({ dirty, busy: portalBusy, disabled: !saveableDirty, onSubmit: save, onClose });
   useEffect(() => {
     onStateChange({ dirty, busy: controller.locked });
@@ -201,7 +200,7 @@ function LoadedAccountEditor({ account, canManageManagerFeatures, onClose, onSav
       ]} />}>
       <WorkflowTabs<EditTab> activeTab={tab} onTabChange={next => { if (!controller.locked) setTab(next); }}
         ariaLabel={adminText("RGW account configuration sections")} idPrefix="admin-rgw-account-edit" panelClassName="mt-3 min-w-0"
-        tabs={[{ id: "general", label: adminText("General") }, { id: "users", label: adminText("Linked UI users") }, { id: "groups", label: adminText("Linked UI groups") },
+        tabs={[{ id: "general", label: adminText("General") }, { id: "ui_access", label: adminText("User access") },
           { id: "settings", label: adminText("Settings") },
           { id: "manager", label: adminText("Manager features"), visible: canManageManagerFeatures }, { id: "portal", label: adminText("Portal settings") }]
           .map(item => ({ ...item, id: item.id as EditTab, disabled: controller.locked }))}>
@@ -259,13 +258,15 @@ function LoadedAccountEditor({ account, canManageManagerFeatures, onClose, onSav
                 {permissionError} <SettingsButton variant="secondary" onClick={() => void loadPermissions(account.storage_endpoint_id)}>{adminText("Retry permissions")}</SettingsButton>
               </UiInlineMessage> : !allowQuotaUpdates && <UiInlineMessage tone="info">{adminText("Quota editing requires Admin Ops support and accounts=write on the endpoint.")}</UiInlineMessage>}
             </div></div>
-            <div hidden={tab !== "users"} className={adminAssociationPanelClass}>
-              <AdminAccountAssociations adapter={accountUserAssociations} links={form.draft.user_links} onChange={value => update("user_links", value)}
-                disabled={controller.locked} onPendingChange={setUserPending} />
-            </div>
-            <div hidden={tab !== "groups"} className={adminAssociationPanelClass}>
-              <AdminAccountAssociations adapter={accountGroupAssociations} links={form.draft.group_links} onChange={value => update("group_links", value)}
-                disabled={controller.locked} onPendingChange={setGroupPending} />
+            <div hidden={tab !== "ui_access"} className={adminAssociationPanelClass}>
+              <AdminAccountUiAccess
+                userLinks={form.draft.user_links}
+                groupLinks={form.draft.group_links}
+                onUserLinksChange={value => update("user_links", value)}
+                onGroupLinksChange={value => update("group_links", value)}
+                disabled={controller.locked}
+                onPendingChange={setUiAccessPending}
+              />
             </div>
             <div hidden={tab !== "settings"}>
               <div className="settings-stack">

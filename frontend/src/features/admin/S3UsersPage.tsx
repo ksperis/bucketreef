@@ -51,9 +51,9 @@ import { formatBytes, formatCompactNumber } from "../../utils/format";
 import { type TextMatchMode } from "../../utils/textMatch";
 import { isAdminLikeRole, readStoredUser } from "../../utils/workspaces";
 import { adminAssociationPanelClass } from "./AdminAssociationPicker";
-import AdminRgwUserAccessAssociationsPanel, {
-  type AdminRgwUserAccessAssociationsState,
-} from "./AdminRgwUserAccessAssociationsPanel";
+import type { AdminRgwUserAccessAssociationsState } from "./AdminRgwUserAccessAssociationsPanel";
+import AdminRgwUserUiAccess from "./AdminRgwUserUiAccess";
+import type { AdminPrincipalPresentation } from "./AdminPrincipalIdentity";
 import AdminQuotaFields from "./AdminQuotaFields";
 import AdminManagerFeatureOverrides from "./AdminManagerFeatureOverrides";
 import { useAdminS3UserStats } from "./useAdminS3UserStats";
@@ -78,12 +78,11 @@ import {
   s3UserUserLinkAdapter,
 } from "./adminRgwUserAccessAssociationModel";
 import {
-  buildAdminAssociationLookup,
   deriveAdminAssociationOptions,
   MAX_VISIBLE_ASSOCIATION_OPTIONS,
 } from "./adminAssociationOptions";
 
-type EditTab = "general" | "users" | "groups" | "settings" | "manager";
+type EditTab = "general" | "ui_access" | "settings" | "manager";
 
 export default function S3UsersPage() {
   const { intlLocale, text: adminText } = useAdminI18n();
@@ -171,8 +170,7 @@ export default function S3UsersPage() {
     reload: editingUsageReload,
   } = useAdminS3UserStats(editingUserId, Boolean(editingUserId));
   const showEditGeneralTab = editTab === "general";
-  const showEditUsersTab = editTab === "users";
-  const showEditGroupsTab = editTab === "groups";
+  const showEditUiAccessTab = editTab === "ui_access";
   const showEditSettingsTab = editTab === "settings";
   const currentUser = useMemo(() => readStoredUser(), []);
   const canManageManagerFeatures = isAdminLikeRole(currentUser?.role);
@@ -245,21 +243,69 @@ export default function S3UsersPage() {
     [uiGroups],
   );
   const portalUserLabelById = useMemo(
-    () => buildAdminAssociationLookup(
-      [portalUserOptions],
-      (option) => option.id,
-      (option) => option.label,
-    ),
-    [portalUserOptions],
+    () => {
+      const labels = new Map<number, string>();
+      editingUser?.user_links.forEach((user) =>
+        labels.set(user.user_id, user.user_email ?? `User #${user.user_id}`),
+      );
+      portalUserOptions.forEach((user) => labels.set(user.id, user.label));
+      return labels;
+    },
+    [editingUser, portalUserOptions],
   );
   const groupLabelById = useMemo(
-    () => buildAdminAssociationLookup(
-      [groupOptions],
-      (option) => option.id,
-      (option) => option.label,
-    ),
-    [groupOptions],
+    () => {
+      const labels = new Map<number, string>();
+      editingUser?.group_links.forEach((group) =>
+        labels.set(group.group_id, group.group_name ?? `Group #${group.group_id}`),
+      );
+      groupOptions.forEach((group) => labels.set(group.id, group.label));
+      return labels;
+    },
+    [editingUser, groupOptions],
   );
+  const portalUserPrincipalById = useMemo(() => {
+    const principals = new Map<number, AdminPrincipalPresentation>();
+    editingUser?.user_links.forEach((user) => {
+      const fallback = user.user_email ?? `User #${user.user_id}`;
+      principals.set(user.user_id, {
+        kind: "user",
+        email: user.user_email,
+        fullName: user.user_full_name,
+        avatar: user.user_avatar,
+        fallback,
+      });
+    });
+    portalUsers.forEach((user) => principals.set(user.id, {
+      kind: "user",
+      email: user.email,
+      fullName: user.full_name,
+      avatar: user.avatar,
+      fallback: user.email,
+    }));
+    return principals;
+  }, [editingUser, portalUsers]);
+  const groupPrincipalById = useMemo(() => {
+    const principals = new Map<number, AdminPrincipalPresentation>();
+    editingUser?.group_links.forEach((group) => {
+      const fallback = group.group_name ?? `Group #${group.group_id}`;
+      principals.set(group.group_id, {
+        kind: "group",
+        name: group.group_name,
+        description: group.group_description,
+        avatar: group.group_avatar,
+        fallback,
+      });
+    });
+    uiGroups.forEach((group) => principals.set(group.id, {
+      kind: "group",
+      name: group.name,
+      description: group.description,
+      avatar: group.avatar,
+      fallback: group.name,
+    }));
+    return principals;
+  }, [editingUser, uiGroups]);
   const { available: availablePortalUsers, visible: visiblePortalUsers } = useMemo(
     () =>
       deriveAdminAssociationOptions({
@@ -294,6 +340,7 @@ export default function S3UsersPage() {
       })),
     adapter: s3UserUserLinkAdapter,
     labelById: portalUserLabelById,
+    principalById: portalUserPrincipalById,
     available: availablePortalUsers,
     visible: visiblePortalUsers,
     search: portalUserPicker.search,
@@ -324,6 +371,7 @@ export default function S3UsersPage() {
       })),
     adapter: s3UserGroupLinkAdapter,
     labelById: groupLabelById,
+    principalById: groupPrincipalById,
     available: availableGroups,
     visible: visibleGroups,
     search: groupPicker.search,
@@ -781,20 +829,13 @@ export default function S3UsersPage() {
               activeTab={editTab}
               onTabChange={(tab) => {
                 if (editBusy || editDetailLoading) return;
-                if (tab === "users") {
-                  void loadPortalUsersIfNeeded();
-                }
-                if (tab === "groups") {
-                  void loadGroupsIfNeeded();
-                }
                 setEditTab(tab);
               }}
               ariaLabel={adminText("RGW user configuration sections")}
               idPrefix="admin-rgw-user-edit"
               tabs={[
                 { id: "general", label: adminText("General") },
-                { id: "users", label: adminText("Linked UI users") },
-                { id: "groups", label: adminText("Linked UI groups") },
+                { id: "ui_access", label: adminText("User access") },
                 { id: "settings", label: adminText("Settings") },
                 { id: "manager", label: adminText("Manager features"), visible: canManageManagerFeatures },
               ].map((item) => ({ ...item, id: item.id as EditTab, disabled: editBusy || editDetailLoading }))}
@@ -899,48 +940,14 @@ export default function S3UsersPage() {
                   </div>
                 )}
 
-            {showEditUsersTab && (
+            {showEditUiAccessTab && (
               <div className={adminAssociationPanelClass}>
-                <AdminRgwUserAccessAssociationsPanel
-                  state={editUserAssociationState}
+                <AdminRgwUserUiAccess
+                  users={editUserAssociationState}
+                  groups={editGroupAssociationState}
                   maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
-                  primaryLabel={adminText("User")}
-                  actionsLabel={adminText("Actions")}
-                  removeLabel={adminText("Remove")}
-                  loadingMessage="Loading UI users..."
-                  emptyMessage={adminText("No linked users yet.")}
-                  pickerTitle={adminText("Add UI users")}
-                  searchHint={adminText("(filter by email)")}
-                  fallbackLabel={(id) => `User #${id}`}
-                  searchAriaLabel="Search UI users"
-                  section={{
-                    title: adminText("Linked UI users"),
-                    countLabel: adminText("{count} linked", { count: editForm.user_links.length }),
-                    actionLabel: adminText(portalUserPicker.open ? "Close" : "Add UI users"),
-                  }}
-                />
-              </div>
-            )}
-
-            {showEditGroupsTab && (
-              <div className={adminAssociationPanelClass}>
-                <AdminRgwUserAccessAssociationsPanel
-                  state={editGroupAssociationState}
-                  maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
-                  primaryLabel={adminText("Group")}
-                  actionsLabel={adminText("Actions")}
-                  removeLabel={adminText("Remove")}
-                  loadingMessage="Loading UI groups..."
-                  emptyMessage={adminText("No linked groups yet.")}
-                  pickerTitle={adminText("Add UI groups")}
-                  searchHint={adminText("(filter by name)")}
-                  fallbackLabel={(id) => `Group #${id}`}
-                  searchAriaLabel="Search UI groups"
-                  section={{
-                    title: adminText("Linked UI groups"),
-                    countLabel: `${editForm.group_links.length} linked${uiGroupsLoading ? " · loading..." : ""}`,
-                    actionLabel: adminText(groupPicker.open ? "Close" : "Add UI groups"),
-                  }}
+                  ensureUsers={() => void loadPortalUsersIfNeeded()}
+                  ensureGroups={() => void loadGroupsIfNeeded()}
                 />
               </div>
             )}

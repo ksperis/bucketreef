@@ -66,6 +66,11 @@ function canonicalUserFixture(input: UserFixture): User {
       selected_portal_account_id: null,
     },
     account_links: [],
+    account_details: input.account_details ?? (input.account_links ?? []).map((link) => ({
+      id: link.account_id,
+      name: `acc-${link.account_id}`,
+      rgw_account_id: `RGW-ACC-${link.account_id}`,
+    })),
     group_details: [],
     s3_user_links: [],
     s3_user_details: [],
@@ -392,6 +397,52 @@ describe("UsersPage modal tabs", () => {
     expect(window.location.search).toBe("?search=linked.user%40example.com");
   });
 
+  it("renders existing association resource names without loading Add catalogs", async () => {
+    listS3AccountsMock.mockResolvedValue({ items: [], total: 0, page: 1, page_size: 10, has_next: false });
+    listS3UsersMock.mockResolvedValue({ items: [], total: 0, page: 1, page_size: 10, has_next: false });
+    listS3ConnectionsMock.mockResolvedValue({ items: [], total: 0, page: 1, page_size: 10, has_next: false });
+    listAdminOpenStackCloudOptionsMock.mockResolvedValue({ items: [], total: 0, page: 1, page_size: 10, has_next: false });
+    listUsersMock.mockResolvedValue({
+      items: [{
+        id: 12,
+        email: "resource.names@example.com",
+        role: "ui_user",
+        account_links: [{
+          account_id: 101,
+          manager_role: "account_administrator",
+          portal_role: null,
+          allow_manager_browser_data_access: false,
+        }],
+        account_details: [{ id: 101, name: "Production Account", rgw_account_id: "RGW-PROD" }],
+        s3_user_links: [{ s3_user_id: 102, allow_manager_browser_data_access: false }],
+        s3_user_details: [{ id: 102, name: "Application User" }],
+        s3_connection_details: [{ id: 103, name: "Shared MinIO" }],
+        openstack_cloud_details: [{ id: 104, name: "OpenStack Production" }],
+      }],
+      total: 1,
+      page: 1,
+      page_size: 25,
+      has_next: false,
+    });
+
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Resource access" }));
+
+    expect(screen.getByText("Production Account")).toBeInTheDocument();
+    expect(screen.getByText("Application User")).toBeInTheDocument();
+    expect(screen.getByText("Shared MinIO")).toBeInTheDocument();
+    expect(screen.getByText("OpenStack Production")).toBeInTheDocument();
+    expect(screen.queryByText("S3Account #101")).not.toBeInTheDocument();
+    expect(screen.queryByText("User #102")).not.toBeInTheDocument();
+    expect(screen.queryByText("Connection #103")).not.toBeInTheDocument();
+    expect(screen.queryByText("Cloud #104")).not.toBeInTheDocument();
+    expect(listS3AccountsMock).not.toHaveBeenCalled();
+    expect(listS3UsersMock).not.toHaveBeenCalled();
+    expect(listS3ConnectionsMock).not.toHaveBeenCalled();
+    expect(listAdminOpenStackCloudOptionsMock).not.toHaveBeenCalled();
+  });
+
   it("renders associations with the shared sectioned summary", async () => {
     generalSettingsState.portal_enabled = true;
     listUsersMock.mockResolvedValue({
@@ -652,10 +703,10 @@ describe("UsersPage modal tabs", () => {
     );
 
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Associations" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Resource access" }));
 
-    expect(screen.getByRole("columnheader", { name: "Manager role" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: /Portal role/ })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Manager" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Portal" })).toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "Access roles" })).not.toBeInTheDocument();
 
     const managerRoleSelect = screen.getByRole<HTMLSelectElement>("combobox", {
@@ -717,10 +768,10 @@ describe("UsersPage modal tabs", () => {
 
     renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Associations" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Resource access" }));
 
-    expect(screen.getByRole("columnheader", { name: "Manager role" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: /Portal role/ })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Manager" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Portal" })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Manager role for acc-1" })).toBeEnabled();
     expect(screen.getByRole("combobox", { name: "Portal role for acc-1" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Remove" })).toBeEnabled();
@@ -772,7 +823,7 @@ describe("UsersPage modal tabs", () => {
 
     renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Associations" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Resource access" }));
     const managerRoleSelect = screen.getByRole("combobox", {
       name: "Manager role for acc-1",
     });
@@ -886,7 +937,7 @@ describe("UsersPage modal tabs", () => {
     expect(createUserMock).not.toHaveBeenCalled();
   });
 
-  it("keeps associations when switching General/Associations and submits linked payload", async () => {
+  it("keeps associations when switching General/Resource access and submits linked payload", async () => {
     generalSettingsState.portal_enabled = true;
     renderPage();
 
@@ -898,13 +949,13 @@ describe("UsersPage modal tabs", () => {
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "jane@example.com" } });
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret-123" } });
 
-    fireEvent.click(screen.getByRole("tab", { name: "Associations" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Resource access" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Add accounts" }));
-    const managerRoleSelect = screen.getByRole<HTMLSelectElement>("combobox", {
+    fireEvent.click(screen.getByRole("button", { name: "Add RGW Accounts" }));
+    const managerRoleSelect = await screen.findByRole<HTMLSelectElement>("combobox", {
       name: "Manager role for acc-1",
     });
-    const portalRoleSelect = screen.getByRole<HTMLSelectElement>("combobox", {
+    const portalRoleSelect = await screen.findByRole<HTMLSelectElement>("combobox", {
       name: "Portal role for acc-1",
     });
     expect(Array.from(managerRoleSelect.options).map((option) => option.value)).toEqual([
@@ -918,20 +969,20 @@ describe("UsersPage modal tabs", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "acc-1" }));
     fireEvent.click(screen.getByRole("button", { name: "Add selected" }));
 
-    fireEvent.click(screen.getByRole("tab", { name: "S3 Users" }));
-    fireEvent.click(screen.getByRole("button", { name: "Add users" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add RGW Users" }));
     fireEvent.click(await screen.findByRole("checkbox", { name: "s3-user-1" }));
     fireEvent.click(screen.getByRole("button", { name: "Add selected" }));
 
-    fireEvent.click(screen.getByRole("tab", { name: "Connections" }));
-    fireEvent.click(screen.getByRole("button", { name: "Add connections" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add S3 Connections" }));
     fireEvent.click(await screen.findByRole("checkbox", { name: "conn-1" }));
     fireEvent.click(screen.getByRole("button", { name: "Add selected" }));
 
     fireEvent.click(screen.getByRole("tab", { name: "General" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Associations" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Resource access" }));
 
-    expect(screen.getByRole("tab", { name: "Accounts" })).toBeInTheDocument();
+    expect(screen.getByText("acc-1")).toBeInTheDocument();
+    expect(screen.getByText("s3-user-1")).toBeInTheDocument();
+    expect(screen.getByText("conn-1")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
 
@@ -971,9 +1022,9 @@ describe("UsersPage modal tabs", () => {
     await openCreateUser();
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "step-up@example.com" } });
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret-123456" } });
-    fireEvent.click(screen.getByRole("tab", { name: "Associations" }));
-    fireEvent.click(screen.getByRole("button", { name: "Add accounts" }));
-    fireEvent.change(screen.getByRole("combobox", { name: "Portal role for acc-1" }), {
+    fireEvent.click(screen.getByRole("tab", { name: "Resource access" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add RGW Accounts" }));
+    fireEvent.change(await screen.findByRole("combobox", { name: "Portal role for acc-1" }), {
       target: { value: "portal_user" },
     });
     fireEvent.click(await screen.findByRole("checkbox", { name: "acc-1" }));
@@ -982,7 +1033,7 @@ describe("UsersPage modal tabs", () => {
 
     const verificationDialog = await screen.findByRole("dialog", { name: "Verify with passkey" });
     expect(screen.getByRole("heading", { name: "Create user" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Accounts" })).toBeInTheDocument();
+    expect(screen.getByText("acc-1")).toBeInTheDocument();
     fireEvent.click(within(verificationDialog).getByRole("button", { name: "Verify with passkey" }));
 
     await waitFor(() => expect(createUserMock).toHaveBeenCalledTimes(2));
@@ -992,11 +1043,16 @@ describe("UsersPage modal tabs", () => {
     expect(updateUserMock).not.toHaveBeenCalled();
   }, 10_000);
 
-  it("does not retry account option loading in a loop after an initial failure", async () => {
+  it("does not retry account option loading in a loop after an explicit load failure", async () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     listS3AccountsMock.mockRejectedValue(new Error("backend down"));
 
     renderPage();
+    expect(listS3AccountsMock).not.toHaveBeenCalled();
+
+    await openCreateUser();
+    fireEvent.click(screen.getByRole("tab", { name: "Resource access" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add RGW Accounts" }));
 
     await waitFor(() => {
       expect(listS3AccountsMock).toHaveBeenCalledTimes(1);
@@ -1009,47 +1065,45 @@ describe("UsersPage modal tabs", () => {
     consoleErrorSpy.mockRestore();
   });
 
-  it("retries account option loading only on explicit modal and tab transitions after a failure", async () => {
+  it("retries account option loading only on explicit Add actions after a failure", async () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     listS3AccountsMock.mockRejectedValue(new Error("backend down"));
 
     renderPage();
+    expect(listS3AccountsMock).not.toHaveBeenCalled();
+
+    await openCreateUser();
+    fireEvent.click(screen.getByRole("tab", { name: "Resource access" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add RGW Accounts" }));
 
     await waitFor(() => {
       expect(listS3AccountsMock).toHaveBeenCalledTimes(1);
     });
 
-    await openCreateUser();
-
-    await waitFor(() => {
-      expect(listS3AccountsMock).toHaveBeenCalledTimes(2);
-    });
-
-    fireEvent.click(screen.getByRole("tab", { name: "Associations" }));
-    fireEvent.click(screen.getByRole("tab", { name: "S3 Users" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add RGW Users" }));
 
     await waitFor(() => {
       expect(listS3UsersMock).toHaveBeenCalledTimes(1);
     });
 
-    fireEvent.click(screen.getByRole("tab", { name: "Accounts" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add RGW Accounts" }));
 
     await waitFor(() => {
-      expect(listS3AccountsMock).toHaveBeenCalledTimes(3);
+      expect(listS3AccountsMock).toHaveBeenCalledTimes(2);
     });
 
     await new Promise((resolve) => window.setTimeout(resolve, 50));
 
-    expect(listS3AccountsMock).toHaveBeenCalledTimes(3);
+    expect(listS3AccountsMock).toHaveBeenCalledTimes(2);
 
     consoleErrorSpy.mockRestore();
   });
 
-  it("returns to General when required fields are missing and submit is triggered from Associations", async () => {
+  it("returns to General when required fields are missing and submit is triggered from Resource access", async () => {
     renderPage();
 
     await openCreateUser();
-    fireEvent.click(screen.getByRole("tab", { name: "Associations" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Resource access" }));
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
 
     expect(await screen.findByText("Email is required.")).toBeInTheDocument();
@@ -1064,11 +1118,11 @@ describe("UsersPage modal tabs", () => {
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
       "General",
       "Groups",
-      "Associations",
+      "Resource access",
       "Platform access",
     ]);
     expect(screen.getByRole("tab", { name: "General" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Associations" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Resource access" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Platform access" })).toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "Workspaces" })).not.toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "Connections" })).not.toBeInTheDocument();
@@ -1168,11 +1222,11 @@ describe("UsersPage modal tabs", () => {
       "Profile and preferences",
       "Security",
       "Groups",
-      "Associations",
+      "Resource access",
       "Platform access",
     ]);
     expect(screen.getByRole("tab", { name: "Profile and preferences" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Associations" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Resource access" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Platform access" })).toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "Workspaces" })).not.toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "Connections" })).not.toBeInTheDocument();
@@ -1592,9 +1646,9 @@ describe("UsersPage modal tabs", () => {
     await openCreateUser();
     fireEvent.change(screen.getByLabelText("Email"), { target: { value: "pm@example.com" } });
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret-123" } });
-    fireEvent.click(screen.getByRole("tab", { name: "Associations" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Resource access" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Add accounts" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add RGW Accounts" }));
     const accountCheckbox = await screen.findByRole("checkbox", { name: "acc-1" });
     const accountRow = accountCheckbox.closest("tr");
     if (!accountRow) {

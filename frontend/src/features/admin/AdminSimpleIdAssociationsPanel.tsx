@@ -14,11 +14,13 @@ import {
   resetAdminAssociationPicker,
   type AdminAssociationPickerState,
 } from "./AdminAssociationPicker";
+import type { AdminPrincipalPresentation } from "./AdminPrincipalIdentity";
 
 export type AdminSimpleIdAssociationsState = AdminAssociationPickerState & {
   selected: number[];
   setSelected: Dispatch<SetStateAction<number[]>>;
   labelById: Map<number, string>;
+  principalById?: Map<number, AdminPrincipalPresentation>;
 };
 
 type AdminSimpleIdAssociationsPanelProps = {

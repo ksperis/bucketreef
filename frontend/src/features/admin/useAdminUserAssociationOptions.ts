@@ -1,5 +1,5 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import {
   listS3Accounts,
   type S3AccountSummary,
@@ -18,7 +18,7 @@ import type { PaginatedResponse } from "../../api/types";
 import usePaginatedOptions, {
   type PaginatedOptionsQuery,
 } from "../../hooks/usePaginatedOptions";
-import type { StorageAssociationTab } from "./useAdminStorageAssociationEditorState";
+import type { StorageAssociationKind } from "./useAdminStorageAssociationEditorState";
 
 type EnsureOptions = { retryOnError?: boolean };
 
@@ -48,21 +48,24 @@ export default function useAdminUserAssociationOptions(
   s3UsersEnabled = true,
   s3ConnectionsEnabled = true,
 ) {
+  const [enabledAssociationKinds, setEnabledAssociationKinds] = useState<
+    Record<StorageAssociationKind, boolean>
+  >({ accounts: false, s3_users: false, connections: false, openstack: false });
   const accounts = usePaginatedOptions(loadAccounts, {
-    enabled: accountsEnabled,
+    enabled: accountsEnabled && enabledAssociationKinds.accounts,
     initialPageSize: 10,
   });
   const s3Users = usePaginatedOptions(loadS3Users, {
-    enabled: s3UsersEnabled,
+    enabled: s3UsersEnabled && enabledAssociationKinds.s3_users,
     initialPageSize: 10,
   });
   const s3Connections = usePaginatedOptions(loadConnections, {
-    enabled: s3ConnectionsEnabled,
+    enabled: s3ConnectionsEnabled && enabledAssociationKinds.connections,
     initialPageSize: 10,
   });
   const groups = usePaginatedOptions(loadGroups, { initialPageSize: 10 });
   const openStackClouds = usePaginatedOptions(loadOpenStackClouds, {
-    enabled: openStackEnabled,
+    enabled: openStackEnabled && enabledAssociationKinds.openstack,
     initialPageSize: 10,
   });
   const {
@@ -103,24 +106,36 @@ export default function useAdminUserAssociationOptions(
 
   const ensureAccounts = useCallback((options?: EnsureOptions) => {
     if (!accountsEnabled) return;
+    if (!enabledAssociationKinds.accounts) {
+      setEnabledAssociationKinds((current) => ({ ...current, accounts: true }));
+      return;
+    }
     if (accountsLoading || accountsLoaded) return;
     if (accountsError && !options?.retryOnError) return;
     refreshAccounts();
-  }, [accountsEnabled, accountsError, accountsLoaded, accountsLoading, refreshAccounts]);
+  }, [accountsEnabled, accountsError, accountsLoaded, accountsLoading, enabledAssociationKinds.accounts, refreshAccounts]);
 
   const ensureS3Users = useCallback((options?: EnsureOptions) => {
     if (!s3UsersEnabled) return;
+    if (!enabledAssociationKinds.s3_users) {
+      setEnabledAssociationKinds((current) => ({ ...current, s3_users: true }));
+      return;
+    }
     if (s3UsersLoading || s3UsersLoaded) return;
     if (s3UsersError && !options?.retryOnError) return;
     refreshS3Users();
-  }, [refreshS3Users, s3UsersEnabled, s3UsersError, s3UsersLoaded, s3UsersLoading]);
+  }, [enabledAssociationKinds.s3_users, refreshS3Users, s3UsersEnabled, s3UsersError, s3UsersLoaded, s3UsersLoading]);
 
   const ensureS3Connections = useCallback((options?: EnsureOptions) => {
     if (!s3ConnectionsEnabled) return;
+    if (!enabledAssociationKinds.connections) {
+      setEnabledAssociationKinds((current) => ({ ...current, connections: true }));
+      return;
+    }
     if (s3ConnectionsLoading || s3ConnectionsLoaded) return;
     if (s3ConnectionsError && !options?.retryOnError) return;
     refreshS3Connections();
-  }, [refreshS3Connections, s3ConnectionsEnabled, s3ConnectionsError, s3ConnectionsLoaded, s3ConnectionsLoading]);
+  }, [enabledAssociationKinds.connections, refreshS3Connections, s3ConnectionsEnabled, s3ConnectionsError, s3ConnectionsLoaded, s3ConnectionsLoading]);
 
   const ensureGroups = useCallback((options?: EnsureOptions) => {
     if (groupsLoading || groupsLoaded) return;
@@ -129,19 +144,24 @@ export default function useAdminUserAssociationOptions(
   }, [groupsError, groupsLoaded, groupsLoading, refreshGroups]);
 
   const ensureOpenStackClouds = useCallback((options?: EnsureOptions) => {
+    if (!openStackEnabled) return;
+    if (!enabledAssociationKinds.openstack) {
+      setEnabledAssociationKinds((current) => ({ ...current, openstack: true }));
+      return;
+    }
     if (openStackCloudsLoading || openStackCloudsLoaded) return;
     if (openStackCloudsError && !options?.retryOnError) return;
     refreshOpenStackClouds();
-  }, [openStackCloudsError, openStackCloudsLoaded, openStackCloudsLoading, refreshOpenStackClouds]);
+  }, [enabledAssociationKinds.openstack, openStackEnabled, openStackCloudsError, openStackCloudsLoaded, openStackCloudsLoading, refreshOpenStackClouds]);
 
-  const ensureAssociationOptionsForTab = useCallback(
+  const ensureAssociationOptions = useCallback(
     async (
-      tab: StorageAssociationTab,
+      kind: StorageAssociationKind,
       options?: EnsureOptions,
     ) => {
-      if (tab === "accounts") ensureAccounts(options);
-      else if (tab === "s3_users") ensureS3Users(options);
-      else if (tab === "openstack") ensureOpenStackClouds(options);
+      if (kind === "accounts") ensureAccounts(options);
+      else if (kind === "s3_users") ensureS3Users(options);
+      else if (kind === "openstack") ensureOpenStackClouds(options);
       else ensureS3Connections(options);
     },
     [
@@ -187,7 +207,7 @@ export default function useAdminUserAssociationOptions(
     openStackClouds: openStackClouds.items,
     openStackCloudsLoading,
     openStackCloudsCatalog: openStackClouds,
-    ensureAssociationOptionsForTab,
+    ensureAssociationOptions,
     resetAssociationOptionSearches: resetSearches,
   };
 }

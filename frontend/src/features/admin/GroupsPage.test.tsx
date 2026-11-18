@@ -409,9 +409,9 @@ describe("GroupsPage", () => {
     expect(screen.queryByText("Account #99")).not.toBeInTheDocument();
     expect(screen.queryByText("S3 User #88")).not.toBeInTheDocument();
     expect(screen.queryByText("Connection #77")).not.toBeInTheDocument();
-    expect(listS3AccountsMock).toHaveBeenCalledWith({ page: 1, page_size: 10 });
-    expect(listS3UsersMock).toHaveBeenCalledWith({ page: 1, page_size: 10 });
-    expect(listS3ConnectionsMock).toHaveBeenCalledWith({ page: 1, page_size: 10 });
+    expect(listS3AccountsMock).not.toHaveBeenCalled();
+    expect(listS3UsersMock).not.toHaveBeenCalled();
+    expect(listS3ConnectionsMock).not.toHaveBeenCalled();
   });
 
   it("limits visible member avatars and reports hidden members", async () => {
@@ -479,10 +479,10 @@ describe("GroupsPage", () => {
     );
 
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Associations" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Resource access" }));
 
-    expect(screen.getByRole("columnheader", { name: "Manager role" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: /Portal role/ })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Manager" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Portal" })).toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "Access roles" })).not.toBeInTheDocument();
 
     const managerRoleSelect = screen.getByRole<HTMLSelectElement>("combobox", {
@@ -546,9 +546,9 @@ describe("GroupsPage", () => {
     await act(async () => {
       fireEvent.click(editButton);
     });
-    fireEvent.click(screen.getByRole("tab", { name: "Associations" }));
-    expect(screen.getByRole("columnheader", { name: "Manager role" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: /Portal role/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "Resource access" }));
+    expect(screen.getByRole("columnheader", { name: "Manager" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Portal" })).toBeInTheDocument();
     const managerRoleSelect = screen.getByRole("combobox", {
       name: "Manager role for acc-1",
     });
@@ -571,7 +571,7 @@ describe("GroupsPage", () => {
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
       "General",
       "Members",
-      "Associations",
+      "Resource access",
       "Platform access",
     ]);
     fireEvent.change(screen.getByPlaceholderText("Storage operators"), { target: { value: "ops-group" } });
@@ -579,7 +579,7 @@ describe("GroupsPage", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Platform access" }));
     expect(screen.getByRole("switch", { name: "Allow group access to /ceph-admin" })).not.toBeChecked();
     expect(screen.getByRole("switch", { name: "Allow group access to /storage-ops" })).not.toBeChecked();
-    expect(screen.getByText("Browser options inherited by group members.")).toBeInTheDocument();
+    expect(screen.getByText("Browser options.")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Connections" })).toBeInTheDocument();
     const browserAdvancedToggle = screen.getByRole("switch", { name: "Enable technical S3 tools" });
     expect(browserAdvancedToggle).not.toBeChecked();
@@ -590,8 +590,8 @@ describe("GroupsPage", () => {
     fireEvent.click(await screen.findByRole("checkbox", { name: "alice@example.com" }));
     fireEvent.click(screen.getByRole("button", { name: "Add selected" }));
 
-    fireEvent.click(screen.getByRole("tab", { name: "Associations" }));
-    fireEvent.click(screen.getByRole("button", { name: "Add accounts" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Resource access" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add RGW Accounts" }));
     fireEvent.click(await screen.findByRole("checkbox", { name: "acc-1" }));
     const managerRoleSelect = screen.getByRole<HTMLSelectElement>("combobox", {
       name: "Manager role for acc-1",
@@ -608,12 +608,10 @@ describe("GroupsPage", () => {
     expect(portalRoleSelect).toBeEnabled();
     fireEvent.change(managerRoleSelect, { target: { value: "account_administrator" } });
     fireEvent.click(screen.getByRole("button", { name: "Add selected" }));
-    fireEvent.click(screen.getByRole("tab", { name: "S3 Users" }));
-    fireEvent.click(screen.getByRole("button", { name: "Add RGW users" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add RGW Users" }));
     fireEvent.click(await screen.findByRole("checkbox", { name: "s3-user-1" }));
     fireEvent.click(screen.getByRole("button", { name: "Add selected" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Connections" }));
-    fireEvent.click(screen.getByRole("button", { name: "Add S3 connections" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add S3 Connections" }));
     fireEvent.click(await screen.findByRole("checkbox", { name: "shared-conn" }));
     expect(screen.queryByRole("checkbox", { name: "private-conn" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Add selected" }));
@@ -689,12 +687,12 @@ describe("GroupsPage", () => {
 
     renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Associations" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Resource access" }));
 
     expect(await screen.findByText("acc-1")).toBeInTheDocument();
     expect(screen.queryByRole("checkbox", { name: "acc-1" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Remove" }));
-    expect(screen.getByText("No linked accounts yet.")).toBeInTheDocument();
+    expect(screen.getByText("No resource access yet.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
@@ -852,7 +850,7 @@ describe("GroupsPage", () => {
     expect(within(form).getByText(
       "All active UI users are implicit members of this system group, including users created later. Membership cannot be edited.",
     )).toBeInTheDocument();
-    expect(within(form).getByRole("tab", { name: "Associations" })).toBeInTheDocument();
+    expect(within(form).getByRole("tab", { name: "Resource access" })).toBeInTheDocument();
   });
 
   it("localizes the All users system group display without changing stored values", async () => {

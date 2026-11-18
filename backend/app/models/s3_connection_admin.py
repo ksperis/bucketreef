@@ -40,6 +40,7 @@ class S3ConnectionAdminListingRequest(AdminSortableListingRequest):
 class S3ConnectionGroupDetail(ApiModel):
     id: int
     name: str
+    description: Optional[str]
     avatar: Optional[UiGroupAvatar]
 
 

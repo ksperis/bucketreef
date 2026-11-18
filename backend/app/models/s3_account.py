@@ -40,6 +40,7 @@ class AccountGroupLink(AccountAccessGrant):
     allow_manager_browser_data_access: bool
     group_id: int
     group_name: Optional[str]
+    group_description: Optional[str]
     group_avatar: Optional[UiGroupAvatar]
 
 

@@ -119,6 +119,7 @@ export const groupsMessage = {
   configurationSections: m("UI group configuration sections", "UI 用户组配置区域"),
   general: m("General", "常规"),
   associations: m("Associations", "关联"),
+  resourceAccess: m("Resource access", "资源访问权限"),
   platformAccess: m("Platform access", "平台访问"),
   identity: m("Identity", "身份信息"),
   namePlaceholder: m("Storage operators", "存储运维人员"),

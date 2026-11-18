@@ -89,6 +89,7 @@ class UiGroupQueryService:
                 id=row.id,
                 name=row.name,
                 system_key=row.system_key,
+                description=row.description,
                 avatar=avatar_service.descriptor(row),
             )
             for row in rows

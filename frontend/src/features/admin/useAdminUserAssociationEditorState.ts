@@ -6,9 +6,7 @@ import { useCallback, useState } from "react";
 import type { S3UserMembership } from "../../api/users";
 import type { AdminAccountSelection } from "./adminAccountAssociationModel";
 import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
-import useAdminStorageAssociationEditorState, {
-  type StorageAssociationTab,
-} from "./useAdminStorageAssociationEditorState";
+import useAdminStorageAssociationEditorState from "./useAdminStorageAssociationEditorState";
 
 type AssociationEditorSeed = {
   selectedS3Accounts?: AdminAccountSelection[];
@@ -16,7 +14,6 @@ type AssociationEditorSeed = {
   selectedS3Connections?: number[];
   selectedOpenStackClouds?: number[];
   selectedGroups?: number[];
-  associationsTab?: StorageAssociationTab;
 };
 
 export default function useAdminUserAssociationEditorState() {
@@ -44,7 +41,7 @@ export default function useAdminUserAssociationEditorState() {
     setSelectedS3Connections(seed.selectedS3Connections ?? []);
     setSelectedOpenStackClouds(seed.selectedOpenStackClouds ?? []);
     setSelectedGroups(seed.selectedGroups ?? []);
-    resetStorageAssociations(seed.associationsTab);
+    resetStorageAssociations();
     resetGroupPicker();
   }, [resetGroupPicker, resetStorageAssociations]);
 
@@ -76,8 +73,7 @@ export default function useAdminUserAssociationEditorState() {
       setSelected: setSelectedGroups,
       picker: groupPicker,
     },
-    tab: storageAssociations.tab,
-    setTab: storageAssociations.setTab,
+    openPicker: storageAssociations.openPicker,
     closePickers: storageAssociations.closePickers,
     clearPendingSelections,
     reset,

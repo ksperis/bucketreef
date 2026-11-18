@@ -38,6 +38,7 @@ class S3UserUserLink(_S3UserAssociationLink):
 class S3UserGroupLink(_S3UserAssociationLink):
     group_id: int
     group_name: Optional[str]
+    group_description: Optional[str]
     group_avatar: Optional[UiGroupAvatar]
 
 

@@ -2,18 +2,17 @@
  * Copyright (c) 2026 Laurent Barbe
  * Licensed under the Apache License, Version 2.0
  */
-import type { S3AccountSummary } from "../../api/accounts";
 import type { UiGroupSummary } from "../../api/groups";
 import UserAssociationsTabs from "./UserAssociationsTabs";
 import UserGroupsSelector from "./UserGroupsSelector";
 import type { AdminUserAssociationDerivedOptions } from "./useAdminUserAssociationDerivedOptions";
 import { MAX_VISIBLE_ASSOCIATION_OPTIONS } from "./adminAssociationOptions";
 import type { AdminUserAssociationEditorState } from "./useAdminUserAssociationEditorState";
-import type { StorageAssociationTab } from "./useAdminStorageAssociationEditorState";
+import type { StorageAssociationKind } from "./useAdminStorageAssociationEditorState";
 import { s3UserMembershipAdapter } from "./adminRgwUserAccessAssociationModel";
 
 export type AdminUserAssociationEditorResources = {
-  accountOptionsById: Map<number, S3AccountSummary>;
+  accountOptionsById: Map<number, { name: string }>;
   s3UserLabelById: Map<number, string>;
   s3ConnectionLabelById: Map<number, string>;
   openStackLabelById: Map<number, string>;
@@ -73,8 +72,8 @@ export type AdminUserAssociationEditorResources = {
   accountsEnabled: boolean;
   s3UsersEnabled: boolean;
   connectionsEnabled: boolean;
-  ensureAssociationOptionsForTab: (
-    tab: StorageAssociationTab,
+  ensureAssociationOptions: (
+    kind: StorageAssociationKind,
     options?: { retryOnError?: boolean },
   ) => Promise<void>;
 };
@@ -124,19 +123,14 @@ export default function AdminUserAssociationEditorPanels({
 
   return (
     <UserAssociationsTabs
-      activeTab={editor.tab}
-      onTabChange={(nextTab) => {
-        const tabChanged = nextTab !== editor.tab;
-        editor.setTab(nextTab);
-        editor.closePickers();
-        if (tabChanged) {
-          void resources.ensureAssociationOptionsForTab(nextTab, { retryOnError: true });
-        }
-      }}
       maxVisibleOptions={MAX_VISIBLE_ASSOCIATION_OPTIONS}
       accountsEnabled={resources.accountsEnabled}
       s3UsersEnabled={resources.s3UsersEnabled}
       connectionsEnabled={resources.connectionsEnabled}
+      onOpenPicker={editor.openPicker}
+      onEnsureOptions={(kind) => {
+        void resources.ensureAssociationOptions(kind, { retryOnError: true });
+      }}
       accounts={{
         selected: editor.accounts.selected,
         setSelected: editor.accounts.setSelected,

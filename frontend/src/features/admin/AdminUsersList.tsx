@@ -1,5 +1,4 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
-import type { S3AccountSummary } from "../../api/accounts";
 import type { AdminUserSortBy, User } from "../../api/users";
 import UserAvatar from "../../components/UserAvatar";
 import ToolbarSearchInput from "../../components/ToolbarSearchInput";
@@ -26,7 +25,7 @@ import type { UiLanguage } from "../../components/language";
 
 type Props = {
   users: User[];
-  accountOptionsById: ReadonlyMap<number, S3AccountSummary>;
+  accountOptionsById: ReadonlyMap<number, { name: string }>;
   locale: UiLanguage;
   text: UsersText;
   roleLabel: (role: User["role"]) => string;

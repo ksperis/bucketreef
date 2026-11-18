@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Fixed
+
+- Preserve the real RGW Account, RGW User, S3 Connection, and OpenStack Cloud names in Admin UI User associations without requiring the corresponding Add catalog to be loaded.
+
+### Upgrade notes
+
+- Deploy the matching backend and bundled frontend together because Admin UI User responses now include linked RGW Account details used to render association names. No database migration is required.
+
 ## 0.3.2 - 2026-11-13
 
 ### Added

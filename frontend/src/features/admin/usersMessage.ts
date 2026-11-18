@@ -9,6 +9,7 @@ const usersMessage = {
   general: m("General", "常规"),
   groups: m("Groups", "用户组"),
   associations: m("Associations", "关联"),
+  resourceAccess: m("Resource access", "资源访问权限"),
   platformAccess: m("Platform access", "平台访问"),
   storageOpsAccessDescription: m("Allow access to /storage-ops for User, Admin, and Superadmin UI roles.", "允许 User、Admin 和 Superadmin UI 角色访问 /storage-ops。"),
   superadmin: m("Superadmin", "超级管理员"),

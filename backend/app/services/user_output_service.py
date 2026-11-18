@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import (
+    S3Account,
     S3Connection,
     UiGroup,
     User,
@@ -20,6 +21,7 @@ from app.db.openstack import OpenStackCloud, cloud_users
 from app.models.openstack import LinkedOpenStackCloud
 from app.models.user import (
     AccountMembership,
+    LinkedS3Account,
     LinkedS3Connection,
     LinkedS3User,
     LinkedUiGroup,
@@ -36,6 +38,7 @@ from app.services.user_avatar_service import UserAvatarService
 @dataclass(frozen=True)
 class UserOutputPreload:
     account_links_by_user: dict[int, list[AccountMembership]]
+    account_names: dict[int, tuple[str, str]]
     group_ids_by_user: dict[int, list[int]]
     group_names: dict[int, str]
     s3_user_links_by_user: dict[int, list[S3UserMembership]]
@@ -56,6 +59,7 @@ class UserOutputService:
     def _empty_preload(user_ids: list[int]) -> UserOutputPreload:
         return UserOutputPreload(
             account_links_by_user={user_id: [] for user_id in user_ids},
+            account_names={},
             group_ids_by_user={user_id: [] for user_id in user_ids},
             group_names={},
             s3_user_links_by_user={user_id: [] for user_id in user_ids},
@@ -69,25 +73,29 @@ class UserOutputService:
     def _load_account_links(
         self,
         user_ids: list[int],
-    ) -> dict[int, list[AccountMembership]]:
+    ) -> tuple[dict[int, list[AccountMembership]], dict[int, tuple[str, str]]]:
         links_by_user: dict[int, list[AccountMembership]] = {
             user_id: [] for user_id in user_ids
         }
-        account_rows = self.db.scalars(
-            select(UserS3Account)
+        account_rows = self.db.execute(
+            select(UserS3Account, S3Account.name, S3Account.rgw_account_id)
+            .join(S3Account, S3Account.id == UserS3Account.account_id)
             .where(UserS3Account.user_id.in_(user_ids))
             .order_by(UserS3Account.id.asc())
         ).all()
-        for link in account_rows:
+        account_names: dict[int, tuple[str, str]] = {}
+        for link, account_name, rgw_account_id in account_rows:
+            account_id = int(link.account_id)
             links_by_user[int(link.user_id)].append(
                 AccountMembership(
-                    account_id=link.account_id,
+                    account_id=account_id,
                     manager_role=link.manager_role,
                     portal_role=link.portal_role,
                     allow_manager_browser_data_access=link.allow_manager_browser_data_access,
                 )
             )
-        return links_by_user
+            account_names[account_id] = (str(account_name), str(rgw_account_id))
+        return links_by_user, account_names
 
     def _load_group_links(
         self,
@@ -183,7 +191,7 @@ class UserOutputService:
         if not user_ids:
             return self._empty_preload(user_ids)
 
-        account_links_by_user = self._load_account_links(user_ids)
+        account_links_by_user, account_names = self._load_account_links(user_ids)
         group_ids_by_user, group_names = self._load_group_links(user_ids)
         s3_user_links_by_user, s3_user_ids = self._load_s3_user_links(user_ids)
         connection_ids_by_user, connection_names = self._load_connection_links(user_ids)
@@ -191,6 +199,7 @@ class UserOutputService:
 
         return UserOutputPreload(
             account_links_by_user=account_links_by_user,
+            account_names=account_names,
             group_ids_by_user=group_ids_by_user,
             group_names=group_names,
             s3_user_links_by_user=s3_user_links_by_user,
@@ -212,6 +221,21 @@ class UserOutputService:
                 name=names.get(link.s3_user_id) or f"S3 User #{link.s3_user_id}",
             )
             for link in links
+        ]
+
+    @staticmethod
+    def _account_details(
+        links: list[AccountMembership],
+        names: dict[int, tuple[str, str]],
+    ) -> list[LinkedS3Account]:
+        return [
+            LinkedS3Account(
+                id=link.account_id,
+                name=names[link.account_id][0],
+                rgw_account_id=names[link.account_id][1],
+            )
+            for link in links
+            if link.account_id in names
         ]
 
     @staticmethod
@@ -285,6 +309,7 @@ class UserOutputService:
             quota_alerts_global_watch=user.quota_alerts_global_watch,
             ui_preferences=UiPreferences.model_validate(user.ui_preferences),
             account_links=account_links,
+            account_details=self._account_details(account_links, projection.account_names),
             group_details=self._group_details(group_ids, projection.group_names),
             s3_user_links=s3_user_links,
             s3_user_details=self._s3_user_details(s3_user_links, projection.s3_user_names),

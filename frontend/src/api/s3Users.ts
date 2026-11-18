@@ -57,6 +57,7 @@ export type S3UserUserLinkInput = Pick<
 export type S3UserGroupLink = {
   group_id: number;
   group_name: string | null;
+  group_description?: string | null;
   group_avatar: UiGroupAvatarDescriptor | null;
   allow_manager_browser_data_access: boolean;
 };

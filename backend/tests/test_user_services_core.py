@@ -1013,6 +1013,8 @@ def test_paginate_users_and_detached_user_use_canonical_preload(db_session, monk
     assert total >= 1
     target = next(item for item in rows if item.id == user.id)
     assert target.account_links[0].account_id == account.id
+    assert target.account_details and target.account_details[0].name == "acc-a"
+    assert target.account_details[0].rgw_account_id == "RGW-ACC-A"
     assert target.s3_user_details and target.s3_user_details[0].name == "paged-s3-user"
     assert target.s3_connection_details and target.s3_connection_details[0].name == "paged-shared-conn"
 

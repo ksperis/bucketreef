@@ -75,7 +75,6 @@ import { useUsersI18n } from "./usersMessage";
 import { useAdminUserI18n } from "./adminUserMessage";
 import useAdminUserAssociationEditorState from "./useAdminUserAssociationEditorState";
 import useAdminUserAssociationDerivedOptions from "./useAdminUserAssociationDerivedOptions";
-import type { StorageAssociationTab } from "./useAdminStorageAssociationEditorState";
 import useAdminPaginatedListState from "./useAdminPaginatedListState";
 import useAdminPaginatedListController from "./useAdminPaginatedListController";
 import useAdminUserLdapImport from "./useAdminUserLdapImport";
@@ -109,7 +108,7 @@ export default function UsersPage() {
   const userWorkflowTabs: Array<{ id: UserModalTab; label: string }> = [
     { id: "general", label: text("general") },
     { id: "groups", label: text("groups") },
-    { id: "associations", label: text("associations") },
+    { id: "associations", label: text("resourceAccess") },
     { id: "access", label: text("platformAccess") },
   ];
   const editUserWorkflowTabs: Array<{ id: UserModalTab; label: string }> = [
@@ -150,22 +149,12 @@ export default function UsersPage() {
     generalSettings.managed_rgw_accounts_enabled || generalSettings.portal_enabled;
   const managedRgwUsersEnabled = generalSettings.managed_rgw_users_enabled;
   const sharedS3ConnectionsEnabled = generalSettings.shared_s3_connections_enabled;
-  const defaultAssociationTab: StorageAssociationTab = accountAssociationsEnabled
-    ? "accounts"
-    : managedRgwUsersEnabled
-      ? "s3_users"
-      : sharedS3ConnectionsEnabled
-        ? "connections"
-        : openStackEnabled
-          ? "openstack"
-          : "accounts";
   const principalEditRequest = useAdminPrincipalEditRequest();
   const {
     accounts,
     s3AccountsLoaded,
     s3AccountsLoading,
     refreshS3Accounts,
-    ensureS3Accounts,
     s3AccountsCatalog,
     s3Users,
     s3UsersLoading,
@@ -181,7 +170,7 @@ export default function UsersPage() {
     openStackClouds,
     openStackCloudsLoading,
     openStackCloudsCatalog,
-    ensureAssociationOptionsForTab,
+    ensureAssociationOptions,
     resetAssociationOptionSearches,
   } = useAdminUserAssociationOptions(
     openStackEnabled,
@@ -273,14 +262,20 @@ export default function UsersPage() {
     formatError: formatUsersLoadError,
   });
   const accountOptions = useMemo(() => accounts.map((a) => ({ id: a.id, label: a.name })), [accounts]);
-  const accountOptionsById = useMemo(
-    () => new Map(accounts.map((account) => [account.id, account] as const)),
-    [accounts],
-  );
+  const accountOptionsById = useMemo(() => {
+    const map = new Map<number, { name: string }>();
+    users.forEach((user) => user.account_details?.forEach((account) => map.set(account.id, account)));
+    accounts.forEach((account) => map.set(account.id, account));
+    return map;
+  }, [accounts, users]);
   const s3UserOptions = useMemo(() => s3Users.map((u) => ({ id: u.id, label: u.name })), [s3Users]);
   const s3UserLabelById = useMemo(
-    () => buildAdminAssociationLookup([s3Users], (user) => user.id, (user) => user.name),
-    [s3Users],
+    () => buildAdminAssociationLookup(
+      [editingUser?.s3_user_details ?? [], s3Users],
+      (user) => user.id,
+      (user) => user.name,
+    ),
+    [editingUser, s3Users],
   );
   const s3ConnectionOptions = useMemo(
     () => s3Connections.map((conn) => ({ id: conn.id, label: conn.name })),
@@ -289,11 +284,11 @@ export default function UsersPage() {
   const s3SharedConnectionOptions = s3ConnectionOptions;
   const s3ConnectionLabelById = useMemo(
     () => buildAdminAssociationLookup(
-      [s3Connections],
+      [editingUser?.s3_connection_details ?? [], s3Connections],
       (connection) => connection.id,
       (connection) => connection.name,
     ),
-    [s3Connections],
+    [editingUser, s3Connections],
   );
   const openStackOptions = useMemo(
     () => openStackClouds.map((cloud) => ({ id: cloud.id, label: cloud.name })),
@@ -301,11 +296,11 @@ export default function UsersPage() {
   );
   const openStackLabelById = useMemo(
     () => buildAdminAssociationLookup(
-      [openStackClouds],
+      [editingUser?.openstack_cloud_details ?? [], openStackClouds],
       (cloud) => cloud.id,
       (cloud) => cloud.name,
     ),
-    [openStackClouds],
+    [editingUser, openStackClouds],
   );
   const associationOptionSources = useMemo(() => ({
     accountOptions,
@@ -343,7 +338,7 @@ export default function UsersPage() {
     accountsEnabled: accountAssociationsEnabled,
     s3UsersEnabled: managedRgwUsersEnabled,
     connectionsEnabled: sharedS3ConnectionsEnabled,
-    ensureAssociationOptionsForTab,
+    ensureAssociationOptions,
   };
   const displayUiRole = (role: UiRole) => {
     if (role === "ui_superadmin") return text("superadmin");
@@ -423,7 +418,7 @@ export default function UsersPage() {
     setForm(emptyAdminUserCreateForm());
     setCreateSource("local");
     resetLdapImport();
-    createAssociations.reset({ associationsTab: defaultAssociationTab });
+    createAssociations.reset();
     resetAssociationOptionSearches();
     setCreateModalTab("general");
     setCreateRoleHelpOpen(false);
@@ -595,7 +590,6 @@ export default function UsersPage() {
     }
     if (createAssociations.accounts.selected.some((entry) => !hasAccountAccessRole(entry))) {
       setCreateModalTab("associations");
-      createAssociations.setTab("accounts");
       setActionError(getAccountAccessRequiredMessage());
       return;
     }
@@ -659,26 +653,12 @@ export default function UsersPage() {
     const nextSelectedS3Connections = associations.connections;
     const nextSelectedOpenStackClouds = associations.openStack;
     const nextSelectedGroups = associations.groups;
-    const hasAccounts = selectedAccounts.length > 0;
-    const hasS3Users = nextSelectedS3Users.length > 0;
-    const hasConnections = nextSelectedS3Connections.length > 0;
-    const hasOpenStack = nextSelectedOpenStackClouds.length > 0;
-    const initialAssociationsTab: StorageAssociationTab = accountAssociationsEnabled && hasAccounts
-      ? "accounts"
-      : managedRgwUsersEnabled && hasS3Users
-        ? "s3_users"
-        : sharedS3ConnectionsEnabled && hasConnections
-          ? "connections"
-          : openStackEnabled && hasOpenStack
-            ? "openstack"
-            : defaultAssociationTab;
     editAssociations.reset({
       selectedS3Accounts: selectedAccounts,
       selectedS3Users: nextSelectedS3Users,
       selectedS3Connections: nextSelectedS3Connections,
       selectedOpenStackClouds: nextSelectedOpenStackClouds,
       selectedGroups: nextSelectedGroups,
-      associationsTab: initialAssociationsTab,
     });
     acceptEditDraft(
       buildAdminUserEditorDraft({
@@ -701,7 +681,6 @@ export default function UsersPage() {
     setActionError(null);
     setActionMessage(null);
     setShowEditModal(true);
-    void ensureAssociationOptionsForTab(initialAssociationsTab, { retryOnError: true });
   };
 
   useOpenRequestedAdminPrincipal(principalEditRequest, users, startEdit);
@@ -720,7 +699,6 @@ export default function UsersPage() {
     }
     if (editAssociations.accounts.selected.some((entry) => !hasAccountAccessRole(entry))) {
       setEditModalTab("associations");
-      editAssociations.setTab("accounts");
       setActionError(getAccountAccessRequiredMessage());
       return;
     }
@@ -827,7 +805,6 @@ export default function UsersPage() {
             onClick: () => {
               resetCreateModalState();
               setShowCreateModal(true);
-              void ensureS3Accounts({ retryOnError: true });
             },
           },
         ]}
