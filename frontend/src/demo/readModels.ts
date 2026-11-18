@@ -13,7 +13,7 @@ import type {
 } from "../api/usageHistory";
 import { bucketView, demoGroupsForUser, GiB, settings, type DemoState, type DemoUser } from "./state";
 import { accountView } from "./governance";
-import { accountGrant, DemoError, json, page, required, scopedAccount, type DemoRequest } from "./http";
+import { accountGrant, DemoError, json, page, required, scopedAccount, scopedBrowserAccount, type DemoRequest } from "./http";
 import { demoUserView } from "./userProjection";
 import { buildDemoAccessAuditRows, demoAccessAuditRightLabel, listDemoS3Users } from "./accessAudit";
 import {
@@ -432,7 +432,11 @@ export function readModels(c: DemoRequest): Response | undefined {
   // Inventory is derived from the common model; the historical series is seeded once.
   const statsPaths = /^\/(?:admin\/(?:stats\/(?:storage|account|traffic|dashboard\/(?:storage|traffic))|usage-history(?:\/trends)?|usage-stats\/latest)|manager\/(?:stats\/(?:overview|traffic|usage-history-trends)|usage-stats\/latest|buckets\/[^/]+\/usage-stats)|portal\/(?:usage|traffic|usage-stats\/latest|storage-spaces\/[^/]+\/usage-stats)|browser\/usage-summary|ceph-admin\/endpoints\/\d+\/(?:metrics\/(?:storage|traffic)|(?:accounts|users)\/[^/]+\/metrics|usage-stats\/latest|buckets\/[^/]+\/usage-stats))$/;
   if (statsPaths.test(path) || path === "/portal/usage-history-trends") {
-    const account = path.startsWith("/manager/") || path.startsWith("/portal/") || path.startsWith("/browser/") ? scopedAccount(c) : undefined;
+    const account = path.startsWith("/browser/")
+      ? scopedBrowserAccount(c)
+      : path.startsWith("/manager/") || path.startsWith("/portal/")
+        ? scopedAccount(c)
+        : undefined;
     const eid = Number(path.match(/endpoints\/(\d+)/)?.[1] ?? c.url.searchParams.get("endpoint_id"));
     const scopeObject = path.match(/\/(buckets|storage-spaces)\/([^/]+)\/usage-stats$/);
     const scopeName = scopeObject?.[1] === "storage-spaces" ? state.spaces.find(s => s.id === decodeURIComponent(scopeObject[2]))?.bucketName : scopeObject ? decodeURIComponent(scopeObject[2]) : undefined;

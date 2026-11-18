@@ -163,10 +163,16 @@ test("workspaces UI: profiles, keyboard, mobile and both themes", async ({ page 
   await expect(page.getByLabel("Demo profile", { exact: true })).toHaveValue("browser-user");
   await expect(page.getByLabel("End user identity")).toHaveCount(0);
   await expect(page.getByText(/Helios S3 access/).first()).toBeVisible();
+  await page.setViewportSize({ width: 1440, height: 960 });
+  await expect(page.getByLabel("Usage summary")).toBeVisible();
+  await expect(page.getByText("Demo resource not found", { exact: true })).toHaveCount(0);
 
   const browserBuckets = await api(page, "/browser/buckets?context_id=conn-303");
   expect(browserBuckets.status).toBe(200);
   expect(browserBuckets.data.items.some((bucket: { name: string }) => bucket.name === "helios-documents")).toBe(true);
+  const browserUsage = await api(page, "/browser/usage-summary?context_id=conn-303");
+  expect(browserUsage.status).toBe(200);
+  expect(browserUsage.data).toMatchObject({ available: true, label: "Helios Retail" });
   const browserObjects = await api(page, "/browser/buckets/helios-documents/objects?context_id=conn-303");
   expect(browserObjects.status).toBe(200);
   expect(browserObjects.data.objects.some((object: { key: string }) => object.key === "README.txt")).toBe(true);

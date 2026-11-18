@@ -59,6 +59,13 @@ describe("demo browser-only persona", () => {
     expect(bucketList.items).toEqual(expect.arrayContaining([
       expect.objectContaining({ name: "helios-documents" }),
     ]));
+
+    const usageResponse = readModels(request(state, "browser-user", "/browser/usage-summary?context_id=conn-303"));
+    expect(usageResponse).toBeDefined();
+    expect(await usageResponse!.json()).toMatchObject({
+      available: true,
+      label: "Helios Retail",
+    });
   });
 
   it("keeps the private Browser connection out of the Admin inventory", async () => {
