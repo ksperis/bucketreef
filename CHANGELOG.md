@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Added
+
+- Bound Admin UI User authentication-session history to active sessions by default, with on-demand revoked/expired history and automatic 30-day retention cleanup at startup and through the scheduler or Helm CronJob.
+
 ### Fixed
 
 - Preserve the real RGW Account, RGW User, S3 Connection, and OpenStack Cloud names in Admin UI User associations without requiring the corresponding Add catalog to be loaded.
@@ -9,6 +13,7 @@
 ### Upgrade notes
 
 - Deploy the matching backend and bundled frontend together because Admin UI User responses now include linked RGW Account details used to render association names. No database migration is required.
+- Deploy the matching backend and bundled frontend together for the new active-session filter and `Show revoked/expired` control. Revoked/expired authentication sessions are permanently deleted after `AUTH_SESSION_RETENTION_DAYS=30` by default, including during startup; set the value to `0` to disable deletion. Compose schedules the purge at `03:30 UTC` by default and Helm deployments can enable `authSessionRetentionCronJob`. No database migration is required.
 
 ## 0.3.2 - 2026-11-13
 

@@ -408,6 +408,11 @@ class Settings(BaseSettings):
         ge=0,
         description="Retention in days for user notifications; 0 disables purge (USER_NOTIFICATIONS_RETENTION_DAYS)",
     )
+    auth_session_retention_days: int = Field(
+        30,
+        ge=0,
+        description="Retention in days for revoked or expired authentication sessions; 0 disables purge (AUTH_SESSION_RETENTION_DAYS)",
+    )
     smtp_password: Optional[str] = Field(
         None,
         description="SMTP password used for quota notifications (SMTP_PASSWORD)",

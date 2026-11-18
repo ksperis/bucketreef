@@ -145,9 +145,16 @@ def _init_db_locked(engine, session_factory) -> None:
         from app.services.auth_session_service import AuthSessionService
 
         bootstrap_app_settings_for_db(db)
-        expired_sessions = AuthSessionService(db).cleanup_expired()
+        auth_sessions = AuthSessionService(db)
+        expired_sessions = auth_sessions.cleanup_expired()
         if expired_sessions:
             logger.info("Revoked %s expired authentication session row(s) during startup", expired_sessions)
+        purged_sessions = auth_sessions.purge_inactive()
+        if purged_sessions["deleted"]:
+            logger.info(
+                "Purged %s retained authentication session row(s) during startup",
+                purged_sessions["deleted"],
+            )
         # Bootstrap the optional seed endpoint when the inventory is editable.
         storage_service = StorageEndpointsService(db)
         if not storage_service.deployment_manages_endpoints():

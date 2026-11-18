@@ -491,6 +491,43 @@ def test_stale_admin_session_can_read_security_data_and_revoke_access(auth_clien
     ).status_code == 204
 
 
+def test_admin_user_security_hides_expired_sessions_until_requested(auth_client, db_session):
+    admin = _user(db_session, email="session-history-admin@example.com", role=UserRole.UI_SUPERADMIN.value)
+    target = _user(db_session, email="session-history-target@example.com", role=UserRole.UI_USER.value)
+    authenticate_ui_client(auth_client, db_session, admin, mfa_verified=False)
+    service = AuthSessionService(db_session)
+    active_session = service.create_for_user(
+        target,
+        auth_type="password",
+        ip_address="192.0.2.30",
+        user_agent="pytest-active",
+        mfa_verified=False,
+    ).session
+    expired_session = service.create_for_user(
+        target,
+        auth_type="oidc",
+        ip_address="192.0.2.31",
+        user_agent="pytest-expired",
+        mfa_verified=False,
+    ).session
+    expired_session.idle_expires_at = utcnow() - timedelta(minutes=1)
+    db_session.add(expired_session)
+    db_session.commit()
+
+    default_response = auth_client.get(f"/api/admin/users/{target.id}/security")
+    history_response = auth_client.get(
+        f"/api/admin/users/{target.id}/security?include_inactive_sessions=true"
+    )
+
+    assert default_response.status_code == 200
+    assert [row["id"] for row in default_response.json()["sessions"]] == [active_session.id]
+    assert history_response.status_code == 200
+    history_ids = [row["id"] for row in history_response.json()["sessions"]]
+    assert history_ids == [expired_session.id, active_session.id]
+    db_session.refresh(expired_session)
+    assert expired_session.revoked_at is None
+
+
 def test_stale_admin_session_rejects_only_critical_link_decision(auth_client, db_session):
     _set_admin_passkey_policy(db_session, True)
     admin = _user(db_session, email="decision-admin@example.com", role=UserRole.UI_SUPERADMIN.value)

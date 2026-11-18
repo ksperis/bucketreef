@@ -62,6 +62,7 @@ backend:
     QUOTA_HISTORY_HOURLY_RETENTION_DAYS: "30"
     QUOTA_HISTORY_DAILY_RETENTION_DAYS: "365"
     USER_NOTIFICATIONS_RETENTION_DAYS: "90"
+    AUTH_SESSION_RETENTION_DAYS: "30"
   extraEnv: []
   persistence:
     enabled: true
@@ -254,6 +255,14 @@ bucketUsageStatsCronJob:
 notificationRetentionCronJob:
   enabled: false
   schedule: "15 3 * * *"
+  backoffLimit: 1
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  extraEnv: []
+
+authSessionRetentionCronJob:
+  enabled: false
+  schedule: "30 3 * * *"
   backoffLimit: 1
   successfulJobsHistoryLimit: 1
   failedJobsHistoryLimit: 2

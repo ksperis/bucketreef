@@ -1,0 +1,76 @@
+{{- if and .Values.authSessionRetentionCronJob.enabled (eq (include "bucketreef.scheduledJobsEnabled" .) "true") }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "bucketreef.fullname" . }}-auth-session-retention
+  labels:
+    {{- include "bucketreef.labels" . | nindent 4 }}
+    app.kubernetes.io/component: auth-session-retention-cron
+spec:
+  schedule: {{ .Values.authSessionRetentionCronJob.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: {{ .Values.authSessionRetentionCronJob.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.authSessionRetentionCronJob.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      backoffLimit: {{ .Values.authSessionRetentionCronJob.backoffLimit }}
+      template:
+        metadata:
+          labels:
+            {{- include "bucketreef.labels" . | nindent 12 }}
+            app.kubernetes.io/component: auth-session-retention-cron
+        spec:
+          restartPolicy: OnFailure
+          automountServiceAccountToken: false
+          securityContext:
+            {{- toYaml .Values.cronJobs.podSecurityContext | nindent 12 }}
+          containers:
+            - name: auth-session-retention-runner
+              image: "{{ .Values.image.backend.repository }}:{{ default .Chart.AppVersion .Values.image.backend.tag }}"
+              imagePullPolicy: {{ .Values.image.backend.pullPolicy }}
+              securityContext:
+                {{- toYaml .Values.cronJobs.containerSecurityContext | nindent 16 }}
+              resources:
+                {{- toYaml .Values.cronJobs.resources | nindent 16 }}
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+              env:
+                - name: AUTH_SESSION_RETENTION_API_BASE
+                  value: {{ printf "http://%s-backend:%d" (include "bucketreef.fullname" .) (.Values.service.backend.port | int) | quote }}
+                - name: INTERNAL_CRON_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.backend.existingSecret | quote }}
+                      key: {{ .Values.backend.secretKeys.internalCronToken | quote }}
+                {{- range .Values.authSessionRetentionCronJob.extraEnv }}
+                - name: {{ .name }}
+                  value: {{ .value | quote }}
+                {{- end }}
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  python - <<'PY'
+                  import os
+                  import sys
+                  import requests
+
+                  base = os.environ.get("AUTH_SESSION_RETENTION_API_BASE")
+                  token = os.environ.get("INTERNAL_CRON_TOKEN")
+                  if not base or not token:
+                      print("Missing AUTH_SESSION_RETENTION_API_BASE or INTERNAL_CRON_TOKEN", file=sys.stderr)
+                      sys.exit(1)
+                  url = f"{base}/api/internal/auth-sessions/purge"
+                  resp = requests.post(url, headers={"X-Internal-Token": token, "Host": {{ .Values.ingress.host | quote }}}, timeout=30)
+                  resp.raise_for_status()
+                  payload = resp.json()
+                  retained = payload.get("auth_sessions", {})
+                  print(
+                      f"Authentication session retention {payload.get('status', 'unknown')}; "
+                      f"deleted {retained.get('deleted', 0)} rows"
+                  )
+                  PY
+          volumes:
+            - name: tmp
+              emptyDir: {}
+{{- end }}

@@ -21,6 +21,32 @@ Users, shared S3 connections, and private S3 connections are disabled. The
 existing `openstack_enabled` value is not changed by this migration.
 
 
+## 2026-11 bounded authentication session history
+
+Admin UI User security details now return only active authentication sessions
+by default. A session is active only while it is not revoked and both its idle
+and absolute expiry timestamps remain in the future. The bundled frontend adds
+`Show revoked/expired`, which requests recent inactive session history through
+the dedicated `include_inactive_sessions` query parameter without changing the
+existing revoked-passkey or external-identity visibility rules.
+
+Revoked and expired authentication sessions are retained for 30 days by
+default, then permanently deleted. Configure the retention with
+`AUTH_SESSION_RETENTION_DAYS`; set it to `0` to disable permanent deletion.
+Expired rows are first normalized by the existing expiration cleanup, then old
+terminal rows are purged. Refresh tokens and OpenStack session rows follow their
+existing delete cascades, while bucket-migration session references are set to
+`NULL`.
+
+Startup performs the cleanup and purge. The Compose scheduler also runs the
+internal leased purge daily at `03:30 UTC` by default through
+`AUTH_SESSION_RETENTION_CRON_SCHEDULE`. Helm deployments can enable the matching
+`authSessionRetentionCronJob` with the same default schedule. Existing retained
+session rows already older than the configured retention can therefore be
+deleted on the first upgraded backend startup. No database migration is
+required. Deploy the matching backend and bundled frontend together.
+
+
 ## 2026-11 canonical Portal server access-log filter rules
 
 Portal server access-log advanced filters now validate each rule's value shape

@@ -16,6 +16,7 @@ umask 077
   echo "$USAGE_HISTORY_CRON_SCHEDULE /bin/sh /opt/cron/run-usage-history.sh"
   echo "${BUCKET_USAGE_STATS_CRON_SCHEDULE:-17 * * * *} /bin/sh /opt/cron/run-bucket-usage-stats.sh"
   echo "${NOTIFICATION_RETENTION_CRON_SCHEDULE:-15 3 * * *} /bin/sh /opt/cron/run-notification-retention.sh"
+  echo "${AUTH_SESSION_RETENTION_CRON_SCHEDULE:-30 3 * * *} /bin/sh /opt/cron/run-auth-session-retention.sh"
   echo "${ACCESS_KEY_EXPIRATION_CRON_SCHEDULE:-* * * * *} /bin/sh /opt/cron/run-access-key-expirations.sh"
 } > "$crontab_file"
 

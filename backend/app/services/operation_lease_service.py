@@ -29,6 +29,7 @@ HEALTHCHECK_RUN_OPERATION = "healthchecks:run"
 QUOTA_MONITOR_ALERTS_OPERATION = "quota-monitor:alerts"
 USAGE_HISTORY_COLLECT_OPERATION = "quota-monitor:usage-history"
 USER_NOTIFICATIONS_PURGE_OPERATION = "user-notifications:purge"
+AUTH_SESSION_RETENTION_OPERATION = "auth-sessions:purge"
 ACCESS_KEY_EXPIRATION_RUN_OPERATION = "access-key-expirations:run"
 BUCKET_USAGE_STATS_COLLECT_OPERATION = "bucket-usage-stats:collect"
 BUCKET_USAGE_STATS_LEASE_TTL_SECONDS = 24 * 60 * 60

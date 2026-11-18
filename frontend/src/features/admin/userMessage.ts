@@ -123,6 +123,8 @@ const userMessage = {
   claimedEmailOptional: m("Claimed email (optional)", "身份声明的邮箱（可选）"),
   linkIdentity: m("Link identity", "关联身份"),
   userSessions: m("User sessions", "用户会话"),
+  showRevokedExpired: m("Show revoked/expired", "显示已撤销/已过期"),
+  expired: m("Expired", "已过期"),
   unknownAddress: m("Unknown address", "未知地址"),
   lastActivity: m("Last activity: {date}", "上次活动：{date}"),
   noSessions: m("No sessions.", "没有会话。"),

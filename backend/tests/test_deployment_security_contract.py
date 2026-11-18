@@ -57,8 +57,13 @@ def test_runtime_images_are_fixed_non_root_and_read_only_compatible():
     assert "apk add" not in scheduler_entrypoint
     assert "NOTIFICATION_RETENTION_CRON_SCHEDULE" in scheduler_entrypoint
     assert "run-notification-retention.sh" in scheduler_entrypoint
+    assert "AUTH_SESSION_RETENTION_CRON_SCHEDULE" in scheduler_entrypoint
+    assert "run-auth-session-retention.sh" in scheduler_entrypoint
     assert "ACCESS_KEY_EXPIRATION_CRON_SCHEDULE" in scheduler_entrypoint
     assert "run-access-key-expirations.sh" in scheduler_entrypoint
+    auth_session_retention = _read("ops/cron/run-auth-session-retention.sh")
+    assert "/internal/auth-sessions/purge" in auth_session_retention
+    assert "X-Internal-Token" in auth_session_retention
     assert "exec supercronic" in scheduler_entrypoint
 
 
@@ -109,9 +114,15 @@ def test_compose_services_drop_privileges_and_keep_public_port():
         assert services["backend"]["environment"][
             "USER_NOTIFICATIONS_RETENTION_DAYS"
         ]
+        assert services["backend"]["environment"][
+            "AUTH_SESSION_RETENTION_DAYS"
+        ] == "${AUTH_SESSION_RETENTION_DAYS:-30}"
         assert services["scheduler"]["environment"][
             "NOTIFICATION_RETENTION_CRON_SCHEDULE"
         ]
+        assert services["scheduler"]["environment"][
+            "AUTH_SESSION_RETENTION_CRON_SCHEDULE"
+        ] == "${AUTH_SESSION_RETENTION_CRON_SCHEDULE:-30 3 * * *}"
         assert services["scheduler"]["environment"][
             "ACCESS_KEY_EXPIRATION_CRON_SCHEDULE"
         ]
@@ -131,6 +142,7 @@ def test_helm_workloads_apply_least_privilege_contract():
         "usage-history-cronjob.yaml",
         "bucket-usage-stats-cronjob.yaml",
         "notification-retention-cronjob.yaml",
+        "auth-session-retention-cronjob.yaml",
         "access-key-expiration-cronjob.yaml",
     ]
     for filename in templates:
@@ -141,6 +153,8 @@ def test_helm_workloads_apply_least_privilege_contract():
         assert "mountPath: /tmp" in template
 
     values = yaml.safe_load(_read("deploy/helm/bucketreef/values.yaml"))
+    assert values["backend"]["env"]["AUTH_SESSION_RETENTION_DAYS"] == "30"
+    assert values["authSessionRetentionCronJob"]["schedule"] == "30 3 * * *"
     for section in ("backend", "frontend", "postgresql"):
         assert values[section]["podSecurityContext"]["runAsNonRoot"] is True
         assert values[section]["podSecurityContext"]["seccompProfile"]["type"] == "RuntimeDefault"
@@ -170,6 +184,7 @@ def test_strict_network_policies_are_fail_closed_and_cover_all_workloads():
     assert network["privateEgress"] == []
 
     template = _read("deploy/helm/bucketreef/templates/networkpolicies.yaml")
+    assert "auth-session-retention-cron" in template
     for component in ("frontend", "backend", "cronjobs", "postgresql", "deployment-configuration"):
         assert f'}}-{component}' in template
     assert "publicHttpsEgress is required" in template

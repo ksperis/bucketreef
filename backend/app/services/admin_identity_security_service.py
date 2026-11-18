@@ -87,6 +87,7 @@ class AdminIdentitySecurityService:
         user_id: int,
         *,
         include_revoked: bool,
+        include_inactive_sessions: bool,
     ) -> AdminUserSecurity:
         target = self.managed_user(actor, user_id)
         passkeys = select(WebAuthnCredential).where(
@@ -101,7 +102,10 @@ class AdminIdentitySecurityService:
             target.id,
             include_revoked=include_revoked,
         )
-        sessions = self.sessions.list_for_user(target.id)
+        sessions = self.sessions.list_for_user(
+            target.id,
+            include_inactive=include_inactive_sessions,
+        )
         return AdminUserSecurity(
             user_id=target.id,
             email=target.email,

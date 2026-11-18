@@ -60,10 +60,12 @@ const security = {
       id: "session-1",
       principal_type: "user",
       auth_type: "password",
-      created_at: "2026-08-14T10:00:00Z",
-      last_activity_at: "2026-08-14T10:05:00Z",
-      idle_expires_at: "2026-08-14T22:05:00Z",
-      absolute_expires_at: "2026-08-21T10:00:00Z",
+      created_at: "2099-08-14T10:00:00Z",
+      last_activity_at: "2099-08-14T10:05:00Z",
+      idle_expires_at: "2099-08-14T22:05:00Z",
+      absolute_expires_at: "2099-08-21T10:00:00Z",
+      revoked_at: null,
+      revoke_reason: null,
     },
   ],
 };
@@ -75,6 +77,7 @@ describe("UserAuthenticationPanel", () => {
     mocks.addAdminExternalIdentity.mockResolvedValue({});
     mocks.resetAdminUserMfa.mockResolvedValue({});
     mocks.revokeAdminExternalIdentity.mockResolvedValue(undefined);
+    mocks.revokeAdminUserSession.mockResolvedValue(undefined);
     mocks.setAdminUserPassword.mockResolvedValue(undefined);
     mocks.beginRecentWebAuthnVerification.mockResolvedValue({ challenge: "challenge" });
     mocks.authenticatePasskey.mockResolvedValue({ id: "credential" });
@@ -85,12 +88,69 @@ describe("UserAuthenticationPanel", () => {
     render(<UserAuthenticationPanel userId={42} canMutate />);
 
     expect(await screen.findByText("Laptop")).toBeInTheDocument();
+    expect(mocks.getAdminUserSecurity).toHaveBeenCalledWith(42, false);
     expect(screen.getByText("A local password is configured.")).toBeInTheDocument();
     expect(screen.getByText(/Authentication changes in this tab are applied immediately/)).toBeInTheDocument();
     expect(screen.getByText("At least 12 characters.")).toBeInTheDocument();
     expect(screen.getByLabelText("New password")).toHaveAttribute("minlength", "12");
     expect(screen.getByText("immutable-subject")).toBeInTheDocument();
     expect(screen.getByText(/password · Unknown address/i)).toBeInTheDocument();
+  });
+
+  it("refetches revoked and expired session history without dirtying the user form", async () => {
+    const user = userEvent.setup();
+    const onDirtyChange = vi.fn();
+    const historySecurity = {
+      ...security,
+      sessions: [
+        security.sessions[0],
+        {
+          ...security.sessions[0],
+          id: "session-revoked",
+          auth_type: "oidc",
+          created_at: "2000-08-13T10:00:00Z",
+          last_activity_at: "2000-08-13T10:05:00Z",
+          idle_expires_at: "2000-08-13T22:05:00Z",
+          absolute_expires_at: "2000-08-20T10:00:00Z",
+          revoked_at: "2000-08-13T11:00:00Z",
+          revoke_reason: "logout",
+        },
+        {
+          ...security.sessions[0],
+          id: "session-expired",
+          auth_type: "oidc-link",
+          created_at: "2000-08-12T10:00:00Z",
+          last_activity_at: "2000-08-12T10:05:00Z",
+          idle_expires_at: "2000-08-12T22:05:00Z",
+          absolute_expires_at: "2000-08-19T10:00:00Z",
+          revoked_at: null,
+          revoke_reason: null,
+        },
+      ],
+    };
+    mocks.getAdminUserSecurity.mockImplementation((_userId: number, includeInactiveSessions: boolean) => (
+      Promise.resolve(includeInactiveSessions ? historySecurity : security)
+    ));
+    render(<UserAuthenticationPanel userId={42} canMutate onDirtyChange={onDirtyChange} />);
+
+    await screen.findByText(/password · Unknown address/i);
+    expect(screen.queryByText("Revoked")).not.toBeInTheDocument();
+    expect(screen.queryByText("Expired")).not.toBeInTheDocument();
+
+    await user.click(screen.getByLabelText("Show revoked/expired"));
+
+    await waitFor(() => expect(mocks.getAdminUserSecurity).toHaveBeenCalledWith(42, true));
+    expect(await screen.findByText("Revoked")).toBeInTheDocument();
+    expect(screen.getByText("Expired")).toBeInTheDocument();
+    expect(onDirtyChange).not.toHaveBeenCalledWith(true);
+
+    const sessions = screen.getByRole("region", { name: "User sessions" });
+    const revokeButtons = within(sessions).getAllByRole("button", { name: "Revoke" });
+    expect(revokeButtons).toHaveLength(1);
+    await user.click(revokeButtons[0]);
+    const dialog = screen.getByRole("dialog", { name: "Revoke user session" });
+    await user.click(within(dialog).getByRole("button", { name: "Confirm" }));
+    await waitFor(() => expect(mocks.revokeAdminUserSession).toHaveBeenCalledWith(42, "session-1"));
   });
 
   it("places passkeys and MFA below external identities", async () => {

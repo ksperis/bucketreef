@@ -111,8 +111,10 @@ export async function decideExternalLinkRequest(id: string, approve: boolean): P
   }
 }
 
-export async function getAdminUserSecurity(userId: number): Promise<AdminUserSecurity> {
-  return (await client.get<AdminUserSecurity>(`/admin/users/${userId}/security`)).data;
+export async function getAdminUserSecurity(userId: number, includeInactiveSessions = false): Promise<AdminUserSecurity> {
+  return (await client.get<AdminUserSecurity>(`/admin/users/${userId}/security`, {
+    params: { include_inactive_sessions: includeInactiveSessions },
+  })).data;
 }
 
 export async function resetAdminUserMfa(userId: number): Promise<void> {

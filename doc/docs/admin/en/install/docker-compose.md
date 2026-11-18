@@ -132,6 +132,7 @@ The scheduler triggers:
 - quota monitoring for alerts (default every hour)
 - usage history collection for managed accounts and S3 users (default `03:00 UTC`)
 - user notification retention (default `03:15 UTC`)
+- authentication session retention (default `03:30 UTC`)
 
 Feature-dependent jobs skip their work when disabled in effective app settings.
 In particular, disabled healthchecks and cost return `skipped / feature_disabled`
@@ -152,6 +153,7 @@ Main scheduler knobs:
 - `BUCKET_USAGE_STATS_CRON_SCHEDULE` (default `17 * * * *`)
 - `BUCKET_USAGE_STATS_CRON_HTTP_TIMEOUT_SECONDS` (default `86400` for long-running scans)
 - `NOTIFICATION_RETENTION_CRON_SCHEDULE`
+- `AUTH_SESSION_RETENTION_CRON_SCHEDULE` (default `30 3 * * *`)
 - `ACCESS_KEY_EXPIRATION_CRON_SCHEDULE` (default `* * * * *`)
 - `COST_DAY_OFFSET`
 
@@ -161,6 +163,7 @@ History retention / SMTP knobs:
 - `QUOTA_HISTORY_HOURLY_RETENTION_DAYS`
 - `QUOTA_HISTORY_DAILY_RETENTION_DAYS`
 - `USER_NOTIFICATIONS_RETENTION_DAYS` (default `90`; `0` disables purge)
+- `AUTH_SESSION_RETENTION_DAYS` (default `30`; `0` disables permanent deletion)
 - `SMTP_PASSWORD`
 
 ## Split admin and user instances

@@ -27,7 +27,7 @@ remain in `deploy/helm/bucketreef` for chart development and CI validation.
 
 - Backend and frontend Deployments + Services.
 - Optional Ingress.
-- Built-in CronJobs for cost, healthchecks, quota monitoring, usage history collection, bucket composition collection, and user notification retention.
+- Built-in CronJobs for cost, healthchecks, quota monitoring, usage history collection, bucket composition collection, user notification retention, and authentication session retention.
 - Optional bundled PostgreSQL in values (evaluate for your environment policies).
 - CronJobs render with `concurrencyPolicy: Forbid`; the backend also uses database leases so a manual trigger and a CronJob cannot run the same collection at the same time.
 
@@ -39,13 +39,14 @@ Cron values blocks:
 - `usageHistoryCronJob`
 - `bucketUsageStatsCronJob`
 - `notificationRetentionCronJob`
+- `authSessionRetentionCronJob`
 
 The CronJobs connect directly to the backend Service, but their HTTP requests
 send the configured public `ingress.host` as the `Host` header. This preserves
 the production `ALLOWED_HOSTS` boundary while avoiding a second internal host
 allow-list solely for scheduler traffic.
 
-Backend env defaults include cost/quota and user-notification retention knobs.
+Backend env defaults include cost/quota, user-notification retention, and `AUTH_SESSION_RETENTION_DAYS=30`. Set the authentication-session value to `0` to disable permanent deletion.
 Provide `SMTP_PASSWORD` via your secret injection policy.
 LDAP providers can be injected through `backend.extraEnv` with
 `LDAP_PROVIDERS__<key>__...` variables. Store bind passwords in Kubernetes
@@ -194,7 +195,7 @@ For `backend.replicas > 1`:
   legacy imports or files that are explicitly shared.
 - If backend persistence is enabled, use `ReadWriteMany`. The chart rejects
   `ReadWriteOnce` with multiple backend replicas.
-- Enable each cost, healthcheck, quota-monitor, usage-history, and notification-retention CronJob
+- Enable each cost, healthcheck, quota-monitor, usage-history, notification-retention, and authentication-session-retention CronJob
   once per release. The chart-level `concurrencyPolicy: Forbid` and backend DB
   leases protect against overlapping runs.
 

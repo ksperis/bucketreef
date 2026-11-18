@@ -50,6 +50,7 @@ def get_user_security(
     request: Request,
     user_id: int,
     include_revoked: bool = Query(True),
+    include_inactive_sessions: bool = Query(False),
     db: Session = Depends(get_db),
     actor: User = Depends(get_current_ui_admin),
 ) -> AdminUserSecurity:
@@ -59,6 +60,7 @@ def get_user_security(
             actor,
             user_id,
             include_revoked=include_revoked,
+            include_inactive_sessions=include_inactive_sessions,
         )
 
 

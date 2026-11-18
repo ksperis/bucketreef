@@ -22,6 +22,7 @@ import PageBanner from "../../components/PageBanner";
 import { SettingsButton } from "../../components/settings/SettingsControls";
 import { SettingsItem, SettingsSection } from "../../components/settings/SettingsLayout";
 import UiBadge from "../../components/ui/UiBadge";
+import UiCheckboxField from "../../components/ui/UiCheckboxField";
 import UiInput from "../../components/ui/UiInput";
 import UiSelect from "../../components/ui/UiSelect";
 import { extractApiError } from "../../utils/apiError";
@@ -52,7 +53,11 @@ export default function UserAuthenticationPanel({ userId, canMutate, onBusyChang
   const { locale, text } = useUserI18n();
   const textRef = useRef(text);
   textRef.current = text;
-  const loadSecurity = useCallback(() => getAdminUserSecurity(userId), [userId]);
+  const [includeInactiveSessions, setIncludeInactiveSessions] = useState(false);
+  const loadSecurity = useCallback(
+    () => getAdminUserSecurity(userId, includeInactiveSessions),
+    [includeInactiveSessions, userId],
+  );
   const formatLoadError = useCallback(
     (failure: unknown) => extractApiError(failure, textRef.current("loadAuthenticationError")),
     [],
@@ -282,11 +287,26 @@ export default function UserAuthenticationPanel({ userId, canMutate, onBusyChang
         </SettingsSection>
 
         <SettingsSection title={text("userSessions")} presentation="compact">
-          {security.sessions.map((session) => <SettingsItem compact key={session.id}
-            title={`${session.auth_type} · ${session.ip_address ?? text("unknownAddress")}`} className="[overflow-wrap:anywhere]"
-            description={text("lastActivity", { date: date(session.last_activity_at) })}
-            status={session.revoked_at && <UiBadge tone="neutral">{text("revoked")}</UiBadge>}
-            action={canMutate && !session.revoked_at && <SettingsButton variant="danger" onClick={() => requestAction({ kind: "revoke-session", session })}>{text("revoke")}</SettingsButton>} />)}
+          <UiCheckboxField
+            className="settings-choice settings-description mb-2"
+            checked={includeInactiveSessions}
+            onChange={(event) => setIncludeInactiveSessions(event.target.checked)}
+          >
+            {text("showRevokedExpired")}
+          </UiCheckboxField>
+          {security.sessions.map((session) => {
+            const expired = new Date(session.idle_expires_at).getTime() <= Date.now()
+              || new Date(session.absolute_expires_at).getTime() <= Date.now();
+            const inactive = Boolean(session.revoked_at) || expired;
+            const statusKey = session.revoked_at
+              ? (session.revoke_reason === "expired" ? "expired" : "revoked")
+              : (expired ? "expired" : null);
+            return <SettingsItem compact key={session.id}
+              title={`${session.auth_type} · ${session.ip_address ?? text("unknownAddress")}`} className="[overflow-wrap:anywhere]"
+              description={text("lastActivity", { date: date(session.last_activity_at) })}
+              status={statusKey && <UiBadge tone="neutral">{text(statusKey)}</UiBadge>}
+              action={canMutate && !inactive && <SettingsButton variant="danger" onClick={() => requestAction({ kind: "revoke-session", session })}>{text("revoke")}</SettingsButton>} />;
+          })}
           {security.sessions.length === 0 && <p className="settings-readonly">{text("noSessions")}</p>}
         </SettingsSection>
       </fieldset>}

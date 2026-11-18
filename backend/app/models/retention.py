@@ -2,6 +2,8 @@
 # Licensed under the Apache License, Version 2.0
 from __future__ import annotations
 
+from typing import Literal, Optional
+
 from app.models.base import ApiModel
 
 
@@ -21,3 +23,14 @@ class CostHistoryRetentionResult(ApiModel):
 class DataRetentionResult(ApiModel):
     quota_history: QuotaHistoryRetentionResult
     cost_history: CostHistoryRetentionResult
+
+
+class AuthSessionRetentionResult(ApiModel):
+    retention_days: int
+    deleted: int
+    cutoff: Optional[str]
+
+
+class AuthSessionPurgeResponse(ApiModel):
+    status: Literal["completed"]
+    auth_sessions: AuthSessionRetentionResult

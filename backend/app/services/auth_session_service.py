@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Optional
 
-from sqlalchemy import delete, func, or_, select, update
+from sqlalchemy import and_, delete, func, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
@@ -687,12 +687,23 @@ class AuthSessionService:
             .execution_options(synchronize_session=False)
         )
 
-    def list_for_user(self, user_id: int) -> list[AuthSession]:
+    def list_for_user(
+        self,
+        user_id: int,
+        *,
+        include_inactive: bool = True,
+    ) -> list[AuthSession]:
+        query = select(AuthSession).where(AuthSession.user_id == user_id)
+        if not include_inactive:
+            now = utcnow()
+            query = query.where(
+                AuthSession.revoked_at.is_(None),
+                AuthSession.idle_expires_at > now,
+                AuthSession.absolute_expires_at > now,
+            )
         return list(
             self.db.scalars(
-                select(AuthSession)
-                .where(AuthSession.user_id == user_id)
-                .order_by(AuthSession.created_at.desc())
+                query.order_by(AuthSession.created_at.desc())
             ).all()
         )
 
@@ -779,6 +790,56 @@ class AuthSessionService:
             row.revoke_reason = "expired"
             self.db.add(row)
         return len(expired_auth) + len(expired_s3)
+
+    def purge_inactive(self) -> dict[str, object]:
+        """Delete authentication sessions whose terminal state is older than retention."""
+        retention_days = int(self.settings.auth_session_retention_days)
+        if retention_days <= 0:
+            return {
+                "retention_days": retention_days,
+                "deleted": 0,
+                "cutoff": None,
+            }
+
+        now = utcnow()
+        cutoff = now - timedelta(days=retention_days)
+        return run_replayable_db_unit(
+            self.db,
+            lambda write_db: AuthSessionService(
+                write_db,
+                settings=self.settings,
+            )._purge_inactive_once(cutoff, retention_days),
+        )
+
+    def _purge_inactive_once(self, cutoff: datetime, retention_days: int) -> dict[str, object]:
+        result = self.db.execute(
+            delete(AuthSession)
+            .where(
+                or_(
+                    and_(
+                        AuthSession.revoke_reason == "expired",
+                        or_(
+                            AuthSession.idle_expires_at < cutoff,
+                            AuthSession.absolute_expires_at < cutoff,
+                        ),
+                    ),
+                    and_(
+                        AuthSession.revoked_at.is_not(None),
+                        or_(
+                            AuthSession.revoke_reason.is_(None),
+                            AuthSession.revoke_reason != "expired",
+                        ),
+                        AuthSession.revoked_at < cutoff,
+                    ),
+                )
+            )
+            .execution_options(synchronize_session=False)
+        )
+        return {
+            "retention_days": retention_days,
+            "deleted": int(result.rowcount or 0),
+            "cutoff": cutoff.isoformat(),
+        }
 
     def _persist_new_session(
         self,
@@ -875,7 +936,14 @@ class AuthSessionService:
     def _admin_inventory_filters(self, actor: User, *, include_revoked: bool) -> list:
         filters = []
         if not include_revoked:
-            filters.append(AuthSession.revoked_at.is_(None))
+            now = utcnow()
+            filters.extend(
+                [
+                    AuthSession.revoked_at.is_(None),
+                    AuthSession.idle_expires_at > now,
+                    AuthSession.absolute_expires_at > now,
+                ]
+            )
         if not is_superadmin_ui_role(actor.role):
             standard_user_ids = select(User.id).where(User.role.in_(_STANDARD_UI_ROLES))
             filters.append(AuthSession.user_id.in_(standard_user_ids))

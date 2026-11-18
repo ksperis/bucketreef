@@ -89,6 +89,7 @@ Key areas:
 - Backend replica and lease coordination: `BACKEND_REPLICAS`, `OPERATION_LEASE_TTL_SECONDS`, and `COST_OPERATION_LEASE_TTL_SECONDS`.
 - Shared history retention: `COST_DAILY_RETENTION_DAYS`, `QUOTA_HISTORY_HOURLY_RETENTION_DAYS`, `QUOTA_HISTORY_DAILY_RETENTION_DAYS`.
 - User notification retention: `USER_NOTIFICATIONS_RETENTION_DAYS` (default `90`; `0` disables purge) and the daily `NOTIFICATION_RETENTION_CRON_SCHEDULE` Compose job or `notificationRetentionCronJob` Helm job.
+- Authentication session retention: `AUTH_SESSION_RETENTION_DAYS` (default `30`; `0` disables permanent deletion) and the daily `AUTH_SESSION_RETENTION_CRON_SCHEDULE` Compose job (default `30 3 * * *`, or `03:30 UTC`) or `authSessionRetentionCronJob` Helm job. Startup cleanup also purges retained revoked/expired sessions so deployments without a scheduler remain bounded after restarts.
 - Durable webhook delivery: `WEBHOOK_WORKER_ENABLED`,
   `WEBHOOK_POLL_INTERVAL_SECONDS`, `WEBHOOK_WORKER_LEASE_SECONDS`,
   `WEBHOOK_TIMEOUT_SECONDS`, `WEBHOOK_WORKERS`, `WEBHOOK_MAX_ATTEMPTS`,
